@@ -121,6 +121,7 @@ jobs:
           POSTGRES_USER: arasul
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: arasul_db_test
+          PYTHONPATH: .
         run: pytest --cov=. --cov-report=xml --cov-report=html
 
       - name: Upload coverage to Codecov
@@ -175,6 +176,7 @@ jobs:
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: arasul_db_test
           DOCKER_HOST: unix:///var/run/docker.sock
+          PYTHONPATH: .
         run: pytest --cov=. --cov-report=xml --cov-report=html || echo "Tests not yet implemented"
 
       - name: Upload coverage to Codecov
@@ -230,14 +232,14 @@ jobs:
 
       - name: Upload Newman report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: newman-report
           path: newman-report.html
 
       - name: Stop Docker Compose
         if: always()
-        run: docker-compose down
+        run: docker compose down
 
   # Docker Build Tests
   docker-build-tests:
@@ -286,7 +288,7 @@ jobs:
       - name: Validate docker-compose.yml
         run: |
           # Validate YAML syntax
-          docker-compose config > /dev/null
+          docker compose config > /dev/null
 
           # Run dependency validation script
           bash scripts/validate_dependencies.sh
@@ -309,7 +311,7 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
 
