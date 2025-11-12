@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# Pre-removal script for Arasul Platform
+# Runs before package removal
+#
+
+set -e
+
+echo "Stopping Arasul Platform..."
+
+# Stop systemd service
+if command -v systemctl &> /dev/null; then
+    if systemctl is-active --quiet arasul-platform.service; then
+        systemctl stop arasul-platform.service
+    fi
+    systemctl disable arasul-platform.service || true
+fi
+
+# Stop Docker containers
+if command -v docker-compose &> /dev/null; then
+    if [ -f /opt/arasul/docker-compose.yml ]; then
+        cd /opt/arasul
+        docker-compose down || true
+    fi
+fi
+
+echo "Arasul Platform stopped"
+
+exit 0

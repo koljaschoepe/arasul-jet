@@ -1,0 +1,11 @@
+# ARASUL Platform - USB Update Detection Rule
+# This rule triggers when a USB storage device is plugged in
+# Place in /etc/udev/rules.d/99-arasul-usb.rules
+
+# Trigger on USB storage device add events
+ACTION=="add", SUBSYSTEMS=="usb", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
+  RUN+="/usr/local/bin/arasul-usb-trigger.sh"
+
+# Log USB events
+ACTION=="add|remove", SUBSYSTEMS=="usb", SUBSYSTEM=="block", \
+  RUN+="/bin/sh -c 'echo $(date): USB device $env{ACTION} - $env{DEVNAME} >> /arasul/logs/usb_events.log'"

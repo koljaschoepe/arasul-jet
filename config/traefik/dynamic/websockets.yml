@@ -1,0 +1,44 @@
+# Traefik Dynamic Configuration - WebSocket Support
+# Explicit WebSocket routing and configuration
+
+http:
+  routers:
+    # Dashboard WebSocket (metrics live-stream)
+    dashboard-websocket:
+      rule: "Host(`arasul.local`) && PathPrefix(`/api/metrics/live-stream`)"
+      service: dashboard-backend-service
+      priority: 50
+      middlewares:
+        - security-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # n8n WebSocket
+    n8n-websocket:
+      rule: "Host(`arasul.local`) && PathPrefix(`/n8n/`) && Headers(`Upgrade`, `websocket`)"
+      service: n8n-service
+      priority: 50
+      middlewares:
+        - security-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+  middlewares:
+    # WebSocket-specific headers
+    websocket-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        customResponseHeaders:
+          X-WebSocket-Enabled: "true"
+
+  services:
+    # Note: Services are already defined in routes.yml
+    # WebSocket support is automatic when:
+    # 1. Connection: Upgrade header is present
+    # 2. Upgrade: websocket header is present
+    # Traefik automatically handles the upgrade

@@ -1,0 +1,52 @@
+# Arasul Platform - Git Ignore
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Data directories
+/data/
+/logs/
+/cache/
+/updates/
+
+# System-generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Node modules
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Docker volumes (local testing)
+postgres_data/
+minio_data/
+n8n_data/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Secrets
+*.pem
+*.key
+admin.hash

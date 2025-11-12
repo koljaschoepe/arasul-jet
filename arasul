@@ -1,0 +1,1197 @@
+#!/bin/bash
+###############################################################################
+# ARASUL PLATFORM - Bootstrap Script
+# Main entry point for system initialization and management
+###############################################################################
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Error tracking
+ERROR_LOG_FILE="/tmp/arasul_bootstrap_errors.json"
+ERROR_COUNT=0
+ERRORS=()
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+    # Track error for JSON report
+    ERROR_COUNT=$((ERROR_COUNT + 1))
+    ERRORS+=("$1")
+}
+
+# Generate error report in JSON format
+generate_error_report() {
+    local exit_code=$1
+    local phase=$2
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    cat > "$ERROR_LOG_FILE" <<EOF
+{
+  "timestamp": "$timestamp",
+  "bootstrap_result": "$([ $exit_code -eq 0 ] && echo 'success' || echo 'failed')",
+  "exit_code": $exit_code,
+  "failed_phase": "${phase:-none}",
+  "error_count": $ERROR_COUNT,
+  "errors": [
+EOF
+
+    # Add errors to JSON array
+    local first=true
+    for error in "${ERRORS[@]}"; do
+        if [ "$first" = true ]; then
+            first=false
+        else
+            echo "," >> "$ERROR_LOG_FILE"
+        fi
+        # Escape quotes in error message
+        local escaped_error=$(echo "$error" | sed 's/"/\\"/g')
+        echo -n "    \"$escaped_error\"" >> "$ERROR_LOG_FILE"
+    done
+
+    cat >> "$ERROR_LOG_FILE" <<EOF
+
+  ],
+  "system_info": {
+    "platform": "$(uname -s)",
+    "architecture": "$(uname -m)",
+    "hostname": "$(hostname)",
+    "kernel": "$(uname -r)"
+  },
+  "suggestions": [
+EOF
+
+    # Add suggestions based on errors
+    local suggestions=()
+
+    if echo "${ERRORS[@]}" | grep -qi "gpu"; then
+        suggestions+=("Check NVIDIA drivers: nvidia-smi")
+        suggestions+=("Ensure NVIDIA Container Runtime is installed")
+    fi
+
+    if echo "${ERRORS[@]}" | grep -qi "disk"; then
+        suggestions+=("Free up disk space: docker system prune -a")
+        suggestions+=("Check available space: df -h")
+    fi
+
+    if echo "${ERRORS[@]}" | grep -qi "ram\|memory"; then
+        suggestions+=("Close unnecessary applications")
+        suggestions+=("Consider upgrading RAM to 32GB+")
+    fi
+
+    if echo "${ERRORS[@]}" | grep -qi "docker"; then
+        suggestions+=("Verify Docker is running: sudo systemctl status docker")
+        suggestions+=("Check Docker permissions: docker ps")
+    fi
+
+    if [ ${#suggestions[@]} -eq 0 ]; then
+        suggestions+=("Review logs: ./arasul logs")
+        suggestions+=("Check system requirements in documentation")
+    fi
+
+    # Write suggestions to JSON
+    local first=true
+    for suggestion in "${suggestions[@]}"; do
+        if [ "$first" = true ]; then
+            first=false
+        else
+            echo "," >> "$ERROR_LOG_FILE"
+        fi
+        local escaped_suggestion=$(echo "$suggestion" | sed 's/"/\\"/g')
+        echo -n "    \"$escaped_suggestion\"" >> "$ERROR_LOG_FILE"
+    done
+
+    cat >> "$ERROR_LOG_FILE" <<EOF
+
+  ]
+}
+EOF
+
+    if [ $ERROR_COUNT -gt 0 ]; then
+        echo ""
+        log_error "Bootstrap encountered $ERROR_COUNT error(s)"
+        log_info "Detailed error report saved to: $ERROR_LOG_FILE"
+        echo ""
+        log_info "Error Report:"
+        cat "$ERROR_LOG_FILE"
+        echo ""
+    fi
+}
+
+# Banner
+show_banner() {
+    echo ""
+    echo -e "${GREEN}"
+    echo "    _                        _ "
+    echo "   / \   _ __ __ _ ___ _   _| |"
+    echo "  / _ \ | '__/ _\` / __| | | | |"
+    echo " / ___ \| | | (_| \__ \ |_| | |"
+    echo "/_/   \_\_|  \__,_|___/\__,_|_|"
+    echo ""
+    echo "Edge AI Platform - Version 1.0.0"
+    echo -e "${NC}"
+}
+
+# Check if running as root
+check_root() {
+    if [ "$EUID" -eq 0 ]; then
+        log_warning "Running as root. Consider running as non-root user with docker permissions."
+    fi
+}
+
+# ====================================================================
+# HARDWARE VALIDATION
+# ====================================================================
+
+# Detect if running on Jetson AGX Orin
+detect_jetson() {
+    log_info "Detecting hardware platform..."
+
+    if [ -f /etc/nv_tegra_release ]; then
+        JETSON_VERSION=$(cat /etc/nv_tegra_release | grep -oP 'R\d+' | head -1)
+        JETSON_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
+
+        if echo "$JETSON_MODEL" | grep -qi "AGX Orin"; then
+            log_success "Jetson AGX Orin detected: $JETSON_MODEL"
+            return 0
+        else
+            log_warning "Jetson device detected but not AGX Orin: $JETSON_MODEL"
+            return 1
+        fi
+    else
+        log_warning "Not running on Jetson platform"
+        log_info "Platform detection: $(uname -m) / $(uname -s)"
+        return 1
+    fi
+}
+
+# Check JetPack version
+check_jetpack_version() {
+    log_info "Checking JetPack version..."
+
+    if command -v dpkg &> /dev/null; then
+        JETPACK_VERSION=$(dpkg -l | grep nvidia-jetpack | awk '{print $3}' | head -1)
+
+        if [ -n "$JETPACK_VERSION" ]; then
+            log_success "JetPack version: $JETPACK_VERSION"
+
+            # Extract major version (e.g., "6.0" from "6.0-b123")
+            JETPACK_MAJOR=$(echo "$JETPACK_VERSION" | cut -d'-' -f1 | cut -d'.' -f1)
+
+            if [ "$JETPACK_MAJOR" -ge 6 ]; then
+                log_success "JetPack version is 6.x or higher"
+                return 0
+            else
+                log_error "JetPack version must be 6.x or higher. Found: $JETPACK_VERSION"
+                return 1
+            fi
+        else
+            log_warning "JetPack not detected via dpkg"
+
+            # Try alternative detection
+            if [ -f /etc/nv_tegra_release ]; then
+                NV_TEGRA=$(cat /etc/nv_tegra_release)
+                log_info "NVIDIA Tegra release: $NV_TEGRA"
+                return 0
+            else
+                log_error "Cannot determine JetPack version"
+                return 1
+            fi
+        fi
+    else
+        log_warning "dpkg not available, skipping JetPack version check"
+        return 0
+    fi
+}
+
+# Check GPU availability
+check_gpu() {
+    log_info "Checking GPU availability..."
+
+    if command -v nvidia-smi &> /dev/null; then
+        GPU_INFO=$(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -1)
+
+        if [ -n "$GPU_INFO" ]; then
+            GPU_NAME=$(echo "$GPU_INFO" | cut -d',' -f1)
+            GPU_DRIVER=$(echo "$GPU_INFO" | cut -d',' -f2)
+            GPU_MEMORY=$(echo "$GPU_INFO" | cut -d',' -f3)
+
+            log_success "GPU detected: $GPU_NAME"
+            log_info "Driver version: $GPU_DRIVER"
+            log_info "GPU memory: $GPU_MEMORY"
+            return 0
+        else
+            log_error "nvidia-smi found but no GPU detected"
+            return 1
+        fi
+    else
+        log_error "nvidia-smi not found. NVIDIA drivers may not be installed."
+        return 1
+    fi
+}
+
+# Check RAM
+check_ram() {
+    log_info "Checking system RAM..."
+
+    # Get total RAM in GB
+    TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    TOTAL_RAM_GB=$((TOTAL_RAM_KB / 1024 / 1024))
+
+    log_info "Total RAM: ${TOTAL_RAM_GB}GB"
+
+    if [ "$TOTAL_RAM_GB" -ge 32 ]; then
+        log_success "RAM check passed (${TOTAL_RAM_GB}GB >= 32GB recommended)"
+        return 0
+    elif [ "$TOTAL_RAM_GB" -ge 16 ]; then
+        log_warning "RAM is ${TOTAL_RAM_GB}GB. Recommended: 32GB+ (minimum: 16GB)"
+        return 0
+    else
+        log_error "Insufficient RAM: ${TOTAL_RAM_GB}GB. Minimum required: 16GB"
+        return 1
+    fi
+}
+
+# Check disk space
+check_disk_space() {
+    log_info "Checking disk space..."
+
+    # Get available space in GB for current directory
+    AVAILABLE_GB=$(df -BG . | tail -1 | awk '{print $4}' | sed 's/G//')
+    TOTAL_GB=$(df -BG . | tail -1 | awk '{print $2}' | sed 's/G//')
+
+    log_info "Disk space: ${AVAILABLE_GB}GB available / ${TOTAL_GB}GB total"
+
+    if [ "$AVAILABLE_GB" -ge 128 ]; then
+        log_success "Disk space check passed (${AVAILABLE_GB}GB >= 128GB recommended)"
+        return 0
+    elif [ "$AVAILABLE_GB" -ge 64 ]; then
+        log_warning "Disk space is ${AVAILABLE_GB}GB. Recommended: 128GB+"
+        return 0
+    else
+        log_error "Insufficient disk space: ${AVAILABLE_GB}GB. Minimum required: 64GB"
+        return 1
+    fi
+}
+
+# Comprehensive hardware validation
+validate_hardware() {
+    log_info "=== Starting Hardware Validation ==="
+    echo ""
+
+    local validation_passed=0
+    local warnings=0
+
+    # Detect platform (non-critical)
+    if detect_jetson; then
+        validation_passed=$((validation_passed + 1))
+    else
+        warnings=$((warnings + 1))
+    fi
+    echo ""
+
+    # Check JetPack (non-critical if not on Jetson)
+    if check_jetpack_version; then
+        validation_passed=$((validation_passed + 1))
+    else
+        warnings=$((warnings + 1))
+    fi
+    echo ""
+
+    # Check GPU (critical for AI features)
+    if check_gpu; then
+        validation_passed=$((validation_passed + 1))
+    else
+        log_error "GPU check failed. AI services will not work without GPU."
+        return 1
+    fi
+    echo ""
+
+    # Check RAM (critical)
+    if ! check_ram; then
+        log_error "RAM check failed. System requirements not met."
+        return 1
+    fi
+    echo ""
+
+    # Check disk space (critical)
+    if ! check_disk_space; then
+        log_error "Disk space check failed. System requirements not met."
+        return 1
+    fi
+    echo ""
+
+    log_success "=== Hardware Validation Complete ==="
+    log_info "Passed: $validation_passed checks"
+    if [ $warnings -gt 0 ]; then
+        log_warning "Warnings: $warnings (non-critical)"
+    fi
+
+    return 0
+}
+
+# ====================================================================
+# SOFTWARE REQUIREMENTS
+# ====================================================================
+
+# Check system requirements
+check_requirements() {
+    log_info "Checking system requirements..."
+
+    # Check Docker
+    if ! command -v docker &> /dev/null; then
+        log_error "Docker is not installed. Please install Docker first."
+        exit 1
+    fi
+    log_success "Docker found: $(docker --version)"
+
+    # Check Docker Compose
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+        log_error "Docker Compose is not installed. Please install Docker Compose first."
+        exit 1
+    fi
+    log_success "Docker Compose found"
+
+    # Check NVIDIA Container Runtime (optional but recommended)
+    if docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi &> /dev/null 2>&1; then
+        log_success "NVIDIA Container Runtime detected"
+    else
+        log_warning "NVIDIA Container Runtime not available."
+        log_info "Attempting to install NVIDIA Container Runtime..."
+
+        if install_nvidia_runtime; then
+            log_success "NVIDIA Container Runtime installed successfully"
+        else
+            log_error "Failed to install NVIDIA Container Runtime. AI services may not work."
+            log_info "Please install manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
+        fi
+    fi
+
+    # Check available disk space
+    available_space=$(df -BG . | tail -1 | awk '{print $4}' | sed 's/G//')
+    if [ "$available_space" -lt 50 ]; then
+        log_warning "Low disk space: ${available_space}GB available. Recommended: 50GB+"
+    else
+        log_success "Disk space: ${available_space}GB available"
+    fi
+}
+
+# Install NVIDIA Container Runtime
+install_nvidia_runtime() {
+    log_info "Installing NVIDIA Container Runtime..."
+
+    # Check if running as root or has sudo
+    if [ "$EUID" -ne 0 ] && ! command -v sudo &> /dev/null; then
+        log_error "Installation requires root privileges or sudo"
+        return 1
+    fi
+
+    # Determine sudo prefix
+    SUDO_CMD=""
+    if [ "$EUID" -ne 0 ]; then
+        SUDO_CMD="sudo"
+    fi
+
+    # Detect distribution
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_ID=$ID
+        OS_VERSION=$VERSION_ID
+    else
+        log_error "Cannot detect OS distribution"
+        return 1
+    fi
+
+    log_info "Detected OS: $OS_ID $OS_VERSION"
+
+    # Install based on distribution
+    case "$OS_ID" in
+        ubuntu|debian)
+            log_info "Installing for Ubuntu/Debian..."
+
+            # Add NVIDIA repository
+            distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+            curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | $SUDO_CMD gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+            curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+                sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+                $SUDO_CMD tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+            # Install package
+            $SUDO_CMD apt-get update
+            $SUDO_CMD apt-get install -y nvidia-container-toolkit
+
+            # Configure Docker
+            $SUDO_CMD nvidia-ctk runtime configure --runtime=docker
+            $SUDO_CMD systemctl restart docker
+
+            # Test installation
+            if docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi &> /dev/null; then
+                return 0
+            else
+                return 1
+            fi
+            ;;
+
+        *)
+            log_warning "Unsupported distribution for automatic installation: $OS_ID"
+            log_info "Please install manually from: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
+            return 1
+            ;;
+    esac
+}
+
+# Create directory structure
+create_directories() {
+    log_info "Creating directory structure..."
+
+    mkdir -p config
+    mkdir -p logs/{service,}
+    mkdir -p data/{postgres,minio,models,n8n}
+    mkdir -p cache
+    mkdir -p updates
+
+    log_success "Directory structure created"
+}
+
+# Initialize .env file
+init_env() {
+    if [ ! -f .env ]; then
+        log_info "Creating .env file from template..."
+        cp .env.template .env
+
+        # Generate random secrets
+        JWT_SECRET=$(openssl rand -hex 32)
+        ADMIN_PASSWORD=$(openssl rand -base64 16)
+        MINIO_ROOT_PASSWORD=$(openssl rand -base64 16)
+        N8N_ENCRYPTION_KEY=$(openssl rand -hex 16)
+
+        # Update .env with generated secrets
+        sed -i.bak "s/change-this-to-a-random-64-char-string-in-production-environment/$JWT_SECRET/" .env
+        sed -i.bak "s/ChangeMeOnFirstBoot123!/$ADMIN_PASSWORD/" .env
+        sed -i.bak "s/minio_secure_password_change_me_at_least_8_chars/$MINIO_ROOT_PASSWORD/" .env
+        sed -i.bak "s/change_this_to_random_32_char_key/$N8N_ENCRYPTION_KEY/" .env
+
+        rm .env.bak 2>/dev/null || true
+
+        log_success ".env file created"
+        log_warning "IMPORTANT: Admin password: $ADMIN_PASSWORD"
+        log_warning "Please save this password securely and change it after first login!"
+    else
+        log_info ".env file already exists, skipping creation"
+    fi
+}
+
+# Pull Docker images
+pull_images() {
+    log_info "Pulling Docker images..."
+
+    docker-compose pull postgres-db minio n8n reverse-proxy 2>&1 | grep -v "Pulling" || true
+
+    log_success "Base images pulled"
+}
+
+# Build custom images
+build_images() {
+    log_info "Building custom Docker images..."
+
+    docker-compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service self-healing-agent 2>&1 | grep -v "Building" || true
+
+    log_success "Custom images built"
+}
+
+# Initialize database
+init_database() {
+    log_info "Initializing database..."
+
+    # Start PostgreSQL
+    docker-compose up -d postgres-db
+
+    # Wait for PostgreSQL to be ready
+    log_info "Waiting for PostgreSQL to be ready..."
+    for i in {1..30}; do
+        if docker-compose exec -T postgres-db pg_isready -U arasul &> /dev/null; then
+            log_success "PostgreSQL is ready"
+            break
+        fi
+        sleep 2
+    done
+
+    log_success "Database initialized"
+}
+
+# Initialize MinIO buckets
+init_minio_buckets() {
+    log_info "Initializing MinIO buckets..."
+
+    # Check if MinIO is running
+    if ! docker-compose ps minio | grep -q "Up"; then
+        log_error "MinIO is not running"
+        return 1
+    fi
+
+    # Check if initialization script exists
+    if [ ! -f "./scripts/init_minio_buckets.sh" ]; then
+        log_error "MinIO initialization script not found: ./scripts/init_minio_buckets.sh"
+        return 1
+    fi
+
+    # Run bucket initialization script inside MinIO container
+    log_info "Running MinIO bucket initialization script..."
+
+    # Copy script to container
+    docker cp ./scripts/init_minio_buckets.sh minio:/tmp/init_minio_buckets.sh
+
+    # Execute script in container
+    docker-compose exec -T minio sh /tmp/init_minio_buckets.sh
+
+    local EXIT_CODE=$?
+
+    # Clean up
+    docker-compose exec -T minio rm -f /tmp/init_minio_buckets.sh
+
+    if [ $EXIT_CODE -eq 0 ]; then
+        log_success "MinIO buckets initialized successfully"
+        return 0
+    else
+        log_warning "MinIO bucket initialization had some issues (may be non-critical)"
+        return 1
+    fi
+}
+
+# Generate all required secrets
+generate_secrets() {
+    log_info "Generating secrets..."
+
+    mkdir -p config/secrets
+    chmod 700 config/secrets
+
+    # Generate JWT secret if not exists
+    if [ ! -f "config/secrets/jwt_secret" ]; then
+        log_info "Generating JWT secret..."
+        openssl rand -base64 64 > config/secrets/jwt_secret
+        chmod 600 config/secrets/jwt_secret
+        log_success "JWT secret generated"
+    fi
+
+    # Generate PostgreSQL password if not exists
+    if [ ! -f "config/secrets/postgres_password" ]; then
+        log_info "Generating PostgreSQL password..."
+        openssl rand -base64 32 > config/secrets/postgres_password
+        chmod 600 config/secrets/postgres_password
+        log_success "PostgreSQL password generated"
+    fi
+
+    # Generate MinIO root password if not exists
+    if [ ! -f "config/secrets/minio_root_password" ]; then
+        log_info "Generating MinIO root password..."
+        openssl rand -base64 32 > config/secrets/minio_root_password
+        chmod 600 config/secrets/minio_root_password
+        log_success "MinIO root password generated"
+    fi
+
+    # Generate n8n encryption key if not exists
+    if [ ! -f "config/secrets/n8n_encryption_key" ]; then
+        log_info "Generating n8n encryption key..."
+        openssl rand -base64 32 > config/secrets/n8n_encryption_key
+        chmod 600 config/secrets/n8n_encryption_key
+        log_success "n8n encryption key generated"
+    fi
+
+    log_success "All secrets generated successfully"
+}
+
+# Initialize admin user with bcrypt hash
+init_admin_user() {
+    log_info "Creating admin user..."
+
+    # Extract admin password from .env
+    ADMIN_PASSWORD=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
+    ADMIN_USERNAME=$(grep "^ADMIN_USERNAME=" .env | cut -d'=' -f2)
+
+    if [ -z "$ADMIN_PASSWORD" ]; then
+        log_error "ADMIN_PASSWORD not found in .env file"
+        return 1
+    fi
+
+    # Generate bcrypt hash using Python in the dashboard-backend container
+    # (which has bcrypt installed)
+    log_info "Generating bcrypt hash for admin password..."
+
+    ADMIN_HASH=$(docker-compose run --rm dashboard-backend python3 -c "
+import bcrypt
+import sys
+password = '$ADMIN_PASSWORD'.encode('utf-8')
+salt = bcrypt.gensalt(rounds=12)
+hash = bcrypt.hashpw(password, salt)
+print(hash.decode('utf-8'))
+" 2>/dev/null | tail -1)
+
+    if [ -z "$ADMIN_HASH" ]; then
+        log_error "Failed to generate bcrypt hash"
+        return 1
+    fi
+
+    # Store hash in config/secrets directory
+    mkdir -p config/secrets
+    chmod 700 config/secrets
+    echo "$ADMIN_HASH" > config/secrets/admin.hash
+    chmod 600 config/secrets/admin.hash
+
+    log_success "Admin hash stored in config/secrets/admin.hash"
+
+    # Insert admin user into database
+    log_info "Creating admin user in database..."
+
+    docker-compose exec -T postgres-db psql -U arasul -d arasul_db <<EOF
+INSERT INTO admin_users (username, password_hash, email, created_at)
+VALUES ('${ADMIN_USERNAME:-admin}', '$ADMIN_HASH', 'admin@arasul.local', NOW())
+ON CONFLICT (username) DO UPDATE
+SET password_hash = EXCLUDED.password_hash;
+EOF
+
+    if [ $? -eq 0 ]; then
+        log_success "Admin user created successfully"
+        log_warning "Username: ${ADMIN_USERNAME:-admin}"
+        log_warning "Password: $ADMIN_PASSWORD"
+        log_warning "IMPORTANT: Please save these credentials securely!"
+    else
+        log_error "Failed to create admin user in database"
+        return 1
+    fi
+}
+
+# Start all services
+start_services() {
+    log_info "Starting all services in deterministic order..."
+
+    # Start services in order (some are already started)
+    docker-compose up -d postgres-db
+    sleep 5
+
+    docker-compose up -d minio
+    sleep 5
+
+    docker-compose up -d metrics-collector
+    sleep 5
+
+    docker-compose up -d llm-service embedding-service
+    sleep 10
+
+    docker-compose up -d reverse-proxy
+    sleep 3
+
+    docker-compose up -d dashboard-backend dashboard-frontend
+    sleep 5
+
+    docker-compose up -d n8n
+    sleep 5
+
+    docker-compose up -d self-healing-agent
+
+    log_success "All services started"
+}
+
+# Run smoke tests
+run_smoke_tests() {
+    log_info "=== Running Comprehensive Smoke Tests ==="
+    echo ""
+
+    local failed=0
+    local warnings=0
+
+    # Wait for services to be fully ready
+    log_info "Waiting for services to stabilize (30s)..."
+    sleep 30
+
+    # Test Dashboard Backend
+    log_info "Testing Dashboard Backend..."
+    if curl -f http://localhost:80/api/health &> /dev/null; then
+        log_success "Dashboard Backend: OK"
+    else
+        log_error "Dashboard Backend: FAILED"
+        failed=1
+    fi
+
+    # Test Dashboard Frontend
+    log_info "Testing Dashboard Frontend..."
+    if curl -f http://localhost:80 &> /dev/null; then
+        log_success "Dashboard Frontend: OK"
+    else
+        log_error "Dashboard Frontend: FAILED"
+        failed=1
+    fi
+
+    # Test Metrics Collector
+    log_info "Testing Metrics Collector..."
+    if docker-compose exec -T metrics-collector curl -f http://localhost:9100/health &> /dev/null; then
+        log_success "Metrics Collector: OK"
+    else
+        log_error "Metrics Collector: FAILED"
+        failed=1
+    fi
+
+    # Test PostgreSQL
+    log_info "Testing PostgreSQL..."
+    if docker-compose exec -T postgres-db pg_isready -U arasul &> /dev/null; then
+        log_success "PostgreSQL: OK"
+
+        # Test database schema
+        TABLES=$(docker-compose exec -T postgres-db psql -U arasul -d arasul_db -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null | tr -d ' \n')
+        if [ "$TABLES" -gt 5 ]; then
+            log_success "PostgreSQL Schema: OK ($TABLES tables)"
+        else
+            log_warning "PostgreSQL Schema: Incomplete ($TABLES tables found)"
+            warnings=1
+        fi
+    else
+        log_error "PostgreSQL: FAILED"
+        failed=1
+    fi
+
+    # Test MinIO
+    log_info "Testing MinIO..."
+    if docker-compose exec -T minio curl -f http://localhost:9000/minio/health/live &> /dev/null; then
+        log_success "MinIO: OK"
+
+        # Test MinIO buckets
+        log_info "Checking MinIO buckets..."
+        BUCKET_COUNT=$(docker-compose exec -T minio mc ls local 2>/dev/null | wc -l || echo "0")
+        if [ "$BUCKET_COUNT" -gt 0 ]; then
+            log_success "MinIO Buckets: $BUCKET_COUNT buckets found"
+        else
+            log_warning "MinIO Buckets: No buckets found (will be created on first use)"
+            warnings=1
+        fi
+    else
+        log_warning "MinIO: Not responding (may still be initializing)"
+        warnings=1
+    fi
+
+    # Test LLM Service
+    log_info "Testing LLM Service..."
+    if docker-compose exec -T llm-service curl -f http://localhost:11434/api/tags &> /dev/null; then
+        log_success "LLM Service: OK"
+
+        # Try a minimal inference test
+        log_info "Running LLM inference test (this may take a moment)..."
+        TEST_RESPONSE=$(docker-compose exec -T llm-service curl -s --max-time 10 http://localhost:11434/api/generate -d '{"model":"llama2","prompt":"Hi","stream":false}' 2>/dev/null)
+        if [ -n "$TEST_RESPONSE" ]; then
+            log_success "LLM Inference: OK (response received)"
+        else
+            log_warning "LLM Inference: No model loaded yet (normal on first boot)"
+            warnings=1
+        fi
+    else
+        log_error "LLM Service: FAILED"
+        failed=1
+    fi
+
+    # Test Embedding Service
+    log_info "Testing Embedding Service..."
+    if docker-compose exec -T embedding-service curl -f http://localhost:11435/health &> /dev/null; then
+        log_success "Embedding Service: OK"
+
+        # Try embeddings test
+        log_info "Running embeddings test..."
+        EMB_RESPONSE=$(docker-compose exec -T embedding-service curl -s --max-time 5 http://localhost:11435/v1/embeddings -H "Content-Type: application/json" -d '{"input":"test","model":"all-minilm"}' 2>/dev/null)
+        if echo "$EMB_RESPONSE" | grep -q "embedding"; then
+            log_success "Embeddings Inference: OK"
+        else
+            log_warning "Embeddings Inference: Model may not be ready"
+            warnings=1
+        fi
+    else
+        log_error "Embedding Service: FAILED"
+        failed=1
+    fi
+
+    # Test n8n
+    log_info "Testing n8n..."
+    if docker-compose exec -T n8n wget --spider -q http://localhost:5678/healthz 2>/dev/null; then
+        log_success "n8n: OK"
+    else
+        log_warning "n8n: Not responding (may still be initializing)"
+        warnings=1
+    fi
+
+    # Test Self-Healing Agent
+    log_info "Testing Self-Healing Agent..."
+    if docker-compose ps self-healing-agent | grep -q "Up"; then
+        log_success "Self-Healing Agent: Running"
+
+        # Check if healing engine is actually running
+        HEALING_PROCS=$(docker-compose exec -T self-healing-agent pgrep -f healing_engine.py | wc -l)
+        if [ "$HEALING_PROCS" -gt 0 ]; then
+            log_success "Self-Healing Engine: Active"
+        else
+            log_warning "Self-Healing Engine: Process not found"
+            warnings=1
+        fi
+    else
+        log_error "Self-Healing Agent: Not running"
+        failed=1
+    fi
+
+    echo ""
+    log_info "=== Smoke Test Summary ==="
+    if [ $failed -eq 1 ]; then
+        log_error "Critical tests failed. Check logs with: ./arasul logs"
+        return 1
+    elif [ $warnings -gt 0 ]; then
+        log_warning "$warnings non-critical warnings. System is functional but some services need attention."
+        log_success "Core system is operational!"
+        return 0
+    else
+        log_success "All smoke tests passed successfully!"
+        return 0
+    fi
+}
+
+# Bootstrap command
+cmd_bootstrap() {
+    show_banner
+    check_root
+
+    # Hardware validation
+    if ! validate_hardware; then
+        log_error "Hardware validation failed. Cannot proceed with bootstrap."
+        log_info "Please ensure your system meets the minimum requirements:"
+        log_info "  - NVIDIA GPU with drivers installed"
+        log_info "  - Minimum 16GB RAM (32GB+ recommended)"
+        log_info "  - Minimum 64GB disk space (128GB+ recommended)"
+        exit 1
+    fi
+
+    check_requirements
+    create_directories
+    init_env
+
+    # Validate configuration
+    log_info "Validating configuration..."
+    if ! "${SCRIPT_DIR}/scripts/validate_config.sh"; then
+        log_error "Configuration validation failed. Please fix errors and try again."
+        exit 1
+    fi
+
+    # Validate Docker Compose dependencies
+    log_info "Validating Docker Compose dependency chain..."
+    if ! "${SCRIPT_DIR}/scripts/validate_dependencies.sh"; then
+        log_error "Docker Compose dependency validation failed. Please fix errors and try again."
+        exit 1
+    fi
+
+    # Generate secrets
+    generate_secrets
+
+    pull_images
+    build_images
+    init_database
+    start_services
+
+    # Wait for services to stabilize before initialization
+    log_info "Waiting for services to stabilize..."
+    sleep 10
+
+    init_minio_buckets
+    init_admin_user
+
+    if run_smoke_tests; then
+        # Success - generate success report
+        generate_error_report 0 "completed"
+
+        echo ""
+        log_success "Arasul Platform bootstrap completed successfully!"
+        echo ""
+        log_info "Dashboard URL: http://localhost"
+        log_info "n8n URL: http://localhost/n8n"
+        log_info "MinIO Console: http://localhost:9001"
+        echo ""
+        log_info "View logs: ./arasul logs"
+        log_info "Stop system: ./arasul stop"
+        log_info "Restart system: ./arasul restart"
+        echo ""
+    else
+        # Smoke tests failed - generate error report
+        generate_error_report 1 "smoke_tests"
+        exit 1
+    fi
+}
+
+# Start command
+cmd_start() {
+    log_info "Starting Arasul Platform..."
+    docker-compose up -d
+    log_success "Platform started"
+}
+
+# Stop command
+cmd_stop() {
+    log_info "Stopping Arasul Platform..."
+    docker-compose down
+    log_success "Platform stopped"
+}
+
+# Restart command
+cmd_restart() {
+    log_info "Restarting Arasul Platform..."
+    docker-compose restart
+    log_success "Platform restarted"
+}
+
+# Status command
+cmd_status() {
+    log_info "Arasul Platform Status:"
+    echo ""
+    docker-compose ps
+}
+
+# Logs command
+cmd_logs() {
+    if [ -n "$2" ]; then
+        docker-compose logs -f "$2"
+    else
+        docker-compose logs -f
+    fi
+}
+
+# Update command
+cmd_update() {
+    log_info "Pulling latest images..."
+    docker-compose pull
+    log_info "Rebuilding custom images..."
+    docker-compose build
+    log_info "Restarting services..."
+    docker-compose up -d
+    log_success "Update completed"
+}
+
+# Setup command - Interactive configuration
+cmd_setup() {
+    log_info "Starting interactive setup wizard..."
+
+    if [ -f "${SCRIPT_DIR}/scripts/interactive_setup.sh" ]; then
+        "${SCRIPT_DIR}/scripts/interactive_setup.sh"
+    else
+        log_error "Setup wizard not found"
+        exit 1
+    fi
+}
+
+# mDNS setup command
+cmd_mdns() {
+    log_info "Configuring mDNS (Avahi)..."
+
+    if [ -f "${SCRIPT_DIR}/scripts/setup_mdns.sh" ]; then
+        sudo "${SCRIPT_DIR}/scripts/setup_mdns.sh"
+    else
+        log_error "mDNS setup script not found"
+        exit 1
+    fi
+}
+
+# Test commands
+cmd_test_load() {
+    log_info "Running load tests..."
+
+    if [ -f "${SCRIPT_DIR}/tests/load_test.py" ]; then
+        python3 "${SCRIPT_DIR}/tests/load_test.py" "$@"
+    else
+        log_error "Load test script not found"
+        exit 1
+    fi
+}
+
+cmd_test_restart() {
+    log_info "Running restart tests..."
+
+    if [ -f "${SCRIPT_DIR}/tests/restart_test.sh" ]; then
+        "${SCRIPT_DIR}/tests/restart_test.sh"
+    else
+        log_error "Restart test script not found"
+        exit 1
+    fi
+}
+
+cmd_test_stability() {
+    log_info "Running stability monitor..."
+
+    if [ -f "${SCRIPT_DIR}/tests/stability_monitor.py" ]; then
+        python3 "${SCRIPT_DIR}/tests/stability_monitor.py" "$@"
+    else
+        log_error "Stability monitor not found"
+        exit 1
+    fi
+}
+
+# Validate configuration
+cmd_validate_config() {
+    log_info "Validating configuration..."
+
+    if [ -f "${SCRIPT_DIR}/scripts/validate_config.sh" ]; then
+        "${SCRIPT_DIR}/scripts/validate_config.sh" "$@"
+    else
+        log_error "Config validation script not found"
+        exit 1
+    fi
+}
+
+# Generate secrets
+cmd_generate_secrets() {
+    generate_secrets
+}
+
+# Validate Docker Compose dependencies
+cmd_validate_dependencies() {
+    log_info "Validating Docker Compose dependency chain..."
+
+    if [ -f "${SCRIPT_DIR}/scripts/validate_dependencies.sh" ]; then
+        "${SCRIPT_DIR}/scripts/validate_dependencies.sh" "$@"
+    else
+        log_error "Dependency validation script not found"
+        exit 1
+    fi
+}
+
+# Reload configuration without restart
+cmd_reload_config() {
+    log_info "Reloading configuration..."
+
+    # Reload Traefik configuration (dynamic config)
+    log_info "Reloading Traefik configuration..."
+    docker-compose exec reverse-proxy kill -HUP 1 2>/dev/null || log_warning "Reverse proxy not running or reload failed"
+
+    # Reload dashboard backend configuration (via HTTP endpoint)
+    log_info "Reloading dashboard backend configuration..."
+    curl -f -X POST http://localhost:3001/api/system/reload-config 2>/dev/null || log_warning "Dashboard backend reload failed"
+
+    # Reload n8n configuration (restart gracefully)
+    log_info "Reloading n8n configuration..."
+    docker-compose exec n8n n8n restart 2>/dev/null || log_warning "n8n reload failed"
+
+    log_success "Configuration reload complete"
+    log_info "Note: Some changes require a full restart (database credentials, ports, etc.)"
+}
+
+# Help command
+cmd_help() {
+    echo "Arasul Platform Management Tool"
+    echo ""
+    echo "Usage: ./arasul <command> [options]"
+    echo ""
+    echo "Commands:"
+    echo "  setup             - Run interactive configuration wizard"
+    echo "  bootstrap         - Initialize and start the platform for the first time"
+    echo "  start             - Start all services"
+    echo "  stop              - Stop all services"
+    echo "  restart           - Restart all services"
+    echo "  status            - Show status of all services"
+    echo "  logs [service]    - Show logs (optionally for a specific service)"
+    echo "  update            - Update to latest version"
+    echo "  mdns              - Configure mDNS (arasul.local)"
+    echo "  validate-config   - Validate .env configuration"
+    echo "  validate-deps     - Validate Docker Compose dependency chain"
+    echo "  generate-secrets  - Generate all required secrets"
+    echo "  reload-config     - Reload configuration without restart"
+    echo "  test-load         - Run load testing suite"
+    echo "  test-restart      - Run restart testing suite"
+    echo "  test-stability    - Run long-term stability monitoring"
+    echo "  help              - Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  ./arasul setup                  - Configure system interactively"
+    echo "  ./arasul bootstrap              - First-time setup"
+    echo "  ./arasul validate-config        - Check .env file"
+    echo "  ./arasul generate-secrets       - Generate secrets"
+    echo "  ./arasul reload-config          - Reload without restart"
+    echo "  ./arasul logs dashboard-backend - Show dashboard backend logs"
+    echo "  ./arasul restart                - Restart all services"
+    echo "  ./arasul test-load              - Run load tests"
+    echo "  ./arasul test-stability --duration 7 - Run 7-day stability test"
+    echo ""
+}
+
+# Main command dispatcher
+case "${1:-help}" in
+    setup)
+        cmd_setup
+        ;;
+    bootstrap)
+        cmd_bootstrap
+        ;;
+    start)
+        cmd_start
+        ;;
+    stop)
+        cmd_stop
+        ;;
+    restart)
+        cmd_restart
+        ;;
+    status)
+        cmd_status
+        ;;
+    logs)
+        cmd_logs "$@"
+        ;;
+    update)
+        cmd_update
+        ;;
+    mdns)
+        cmd_mdns
+        ;;
+    validate-config)
+        shift
+        cmd_validate_config "$@"
+        ;;
+    validate-deps)
+        shift
+        cmd_validate_dependencies "$@"
+        ;;
+    generate-secrets)
+        cmd_generate_secrets
+        ;;
+    reload-config)
+        cmd_reload_config
+        ;;
+    test-load)
+        shift
+        cmd_test_load "$@"
+        ;;
+    test-restart)
+        cmd_test_restart
+        ;;
+    test-stability)
+        shift
+        cmd_test_stability "$@"
+        ;;
+    help|--help|-h)
+        cmd_help
+        ;;
+    *)
+        log_error "Unknown command: $1"
+        echo ""
+        cmd_help
+        exit 1
+        ;;
+esac

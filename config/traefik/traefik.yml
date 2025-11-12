@@ -1,0 +1,99 @@
+# Traefik Static Configuration for Arasul Platform
+# Main configuration file
+
+# Global settings
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+# API and Dashboard
+api:
+  dashboard: true
+  insecure: false  # Dashboard only via authenticated route
+
+# Entrypoints
+entryPoints:
+  web:
+    address: ":80"
+    # HTTP to HTTPS redirect (when TLS enabled)
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "arasul.local"
+            sans:
+              - "*.arasul.local"
+
+  # Traefik dashboard
+  traefik:
+    address: ":8080"
+
+# Certificate resolvers
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: admin@arasul.local
+      storage: /letsencrypt/acme.json
+      # Use staging for testing
+      # caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+      httpChallenge:
+        entryPoint: web
+
+# Providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false  # Only expose services with labels
+    network: arasul-net
+    watch: true
+
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+# Logging
+log:
+  level: INFO
+  filePath: /arasul/logs/traefik.log
+  format: json
+
+# Access logs
+accessLog:
+  filePath: /arasul/logs/traefik-access.log
+  format: json
+  bufferingSize: 100
+  filters:
+    statusCodes:
+      - "400-599"  # Only log errors
+    retryAttempts: true
+    minDuration: "100ms"  # Only log slow requests
+
+# Metrics
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.0
+      - 3.0
+      - 5.0
+
+# Tracing (optional, for debugging)
+# tracing:
+#   serviceName: traefik
+#   spanNameLimit: 150
+
+# Pilot (disabled)
+pilot:
+  dashboard: false

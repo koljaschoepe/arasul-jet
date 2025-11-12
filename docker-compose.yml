@@ -1,0 +1,479 @@
+version: '3.8'
+
+networks:
+  arasul-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  arasul-postgres:
+  arasul-minio:
+  arasul-n8n:
+  arasul-llm-models:
+  arasul-embeddings-models:
+  arasul-metrics:
+  arasul-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /arasul/logs
+  arasul-letsencrypt:
+
+services:
+  # 1. PostgreSQL - Telemetry and Audit Database
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: postgres-db
+    hostname: postgres-db
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS}
+    volumes:
+      - arasul-postgres:/var/lib/postgresql/data
+      - ./services/postgres/init:/docker-entrypoint-initdb.d
+      - ./services/postgres/migrations:/migrations
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: ${RAM_LIMIT_POSTGRES}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 2. MinIO - Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    hostname: minio
+    restart: always
+    networks:
+      - arasul-net
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BROWSER: ${MINIO_BROWSER}
+    volumes:
+      - arasul-minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 3. Metrics Collector
+  metrics-collector:
+    build:
+      context: ./services/metrics-collector
+      dockerfile: Dockerfile
+    container_name: metrics-collector
+    hostname: metrics-collector
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      METRICS_INTERVAL_LIVE: ${METRICS_INTERVAL_LIVE}
+      METRICS_INTERVAL_PERSIST: ${METRICS_INTERVAL_PERSIST}
+      LOG_LEVEL: ${LOG_LEVEL}
+    volumes:
+      - /sys:/host/sys:ro
+      - /proc:/host/proc:ro
+      - arasul-metrics:/cache
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9100/health"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 4. LLM Service (Ollama)
+  llm-service:
+    image: ollama/ollama:latest
+    container_name: llm-service
+    hostname: llm-service
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_MODELS: /models
+      DEFAULT_MODEL: ${LLM_MODEL:-llama2}
+    volumes:
+      - arasul-llm-models:/root/.ollama
+      - ./services/llm-service/healthcheck.sh:/healthcheck.sh:ro
+    runtime: nvidia
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT_LLM}'
+          memory: ${RAM_LIMIT_LLM}
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/bin/bash", "/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 5. Embedding Service
+  embedding-service:
+    build:
+      context: ./services/embedding-service
+      dockerfile: Dockerfile
+    container_name: embedding-service
+    hostname: embedding-service
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      MODEL_NAME: ${EMBEDDING_MODEL}
+      SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
+      SERVICE_URL: http://localhost:${EMBEDDING_SERVICE_PORT}
+      VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE}
+      MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS}
+    volumes:
+      - arasul-embeddings-models:/models
+      - ./services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
+    runtime: nvidia
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT_EMBEDDING}'
+          memory: ${RAM_LIMIT_EMBEDDING}
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/bin/bash", "/healthcheck.sh"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 6. Reverse Proxy (Traefik) - Starts AFTER application services
+  reverse-proxy:
+    image: traefik:v2.11
+    container_name: reverse-proxy
+    hostname: reverse-proxy
+    restart: always
+    networks:
+      - arasul-net
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/traefik:/etc/traefik
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      metrics-collector:
+        condition: service_healthy
+      llm-service:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+      dashboard-backend:
+        condition: service_healthy
+      dashboard-frontend:
+        condition: service_healthy
+      n8n:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 7. Dashboard Backend
+  dashboard-backend:
+    build:
+      context: ./services/dashboard-backend
+      dockerfile: Dockerfile
+    container_name: dashboard-backend
+    hostname: dashboard-backend
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      NODE_ENV: production
+      PORT: ${DASHBOARD_BACKEND_PORT}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      LLM_SERVICE_HOST: ${LLM_SERVICE_HOST}
+      LLM_SERVICE_PORT: ${LLM_SERVICE_PORT}
+      EMBEDDING_SERVICE_HOST: ${EMBEDDING_SERVICE_HOST}
+      EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
+      MINIO_HOST: ${MINIO_HOST}
+      MINIO_PORT: ${MINIO_PORT}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: ${N8N_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      SYSTEM_VERSION: ${SYSTEM_VERSION}
+      BUILD_HASH: ${BUILD_HASH}
+      LOG_LEVEL: ${LOG_LEVEL}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config:/config:ro
+      - ./data/updates:/arasul/updates
+      - ./data/backups:/arasul/backups:ro
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      metrics-collector:
+        condition: service_healthy
+      llm-service:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT_DASHBOARD}'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
+      - "traefik.http.services.api.loadbalancer.server.port=3001"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 8. Dashboard Frontend
+  dashboard-frontend:
+    build:
+      context: ./services/dashboard-frontend
+      dockerfile: Dockerfile
+    container_name: dashboard-frontend
+    hostname: dashboard-frontend
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      NODE_ENV: production
+      REACT_APP_API_URL: /api
+      REACT_APP_WS_URL: ws://localhost/api
+    healthcheck:
+      test: ["CMD", "test", "-f", "/usr/share/nginx/html/index.html"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 9. n8n Workflow Engine
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    hostname: n8n
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: ${N8N_PORT}
+      N8N_PROTOCOL: http
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      WEBHOOK_URL: http://${N8N_HOST}:${N8N_WEBHOOK_PORT}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: true
+      # Custom nodes configuration
+      N8N_CUSTOM_EXTENSIONS: /custom-nodes
+    volumes:
+      - arasul-n8n:/home/node/.n8n
+      # Mount custom nodes for Arasul services
+      - ./services/n8n/custom-nodes/n8n-nodes-arasul-llm:/custom-nodes/n8n-nodes-arasul-llm:ro
+      - ./services/n8n/custom-nodes/n8n-nodes-arasul-embeddings:/custom-nodes/n8n-nodes-arasul-embeddings:ro
+      # Mount credential templates
+      - ./services/n8n/credentials:/custom-credentials:ro
+      # Mount workflow templates
+      - ./services/n8n/templates:/custom-templates:ro
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      llm-service:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      interval: 15s
+      timeout: 2s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: ${RAM_LIMIT_N8N}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=PathPrefix(`/n8n`)"
+      - "traefik.http.middlewares.n8n-strip.stripprefix.prefixes=/n8n"
+      - "traefik.http.routers.n8n.middlewares=n8n-strip"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 10. Self-Healing Engine
+  self-healing-agent:
+    build:
+      context: ./services/self-healing-agent
+      dockerfile: Dockerfile
+    container_name: self-healing-agent
+    hostname: self-healing-agent
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      SELF_HEALING_INTERVAL: ${SELF_HEALING_INTERVAL}
+      SELF_HEALING_ENABLED: ${SELF_HEALING_ENABLED}
+      LOG_LEVEL: ${SELF_HEALING_LOG_LEVEL}
+      METRICS_COLLECTOR_HOST: metrics-collector
+      METRICS_COLLECTOR_PORT: 9100
+      DISK_WARNING_PERCENT: ${DISK_WARNING_PERCENT}
+      DISK_CLEANUP_PERCENT: ${DISK_CLEANUP_PERCENT}
+      DISK_CRITICAL_PERCENT: ${DISK_CRITICAL_PERCENT}
+      DISK_REBOOT_PERCENT: ${DISK_REBOOT_PERCENT}
+      HEARTBEAT_PORT: ${SELF_HEALING_HEARTBEAT_PORT:-9200}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./logs:/arasul/logs
+      - /sys:/host/sys:ro
+      - /proc:/host/proc:ro
+      - /media:/media:ro
+      - /mnt:/mnt:ro
+      - ./data/updates:/arasul/updates
+      - ./data/backups:/arasul/backups
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    privileged: true
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      metrics-collector:
+        condition: service_healthy
+      dashboard-backend:
+        condition: service_healthy
+      llm-service:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+      n8n:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "/app/heartbeat.py", "--test"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    privileged: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,74 @@
+# Logrotate configuration for Arasul Platform
+# This file should be installed to /etc/logrotate.d/arasul
+
+# System logs
+/arasul/logs/system.log {
+    size 50M
+    rotate 10
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 arasul arasul
+    dateext
+    dateformat -%Y%m%d-%s
+    sharedscripts
+    postrotate
+        # Signal services to reopen log files if needed
+        systemctl reload arasul-platform 2>/dev/null || true
+    endscript
+}
+
+# Self-healing logs
+/arasul/logs/self_healing.log {
+    size 50M
+    rotate 10
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 arasul arasul
+    dateext
+    dateformat -%Y%m%d-%s
+}
+
+# Update logs
+/arasul/logs/update.log {
+    size 50M
+    rotate 10
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 arasul arasul
+    dateext
+    dateformat -%Y%m%d-%s
+}
+
+# Per-service logs
+/arasul/logs/service/*.log {
+    size 50M
+    rotate 10
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 arasul arasul
+    dateext
+    dateformat -%Y%m%d-%s
+    sharedscripts
+}
+
+# Docker container logs (JSON format from Docker daemon)
+/arasul/logs/containers/*.log {
+    size 100M
+    rotate 5
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 arasul arasul
+    dateext
+    dateformat -%Y%m%d-%s
+    copytruncate
+}

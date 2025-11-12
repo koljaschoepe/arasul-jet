@@ -1,0 +1,45 @@
+# Docker Logging Configuration Template for Arasul Platform
+#
+# This file contains logging configuration snippets that should be added
+# to each service in docker-compose.yml
+#
+# Standard logging configuration for all services:
+#
+# logging:
+#   driver: json-file
+#   options:
+#     max-size: "50m"        # Maximum size per log file (matches logrotate)
+#     max-file: "5"          # Keep 5 log files
+#     compress: "true"       # Compress rotated logs
+#     labels: "service,component"
+#     tag: "{{.Name}}/{{.ID}}"
+#
+# For services that need centralized file logging (dashboard-backend, self-healing-agent):
+#
+# volumes:
+#   - arasul-logs:/arasul/logs  # Mount centralized log directory
+#
+# Example complete service with logging:
+#
+# dashboard-backend:
+#   image: arasul/dashboard-backend:latest
+#   volumes:
+#     - arasul-logs:/arasul/logs
+#   logging:
+#     driver: json-file
+#     options:
+#       max-size: "50m"
+#       max-file: "5"
+#       compress: "true"
+#       labels: "service=dashboard-backend,component=api"
+#       tag: "dashboard-backend/{{.ID}}"
+#   environment:
+#     LOG_DIR: /arasul/logs
+#     LOG_LEVEL: info
+#
+# Log Levels:
+# - DEBUG: Verbose debugging information
+# - INFO: General informational messages (default)
+# - WARN: Warning messages
+# - ERROR: Error messages
+# - CRITICAL: Critical errors requiring immediate attention

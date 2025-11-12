@@ -1,0 +1,432 @@
+openapi: 3.0.3
+info:
+  title: ARASUL Platform API
+  description: |
+    # ARASUL Platform REST API
+
+    Comprehensive API for the ARASUL Edge AI Platform running on NVIDIA Jetson AGX Orin.
+
+    ## Authentication
+
+    Most endpoints require JWT authentication. Obtain a token via `/api/auth/login` and include it in the `Authorization` header:
+
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+
+    ## Rate Limits
+
+    - **Auth endpoints**: 5 requests per 15 minutes
+    - **LLM API**: 10 requests per second
+    - **Metrics API**: 20 requests per second
+    - **General API**: 100 requests per minute
+
+    ## Base URL
+
+    All endpoints are prefixed with `/api`
+
+  version: 1.0.0
+  contact:
+    name: ARASUL Platform
+    url: https://arasul.local
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://arasul.local/api
+    description: Local mDNS address
+  - url: http://localhost/api
+    description: Localhost
+  - url: http://{ip}/api
+    description: Direct IP access
+    variables:
+      ip:
+        default: '192.168.1.100'
+        description: Device IP address
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: System
+    description: System status, info, and configuration
+  - name: Metrics
+    description: System metrics (CPU, RAM, GPU, temperature, disk)
+  - name: Services
+    description: Service status and management
+  - name: Database
+    description: Database connection pool monitoring
+  - name: Logs
+    description: Log file access and streaming
+  - name: Self-Healing
+    description: Self-healing events and status
+  - name: Workflows
+    description: n8n workflow activity
+  - name: Updates
+    description: System update management
+  - name: LLM
+    description: Large Language Model inference
+  - name: Embeddings
+    description: Text embedding generation
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /api/auth/login
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - timestamp
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Invalid credentials"
+        details:
+          type: string
+          description: Detailed error information
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO8601 timestamp
+          example: "2025-11-12T10:30:45.123Z"
+
+    Success:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [success]
+          example: success
+        message:
+          type: string
+          description: Success message
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-11-12T10:30:45.123Z"
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          format: password
+          example: SecurePassword123!
+
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - expires_in
+        - timestamp
+      properties:
+        token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expires_in:
+          type: integer
+          description: Token validity in seconds
+          example: 86400
+        timestamp:
+          type: string
+          format: date-time
+
+    SystemStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [OK, WARNING, CRITICAL]
+          description: Overall system status
+        llm:
+          type: string
+          description: LLM service status
+          example: healthy
+        embeddings:
+          type: string
+          description: Embedding service status
+        n8n:
+          type: string
+          description: n8n service status
+        minio:
+          type: string
+          description: MinIO service status
+        postgres:
+          type: string
+          description: PostgreSQL service status
+        self_healing_active:
+          type: boolean
+          description: Self-healing engine status
+        last_self_healing_event:
+          type: string
+          nullable: true
+          description: Last self-healing event description
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Active warning messages
+        criticals:
+          type: array
+          items:
+            type: string
+          description: Critical issues
+        timestamp:
+          type: string
+          format: date-time
+
+    SystemInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          example: "1.0.0"
+        build_hash:
+          type: string
+          example: "abc123def"
+        jetpack_version:
+          type: string
+          example: "6.0"
+        uptime_seconds:
+          type: integer
+          example: 86400
+        hostname:
+          type: string
+          example: arasul
+        timestamp:
+          type: string
+          format: date-time
+
+    MetricsLive:
+      type: object
+      properties:
+        cpu:
+          type: number
+          format: float
+          description: CPU usage percentage
+          example: 45.2
+        ram:
+          type: number
+          format: float
+          description: RAM usage percentage
+          example: 62.8
+        gpu:
+          type: number
+          format: float
+          description: GPU usage percentage
+          example: 78.5
+        temperature:
+          type: number
+          format: float
+          description: Temperature in Celsius
+          example: 65.3
+        disk:
+          type: object
+          properties:
+            used:
+              type: integer
+              description: Used disk space in bytes
+            free:
+              type: integer
+              description: Free disk space in bytes
+            total:
+              type: integer
+              description: Total disk space in bytes
+            percent:
+              type: number
+              format: float
+              description: Disk usage percentage
+        timestamp:
+          type: string
+          format: date-time
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate with username and password to obtain a JWT token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many login attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Too many login attempts. Please try again in 15 minutes."
+                timestamp: "2025-11-12T10:30:45.123Z"
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout current session
+      description: Invalidate the current JWT token (single session logout)
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout-all:
+    post:
+      tags:
+        - Authentication
+      summary: Logout all sessions
+      description: Invalidate all JWT tokens for the current user
+      operationId: logoutAll
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All sessions logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+
+  /system/status:
+    get:
+      tags:
+        - System
+      summary: Get system status
+      description: Returns overall system health and service statuses
+      operationId: getSystemStatus
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: System status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
+              example:
+                status: "OK"
+                llm: "healthy"
+                embeddings: "healthy"
+                n8n: "healthy"
+                minio: "healthy"
+                postgres: "healthy"
+                self_healing_active: true
+                last_self_healing_event: null
+                warnings: []
+                criticals: []
+                timestamp: "2025-11-12T10:30:45.123Z"
+        '401':
+          description: Unauthorized
+        '500':
+          description: Failed to get system status
+
+  /system/info:
+    get:
+      tags:
+        - System
+      summary: Get system information
+      description: Returns system version, build info, and hardware details
+      operationId: getSystemInfo
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: System information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemInfo'
+        '401':
+          description: Unauthorized
+
+  /metrics/live:
+    get:
+      tags:
+        - Metrics
+      summary: Get current metrics
+      description: Returns current CPU, RAM, GPU, temperature, and disk metrics
+      operationId: getMetricsLive
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Metrics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsLive'
+        '401':
+          description: Unauthorized
+
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Simple health check endpoint (no authentication required)
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time

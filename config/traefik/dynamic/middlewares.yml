@@ -1,0 +1,153 @@
+# Traefik Dynamic Configuration - Middlewares
+# Rate limiting, authentication, headers, etc.
+
+http:
+  middlewares:
+    # Rate Limiting Middlewares
+
+    # n8n Webhooks: 100 requests/minute
+    rate-limit-n8n:
+      rateLimit:
+        average: 100
+        period: 1m
+        burst: 20
+
+    # LLM API: 10 requests/second
+    rate-limit-llm:
+      rateLimit:
+        average: 10
+        period: 1s
+        burst: 5
+
+    # Metrics API: 20 requests/second
+    rate-limit-metrics:
+      rateLimit:
+        average: 20
+        period: 1s
+        burst: 10
+
+    # Auth endpoints: 5 requests/minute (prevent brute force)
+    rate-limit-auth:
+      rateLimit:
+        average: 5
+        period: 1m
+        burst: 2
+
+    # General API: 100 requests/second
+    rate-limit-api:
+      rateLimit:
+        average: 100
+        period: 1s
+        burst: 50
+
+    # Security Headers
+    security-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+        customResponseHeaders:
+          X-Powered-By: "Arasul Platform"
+          Server: ""  # Hide server info
+
+    # CORS Headers
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        accessControlAllowOriginList:
+          - "*"  # Adjust for production
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Requested-With"
+        accessControlExposeHeaders:
+          - "Content-Length"
+          - "Content-Type"
+        accessControlMaxAge: 3600
+        addVaryHeader: true
+
+    # Forward Authentication (JWT validation)
+    forward-auth:
+      forwardAuth:
+        address: "http://dashboard-backend:3001/api/auth/verify"
+        authResponseHeaders:
+          - "X-User-Id"
+          - "X-User-Role"
+
+    # Strip path prefixes
+    strip-minio-prefix:
+      stripPrefix:
+        prefixes:
+          - "/minio"
+        forceSlash: false
+
+    strip-minio-api-prefix:
+      stripPrefix:
+        prefixes:
+          - "/minio-api"
+        forceSlash: false
+
+    strip-models-prefix:
+      stripPrefix:
+        prefixes:
+          - "/models"
+        forceSlash: false
+
+    strip-embeddings-prefix:
+      stripPrefix:
+        prefixes:
+          - "/embeddings"
+        forceSlash: false
+
+    # Compression
+    compress:
+      compress:
+        excludedContentTypes:
+          - "text/event-stream"
+          - "application/grpc"
+
+    # Retry middleware
+    retry:
+      retry:
+        attempts: 3
+        initialInterval: 100ms
+
+    # Circuit breaker
+    circuit-breaker:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.5 || ResponseCodeRatio(500, 600, 0, 600) > 0.25"
+        checkPeriod: 10s
+        fallbackDuration: 30s
+        recoveryDuration: 60s
+
+    # IP Whitelist (for admin routes)
+    admin-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "172.30.0.0/24"  # Docker network
+          - "192.168.0.0/16"  # Local network
+          - "10.0.0.0/8"      # Private network
+
+    # Redirect to HTTPS
+    redirect-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    # Add trailing slash
+    add-trailing-slash:
+      redirectRegex:
+        regex: "^(https?://[^/]+/[a-z0-9_]+)$"
+        replacement: "${1}/"
+        permanent: true

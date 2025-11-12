@@ -1,0 +1,218 @@
+# Traefik Dynamic Configuration - Routes
+# HTTP routers and services
+
+http:
+  routers:
+    # Dashboard Frontend
+    dashboard-frontend:
+      rule: "Host(`arasul.local`) && PathPrefix(`/`)"
+      service: dashboard-frontend-service
+      priority: 1
+      middlewares:
+        - security-headers
+        - compress
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Dashboard Backend API
+    dashboard-api:
+      rule: "Host(`arasul.local`) && PathPrefix(`/api`)"
+      service: dashboard-backend-service
+      priority: 10
+      middlewares:
+        - security-headers
+        - rate-limit-api
+        - compress
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Auth endpoints (with stricter rate limiting)
+    auth-api:
+      rule: "Host(`arasul.local`) && PathPrefix(`/api/auth`)"
+      service: dashboard-backend-service
+      priority: 20
+      middlewares:
+        - security-headers
+        - rate-limit-auth
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Metrics API (with rate limiting)
+    metrics-api:
+      rule: "Host(`arasul.local`) && PathPrefix(`/api/metrics`)"
+      service: dashboard-backend-service
+      priority: 15
+      middlewares:
+        - security-headers
+        - rate-limit-metrics
+        - compress
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # MinIO Console
+    minio-console:
+      rule: "Host(`arasul.local`) && PathPrefix(`/minio`)"
+      service: minio-console-service
+      priority: 30
+      middlewares:
+        - strip-minio-prefix
+        - security-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # MinIO S3 API
+    minio-api:
+      rule: "Host(`arasul.local`) && PathPrefix(`/minio-api`)"
+      service: minio-api-service
+      priority: 30
+      middlewares:
+        - strip-minio-api-prefix
+        - security-headers
+        - cors-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # LLM Service Direct Access
+    llm-direct:
+      rule: "Host(`arasul.local`) && PathPrefix(`/models`)"
+      service: llm-service
+      priority: 25
+      middlewares:
+        - strip-models-prefix
+        - rate-limit-llm
+        - security-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Embeddings Service Direct Access
+    embeddings-direct:
+      rule: "Host(`arasul.local`) && PathPrefix(`/embeddings`)"
+      service: embeddings-service
+      priority: 25
+      middlewares:
+        - strip-embeddings-prefix
+        - rate-limit-llm
+        - security-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # n8n Workflow Engine
+    n8n:
+      rule: "Host(`arasul.local`) && PathPrefix(`/n8n`)"
+      service: n8n-service
+      priority: 20
+      middlewares:
+        - security-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # n8n Webhooks (with rate limiting)
+    n8n-webhooks:
+      rule: "Host(`arasul.local`) && PathPrefix(`/webhook`)"
+      service: n8n-service
+      priority: 25
+      middlewares:
+        - rate-limit-n8n
+        - security-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    # Dashboard Frontend
+    dashboard-frontend-service:
+      loadBalancer:
+        servers:
+          - url: "http://dashboard-frontend:3000"
+        healthCheck:
+          path: /
+          interval: 30s
+          timeout: 3s
+
+    # Dashboard Backend
+    dashboard-backend-service:
+      loadBalancer:
+        servers:
+          - url: "http://dashboard-backend:3001"
+        healthCheck:
+          path: /api/health
+          interval: 10s
+          timeout: 2s
+
+    # MinIO Console
+    minio-console-service:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9001"
+        healthCheck:
+          path: /
+          interval: 30s
+          timeout: 3s
+
+    # MinIO S3 API
+    minio-api-service:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9000"
+        healthCheck:
+          path: /minio/health/live
+          interval: 30s
+          timeout: 3s
+
+    # LLM Service
+    llm-service:
+      loadBalancer:
+        servers:
+          - url: "http://llm-service:11434"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    # Embeddings Service
+    embeddings-service:
+      loadBalancer:
+        servers:
+          - url: "http://embedding-service:11435"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    # n8n
+    n8n-service:
+      loadBalancer:
+        servers:
+          - url: "http://n8n:5678"
+        healthCheck:
+          path: /healthz
+          interval: 30s
+          timeout: 3s
+
+# TCP/UDP Services (if needed)
+tcp:
+  routers: {}
+  services: {}
+
+udp:
+  routers: {}
+  services: {}

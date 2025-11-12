@@ -1,0 +1,70 @@
+# Arasul Platform - Docker Ignore
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+CLAUDE.md
+prd.md
+ux_specs.md
+*.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+
+# Data directories (not part of images)
+data/
+logs/
+cache/
+updates/
+
+# Node modules (will be installed in container)
+**/node_modules/
+**/dist/
+**/build/
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+
+# Test files
+**/test/
+**/tests/
+**/*.test.js
+**/*.spec.js
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Build artifacts
+*.tar.gz
+*.zip
+
+# Secrets
+*.pem
+*.key
+admin.hash

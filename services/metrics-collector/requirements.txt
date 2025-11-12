@@ -1,0 +1,6 @@
+psycopg2-binary==2.9.9
+aiohttp==3.9.1
+psutil==5.9.6
+pynvml==11.5.0
+asyncio==3.4.3
+python-dotenv==1.0.0

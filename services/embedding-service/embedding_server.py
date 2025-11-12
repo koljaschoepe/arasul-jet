@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""
+ARASUL PLATFORM - Embedding Service
+High-performance text embedding with GPU support
+"""
+
+import os
+import logging
+import time
+from flask import Flask, request, jsonify
+from sentence_transformers import SentenceTransformer
+import numpy as np
+import torch
+
+# Configure logging
+logging.basicConfig(
+    level=os.getenv('LOG_LEVEL', 'INFO'),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('embedding-service')
+
+# Configuration
+MODEL_NAME = os.getenv('MODEL_NAME', 'nomic-ai/nomic-embed-text-v1')
+SERVICE_PORT = int(os.getenv('SERVICE_PORT', '11435'))
+VECTOR_SIZE = int(os.getenv('VECTOR_SIZE', '768'))
+MAX_INPUT_TOKENS = int(os.getenv('MAX_INPUT_TOKENS', '4096'))
+
+# Initialize Flask app
+app = Flask(__name__)
+
+# Global model variable
+model = None
+device = None
+
+
+def load_model():
+    """Load the embedding model"""
+    global model, device
+
+    logger.info(f"Loading embedding model: {MODEL_NAME}")
+    start_time = time.time()
+
+    try:
+        # Check for GPU availability
+        if torch.cuda.is_available():
+            device = 'cuda'
+            logger.info(f"GPU available: {torch.cuda.get_device_name(0)}")
+        else:
+            device = 'cpu'
+            logger.warning("No GPU available, using CPU")
+
+        # Load model
+        model = SentenceTransformer(MODEL_NAME, device=device)
+
+        load_time = time.time() - start_time
+        logger.info(f"Model loaded successfully in {load_time:.2f}s")
+        logger.info(f"Device: {device}")
+        logger.info(f"Max sequence length: {model.max_seq_length}")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to load model: {e}")
+        return False
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    if model is None:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': 'Model not loaded',
+            'timestamp': time.time()
+        }), 503
+
+    try:
+        # Test vectorization
+        start_time = time.time()
+        test_vec = model.encode("test", convert_to_numpy=True)
+        latency = (time.time() - start_time) * 1000  # ms
+
+        return jsonify({
+            'status': 'healthy',
+            'model': MODEL_NAME,
+            'device': device,
+            'vector_size': len(test_vec),
+            'test_latency_ms': round(latency, 2),
+            'timestamp': time.time()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': time.time()
+        }), 503
+
+
+@app.route('/embed', methods=['POST'])
+def embed():
+    """Generate embeddings for text"""
+    if model is None:
+        return jsonify({
+            'error': 'Model not loaded',
+            'timestamp': time.time()
+        }), 503
+
+    try:
+        data = request.get_json()
+
+        if not data or 'texts' not in data:
+            return jsonify({
+                'error': 'Missing "texts" field in request body',
+                'timestamp': time.time()
+            }), 400
+
+        texts = data['texts']
+
+        # Handle both single string and list of strings
+        if isinstance(texts, str):
+            texts = [texts]
+
+        if not isinstance(texts, list):
+            return jsonify({
+                'error': '"texts" must be a string or list of strings',
+                'timestamp': time.time()
+            }), 400
+
+        # Validate input length
+        if len(texts) > 100:
+            return jsonify({
+                'error': 'Maximum 100 texts per request',
+                'timestamp': time.time()
+            }), 400
+
+        # Generate embeddings
+        start_time = time.time()
+        embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+        latency = (time.time() - start_time) * 1000  # ms
+
+        # Convert to list for JSON serialization
+        vectors = embeddings.tolist()
+
+        logger.info(f"Generated {len(vectors)} embeddings in {latency:.2f}ms ({latency/len(texts):.2f}ms/text)")
+
+        return jsonify({
+            'vectors': vectors,
+            'embeddings': vectors,  # Alias for compatibility
+            'dimension': len(vectors[0]) if vectors else 0,
+            'count': len(vectors),
+            'latency_ms': round(latency, 2),
+            'timestamp': time.time()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Embedding generation failed: {e}")
+        return jsonify({
+            'error': str(e),
+            'timestamp': time.time()
+        }), 500
+
+
+@app.route('/info', methods=['GET'])
+def info():
+    """Get service information"""
+    return jsonify({
+        'service': 'Arasul Embedding Service',
+        'model': MODEL_NAME,
+        'device': device if device else 'not_loaded',
+        'vector_size': VECTOR_SIZE,
+        'max_input_tokens': MAX_INPUT_TOKENS,
+        'model_loaded': model is not None,
+        'timestamp': time.time()
+    }), 200
+
+
+def main():
+    """Main entry point"""
+    logger.info("Starting Arasul Embedding Service")
+    logger.info(f"Port: {SERVICE_PORT}")
+    logger.info(f"Model: {MODEL_NAME}")
+
+    # Load model on startup
+    if not load_model():
+        logger.error("Failed to load model, exiting")
+        exit(1)
+
+    # Start Flask server
+    app.run(
+        host='0.0.0.0',
+        port=SERVICE_PORT,
+        debug=False,
+        threaded=True
+    )
+
+
+if __name__ == '__main__':
+    main()

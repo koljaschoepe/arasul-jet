@@ -1,0 +1,45 @@
+[Unit]
+Description=Arasul Platform - Edge AI Appliance
+Documentation=https://github.com/arasul/platform
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=forking
+User=arasul
+Group=arasul
+WorkingDirectory=/opt/arasul
+
+# Environment
+EnvironmentFile=-/arasul/config/.env
+
+# Start command
+ExecStartPre=/usr/bin/docker-compose -f /opt/arasul/docker-compose.yml pull --quiet
+ExecStart=/usr/bin/docker-compose -f /opt/arasul/docker-compose.yml up -d
+ExecStop=/usr/bin/docker-compose -f /opt/arasul/docker-compose.yml down
+
+# Restart policy
+Restart=on-failure
+RestartSec=30s
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Security
+PrivateTmp=yes
+NoNewPrivileges=false
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/arasul /opt/arasul
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=arasul-platform
+
+[Install]
+WantedBy=multi-user.target

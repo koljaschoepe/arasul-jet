@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+# Post-installation script for Arasul Platform
+# Runs after package installation
+#
+
+set -e
+
+INSTALL_DIR="/opt/arasul"
+DATA_DIR="/arasul"
+SERVICE_USER="arasul"
+
+echo "Configuring Arasul Platform..."
+
+# Create system user if doesn't exist
+if ! id "$SERVICE_USER" &>/dev/null; then
+    echo "Creating system user: $SERVICE_USER"
+    useradd -r -s /bin/bash -d "$INSTALL_DIR" -c "Arasul Platform Service User" "$SERVICE_USER"
+fi
+
+# Add user to docker group
+if getent group docker > /dev/null 2>&1; then
+    usermod -aG docker "$SERVICE_USER"
+fi
+
+# Create data directories
+echo "Creating data directories..."
+mkdir -p "$DATA_DIR"/{data,logs,config,cache,updates}
+mkdir -p "$DATA_DIR/data"/{postgres,minio,models,n8n}
+mkdir -p "$DATA_DIR/logs/service"
+
+# Set ownership
+chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+
+# Set permissions
+chmod 750 "$DATA_DIR"
+chmod 750 "$DATA_DIR/config"
+chmod 750 "$DATA_DIR/logs"
+
+# Create symlink for arasul command
+if [ ! -e /usr/local/bin/arasul ]; then
+    ln -s "$INSTALL_DIR/arasul" /usr/local/bin/arasul
+fi
+
+# Enable and start systemd service
+if command -v systemctl &> /dev/null; then
+    echo "Configuring systemd service..."
+    systemctl daemon-reload
+    systemctl enable arasul-platform.service
+
+    echo
+    echo "Arasul Platform installed successfully!"
+    echo
+    echo "Next steps:"
+    echo "  1. Run the interactive setup: sudo arasul setup"
+    echo "  2. Bootstrap the system: sudo arasul bootstrap"
+    echo "  3. Start the service: sudo systemctl start arasul-platform"
+    echo "  4. Check status: sudo systemctl status arasul-platform"
+    echo
+    echo "The dashboard will be available at: http://$(hostname -I | awk '{print $1}')"
+    echo "Or via mDNS: http://arasul.local"
+    echo
+fi
+
+exit 0

@@ -1,0 +1,15 @@
+Package: arasul-platform
+Version: 1.0.0
+Section: misc
+Priority: optional
+Architecture: arm64
+Depends: docker.io (>= 20.10), docker-compose (>= 1.29), python3 (>= 3.8), python3-pip, curl, avahi-daemon, avahi-utils, libnss-mdns, postgresql-client
+Maintainer: Arasul Platform <support@arasul.local>
+Description: Arasul Edge AI Platform
+ A complete Edge AI appliance for NVIDIA Jetson AGX Orin.
+ Includes AI services (LLM, Embeddings), workflow automation (n8n),
+ object storage (MinIO), and comprehensive monitoring with self-healing capabilities.
+ .
+ This package installs all necessary components and configures the system
+ for autonomous operation with minimal user intervention.
+Homepage: https://github.com/arasul/platform

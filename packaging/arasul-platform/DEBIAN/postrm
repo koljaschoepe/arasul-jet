@@ -1,0 +1,35 @@
+#!/bin/bash
+#
+# Post-removal script for Arasul Platform
+# Runs after package removal
+#
+
+set -e
+
+# Only proceed with full cleanup if purging
+if [ "$1" = "purge" ]; then
+    echo "Purging Arasul Platform data..."
+
+    # Remove data directory (CAUTION: Contains user data!)
+    if [ -d /arasul ]; then
+        echo "WARNING: Removing /arasul directory with all data!"
+        rm -rf /arasul
+    fi
+
+    # Remove system user
+    if id arasul &>/dev/null; then
+        userdel arasul || true
+    fi
+
+    # Remove symlink
+    if [ -L /usr/local/bin/arasul ]; then
+        rm /usr/local/bin/arasul
+    fi
+
+    echo "Arasul Platform purged"
+else
+    echo "Arasul Platform removed (data preserved in /arasul)"
+    echo "To completely remove all data, run: sudo apt purge arasul-platform"
+fi
+
+exit 0
