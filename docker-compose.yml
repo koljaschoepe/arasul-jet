@@ -351,7 +351,9 @@ services:
 
   # 9. n8n Workflow Engine
   n8n:
-    image: n8nio/n8n:latest
+    build:
+      context: ./services/n8n
+      dockerfile: Dockerfile
     container_name: n8n
     hostname: n8n
     restart: always
@@ -369,13 +371,10 @@ services:
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
       EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: true
-      # Custom nodes configuration
+      # Custom nodes are baked into the image via Dockerfile
       N8N_CUSTOM_EXTENSIONS: /custom-nodes
     volumes:
       - arasul-n8n:/home/node/.n8n
-      # Mount custom nodes for Arasul services
-      - ./services/n8n/custom-nodes/n8n-nodes-arasul-llm:/custom-nodes/n8n-nodes-arasul-llm:ro
-      - ./services/n8n/custom-nodes/n8n-nodes-arasul-embeddings:/custom-nodes/n8n-nodes-arasul-embeddings:ro
       # Mount credential templates
       - ./services/n8n/credentials:/custom-credentials:ro
       # Mount workflow templates

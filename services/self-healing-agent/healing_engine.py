@@ -43,7 +43,7 @@ ENABLED = os.getenv('SELF_HEALING_ENABLED', 'true').lower() == 'true'
 REBOOT_ENABLED = os.getenv('SELF_HEALING_REBOOT_ENABLED', 'false').lower() == 'true'
 
 METRICS_COLLECTOR_URL = f"http://{os.getenv('METRICS_COLLECTOR_HOST', 'metrics-collector')}:9100"
-LLM_SERVICE_URL = f"http://{os.getenv('LLM_SERVICE_HOST', 'llm-service')}:11434"
+LLM_SERVICE_URL = f"http://{os.getenv('LLM_SERVICE_HOST', 'llm-service')}:11435"  # Management API port
 N8N_URL = f"http://{os.getenv('N8N_HOST', 'n8n')}:5678"
 
 # Thresholds

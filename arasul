@@ -618,6 +618,66 @@ generate_secrets() {
         log_success "n8n encryption key generated"
     fi
 
+    # Generate n8n Basic Auth credentials if not exists
+    if [ ! -f "config/secrets/n8n_basic_auth_password" ]; then
+        log_info "Generating n8n Basic Auth credentials..."
+        N8N_BASIC_USER="admin"
+        N8N_BASIC_PASS=$(openssl rand -base64 16)
+        echo "$N8N_BASIC_PASS" > config/secrets/n8n_basic_auth_password
+        chmod 600 config/secrets/n8n_basic_auth_password
+
+        # Generate htpasswd hash
+        if command -v htpasswd &> /dev/null; then
+            N8N_HASH=$(htpasswd -nbB "$N8N_BASIC_USER" "$N8N_BASIC_PASS" | cut -d: -f2)
+            # Escape $ for YAML (double $$ in YAML)
+            ESCAPED_HASH=$(echo "$N8N_HASH" | sed 's/\$/\\$\\$/g')
+
+            # Update middlewares.yml with generated hash using awk for safety
+            awk -v user="$N8N_BASIC_USER" -v hash="$ESCAPED_HASH" '
+            /basicAuth-n8n:/ { in_n8n_section=1 }
+            in_n8n_section && /users:/ { print; getline; print "          - \"" user ":" hash "\""; in_n8n_section=0; next }
+            { print }
+            ' config/traefik/dynamic/middlewares.yml > config/traefik/dynamic/middlewares.yml.tmp
+            mv config/traefik/dynamic/middlewares.yml.tmp config/traefik/dynamic/middlewares.yml
+
+            log_success "n8n Basic Auth configured"
+            log_info "   Username: $N8N_BASIC_USER"
+            log_info "   Password saved to: config/secrets/n8n_basic_auth_password"
+        else
+            log_warning "htpasswd not found - n8n Basic Auth not configured"
+            log_info "Install apache2-utils: sudo apt-get install apache2-utils"
+        fi
+    fi
+
+    # Generate Traefik Dashboard Basic Auth credentials if not exists
+    if [ ! -f "config/secrets/traefik_basic_auth_password" ]; then
+        log_info "Generating Traefik Dashboard Basic Auth credentials..."
+        TRAEFIK_BASIC_USER="admin"
+        TRAEFIK_BASIC_PASS=$(openssl rand -base64 16)
+        echo "$TRAEFIK_BASIC_PASS" > config/secrets/traefik_basic_auth_password
+        chmod 600 config/secrets/traefik_basic_auth_password
+
+        # Generate htpasswd hash (using APR1 for compatibility)
+        if command -v htpasswd &> /dev/null; then
+            TRAEFIK_HASH=$(htpasswd -nbm "$TRAEFIK_BASIC_USER" "$TRAEFIK_BASIC_PASS" | cut -d: -f2)
+
+            # Update middlewares.yml with generated hash using awk for safety
+            awk -v user="$TRAEFIK_BASIC_USER" -v hash="$TRAEFIK_HASH" '
+            /basicAuth-traefik:/ { in_traefik_section=1 }
+            in_traefik_section && /users:/ { print; getline; print "          - \"" user ":" hash "\"  # " user; in_traefik_section=0; next }
+            { print }
+            ' config/traefik/dynamic/middlewares.yml > config/traefik/dynamic/middlewares.yml.tmp
+            mv config/traefik/dynamic/middlewares.yml.tmp config/traefik/dynamic/middlewares.yml
+
+            log_success "Traefik Dashboard Basic Auth configured"
+            log_info "   Username: $TRAEFIK_BASIC_USER"
+            log_info "   Password saved to: config/secrets/traefik_basic_auth_password"
+        else
+            log_warning "htpasswd not found - Traefik Dashboard Basic Auth not configured"
+            log_info "Install apache2-utils: sudo apt-get install apache2-utils"
+        fi
+    fi
+
     log_success "All secrets generated successfully"
 }
 
@@ -968,6 +1028,42 @@ cmd_bootstrap() {
         log_info "n8n URL: http://localhost/n8n"
         log_info "MinIO Console: http://localhost:9001"
         echo ""
+
+        # Display generated credentials
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        log_info "🔐 GENERATED CREDENTIALS (save these securely!):"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+
+        if [ -f "config/secrets/n8n_basic_auth_password" ]; then
+            N8N_PASS=$(cat config/secrets/n8n_basic_auth_password)
+            log_info "n8n Access (https://arasul.local/n8n):"
+            log_info "   Username: admin"
+            log_info "   Password: $N8N_PASS"
+            echo ""
+        fi
+
+        if [ -f "config/secrets/traefik_basic_auth_password" ]; then
+            TRAEFIK_PASS=$(cat config/secrets/traefik_basic_auth_password)
+            log_info "Traefik Dashboard (https://arasul.local/dashboard):"
+            log_info "   Username: admin"
+            log_info "   Password: $TRAEFIK_PASS"
+            echo ""
+        fi
+
+        if [ -f "config/secrets/minio_root_password" ]; then
+            MINIO_PASS=$(cat config/secrets/minio_root_password)
+            log_info "MinIO Console (https://arasul.local/minio):"
+            log_info "   Username: minioadmin"
+            log_info "   Password: $MINIO_PASS"
+            echo ""
+        fi
+
+        log_warning "⚠️  IMPORTANT: Save these credentials securely!"
+        log_info "Passwords are stored in: config/secrets/"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+
         log_info "View logs: ./arasul logs"
         log_info "Stop system: ./arasul stop"
         log_info "Restart system: ./arasul restart"
