@@ -20,10 +20,10 @@ logging.basicConfig(
 logger = logging.getLogger('embedding-service')
 
 # Configuration
-MODEL_NAME = os.getenv('MODEL_NAME', 'nomic-ai/nomic-embed-text-v1')
-SERVICE_PORT = int(os.getenv('SERVICE_PORT', '11435'))
-VECTOR_SIZE = int(os.getenv('VECTOR_SIZE', '768'))
-MAX_INPUT_TOKENS = int(os.getenv('MAX_INPUT_TOKENS', '4096'))
+MODEL_NAME = os.getenv('EMBEDDING_MODEL', os.getenv('MODEL_NAME', 'nomic-ai/nomic-embed-text-v1'))
+SERVICE_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', os.getenv('SERVICE_PORT', '11435')))
+VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', os.getenv('VECTOR_SIZE', '768')))
+MAX_INPUT_TOKENS = int(os.getenv('EMBEDDING_MAX_INPUT_TOKENS', os.getenv('MAX_INPUT_TOKENS', '4096')))
 
 # Initialize Flask app
 app = Flask(__name__)

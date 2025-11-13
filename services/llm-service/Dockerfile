@@ -25,15 +25,16 @@ COPY api_server.py /app/api_server.py
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# Expose Ollama Port (for n8n) + Management API Port (for Dashboard)
+# Expose Ollama Port (for LLM inference) + Management API Port (for Dashboard)
 EXPOSE 11434
-EXPOSE 11435
+EXPOSE 11436
 
 # Models will be stored in persistent volume (see docker-compose.yml)
 VOLUME ["/root/.ollama"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:11435/health || exit 1
+
+    CMD curl -f http://localhost:11436/health || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]

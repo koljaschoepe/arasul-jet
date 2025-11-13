@@ -197,13 +197,13 @@ http:
           interval: 30s
           timeout: 3s
 
-    # LLM Service
+    # LLM Service (Ollama on port 11434)
     llm-service:
       loadBalancer:
         servers:
           - url: "http://llm-service:11434"
         healthCheck:
-          path: /health
+          path: /api/tags
           interval: 30s
           timeout: 5s
 

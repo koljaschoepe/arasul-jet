@@ -71,6 +71,8 @@ class MetricsCollector:
         self.gpu_monitor = None
         self._init_nvml()
         self._init_gpu_monitor()
+        # Initialize CPU percent with blocking call once (for accurate subsequent readings)
+        psutil.cpu_percent(interval=0.1)
 
     def _init_nvml(self):
         """Initialize NVIDIA Management Library"""
@@ -97,9 +99,11 @@ class MetricsCollector:
             logger.info("GPU Monitor not available")
 
     def get_cpu_percent(self) -> float:
-        """Get CPU utilization percentage"""
+        """Get CPU utilization percentage (non-blocking)"""
         try:
-            return psutil.cpu_percent(interval=1)
+            # Use interval=None for non-blocking call (returns instant value)
+            # First call returns 0.0, subsequent calls return actual CPU usage
+            return psutil.cpu_percent(interval=None)
         except Exception as e:
             logger.error(f"Error reading CPU: {e}")
             return 0.0
@@ -548,10 +552,12 @@ async def collect_metrics_loop():
             # Persist to database every METRICS_INTERVAL_PERSIST seconds
             persist_counter += METRICS_INTERVAL_LIVE
             if persist_counter >= METRICS_INTERVAL_PERSIST:
-                if metrics_buffer:
-                    # Write the most recent metrics
-                    db_writer.write_metrics(metrics_buffer[-1])
-                    metrics_buffer.clear()
+                # Only persist the most recent metrics (buffer is for in-memory live access)
+                # Database retention is separate from live metrics
+                db_writer.write_metrics(metrics)
+                # Buffer is not cleared - keeps last N metrics for live API
+                if len(metrics_buffer) > 60:  # Keep last 5 minutes (60 * 5s)
+                    metrics_buffer.pop(0)
                 persist_counter = 0
 
             # Cleanup old metrics every hour

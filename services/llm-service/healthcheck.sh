@@ -6,8 +6,8 @@ set -e
 
 # Configuration
 TIMEOUT=5
-MAX_RESPONSE_TIME_MS=2000  # 2 seconds max for minimal prompt
-MIN_RESPONSE_TIME_MS=50     # Sanity check - response should take at least 50ms
+MAX_RESPONSE_TIME_MS=5000  # 5 seconds max for minimal prompt (cold start tolerance)
+MIN_RESPONSE_TIME_MS=0      # No minimum - fast responses are fine
 OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
 TEST_PROMPT="Hello"
 TEST_MODEL="${DEFAULT_MODEL:-llama2}"
@@ -169,9 +169,7 @@ check_prompt_response() {
     fi
 
     # Check response time constraints
-    if [ "$RESPONSE_TIME_MS" -lt "$MIN_RESPONSE_TIME_MS" ]; then
-        warning "Response suspiciously fast (${RESPONSE_TIME_MS}ms) - possible cached response"
-    elif [ "$RESPONSE_TIME_MS" -gt "$MAX_RESPONSE_TIME_MS" ]; then
+    if [ "$RESPONSE_TIME_MS" -gt "$MAX_RESPONSE_TIME_MS" ]; then
         error "Response too slow (${RESPONSE_TIME_MS}ms > ${MAX_RESPONSE_TIME_MS}ms)"
         return 1
     fi

@@ -170,6 +170,10 @@ BEGIN
     DELETE FROM self_healing_events WHERE timestamp < NOW() - INTERVAL '30 days';
     DELETE FROM system_snapshots WHERE timestamp < NOW() - INTERVAL '7 days';
     DELETE FROM service_restarts WHERE timestamp < NOW() - INTERVAL '30 days';
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Error during cleanup: %', SQLERRM;
+        -- Continue execution even if cleanup fails
 END;
 $$ LANGUAGE plpgsql;
 
@@ -296,5 +300,4 @@ ALTER TABLE metrics_gpu SET (autovacuum_vacuum_scale_factor = 0.1);
 ALTER TABLE metrics_temperature SET (autovacuum_vacuum_scale_factor = 0.1);
 ALTER TABLE metrics_disk SET (autovacuum_vacuum_scale_factor = 0.1);
 
--- Vacuum immediately after initialization
-VACUUM ANALYZE;
+-- Note: VACUUM ANALYZE cannot run in transaction, will be executed post-init

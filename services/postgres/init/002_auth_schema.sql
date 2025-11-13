@@ -244,13 +244,5 @@ COMMENT ON FUNCTION record_login_attempt(VARCHAR, INET, BOOLEAN, TEXT) IS 'Recor
 -- Note: Initial admin user will be created by bootstrap script
 -- This just ensures the table structure is ready
 
--- Log schema creation
-INSERT INTO self_healing_events (event_type, severity, description, action_taken, service_name, success)
-VALUES (
-    'auth_schema_init',
-    'INFO',
-    'Authentication schema initialized successfully',
-    'Created users, tokens, sessions, and login attempt tables',
-    'postgres-db',
-    true
-);
+-- Note: Schema creation logging removed because self_healing_events table
+-- is created in 003_self_healing_schema.sql (executed after this file)

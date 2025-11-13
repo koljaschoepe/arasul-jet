@@ -38,14 +38,14 @@ if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
 fi
 
 # Start Management API server in background
-echo "[3/3] Starting Management API server on port 11435..."
+echo "[3/3] Starting Management API server on port 11436..."
 python3 /app/api_server.py &
 API_PID=$!
 echo "Management API started with PID: $API_PID"
 
 # Wait for API to be ready
 sleep 3
-if curl -s http://localhost:11435/health > /dev/null 2>&1; then
+if curl -s http://localhost:11436/health > /dev/null 2>&1; then
     echo "✓ Management API is ready!"
 else
     echo "WARNING: Management API health check failed (may still be starting)"
@@ -54,7 +54,7 @@ fi
 echo "================================================================"
 echo "LLM Service ready!"
 echo "  - Ollama API:      http://localhost:11434"
-echo "  - Management API:  http://localhost:11435"
+echo "  - Management API:  http://localhost:11436"
 echo "================================================================"
 
 # Function to handle shutdown

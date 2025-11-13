@@ -11,7 +11,9 @@ import LoadingSpinner from './components/LoadingSpinner';
 import './index.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
-const WS_BASE = process.env.REACT_APP_WS_URL || `ws://${window.location.host}/api`;
+// WebSocket URL: use wss:// if page is https://, otherwise ws://
+const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_BASE = process.env.REACT_APP_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;
 
 // Axios interceptor for authentication
 axios.interceptors.request.use(

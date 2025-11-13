@@ -43,7 +43,7 @@ ENABLED = os.getenv('SELF_HEALING_ENABLED', 'true').lower() == 'true'
 REBOOT_ENABLED = os.getenv('SELF_HEALING_REBOOT_ENABLED', 'false').lower() == 'true'
 
 METRICS_COLLECTOR_URL = f"http://{os.getenv('METRICS_COLLECTOR_HOST', 'metrics-collector')}:9100"
-LLM_SERVICE_URL = f"http://{os.getenv('LLM_SERVICE_HOST', 'llm-service')}:11435"  # Management API port
+LLM_SERVICE_URL = f"http://{os.getenv('LLM_SERVICE_HOST', 'llm-service')}:{os.getenv('LLM_SERVICE_MANAGEMENT_PORT', '11436')}"  # Management API port
 N8N_URL = f"http://{os.getenv('N8N_HOST', 'n8n')}:5678"
 
 # Thresholds
@@ -376,10 +376,15 @@ class SelfHealingEngine:
         """Clear LLM service cache"""
         try:
             logger.info("Clearing LLM cache")
-            # Try to gracefully clear cache via API
-            response = requests.post(f"{LLM_SERVICE_URL}/api/cache/clear", timeout=5)
-            if response.status_code == 200:
-                logger.info("LLM cache cleared successfully")
+            # Ollama does not have a cache clear endpoint, use unload API
+            # This unloads the model from memory, effectively clearing cache
+            response = requests.post(
+                f"{LLM_SERVICE_URL}/api/generate",
+                json={"model": "", "keep_alive": 0},
+                timeout=5
+            )
+            if response.status_code in [200, 404]:  # 404 is ok if no model loaded
+                logger.info("LLM cache cleared via model unload")
                 return True
         except Exception as e:
             logger.warning(f"Could not clear LLM cache via API: {e}")
@@ -398,10 +403,16 @@ class SelfHealingEngine:
         """Reset GPU session for LLM service"""
         try:
             logger.info("Resetting GPU session")
-            # Try graceful session reset
-            response = requests.post(f"{LLM_SERVICE_URL}/api/session/reset", timeout=5)
-            if response.status_code == 200:
-                logger.info("GPU session reset successfully")
+            # Ollama doesn't have a session reset endpoint
+            # Unload all models to free GPU memory
+            response = requests.post(
+                f"{LLM_SERVICE_URL}/api/generate",
+                json={"model": "", "keep_alive": 0},
+                timeout=5
+            )
+            if response.status_code in [200, 404]:
+                logger.info("GPU session reset via model unload")
+                time.sleep(2)  # Wait for GPU to fully release
                 return True
         except:
             pass
@@ -419,18 +430,29 @@ class SelfHealingEngine:
     def throttle_gpu(self) -> bool:
         """Apply GPU throttling for thermal management"""
         try:
-            logger.warning("Applying GPU throttling")
-            # Use nvidia-smi to limit GPU clocks
+            logger.warning("Applying GPU throttling for Jetson")
+            # Jetson AGX Orin uses nvpmodel for power/thermal management
+            # Try to set to lower power mode (MODE_15W or MODE_30W)
             result = subprocess.run(
-                ['nvidia-smi', '-lgc', '1000'],  # Limit GPU clock to 1000 MHz
+                ['nvpmodel', '-m', '2'],  # Mode 2 is typically 30W mode
                 capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
-                logger.info("GPU throttling applied successfully")
+                logger.info("GPU throttling applied via nvpmodel (30W mode)")
                 return True
             else:
-                logger.error(f"GPU throttling failed: {result.stderr}")
-                return False
+                logger.warning(f"nvpmodel failed, trying jetson_clocks: {result.stderr}")
+                # Fallback: disable jetson_clocks (allows dynamic frequency scaling)
+                result2 = subprocess.run(
+                    ['jetson_clocks', '--restore'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result2.returncode == 0:
+                    logger.info("GPU throttling enabled via jetson_clocks restore")
+                    return True
+                else:
+                    logger.error(f"GPU throttling failed: {result2.stderr}")
+                    return False
         except Exception as e:
             logger.error(f"Failed to apply GPU throttling: {e}")
             return False
@@ -703,31 +725,39 @@ class SelfHealingEngine:
             return False
 
     def perform_gpu_reset(self) -> bool:
-        """Reset GPU using nvidia-smi"""
-        logger.warning("Performing GPU reset")
+        """Reset GPU/Tegra system on Jetson"""
+        logger.warning("Performing GPU reset (Jetson: full Tegra restart required)")
         try:
-            result = subprocess.run(
-                ['nvidia-smi', '--gpu-reset'],
-                capture_output=True, text=True, timeout=10
-            )
+            # On Jetson, GPU is integrated in Tegra SoC - no isolated GPU reset
+            # Best we can do is restart GPU-heavy services
+            logger.info("Restarting LLM and Embedding services to reset GPU state")
 
-            if result.returncode == 0:
-                logger.info("GPU reset successful")
+            services_to_restart = ['llm-service', 'embedding-service']
+            success_count = 0
+
+            for service_name in services_to_restart:
+                try:
+                    container = self.docker_client.containers.get(service_name)
+                    container.stop(timeout=10)
+                    time.sleep(2)
+                    container.start()
+                    success_count += 1
+                    logger.info(f"Restarted {service_name} for GPU reset")
+                except Exception as e:
+                    logger.error(f"Failed to restart {service_name}: {e}")
+
+            success = success_count == len(services_to_restart)
+
+            if success:
+                logger.info("GPU reset completed via service restart")
                 time.sleep(5)  # Wait for GPU to reinitialize
-                self.record_recovery_action(
-                    'gpu_reset', None,
-                    'Critical recovery - GPU reset',
-                    True
-                )
-                return True
-            else:
-                logger.error(f"GPU reset failed: {result.stderr}")
-                self.record_recovery_action(
-                    'gpu_reset', None,
-                    'Critical recovery - GPU reset',
-                    False, None, result.stderr
-                )
-                return False
+
+            self.record_recovery_action(
+                'gpu_reset', 'llm-service,embedding-service',
+                'Critical recovery - GPU reset via service restart',
+                success
+            )
+            return success
 
         except Exception as e:
             logger.error(f"GPU reset failed: {e}")
@@ -1154,7 +1184,8 @@ class SelfHealingEngine:
             self.handle_category_b_overload(metrics)
 
             # Periodic cleanup (every 100 cycles = ~16 minutes at 10s interval)
-            if int(time.time()) % 1000 < HEALING_INTERVAL:
+            if self.check_count % 100 == 0 and self.check_count > 0:
+                logger.info("Running periodic cleanup (every 100 cycles)")
                 self.execute_query("SELECT cleanup_service_failures()")
 
         except Exception as e:
@@ -1197,30 +1228,36 @@ def main():
     )
 
     cycle_count = 0
-    while True:
-        try:
-            if ENABLED:
-                engine.run_healing_cycle()
-                cycle_count += 1
-            else:
-                logger.debug("Healing cycle skipped (disabled)")
+    try:
+        while True:
+            try:
+                if ENABLED:
+                    engine.run_healing_cycle()
+                    cycle_count += 1
+                else:
+                    logger.debug("Healing cycle skipped (disabled)")
 
-            time.sleep(HEALING_INTERVAL)
+                time.sleep(HEALING_INTERVAL)
 
-        except KeyboardInterrupt:
-            logger.info("Self-Healing Engine stopped by user")
-            engine.log_event(
-                'engine_stopped',
-                'INFO',
-                'Self-Healing Engine stopped by user',
-                f'Completed {cycle_count} healing cycles',
-                None,
-                True
-            )
-            break
-        except Exception as e:
-            logger.error(f"Unexpected error in main loop: {e}")
-            time.sleep(HEALING_INTERVAL)
+            except KeyboardInterrupt:
+                logger.info("Self-Healing Engine stopped by user")
+                engine.log_event(
+                    'engine_stopped',
+                    'INFO',
+                    'Self-Healing Engine stopped by user',
+                    f'Completed {cycle_count} healing cycles',
+                    None,
+                    True
+                )
+                break
+            except Exception as e:
+                logger.error(f"Unexpected error in main loop: {e}")
+                time.sleep(HEALING_INTERVAL)
+    finally:
+        # Always close connection pool on exit
+        logger.info("Closing connection pool...")
+        engine.close_pool()
+        logger.info("Self-Healing Engine shutdown complete")
 
 
 if __name__ == '__main__':

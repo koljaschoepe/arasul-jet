@@ -62,21 +62,36 @@ router.get('/history', async (req, res) => {
     try {
         const range = req.query.range || '24h';
 
-        // Parse range to hours
+        // Parse range to hours with whitelist validation
         let hours = 24;
-        if (range.endsWith('h')) {
-            hours = parseInt(range.replace('h', ''));
-        } else if (range.endsWith('d')) {
-            hours = parseInt(range.replace('d', '')) * 24;
+        const validRanges = {
+            '1h': 1,
+            '6h': 6,
+            '12h': 12,
+            '24h': 24,
+            '48h': 48,
+            '7d': 168,
+            '30d': 720
+        };
+
+        if (validRanges[range]) {
+            hours = validRanges[range];
+        } else {
+            return res.status(400).json({
+                error: 'Invalid range. Valid values: 1h, 6h, 12h, 24h, 48h, 7d, 30d',
+                timestamp: new Date().toISOString()
+            });
         }
 
-        // Fetch historical data
+        const intervalMinutes = Math.max(1, Math.floor(hours / 100));
+
+        // Fetch historical data with parameterized query
         const result = await db.query(`
             WITH time_series AS (
                 SELECT generate_series(
-                    NOW() - INTERVAL '${hours} hours',
+                    NOW() - INTERVAL '1 hour' * $1,
                     NOW(),
-                    INTERVAL '${Math.max(1, Math.floor(hours / 100))} minutes'
+                    INTERVAL '1 minute' * $2
                 ) AS ts
             )
             SELECT
@@ -88,7 +103,7 @@ router.get('/history', async (req, res) => {
                 (SELECT percent FROM metrics_disk WHERE timestamp <= ts ORDER BY timestamp DESC LIMIT 1) as disk_used
             FROM time_series
             ORDER BY ts ASC
-        `);
+        `, [hours, intervalMinutes]);
 
         const data = {
             range,

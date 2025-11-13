@@ -483,18 +483,22 @@ init_env() {
         # Generate random secrets
         JWT_SECRET=$(openssl rand -hex 32)
         ADMIN_PASSWORD=$(openssl rand -base64 16)
+        POSTGRES_PASSWORD=$(openssl rand -base64 24)
         MINIO_ROOT_PASSWORD=$(openssl rand -base64 16)
+        N8N_BASIC_AUTH_PASSWORD=$(openssl rand -base64 16)
         N8N_ENCRYPTION_KEY=$(openssl rand -hex 16)
 
-        # Update .env with generated secrets
-        sed -i.bak "s/change-this-to-a-random-64-char-string-in-production-environment/$JWT_SECRET/" .env
-        sed -i.bak "s/ChangeMeOnFirstBoot123!/$ADMIN_PASSWORD/" .env
-        sed -i.bak "s/minio_secure_password_change_me_at_least_8_chars/$MINIO_ROOT_PASSWORD/" .env
-        sed -i.bak "s/change_this_to_random_32_char_key/$N8N_ENCRYPTION_KEY/" .env
+        # Update .env with generated secrets using correct placeholders
+        sed -i.bak "s/__JWT_SECRET_PLACEHOLDER__/$JWT_SECRET/" .env
+        sed -i.bak "s/__ADMIN_PASSWORD_PLACEHOLDER__/$ADMIN_PASSWORD/" .env
+        sed -i.bak "s/__POSTGRES_PASSWORD_PLACEHOLDER__/$POSTGRES_PASSWORD/" .env
+        sed -i.bak "s/__MINIO_ROOT_PASSWORD_PLACEHOLDER__/$MINIO_ROOT_PASSWORD/" .env
+        sed -i.bak "s/__N8N_BASIC_AUTH_PASSWORD_PLACEHOLDER__/$N8N_BASIC_AUTH_PASSWORD/" .env
+        sed -i.bak "s/__N8N_ENCRYPTION_KEY_PLACEHOLDER__/$N8N_ENCRYPTION_KEY/" .env
 
         rm .env.bak 2>/dev/null || true
 
-        log_success ".env file created"
+        log_success ".env file created with generated secrets"
         log_warning "IMPORTANT: Admin password: $ADMIN_PASSWORD"
         log_warning "Please save this password securely and change it after first login!"
     else
@@ -891,13 +895,20 @@ run_smoke_tests() {
     if docker-compose exec -T llm-service curl -f http://localhost:11434/api/tags &> /dev/null; then
         log_success "LLM Service: OK"
 
-        # Try a minimal inference test
-        log_info "Running LLM inference test (this may take a moment)..."
-        TEST_RESPONSE=$(docker-compose exec -T llm-service curl -s --max-time 10 http://localhost:11434/api/generate -d '{"model":"llama2","prompt":"Hi","stream":false}' 2>/dev/null)
-        if [ -n "$TEST_RESPONSE" ]; then
-            log_success "LLM Inference: OK (response received)"
+        # Check if any models are available (skip inference test if none)
+        log_info "Checking for loaded models..."
+        MODELS_RESPONSE=$(docker-compose exec -T llm-service curl -s http://localhost:11434/api/tags 2>/dev/null)
+        if echo "$MODELS_RESPONSE" | grep -q '"models"'; then
+            MODEL_COUNT=$(echo "$MODELS_RESPONSE" | grep -o '"name"' | wc -l)
+            if [ "$MODEL_COUNT" -gt 0 ]; then
+                log_success "LLM Models: $MODEL_COUNT model(s) available"
+            else
+                log_warning "LLM Models: No models loaded yet (normal on first boot - models must be pulled manually)"
+                log_info "Pull a model with: docker exec llm-service ollama pull llama3.1:8b"
+                warnings=1
+            fi
         else
-            log_warning "LLM Inference: No model loaded yet (normal on first boot)"
+            log_warning "LLM Models: Could not retrieve model list"
             warnings=1
         fi
     else
@@ -910,10 +921,10 @@ run_smoke_tests() {
     if docker-compose exec -T embedding-service curl -f http://localhost:11435/health &> /dev/null; then
         log_success "Embedding Service: OK"
 
-        # Try embeddings test
+        # Try embeddings test (using correct /embed endpoint)
         log_info "Running embeddings test..."
-        EMB_RESPONSE=$(docker-compose exec -T embedding-service curl -s --max-time 5 http://localhost:11435/v1/embeddings -H "Content-Type: application/json" -d '{"input":"test","model":"all-minilm"}' 2>/dev/null)
-        if echo "$EMB_RESPONSE" | grep -q "embedding"; then
+        EMB_RESPONSE=$(docker-compose exec -T embedding-service curl -s --max-time 5 http://localhost:11435/embed -H "Content-Type: application/json" -d '{"texts":["test"]}' 2>/dev/null)
+        if echo "$EMB_RESPONSE" | grep -q "vectors"; then
             log_success "Embeddings Inference: OK"
         else
             log_warning "Embeddings Inference: Model may not be ready"

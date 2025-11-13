@@ -34,7 +34,7 @@ HEALTHCHECK --interval=10s --timeout=1s --retries=3 \
     CMD test -f /usr/share/nginx/html/index.html || exit 1
 
 # Expose port
-EXPOSE 80
+EXPOSE 3000
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

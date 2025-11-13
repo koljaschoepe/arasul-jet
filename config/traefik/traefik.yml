@@ -11,11 +11,15 @@ api:
   dashboard: true
   insecure: false  # Dashboard only via authenticated route
 
+# Ping endpoint for health checks
+ping:
+  entryPoint: traefik
+
 # Entrypoints
 entryPoints:
   web:
     address: ":80"
-    # HTTP to HTTPS redirect (when TLS enabled)
+    # HTTP to HTTPS redirect (enabled - works with both self-signed and Let's Encrypt)
     http:
       redirections:
         entryPoint:

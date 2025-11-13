@@ -328,11 +328,12 @@ def info():
         "version": "1.0.0",
         "ollama_url": OLLAMA_BASE_URL,
         "default_model": DEFAULT_MODEL,
-        "api_port": 11435
+        "api_port": 11436
     }), 200
 
 
 if __name__ == '__main__':
-    logger.info("Starting LLM Management API on port 11435...")
-    # Run on port 11435 (not 11434, that's Ollama itself)
-    app.run(host='0.0.0.0', port=11435, debug=False)
+    logger.info("Starting LLM Management API on port 11436...")
+    # Run on port 11436 (not 11434, that's Ollama itself)
+    # Note: Port 11435 is used by embedding-service
+    app.run(host='0.0.0.0', port=11436, debug=False)

@@ -22,12 +22,6 @@ const poolConfig = {
     idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT || '30000'),
     connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT || '10000'),
 
-    // Statement timeout (30 seconds)
-    statement_timeout: parseInt(process.env.POSTGRES_STATEMENT_TIMEOUT || '30000'),
-
-    // Query timeout (45 seconds)
-    query_timeout: parseInt(process.env.POSTGRES_QUERY_TIMEOUT || '45000'),
-
     // Application name for PostgreSQL monitoring
     application_name: 'arasul-dashboard-backend',
 
@@ -54,9 +48,10 @@ pool.on('connect', (client) => {
     poolStats.totalConnections++;
     logger.debug(`New database connection established (total: ${poolStats.totalConnections})`);
 
-    // Set client encoding and timezone
+    // Set client encoding, timezone, and statement timeout
     client.query('SET client_encoding TO UTF8');
     client.query('SET timezone TO UTC');
+    client.query(`SET statement_timeout = ${process.env.POSTGRES_STATEMENT_TIMEOUT || '30000'}`);
 });
 
 // Event: Connection error

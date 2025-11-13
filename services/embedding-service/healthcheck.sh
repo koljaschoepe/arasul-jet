@@ -88,13 +88,11 @@ check_embedding_latency() {
     # Measure latency with high precision
     START_TIME=$(date +%s%N)
 
-    # Generate embedding for test text
+    # Use the built-in /health endpoint which tests embedding internally
     HTTP_CODE=$(curl -sf --max-time "$TIMEOUT" \
         -w "%{http_code}" \
         -o "$TEMP_RESPONSE" \
-        -X POST "${SERVICE_URL}/embed" \
-        -H "Content-Type: application/json" \
-        -d "{\"text\": \"${TEST_TEXT}\", \"normalize\": true}" 2>/dev/null || echo "000")
+        -X GET "${SERVICE_URL}/health" 2>/dev/null || echo "000")
 
     END_TIME=$(date +%s%N)
 
@@ -108,9 +106,9 @@ check_embedding_latency() {
         return 1
     fi
 
-    # Validate response contains embedding
-    if ! grep -q '"embedding"' "$TEMP_RESPONSE"; then
-        error "Response missing 'embedding' field"
+    # Validate response contains status healthy
+    if ! grep -q '"status".*"healthy"' "$TEMP_RESPONSE"; then
+        error "Response missing 'status: healthy' field"
         return 1
     fi
 

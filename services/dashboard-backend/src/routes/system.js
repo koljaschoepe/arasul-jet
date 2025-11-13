@@ -9,6 +9,7 @@ const db = require('../database');
 const dockerService = require('../services/docker');
 const logger = require('../utils/logger');
 const os = require('os');
+const axios = require('axios');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 
@@ -144,7 +145,6 @@ router.get('/network', async (req, res) => {
         // Check if n8n webhook is reachable
         let n8nWebhookReachable = false;
         try {
-            const axios = require('axios');
             await axios.get(`http://${process.env.N8N_HOST}:${process.env.N8N_PORT}/healthz`, { timeout: 2000 });
             n8nWebhookReachable = true;
         } catch (e) {

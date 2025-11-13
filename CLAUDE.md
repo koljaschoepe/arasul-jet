@@ -97,11 +97,11 @@ All services run as Docker containers on network `arasul-net` (172.30.0.0/24):
 3. Metrics Collector
 4. LLM Service
 5. Embedding Service
-6. Reverse Proxy
-7. Dashboard Backend
-8. Dashboard Frontend
-9. n8n
-10. Self-Healing Engine (starts last)
+6. Reverse Proxy (depends on 1-5, not on dashboards)
+7. Dashboard Backend (depends on 6 + core services)
+8. Dashboard Frontend (depends on 6, not on backend)
+9. n8n (depends on core services)
+10. Self-Healing Engine (starts last, depends on all)
 
 ## Development Commands
 
