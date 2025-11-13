@@ -2,12 +2,15 @@ FROM node:18-alpine
 
 LABEL maintainer="Arasul Platform"
 LABEL description="Dashboard Backend API"
+LABEL org.opencontainers.image.architecture="arm64"
 
 WORKDIR /app
 
+# Install dependencies (including dev dependencies for tests in CI)
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
+# Copy source code
 COPY src/ ./src/
 
 EXPOSE 3001

@@ -2,6 +2,7 @@ FROM python:3.11-slim
 
 LABEL maintainer="Arasul Platform"
 LABEL description="Metrics Collector - System telemetry collection service"
+LABEL org.opencontainers.image.architecture="arm64"
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

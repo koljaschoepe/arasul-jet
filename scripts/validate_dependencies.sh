@@ -8,7 +8,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-COMPOSE_FILE="$PROJECT_ROOT/docker compose.yml"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 
 # Colors
 RED='\033[0;31m'
@@ -46,7 +46,7 @@ echo "================================================================"
 echo ""
 
 if [ ! -f "$COMPOSE_FILE" ]; then
-    log_error "docker compose.yml not found at $COMPOSE_FILE"
+    log_error "docker-compose.yml not found at $COMPOSE_FILE"
     exit 1
 fi
 
@@ -54,18 +54,23 @@ log_info "Validating: $COMPOSE_FILE"
 echo ""
 
 # Check if docker compose is installed
-if ! command -v docker compose &> /dev/null; then
-    log_error "docker compose is not installed"
+if ! command -v docker &> /dev/null; then
+    log_error "docker is not installed"
     exit 1
 fi
 
-# Validate docker compose.yml syntax
-log_info "Checking docker compose.yml syntax..."
+if ! docker compose version &> /dev/null; then
+    log_error "docker compose plugin is not installed"
+    exit 1
+fi
+
+# Validate docker-compose.yml syntax
+log_info "Checking docker-compose.yml syntax..."
 if docker compose -f "$COMPOSE_FILE" config > /dev/null 2>&1; then
-    log_success "docker compose.yml syntax is valid"
+    log_success "docker-compose.yml syntax is valid"
     CHECKS=$((CHECKS + 1))
 else
-    log_error "docker compose.yml has syntax errors"
+    log_error "docker-compose.yml has syntax errors"
     docker compose -f "$COMPOSE_FILE" config
     exit 1
 fi

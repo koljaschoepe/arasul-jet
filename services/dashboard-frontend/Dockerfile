@@ -1,5 +1,7 @@
 FROM node:20-alpine AS builder
 
+LABEL org.opencontainers.image.architecture="arm64"
+
 WORKDIR /app
 
 # Copy package files
@@ -19,6 +21,7 @@ FROM nginx:alpine
 
 LABEL maintainer="Arasul Platform"
 LABEL description="Dashboard Frontend - Single Page Application"
+LABEL org.opencontainers.image.architecture="arm64"
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
