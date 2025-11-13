@@ -2,7 +2,7 @@
  * Unit tests for password utility functions
  */
 
-const { hashPassword, verifyPassword, validatePasswordStrength } = require('../../src/utils/password');
+const { hashPassword, verifyPassword, validatePasswordComplexity } = require('../../src/utils/password');
 
 describe('Password Utilities', () => {
   describe('hashPassword', () => {
@@ -43,44 +43,44 @@ describe('Password Utilities', () => {
     });
   });
 
-  describe('validatePasswordStrength', () => {
+  describe('validatePasswordComplexity', () => {
     test('should accept strong password', () => {
-      const result = validatePasswordStrength('StrongPass123!@#');
+      const result = validatePasswordComplexity('StrongPass123!@#');
 
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
     test('should reject password too short', () => {
-      const result = validatePasswordStrength('Short1!');
+      const result = validatePasswordComplexity('Short1!');
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Password must be at least 12 characters');
     });
 
     test('should reject password without uppercase', () => {
-      const result = validatePasswordStrength('lowercase123!');
+      const result = validatePasswordComplexity('lowercase123!');
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Password must contain at least one uppercase letter');
     });
 
     test('should reject password without lowercase', () => {
-      const result = validatePasswordStrength('UPPERCASE123!');
+      const result = validatePasswordComplexity('UPPERCASE123!');
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Password must contain at least one lowercase letter');
     });
 
     test('should reject password without numbers', () => {
-      const result = validatePasswordStrength('NoNumbers!@#');
+      const result = validatePasswordComplexity('NoNumbers!@#');
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Password must contain at least one number');
     });
 
     test('should reject password without special characters', () => {
-      const result = validatePasswordStrength('NoSpecialChars123');
+      const result = validatePasswordComplexity('NoSpecialChars123');
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Password must contain at least one special character');

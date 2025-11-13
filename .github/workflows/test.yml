@@ -206,9 +206,9 @@ jobs:
       - name: Start Docker Compose services (improved)
         run: |
           # Create minimal .env for testing
-          cat > .env << EOF
+          cat > .env << 'EOF'
           POSTGRES_PASSWORD=test_password
-          ADMIN_HASH=\$2b\$10\$abcdefghijklmnopqrstuvwxyz123456
+          ADMIN_HASH=$2b$10$abcdefghijklmnopqrstuvwxyz123456
           MINIO_ACCESS_KEY=minioadmin
           MINIO_SECRET_KEY=minioadmin123
           JWT_SECRET=test_jwt_secret_for_ci

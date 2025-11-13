@@ -471,7 +471,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    privileged: true
     logging:
       driver: json-file
       options:
