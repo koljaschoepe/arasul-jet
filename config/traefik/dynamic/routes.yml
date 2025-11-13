@@ -10,6 +10,7 @@ http:
       priority: 1
       middlewares:
         - security-headers
+        - rate-limit-api
         - compress
       entryPoints:
         - websecure
@@ -65,6 +66,7 @@ http:
       middlewares:
         - strip-minio-prefix
         - security-headers
+        - rate-limit-api
       entryPoints:
         - websecure
       tls:
@@ -79,6 +81,7 @@ http:
         - strip-minio-api-prefix
         - security-headers
         - cors-headers
+        - rate-limit-api
       entryPoints:
         - websecure
       tls:
@@ -118,7 +121,9 @@ http:
       service: n8n-service
       priority: 20
       middlewares:
+        - basicAuth-n8n
         - security-headers
+        - rate-limit-api
       entryPoints:
         - websecure
       tls:
@@ -132,6 +137,20 @@ http:
       middlewares:
         - rate-limit-n8n
         - security-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Traefik Dashboard (secured with Basic Auth)
+    traefik-dashboard:
+      rule: "Host(`arasul.local`) && (PathPrefix(`/api/traefik`) || PathPrefix(`/dashboard`))"
+      service: api@internal
+      priority: 35
+      middlewares:
+        - basicAuth-traefik
+        - security-headers
+        - rate-limit-auth
       entryPoints:
         - websecure
       tls:

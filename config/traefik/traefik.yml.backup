@@ -46,7 +46,7 @@ certificatesResolvers:
       # Use staging for testing
       # caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
       # httpChallenge: # Disabled for self-signed cert
-        # entryPoint: web # Disabled for self-signed cert
+        entryPoint: web
 
 # Providers
 providers:

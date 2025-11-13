@@ -621,6 +621,44 @@ generate_secrets() {
     log_success "All secrets generated successfully"
 }
 
+# Setup HTTPS/TLS certificates
+setup_https() {
+    log_info "Configuring HTTPS/TLS..."
+
+    # Check if internet is available for Let's Encrypt
+    if curl -s --max-time 5 https://acme-v02.api.letsencrypt.org/directory > /dev/null 2>&1; then
+        log_success "Internet detected - Let's Encrypt will be used"
+        log_info "Certificates will be automatically generated on first start"
+        log_info "ACME challenge will use HTTP-01 via port 80"
+
+        # Ensure letsencrypt directory exists
+        mkdir -p letsencrypt
+        chmod 755 letsencrypt
+
+        # Create acme.json with correct permissions
+        touch letsencrypt/acme.json
+        chmod 600 letsencrypt/acme.json
+
+        log_success "Let's Encrypt setup complete"
+    else
+        log_warning "No internet connection detected"
+        log_info "Generating self-signed certificate for offline use..."
+
+        # Run self-signed certificate generation script
+        if [ -f "scripts/generate_self_signed_cert.sh" ]; then
+            bash scripts/generate_self_signed_cert.sh "./config/traefik/certs" "arasul.local" "3650"
+
+            log_success "Self-signed certificate generated"
+            log_warning "Browser will show security warning (this is normal for self-signed certificates)"
+        else
+            log_error "Certificate generation script not found: scripts/generate_self_signed_cert.sh"
+            log_warning "HTTPS will not be available - falling back to HTTP only"
+        fi
+    fi
+
+    log_success "HTTPS/TLS configuration complete"
+}
+
 # Initialize admin user with bcrypt hash
 init_admin_user() {
     log_info "Creating admin user..."
@@ -903,6 +941,9 @@ cmd_bootstrap() {
 
     # Generate secrets
     generate_secrets
+
+    # Setup HTTPS/TLS
+    setup_https
 
     pull_images
     build_images

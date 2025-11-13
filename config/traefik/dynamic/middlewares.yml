@@ -26,11 +26,11 @@ http:
         period: 1s
         burst: 10
 
-    # Auth endpoints: 5 requests/minute (prevent brute force)
+    # Auth endpoints: 5 requests/15 minutes (prevent brute force)
     rate-limit-auth:
       rateLimit:
         average: 5
-        period: 1m
+        period: 15m
         burst: 2
 
     # General API: 100 requests/second
@@ -151,3 +151,23 @@ http:
         regex: "^(https?://[^/]+/[a-z0-9_]+)$"
         replacement: "${1}/"
         permanent: true
+
+    # Basic Auth for Traefik Dashboard
+    # Default credentials: admin / arasul123 (change in production!)
+    # Generated with: htpasswd -nb admin arasul123
+    basicAuth-traefik:
+      basicAuth:
+        users:
+          - "admin:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/"  # admin:arasul123
+        realm: "Traefik Dashboard"
+        removeHeader: true
+
+    # Basic Auth for n8n
+    # Default credentials: admin / arasul123 (change in production!)
+    # Generated with: scripts/generate_htpasswd.sh admin arasul123
+    basicAuth-n8n:
+      basicAuth:
+        users:
+          - "admin:$$2y$$05$$8/O2kAXWJKaWJz71NIAaHO41AuS1fJIsJxvh5wyc0tNYntcu7rt9y"
+        realm: "n8n Workflow Engine"
+        removeHeader: true
