@@ -203,7 +203,7 @@ jobs:
       - name: Install Newman
         run: npm install -g newman newman-reporter-htmlextra
 
-      - name: Start Docker Compose services
+      - name: Start Docker Compose services (improved)
         run: |
           # Create minimal .env for testing
           cat > .env << EOF
@@ -214,21 +214,46 @@ jobs:
           JWT_SECRET=test_jwt_secret_for_ci
           EOF
 
-          # Start only required services for API tests
-          docker-compose up -d postgres-db metrics-collector dashboard-backend
+          # Start required services (explicitly specify compose file)
+          docker compose -f docker-compose.yml up -d postgres-db metrics-collector dashboard-backend || \
+            (docker compose -f docker-compose.yml ps; docker compose -f docker-compose.yml config; exit 1)
 
-          # Wait for services to be ready
-          sleep 30
+          # Wait for dashboard-backend to become responsive
+          echo "Waiting for dashboard-backend to become responsive on http://localhost:3001..."
+          for i in $(seq 1 40); do
+            if curl -sS -f http://localhost:3001/api/health >/dev/null 2>&1; then
+              echo "dashboard-backend is responsive"
+              break
+            fi
+            echo "Waiting... ($i/40)"
+            sleep 5
+          done
 
-      - name: Run API tests
+          # If not ready after timeout, print diagnostics
+          if ! curl -sS -f http://localhost:3001/api/health >/dev/null 2>&1; then
+            echo "ERROR: dashboard-backend did not become healthy. Container statuses:"
+            docker compose -f docker-compose.yml ps
+            echo "Recent logs:"
+            docker compose -f docker-compose.yml logs --tail 200
+            exit 1
+          fi
+
+      - name: Run API tests (newman)
         env:
           ADMIN_PASSWORD: test_password
         run: |
+          set -o pipefail
           newman run tests/api/arasul-api.postman_collection.json \
             --reporters cli,htmlextra \
             --reporter-htmlextra-export newman-report.html \
             --env-var "base_url=http://localhost:3001/api" \
-            --env-var "admin_password=test_password"
+            --env-var "admin_password=test_password" 2>&1 | tee newman-run.log
+
+          if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+            echo "Newman tests failed. Showing last 200 lines of newman log:"
+            tail -n 200 newman-run.log
+            exit 1
+          fi
 
       - name: Upload Newman report
         if: always()
@@ -239,7 +264,7 @@ jobs:
 
       - name: Stop Docker Compose
         if: always()
-        run: docker compose down
+        run: docker compose -f docker-compose.yml down
 
   # Docker Build Tests
   docker-build-tests:
@@ -253,23 +278,39 @@ jobs:
           - dashboard-frontend
           - metrics-collector
           - self-healing-agent
+      fail-fast: false
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug service files
+        run: |
+          echo "Matrix service: ${{ matrix.service }}"
+          echo "Listing service directory:"
+          ls -la ./services/${{ matrix.service }} || true
+
+      - name: Ensure Dockerfile exists
+        run: |
+          if [ ! -f ./services/${{ matrix.service }}/Dockerfile ]; then
+            echo "ERROR: Dockerfile missing for service '${{ matrix.service }}'"
+            echo "Directory contents:"
+            ls -la ./services/${{ matrix.service }}
+            exit 1
+          fi
+          echo "Dockerfile found for ${{ matrix.service }}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/${{ matrix.service }}
-          file: ./services/${{ matrix.service }}/Dockerfile
-          push: false
-          tags: arasul/${{ matrix.service }}:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build Docker image (with detailed output)
+        run: |
+          docker build \
+            --progress=plain \
+            -f ./services/${{ matrix.service }}/Dockerfile \
+            -t arasul/${{ matrix.service }}:test \
+            ./services/${{ matrix.service }} || \
+            (echo "Docker build failed for ${{ matrix.service }}"; exit 1)
 
   # Dependency Validation
   dependency-validation:
@@ -284,14 +325,28 @@ jobs:
         run: |
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
+          yq --version
 
-      - name: Validate docker-compose.yml
+      - name: Validate docker-compose.yml and dependencies
         run: |
-          # Validate YAML syntax
-          docker compose config > /dev/null
+          # Print compose file for quick inspection (first 200 lines)
+          echo "docker-compose.yml contents (first 200 lines):"
+          sed -n '1,200p' docker-compose.yml || true
 
-          # Run dependency validation script
-          bash scripts/validate_dependencies.sh
+          # Validate YAML syntax and show config if there's a problem
+          docker compose -f docker-compose.yml config > /dev/null || \
+            (echo "docker compose config failed"; docker compose -f docker-compose.yml config --verbose || true; exit 1)
+
+          # Ensure dependency script is executable and run with tracing
+          if [ -f scripts/validate_dependencies.sh ]; then
+            chmod +x scripts/validate_dependencies.sh
+            echo "Running dependency validation script..."
+            bash -x scripts/validate_dependencies.sh
+          else
+            echo "ERROR: scripts/validate_dependencies.sh not found"
+            ls -la scripts || true
+            exit 1
+          fi
 
   # Security Scanning
   security-scan:
