@@ -29,8 +29,8 @@ BEGIN
             true
         );
 
-        RAISE NOTICE 'Migration 003: Added total column to metrics_disk';
+        RAISE NOTICE 'Migration 005: Added total column to metrics_disk';
     ELSE
-        RAISE NOTICE 'Migration 003: total column already exists, skipping';
+        RAISE NOTICE 'Migration 005: total column already exists, skipping';
     END IF;
 END $$;

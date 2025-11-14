@@ -13,6 +13,9 @@
 !/data/*/.gitkeep
 /logs/*
 !/logs/.gitkeep
+!/logs/*/
+/logs/*/*
+!/logs/*/.gitkeep
 /cache/
 /updates/
 
