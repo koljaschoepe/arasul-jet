@@ -176,8 +176,8 @@ router.post('/reload-config', async (req, res) => {
         // Reload environment variables (if changed)
         // Note: This only works for non-critical config that doesn't require restart
 
-        // Clear require cache for configuration modules
-        delete require.cache[require.resolve('../config')];
+        // BUG-007 FIX: Removed reference to non-existent '../config' file
+        // Configuration is now loaded via process.env and .env file
 
         // Reload rate limit configuration
         try {

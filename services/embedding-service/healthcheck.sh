@@ -2,7 +2,11 @@
 # Embedding Service Comprehensive Health Check
 # Validates service availability, model loaded, and embedding latency (<50ms requirement)
 
-set -e
+# HIGH-010 FIX: Remove 'set -e' to allow all checks to run even if one fails
+# set -e  # REMOVED - we want to run all checks and report properly
+
+# Enable error tracing and proper exit codes
+set -o pipefail
 
 # Configuration
 TIMEOUT=3
@@ -81,14 +85,17 @@ check_model_info() {
 check_embedding_latency() {
     log "Testing embedding generation latency..."
 
-    # Create temporary file for response
-    TEMP_RESPONSE=$(mktemp)
-    trap "rm -f $TEMP_RESPONSE" EXIT
+    # HIGH-010 FIX: Create temporary file with better cleanup handling
+    TEMP_RESPONSE=$(mktemp) || {
+        error "Failed to create temporary file"
+        return 1
+    }
+    trap "rm -f $TEMP_RESPONSE" EXIT ERR INT TERM
 
     # Measure latency with high precision
     START_TIME=$(date +%s%N)
 
-    # Use the built-in /health endpoint which tests embedding internally
+    # HIGH-010 FIX: Use the built-in /health endpoint with explicit error handling
     HTTP_CODE=$(curl -sf --max-time "$TIMEOUT" \
         -w "%{http_code}" \
         -o "$TEMP_RESPONSE" \
@@ -128,11 +135,11 @@ check_embedding_latency() {
 check_vector_dimension() {
     log "Validating vector dimensions..."
 
-    # Generate embedding
+    # HIGH-010 FIX: Generate embedding with timeout and error handling
     EMBED_RESPONSE=$(curl -sf --max-time "$TIMEOUT" \
         -X POST "${SERVICE_URL}/embed" \
         -H "Content-Type: application/json" \
-        -d "{\"text\": \"${TEST_TEXT}\", \"normalize\": true}" 2>/dev/null)
+        -d "{\"text\": \"${TEST_TEXT}\", \"normalize\": true}" 2>/dev/null || echo "")
 
     if [ -z "$EMBED_RESPONSE" ]; then
         error "Failed to generate embedding for validation"
@@ -167,13 +174,14 @@ check_gpu_availability() {
         return 0
     fi
 
+    # HIGH-010 FIX: Add timeout to nvidia-smi commands to prevent hanging
     # Check GPU accessibility
-    if ! nvidia-smi -L > /dev/null 2>&1; then
-        warning "GPU not accessible, service may be running on CPU"
+    if ! timeout 5 nvidia-smi -L > /dev/null 2>&1; then
+        warning "GPU not accessible or nvidia-smi timed out, service may be running on CPU"
         return 0  # Not critical - service can run on CPU
     fi
 
-    GPU_COUNT=$(nvidia-smi -L | wc -l)
+    GPU_COUNT=$(timeout 5 nvidia-smi -L 2>/dev/null | wc -l)
     success "GPU available (${GPU_COUNT} GPU(s))"
     return 0
 }
@@ -182,9 +190,12 @@ check_gpu_availability() {
 check_concurrent_throughput() {
     log "Testing concurrent request handling..."
 
-    # Create temp directory for parallel requests
-    TEMP_DIR=$(mktemp -d)
-    trap "rm -rf $TEMP_DIR" EXIT
+    # HIGH-010 FIX: Create temp directory with better cleanup handling
+    TEMP_DIR=$(mktemp -d) || {
+        error "Failed to create temporary directory"
+        return 1
+    }
+    trap "rm -rf $TEMP_DIR" EXIT ERR INT TERM
 
     # Run 5 concurrent requests
     CONCURRENT_REQUESTS=5
@@ -233,52 +244,67 @@ main() {
     CRITICAL_CHECKS_PASSED=0
     CRITICAL_CHECKS_TOTAL=3  # Checks 1, 2, 3 are critical
 
+    # HIGH-010 FIX: Run all checks with explicit error handling
     # Critical checks
     if check_health_endpoint; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
         CRITICAL_CHECKS_PASSED=$((CRITICAL_CHECKS_PASSED + 1))
+    else
+        log "Health endpoint check failed (CRITICAL)"
     fi
 
     if check_model_info; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
         CRITICAL_CHECKS_PASSED=$((CRITICAL_CHECKS_PASSED + 1))
+    else
+        log "Model info check failed (CRITICAL)"
     fi
 
     if check_embedding_latency; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
         CRITICAL_CHECKS_PASSED=$((CRITICAL_CHECKS_PASSED + 1))
+    else
+        log "Embedding latency check failed (CRITICAL)"
     fi
 
     # Non-critical checks
     if check_vector_dimension; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        log "Vector dimension check failed (non-critical)"
     fi
 
     if check_gpu_availability; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        log "GPU availability check failed (non-critical)"
     fi
 
     if check_concurrent_throughput; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        log "Concurrent throughput check failed (non-critical)"
     fi
 
     # Final verdict
     log "=== Health Check Complete: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed ==="
 
+    # HIGH-010 FIX: Explicit exit codes for Docker health checks
+    # exit 0 = healthy, exit 1 = unhealthy
     # Critical checks must all pass
     if [ "$CRITICAL_CHECKS_PASSED" -ne "$CRITICAL_CHECKS_TOTAL" ]; then
-        error "Critical checks failed: Only ${CRITICAL_CHECKS_PASSED}/${CRITICAL_CHECKS_TOTAL} critical checks passed"
+        error "Critical checks failed: Only ${CRITICAL_CHECKS_PASSED}/${CRITICAL_CHECKS_TOTAL} critical checks passed - Service is UNHEALTHY"
         exit 1
     fi
 
     if [ "$CHECKS_PASSED" -eq "$CHECKS_TOTAL" ]; then
-        success "All health checks passed"
+        success "All health checks passed - Service is HEALTHY"
         exit 0
     elif [ "$CHECKS_PASSED" -ge 4 ]; then
-        warning "Service degraded: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed (critical checks OK)"
+        warning "Service degraded: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed (critical checks OK) - Service is DEGRADED but functional"
         exit 0  # Still return success if critical checks passed
     else
-        error "Service unhealthy: Only ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed"
+        error "Service unhealthy: Only ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed - Service is UNHEALTHY"
         exit 1
     fi
 }

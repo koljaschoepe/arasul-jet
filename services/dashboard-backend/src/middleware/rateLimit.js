@@ -114,12 +114,17 @@ const webhookLimiter = rateLimit({
 });
 
 /**
+ * BUG-003 FIX: Global store for user rate limiters with automatic cleanup
+ */
+const userRateLimitStore = new Map();
+const USER_TIMEOUT = 60 * 60 * 1000; // 1 hour - remove user data if no activity
+
+/**
  * Custom rate limiter based on user account
  * Used for authenticated endpoints
+ * BUG-003 FIX: Implemented proper cleanup to prevent memory leak
  */
 function createUserRateLimiter(maxRequests, windowMs) {
-    const store = new Map();
-
     return async (req, res, next) => {
         if (!req.user) {
             return next();
@@ -129,16 +134,17 @@ function createUserRateLimiter(maxRequests, windowMs) {
         const now = Date.now();
         const windowStart = now - windowMs;
 
-        // Get or create user's request log
-        if (!store.has(userId)) {
-            store.set(userId, []);
+        // Get or create user's request log with last activity timestamp
+        if (!userRateLimitStore.has(userId)) {
+            userRateLimitStore.set(userId, { requests: [], lastUsed: now });
         }
 
-        const requests = store.get(userId);
+        const userData = userRateLimitStore.get(userId);
+        userData.lastUsed = now;
 
         // Remove old requests outside window
-        const recentRequests = requests.filter(timestamp => timestamp > windowStart);
-        store.set(userId, recentRequests);
+        const recentRequests = userData.requests.filter(timestamp => timestamp > windowStart);
+        userData.requests = recentRequests;
 
         // Check if limit exceeded
         if (recentRequests.length >= maxRequests) {
@@ -151,17 +157,30 @@ function createUserRateLimiter(maxRequests, windowMs) {
 
         // Add current request
         recentRequests.push(now);
-        store.set(userId, recentRequests);
 
         next();
     };
 }
 
 /**
- * Cleanup old rate limit data periodically
+ * BUG-003 FIX: Cleanup old rate limit data periodically to prevent memory leak
  */
 setInterval(() => {
-    logger.debug('Rate limit cleanup (no-op for express-rate-limit)');
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    for (const [userId, userData] of userRateLimitStore.entries()) {
+        // Remove users with no activity in the last hour
+        if (now - userData.lastUsed > USER_TIMEOUT) {
+            userRateLimitStore.delete(userId);
+            cleanedCount++;
+        }
+    }
+
+    if (cleanedCount > 0) {
+        logger.info(`Rate limit cleanup: removed ${cleanedCount} inactive user entries`);
+    }
+    logger.debug(`Rate limit store size: ${userRateLimitStore.size} users`);
 }, 60 * 60 * 1000); // Every hour
 
 module.exports = {

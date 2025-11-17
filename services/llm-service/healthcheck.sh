@@ -2,7 +2,11 @@
 # LLM Service Comprehensive Health Check
 # Validates GPU availability, model loaded status, and minimal prompt response time
 
-set -e
+# HIGH-010 FIX: Remove 'set -e' to allow all checks to run even if one fails
+# set -e  # REMOVED - we want to run all checks and report properly
+
+# Enable error tracing and proper exit codes
+set -o pipefail
 
 # Configuration
 TIMEOUT=5
@@ -58,22 +62,30 @@ check_gpu_availability() {
         return 0
     fi
 
+    # HIGH-010 FIX: Add timeout to nvidia-smi commands to prevent hanging
     # Check if GPU is accessible
-    if ! nvidia-smi -L > /dev/null 2>&1; then
-        error "GPU is not accessible"
+    if ! timeout 5 nvidia-smi -L > /dev/null 2>&1; then
+        error "GPU is not accessible or nvidia-smi timed out"
         return 1
     fi
 
     # Get GPU count
-    GPU_COUNT=$(nvidia-smi -L | wc -l)
+    GPU_COUNT=$(timeout 5 nvidia-smi -L 2>/dev/null | wc -l)
     if [ "$GPU_COUNT" -eq 0 ]; then
         error "No GPUs detected"
         return 1
     fi
 
-    # Check GPU memory usage
-    GPU_MEM_USED=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1)
-    GPU_MEM_TOTAL=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1)
+    # Check GPU memory usage with timeout
+    GPU_MEM_USED=$(timeout 5 nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1)
+    GPU_MEM_TOTAL=$(timeout 5 nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)
+
+    # HIGH-010 FIX: Validate that we got numeric values
+    if ! [[ "$GPU_MEM_USED" =~ ^[0-9]+$ ]] || ! [[ "$GPU_MEM_TOTAL" =~ ^[0-9]+$ ]]; then
+        error "Failed to retrieve GPU memory information"
+        return 1
+    fi
+
     GPU_MEM_PERCENT=$((GPU_MEM_USED * 100 / GPU_MEM_TOTAL))
 
     if [ "$GPU_MEM_PERCENT" -ge 95 ]; then
@@ -127,14 +139,17 @@ check_model_loaded() {
 check_prompt_response() {
     log "Testing minimal prompt response..."
 
-    # Create temporary file for response
-    TEMP_RESPONSE=$(mktemp)
-    trap "rm -f $TEMP_RESPONSE" EXIT
+    # HIGH-010 FIX: Create temporary file with better cleanup handling
+    TEMP_RESPONSE=$(mktemp) || {
+        error "Failed to create temporary file"
+        return 1
+    }
+    trap "rm -f $TEMP_RESPONSE" EXIT ERR INT TERM
 
     # Measure response time
     START_TIME=$(date +%s%N)
 
-    # Send minimal prompt
+    # HIGH-010 FIX: Send minimal prompt with explicit error handling
     HTTP_CODE=$(curl -sf --max-time "$TIMEOUT" \
         -w "%{http_code}" \
         -o "$TEMP_RESPONSE" \
@@ -148,7 +163,7 @@ check_prompt_response() {
                 \"num_predict\": 10,
                 \"temperature\": 0.1
             }
-        }" 2>/dev/null)
+        }" 2>/dev/null || echo "000")
 
     END_TIME=$(date +%s%N)
 
@@ -195,14 +210,14 @@ check_gpu_errors() {
         LOG_FILE="/tmp/ollama.log"
     fi
 
-    # Check last 100 lines for CUDA errors
-    if tail -100 "$LOG_FILE" 2>/dev/null | grep -iq "CUDA error\|out of memory\|GPU error"; then
+    # HIGH-010 FIX: Check last 100 lines for CUDA errors with proper error handling
+    if ! tail -100 "$LOG_FILE" 2>/dev/null | grep -iq "CUDA error\|out of memory\|GPU error"; then
+        success "No recent GPU errors detected"
+        return 0
+    else
         error "Recent GPU errors detected in logs"
         return 1
     fi
-
-    success "No recent GPU errors detected"
-    return 0
 }
 
 # Main health check execution
@@ -212,38 +227,51 @@ main() {
     CHECKS_PASSED=0
     CHECKS_TOTAL=5
 
-    # Run all checks
+    # HIGH-010 FIX: Run all checks with explicit error handling
+    # Each check returns 0 (success) or 1 (failure) without stopping execution
     if check_api_availability; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        log "API availability check failed"
     fi
 
     if check_gpu_availability; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        log "GPU availability check failed"
     fi
 
     if check_model_loaded; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        log "Model loaded check failed"
     fi
 
     if check_prompt_response; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        log "Prompt response check failed"
     fi
 
     if check_gpu_errors; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        log "GPU errors check failed"
     fi
 
     # Final verdict
     log "=== Health Check Complete: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed ==="
 
+    # HIGH-010 FIX: Explicit exit codes for Docker health checks
+    # exit 0 = healthy, exit 1 = unhealthy
     if [ "$CHECKS_PASSED" -eq "$CHECKS_TOTAL" ]; then
-        success "All health checks passed"
+        success "All health checks passed - Service is HEALTHY"
         exit 0
     elif [ "$CHECKS_PASSED" -ge 3 ]; then
-        warning "Service degraded: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed"
+        warning "Service degraded: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed - Service is DEGRADED but functional"
         exit 0  # Still return success for degraded state
     else
-        error "Service unhealthy: Only ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed"
+        error "Service unhealthy: Only ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed - Service is UNHEALTHY"
         exit 1
     fi
 }

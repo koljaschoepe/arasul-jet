@@ -8,7 +8,15 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../database');
 const logger = require('./logger');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
+// SEC-006 FIX: Require JWT_SECRET to be set, no default fallback
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    logger.error('FATAL: JWT_SECRET environment variable is not set');
+    logger.error('The application cannot start without a secure JWT secret');
+    logger.error('Set JWT_SECRET in /arasul/config/.env to a strong random value');
+    process.exit(1);
+}
+
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
 
 /**

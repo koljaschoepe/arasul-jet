@@ -8,11 +8,14 @@ const router = express.Router();
 const db = require('../database');
 const logger = require('../utils/logger');
 const axios = require('axios');
+// HIGH-006 FIX: Add rate limiting for metrics API (20 requests/second per CLAUDE.md)
+const { metricsLimiter } = require('../middleware/rateLimit');
 
 const METRICS_COLLECTOR_URL = `http://${process.env.METRICS_COLLECTOR_HOST || 'metrics-collector'}:9100`;
 
+// HIGH-006 FIX: Apply metricsLimiter (20/s) to metrics endpoints
 // GET /api/metrics/live
-router.get('/live', async (req, res) => {
+router.get('/live', metricsLimiter, async (req, res) => {
     try {
         // Get live metrics from metrics collector
         const response = await axios.get(`${METRICS_COLLECTOR_URL}/metrics`, { timeout: 1000 });
@@ -57,8 +60,9 @@ router.get('/live', async (req, res) => {
     }
 });
 
+// HIGH-006 FIX: Apply metricsLimiter (20/s) to history endpoint
 // GET /api/metrics/history
-router.get('/history', async (req, res) => {
+router.get('/history', metricsLimiter, async (req, res) => {
     try {
         const range = req.query.range || '24h';
 

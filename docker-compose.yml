@@ -1,5 +1,23 @@
 version: '3.8'
 
+# HIGH-014 FIX: Startup Order Documentation
+# ==============================================================================
+# CRITICAL: Services must start in the following order (enforced by depends_on):
+# 1. postgres-db (foundation - no dependencies)
+# 2. minio (storage - no dependencies)
+# 3. metrics-collector (depends on postgres-db)
+# 4. llm-service (depends on postgres-db)
+# 5. embedding-service (depends on postgres-db)
+# 6. reverse-proxy (depends on postgres-db, minio, metrics-collector)
+# 7. dashboard-backend (depends on postgres-db, minio, metrics-collector, reverse-proxy)
+# 8. dashboard-frontend (depends on reverse-proxy)
+# 9. n8n (depends on postgres-db, llm-service, embedding-service)
+# 10. self-healing-agent (depends on all services - starts last)
+#
+# IMPORTANT: All services implement retry logic for database and service connections.
+# Healthchecks are robust (see HIGH-010 fix) and properly handle timeouts.
+# ==============================================================================
+
 networks:
   arasul-net:
     driver: bridge
@@ -227,6 +245,7 @@ services:
       - ./config/traefik:/etc/traefik:ro
       - arasul-letsencrypt:/letsencrypt
       - ./logs:/arasul/logs
+    # HIGH-014 FIX: Ensure all backend services are healthy before starting reverse proxy
     depends_on:
       postgres-db:
         condition: service_healthy

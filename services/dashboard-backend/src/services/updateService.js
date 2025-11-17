@@ -10,6 +10,7 @@ const { exec, spawn } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../utils/logger');
 const db = require('../database');
+const dockerService = require('./docker');
 
 const execAsync = promisify(exec);
 
@@ -524,7 +525,9 @@ class UpdateService {
             }
 
             // 8. Update system version
-            process.env.SYSTEM_VERSION = manifest.version;
+            // BUG-008 FIX: Write version to file instead of modifying process.env
+            await fs.writeFile('/arasul/config/version.txt', manifest.version, 'utf8');
+            logger.info(`System version updated to ${manifest.version}`);
 
             // 9. Complete update
             await this.saveUpdateState({
@@ -617,14 +620,38 @@ class UpdateService {
             // 6. Restart services
             await execAsync('docker-compose -f /arasul/docker-compose.yml up -d');
 
-            // 7. Wait for services to be healthy
-            await new Promise(resolve => setTimeout(resolve, 30000)); // 30s grace period
+            // 7. Wait for services to be healthy with timeout
+            // HIGH-003 FIX: Poll for service health instead of fixed delay
+            const MAX_WAIT_MS = 30000; // 30 seconds max
+            const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
+            const startTime = Date.now();
+            let allHealthy = false;
+
+            logger.info('Waiting for services to become healthy after rollback...');
+
+            while (Date.now() - startTime < MAX_WAIT_MS) {
+                allHealthy = await this.checkAllServicesHealthy();
+                if (allHealthy) {
+                    logger.info(`All services healthy after ${Math.round((Date.now() - startTime) / 1000)}s`);
+                    break;
+                }
+
+                logger.debug(`Waiting for services... (${Math.round((Date.now() - startTime) / 1000)}s elapsed)`);
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+            }
+
+            if (!allHealthy) {
+                const elapsed = Math.round((Date.now() - startTime) / 1000);
+                logger.error(`Services failed to become healthy after ${elapsed}s`);
+                throw new Error('Services failed to become healthy after rollback');
+            }
 
             // 8. Restore system version
+            // BUG-008 FIX: Write version to file instead of modifying process.env
             const previousVersion = await fs.readFile(path.join(backupPath, 'version.txt'), 'utf8');
-            process.env.SYSTEM_VERSION = previousVersion.trim();
+            await fs.writeFile('/arasul/config/version.txt', previousVersion.trim(), 'utf8');
 
-            logger.info(`Rollback completed successfully to version ${previousVersion}`);
+            logger.info(`Rollback completed successfully to version ${previousVersion.trim()}`);
 
             // Log rollback event
             await db.query(
@@ -718,9 +745,51 @@ class UpdateService {
     }
 
     /**
+     * HIGH-003 FIX: Check if all critical services are healthy
+     * @returns {Promise<boolean>} true if all services healthy, false otherwise
+     */
+    async checkAllServicesHealthy() {
+        try {
+            const services = await dockerService.getAllServicesStatus();
+
+            // Critical services that must be healthy
+            const criticalServices = ['llm', 'embeddings', 'postgres', 'minio', 'dashboard_backend'];
+
+            for (const serviceName of criticalServices) {
+                const service = services[serviceName];
+                if (!service || service.status !== 'healthy') {
+                    logger.warn(`Service ${serviceName} is not healthy: ${service?.status || 'unknown'}`);
+                    return false;
+                }
+            }
+
+            logger.debug('All critical services are healthy');
+            return true;
+        } catch (error) {
+            logger.error(`Error checking service health: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
      * Compare semantic versions
+     * @param {string} v1 - First version (e.g., "1.2.3")
+     * @param {string} v2 - Second version (e.g., "1.3.0")
+     * @returns {number} -1 if v1 < v2, 0 if v1 === v2, 1 if v1 > v2
+     * @throws {Error} If version format is invalid
      */
     compareVersions(v1, v2) {
+        // Validate semver format (X.Y.Z where X, Y, Z are non-negative integers)
+        const semverRegex = /^\d+\.\d+\.\d+$/;
+
+        if (!semverRegex.test(v1)) {
+            throw new Error(`Invalid version format: ${v1} (expected X.Y.Z format)`);
+        }
+
+        if (!semverRegex.test(v2)) {
+            throw new Error(`Invalid version format: ${v2} (expected X.Y.Z format)`);
+        }
+
         const parts1 = v1.split('.').map(Number);
         const parts2 = v2.split('.').map(Number);
 

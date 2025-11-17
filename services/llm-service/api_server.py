@@ -284,18 +284,21 @@ def stats():
         gpu_temp = "N/A"
 
         try:
+            # SEC-010 FIX: Added check=True for safer subprocess execution
             result = subprocess.run(
                 ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
                  "--format=csv,noheader,nounits"],
                 capture_output=True,
                 text=True,
-                timeout=2
+                timeout=2,
+                check=True
             )
-            if result.returncode == 0:
-                parts = result.stdout.strip().split(',')
-                gpu_util = f"{parts[0].strip()}%"
-                gpu_memory = f"{parts[1].strip()}MB / {parts[2].strip()}MB"
-                gpu_temp = f"{parts[3].strip()}°C"
+            parts = result.stdout.strip().split(',')
+            gpu_util = f"{parts[0].strip()}%"
+            gpu_memory = f"{parts[1].strip()}MB / {parts[2].strip()}MB"
+            gpu_temp = f"{parts[3].strip()}°C"
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"nvidia-smi command failed: {e}")
         except Exception as e:
             logger.warning(f"Could not get GPU stats: {e}")
 
@@ -306,13 +309,15 @@ def stats():
         # CPU usage
         cpu_percent = psutil.cpu_percent(interval=1)
 
+        # SEC-010 FIX: Use Python datetime instead of subprocess for timestamp
+        from datetime import datetime
         return jsonify({
             "gpu_utilization": gpu_util,
             "gpu_memory": gpu_memory,
             "gpu_temperature": gpu_temp,
             "process_memory_mb": round(mem_info.rss / 1024 / 1024, 2),
             "cpu_percent": cpu_percent,
-            "timestamp": subprocess.check_output(["date", "-u", "+%Y-%m-%dT%H:%M:%SZ"]).decode().strip()
+            "timestamp": datetime.utcnow().isoformat() + 'Z'
         }), 200
 
     except Exception as e:

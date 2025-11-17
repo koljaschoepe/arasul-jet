@@ -20,10 +20,11 @@ logging.basicConfig(
 logger = logging.getLogger('embedding-service')
 
 # Configuration
-MODEL_NAME = os.getenv('EMBEDDING_MODEL', os.getenv('MODEL_NAME', 'nomic-ai/nomic-embed-text-v1'))
-SERVICE_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', os.getenv('SERVICE_PORT', '11435')))
-VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', os.getenv('VECTOR_SIZE', '768')))
-MAX_INPUT_TOKENS = int(os.getenv('EMBEDDING_MAX_INPUT_TOKENS', os.getenv('MAX_INPUT_TOKENS', '4096')))
+# HIGH-008 FIX: Align with .env.template (nomic-embed-text, not nomic-ai/nomic-embed-text-v1)
+MODEL_NAME = os.getenv('EMBEDDING_MODEL', 'nomic-embed-text')
+SERVICE_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', '11435'))
+VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '768'))
+MAX_INPUT_TOKENS = int(os.getenv('EMBEDDING_MAX_INPUT_TOKENS', '4096'))
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -49,7 +50,24 @@ def load_model():
             device = 'cpu'
             logger.warning("No GPU available, using CPU")
 
-        # Load model
+        # HIGH-012 FIX: Check if model needs to be downloaded
+        from sentence_transformers import util
+        import os
+
+        # Get the model cache directory
+        cache_folder = os.getenv('SENTENCE_TRANSFORMERS_HOME',
+                                 os.path.join(os.path.expanduser('~'), '.cache', 'torch', 'sentence_transformers'))
+
+        model_path = os.path.join(cache_folder, MODEL_NAME.replace('/', '_'))
+
+        if not os.path.exists(model_path):
+            logger.warning(f"Model '{MODEL_NAME}' not found in cache at {model_path}")
+            logger.warning("Model will be downloaded - this may take several minutes and use disk space")
+            logger.info("For production deployments, consider pre-downloading models in Dockerfile")
+        else:
+            logger.info(f"Model found in cache at {model_path}")
+
+        # Load model (will download if not cached)
         model = SentenceTransformer(MODEL_NAME, device=device)
 
         load_time = time.time() - start_time
@@ -61,6 +79,7 @@ def load_model():
 
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
+        logger.error("This may be due to network issues during model download or insufficient disk space")
         return False
 
 

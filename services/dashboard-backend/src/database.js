@@ -44,14 +44,20 @@ const poolStats = {
 };
 
 // Event: New connection established
-pool.on('connect', (client) => {
+// BUG-005 FIX: Handle promise rejections from client.query()
+pool.on('connect', async (client) => {
     poolStats.totalConnections++;
     logger.debug(`New database connection established (total: ${poolStats.totalConnections})`);
 
     // Set client encoding, timezone, and statement timeout
-    client.query('SET client_encoding TO UTF8');
-    client.query('SET timezone TO UTC');
-    client.query(`SET statement_timeout = ${process.env.POSTGRES_STATEMENT_TIMEOUT || '30000'}`);
+    try {
+        await client.query('SET client_encoding TO UTF8');
+        await client.query('SET timezone TO UTC');
+        await client.query(`SET statement_timeout = ${process.env.POSTGRES_STATEMENT_TIMEOUT || '30000'}`);
+    } catch (err) {
+        logger.error('Error setting up client connection:', err);
+        // Connection will still be usable, just without these settings
+    }
 });
 
 // Event: Connection error
@@ -123,21 +129,36 @@ async function query(text, params) {
  * Execute a transaction with multiple queries
  * @param {Function} callback - Async function that receives a client
  * @returns {Promise} Result of the transaction
+ * BUG-010 FIX: Improved error handling for transaction rollback
  */
 async function transaction(callback) {
-    const client = await pool.connect();
+    let client;
 
     try {
-        await client.query('BEGIN');
-        const result = await callback(client);
-        await client.query('COMMIT');
-        return result;
-    } catch (error) {
-        await client.query('ROLLBACK');
-        logger.error(`Transaction rolled back: ${error.message}`);
-        throw error;
+        client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+            const result = await callback(client);
+            await client.query('COMMIT');
+            return result;
+        } catch (error) {
+            // BUG-010 FIX: Only attempt ROLLBACK if client is defined
+            if (client) {
+                try {
+                    await client.query('ROLLBACK');
+                } catch (rollbackError) {
+                    logger.error(`Rollback failed: ${rollbackError.message}`);
+                }
+            }
+            logger.error(`Transaction rolled back: ${error.message}`);
+            throw error;
+        }
     } finally {
-        client.release();
+        // BUG-010 FIX: Only release client if it was successfully acquired
+        if (client) {
+            client.release();
+        }
     }
 }
 

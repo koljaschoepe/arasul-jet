@@ -7,11 +7,13 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const logger = require('../utils/logger');
+const { requireAuth } = require('../middleware/auth');
+const { llmLimiter } = require('../middleware/rateLimit');
 
 const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
 
-// POST /api/llm/chat
-router.post('/chat', async (req, res) => {
+// POST /api/llm/chat - SEC-004 FIX: Added authentication and rate limiting
+router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
     try {
         const { messages, temperature, max_tokens } = req.body;
 
@@ -66,8 +68,8 @@ router.post('/chat', async (req, res) => {
     }
 });
 
-// GET /api/llm/models
-router.get('/models', async (req, res) => {
+// GET /api/llm/models - SEC-004 FIX: Added authentication
+router.get('/models', requireAuth, async (req, res) => {
     try {
         const response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 5000 });
 

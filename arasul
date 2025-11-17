@@ -574,11 +574,14 @@ init_minio_buckets() {
     # Clean up
     docker-compose exec -T minio rm -f /tmp/init_minio_buckets.sh
 
+    # HIGH-009 FIX: Make error handling explicit and clear
     if [ $EXIT_CODE -eq 0 ]; then
         log_success "MinIO buckets initialized successfully"
         return 0
     else
-        log_warning "MinIO bucket initialization had some issues (may be non-critical)"
+        log_error "MinIO bucket initialization failed"
+        log_info "Update functionality will not work without MinIO buckets"
+        log_info "Please check MinIO service status and retry bootstrap"
         return 1
     fi
 }

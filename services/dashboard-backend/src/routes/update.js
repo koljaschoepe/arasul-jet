@@ -41,45 +41,58 @@ const upload = multer({
         fileSize: 10 * 1024 * 1024 * 1024 // 10 GB max
     },
     fileFilter: (req, file, cb) => {
-        if (path.extname(file.originalname) === '.araupdate') {
+        // BUG-002 FIX: Allow both .araupdate files and .sig files
+        const ext = path.extname(file.originalname);
+        if (ext === '.araupdate' || ext === '.sig') {
             cb(null, true);
         } else {
-            cb(new Error('Only .araupdate files are allowed'));
+            cb(new Error('Only .araupdate and .sig files are allowed'));
         }
     }
 });
 
+// BUG-002 FIX: Use multer.fields() to accept both file and signature
 // POST /api/update/upload
-router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
+router.post('/upload', requireAuth, upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'signature', maxCount: 1 }
+]), async (req, res) => {
     try {
-        if (!req.file) {
+        // BUG-002 FIX: Check req.files.file instead of req.file
+        if (!req.files || !req.files.file || !req.files.file[0]) {
             return res.status(400).json({
-                error: 'No file uploaded',
+                error: 'No update file uploaded',
                 timestamp: new Date().toISOString()
             });
         }
 
-        const filePath = req.file.path;
-        const fileName = req.file.filename;
+        const uploadedFile = req.files.file[0];
+        const filePath = uploadedFile.path;
+        const fileName = uploadedFile.filename;
 
-        logger.info(`Update file uploaded: ${fileName} (${req.file.size} bytes)`);
+        logger.info(`Update file uploaded: ${fileName} (${uploadedFile.size} bytes)`);
 
         // Check for signature file
-        const signatureFilePath = `${filePath}.sig`;
-        if (!req.files || !req.files.signature) {
-            // Signature should be uploaded separately or be in same directory
-            logger.warn('Signature file not found, validation may fail');
+        if (!req.files.signature || !req.files.signature[0]) {
+            // Signature is required for security
+            logger.warn('Signature file not uploaded');
+            await fs.unlink(filePath).catch(() => {});
+            return res.status(400).json({
+                error: 'Signature file is required for update validation',
+                timestamp: new Date().toISOString()
+            });
         }
+
+        const signatureFile = req.files.signature[0];
+        logger.info(`Signature file uploaded: ${signatureFile.filename}`);
 
         // Move to permanent location
         const permanentPath = path.join('/arasul/updates', fileName);
         await fs.mkdir('/arasul/updates', { recursive: true });
         await fs.rename(filePath, permanentPath);
 
-        // If signature was uploaded, move it too
-        if (req.files && req.files.signature) {
-            await fs.rename(req.files.signature[0].path, `${permanentPath}.sig`);
-        }
+        // Move signature file
+        await fs.rename(signatureFile.path, `${permanentPath}.sig`);
 
         // Validate update using UpdateService
         const validation = await updateService.validateUpdate(permanentPath);

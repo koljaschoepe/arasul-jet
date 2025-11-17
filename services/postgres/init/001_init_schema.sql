@@ -116,24 +116,8 @@ CREATE INDEX idx_system_snapshots_timestamp ON system_snapshots(timestamp DESC);
 CREATE INDEX idx_system_snapshots_status ON system_snapshots(status);
 
 -- ============================================================================
--- UPDATE EVENTS TABLE
+-- NOTE: update_events table is defined in 004_update_schema.sql migration
 -- ============================================================================
-
-CREATE TABLE IF NOT EXISTS update_events (
-    id BIGSERIAL PRIMARY KEY,
-    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    version_from TEXT NOT NULL,
-    version_to TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('started', 'validated', 'in_progress', 'completed', 'failed', 'rolled_back')),
-    source TEXT NOT NULL CHECK (source IN ('dashboard', 'usb')),
-    error TEXT,
-    duration_seconds INTEGER,
-    components_updated JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_update_events_timestamp ON update_events(timestamp DESC);
-CREATE INDEX idx_update_events_status ON update_events(status);
 
 -- ============================================================================
 -- SERVICE RESTART TRACKING TABLE
@@ -287,8 +271,8 @@ COMMENT ON TABLE metrics_disk IS 'Disk usage metrics';
 COMMENT ON TABLE workflow_activity IS 'n8n workflow execution history';
 COMMENT ON TABLE self_healing_events IS 'Self-healing engine action log';
 COMMENT ON TABLE system_snapshots IS 'Periodic system state snapshots';
-COMMENT ON TABLE update_events IS 'System update history';
 COMMENT ON TABLE service_restarts IS 'Service restart tracking';
+-- Note: update_events comment is in 004_update_schema.sql
 
 -- ============================================================================
 -- ENABLE AUTO-VACUUM

@@ -1254,9 +1254,21 @@ def main():
                 logger.error(f"Unexpected error in main loop: {e}")
                 time.sleep(HEALING_INTERVAL)
     finally:
-        # Always close connection pool on exit
-        logger.info("Closing connection pool...")
-        engine.close_pool()
+        # HIGH-013 FIX: Gracefully close connection pool with proper error handling
+        logger.info("Shutting down Self-Healing Engine...")
+        try:
+            logger.info("Closing database connection pool...")
+            engine.close_pool()
+
+            # Give connections time to close gracefully
+            logger.debug("Waiting for connections to close...")
+            time.sleep(1)
+
+            logger.info("Connection pool closed successfully")
+        except Exception as e:
+            logger.error(f"Error closing connection pool: {e}")
+            logger.warning("Some database connections may not have closed cleanly")
+
         logger.info("Self-Healing Engine shutdown complete")
 
 

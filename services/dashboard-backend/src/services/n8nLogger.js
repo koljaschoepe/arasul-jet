@@ -5,20 +5,13 @@
  * Provides integration endpoint for n8n workflows to report execution status.
  */
 
-const { Pool } = require('pg');
+// BUG-004 FIX: Use centralized database connection pool instead of creating a separate pool
+const db = require('../database');
 
 class N8nLogger {
   constructor() {
-    this.pool = new Pool({
-      host: process.env.POSTGRES_HOST || 'postgres-db',
-      port: parseInt(process.env.POSTGRES_PORT || '5432'),
-      user: process.env.POSTGRES_USER || 'arasul',
-      password: process.env.POSTGRES_PASSWORD,
-      database: process.env.POSTGRES_DB || 'arasul_db',
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    });
+    // BUG-004 FIX: No longer creating a separate pool
+    // Using centralized db.query() method instead
   }
 
   /**
@@ -63,7 +56,8 @@ class N8nLogger {
     ];
 
     try {
-      const result = await this.pool.query(query, values);
+      // BUG-004 FIX: Use centralized db.query() instead of this.pool.query()
+      const result = await db.query(query, values);
       return result.rows[0];
     } catch (err) {
       console.error('Failed to log workflow execution:', err);
@@ -115,7 +109,8 @@ class N8nLogger {
     values.push(limit, offset);
 
     try {
-      const result = await this.pool.query(query, values);
+      // BUG-004 FIX: Use centralized db.query()
+      const result = await db.query(query, values);
       return result.rows;
     } catch (err) {
       console.error('Failed to get execution history:', err);
@@ -137,7 +132,11 @@ class N8nLogger {
       '30d': '30 days',
     };
 
-    const interval = timeRangeMap[timeRange] || '24 hours';
+    // SEC-001 FIX: Whitelist validation to prevent SQL injection
+    const interval = timeRangeMap[timeRange];
+    if (!interval) {
+      throw new Error(`Invalid time range. Must be one of: ${Object.keys(timeRangeMap).join(', ')}`);
+    }
 
     let query = `
       SELECT
@@ -159,7 +158,8 @@ class N8nLogger {
     }
 
     try {
-      const result = await this.pool.query(query, values);
+      // BUG-004 FIX: Use centralized db.query()
+      const result = await db.query(query, values);
       const stats = result.rows[0];
 
       return {
@@ -201,7 +201,8 @@ class N8nLogger {
     `;
 
     try {
-      const result = await this.pool.query(query);
+      // BUG-004 FIX: Use centralized db.query()
+      const result = await db.query(query);
       return result.rows.map(row => ({
         workflow_name: row.workflow_name,
         execution_count: parseInt(row.execution_count),
@@ -225,16 +226,23 @@ class N8nLogger {
    * @returns {Promise<number>} Number of deleted records
    */
   async cleanupOldRecords(daysToKeep = 7) {
+    // SEC-001 FIX: Validate daysToKeep is a positive integer to prevent SQL injection
+    const days = parseInt(daysToKeep, 10);
+    if (isNaN(days) || days < 1 || days > 365) {
+      throw new Error('daysToKeep must be a positive integer between 1 and 365');
+    }
+
     const query = `
       DELETE FROM workflow_activity
-      WHERE timestamp < NOW() - INTERVAL '${daysToKeep} days'
+      WHERE timestamp < NOW() - INTERVAL '${days} days'
       RETURNING id
     `;
 
     try {
-      const result = await this.pool.query(query);
+      // BUG-004 FIX: Use centralized db.query()
+      const result = await db.query(query);
       const deletedCount = result.rowCount;
-      console.log(`Cleaned up ${deletedCount} old workflow execution records (older than ${daysToKeep} days)`);
+      console.log(`Cleaned up ${deletedCount} old workflow execution records (older than ${days} days)`);
       return deletedCount;
     } catch (err) {
       console.error('Failed to cleanup old records:', err);
@@ -243,11 +251,9 @@ class N8nLogger {
   }
 
   /**
-   * Close database connection pool
+   * BUG-004 FIX: No longer need close() method since we use centralized pool
+   * Close method removed as pool is managed centrally by database.js
    */
-  async close() {
-    await this.pool.end();
-  }
 }
 
 module.exports = new N8nLogger();

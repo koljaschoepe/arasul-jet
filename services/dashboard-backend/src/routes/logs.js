@@ -48,6 +48,19 @@ router.get('/', requireAuth, async (req, res) => {
 
         const logFilePath = LOG_FILES[service];
 
+        // SEC-008 FIX: Validate normalized path to prevent path traversal
+        const normalizedPath = path.normalize(logFilePath);
+        const resolvedPath = path.resolve(normalizedPath);
+        const resolvedLogDir = path.resolve(LOG_DIR);
+
+        if (!resolvedPath.startsWith(resolvedLogDir)) {
+            logger.warn(`Path traversal attempt detected: ${service} -> ${resolvedPath}`);
+            return res.status(403).json({
+                error: 'Access denied: Invalid log file path',
+                timestamp: new Date().toISOString()
+            });
+        }
+
         // Check if log file exists
         try {
             await fs.access(logFilePath);
@@ -188,6 +201,10 @@ router.get('/stream', requireAuth, async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
+        // BUG-006 FIX: Track file position instead of line count to avoid race condition
+        const stats = await fs.stat(logFilePath);
+        let lastPosition = stats.size;
+
         // Send initial log lines
         const logContent = await fs.readFile(logFilePath, 'utf-8');
         const logLines = logContent.split('\n').filter(line => line.trim().length > 0);
@@ -202,17 +219,43 @@ router.get('/stream', requireAuth, async (req, res) => {
         const watcher = fs.watch(logFilePath, async (eventType) => {
             if (eventType === 'change') {
                 try {
-                    const newContent = await fs.readFile(logFilePath, 'utf-8');
-                    const newLines = newContent.split('\n').filter(line => line.trim().length > 0);
+                    const currentStats = await fs.stat(logFilePath);
 
-                    // Get only new lines (since last read)
-                    const newLinesOnly = newLines.slice(logLines.length);
+                    // BUG-006 FIX: Check if file was rotated (size decreased)
+                    if (currentStats.size < lastPosition) {
+                        logger.info(`Log file ${service} was rotated, resetting position`);
+                        lastPosition = 0;
+                    }
 
-                    newLinesOnly.forEach(line => {
-                        res.write(`data: ${JSON.stringify({ line, timestamp: new Date().toISOString() })}\n\n`);
-                    });
+                    // BUG-006 FIX: Read only new content from last position
+                    if (currentStats.size > lastPosition) {
+                        const stream = require('fs').createReadStream(logFilePath, {
+                            start: lastPosition,
+                            encoding: 'utf8'
+                        });
+
+                        let buffer = '';
+                        stream.on('data', (chunk) => {
+                            buffer += chunk;
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                            lines.filter(line => line.trim().length > 0).forEach(line => {
+                                res.write(`data: ${JSON.stringify({ line, timestamp: new Date().toISOString() })}\n\n`);
+                            });
+                        });
+
+                        stream.on('end', () => {
+                            lastPosition = currentStats.size;
+                        });
+
+                        stream.on('error', (err) => {
+                            logger.error(`Error reading log stream: ${err.message}`);
+                        });
+                    }
                 } catch (error) {
                     // Ignore read errors during streaming
+                    logger.debug(`Log streaming error: ${error.message}`);
                 }
             }
         });

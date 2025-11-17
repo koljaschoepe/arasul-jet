@@ -294,9 +294,13 @@ router.delete('/llm/models/:name', async (req, res) => {
 
         logger.info(`Deleting model: ${name}`);
 
-        // Delete model
+        // HIGH-002 FIX: Use correct Ollama API format
+        // Ollama expects DELETE /api/delete with JSON body: { "name": "model-name" }
         await axios.delete(`${llmServiceUrl}/api/delete`, {
-            data: { name: name },
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            data: JSON.stringify({ name: name }),
             timeout: 10000
         });
 

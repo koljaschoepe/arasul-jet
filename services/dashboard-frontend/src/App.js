@@ -54,6 +54,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [ws, setWs] = useState(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsReconnecting, setWsReconnecting] = useState(false);
 
   // Check for existing token on mount
   useEffect(() => {
@@ -141,19 +143,48 @@ function App() {
       return Math.floor(delay + jitter);
     };
 
+    let httpPollingInterval = null;
+
+    const startHttpPolling = () => {
+      console.log('Starting HTTP polling fallback for metrics...');
+
+      // Poll every 5 seconds (same as WebSocket)
+      httpPollingInterval = setInterval(async () => {
+        try {
+          const metricsRes = await axios.get(`${API_BASE}/metrics/live`);
+          setMetrics(metricsRes.data);
+        } catch (err) {
+          console.error('HTTP polling error:', err);
+        }
+      }, 5000);
+    };
+
     const connectWebSocket = () => {
       try {
         websocket = new WebSocket(`${WS_BASE}/metrics/live-stream`);
 
         websocket.onopen = () => {
-          console.log('WebSocket connected');
+          console.log('WebSocket connected to live metrics stream');
           reconnectAttempts = 0; // Reset attempts on successful connection
+          setWsConnected(true);
+          setWsReconnecting(false);
+
+          // Stop HTTP polling if it was running
+          if (httpPollingInterval) {
+            clearInterval(httpPollingInterval);
+            httpPollingInterval = null;
+          }
         };
 
         websocket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            setMetrics(data);
+            // Only update if data doesn't contain an error
+            if (!data.error) {
+              setMetrics(data);
+            } else {
+              console.warn('Metrics service temporarily unavailable:', data.error);
+            }
           } catch (err) {
             console.error('WebSocket message error:', err);
           }
@@ -164,6 +195,8 @@ function App() {
         };
 
         websocket.onclose = (event) => {
+          setWsConnected(false);
+
           // Don't reconnect if closed intentionally
           if (isIntentionallyClosed) {
             console.log('WebSocket closed intentionally');
@@ -174,11 +207,15 @@ function App() {
 
           // Check if we should retry
           if (reconnectAttempts >= maxReconnectAttempts) {
-            console.error('Max reconnect attempts reached. Please refresh the page.');
+            console.error('Max reconnect attempts reached. Falling back to HTTP polling.');
+            setWsReconnecting(false);
+            // Start HTTP polling fallback
+            startHttpPolling();
             return;
           }
 
           reconnectAttempts++;
+          setWsReconnecting(true);
           const delay = calculateReconnectDelay(reconnectAttempts - 1);
 
           console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})...`);
@@ -196,10 +233,14 @@ function App() {
         // Retry connection
         if (reconnectAttempts < maxReconnectAttempts) {
           reconnectAttempts++;
+          setWsReconnecting(true);
           const delay = calculateReconnectDelay(reconnectAttempts - 1);
           reconnectTimer = setTimeout(() => {
             connectWebSocket();
           }, delay);
+        } else {
+          // Fallback to HTTP polling
+          startHttpPolling();
         }
       }
     };
@@ -219,6 +260,9 @@ function App() {
       }
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
+      }
+      if (httpPollingInterval) {
+        clearInterval(httpPollingInterval);
       }
       clearInterval(interval);
     };
@@ -277,7 +321,13 @@ function App() {
     <ErrorBoundary>
       <Router>
         <div className="app">
-          <Navigation handleLogout={handleLogout} systemStatus={systemStatus} getStatusColor={getStatusColor} />
+          <Navigation
+            handleLogout={handleLogout}
+            systemStatus={systemStatus}
+            getStatusColor={getStatusColor}
+            wsConnected={wsConnected}
+            wsReconnecting={wsReconnecting}
+          />
 
           <Routes>
             <Route
@@ -305,7 +355,7 @@ function App() {
   );
 }
 
-function Navigation({ handleLogout, systemStatus, getStatusColor }) {
+function Navigation({ handleLogout, systemStatus, getStatusColor, wsConnected, wsReconnecting }) {
   const location = useLocation();
 
   const isActive = (path) => {
@@ -326,6 +376,16 @@ function Navigation({ handleLogout, systemStatus, getStatusColor }) {
           {systemStatus?.self_healing_active && (
             <div className="status-badge status-ok">
               Self-Healing Active
+            </div>
+          )}
+          {wsReconnecting && (
+            <div className="status-badge status-warning" title="Live metrics reconnecting...">
+              ⟳ Reconnecting
+            </div>
+          )}
+          {!wsConnected && !wsReconnecting && (
+            <div className="status-badge status-warning" title="Live metrics via HTTP fallback">
+              ⚠ HTTP Fallback
             </div>
           )}
           <button

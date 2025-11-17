@@ -7,11 +7,13 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const logger = require('../utils/logger');
+const { requireAuth } = require('../middleware/auth');
+const { apiLimiter } = require('../middleware/rateLimit');
 
 const EMBEDDING_SERVICE_URL = `http://${process.env.EMBEDDING_SERVICE_HOST || 'embedding-service'}:${process.env.EMBEDDING_SERVICE_PORT || '11435'}`;
 
-// POST /api/embeddings
-router.post('/', async (req, res) => {
+// POST /api/embeddings - SEC-005 FIX: Added authentication and rate limiting
+router.post('/', requireAuth, apiLimiter, async (req, res) => {
     try {
         const { text } = req.body;
 
