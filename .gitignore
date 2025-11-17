@@ -5,9 +5,17 @@
 .env.local
 .env.*.local
 
-# Data directories
-/data/
-/logs/
+# Data directories (but keep .gitkeep files)
+/data/*
+!/data/.gitkeep
+!/data/*/
+/data/*/*
+!/data/*/.gitkeep
+/logs/*
+!/logs/.gitkeep
+!/logs/*/
+/logs/*/*
+!/logs/*/.gitkeep
 /cache/
 /updates/
 

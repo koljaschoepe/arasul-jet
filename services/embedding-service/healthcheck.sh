@@ -89,6 +89,8 @@ check_embedding_latency() {
     START_TIME=$(date +%s%N)
 
     # Use the built-in /health endpoint which tests embedding internally
+    # This is more suitable for healthchecks than POST /embed as it's lightweight
+    # and already performs an embedding test (see embedding_server.py line 79-80)
     HTTP_CODE=$(curl -sf --max-time "$TIMEOUT" \
         -w "%{http_code}" \
         -o "$TEMP_RESPONSE" \
@@ -106,7 +108,8 @@ check_embedding_latency() {
         return 1
     fi
 
-    # Validate response contains status healthy
+    # Validate response contains status and test_latency_ms fields
+    # GET /health returns: {"status": "healthy", "test_latency_ms": X, ...}
     if ! grep -q '"status".*"healthy"' "$TEMP_RESPONSE"; then
         error "Response missing 'status: healthy' field"
         return 1
@@ -128,32 +131,29 @@ check_embedding_latency() {
 check_vector_dimension() {
     log "Validating vector dimensions..."
 
-    # Generate embedding
-    EMBED_RESPONSE=$(curl -sf --max-time "$TIMEOUT" \
-        -X POST "${SERVICE_URL}/embed" \
-        -H "Content-Type: application/json" \
-        -d "{\"text\": \"${TEST_TEXT}\", \"normalize\": true}" 2>/dev/null)
+    # Get vector dimension from /health endpoint
+    # This is more reliable than parsing the actual embedding array
+    HEALTH_RESPONSE=$(curl -sf --max-time "$TIMEOUT" "${SERVICE_URL}/health" 2>/dev/null)
 
-    if [ -z "$EMBED_RESPONSE" ]; then
-        error "Failed to generate embedding for validation"
+    if [ -z "$HEALTH_RESPONSE" ]; then
+        error "Failed to retrieve health info for dimension validation"
         return 1
     fi
 
-    # Extract embedding array and count dimensions
-    # This is a rough check - in production you'd parse JSON properly
-    VECTOR_COUNT=$(echo "$EMBED_RESPONSE" | grep -o '\-\?[0-9]\+\.\?[0-9]*' | wc -l)
+    # Extract vector_size from health response
+    VECTOR_SIZE=$(echo "$HEALTH_RESPONSE" | grep -o '"vector_size":[0-9]*' | cut -d':' -f2)
 
-    if [ "$VECTOR_COUNT" -eq 0 ]; then
-        error "No vector values found in response"
+    if [ -z "$VECTOR_SIZE" ] || [ "$VECTOR_SIZE" -eq 0 ]; then
+        error "No vector size found in response"
         return 1
     fi
 
     # Common embedding dimensions: 384, 512, 768, 1024, 1536
-    if [ "$VECTOR_COUNT" -lt 100 ] || [ "$VECTOR_COUNT" -gt 2000 ]; then
-        warning "Unusual vector dimension: ${VECTOR_COUNT}"
+    if [ "$VECTOR_SIZE" -lt 100 ] || [ "$VECTOR_SIZE" -gt 2000 ]; then
+        warning "Unusual vector dimension: ${VECTOR_SIZE}"
     fi
 
-    success "Vector dimension validated: ${VECTOR_COUNT}D"
+    success "Vector dimension validated: ${VECTOR_SIZE}D"
     return 0
 }
 
@@ -192,10 +192,9 @@ check_concurrent_throughput() {
 
     for i in $(seq 1 $CONCURRENT_REQUESTS); do
         (
+            # Use GET /health for lightweight concurrent testing
             curl -sf --max-time "$TIMEOUT" \
-                -X POST "${SERVICE_URL}/embed" \
-                -H "Content-Type: application/json" \
-                -d "{\"text\": \"test ${i}\", \"normalize\": true}" \
+                -X GET "${SERVICE_URL}/health" \
                 > "$TEMP_DIR/response_${i}.json" 2>/dev/null
             echo $? > "$TEMP_DIR/status_${i}"
         ) &

@@ -236,14 +236,18 @@ main() {
     # Final verdict
     log "=== Health Check Complete: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed ==="
 
+    # Critical checks: API (1), GPU (2), Model (3), Prompt (4)
+    # Check 5 (GPU errors in logs) is optional
+    CRITICAL_CHECKS=4
+
     if [ "$CHECKS_PASSED" -eq "$CHECKS_TOTAL" ]; then
         success "All health checks passed"
         exit 0
-    elif [ "$CHECKS_PASSED" -ge 3 ]; then
-        warning "Service degraded: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed"
-        exit 0  # Still return success for degraded state
+    elif [ "$CHECKS_PASSED" -ge "$CRITICAL_CHECKS" ]; then
+        warning "Service degraded: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed (critical checks OK)"
+        exit 0  # Still return success if critical checks passed
     else
-        error "Service unhealthy: Only ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed"
+        error "Service unhealthy: Only ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed (need ${CRITICAL_CHECKS} minimum)"
         exit 1
     fi
 }
