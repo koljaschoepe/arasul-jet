@@ -76,7 +76,7 @@ router.post('/upload', requireAuth, upload.fields([
         if (!req.files.signature || !req.files.signature[0]) {
             // Signature is required for security
             logger.warn('Signature file not uploaded');
-            await fs.unlink(filePath).catch(() => {});
+            await fs.unlink(filePath).catch(() => { });
             return res.status(400).json({
                 error: 'Signature file is required for update validation',
                 timestamp: new Date().toISOString()
@@ -99,8 +99,8 @@ router.post('/upload', requireAuth, upload.fields([
 
         if (!validation.valid) {
             // Clean up file
-            await fs.unlink(permanentPath).catch(() => {});
-            await fs.unlink(`${permanentPath}.sig`).catch(() => {});
+            await fs.unlink(permanentPath).catch(() => { });
+            await fs.unlink(`${permanentPath}.sig`).catch(() => { });
 
             return res.status(400).json({
                 error: validation.error || 'Update validation failed',
@@ -121,7 +121,7 @@ router.post('/upload', requireAuth, upload.fields([
         res.json({
             status: 'validated',
             version: manifest.version,
-            size: req.file.size,
+            size: uploadedFile.size,
             components: manifest.components,
             requires_reboot: manifest.requires_reboot || false,
             timestamp: new Date().toISOString(),

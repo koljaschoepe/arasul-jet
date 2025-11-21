@@ -3,7 +3,8 @@
  */
 
 const request = require('supertest');
-const app = require('../../src/server');
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
+const { app } = require('../../src/server');
 
 describe('Health Check Endpoint', () => {
   describe('GET /api/health', () => {

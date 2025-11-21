@@ -99,6 +99,12 @@ class SelfHealingEngine:
             except Exception as e:
                 logger.warning(f"GPU Recovery init failed: {e}")
 
+        # State tracking for metrics failure
+        self.metrics_down_since = None
+
+        # Cooldown for critical actions
+        self.last_critical_action_time = 0
+
         logger.info("Self-Healing Engine initialized")
 
     def connect_db(self):
@@ -236,10 +242,7 @@ class SelfHealingEngine:
             return response.json()
         except Exception as e:
             logger.error(f"Failed to get metrics: {e}")
-            return {
-                'cpu': 0, 'ram': 0, 'gpu': 0, 'temperature': 0,
-                'disk': {'percent': 0}
-            }
+            return None
 
     def check_service_health(self) -> Dict[str, Dict]:
         """Check health of all services"""
@@ -770,6 +773,13 @@ class SelfHealingEngine:
 
     def handle_category_c_critical(self, reason: str):
         """Category C: Critical Errors - aggressive recovery"""
+        
+        # Check cooldown to prevent infinite escalation loops
+        current_time = time.time()
+        if current_time - self.last_critical_action_time < 3600:  # 1 hour cooldown
+            logger.warning(f"Category C recovery triggered but in cooldown (last action < 1h ago). Reason: {reason}")
+            return
+
         logger.critical(f"CRITICAL EVENT: {reason}")
 
         self.log_event(
@@ -801,6 +811,9 @@ class SelfHealingEngine:
         # 4. GPU reset if GPU-related issue
         if 'gpu' in reason.lower() or 'llm' in reason.lower():
             self.perform_gpu_reset()
+            
+        # Update last action time
+        self.last_critical_action_time = time.time()
 
         # Check if we need to escalate to Category D (reboot)
         if critical_count >= MAX_CRITICAL_EVENTS:
@@ -1118,7 +1131,7 @@ class SelfHealingEngine:
                 'stop_llm': 'service_restart'
             }
 
-            action_type = action_type_map.get(action.value, 'gpu_recovery')
+            action_type = action_type_map.get(action.value, 'gpu_reset')
 
             # Record recovery action
             self.record_recovery_action(
@@ -1162,6 +1175,38 @@ class SelfHealingEngine:
 
             # Get metrics
             metrics = self.get_metrics()
+            
+            # Handle metrics failure
+            if metrics is None:
+                if self.metrics_down_since is None:
+                    self.metrics_down_since = time.time()
+                    logger.warning("Metrics collection failed - entering warning state")
+                
+                # Check if down for too long (> 1 minute)
+                elif time.time() - self.metrics_down_since > 60:
+                    logger.error("Metrics collector down for > 1 minute - attempting restart")
+                    try:
+                        container = self.docker_client.containers.get('metrics-collector')
+                        container.restart()
+                        self.metrics_down_since = time.time()  # Reset timer to give it time to come up
+                        self.log_event(
+                            'metrics_recovery',
+                            'WARNING',
+                            'Metrics collector down > 1min',
+                            'Restarted metrics-collector',
+                            'metrics-collector',
+                            True
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to restart metrics-collector: {e}")
+                
+                # Skip category B checks as we have no metrics
+                metrics = {} # Empty dict to avoid errors in other checks if they don't check for None
+            else:
+                # Metrics healthy
+                if self.metrics_down_since is not None:
+                    logger.info("Metrics collection recovered")
+                    self.metrics_down_since = None
 
             # GPU Error Handling (check GPU health first)
             self.handle_gpu_errors()
@@ -1181,7 +1226,8 @@ class SelfHealingEngine:
                     )
 
             # Category B: Check for overload conditions
-            self.handle_category_b_overload(metrics)
+            if metrics:
+                self.handle_category_b_overload(metrics)
 
             # Periodic cleanup (every 100 cycles = ~16 minutes at 10s interval)
             if self.check_count % 100 == 0 and self.check_count > 0:

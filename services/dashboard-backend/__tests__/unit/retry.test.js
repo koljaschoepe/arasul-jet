@@ -2,7 +2,7 @@
  * Unit tests for retry utility
  */
 
-const { retryWithBackoff, calculateDelay } = require('../../src/utils/retry');
+const { retry: retryWithBackoff, calculateDelay } = require('../../src/utils/retry');
 
 describe('Retry Utility', () => {
   describe('calculateDelay', () => {
@@ -38,7 +38,7 @@ describe('Retry Utility', () => {
         .mockRejectedValueOnce(new Error('fail'))
         .mockResolvedValue('success');
 
-      const result = await retryWithBackoff(fn, { maxAttempts: 3, initialDelay: 10 });
+      const result = await retryWithBackoff(fn, { maxAttempts: 3, initialDelay: 10, shouldRetry: () => true });
 
       expect(result).toBe('success');
       expect(fn).toHaveBeenCalledTimes(3);
@@ -47,7 +47,7 @@ describe('Retry Utility', () => {
     test('should fail after max attempts', async () => {
       const fn = jest.fn().mockRejectedValue(new Error('persistent failure'));
 
-      await expect(retryWithBackoff(fn, { maxAttempts: 3, initialDelay: 10 }))
+      await expect(retryWithBackoff(fn, { maxAttempts: 3, initialDelay: 10, shouldRetry: () => true }))
         .rejects.toThrow('persistent failure');
 
       expect(fn).toHaveBeenCalledTimes(3);

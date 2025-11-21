@@ -55,7 +55,7 @@ describe('Password Utilities', () => {
       const result = validatePasswordComplexity('Short1!');
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Password must be at least 12 characters');
+      expect(result.errors).toContain('Password must be at least 12 characters long');
     });
 
     test('should reject password without uppercase', () => {
