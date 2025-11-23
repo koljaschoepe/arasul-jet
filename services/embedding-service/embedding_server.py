@@ -20,8 +20,8 @@ logging.basicConfig(
 logger = logging.getLogger('embedding-service')
 
 # Configuration
-# HIGH-008 FIX: Align with .env.template (nomic-embed-text, not nomic-ai/nomic-embed-text-v1)
-MODEL_NAME = os.getenv('EMBEDDING_MODEL', 'nomic-embed-text')
+# Use HuggingFace model identifier (nomic-ai/nomic-embed-text-v1.5)
+MODEL_NAME = os.getenv('EMBEDDING_MODEL', 'nomic-ai/nomic-embed-text-v1.5')
 SERVICE_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', '11435'))
 VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '768'))
 MAX_INPUT_TOKENS = int(os.getenv('EMBEDDING_MAX_INPUT_TOKENS', '4096'))
@@ -68,7 +68,8 @@ def load_model():
             logger.info(f"Model found in cache at {model_path}")
 
         # Load model (will download if not cached)
-        model = SentenceTransformer(MODEL_NAME, device=device)
+        # trust_remote_code=True required for nomic-ai models
+        model = SentenceTransformer(MODEL_NAME, device=device, trust_remote_code=True)
 
         load_time = time.time() - start_time
         logger.info(f"Model loaded successfully in {load_time:.2f}s")

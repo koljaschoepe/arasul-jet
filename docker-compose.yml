@@ -1,5 +1,3 @@
-version: '3.8'
-
 # HIGH-014 FIX: Startup Order Documentation
 # ==============================================================================
 # CRITICAL: Services must start in the following order (enforced by depends_on):
@@ -8,10 +6,10 @@ version: '3.8'
 # 3. metrics-collector (depends on postgres-db)
 # 4. llm-service (depends on postgres-db)
 # 5. embedding-service (depends on postgres-db)
-# 6. reverse-proxy (depends on postgres-db, minio, metrics-collector)
-# 7. dashboard-backend (depends on postgres-db, minio, metrics-collector, reverse-proxy)
-# 8. dashboard-frontend (depends on reverse-proxy)
-# 9. n8n (depends on postgres-db, llm-service, embedding-service)
+# 6. reverse-proxy (depends on postgres-db, minio, metrics-collector, llm-service, embedding-service)
+# 7. dashboard-backend (depends on postgres-db, minio, metrics-collector, llm-service, embedding-service, reverse-proxy)
+# 8. dashboard-frontend (depends on reverse-proxy) <-- NOW ENFORCED VIA depends_on
+# 9. n8n (depends on postgres-db, llm-service, embedding-service, minio)
 # 10. self-healing-agent (depends on all services - starts last)
 #
 # IMPORTANT: All services implement retry logic for database and service connections.
@@ -142,7 +140,9 @@ services:
 
   # 4. LLM Service (Ollama)
   llm-service:
-    image: ollama/ollama:latest
+    build:
+      context: ./services/llm-service
+      dockerfile: Dockerfile
     container_name: llm-service
     hostname: llm-service
     restart: always
@@ -197,6 +197,9 @@ services:
       SERVICE_URL: http://localhost:${EMBEDDING_SERVICE_PORT}
       VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE}
       MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS}
+      # Jetson Orin GPU activation
+      CUDA_VISIBLE_DEVICES: 0
+      TORCH_CUDA_ARCH_LIST: "8.7"
     volumes:
       - arasul-embeddings-models:/models
       - ./services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
@@ -321,10 +324,11 @@ services:
       reverse-proxy:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 10s
-      timeout: 1s
+      timeout: 3s
       retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -351,6 +355,9 @@ services:
       - arasul-net
     # Note: React ENV vars are embedded at BUILD time, not runtime
     # Frontend uses dynamic detection from window.location
+    depends_on:
+      reverse-proxy:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "test", "-f", "/usr/share/nginx/html/index.html"]
       interval: 10s
@@ -387,7 +394,7 @@ services:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
-      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: true
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "true"
       # Custom nodes are baked into the image via Dockerfile
       N8N_CUSTOM_EXTENSIONS: /custom-nodes
     volumes:

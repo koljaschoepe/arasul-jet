@@ -1219,6 +1219,10 @@ class SelfHealingEngine:
 
             # Category A: Check for unhealthy services
             for service_name, service_info in services.items():
+                # Skip self-healing-agent to prevent restart loops
+                if service_name == 'self-healing-agent':
+                    continue
+
                 if service_info['health'] == 'unhealthy':
                     self.handle_category_a_service_down(
                         service_name,

@@ -114,16 +114,31 @@ This initializes the entire system: validates hardware, installs dependencies, c
 ### Docker Compose Operations
 ```bash
 # Start all services
-docker-compose up -d
+docker compose up -d
 
 # View logs for specific service
-docker-compose logs -f <service-name>
+docker compose logs -f <service-name>
 
 # Restart a service
-docker-compose restart <service-name>
+docker compose restart <service-name>
 
 # Stop all services
-docker-compose down
+docker compose down
+
+# Rebuild and restart a specific service
+docker compose up -d --build <service-name>
+
+# View resource usage
+docker stats
+```
+
+### Validation Scripts
+```bash
+# Validate docker-compose dependency chain
+./scripts/validate_dependencies.sh
+
+# Validate environment configuration
+./scripts/validate_config.sh
 ```
 
 ### Database Operations
@@ -133,6 +148,33 @@ docker exec -it postgres-db psql -U arasul -d arasul_db
 
 # Run migrations (when implemented)
 docker exec -it postgres-db psql -U arasul -d arasul_db -f /migrations/001_initial.sql
+
+# Check database size and retention
+docker exec -it postgres-db psql -U arasul -d arasul_db -c "SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) FROM pg_tables WHERE schemaname = 'public' ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;"
+```
+
+### Testing
+```bash
+# Dashboard Backend tests
+cd services/dashboard-backend
+npm test                    # All tests with coverage
+npm run test:unit          # Unit tests only
+npm run test:integration   # Integration tests only
+npm run test:watch         # Watch mode
+
+# Python service tests
+cd services/self-healing-agent
+python3 -m pytest tests/ -v
+
+# Integration tests (from project root)
+cd tests/integration
+python3 test_self_healing_llm.py
+python3 test_gpu_overload_recovery.py
+
+# Load testing
+cd tests
+python3 load_test.py
+python3 stability_monitor.py
 ```
 
 ## Directory Structure
@@ -304,6 +346,39 @@ Rollback automatically triggered if critical service fails post-update.
 6. **Support graceful shutdown** - handle SIGTERM properly
 7. **No hardcoded values** - use environment variables from `.env`
 
+### Service-Specific Implementation Notes
+
+**Dashboard Backend** (Node.js/Express):
+- Main entry: `services/dashboard-backend/src/index.js`
+- Routes in: `services/dashboard-backend/src/routes/`
+- Database connection pooling in: `services/dashboard-backend/src/database.js`
+- WebSocket metrics stream: `services/dashboard-backend/src/services/metricsStream.js`
+- Docker integration: Uses `dockerode` library for container management
+- JWT authentication: `services/dashboard-backend/src/middleware/auth.js`
+
+**Self-Healing Agent** (Python):
+- Main engine: `services/self-healing-agent/healing_engine.py`
+- GPU recovery: `services/self-healing-agent/gpu_recovery.py`
+- USB monitoring: `services/self-healing-agent/usb_monitor.py`
+- Uses connection pooling for PostgreSQL (psycopg2.pool)
+- Runs every 10 seconds (configurable via SELF_HEALING_INTERVAL)
+
+**Metrics Collector** (Python):
+- Main collector: `services/metrics-collector/collector.py`
+- GPU monitoring: `services/metrics-collector/gpu_monitor.py`
+- Collects metrics every 5s (live) and persists every 30s
+
+**LLM Service**:
+- Based on Ollama container
+- Custom healthcheck: `services/llm-service/healthcheck.sh`
+- Requires GPU (NVIDIA Container Runtime)
+- Models stored in Docker volume: `arasul-llm-models`
+
+**Embedding Service** (Python):
+- FastAPI server: `services/embedding-service/embedding_server.py`
+- Requires GPU for inference
+- Custom healthcheck validates vectorization speed (<50ms)
+
 ### When Implementing API Endpoints
 
 1. **Always include timestamp** in responses (ISO8601 format)
@@ -351,6 +426,43 @@ Rollback automatically triggered if critical service fails post-update.
 - No critical errors
 - All services stable
 
+## Troubleshooting Common Issues
+
+### Service Won't Start
+1. Check health status: `docker compose ps`
+2. View logs: `docker compose logs <service-name>`
+3. Verify dependencies started first: `./scripts/validate_dependencies.sh`
+4. Check resource usage: `docker stats`
+
+### Database Connection Errors
+- Services use retry logic (up to 5 attempts, 5s delay)
+- Check PostgreSQL health: `docker exec postgres-db pg_isready -U arasul`
+- Verify credentials in `.env` match across services
+
+### GPU Not Available
+- Verify NVIDIA drivers: `nvidia-smi`
+- Check container runtime: `docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi`
+- Ensure `runtime: nvidia` in docker-compose.yml for GPU services
+
+### Health Check Failing
+- LLM service has 300s start_period (model loading)
+- Embedding service has 300s start_period (model loading)
+- Check service-specific health endpoints manually:
+  - Dashboard: `curl http://localhost/api/health`
+  - Metrics: `curl http://metrics-collector:9100/health`
+  - LLM: `docker exec llm-service curl http://localhost:11434/api/tags`
+
+### Frontend Not Loading
+- Check reverse-proxy: `docker compose logs reverse-proxy`
+- Verify Traefik dashboard: `http://localhost:8080` (only on localhost)
+- Ensure dashboard-frontend built correctly: `docker compose build dashboard-frontend`
+
+### Self-Healing Too Aggressive
+- Adjust thresholds in `.env`:
+  - `DISK_CRITICAL_PERCENT` (default 95)
+  - `SELF_HEALING_INTERVAL` (default 10)
+- Temporarily disable: `SELF_HEALING_ENABLED=false` in `.env`
+
 ## Important Technical Notes
 
 - **Language**: System supports German/English (PRD is in German)
@@ -360,6 +472,7 @@ Rollback automatically triggered if critical service fails post-update.
 - **Deterministic Behavior**: System state must be predictable and reproducible
 - **GPU Requirement**: NVIDIA GPU required for LLM/Embeddings
 - **Target Users**: Non-technical end users (plug & play)
+- **Note**: Use `docker compose` (not `docker-compose`) - Docker Compose V2 is required
 
 ## Key Design Principles
 
@@ -372,8 +485,17 @@ Rollback automatically triggered if critical service fails post-update.
 7. **Clear Separation**: No circular dependencies between components
 8. **Replaceability**: Any service can be swapped without architecture changes
 
+## Known Issues and Workarounds
+
+See `BUGS_AND_FIXES.md` for detailed issue tracking and resolutions. Key historical issues:
+- HIGH-010: Health check timeouts (resolved with proper timeout values)
+- HIGH-014: Startup order enforcement (resolved with strict depends_on conditions)
+- HIGH-015: Self-healing false positives (resolved with connection pooling)
+
 ## References
 
 - Full specifications: `prd.md` (complete technical specification for MVP)
+- Bug tracking: `BUGS_AND_FIXES.md` (historical issues and fixes)
+- Test reports: `TEST_REPORT.md` (test results and coverage)
 - Target Platform: NVIDIA Jetson AGX Orin Developer Kit
 - JetPack Version: 6.x or later

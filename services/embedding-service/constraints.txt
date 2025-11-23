@@ -1,0 +1,3 @@
+# Pin torch to the version pre-installed in the Jetson container
+# This prevents pip from upgrading to a CPU-only version
+torch==2.2.0

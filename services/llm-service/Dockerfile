@@ -14,7 +14,7 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages for Management API Server
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --no-cache-dir --break-system-packages \
     flask==3.0.0 \
     flask-cors==4.0.0 \
     requests==2.31.0 \
@@ -34,7 +34,6 @@ VOLUME ["/root/.ollama"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-
     CMD curl -f http://localhost:11436/health || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]

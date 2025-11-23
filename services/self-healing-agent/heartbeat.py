@@ -245,10 +245,7 @@ def main():
         print(json.dumps(health, indent=2))
         sys.exit(0 if health['healthy'] else 1)
 
-    # Run server
-    global HEARTBEAT_PORT
-    HEARTBEAT_PORT = args.port
-
+    # Run server with configured port
     run_heartbeat_server()
 
 

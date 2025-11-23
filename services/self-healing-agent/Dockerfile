@@ -5,15 +5,17 @@ LABEL description="Self-Healing Engine - Autonomous service recovery"
 LABEL org.opencontainers.image.architecture="arm64"
 
 # Install system dependencies
+# Note: NVIDIA utilities are available via host system and NVIDIA Container Runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     docker.io \
     sudo \
-    nvidia-utils-535 \
     procps \
     findutils \
     udev \
     util-linux \
+    gcc \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure passwordless sudo for reboot command
