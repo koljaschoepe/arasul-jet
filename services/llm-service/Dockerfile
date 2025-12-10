@@ -23,7 +23,8 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 # Copy Management API Server (for Model Download/Delete/List)
 COPY api_server.py /app/api_server.py
 COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY healthcheck.sh /healthcheck.sh
+RUN chmod +x /app/entrypoint.sh /healthcheck.sh
 
 # Expose Ollama Port (for LLM inference) + Management API Port (for Dashboard)
 EXPOSE 11434

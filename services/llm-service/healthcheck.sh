@@ -77,23 +77,29 @@ check_gpu_availability() {
     fi
 
     # Check GPU memory usage with timeout
+    # BUG-002 FIX: Jetson Orin returns [N/A] for memory queries
+    # Handle this gracefully as it's a platform limitation
     GPU_MEM_USED=$(timeout 5 nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1)
     GPU_MEM_TOTAL=$(timeout 5 nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)
 
-    # HIGH-010 FIX: Validate that we got numeric values
-    if ! [[ "$GPU_MEM_USED" =~ ^[0-9]+$ ]] || ! [[ "$GPU_MEM_TOTAL" =~ ^[0-9]+$ ]]; then
-        error "Failed to retrieve GPU memory information"
-        return 1
+    # BUG-002 FIX: Validate that we got numeric values
+    # On Jetson Orin, memory queries may return [N/A] - treat this as non-critical
+    if [[ "$GPU_MEM_USED" =~ ^[0-9]+$ ]] && [[ "$GPU_MEM_TOTAL" =~ ^[0-9]+$ ]]; then
+        # Memory info available - check thresholds
+        GPU_MEM_PERCENT=$((GPU_MEM_USED * 100 / GPU_MEM_TOTAL))
+
+        if [ "$GPU_MEM_PERCENT" -ge 95 ]; then
+            error "GPU memory usage critical: ${GPU_MEM_PERCENT}%"
+            return 1
+        fi
+
+        success "GPU available (${GPU_COUNT} GPU(s), ${GPU_MEM_PERCENT}% memory used)"
+    else
+        # Memory info not available (common on Jetson platforms)
+        warning "GPU memory information not available on this platform (Jetson limitation)"
+        success "GPU available (${GPU_COUNT} GPU(s), memory monitoring not supported)"
     fi
 
-    GPU_MEM_PERCENT=$((GPU_MEM_USED * 100 / GPU_MEM_TOTAL))
-
-    if [ "$GPU_MEM_PERCENT" -ge 95 ]; then
-        error "GPU memory usage critical: ${GPU_MEM_PERCENT}%"
-        return 1
-    fi
-
-    success "GPU available (${GPU_COUNT} GPU(s), ${GPU_MEM_PERCENT}% memory used)"
     return 0
 }
 

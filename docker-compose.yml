@@ -155,6 +155,7 @@ services:
     volumes:
       - arasul-llm-models:/root/.ollama
       - ./services/llm-service/healthcheck.sh:/healthcheck.sh:ro
+      - ./data/models:/host-models:ro
     runtime: nvidia
     deploy:
       resources:

@@ -191,7 +191,6 @@ ls -la
 ```bash
 # Executable Permission setzen
 sudo chmod +x arasul
-
 # Verify
 ./arasul --help
 # Sollte Hilfe-Text anzeigen

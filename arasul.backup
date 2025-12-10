@@ -367,7 +367,7 @@ check_requirements() {
     log_success "Docker found: $(docker --version)"
 
     # Check Docker Compose
-    if ! command -v docker compose &> /dev/null && ! docker compose version &> /dev/null; then
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
         log_error "Docker Compose is not installed. Please install Docker Compose first."
         exit 1
     fi
@@ -510,7 +510,7 @@ init_env() {
 pull_images() {
     log_info "Pulling Docker images..."
 
-    docker compose pull postgres-db minio n8n reverse-proxy 2>&1 | grep -v "Pulling" || true
+    docker-compose pull postgres-db minio n8n reverse-proxy 2>&1 | grep -v "Pulling" || true
 
     log_success "Base images pulled"
 }
@@ -519,7 +519,7 @@ pull_images() {
 build_images() {
     log_info "Building custom Docker images..."
 
-    docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service self-healing-agent 2>&1 | grep -v "Building" || true
+    docker-compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service self-healing-agent 2>&1 | grep -v "Building" || true
 
     log_success "Custom images built"
 }
@@ -529,12 +529,12 @@ init_database() {
     log_info "Initializing database..."
 
     # Start PostgreSQL
-    docker compose up -d postgres-db
+    docker-compose up -d postgres-db
 
     # Wait for PostgreSQL to be ready
     log_info "Waiting for PostgreSQL to be ready..."
     for i in {1..30}; do
-        if docker compose exec -T postgres-db pg_isready -U arasul &> /dev/null; then
+        if docker-compose exec -T postgres-db pg_isready -U arasul &> /dev/null; then
             log_success "PostgreSQL is ready"
             break
         fi
@@ -549,7 +549,7 @@ init_minio_buckets() {
     log_info "Initializing MinIO buckets..."
 
     # Check if MinIO is running
-    if ! docker compose ps minio | grep -q "Up"; then
+    if ! docker-compose ps minio | grep -q "Up"; then
         log_error "MinIO is not running"
         return 1
     fi
@@ -567,12 +567,12 @@ init_minio_buckets() {
     docker cp ./scripts/init_minio_buckets.sh minio:/tmp/init_minio_buckets.sh
 
     # Execute script in container
-    docker compose exec -T minio sh /tmp/init_minio_buckets.sh
+    docker-compose exec -T minio sh /tmp/init_minio_buckets.sh
 
     local EXIT_CODE=$?
 
     # Clean up
-    docker compose exec -T minio rm -f /tmp/init_minio_buckets.sh
+    docker-compose exec -T minio rm -f /tmp/init_minio_buckets.sh
 
     # HIGH-009 FIX: Make error handling explicit and clear
     if [ $EXIT_CODE -eq 0 ]; then
@@ -743,7 +743,7 @@ init_admin_user() {
     # (which has bcrypt installed)
     log_info "Generating bcrypt hash for admin password..."
 
-    ADMIN_HASH=$(docker compose run --rm dashboard-backend python3 -c "
+    ADMIN_HASH=$(docker-compose run --rm dashboard-backend python3 -c "
 import bcrypt
 import sys
 password = '$ADMIN_PASSWORD'.encode('utf-8')
@@ -768,7 +768,7 @@ print(hash.decode('utf-8'))
     # Insert admin user into database
     log_info "Creating admin user in database..."
 
-    docker compose exec -T postgres-db psql -U arasul -d arasul_db <<EOF
+    docker-compose exec -T postgres-db psql -U arasul -d arasul_db <<EOF
 INSERT INTO admin_users (username, password_hash, email, created_at)
 VALUES ('${ADMIN_USERNAME:-admin}', '$ADMIN_HASH', 'admin@arasul.local', NOW())
 ON CONFLICT (username) DO UPDATE
@@ -791,28 +791,28 @@ start_services() {
     log_info "Starting all services in deterministic order..."
 
     # Start services in order (some are already started)
-    docker compose up -d postgres-db
+    docker-compose up -d postgres-db
     sleep 5
 
-    docker compose up -d minio
+    docker-compose up -d minio
     sleep 5
 
-    docker compose up -d metrics-collector
+    docker-compose up -d metrics-collector
     sleep 5
 
-    docker compose up -d llm-service embedding-service
+    docker-compose up -d llm-service embedding-service
     sleep 10
 
-    docker compose up -d reverse-proxy
+    docker-compose up -d reverse-proxy
     sleep 3
 
-    docker compose up -d dashboard-backend dashboard-frontend
+    docker-compose up -d dashboard-backend dashboard-frontend
     sleep 5
 
-    docker compose up -d n8n
+    docker-compose up -d n8n
     sleep 5
 
-    docker compose up -d self-healing-agent
+    docker-compose up -d self-healing-agent
 
     log_success "All services started"
 }
@@ -849,7 +849,7 @@ run_smoke_tests() {
 
     # Test Metrics Collector
     log_info "Testing Metrics Collector..."
-    if docker compose exec -T metrics-collector curl -f http://localhost:9100/health &> /dev/null; then
+    if docker-compose exec -T metrics-collector curl -f http://localhost:9100/health &> /dev/null; then
         log_success "Metrics Collector: OK"
     else
         log_error "Metrics Collector: FAILED"
@@ -858,11 +858,11 @@ run_smoke_tests() {
 
     # Test PostgreSQL
     log_info "Testing PostgreSQL..."
-    if docker compose exec -T postgres-db pg_isready -U arasul &> /dev/null; then
+    if docker-compose exec -T postgres-db pg_isready -U arasul &> /dev/null; then
         log_success "PostgreSQL: OK"
 
         # Test database schema
-        TABLES=$(docker compose exec -T postgres-db psql -U arasul -d arasul_db -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null | tr -d ' \n')
+        TABLES=$(docker-compose exec -T postgres-db psql -U arasul -d arasul_db -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null | tr -d ' \n')
         if [ "$TABLES" -gt 5 ]; then
             log_success "PostgreSQL Schema: OK ($TABLES tables)"
         else
@@ -876,12 +876,12 @@ run_smoke_tests() {
 
     # Test MinIO
     log_info "Testing MinIO..."
-    if docker compose exec -T minio curl -f http://localhost:9000/minio/health/live &> /dev/null; then
+    if docker-compose exec -T minio curl -f http://localhost:9000/minio/health/live &> /dev/null; then
         log_success "MinIO: OK"
 
         # Test MinIO buckets
         log_info "Checking MinIO buckets..."
-        BUCKET_COUNT=$(docker compose exec -T minio mc ls local 2>/dev/null | wc -l || echo "0")
+        BUCKET_COUNT=$(docker-compose exec -T minio mc ls local 2>/dev/null | wc -l || echo "0")
         if [ "$BUCKET_COUNT" -gt 0 ]; then
             log_success "MinIO Buckets: $BUCKET_COUNT buckets found"
         else
@@ -895,12 +895,12 @@ run_smoke_tests() {
 
     # Test LLM Service
     log_info "Testing LLM Service..."
-    if docker compose exec -T llm-service curl -f http://localhost:11434/api/tags &> /dev/null; then
+    if docker-compose exec -T llm-service curl -f http://localhost:11434/api/tags &> /dev/null; then
         log_success "LLM Service: OK"
 
         # Check if any models are available (skip inference test if none)
         log_info "Checking for loaded models..."
-        MODELS_RESPONSE=$(docker compose exec -T llm-service curl -s http://localhost:11434/api/tags 2>/dev/null)
+        MODELS_RESPONSE=$(docker-compose exec -T llm-service curl -s http://localhost:11434/api/tags 2>/dev/null)
         if echo "$MODELS_RESPONSE" | grep -q '"models"'; then
             MODEL_COUNT=$(echo "$MODELS_RESPONSE" | grep -o '"name"' | wc -l)
             if [ "$MODEL_COUNT" -gt 0 ]; then
@@ -921,12 +921,12 @@ run_smoke_tests() {
 
     # Test Embedding Service
     log_info "Testing Embedding Service..."
-    if docker compose exec -T embedding-service curl -f http://localhost:11435/health &> /dev/null; then
+    if docker-compose exec -T embedding-service curl -f http://localhost:11435/health &> /dev/null; then
         log_success "Embedding Service: OK"
 
         # Try embeddings test (using correct /embed endpoint)
         log_info "Running embeddings test..."
-        EMB_RESPONSE=$(docker compose exec -T embedding-service curl -s --max-time 5 http://localhost:11435/embed -H "Content-Type: application/json" -d '{"texts":["test"]}' 2>/dev/null)
+        EMB_RESPONSE=$(docker-compose exec -T embedding-service curl -s --max-time 5 http://localhost:11435/embed -H "Content-Type: application/json" -d '{"texts":["test"]}' 2>/dev/null)
         if echo "$EMB_RESPONSE" | grep -q "vectors"; then
             log_success "Embeddings Inference: OK"
         else
@@ -940,7 +940,7 @@ run_smoke_tests() {
 
     # Test n8n
     log_info "Testing n8n..."
-    if docker compose exec -T n8n wget --spider -q http://localhost:5678/healthz 2>/dev/null; then
+    if docker-compose exec -T n8n wget --spider -q http://localhost:5678/healthz 2>/dev/null; then
         log_success "n8n: OK"
     else
         log_warning "n8n: Not responding (may still be initializing)"
@@ -949,11 +949,11 @@ run_smoke_tests() {
 
     # Test Self-Healing Agent
     log_info "Testing Self-Healing Agent..."
-    if docker compose ps self-healing-agent | grep -q "Up"; then
+    if docker-compose ps self-healing-agent | grep -q "Up"; then
         log_success "Self-Healing Agent: Running"
 
         # Check if healing engine is actually running
-        HEALING_PROCS=$(docker compose exec -T self-healing-agent pgrep -f healing_engine.py | wc -l)
+        HEALING_PROCS=$(docker-compose exec -T self-healing-agent pgrep -f healing_engine.py | wc -l)
         if [ "$HEALING_PROCS" -gt 0 ]; then
             log_success "Self-Healing Engine: Active"
         else
@@ -1092,21 +1092,21 @@ cmd_bootstrap() {
 # Start command
 cmd_start() {
     log_info "Starting Arasul Platform..."
-    docker compose up -d
+    docker-compose up -d
     log_success "Platform started"
 }
 
 # Stop command
 cmd_stop() {
     log_info "Stopping Arasul Platform..."
-    docker compose down
+    docker-compose down
     log_success "Platform stopped"
 }
 
 # Restart command
 cmd_restart() {
     log_info "Restarting Arasul Platform..."
-    docker compose restart
+    docker-compose restart
     log_success "Platform restarted"
 }
 
@@ -1114,26 +1114,26 @@ cmd_restart() {
 cmd_status() {
     log_info "Arasul Platform Status:"
     echo ""
-    docker compose ps
+    docker-compose ps
 }
 
 # Logs command
 cmd_logs() {
     if [ -n "$2" ]; then
-        docker compose logs -f "$2"
+        docker-compose logs -f "$2"
     else
-        docker compose logs -f
+        docker-compose logs -f
     fi
 }
 
 # Update command
 cmd_update() {
     log_info "Pulling latest images..."
-    docker compose pull
+    docker-compose pull
     log_info "Rebuilding custom images..."
-    docker compose build
+    docker-compose build
     log_info "Restarting services..."
-    docker compose up -d
+    docker-compose up -d
     log_success "Update completed"
 }
 
@@ -1230,7 +1230,7 @@ cmd_reload_config() {
 
     # Reload Traefik configuration (dynamic config)
     log_info "Reloading Traefik configuration..."
-    docker compose exec reverse-proxy kill -HUP 1 2>/dev/null || log_warning "Reverse proxy not running or reload failed"
+    docker-compose exec reverse-proxy kill -HUP 1 2>/dev/null || log_warning "Reverse proxy not running or reload failed"
 
     # Reload dashboard backend configuration (via HTTP endpoint)
     log_info "Reloading dashboard backend configuration..."
@@ -1238,7 +1238,7 @@ cmd_reload_config() {
 
     # Reload n8n configuration (restart gracefully)
     log_info "Reloading n8n configuration..."
-    docker compose exec n8n n8n restart 2>/dev/null || log_warning "n8n reload failed"
+    docker-compose exec n8n n8n restart 2>/dev/null || log_warning "n8n reload failed"
 
     log_success "Configuration reload complete"
     log_info "Note: Some changes require a full restart (database credentials, ports, etc.)"
