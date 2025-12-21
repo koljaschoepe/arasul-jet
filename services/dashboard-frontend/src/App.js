@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiUpload, FiTool } from 'react-icons/fi';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink } from 'react-icons/fi';
 import Login from './components/Login';
-import UpdatePage from './components/UpdatePage';
-import SelfHealingEvents from './components/SelfHealingEvents';
+import Settings from './components/Settings';
+import ChatMulti from './components/ChatMulti';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import './index.css';
@@ -321,41 +321,48 @@ function App() {
     <ErrorBoundary>
       <Router>
         <div className="app">
-          <Navigation
+          <Sidebar
             handleLogout={handleLogout}
             systemStatus={systemStatus}
             getStatusColor={getStatusColor}
-            wsConnected={wsConnected}
-            wsReconnecting={wsReconnecting}
           />
 
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <DashboardHome
-                  metrics={metrics}
-                  metricsHistory={metricsHistory}
-                  services={services}
-                  workflows={workflows}
-                  systemInfo={systemInfo}
-                  networkInfo={networkInfo}
-                  formatChartData={formatChartData}
-                  formatUptime={formatUptime}
-                  getStatusColor={getStatusColor}
-                />
-              }
+          <div className="container">
+            <TopBar
+              wsConnected={wsConnected}
+              wsReconnecting={wsReconnecting}
+              systemStatus={systemStatus}
+              getStatusColor={getStatusColor}
             />
-            <Route path="/updates" element={<UpdatePage />} />
-            <Route path="/self-healing" element={<SelfHealingEvents />} />
-          </Routes>
+
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <DashboardHome
+                    metrics={metrics}
+                    metricsHistory={metricsHistory}
+                    services={services}
+                    workflows={workflows}
+                    systemInfo={systemInfo}
+                    networkInfo={networkInfo}
+                    formatChartData={formatChartData}
+                    formatUptime={formatUptime}
+                    getStatusColor={getStatusColor}
+                  />
+                }
+              />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/chat" element={<ChatMulti />} />
+            </Routes>
+          </div>
         </div>
       </Router>
     </ErrorBoundary>
   );
 }
 
-function Navigation({ handleLogout, systemStatus, getStatusColor, wsConnected, wsReconnecting }) {
+function Sidebar({ handleLogout, systemStatus, getStatusColor }) {
   const location = useLocation();
 
   const isActive = (path) => {
@@ -363,52 +370,44 @@ function Navigation({ handleLogout, systemStatus, getStatusColor, wsConnected, w
   };
 
   return (
-    <div className="navigation">
-      <header className="header">
-        <div>
-          <h1 className="header-title">Arasul Platform</h1>
-          <p className="header-subtitle">Edge AI Management System</p>
-        </div>
-        <div className="header-status">
-          <div className={`status-badge ${getStatusColor(systemStatus?.status)}`}>
-            {systemStatus?.status || 'UNKNOWN'}
-          </div>
-          {systemStatus?.self_healing_active && (
-            <div className="status-badge status-ok">
-              Self-Healing Active
-            </div>
-          )}
-          {wsReconnecting && (
-            <div className="status-badge status-warning" title="Live metrics reconnecting...">
-              ⟳ Reconnecting
-            </div>
-          )}
-          {!wsConnected && !wsReconnecting && (
-            <div className="status-badge status-warning" title="Live metrics via HTTP fallback">
-              ⚠ HTTP Fallback
-            </div>
-          )}
-          <button
-            onClick={handleLogout}
-            className="logout-button"
-            title="Logout"
-          >
-            <FiLogOut />
-          </button>
-        </div>
-      </header>
+    <div className="sidebar">
+      <div className="sidebar-header">
+        <h1 className="sidebar-title">Arasul</h1>
+        <p className="sidebar-subtitle">Edge AI Platform</p>
+      </div>
 
-      <nav className="nav-bar">
-        <Link to="/" className={isActive('/')}>
-          <FiHome /> Dashboard
-        </Link>
-        <Link to="/updates" className={isActive('/updates')}>
-          <FiUpload /> Updates
-        </Link>
-        <Link to="/self-healing" className={isActive('/self-healing')}>
-          <FiTool /> Self-Healing
-        </Link>
+      <nav className="navigation">
+        <div className="nav-bar">
+          <Link to="/" className={isActive('/')}>
+            <FiHome /> Dashboard
+          </Link>
+          <Link to="/chat" className={isActive('/chat')}>
+            <FiMessageSquare /> AI Chat
+          </Link>
+          <Link to="/settings" className={isActive('/settings')}>
+            <FiSettings /> Einstellungen
+          </Link>
+        </div>
       </nav>
+
+      <div className="sidebar-footer">
+        <button
+          onClick={handleLogout}
+          className="logout-button"
+          style={{ width: '100%', justifyContent: 'center' }}
+          title="Logout"
+        >
+          <FiLogOut /> Logout
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TopBar({ wsConnected, wsReconnecting, systemStatus, getStatusColor }) {
+  return (
+    <div className="header">
+      {/* System messages removed as requested */}
     </div>
   );
 }
@@ -424,176 +423,324 @@ function DashboardHome({
   formatUptime,
   getStatusColor
 }) {
+  const getProgressColor = (value) => {
+    if (value >= 90) return '#ef4444';
+    if (value >= 70) return '#f59e0b';
+    return '#45ADFF';
+  };
+
+  const formatBytes = (bytes) => {
+    return (bytes / 1024 / 1024 / 1024).toFixed(0);
+  };
+
+  const totalDisk = ((metrics?.disk?.used || 0) + (metrics?.disk?.free || 0));
+  const usedDisk = metrics?.disk?.used || 0;
+
   return (
     <div className="container">
-      {/* System Cards */}
-      <div className="cards-grid">
-        {/* System Performance Card */}
-        <div className="card">
-          <h3 className="card-title">
-            <FiActivity /> System Performance
-          </h3>
-          <div className="card-row">
-            <span className="metric-label">CPU</span>
-            <span className="metric-value">{metrics?.cpu?.toFixed(1) || 0}%</span>
+      {/* Top Stats Row */}
+      <div className="stats-top-row">
+        <div className="stat-card-large">
+          <div className="stat-icon-wrapper">
+            <FiCpu className="stat-icon" />
           </div>
-          <div className="card-row">
-            <span className="metric-label">RAM</span>
-            <span className="metric-value">{metrics?.ram?.toFixed(1) || 0}%</span>
-          </div>
-          <div className="card-row">
-            <span className="metric-label">GPU</span>
-            <span className="metric-value">{metrics?.gpu?.toFixed(1) || 0}%</span>
-          </div>
-          <div className="card-row">
-            <span className="metric-label">
-              <FiThermometer /> Temperatur
-            </span>
-            <span className="metric-value">{metrics?.temperature?.toFixed(1) || 0}°C</span>
-          </div>
-        </div>
-
-        {/* Storage Card */}
-        <div className="card">
-          <h3 className="card-title">
-            <FiHardDrive /> Speicher
-          </h3>
-          <div className="card-value">{metrics?.disk?.percent?.toFixed(1) || 0}%</div>
-          <div className="card-label">Belegt</div>
-          <div className="card-row" style={{ marginTop: '1rem' }}>
-            <span className="metric-label">Frei</span>
-            <span className="metric-value">
-              {((metrics?.disk?.free || 0) / 1024 / 1024 / 1024).toFixed(1)} GB
-            </span>
-          </div>
-          <div className="card-row">
-            <span className="metric-label">Gesamt</span>
-            <span className="metric-value">
-              {(((metrics?.disk?.used || 0) + (metrics?.disk?.free || 0)) / 1024 / 1024 / 1024).toFixed(1)} GB
-            </span>
-          </div>
-        </div>
-
-        {/* AI Services Card */}
-        <div className="card">
-          <h3 className="card-title">
-            <FiCpu /> AI Services
-          </h3>
-          <div className="card-row">
-            <span className="metric-label">LLM</span>
-            <span className={`metric-value ${services?.llm?.status === 'healthy' ? 'status-ok' : 'status-critical'}`}>
-              {services?.llm?.status || 'unknown'}
-            </span>
-          </div>
-          <div className="card-row">
-            <span className="metric-label">Embeddings</span>
-            <span className={`metric-value ${services?.embeddings?.status === 'healthy' ? 'status-ok' : 'status-critical'}`}>
-              {services?.embeddings?.status || 'unknown'}
-            </span>
-          </div>
-          {services?.llm?.gpu_load !== undefined && (
-            <div className="card-row">
-              <span className="metric-label">GPU Load</span>
-              <span className="metric-value">{(services.llm.gpu_load * 100).toFixed(0)}%</span>
+          <div className="stat-content">
+            <div className="stat-label">CPU USAGE</div>
+            <div className="stat-value-large">{metrics?.cpu?.toFixed(1) || 0}<span className="stat-unit">%</span></div>
+            <div className={`stat-change ${metrics?.cpu < 70 ? 'stat-change-positive' : 'stat-change-negative'}`}>
+              {metrics?.cpu < 70 ? '↑' : '↓'} Normal
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Network Card */}
-        <div className="card">
-          <h3 className="card-title">Netzwerk</h3>
-          <div className="card-row">
-            <span className="metric-label">mDNS</span>
-            <span className="metric-value" style={{ fontSize: '1rem' }}>{networkInfo?.mdns || 'N/A'}</span>
+        <div className="stat-card-large">
+          <div className="stat-icon-wrapper">
+            <FiActivity className="stat-icon" />
           </div>
-          <div className="card-row">
-            <span className="metric-label">IP</span>
-            <span className="metric-value" style={{ fontSize: '1rem' }}>
-              {networkInfo?.ip_addresses?.[0] || 'N/A'}
-            </span>
+          <div className="stat-content">
+            <div className="stat-label">RAM USAGE</div>
+            <div className="stat-value-large">{metrics?.ram?.toFixed(1) || 0}<span className="stat-unit">%</span></div>
+            <div className={`stat-change ${metrics?.ram < 70 ? 'stat-change-positive' : 'stat-change-negative'}`}>
+              {metrics?.ram < 70 ? '↑' : '↓'} {metrics?.ram < 70 ? 'Normal' : 'High'}
+            </div>
           </div>
-          <div className="card-row">
-            <span className="metric-label">Internet</span>
-            <span className={`metric-value ${networkInfo?.internet_reachable ? 'status-ok' : 'status-critical'}`}>
-              {networkInfo?.internet_reachable ? 'Verbunden' : 'Offline'}
-            </span>
+        </div>
+
+        <div className="stat-card-large">
+          <div className="stat-icon-wrapper">
+            <FiHardDrive className="stat-icon" />
+          </div>
+          <div className="stat-content">
+            <div className="stat-label">STORAGE</div>
+            <div className="stat-value-large">{formatBytes(usedDisk)}<span className="stat-unit">GB</span></div>
+            <div className="stat-sublabel">{formatBytes(totalDisk)}GB Total</div>
+          </div>
+        </div>
+
+        <div className="stat-card-large">
+          <div className="stat-icon-wrapper">
+            <FiThermometer className="stat-icon" />
+          </div>
+          <div className="stat-content">
+            <div className="stat-label">TEMPERATURE</div>
+            <div className="stat-value-large">{metrics?.temperature?.toFixed(0) || 0}<span className="stat-unit">°C</span></div>
+            <div className={`stat-change ${metrics?.temperature < 70 ? 'stat-change-positive' : 'stat-change-negative'}`}>
+              {metrics?.temperature < 70 ? '↑' : '↓'} {metrics?.temperature < 70 ? 'Normal' : 'High'}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Performance Chart */}
-      <div className="chart-section">
-        <h2 className="chart-title">24h Performance</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={formatChartData()}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis dataKey="time" stroke="#808080" />
-            <YAxis stroke="#808080" />
-            <Tooltip
-              contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
-              labelStyle={{ color: '#00ff88' }}
+      {/* Service Links */}
+      <div className="service-links-modern">
+        <a
+          href="http://localhost:5678"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="service-link-card"
+        >
+          <div className="service-link-icon-wrapper">
+            <FiZap className="service-link-icon" />
+          </div>
+          <div className="service-link-content">
+            <div className="service-link-name">n8n Workflows</div>
+            <div className="service-link-description">Automation & Integration</div>
+          </div>
+          <FiExternalLink className="service-link-arrow" />
+        </a>
+
+        <a
+          href="http://localhost:9001"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="service-link-card"
+        >
+          <div className="service-link-icon-wrapper">
+            <FiDatabase className="service-link-icon" />
+          </div>
+          <div className="service-link-content">
+            <div className="service-link-name">MinIO Storage</div>
+            <div className="service-link-description">Object Storage Console</div>
+          </div>
+          <FiExternalLink className="service-link-arrow" />
+        </a>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="dashboard-grid">
+        {/* 24h Performance Chart */}
+        <div className="dashboard-card dashboard-card-large">
+          <h3 className="dashboard-card-title">24h Performance</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={formatChartData()}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(69, 173, 255, 0.1)" />
+              <XAxis dataKey="time" stroke="#94a3b8" style={{ fontSize: '0.85rem' }} />
+              <YAxis stroke="#94a3b8" style={{ fontSize: '0.85rem' }} />
+              <Tooltip
+                contentStyle={{
+                  background: 'linear-gradient(135deg, #1a2330 0%, #1f2835 100%)',
+                  border: '1px solid rgba(69, 173, 255, 0.3)',
+                  borderRadius: '10px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)'
+                }}
+                labelStyle={{ color: '#45ADFF', fontWeight: 600 }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="CPU" stroke="#45ADFF" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="RAM" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="GPU" stroke="#06b6d4" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="Temp" stroke="#f59e0b" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* AI Services Status */}
+        <div className="dashboard-card">
+          <h3 className="dashboard-card-title">AI Services</h3>
+          <div className="services-list">
+            <div className="service-item-modern">
+              <div className={`service-indicator ${services?.llm?.status === 'healthy' ? 'service-healthy' : 'service-error'}`} />
+              <div className="service-info">
+                <div className="service-name">LLM Service</div>
+                <div className="service-status">{services?.llm?.status || 'unknown'}</div>
+              </div>
+            </div>
+            <div className="service-item-modern">
+              <div className={`service-indicator ${services?.embeddings?.status === 'healthy' ? 'service-healthy' : 'service-error'}`} />
+              <div className="service-info">
+                <div className="service-name">Embeddings</div>
+                <div className="service-status">{services?.embeddings?.status || 'unknown'}</div>
+              </div>
+            </div>
+            <div className="service-item-modern">
+              <div className={`service-indicator ${networkInfo?.internet_reachable ? 'service-healthy' : 'service-error'}`} />
+              <div className="service-info">
+                <div className="service-name">Internet</div>
+                <div className="service-status">{networkInfo?.internet_reachable ? 'Connected' : 'Offline'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* System Info */}
+        <div className="dashboard-card">
+          <h3 className="dashboard-card-title">System Info</h3>
+          <div className="info-list-modern">
+            <div className="info-item-modern">
+              <span className="info-label-modern">Uptime</span>
+              <span className="info-value-modern">{systemInfo?.uptime_seconds ? formatUptime(systemInfo.uptime_seconds) : 'N/A'}</span>
+            </div>
+            <div className="info-item-modern">
+              <span className="info-label-modern">Version</span>
+              <span className="info-value-modern">{systemInfo?.version || '1.0.0'}</span>
+            </div>
+            <div className="info-item-modern">
+              <span className="info-label-modern">Hostname</span>
+              <span className="info-value-modern">{systemInfo?.hostname || 'arasul'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Minimal System Overview - REMOVED */}
+      <div className="metrics-overview" style={{ display: 'none' }}>
+        {/* CPU Metric */}
+        <div className="metric-card-minimal">
+          <div className="metric-header-minimal">
+            <span className="metric-label-minimal">CPU</span>
+            <span className="metric-value-minimal">{metrics?.cpu?.toFixed(0) || 0}%</span>
+          </div>
+          <div className="progress-bar-container">
+            <div
+              className="progress-bar"
+              style={{
+                width: `${metrics?.cpu || 0}%`,
+                background: getProgressColor(metrics?.cpu || 0)
+              }}
             />
-            <Legend />
-            <Line type="monotone" dataKey="CPU" stroke="#00ff88" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="RAM" stroke="#0066ff" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="GPU" stroke="#ff3366" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="Temp" stroke="#ffaa00" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Workflow Activity */}
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <h3 className="card-title">Workflow-Aktivität</h3>
-        <div className="card-row">
-          <span className="metric-label">Aktive Workflows</span>
-          <span className="metric-value">{workflows?.active || 0}</span>
-        </div>
-        <div className="card-row">
-          <span className="metric-label">Heute ausgeführt</span>
-          <span className="metric-value">{workflows?.executed_today || 0}</span>
-        </div>
-        {workflows?.last_error && (
-          <div className="card-row">
-            <span className="metric-label">Letzter Fehler</span>
-            <span className="metric-value status-critical" style={{ fontSize: '0.9rem' }}>
-              {workflows.last_error}
-            </span>
           </div>
-        )}
+        </div>
+
+        {/* RAM Metric */}
+        <div className="metric-card-minimal">
+          <div className="metric-header-minimal">
+            <span className="metric-label-minimal">RAM</span>
+            <span className="metric-value-minimal">{metrics?.ram?.toFixed(0) || 0}%</span>
+          </div>
+          <div className="progress-bar-container">
+            <div
+              className="progress-bar"
+              style={{
+                width: `${metrics?.ram || 0}%`,
+                background: getProgressColor(metrics?.ram || 0)
+              }}
+            />
+          </div>
+        </div>
+
+        {/* GPU Metric */}
+        <div className="metric-card-minimal">
+          <div className="metric-header-minimal">
+            <span className="metric-label-minimal">GPU</span>
+            <span className="metric-value-minimal">{metrics?.gpu?.toFixed(0) || 0}%</span>
+          </div>
+          <div className="progress-bar-container">
+            <div
+              className="progress-bar"
+              style={{
+                width: `${metrics?.gpu || 0}%`,
+                background: getProgressColor(metrics?.gpu || 0)
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Storage Metric */}
+        <div className="metric-card-minimal">
+          <div className="metric-header-minimal">
+            <span className="metric-label-minimal">Speicher</span>
+            <span className="metric-value-minimal">{metrics?.disk?.percent?.toFixed(0) || 0}%</span>
+          </div>
+          <div className="progress-bar-container">
+            <div
+              className="progress-bar"
+              style={{
+                width: `${metrics?.disk?.percent || 0}%`,
+                background: getProgressColor(metrics?.disk?.percent || 0)
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Temperature Metric */}
+        <div className="metric-card-minimal">
+          <div className="metric-header-minimal">
+            <span className="metric-label-minimal"><FiThermometer /> Temp</span>
+            <span className="metric-value-minimal">{metrics?.temperature?.toFixed(0) || 0}°C</span>
+          </div>
+          <div className="temp-indicator" style={{
+            background: metrics?.temperature > 80 ? '#ef4444' :
+                       metrics?.temperature > 70 ? '#f59e0b' : '#45ADFF',
+            height: '4px',
+            borderRadius: '2px',
+            marginTop: '0.5rem'
+          }} />
+        </div>
+
+        {/* AI Services Status */}
+        <div className="metric-card-minimal">
+          <div className="metric-header-minimal">
+            <span className="metric-label-minimal"><FiCpu /> AI Services</span>
+          </div>
+          <div className="services-status-minimal">
+            <div className="service-status-item">
+              <div className={`status-dot ${services?.llm?.status === 'healthy' ? 'status-dot-ok' : 'status-dot-error'}`} />
+              <span>LLM</span>
+            </div>
+            <div className="service-status-item">
+              <div className={`status-dot ${services?.embeddings?.status === 'healthy' ? 'status-dot-ok' : 'status-dot-error'}`} />
+              <span>Embeddings</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Internet Status */}
+        <div className="metric-card-minimal">
+          <div className="metric-header-minimal">
+            <span className="metric-label-minimal">Konnektivität</span>
+          </div>
+          <div className="services-status-minimal">
+            <div className="service-status-item">
+              <div className={`status-dot ${networkInfo?.internet_reachable ? 'status-dot-ok' : 'status-dot-error'}`} />
+              <span>Internet</span>
+            </div>
+            <div className="service-status-item">
+              <div className="status-dot status-dot-ok" />
+              <span>{networkInfo?.mdns || 'Local'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* System Info */}
+        <div className="metric-card-minimal">
+          <div className="metric-header-minimal">
+            <span className="metric-label-minimal">System</span>
+          </div>
+          <div className="system-info-minimal">
+            <div className="info-row-minimal">
+              <span className="info-label-minimal">Uptime</span>
+              <span className="info-value-minimal">
+                {systemInfo?.uptime_seconds ? formatUptime(systemInfo.uptime_seconds) : 'N/A'}
+              </span>
+            </div>
+            <div className="info-row-minimal">
+              <span className="info-label-minimal">Version</span>
+              <span className="info-value-minimal">{systemInfo?.version || '1.0.0'}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Service Quick Links */}
-      <div className="service-links">
-        <a href="/n8n" className="service-link" target="_blank" rel="noopener noreferrer">
-          n8n Workflows
-        </a>
-        <a href="/minio" className="service-link" target="_blank" rel="noopener noreferrer">
-          MinIO Storage
-        </a>
-        <a href="/api/system/status" className="service-link" target="_blank" rel="noopener noreferrer">
-          System API
-        </a>
-      </div>
-
-      {/* Footer */}
-      <footer className="footer">
-        <div className="footer-info">
-          <strong>Version:</strong> {systemInfo?.version || '1.0.0'}
-        </div>
-        <div className="footer-info">
-          <strong>Build:</strong> {systemInfo?.build_hash || 'dev'}
-        </div>
-        <div className="footer-info">
-          <strong>JetPack:</strong> {systemInfo?.jetpack_version || 'N/A'}
-        </div>
-        <div className="footer-info">
-          <strong>Uptime:</strong> {systemInfo?.uptime_seconds ? formatUptime(systemInfo.uptime_seconds) : 'N/A'}
-        </div>
-        <div className="footer-info">
-          <strong>Hostname:</strong> {systemInfo?.hostname || 'arasul'}
-        </div>
-      </footer>
     </div>
   );
 }

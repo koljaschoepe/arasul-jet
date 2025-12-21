@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { FiPackage, FiLock, FiCheckCircle, FiXCircle, FiSettings, FiAlertCircle } from 'react-icons/fi';
 import './UpdatePage.css';
 
 const UpdatePage = () => {
@@ -214,7 +215,7 @@ const UpdatePage = () => {
           <div className="upload-area">
             <div className="file-input-group">
               <label htmlFor="update-file" className="file-label">
-                <span className="file-icon">📦</span>
+                <FiPackage className="file-icon" />
                 <span className="file-text">
                   {selectedFile ? selectedFile.name : 'Select .araupdate file'}
                 </span>
@@ -230,7 +231,7 @@ const UpdatePage = () => {
 
             <div className="file-input-group">
               <label htmlFor="signature-file" className="file-label secondary">
-                <span className="file-icon">🔐</span>
+                <FiLock className="file-icon" />
                 <span className="file-text">
                   {signatureFile ? signatureFile.name : 'Select .sig file (optional)'}
                 </span>
@@ -270,7 +271,7 @@ const UpdatePage = () => {
         {uploadStatus === 'validated' && validationResult && (
           <div className="validation-result">
             <div className="result-header">
-              <span className="result-icon success">✓</span>
+              <FiCheckCircle className="result-icon success" />
               <h4>Update Package Validated</h4>
             </div>
 
@@ -326,7 +327,7 @@ const UpdatePage = () => {
         {uploadStatus === 'applying' && updateStatus && (
           <div className="update-progress">
             <div className="progress-header">
-              <span className="progress-icon">⚙️</span>
+              <FiSettings className="progress-icon" />
               <h4>Applying Update...</h4>
             </div>
 
@@ -352,12 +353,13 @@ const UpdatePage = () => {
 
         {uploadStatus === 'success' && (
           <div className="update-result success">
-            <span className="result-icon">✓</span>
+            <FiCheckCircle className="result-icon" />
             <h4>Update Applied Successfully!</h4>
             <p>System has been updated to version {validationResult?.version}</p>
             {validationResult?.requires_reboot && (
               <p className="reboot-warning">
-                ⚠️ System reboot required. Please restart the system.
+                <FiAlertCircle style={{ display: 'inline', marginRight: '0.5rem' }} />
+                System reboot required. Please restart the system.
               </p>
             )}
             <button onClick={handleReset} className="btn btn-primary">
@@ -368,7 +370,7 @@ const UpdatePage = () => {
 
         {uploadStatus === 'error' && errorMessage && (
           <div className="update-result error">
-            <span className="result-icon">✗</span>
+            <FiXCircle className="result-icon" />
             <h4>Update Failed</h4>
             <p className="error-message">{errorMessage}</p>
             <button onClick={handleReset} className="btn btn-primary">

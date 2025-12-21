@@ -38,7 +38,18 @@ async function getAllServicesStatus() {
 
         containers.forEach(container => {
             const containerName = container.Names[0].replace('/', '');
-            const serviceName = SERVICE_NAMES[containerName];
+
+            // Try exact match first, then try to match by suffix (handles prefixed container names)
+            let serviceName = SERVICE_NAMES[containerName];
+            if (!serviceName) {
+                // Check if container name ends with a known service name (e.g., "e4ba42a12982_postgres-db" -> "postgres-db")
+                for (const [knownName, mappedName] of Object.entries(SERVICE_NAMES)) {
+                    if (containerName.endsWith(knownName) || containerName.endsWith('_' + knownName)) {
+                        serviceName = mappedName;
+                        break;
+                    }
+                }
+            }
 
             if (serviceName) {
                 let status = 'unknown';

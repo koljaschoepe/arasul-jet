@@ -91,6 +91,14 @@ http:
           - "/minio"
         forceSlash: false
 
+    # MinIO Headers for reverse proxy
+    minio-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+          X-Forwarded-For: ""
+          X-Real-IP: ""
+
     strip-minio-api-prefix:
       stripPrefix:
         prefixes:
@@ -107,6 +115,12 @@ http:
       stripPrefix:
         prefixes:
           - "/embeddings"
+        forceSlash: false
+
+    strip-n8n-prefix:
+      stripPrefix:
+        prefixes:
+          - "/n8n"
         forceSlash: false
 
     # Compression

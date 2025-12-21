@@ -12,6 +12,9 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
+// Trust reverse proxy (Traefik) for rate limiting and client IP detection
+app.set('trust proxy', true);
+
 // SEC-007 FIX: Restrict CORS to specific origins
 const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://dashboard-frontend', 'http://localhost:3000'],
@@ -42,6 +45,9 @@ const llmRouter = require('./routes/llm');
 const embeddingsRouter = require('./routes/embeddings');
 const updateRouter = require('./routes/update');
 const docsRouter = require('./routes/docs');
+const chatsRouter = require('./routes/chats');
+const ragRouter = require('./routes/rag');
+const settingsRouter = require('./routes/settings');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -55,6 +61,9 @@ app.use('/api/llm', llmRouter);
 app.use('/api/embeddings', embeddingsRouter);
 app.use('/api/update', updateRouter);
 app.use('/api/docs', docsRouter);
+app.use('/api/chats', chatsRouter);
+app.use('/api/rag', ragRouter);
+app.use('/api/settings', settingsRouter);
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {

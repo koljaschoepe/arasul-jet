@@ -3,23 +3,25 @@
 
 http:
   routers:
-    # Dashboard Frontend
+    # Dashboard Frontend (catch-all, lowest priority)
+    # Accessible from any IP address in the network via HTTP and HTTPS
     dashboard-frontend:
-      rule: "Host(`arasul.local`) && PathPrefix(`/`)"
+      rule: "PathPrefix(`/`)"
       service: dashboard-frontend-service
       priority: 1
-      middlewares:
-        - security-headers
-        - rate-limit-api
-        - compress
+      # middlewares:
+      #   - security-headers
+      #   - rate-limit-api
+      #   - compress
       entryPoints:
+        - web
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # Dashboard Backend API
+    # Accessible from any IP address in the network via HTTP and HTTPS
     dashboard-api:
-      rule: "Host(`arasul.local`) && PathPrefix(`/api`)"
+      rule: "PathPrefix(`/api`)"
       service: dashboard-backend-service
       priority: 10
       middlewares:
@@ -27,26 +29,30 @@ http:
         - rate-limit-api
         - compress
       entryPoints:
+        - web
         - websecure
       tls:
         certResolver: letsencrypt
 
     # Auth endpoints (with stricter rate limiting)
+    # Accessible from any IP address in the network via HTTP and HTTPS
     auth-api:
-      rule: "Host(`arasul.local`) && PathPrefix(`/api/auth`)"
+      rule: "PathPrefix(`/api/auth`)"
       service: dashboard-backend-service
       priority: 20
       middlewares:
         - security-headers
         - rate-limit-auth
       entryPoints:
+        - web
         - websecure
       tls:
         certResolver: letsencrypt
 
     # Metrics API (with rate limiting)
+    # Accessible from any IP address in the network via HTTP and HTTPS
     metrics-api:
-      rule: "Host(`arasul.local`) && PathPrefix(`/api/metrics`)"
+      rule: "PathPrefix(`/api/metrics`)"
       service: dashboard-backend-service
       priority: 15
       middlewares:
@@ -54,27 +60,29 @@ http:
         - rate-limit-metrics
         - compress
       entryPoints:
+        - web
         - websecure
       tls:
         certResolver: letsencrypt
 
     # MinIO Console
+    # Accessible from any IP address in the network via HTTP and HTTPS
     minio-console:
-      rule: "Host(`arasul.local`) && PathPrefix(`/minio`)"
+      rule: "PathPrefix(`/minio`)"
       service: minio-console-service
-      priority: 30
+      priority: 100
       middlewares:
-        - strip-minio-prefix
-        - security-headers
+        - minio-headers
         - rate-limit-api
       entryPoints:
+        - web
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # MinIO S3 API
+    # Accessible from any IP address in the network via HTTP and HTTPS
     minio-api:
-      rule: "Host(`arasul.local`) && PathPrefix(`/minio-api`)"
+      rule: "PathPrefix(`/minio-api`)"
       service: minio-api-service
       priority: 30
       middlewares:
@@ -83,13 +91,15 @@ http:
         - cors-headers
         - rate-limit-api
       entryPoints:
+        - web
         - websecure
       tls:
         certResolver: letsencrypt
 
     # LLM Service Direct Access
+    # Accessible from any IP address in the network via HTTP and HTTPS
     llm-direct:
-      rule: "Host(`arasul.local`) && PathPrefix(`/models`)"
+      rule: "PathPrefix(`/models`)"
       service: llm-service
       priority: 25
       middlewares:
@@ -97,13 +107,15 @@ http:
         - rate-limit-llm
         - security-headers
       entryPoints:
+        - web
         - websecure
       tls:
         certResolver: letsencrypt
 
     # Embeddings Service Direct Access
+    # Accessible from any IP address in the network via HTTP and HTTPS
     embeddings-direct:
-      rule: "Host(`arasul.local`) && PathPrefix(`/embeddings`)"
+      rule: "PathPrefix(`/embeddings`)"
       service: embeddings-service
       priority: 25
       middlewares:
@@ -111,40 +123,45 @@ http:
         - rate-limit-llm
         - security-headers
       entryPoints:
+        - web
         - websecure
       tls:
         certResolver: letsencrypt
 
     # n8n Workflow Engine
+    # Accessible from any IP address in the network via HTTP and HTTPS
     n8n:
-      rule: "Host(`arasul.local`) && PathPrefix(`/n8n`)"
+      rule: "PathPrefix(`/n8n`)"
       service: n8n-service
       priority: 20
       middlewares:
-        - basicAuth-n8n
+        - strip-n8n-prefix
         - security-headers
         - rate-limit-api
       entryPoints:
+        - web
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # n8n Webhooks (with rate limiting)
+    # Accessible from any IP address in the network via HTTP and HTTPS
     n8n-webhooks:
-      rule: "Host(`arasul.local`) && PathPrefix(`/webhook`)"
+      rule: "PathPrefix(`/webhook`)"
       service: n8n-service
       priority: 25
       middlewares:
         - rate-limit-n8n
         - security-headers
       entryPoints:
+        - web
         - websecure
       tls:
         certResolver: letsencrypt
 
     # Traefik Dashboard (secured with Basic Auth)
+    # Accessible from any IP address in the network via HTTP and HTTPS
     traefik-dashboard:
-      rule: "Host(`arasul.local`) && (PathPrefix(`/api/traefik`) || PathPrefix(`/dashboard`))"
+      rule: "(PathPrefix(`/api/traefik`) || PathPrefix(`/dashboard`))"
       service: api@internal
       priority: 35
       middlewares:
@@ -152,6 +169,7 @@ http:
         - security-headers
         - rate-limit-auth
       entryPoints:
+        - web
         - websecure
       tls:
         certResolver: letsencrypt

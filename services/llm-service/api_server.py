@@ -6,6 +6,7 @@ Provides endpoints for Dashboard and Self-Healing Engine
 Endpoints:
   - GET  /health                  - Health check (Service availability)
   - GET  /api/models              - List all downloaded models
+  - GET  /api/models/loaded       - List currently loaded models in RAM/VRAM
   - POST /api/models/pull         - Download a model
   - DELETE /api/models/delete     - Delete a model
   - POST /api/cache/clear         - Clear LLM cache (Self-Healing)
@@ -21,6 +22,7 @@ import logging
 import psutil
 import os
 import json
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Dashboard
@@ -34,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
-DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama3.1:8b")
+DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama3.1:8b")  # Used for session reset
 
 
 @app.route('/health', methods=['GET'])
@@ -179,38 +181,51 @@ def delete_model():
 @app.route('/api/cache/clear', methods=['POST'])
 def clear_cache():
     """
-    Clear LLM cache by unloading model
+    Clear LLM cache by unloading ALL currently loaded models
     Called by Self-Healing Engine on GPU overload
     """
     try:
         logger.info("Clearing LLM cache...")
 
-        # Unload all models (frees GPU memory)
-        # Ollama doesn't have direct "unload" endpoint, but we can
-        # unload by sending keep_alive: 0
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json={
-                "model": DEFAULT_MODEL,
-                "prompt": "",
-                "stream": False,
-                "keep_alive": 0  # Unload model immediately
-            },
-            timeout=5
-        )
+        # First, get list of currently loaded models
+        ps_response = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
+        loaded_models = ps_response.json().get('models', [])
 
-        if response.status_code == 200 or response.status_code == 404:
-            logger.info("Cache cleared successfully")
+        if not loaded_models:
+            logger.info("No models loaded, cache already clear")
             return jsonify({
                 "status": "success",
-                "message": "Cache cleared"
+                "message": "Cache already clear (no models loaded)"
             }), 200
-        else:
-            logger.error(f"Cache clear failed: {response.text}")
-            return jsonify({
-                "status": "error",
-                "message": "Failed to clear cache"
-            }), 500
+
+        # Unload each loaded model
+        unloaded = []
+        for model in loaded_models:
+            model_name = model.get('name')
+            try:
+                response = requests.post(
+                    f"{OLLAMA_BASE_URL}/api/generate",
+                    json={
+                        "model": model_name,
+                        "prompt": "",
+                        "stream": False,
+                        "keep_alive": 0  # Unload immediately
+                    },
+                    timeout=5
+                )
+
+                if response.status_code == 200:
+                    unloaded.append(model_name)
+                    logger.info(f"Unloaded model: {model_name}")
+            except Exception as e:
+                logger.warning(f"Failed to unload {model_name}: {e}")
+
+        logger.info(f"Cache cleared successfully, unloaded {len(unloaded)} model(s)")
+        return jsonify({
+            "status": "success",
+            "message": f"Cache cleared ({len(unloaded)} models unloaded)",
+            "unloaded_models": unloaded
+        }), 200
 
     except Exception as e:
         logger.error(f"Cache clear error: {e}")
@@ -223,47 +238,59 @@ def clear_cache():
 @app.route('/api/session/reset', methods=['POST'])
 def reset_session():
     """
-    Reset LLM Session (reload model completely)
+    Reset LLM Session (unload all models, then reload default model)
     Called by Self-Healing Engine on GPU errors
     """
     try:
         logger.info("Resetting LLM session...")
 
-        # First unload
-        requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json={
-                "model": DEFAULT_MODEL,
-                "prompt": "",
-                "stream": False,
-                "keep_alive": 0
-            },
-            timeout=5
-        )
+        # First, unload ALL loaded models (use cache/clear logic)
+        ps_response = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
+        loaded_models = ps_response.json().get('models', [])
 
-        # Then reload with small test prompt
+        for model in loaded_models:
+            model_name = model.get('name')
+            try:
+                requests.post(
+                    f"{OLLAMA_BASE_URL}/api/generate",
+                    json={
+                        "model": model_name,
+                        "prompt": "",
+                        "stream": False,
+                        "keep_alive": 0
+                    },
+                    timeout=5
+                )
+                logger.info(f"Unloaded model: {model_name}")
+            except Exception as e:
+                logger.warning(f"Failed to unload {model_name}: {e}")
+
+        # Then reload the default model with test prompt
+        # Use LLM_KEEP_ALIVE_SECONDS from environment (default 300)
+        keep_alive = int(os.environ.get("LLM_KEEP_ALIVE_SECONDS", "300"))
+
         response = requests.post(
             f"{OLLAMA_BASE_URL}/api/generate",
             json={
                 "model": DEFAULT_MODEL,
                 "prompt": "test",
                 "stream": False,
-                "keep_alive": 300  # Keep in memory for 5 minutes
+                "keep_alive": keep_alive
             },
-            timeout=10
+            timeout=60  # Allow time for model loading
         )
 
         if response.status_code == 200:
-            logger.info("Session reset successfully")
+            logger.info(f"Session reset successfully, reloaded {DEFAULT_MODEL}")
             return jsonify({
                 "status": "success",
-                "message": "Session reset"
+                "message": f"Session reset, reloaded {DEFAULT_MODEL}"
             }), 200
         else:
             logger.error(f"Session reset failed: {response.text}")
             return jsonify({
                 "status": "error",
-                "message": "Failed to reset session"
+                "message": "Failed to reload model after reset"
             }), 500
 
     except Exception as e:
@@ -323,6 +350,57 @@ def stats():
     except Exception as e:
         logger.error(f"Stats error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/models/loaded', methods=['GET'])
+def get_loaded_models():
+    """
+    Return which models are currently loaded in memory
+    Uses Ollama's /api/ps endpoint to query running models
+    """
+    try:
+        # Query Ollama's process status endpoint
+        response = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=5)
+
+        if response.status_code != 200:
+            return jsonify({
+                "loaded_models": [],
+                "count": 0,
+                "error": "Could not query Ollama process status"
+            }), 200  # Return 200 with empty list instead of error
+
+        data = response.json()
+        models = data.get('models', [])
+
+        # Extract relevant info
+        loaded = []
+        for model in models:
+            loaded.append({
+                "name": model.get("name"),
+                "size_vram": model.get("size_vram", 0),
+                "expires_at": model.get("expires_at")
+            })
+
+        return jsonify({
+            "loaded_models": loaded,
+            "count": len(loaded),
+            "timestamp": datetime.utcnow().isoformat() + 'Z'
+        }), 200
+
+    except requests.exceptions.Timeout:
+        logger.warning("Timeout querying Ollama /api/ps")
+        return jsonify({
+            "loaded_models": [],
+            "count": 0,
+            "error": "Timeout"
+        }), 200
+    except Exception as e:
+        logger.error(f"Error getting loaded models: {e}")
+        return jsonify({
+            "loaded_models": [],
+            "count": 0,
+            "error": str(e)
+        }), 200
 
 
 @app.route('/api/info', methods=['GET'])

@@ -30,6 +30,7 @@ volumes:
   arasul-llm-models:
   arasul-embeddings-models:
   arasul-metrics:
+  arasul-qdrant:
   arasul-logs:
     driver: local
     driver_opts:
@@ -79,6 +80,8 @@ services:
     restart: always
     networks:
       - arasul-net
+    ports:
+      - "9001:9001"  # MinIO Console - Direct access
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -91,6 +94,34 @@ services:
       interval: 10s
       timeout: 1s
       retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  # 2.5 Qdrant - Vector Database for RAG
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    hostname: qdrant
+    restart: always
+    networks:
+      - arasul-net
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC API
+    volumes:
+      - arasul-qdrant:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: "6334"
+      QDRANT__SERVICE__HTTP_PORT: "6333"
+    healthcheck:
+      test: ["CMD", "test", "-f", "/qdrant/storage/raft_state.json"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     logging:
       driver: json-file
       options:
@@ -151,7 +182,8 @@ services:
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
       OLLAMA_MODELS: /models
-      DEFAULT_MODEL: ${LLM_MODEL:-llama2}
+      LLM_MODEL: ${LLM_MODEL:-llama2}
+      LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-300}
     volumes:
       - arasul-llm-models:/root/.ollama
       - ./services/llm-service/healthcheck.sh:/healthcheck.sh:ro
@@ -230,6 +262,44 @@ services:
         max-size: "50m"
         max-file: "10"
 
+  # 5.5 Document Indexer - Automatic document indexing for RAG
+  document-indexer:
+    build:
+      context: ./services/document-indexer
+      dockerfile: Dockerfile
+    container_name: document-indexer
+    hostname: document-indexer
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      MINIO_HOST: ${MINIO_HOST}
+      MINIO_PORT: ${MINIO_PORT}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      DOCUMENT_INDEXER_MINIO_BUCKET: ${DOCUMENT_INDEXER_MINIO_BUCKET}
+      QDRANT_HOST: ${QDRANT_HOST}
+      QDRANT_PORT: ${QDRANT_PORT}
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME}
+      EMBEDDING_SERVICE_HOST: ${EMBEDDING_SERVICE_HOST}
+      EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
+      EMBEDDING_VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE}
+      DOCUMENT_INDEXER_INTERVAL: ${DOCUMENT_INDEXER_INTERVAL}
+      DOCUMENT_INDEXER_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHUNK_SIZE}
+      DOCUMENT_INDEXER_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHUNK_OVERLAP}
+    depends_on:
+      minio:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
   # 6. Reverse Proxy (Traefik) - Starts AFTER core services, BEFORE dashboards
   reverse-proxy:
     image: traefik:v2.11
@@ -260,7 +330,7 @@ services:
       llm-service:
         condition: service_healthy
       embedding-service:
-        condition: service_healthy
+        condition: service_started  # Changed: Model loading can take time
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -282,6 +352,9 @@ services:
     restart: always
     networks:
       - arasul-net
+    # Add docker group (994) to allow access to docker.sock for service status monitoring
+    group_add:
+      - "994"
     environment:
       NODE_ENV: production
       PORT: ${DASHBOARD_BACKEND_PORT}
@@ -300,14 +373,20 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       N8N_HOST: ${N8N_HOST}
       N8N_PORT: ${N8N_PORT}
+      QDRANT_HOST: ${QDRANT_HOST}
+      QDRANT_PORT: ${QDRANT_PORT}
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: ${JWT_EXPIRY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       SYSTEM_VERSION: ${SYSTEM_VERSION}
       BUILD_HASH: ${BUILD_HASH}
       LOG_LEVEL: ${LOG_LEVEL}
+      ENV_FILE_PATH: /arasul/config/.env
+      COMPOSE_PROJECT_DIR: /home/arasul/arasul/arasul-jet
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./.env:/arasul/config/.env
       - ./config:/config:ro
       - ./data/updates:/arasul/updates
       - ./data/backups:/arasul/backups:ro
@@ -321,7 +400,7 @@ services:
       llm-service:
         condition: service_healthy
       embedding-service:
-        condition: service_healthy
+        condition: service_started  # Changed from service_healthy - model loading can take time
       reverse-proxy:
         condition: service_healthy
     healthcheck:
@@ -337,6 +416,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.api.priority=10"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
       - "traefik.http.services.api.loadbalancer.server.port=3001"
     logging:
       driver: json-file
@@ -366,8 +448,11 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`) && !PathPrefix(`/n8n`) && !PathPrefix(`/api`)"
+      - "traefik.http.routers.frontend.priority=1"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
     logging:
       driver: json-file
       options:
@@ -384,6 +469,8 @@ services:
     restart: always
     networks:
       - arasul-net
+    ports:
+      - "5678:5678"
     environment:
       N8N_HOST: ${N8N_HOST}
       N8N_PORT: ${N8N_PORT}
@@ -425,8 +512,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=PathPrefix(`/n8n`)"
-      - "traefik.http.middlewares.n8n-strip.stripprefix.prefixes=/n8n"
-      - "traefik.http.routers.n8n.middlewares=n8n-strip"
+      - "traefik.http.routers.n8n.priority=100"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls=true"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
     logging:
       driver: json-file

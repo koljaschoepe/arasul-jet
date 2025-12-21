@@ -14,7 +14,7 @@ MAX_RESPONSE_TIME_MS=5000  # 5 seconds max for minimal prompt (cold start tolera
 MIN_RESPONSE_TIME_MS=0      # No minimum - fast responses are fine
 OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
 TEST_PROMPT="Hello"
-TEST_MODEL="${DEFAULT_MODEL:-llama2}"
+TEST_MODEL="${DEFAULT_MODEL:-qwen3:14b-q8}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -141,65 +141,12 @@ check_model_loaded() {
     fi
 }
 
-# Check 4: Minimal Prompt Test with Response Time Validation
-check_prompt_response() {
-    log "Testing minimal prompt response..."
+# Check 4 removed: We no longer test prompt response in health checks
+# This prevents keeping the model loaded in RAM just for health checks
+# Model will load on-demand when actually needed
 
-    # HIGH-010 FIX: Create temporary file with better cleanup handling
-    TEMP_RESPONSE=$(mktemp) || {
-        error "Failed to create temporary file"
-        return 1
-    }
-    trap "rm -f $TEMP_RESPONSE" EXIT ERR INT TERM
-
-    # Measure response time
-    START_TIME=$(date +%s%N)
-
-    # HIGH-010 FIX: Send minimal prompt with explicit error handling
-    HTTP_CODE=$(curl -sf --max-time "$TIMEOUT" \
-        -w "%{http_code}" \
-        -o "$TEMP_RESPONSE" \
-        -X POST "${OLLAMA_HOST}/api/generate" \
-        -H "Content-Type: application/json" \
-        -d "{
-            \"model\": \"${TEST_MODEL}\",
-            \"prompt\": \"${TEST_PROMPT}\",
-            \"stream\": false,
-            \"options\": {
-                \"num_predict\": 10,
-                \"temperature\": 0.1
-            }
-        }" 2>/dev/null || echo "000")
-
-    END_TIME=$(date +%s%N)
-
-    # Calculate response time in milliseconds
-    RESPONSE_TIME_NS=$((END_TIME - START_TIME))
-    RESPONSE_TIME_MS=$((RESPONSE_TIME_NS / 1000000))
-
-    # Check HTTP status
-    if [ "$HTTP_CODE" != "200" ]; then
-        error "Prompt test failed with HTTP ${HTTP_CODE}"
-        return 1
-    fi
-
-    # Validate response contains expected fields
-    if ! grep -q '"response"' "$TEMP_RESPONSE"; then
-        error "Response missing 'response' field"
-        return 1
-    fi
-
-    # Check response time constraints
-    if [ "$RESPONSE_TIME_MS" -gt "$MAX_RESPONSE_TIME_MS" ]; then
-        error "Response too slow (${RESPONSE_TIME_MS}ms > ${MAX_RESPONSE_TIME_MS}ms)"
-        return 1
-    fi
-
-    success "Prompt response validated (${RESPONSE_TIME_MS}ms)"
-    return 0
-}
-
-# Check 5: CUDA/GPU Errors in Recent Logs (if running in Docker)
+# Check 4: CUDA/GPU Errors in Recent Logs (if running in Docker)
+# Renumbered from Check 5 since we removed the prompt test
 check_gpu_errors() {
     log "Checking for GPU errors..."
 
@@ -231,7 +178,7 @@ main() {
     log "=== LLM Service Health Check Started ==="
 
     CHECKS_PASSED=0
-    CHECKS_TOTAL=5
+    CHECKS_TOTAL=4  # Reduced from 5 (removed prompt test)
 
     # HIGH-010 FIX: Run all checks with explicit error handling
     # Each check returns 0 (success) or 1 (failure) without stopping execution
@@ -253,11 +200,7 @@ main() {
         log "Model loaded check failed"
     fi
 
-    if check_prompt_response; then
-        CHECKS_PASSED=$((CHECKS_PASSED + 1))
-    else
-        log "Prompt response check failed"
-    fi
+    # Prompt test removed - we don't want to load the model for health checks
 
     if check_gpu_errors; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))

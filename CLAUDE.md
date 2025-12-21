@@ -53,11 +53,21 @@ Software-Repository erzeugen, das exakt der Spezifikation im PRD entspricht.
 
 **Arasul Platform** - An autonomous Edge AI appliance for NVIDIA Jetson AGX Orin Developer Kit (12-Core ARM, 64 GB DDR5). The platform is designed for non-technical end users with multi-year maintenance-free operation, local AI capabilities, and a single unified dashboard interface.
 
-**Status**: Early development - PRD completed, implementation in progress
+**Status**: Active development - Core features implemented
 
 **Target Hardware**: NVIDIA Jetson AGX Orin with JetPack 6+
 
 **Architecture**: Fully containerized (Docker Compose) with offline-first design
+
+**Key Features**:
+- Multi-conversation AI chat with streaming responses
+- RAG (Retrieval Augmented Generation) for document Q&A
+- Real-time system metrics dashboard
+- Self-healing with automatic service recovery
+- Password management for all services
+- Workflow automation via n8n
+- Document storage via MinIO
+- Vector search via Qdrant
 
 ## Core Architecture
 
@@ -74,9 +84,9 @@ Software-Repository erzeugen, das exakt der Spezifikation im PRD entspricht.
 All services run as Docker containers on network `arasul-net` (172.30.0.0/24):
 
 **System/Core Layer**:
-- `reverse-proxy`: API Gateway, routing, TLS termination (Traefik or Nginx)
-- `dashboard-backend`: REST + WebSocket API (port 3001 → 8080 via proxy)
-- `dashboard-frontend`: Single Page App (port 3000 → 8080)
+- `reverse-proxy`: API Gateway, routing, TLS termination (Traefik v2.11)
+- `dashboard-backend`: REST + WebSocket + SSE API (port 3001 → 8080 via proxy)
+- `dashboard-frontend`: Single Page App with React Router (port 3000 → 8080)
 - `metrics-collector`: System metrics collection (5s live, 30s persistent)
 - `postgres-db`: Telemetry + audit database (7-day retention)
 - `self-healing-agent`: Autonomous service recovery (10s interval)
@@ -84,6 +94,8 @@ All services run as Docker containers on network `arasul-net` (172.30.0.0/24):
 **AI Layer**:
 - `llm-service`: Chat LLM with GPU acceleration (internal port 11434, max 40GB RAM)
 - `embedding-service`: Embedding model (internal port 11435)
+- `qdrant`: Vector database for RAG (ports 6333 HTTP, 6334 gRPC)
+- `document-indexer`: Automatic document indexing for RAG (30s interval)
 
 **Automation Layer**:
 - `n8n`: Workflow engine with external integrations (port 5678 via proxy)
@@ -94,11 +106,13 @@ All services run as Docker containers on network `arasul-net` (172.30.0.0/24):
 ### Startup Order (Critical - Must Be Deterministic)
 1. PostgreSQL
 2. MinIO
+2.5. Qdrant (Vector DB for RAG)
 3. Metrics Collector
 4. LLM Service
 5. Embedding Service
+5.5. Document Indexer (depends on MinIO, Qdrant, Embedding Service)
 6. Reverse Proxy (depends on 1-5, not on dashboards)
-7. Dashboard Backend (depends on 6 + core services)
+7. Dashboard Backend (depends on 6 + core services + Qdrant)
 8. Dashboard Frontend (depends on 6, not on backend)
 9. n8n (depends on core services)
 10. Self-Healing Engine (starts last, depends on all)
@@ -190,12 +204,26 @@ python3 stability_monitor.py
   /data/            # Persistent data
     /postgres/      # Database data
     /minio/         # Object storage
-    /models/        # AI models
+    /models/        # AI models (host-mounted for LLM)
     /n8n/           # Workflow data
   /cache/           # Temporary cache
   /updates/         # Update packages (.araupdate files)
+  /backups/         # System backups (env file backups, etc.)
   /bootstrap/       # Bootstrap scripts
 ```
+
+## Docker Volumes
+
+Named volumes for persistent data:
+- `arasul-postgres`: PostgreSQL database
+- `arasul-minio`: MinIO object storage
+- `arasul-n8n`: n8n workflow data
+- `arasul-llm-models`: Ollama LLM models
+- `arasul-embeddings-models`: Embedding model cache
+- `arasul-metrics`: Metrics collector cache
+- `arasul-qdrant`: Qdrant vector database
+- `arasul-logs`: Centralized log storage (bind mount)
+- `arasul-letsencrypt`: TLS certificates
 
 ## API Architecture
 
@@ -213,7 +241,7 @@ python3 stability_monitor.py
 - `WS /api/metrics/live-stream` - WebSocket stream (5s interval)
 
 **Services**:
-- `GET /api/services` - Status of all services (llm, embeddings, n8n, minio, postgres)
+- `GET /api/services` - Status of all services (llm, embeddings, n8n, minio, postgres, qdrant)
 - `GET /api/services/ai` - AI services detail with GPU load
 
 **Workflows**:
@@ -222,9 +250,32 @@ python3 stability_monitor.py
 **Updates**:
 - `POST /api/update/upload` - Upload .araupdate file (multipart/form-data)
 
-**AI Services** (Internal):
-- `POST /api/llm/chat` - LLM inference (via llm-service)
+**AI Services**:
+- `POST /api/llm/chat` - LLM inference with SSE streaming (supports thinking blocks)
+- `GET /api/llm/models` - List available LLM models
 - `POST /api/embeddings` - Text embedding (via embedding-service)
+
+**Chat Management** (Multi-Conversation):
+- `GET /api/chats` - Get all chat conversations
+- `POST /api/chats` - Create new chat conversation
+- `GET /api/chats/:id/messages` - Get messages for a chat
+- `POST /api/chats/:id/messages` - Add message to chat (role, content, thinking)
+- `PATCH /api/chats/:id` - Update chat title
+- `DELETE /api/chats/:id` - Soft delete chat conversation
+
+**RAG (Retrieval Augmented Generation)**:
+- `POST /api/rag/query` - Perform RAG query with document search (SSE streaming)
+- `GET /api/rag/status` - Check RAG system status (Qdrant collection info)
+
+**Settings / Password Management**:
+- `POST /api/settings/password/dashboard` - Change Dashboard admin password
+- `POST /api/settings/password/minio` - Change MinIO root password (restarts service)
+- `POST /api/settings/password/n8n` - Change n8n basic auth password (restarts service)
+- `GET /api/settings/password-requirements` - Get password complexity requirements
+
+**Self-Healing**:
+- `GET /api/self-healing/events` - Get self-healing event history
+- `GET /api/self-healing/status` - Get current self-healing status
 
 ### Response Format
 
@@ -249,7 +300,58 @@ PostgreSQL database `arasul_db` with 7-day data retention:
 - `workflow_activity` (id, workflow_name, status, timestamp, duration_ms, error)
 - `self_healing_events` (id, event_type, severity, description, timestamp, action_taken)
 
+**Authentication Tables** (002_auth_schema.sql):
+- `admin_users` (id, username, password_hash, email, created_at, updated_at, last_login, login_attempts, locked_until, is_active)
+- `token_blacklist` (id, token_jti, user_id, blacklisted_at, expires_at)
+- `login_attempts` (id, username, ip_address, success, attempted_at, user_agent)
+- `active_sessions` (id, user_id, token_jti, ip_address, user_agent, created_at, expires_at, last_activity)
+- `password_history` (id, user_id, password_hash, changed_at, changed_by, ip_address)
+
+**Chat Tables** (expected):
+- `chat_conversations` (id, title, created_at, updated_at, deleted_at, message_count)
+- `chat_messages` (id, conversation_id, role, content, thinking, created_at)
+
+**Update System Tables** (004_update_schema.sql):
+- `update_events` (id, version_from, version_to, status, source, components_updated, error_message, started_at, completed_at, duration_seconds, requires_reboot, initiated_by)
+- `update_backups` (id, backup_path, update_event_id, created_at, backup_size_mb, components, restoration_tested, notes)
+- `update_files` (id, filename, file_path, checksum_sha256, file_size_bytes, source, uploaded_at, signature_verified, manifest, validation_status, applied)
+- `update_rollbacks` (id, original_update_event_id, backup_id, rollback_reason, initiated_by, started_at, completed_at, success, error_message)
+- `component_updates` (id, update_event_id, component_name, component_type, version_from, version_to, status, started_at, completed_at, error_message)
+
 Auto-vacuum and WAL enabled. All timestamps use `timestamptz`.
+
+## RAG System (Retrieval Augmented Generation)
+
+The platform includes a complete RAG pipeline for document-based Q&A:
+
+**Components**:
+1. **MinIO** - Document storage (bucket: `documents`)
+2. **Document Indexer** - Automatic document parsing and indexing
+3. **Embedding Service** - Text to vector conversion
+4. **Qdrant** - Vector similarity search
+5. **LLM Service** - Answer generation
+
+**Document Flow**:
+1. Upload documents to MinIO `documents` bucket (via MinIO Console or API)
+2. Document Indexer scans bucket every 30s
+3. Supported formats: PDF, TXT, DOCX, Markdown
+4. Documents are parsed, chunked (500 chars, 50 overlap), and embedded
+5. Vectors stored in Qdrant with metadata (document name, chunk index, text)
+
+**Query Flow**:
+1. User query via `POST /api/rag/query`
+2. Query embedded via Embedding Service
+3. Top-k similar chunks retrieved from Qdrant
+4. Context + query sent to LLM
+5. Response streamed via SSE with sources
+
+**Configuration** (via `.env`):
+- `DOCUMENT_INDEXER_MINIO_BUCKET` - MinIO bucket for documents (default: `documents`)
+- `QDRANT_COLLECTION_NAME` - Qdrant collection name (default: `documents`)
+- `DOCUMENT_INDEXER_INTERVAL` - Scan interval in seconds (default: 30)
+- `DOCUMENT_INDEXER_CHUNK_SIZE` - Chunk size in characters (default: 500)
+- `DOCUMENT_INDEXER_CHUNK_OVERLAP` - Chunk overlap in characters (default: 50)
+- `EMBEDDING_VECTOR_SIZE` - Vector dimension (default: 768)
 
 ## Self-Healing System
 
@@ -285,14 +387,15 @@ All actions logged to `self_healing_events` table.
 
 All containers must implement health checks:
 
-- `dashboard-backend`: `GET /api/health` (1s timeout, 3 failures)
+- `dashboard-backend`: `GET /api/health` (3s timeout, 3 failures, 10s start_period)
 - `dashboard-frontend`: File exists check on `index.html`
-- `llm-service`: `GET /health` (3s timeout, verify model loaded + GPU + minimal prompt)
-- `embedding-service`: `GET /health` (3s timeout, test vectorization <50ms)
+- `llm-service`: Custom healthcheck script (5s timeout, 300s start_period for model loading)
+- `embedding-service`: Custom healthcheck script (3s timeout, 300s start_period for model loading)
 - `postgres-db`: `pg_isready` (2s timeout)
-- `n8n`: `GET /healthz` (2s timeout)
-- `minio`: `GET /minio/health/live` (1s timeout)
-- `metrics-collector`: `GET /api/metrics/ping` (1s timeout)
+- `n8n`: `wget --spider http://localhost:5678/healthz` (2s timeout)
+- `minio`: `curl http://localhost:9000/minio/health/live` (1s timeout)
+- `metrics-collector`: `curl http://localhost:9100/health` (1s timeout)
+- `qdrant`: File exists check on `/qdrant/storage/raft_state.json` (10s start_period)
 
 All containers use `restart: always` policy.
 
@@ -318,21 +421,32 @@ Rollback automatically triggered if critical service fails post-update.
 
 **Authentication**:
 - Single admin account (username: `admin`)
-- Password hash in `/arasul/config/admin.hash`
-- JWT tokens (24h validity)
-- Basic Auth via reverse proxy
+- Password hash stored in PostgreSQL `admin_users` table
+- JWT tokens (24h validity, configurable via JWT_EXPIRY)
+- Account lockout after 5 failed attempts (15 min lockout)
+- Password change requires current password verification
+- Basic Auth via reverse proxy for n8n
 
 **Network Security**:
-- Only ports 80/443 exposed externally
-- All internal services on `arasul-net` bridge network
-- Rate limits: n8n webhooks (100/min), LLM API (10/s), Metrics API (20/s)
+- Only ports 80/443 exposed externally (plus 9001 for MinIO console, 5678 for n8n, 6333/6334 for Qdrant)
+- All internal services on `arasul-net` bridge network (172.30.0.0/24)
+- Rate limits: n8n webhooks (100/min), LLM API (10/s), Metrics API (20/s), Password changes (3 per 15min)
+- CORS restricted to allowed origins
 
-**Secrets** (all in `/arasul/config/.env`):
-- `ADMIN_HASH`
-- `MINIO_ACCESS_KEY`
-- `MINIO_SECRET_KEY`
-- `JWT_SECRET`
-- `UPDATE_PUBLIC_KEY`
+**Secrets** (all in `.env` file, mounted to containers):
+- `ADMIN_PASSWORD` / `ADMIN_HASH` - Dashboard admin credentials
+- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` - MinIO credentials
+- `JWT_SECRET` - JWT signing key
+- `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` - n8n credentials
+- `N8N_ENCRYPTION_KEY` - n8n encryption key
+- `POSTGRES_USER` / `POSTGRES_PASSWORD` - PostgreSQL credentials
+
+**Password Requirements**:
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+- At least one special character
 
 ## Development Guidelines
 
@@ -351,15 +465,36 @@ Rollback automatically triggered if critical service fails post-update.
 **Dashboard Backend** (Node.js/Express):
 - Main entry: `services/dashboard-backend/src/index.js`
 - Routes in: `services/dashboard-backend/src/routes/`
+  - `auth.js` - JWT authentication and login
+  - `chats.js` - Multi-conversation chat management
+  - `llm.js` - LLM chat with SSE streaming (supports thinking blocks)
+  - `rag.js` - RAG queries with Qdrant vector search
+  - `settings.js` - Password management for Dashboard/MinIO/n8n
+  - `metrics.js`, `services.js`, `system.js`, `workflows.js`, etc.
 - Database connection pooling in: `services/dashboard-backend/src/database.js`
 - WebSocket metrics stream: `services/dashboard-backend/src/services/metricsStream.js`
 - Docker integration: Uses `dockerode` library for container management
 - JWT authentication: `services/dashboard-backend/src/middleware/auth.js`
+- Rate limiting: `services/dashboard-backend/src/middleware/rateLimit.js`
+- Environment management: `services/dashboard-backend/src/utils/envManager.js` (for password changes)
+
+**Dashboard Frontend** (React):
+- Main entry: `services/dashboard-frontend/src/App.js`
+- Components:
+  - `ChatMulti.js` - Multi-conversation AI chat with RAG toggle
+  - `Settings.js` - Settings page with tabs (General, Updates, Self-Healing, Security)
+  - `PasswordManagement.js` - Password change UI for all services
+  - `UpdatePage.js` - System update management
+  - `SelfHealingEvents.js` - Self-healing event viewer
+  - `Login.js` - Authentication screen
+- Routes: `/` (Dashboard), `/chat` (AI Chat), `/settings` (Settings)
+- Real-time metrics via WebSocket with automatic reconnection and HTTP fallback
 
 **Self-Healing Agent** (Python):
 - Main engine: `services/self-healing-agent/healing_engine.py`
 - GPU recovery: `services/self-healing-agent/gpu_recovery.py`
 - USB monitoring: `services/self-healing-agent/usb_monitor.py`
+- Heartbeat check: `services/self-healing-agent/heartbeat.py`
 - Uses connection pooling for PostgreSQL (psycopg2.pool)
 - Runs every 10 seconds (configurable via SELF_HEALING_INTERVAL)
 
@@ -368,16 +503,36 @@ Rollback automatically triggered if critical service fails post-update.
 - GPU monitoring: `services/metrics-collector/gpu_monitor.py`
 - Collects metrics every 5s (live) and persists every 30s
 
-**LLM Service**:
-- Based on Ollama container
+**LLM Service** (Ollama-based):
+- Custom Dockerfile: `services/llm-service/Dockerfile`
 - Custom healthcheck: `services/llm-service/healthcheck.sh`
+- Custom entrypoint: `services/llm-service/entrypoint.sh`
+- API server: `services/llm-service/api_server.py` (additional endpoints)
 - Requires GPU (NVIDIA Container Runtime)
 - Models stored in Docker volume: `arasul-llm-models`
+- Default model: `qwen3:14b-q8` (configurable via LLM_MODEL env var)
+- Keep-alive: Configurable model unload timeout (LLM_KEEP_ALIVE_SECONDS)
 
 **Embedding Service** (Python):
 - FastAPI server: `services/embedding-service/embedding_server.py`
-- Requires GPU for inference
+- Requires GPU for inference (CUDA enabled)
 - Custom healthcheck validates vectorization speed (<50ms)
+- Models stored in Docker volume: `arasul-embeddings-models`
+
+**Document Indexer** (Python):
+- Main indexer: `services/document-indexer/indexer.py`
+- Document parsers: `services/document-indexer/document_parsers.py` (PDF, TXT, DOCX, Markdown)
+- Text chunker: `services/document-indexer/text_chunker.py`
+- Scans MinIO bucket every 30s (configurable via DOCUMENT_INDEXER_INTERVAL)
+- Chunks documents and stores embeddings in Qdrant
+- Supports configurable chunk size and overlap
+
+**Qdrant** (Vector Database):
+- Docker image: `qdrant/qdrant:latest`
+- HTTP API: port 6333
+- gRPC API: port 6334
+- Data stored in Docker volume: `arasul-qdrant`
+- Collection: `documents` (configurable via QDRANT_COLLECTION_NAME)
 
 ### When Implementing API Endpoints
 
@@ -463,16 +618,32 @@ Rollback automatically triggered if critical service fails post-update.
   - `SELF_HEALING_INTERVAL` (default 10)
 - Temporarily disable: `SELF_HEALING_ENABLED=false` in `.env`
 
+### RAG Not Finding Documents
+1. Check if documents are in MinIO: `docker compose logs minio`
+2. Verify Document Indexer is running: `docker compose logs document-indexer`
+3. Check Qdrant collection: `curl http://localhost:6333/collections/documents`
+4. Verify embeddings are being generated: `docker compose logs embedding-service`
+5. Ensure document format is supported (PDF, TXT, DOCX, Markdown)
+
+### LLM Streaming Issues
+- Check LLM service status: `docker compose logs llm-service`
+- Verify model is loaded: `curl http://llm-service:11434/api/tags`
+- Check keep-alive setting: Model unloads after `LLM_KEEP_ALIVE_SECONDS` (default 300s)
+- First request after unload will be slower (model loading)
+
 ## Important Technical Notes
 
-- **Language**: System supports German/English (PRD is in German)
+- **Language**: System supports German/English (UI in German, PRD in German)
 - **Offline-First**: Internet is optional (only needed for n8n external integrations)
-- **No Kubernetes**: Uses Docker Compose for simplicity
+- **No Kubernetes**: Uses Docker Compose V2 for simplicity
 - **No Multi-Tenancy**: Single admin user by design
 - **Deterministic Behavior**: System state must be predictable and reproducible
-- **GPU Requirement**: NVIDIA GPU required for LLM/Embeddings
+- **GPU Requirement**: NVIDIA GPU required for LLM/Embeddings (CUDA enabled)
 - **Target Users**: Non-technical end users (plug & play)
-- **Note**: Use `docker compose` (not `docker-compose`) - Docker Compose V2 is required
+- **Docker Compose V2**: Use `docker compose` (not `docker-compose`)
+- **Default LLM Model**: `qwen3:14b-q8` (supports thinking blocks with `<think>` tags)
+- **SSE Streaming**: LLM and RAG endpoints use Server-Sent Events for streaming responses
+- **Vector DB**: Qdrant for semantic search (cosine similarity)
 
 ## Key Design Principles
 

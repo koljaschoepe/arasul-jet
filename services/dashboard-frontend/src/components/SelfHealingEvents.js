@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import {
+  FiRefreshCw,
+  FiInfo,
+  FiAlertCircle,
+  FiAlertTriangle,
+  FiCheckCircle,
+  FiActivity,
+  FiCpu,
+  FiHardDrive,
+  FiThermometer,
+  FiPower
+} from 'react-icons/fi';
 import './SelfHealingEvents.css';
 
 const SelfHealingEvents = () => {
@@ -48,16 +60,17 @@ const SelfHealingEvents = () => {
 
   const getSeverityBadge = (severity) => {
     const severityMap = {
-      INFO: { color: 'info', icon: 'ℹ️' },
-      WARNING: { color: 'warning', icon: '⚠️' },
-      CRITICAL: { color: 'critical', icon: '🔴' },
+      INFO: { color: 'info', Icon: FiInfo },
+      WARNING: { color: 'warning', Icon: FiAlertTriangle },
+      CRITICAL: { color: 'critical', Icon: FiAlertCircle },
     };
 
-    const config = severityMap[severity] || { color: 'default', icon: '📋' };
+    const config = severityMap[severity] || { color: 'default', Icon: FiActivity };
+    const IconComponent = config.Icon;
 
     return (
       <span className={`severity-badge severity-${config.color}`}>
-        <span className="severity-icon">{config.icon}</span>
+        <IconComponent className="severity-icon" />
         {severity}
       </span>
     );
@@ -65,17 +78,18 @@ const SelfHealingEvents = () => {
 
   const getEventTypeIcon = (eventType) => {
     const icons = {
-      service_restart: '🔄',
-      service_down: '⬇️',
-      recovery_action: '🔧',
-      gpu_error: '🎮',
-      disk_cleanup: '🗑️',
-      memory_warning: '💾',
-      temperature_warning: '🌡️',
-      system_reboot: '🔌',
+      service_restart: FiRefreshCw,
+      service_down: FiAlertCircle,
+      recovery_action: FiActivity,
+      gpu_error: FiCpu,
+      disk_cleanup: FiHardDrive,
+      memory_warning: FiCpu,
+      temperature_warning: FiThermometer,
+      system_reboot: FiPower,
     };
 
-    return icons[eventType] || '📊';
+    const IconComponent = icons[eventType] || FiActivity;
+    return <IconComponent />;
   };
 
   const formatDate = (dateString) => {
@@ -149,7 +163,7 @@ const SelfHealingEvents = () => {
           </label>
 
           <button onClick={() => fetchEvents()} className="btn-refresh">
-            🔄 Refresh
+            <FiRefreshCw /> Refresh
           </button>
         </div>
       </div>
@@ -205,7 +219,7 @@ const SelfHealingEvents = () => {
       {/* Error Message */}
       {error && (
         <div className="error-message">
-          <span className="error-icon">⚠️</span>
+          <FiAlertTriangle className="error-icon" />
           <span>{error}</span>
         </div>
       )}
@@ -213,7 +227,7 @@ const SelfHealingEvents = () => {
       {/* Events List */}
       {filteredEvents.length === 0 ? (
         <div className="no-events">
-          <span className="no-events-icon">✓</span>
+          <FiCheckCircle className="no-events-icon" />
           <p>No events found</p>
           <p className="no-events-subtext">
             {filter === 'all'

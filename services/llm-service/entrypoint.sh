@@ -87,35 +87,10 @@ else
     echo "No GGUF file found at ${GGUF_FILE}"
 fi
 
-# BUG-001 FIX: Pre-load model if available to keep it in GPU memory
-echo "[2.75/3] Checking for models to pre-load..."
-MODELS=$(curl -s http://localhost:11434/api/tags | grep -o '"name":"[^"]*"' | cut -d'"' -f4 | head -1)
-
-if [ -n "$MODELS" ]; then
-    echo "Found model to pre-load: $MODELS"
-    echo "Pre-loading model (this may take 30-60 seconds on Jetson)..."
-
-    # Send a minimal request with extended timeout to force model load
-    # Use keep_alive=-1 to keep model loaded indefinitely
-    curl -s http://localhost:11434/api/generate -d "{
-        \"model\": \"$MODELS\",
-        \"prompt\": \"Hello\",
-        \"stream\": false,
-        \"keep_alive\": -1,
-        \"options\": {
-            \"num_predict\": 1
-        }
-    }" --max-time 120 > /tmp/preload_result.json 2>&1
-
-    if [ $? -eq 0 ]; then
-        echo "✓ Model pre-loaded successfully and kept in memory"
-    else
-        echo "WARNING: Model pre-load timeout or error (may load on first request)"
-        cat /tmp/preload_result.json 2>/dev/null || true
-    fi
-else
-    echo "No models available to pre-load"
-fi
+# Model is NOT pre-loaded - will load on-demand at first request
+# This saves GPU RAM when LLM is idle
+echo "[2.75/3] Skipping model pre-load (on-demand loading enabled)"
+echo "✓ Model will load automatically on first request"
 
 # Start Management API server in background
 echo "[3/3] Starting Management API server on port 11436..."

@@ -19,13 +19,8 @@ ping:
 entryPoints:
   web:
     address: ":80"
-    # HTTP to HTTPS redirect (enabled - works with both self-signed and Let's Encrypt)
-    http:
-      redirections:
-        entryPoint:
-          to: websecure
-          scheme: https
-          permanent: true
+    # HTTP access enabled for external network access (no redirect)
+    # Users can access services via http://<jetson-ip>
 
   websecure:
     address: ":443"
@@ -59,7 +54,6 @@ providers:
     exposedByDefault: false  # Only expose services with labels
     network: arasul-net
     watch: true
-
   file:
     directory: /etc/traefik/dynamic
     watch: true

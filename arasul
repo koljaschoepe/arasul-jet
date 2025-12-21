@@ -499,10 +499,18 @@ init_env() {
         rm .env.bak 2>/dev/null || true
 
         log_success ".env file created with generated secrets"
-        log_warning "IMPORTANT: Admin password: $ADMIN_PASSWORD"
-        log_warning "Please save this password securely and change it after first login!"
     else
         log_info ".env file already exists, skipping creation"
+
+        # Check if admin password is still a placeholder
+        CURRENT_ADMIN_PASS=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
+        if [ "$CURRENT_ADMIN_PASS" = "__ADMIN_PASSWORD_PLACEHOLDER__" ]; then
+            log_warning "Admin password placeholder detected, generating new password..."
+            ADMIN_PASSWORD=$(openssl rand -base64 16)
+            sed -i.bak "s/__ADMIN_PASSWORD_PLACEHOLDER__/$ADMIN_PASSWORD/" .env
+            rm .env.bak 2>/dev/null || true
+            log_success "New admin password generated and saved to .env"
+        fi
     fi
 }
 
@@ -739,18 +747,16 @@ init_admin_user() {
         return 1
     fi
 
-    # Generate bcrypt hash using Python in the dashboard-backend container
+    # Generate bcrypt hash using Node.js in the dashboard-backend container
     # (which has bcrypt installed)
     log_info "Generating bcrypt hash for admin password..."
 
-    ADMIN_HASH=$(docker compose run --rm dashboard-backend python3 -c "
-import bcrypt
-import sys
-password = '$ADMIN_PASSWORD'.encode('utf-8')
-salt = bcrypt.gensalt(rounds=12)
-hash = bcrypt.hashpw(password, salt)
-print(hash.decode('utf-8'))
-" 2>/dev/null | tail -1)
+    ADMIN_HASH=$(docker compose run --rm dashboard-backend node -e "
+const bcrypt = require('bcrypt');
+const password = process.argv[1];
+const hash = bcrypt.hashSync(password, 12);
+console.log(hash);
+" "$ADMIN_PASSWORD" 2>/dev/null | tail -1)
 
     if [ -z "$ADMIN_HASH" ]; then
         log_error "Failed to generate bcrypt hash"
@@ -1048,6 +1054,18 @@ cmd_bootstrap() {
         log_info "🔐 GENERATED CREDENTIALS (save these securely!):"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
+
+        # Dashboard Admin Password
+        ADMIN_PASS=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
+        if [ -n "$ADMIN_PASS" ] && [ "$ADMIN_PASS" != "__ADMIN_PASSWORD_PLACEHOLDER__" ]; then
+            log_info "Dashboard Admin Access (https://localhost):"
+            log_info "   Username: admin"
+            log_info "   Password: $ADMIN_PASS"
+            echo ""
+        else
+            log_warning "Dashboard Admin Password: Not configured (check .env file)"
+            echo ""
+        fi
 
         if [ -f "config/secrets/n8n_basic_auth_password" ]; then
             N8N_PASS=$(cat config/secrets/n8n_basic_auth_password)
