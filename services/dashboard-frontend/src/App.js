@@ -494,7 +494,7 @@ function DashboardHome({
       {/* Service Links */}
       <div className="service-links-modern">
         <a
-          href="http://localhost:5678"
+          href={`http://${window.location.hostname}:5678`}
           target="_blank"
           rel="noopener noreferrer"
           className="service-link-card"
@@ -510,7 +510,7 @@ function DashboardHome({
         </a>
 
         <a
-          href="http://localhost:9001"
+          href={`http://${window.location.hostname}:9001`}
           target="_blank"
           rel="noopener noreferrer"
           className="service-link-card"

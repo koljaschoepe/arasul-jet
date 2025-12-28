@@ -15,9 +15,32 @@ const PORT = process.env.PORT || 3001;
 // Trust reverse proxy (Traefik) for rate limiting and client IP detection
 app.set('trust proxy', true);
 
-// SEC-007 FIX: Restrict CORS to specific origins
+// SEC-007 FIX: Restrict CORS to specific origins + allow local network access
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://dashboard-frontend', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    // Explicitly allowed origins from environment
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : [];
+
+    // Check if origin is from a local/private network (RFC 1918)
+    const isLocalNetwork = origin && (
+      origin.includes('://192.168.') ||
+      origin.includes('://10.') ||
+      /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./.test(origin) ||
+      origin.includes('://localhost') ||
+      origin.includes('://127.0.0.1') ||
+      origin.includes('://dashboard-frontend')
+    );
+
+    // Allow if: no origin (same-origin/curl), explicitly allowed, or local network
+    if (!origin || allowedOrigins.includes(origin) || isLocalNetwork) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -91,6 +114,7 @@ const wss = new WebSocket.Server({
 
 const axios = require('axios');
 const logger = require('./utils/logger');
+const llmJobService = require('./services/llmJobService');
 
 wss.on('connection', (ws) => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
@@ -148,8 +172,27 @@ module.exports = { app, server, wss };
 
 // Only start server if not in test mode
 if (require.main === module) {
-  server.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, '0.0.0.0', async () => {
     console.log('ARASUL DASHBOARD BACKEND - Port', PORT);
     console.log('WebSocket server ready at ws://0.0.0.0:' + PORT + '/api/metrics/live-stream');
+
+    // Cleanup stale LLM jobs from previous runs
+    try {
+      const cleanedCount = await llmJobService.cleanupStaleJobs();
+      if (cleanedCount > 0) {
+        logger.info(`Cleaned up ${cleanedCount} stale LLM jobs on startup`);
+      }
+    } catch (err) {
+      logger.error(`Failed to cleanup stale LLM jobs: ${err.message}`);
+    }
+
+    // Set up periodic cleanup of old completed jobs (every 30 minutes)
+    setInterval(async () => {
+      try {
+        await llmJobService.cleanupOldJobs();
+      } catch (err) {
+        logger.error(`Failed to cleanup old LLM jobs: ${err.message}`);
+      }
+    }, 30 * 60 * 1000); // 30 minutes
   });
 }

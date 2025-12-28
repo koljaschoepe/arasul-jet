@@ -242,24 +242,24 @@ Nach erfolgreichem Bootstrap siehst du:
 ```
 ✅ Bootstrap completed successfully!
 
-📝 Admin Credentials:
+🔐 DEVELOPMENT CREDENTIALS (all services):
    Username: admin
-   Password: Xk9mP2vQw8nL5tYr
+   Password: arasul123
 
-🌐 Dashboard URL: http://arasul.local
+🌐 Dashboard URL: http://localhost
 
-⚠️  SAVE YOUR PASSWORD NOW - IT WON'T BE SHOWN AGAIN!
+⚠️  DEVELOPMENT MODE: Fixed credentials - NOT for production!
 
-Next steps:
-  1. Open browser: http://arasul.local
-  2. Login with credentials above
-  3. Change password (recommended)
+Services using these credentials:
+   - Dashboard: http://localhost
+   - n8n: http://localhost:5678
+   - MinIO Console: http://localhost:9001
 ```
 
-**WICHTIG**:
-- ✍️ Notiere das Admin-Passwort **JETZT** (z.B. in Passwort-Manager)
-- 📋 Passwort wird nur einmal angezeigt
-- 🔒 Ohne Passwort: System muss neu aufgesetzt werden
+**HINWEIS (Entwicklungsmodus)**:
+- 🔧 Alle Services verwenden das gleiche Passwort: `arasul123`
+- 📋 Credentials können in `.env` angepasst werden
+- ⚠️ Für Produktion: Sichere Passwörter setzen!
 
 ---
 
@@ -337,22 +337,18 @@ Nach Login siehst du das Arasul Dashboard:
 
 ## 🔧 Post-Installation Setup (Optional)
 
-### Passwort ändern (Empfohlen)
+### Passwort ändern (Optional)
 
-Das generierte Passwort ist zufällig und sicher, aber du solltest es trotzdem ändern:
+Das Standard-Entwicklungspasswort `arasul123` kann geändert werden:
 
-1. Dashboard → Oben rechts → Benutzer-Icon klicken
-2. "Change Password" auswählen
-3. **Altes Passwort** eingeben (das generierte)
-4. **Neues Passwort** eingeben:
-   - Mindestens 12 Zeichen
-   - Groß- und Kleinbuchstaben
-   - Zahlen
-   - Sonderzeichen (!@#$%^&*)
+1. Dashboard → Settings → Security Tab
+2. Service auswählen (Dashboard, MinIO oder n8n)
+3. **Aktuelles Passwort** eingeben (`arasul123`)
+4. **Neues Passwort** eingeben (mindestens 4 Zeichen)
 5. **Neues Passwort bestätigen**
-6. "Save" klicken
+6. "Passwort ändern" klicken
 
-**Beispiel für sicheres Passwort**: `MyArasul!2025$Secure`
+**Hinweis**: Bei Dashboard-Passwortänderung wirst du automatisch ausgeloggt.
 
 ### HTTPS Aktivieren (Empfohlen für externe Nutzung)
 
@@ -572,23 +568,21 @@ docker-compose up -d
 
 **Symptom**: Login schlägt fehl mit "Invalid credentials"
 
-**Lösung**:
+**Lösung (Entwicklungsmodus)**:
+
+Das Standard-Passwort ist `arasul123`. Falls du es geändert hast:
 
 ```bash
-# Password zurücksetzen
-./arasul reset-password
+# Password in .env überprüfen
+grep ADMIN_PASSWORD .env
 
-# Output:
-# ✅ Password reset successful!
-#
-# New admin credentials:
-#   Username: admin
-#   Password: Rq7kW3mL9pNx2tYv
-#
-# ⚠️  SAVE THIS PASSWORD NOW!
+# Oder manuell auf Standard zurücksetzen:
+# 1. In .env: ADMIN_PASSWORD=arasul123
+# 2. Dashboard-Backend neu starten
+docker restart dashboard-backend
 ```
 
-**Neues Passwort wird generiert** → Sofort notieren!
+**Für Produktion**: Nutze `./arasul reset-password`
 
 ---
 
@@ -996,9 +990,12 @@ A: Nicht empfohlen. Änderungen gehen bei Updates verloren. Nutze Update-Package
 
 ### Security Checklist
 
-Nach Installation:
+**Für Entwicklung** (Standard-Credentials `arasul123` sind OK):
+- [ ] System funktioniert und ist erreichbar
+- [ ] Alle Services sind healthy
 
-- [ ] Admin-Passwort geändert
+**Für Produktion** (vor Deployment):
+- [ ] Sichere Passwörter in `.env` gesetzt (nicht `arasul123`!)
 - [ ] HTTPS aktiviert (falls externes Network)
 - [ ] Firewall konfiguriert (`sudo ufw enable`)
 - [ ] Backup erstellt

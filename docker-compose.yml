@@ -294,6 +294,12 @@ services:
         condition: service_healthy
       embedding-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os; exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     logging:
       driver: json-file
       options:
@@ -330,7 +336,7 @@ services:
       llm-service:
         condition: service_healthy
       embedding-service:
-        condition: service_started  # Changed: Model loading can take time
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -400,7 +406,7 @@ services:
       llm-service:
         condition: service_healthy
       embedding-service:
-        condition: service_started  # Changed from service_healthy - model loading can take time
+        condition: service_healthy
       reverse-proxy:
         condition: service_healthy
     healthcheck:

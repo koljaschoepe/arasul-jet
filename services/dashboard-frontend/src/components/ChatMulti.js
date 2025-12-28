@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
-  FiSend, FiAlertCircle, FiChevronDown, FiChevronUp, FiPlus, FiTrash2,
-  FiEdit2, FiCheck, FiX, FiMessageSquare, FiDatabase
+  FiAlertCircle, FiChevronDown, FiChevronUp, FiPlus, FiX, FiArrowDown,
+  FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp
 } from 'react-icons/fi';
 import '../chatmulti.css';
 
@@ -22,35 +22,69 @@ function ChatMulti() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [useRAG, setUseRAG] = useState(false);
+  const [useThinking, setUseThinking] = useState(true);
+
+  // Background job tracking - enables tab-switch resilience
+  const [activeJobIds, setActiveJobIds] = useState({}); // chatId -> jobId
 
   // UI state
   const [editingChatId, setEditingChatId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [hoveredChatId, setHoveredChatId] = useState(null);
+
+  // Scroll control state
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // Refs
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
+  const tabsContainerRef = useRef(null);
+  const currentChatIdRef = useRef(currentChatId); // Track current chat for streaming callbacks
+  const abortControllersRef = useRef({}); // Track abort controllers per chat
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentChatIdRef.current = currentChatId;
+  }, [currentChatId]);
 
   // Load all chats on mount
   useEffect(() => {
     loadChats();
   }, []);
 
-  // Load messages when chat changes
+  // Load messages when chat changes and check for active jobs
   useEffect(() => {
     if (currentChatId) {
+      // Reset loading state when switching chats (checkActiveJobs will set it back if needed)
+      setIsLoading(false);
+      setError(null);
       loadMessages(currentChatId);
+      checkActiveJobs(currentChatId);
+      setIsUserScrolling(false);
     }
   }, [currentChatId]);
 
-  // Auto-scroll to bottom when messages change
+  // Smart auto-scroll
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (!isUserScrolling && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, isUserScrolling]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  const handleScroll = useCallback((e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isAtBottom = distanceFromBottom < 100;
+
+    setIsUserScrolling(!isAtBottom);
+    setShowScrollButton(!isAtBottom && messages.length > 0);
+  }, [messages.length]);
 
   const loadChats = async () => {
     try {
@@ -59,11 +93,9 @@ function ChatMulti() {
       const chatList = response.data.chats || [];
       setChats(chatList);
 
-      // If no chat is selected, select the first one or create a new one
       if (!currentChatId && chatList.length > 0) {
         setCurrentChatId(chatList[0].id);
       } else if (chatList.length === 0) {
-        // Create first chat
         await createNewChat();
       }
     } catch (err) {
@@ -78,13 +110,16 @@ function ChatMulti() {
       const response = await axios.get(`${API_BASE}/chats/${chatId}/messages`);
       const msgs = response.data.messages || [];
 
-      // Convert database messages to UI format
       const formattedMessages = msgs.map(msg => ({
         role: msg.role,
         content: msg.content,
         thinking: msg.thinking,
         hasThinking: !!msg.thinking,
-        thinkingCollapsed: !!msg.thinking
+        thinkingCollapsed: true,
+        sources: msg.sources || [],
+        sourcesCollapsed: true,
+        status: msg.status || 'completed',
+        jobId: msg.job_id
       }));
 
       setMessages(formattedMessages);
@@ -94,48 +129,181 @@ function ChatMulti() {
     }
   };
 
+  // Check for active jobs when switching to a chat
+  const checkActiveJobs = async (chatId) => {
+    try {
+      const token = localStorage.getItem('arasul_token');
+      const response = await axios.get(`${API_BASE}/chats/${chatId}/jobs`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const jobs = response.data.jobs || [];
+
+      for (const job of jobs) {
+        if (job.status === 'streaming' || job.status === 'pending') {
+          // Found an active job - reconnect to it
+          setActiveJobIds(prev => ({ ...prev, [chatId]: job.id }));
+          setIsLoading(true);
+          reconnectToJob(job.id, chatId);
+          break; // Only handle one active job per chat
+        }
+      }
+    } catch (err) {
+      console.error('Error checking active jobs:', err);
+    }
+  };
+
+  // Reconnect to an active job's stream
+  const reconnectToJob = async (jobId, targetChatId) => {
+    const token = localStorage.getItem('arasul_token');
+
+    // Create AbortController for this reconnection
+    const abortController = new AbortController();
+    abortControllersRef.current[targetChatId] = abortController;
+
+    try {
+      const response = await fetch(`${API_BASE}/llm/jobs/${jobId}/stream`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: abortController.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line.replace(/^data:\s*/, ''));
+
+            // Only update UI if still viewing the same chat
+            const isCurrentChat = currentChatIdRef.current === targetChatId;
+
+            if (data.type === 'reconnect' || data.type === 'update') {
+              // Update the last assistant message with current content
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  const lastMsgIndex = updated.length - 1;
+                  if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'assistant') {
+                    updated[lastMsgIndex] = {
+                      ...updated[lastMsgIndex],
+                      content: data.content || '',
+                      thinking: data.thinking || '',
+                      hasThinking: !!(data.thinking),
+                      status: data.status
+                    };
+                  }
+                  return updated;
+                });
+              }
+            }
+
+            if (data.done) {
+              if (isCurrentChat) {
+                setIsLoading(false);
+              }
+              setActiveJobIds(prev => {
+                const newState = { ...prev };
+                delete newState[targetChatId];
+                return newState;
+              });
+              // Reload messages to get final state (only if still viewing this chat)
+              if (isCurrentChat) {
+                loadMessages(targetChatId);
+              }
+              loadChats(); // Update message count
+            }
+
+            if (data.error) {
+              if (isCurrentChat) {
+                setError(data.error);
+                setIsLoading(false);
+              }
+              setActiveJobIds(prev => {
+                const newState = { ...prev };
+                delete newState[targetChatId];
+                return newState;
+              });
+            }
+          } catch (parseError) {
+            console.error('Error parsing reconnect SSE data:', parseError);
+          }
+        }
+      }
+    } catch (err) {
+      // Ignore abort errors
+      if (err.name === 'AbortError') {
+        console.log(`Reconnect stream aborted for chat ${targetChatId}`);
+        return;
+      }
+      console.error('Reconnect error:', err);
+      if (currentChatIdRef.current === targetChatId) {
+        setIsLoading(false);
+      }
+      setActiveJobIds(prev => {
+        const newState = { ...prev };
+        delete newState[targetChatId];
+        return newState;
+      });
+    } finally {
+      // Cleanup abort controller
+      delete abortControllersRef.current[targetChatId];
+    }
+  };
+
   const createNewChat = async () => {
     try {
       const response = await axios.post(`${API_BASE}/chats`, {
-        title: 'New Chat'
+        title: `New Chat`
       });
 
       const newChat = response.data.chat;
-      setChats(prevChats => [newChat, ...prevChats]);
+      setChats(prevChats => [...prevChats, newChat]);
       setCurrentChatId(newChat.id);
       setMessages([]);
       setInput('');
+      setError(null);
     } catch (err) {
       console.error('Error creating chat:', err);
     }
   };
 
-  const deleteChat = async (chatId) => {
-    if (!window.confirm('Are you sure you want to delete this chat?')) {
+  const selectChat = (chatId) => {
+    setCurrentChatId(chatId);
+  };
+
+  const deleteChat = async (e, chatId) => {
+    e.stopPropagation();
+
+    if (chats.length <= 1) {
       return;
     }
 
     try {
       await axios.delete(`${API_BASE}/chats/${chatId}`);
 
-      // Remove from list
       const updatedChats = chats.filter(c => c.id !== chatId);
       setChats(updatedChats);
 
-      // If deleting current chat, switch to another
       if (currentChatId === chatId) {
-        if (updatedChats.length > 0) {
-          setCurrentChatId(updatedChats[0].id);
-        } else {
-          await createNewChat();
-        }
+        setCurrentChatId(updatedChats[0]?.id || null);
       }
     } catch (err) {
       console.error('Error deleting chat:', err);
     }
   };
 
-  const startEditingTitle = (chat) => {
+  const startEditingTitle = (e, chat) => {
+    e.stopPropagation();
     setEditingChatId(chat.id);
     setEditingTitle(chat.title);
   };
@@ -151,7 +319,6 @@ function ChatMulti() {
         title: editingTitle
       });
 
-      // Update in list
       setChats(prevChats =>
         prevChats.map(c => c.id === chatId ? { ...c, title: editingTitle } : c)
       );
@@ -168,6 +335,14 @@ function ChatMulti() {
     setEditingTitle('');
   };
 
+  const handleTitleKeyDown = (e, chatId) => {
+    if (e.key === 'Enter') {
+      saveTitle(chatId);
+    } else if (e.key === 'Escape') {
+      cancelEditingTitle();
+    }
+  };
+
   const saveMessage = async (chatId, role, content, thinking = null) => {
     try {
       await axios.post(`${API_BASE}/chats/${chatId}/messages`, {
@@ -175,328 +350,9 @@ function ChatMulti() {
         content,
         thinking
       });
-
-      // Update chat's updated_at in the list
       loadChats();
     } catch (err) {
       console.error('Error saving message:', err);
-    }
-  };
-
-  const handleRAGSend = async () => {
-    if (!input.trim() || isLoading || !currentChatId) return;
-
-    const userMessage = input.trim();
-    setInput('');
-    setError(null);
-
-    // Add user message to UI
-    const newMessages = [...messages, { role: 'user', content: userMessage }];
-    setMessages(newMessages);
-    setIsLoading(true);
-
-    // Save user message to database
-    await saveMessage(currentChatId, 'user', userMessage);
-
-    // Add empty assistant message for streaming
-    const assistantMessageIndex = newMessages.length;
-    setMessages([...newMessages, {
-      role: 'assistant',
-      content: '',
-      thinking: '',
-      thinkingCollapsed: false,
-      hasThinking: false,
-      sources: []
-    }]);
-
-    try {
-      let fullResponse = '';
-      let fullThinking = '';
-      let ragSources = [];
-      let streamError = false;
-      let hasStartedResponse = false;
-
-      const token = localStorage.getItem('arasul_token');
-
-      const response = await fetch(`${API_BASE}/rag/query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          query: userMessage,
-          top_k: 5
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line.replace(/^data:\s*/, ''));
-
-            if (data.error) {
-              streamError = true;
-              setError(data.error);
-              break;
-            }
-
-            // Handle sources
-            if (data.type === 'sources' && data.sources) {
-              ragSources = data.sources;
-              setMessages(prevMessages => {
-                const updated = [...prevMessages];
-                updated[assistantMessageIndex] = {
-                  ...updated[assistantMessageIndex],
-                  sources: ragSources
-                };
-                return updated;
-              });
-            }
-
-            // Handle thinking tokens
-            if (data.type === 'thinking' && data.token) {
-              fullThinking += data.token;
-              setMessages(prevMessages => {
-                const updated = [...prevMessages];
-                updated[assistantMessageIndex] = {
-                  ...updated[assistantMessageIndex],
-                  thinking: fullThinking,
-                  hasThinking: true,
-                  thinkingCollapsed: hasStartedResponse
-                };
-                return updated;
-              });
-            }
-
-            // Handle thinking end
-            if (data.type === 'thinking_end') {
-              hasStartedResponse = false;
-            }
-
-            // Handle response tokens
-            if (data.type === 'response' && data.token) {
-              if (!hasStartedResponse && fullThinking) {
-                hasStartedResponse = true;
-              }
-
-              fullResponse += data.token;
-              setMessages(prevMessages => {
-                const updated = [...prevMessages];
-                updated[assistantMessageIndex] = {
-                  ...updated[assistantMessageIndex],
-                  content: fullResponse,
-                  thinkingCollapsed: hasStartedResponse && fullThinking.length > 0
-                };
-                return updated;
-              });
-            }
-
-            if (data.type === 'done' || data.done) {
-              break;
-            }
-          } catch (parseError) {
-            console.error('Error parsing RAG SSE data:', parseError);
-          }
-        }
-
-        if (streamError) break;
-      }
-
-      // Save assistant message to database
-      if (fullResponse || fullThinking) {
-        await saveMessage(currentChatId, 'assistant', fullResponse, fullThinking);
-      }
-
-      if (!streamError && !fullResponse && !fullThinking) {
-        throw new Error('Keine Antwort vom RAG-System erhalten');
-      }
-
-    } catch (err) {
-      console.error('RAG error:', err);
-      let errorMessage = 'Fehler bei der RAG-Anfrage.';
-
-      if (err.message.includes('503')) {
-        errorMessage = 'RAG-Service ist nicht verfügbar. Bitte versuche es später erneut.';
-      } else if (err.name === 'AbortError') {
-        errorMessage = 'Zeitüberschreitung. Das RAG-System braucht zu lange für die Antwort.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
-      setMessages(newMessages);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSend = async () => {
-    // Use RAG if enabled
-    if (useRAG) {
-      return handleRAGSend();
-    }
-
-    if (!input.trim() || isLoading || !currentChatId) return;
-
-    const userMessage = input.trim();
-    setInput('');
-    setError(null);
-
-    // Add user message to UI
-    const newMessages = [...messages, { role: 'user', content: userMessage }];
-    setMessages(newMessages);
-    setIsLoading(true);
-
-    // Save user message to database
-    await saveMessage(currentChatId, 'user', userMessage);
-
-    // Add empty assistant message for streaming
-    const assistantMessageIndex = newMessages.length;
-    setMessages([...newMessages, {
-      role: 'assistant',
-      content: '',
-      thinking: '',
-      thinkingCollapsed: false,
-      hasThinking: false
-    }]);
-
-    try {
-      const token = localStorage.getItem('arasul_token');
-      let fullResponse = '';
-      let fullThinking = '';
-      let streamError = false;
-      let hasStartedResponse = false;
-
-      const response = await fetch(`${API_BASE}/llm/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          temperature: 0.7,
-          max_tokens: 32768,
-          stream: true
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line.replace(/^data:\s*/, ''));
-
-            if (data.error) {
-              streamError = true;
-              setError(data.error);
-              break;
-            }
-
-            if (data.type === 'thinking' && data.token) {
-              fullThinking += data.token;
-              setMessages(prevMessages => {
-                const updated = [...prevMessages];
-                updated[assistantMessageIndex] = {
-                  ...updated[assistantMessageIndex],
-                  thinking: fullThinking,
-                  hasThinking: true,
-                  thinkingCollapsed: hasStartedResponse
-                };
-                return updated;
-              });
-            }
-
-            if (data.type === 'thinking_end') {
-              hasStartedResponse = false;
-            }
-
-            if (data.type === 'response' && data.token) {
-              if (!hasStartedResponse && fullThinking) {
-                hasStartedResponse = true;
-              }
-
-              fullResponse += data.token;
-              setMessages(prevMessages => {
-                const updated = [...prevMessages];
-                updated[assistantMessageIndex] = {
-                  ...updated[assistantMessageIndex],
-                  content: fullResponse,
-                  thinkingCollapsed: hasStartedResponse && fullThinking.length > 0
-                };
-                return updated;
-              });
-            }
-
-            if (data.done) {
-              break;
-            }
-          } catch (parseError) {
-            console.error('Error parsing SSE data:', parseError);
-          }
-        }
-
-        if (streamError) break;
-      }
-
-      // Save assistant message to database
-      if (fullResponse || fullThinking) {
-        await saveMessage(currentChatId, 'assistant', fullResponse, fullThinking);
-      }
-
-      if (!streamError && !fullResponse && !fullThinking) {
-        throw new Error('Keine Antwort vom LLM erhalten');
-      }
-
-    } catch (err) {
-      console.error('Chat error:', err);
-      let errorMessage = 'Fehler beim Senden der Nachricht.';
-
-      if (err.message.includes('503')) {
-        errorMessage = 'LLM-Service ist nicht verfügbar. Bitte versuche es später erneut.';
-      } else if (err.name === 'AbortError') {
-        errorMessage = 'Zeitüberschreitung. Das Modell braucht zu lange für die Antwort.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
-      setMessages(newMessages);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
     }
   };
 
@@ -511,207 +367,696 @@ function ChatMulti() {
     });
   };
 
+  const toggleSources = (index) => {
+    setMessages(prevMessages => {
+      const updated = [...prevMessages];
+      updated[index] = {
+        ...updated[index],
+        sourcesCollapsed: !updated[index].sourcesCollapsed
+      };
+      return updated;
+    });
+  };
+
+  const handleRAGSend = async () => {
+    if (!input.trim() || isLoading || !currentChatId) return;
+
+    // Capture chat context at start - this won't change during streaming
+    const targetChatId = currentChatId;
+    const userMessage = input.trim();
+    setInput('');
+    setError(null);
+    setIsUserScrolling(false);
+
+    // Save user message first
+    await saveMessage(targetChatId, 'user', userMessage);
+
+    const newMessages = [...messages, { role: 'user', content: userMessage }];
+    setMessages(newMessages);
+    setIsLoading(true);
+
+    const assistantMessageIndex = newMessages.length;
+    setMessages([...newMessages, {
+      role: 'assistant',
+      content: '',
+      thinking: '',
+      thinkingCollapsed: false,
+      hasThinking: false,
+      sources: [],
+      sourcesCollapsed: true,
+      status: 'streaming'
+    }]);
+
+    // Create AbortController for this stream
+    const abortController = new AbortController();
+    abortControllersRef.current[targetChatId] = abortController;
+
+    try {
+      let fullResponse = '';
+      let fullThinking = '';
+      let ragSources = [];
+      let streamError = false;
+      let currentJobId = null;
+
+      const token = localStorage.getItem('arasul_token');
+
+      const response = await fetch(`${API_BASE}/rag/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          query: userMessage,
+          top_k: 5,
+          thinking: useThinking,
+          conversation_id: targetChatId  // Required for job-based streaming
+        }),
+        signal: abortController.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line.replace(/^data:\s*/, ''));
+
+            // Track job ID for background processing
+            if (data.type === 'job_started' && data.jobId) {
+              currentJobId = data.jobId;
+              setActiveJobIds(prev => ({ ...prev, [targetChatId]: currentJobId }));
+            }
+
+            if (data.error) {
+              streamError = true;
+              // Only show error if still on same chat
+              if (currentChatIdRef.current === targetChatId) {
+                setError(data.error);
+              }
+              break;
+            }
+
+            // Only update UI if still viewing the same chat
+            const isCurrentChat = currentChatIdRef.current === targetChatId;
+
+            if (data.type === 'sources' && data.sources) {
+              ragSources = data.sources;
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      sources: ragSources,
+                      sourcesCollapsed: ragSources.length > 0
+                    };
+                  }
+                  return updated;
+                });
+              }
+            }
+
+            if (data.type === 'thinking' && data.token) {
+              fullThinking += data.token;
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      thinking: fullThinking,
+                      hasThinking: true
+                    };
+                  }
+                  return updated;
+                });
+              }
+            }
+
+            if (data.type === 'thinking_end') {
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      thinkingCollapsed: true
+                    };
+                  }
+                  return updated;
+                });
+              }
+            }
+
+            if (data.type === 'response' && data.token) {
+              fullResponse += data.token;
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      content: fullResponse
+                    };
+                  }
+                  return updated;
+                });
+              }
+            }
+
+            if (data.type === 'done' || data.done) {
+              // Clear active job
+              setActiveJobIds(prev => {
+                const newState = { ...prev };
+                delete newState[targetChatId];
+                return newState;
+              });
+              break;
+            }
+          } catch (parseError) {
+            console.error('Error parsing RAG SSE data:', parseError);
+          }
+        }
+
+        if (streamError) break;
+      }
+
+      // Backend saves message automatically - just reload for UI sync
+      if (fullResponse || fullThinking) {
+        loadChats(); // Update message count
+        // If user switched back to this chat, reload messages to show final state
+        if (currentChatIdRef.current === targetChatId) {
+          loadMessages(targetChatId);
+        }
+      }
+
+      if (!streamError && !fullResponse && !fullThinking) {
+        throw new Error('Keine Antwort vom RAG-System erhalten');
+      }
+
+    } catch (err) {
+      // Ignore abort errors (user switched chat)
+      if (err.name === 'AbortError') {
+        console.log(`RAG stream aborted for chat ${targetChatId} - user switched chat`);
+        return;
+      }
+      console.error('RAG error:', err);
+      if (currentChatIdRef.current === targetChatId) {
+        setError(err.message || 'Fehler bei der RAG-Anfrage.');
+        setMessages(newMessages);
+      }
+      setActiveJobIds(prev => {
+        const newState = { ...prev };
+        delete newState[targetChatId];
+        return newState;
+      });
+    } finally {
+      // Only reset loading if still on same chat
+      if (currentChatIdRef.current === targetChatId) {
+        setIsLoading(false);
+      }
+      // Cleanup abort controller
+      delete abortControllersRef.current[targetChatId];
+    }
+  };
+
+  const handleSend = async () => {
+    if (useRAG) {
+      return handleRAGSend();
+    }
+
+    if (!input.trim() || isLoading || !currentChatId) return;
+
+    // Capture chat context at start - this won't change during streaming
+    const targetChatId = currentChatId;
+    const userMessage = input.trim();
+    setInput('');
+    setError(null);
+    setIsUserScrolling(false);
+
+    // Save user message first
+    await saveMessage(targetChatId, 'user', userMessage);
+
+    const newMessages = [...messages, { role: 'user', content: userMessage }];
+    setMessages(newMessages);
+    setIsLoading(true);
+
+    const assistantMessageIndex = newMessages.length;
+    setMessages([...newMessages, {
+      role: 'assistant',
+      content: '',
+      thinking: '',
+      thinkingCollapsed: false,
+      hasThinking: false,
+      status: 'streaming'
+    }]);
+
+    // Create AbortController for this stream
+    const abortController = new AbortController();
+    abortControllersRef.current[targetChatId] = abortController;
+
+    try {
+      const token = localStorage.getItem('arasul_token');
+      let fullResponse = '';
+      let fullThinking = '';
+      let streamError = false;
+      let currentJobId = null;
+
+      const response = await fetch(`${API_BASE}/llm/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          temperature: 0.7,
+          max_tokens: 32768,
+          stream: true,
+          thinking: useThinking,
+          conversation_id: targetChatId  // Required for job-based streaming
+        }),
+        signal: abortController.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line.replace(/^data:\s*/, ''));
+
+            // Track job ID for background processing
+            if (data.type === 'job_started' && data.jobId) {
+              currentJobId = data.jobId;
+              setActiveJobIds(prev => ({ ...prev, [targetChatId]: currentJobId }));
+            }
+
+            if (data.error) {
+              streamError = true;
+              // Only show error if still on same chat
+              if (currentChatIdRef.current === targetChatId) {
+                setError(data.error);
+              }
+              break;
+            }
+
+            // Only update UI if still viewing the same chat
+            const isCurrentChat = currentChatIdRef.current === targetChatId;
+
+            if (data.type === 'thinking' && data.token) {
+              fullThinking += data.token;
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      thinking: fullThinking,
+                      hasThinking: true
+                    };
+                  }
+                  return updated;
+                });
+              }
+            }
+
+            if (data.type === 'thinking_end') {
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      thinkingCollapsed: true
+                    };
+                  }
+                  return updated;
+                });
+              }
+            }
+
+            if (data.type === 'response' && data.token) {
+              fullResponse += data.token;
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      content: fullResponse
+                    };
+                  }
+                  return updated;
+                });
+              }
+            }
+
+            if (data.done) {
+              // Clear active job
+              setActiveJobIds(prev => {
+                const newState = { ...prev };
+                delete newState[targetChatId];
+                return newState;
+              });
+              break;
+            }
+          } catch (parseError) {
+            console.error('Error parsing SSE data:', parseError);
+          }
+        }
+
+        if (streamError) break;
+      }
+
+      // Backend saves message automatically - just reload for UI sync
+      if (fullResponse || fullThinking) {
+        loadChats(); // Update message count
+        // If user switched back to this chat, reload messages to show final state
+        if (currentChatIdRef.current === targetChatId) {
+          loadMessages(targetChatId);
+        }
+      }
+
+      if (!streamError && !fullResponse && !fullThinking) {
+        throw new Error('Keine Antwort vom LLM erhalten');
+      }
+
+    } catch (err) {
+      // Ignore abort errors (user switched chat)
+      if (err.name === 'AbortError') {
+        console.log(`Stream aborted for chat ${targetChatId} - user switched chat`);
+        return;
+      }
+      console.error('Chat error:', err);
+      if (currentChatIdRef.current === targetChatId) {
+        setError(err.message || 'Fehler beim Senden der Nachricht.');
+        setMessages(newMessages);
+      }
+      setActiveJobIds(prev => {
+        const newState = { ...prev };
+        delete newState[targetChatId];
+        return newState;
+      });
+    } finally {
+      // Only reset loading if still on same chat
+      if (currentChatIdRef.current === targetChatId) {
+        setIsLoading(false);
+      }
+      // Cleanup abort controller
+      delete abortControllersRef.current[targetChatId];
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyboardShortcuts = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 't') {
+          e.preventDefault();
+          createNewChat();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyboardShortcuts);
+    return () => window.removeEventListener('keydown', handleKeyboardShortcuts);
+  }, [chats]);
+
+  const hasMessages = messages.length > 0;
+
   if (loadingChats) {
     return (
-      <div className="chat-multi-container">
-        <div className="chat-loading-screen">
-          <div className="spinner"></div>
-          <p>Loading chats...</p>
+      <div className="chat-container">
+        <div className="chat-loading">
+          <div className="loading-spinner"></div>
+          <p>Laden...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="chat-multi-container">
-      {/* Sidebar with chat list */}
-      <div className="chat-sidebar">
-        <button className="new-chat-button" onClick={createNewChat}>
-          <FiPlus /> New Chat
+    <div className={`chat-container ${hasMessages ? 'has-messages' : 'empty-state'}`}>
+      {/* Top Chat Tabs Bar */}
+      <div className="chat-tabs-bar">
+        {/* New Chat Button */}
+        <button
+          className="new-chat-tab-btn"
+          onClick={createNewChat}
+          title="Neuer Chat (Ctrl+T)"
+        >
+          <FiPlus />
         </button>
 
-        <div className="chat-list">
+        {/* Chat Tabs */}
+        <div className="chat-tabs" ref={tabsContainerRef}>
           {chats.map(chat => (
             <div
               key={chat.id}
-              className={`chat-item ${currentChatId === chat.id ? 'active' : ''}`}
+              className={`chat-tab ${currentChatId === chat.id ? 'active' : ''} ${activeJobIds[chat.id] ? 'has-active-job' : ''}`}
+              onClick={() => selectChat(chat.id)}
+              onMouseEnter={() => setHoveredChatId(chat.id)}
+              onMouseLeave={() => setHoveredChatId(null)}
             >
-              {editingChatId === chat.id ? (
-                <div className="chat-item-editing">
-                  <input
-                    type="text"
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && saveTitle(chat.id)}
-                    autoFocus
-                    className="chat-title-input"
-                  />
-                  <div className="chat-item-actions">
-                    <button onClick={() => saveTitle(chat.id)} className="btn-icon" title="Save">
-                      <FiCheck />
-                    </button>
-                    <button onClick={cancelEditingTitle} className="btn-icon" title="Cancel">
-                      <FiX />
-                    </button>
-                  </div>
-                </div>
+              {/* Job indicator for streaming chats */}
+              {activeJobIds[chat.id] ? (
+                <span className="job-indicator" title="Antwort wird generiert...">
+                  <span className="pulse-dot"></span>
+                </span>
               ) : (
-                <>
-                  <div
-                    className="chat-item-content"
-                    onClick={() => setCurrentChatId(chat.id)}
+                <FiChevronRight className="tab-icon" />
+              )}
+              {editingChatId === chat.id ? (
+                <input
+                  type="text"
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onKeyDown={(e) => handleTitleKeyDown(e, chat.id)}
+                  onBlur={() => saveTitle(chat.id)}
+                  autoFocus
+                  className="tab-title-input"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span className="tab-title">{chat.title}</span>
+              )}
+              {/* Show actions on hover or if active */}
+              {(hoveredChatId === chat.id || currentChatId === chat.id) && editingChatId !== chat.id && (
+                <div className="tab-actions">
+                  <button
+                    className="tab-action-btn"
+                    onClick={(e) => startEditingTitle(e, chat)}
+                    title="Umbenennen"
                   >
-                    <FiMessageSquare className="chat-item-icon" />
-                    <span className="chat-item-title">{chat.title}</span>
-                  </div>
-                  {currentChatId === chat.id && (
-                    <div className="chat-item-actions">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditingTitle(chat);
-                        }}
-                        className="btn-icon"
-                        title="Rename"
-                      >
-                        <FiEdit2 />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteChat(chat.id);
-                        }}
-                        className="btn-icon btn-delete"
-                        title="Delete"
-                      >
-                        <FiTrash2 />
-                      </button>
-                    </div>
+                    <FiEdit2 />
+                  </button>
+                  {chats.length > 1 && (
+                    <button
+                      className="tab-action-btn delete"
+                      onClick={(e) => deleteChat(e, chat.id)}
+                      title="Loeschen"
+                    >
+                      <FiTrash2 />
+                    </button>
                   )}
-                </>
+                </div>
               )}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Main chat area */}
-      <div className="chat-main">
-        <div className="chat-header">
-          <h2 className="chat-title">
-            {chats.find(c => c.id === currentChatId)?.title || 'Chat'}
-          </h2>
-        </div>
+      {/* Messages Area */}
+      {hasMessages && (
+        <div
+          className="chat-messages"
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+        >
+          <div className="messages-wrapper">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`message ${message.role === 'user' ? 'user' : 'assistant'}`}
+              >
+                <div className="message-label">
+                  {message.role === 'user' ? 'Du' : 'AI'}
+                </div>
 
-        <div className="chat-messages">
-          {messages.length === 0 && (
-            <div className="chat-empty-state">
-              <FiMessageSquare size={48} />
-              <p>Start a conversation with your AI assistant</p>
-            </div>
-          )}
-
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`chat-message ${message.role === 'user' ? 'chat-message-user' : 'chat-message-assistant'}`}
-            >
-              <div className="chat-message-role">
-                {message.role === 'user' ? 'You' : 'AI'}
-              </div>
-
-              {message.hasThinking && message.thinking && (
-                <div className={`thinking-block ${message.thinkingCollapsed ? 'collapsed' : 'expanded'}`}>
-                  <div className="thinking-header" onClick={() => toggleThinking(index)}>
-                    <span className="thinking-title">💭 Thinking</span>
-                    <span className="thinking-toggle">
+                {/* Thinking Block */}
+                {message.hasThinking && message.thinking && (
+                  <div className={`thinking-block ${message.thinkingCollapsed ? 'collapsed' : ''}`}>
+                    <div
+                      className="thinking-header"
+                      onClick={() => toggleThinking(index)}
+                    >
+                      <FiCpu className="thinking-icon" />
+                      <span>Gedankengang</span>
                       {message.thinkingCollapsed ? <FiChevronDown /> : <FiChevronUp />}
-                    </span>
-                  </div>
-                  {!message.thinkingCollapsed && (
-                    <div className="thinking-content">{message.thinking}</div>
-                  )}
-                </div>
-              )}
-
-              {message.content && (
-                <div className="chat-message-content markdown-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {message.content}
-                  </ReactMarkdown>
-                </div>
-              )}
-
-              {/* RAG Sources */}
-              {message.sources && message.sources.length > 0 && (
-                <div className="rag-sources">
-                  <div className="rag-sources-title">Sources</div>
-                  {message.sources.map((source, sourceIndex) => (
-                    <div key={sourceIndex} className="rag-source-item">
-                      <div className="rag-source-name">{source.document_name}</div>
-                      <div className="rag-source-preview">{source.text_preview}</div>
-                      <div className="rag-source-score">Relevance: {(source.score * 100).toFixed(1)}%</div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                    {!message.thinkingCollapsed && (
+                      <div className="thinking-content">
+                        {message.thinking}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-          {isLoading && (
-            <div className="chat-message chat-message-assistant">
-              <div className="chat-message-role">AI</div>
-              <div className="chat-message-content">
-                <div className="chat-loading">
-                  <span className="chat-loading-dot"></span>
-                  <span className="chat-loading-dot"></span>
-                  <span className="chat-loading-dot"></span>
-                </div>
+                {/* Message Content */}
+                {message.content && (
+                  <div className="message-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                )}
+
+                {/* Loading indicator */}
+                {message.role === 'assistant' && !message.content && !message.thinking && isLoading && (
+                  <div className="message-loading">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                )}
+
+                {/* Sources Block - at the bottom, collapsible like thinking */}
+                {message.sources && message.sources.length > 0 && (
+                  <div className={`sources-block ${message.sourcesCollapsed ? 'collapsed' : ''}`}>
+                    <div
+                      className="sources-header"
+                      onClick={() => toggleSources(index)}
+                    >
+                      <FiBook className="sources-icon" />
+                      <span>Quellen ({message.sources.length})</span>
+                      {message.sourcesCollapsed ? <FiChevronDown /> : <FiChevronUp />}
+                    </div>
+                    {!message.sourcesCollapsed && (
+                      <div className="sources-content">
+                        {message.sources.map((source, sourceIndex) => (
+                          <div key={sourceIndex} className="source-item">
+                            <div className="source-name">{source.document_name}</div>
+                            <div className="source-preview">{source.text_preview}</div>
+                            <div className="source-score">
+                              Relevanz: {(source.score * 100).toFixed(0)}%
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Scroll to bottom button */}
+          {showScrollButton && (
+            <button
+              className="scroll-bottom-btn"
+              onClick={() => {
+                setIsUserScrolling(false);
+                scrollToBottom();
+              }}
+            >
+              <FiArrowDown />
+            </button>
           )}
-
-          <div ref={messagesEndRef} />
         </div>
+      )}
 
-        {error && (
-          <div className="chat-error">
-            <FiAlertCircle />
-            <span>{error}</span>
+      {/* Centered Input Section */}
+      <div className={`chat-input-section ${hasMessages ? 'bottom' : 'centered'}`}>
+        {/* Welcome text - only when empty */}
+        {!hasMessages && (
+          <div className="welcome-text">
+            Wie kann ich dir heute helfen?
           </div>
         )}
 
-        <div className="chat-input-container">
+        {/* Error Display */}
+        {error && (
+          <div className="error-banner">
+            <FiAlertCircle />
+            <span>{error}</span>
+            <button onClick={() => setError(null)}><FiX /></button>
+          </div>
+        )}
+
+        {/* Main Input Box - Single Row */}
+        <div className="input-box">
+          {/* RAG Toggle Button */}
           <button
-            className={`rag-toggle-button ${useRAG ? 'active' : ''}`}
+            className={`input-toggle rag-toggle ${useRAG ? 'active' : ''}`}
             onClick={() => setUseRAG(!useRAG)}
-            title={useRAG ? "RAG mode active - searches your documents" : "Enable RAG mode to search documents"}
-            type="button"
+            title={useRAG ? "RAG deaktivieren" : "RAG aktivieren"}
           >
-            <FiDatabase />
+            <FiSearch />
+            {useRAG && <span>RAG</span>}
           </button>
-          <textarea
+
+          {/* Thinking Toggle Button */}
+          <button
+            className={`input-toggle think-toggle ${useThinking ? 'active' : ''}`}
+            onClick={() => setUseThinking(!useThinking)}
+            title={useThinking ? "Thinking deaktivieren" : "Thinking aktivieren"}
+          >
+            <FiCpu />
+            {useThinking && <span>Think</span>}
+          </button>
+
+          {/* Text Input */}
+          <input
             ref={inputRef}
-            className="chat-input"
+            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={useRAG ? "Ask about your documents..." : "Message AI..."}
+            onKeyDown={handleKeyDown}
+            placeholder={useRAG ? "Frage zu Dokumenten stellen..." : "Nachricht eingeben..."}
             disabled={isLoading}
-            rows={1}
           />
+
+          {/* Send Button */}
           <button
-            className="chat-send-button"
+            className="send-btn"
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            title="Send message (Enter)"
+            title="Senden (Enter)"
           >
-            <FiSend />
+            <FiArrowUp />
           </button>
-        </div>
-
-        <div className="chat-info">
-          Press <kbd>Enter</kbd> to send or <kbd>Shift+Enter</kbd> for new line
         </div>
       </div>
     </div>

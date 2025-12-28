@@ -3,23 +3,24 @@
 
 http:
   routers:
-    # Dashboard Frontend (catch-all, lowest priority)
-    # Accessible from any IP address in the network via HTTP and HTTPS
+    # Dashboard Frontend (catch-all, lowest priority) - HTTP only
     dashboard-frontend:
       rule: "PathPrefix(`/`)"
       service: dashboard-frontend-service
       priority: 1
-      # middlewares:
-      #   - security-headers
-      #   - rate-limit-api
-      #   - compress
       entryPoints:
         - web
+
+    # Dashboard Frontend (catch-all, lowest priority) - HTTPS
+    dashboard-frontend-secure:
+      rule: "PathPrefix(`/`)"
+      service: dashboard-frontend-service
+      priority: 1
+      entryPoints:
         - websecure
       tls: {}
 
-    # Dashboard Backend API
-    # Accessible from any IP address in the network via HTTP and HTTPS
+    # Dashboard Backend API - HTTP
     dashboard-api:
       rule: "PathPrefix(`/api`)"
       service: dashboard-backend-service
@@ -30,12 +31,22 @@ http:
         - compress
       entryPoints:
         - web
+
+    # Dashboard Backend API - HTTPS
+    dashboard-api-secure:
+      rule: "PathPrefix(`/api`)"
+      service: dashboard-backend-service
+      priority: 10
+      middlewares:
+        - security-headers
+        - rate-limit-api
+        - compress
+      entryPoints:
         - websecure
       tls:
         certResolver: letsencrypt
 
-    # Auth endpoints (with stricter rate limiting)
-    # Accessible from any IP address in the network via HTTP and HTTPS
+    # Auth endpoints (with stricter rate limiting) - HTTP
     auth-api:
       rule: "PathPrefix(`/api/auth`)"
       service: dashboard-backend-service
@@ -45,12 +56,21 @@ http:
         - rate-limit-auth
       entryPoints:
         - web
+
+    # Auth endpoints - HTTPS
+    auth-api-secure:
+      rule: "PathPrefix(`/api/auth`)"
+      service: dashboard-backend-service
+      priority: 20
+      middlewares:
+        - security-headers
+        - rate-limit-auth
+      entryPoints:
         - websecure
       tls:
         certResolver: letsencrypt
 
-    # Metrics API (with rate limiting)
-    # Accessible from any IP address in the network via HTTP and HTTPS
+    # Metrics API (with rate limiting) - HTTP
     metrics-api:
       rule: "PathPrefix(`/api/metrics`)"
       service: dashboard-backend-service
@@ -61,6 +81,17 @@ http:
         - compress
       entryPoints:
         - web
+
+    # Metrics API - HTTPS
+    metrics-api-secure:
+      rule: "PathPrefix(`/api/metrics`)"
+      service: dashboard-backend-service
+      priority: 15
+      middlewares:
+        - security-headers
+        - rate-limit-metrics
+        - compress
+      entryPoints:
         - websecure
       tls:
         certResolver: letsencrypt
@@ -244,12 +275,3 @@ http:
           path: /healthz
           interval: 30s
           timeout: 3s
-
-# TCP/UDP Services (if needed)
-tcp:
-  routers: {}
-  services: {}
-
-udp:
-  routers: {}
-  services: {}

@@ -8,6 +8,7 @@ const router = express.Router();
 const db = require('../database');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
+const llmJobService = require('../services/llmJobService');
 
 // GET /api/chats - Get all chat conversations
 router.get('/', requireAuth, async (req, res) => {
@@ -65,7 +66,7 @@ router.get('/:id/messages', requireAuth, async (req, res) => {
         const { id } = req.params;
 
         const result = await db.query(
-            `SELECT id, role, content, thinking, created_at
+            `SELECT id, role, content, thinking, sources, created_at, status, job_id
              FROM chat_messages
              WHERE conversation_id = $1
              ORDER BY created_at ASC`,
@@ -80,6 +81,26 @@ router.get('/:id/messages', requireAuth, async (req, res) => {
         logger.error(`Error fetching messages: ${error.message}`);
         res.status(500).json({
             error: 'Failed to fetch messages',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// GET /api/chats/:id/jobs - Get active jobs for a conversation
+router.get('/:id/jobs', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const jobs = await llmJobService.getActiveJobsForConversation(parseInt(id));
+
+        res.json({
+            jobs,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        logger.error(`Error fetching jobs for chat ${req.params.id}: ${error.message}`);
+        res.status(500).json({
+            error: 'Failed to fetch jobs',
             timestamp: new Date().toISOString()
         });
     }

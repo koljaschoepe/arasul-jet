@@ -659,14 +659,28 @@
   }
 }
 
-/* ===================================
-   RESPONSIVE DESIGN
-   =================================== */
+/* ========================================
+   RESPONSIVE DESIGN - Settings Page
+   Progressive scaling with touch-friendly UI
+   ======================================== */
 
+/* Extra Large Desktop (≤1200px) */
+@media (max-width: 1200px) {
+  .settings-sidebar {
+    width: 260px;
+  }
+
+  .settings-layout {
+    grid-template-columns: 260px 1fr;
+  }
+}
+
+/* Tablet Landscape (≤1024px) - Sidebar becomes top bar */
 @media (max-width: 1024px) {
   .settings-layout {
     grid-template-columns: 1fr;
     height: auto;
+    min-height: calc(100vh - 4rem);
   }
 
   .settings-sidebar {
@@ -675,77 +689,428 @@
   }
 
   .settings-sidebar-header {
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    flex-direction: row;
+  }
+
+  .settings-sidebar-icon {
+    font-size: 1.5rem;
   }
 
   .settings-nav {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     flex-direction: row;
     overflow-x: auto;
     gap: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .settings-nav::-webkit-scrollbar {
+    height: 0;
+    display: none;
   }
 
   .settings-nav-item {
-    min-width: 200px;
+    min-width: 180px;
     flex-shrink: 0;
+    min-height: 44px;
+  }
+
+  .settings-nav-item-description {
+    display: none;
+  }
+
+  .settings-nav-item-arrow {
+    display: none;
   }
 
   .settings-content-wrapper {
     padding: 1.5rem;
   }
+
+  /* Service selector - 2 columns on tablet */
+  .service-selector {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
+/* Tablet Portrait (≤768px) - Single column */
 @media (max-width: 768px) {
+  .settings-layout {
+    min-height: calc(100vh - 5rem);
+  }
+
+  .settings-sidebar-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .settings-sidebar-title {
+    font-size: 1.1rem;
+  }
+
+  .settings-sidebar-subtitle {
+    display: none;
+  }
+
+  .settings-nav {
+    padding: 0.75rem;
+    flex-direction: column;
+    overflow-x: visible;
+    gap: 0.375rem;
+  }
+
+  .settings-nav-item {
+    min-width: auto;
+    padding: 0.75rem 1rem;
+  }
+
+  .settings-nav-item-content {
+    gap: 0.75rem;
+  }
+
+  .settings-nav-item-icon {
+    font-size: 1.1rem;
+  }
+
+  .settings-nav-item-label {
+    font-size: 0.9rem;
+  }
+
   .settings-content-wrapper {
     max-width: 100%;
     padding: 1rem;
+  }
+
+  .settings-section-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
   }
 
   .settings-section-title {
     font-size: 1.5rem;
   }
 
-  .settings-info-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+  .settings-section-description {
+    font-size: 0.9rem;
   }
 
-  .service-selector {
+  .settings-info-grid {
     grid-template-columns: 1fr;
     gap: 0.75rem;
+  }
+
+  .settings-info-item {
+    padding: 0.875rem;
+  }
+
+  /* Service selector - single column */
+  .service-selector {
+    grid-template-columns: 1fr;
+    gap: 0.625rem;
+  }
+
+  .service-button {
+    padding: 0.875rem 1.25rem;
+    min-height: 56px;
+  }
+
+  .service-icon {
+    font-size: 1.25rem;
   }
 
   .password-form {
     max-width: 100%;
   }
 
-  .settings-nav {
-    flex-direction: column;
+  .form-group {
+    margin-bottom: 1.25rem;
   }
 
-  .settings-nav-item {
-    min-width: auto;
+  .password-input-wrapper input {
+    padding: 0.75rem 2.5rem 0.75rem 0.875rem;
+    min-height: 48px;
   }
-}
 
-@media (max-width: 480px) {
-  .settings-sidebar-header {
+  .password-requirements {
     padding: 1rem;
   }
 
-  .settings-sidebar-title {
-    font-size: 1.125rem;
+  .password-requirements h4 {
+    font-size: 0.9rem;
   }
 
-  .settings-section-title {
-    font-size: 1.375rem;
+  .password-requirements li {
+    font-size: 0.825rem;
+    padding: 0.375rem 0;
   }
 
+  .submit-button {
+    padding: 0.875rem 1.5rem;
+    min-height: 48px;
+  }
+
+  /* Cards */
   .settings-card-header {
     padding: 1.25rem;
   }
 
   .settings-card-body {
     padding: 1.25rem;
+  }
+
+  .settings-card-title {
+    font-size: 1rem;
+  }
+
+  /* Features list */
+  .settings-feature-item {
+    padding: 0.875rem;
+  }
+
+  /* Password header */
+  .password-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .password-header p {
+    font-size: 0.9rem;
+  }
+}
+
+/* Mobile Large (≤576px) - Compact everything */
+@media (max-width: 576px) {
+  .settings-layout {
+    min-height: calc(100vh - 4rem);
+  }
+
+  .settings-sidebar-header {
+    padding: 0.875rem 1rem;
+  }
+
+  .settings-sidebar-icon {
+    font-size: 1.25rem;
+  }
+
+  .settings-sidebar-title {
+    font-size: 1rem;
+  }
+
+  .settings-nav {
+    padding: 0.5rem 0.75rem;
+    gap: 0.25rem;
+  }
+
+  .settings-nav-item {
+    padding: 0.625rem 0.875rem;
+  }
+
+  .settings-nav-item-icon {
+    font-size: 1rem;
+  }
+
+  .settings-nav-item-label {
+    font-size: 0.85rem;
+  }
+
+  .settings-content-wrapper {
+    padding: 0.75rem;
+  }
+
+  .settings-section-header {
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.875rem;
+  }
+
+  .settings-section-title {
+    font-size: 1.375rem;
+  }
+
+  .settings-cards {
+    gap: 1rem;
+  }
+
+  .settings-card {
+    border-radius: 10px;
+  }
+
+  .settings-card-header {
+    padding: 1rem;
+  }
+
+  .settings-card-body {
+    padding: 1rem;
+  }
+
+  .settings-card-title {
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .settings-card-description {
+    font-size: 0.8rem;
+  }
+
+  .settings-info-item {
+    padding: 0.75rem;
+  }
+
+  .settings-info-label {
+    font-size: 0.75rem;
+  }
+
+  .settings-info-value {
+    font-size: 0.9rem;
+  }
+
+  /* Service selector compact */
+  .service-button {
+    padding: 0.75rem 1rem;
+    min-height: 52px;
+    font-size: 0.9rem;
+    gap: 0.5rem;
+  }
+
+  .service-icon {
+    font-size: 1.125rem;
+  }
+
+  /* Form elements */
+  .form-group label {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .form-group small {
+    font-size: 0.75rem;
+  }
+
+  .password-input-wrapper input {
+    padding: 0.625rem 2.25rem 0.625rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .toggle-password {
+    right: 0.5rem;
+  }
+
+  .toggle-password svg {
+    font-size: 1.1rem;
+  }
+
+  .password-requirements {
+    padding: 0.875rem;
+    border-radius: 8px;
+  }
+
+  .password-requirements h4 {
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .password-requirements li {
+    font-size: 0.8rem;
+    gap: 0.5rem;
+  }
+
+  .password-message {
+    padding: 0.875rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .submit-button {
+    font-size: 0.95rem;
+  }
+
+  .warning-text,
+  .info-text {
+    padding: 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  /* About section */
+  .settings-about-text {
+    font-size: 0.9rem;
+  }
+
+  .settings-feature-item {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .settings-feature-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 0.75rem;
+  }
+
+  .settings-feature-text strong {
+    font-size: 0.9rem;
+  }
+
+  .settings-feature-text span {
+    font-size: 0.8rem;
+  }
+
+  /* Password header compact */
+  .password-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+  }
+
+  .password-header h2 {
+    font-size: 1.375rem;
+  }
+
+  .password-header p {
+    font-size: 0.85rem;
+  }
+}
+
+/* Mobile Small (≤375px) - iPhone SE */
+@media (max-width: 375px) {
+  .settings-sidebar-header {
+    padding: 0.75rem;
+  }
+
+  .settings-sidebar-title {
+    font-size: 0.95rem;
+  }
+
+  .settings-nav {
+    padding: 0.375rem 0.5rem;
+  }
+
+  .settings-nav-item {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .settings-content-wrapper {
+    padding: 0.5rem;
+  }
+
+  .settings-section-title {
+    font-size: 1.25rem;
+  }
+
+  .settings-card-header,
+  .settings-card-body {
+    padding: 0.875rem;
+  }
+
+  .service-button {
+    padding: 0.625rem 0.875rem;
+    min-height: 48px;
+    font-size: 0.85rem;
+  }
+
+  .password-input-wrapper input {
+    min-height: 44px;
+    font-size: 0.875rem;
+  }
+
+  .submit-button {
+    min-height: 44px;
+    font-size: 0.9rem;
   }
 }

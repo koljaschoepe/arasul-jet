@@ -7,14 +7,14 @@ const logger = require('./logger');
 
 const SALT_ROUNDS = 12;
 
-// Password complexity requirements
-const PASSWORD_MIN_LENGTH = 12;
+// Password complexity requirements (simplified for development)
+const PASSWORD_MIN_LENGTH = 4;
 const PASSWORD_REQUIREMENTS = {
     minLength: PASSWORD_MIN_LENGTH,
-    requireUppercase: true,
-    requireLowercase: true,
-    requireNumbers: true,
-    requireSpecialChars: true
+    requireUppercase: false,
+    requireLowercase: false,
+    requireNumbers: false,
+    requireSpecialChars: false
 };
 
 /**
