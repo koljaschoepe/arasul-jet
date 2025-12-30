@@ -71,6 +71,7 @@ const docsRouter = require('./routes/docs');
 const chatsRouter = require('./routes/chats');
 const ragRouter = require('./routes/rag');
 const settingsRouter = require('./routes/settings');
+const documentsRouter = require('./routes/documents');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -87,6 +88,7 @@ app.use('/api/docs', docsRouter);
 app.use('/api/chats', chatsRouter);
 app.use('/api/rag', ragRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/documents', documentsRouter);
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
@@ -115,6 +117,7 @@ const wss = new WebSocket.Server({
 const axios = require('axios');
 const logger = require('./utils/logger');
 const llmJobService = require('./services/llmJobService');
+const llmQueueService = require('./services/llmQueueService');
 
 wss.on('connection', (ws) => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
@@ -176,14 +179,12 @@ if (require.main === module) {
     console.log('ARASUL DASHBOARD BACKEND - Port', PORT);
     console.log('WebSocket server ready at ws://0.0.0.0:' + PORT + '/api/metrics/live-stream');
 
-    // Cleanup stale LLM jobs from previous runs
+    // Initialize LLM Queue Service (handles cleanup and starts processing)
     try {
-      const cleanedCount = await llmJobService.cleanupStaleJobs();
-      if (cleanedCount > 0) {
-        logger.info(`Cleaned up ${cleanedCount} stale LLM jobs on startup`);
-      }
+      await llmQueueService.initialize();
+      logger.info('LLM Queue Service initialized successfully');
     } catch (err) {
-      logger.error(`Failed to cleanup stale LLM jobs: ${err.message}`);
+      logger.error(`Failed to initialize LLM Queue Service: ${err.message}`);
     }
 
     // Set up periodic cleanup of old completed jobs (every 30 minutes)

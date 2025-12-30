@@ -169,7 +169,7 @@ class LLMJobService {
         const result = await db.query(
             `SELECT id, conversation_id, job_type, status, content, thinking, sources,
                     created_at, started_at, completed_at, last_update_at, error_message,
-                    message_id
+                    message_id, queue_position, queued_at, priority
              FROM llm_jobs WHERE id = $1`,
             [jobId]
         );
@@ -183,10 +183,11 @@ class LLMJobService {
      */
     async getActiveJobsForConversation(conversationId) {
         const result = await db.query(
-            `SELECT id, job_type, status, content, thinking, sources, last_update_at, message_id
+            `SELECT id, job_type, status, content, thinking, sources, last_update_at, message_id,
+                    queue_position, queued_at, priority
              FROM llm_jobs
              WHERE conversation_id = $1 AND status IN ('pending', 'streaming')
-             ORDER BY created_at DESC`,
+             ORDER BY queue_position ASC NULLS LAST, created_at DESC`,
             [conversationId]
         );
         return result.rows;
@@ -199,11 +200,14 @@ class LLMJobService {
     async getAllActiveJobs() {
         const result = await db.query(
             `SELECT j.id, j.conversation_id, j.job_type, j.status, j.last_update_at,
+                    j.queue_position, j.queued_at, j.priority,
                     c.title as conversation_title
              FROM llm_jobs j
              JOIN chat_conversations c ON j.conversation_id = c.id
              WHERE j.status IN ('pending', 'streaming')
-             ORDER BY j.created_at DESC`
+             ORDER BY
+                CASE WHEN j.status = 'streaming' THEN 0 ELSE 1 END,
+                j.queue_position ASC NULLS LAST`
         );
         return result.rows;
     }

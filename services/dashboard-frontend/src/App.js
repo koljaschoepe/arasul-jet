@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink } from 'react-icons/fi';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText } from 'react-icons/fi';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
+import DocumentManager from './components/DocumentManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import './index.css';
@@ -354,6 +355,7 @@ function App() {
               />
               <Route path="/settings" element={<Settings />} />
               <Route path="/chat" element={<ChatMulti />} />
+              <Route path="/documents" element={<DocumentManager />} />
             </Routes>
           </div>
         </div>
@@ -383,6 +385,9 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor }) {
           </Link>
           <Link to="/chat" className={isActive('/chat')}>
             <FiMessageSquare /> AI Chat
+          </Link>
+          <Link to="/documents" className={isActive('/documents')}>
+            <FiFileText /> Dokumente
           </Link>
           <Link to="/settings" className={isActive('/settings')}>
             <FiSettings /> Einstellungen

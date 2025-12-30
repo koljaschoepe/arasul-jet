@@ -1,7 +1,26 @@
+# Document Indexer Dependencies
+# Enhanced version with metadata extraction, AI services, and HTTP API
+
+# Object Storage
 minio==7.2.5
+
+# Vector Database
 qdrant-client==1.7.3
+
+# Document Parsing
 PyPDF2==3.0.1
 python-docx==1.1.0
 markdown==3.5.2
+
+# HTTP Client
 requests==2.31.0
+
+# Database
+psycopg2-binary==2.9.9
+
+# HTTP API Server
+flask==3.0.0
+flask-cors==4.0.0
+
+# Utilities
 python-magic==0.4.27

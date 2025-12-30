@@ -1,8 +1,8 @@
 # Arasul Platform - Bug Analysis & Fix Plan
 **Generated**: 2025-11-14
-**Last Updated**: 2025-11-17
+**Last Updated**: 2025-12-30
 **Analysis Scope**: Complete codebase audit
-**Total Issues Found**: 50
+**Total Issues Found**: 51
 
 ---
 
@@ -20,6 +20,21 @@
 | BUG-003 | Memory Leak in Rate Limiter | CRITICAL | OOM crash | 🔴 IMMEDIATE |
 | BUG-004 | Duplicate DB Connection Pools | HIGH | Connection exhaustion | 🟡 URGENT |
 | HIGH-001 | Missing WebSocket Implementation | HIGH | No live dashboard updates | 🟡 URGENT |
+
+---
+
+## NEW: Schema Migration Bug (2025-12-30)
+
+### SCHEMA-001: Duplicate Column Addition in Migrations
+**Files**: `services/postgres/init/007_add_sources_to_messages.sql`, `008_llm_queue_schema.sql`
+**Severity**: MEDIUM
+**Status**: ⚠️ OPEN
+
+**Issue**: Both migration 007 and 008 add a `sources` JSONB column to `chat_messages` table.
+
+**Impact**: Fresh deployments may fail with "column already exists" error.
+
+**Fix**: Remove the duplicate `ALTER TABLE` from migration 008 or add `IF NOT EXISTS` logic.
 
 ---
 

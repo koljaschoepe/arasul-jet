@@ -223,12 +223,42 @@
   flex-shrink: 0;
 }
 
+/* Job indicator container */
+.job-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .pulse-dot {
   width: 8px;
   height: 8px;
-  background: var(--primary-color);
   border-radius: 50%;
+}
+
+/* Active (streaming) job - green pulse */
+.pulse-dot.active {
+  background: #22c55e;
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Queued job - orange slower pulse */
+.pulse-dot.queued {
+  background: #f59e0b;
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* Fallback for old style without class */
+.pulse-dot:not(.active):not(.queued) {
+  background: var(--primary-color);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Queue position badge */
+.queue-position {
+  font-size: 10px;
+  color: #f59e0b;
+  font-weight: 600;
 }
 
 @keyframes pulse {
@@ -239,6 +269,15 @@
   50% {
     opacity: 0.5;
     transform: scale(0.8);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
 

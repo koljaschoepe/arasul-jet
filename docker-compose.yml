@@ -262,7 +262,7 @@ services:
         max-size: "50m"
         max-file: "10"
 
-  # 5.5 Document Indexer - Automatic document indexing for RAG
+  # 5.5 Document Indexer - Automatic document indexing for RAG with AI analysis
   document-indexer:
     build:
       context: ./services/document-indexer
@@ -273,29 +273,53 @@ services:
     networks:
       - arasul-net
     environment:
+      # MinIO Configuration
       MINIO_HOST: ${MINIO_HOST}
       MINIO_PORT: ${MINIO_PORT}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       DOCUMENT_INDEXER_MINIO_BUCKET: ${DOCUMENT_INDEXER_MINIO_BUCKET}
+      # Qdrant Configuration
       QDRANT_HOST: ${QDRANT_HOST}
       QDRANT_PORT: ${QDRANT_PORT}
       QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME}
+      # Embedding Service
       EMBEDDING_SERVICE_HOST: ${EMBEDDING_SERVICE_HOST}
       EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
       EMBEDDING_VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL}
+      # LLM Service (for AI analysis)
+      LLM_SERVICE_HOST: ${LLM_SERVICE_HOST}
+      LLM_SERVICE_PORT: ${LLM_SERVICE_PORT}
+      LLM_MODEL: ${LLM_MODEL}
+      # PostgreSQL (for metadata storage)
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Indexer Configuration
       DOCUMENT_INDEXER_INTERVAL: ${DOCUMENT_INDEXER_INTERVAL}
       DOCUMENT_INDEXER_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHUNK_SIZE}
       DOCUMENT_INDEXER_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHUNK_OVERLAP}
+      DOCUMENT_INDEXER_API_PORT: ${DOCUMENT_INDEXER_API_PORT:-9102}
+      # AI Features
+      DOCUMENT_INDEXER_ENABLE_AI: ${DOCUMENT_INDEXER_ENABLE_AI:-true}
+      DOCUMENT_INDEXER_ENABLE_SIMILARITY: ${DOCUMENT_INDEXER_ENABLE_SIMILARITY:-true}
+      DOCUMENT_INDEXER_SIMILARITY_THRESHOLD: ${DOCUMENT_INDEXER_SIMILARITY_THRESHOLD:-0.8}
     depends_on:
+      postgres-db:
+        condition: service_healthy
       minio:
         condition: service_healthy
       qdrant:
         condition: service_healthy
       embedding-service:
         condition: service_healthy
+      llm-service:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python3", "-c", "import os; exit(0)"]
+      test: ["CMD", "curl", "-f", "http://localhost:9102/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -382,6 +406,9 @@ services:
       QDRANT_HOST: ${QDRANT_HOST}
       QDRANT_PORT: ${QDRANT_PORT}
       QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME}
+      DOCUMENT_INDEXER_HOST: ${DOCUMENT_INDEXER_HOST:-document-indexer}
+      DOCUMENT_INDEXER_API_PORT: ${DOCUMENT_INDEXER_API_PORT:-9102}
+      DOCUMENT_INDEXER_MINIO_BUCKET: ${DOCUMENT_INDEXER_MINIO_BUCKET:-documents}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: ${JWT_EXPIRY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}

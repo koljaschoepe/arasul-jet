@@ -27,6 +27,9 @@ function ChatMulti() {
   // Background job tracking - enables tab-switch resilience
   const [activeJobIds, setActiveJobIds] = useState({}); // chatId -> jobId
 
+  // Queue tracking - shows position in queue for pending jobs
+  const [globalQueue, setGlobalQueue] = useState({ pending_count: 0, processing: null, queue: [] });
+
   // UI state
   const [editingChatId, setEditingChatId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
@@ -55,16 +58,55 @@ function ChatMulti() {
   }, []);
 
   // Load messages when chat changes and check for active jobs
+  // IMPORTANT: Sequential execution to avoid race conditions
   useEffect(() => {
     if (currentChatId) {
-      // Reset loading state when switching chats (checkActiveJobs will set it back if needed)
-      setIsLoading(false);
-      setError(null);
-      loadMessages(currentChatId);
-      checkActiveJobs(currentChatId);
-      setIsUserScrolling(false);
+      initializeChat(currentChatId);
     }
   }, [currentChatId]);
+
+  // Sequential chat initialization to fix race condition
+  const initializeChat = async (chatId) => {
+    // Reset UI state
+    setIsLoading(false);
+    setError(null);
+    setIsUserScrolling(false);
+
+    // 1. FIRST: Load messages (now includes live content from llm_jobs)
+    await loadMessages(chatId);
+
+    // 2. THEN: Check for active jobs
+    const activeJob = await checkActiveJobsAsync(chatId);
+
+    // 3. If active job exists: reconnect to stream
+    if (activeJob) {
+      setIsLoading(true);
+      reconnectToJob(activeJob.id, chatId);
+    }
+  };
+
+  // Async version of checkActiveJobs that returns the active job
+  const checkActiveJobsAsync = async (chatId) => {
+    try {
+      const token = localStorage.getItem('arasul_token');
+      const response = await axios.get(`${API_BASE}/chats/${chatId}/jobs`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const jobs = response.data.jobs || [];
+
+      // Find first active job (streaming or pending)
+      const activeJob = jobs.find(j => j.status === 'streaming' || j.status === 'pending');
+
+      if (activeJob) {
+        setActiveJobIds(prev => ({ ...prev, [chatId]: activeJob.id }));
+        return activeJob;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error checking active jobs:', err);
+      return null;
+    }
+  };
 
   // Smart auto-scroll
   useEffect(() => {
@@ -72,6 +114,34 @@ function ChatMulti() {
       scrollToBottom();
     }
   }, [messages, isUserScrolling]);
+
+  // Queue polling - updates queue status when there are active jobs
+  useEffect(() => {
+    if (Object.keys(activeJobIds).length === 0) {
+      // No active jobs, clear queue state
+      setGlobalQueue({ pending_count: 0, processing: null, queue: [] });
+      return;
+    }
+
+    const pollQueue = async () => {
+      try {
+        const token = localStorage.getItem('arasul_token');
+        const response = await axios.get(`${API_BASE}/llm/queue`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        setGlobalQueue(response.data);
+      } catch (err) {
+        console.error('Error polling queue:', err);
+      }
+    };
+
+    // Initial poll
+    pollQueue();
+
+    // Poll every 2 seconds while there are active jobs
+    const interval = setInterval(pollQueue, 2000);
+    return () => clearInterval(interval);
+  }, [activeJobIds]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -91,12 +161,17 @@ function ChatMulti() {
       setLoadingChats(true);
       const response = await axios.get(`${API_BASE}/chats`);
       const chatList = response.data.chats || [];
+      console.log('[ChatMulti] loadChats: loaded', chatList.length, 'chats');
       setChats(chatList);
 
       if (!currentChatId && chatList.length > 0) {
+        console.log('[ChatMulti] loadChats: setting currentChatId to', chatList[0].id);
         setCurrentChatId(chatList[0].id);
       } else if (chatList.length === 0) {
+        console.log('[ChatMulti] loadChats: no chats, creating new one');
+        // Don't set loadingChats to false yet - createNewChat will do it
         await createNewChat();
+        return; // createNewChat handles setLoadingChats(false)
       }
     } catch (err) {
       console.error('Error loading chats:', err);
@@ -112,47 +187,31 @@ function ChatMulti() {
 
       const formattedMessages = msgs.map(msg => ({
         role: msg.role,
-        content: msg.content,
-        thinking: msg.thinking,
-        hasThinking: !!msg.thinking,
+        content: msg.content || '',
+        thinking: msg.thinking || '',
+        hasThinking: !!(msg.thinking && msg.thinking.length > 0),
         thinkingCollapsed: true,
         sources: msg.sources || [],
         sourcesCollapsed: true,
         status: msg.status || 'completed',
-        jobId: msg.job_id
+        jobId: msg.job_id,  // Important: track job_id for reconnection
+        jobStatus: msg.job_status  // Track job status for UI
       }));
 
       setMessages(formattedMessages);
+      return formattedMessages;
     } catch (err) {
       console.error('Error loading messages:', err);
       setMessages([]);
+      return [];
     }
   };
 
-  // Check for active jobs when switching to a chat
-  const checkActiveJobs = async (chatId) => {
-    try {
-      const token = localStorage.getItem('arasul_token');
-      const response = await axios.get(`${API_BASE}/chats/${chatId}/jobs`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const jobs = response.data.jobs || [];
-
-      for (const job of jobs) {
-        if (job.status === 'streaming' || job.status === 'pending') {
-          // Found an active job - reconnect to it
-          setActiveJobIds(prev => ({ ...prev, [chatId]: job.id }));
-          setIsLoading(true);
-          reconnectToJob(job.id, chatId);
-          break; // Only handle one active job per chat
-        }
-      }
-    } catch (err) {
-      console.error('Error checking active jobs:', err);
-    }
-  };
+  // Note: checkActiveJobs is replaced by checkActiveJobsAsync above
+  // which is called sequentially in initializeChat
 
   // Reconnect to an active job's stream
+  // Uses job_id based message updates instead of index-based
   const reconnectToJob = async (jobId, targetChatId) => {
     const token = localStorage.getItem('arasul_token');
 
@@ -188,21 +247,24 @@ function ChatMulti() {
             const isCurrentChat = currentChatIdRef.current === targetChatId;
 
             if (data.type === 'reconnect' || data.type === 'update') {
-              // Update the last assistant message with current content
+              // Update message by job_id instead of index
               if (isCurrentChat) {
                 setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  const lastMsgIndex = updated.length - 1;
-                  if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'assistant') {
-                    updated[lastMsgIndex] = {
-                      ...updated[lastMsgIndex],
-                      content: data.content || '',
-                      thinking: data.thinking || '',
-                      hasThinking: !!(data.thinking),
-                      status: data.status
-                    };
-                  }
-                  return updated;
+                  return prevMessages.map(msg => {
+                    // Match by job_id OR by streaming status for assistant messages
+                    if (msg.jobId === jobId ||
+                        (msg.role === 'assistant' && msg.status === 'streaming' && !msg.jobId)) {
+                      return {
+                        ...msg,
+                        content: data.content || msg.content || '',
+                        thinking: data.thinking || msg.thinking || '',
+                        hasThinking: !!(data.thinking || msg.thinking),
+                        status: data.status || msg.status,
+                        jobId: jobId  // Ensure jobId is set
+                      };
+                    }
+                    return msg;
+                  });
                 });
               }
             }
@@ -262,11 +324,16 @@ function ChatMulti() {
 
   const createNewChat = async () => {
     try {
+      // Block input while creating new chat
+      setLoadingChats(true);
+
       const response = await axios.post(`${API_BASE}/chats`, {
         title: `New Chat`
       });
 
       const newChat = response.data.chat;
+      console.log('[ChatMulti] Created new chat:', newChat.id);
+
       setChats(prevChats => [...prevChats, newChat]);
       setCurrentChatId(newChat.id);
       setMessages([]);
@@ -274,6 +341,9 @@ function ChatMulti() {
       setError(null);
     } catch (err) {
       console.error('Error creating chat:', err);
+      setError('Fehler beim Erstellen des Chats');
+    } finally {
+      setLoadingChats(false);
     }
   };
 
@@ -379,10 +449,19 @@ function ChatMulti() {
   };
 
   const handleRAGSend = async () => {
-    if (!input.trim() || isLoading || !currentChatId) return;
+    // Validate required fields
+    if (!input.trim() || isLoading) return;
+
+    // CRITICAL: Ensure currentChatId is valid before proceeding
+    if (!currentChatId || currentChatId === null || currentChatId === undefined) {
+      console.error('Cannot send RAG message: currentChatId is invalid:', currentChatId);
+      setError('Chat nicht bereit. Bitte warte einen Moment...');
+      return;
+    }
 
     // Capture chat context at start - this won't change during streaming
     const targetChatId = currentChatId;
+    console.log('[ChatMulti] handleRAGSend: targetChatId =', targetChatId, 'type:', typeof targetChatId);
     const userMessage = input.trim();
     setInput('');
     setError(null);
@@ -457,6 +536,19 @@ function ChatMulti() {
             if (data.type === 'job_started' && data.jobId) {
               currentJobId = data.jobId;
               setActiveJobIds(prev => ({ ...prev, [targetChatId]: currentJobId }));
+              // Update the assistant message with jobId for reconnection
+              if (currentChatIdRef.current === targetChatId) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      jobId: currentJobId
+                    };
+                  }
+                  return updated;
+                });
+              }
             }
 
             if (data.error) {
@@ -597,10 +689,19 @@ function ChatMulti() {
       return handleRAGSend();
     }
 
-    if (!input.trim() || isLoading || !currentChatId) return;
+    // Validate required fields
+    if (!input.trim() || isLoading) return;
+
+    // CRITICAL: Ensure currentChatId is valid before proceeding
+    if (!currentChatId || currentChatId === null || currentChatId === undefined) {
+      console.error('Cannot send message: currentChatId is invalid:', currentChatId);
+      setError('Chat nicht bereit. Bitte warte einen Moment...');
+      return;
+    }
 
     // Capture chat context at start - this won't change during streaming
     const targetChatId = currentChatId;
+    console.log('[ChatMulti] handleSend: targetChatId =', targetChatId, 'type:', typeof targetChatId);
     const userMessage = input.trim();
     setInput('');
     setError(null);
@@ -673,6 +774,19 @@ function ChatMulti() {
             if (data.type === 'job_started' && data.jobId) {
               currentJobId = data.jobId;
               setActiveJobIds(prev => ({ ...prev, [targetChatId]: currentJobId }));
+              // Update the assistant message with jobId for reconnection
+              if (currentChatIdRef.current === targetChatId) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      jobId: currentJobId
+                    };
+                  }
+                  return updated;
+                });
+              }
             }
 
             if (data.error) {
@@ -849,12 +963,25 @@ function ChatMulti() {
               onMouseEnter={() => setHoveredChatId(chat.id)}
               onMouseLeave={() => setHoveredChatId(null)}
             >
-              {/* Job indicator for streaming chats */}
-              {activeJobIds[chat.id] ? (
-                <span className="job-indicator" title="Antwort wird generiert...">
-                  <span className="pulse-dot"></span>
-                </span>
-              ) : (
+              {/* Job indicator for streaming/queued chats */}
+              {activeJobIds[chat.id] ? (() => {
+                const jobId = activeJobIds[chat.id];
+                const isProcessing = globalQueue.processing?.id === jobId;
+                const queueJob = globalQueue.queue?.find(q => q.id === jobId);
+                const queuePosition = queueJob?.queue_position;
+
+                return (
+                  <span
+                    className="job-indicator"
+                    title={isProcessing ? "Wird verarbeitet..." : queuePosition > 1 ? `Position ${queuePosition} in der Warteschlange` : "Wartet..."}
+                  >
+                    <span className={`pulse-dot ${isProcessing ? 'active' : 'queued'}`}></span>
+                    {!isProcessing && queuePosition > 1 && (
+                      <span className="queue-position">#{queuePosition}</span>
+                    )}
+                  </span>
+                );
+              })() : (
                 <FiChevronRight className="tab-icon" />
               )}
               {editingChatId === chat.id ? (
@@ -1045,14 +1172,14 @@ function ChatMulti() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={useRAG ? "Frage zu Dokumenten stellen..." : "Nachricht eingeben..."}
-            disabled={isLoading}
+            disabled={isLoading || loadingChats || !currentChatId}
           />
 
           {/* Send Button */}
           <button
             className="send-btn"
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || loadingChats || !currentChatId}
             title="Senden (Enter)"
           >
             <FiArrowUp />

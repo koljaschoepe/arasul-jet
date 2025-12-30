@@ -61,15 +61,37 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // GET /api/chats/:id/messages - Get messages for a chat
+// For active streaming jobs, content is fetched from llm_jobs table
 router.get('/:id/messages', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Query that joins with llm_jobs to get live content for streaming messages
         const result = await db.query(
-            `SELECT id, role, content, thinking, sources, created_at, status, job_id
-             FROM chat_messages
-             WHERE conversation_id = $1
-             ORDER BY created_at ASC`,
+            `SELECT
+                m.id,
+                m.role,
+                -- For streaming messages: get live content from llm_jobs
+                CASE
+                    WHEN m.status = 'streaming' AND j.id IS NOT NULL THEN COALESCE(j.content, '')
+                    ELSE COALESCE(m.content, '')
+                END as content,
+                CASE
+                    WHEN m.status = 'streaming' AND j.id IS NOT NULL THEN j.thinking
+                    ELSE m.thinking
+                END as thinking,
+                CASE
+                    WHEN m.status = 'streaming' AND j.id IS NOT NULL THEN j.sources
+                    ELSE m.sources
+                END as sources,
+                m.created_at,
+                COALESCE(m.status, 'completed') as status,
+                m.job_id,
+                j.status as job_status
+             FROM chat_messages m
+             LEFT JOIN llm_jobs j ON m.job_id = j.id
+             WHERE m.conversation_id = $1
+             ORDER BY m.created_at ASC`,
             [id]
         );
 
