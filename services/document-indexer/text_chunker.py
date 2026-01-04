@@ -71,19 +71,79 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]
 
 def chunk_text_by_tokens(text: str, max_tokens: int = 500, overlap_tokens: int = 50) -> List[str]:
     """
-    Split text into overlapping chunks based on approximate token count
-    This is a simple approximation: 1 token ≈ 0.75 words
+    Split text into overlapping chunks based on approximate token count.
+
+    Token estimation (for nomic-embed-text and similar models):
+    - Average: 1 token ≈ 4 characters or ~1.3 tokens per word
+    - This means: 1 word ≈ 0.75 tokens (so max_words = max_tokens * 0.75)
 
     Args:
         text: Input text to chunk
-        max_tokens: Maximum number of tokens per chunk
-        overlap_tokens: Number of tokens to overlap between chunks
+        max_tokens: Maximum number of tokens per chunk (default 500)
+        overlap_tokens: Number of tokens to overlap between chunks (default 50)
 
     Returns:
         List of text chunks
     """
-    # Convert tokens to words (rough approximation)
+    # Convert tokens to words
+    # Standard approximation: 1 word ≈ 1.33 tokens, so words = tokens * 0.75
     max_words = int(max_tokens * 0.75)
     overlap_words = int(overlap_tokens * 0.75)
 
     return chunk_text(text, chunk_size=max_words, overlap=overlap_words)
+
+
+def chunk_text_by_chars(text: str, max_chars: int = 2000, overlap_chars: int = 200) -> List[str]:
+    """
+    Split text into overlapping chunks based on character count.
+    More precise than word-based chunking for token estimation.
+
+    Token estimation: 1 token ≈ 4 characters
+    Default 2000 chars ≈ 500 tokens (safe for 4096 token limit)
+
+    Args:
+        text: Input text to chunk
+        max_chars: Maximum characters per chunk (default 2000)
+        overlap_chars: Characters to overlap between chunks (default 200)
+
+    Returns:
+        List of text chunks
+    """
+    if not text or not text.strip():
+        return []
+
+    text = text.strip()
+    chunks = []
+    start = 0
+
+    while start < len(text):
+        end = min(start + max_chars, len(text))
+
+        # Try to break at sentence boundary
+        if end < len(text):
+            # Look for sentence end within last 20% of chunk
+            search_start = end - int(max_chars * 0.2)
+            search_text = text[search_start:end]
+
+            # Find last sentence boundary
+            for delimiter in ['. ', '! ', '? ', '\n\n', '\n']:
+                last_pos = search_text.rfind(delimiter)
+                if last_pos != -1:
+                    end = search_start + last_pos + len(delimiter)
+                    break
+
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+
+        # Move start with overlap
+        start = end - overlap_chars
+        if start < 0:
+            start = 0
+        # Ensure progress
+        if start <= chunks[-1] if chunks else 0:
+            start = end
+
+    logger.debug(f"Split text into {len(chunks)} chunks (max_chars={max_chars}, overlap={overlap_chars})")
+
+    return chunks

@@ -77,7 +77,15 @@ pool.on('remove', (client) => {
 });
 
 // Event: Connection acquired from pool
+// PERFORMANCE FIX: Warn when pool utilization is high
 pool.on('acquire', (client) => {
+    const utilization = pool.totalCount / poolConfig.max;
+    if (utilization >= 0.8) {
+        logger.warn(`Database pool utilization high: ${pool.totalCount}/${poolConfig.max} (${(utilization * 100).toFixed(0)}%)`);
+    }
+    if (pool.waitingCount >= 5) {
+        logger.error(`Database connections waiting in queue: ${pool.waitingCount}`);
+    }
     logger.debug('Database connection acquired from pool');
 });
 
