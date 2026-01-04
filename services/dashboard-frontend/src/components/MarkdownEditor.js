@@ -5,14 +5,29 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiX, FiSave, FiEye, FiEdit2, FiMaximize2, FiMinimize2, FiAlertCircle } from 'react-icons/fi';
+import DOMPurify from 'dompurify';
 import '../markdown-editor.css';
 
-// Simple markdown to HTML converter
+// SECURITY: Configure DOMPurify with strict settings
+const purifyConfig = {
+    ALLOWED_TAGS: [
+        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'strong', 'em', 'del', 'code', 'pre',
+        'ul', 'ol', 'li', 'blockquote', 'hr', 'br',
+        'a', 'img'
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'target', 'rel'],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input'],
+    FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover', 'onfocus']
+};
+
+// Simple markdown to HTML converter with XSS protection
 function markdownToHtml(markdown) {
     if (!markdown) return '';
 
     let html = markdown
-        // Escape HTML
+        // Escape HTML first
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -45,7 +60,7 @@ function markdownToHtml(markdown) {
         .replace(/^[\*\-]\s+(.*)$/gm, '<li>$1</li>')
         // Ordered lists
         .replace(/^\d+\.\s+(.*)$/gm, '<li>$1</li>')
-        // Links
+        // Links - SECURITY: Force safe attributes
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
         // Images
         .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
@@ -66,7 +81,8 @@ function markdownToHtml(markdown) {
     // Clean up blockquotes
     html = html.replace(/<\/blockquote><br><blockquote>/g, '<br>');
 
-    return html;
+    // SECURITY FIX: Sanitize HTML with DOMPurify before returning
+    return DOMPurify.sanitize(html, purifyConfig);
 }
 
 function MarkdownEditor({ documentId, filename, onClose, onSave, token }) {

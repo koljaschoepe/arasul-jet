@@ -16,10 +16,49 @@ const router = express.Router();
 const multer = require('multer');
 const axios = require('axios');
 const crypto = require('crypto');
+const path = require('path');
 const Minio = require('minio');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const pool = require('../database');
+
+/**
+ * SECURITY: Sanitize filename to prevent path traversal attacks
+ * - Removes directory components (../, ./, /)
+ * - Removes dangerous characters
+ * - Limits length
+ */
+function sanitizeFilename(filename) {
+    if (!filename || typeof filename !== 'string') {
+        return 'unnamed_file';
+    }
+
+    // Get only the basename (removes directory traversal attempts)
+    let sanitized = path.basename(filename);
+
+    // Remove any remaining path separators and dangerous characters
+    sanitized = sanitized
+        .replace(/[\/\\]/g, '_')           // Replace slashes with underscores
+        .replace(/\.\./g, '_')             // Replace double dots
+        .replace(/[<>:"|?*\x00-\x1F]/g, '') // Remove Windows forbidden chars and control chars
+        .replace(/^\.+/, '')                // Remove leading dots (hidden files)
+        .trim();
+
+    // Limit length (preserve extension)
+    const maxLength = 200;
+    if (sanitized.length > maxLength) {
+        const ext = path.extname(sanitized);
+        const nameWithoutExt = sanitized.slice(0, -(ext.length || 0));
+        sanitized = nameWithoutExt.slice(0, maxLength - ext.length) + ext;
+    }
+
+    // Fallback if empty after sanitization
+    if (!sanitized || sanitized === '') {
+        sanitized = 'unnamed_file';
+    }
+
+    return sanitized;
+}
 
 // Configuration
 const MINIO_HOST = process.env.MINIO_HOST || 'minio';
@@ -277,7 +316,8 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
         }
 
         const file = req.file;
-        const filename = file.originalname;
+        // SECURITY FIX: Sanitize filename to prevent path traversal attacks
+        const filename = sanitizeFilename(file.originalname);
         const fileExt = '.' + filename.split('.').pop().toLowerCase();
 
         // Calculate hashes

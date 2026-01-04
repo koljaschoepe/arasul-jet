@@ -36,7 +36,7 @@ function PasswordManagement() {
 
   const fetchPasswordRequirements = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('arasul_token');
       const response = await axios.get('/api/settings/password-requirements', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -108,7 +108,7 @@ function PasswordManagement() {
     setMessage(null);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('arasul_token');
       const endpoint = `/api/settings/password/${activeService}`;
 
       const response = await axios.post(
@@ -136,7 +136,8 @@ function PasswordManagement() {
       // If dashboard password was changed, user needs to re-login
       if (activeService === 'dashboard') {
         setTimeout(() => {
-          localStorage.removeItem('token');
+          localStorage.removeItem('arasul_token');
+          localStorage.removeItem('arasul_user');
           window.location.href = '/';
         }, 2000);
       }

@@ -16,6 +16,18 @@ const util = require('util');
 
 const execPromise = util.promisify(exec);
 
+// Whitelist of services allowed to be restarted (SECURITY: prevents command injection)
+const ALLOWED_RESTART_SERVICES = [
+    'minio',
+    'n8n',
+    'llm-service',
+    'embedding-service',
+    'dashboard-backend',
+    'dashboard-frontend',
+    'document-indexer',
+    'metrics-collector'
+];
+
 // Rate limiter for password changes (3 attempts per 15 minutes)
 const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000);
 
@@ -43,14 +55,27 @@ async function verifyCurrentDashboardPassword(userId, currentPassword) {
 
 /**
  * Restart a Docker Compose service
+ * SECURITY: Only allows whitelisted services to prevent command injection
  */
 async function restartService(serviceName) {
+    // SECURITY FIX: Validate service name against whitelist
+    if (!ALLOWED_RESTART_SERVICES.includes(serviceName)) {
+        logger.error(`Attempted to restart non-whitelisted service: ${serviceName}`);
+        throw new Error(`Service '${serviceName}' is not allowed to be restarted`);
+    }
+
     try {
         logger.info(`Restarting service: ${serviceName}`);
 
         const composeDir = process.env.COMPOSE_PROJECT_DIR || '/home/arasul/arasul/arasul-jet';
-        const { stdout, stderr } = await execPromise(
-            `docker compose restart ${serviceName}`,
+
+        // SECURITY FIX: Use execFile with array arguments instead of string interpolation
+        const { execFile } = require('child_process');
+        const execFilePromise = util.promisify(execFile);
+
+        const { stdout, stderr } = await execFilePromise(
+            'docker',
+            ['compose', 'restart', serviceName],
             { cwd: composeDir }
         );
 
@@ -124,9 +149,9 @@ router.post('/password/dashboard', requireAuth, passwordChangeLimiter, async (re
             [newPasswordHash, req.user.id]
         );
 
-        // Update .env file with new password (plaintext for compatibility)
+        // SECURITY FIX: Only store the hash, not the plaintext password
+        // The hash is sufficient for authentication (DB is source of truth)
         await updateEnvVariables({
-            ADMIN_PASSWORD: newPassword,
             ADMIN_HASH: newPasswordHash
         });
 
