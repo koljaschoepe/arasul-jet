@@ -19,8 +19,15 @@ code {
 
 :root {
   /* ========================================
-     RESPONSIVE BREAKPOINTS
+     RESPONSIVE BREAKPOINTS - MacBook Focused
      ======================================== */
+  /* MacBook-specific breakpoints */
+  --bp-macbook-pro-16: 1728px;  /* MacBook Pro 16" */
+  --bp-macbook-pro-14: 1512px;  /* MacBook Pro 14" */
+  --bp-macbook-air: 1280px;     /* MacBook Air 13" */
+  --bp-external: 1920px;        /* External monitors */
+
+  /* General breakpoints */
   --breakpoint-xxl: 1440px;
   --breakpoint-xl: 1200px;
   --breakpoint-lg: 1024px;
@@ -30,10 +37,11 @@ code {
 
   /* Sidebar widths */
   --sidebar-width: 260px;
+  --sidebar-width-collapsed: 72px;
   --sidebar-width-tablet: 220px;
 
   /* Container max-widths */
-  --container-max-width: 1400px;
+  --container-max-width: 1600px;
 
   /* Touch target minimum size (Apple HIG) */
   --touch-target-min: 44px;
@@ -45,6 +53,12 @@ code {
   --space-lg: 1.5rem;
   --space-xl: 2rem;
   --space-2xl: 3rem;
+
+  /* Responsive spacing (uses clamp for fluid sizing) */
+  --space-responsive-sm: clamp(8px, 1vw, 12px);
+  --space-responsive-md: clamp(12px, 1.5vw, 20px);
+  --space-responsive-lg: clamp(16px, 2vw, 32px);
+  --space-responsive-xl: clamp(24px, 3vw, 48px);
 
   /* Blue Theme Colors */
   --primary-color: #45ADFF;
@@ -198,7 +212,7 @@ code {
 
 /* Sidebar */
 .sidebar {
-  width: 260px;
+  width: var(--sidebar-width);
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -208,12 +222,100 @@ code {
   top: 0;
   z-index: 10;
   animation: slideInLeft 0.3s ease;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+/* Collapsed Sidebar State */
+.sidebar.collapsed {
+  width: var(--sidebar-width-collapsed);
+}
+
+.sidebar.collapsed .sidebar-header {
+  padding: 1.25rem 0.75rem;
+}
+
+.sidebar.collapsed .sidebar-title {
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.sidebar.collapsed .sidebar-subtitle {
+  display: none;
+}
+
+.sidebar.collapsed .nav-link {
+  padding: 0.875rem;
+  justify-content: center;
+}
+
+.sidebar.collapsed .nav-link span {
+  display: none;
+}
+
+.sidebar.collapsed .nav-link svg {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.sidebar.collapsed .nav-link::before {
+  display: none;
+}
+
+.sidebar.collapsed .logout-button span {
+  display: none;
+}
+
+.sidebar.collapsed .logout-button {
+  padding: 0.75rem;
+  justify-content: center;
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+  position: absolute;
+  top: 1.25rem;
+  right: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.2s ease;
+  color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-toggle:hover {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  transform: scale(1.1);
+}
+
+.sidebar-toggle svg {
+  font-size: 0.9rem;
+  transition: transform 0.3s ease;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  right: -14px;
+}
+
+.sidebar.collapsed .sidebar-toggle svg {
+  transform: rotate(180deg);
 }
 
 .sidebar-header {
   padding: 1.5rem 1.25rem;
   border-bottom: 1px solid var(--border-color);
   background: linear-gradient(180deg, rgba(69, 173, 255, 0.05) 0%, transparent 100%);
+  position: relative;
 }
 
 .sidebar-title {
@@ -225,6 +327,9 @@ code {
   background-clip: text;
   margin-bottom: 0.25rem;
   letter-spacing: -0.025em;
+  transition: font-size 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .sidebar-subtitle {
@@ -233,6 +338,9 @@ code {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* Header */
@@ -890,6 +998,11 @@ code {
   border: 1px solid transparent;
   position: relative;
   overflow: hidden;
+  white-space: nowrap;
+}
+
+.nav-link span {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .nav-link::before {
@@ -968,11 +1081,281 @@ code {
 }
 
 /* ========================================
-   RESPONSIVE DESIGN - Progressive Scaling
+   GLOBAL COMPONENTS - MacBook Optimized
    ======================================== */
 
+/* Global Button Styles */
+.btn-global {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+.btn-global:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.btn-global:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-global-primary {
+  background: var(--gradient-primary);
+  border-color: transparent;
+  color: white;
+}
+
+.btn-global-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+}
+
+/* Global Form Elements */
+.input-global,
+.select-global,
+.textarea-global {
+  min-height: 40px;
+  padding: 0.5rem 0.875rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-global:focus,
+.select-global:focus,
+.textarea-global:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+}
+
+.input-global::placeholder,
+.textarea-global::placeholder {
+  color: var(--text-muted);
+}
+
+/* Global Tooltips */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.375rem 0.625rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 1000;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Global Modal Overlay */
+.modal-overlay-global {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 3vw, 2rem);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-global {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xl);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Global Card Hover Effect */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-glow);
+}
+
+/* ========================================
+   RESPONSIVE DESIGN - MacBook Focused
+   ======================================== */
+
+/* MacBook Pro 16" and larger (1728px+) - Full experience */
+@media (min-width: 1728px) {
+  .container {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+    padding: 2.5rem;
+  }
+
+  .stats-top-row {
+    gap: 2rem;
+  }
+
+  .dashboard-grid {
+    gap: 2rem;
+  }
+}
+
+/* MacBook Pro 14" (1512px - 1727px) - Optimized default */
+@media (min-width: 1512px) and (max-width: 1727px) {
+  .stats-top-row {
+    gap: 1.5rem;
+  }
+
+  .stat-card-large {
+    padding: 1.5rem;
+  }
+}
+
+/* MacBook Air 13" (1280px - 1511px) - Sidebar auto-collapses */
+@media (max-width: 1511px) and (min-width: 1280px) {
+  /* Auto-collapse sidebar on MacBook Air */
+  .sidebar:not(.expanded) {
+    width: var(--sidebar-width-collapsed);
+  }
+
+  .sidebar:not(.expanded) .sidebar-header {
+    padding: 1.25rem 0.75rem;
+  }
+
+  .sidebar:not(.expanded) .sidebar-title {
+    font-size: 1.25rem;
+    text-align: center;
+  }
+
+  .sidebar:not(.expanded) .sidebar-subtitle {
+    display: none;
+  }
+
+  .sidebar:not(.expanded) .nav-link {
+    padding: 0.875rem;
+    justify-content: center;
+  }
+
+  .sidebar:not(.expanded) .nav-link span {
+    display: none;
+  }
+
+  .sidebar:not(.expanded) .nav-link svg {
+    margin: 0;
+    font-size: 1.4rem;
+  }
+
+  .sidebar:not(.expanded) .logout-button span {
+    display: none;
+  }
+
+  .sidebar:not(.expanded) .logout-button {
+    padding: 0.75rem;
+    justify-content: center;
+  }
+
+  /* Hover expand on MacBook Air */
+  .sidebar:not(.expanded):hover {
+    width: var(--sidebar-width);
+  }
+
+  .sidebar:not(.expanded):hover .sidebar-header {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .sidebar:not(.expanded):hover .sidebar-title {
+    font-size: 1.5rem;
+    text-align: left;
+  }
+
+  .sidebar:not(.expanded):hover .sidebar-subtitle {
+    display: block;
+  }
+
+  .sidebar:not(.expanded):hover .nav-link {
+    padding: 0.875rem 1rem;
+    justify-content: flex-start;
+  }
+
+  .sidebar:not(.expanded):hover .nav-link span {
+    display: inline;
+  }
+
+  .sidebar:not(.expanded):hover .nav-link svg {
+    font-size: 1.25rem;
+  }
+
+  .sidebar:not(.expanded):hover .logout-button span {
+    display: inline;
+  }
+
+  .sidebar:not(.expanded):hover .logout-button {
+    padding: 0.5rem;
+  }
+
+  .stats-top-row {
+    gap: 1rem;
+  }
+
+  .stat-card-large {
+    padding: 1.25rem;
+  }
+
+  .stat-value-large {
+    font-size: 2.5rem;
+  }
+}
+
 /* Extra Large Desktop (>1200px) - Reduce sidebar width slightly */
-@media (max-width: 1200px) {
+@media (max-width: 1279px) and (min-width: 1025px) {
   .sidebar {
     width: var(--sidebar-width-tablet);
   }
@@ -1473,7 +1856,7 @@ code {
 .stats-top-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
+  gap: clamp(1rem, 1.5vw, 1.5rem);
   margin-bottom: 2rem;
   animation: fadeIn 0.5s ease;
 }
@@ -1672,8 +2055,15 @@ code {
 .dashboard-grid {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
-  gap: 1.5rem;
+  gap: clamp(1rem, 1.5vw, 1.5rem);
   margin-bottom: 2rem;
+}
+
+/* MacBook Air optimization - maintain 3-column layout */
+@media (min-width: 1280px) and (max-width: 1511px) {
+  .dashboard-grid {
+    grid-template-columns: 1.5fr 1fr 1fr;
+  }
 }
 
 .dashboard-card {
@@ -1896,10 +2286,31 @@ code {
 /* Service Links */
 .service-links-modern {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: clamp(1rem, 1.5vw, 1.5rem);
   margin-bottom: 2rem;
   animation: fadeIn 0.6s ease;
+}
+
+/* MacBook Pro 16+ - max 4 columns */
+@media (min-width: 1728px) {
+  .service-links-modern {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* MacBook Pro 14 - max 3 columns */
+@media (min-width: 1512px) and (max-width: 1727px) {
+  .service-links-modern {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* MacBook Air - 2 columns */
+@media (min-width: 1280px) and (max-width: 1511px) {
+  .service-links-modern {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .service-link-card {
@@ -2328,5 +2739,177 @@ code {
 
   .safe-area-top {
     padding-top: max(var(--space-md), env(safe-area-inset-top));
+  }
+}
+
+/* ========================================
+   ANIMATIONS & TRANSITIONS
+   MacBook-optimized smooth animations
+   ======================================== */
+
+/* Page Transition Classes */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.3s ease;
+}
+
+.page-exit {
+  opacity: 1;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Smooth Hover Transitions */
+.smooth-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scale on Hover */
+.scale-hover:hover {
+  transform: scale(1.02);
+}
+
+/* Lift on Hover */
+.lift-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Glow Effect on Focus */
+.glow-focus:focus {
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15),
+              0 0 20px rgba(69, 173, 255, 0.1);
+}
+
+/* Skeleton Loading Animation */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    var(--bg-elevated) 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Fade In Up Animation */
+.fade-in-up {
+  animation: fadeInUp 0.4s ease forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Staggered Children Animation */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeInUp 0.4s ease forwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+
+/* ========================================
+   REDUCED MOTION - Accessibility
+   Respects user preference for reduced motion
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .skeleton {
+    animation: none;
+    background: var(--bg-card);
+  }
+
+  .page-enter,
+  .page-enter-active,
+  .page-exit,
+  .page-exit-active {
+    transition: none;
+    transform: none;
+  }
+
+  .scale-hover:hover,
+  .lift-hover:hover {
+    transform: none;
+  }
+
+  .stagger-children > * {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+/* ========================================
+   PRINT STYLES
+   Clean print layout for documentation
+   ======================================== */
+
+@media print {
+  .sidebar,
+  .header,
+  .sidebar-toggle,
+  .chat-input-section,
+  .scroll-bottom-btn {
+    display: none !important;
+  }
+
+  .container {
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .app {
+    display: block;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  .message-body {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
   }
 }

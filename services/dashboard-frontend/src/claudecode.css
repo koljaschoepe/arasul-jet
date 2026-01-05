@@ -1,6 +1,7 @@
 /**
  * Claude Code Page Styles
  * Dark theme with blue accents, matching the Arasul Dashboard
+ * MacBook-optimized responsive design
  */
 
 /* Page Container */
@@ -8,6 +9,8 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - 4rem);
+  max-width: 1600px;
+  margin: 0 auto;
   background: var(--bg-dark, #101923);
   animation: fadeIn 0.4s ease;
 }
@@ -483,7 +486,77 @@
   margin: 0 0 1.5rem 0;
 }
 
-/* Responsive */
+/* ========================================
+   RESPONSIVE DESIGN - MacBook Focused
+   ======================================== */
+
+/* MacBook Pro 16" and larger (1728px+) */
+@media (min-width: 1728px) {
+  .claude-code-page {
+    max-width: 1600px;
+    padding: 0 2rem;
+  }
+
+  .claude-code-settings {
+    padding: 2rem;
+  }
+
+  .settings-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+/* MacBook Pro 14" (1512px - 1727px) */
+@media (min-width: 1512px) and (max-width: 1727px) {
+  .claude-code-page {
+    max-width: 1400px;
+  }
+}
+
+/* MacBook Air 13" (1280px - 1511px) */
+@media (min-width: 1280px) and (max-width: 1511px) {
+  .claude-code-page {
+    max-width: 100%;
+    height: calc(100vh - 3.5rem);
+  }
+
+  .claude-code-header {
+    padding: 0 0 1.25rem 0;
+  }
+
+  .claude-code-title .title-icon {
+    font-size: 1.75rem;
+  }
+
+  .claude-code-title .title-text h1 {
+    font-size: 1.35rem;
+  }
+
+  .claude-code-settings {
+    padding: 1.25rem;
+  }
+
+  .settings-grid {
+    gap: 1rem;
+  }
+
+  .setting-input,
+  .setting-select {
+    padding: 0.625rem 0.875rem;
+  }
+
+  .claude-btn {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.8rem;
+  }
+
+  .claude-code-terminal {
+    min-height: 350px;
+  }
+}
+
+/* Responsive - Tablet and Mobile */
 @media (max-width: 768px) {
   .claude-code-header {
     flex-direction: column;

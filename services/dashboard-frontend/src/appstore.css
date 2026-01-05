@@ -19,8 +19,8 @@
 }
 
 .appstore {
-  padding: 1.5rem;
-  max-width: 1400px;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  max-width: 1600px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease;
 }
@@ -207,7 +207,7 @@
 .appstore-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  gap: clamp(1rem, 1.5vw, 1.5rem);
 }
 
 /* App Card */
@@ -907,7 +907,99 @@
   flex-wrap: wrap;
 }
 
-/* Responsive */
+/* ========================================
+   RESPONSIVE DESIGN - MacBook Focused
+   ======================================== */
+
+/* MacBook Pro 16" and larger (1728px+) */
+@media (min-width: 1728px) {
+  .appstore {
+    max-width: 1600px;
+    padding: 2rem;
+  }
+
+  .appstore-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+
+  .modal-content {
+    max-width: 750px;
+  }
+}
+
+/* MacBook Pro 14" (1512px - 1727px) */
+@media (min-width: 1512px) and (max-width: 1727px) {
+  .appstore {
+    max-width: 1400px;
+    padding: 1.5rem;
+  }
+
+  .appstore-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* MacBook Air 13" (1280px - 1511px) */
+@media (min-width: 1280px) and (max-width: 1511px) {
+  .appstore {
+    max-width: 100%;
+    padding: 1.25rem;
+  }
+
+  .appstore-header {
+    gap: 1rem;
+  }
+
+  .appstore-title h1 {
+    font-size: 1.5rem;
+  }
+
+  .appstore-search {
+    max-width: 350px;
+  }
+
+  .appstore-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .app-card {
+    padding: 1rem;
+  }
+
+  .app-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 1.35rem;
+  }
+
+  .app-name {
+    font-size: 1rem;
+  }
+
+  .app-description {
+    font-size: 0.8rem;
+  }
+
+  .category-btn {
+    padding: 0.4rem 0.875rem;
+    font-size: 0.8rem;
+  }
+
+  .modal-content {
+    max-width: 600px;
+  }
+}
+
+/* Tablet Landscape */
+@media (max-width: 1279px) and (min-width: 769px) {
+  .appstore-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Responsive - Tablet and Mobile */
 @media (max-width: 768px) {
   .appstore {
     padding: 1rem;

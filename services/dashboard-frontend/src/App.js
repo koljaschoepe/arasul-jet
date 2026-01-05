@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal } from 'react-icons/fi';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft } from 'react-icons/fi';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
@@ -62,6 +62,34 @@ function App() {
   const [runningApps, setRunningApps] = useState([]);
   const [thresholds, setThresholds] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState(null);
+
+  // Sidebar collapsed state - persisted in localStorage
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('arasul_sidebar_collapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // Toggle sidebar collapsed state
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => {
+      const newState = !prev;
+      localStorage.setItem('arasul_sidebar_collapsed', JSON.stringify(newState));
+      return newState;
+    });
+  }, []);
+
+  // Keyboard shortcut: Cmd/Ctrl + B to toggle sidebar
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebar]);
 
   // Check for existing token on mount
   useEffect(() => {
@@ -338,6 +366,8 @@ function App() {
             handleLogout={handleLogout}
             systemStatus={systemStatus}
             getStatusColor={getStatusColor}
+            collapsed={sidebarCollapsed}
+            onToggle={toggleSidebar}
           />
 
           <div className="container">
@@ -381,36 +411,46 @@ function App() {
   );
 }
 
-function Sidebar({ handleLogout, systemStatus, getStatusColor }) {
+function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onToggle }) {
   const location = useLocation();
 
   const isActive = (path) => {
     return location.pathname === path ? 'nav-link active' : 'nav-link';
   };
 
+  // Build className based on collapsed state
+  const sidebarClassName = `sidebar ${collapsed ? 'collapsed' : 'expanded'}`;
+
   return (
-    <div className="sidebar">
+    <div className={sidebarClassName}>
       <div className="sidebar-header">
-        <h1 className="sidebar-title">Arasul</h1>
+        <h1 className="sidebar-title">{collapsed ? 'A' : 'Arasul'}</h1>
         <p className="sidebar-subtitle">Edge AI Platform</p>
+        <button
+          className="sidebar-toggle"
+          onClick={onToggle}
+          title={collapsed ? 'Sidebar erweitern (Ctrl+B)' : 'Sidebar minimieren (Ctrl+B)'}
+        >
+          <FiChevronLeft />
+        </button>
       </div>
 
       <nav className="navigation">
         <div className="nav-bar">
-          <Link to="/" className={isActive('/')}>
-            <FiHome /> Dashboard
+          <Link to="/" className={isActive('/')} title="Dashboard">
+            <FiHome /> <span>Dashboard</span>
           </Link>
-          <Link to="/chat" className={isActive('/chat')}>
-            <FiMessageSquare /> AI Chat
+          <Link to="/chat" className={isActive('/chat')} title="AI Chat">
+            <FiMessageSquare /> <span>AI Chat</span>
           </Link>
-          <Link to="/documents" className={isActive('/documents')}>
-            <FiFileText /> Dokumente
+          <Link to="/documents" className={isActive('/documents')} title="Dokumente">
+            <FiFileText /> <span>Dokumente</span>
           </Link>
-          <Link to="/appstore" className={isActive('/appstore')}>
-            <FiPackage /> Store
+          <Link to="/appstore" className={isActive('/appstore')} title="Store">
+            <FiPackage /> <span>Store</span>
           </Link>
-          <Link to="/settings" className={isActive('/settings')}>
-            <FiSettings /> Einstellungen
+          <Link to="/settings" className={isActive('/settings')} title="Einstellungen">
+            <FiSettings /> <span>Einstellungen</span>
           </Link>
         </div>
       </nav>
@@ -422,7 +462,7 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor }) {
           style={{ width: '100%', justifyContent: 'center' }}
           title="Logout"
         >
-          <FiLogOut /> Logout
+          <FiLogOut /> <span>Logout</span>
         </button>
       </div>
     </div>

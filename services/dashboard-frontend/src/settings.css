@@ -1,5 +1,6 @@
 /* ===================================
    SETTINGS LAYOUT - Modern SaaS Style
+   MacBook-optimized responsive design
    =================================== */
 
 .settings-layout {
@@ -660,12 +661,106 @@
 }
 
 /* ========================================
-   RESPONSIVE DESIGN - Settings Page
-   Progressive scaling with touch-friendly UI
+   RESPONSIVE DESIGN - MacBook Focused
    ======================================== */
 
+/* MacBook Pro 16" and larger (1728px+) */
+@media (min-width: 1728px) {
+  .settings-content-wrapper {
+    max-width: 1000px;
+    padding: 2.5rem;
+  }
+
+  .settings-info-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .service-selector {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+/* MacBook Pro 14" (1512px - 1727px) */
+@media (min-width: 1512px) and (max-width: 1727px) {
+  .settings-content-wrapper {
+    max-width: 900px;
+    padding: 2rem;
+  }
+}
+
+/* MacBook Air 13" (1280px - 1511px) */
+@media (min-width: 1280px) and (max-width: 1511px) {
+  .settings-layout {
+    grid-template-columns: 240px 1fr;
+  }
+
+  .settings-sidebar-header {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .settings-sidebar-title {
+    font-size: 1.1rem;
+  }
+
+  .settings-nav {
+    padding: 0.75rem 0.625rem;
+  }
+
+  .settings-nav-item {
+    padding: 0.75rem 0.875rem;
+  }
+
+  .settings-nav-item-icon {
+    font-size: 1.1rem;
+  }
+
+  .settings-nav-item-label {
+    font-size: 0.9rem;
+  }
+
+  .settings-nav-item-description {
+    font-size: 0.7rem;
+  }
+
+  .settings-content-wrapper {
+    max-width: 800px;
+    padding: 1.5rem;
+  }
+
+  .settings-section-title {
+    font-size: 1.75rem;
+  }
+
+  .settings-card-header {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .settings-card-body {
+    padding: 1.5rem;
+  }
+
+  .settings-info-grid {
+    gap: 1rem;
+  }
+
+  .service-selector {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+
+  .service-button {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  .password-form {
+    max-width: 550px;
+  }
+}
+
 /* Extra Large Desktop (≤1200px) */
-@media (max-width: 1200px) {
+@media (max-width: 1279px) and (min-width: 1025px) {
   .settings-sidebar {
     width: 260px;
   }

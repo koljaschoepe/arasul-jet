@@ -1,3 +1,7 @@
+/* ============================================
+   Login Page - MacBook-optimized
+   ============================================ */
+
 .login-container {
   display: flex;
   justify-content: center;
@@ -11,10 +15,10 @@
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 3rem;
+  padding: clamp(2rem, 4vw, 3rem);
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 8px 32px rgba(0, 255, 136, 0.1);
+  box-shadow: 0 8px 32px rgba(69, 173, 255, 0.1);
 }
 
 .login-header {
@@ -136,9 +140,40 @@
 }
 
 /* ========================================
-   RESPONSIVE DESIGN - Login Page
-   Progressive scaling with touch-friendly UI
+   RESPONSIVE DESIGN - MacBook Focused
    ======================================== */
+
+/* MacBook Pro 16" and larger (1728px+) */
+@media (min-width: 1728px) {
+  .login-box {
+    max-width: 450px;
+    padding: 3.5rem;
+  }
+
+  .login-header h1 {
+    font-size: 2.25rem;
+  }
+}
+
+/* MacBook Air 13" (1280px - 1511px) */
+@media (min-width: 1280px) and (max-width: 1511px) {
+  .login-box {
+    max-width: 400px;
+    padding: 2.5rem;
+  }
+
+  .login-header h1 {
+    font-size: 1.875rem;
+  }
+
+  .form-group input {
+    padding: 0.75rem 0.875rem;
+  }
+
+  .login-button {
+    padding: 0.875rem;
+  }
+}
 
 /* Tablet Portrait (≤768px) */
 @media (max-width: 768px) {

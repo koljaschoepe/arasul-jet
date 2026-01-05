@@ -1,11 +1,12 @@
 /* ============================================
    Document Manager Styles
    Arasul Platform - Document Intelligence UI
+   MacBook-optimized responsive design
    ============================================ */
 
 .document-manager {
-  padding: 1.5rem;
-  max-width: 1400px;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -16,8 +17,8 @@
 
 .dm-stats-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(0.75rem, 1.5vw, 1rem);
 }
 
 .dm-stat-card {
@@ -859,7 +860,90 @@
   animation: spin 1s linear infinite;
 }
 
-/* Responsive */
+/* ========================================
+   RESPONSIVE DESIGN - MacBook Focused
+   ======================================== */
+
+/* MacBook Pro 16" and larger (1728px+) */
+@media (min-width: 1728px) {
+  .document-manager {
+    max-width: 1600px;
+    padding: 2rem;
+  }
+
+  .dm-stats-row {
+    gap: 1.5rem;
+  }
+
+  .dm-modal {
+    max-width: 700px;
+  }
+}
+
+/* MacBook Pro 14" (1512px - 1727px) */
+@media (min-width: 1512px) and (max-width: 1727px) {
+  .document-manager {
+    max-width: 1400px;
+    padding: 1.5rem;
+  }
+}
+
+/* MacBook Air 13" (1280px - 1511px) */
+@media (min-width: 1280px) and (max-width: 1511px) {
+  .document-manager {
+    max-width: 100%;
+    padding: 1.25rem;
+  }
+
+  .dm-stats-row {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  .dm-stat-card {
+    padding: 0.875rem 1rem;
+  }
+
+  .dm-stat-value {
+    font-size: 1.35rem;
+  }
+
+  .dm-stat-label {
+    font-size: 0.75rem;
+  }
+
+  .dm-upload-zone {
+    padding: 1.5rem;
+  }
+
+  .dm-filters {
+    gap: 0.75rem;
+  }
+
+  .filter-group {
+    min-width: 160px;
+    max-width: 280px;
+  }
+
+  .dm-table th,
+  .dm-table td {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  .dm-modal {
+    max-width: 550px;
+  }
+}
+
+/* Tablet/Smaller screens (< 1280px) */
+@media (max-width: 1279px) and (min-width: 769px) {
+  .dm-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Responsive - Tablet and Mobile */
 @media (max-width: 768px) {
   .document-manager {
     padding: 1rem;

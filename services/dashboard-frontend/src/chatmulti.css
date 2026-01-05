@@ -1,5 +1,6 @@
 /* ==============================================
    AI Chat Interface - Minimal Design
+   MacBook-optimized responsive design
    ============================================== */
 
 /* -------------------- Container -------------------- */
@@ -11,6 +12,8 @@
   border-radius: 0 0 16px 16px;
   overflow: hidden;
   width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
   position: relative;
 }
 
@@ -730,8 +733,107 @@
 
 /* ========================================
    RESPONSIVE DESIGN - Chat Interface
-   Progressive scaling with touch-friendly targets
+   MacBook-focused with progressive scaling
    ======================================== */
+
+/* MacBook Pro 16" and larger (1728px+) */
+@media (min-width: 1728px) {
+  .chat-container {
+    max-width: 1600px;
+  }
+
+  .messages-wrapper {
+    max-width: 1000px;
+  }
+
+  .chat-input-section {
+    padding: 32px 48px;
+  }
+
+  .input-box {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+}
+
+/* MacBook Pro 14" (1512px - 1727px) */
+@media (min-width: 1512px) and (max-width: 1727px) {
+  .chat-container {
+    max-width: 1400px;
+  }
+
+  .messages-wrapper {
+    max-width: 900px;
+  }
+
+  .chat-input-section {
+    padding: 28px 40px;
+  }
+
+  .input-box {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+}
+
+/* MacBook Air 13" (1280px - 1511px) */
+@media (min-width: 1280px) and (max-width: 1511px) {
+  .chat-container {
+    max-width: 100%;
+    height: calc(100vh - 7rem);
+  }
+
+  .messages-wrapper {
+    max-width: 850px;
+  }
+
+  .chat-tabs-bar {
+    padding: 12px 18px;
+  }
+
+  .chat-tab {
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    max-width: 180px;
+  }
+
+  .chat-messages {
+    padding: 20px;
+  }
+
+  .message-body {
+    padding: 18px 22px;
+    font-size: 1rem;
+  }
+
+  .chat-input-section {
+    padding: 24px 28px;
+  }
+
+  .chat-input-section.bottom {
+    padding: 18px 28px 24px;
+  }
+
+  .input-box {
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 12px 16px;
+  }
+
+  .input-toggle {
+    height: 38px;
+    padding: 0 12px;
+    font-size: 0.8rem;
+  }
+
+  .input-box input[type="text"] {
+    font-size: 1rem;
+  }
+
+  .welcome-text {
+    font-size: 1.9rem;
+  }
+}
 
 /* Tablet Landscape (≤1024px) */
 @media (max-width: 1024px) {
