@@ -1106,6 +1106,36 @@
   font-weight: bold;
 }
 
+/* Private Key Box */
+.private-key-box {
+  background: var(--store-gray-900);
+  border: 1px solid var(--store-gray-600);
+  border-radius: 8px;
+  padding: 1rem;
+  position: relative;
+}
+
+.private-key-box pre {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.7rem;
+  color: var(--store-gray-300);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0 0 1rem 0;
+  line-height: 1.4;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.copy-btn-large {
+  width: 100%;
+  padding: 0.6rem 1rem !important;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 /* n8n Actions */
 .n8n-actions {
   display: flex;

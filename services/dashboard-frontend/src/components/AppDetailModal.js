@@ -339,6 +339,7 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                     <h4><FiServer /> SSH Credentials fuer n8n</h4>
                     <p className="n8n-description">
                       Verwende diese Credentials in n8n, um {app.name} per SSH zu triggern.
+                      Waehle in n8n "Private Key" als Authentifizierungsmethode.
                     </p>
 
                     <div className="credentials-grid">
@@ -354,7 +355,6 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                             {copiedField === 'host' ? <FiCheck /> : <FiCopy />}
                           </button>
                         </div>
-                        <span className="credential-hint">{n8nCredentials.ssh?.hints?.host}</span>
                       </div>
 
                       <div className="credential-item">
@@ -369,7 +369,6 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                             {copiedField === 'port' ? <FiCheck /> : <FiCopy />}
                           </button>
                         </div>
-                        <span className="credential-hint">{n8nCredentials.ssh?.hints?.port}</span>
                       </div>
 
                       <div className="credential-item">
@@ -384,25 +383,41 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                             {copiedField === 'username' ? <FiCheck /> : <FiCopy />}
                           </button>
                         </div>
-                        <span className="credential-hint">{n8nCredentials.ssh?.hints?.username}</span>
                       </div>
 
                       <div className="credential-item">
-                        <label>Password</label>
+                        <label>Passphrase</label>
                         <div className="credential-value">
-                          <code className="password-hint">
-                            {n8nCredentials.ssh?.passwordConfigured
-                              ? '••••••••'
-                              : 'System-Passwort verwenden'}
-                          </code>
+                          <code className="password-hint">Leer lassen</code>
                         </div>
-                        <span className="credential-hint">{n8nCredentials.ssh?.hints?.password}</span>
                       </div>
                     </div>
                   </div>
 
+                  {n8nCredentials.ssh?.privateKey && (
+                    <div className="n8n-section">
+                      <h4><FiTerminal /> Private Key</h4>
+                      <p className="n8n-description">
+                        Kopiere diesen kompletten Key in das "Private Key" Feld in n8n:
+                      </p>
+                      <div className="private-key-box">
+                        <pre>{n8nCredentials.ssh.privateKey}</pre>
+                        <button
+                          className="copy-btn copy-btn-large"
+                          onClick={() => copyToClipboard(n8nCredentials.ssh.privateKey, 'privateKey')}
+                          title="Private Key kopieren"
+                        >
+                          {copiedField === 'privateKey' ? <><FiCheck /> Kopiert!</> : <><FiCopy /> Key kopieren</>}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="n8n-section">
                     <h4><FiTerminal /> Beispiel-Command</h4>
+                    <p className="n8n-description">
+                      Verwende diesen Command im SSH-Node:
+                    </p>
                     <div className="command-box">
                       <code>{n8nCredentials.exampleCommand}</code>
                       <button

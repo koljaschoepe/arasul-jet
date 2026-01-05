@@ -424,6 +424,7 @@ services:
       - ./data/updates:/arasul/updates
       - ./data/backups:/arasul/backups:ro
       - ./data/appstore/manifests:/arasul/appstore/manifests:ro
+      - ./data/ssh-keys:/arasul/ssh-keys:ro
     depends_on:
       postgres-db:
         condition: service_healthy
