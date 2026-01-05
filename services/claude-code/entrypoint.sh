@@ -19,13 +19,17 @@ echo "Starting Claude Code Terminal..."
 echo "Workspace: $WORKSPACE"
 echo "Port: 7681"
 echo "User: $(whoami) (non-root)"
-echo "Mode: --dangerously-skip-permissions (always enabled)"
+
+# Fix permissions on .claude directory if needed (may be owned by root from previous runs)
+if [ -d "$HOME/.claude" ]; then
+    sudo chown -R claude:node "$HOME/.claude" 2>/dev/null || true
+fi
+mkdir -p "$HOME/.claude/debug" 2>/dev/null || true
 
 # Start ttyd with Claude Code
 # --writable allows input
 # No authentication - open access within the local network
-# Claude runs with --dangerously-skip-permissions for autonomous operation
 exec ttyd \
     --port 7681 \
     --writable \
-    bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: $(whoami)' && echo 'Mode: --dangerously-skip-permissions' && echo '---' && claude --dangerously-skip-permissions"
+    bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: $(whoami)' && echo '---' && claude"
