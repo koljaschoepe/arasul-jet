@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiZoomIn, FiZoomOut } from 'react-icons/fi';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal } from 'react-icons/fi';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
@@ -715,13 +715,6 @@ function DashboardHome({
               <Line type="monotone" dataKey="RAM" stroke="#8b5cf6" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
               <Line type="monotone" dataKey="GPU" stroke="#06b6d4" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
               <Line type="monotone" dataKey="Temp" stroke="#f59e0b" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
-              <Brush
-                dataKey="time"
-                height={25}
-                stroke="#45ADFF"
-                fill="rgba(69, 173, 255, 0.1)"
-                tickFormatter={() => ''}
-              />
             </LineChart>
           </ResponsiveContainer>
         </div>
