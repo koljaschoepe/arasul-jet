@@ -38,6 +38,146 @@
 
 ---
 
+## SEC-010: Command Injection Prevention in Settings (2026-01-05)
+
+### Status: ✅ FIXED
+
+**File**: `services/dashboard-backend/src/routes/settings.js`
+**Severity**: CRITICAL (was potential, now mitigated)
+
+**Issue**: The `restartService()` function could potentially be vulnerable to command injection if the service name validation was bypassed.
+
+**Previous State**:
+- Whitelist validation was present (good)
+- `execFile` was imported inline on every function call (inefficient)
+- Dead code: `exec` was imported but unused
+
+**Fix Applied**:
+1. Moved `execFile` import to module level
+2. Removed unused `exec` import
+3. Added 60-second timeout to prevent hanging processes
+4. Improved security comments for clarity
+
+**Security Controls**:
+- ✅ Whitelist validation (`ALLOWED_RESTART_SERVICES`)
+- ✅ `execFile` with array arguments (prevents shell injection)
+- ✅ No string interpolation in command execution
+
+**Verification**: The code now correctly uses `execFile(['compose', 'restart', serviceName])` which is immune to shell metacharacter injection.
+
+---
+
+## STORE-001: Store App Management - Stop Functionality (2026-01-05)
+
+### Status: ✅ FIXED
+
+**Files Modified**:
+- `services/dashboard-backend/src/services/appService.js`
+- `services/self-healing-agent/healing_engine.py`
+
+**Issues Found**:
+
+1. **Stop API checked DB status only, not container state**
+   - When DB showed 'installed' (stopped) but container was running, API returned "already stopped" without stopping
+   - Caused by out-of-sync DB/container states
+
+2. **Self-Healing-Agent restarted intentionally stopped Store apps**
+   - After stopping an app via Store, self-healing would restart it within 10-30 seconds
+   - Self-healing didn't distinguish between crashed apps and intentionally stopped apps
+
+**Root Cause**:
+- `stopApp()` in appService.js only checked `installation.status` from DB
+- Self-healing agent treated all stopped containers as "unhealthy" requiring restart
+
+**Fixes Applied**:
+
+1. **appService.js - `stopApp()` (lines 440-455)**:
+   ```javascript
+   // Now checks actual container state, not just DB status
+   const container = docker.getContainer(containerName);
+   const containerInfo = await container.inspect();
+   const containerRunning = containerInfo.State.Running;
+
+   // Only skip if BOTH container is stopped AND DB says stopped
+   if (!containerRunning && (status === 'installed' || status === 'available')) {
+       return { success: true, message: 'App ist bereits gestoppt' };
+   }
+   ```
+
+2. **healing_engine.py - `is_store_app_intentionally_stopped()`**:
+   - New method that checks `app_installations` table for container status
+   - If status is 'installed', the app was intentionally stopped → skip self-healing
+   - Called in `run_healing_cycle()` before attempting container recovery
+
+**Verification**:
+- ✅ Stop via API correctly stops container even when DB is out of sync
+- ✅ Stopped apps stay stopped (not auto-restarted by self-healing)
+- ✅ Start via API works correctly after stop
+- ✅ Self-healing still restarts crashed apps that should be running
+
+---
+
+## INFRA-001: Automated Backup System (2026-01-05)
+
+### Status: ✅ IMPLEMENTED
+
+**Files Created**:
+- `scripts/backup.sh` - Manual backup script
+- `scripts/restore.sh` - Restore script with verification
+- `docker-compose.yml` - Added backup-service container
+
+**Issue**: No backup mechanism existed for PostgreSQL database or MinIO document storage.
+
+**Implementation**:
+
+1. **Backup Service** (Docker container with cron):
+   - Runs daily at 2:00 AM (configurable via `BACKUP_SCHEDULE`)
+   - PostgreSQL: Full `pg_dump` with gzip compression
+   - MinIO: `mc mirror` + tar.gz archive
+   - Auto-cleanup based on `BACKUP_RETENTION_DAYS` (default: 30)
+
+2. **Backup Files** stored in `data/backups/`:
+   ```
+   data/backups/
+   ├── postgres/
+   │   ├── arasul_db_20260105_020000.sql.gz
+   │   └── arasul_db_latest.sql.gz -> (symlink)
+   ├── minio/
+   │   ├── documents_20260105_020000.tar.gz
+   │   └── documents_latest.tar.gz -> (symlink)
+   ├── weekly/
+   │   └── 2026_W01/
+   └── backup_report.json
+   ```
+
+3. **Restore Commands**:
+   ```bash
+   ./scripts/restore.sh --list              # List backups
+   ./scripts/restore.sh --latest            # Restore latest
+   ./scripts/restore.sh --postgres <file>   # Restore specific
+   ./scripts/restore.sh --all --date YYYYMMDD
+   ```
+
+4. **Environment Variables** (`.env.template`):
+   ```
+   BACKUP_SCHEDULE=0 2 * * *
+   BACKUP_RETENTION_DAYS=30
+   ```
+
+**Start Backup Service**:
+```bash
+docker compose up -d backup-service
+```
+
+**Manual Backup**:
+```bash
+./scripts/backup.sh
+# or via Docker
+docker exec backup-service /usr/local/bin/backup.sh
+```
+
+---
+
 ## Table of Contents
 1. [Quick Reference](#quick-reference-top-10-critical-issues)
 2. [Critical Security Vulnerabilities](#critical-security-vulnerabilities) (10 issues)

@@ -437,7 +437,20 @@ class AppService {
             throw new Error('System-Apps koennen nicht gestoppt werden');
         }
 
-        if (installation.status === 'installed' || installation.status === 'available') {
+        // Check actual container state, not just DB status
+        // This handles cases where DB and container state are out of sync
+        const containerName = installation.container_name || appId;
+        let containerRunning = false;
+        try {
+            const container = docker.getContainer(containerName);
+            const containerInfo = await container.inspect();
+            containerRunning = containerInfo.State.Running;
+        } catch (e) {
+            // Container doesn't exist - already stopped
+            containerRunning = false;
+        }
+
+        if (!containerRunning && (installation.status === 'installed' || installation.status === 'available')) {
             return { success: true, message: 'App ist bereits gestoppt' };
         }
 

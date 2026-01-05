@@ -73,6 +73,9 @@ APPLICATION_SERVICES = [
     'dashboard-frontend'
 ]
 
+# App Store apps managed via dashboard (should not auto-restart if intentionally stopped)
+# This will be dynamically checked via database
+
 
 class SelfHealingEngine:
     """Advanced self-healing engine with database-backed failure tracking and connection pooling"""
@@ -226,6 +229,39 @@ class SelfHealingEngine:
             fetch=True
         )
         return result[0] if result else 0
+
+    def is_store_app_intentionally_stopped(self, container_name: str) -> bool:
+        """Check if a container is an App Store app that was intentionally stopped.
+
+        Returns True if the container is in app_installations with status 'installed' (stopped)
+        Returns False if:
+        - Container is not in app_installations (not a Store app)
+        - Container is in app_installations with status 'running' (should be running)
+        """
+        try:
+            result = self.execute_query(
+                """SELECT status FROM app_installations
+                   WHERE container_name = %s OR app_id = %s""",
+                (container_name, container_name),
+                fetch=True
+            )
+
+            if result:
+                db_status = result[0]
+                # If status is 'installed', the app was intentionally stopped
+                if db_status == 'installed':
+                    logger.debug(f"Container {container_name} is a Store app intentionally stopped (status: {db_status})")
+                    return True
+                # If status is 'running', it should be running - allow self-healing
+                logger.debug(f"Container {container_name} is a Store app that should be running (status: {db_status})")
+                return False
+
+            # Not in app_installations - not a Store app
+            return False
+
+        except Exception as e:
+            logger.warning(f"Failed to check Store app status for {container_name}: {e}")
+            return False  # Default to allowing self-healing
 
     def record_recovery_action(self, action_type: str, service_name: str, reason: str,
                               success: bool, duration_ms: int = None, error_message: str = None):
@@ -1221,6 +1257,11 @@ class SelfHealingEngine:
             for service_name, service_info in services.items():
                 # Skip self-healing-agent to prevent restart loops
                 if service_name == 'self-healing-agent':
+                    continue
+
+                # Skip Store apps that were intentionally stopped
+                if self.is_store_app_intentionally_stopped(service_name):
+                    logger.debug(f"Skipping {service_name} - Store app intentionally stopped")
                     continue
 
                 if service_info['health'] == 'unhealthy':
