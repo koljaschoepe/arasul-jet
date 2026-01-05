@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush } from 'recharts';
@@ -292,7 +292,7 @@ function App() {
     return `${days}d ${hours}h ${minutes}m`;
   };
 
-  const formatChartData = () => {
+  const formatChartData = useCallback(() => {
     if (!metricsHistory) return [];
 
     return metricsHistory.timestamps.map((timestamp, index) => ({
@@ -304,7 +304,7 @@ function App() {
       GPU: metricsHistory.gpu[index],
       Temp: metricsHistory.temperature[index]
     }));
-  };
+  }, [metricsHistory]);
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {
@@ -492,32 +492,15 @@ function DashboardHome({
   const [chartTimeRange, setChartTimeRange] = useState(24); // hours
   const timeRangeOptions = [1, 6, 12, 24];
 
-  // Filter chart data based on time range
-  const getFilteredChartData = () => {
+  // Memoized chart data - only recalculate when data or timeRange changes
+  const chartData = useMemo(() => {
     const allData = formatChartData();
     if (!allData.length) return [];
 
     const now = Date.now();
     const cutoff = now - (chartTimeRange * 60 * 60 * 1000);
     return allData.filter(d => d.timestamp >= cutoff);
-  };
-
-  // Format X-axis to show full hours only
-  const formatXAxisTick = (value, index, data) => {
-    // Find the data point for this tick
-    const filteredData = getFilteredChartData();
-    const point = filteredData.find(d => d.time === value);
-    if (!point) return value;
-
-    // Show only full hours (minutes === 0) or first/last point
-    const date = new Date(point.timestamp);
-    const minutes = date.getMinutes();
-
-    if (minutes < 5 || minutes > 55) {
-      return `${date.getHours().toString().padStart(2, '0')}:00`;
-    }
-    return '';
-  };
+  }, [formatChartData, chartTimeRange]);
 
   // Icon mapping for apps
   const getAppIcon = (iconName) => {
@@ -699,15 +682,14 @@ function DashboardHome({
             </div>
           </div>
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={getFilteredChartData()}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(69, 173, 255, 0.1)" />
               <XAxis
                 dataKey="time"
                 stroke="#94a3b8"
                 style={{ fontSize: '0.75rem' }}
-                tickFormatter={formatXAxisTick}
                 interval="preserveStartEnd"
-                minTickGap={50}
+                minTickGap={60}
               />
               <YAxis
                 stroke="#94a3b8"
