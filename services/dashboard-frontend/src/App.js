@@ -687,13 +687,17 @@ function DashboardHome({
               <XAxis
                 dataKey="time"
                 stroke="#94a3b8"
-                style={{ fontSize: '0.75rem' }}
+                tick={{ fill: '#94a3b8', fontSize: '0.75rem' }}
+                axisLine={{ stroke: '#94a3b8' }}
+                tickLine={{ stroke: '#94a3b8' }}
                 interval="preserveStartEnd"
                 minTickGap={60}
               />
               <YAxis
                 stroke="#94a3b8"
-                style={{ fontSize: '0.75rem' }}
+                tick={{ fill: '#94a3b8', fontSize: '0.75rem' }}
+                axisLine={{ stroke: '#94a3b8' }}
+                tickLine={{ stroke: '#94a3b8' }}
                 domain={[0, 100]}
                 tickFormatter={(value) => `${value}%`}
               />
