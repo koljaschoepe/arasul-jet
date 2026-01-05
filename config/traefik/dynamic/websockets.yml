@@ -4,25 +4,29 @@
 http:
   routers:
     # Dashboard WebSocket (metrics live-stream)
+    # LAN-accessible: Host restriction removed to allow access via IP address
     dashboard-websocket:
-      rule: "(Host(`arasul.local`) || Host(`localhost`) || Host(`127.0.0.1`)) && PathPrefix(`/api/metrics/live-stream`)"
+      rule: "PathPrefix(`/api/metrics/live-stream`)"
       service: dashboard-backend-service
       priority: 50
       middlewares:
         - security-headers
       entryPoints:
+        - web
         - websecure
       tls: {}
 
     # n8n WebSocket
+    # LAN-accessible: Host restriction removed to allow access via IP address
     n8n-websocket:
-      rule: "(Host(`arasul.local`) || Host(`localhost`) || Host(`127.0.0.1`)) && PathPrefix(`/n8n/`) && Headers(`Upgrade`, `websocket`)"
+      rule: "PathPrefix(`/n8n/`) && Headers(`Upgrade`, `websocket`)"
       service: n8n-service
       priority: 50
       middlewares:
         - strip-n8n-prefix
         - security-headers
       entryPoints:
+        - web
         - websecure
       tls: {}
 
