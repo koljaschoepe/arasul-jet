@@ -209,7 +209,7 @@ class AppService {
 
         const categoryLabels = {
             'development': 'Entwicklung',
-            'productivity': 'Produktivitaet',
+            'productivity': 'Produktivität',
             'ai': 'KI & ML',
             'storage': 'Speicher',
             'monitoring': 'Monitoring',
@@ -250,7 +250,7 @@ class AppService {
             if (dep.required) {
                 const depStatus = await this.getContainerStatus(dep.container);
                 if (!depStatus || !depStatus.Running) {
-                    throw new Error(`Abhaengigkeit ${dep.container} ist nicht aktiv`);
+                    throw new Error(`Abhängigkeit ${dep.container} ist nicht aktiv`);
                 }
             }
         }
@@ -369,7 +369,7 @@ class AppService {
         const installation = result.rows[0];
 
         if (installation.status === 'running') {
-            return { success: true, message: 'App laeuft bereits' };
+            return { success: true, message: 'App läuft bereits' };
         }
 
         await db.query(
@@ -401,7 +401,7 @@ class AppService {
                     'UPDATE app_installations SET status = $1, started_at = NOW() WHERE app_id = $2',
                     ['running', appId]
                 );
-                return { success: true, message: 'App laeuft bereits' };
+                return { success: true, message: 'App läuft bereits' };
             }
 
             await db.query(`
@@ -433,7 +433,7 @@ class AppService {
         const dependentApps = result.rows.map(row => row.app_id);
 
         if (dependentApps.length > 0) {
-            const error = new Error(`Diese App kann nicht gestoppt werden. Folgende Apps haengen davon ab: ${dependentApps.join(', ')}`);
+            const error = new Error(`Diese App kann nicht gestoppt werden. Folgende Apps hängen davon ab: ${dependentApps.join(', ')}`);
             error.dependentApps = dependentApps;
             error.statusCode = 409; // Conflict
             throw error;
@@ -605,7 +605,7 @@ class AppService {
             this._doRecreateContainer(appId, manifest, configOverrides).catch(err => {
                 logger.error(`Background recreate failed for ${appId}: ${err.message}`);
             });
-            return { success: true, message: 'Container-Neuerstellung gestartet (laeuft im Hintergrund)', async: true };
+            return { success: true, message: 'Container-Neuerstellung gestartet (läuft im Hintergrund)', async: true };
         }
 
         // Synchronous mode - wait for completion
@@ -1246,15 +1246,15 @@ class AppService {
                     host: 'Docker Gateway IP - zeigt auf den Host aus Container-Sicht',
                     port: 'Standard SSH-Port',
                     username: 'System-Benutzer auf dem Arasul-Host',
-                    privateKey: 'SSH Private Key fuer passwortlose Authentifizierung'
+                    privateKey: 'SSH Private Key für passwortlose Authentifizierung'
                 }
             },
             command: manifest.n8nIntegration.command || null,
             workingDirectory: manifest.n8nIntegration.workingDirectory || '/home/arasul/arasul/arasul-jet',
             instructions: [
-                'Oeffne n8n (Port 5678 oder /n8n)',
+                'Öffne n8n (Port 5678 oder /n8n)',
                 'Gehe zu Credentials → Add Credential → SSH',
-                'Waehle "Private Key" als Authentifizierungsmethode',
+                'Wähle "Private Key" als Authentifizierungsmethode',
                 'Kopiere Host, Port, Username und Private Key von oben',
                 'Passphrase leer lassen',
                 'Speichern und in einem Workflow verwenden'

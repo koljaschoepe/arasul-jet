@@ -176,7 +176,7 @@ router.post('/:id/install', requireAuth, apiLimiter, async (req, res) => {
             statusCode = 404;
         } else if (error.message.includes('already installed')) {
             statusCode = 409;
-        } else if (error.message.includes('Abhaengigkeit')) {
+        } else if (error.message.includes('Abhängigkeit')) {
             statusCode = 424; // Failed Dependency
         }
 
@@ -438,7 +438,7 @@ router.post('/:id/config', requireAuth, async (req, res) => {
 
         if (!config || typeof config !== 'object') {
             return res.status(400).json({
-                error: 'Ungueltige Konfiguration',
+                error: 'Ungültige Konfiguration',
                 message: 'config object is required',
                 timestamp: new Date().toISOString()
             });
