@@ -92,8 +92,8 @@ function ConfirmIconButton({
           <button
             className="confirm-yes"
             onClick={handleConfirm}
-            title="Bestaetigen"
-            aria-label="Bestaetigen"
+            title="Bestätigen"
+            aria-label="Bestätigen"
           >
             <FiCheck />
           </button>

@@ -40,7 +40,7 @@ const iconMap = {
 const categoryLabels = {
   all: 'Alle',
   development: 'Entwicklung',
-  productivity: 'Produktivitaet',
+  productivity: 'Produktivität',
   ai: 'KI & ML',
   storage: 'Speicher',
   monitoring: 'Monitoring',
@@ -74,7 +74,7 @@ const getAppUrl = (app) => {
 const statusConfig = {
   running: { color: '#45ADFF', label: 'Aktiv', icon: FiCheck },
   installed: { color: '#94a3b8', label: 'Gestoppt', icon: FiClock },
-  available: { color: '#64748b', label: 'Verfuegbar', icon: FiDownload },
+  available: { color: '#64748b', label: 'Verfügbar', icon: FiDownload },
   installing: { color: '#60a5fa', label: 'Installiert...', icon: FiRefreshCw },
   starting: { color: '#60a5fa', label: 'Startet...', icon: FiRefreshCw },
   stopping: { color: '#94a3b8', label: 'Stoppt...', icon: FiRefreshCw },
@@ -149,7 +149,7 @@ function AppStore() {
       // Show dependent apps in error message if available
       const dependentApps = err.response?.data?.dependentApps;
       if (dependentApps && dependentApps.length > 0) {
-        alert(`Diese App kann nicht gestoppt werden.\n\nFolgende Apps haengen davon ab:\n- ${dependentApps.join('\n- ')}\n\nBitte stoppen Sie zuerst diese Apps.`);
+        alert(`Diese App kann nicht gestoppt werden.\n\nFolgende Apps hängen davon ab:\n- ${dependentApps.join('\n- ')}\n\nBitte stoppen Sie zuerst diese Apps.`);
       } else {
         alert(err.response?.data?.message || `${action} fehlgeschlagen`);
       }
@@ -290,7 +290,7 @@ function AppStore() {
                   className="btn btn-primary"
                 >
                   <FiExternalLink />
-                  Oeffnen
+                  Öffnen
                 </Link>
               ) : (
                 <a
@@ -300,7 +300,7 @@ function AppStore() {
                   className="btn btn-primary"
                 >
                   <FiExternalLink />
-                  Oeffnen
+                  Öffnen
                 </a>
               )}
               <ConfirmIconButton
@@ -461,10 +461,10 @@ function AppStore() {
             </div>
             <div className="modal-body">
               <p>
-                Moechten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
+                Möchten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
               </p>
               <p className="uninstall-warning">
-                <FiAlertCircle /> Waehlen Sie, ob die App-Daten behalten oder geloescht werden sollen:
+                <FiAlertCircle /> Wählen Sie, ob die App-Daten behalten oder gelöscht werden sollen:
               </p>
             </div>
             <div className="modal-footer uninstall-buttons">
@@ -484,7 +484,7 @@ function AppStore() {
                 className="btn btn-danger"
                 onClick={() => handleUninstall(true)}
               >
-                <FiTrash2 /> App + Daten loeschen
+                <FiTrash2 /> App + Daten löschen
               </button>
             </div>
           </div>

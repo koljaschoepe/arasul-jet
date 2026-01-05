@@ -130,7 +130,7 @@ function ClaudeCode() {
 
               if (attempts >= maxAttempts) {
                 clearInterval(pollInterval);
-                setSaveMessage({ type: 'warning', text: 'Container-Neustart dauert laenger als erwartet. Pruefe den Status manuell.' });
+                setSaveMessage({ type: 'warning', text: 'Container-Neustart dauert länger als erwartet. Prüfe den Status manuell.' });
                 setTimeout(() => {
                   loadAppData();
                   setSaveMessage(null);
@@ -232,7 +232,7 @@ function ClaudeCode() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      'running': { class: 'status-running', text: 'Laeuft' },
+      'running': { class: 'status-running', text: 'Läuft' },
       'stopped': { class: 'status-stopped', text: 'Gestoppt' },
       'installed': { class: 'status-installed', text: 'Installiert' },
       'installing': { class: 'status-installing', text: 'Installiert...' },
@@ -258,7 +258,7 @@ function ClaudeCode() {
       <div className="claude-code-page">
         <div className="claude-error-state">
           <FiAlertCircle className="error-icon" />
-          <h2>Claude Code nicht verfuegbar</h2>
+          <h2>Claude Code nicht verfügbar</h2>
           <p>{error}</p>
           <a href="/appstore" className="claude-btn claude-btn-primary">
             Zum Store
@@ -276,7 +276,7 @@ function ClaudeCode() {
           <FiTerminal className="title-icon" />
           <div className="title-text">
             <h1>Claude Code</h1>
-            <span className="title-subtitle">KI-gestuetzte Programmierung</span>
+            <span className="title-subtitle">KI-gestützte Programmierung</span>
           </div>
           {getStatusBadge(appStatus?.status)}
         </div>
@@ -342,12 +342,12 @@ function ClaudeCode() {
                 type="password"
                 value={config.ANTHROPIC_API_KEY?.startsWith('****') ? '' : (config.ANTHROPIC_API_KEY || '')}
                 onChange={(e) => setConfig({ ...config, ANTHROPIC_API_KEY: e.target.value })}
-                placeholder={config.ANTHROPIC_API_KEY_set ? 'Aktuell gesetzt - zum Aendern neuen Wert eingeben' : 'sk-ant-api03-...'}
+                placeholder={config.ANTHROPIC_API_KEY_set ? 'Aktuell gesetzt - zum Ändern neuen Wert eingeben' : 'sk-ant-api03-...'}
                 className="setting-input"
               />
               <span className="setting-hint">
                 {config.ANTHROPIC_API_KEY_set
-                  ? 'API-Key ist gesetzt. Leer lassen um beizubehalten, neuen Wert eingeben zum Aendern.'
+                  ? 'API-Key ist gesetzt. Leer lassen um beizubehalten, neuen Wert eingeben zum Ändern.'
                   : 'Dein API-Key von anthropic.com'}
               </span>
             </div>
@@ -365,14 +365,14 @@ function ClaudeCode() {
                 <option value="/workspace/custom">Eigener Workspace</option>
               </select>
               <span className="setting-hint">
-                Arbeitsverzeichnis fuer Claude Code
+                Arbeitsverzeichnis für Claude Code
               </span>
             </div>
           </div>
 
           <div className="setting-hint" style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(69, 173, 255, 0.1)', borderRadius: '8px' }}>
-            <strong>Hinweis:</strong> Claude Code laeuft im autonomen Modus (--dangerously-skip-permissions).
-            Das Terminal ist ohne Passwort zugaenglich.
+            <strong>Hinweis:</strong> Claude Code läuft im autonomen Modus (--dangerously-skip-permissions).
+            Das Terminal ist ohne Passwort zugänglich.
           </div>
 
           {saveMessage && (
@@ -419,7 +419,7 @@ function ClaudeCode() {
             <h3>API-Key erforderlich</h3>
             <p>Bitte gib deinen Anthropic API-Key in den Einstellungen ein, um Claude Code zu nutzen.</p>
             <button className="claude-btn claude-btn-primary" onClick={() => setShowSettings(true)}>
-              <FiSettings /> Einstellungen oeffnen
+              <FiSettings /> Einstellungen öffnen
             </button>
           </div>
         ) : appStatus?.status !== 'running' ? (
@@ -428,7 +428,7 @@ function ClaudeCode() {
               <FiTerminal />
             </div>
             <h3>Claude Code ist nicht gestartet</h3>
-            <p>Klicke auf Starten, um das Terminal zu oeffnen.</p>
+            <p>Klicke auf Starten, um das Terminal zu öffnen.</p>
             <button
               className="claude-btn claude-btn-primary"
               onClick={startApp}

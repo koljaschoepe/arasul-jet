@@ -1012,7 +1012,7 @@ function ChatMulti() {
                     <button
                       className="tab-action-btn delete"
                       onClick={(e) => deleteChat(e, chat.id)}
-                      title="Loeschen"
+                      title="Löschen"
                     >
                       <FiTrash2 />
                     </button>

@@ -88,7 +88,7 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
     setLogsLoading(true);
     try {
       const response = await axios.get(`${API_BASE}/apps/${app.id}/logs?tail=100`);
-      setLogs(response.data.logs || 'Keine Logs verfuegbar');
+      setLogs(response.data.logs || 'Keine Logs verfügbar');
     } catch (err) {
       setLogs(`Fehler beim Laden der Logs: ${err.response?.data?.message || err.message}`);
     } finally {
@@ -359,10 +359,10 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
               ) : n8nCredentials ? (
                 <>
                   <div className="n8n-section">
-                    <h4><FiServer /> SSH Credentials fuer n8n</h4>
+                    <h4><FiServer /> SSH Credentials für n8n</h4>
                     <p className="n8n-description">
                       Verwende diese Credentials in n8n, um {app.name} per SSH zu triggern.
-                      Waehle in n8n "Private Key" als Authentifizierungsmethode.
+                      Wähle in n8n "Private Key" als Authentifizierungsmethode.
                     </p>
 
                     <div className="credentials-grid">
@@ -469,7 +469,7 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                       rel="noopener noreferrer"
                       className="btn btn-primary"
                     >
-                      <FiExternalLink /> n8n oeffnen
+                      <FiExternalLink /> n8n öffnen
                     </a>
                   </div>
                 </>
@@ -533,7 +533,7 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                   onClick={onClose}
                 >
                   <FiExternalLink />
-                  App oeffnen
+                  App öffnen
                 </Link>
               ) : (
                 <a
@@ -543,7 +543,7 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                   className="btn btn-primary btn-large"
                 >
                   <FiExternalLink />
-                  App oeffnen
+                  App öffnen
                 </a>
               )}
               <button
