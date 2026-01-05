@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal } from 'react-icons/fi';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush } from 'recharts';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiZoomIn, FiZoomOut } from 'react-icons/fi';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
@@ -296,7 +296,9 @@ function App() {
     if (!metricsHistory) return [];
 
     return metricsHistory.timestamps.map((timestamp, index) => ({
+      timestamp: new Date(timestamp).getTime(),
       time: new Date(timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+      hour: new Date(timestamp).getHours(),
       CPU: metricsHistory.cpu[index],
       RAM: metricsHistory.ram[index],
       GPU: metricsHistory.gpu[index],
@@ -485,6 +487,38 @@ function DashboardHome({
     }
     return { status: 'Normal', className: 'stat-change-positive' };
   };
+
+  // Chart zoom state
+  const [chartTimeRange, setChartTimeRange] = useState(24); // hours
+  const timeRangeOptions = [1, 6, 12, 24];
+
+  // Filter chart data based on time range
+  const getFilteredChartData = () => {
+    const allData = formatChartData();
+    if (!allData.length) return [];
+
+    const now = Date.now();
+    const cutoff = now - (chartTimeRange * 60 * 60 * 1000);
+    return allData.filter(d => d.timestamp >= cutoff);
+  };
+
+  // Format X-axis to show full hours only
+  const formatXAxisTick = (value, index, data) => {
+    // Find the data point for this tick
+    const filteredData = getFilteredChartData();
+    const point = filteredData.find(d => d.time === value);
+    if (!point) return value;
+
+    // Show only full hours (minutes === 0) or first/last point
+    const date = new Date(point.timestamp);
+    const minutes = date.getMinutes();
+
+    if (minutes < 5 || minutes > 55) {
+      return `${date.getHours().toString().padStart(2, '0')}:00`;
+    }
+    return '';
+  };
+
   // Icon mapping for apps
   const getAppIcon = (iconName) => {
     const icons = {
@@ -577,11 +611,17 @@ function DashboardHome({
           </div>
           <div className="stat-content">
             <div className="stat-label">STORAGE</div>
-            <div className="stat-value-large">{formatBytes(usedDisk)}<span className="stat-unit">GB</span></div>
-            <div className="stat-sublabel">{formatBytes(totalDisk)}GB Total</div>
-            <div className={`stat-change ${getStatusInfo(metrics?.disk?.percent || 0, 'storage').className}`}>
-              {getStatusInfo(metrics?.disk?.percent || 0, 'storage').status} ({metrics?.disk?.percent?.toFixed(0) || 0}%)
+            <div className="stat-value-large">{metrics?.disk?.percent?.toFixed(0) || 0}<span className="stat-unit">%</span></div>
+            <div className="storage-bar-container">
+              <div
+                className="storage-bar-fill"
+                style={{
+                  width: `${metrics?.disk?.percent || 0}%`,
+                  background: getProgressColor(metrics?.disk?.percent || 0, 'storage')
+                }}
+              />
             </div>
+            <div className="stat-sublabel">{formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB</div>
           </div>
         </div>
 
@@ -644,12 +684,37 @@ function DashboardHome({
       <div className="dashboard-grid">
         {/* 24h Performance Chart */}
         <div className="dashboard-card dashboard-card-large">
-          <h3 className="dashboard-card-title">24h Performance</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={formatChartData()}>
+          <div className="chart-header">
+            <h3 className="dashboard-card-title">Performance</h3>
+            <div className="chart-zoom-controls">
+              {timeRangeOptions.map(hours => (
+                <button
+                  key={hours}
+                  className={`chart-zoom-btn ${chartTimeRange === hours ? 'active' : ''}`}
+                  onClick={() => setChartTimeRange(hours)}
+                >
+                  {hours}h
+                </button>
+              ))}
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={getFilteredChartData()}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(69, 173, 255, 0.1)" />
-              <XAxis dataKey="time" stroke="#94a3b8" style={{ fontSize: '0.85rem' }} />
-              <YAxis stroke="#94a3b8" style={{ fontSize: '0.85rem' }} />
+              <XAxis
+                dataKey="time"
+                stroke="#94a3b8"
+                style={{ fontSize: '0.75rem' }}
+                tickFormatter={formatXAxisTick}
+                interval="preserveStartEnd"
+                minTickGap={50}
+              />
+              <YAxis
+                stroke="#94a3b8"
+                style={{ fontSize: '0.75rem' }}
+                domain={[0, 100]}
+                tickFormatter={(value) => `${value}%`}
+              />
               <Tooltip
                 contentStyle={{
                   background: 'linear-gradient(135deg, #1a2330 0%, #1f2835 100%)',
@@ -658,12 +723,23 @@ function DashboardHome({
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)'
                 }}
                 labelStyle={{ color: '#45ADFF', fontWeight: 600 }}
+                formatter={(value, name) => {
+                  const unit = name === 'Temp' ? '°C' : '%';
+                  return [`${value?.toFixed(1)}${unit}`, name];
+                }}
               />
               <Legend />
-              <Line type="monotone" dataKey="CPU" stroke="#45ADFF" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="RAM" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="GPU" stroke="#06b6d4" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="Temp" stroke="#f59e0b" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="CPU" stroke="#45ADFF" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="RAM" stroke="#8b5cf6" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="GPU" stroke="#06b6d4" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="Temp" stroke="#f59e0b" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
+              <Brush
+                dataKey="time"
+                height={25}
+                stroke="#45ADFF"
+                fill="rgba(69, 173, 255, 0.1)"
+                tickFormatter={() => ''}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
