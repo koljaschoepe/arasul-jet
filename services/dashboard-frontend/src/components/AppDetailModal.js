@@ -18,6 +18,7 @@ import {
   FiCpu,
   FiHardDrive
 } from 'react-icons/fi';
+import ConfirmIconButton from './ConfirmIconButton';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
@@ -314,14 +315,14 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                 Starten
               </button>
               {!isSystem && (
-                <button
-                  className="btn btn-danger"
-                  onClick={() => onAction(app.id, 'uninstall')}
+                <ConfirmIconButton
+                  icon={<FiTrash2 />}
+                  label="Deinstallieren"
+                  confirmText="Wirklich deinstallieren?"
+                  onConfirm={() => onAction(app.id, 'uninstall')}
+                  variant="danger"
                   disabled={isLoading}
-                >
-                  <FiTrash2 />
-                  Deinstallieren
-                </button>
+                />
               )}
             </>
           )}
@@ -357,14 +358,14 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                 Neustarten
               </button>
               {!isSystem && (
-                <button
-                  className="btn btn-danger"
-                  onClick={() => onAction(app.id, 'stop')}
+                <ConfirmIconButton
+                  icon={<FiSquare />}
+                  label="Stoppen"
+                  confirmText="Wirklich stoppen?"
+                  onConfirm={() => onAction(app.id, 'stop')}
+                  variant="warning"
                   disabled={isLoading}
-                >
-                  <FiSquare />
-                  Stoppen
-                </button>
+                />
               )}
             </>
           )}
@@ -380,14 +381,14 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                 Erneut starten
               </button>
               {!isSystem && (
-                <button
-                  className="btn btn-danger"
-                  onClick={() => onAction(app.id, 'uninstall')}
+                <ConfirmIconButton
+                  icon={<FiTrash2 />}
+                  label="Deinstallieren"
+                  confirmText="Wirklich deinstallieren?"
+                  onConfirm={() => onAction(app.id, 'uninstall')}
+                  variant="danger"
                   disabled={isLoading}
-                >
-                  <FiTrash2 />
-                  Deinstallieren
-                </button>
+                />
               )}
             </>
           )}

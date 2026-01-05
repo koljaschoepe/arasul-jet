@@ -21,6 +21,7 @@ import {
   FiTerminal
 } from 'react-icons/fi';
 import AppDetailModal from './AppDetailModal';
+import ConfirmIconButton from './ConfirmIconButton';
 import '../appstore.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
@@ -226,14 +227,14 @@ function AppStore() {
                 Starten
               </button>
               {!isSystem && (
-                <button
-                  className="btn btn-danger btn-icon"
-                  onClick={() => handleAction(app.id, 'uninstall')}
+                <ConfirmIconButton
+                  icon={<FiTrash2 />}
+                  label="Deinstallieren"
+                  confirmText="Entfernen?"
+                  onConfirm={() => handleAction(app.id, 'uninstall')}
+                  variant="danger"
                   disabled={isLoading}
-                  title="Deinstallieren"
-                >
-                  <FiTrash2 />
-                </button>
+                />
               )}
             </>
           )}
@@ -260,18 +261,14 @@ function AppStore() {
                 </a>
               )}
               {!isSystem && (
-                <button
-                  className="btn btn-warning"
-                  onClick={() => handleAction(app.id, 'stop')}
+                <ConfirmIconButton
+                  icon={<FiSquare />}
+                  label="Stoppen"
+                  confirmText="Stoppen?"
+                  onConfirm={() => handleAction(app.id, 'stop')}
+                  variant="warning"
                   disabled={isLoading}
-                >
-                  {isLoading === 'stop' ? (
-                    <FiRefreshCw className="spin" />
-                  ) : (
-                    <FiSquare />
-                  )}
-                  Stoppen
-                </button>
+                />
               )}
             </>
           )}
@@ -287,14 +284,14 @@ function AppStore() {
                 Erneut starten
               </button>
               {!isSystem && (
-                <button
-                  className="btn btn-danger btn-icon"
-                  onClick={() => handleAction(app.id, 'uninstall')}
+                <ConfirmIconButton
+                  icon={<FiTrash2 />}
+                  label="Deinstallieren"
+                  confirmText="Entfernen?"
+                  onConfirm={() => handleAction(app.id, 'uninstall')}
+                  variant="danger"
                   disabled={isLoading}
-                  title="Deinstallieren"
-                >
-                  <FiTrash2 />
-                </button>
+                />
               )}
             </>
           )}

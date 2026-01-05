@@ -19,6 +19,7 @@ const loginLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
     handler: (req, res) => {
         logger.warn(`Login rate limit exceeded for IP: ${req.ip}`);
         res.status(429).json({
@@ -40,6 +41,7 @@ const apiLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
     handler: (req, res) => {
         logger.warn(`API rate limit exceeded for IP: ${req.ip}, path: ${req.path}`);
         res.status(429).json({
@@ -61,6 +63,7 @@ const llmLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
     handler: (req, res) => {
         logger.warn(`LLM rate limit exceeded for IP: ${req.ip}`);
         res.status(429).json({
@@ -83,6 +86,7 @@ const metricsLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true, // Don't count successful requests (only errors)
+    validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
     handler: (req, res) => {
         logger.warn(`Metrics rate limit exceeded for IP: ${req.ip}`);
         res.status(429).json({
@@ -104,6 +108,7 @@ const webhookLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
     handler: (req, res) => {
         logger.warn(`Webhook rate limit exceeded for IP: ${req.ip}`);
         res.status(429).json({
