@@ -156,6 +156,43 @@ All variables are defined in `.env` file at repository root.
 
 ---
 
+## Backup
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| BACKUP_SCHEDULE | 0 2 * * * | Cron schedule (default: 2:00 AM daily) |
+| BACKUP_RETENTION_DAYS | 30 | Days to keep daily backups |
+
+### Optional: S3 Offsite Backups
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| AWS_S3_BUCKET | (none) | S3 bucket for offsite backups |
+| AWS_ACCESS_KEY_ID | (none) | AWS access key |
+| AWS_SECRET_ACCESS_KEY | (none) | AWS secret key |
+| AWS_DEFAULT_REGION | eu-central-1 | AWS region |
+
+### Backup Commands
+
+```bash
+# Start backup service
+docker compose up -d backup-service
+
+# Manual backup
+./scripts/backup.sh
+
+# List available backups
+./scripts/restore.sh --list
+
+# Restore from latest
+./scripts/restore.sh --latest
+
+# Restore from specific date
+./scripts/restore.sh --all --date 20260105
+```
+
+---
+
 ## Dashboard
 
 | Variable | Default | Description |

@@ -72,6 +72,7 @@ const chatsRouter = require('./routes/chats');
 const ragRouter = require('./routes/rag');
 const settingsRouter = require('./routes/settings');
 const documentsRouter = require('./routes/documents');
+const appstoreRouter = require('./routes/appstore');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -89,6 +90,7 @@ app.use('/api/chats', chatsRouter);
 app.use('/api/rag', ragRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/apps', appstoreRouter);
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {

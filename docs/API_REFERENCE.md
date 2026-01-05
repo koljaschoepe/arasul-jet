@@ -218,6 +218,55 @@ Response: Server-Sent Events (SSE) stream
 | GET | `/api/database/status` | Database connection status |
 | GET | `/api/database/metrics` | Database size & stats |
 
+### Store
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/apps` | List all apps (installed + available) |
+| GET | `/api/apps/categories` | List app categories |
+| GET | `/api/apps/:id` | Get single app details |
+| GET | `/api/apps/:id/logs` | Get container logs |
+| GET | `/api/apps/:id/events` | Get app event history |
+| POST | `/api/apps/:id/install` | Install an app |
+| POST | `/api/apps/:id/uninstall` | Uninstall an app |
+| POST | `/api/apps/:id/start` | Start an installed app |
+| POST | `/api/apps/:id/stop` | Stop a running app |
+| POST | `/api/apps/:id/restart` | Restart an app |
+| POST | `/api/apps/sync` | Sync system apps status |
+
+**GET /api/apps Query Parameters:**
+- `category`: Filter by category (e.g., `development`, `productivity`)
+- `status`: Filter by status (e.g., `running`, `installed`, `available`)
+- `search`: Search in name and description
+
+**Response Example:**
+```json
+{
+  "apps": [
+    {
+      "id": "code-server",
+      "name": "Code-Server",
+      "description": "VS Code im Browser",
+      "version": "4.96.4",
+      "category": "development",
+      "status": "available",
+      "appType": "official",
+      "canUninstall": true
+    }
+  ],
+  "total": 4,
+  "timestamp": "2026-01-05T12:00:00Z"
+}
+```
+
+**App Status Values:**
+- `available` - Not installed
+- `installing` - Currently installing
+- `installed` - Installed but stopped
+- `running` - Currently running
+- `stopping` / `starting` - Transitioning
+- `error` - Error state
+
 ---
 
 ## Response Format

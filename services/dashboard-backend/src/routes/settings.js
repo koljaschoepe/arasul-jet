@@ -11,10 +11,11 @@ const { verifyPassword, hashPassword, validatePasswordComplexity } = require('..
 const { updateEnvVariables, backupEnvFile } = require('../utils/envManager');
 const db = require('../database');
 const logger = require('../utils/logger');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const util = require('util');
 
-const execPromise = util.promisify(exec);
+// SECURITY: Use execFile (not exec) to prevent shell injection
+const execFilePromise = util.promisify(execFile);
 
 // Whitelist of services allowed to be restarted (SECURITY: prevents command injection)
 const ALLOWED_RESTART_SERVICES = [
@@ -58,25 +59,23 @@ async function verifyCurrentDashboardPassword(userId, currentPassword) {
  * SECURITY: Only allows whitelisted services to prevent command injection
  */
 async function restartService(serviceName) {
-    // SECURITY FIX: Validate service name against whitelist
+    // SECURITY: Validate service name against whitelist to prevent command injection
     if (!ALLOWED_RESTART_SERVICES.includes(serviceName)) {
         logger.error(`Attempted to restart non-whitelisted service: ${serviceName}`);
         throw new Error(`Service '${serviceName}' is not allowed to be restarted`);
     }
 
+    const composeDir = process.env.COMPOSE_PROJECT_DIR || '/home/arasul/arasul/arasul-jet';
+
     try {
         logger.info(`Restarting service: ${serviceName}`);
 
-        const composeDir = process.env.COMPOSE_PROJECT_DIR || '/home/arasul/arasul/arasul-jet';
-
-        // SECURITY FIX: Use execFile with array arguments instead of string interpolation
-        const { execFile } = require('child_process');
-        const execFilePromise = util.promisify(execFile);
-
+        // SECURITY: execFile with array arguments prevents shell injection
+        // serviceName is validated against whitelist above
         const { stdout, stderr } = await execFilePromise(
             'docker',
             ['compose', 'restart', serviceName],
-            { cwd: composeDir }
+            { cwd: composeDir, timeout: 60000 }
         );
 
         if (stderr && !stderr.includes('Container')) {
