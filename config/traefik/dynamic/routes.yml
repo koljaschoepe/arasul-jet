@@ -225,6 +225,9 @@ http:
           path: /api/health
           interval: 10s
           timeout: 2s
+        responseForwarding:
+          flushInterval: 100ms
+        passHostHeader: true
 
     # MinIO Console
     minio-console-service:

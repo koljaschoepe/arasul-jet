@@ -501,9 +501,10 @@ class AppService {
     /**
      * Restart an app
      * @param {string} appId - App ID to restart
+     * @param {boolean} applyConfig - If true, recreate container with updated config
      * @returns {Promise<Object>} Restart result
      */
-    async restartApp(appId) {
+    async restartApp(appId, applyConfig = false) {
         const result = await db.query(
             'SELECT * FROM app_installations WHERE app_id = $1',
             [appId]
@@ -516,6 +517,12 @@ class AppService {
         const installation = result.rows[0];
 
         try {
+            // If applyConfig is true, we need to recreate the container with new env vars
+            if (applyConfig) {
+                return await this.recreateAppWithConfig(appId);
+            }
+
+            // Simple restart without config changes
             const container = docker.getContainer(installation.container_name || appId);
             await container.restart({ t: 10 });
 
@@ -539,6 +546,109 @@ class AppService {
             `, [error.message, appId]);
 
             await this.logEvent(appId, 'restart_error', error.message);
+
+            throw error;
+        }
+    }
+
+    /**
+     * Recreate an app container with updated configuration from database
+     * This stops, removes, and recreates the container with new env vars
+     * @param {string} appId - App ID to recreate
+     * @param {boolean} async - If true, return immediately and recreate in background
+     * @returns {Promise<Object>} Recreate result
+     */
+    async recreateAppWithConfig(appId, asyncMode = false) {
+        const manifests = await this.loadManifests();
+        const manifest = manifests[appId];
+
+        if (!manifest) {
+            throw new Error(`App ${appId} not found in manifests`);
+        }
+
+        // Get saved configuration from database
+        const configOverrides = await this.getConfigOverrides(appId);
+
+        logger.info(`Recreating ${appId} with config overrides: ${Object.keys(configOverrides).join(', ')}${asyncMode ? ' (async)' : ''}`);
+
+        await db.query(
+            'UPDATE app_installations SET status = $1 WHERE app_id = $2',
+            ['restarting', appId]
+        );
+
+        // If async mode, start the recreation in background and return immediately
+        if (asyncMode) {
+            this._doRecreateContainer(appId, manifest, configOverrides).catch(err => {
+                logger.error(`Background recreate failed for ${appId}: ${err.message}`);
+            });
+            return { success: true, message: 'Container-Neuerstellung gestartet (laeuft im Hintergrund)', async: true };
+        }
+
+        // Synchronous mode - wait for completion
+        return await this._doRecreateContainer(appId, manifest, configOverrides);
+    }
+
+    /**
+     * Internal method to perform the actual container recreation
+     */
+    async _doRecreateContainer(appId, manifest, configOverrides) {
+        try {
+            const containerName = appId;
+            const container = docker.getContainer(containerName);
+
+            // Stop if running
+            try {
+                await container.stop({ t: 5 });
+                logger.debug(`Stopped container ${containerName}`);
+            } catch (err) {
+                // Ignore if not running
+                logger.debug(`Stop during recreate: ${err.message}`);
+            }
+
+            // Remove container
+            try {
+                await container.remove();
+                logger.debug(`Removed container ${containerName}`);
+            } catch (err) {
+                // Ignore if doesn't exist
+                logger.debug(`Remove during recreate: ${err.message}`);
+            }
+
+            // Build container config with database overrides
+            const containerConfig = this.buildContainerConfig(manifest, configOverrides);
+
+            // Create new container
+            const newContainer = await docker.createContainer(containerConfig);
+            logger.info(`Created new container ${newContainer.id} for ${appId}`);
+
+            // Start the new container
+            await newContainer.start();
+            logger.info(`Started container ${appId} with updated configuration`);
+
+            // Update installation record
+            await db.query(`
+                UPDATE app_installations
+                SET status = 'running',
+                    container_id = $1,
+                    started_at = NOW(),
+                    last_error = NULL
+                WHERE app_id = $2
+            `, [newContainer.id, appId]);
+
+            await this.logEvent(appId, 'recreate', 'App mit neuer Konfiguration neu erstellt');
+
+            return { success: true, message: 'App mit neuer Konfiguration neu gestartet' };
+
+        } catch (error) {
+            logger.error(`Recreate failed for ${appId}: ${error.message}`);
+
+            await db.query(`
+                UPDATE app_installations
+                SET status = 'error', last_error = $1
+                WHERE app_id = $2
+            `, [error.message, appId]);
+
+            await this.logEvent(appId, 'recreate_error', error.message);
 
             throw error;
         }
@@ -995,6 +1105,11 @@ class AppService {
     /**
      * Set app configuration
      * Stores key-value pairs in database
+     *
+     * Secret field handling:
+     * - Masked values (****xxxx) are skipped (keep existing)
+     * - Empty string for secrets: skip (keep existing) unless value is exactly " " (space) to clear
+     * - New non-empty value: save the new value
      */
     async setAppConfig(appId, config) {
         // Get manifest to check which fields are secrets
@@ -1015,6 +1130,9 @@ class AppService {
             }
         }
 
+        // Get current config to check which secrets are already set
+        const currentConfig = await this.getAppConfigRaw(appId);
+
         // Store each config value
         for (const [key, value] of Object.entries(config)) {
             // Skip masked values (they haven't changed)
@@ -1029,12 +1147,22 @@ class AppService {
 
             const isSecret = secretFields.has(key);
 
+            // For secret fields: empty string means "keep existing" unless it's a space (to clear)
+            if (isSecret && value === '' && currentConfig[key]) {
+                // Keep existing value - don't update
+                logger.debug(`Keeping existing secret value for ${key}`);
+                continue;
+            }
+
+            // If value is exactly a space, treat it as "clear this field"
+            const finalValue = (value === ' ') ? '' : (value || '');
+
             await db.query(`
                 INSERT INTO app_configurations (app_id, config_key, config_value, is_secret, updated_at)
                 VALUES ($1, $2, $3, $4, NOW())
                 ON CONFLICT (app_id, config_key)
                 DO UPDATE SET config_value = $3, is_secret = $4, updated_at = NOW()
-            `, [appId, key, value || '', isSecret]);
+            `, [appId, key, finalValue, isSecret]);
         }
 
         await this.logEvent(appId, 'config_update', 'Configuration updated');
@@ -1110,7 +1238,7 @@ class AppService {
                 'Speichern und in einem Workflow verwenden'
             ],
             exampleCommand: manifest.n8nIntegration.exampleCommand ||
-                'echo "Dein Prompt hier" | claude -p --dangerously-skip-permissions'
+                'cd /home/arasul/arasul/arasul-jet && echo "Dein Prompt hier" | /home/arasul/.local/bin/claude -p --dangerously-skip-permissions'
         };
     }
 }

@@ -295,14 +295,24 @@ router.post('/:id/stop', requireAuth, apiLimiter, async (req, res) => {
 /**
  * POST /api/apps/:id/restart
  * Restart an app
+ * Body: { applyConfig: boolean, async: boolean } - applyConfig recreates container, async returns immediately
  */
 router.post('/:id/restart', requireAuth, apiLimiter, async (req, res) => {
     try {
         const { id } = req.params;
+        const { applyConfig, async: asyncMode } = req.body || {};
 
-        logger.info(`User ${req.user.username} restarting app ${id}`);
+        // Default to async mode for applyConfig to avoid timeout issues
+        const useAsync = asyncMode !== false && applyConfig === true;
 
-        const result = await appService.restartApp(id);
+        logger.info(`User ${req.user.username} restarting app ${id}${applyConfig ? ' with config update' : ''}${useAsync ? ' (async)' : ''}`);
+
+        let result;
+        if (applyConfig === true) {
+            result = await appService.recreateAppWithConfig(id, useAsync);
+        } else {
+            result = await appService.restartApp(id, false);
+        }
 
         res.json({
             ...result,

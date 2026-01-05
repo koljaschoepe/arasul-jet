@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     build-essential \
     ca-certificates \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ttyd for web terminal (ARM64 version for Jetson)
@@ -17,15 +18,23 @@ RUN wget -O /usr/local/bin/ttyd \
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
 
-# Create workspace directories
-RUN mkdir -p /workspace/arasul /workspace/custom /root/.claude
+# Reuse existing 'node' user (UID 1000) from base image - matches host user arasul
+# Rename to 'claude' for clarity and move home directory
+RUN usermod -l claude -d /home/claude -m node && \
+    echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create workspace directories with correct ownership
+RUN mkdir -p /workspace/arasul /workspace/custom /home/claude/.claude && \
+    chown -R claude:node /workspace /home/claude
 
 # Working directory
 WORKDIR /workspace
 
-# Entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Entrypoint script (must be readable for shell scripts to work)
+COPY --chmod=755 entrypoint.sh /entrypoint.sh
+
+# Switch to non-root user
+USER claude
 
 # Expose ttyd port
 EXPOSE 7681

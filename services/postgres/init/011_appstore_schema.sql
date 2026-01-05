@@ -18,6 +18,7 @@ DO $$ BEGIN
         'running',        -- Currently running
         'stopping',       -- Being stopped
         'starting',       -- Being started
+        'restarting',     -- Being restarted with new config
         'updating',       -- Being updated
         'error',          -- Error state
         'uninstalling'    -- Being uninstalled

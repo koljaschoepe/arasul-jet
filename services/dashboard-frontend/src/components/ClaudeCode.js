@@ -13,10 +13,9 @@ import {
   FiRefreshCw,
   FiKey,
   FiAlertCircle,
+  FiAlertTriangle,
   FiCheck,
   FiX,
-  FiUser,
-  FiLock,
   FiSquare,
   FiMaximize2,
   FiMinimize2
@@ -86,14 +85,74 @@ function ClaudeCode() {
       setActionLoading(true);
       setSaveMessage(null);
 
-      await axios.post(`${API_BASE}/apps/claude-code/config`, { config });
+      // Step 1: Save configuration
+      try {
+        await axios.post(`${API_BASE}/apps/claude-code/config`, { config });
+      } catch (configErr) {
+        console.error('Config save error:', configErr);
+        const errorMsg = configErr.response?.data?.message || configErr.message || 'Unbekannter Fehler';
+        setSaveMessage({ type: 'error', text: `Fehler beim Speichern: ${errorMsg}` });
+        return;
+      }
 
-      // Restart if running to apply new config
+      // Step 2: Restart if running to apply new config (async mode - returns immediately)
       if (appStatus?.status === 'running') {
-        await axios.post(`${API_BASE}/apps/claude-code/restart`);
-        setSaveMessage({ type: 'success', text: 'Konfiguration gespeichert und App wird neugestartet...' });
+        setSaveMessage({ type: 'success', text: 'Konfiguration gespeichert. Container wird neu erstellt...' });
+        try {
+          const restartRes = await axios.post(`${API_BASE}/apps/claude-code/restart`, { applyConfig: true });
+
+          if (restartRes.data.async) {
+            // Async mode - poll for completion
+            setSaveMessage({ type: 'success', text: 'Container wird im Hintergrund neu erstellt. Bitte warten...' });
+
+            // Poll status every 2 seconds for up to 30 seconds
+            let attempts = 0;
+            const maxAttempts = 15;
+            const pollInterval = setInterval(async () => {
+              attempts++;
+              try {
+                const statusRes = await axios.get(`${API_BASE}/apps/claude-code`);
+                if (statusRes.data.status === 'running') {
+                  clearInterval(pollInterval);
+                  setSaveMessage({ type: 'success', text: 'Container erfolgreich mit neuer Konfiguration neu erstellt!' });
+                  setTimeout(() => {
+                    loadAppData();
+                    setSaveMessage(null);
+                    setShowSettings(false);
+                  }, 2000);
+                } else if (statusRes.data.status === 'error') {
+                  clearInterval(pollInterval);
+                  setSaveMessage({ type: 'error', text: `Fehler: ${statusRes.data.last_error || 'Unbekannter Fehler'}` });
+                }
+              } catch (pollErr) {
+                // Ignore poll errors during restart
+              }
+
+              if (attempts >= maxAttempts) {
+                clearInterval(pollInterval);
+                setSaveMessage({ type: 'warning', text: 'Container-Neustart dauert laenger als erwartet. Pruefe den Status manuell.' });
+                setTimeout(() => {
+                  loadAppData();
+                  setSaveMessage(null);
+                }, 3000);
+              }
+            }, 2000);
+            return; // Don't continue to the normal flow
+          } else {
+            setSaveMessage({ type: 'success', text: 'Container erfolgreich mit neuer Konfiguration neu erstellt!' });
+          }
+        } catch (restartErr) {
+          console.error('Restart error:', restartErr);
+          const restartErrorMsg = restartErr.response?.data?.message || restartErr.message || 'Unbekannter Fehler';
+          setSaveMessage({ type: 'warning', text: `Konfiguration gespeichert, aber Neustart fehlgeschlagen: ${restartErrorMsg}` });
+          setTimeout(() => {
+            loadAppData();
+            setSaveMessage(null);
+          }, 5000);
+          return;
+        }
       } else {
-        setSaveMessage({ type: 'success', text: 'Konfiguration gespeichert.' });
+        setSaveMessage({ type: 'success', text: 'Konfiguration gespeichert. Starte die App, um die Konfiguration anzuwenden.' });
       }
 
       // Reload after a short delay
@@ -105,7 +164,8 @@ function ClaudeCode() {
 
     } catch (err) {
       console.error('Error saving config:', err);
-      setSaveMessage({ type: 'error', text: 'Fehler beim Speichern der Konfiguration.' });
+      const errorMsg = err.response?.data?.message || err.message || 'Unbekannter Fehler';
+      setSaveMessage({ type: 'error', text: `Fehler beim Speichern der Konfiguration: ${errorMsg}` });
     } finally {
       setActionLoading(false);
     }
@@ -280,13 +340,15 @@ function ClaudeCode() {
               </label>
               <input
                 type="password"
-                value={config.ANTHROPIC_API_KEY || ''}
+                value={config.ANTHROPIC_API_KEY?.startsWith('****') ? '' : (config.ANTHROPIC_API_KEY || '')}
                 onChange={(e) => setConfig({ ...config, ANTHROPIC_API_KEY: e.target.value })}
-                placeholder="sk-ant-api03-..."
+                placeholder={config.ANTHROPIC_API_KEY_set ? 'Aktuell gesetzt - zum Aendern neuen Wert eingeben' : 'sk-ant-api03-...'}
                 className="setting-input"
               />
               <span className="setting-hint">
-                Dein API-Key von anthropic.com
+                {config.ANTHROPIC_API_KEY_set
+                  ? 'API-Key ist gesetzt. Leer lassen um beizubehalten, neuen Wert eingeben zum Aendern.'
+                  : 'Dein API-Key von anthropic.com'}
               </span>
             </div>
 
@@ -306,37 +368,17 @@ function ClaudeCode() {
                 Arbeitsverzeichnis fuer Claude Code
               </span>
             </div>
+          </div>
 
-            <div className="setting-item">
-              <label>
-                <FiUser /> Terminal Benutzer
-              </label>
-              <input
-                type="text"
-                value={config.TTYD_USER || 'admin'}
-                onChange={(e) => setConfig({ ...config, TTYD_USER: e.target.value })}
-                placeholder="admin"
-                className="setting-input"
-              />
-            </div>
-
-            <div className="setting-item">
-              <label>
-                <FiLock /> Terminal Passwort
-              </label>
-              <input
-                type="password"
-                value={config.TTYD_PASSWORD || ''}
-                onChange={(e) => setConfig({ ...config, TTYD_PASSWORD: e.target.value })}
-                placeholder="Passwort fuer Web-Terminal"
-                className="setting-input"
-              />
-            </div>
+          <div className="setting-hint" style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(69, 173, 255, 0.1)', borderRadius: '8px' }}>
+            <strong>Hinweis:</strong> Claude Code laeuft im autonomen Modus (--dangerously-skip-permissions).
+            Das Terminal ist ohne Passwort zugaenglich.
           </div>
 
           {saveMessage && (
             <div className={`save-message ${saveMessage.type}`}>
-              {saveMessage.type === 'success' ? <FiCheck /> : <FiAlertCircle />}
+              {saveMessage.type === 'success' ? <FiCheck /> :
+               saveMessage.type === 'warning' ? <FiAlertTriangle /> : <FiAlertCircle />}
               {saveMessage.text}
             </div>
           )}
