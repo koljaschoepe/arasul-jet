@@ -374,6 +374,40 @@ router.get('/:id/config', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/apps/:id/n8n-credentials
+ * Get n8n integration credentials (SSH credentials for host access)
+ * Used to display connection info for triggering apps from n8n
+ */
+router.get('/:id/n8n-credentials', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const credentials = await appService.getN8nCredentials(id);
+
+        res.json({
+            appId: id,
+            credentials,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Error getting n8n credentials for ${req.params.id}: ${error.message}`);
+
+        let statusCode = 500;
+        if (error.message.includes('not found')) {
+            statusCode = 404;
+        } else if (error.message.includes('unterstützt keine')) {
+            statusCode = 400;
+        }
+
+        res.status(statusCode).json({
+            error: 'Fehler beim Laden der n8n-Credentials',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
  * POST /api/apps/:id/config
  * Update app configuration
  */

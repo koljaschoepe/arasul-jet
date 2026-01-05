@@ -145,7 +145,8 @@ class AppService {
                 ports: manifest.docker?.ports || {},
                 traefikRoute: manifest.traefik?.rule || null,
                 hasCustomPage: manifest.hasCustomPage || false,
-                customPageRoute: manifest.customPageRoute || null
+                customPageRoute: manifest.customPageRoute || null,
+                hasN8nIntegration: manifest.n8nIntegration?.enabled || false
             };
 
             // Apply filters
@@ -1046,6 +1047,66 @@ class AppService {
      */
     async getConfigOverrides(appId) {
         return await this.getAppConfigRaw(appId);
+    }
+
+    /**
+     * Get n8n integration credentials for SSH access
+     * Returns host IP, port, username for n8n SSH connection to host
+     * @param {string} appId - App ID
+     * @returns {Promise<Object>} n8n credentials object
+     */
+    async getN8nCredentials(appId) {
+        const manifests = await this.loadManifests();
+        const manifest = manifests[appId];
+
+        if (!manifest) {
+            throw new Error(`App ${appId} not found`);
+        }
+
+        if (!manifest.n8nIntegration?.enabled) {
+            throw new Error(`App ${appId} unterstützt keine n8n-Integration`);
+        }
+
+        // Docker Gateway = Host IP from container perspective
+        // The gateway of the arasul-net network (172.30.0.1) points to the host
+        const hostIp = process.env.DOCKER_GATEWAY_IP || '172.30.0.1';
+        const sshPort = parseInt(process.env.SSH_PORT || '22');
+        const sshUser = process.env.SSH_USER || 'arasul';
+
+        // Password can be optionally configured in .env
+        // If not set, user needs to know their system password
+        const sshPassword = process.env.SSH_PASSWORD || null;
+
+        return {
+            enabled: true,
+            type: manifest.n8nIntegration.type || 'ssh',
+            ssh: {
+                host: hostIp,
+                port: sshPort,
+                username: sshUser,
+                passwordConfigured: !!sshPassword,
+                // Provide hints for the user
+                hints: {
+                    host: 'Docker Gateway IP - zeigt auf den Host aus Container-Sicht',
+                    port: 'Standard SSH-Port',
+                    username: 'System-Benutzer auf dem Arasul-Host',
+                    password: sshPassword
+                        ? 'In .env konfiguriert'
+                        : 'Verwende das Passwort des System-Benutzers (arasul)'
+                }
+            },
+            command: manifest.n8nIntegration.command || null,
+            workingDirectory: manifest.n8nIntegration.workingDirectory || '/home/arasul/arasul/arasul-jet',
+            instructions: manifest.n8nIntegration.instructions || [
+                'Oeffne n8n unter /n8n oder Port 5678',
+                'Gehe zu Credentials -> Add Credential -> SSH Password',
+                'Trage die SSH-Credentials ein',
+                'Erstelle einen Workflow mit dem SSH-Node',
+                'Verwende den Command um Claude Code zu triggern'
+            ],
+            exampleCommand: manifest.n8nIntegration.exampleCommand ||
+                'echo "Dein Prompt hier" | claude -p --dangerously-skip-permissions'
+        };
     }
 }
 

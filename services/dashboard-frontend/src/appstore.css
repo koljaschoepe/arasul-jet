@@ -945,3 +945,175 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================
+   n8n Integration Tab
+   ============================================ */
+
+.tab-n8n {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.n8n-section {
+  background: var(--store-gray-700);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.n8n-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.n8n-section h4 svg {
+  color: var(--store-primary);
+}
+
+.n8n-description {
+  color: var(--store-gray-400);
+  font-size: 0.85rem;
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+/* Credentials Grid */
+.credentials-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .credentials-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.credential-item {
+  background: var(--store-gray-800);
+  border: 1px solid var(--store-gray-600);
+  border-radius: 8px;
+  padding: 0.875rem;
+}
+
+.credential-item label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--store-gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.credential-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.credential-value code {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.95rem;
+  color: var(--store-primary-light);
+  background: transparent;
+  word-break: break-all;
+}
+
+.credential-value .password-hint {
+  color: var(--store-gray-400);
+  font-style: italic;
+}
+
+.credential-hint {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--store-gray-500);
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+/* Copy Button */
+.copy-btn {
+  background: var(--store-gray-600);
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem;
+  color: var(--store-gray-300);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.copy-btn:hover {
+  background: var(--store-primary);
+  color: #000;
+}
+
+.copy-btn svg {
+  font-size: 0.85rem;
+}
+
+/* Command Box */
+.command-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--store-gray-900);
+  border: 1px solid var(--store-gray-600);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.command-box code {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+  color: var(--store-gray-200);
+  flex: 1;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.command-box .copy-btn {
+  margin-top: 0;
+}
+
+/* Instructions List */
+.instructions-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: var(--store-gray-300);
+}
+
+.instructions-list li {
+  font-size: 0.85rem;
+  line-height: 1.8;
+  padding-left: 0.5rem;
+}
+
+.instructions-list li::marker {
+  color: var(--store-primary);
+  font-weight: bold;
+}
+
+/* n8n Actions */
+.n8n-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.n8n-actions .btn {
+  padding: 0.6rem 1rem;
+}

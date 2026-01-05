@@ -16,7 +16,10 @@ import {
   FiInfo,
   FiGlobe,
   FiCpu,
-  FiHardDrive
+  FiHardDrive,
+  FiZap,
+  FiCopy,
+  FiServer
 } from 'react-icons/fi';
 import ConfirmIconButton from './ConfirmIconButton';
 
@@ -28,6 +31,9 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
   const [logsLoading, setLogsLoading] = useState(false);
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [n8nCredentials, setN8nCredentials] = useState(null);
+  const [n8nLoading, setN8nLoading] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
 
   const status = statusConfig[app.status] || statusConfig.available;
   const StatusIcon = status.icon;
@@ -47,6 +53,13 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
       loadEvents();
     }
   }, [activeTab, app.id]);
+
+  // Load n8n credentials when tab is selected
+  useEffect(() => {
+    if (activeTab === 'n8n' && app.hasN8nIntegration) {
+      loadN8nCredentials();
+    }
+  }, [activeTab, app.id, app.hasN8nIntegration]);
 
   const loadLogs = async () => {
     setLogsLoading(true);
@@ -69,6 +82,29 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
       console.error('Error loading events:', err);
     } finally {
       setEventsLoading(false);
+    }
+  };
+
+  const loadN8nCredentials = async () => {
+    setN8nLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE}/apps/${app.id}/n8n-credentials`);
+      setN8nCredentials(response.data.credentials);
+    } catch (err) {
+      console.error('Error loading n8n credentials:', err);
+      setN8nCredentials(null);
+    } finally {
+      setN8nLoading(false);
+    }
+  };
+
+  const copyToClipboard = async (text, fieldName) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
     }
   };
 
@@ -135,6 +171,14 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
           >
             <FiClock /> Verlauf
           </button>
+          {app.hasN8nIntegration && (
+            <button
+              className={`tab ${activeTab === 'n8n' ? 'active' : ''}`}
+              onClick={() => setActiveTab('n8n')}
+            >
+              <FiZap /> n8n
+            </button>
+          )}
         </div>
 
         {/* Tab content */}
@@ -278,6 +322,124 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                 </div>
               ) : (
                 <div className="empty">Keine Events vorhanden</div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'n8n' && (
+            <div className="tab-content tab-n8n">
+              {n8nLoading ? (
+                <div className="loading">
+                  <FiRefreshCw className="spin" />
+                  Lade n8n-Credentials...
+                </div>
+              ) : n8nCredentials ? (
+                <>
+                  <div className="n8n-section">
+                    <h4><FiServer /> SSH Credentials fuer n8n</h4>
+                    <p className="n8n-description">
+                      Verwende diese Credentials in n8n, um {app.name} per SSH zu triggern.
+                    </p>
+
+                    <div className="credentials-grid">
+                      <div className="credential-item">
+                        <label>Host</label>
+                        <div className="credential-value">
+                          <code>{n8nCredentials.ssh?.host}</code>
+                          <button
+                            className="copy-btn"
+                            onClick={() => copyToClipboard(n8nCredentials.ssh?.host, 'host')}
+                            title="Kopieren"
+                          >
+                            {copiedField === 'host' ? <FiCheck /> : <FiCopy />}
+                          </button>
+                        </div>
+                        <span className="credential-hint">{n8nCredentials.ssh?.hints?.host}</span>
+                      </div>
+
+                      <div className="credential-item">
+                        <label>Port</label>
+                        <div className="credential-value">
+                          <code>{n8nCredentials.ssh?.port}</code>
+                          <button
+                            className="copy-btn"
+                            onClick={() => copyToClipboard(String(n8nCredentials.ssh?.port), 'port')}
+                            title="Kopieren"
+                          >
+                            {copiedField === 'port' ? <FiCheck /> : <FiCopy />}
+                          </button>
+                        </div>
+                        <span className="credential-hint">{n8nCredentials.ssh?.hints?.port}</span>
+                      </div>
+
+                      <div className="credential-item">
+                        <label>Username</label>
+                        <div className="credential-value">
+                          <code>{n8nCredentials.ssh?.username}</code>
+                          <button
+                            className="copy-btn"
+                            onClick={() => copyToClipboard(n8nCredentials.ssh?.username, 'username')}
+                            title="Kopieren"
+                          >
+                            {copiedField === 'username' ? <FiCheck /> : <FiCopy />}
+                          </button>
+                        </div>
+                        <span className="credential-hint">{n8nCredentials.ssh?.hints?.username}</span>
+                      </div>
+
+                      <div className="credential-item">
+                        <label>Password</label>
+                        <div className="credential-value">
+                          <code className="password-hint">
+                            {n8nCredentials.ssh?.passwordConfigured
+                              ? '••••••••'
+                              : 'System-Passwort verwenden'}
+                          </code>
+                        </div>
+                        <span className="credential-hint">{n8nCredentials.ssh?.hints?.password}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="n8n-section">
+                    <h4><FiTerminal /> Beispiel-Command</h4>
+                    <div className="command-box">
+                      <code>{n8nCredentials.exampleCommand}</code>
+                      <button
+                        className="copy-btn"
+                        onClick={() => copyToClipboard(n8nCredentials.exampleCommand, 'command')}
+                        title="Command kopieren"
+                      >
+                        {copiedField === 'command' ? <FiCheck /> : <FiCopy />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="n8n-section">
+                    <h4><FiInfo /> Anleitung</h4>
+                    <ol className="instructions-list">
+                      {n8nCredentials.instructions?.map((instruction, index) => (
+                        <li key={index}>{instruction}</li>
+                      ))}
+                    </ol>
+                  </div>
+
+                  <div className="n8n-actions">
+                    <a
+                      href="/n8n"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary"
+                    >
+                      <FiExternalLink /> n8n oeffnen
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <div className="empty">
+                  <FiAlertCircle />
+                  <p>n8n-Credentials konnten nicht geladen werden.</p>
+                </div>
               )}
             </div>
           )}
