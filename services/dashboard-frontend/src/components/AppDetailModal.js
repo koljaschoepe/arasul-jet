@@ -25,7 +25,30 @@ import ConfirmIconButton from './ConfirmIconButton';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
-function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, getIcon }) {
+// Get app URL based on port or traefik route
+const getAppUrl = (app) => {
+  // Apps with custom pages should link internally
+  if (app.hasCustomPage && app.customPageRoute) {
+    return app.customPageRoute;
+  }
+  // Use external port if available
+  if (app.ports?.external) {
+    return `http://${window.location.hostname}:${app.ports.external}`;
+  }
+  // Fallback to known ports
+  const knownPorts = {
+    'n8n': 5678,
+    'minio': 9001,
+    'code-server': 8443,
+    'gitea': 3002
+  };
+  if (knownPorts[app.id]) {
+    return `http://${window.location.hostname}:${knownPorts[app.id]}`;
+  }
+  return '#';
+};
+
+function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, statusConfig, getIcon }) {
   const [activeTab, setActiveTab] = useState('info');
   const [logs, setLogs] = useState('');
   const [logsLoading, setLogsLoading] = useState(false);
@@ -441,7 +464,7 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
 
                   <div className="n8n-actions">
                     <a
-                      href="/n8n"
+                      href={`http://${window.location.hostname}:5678`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-primary"
@@ -491,16 +514,13 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                 )}
                 Starten
               </button>
-              {!isSystem && (
-                <ConfirmIconButton
-                  icon={<FiTrash2 />}
-                  label="Deinstallieren"
-                  confirmText="Wirklich deinstallieren?"
-                  onConfirm={() => onAction(app.id, 'uninstall')}
-                  variant="danger"
-                  disabled={isLoading}
-                />
-              )}
+              <button
+                className="btn btn-danger"
+                onClick={() => { onClose(); onUninstall(app.id, app.name); }}
+                disabled={isLoading}
+              >
+                <FiTrash2 /> Deinstallieren
+              </button>
             </>
           )}
 
@@ -515,9 +535,9 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                   <FiExternalLink />
                   App oeffnen
                 </Link>
-              ) : app.traefikRoute && (
+              ) : (
                 <a
-                  href={app.traefikRoute.replace("PathPrefix(`", "").replace("`)", "")}
+                  href={getAppUrl(app)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-primary btn-large"
@@ -534,16 +554,14 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                 <FiRefreshCw />
                 Neustarten
               </button>
-              {!isSystem && (
-                <ConfirmIconButton
-                  icon={<FiSquare />}
-                  label="Stoppen"
-                  confirmText="Wirklich stoppen?"
-                  onConfirm={() => onAction(app.id, 'stop')}
-                  variant="warning"
-                  disabled={isLoading}
-                />
-              )}
+              <ConfirmIconButton
+                icon={<FiSquare />}
+                label="Stoppen"
+                confirmText="Wirklich stoppen?"
+                onConfirm={() => onAction(app.id, 'stop')}
+                variant="warning"
+                disabled={isLoading}
+              />
             </>
           )}
 
@@ -557,16 +575,13 @@ function AppDetailModal({ app, onClose, onAction, actionLoading, statusConfig, g
                 <FiRefreshCw />
                 Erneut starten
               </button>
-              {!isSystem && (
-                <ConfirmIconButton
-                  icon={<FiTrash2 />}
-                  label="Deinstallieren"
-                  confirmText="Wirklich deinstallieren?"
-                  onConfirm={() => onAction(app.id, 'uninstall')}
-                  variant="danger"
-                  disabled={isLoading}
-                />
-              )}
+              <button
+                className="btn btn-danger"
+                onClick={() => { onClose(); onUninstall(app.id, app.name); }}
+                disabled={isLoading}
+              >
+                <FiTrash2 /> Deinstallieren
+              </button>
             </>
           )}
         </div>

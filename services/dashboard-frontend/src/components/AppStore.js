@@ -47,6 +47,29 @@ const categoryLabels = {
   networking: 'Netzwerk'
 };
 
+// Get app URL based on port or traefik route
+const getAppUrl = (app) => {
+  // Apps with custom pages should link internally
+  if (app.hasCustomPage && app.customPageRoute) {
+    return app.customPageRoute;
+  }
+  // Use external port if available
+  if (app.ports?.external) {
+    return `http://${window.location.hostname}:${app.ports.external}`;
+  }
+  // Fallback to known ports
+  const knownPorts = {
+    'n8n': 5678,
+    'minio': 9001,
+    'code-server': 8443,
+    'gitea': 3002
+  };
+  if (knownPorts[app.id]) {
+    return `http://${window.location.hostname}:${knownPorts[app.id]}`;
+  }
+  return '#';
+};
+
 // Status configuration - Blue/Gray/White theme
 const statusConfig = {
   running: { color: '#45ADFF', label: 'Aktiv', icon: FiCheck },
@@ -68,6 +91,7 @@ function AppStore() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedApp, setSelectedApp] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
+  const [uninstallDialog, setUninstallDialog] = useState({ open: false, appId: null, appName: null });
 
   // Load apps
   const loadApps = useCallback(async () => {
@@ -114,17 +138,38 @@ function AppStore() {
   }, [loadApps]);
 
   // Handle app actions
-  const handleAction = async (appId, action) => {
+  const handleAction = async (appId, action, options = {}) => {
     setActionLoading(prev => ({ ...prev, [appId]: action }));
 
     try {
-      await axios.post(`${API_BASE}/apps/${appId}/${action}`);
+      await axios.post(`${API_BASE}/apps/${appId}/${action}`, options);
       await loadApps();
     } catch (err) {
       console.error(`Error ${action} app ${appId}:`, err);
-      alert(err.response?.data?.message || `${action} fehlgeschlagen`);
+      // Show dependent apps in error message if available
+      const dependentApps = err.response?.data?.dependentApps;
+      if (dependentApps && dependentApps.length > 0) {
+        alert(`Diese App kann nicht gestoppt werden.\n\nFolgende Apps haengen davon ab:\n- ${dependentApps.join('\n- ')}\n\nBitte stoppen Sie zuerst diese Apps.`);
+      } else {
+        alert(err.response?.data?.message || `${action} fehlgeschlagen`);
+      }
     } finally {
       setActionLoading(prev => ({ ...prev, [appId]: null }));
+    }
+  };
+
+  // Open uninstall dialog
+  const openUninstallDialog = (appId, appName) => {
+    setUninstallDialog({ open: true, appId, appName });
+  };
+
+  // Handle uninstall with volume option
+  const handleUninstall = async (removeVolumes) => {
+    const { appId } = uninstallDialog;
+    setUninstallDialog({ open: false, appId: null, appName: null });
+
+    if (appId) {
+      await handleAction(appId, 'uninstall', { removeVolumes });
     }
   };
 
@@ -226,16 +271,14 @@ function AppStore() {
                 )}
                 Starten
               </button>
-              {!isSystem && (
-                <ConfirmIconButton
-                  icon={<FiTrash2 />}
-                  label="Deinstallieren"
-                  confirmText="Entfernen?"
-                  onConfirm={() => handleAction(app.id, 'uninstall')}
-                  variant="danger"
-                  disabled={isLoading}
-                />
-              )}
+              <button
+                className="btn btn-danger btn-icon"
+                onClick={() => openUninstallDialog(app.id, app.name)}
+                disabled={isLoading}
+                title="Deinstallieren"
+              >
+                <FiTrash2 />
+              </button>
             </>
           )}
 
@@ -249,9 +292,9 @@ function AppStore() {
                   <FiExternalLink />
                   Oeffnen
                 </Link>
-              ) : app.traefikRoute && (
+              ) : (
                 <a
-                  href={app.traefikRoute.replace("PathPrefix(`", "").replace("`)", "")}
+                  href={getAppUrl(app)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-primary"
@@ -260,16 +303,14 @@ function AppStore() {
                   Oeffnen
                 </a>
               )}
-              {!isSystem && (
-                <ConfirmIconButton
-                  icon={<FiSquare />}
-                  label="Stoppen"
-                  confirmText="Stoppen?"
-                  onConfirm={() => handleAction(app.id, 'stop')}
-                  variant="warning"
-                  disabled={isLoading}
-                />
-              )}
+              <ConfirmIconButton
+                icon={<FiSquare />}
+                label="Stoppen"
+                confirmText="Stoppen?"
+                onConfirm={() => handleAction(app.id, 'stop')}
+                variant="warning"
+                disabled={isLoading}
+              />
             </>
           )}
 
@@ -283,16 +324,14 @@ function AppStore() {
                 <FiRefreshCw />
                 Erneut starten
               </button>
-              {!isSystem && (
-                <ConfirmIconButton
-                  icon={<FiTrash2 />}
-                  label="Deinstallieren"
-                  confirmText="Entfernen?"
-                  onConfirm={() => handleAction(app.id, 'uninstall')}
-                  variant="danger"
-                  disabled={isLoading}
-                />
-              )}
+              <button
+                className="btn btn-danger btn-icon"
+                onClick={() => openUninstallDialog(app.id, app.name)}
+                disabled={isLoading}
+                title="Deinstallieren"
+              >
+                <FiTrash2 />
+              </button>
             </>
           )}
 
@@ -400,10 +439,56 @@ function AppStore() {
           app={selectedApp}
           onClose={() => setSelectedApp(null)}
           onAction={handleAction}
+          onUninstall={openUninstallDialog}
           actionLoading={actionLoading}
           statusConfig={statusConfig}
           getIcon={getIcon}
         />
+      )}
+
+      {/* Uninstall confirmation dialog */}
+      {uninstallDialog.open && (
+        <div className="modal-overlay" onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}>
+          <div className="modal-content uninstall-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><FiTrash2 /> App deinstallieren</h3>
+              <button
+                className="modal-close"
+                onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
+              >
+                <FiX />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Moechten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
+              </p>
+              <p className="uninstall-warning">
+                <FiAlertCircle /> Waehlen Sie, ob die App-Daten behalten oder geloescht werden sollen:
+              </p>
+            </div>
+            <div className="modal-footer uninstall-buttons">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
+              >
+                Abbrechen
+              </button>
+              <button
+                className="btn btn-warning"
+                onClick={() => handleUninstall(false)}
+              >
+                <FiTrash2 /> Nur App entfernen
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={() => handleUninstall(true)}
+              >
+                <FiTrash2 /> App + Daten loeschen
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

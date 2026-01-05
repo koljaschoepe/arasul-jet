@@ -1147,3 +1147,99 @@
 .n8n-actions .btn {
   padding: 0.6rem 1rem;
 }
+
+/* ============================================
+   Uninstall Dialog Styles
+   ============================================ */
+.uninstall-dialog {
+  max-width: 480px;
+}
+
+.uninstall-dialog .modal-header {
+  border-bottom: 1px solid var(--store-gray-700);
+  padding-bottom: 1rem;
+}
+
+.uninstall-dialog .modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ef4444;
+  font-size: 1.1rem;
+}
+
+.uninstall-dialog .modal-body {
+  padding: 1.5rem 0;
+}
+
+.uninstall-dialog .modal-body p {
+  margin: 0 0 1rem;
+  color: var(--store-gray-300);
+  line-height: 1.5;
+}
+
+.uninstall-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
+  color: #f59e0b !important;
+  font-size: 0.9rem;
+}
+
+.uninstall-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.uninstall-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.uninstall-buttons .btn {
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+}
+
+.uninstall-buttons .btn-secondary {
+  background: var(--store-gray-600);
+  color: var(--store-gray-200);
+}
+
+.uninstall-buttons .btn-secondary:hover {
+  background: var(--store-gray-500);
+}
+
+.uninstall-buttons .btn-warning {
+  background: #f59e0b;
+  color: #000;
+}
+
+.uninstall-buttons .btn-warning:hover {
+  background: #d97706;
+}
+
+.uninstall-buttons .btn-danger {
+  background: #ef4444;
+  color: #fff;
+}
+
+.uninstall-buttons .btn-danger:hover {
+  background: #dc2626;
+}
+
+/* Button icon only style */
+.btn-icon {
+  padding: 0.4rem 0.6rem !important;
+  min-width: auto;
+}
+
+.btn-icon svg {
+  margin: 0;
+}

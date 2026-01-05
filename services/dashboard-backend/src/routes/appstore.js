@@ -209,18 +209,23 @@ router.post('/:id/uninstall', requireAuth, apiLimiter, async (req, res) => {
     } catch (error) {
         logger.error(`Error uninstalling app ${req.params.id}: ${error.message}`);
 
-        let statusCode = 500;
+        let statusCode = error.statusCode || 500;
         if (error.message.includes('nicht installiert')) {
             statusCode = 404;
-        } else if (error.message.includes('System-Apps')) {
-            statusCode = 403;
         }
 
-        res.status(statusCode).json({
+        const response = {
             error: 'Deinstallation fehlgeschlagen',
             message: error.message,
             timestamp: new Date().toISOString()
-        });
+        };
+
+        // Include dependent apps info if available (for dependency conflicts)
+        if (error.dependentApps) {
+            response.dependentApps = error.dependentApps;
+        }
+
+        res.status(statusCode).json(response);
     }
 });
 
@@ -277,18 +282,23 @@ router.post('/:id/stop', requireAuth, apiLimiter, async (req, res) => {
     } catch (error) {
         logger.error(`Error stopping app ${req.params.id}: ${error.message}`);
 
-        let statusCode = 500;
+        let statusCode = error.statusCode || 500;
         if (error.message.includes('nicht installiert')) {
             statusCode = 404;
-        } else if (error.message.includes('System-Apps')) {
-            statusCode = 403;
         }
 
-        res.status(statusCode).json({
+        const response = {
             error: 'Stop fehlgeschlagen',
             message: error.message,
             timestamp: new Date().toISOString()
-        });
+        };
+
+        // Include dependent apps info if available (for dependency conflicts)
+        if (error.dependentApps) {
+            response.dependentApps = error.dependentApps;
+        }
+
+        res.status(statusCode).json(response);
     }
 });
 

@@ -417,6 +417,32 @@ class AppService {
     }
 
     /**
+     * Check if other running apps depend on this app
+     * @param {string} appId - App ID to check
+     * @returns {Promise<Object>} Object with hasDependents boolean and dependentApps array
+     */
+    async checkDependencies(appId) {
+        // Query for running apps that depend on this app
+        const result = await db.query(`
+            SELECT ai.app_id, ai.status
+            FROM app_installations ai
+            JOIN app_dependencies ad ON ai.app_id = ad.app_id
+            WHERE ad.depends_on = $1 AND ai.status = 'running'
+        `, [appId]);
+
+        const dependentApps = result.rows.map(row => row.app_id);
+
+        if (dependentApps.length > 0) {
+            const error = new Error(`Diese App kann nicht gestoppt werden. Folgende Apps haengen davon ab: ${dependentApps.join(', ')}`);
+            error.dependentApps = dependentApps;
+            error.statusCode = 409; // Conflict
+            throw error;
+        }
+
+        return { hasDependents: false, dependentApps: [] };
+    }
+
+    /**
      * Stop a running app
      * @param {string} appId - App ID to stop
      * @returns {Promise<Object>} Stop result
@@ -433,10 +459,8 @@ class AppService {
 
         const installation = result.rows[0];
 
-        // Prevent stopping system apps
-        if (installation.app_type === 'system') {
-            throw new Error('System-Apps koennen nicht gestoppt werden');
-        }
+        // Check if other running apps depend on this app
+        await this.checkDependencies(appId);
 
         // Check actual container state, not just DB status
         // This handles cases where DB and container state are out of sync
@@ -672,10 +696,8 @@ class AppService {
 
         const installation = result.rows[0];
 
-        // Prevent uninstalling system apps
-        if (installation.app_type === 'system') {
-            throw new Error('System-Apps koennen nicht deinstalliert werden');
-        }
+        // Check if other running apps depend on this app
+        await this.checkDependencies(appId);
 
         await db.query(
             'UPDATE app_installations SET status = $1 WHERE app_id = $2',
