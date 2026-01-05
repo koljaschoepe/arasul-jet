@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText } from 'react-icons/fi';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal } from 'react-icons/fi';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
 import DocumentManager from './components/DocumentManager';
+import AppStore from './components/AppStore';
+import ClaudeCode from './components/ClaudeCode';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import './index.css';
@@ -57,6 +59,7 @@ function App() {
   const [ws, setWs] = useState(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [wsReconnecting, setWsReconnecting] = useState(false);
+  const [runningApps, setRunningApps] = useState([]);
 
   // Check for existing token on mount
   useEffect(() => {
@@ -97,14 +100,15 @@ function App() {
     if (!isAuthenticated) return;
 
     try {
-      const [statusRes, metricsRes, historyRes, servicesRes, workflowsRes, infoRes, networkRes] = await Promise.all([
+      const [statusRes, metricsRes, historyRes, servicesRes, workflowsRes, infoRes, networkRes, appsRes] = await Promise.all([
         axios.get(`${API_BASE}/system/status`),
         axios.get(`${API_BASE}/metrics/live`),
         axios.get(`${API_BASE}/metrics/history?range=24h`),
         axios.get(`${API_BASE}/services`),
         axios.get(`${API_BASE}/workflows/activity`),
         axios.get(`${API_BASE}/system/info`),
-        axios.get(`${API_BASE}/system/network`)
+        axios.get(`${API_BASE}/system/network`),
+        axios.get(`${API_BASE}/apps?status=running,installed`)
       ]);
 
       setSystemStatus(statusRes.data);
@@ -114,6 +118,7 @@ function App() {
       setWorkflows(workflowsRes.data);
       setSystemInfo(infoRes.data);
       setNetworkInfo(networkRes.data);
+      setRunningApps(appsRes.data.apps || []);
       setLoading(false);
       setError(null);
 
@@ -347,6 +352,7 @@ function App() {
                     workflows={workflows}
                     systemInfo={systemInfo}
                     networkInfo={networkInfo}
+                    runningApps={runningApps}
                     formatChartData={formatChartData}
                     formatUptime={formatUptime}
                     getStatusColor={getStatusColor}
@@ -356,6 +362,8 @@ function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/chat" element={<ChatMulti />} />
               <Route path="/documents" element={<DocumentManager />} />
+              <Route path="/appstore" element={<AppStore />} />
+              <Route path="/claude-code" element={<ClaudeCode />} />
             </Routes>
           </div>
         </div>
@@ -388,6 +396,9 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor }) {
           </Link>
           <Link to="/documents" className={isActive('/documents')}>
             <FiFileText /> Dokumente
+          </Link>
+          <Link to="/appstore" className={isActive('/appstore')}>
+            <FiPackage /> Store
           </Link>
           <Link to="/settings" className={isActive('/settings')}>
             <FiSettings /> Einstellungen
@@ -424,10 +435,52 @@ function DashboardHome({
   workflows,
   systemInfo,
   networkInfo,
+  runningApps,
   formatChartData,
   formatUptime,
   getStatusColor
 }) {
+  // Icon mapping for apps
+  const getAppIcon = (iconName) => {
+    const icons = {
+      'FiZap': FiZap,
+      'FiDatabase': FiDatabase,
+      'FiCode': FiCode,
+      'FiGitBranch': FiGitBranch,
+      'FiBox': FiBox,
+      'FiTerminal': FiTerminal
+    };
+    const IconComponent = icons[iconName] || FiBox;
+    return <IconComponent className="service-link-icon" />;
+  };
+
+  // Get app URL based on port or traefik route
+  const getAppUrl = (app) => {
+    // Apps with custom pages should link internally
+    if (app.hasCustomPage && app.customPageRoute) {
+      return app.customPageRoute;
+    }
+    // Use external port if available
+    if (app.ports?.external) {
+      return `http://${window.location.hostname}:${app.ports.external}`;
+    }
+    // Fallback to known ports
+    const knownPorts = {
+      'n8n': 5678,
+      'minio': 9001,
+      'code-server': 8443,
+      'gitea': 3002
+    };
+    if (knownPorts[app.id]) {
+      return `http://${window.location.hostname}:${knownPorts[app.id]}`;
+    }
+    return '#';
+  };
+
+  // Check if app link should be internal (React Router) or external
+  const isInternalLink = (app) => {
+    return app.hasCustomPage && app.customPageRoute;
+  };
   const getProgressColor = (value) => {
     if (value >= 90) return '#ef4444';
     if (value >= 70) return '#f59e0b';
@@ -496,40 +549,46 @@ function DashboardHome({
         </div>
       </div>
 
-      {/* Service Links */}
-      <div className="service-links-modern">
-        <a
-          href={`http://${window.location.hostname}:5678`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="service-link-card"
-        >
-          <div className="service-link-icon-wrapper">
-            <FiZap className="service-link-icon" />
-          </div>
-          <div className="service-link-content">
-            <div className="service-link-name">n8n Workflows</div>
-            <div className="service-link-description">Automation & Integration</div>
-          </div>
-          <FiExternalLink className="service-link-arrow" />
-        </a>
-
-        <a
-          href={`http://${window.location.hostname}:9001`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="service-link-card"
-        >
-          <div className="service-link-icon-wrapper">
-            <FiDatabase className="service-link-icon" />
-          </div>
-          <div className="service-link-content">
-            <div className="service-link-name">MinIO Storage</div>
-            <div className="service-link-description">Object Storage Console</div>
-          </div>
-          <FiExternalLink className="service-link-arrow" />
-        </a>
-      </div>
+      {/* Installed Apps - Dynamic */}
+      {runningApps && runningApps.length > 0 && (
+        <div className="service-links-modern">
+          {runningApps.filter(app => app.status === 'running').map(app => (
+            isInternalLink(app) ? (
+              <Link
+                key={app.id}
+                to={getAppUrl(app)}
+                className="service-link-card"
+              >
+                <div className="service-link-icon-wrapper">
+                  {getAppIcon(app.icon)}
+                </div>
+                <div className="service-link-content">
+                  <div className="service-link-name">{app.name}</div>
+                  <div className="service-link-description">{app.description}</div>
+                </div>
+                <FiExternalLink className="service-link-arrow" />
+              </Link>
+            ) : (
+              <a
+                key={app.id}
+                href={getAppUrl(app)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="service-link-card"
+              >
+                <div className="service-link-icon-wrapper">
+                  {getAppIcon(app.icon)}
+                </div>
+                <div className="service-link-content">
+                  <div className="service-link-name">{app.name}</div>
+                  <div className="service-link-description">{app.description}</div>
+                </div>
+                <FiExternalLink className="service-link-arrow" />
+              </a>
+            )
+          ))}
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="dashboard-grid">

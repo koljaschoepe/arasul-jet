@@ -1,0 +1,525 @@
+/**
+ * Claude Code Page Styles
+ * Dark theme with blue accents, matching the Arasul Dashboard
+ */
+
+/* Page Container */
+.claude-code-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 4rem);
+  background: var(--bg-dark, #101923);
+  animation: fadeIn 0.4s ease;
+}
+
+.claude-code-page.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100vh;
+  z-index: 1000;
+  padding: 0;
+}
+
+.claude-code-page.fullscreen .claude-code-header {
+  padding: 0.75rem 1rem;
+}
+
+.claude-code-page.fullscreen .claude-code-terminal {
+  border-radius: 0;
+}
+
+/* Header */
+.claude-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0 1.5rem 0;
+  border-bottom: 1px solid var(--border-color, #2a3544);
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.claude-code-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.claude-code-title .title-icon {
+  font-size: 2rem;
+  color: var(--primary-color, #45ADFF);
+}
+
+.claude-code-title .title-text h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary, #f8fafc);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.claude-code-title .title-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* Status Badge */
+.claude-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.claude-status-badge.status-running {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.claude-status-badge.status-stopped {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.claude-status-badge.status-installed {
+  background: rgba(69, 173, 255, 0.2);
+  color: #45ADFF;
+  border: 1px solid rgba(69, 173, 255, 0.3);
+}
+
+.claude-status-badge.status-installing {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.claude-status-badge.status-error,
+.claude-status-badge.status-unknown {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* Actions */
+.claude-code-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Buttons */
+.claude-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color, #2a3544);
+  background: var(--bg-card, #1a2330);
+  color: var(--text-secondary, #cbd5e1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.claude-btn:hover:not(:disabled) {
+  background: var(--bg-card-hover, #222d3d);
+  border-color: var(--primary-color, #45ADFF);
+  color: var(--text-primary, #f8fafc);
+}
+
+.claude-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.claude-btn-icon {
+  padding: 0.625rem;
+  min-width: 40px;
+  justify-content: center;
+}
+
+.claude-btn-primary {
+  background: var(--gradient-primary, linear-gradient(135deg, #45ADFF 0%, #3498db 100%));
+  border-color: transparent;
+  color: white;
+}
+
+.claude-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+}
+
+.claude-btn-secondary {
+  background: transparent;
+  border-color: var(--border-color, #2a3544);
+  color: var(--text-muted, #94a3b8);
+}
+
+.claude-btn-secondary:hover:not(:disabled) {
+  background: var(--bg-card, #1a2330);
+  color: var(--text-primary, #f8fafc);
+}
+
+.claude-btn-active {
+  background: var(--bg-card-hover, #222d3d);
+  border-color: var(--primary-color, #45ADFF);
+  color: var(--primary-color, #45ADFF);
+}
+
+/* Spinning animation */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Error Banner */
+.claude-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.claude-error-banner svg:first-child {
+  flex-shrink: 0;
+}
+
+.claude-error-banner span {
+  flex: 1;
+}
+
+.claude-error-banner button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.claude-error-banner button:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Settings Panel */
+.claude-code-settings {
+  background: var(--bg-card, #1a2330);
+  border: 1px solid var(--border-color, #2a3544);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.claude-code-settings h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #f8fafc);
+  margin: 0 0 1.25rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle, #1d2835);
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.setting-item label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary, #cbd5e1);
+}
+
+.setting-item label svg {
+  color: var(--primary-color, #45ADFF);
+}
+
+.setting-required {
+  color: #ef4444;
+  margin-left: 0.25rem;
+}
+
+.setting-input,
+.setting-select {
+  padding: 0.75rem 1rem;
+  background: var(--bg-dark, #101923);
+  border: 1px solid var(--border-color, #2a3544);
+  border-radius: 8px;
+  color: var(--text-primary, #f8fafc);
+  font-size: 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.setting-input:focus,
+.setting-select:focus {
+  outline: none;
+  border-color: var(--primary-color, #45ADFF);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+}
+
+.setting-input::placeholder {
+  color: var(--text-muted, #94a3b8);
+}
+
+.setting-select {
+  cursor: pointer;
+}
+
+.setting-select option {
+  background: var(--bg-card, #1a2330);
+  color: var(--text-primary, #f8fafc);
+}
+
+.setting-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* Save Message */
+.save-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.save-message.success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.save-message.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+/* Settings Actions */
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle, #1d2835);
+}
+
+/* Terminal Area */
+.claude-code-terminal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card, #1a2330);
+  border: 1px solid var(--border-color, #2a3544);
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 400px;
+}
+
+.terminal-wrapper {
+  flex: 1;
+  display: flex;
+  background: #1a1a2e;
+}
+
+.terminal-iframe {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #1a1a2e;
+}
+
+/* Placeholder State */
+.terminal-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.terminal-placeholder .placeholder-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(69, 173, 255, 0.1) 0%, rgba(69, 173, 255, 0.05) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.terminal-placeholder .placeholder-icon svg {
+  font-size: 2rem;
+  color: var(--primary-color, #45ADFF);
+}
+
+.terminal-placeholder h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #f8fafc);
+  margin: 0 0 0.5rem 0;
+}
+
+.terminal-placeholder p {
+  font-size: 0.875rem;
+  color: var(--text-muted, #94a3b8);
+  margin: 0 0 1.5rem 0;
+  max-width: 400px;
+}
+
+/* Loading State */
+.claude-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.claude-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color, #2a3544);
+  border-top-color: var(--primary-color, #45ADFF);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.claude-loading p {
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.875rem;
+}
+
+/* Error State */
+.claude-error-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.claude-error-state .error-icon {
+  font-size: 3rem;
+  color: var(--warning-color, #f59e0b);
+  margin-bottom: 1rem;
+}
+
+.claude-error-state h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #f8fafc);
+  margin: 0 0 0.5rem 0;
+}
+
+.claude-error-state p {
+  font-size: 0.875rem;
+  color: var(--text-muted, #94a3b8);
+  margin: 0 0 1.5rem 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .claude-code-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .claude-code-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-actions {
+    flex-direction: column;
+  }
+
+  .settings-actions .claude-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .claude-code-page {
+    height: calc(100vh - 3rem);
+  }
+
+  .terminal-placeholder {
+    padding: 2rem 1rem;
+  }
+
+  .terminal-placeholder .placeholder-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .terminal-placeholder .placeholder-icon svg {
+    font-size: 1.5rem;
+  }
+}
