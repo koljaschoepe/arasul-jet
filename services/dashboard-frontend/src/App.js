@@ -60,6 +60,8 @@ function App() {
   const [wsConnected, setWsConnected] = useState(false);
   const [wsReconnecting, setWsReconnecting] = useState(false);
   const [runningApps, setRunningApps] = useState([]);
+  const [thresholds, setThresholds] = useState(null);
+  const [deviceInfo, setDeviceInfo] = useState(null);
 
   // Check for existing token on mount
   useEffect(() => {
@@ -100,7 +102,7 @@ function App() {
     if (!isAuthenticated) return;
 
     try {
-      const [statusRes, metricsRes, historyRes, servicesRes, workflowsRes, infoRes, networkRes, appsRes] = await Promise.all([
+      const [statusRes, metricsRes, historyRes, servicesRes, workflowsRes, infoRes, networkRes, appsRes, thresholdsRes] = await Promise.all([
         axios.get(`${API_BASE}/system/status`),
         axios.get(`${API_BASE}/metrics/live`),
         axios.get(`${API_BASE}/metrics/history?range=24h`),
@@ -108,7 +110,8 @@ function App() {
         axios.get(`${API_BASE}/workflows/activity`),
         axios.get(`${API_BASE}/system/info`),
         axios.get(`${API_BASE}/system/network`),
-        axios.get(`${API_BASE}/apps?status=running,installed`)
+        axios.get(`${API_BASE}/apps?status=running,installed`),
+        axios.get(`${API_BASE}/system/thresholds`)
       ]);
 
       setSystemStatus(statusRes.data);
@@ -119,6 +122,8 @@ function App() {
       setSystemInfo(infoRes.data);
       setNetworkInfo(networkRes.data);
       setRunningApps(appsRes.data.apps || []);
+      setThresholds(thresholdsRes.data.thresholds);
+      setDeviceInfo(thresholdsRes.data.device);
       setLoading(false);
       setError(null);
 
@@ -356,6 +361,8 @@ function App() {
                     formatChartData={formatChartData}
                     formatUptime={formatUptime}
                     getStatusColor={getStatusColor}
+                    thresholds={thresholds}
+                    deviceInfo={deviceInfo}
                   />
                 }
               />
@@ -438,8 +445,46 @@ function DashboardHome({
   runningApps,
   formatChartData,
   formatUptime,
-  getStatusColor
+  getStatusColor,
+  thresholds,
+  deviceInfo
 }) {
+  // Default thresholds if not loaded yet
+  const defaultThresholds = {
+    cpu: { warning: 70, critical: 90 },
+    ram: { warning: 70, critical: 90 },
+    gpu: { warning: 80, critical: 95 },
+    storage: { warning: 70, critical: 85 },
+    temperature: { warning: 65, critical: 80 }
+  };
+
+  const t = thresholds || defaultThresholds;
+
+  // Helper function to get status info based on value and metric thresholds
+  const getStatusInfo = (value, metric) => {
+    const threshold = t[metric];
+    if (!threshold) return { status: 'Normal', className: 'stat-change-positive' };
+
+    if (value >= threshold.critical) {
+      return { status: 'Critical', className: 'stat-change-negative' };
+    }
+    if (value >= threshold.warning) {
+      return { status: 'Warning', className: 'stat-change-warning' };
+    }
+    return { status: 'Normal', className: 'stat-change-positive' };
+  };
+
+  // Temperature-specific status labels
+  const getTempStatusInfo = (value) => {
+    const threshold = t.temperature;
+    if (value >= threshold.critical) {
+      return { status: 'Hot', className: 'stat-change-negative' };
+    }
+    if (value >= threshold.warning) {
+      return { status: 'Warm', className: 'stat-change-warning' };
+    }
+    return { status: 'Normal', className: 'stat-change-positive' };
+  };
   // Icon mapping for apps
   const getAppIcon = (iconName) => {
     const icons = {
@@ -481,9 +526,11 @@ function DashboardHome({
   const isInternalLink = (app) => {
     return app.hasCustomPage && app.customPageRoute;
   };
-  const getProgressColor = (value) => {
-    if (value >= 90) return '#ef4444';
-    if (value >= 70) return '#f59e0b';
+  // Dynamic progress color based on thresholds
+  const getProgressColor = (value, metric = 'cpu') => {
+    const threshold = t[metric] || { warning: 70, critical: 90 };
+    if (value >= threshold.critical) return '#ef4444';
+    if (value >= threshold.warning) return '#f59e0b';
     return '#45ADFF';
   };
 
@@ -505,8 +552,8 @@ function DashboardHome({
           <div className="stat-content">
             <div className="stat-label">CPU USAGE</div>
             <div className="stat-value-large">{metrics?.cpu?.toFixed(1) || 0}<span className="stat-unit">%</span></div>
-            <div className={`stat-change ${metrics?.cpu < 70 ? 'stat-change-positive' : 'stat-change-negative'}`}>
-              {metrics?.cpu < 70 ? '↑' : '↓'} Normal
+            <div className={`stat-change ${getStatusInfo(metrics?.cpu || 0, 'cpu').className}`}>
+              {getStatusInfo(metrics?.cpu || 0, 'cpu').status}
             </div>
           </div>
         </div>
@@ -518,8 +565,8 @@ function DashboardHome({
           <div className="stat-content">
             <div className="stat-label">RAM USAGE</div>
             <div className="stat-value-large">{metrics?.ram?.toFixed(1) || 0}<span className="stat-unit">%</span></div>
-            <div className={`stat-change ${metrics?.ram < 70 ? 'stat-change-positive' : 'stat-change-negative'}`}>
-              {metrics?.ram < 70 ? '↑' : '↓'} {metrics?.ram < 70 ? 'Normal' : 'High'}
+            <div className={`stat-change ${getStatusInfo(metrics?.ram || 0, 'ram').className}`}>
+              {getStatusInfo(metrics?.ram || 0, 'ram').status}
             </div>
           </div>
         </div>
@@ -532,6 +579,9 @@ function DashboardHome({
             <div className="stat-label">STORAGE</div>
             <div className="stat-value-large">{formatBytes(usedDisk)}<span className="stat-unit">GB</span></div>
             <div className="stat-sublabel">{formatBytes(totalDisk)}GB Total</div>
+            <div className={`stat-change ${getStatusInfo(metrics?.disk?.percent || 0, 'storage').className}`}>
+              {getStatusInfo(metrics?.disk?.percent || 0, 'storage').status} ({metrics?.disk?.percent?.toFixed(0) || 0}%)
+            </div>
           </div>
         </div>
 
@@ -542,8 +592,8 @@ function DashboardHome({
           <div className="stat-content">
             <div className="stat-label">TEMPERATURE</div>
             <div className="stat-value-large">{metrics?.temperature?.toFixed(0) || 0}<span className="stat-unit">°C</span></div>
-            <div className={`stat-change ${metrics?.temperature < 70 ? 'stat-change-positive' : 'stat-change-negative'}`}>
-              {metrics?.temperature < 70 ? '↑' : '↓'} {metrics?.temperature < 70 ? 'Normal' : 'High'}
+            <div className={`stat-change ${getTempStatusInfo(metrics?.temperature || 0).className}`}>
+              {getTempStatusInfo(metrics?.temperature || 0).status}
             </div>
           </div>
         </div>
@@ -650,6 +700,10 @@ function DashboardHome({
         <div className="dashboard-card">
           <h3 className="dashboard-card-title">System Info</h3>
           <div className="info-list-modern">
+            <div className="info-item-modern">
+              <span className="info-label-modern">Device</span>
+              <span className="info-value-modern">{deviceInfo?.name || 'Detecting...'}</span>
+            </div>
             <div className="info-item-modern">
               <span className="info-label-modern">Uptime</span>
               <span className="info-value-modern">{systemInfo?.uptime_seconds ? formatUptime(systemInfo.uptime_seconds) : 'N/A'}</span>

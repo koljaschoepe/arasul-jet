@@ -142,17 +142,32 @@ All variables are defined in `.env` file at repository root.
 
 ### Thresholds
 
+These thresholds are used by both Self-Healing and the Dashboard. If not set, device-specific defaults are auto-detected (see `/api/system/thresholds`).
+
 | Variable | Default | Description |
 |----------|---------|-------------|
+| CPU_WARNING_PERCENT | (auto) | CPU warning threshold (dashboard yellow) |
+| CPU_CRITICAL_PERCENT | 90 | CPU critical threshold (dashboard red) |
+| RAM_WARNING_PERCENT | (auto) | RAM warning threshold |
+| RAM_CRITICAL_PERCENT | 90 | RAM critical threshold |
+| GPU_WARNING_PERCENT | (auto) | GPU warning threshold |
+| GPU_CRITICAL_PERCENT | 95 | GPU critical threshold |
 | DISK_WARNING_PERCENT | 80 | Disk warning threshold |
 | DISK_CLEANUP_PERCENT | 90 | Disk cleanup threshold |
 | DISK_CRITICAL_PERCENT | 95 | Disk critical threshold |
 | DISK_REBOOT_PERCENT | 97 | Disk reboot threshold |
-| CPU_CRITICAL_PERCENT | 90 | CPU critical threshold |
-| RAM_CRITICAL_PERCENT | 90 | RAM critical threshold |
-| GPU_CRITICAL_PERCENT | 95 | GPU critical threshold |
-| TEMP_THROTTLE_CELSIUS | 83 | Temperature throttle |
-| TEMP_RESTART_CELSIUS | 85 | Temperature restart |
+| TEMP_WARNING_CELSIUS | (auto) | Temperature warning (dashboard yellow) |
+| TEMP_CRITICAL_CELSIUS | (auto) | Temperature critical (dashboard red) |
+| TEMP_THROTTLE_CELSIUS | 83 | Temperature throttle (self-healing) |
+| TEMP_RESTART_CELSIUS | 85 | Temperature restart (self-healing) |
+
+**Auto-detected defaults by device:**
+| Device | CPU warn/crit | RAM warn/crit | Temp warn/crit |
+|--------|---------------|---------------|----------------|
+| Jetson AGX Orin | 75/90 | 75/90 | 65/80 |
+| Jetson Orin Nano | 70/85 | 70/85 | 60/75 |
+| Jetson Nano | 65/80 | 65/80 | 55/70 |
+| Generic Linux | 80/95 | 80/95 | 70/85 |
 
 ---
 

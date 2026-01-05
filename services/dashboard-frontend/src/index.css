@@ -1589,6 +1589,12 @@ code {
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
+.stat-change-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
 /* Dashboard Grid */
 .dashboard-grid {
   display: grid;

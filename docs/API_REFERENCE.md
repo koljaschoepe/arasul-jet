@@ -41,6 +41,33 @@ Tokens expire after 24 hours (configurable via `JWT_EXPIRY`).
 | GET | `/api/system/status` | System health (OK/WARNING/CRITICAL) |
 | GET | `/api/system/info` | Version, build hash, uptime |
 | GET | `/api/system/network` | IP addresses, mDNS, connectivity |
+| GET | `/api/system/thresholds` | Device-specific metric thresholds |
+
+**GET /api/system/thresholds:**
+
+Returns device-specific thresholds for metrics based on auto-detected hardware.
+
+```json
+{
+  "device": {
+    "type": "jetson_agx_orin",
+    "name": "NVIDIA Jetson AGX Orin",
+    "cpu_cores": 12,
+    "total_memory_gb": 64
+  },
+  "thresholds": {
+    "cpu": { "warning": 75, "critical": 90 },
+    "ram": { "warning": 75, "critical": 90 },
+    "gpu": { "warning": 80, "critical": 95 },
+    "storage": { "warning": 70, "critical": 85 },
+    "temperature": { "warning": 65, "critical": 80 }
+  },
+  "source": "device_auto_detected",
+  "timestamp": "2026-01-05T12:00:00.000Z"
+}
+```
+
+Supported devices: Jetson AGX Orin, Orin Nano, Orin NX, Xavier, Nano, Generic Linux
 
 ### Metrics
 

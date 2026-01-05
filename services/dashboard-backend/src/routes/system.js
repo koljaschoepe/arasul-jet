@@ -168,6 +168,142 @@ router.get('/network', async (req, res) => {
     }
 });
 
+// GET /api/system/thresholds - Get device-specific thresholds
+router.get('/thresholds', async (req, res) => {
+    try {
+        // Detect device type
+        let deviceType = 'generic';
+        let deviceName = 'Generic Linux';
+        let cpuCores = os.cpus().length;
+        let totalMemoryGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
+
+        // Try to detect Jetson device
+        try {
+            const { stdout: tegrastats } = await execAsync('cat /etc/nv_tegra_release 2>/dev/null || echo ""');
+            if (tegrastats.includes('TEGRA')) {
+                // It's a Jetson device
+                const { stdout: modelInfo } = await execAsync('cat /proc/device-tree/model 2>/dev/null || echo ""');
+
+                if (modelInfo.includes('AGX Orin')) {
+                    deviceType = 'jetson_agx_orin';
+                    deviceName = 'NVIDIA Jetson AGX Orin';
+                } else if (modelInfo.includes('Orin Nano')) {
+                    deviceType = 'jetson_orin_nano';
+                    deviceName = 'NVIDIA Jetson Orin Nano';
+                } else if (modelInfo.includes('Orin NX')) {
+                    deviceType = 'jetson_orin_nx';
+                    deviceName = 'NVIDIA Jetson Orin NX';
+                } else if (modelInfo.includes('Xavier')) {
+                    deviceType = 'jetson_xavier';
+                    deviceName = 'NVIDIA Jetson Xavier';
+                } else if (modelInfo.includes('Nano')) {
+                    deviceType = 'jetson_nano';
+                    deviceName = 'NVIDIA Jetson Nano';
+                } else {
+                    deviceType = 'jetson_generic';
+                    deviceName = 'NVIDIA Jetson Device';
+                }
+            }
+        } catch (e) {
+            logger.debug('Not a Jetson device or could not detect');
+        }
+
+        // Device-specific thresholds
+        const deviceThresholds = {
+            // Jetson AGX Orin - High performance, good cooling
+            jetson_agx_orin: {
+                cpu: { warning: 75, critical: 90 },
+                ram: { warning: 75, critical: 90 },
+                gpu: { warning: 80, critical: 95 },
+                storage: { warning: 70, critical: 85 },
+                temperature: { warning: 65, critical: 80 }  // Throttles at ~85°C
+            },
+            // Jetson Orin Nano - Less powerful, smaller heatsink
+            jetson_orin_nano: {
+                cpu: { warning: 70, critical: 85 },
+                ram: { warning: 70, critical: 85 },
+                gpu: { warning: 75, critical: 90 },
+                storage: { warning: 70, critical: 85 },
+                temperature: { warning: 60, critical: 75 }  // More conservative
+            },
+            // Jetson Orin NX - Mid-range
+            jetson_orin_nx: {
+                cpu: { warning: 72, critical: 88 },
+                ram: { warning: 72, critical: 88 },
+                gpu: { warning: 78, critical: 92 },
+                storage: { warning: 70, critical: 85 },
+                temperature: { warning: 62, critical: 77 }
+            },
+            // Jetson Xavier - Previous gen
+            jetson_xavier: {
+                cpu: { warning: 70, critical: 85 },
+                ram: { warning: 70, critical: 85 },
+                gpu: { warning: 75, critical: 90 },
+                storage: { warning: 70, critical: 85 },
+                temperature: { warning: 60, critical: 75 }
+            },
+            // Jetson Nano - Entry level
+            jetson_nano: {
+                cpu: { warning: 65, critical: 80 },
+                ram: { warning: 65, critical: 80 },
+                gpu: { warning: 70, critical: 85 },
+                storage: { warning: 70, critical: 85 },
+                temperature: { warning: 55, critical: 70 }  // Limited cooling
+            },
+            // Generic Jetson fallback
+            jetson_generic: {
+                cpu: { warning: 70, critical: 85 },
+                ram: { warning: 70, critical: 85 },
+                gpu: { warning: 75, critical: 90 },
+                storage: { warning: 70, critical: 85 },
+                temperature: { warning: 60, critical: 75 }
+            },
+            // Generic Linux/x86
+            generic: {
+                cpu: { warning: 80, critical: 95 },
+                ram: { warning: 80, critical: 95 },
+                gpu: { warning: 85, critical: 95 },
+                storage: { warning: 75, critical: 90 },
+                temperature: { warning: 70, critical: 85 }
+            }
+        };
+
+        // Get thresholds for detected device
+        let thresholds = deviceThresholds[deviceType] || deviceThresholds.generic;
+
+        // Override with environment variables if set
+        if (process.env.CPU_WARNING_PERCENT) thresholds.cpu.warning = parseInt(process.env.CPU_WARNING_PERCENT);
+        if (process.env.CPU_CRITICAL_PERCENT) thresholds.cpu.critical = parseInt(process.env.CPU_CRITICAL_PERCENT);
+        if (process.env.RAM_WARNING_PERCENT) thresholds.ram.warning = parseInt(process.env.RAM_WARNING_PERCENT);
+        if (process.env.RAM_CRITICAL_PERCENT) thresholds.ram.critical = parseInt(process.env.RAM_CRITICAL_PERCENT);
+        if (process.env.GPU_WARNING_PERCENT) thresholds.gpu.warning = parseInt(process.env.GPU_WARNING_PERCENT);
+        if (process.env.GPU_CRITICAL_PERCENT) thresholds.gpu.critical = parseInt(process.env.GPU_CRITICAL_PERCENT);
+        if (process.env.DISK_WARNING_PERCENT) thresholds.storage.warning = parseInt(process.env.DISK_WARNING_PERCENT);
+        if (process.env.DISK_CRITICAL_PERCENT) thresholds.storage.critical = parseInt(process.env.DISK_CRITICAL_PERCENT);
+        if (process.env.TEMP_WARNING_CELSIUS) thresholds.temperature.warning = parseInt(process.env.TEMP_WARNING_CELSIUS);
+        if (process.env.TEMP_CRITICAL_CELSIUS) thresholds.temperature.critical = parseInt(process.env.TEMP_CRITICAL_CELSIUS);
+
+        res.json({
+            device: {
+                type: deviceType,
+                name: deviceName,
+                cpu_cores: cpuCores,
+                total_memory_gb: totalMemoryGB
+            },
+            thresholds,
+            source: process.env.CPU_CRITICAL_PERCENT ? 'environment_override' : 'device_auto_detected',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Error in /api/system/thresholds: ${error.message}`);
+        res.status(500).json({
+            error: 'Failed to get system thresholds',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // POST /api/system/reload-config - Reload configuration without restart
 router.post('/reload-config', async (req, res) => {
     try {
