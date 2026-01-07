@@ -105,19 +105,19 @@ DECLARE
 BEGIN
     -- Check if any job for a different model has exceeded max wait time
     SELECT EXISTS (
-        SELECT 1 FROM llm_jobs
-        WHERE status = 'pending'
-        AND (requested_model IS DISTINCT FROM current_model OR current_model IS NULL)
-        AND queued_at < NOW() - (COALESCE(max_wait_seconds, 120) * INTERVAL '1 second')
+        SELECT 1 FROM llm_jobs j
+        WHERE j.status = 'pending'
+        AND (j.requested_model IS DISTINCT FROM current_model OR current_model IS NULL)
+        AND j.queued_at < NOW() - (COALESCE(j.max_wait_seconds, 120) * INTERVAL '1 second')
     ) INTO max_wait_exceeded;
 
     -- If a different model has waited too long, prioritize it (fairness)
     IF max_wait_exceeded THEN
         SELECT j.id, j.requested_model INTO oldest_other_model_job
         FROM llm_jobs j
-        WHERE status = 'pending'
+        WHERE j.status = 'pending'
         AND (j.requested_model IS DISTINCT FROM current_model OR current_model IS NULL)
-        AND queued_at < NOW() - (COALESCE(j.max_wait_seconds, 120) * INTERVAL '1 second')
+        AND j.queued_at < NOW() - (COALESCE(j.max_wait_seconds, 120) * INTERVAL '1 second')
         ORDER BY j.queued_at ASC
         LIMIT 1;
 
@@ -134,7 +134,7 @@ BEGIN
     -- Otherwise: prefer jobs for the currently loaded model (batch by model)
     SELECT j.id, j.requested_model INTO next_job
     FROM llm_jobs j
-    WHERE status = 'pending'
+    WHERE j.status = 'pending'
     ORDER BY
         -- Prioritize: 1) Same model, 2) High priority, 3) Oldest
         CASE WHEN j.requested_model = current_model THEN 0 ELSE 1 END,
