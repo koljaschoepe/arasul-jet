@@ -124,6 +124,7 @@ const axios = require('axios');
 const logger = require('./utils/logger');
 const llmJobService = require('./services/llmJobService');
 const llmQueueService = require('./services/llmQueueService');
+const modelService = require('./services/modelService');
 
 wss.on('connection', (ws) => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
@@ -184,6 +185,18 @@ if (require.main === module) {
   server.listen(PORT, '0.0.0.0', async () => {
     console.log('ARASUL DASHBOARD BACKEND - Port', PORT);
     console.log('WebSocket server ready at ws://0.0.0.0:' + PORT + '/api/metrics/live-stream');
+
+    // Sync installed models with Ollama
+    try {
+      const syncResult = await modelService.syncWithOllama();
+      if (syncResult.success) {
+        logger.info(`Model sync complete: ${syncResult.ollamaModels?.length || 0} models found in Ollama`);
+      } else {
+        logger.warn(`Model sync failed: ${syncResult.error}`);
+      }
+    } catch (err) {
+      logger.error(`Failed to sync models with Ollama: ${err.message}`);
+    }
 
     // Initialize LLM Queue Service (handles cleanup and starts processing)
     try {
