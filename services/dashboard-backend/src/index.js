@@ -32,8 +32,8 @@ const corsOptions = {
       origin.includes('://localhost') ||
       origin.includes('://127.0.0.1') ||
       origin.includes('://dashboard-frontend') ||
-      origin.endsWith('.local') ||
-      origin.includes('://arasul.local')
+      /\.local(:\d+)?$/.test(origin) ||
+      origin.includes('.local/')
     );
 
     // Allow if: no origin (same-origin/curl), explicitly allowed, or local network
