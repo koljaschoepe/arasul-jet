@@ -361,7 +361,8 @@ router.get('/verify', async (req, res) => {
             token = req.cookies.arasul_session;
         } else if (req.headers.authorization) {
             const parts = req.headers.authorization.split(' ');
-            if (parts.length === 2 && parts[0] === 'Bearer') {
+            // Case-insensitive Bearer check
+            if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
                 token = parts[1];
             }
         }

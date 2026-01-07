@@ -80,6 +80,9 @@ http:
     forward-auth:
       forwardAuth:
         address: "http://dashboard-backend:3001/api/auth/verify"
+        authRequestHeaders:
+          - "Authorization"
+          - "Cookie"
         authResponseHeaders:
           - "X-User-Id"
           - "X-User-Name"
