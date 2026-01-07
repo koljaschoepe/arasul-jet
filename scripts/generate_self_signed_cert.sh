@@ -76,19 +76,34 @@ subjectAltName = @alt_names
 DNS.1 = $DOMAIN
 DNS.2 = *.$DOMAIN
 DNS.3 = localhost
+DNS.4 = ubuntu.local
 IP.1 = 127.0.0.1
 IP.2 = 172.30.0.1
 EOF
 
-# Get local IP address (try multiple methods)
-LOCAL_IP=""
-if command -v hostname &> /dev/null; then
-    LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
-fi
+# Get ALL local IP addresses for LAN access support
+echo "   Detecting LAN IP addresses..."
+IP_INDEX=3
 
-if [ -n "$LOCAL_IP" ]; then
-    echo "IP.3 = $LOCAL_IP" >> "$CONFIG_FILE"
-fi
+# Get all IPv4 addresses from all interfaces
+ALL_IPS=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
+
+for IP in $ALL_IPS; do
+    echo "IP.$IP_INDEX = $IP" >> "$CONFIG_FILE"
+    echo "   Added IP.$IP_INDEX = $IP"
+    ((IP_INDEX++))
+done
+
+# Add common Docker bridge IPs if not already added
+for DOCKER_IP in "172.17.0.1" "172.18.0.1" "172.19.0.1"; do
+    if ! echo "$ALL_IPS" | grep -q "$DOCKER_IP"; then
+        echo "IP.$IP_INDEX = $DOCKER_IP" >> "$CONFIG_FILE"
+        echo "   Added IP.$IP_INDEX = $DOCKER_IP (Docker)"
+        ((IP_INDEX++))
+    fi
+done
+
+echo "   Total IPs in certificate: $((IP_INDEX-1))"
 
 # Generate self-signed certificate
 echo "📝 Generating self-signed certificate..."

@@ -105,6 +105,15 @@ router.post('/login', loginLimiter, async (req, res) => {
 
         logger.info(`Successful login for user: ${username} from ${ipAddress}`);
 
+        // Set HttpOnly cookie for LAN access support (session persists across IP/hostname changes)
+        res.cookie('arasul_session', tokenData.token, {
+            httpOnly: true,
+            secure: false,  // Allow HTTP for LAN access
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000,  // 24 hours
+            path: '/'
+        });
+
         res.json({
             success: true,
             token: tokenData.token,
@@ -130,10 +139,21 @@ router.post('/login', loginLimiter, async (req, res) => {
 // POST /api/auth/logout
 router.post('/logout', requireAuth, async (req, res) => {
     try {
-        const token = req.headers.authorization.split(' ')[1];
+        // Get token from header or cookie
+        const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
 
         // Blacklist the token
-        await blacklistToken(token);
+        if (token) {
+            await blacklistToken(token);
+        }
+
+        // Clear session cookie
+        res.clearCookie('arasul_session', {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'lax',
+            path: '/'
+        });
 
         logger.info(`User ${req.user.username} logged out`);
 
@@ -326,6 +346,66 @@ router.get('/password-requirements', (req, res) => {
         requirements: PASSWORD_REQUIREMENTS,
         timestamp: new Date().toISOString()
     });
+});
+
+// GET /api/auth/verify - Forward Auth endpoint for Traefik
+// Used to protect routes like n8n and Claude Code terminal
+router.get('/verify', async (req, res) => {
+    const { verifyToken } = require('../utils/jwt');
+
+    try {
+        // Get token from cookie first, then Authorization header
+        let token = null;
+
+        if (req.cookies && req.cookies.arasul_session) {
+            token = req.cookies.arasul_session;
+        } else if (req.headers.authorization) {
+            const parts = req.headers.authorization.split(' ');
+            if (parts.length === 2 && parts[0] === 'Bearer') {
+                token = parts[1];
+            }
+        }
+
+        if (!token) {
+            logger.debug('Forward auth: No token provided');
+            return res.status(401).send('No authentication token');
+        }
+
+        // Verify token
+        const decoded = await verifyToken(token);
+
+        if (!decoded) {
+            logger.debug('Forward auth: Token verification failed');
+            return res.status(401).send('Invalid token');
+        }
+
+        // Get user info
+        const result = await db.query(
+            'SELECT id, username, email FROM admin_users WHERE id = $1 AND is_active = true',
+            [decoded.userId]
+        );
+
+        if (result.rows.length === 0) {
+            logger.debug('Forward auth: User not found or inactive');
+            return res.status(401).send('User not found');
+        }
+
+        const user = result.rows[0];
+
+        // Set response headers with user info (for downstream services)
+        res.set({
+            'X-User-Id': user.id.toString(),
+            'X-User-Name': user.username,
+            'X-User-Email': user.email || ''
+        });
+
+        logger.debug(`Forward auth success for user: ${user.username}`);
+        res.status(200).send('OK');
+
+    } catch (error) {
+        logger.error(`Forward auth error: ${error.message}`);
+        res.status(401).send('Authentication failed');
+    }
 });
 
 module.exports = router;

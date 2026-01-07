@@ -545,12 +545,9 @@ services:
         limits:
           memory: ${RAM_LIMIT_N8N}
     labels:
+      # Router defined in config/traefik/dynamic/routes.yml with forward-auth SSO
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=PathPrefix(`/n8n`)"
-      - "traefik.http.routers.n8n.priority=100"
-      - "traefik.http.routers.n8n.entrypoints=websecure"
-      - "traefik.http.routers.n8n.tls=true"
-      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      - "traefik.http.services.n8n-docker.loadbalancer.server.port=5678"
     logging:
       driver: json-file
       options:

@@ -8,6 +8,7 @@ import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
 import DocumentManager from './components/DocumentManager';
 import AppStore from './components/AppStore';
+import ModelStore from './components/ModelStore';
 import ClaudeCode from './components/ClaudeCode';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -17,6 +18,9 @@ const API_BASE = process.env.REACT_APP_API_URL || '/api';
 // WebSocket URL: use wss:// if page is https://, otherwise ws://
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE = process.env.REACT_APP_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;
+
+// Enable sending cookies with all requests (for LAN access support)
+axios.defaults.withCredentials = true;
 
 // Axios interceptor for authentication
 axios.interceptors.request.use(
@@ -91,17 +95,49 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleSidebar]);
 
-  // Check for existing token on mount
+  // Check for existing session on mount (supports both localStorage and cookie-based auth)
   useEffect(() => {
-    const token = localStorage.getItem('arasul_token');
-    const storedUser = localStorage.getItem('arasul_user');
+    const verifyAuth = async () => {
+      try {
+        // Try to verify with backend (works with both cookie and localStorage token)
+        const response = await axios.get(`${API_BASE}/auth/me`);
+        if (response.data.user) {
+          setIsAuthenticated(true);
+          setUser(response.data.user);
+          // Sync localStorage for consistency
+          localStorage.setItem('arasul_user', JSON.stringify(response.data.user));
+        } else {
+          setLoading(false);
+        }
+      } catch (err) {
+        // Cookie/token invalid - check localStorage fallback
+        const token = localStorage.getItem('arasul_token');
+        const storedUser = localStorage.getItem('arasul_user');
 
-    if (token && storedUser) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(storedUser));
-    } else {
-      setLoading(false);
-    }
+        if (token && storedUser) {
+          // Try with localStorage token (will be added by interceptor)
+          try {
+            const retryResponse = await axios.get(`${API_BASE}/auth/me`);
+            if (retryResponse.data.user) {
+              setIsAuthenticated(true);
+              setUser(retryResponse.data.user);
+            } else {
+              localStorage.removeItem('arasul_token');
+              localStorage.removeItem('arasul_user');
+              setLoading(false);
+            }
+          } catch {
+            localStorage.removeItem('arasul_token');
+            localStorage.removeItem('arasul_user');
+            setLoading(false);
+          }
+        } else {
+          setLoading(false);
+        }
+      }
+    };
+
+    verifyAuth();
   }, []);
 
   // Handle login success
@@ -402,6 +438,7 @@ function App() {
               <Route path="/chat" element={<ChatMulti />} />
               <Route path="/documents" element={<DocumentManager />} />
               <Route path="/appstore" element={<AppStore />} />
+              <Route path="/models" element={<ModelStore />} />
               <Route path="/claude-code" element={<ClaudeCode />} />
             </Routes>
           </div>
@@ -448,6 +485,9 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onTogg
           </Link>
           <Link to="/appstore" className={isActive('/appstore')} title="Store">
             <FiPackage /> <span>Store</span>
+          </Link>
+          <Link to="/models" className={isActive('/models')} title="KI-Modelle">
+            <FiBox /> <span>KI-Modelle</span>
           </Link>
           <Link to="/settings" className={isActive('/settings')} title="Einstellungen">
             <FiSettings /> <span>Einstellungen</span>

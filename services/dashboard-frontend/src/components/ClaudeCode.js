@@ -50,9 +50,9 @@ function ClaudeCode() {
 
       // Set terminal URL if app is running
       if (app.status === 'running') {
-        // Use port from app config or default to 7681
-        const port = app.ports?.external || 7681;
-        setTerminalUrl(`http://${window.location.hostname}:${port}`);
+        // Use Traefik route instead of direct port for LAN access support
+        const protocol = window.location.protocol;
+        setTerminalUrl(`${protocol}//${window.location.host}/terminal/`);
       } else {
         setTerminalUrl('');
       }

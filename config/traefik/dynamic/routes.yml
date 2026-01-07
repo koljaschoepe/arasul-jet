@@ -159,7 +159,23 @@ http:
       tls:
         certResolver: letsencrypt
 
+    # Claude Code Web Terminal
+    # Protected by forward-auth (requires dashboard login)
+    claude-terminal:
+      rule: "PathPrefix(`/terminal`)"
+      service: claude-terminal-service
+      priority: 40
+      middlewares:
+        - forward-auth
+        - strip-terminal-prefix
+        - security-headers
+      entryPoints:
+        - web
+        - websecure
+      tls: {}
+
     # n8n Workflow Engine
+    # Protected by forward-auth (SSO with Dashboard)
     # Accessible from any IP address in the network via HTTP and HTTPS
     n8n:
       rule: "PathPrefix(`/n8n`)"
@@ -167,6 +183,7 @@ http:
       priority: 20
       middlewares:
         - strip-n8n-prefix
+        - forward-auth
         - security-headers
         - rate-limit-api
       entryPoints:
@@ -278,3 +295,10 @@ http:
           path: /healthz
           interval: 30s
           timeout: 3s
+
+    # Claude Code Web Terminal
+    claude-terminal-service:
+      loadBalancer:
+        servers:
+          - url: "http://claude-code-app:7681"
+        passHostHeader: true

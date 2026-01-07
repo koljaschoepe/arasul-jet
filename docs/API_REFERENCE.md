@@ -8,9 +8,19 @@ Quick reference for all Dashboard Backend API endpoints.
 
 All endpoints except `/api/health` and `/api/auth/login` require JWT authentication.
 
-```
-Authorization: Bearer <token>
-```
+**Two authentication methods are supported:**
+
+1. **Authorization Header (traditional):**
+   ```
+   Authorization: Bearer <token>
+   ```
+
+2. **HttpOnly Cookie (for LAN access):**
+   ```
+   Cookie: arasul_session=<token>
+   ```
+
+   The cookie is automatically set on login and enables session persistence when accessing via different IPs or hostnames in the same LAN.
 
 Tokens expire after 24 hours (configurable via `JWT_EXPIRY`).
 
@@ -29,10 +39,19 @@ Tokens expire after 24 hours (configurable via `JWT_EXPIRY`).
 
 | Method | Endpoint | Description | Rate Limit |
 |--------|----------|-------------|------------|
-| POST | `/api/auth/login` | Login with username/password | - |
-| POST | `/api/auth/logout` | Logout (blacklists token) | - |
-| GET | `/api/auth/verify` | Verify current token | - |
+| POST | `/api/auth/login` | Login with username/password (sets cookie) | - |
+| POST | `/api/auth/logout` | Logout (blacklists token, clears cookie) | - |
+| GET | `/api/auth/verify` | Verify token (for Traefik forward-auth) | - |
+| GET | `/api/auth/me` | Get current user info | - |
 | POST | `/api/auth/refresh` | Refresh token | - |
+
+**GET /api/auth/verify:**
+
+Used by Traefik forward-auth middleware to protect routes like n8n and Claude Code terminal.
+Returns user info headers on success:
+- `X-User-Id`: User ID
+- `X-User-Name`: Username
+- `X-User-Email`: Email (if set)
 
 ### System
 
@@ -293,6 +312,98 @@ Response: Server-Sent Events (SSE) stream
 - `running` - Currently running
 - `stopping` / `starting` - Transitioning
 - `error` - Error state
+
+### Model Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/models/catalog` | List curated model catalog |
+| GET | `/api/models/installed` | List installed models |
+| GET | `/api/models/status` | Current loaded model + queue stats |
+| GET | `/api/models/loaded` | Get currently loaded model |
+| GET | `/api/models/default` | Get default model |
+| POST | `/api/models/default` | Set default model |
+| POST | `/api/models/download` | Download model (SSE progress) |
+| DELETE | `/api/models/:id` | Delete installed model |
+| POST | `/api/models/:id/activate` | Load model into RAM |
+| POST | `/api/models/:id/deactivate` | Unload model from RAM |
+
+**GET /api/models/catalog:**
+```json
+{
+  "models": [
+    {
+      "id": "qwen3:7b-q8",
+      "name": "Qwen 3 7B",
+      "description": "Schnelles Allzweck-Modell",
+      "size_bytes": 8589934592,
+      "ram_required_gb": 10,
+      "category": "small",
+      "capabilities": ["chat", "code"],
+      "recommended_for": ["chat", "quick-tasks"],
+      "jetson_tested": true,
+      "is_installed": true,
+      "is_loaded": false,
+      "is_default": true
+    }
+  ],
+  "timestamp": "2026-01-07T12:00:00Z"
+}
+```
+
+**GET /api/models/status:**
+```json
+{
+  "loaded_model": "qwen3:14b-q8",
+  "ram_used_gb": 20,
+  "pending_by_model": {
+    "qwen3:7b-q8": 2,
+    "qwen3:32b-q4": 1
+  },
+  "total_pending": 3,
+  "timestamp": "2026-01-07T12:00:00Z"
+}
+```
+
+**POST /api/models/download:**
+```json
+{
+  "model_id": "qwen3:7b-q8"
+}
+```
+Response: SSE stream with progress events:
+```
+data: {"type": "progress", "percent": 45, "downloaded_gb": 3.6, "total_gb": 8.0}
+data: {"type": "done", "model_id": "qwen3:7b-q8"}
+```
+
+**POST /api/models/:id/activate:**
+Loads model into RAM. Only one model can be loaded at a time.
+```json
+{
+  "success": true,
+  "model_id": "qwen3:7b-q8",
+  "ram_used_gb": 10,
+  "timestamp": "2026-01-07T12:00:00Z"
+}
+```
+
+**POST /api/llm/chat (with model selection):**
+```json
+{
+  "messages": [...],
+  "conversation_id": 123,
+  "model": "qwen3:7b-q8",          // Optional: explicit model
+  "model_sequence": ["a", "b"],    // Optional: for workflows
+  "priority": 1                     // Optional: 0=normal, 1=high
+}
+```
+
+**Model Categories:**
+- `small` - Under 10GB RAM (7B models)
+- `medium` - 10-25GB RAM (14B models)
+- `large` - 25-45GB RAM (32B models)
+- `xlarge` - Over 45GB RAM (70B+ models)
 
 ---
 

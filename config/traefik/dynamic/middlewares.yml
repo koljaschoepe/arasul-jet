@@ -76,13 +76,14 @@ http:
         accessControlMaxAge: 3600
         addVaryHeader: true
 
-    # Forward Authentication (JWT validation)
+    # Forward Authentication (JWT validation via cookie or header)
     forward-auth:
       forwardAuth:
         address: "http://dashboard-backend:3001/api/auth/verify"
         authResponseHeaders:
           - "X-User-Id"
-          - "X-User-Role"
+          - "X-User-Name"
+          - "X-User-Email"
 
     # Strip path prefixes
     strip-minio-prefix:
@@ -121,6 +122,13 @@ http:
       stripPrefix:
         prefixes:
           - "/n8n"
+        forceSlash: false
+
+    # Strip terminal prefix for Claude Code
+    strip-terminal-prefix:
+      stripPrefix:
+        prefixes:
+          - "/terminal"
         forceSlash: false
 
     # Compression

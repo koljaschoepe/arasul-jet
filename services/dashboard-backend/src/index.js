@@ -5,6 +5,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const http = require('http');
 const WebSocket = require('ws');
 
@@ -48,6 +49,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -73,6 +75,7 @@ const ragRouter = require('./routes/rag');
 const settingsRouter = require('./routes/settings');
 const documentsRouter = require('./routes/documents');
 const appstoreRouter = require('./routes/appstore');
+const modelsRouter = require('./routes/models');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -91,6 +94,7 @@ app.use('/api/rag', ragRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/apps', appstoreRouter);
+app.use('/api/models', modelsRouter);
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {

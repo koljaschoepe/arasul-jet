@@ -13,26 +13,30 @@ const db = require('../database');
  */
 async function requireAuth(req, res, next) {
     try {
-        // Get token from Authorization header
+        let token = null;
+
+        // Get token from Authorization header first
         const authHeader = req.headers.authorization;
 
-        if (!authHeader) {
+        if (authHeader) {
+            // Check if format is "Bearer <token>"
+            const parts = authHeader.split(' ');
+            if (parts.length === 2 && parts[0] === 'Bearer') {
+                token = parts[1];
+            }
+        }
+
+        // Fallback to cookie for LAN access support
+        if (!token && req.cookies && req.cookies.arasul_session) {
+            token = req.cookies.arasul_session;
+        }
+
+        if (!token) {
             return res.status(401).json({
-                error: 'No authorization header provided',
+                error: 'No authentication token provided',
                 timestamp: new Date().toISOString()
             });
         }
-
-        // Check if format is "Bearer <token>"
-        const parts = authHeader.split(' ');
-        if (parts.length !== 2 || parts[0] !== 'Bearer') {
-            return res.status(401).json({
-                error: 'Invalid authorization header format. Expected: Bearer <token>',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        const token = parts[1];
 
         // Verify token
         const decoded = await verifyToken(token);
