@@ -89,14 +89,27 @@ if [ -f /etc/avahi/avahi-daemon.conf ] && [ ! -f /etc/avahi/avahi-daemon.conf.ba
     info "Original config backed up"
 fi
 
+# Detect all physical network interfaces (excluding Docker/virtual interfaces)
+info "Detecting network interfaces..."
+PHYSICAL_INTERFACES=$(ip -o link show | awk -F': ' '{print $2}' | \
+    grep -vE '^(lo|docker|br-|veth|virbr)' | \
+    tr '\n' ',' | sed 's/,$//')
+
+if [ -z "$PHYSICAL_INTERFACES" ]; then
+    warn "Could not detect interfaces, using defaults"
+    PHYSICAL_INTERFACES="eth0,wlan0,enp0s1,wlp2s0"
+fi
+
+info "Detected interfaces: $PHYSICAL_INTERFACES"
+
 # Create Avahi daemon config
-cat > /etc/avahi/avahi-daemon.conf << 'EOF'
+cat > /etc/avahi/avahi-daemon.conf << EOF
 [server]
 host-name=HOSTNAME_PLACEHOLDER
 domain-name=local
 use-ipv4=yes
 use-ipv6=yes
-allow-interfaces=eth0,wlan0,enp0s1,wlp2s0
+allow-interfaces=$PHYSICAL_INTERFACES
 deny-interfaces=docker0,br-*,veth*
 ratelimit-interval-usec=1000000
 ratelimit-burst=1000
