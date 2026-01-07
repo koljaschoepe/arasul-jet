@@ -300,5 +300,5 @@ http:
     claude-terminal-service:
       loadBalancer:
         servers:
-          - url: "http://claude-code-app:7681"
+          - url: "http://claude-code:7681"
         passHostHeader: true
