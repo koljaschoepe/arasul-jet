@@ -24,14 +24,16 @@ const corsOptions = {
       ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
       : [];
 
-    // Check if origin is from a local/private network (RFC 1918)
+    // Check if origin is from a local/private network (RFC 1918) or mDNS
     const isLocalNetwork = origin && (
       origin.includes('://192.168.') ||
       origin.includes('://10.') ||
       /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./.test(origin) ||
       origin.includes('://localhost') ||
       origin.includes('://127.0.0.1') ||
-      origin.includes('://dashboard-frontend')
+      origin.includes('://dashboard-frontend') ||
+      origin.endsWith('.local') ||
+      origin.includes('://arasul.local')
     );
 
     // Allow if: no origin (same-origin/curl), explicitly allowed, or local network
