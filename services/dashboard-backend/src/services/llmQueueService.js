@@ -7,10 +7,15 @@
 const db = require('../database');
 const logger = require('../utils/logger');
 const llmJobService = require('./llmJobService');
+const modelService = require('./modelService');
 const axios = require('axios');
 const EventEmitter = require('events');
 
 const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
+
+// Model batching configuration
+const MODEL_BATCHING_ENABLED = process.env.MODEL_BATCHING_ENABLED !== 'false';
+const DEFAULT_MAX_WAIT_SECONDS = parseInt(process.env.MODEL_MAX_WAIT_SECONDS || '120');
 
 // Content batching configuration
 const BATCH_INTERVAL_MS = 500;
@@ -65,9 +70,20 @@ class LLMQueueService extends EventEmitter {
      * @param {number} conversationId - Chat conversation ID
      * @param {string} jobType - 'chat' or 'rag'
      * @param {object} requestData - Original request parameters
-     * @returns {Promise<{jobId: string, messageId: number, queuePosition: number}>}
+     * @param {object} options - Optional: model, modelSequence, priority, maxWaitSeconds
+     * @returns {Promise<{jobId: string, messageId: number, queuePosition: number, model: string}>}
      */
-    async enqueue(conversationId, jobType, requestData) {
+    async enqueue(conversationId, jobType, requestData, options = {}) {
+        const {
+            model = null,
+            modelSequence = null,
+            priority = 0,
+            maxWaitSeconds = DEFAULT_MAX_WAIT_SECONDS
+        } = options;
+
+        // Resolve model: explicit > default
+        const resolvedModel = model || await modelService.getDefaultModel();
+
         // Get next queue position
         const posResult = await db.query(`SELECT get_next_queue_position() as pos`);
         const queuePosition = posResult.rows[0].pos;
@@ -79,20 +95,21 @@ class LLMQueueService extends EventEmitter {
             requestData
         );
 
-        // Update with queue info
+        // Update with queue info and model data
         await db.query(
             `UPDATE llm_jobs
-             SET queue_position = $1, queued_at = NOW(), status = 'pending'
-             WHERE id = $2`,
-            [queuePosition, jobId]
+             SET queue_position = $1, queued_at = NOW(), status = 'pending',
+                 requested_model = $2, model_sequence = $3, max_wait_seconds = $4, priority = $5
+             WHERE id = $6`,
+            [queuePosition, resolvedModel, JSON.stringify(modelSequence), maxWaitSeconds, priority, jobId]
         );
 
-        logger.info(`Job ${jobId} enqueued at position ${queuePosition}`);
+        logger.info(`Job ${jobId} enqueued for model ${resolvedModel} at position ${queuePosition}`);
 
         // Start processing if queue was empty
         setImmediate(() => this.processNext());
 
-        return { jobId, messageId, queuePosition };
+        return { jobId, messageId, queuePosition, model: resolvedModel };
     }
 
     /**
@@ -136,6 +153,7 @@ class LLMQueueService extends EventEmitter {
 
     /**
      * Process the next job in the queue
+     * Uses smart model batching to minimize model switches
      */
     async processNext() {
         if (this.isProcessing) {
@@ -144,25 +162,83 @@ class LLMQueueService extends EventEmitter {
         }
 
         try {
-            // Get next pending job
-            const result = await db.query(`
-                SELECT id, conversation_id, job_type, request_data
-                FROM llm_jobs
-                WHERE status = 'pending'
-                ORDER BY priority DESC, queue_position ASC
-                LIMIT 1
-            `);
+            let nextJobInfo;
+            let currentModel = null;
 
-            if (result.rows.length === 0) {
-                logger.debug('No pending jobs in queue');
+            // Get currently loaded model for batching decision
+            if (MODEL_BATCHING_ENABLED) {
+                const loadedModel = await modelService.getLoadedModel();
+                currentModel = loadedModel?.model_id || null;
+
+                // Use smart batching function
+                const batchResult = await db.query(
+                    'SELECT * FROM get_next_batched_job($1)',
+                    [currentModel]
+                );
+
+                if (batchResult.rows.length === 0 || !batchResult.rows[0].job_id) {
+                    logger.debug('No pending jobs in queue');
+                    return;
+                }
+
+                nextJobInfo = batchResult.rows[0];
+            } else {
+                // Fallback: simple FIFO without batching
+                const result = await db.query(`
+                    SELECT id as job_id, requested_model, false as should_switch, 'no_batching' as switch_reason
+                    FROM llm_jobs
+                    WHERE status = 'pending'
+                    ORDER BY priority DESC, queue_position ASC
+                    LIMIT 1
+                `);
+
+                if (result.rows.length === 0) {
+                    logger.debug('No pending jobs in queue');
+                    return;
+                }
+                nextJobInfo = result.rows[0];
+            }
+
+            const { job_id: jobId, requested_model, should_switch, switch_reason } = nextJobInfo;
+
+            // Get full job details
+            const jobResult = await db.query(
+                'SELECT * FROM llm_jobs WHERE id = $1',
+                [jobId]
+            );
+
+            if (jobResult.rows.length === 0) {
+                logger.error(`Job ${jobId} not found`);
                 return;
             }
 
-            const job = result.rows[0];
+            const job = jobResult.rows[0];
+
             this.isProcessing = true;
             this.processingJobId = job.id;
 
-            logger.info(`Processing job ${job.id} (type: ${job.job_type})`);
+            // Model switch if needed
+            if (should_switch && requested_model && requested_model !== currentModel) {
+                logger.info(`Switching model: ${currentModel || 'none'} -> ${requested_model} (reason: ${switch_reason})`);
+
+                // Notify waiting clients about model switch
+                this.emit('model:switching', { from: currentModel, to: requested_model, reason: switch_reason });
+
+                try {
+                    await modelService.activateModel(requested_model, 'queue');
+                    this.emit('model:switched', { model: requested_model });
+                } catch (switchError) {
+                    logger.error(`Failed to switch model: ${switchError.message}`);
+                    await llmJobService.errorJob(jobId, `Model switch failed: ${switchError.message}`);
+                    this.notifySubscribers(jobId, { error: `Model switch failed: ${switchError.message}`, done: true });
+                    this.isProcessing = false;
+                    this.processingJobId = null;
+                    setImmediate(() => this.processNext());
+                    return;
+                }
+            }
+
+            logger.info(`Processing job ${job.id} (type: ${job.job_type}, model: ${requested_model || 'default'})`);
 
             // Update status to streaming
             await db.query(
@@ -181,7 +257,8 @@ class LLMQueueService extends EventEmitter {
             this.notifySubscribers(job.id, {
                 type: 'status',
                 status: 'streaming',
-                queuePosition: 0
+                queuePosition: 0,
+                model: requested_model
             });
 
             // Process the job based on type
@@ -202,7 +279,7 @@ class LLMQueueService extends EventEmitter {
      * Process a chat job
      */
     async processChatJob(job) {
-        const { id: jobId, request_data: requestData } = job;
+        const { id: jobId, request_data: requestData, requested_model } = job;
         const { messages, temperature, max_tokens, thinking } = requestData;
         const enableThinking = thinking !== false;
 
@@ -210,14 +287,14 @@ class LLMQueueService extends EventEmitter {
         const thinkingPrefix = enableThinking ? '' : '/no_think\n';
         const prompt = thinkingPrefix + messages.map(m => `${m.role}: ${m.content}`).join('\n');
 
-        await this.streamFromOllama(jobId, prompt, enableThinking, temperature, max_tokens);
+        await this.streamFromOllama(jobId, prompt, enableThinking, temperature, max_tokens, requested_model);
     }
 
     /**
      * Process a RAG job
      */
     async processRAGJob(job) {
-        const { id: jobId, request_data: requestData } = job;
+        const { id: jobId, request_data: requestData, requested_model } = job;
         const { query, context, thinking, sources } = requestData;
         const enableThinking = thinking !== false;
 
@@ -236,13 +313,21 @@ ${context}`;
             this.notifySubscribers(jobId, { type: 'sources', sources });
         }
 
-        await this.streamFromOllama(jobId, prompt, enableThinking, 0.7, 32768);
+        await this.streamFromOllama(jobId, prompt, enableThinking, 0.7, 32768, requested_model);
     }
 
     /**
      * Stream from Ollama and persist to database
+     * @param {string} jobId - Job UUID
+     * @param {string} prompt - The prompt to send
+     * @param {boolean} enableThinking - Whether to enable thinking blocks
+     * @param {number} temperature - Sampling temperature
+     * @param {number} maxTokens - Max tokens to generate
+     * @param {string} model - Model to use (optional, falls back to default)
      */
-    async streamFromOllama(jobId, prompt, enableThinking, temperature, maxTokens) {
+    async streamFromOllama(jobId, prompt, enableThinking, temperature, maxTokens, model = null) {
+        // Use specified model or fall back to default
+        const resolvedModel = model || process.env.LLM_MODEL || 'qwen3:14b-q8';
         let contentBuffer = '';
         let thinkingBuffer = '';
         let lastDbWrite = Date.now();
@@ -270,13 +355,13 @@ ${context}`;
             const abortController = new AbortController();
             llmJobService.registerStream(jobId, abortController);
 
-            logger.info(`[QUEUE] Starting Ollama stream for job ${jobId}`);
+            logger.info(`[QUEUE] Starting Ollama stream for job ${jobId} with model ${resolvedModel}`);
 
             const response = await axios({
                 method: 'post',
                 url: `${LLM_SERVICE_URL}/api/generate`,
                 data: {
-                    model: process.env.LLM_MODEL || 'qwen3:14b-q8',
+                    model: resolvedModel,
                     prompt: prompt,
                     stream: true,
                     keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),

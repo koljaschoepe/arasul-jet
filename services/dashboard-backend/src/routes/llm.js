@@ -19,9 +19,20 @@ const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}
 /**
  * POST /api/llm/chat - Start a chat completion with Queue support
  * Job is added to queue and processed sequentially
+ * Supports model selection and workflow model sequences
  */
 router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
-    const { messages, temperature, max_tokens, stream, thinking, conversation_id } = req.body;
+    const {
+        messages,
+        temperature,
+        max_tokens,
+        stream,
+        thinking,
+        conversation_id,
+        model,           // Optional: explicit model to use
+        model_sequence,  // Optional: for workflows, e.g. ['qwen3:7b', 'qwen3:32b']
+        priority         // Optional: 0=normal, 1=high
+    } = req.body;
     const enableThinking = thinking !== false;
 
     if (!messages || !Array.isArray(messages)) {
@@ -39,14 +50,15 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
     }
 
     try {
-        // Add job to queue (instead of processing directly)
-        const { jobId, messageId, queuePosition } = await llmQueueService.enqueue(
+        // Add job to queue with model options
+        const { jobId, messageId, queuePosition, model: resolvedModel } = await llmQueueService.enqueue(
             conversation_id,
             'chat',
-            { messages, temperature, max_tokens, thinking: enableThinking }
+            { messages, temperature, max_tokens, thinking: enableThinking },
+            { model, modelSequence: model_sequence, priority: priority || 0 }
         );
 
-        logger.info(`[QUEUE] Job ${jobId} enqueued at position ${queuePosition}`);
+        logger.info(`[QUEUE] Job ${jobId} enqueued for model ${resolvedModel} at position ${queuePosition}`);
 
         // If streaming is requested (default: true)
         if (stream !== false) {
@@ -55,12 +67,13 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
             res.setHeader('Connection', 'keep-alive');
             res.setHeader('X-Accel-Buffering', 'no');
 
-            // Send job info with queue position
+            // Send job info with queue position and model
             res.write(`data: ${JSON.stringify({
                 type: 'job_started',
                 jobId,
                 messageId,
                 queuePosition,
+                model: resolvedModel,
                 status: queuePosition > 1 ? 'queued' : 'pending'
             })}\n\n`);
 
@@ -98,6 +111,7 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
                 jobId,
                 messageId,
                 queuePosition,
+                model: resolvedModel,
                 status: queuePosition > 1 ? 'queued' : 'pending',
                 timestamp: new Date().toISOString()
             });

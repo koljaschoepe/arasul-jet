@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   FiAlertCircle, FiChevronDown, FiChevronUp, FiPlus, FiX, FiArrowDown,
-  FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp
+  FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp, FiBox
 } from 'react-icons/fi';
 import '../chatmulti.css';
 
@@ -23,6 +23,13 @@ function ChatMulti() {
   const [error, setError] = useState(null);
   const [useRAG, setUseRAG] = useState(false);
   const [useThinking, setUseThinking] = useState(true);
+
+  // Model selection
+  const [selectedModel, setSelectedModel] = useState(''); // '' = default
+  const [installedModels, setInstalledModels] = useState([]);
+  const [defaultModel, setDefaultModel] = useState('');
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const modelDropdownRef = useRef(null);
 
   // Background job tracking - enables tab-switch resilience
   const [activeJobIds, setActiveJobIds] = useState({}); // chatId -> jobId
@@ -56,6 +63,42 @@ function ChatMulti() {
   useEffect(() => {
     loadChats();
   }, []);
+
+  // Load installed models on mount
+  useEffect(() => {
+    loadInstalledModels();
+  }, []);
+
+  // Close model dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
+        setShowModelDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Load installed models from API
+  const loadInstalledModels = async () => {
+    try {
+      const [installedRes, defaultRes] = await Promise.all([
+        axios.get(`${API_BASE}/models/installed`),
+        axios.get(`${API_BASE}/models/default`)
+      ]);
+
+      const models = installedRes.data.models || [];
+      setInstalledModels(models);
+
+      if (defaultRes.data.model) {
+        setDefaultModel(defaultRes.data.model.id);
+      }
+    } catch (err) {
+      console.error('Error loading models:', err);
+      // Non-blocking error - models will just show default
+    }
+  };
 
   // Load messages when chat changes and check for active jobs
   // IMPORTANT: Sequential execution to avoid race conditions
@@ -747,7 +790,8 @@ function ChatMulti() {
           max_tokens: 32768,
           stream: true,
           thinking: useThinking,
-          conversation_id: targetChatId  // Required for job-based streaming
+          conversation_id: targetChatId,  // Required for job-based streaming
+          model: selectedModel || undefined  // Optional: explicit model selection
         }),
         signal: abortController.signal
       });
@@ -1163,6 +1207,46 @@ function ChatMulti() {
             <FiCpu />
             {useThinking && <span>Think</span>}
           </button>
+
+          {/* Model Selector */}
+          {installedModels.length > 0 && (
+            <div className="model-selector" ref={modelDropdownRef}>
+              <button
+                className={`input-toggle model-toggle ${selectedModel ? 'active' : ''}`}
+                onClick={() => setShowModelDropdown(!showModelDropdown)}
+                title="Modell auswählen"
+              >
+                <FiBox />
+                <span className="model-name-short">
+                  {selectedModel
+                    ? installedModels.find(m => m.id === selectedModel)?.name?.split(' ')[0] || selectedModel.split(':')[0]
+                    : 'Standard'}
+                </span>
+                <FiChevronDown className={`dropdown-arrow ${showModelDropdown ? 'open' : ''}`} />
+              </button>
+              {showModelDropdown && (
+                <div className="model-dropdown">
+                  <div
+                    className={`model-option ${!selectedModel ? 'selected' : ''}`}
+                    onClick={() => { setSelectedModel(''); setShowModelDropdown(false); }}
+                  >
+                    <span className="model-option-name">Standard</span>
+                    <span className="model-option-desc">{defaultModel ? defaultModel.split(':')[0] : 'Automatisch'}</span>
+                  </div>
+                  {installedModels.map(model => (
+                    <div
+                      key={model.id}
+                      className={`model-option ${selectedModel === model.id ? 'selected' : ''}`}
+                      onClick={() => { setSelectedModel(model.id); setShowModelDropdown(false); }}
+                    >
+                      <span className="model-option-name">{model.name}</span>
+                      <span className="model-option-desc">{model.category} • {model.ram_required_gb}GB RAM</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Text Input */}
           <input

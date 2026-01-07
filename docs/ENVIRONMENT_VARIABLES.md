@@ -75,6 +75,34 @@ All variables are defined in `.env` file at repository root.
 
 ---
 
+## Model Management
+
+Dynamic LLM model management with smart batching for Jetson devices.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| MODEL_BATCHING_ENABLED | true | Enable smart model batching |
+| MODEL_MAX_WAIT_SECONDS | 120 | Max wait before forcing model switch |
+| MODEL_SWITCH_COOLDOWN_SECONDS | 5 | Cooldown between model switches |
+| JETSON_TOTAL_RAM_GB | 64 | Total Jetson RAM (GB) |
+| JETSON_RESERVED_RAM_GB | 10 | RAM reserved for system (GB) |
+
+### Smart Batching
+
+When enabled, the queue system batches all requests for the currently loaded model before switching to a different model. This minimizes expensive model load times.
+
+**Algorithm:**
+1. Process all queued requests for current model
+2. Only switch model when queue is empty OR max wait exceeded
+3. Fairness: No request waits longer than `MODEL_MAX_WAIT_SECONDS`
+
+**Example scenario:**
+- Model A loaded, 5 requests for A and 3 for B in queue
+- All 5 A requests processed first
+- Then switch to B, process 3 B requests
+
+---
+
 ## Embedding Service
 
 | Variable | Default | Description |
