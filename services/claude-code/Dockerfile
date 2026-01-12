@@ -8,7 +8,16 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates \
     sudo \
+    gnupg \
+    lsb-release \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Docker CLI (for interacting with host Docker)
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
+    echo "deb [arch=arm64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && \
+    apt-get install -y docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install ttyd for web terminal (ARM64 version for Jetson)
 RUN wget -O /usr/local/bin/ttyd \
@@ -20,8 +29,11 @@ RUN npm install -g @anthropic-ai/claude-code
 
 # Reuse existing 'node' user (UID 1000) from base image - matches host user arasul
 # Rename to 'claude' for clarity and move home directory
+# Add docker group with host GID (994) for Docker socket access
 RUN usermod -l claude -d /home/claude -m node && \
-    echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    groupadd -g 994 docker && \
+    usermod -aG docker claude
 
 # Create workspace directories with correct ownership
 RUN mkdir -p /workspace/arasul /workspace/custom /home/claude/.claude && \
