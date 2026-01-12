@@ -223,7 +223,7 @@ code {
   z-index: 10;
   animation: slideInLeft 0.3s ease;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Collapsed Sidebar State */
@@ -232,11 +232,12 @@ code {
 }
 
 .sidebar.collapsed .sidebar-header {
-  padding: 1.25rem 0.75rem;
+  padding: 1rem 0.5rem 0.75rem;
+  min-height: auto;
 }
 
 .sidebar.collapsed .sidebar-title {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   text-align: center;
 }
 
@@ -244,8 +245,12 @@ code {
   display: none;
 }
 
+.sidebar.collapsed .nav-bar {
+  padding: 0.5rem;
+}
+
 .sidebar.collapsed .nav-link {
-  padding: 0.875rem;
+  padding: 0.75rem;
   justify-content: center;
 }
 
@@ -255,11 +260,15 @@ code {
 
 .sidebar.collapsed .nav-link svg {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
 }
 
 .sidebar.collapsed .nav-link::before {
   display: none;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  padding: 0.75rem 0.5rem;
 }
 
 .sidebar.collapsed .logout-button span {
@@ -267,17 +276,18 @@ code {
 }
 
 .sidebar.collapsed .logout-button {
-  padding: 0.75rem;
+  padding: 0.625rem;
   justify-content: center;
+  width: 100%;
 }
 
 /* Sidebar Toggle Button */
 .sidebar-toggle {
   position: absolute;
-  top: 1.25rem;
-  right: -14px;
-  width: 28px;
-  height: 28px;
+  top: 1rem;
+  right: -16px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -288,7 +298,7 @@ code {
   z-index: 20;
   transition: all 0.2s ease;
   color: var(--text-muted);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .sidebar-toggle:hover {
@@ -296,15 +306,16 @@ code {
   color: white;
   border-color: var(--primary-color);
   transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(69, 173, 255, 0.4);
 }
 
 .sidebar-toggle svg {
-  font-size: 0.9rem;
+  font-size: 1rem;
   transition: transform 0.3s ease;
 }
 
 .sidebar.collapsed .sidebar-toggle {
-  right: -14px;
+  right: -16px;
 }
 
 .sidebar.collapsed .sidebar-toggle svg {
@@ -974,7 +985,9 @@ code {
 .navigation {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem 0;
+  min-height: 0;
 }
 
 .nav-bar {
