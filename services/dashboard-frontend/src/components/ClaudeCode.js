@@ -52,7 +52,7 @@ function ClaudeCode() {
       if (app.status === 'running') {
         // Use Traefik route instead of direct port for LAN access support
         const protocol = window.location.protocol;
-        setTerminalUrl(`${protocol}//${window.location.host}/terminal/`);
+        setTerminalUrl(`${protocol}//${window.location.host}/claude-terminal/`);
       } else {
         setTerminalUrl('');
       }
@@ -411,7 +411,7 @@ function ClaudeCode() {
 
       {/* Terminal Area */}
       <div className="claude-code-terminal">
-        {!config.ANTHROPIC_API_KEY || config.ANTHROPIC_API_KEY === '****' ? (
+        {!config.ANTHROPIC_API_KEY_set ? (
           <div className="terminal-placeholder">
             <div className="placeholder-icon">
               <FiKey />

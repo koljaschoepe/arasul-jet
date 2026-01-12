@@ -30,17 +30,27 @@ http:
         - websecure
       tls: {}
 
-    # Claude Code Terminal WebSocket
+    # Claude Code Terminal WebSocket - HTTP
     # Protected by forward-auth, accessible via LAN
     claude-terminal-websocket:
-      rule: "PathPrefix(`/terminal`) && Headers(`Upgrade`, `websocket`)"
+      rule: "PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)"
       service: claude-terminal-service
-      priority: 55
+      priority: 110
       middlewares:
         - forward-auth
-        - strip-terminal-prefix
+        - strip-claude-terminal-prefix
       entryPoints:
         - web
+
+    # Claude Code Terminal WebSocket - HTTPS
+    claude-terminal-websocket-secure:
+      rule: "PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)"
+      service: claude-terminal-service
+      priority: 110
+      middlewares:
+        - forward-auth
+        - strip-claude-terminal-prefix
+      entryPoints:
         - websecure
       tls: {}
 

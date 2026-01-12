@@ -127,11 +127,18 @@ http:
           - "/n8n"
         forceSlash: false
 
-    # Strip terminal prefix for Claude Code
+    # Strip terminal prefix for Claude Code (legacy)
     strip-terminal-prefix:
       stripPrefix:
         prefixes:
           - "/terminal"
+        forceSlash: false
+
+    # Strip claude-terminal prefix for Claude Code
+    strip-claude-terminal-prefix:
+      stripPrefix:
+        prefixes:
+          - "/claude-terminal"
         forceSlash: false
 
     # Compression

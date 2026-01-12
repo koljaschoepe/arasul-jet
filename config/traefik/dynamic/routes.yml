@@ -5,7 +5,7 @@ http:
   routers:
     # Dashboard Frontend (catch-all, lowest priority) - HTTP only
     dashboard-frontend:
-      rule: "PathPrefix(`/`)"
+      rule: "PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)"
       service: dashboard-frontend-service
       priority: 1
       entryPoints:
@@ -13,7 +13,7 @@ http:
 
     # Dashboard Frontend (catch-all, lowest priority) - HTTPS
     dashboard-frontend-secure:
-      rule: "PathPrefix(`/`)"
+      rule: "PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)"
       service: dashboard-frontend-service
       priority: 1
       entryPoints:
@@ -159,18 +159,27 @@ http:
       tls:
         certResolver: letsencrypt
 
-    # Claude Code Web Terminal
+    # Claude Code Web Terminal - HTTP
     # Protected by forward-auth (requires dashboard login)
     claude-terminal:
-      rule: "PathPrefix(`/terminal`)"
+      rule: "PathPrefix(`/claude-terminal`)"
       service: claude-terminal-service
-      priority: 40
+      priority: 100
       middlewares:
         - forward-auth
-        - strip-terminal-prefix
-        - security-headers
+        - strip-claude-terminal-prefix
       entryPoints:
         - web
+
+    # Claude Code Web Terminal - HTTPS
+    claude-terminal-secure:
+      rule: "PathPrefix(`/claude-terminal`)"
+      service: claude-terminal-service
+      priority: 100
+      middlewares:
+        - forward-auth
+        - strip-claude-terminal-prefix
+      entryPoints:
         - websecure
       tls: {}
 

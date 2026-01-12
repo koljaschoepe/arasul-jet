@@ -483,7 +483,7 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=PathPrefix(`/`) && !PathPrefix(`/n8n`) && !PathPrefix(`/api`)"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`) && !PathPrefix(`/n8n`) && !PathPrefix(`/api`) && !PathPrefix(`/claude-terminal`)"
       - "traefik.http.routers.frontend.priority=1"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls=true"
