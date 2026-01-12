@@ -161,24 +161,24 @@ http:
 
     # Claude Code Web Terminal - HTTP
     # Protected by forward-auth (requires dashboard login)
+    # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal:
       rule: "PathPrefix(`/claude-terminal`)"
       service: claude-terminal-service
       priority: 100
       middlewares:
         - forward-auth
-        - strip-claude-terminal-prefix
       entryPoints:
         - web
 
     # Claude Code Web Terminal - HTTPS
+    # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal-secure:
       rule: "PathPrefix(`/claude-terminal`)"
       service: claude-terminal-service
       priority: 100
       middlewares:
         - forward-auth
-        - strip-claude-terminal-prefix
       entryPoints:
         - websecure
       tls: {}

@@ -28,8 +28,10 @@ mkdir -p "$HOME/.claude/debug" 2>/dev/null || true
 
 # Start ttyd with Claude Code
 # --writable allows input
-# No authentication - open access within the local network
+# --base-path for proper routing behind Traefik reverse proxy
+# No authentication - open access within the local network (protected by forward-auth in Traefik)
 exec ttyd \
     --port 7681 \
     --writable \
+    --base-path /claude-terminal \
     bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: $(whoami)' && echo '---' && claude"

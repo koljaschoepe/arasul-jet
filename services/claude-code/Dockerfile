@@ -39,8 +39,8 @@ USER claude
 # Expose ttyd port
 EXPOSE 7681
 
-# Health check
+# Health check (ttyd runs with --base-path /claude-terminal)
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:7681/ || exit 1
+    CMD curl -f http://localhost:7681/claude-terminal/ || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
