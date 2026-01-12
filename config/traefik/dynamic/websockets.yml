@@ -31,25 +31,24 @@ http:
       tls: {}
 
     # Claude Code Terminal WebSocket - HTTP
-    # Protected by forward-auth, accessible via LAN
+    # No forward-auth for WebSockets - browsers may not send cookies with WS upgrade
+    # Security: Terminal iframe is only accessible when logged into Dashboard
     # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal-websocket:
       rule: "PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)"
       service: claude-terminal-service
       priority: 110
-      middlewares:
-        - forward-auth
       entryPoints:
         - web
 
     # Claude Code Terminal WebSocket - HTTPS
+    # No forward-auth for WebSockets - browsers may not send cookies with WS upgrade
+    # Security: Terminal iframe is only accessible when logged into Dashboard
     # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal-websocket-secure:
       rule: "PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)"
       service: claude-terminal-service
       priority: 110
-      middlewares:
-        - forward-auth
       entryPoints:
         - websecure
       tls: {}
