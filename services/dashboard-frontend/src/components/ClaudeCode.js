@@ -1,6 +1,7 @@
 /**
  * ClaudeCode Component
  * Dedicated page for Claude Code web terminal integration
+ * Features First-Time Setup Wizard for improved UX
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -18,16 +19,281 @@ import {
   FiX,
   FiSquare,
   FiMaximize2,
-  FiMinimize2
+  FiMinimize2,
+  FiChevronRight,
+  FiChevronLeft,
+  FiExternalLink,
+  FiCpu,
+  FiZap
 } from 'react-icons/fi';
 import '../claudecode.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
+// Setup Wizard Component
+function SetupWizard({ config, setConfig, onComplete, onSkip }) {
+  const [step, setStep] = useState(1);
+  const [apiKey, setApiKey] = useState('');
+  const [workspace, setWorkspace] = useState('/workspace/arasul');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const totalSteps = 3;
+
+  const handleApiKeyChange = (e) => {
+    setApiKey(e.target.value);
+    setError(null);
+  };
+
+  const validateApiKey = () => {
+    if (!apiKey || apiKey.trim() === '') {
+      setError('Bitte gib deinen Anthropic API-Key ein.');
+      return false;
+    }
+    if (!apiKey.startsWith('sk-ant-')) {
+      setError('Ungültiges API-Key Format. Der Key sollte mit "sk-ant-" beginnen.');
+      return false;
+    }
+    return true;
+  };
+
+  const nextStep = () => {
+    if (step === 1 && !validateApiKey()) {
+      return;
+    }
+    setError(null);
+    setStep(step + 1);
+  };
+
+  const prevStep = () => {
+    setError(null);
+    setStep(step - 1);
+  };
+
+  const completeSetup = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      // Save configuration
+      const newConfig = {
+        ANTHROPIC_API_KEY: apiKey,
+        CLAUDE_WORKSPACE: workspace
+      };
+
+      await axios.post(`${API_BASE}/apps/claude-code/config`, { config: newConfig });
+
+      // Start the app
+      await axios.post(`${API_BASE}/apps/claude-code/start`);
+
+      // Complete setup
+      onComplete();
+    } catch (err) {
+      console.error('Setup error:', err);
+      setError(err.response?.data?.message || 'Fehler bei der Einrichtung. Bitte versuche es erneut.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="setup-wizard">
+      <div className="setup-wizard-container">
+        {/* Progress Bar */}
+        <div className="setup-progress">
+          <div className="setup-progress-bar" style={{ width: `${(step / totalSteps) * 100}%` }} />
+          <div className="setup-progress-steps">
+            {[1, 2, 3].map((s) => (
+              <div
+                key={s}
+                className={`setup-progress-step ${step >= s ? 'active' : ''} ${step === s ? 'current' : ''}`}
+              >
+                {step > s ? <FiCheck /> : s}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Step Content */}
+        <div className="setup-content">
+          {step === 1 && (
+            <div className="setup-step">
+              <div className="setup-icon">
+                <FiZap />
+              </div>
+              <h2>Willkommen bei Claude Code</h2>
+              <p className="setup-description">
+                Claude Code ist ein KI-Programmierassistent, der direkt in deinem Browser läuft.
+                Um loszulegen, benötigst du einen Anthropic API-Key.
+              </p>
+
+              <div className="setup-form">
+                <label className="setup-label">
+                  <FiKey /> Anthropic API Key
+                </label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={handleApiKeyChange}
+                  placeholder="sk-ant-api03-..."
+                  className={`setup-input ${error ? 'error' : ''}`}
+                  autoFocus
+                />
+                {error && (
+                  <span className="setup-error">
+                    <FiAlertCircle /> {error}
+                  </span>
+                )}
+                <a
+                  href="https://console.anthropic.com/settings/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="setup-link"
+                >
+                  <FiExternalLink /> API-Key bei Anthropic erstellen
+                </a>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="setup-step">
+              <div className="setup-icon">
+                <FiFolder />
+              </div>
+              <h2>Workspace auswählen</h2>
+              <p className="setup-description">
+                Wähle das Verzeichnis, in dem Claude Code arbeiten soll.
+              </p>
+
+              <div className="setup-form">
+                <div className="workspace-options">
+                  <div
+                    className={`workspace-option ${workspace === '/workspace/arasul' ? 'selected' : ''}`}
+                    onClick={() => setWorkspace('/workspace/arasul')}
+                  >
+                    <div className="workspace-option-icon">
+                      <FiCpu />
+                    </div>
+                    <div className="workspace-option-content">
+                      <h4>Arasul Projekt</h4>
+                      <p>Das Hauptprojekt dieser Plattform. Ideal für Entwicklung und Anpassungen.</p>
+                      <code>/workspace/arasul</code>
+                    </div>
+                    {workspace === '/workspace/arasul' && <FiCheck className="workspace-check" />}
+                  </div>
+
+                  <div
+                    className={`workspace-option ${workspace === '/workspace/custom' ? 'selected' : ''}`}
+                    onClick={() => setWorkspace('/workspace/custom')}
+                  >
+                    <div className="workspace-option-icon">
+                      <FiFolder />
+                    </div>
+                    <div className="workspace-option-content">
+                      <h4>Eigener Workspace</h4>
+                      <p>Dein persönliches Verzeichnis für eigene Projekte.</p>
+                      <code>/workspace/custom</code>
+                    </div>
+                    {workspace === '/workspace/custom' && <FiCheck className="workspace-check" />}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="setup-step">
+              <div className="setup-icon success">
+                <FiCheck />
+              </div>
+              <h2>Bereit zum Starten!</h2>
+              <p className="setup-description">
+                Deine Konfiguration ist vollständig. Claude Code wird jetzt eingerichtet und gestartet.
+              </p>
+
+              <div className="setup-summary">
+                <div className="summary-item">
+                  <span className="summary-label"><FiKey /> API-Key:</span>
+                  <span className="summary-value">****{apiKey.slice(-8)}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label"><FiFolder /> Workspace:</span>
+                  <span className="summary-value">{workspace === '/workspace/arasul' ? 'Arasul Projekt' : 'Eigener Workspace'}</span>
+                </div>
+              </div>
+
+              {error && (
+                <div className="setup-error-banner">
+                  <FiAlertCircle /> {error}
+                </div>
+              )}
+
+              <div className="setup-info">
+                <FiAlertTriangle />
+                <span>Claude Code läuft im autonomen Modus für beste Performance.</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="setup-actions">
+          {step > 1 && (
+            <button
+              className="setup-btn setup-btn-secondary"
+              onClick={prevStep}
+              disabled={saving}
+            >
+              <FiChevronLeft /> Zurück
+            </button>
+          )}
+
+          <div className="setup-actions-right">
+            {step === 1 && (
+              <button
+                className="setup-btn setup-btn-text"
+                onClick={onSkip}
+              >
+                Später einrichten
+              </button>
+            )}
+
+            {step < totalSteps ? (
+              <button
+                className="setup-btn setup-btn-primary"
+                onClick={nextStep}
+              >
+                Weiter <FiChevronRight />
+              </button>
+            ) : (
+              <button
+                className="setup-btn setup-btn-primary setup-btn-finish"
+                onClick={completeSetup}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <FiRefreshCw className="spinning" /> Einrichten...
+                  </>
+                ) : (
+                  <>
+                    <FiPlay /> Claude Code starten
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ClaudeCode() {
   const [appStatus, setAppStatus] = useState(null);
   const [config, setConfig] = useState({});
   const [showSettings, setShowSettings] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState('');
@@ -46,7 +312,13 @@ function ClaudeCode() {
 
       const app = statusRes.data.app || statusRes.data;
       setAppStatus(app);
-      setConfig(configRes.data.config || {});
+      const loadedConfig = configRes.data.config || {};
+      setConfig(loadedConfig);
+
+      // Show setup wizard if no API key is set and app is not running
+      if (!loadedConfig.ANTHROPIC_API_KEY_set && app.status !== 'running') {
+        setShowSetupWizard(true);
+      }
 
       // Set terminal URL if app is running
       if (app.status === 'running') {
@@ -79,6 +351,36 @@ function ClaudeCode() {
       return () => clearInterval(interval);
     }
   }, [actionLoading, loadAppData]);
+
+  const handleSetupComplete = () => {
+    setShowSetupWizard(false);
+    setActionLoading(true);
+
+    // Poll for app to be running
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/apps/claude-code`);
+        if (res.data.status === 'running' || res.data.app?.status === 'running') {
+          clearInterval(pollInterval);
+          setActionLoading(false);
+          loadAppData();
+        }
+      } catch (err) {
+        // Continue polling
+      }
+    }, 2000);
+
+    // Stop polling after 60 seconds
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setActionLoading(false);
+      loadAppData();
+    }, 60000);
+  };
+
+  const handleSetupSkip = () => {
+    setShowSetupWizard(false);
+  };
 
   const saveConfig = async () => {
     try {
@@ -268,6 +570,20 @@ function ClaudeCode() {
     );
   }
 
+  // Show Setup Wizard for first-time users
+  if (showSetupWizard) {
+    return (
+      <div className="claude-code-page">
+        <SetupWizard
+          config={config}
+          setConfig={setConfig}
+          onComplete={handleSetupComplete}
+          onSkip={handleSetupSkip}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={`claude-code-page ${isFullscreen ? 'fullscreen' : ''}`}>
       {/* Header */}
@@ -418,9 +734,14 @@ function ClaudeCode() {
             </div>
             <h3>API-Key erforderlich</h3>
             <p>Bitte gib deinen Anthropic API-Key in den Einstellungen ein, um Claude Code zu nutzen.</p>
-            <button className="claude-btn claude-btn-primary" onClick={() => setShowSettings(true)}>
-              <FiSettings /> Einstellungen öffnen
-            </button>
+            <div className="placeholder-actions">
+              <button className="claude-btn claude-btn-primary" onClick={() => setShowSetupWizard(true)}>
+                <FiZap /> Einrichtung starten
+              </button>
+              <button className="claude-btn claude-btn-secondary" onClick={() => setShowSettings(true)}>
+                <FiSettings /> Einstellungen öffnen
+              </button>
+            </div>
           </div>
         ) : appStatus?.status !== 'running' ? (
           <div className="terminal-placeholder">
