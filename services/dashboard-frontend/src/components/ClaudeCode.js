@@ -1,7 +1,7 @@
 /**
  * ClaudeCode Component
  * Dedicated page for Claude Code web terminal integration
- * Features First-Time Setup Wizard for improved UX
+ * Features First-Time Setup Wizard and Dynamic Workspace Management
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -24,21 +24,229 @@ import {
   FiChevronLeft,
   FiExternalLink,
   FiCpu,
-  FiZap
+  FiZap,
+  FiPlus,
+  FiTrash2,
+  FiStar,
+  FiEdit2
 } from 'react-icons/fi';
 import '../claudecode.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
+// Workspace Manager Modal Component
+function WorkspaceManager({ workspaces, onClose, onWorkspaceCreated, onWorkspaceDeleted, onSetDefault }) {
+  const [newName, setNewName] = useState('');
+  const [newPath, setNewPath] = useState('/home/arasul/');
+  const [newDescription, setNewDescription] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!newName.trim() || !newPath.trim()) {
+      setError('Name und Pfad sind erforderlich');
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+
+    try {
+      const response = await axios.post(`${API_BASE}/workspaces`, {
+        name: newName.trim(),
+        hostPath: newPath.trim(),
+        description: newDescription.trim()
+      });
+
+      onWorkspaceCreated(response.data.workspace);
+      setNewName('');
+      setNewPath('/home/arasul/');
+      setNewDescription('');
+      setShowCreateForm(false);
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.message || 'Fehler beim Erstellen');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (workspace) => {
+    if (!window.confirm(`Workspace "${workspace.name}" wirklich loeschen?`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_BASE}/workspaces/${workspace.id}`);
+      onWorkspaceDeleted(workspace.id);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Fehler beim Loeschen');
+    }
+  };
+
+  const handleSetDefault = async (workspace) => {
+    try {
+      await axios.post(`${API_BASE}/workspaces/${workspace.id}/default`);
+      onSetDefault(workspace.id);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Fehler beim Setzen des Standards');
+    }
+  };
+
+  return (
+    <div className="workspace-manager-overlay" onClick={onClose}>
+      <div className="workspace-manager-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="workspace-manager-header">
+          <h2><FiFolder /> Workspace-Verwaltung</h2>
+          <button className="close-btn" onClick={onClose}><FiX /></button>
+        </div>
+
+        {error && (
+          <div className="workspace-error">
+            <FiAlertCircle /> {error}
+            <button onClick={() => setError(null)}><FiX /></button>
+          </div>
+        )}
+
+        <div className="workspace-list">
+          {workspaces.map((ws) => (
+            <div key={ws.id} className={`workspace-item ${ws.is_default ? 'default' : ''}`}>
+              <div className="workspace-item-info">
+                <div className="workspace-item-name">
+                  {ws.is_default && <FiStar className="default-star" title="Standard-Workspace" />}
+                  {ws.name}
+                  {ws.is_system && <span className="system-badge">System</span>}
+                </div>
+                <div className="workspace-item-path">
+                  <code>{ws.host_path}</code>
+                </div>
+                {ws.description && (
+                  <div className="workspace-item-desc">{ws.description}</div>
+                )}
+              </div>
+              <div className="workspace-item-actions">
+                {!ws.is_default && (
+                  <button
+                    className="ws-action-btn"
+                    onClick={() => handleSetDefault(ws)}
+                    title="Als Standard setzen"
+                  >
+                    <FiStar />
+                  </button>
+                )}
+                {!ws.is_system && !ws.is_default && (
+                  <button
+                    className="ws-action-btn delete"
+                    onClick={() => handleDelete(ws)}
+                    title="Loeschen"
+                  >
+                    <FiTrash2 />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {!showCreateForm ? (
+          <button
+            className="workspace-add-btn"
+            onClick={() => setShowCreateForm(true)}
+          >
+            <FiPlus /> Neuen Workspace erstellen
+          </button>
+        ) : (
+          <form className="workspace-create-form" onSubmit={handleCreate}>
+            <h3>Neuen Workspace erstellen</h3>
+
+            <div className="form-group">
+              <label>Name *</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Mein Projekt"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Host-Pfad *</label>
+              <input
+                type="text"
+                value={newPath}
+                onChange={(e) => setNewPath(e.target.value)}
+                placeholder="/home/arasul/mein-projekt"
+                required
+              />
+              <span className="form-hint">
+                Absoluter Pfad auf dem Jetson (wird erstellt falls nicht vorhanden)
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label>Beschreibung</label>
+              <input
+                type="text"
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="Kurze Beschreibung des Projekts"
+              />
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => setShowCreateForm(false)}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                className="btn-create"
+                disabled={creating}
+              >
+                {creating ? (
+                  <><FiRefreshCw className="spinning" /> Erstellen...</>
+                ) : (
+                  <><FiPlus /> Erstellen</>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="workspace-manager-footer">
+          <p>
+            <FiAlertTriangle /> Nach dem Erstellen eines neuen Workspace muss Claude Code
+            neu gestartet werden, damit der Workspace verfuegbar ist.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Setup Wizard Component
-function SetupWizard({ config, setConfig, onComplete, onSkip }) {
+function SetupWizard({ config, setConfig, onComplete, onSkip, workspaces, onOpenWorkspaceManager }) {
   const [step, setStep] = useState(1);
   const [apiKey, setApiKey] = useState('');
-  const [workspace, setWorkspace] = useState('/workspace/arasul');
+  const [workspace, setWorkspace] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const totalSteps = 3;
+
+  // Set default workspace when workspaces are loaded
+  useEffect(() => {
+    if (workspaces.length > 0 && !workspace) {
+      const defaultWs = workspaces.find(ws => ws.is_default);
+      setWorkspace(defaultWs ? defaultWs.container_path : workspaces[0].container_path);
+    }
+  }, [workspaces, workspace]);
 
   const handleApiKeyChange = (e) => {
     setApiKey(e.target.value);
@@ -51,7 +259,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
       return false;
     }
     if (!apiKey.startsWith('sk-ant-')) {
-      setError('Ungültiges API-Key Format. Der Key sollte mit "sk-ant-" beginnen.');
+      setError('Ungueltiges API-Key Format. Der Key sollte mit "sk-ant-" beginnen.');
       return false;
     }
     return true;
@@ -86,6 +294,16 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
       // Start the app
       await axios.post(`${API_BASE}/apps/claude-code/start`);
 
+      // Mark workspace as used
+      const selectedWs = workspaces.find(ws => ws.container_path === workspace);
+      if (selectedWs) {
+        try {
+          await axios.post(`${API_BASE}/workspaces/${selectedWs.id}/use`);
+        } catch (e) {
+          // Non-critical
+        }
+      }
+
       // Complete setup
       onComplete();
     } catch (err) {
@@ -93,6 +311,11 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
       setError(err.response?.data?.message || 'Fehler bei der Einrichtung. Bitte versuche es erneut.');
       setSaving(false);
     }
+  };
+
+  const getWorkspaceName = (containerPath) => {
+    const ws = workspaces.find(w => w.container_path === containerPath);
+    return ws ? ws.name : containerPath;
   };
 
   return (
@@ -122,8 +345,8 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
               </div>
               <h2>Willkommen bei Claude Code</h2>
               <p className="setup-description">
-                Claude Code ist ein KI-Programmierassistent, der direkt in deinem Browser läuft.
-                Um loszulegen, benötigst du einen Anthropic API-Key.
+                Claude Code ist ein KI-Programmierassistent, der direkt in deinem Browser laeuft.
+                Um loszulegen, benoetigst du einen Anthropic API-Key.
               </p>
 
               <div className="setup-form">
@@ -160,43 +383,42 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
               <div className="setup-icon">
                 <FiFolder />
               </div>
-              <h2>Workspace auswählen</h2>
+              <h2>Workspace auswaehlen</h2>
               <p className="setup-description">
-                Wähle das Verzeichnis, in dem Claude Code arbeiten soll.
+                Waehle das Verzeichnis, in dem Claude Code arbeiten soll.
               </p>
 
               <div className="setup-form">
                 <div className="workspace-options">
-                  <div
-                    className={`workspace-option ${workspace === '/workspace/arasul' ? 'selected' : ''}`}
-                    onClick={() => setWorkspace('/workspace/arasul')}
-                  >
-                    <div className="workspace-option-icon">
-                      <FiCpu />
+                  {workspaces.map((ws) => (
+                    <div
+                      key={ws.id}
+                      className={`workspace-option ${workspace === ws.container_path ? 'selected' : ''}`}
+                      onClick={() => setWorkspace(ws.container_path)}
+                    >
+                      <div className="workspace-option-icon">
+                        {ws.is_system ? <FiCpu /> : <FiFolder />}
+                      </div>
+                      <div className="workspace-option-content">
+                        <h4>
+                          {ws.name}
+                          {ws.is_default && <FiStar className="default-indicator" title="Standard" />}
+                        </h4>
+                        <p>{ws.description || 'Keine Beschreibung'}</p>
+                        <code>{ws.container_path}</code>
+                      </div>
+                      {workspace === ws.container_path && <FiCheck className="workspace-check" />}
                     </div>
-                    <div className="workspace-option-content">
-                      <h4>Arasul Projekt</h4>
-                      <p>Das Hauptprojekt dieser Plattform. Ideal für Entwicklung und Anpassungen.</p>
-                      <code>/workspace/arasul</code>
-                    </div>
-                    {workspace === '/workspace/arasul' && <FiCheck className="workspace-check" />}
-                  </div>
-
-                  <div
-                    className={`workspace-option ${workspace === '/workspace/custom' ? 'selected' : ''}`}
-                    onClick={() => setWorkspace('/workspace/custom')}
-                  >
-                    <div className="workspace-option-icon">
-                      <FiFolder />
-                    </div>
-                    <div className="workspace-option-content">
-                      <h4>Eigener Workspace</h4>
-                      <p>Dein persönliches Verzeichnis für eigene Projekte.</p>
-                      <code>/workspace/custom</code>
-                    </div>
-                    {workspace === '/workspace/custom' && <FiCheck className="workspace-check" />}
-                  </div>
+                  ))}
                 </div>
+
+                <button
+                  type="button"
+                  className="workspace-manage-link"
+                  onClick={onOpenWorkspaceManager}
+                >
+                  <FiPlus /> Neuen Workspace erstellen oder verwalten
+                </button>
               </div>
             </div>
           )}
@@ -208,7 +430,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
               </div>
               <h2>Bereit zum Starten!</h2>
               <p className="setup-description">
-                Deine Konfiguration ist vollständig. Claude Code wird jetzt eingerichtet und gestartet.
+                Deine Konfiguration ist vollstaendig. Claude Code wird jetzt eingerichtet und gestartet.
               </p>
 
               <div className="setup-summary">
@@ -218,7 +440,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
                 </div>
                 <div className="summary-item">
                   <span className="summary-label"><FiFolder /> Workspace:</span>
-                  <span className="summary-value">{workspace === '/workspace/arasul' ? 'Arasul Projekt' : 'Eigener Workspace'}</span>
+                  <span className="summary-value">{getWorkspaceName(workspace)}</span>
                 </div>
               </div>
 
@@ -230,7 +452,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
 
               <div className="setup-info">
                 <FiAlertTriangle />
-                <span>Claude Code läuft im autonomen Modus für beste Performance.</span>
+                <span>Claude Code laeuft im autonomen Modus fuer beste Performance.</span>
               </div>
             </div>
           )}
@@ -244,7 +466,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
               onClick={prevStep}
               disabled={saving}
             >
-              <FiChevronLeft /> Zurück
+              <FiChevronLeft /> Zurueck
             </button>
           )}
 
@@ -254,7 +476,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
                 className="setup-btn setup-btn-text"
                 onClick={onSkip}
               >
-                Später einrichten
+                Spaeter einrichten
               </button>
             )}
 
@@ -292,14 +514,49 @@ function SetupWizard({ config, setConfig, onComplete, onSkip }) {
 function ClaudeCode() {
   const [appStatus, setAppStatus] = useState(null);
   const [config, setConfig] = useState({});
+  const [workspaces, setWorkspaces] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [showWorkspaceManager, setShowWorkspaceManager] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState('');
   const [error, setError] = useState(null);
   const [saveMessage, setSaveMessage] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Load workspaces
+  const loadWorkspaces = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/workspaces`);
+      setWorkspaces(response.data.workspaces || []);
+    } catch (err) {
+      console.error('Error loading workspaces:', err);
+      // Fallback to default workspaces if API fails
+      setWorkspaces([
+        {
+          id: 1,
+          name: 'Arasul Projekt',
+          slug: 'arasul',
+          description: 'Das Hauptprojekt dieser Plattform',
+          host_path: '/home/arasul/arasul/arasul-jet',
+          container_path: '/workspace/arasul',
+          is_default: true,
+          is_system: true
+        },
+        {
+          id: 2,
+          name: 'Eigener Workspace',
+          slug: 'custom',
+          description: 'Dein persoenliches Verzeichnis',
+          host_path: '/home/arasul/workspace',
+          container_path: '/workspace/custom',
+          is_default: false,
+          is_system: false
+        }
+      ]);
+    }
+  }, []);
 
   // Load app status and config
   const loadAppData = useCallback(async () => {
@@ -342,7 +599,8 @@ function ClaudeCode() {
 
   useEffect(() => {
     loadAppData();
-  }, [loadAppData]);
+    loadWorkspaces();
+  }, [loadAppData, loadWorkspaces]);
 
   // Poll for status updates when action is in progress
   useEffect(() => {
@@ -382,6 +640,21 @@ function ClaudeCode() {
     setShowSetupWizard(false);
   };
 
+  const handleWorkspaceCreated = (workspace) => {
+    setWorkspaces([...workspaces, workspace]);
+  };
+
+  const handleWorkspaceDeleted = (workspaceId) => {
+    setWorkspaces(workspaces.filter(ws => ws.id !== workspaceId));
+  };
+
+  const handleSetDefault = (workspaceId) => {
+    setWorkspaces(workspaces.map(ws => ({
+      ...ws,
+      is_default: ws.id === workspaceId
+    })));
+  };
+
   const saveConfig = async () => {
     try {
       setActionLoading(true);
@@ -395,6 +668,16 @@ function ClaudeCode() {
         const errorMsg = configErr.response?.data?.message || configErr.message || 'Unbekannter Fehler';
         setSaveMessage({ type: 'error', text: `Fehler beim Speichern: ${errorMsg}` });
         return;
+      }
+
+      // Mark workspace as used
+      const selectedWs = workspaces.find(ws => ws.container_path === config.CLAUDE_WORKSPACE);
+      if (selectedWs) {
+        try {
+          await axios.post(`${API_BASE}/workspaces/${selectedWs.id}/use`);
+        } catch (e) {
+          // Non-critical
+        }
       }
 
       // Step 2: Restart if running to apply new config (async mode - returns immediately)
@@ -432,7 +715,7 @@ function ClaudeCode() {
 
               if (attempts >= maxAttempts) {
                 clearInterval(pollInterval);
-                setSaveMessage({ type: 'warning', text: 'Container-Neustart dauert länger als erwartet. Prüfe den Status manuell.' });
+                setSaveMessage({ type: 'warning', text: 'Container-Neustart dauert laenger als erwartet. Pruefe den Status manuell.' });
                 setTimeout(() => {
                   loadAppData();
                   setSaveMessage(null);
@@ -534,14 +817,21 @@ function ClaudeCode() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      'running': { class: 'status-running', text: 'Läuft' },
+      'running': { class: 'status-running', text: 'Laeuft' },
       'stopped': { class: 'status-stopped', text: 'Gestoppt' },
       'installed': { class: 'status-installed', text: 'Installiert' },
       'installing': { class: 'status-installing', text: 'Installiert...' },
+      'restarting': { class: 'status-installing', text: 'Neustart...' },
       'error': { class: 'status-error', text: 'Fehler' }
     };
     const statusInfo = statusMap[status] || { class: 'status-unknown', text: status || 'Unbekannt' };
     return <span className={`claude-status-badge ${statusInfo.class}`}>{statusInfo.text}</span>;
+  };
+
+  const getCurrentWorkspaceName = () => {
+    const currentPath = config.CLAUDE_WORKSPACE || '/workspace/arasul';
+    const ws = workspaces.find(w => w.container_path === currentPath);
+    return ws ? ws.name : currentPath;
   };
 
   if (loading) {
@@ -560,7 +850,7 @@ function ClaudeCode() {
       <div className="claude-code-page">
         <div className="claude-error-state">
           <FiAlertCircle className="error-icon" />
-          <h2>Claude Code nicht verfügbar</h2>
+          <h2>Claude Code nicht verfuegbar</h2>
           <p>{error}</p>
           <a href="/appstore" className="claude-btn claude-btn-primary">
             Zum Store
@@ -579,7 +869,18 @@ function ClaudeCode() {
           setConfig={setConfig}
           onComplete={handleSetupComplete}
           onSkip={handleSetupSkip}
+          workspaces={workspaces}
+          onOpenWorkspaceManager={() => setShowWorkspaceManager(true)}
         />
+        {showWorkspaceManager && (
+          <WorkspaceManager
+            workspaces={workspaces}
+            onClose={() => setShowWorkspaceManager(false)}
+            onWorkspaceCreated={handleWorkspaceCreated}
+            onWorkspaceDeleted={handleWorkspaceDeleted}
+            onSetDefault={handleSetDefault}
+          />
+        )}
       </div>
     );
   }
@@ -592,7 +893,9 @@ function ClaudeCode() {
           <FiTerminal className="title-icon" />
           <div className="title-text">
             <h1>Claude Code</h1>
-            <span className="title-subtitle">KI-gestützte Programmierung</span>
+            <span className="title-subtitle">
+              {getCurrentWorkspaceName()}
+            </span>
           </div>
           {getStatusBadge(appStatus?.status)}
         </div>
@@ -658,12 +961,12 @@ function ClaudeCode() {
                 type="password"
                 value={config.ANTHROPIC_API_KEY?.startsWith('****') ? '' : (config.ANTHROPIC_API_KEY || '')}
                 onChange={(e) => setConfig({ ...config, ANTHROPIC_API_KEY: e.target.value })}
-                placeholder={config.ANTHROPIC_API_KEY_set ? 'Aktuell gesetzt - zum Ändern neuen Wert eingeben' : 'sk-ant-api03-...'}
+                placeholder={config.ANTHROPIC_API_KEY_set ? 'Aktuell gesetzt - zum Aendern neuen Wert eingeben' : 'sk-ant-api03-...'}
                 className="setting-input"
               />
               <span className="setting-hint">
                 {config.ANTHROPIC_API_KEY_set
-                  ? 'API-Key ist gesetzt. Leer lassen um beizubehalten, neuen Wert eingeben zum Ändern.'
+                  ? 'API-Key ist gesetzt. Leer lassen um beizubehalten, neuen Wert eingeben zum Aendern.'
                   : 'Dein API-Key von anthropic.com'}
               </span>
             </div>
@@ -672,23 +975,36 @@ function ClaudeCode() {
               <label>
                 <FiFolder /> Workspace
               </label>
-              <select
-                value={config.CLAUDE_WORKSPACE || '/workspace/arasul'}
-                onChange={(e) => setConfig({ ...config, CLAUDE_WORKSPACE: e.target.value })}
-                className="setting-select"
-              >
-                <option value="/workspace/arasul">Arasul Projekt</option>
-                <option value="/workspace/custom">Eigener Workspace</option>
-              </select>
+              <div className="workspace-select-row">
+                <select
+                  value={config.CLAUDE_WORKSPACE || '/workspace/arasul'}
+                  onChange={(e) => setConfig({ ...config, CLAUDE_WORKSPACE: e.target.value })}
+                  className="setting-select"
+                >
+                  {workspaces.map((ws) => (
+                    <option key={ws.id} value={ws.container_path}>
+                      {ws.name} {ws.is_default ? '(Standard)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="workspace-manage-btn"
+                  onClick={() => setShowWorkspaceManager(true)}
+                  title="Workspaces verwalten"
+                >
+                  <FiEdit2 />
+                </button>
+              </div>
               <span className="setting-hint">
-                Arbeitsverzeichnis für Claude Code
+                Arbeitsverzeichnis fuer Claude Code
               </span>
             </div>
           </div>
 
           <div className="setting-hint" style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(69, 173, 255, 0.1)', borderRadius: '8px' }}>
-            <strong>Hinweis:</strong> Claude Code läuft im autonomen Modus (--dangerously-skip-permissions).
-            Das Terminal ist ohne Passwort zugänglich.
+            <strong>Hinweis:</strong> Claude Code laeuft im autonomen Modus (--dangerously-skip-permissions).
+            Das Terminal ist ohne Passwort zugaenglich.
           </div>
 
           {saveMessage && (
@@ -725,6 +1041,17 @@ function ClaudeCode() {
         </div>
       )}
 
+      {/* Workspace Manager Modal */}
+      {showWorkspaceManager && (
+        <WorkspaceManager
+          workspaces={workspaces}
+          onClose={() => setShowWorkspaceManager(false)}
+          onWorkspaceCreated={handleWorkspaceCreated}
+          onWorkspaceDeleted={handleWorkspaceDeleted}
+          onSetDefault={handleSetDefault}
+        />
+      )}
+
       {/* Terminal Area */}
       <div className="claude-code-terminal">
         {!config.ANTHROPIC_API_KEY_set ? (
@@ -739,7 +1066,7 @@ function ClaudeCode() {
                 <FiZap /> Einrichtung starten
               </button>
               <button className="claude-btn claude-btn-secondary" onClick={() => setShowSettings(true)}>
-                <FiSettings /> Einstellungen öffnen
+                <FiSettings /> Einstellungen oeffnen
               </button>
             </div>
           </div>
@@ -749,7 +1076,7 @@ function ClaudeCode() {
               <FiTerminal />
             </div>
             <h3>Claude Code ist nicht gestartet</h3>
-            <p>Klicke auf Starten, um das Terminal zu öffnen.</p>
+            <p>Klicke auf Starten, um das Terminal zu oeffnen.</p>
             <button
               className="claude-btn claude-btn-primary"
               onClick={startApp}

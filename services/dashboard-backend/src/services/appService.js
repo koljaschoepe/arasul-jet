@@ -308,8 +308,15 @@ class AppService {
                 }
             }
 
-            // Build container config
-            const containerConfig = this.buildContainerConfig(manifest, config);
+            // Get dynamic workspace volumes for claude-code
+            let dynamicVolumes = [];
+            if (appId === 'claude-code') {
+                dynamicVolumes = await this.getClaudeWorkspaceVolumes();
+                logger.info(`Loaded ${dynamicVolumes.length} workspace volumes for claude-code installation`);
+            }
+
+            // Build container config with dynamic volumes
+            const containerConfig = this.buildContainerConfig(manifest, config, dynamicVolumes);
 
             // Create container
             const container = await docker.createContainer(containerConfig);
@@ -638,8 +645,15 @@ class AppService {
                 logger.debug(`Remove during recreate: ${err.message}`);
             }
 
-            // Build container config with database overrides
-            const containerConfig = this.buildContainerConfig(manifest, configOverrides);
+            // Get dynamic workspace volumes for claude-code
+            let dynamicVolumes = [];
+            if (appId === 'claude-code') {
+                dynamicVolumes = await this.getClaudeWorkspaceVolumes();
+                logger.info(`Loaded ${dynamicVolumes.length} workspace volumes for claude-code`);
+            }
+
+            // Build container config with database overrides and dynamic volumes
+            const containerConfig = this.buildContainerConfig(manifest, configOverrides, dynamicVolumes);
 
             // Create new container
             const newContainer = await docker.createContainer(containerConfig);
@@ -804,8 +818,9 @@ class AppService {
 
     /**
      * Build Docker container configuration from manifest
+     * For claude-code, dynamically loads workspace volumes from database
      */
-    buildContainerConfig(manifest, overrides = {}) {
+    buildContainerConfig(manifest, overrides = {}, dynamicVolumes = []) {
         const config = {
             name: manifest.id,
             Image: manifest.docker.image,
@@ -839,13 +854,22 @@ class AppService {
             ];
         }
 
-        // Volumes
+        // Static volumes from manifest (non-workspace volumes like config, docker socket)
         for (const vol of manifest.docker.volumes || []) {
+            // Skip workspace volumes for claude-code - they come from database
+            if (manifest.id === 'claude-code' && vol.containerPath.startsWith('/workspace/')) {
+                continue;
+            }
             if (vol.type === 'volume') {
                 config.HostConfig.Binds.push(`${vol.name}:${vol.containerPath}`);
             } else if (vol.type === 'bind') {
                 config.HostConfig.Binds.push(`${vol.name}:${vol.containerPath}`);
             }
+        }
+
+        // Dynamic workspace volumes (from database)
+        for (const vol of dynamicVolumes) {
+            config.HostConfig.Binds.push(`${vol.hostPath}:${vol.containerPath}`);
         }
 
         // Resource limits
@@ -1197,6 +1221,33 @@ class AppService {
      */
     async getConfigOverrides(appId) {
         return await this.getAppConfigRaw(appId);
+    }
+
+    /**
+     * Get dynamic workspace volumes for claude-code from database
+     * Returns array of { hostPath, containerPath } objects
+     */
+    async getClaudeWorkspaceVolumes() {
+        try {
+            const result = await db.query(`
+                SELECT host_path, container_path
+                FROM claude_workspaces
+                WHERE is_active = TRUE
+                ORDER BY id ASC
+            `);
+
+            return result.rows.map(row => ({
+                hostPath: row.host_path,
+                containerPath: row.container_path
+            }));
+        } catch (err) {
+            // If table doesn't exist yet, return default volumes
+            logger.warn(`Could not load workspace volumes: ${err.message}. Using defaults.`);
+            return [
+                { hostPath: '/home/arasul/arasul/arasul-jet', containerPath: '/workspace/arasul' },
+                { hostPath: '/home/arasul/workspace', containerPath: '/workspace/custom' }
+            ];
+        }
     }
 
     /**

@@ -313,6 +313,56 @@ Response: Server-Sent Events (SSE) stream
 - `stopping` / `starting` - Transitioning
 - `error` - Error state
 
+### Workspaces (Claude Code)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/workspaces` | List all active workspaces |
+| GET | `/api/workspaces/:id` | Get single workspace (by ID or slug) |
+| POST | `/api/workspaces` | Create a new workspace |
+| PUT | `/api/workspaces/:id` | Update workspace name/description |
+| DELETE | `/api/workspaces/:id` | Soft-delete a workspace |
+| POST | `/api/workspaces/:id/default` | Set workspace as default |
+| POST | `/api/workspaces/:id/use` | Mark workspace as used (increment counter) |
+| GET | `/api/workspaces/volumes/list` | Get volume bindings for container config |
+
+**POST /api/workspaces Body:**
+```json
+{
+  "name": "Mein Projekt",
+  "hostPath": "/home/arasul/mein-projekt",
+  "description": "Beschreibung des Projekts"
+}
+```
+
+**Response Example:**
+```json
+{
+  "workspaces": [
+    {
+      "id": 1,
+      "name": "Arasul Projekt",
+      "slug": "arasul",
+      "description": "Das Hauptprojekt dieser Plattform",
+      "host_path": "/home/arasul/arasul/arasul-jet",
+      "container_path": "/workspace/arasul",
+      "is_default": true,
+      "is_system": true,
+      "usage_count": 42,
+      "last_used_at": "2026-01-13T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "timestamp": "2026-01-13T00:00:00Z"
+}
+```
+
+**Notes:**
+- Workspaces are dynamically mounted into the Claude Code container
+- New workspaces require container restart to be available
+- System workspaces cannot be deleted
+- Host paths must start with `/home/arasul/`, `/workspace/`, or `/tmp/`
+
 ### Model Management
 
 | Method | Endpoint | Description |
