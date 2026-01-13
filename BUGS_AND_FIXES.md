@@ -2038,6 +2038,94 @@ After the fix:
 
 ---
 
+## HIGH-017: 401 Response Interceptor Causes Infinite Reload Loop (2026-01-13)
+
+### Status: ✅ FIXED
+
+**Files Modified**:
+- `services/dashboard-frontend/src/App.js` (lines 37-66)
+
+**Severity**: HIGH
+**Impact**: Users on localhost experienced repeated page reloads and were forced to login again after performing simple actions.
+
+### Root Cause
+
+The axios 401 response interceptor was calling `window.location.reload()` on every 401 response without any guards:
+
+```javascript
+// BEFORE (problematic)
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('arasul_token');
+      localStorage.removeItem('arasul_user');
+      window.location.reload();  // Caused infinite loop!
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+**Problems**:
+1. The `/auth/me` endpoint returns 401 when not logged in - this is expected behavior, not an error
+2. No protection against multiple concurrent 401 handlers triggering simultaneous reloads
+3. `reload()` re-runs all requests, which could return more 401s, creating a loop
+
+### Fix Applied
+
+Added guards to prevent reload loops:
+
+```javascript
+// AFTER (fixed)
+let isHandling401 = false;
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Don't trigger logout for auth/me endpoint (expected when not logged in)
+    const isAuthMeRequest = error.config?.url?.includes('/auth/me');
+
+    if (error.response?.status === 401 && !isAuthMeRequest && !isHandling401) {
+      isHandling401 = true;
+      console.log('[Auth] 401 received, clearing token and redirecting to login');
+      localStorage.removeItem('arasul_token');
+      localStorage.removeItem('arasul_user');
+
+      setTimeout(() => {
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';  // Redirect, don't reload
+        }
+        isHandling401 = false;
+      }, 100);
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+**Key changes**:
+1. **Exclude `/auth/me`**: This endpoint's 401 is expected behavior, not a session issue
+2. **Flag to prevent multiple handlers**: `isHandling401` ensures only one handler triggers at a time
+3. **Redirect instead of reload**: Use `href = '/'` to go to login, not `reload()` which re-runs all requests
+4. **Check current pathname**: Don't redirect if already on login page
+
+### Related Fix: Rate Limiting
+
+Also increased login rate limits that were blocking normal login attempts:
+- **Traefik** (`config/traefik/dynamic/middlewares.yml`): 5/15min → 30/1min
+- **Backend** (`src/middleware/rateLimit.js`): 5/15min → 30/5min
+
+### Verification
+
+After the fix:
+- Login on localhost works consistently
+- Session persists during normal use
+- 401 errors from expired tokens redirect cleanly without loops
+- `/auth/me` check on page load doesn't trigger logout
+
+---
+
 **End of Bug Analysis Report**
-**Implementation Status**: ✅ Complete (18 legitimate bugs fixed, 1 false positive identified)
+**Implementation Status**: ✅ Complete (19 legitimate bugs fixed, 1 false positive identified)
 **Next Steps**: Deploy fixes to production after testing phase

@@ -34,15 +34,32 @@ axios.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Track if we're already handling a 401 to prevent reload loops
+let isHandling401 = false;
+
 // Axios interceptor for 401 responses
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
+    // Don't trigger logout for auth/me endpoint (that's expected when not logged in)
+    const isAuthMeRequest = error.config?.url?.includes('/auth/me');
+    const isAuthRequest = error.config?.url?.includes('/auth/');
+
+    if (error.response?.status === 401 && !isAuthMeRequest && !isHandling401) {
+      // Token expired or invalid for a protected endpoint
+      isHandling401 = true;
+      console.log('[Auth] 401 received, clearing token and redirecting to login');
       localStorage.removeItem('arasul_token');
       localStorage.removeItem('arasul_user');
-      window.location.reload();
+
+      // Use a short delay to allow current request cycle to complete
+      setTimeout(() => {
+        // Only reload if we're not already on the login page
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
+        isHandling401 = false;
+      }, 100);
     }
     return Promise.reject(error);
   }
