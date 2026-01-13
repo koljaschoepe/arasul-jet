@@ -183,20 +183,30 @@ http:
         - websecure
       tls: {}
 
-    # n8n Workflow Engine
-    # Protected by forward-auth (SSO with Dashboard)
-    # Accessible from any IP address in the network via HTTP and HTTPS
-    n8n:
+    # n8n Workflow Engine - HTTP
+    # Accessible from any IP address in the network via HTTP
+    n8n-http:
       rule: "PathPrefix(`/n8n`)"
       service: n8n-service
-      priority: 20
+      priority: 100
       middlewares:
         - strip-n8n-prefix
         - forward-auth
         - security-headers
-        - rate-limit-api
       entryPoints:
         - web
+
+    # n8n Workflow Engine - HTTPS
+    # Accessible from any IP address in the network via HTTPS
+    n8n-https:
+      rule: "PathPrefix(`/n8n`)"
+      service: n8n-service
+      priority: 100
+      middlewares:
+        - strip-n8n-prefix
+        - forward-auth
+        - security-headers
+      entryPoints:
         - websecure
       tls: {}
 

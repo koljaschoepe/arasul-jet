@@ -53,13 +53,19 @@ const getAppUrl = (app) => {
   if (app.hasCustomPage && app.customPageRoute) {
     return app.customPageRoute;
   }
+  // Apps routed through Traefik path (use same origin, no port)
+  const traefikPaths = {
+    'n8n': '/n8n'
+  };
+  if (traefikPaths[app.id]) {
+    return `${window.location.origin}${traefikPaths[app.id]}`;
+  }
   // Use external port if available
   if (app.ports?.external) {
     return `http://${window.location.hostname}:${app.ports.external}`;
   }
-  // Fallback to known ports
+  // Fallback to known ports for direct access
   const knownPorts = {
-    'n8n': 5678,
     'minio': 9001,
     'code-server': 8443,
     'gitea': 3002
