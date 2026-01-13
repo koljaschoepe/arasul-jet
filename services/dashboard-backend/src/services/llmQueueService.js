@@ -37,6 +37,7 @@ class LLMQueueService extends EventEmitter {
     async initialize() {
         if (this.initialized) return;
 
+        console.log('LLM Queue Service: Initializing...');
         logger.info('Initializing LLM Queue Service...');
 
         // 1. Cleanup stale streaming jobs
@@ -62,6 +63,7 @@ class LLMQueueService extends EventEmitter {
         // 4. Start timeout checker
         this.startTimeoutChecker();
 
+        console.log('LLM Queue Service: Ready');
         logger.info('LLM Queue Service initialized');
     }
 
