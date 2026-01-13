@@ -47,8 +47,9 @@ MODEL_NAME="qwen3:14b-q8"
 if [ -f "$GGUF_FILE" ]; then
     echo "Found GGUF file: $GGUF_FILE"
 
-    # Check if model is already imported
-    MODEL_EXISTS=$(curl -s http://localhost:11434/api/tags | grep -o "\"name\":\"${MODEL_NAME}\"" || true)
+    # PHASE1-FIX (HIGH-P04): Use -F (fixed string) instead of regex with variable
+    # This prevents potential issues if MODEL_NAME ever contains regex special chars
+    MODEL_EXISTS=$(curl -s http://localhost:11434/api/tags | grep -F "\"name\":\"${MODEL_NAME}\"" || true)
 
     if [ -z "$MODEL_EXISTS" ]; then
         echo "Importing model (this will take ~30 seconds)..."

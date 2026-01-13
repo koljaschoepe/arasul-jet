@@ -58,6 +58,7 @@ http:
           Server: ""  # Hide server info
 
     # CORS Headers
+    # PHASE1-FIX: Restricted to local/private networks instead of wildcard "*"
     cors-headers:
       headers:
         accessControlAllowMethods:
@@ -67,7 +68,16 @@ http:
           - DELETE
           - OPTIONS
         accessControlAllowOriginList:
-          - "*"  # Adjust for production
+          - "http://localhost"
+          - "http://localhost:3000"
+          - "http://127.0.0.1"
+          - "http://127.0.0.1:3000"
+          - "https://localhost"
+          - "https://127.0.0.1"
+        accessControlAllowOriginListRegex:
+          - "^https?://192\\.168\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
+          - "^https?://10\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
+          - "^https?://172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
         accessControlAllowHeaders:
           - "Content-Type"
           - "Authorization"
@@ -187,21 +197,28 @@ http:
         permanent: true
 
     # Basic Auth for Traefik Dashboard
-    # Default credentials: admin / arasul123 (change in production!)
-    # Generated with: htpasswd -nb admin arasul123
+    # PHASE1-FIX (SEC-NEW-003): CRITICAL SECURITY WARNING
+    # These credentials are PLACEHOLDERS - you MUST regenerate before production!
+    # Generate new hash: htpasswd -nb <username> <password>
+    # Or use: scripts/generate_htpasswd.sh <username> <password>
+    # Then replace the hash below with the generated output
     basicAuth-traefik:
       basicAuth:
         users:
-          - "admin:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/"  # admin:arasul123
+          # PLACEHOLDER - Replace with output from: htpasswd -nb admin <YOUR_SECURE_PASSWORD>
+          - "admin:$apr1$PLACEHOLDER$REPLACE_WITH_GENERATED_HASH"
         realm: "Traefik Dashboard"
         removeHeader: true
 
     # Basic Auth for n8n
-    # Default credentials: admin / arasul123 (change in production!)
-    # Generated with: scripts/generate_htpasswd.sh admin arasul123
+    # PHASE1-FIX (SEC-NEW-003): CRITICAL SECURITY WARNING
+    # These credentials are PLACEHOLDERS - you MUST regenerate before production!
+    # Generate new hash: scripts/generate_htpasswd.sh <username> <password>
+    # Then replace the hash below with the generated output
     basicAuth-n8n:
       basicAuth:
         users:
-          - "admin:$$2y$$05$$8/O2kAXWJKaWJz71NIAaHO41AuS1fJIsJxvh5wyc0tNYntcu7rt9y"
+          # PLACEHOLDER - Replace with output from: scripts/generate_htpasswd.sh admin <YOUR_SECURE_PASSWORD>
+          - "admin:$$2y$$05$$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH"
         realm: "n8n Workflow Engine"
         removeHeader: true

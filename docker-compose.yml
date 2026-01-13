@@ -99,6 +99,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # PHASE2-FIX: Add memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
 
   # 2.5 Qdrant - Vector Database for RAG
   qdrant:
@@ -127,6 +132,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # PHASE2-FIX: Add memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
 
   # 3. Metrics Collector
   metrics-collector:
@@ -329,6 +339,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # PHASE2-FIX: Add memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   # 6. Reverse Proxy (Traefik) - Starts AFTER core services, BEFORE dashboards
   reverse-proxy:
@@ -371,6 +386,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # PHASE2-FIX: Add memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # 7. Dashboard Backend
   dashboard-backend:
@@ -418,6 +438,8 @@ services:
       ENV_FILE_PATH: /arasul/config/.env
       COMPOSE_PROJECT_DIR: /home/arasul/arasul/arasul-jet
     volumes:
+      # PHASE1-FIX: Docker socket requires write access for app management (create/start/stop containers)
+      # Security note: This grants container full Docker control - minimize other privileges
       - /var/run/docker.sock:/var/run/docker.sock
       - ./.env:/arasul/config/.env
       - ./config:/config:ro
@@ -489,6 +511,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # PHASE2-FIX: Add memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # 9. n8n Workflow Engine
   n8n:
@@ -505,8 +532,9 @@ services:
     environment:
       N8N_HOST: ${N8N_HOST}
       N8N_PORT: ${N8N_PORT}
-      N8N_PROTOCOL: http
-      N8N_SECURE_COOKIE: "false"
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      # PHASE2-FIX: Make SECURE_COOKIE configurable (default false for LAN access)
+      N8N_SECURE_COOKIE: "${N8N_SECURE_COOKIE:-false}"
       # N8N_EDITOR_BASE_URL tells n8n the external URL (for links in emails, etc.)
       # Traefik strips /n8n prefix before forwarding to n8n
       N8N_EDITOR_BASE_URL: http://${INTERNAL_IP}/n8n
@@ -581,6 +609,8 @@ services:
       DISK_REBOOT_PERCENT: ${DISK_REBOOT_PERCENT}
       HEARTBEAT_PORT: ${SELF_HEALING_HEARTBEAT_PORT:-9200}
     volumes:
+      # PHASE1-FIX: Docker socket requires write access for container restart/recovery
+      # Security note: Combined with CAP_SYS_ADMIN - ensure process isolation
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/arasul/logs
       - /sys:/host/sys:ro
@@ -621,6 +651,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # PHASE2-FIX: Add memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # 11. Backup Service - Automated PostgreSQL and MinIO backups
   backup-service:
@@ -725,3 +760,8 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    # PHASE2-FIX: Add memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M

@@ -2,7 +2,10 @@
 # Flexible Model Management via Dashboard
 # No pre-loaded models - download at runtime
 
-FROM ollama/ollama:latest
+# PHASE1-FIX: Pin to specific version for reproducible builds
+# Update OLLAMA_VERSION when upgrading (check: https://hub.docker.com/r/ollama/ollama/tags)
+ARG OLLAMA_VERSION=0.4.7
+FROM ollama/ollama:${OLLAMA_VERSION}
 
 # Install Python and dependencies for Management API
 RUN apt-get update && \
@@ -14,7 +17,9 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages for Management API Server
-RUN pip3 install --no-cache-dir --break-system-packages \
+# PHASE1-FIX: Removed --break-system-packages as older pip versions don't support it
+# The flag is not needed for older pip anyway (they don't have the restriction)
+RUN pip3 install --no-cache-dir \
     flask==3.0.0 \
     flask-cors==4.0.0 \
     requests==2.31.0 \

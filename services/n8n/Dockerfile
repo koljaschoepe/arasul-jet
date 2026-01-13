@@ -19,7 +19,10 @@ RUN npm install --production=false && \
     npm run build
 
 # Stage 2: Final n8n image with compiled nodes
-FROM n8nio/n8n:latest
+# PHASE1-FIX: Pin to specific version for reproducible builds
+# Update N8N_VERSION when upgrading (check: https://hub.docker.com/r/n8nio/n8n/tags)
+ARG N8N_VERSION=1.70.0
+FROM n8nio/n8n:${N8N_VERSION}
 
 USER root
 

@@ -283,8 +283,8 @@ class MetricsCollector:
             if self.nvml_available:
                 try:
                     self.pynvml.nvmlShutdown()
-                except:
-                    pass
+                except Exception:
+                    pass  # PHASE1-FIX: Explicit Exception type
 
             # Wait a moment
             time.sleep(2)
@@ -421,8 +421,8 @@ class DatabaseWriter:
             if conn:
                 try:
                     conn.rollback()
-                except:
-                    pass
+                except Exception:
+                    pass  # PHASE1-FIX: Explicit Exception type
         finally:
             if conn:
                 self.release_connection(conn)
@@ -442,8 +442,8 @@ class DatabaseWriter:
             if conn:
                 try:
                     conn.rollback()
-                except:
-                    pass
+                except Exception:
+                    pass  # PHASE1-FIX: Explicit Exception type
         finally:
             if conn:
                 self.release_connection(conn)

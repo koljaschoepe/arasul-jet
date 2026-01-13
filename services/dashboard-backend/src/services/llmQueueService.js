@@ -27,7 +27,44 @@ class LLMQueueService extends EventEmitter {
         this.processingJobId = null;
         this.isProcessing = false;
         this.jobSubscribers = new Map(); // jobId -> Set of callbacks
+        this.jobSubscriberTimestamps = new Map(); // jobId -> timestamp for cleanup
         this.initialized = false;
+
+        // PHASE1-FIX: Start subscriber cleanup interval (clean stale subscribers every 5 minutes)
+        this.subscriberCleanupInterval = setInterval(() => this.cleanupStaleSubscribers(), 5 * 60 * 1000);
+    }
+
+    /**
+     * PHASE1-FIX: Clean up subscribers for jobs that are no longer active
+     * Prevents memory leak from disconnected clients or failed jobs
+     */
+    async cleanupStaleSubscribers() {
+        const now = Date.now();
+        const maxAge = 30 * 60 * 1000; // 30 minutes max subscriber lifetime
+
+        for (const [jobId, timestamp] of this.jobSubscriberTimestamps.entries()) {
+            if (now - timestamp > maxAge) {
+                // Check if job is still active
+                try {
+                    const result = await db.query(
+                        `SELECT status FROM llm_jobs WHERE id = $1`,
+                        [jobId]
+                    );
+
+                    const job = result.rows[0];
+                    if (!job || ['completed', 'error', 'cancelled'].includes(job.status)) {
+                        // Job is done or doesn't exist, clean up subscribers
+                        this.jobSubscribers.delete(jobId);
+                        this.jobSubscriberTimestamps.delete(jobId);
+                        logger.debug(`Cleaned up stale subscribers for job ${jobId}`);
+                    }
+                } catch (err) {
+                    // On error, still clean up to prevent memory leak
+                    this.jobSubscribers.delete(jobId);
+                    this.jobSubscriberTimestamps.delete(jobId);
+                }
+            }
+        }
     }
 
     /**
@@ -37,8 +74,8 @@ class LLMQueueService extends EventEmitter {
     async initialize() {
         if (this.initialized) return;
 
-        console.log('LLM Queue Service: Initializing...');
-        logger.info('Initializing LLM Queue Service...');
+        // PHASE3-FIX: Migrated console.log to logger (removed duplicate)
+        logger.info('LLM Queue Service: Initializing...');
 
         // 1. Cleanup stale streaming jobs
         await llmJobService.cleanupStaleJobs();
@@ -63,8 +100,8 @@ class LLMQueueService extends EventEmitter {
         // 4. Start timeout checker
         this.startTimeoutChecker();
 
-        console.log('LLM Queue Service: Ready');
-        logger.info('LLM Queue Service initialized');
+        // PHASE3-FIX: Migrated console.log to logger (removed duplicate)
+        logger.info('LLM Queue Service: Ready');
     }
 
     /**
@@ -122,6 +159,8 @@ class LLMQueueService extends EventEmitter {
     subscribeToJob(jobId, callback) {
         if (!this.jobSubscribers.has(jobId)) {
             this.jobSubscribers.set(jobId, new Set());
+            // PHASE1-FIX: Track when subscription was created for cleanup
+            this.jobSubscriberTimestamps.set(jobId, Date.now());
         }
         this.jobSubscribers.get(jobId).add(callback);
 
@@ -132,6 +171,8 @@ class LLMQueueService extends EventEmitter {
                 subscribers.delete(callback);
                 if (subscribers.size === 0) {
                     this.jobSubscribers.delete(jobId);
+                    // PHASE1-FIX: Also clean up timestamp
+                    this.jobSubscriberTimestamps.delete(jobId);
                 }
             }
         };
@@ -333,7 +374,11 @@ ${context}`;
         let thinkingBuffer = '';
         let lastDbWrite = Date.now();
 
-        const flushToDatabase = async (force = false) => {
+        // PHASE1-FIX: Promise queue to serialize database writes and prevent race conditions
+        // Each flushToDatabase chains onto the previous one, ensuring in-order completion
+        let flushPromise = Promise.resolve();
+
+        const flushToDatabase = (force = false) => {
             const now = Date.now();
             const shouldFlush = force ||
                 (now - lastDbWrite > BATCH_INTERVAL_MS) ||
@@ -341,15 +386,24 @@ ${context}`;
                 (thinkingBuffer.length >= BATCH_SIZE_CHARS);
 
             if (shouldFlush && (contentBuffer || thinkingBuffer)) {
-                try {
-                    await llmJobService.updateJobContent(jobId, contentBuffer || null, thinkingBuffer || null);
-                    contentBuffer = '';
-                    thinkingBuffer = '';
-                    lastDbWrite = now;
-                } catch (dbError) {
-                    logger.error(`Failed to flush content to DB for job ${jobId}: ${dbError.message}`);
-                }
+                // Capture current buffer content for this flush
+                const contentToFlush = contentBuffer;
+                const thinkingToFlush = thinkingBuffer;
+                contentBuffer = '';
+                thinkingBuffer = '';
+                lastDbWrite = now;
+
+                // Chain onto previous flush promise to ensure sequential writes
+                flushPromise = flushPromise.then(async () => {
+                    try {
+                        await llmJobService.updateJobContent(jobId, contentToFlush || null, thinkingToFlush || null);
+                    } catch (dbError) {
+                        logger.error(`Failed to flush content to DB for job ${jobId}: ${dbError.message}`);
+                    }
+                });
             }
+
+            return flushPromise;
         };
 
         try {
@@ -459,9 +513,10 @@ ${context}`;
                             await flushToDatabase(true);
                             await llmJobService.completeJob(jobId);
 
+                            // PHASE2-FIX: Use null-coalescing to prevent undefined model in SSE
                             this.notifySubscribers(jobId, {
                                 done: true,
-                                model: data.model,
+                                model: data.model || resolvedModel || 'unknown',
                                 jobId,
                                 timestamp: new Date().toISOString()
                             });
@@ -506,8 +561,9 @@ ${context}`;
             this.isProcessing = false;
             this.processingJobId = null;
 
-            // Clean up subscribers
+            // PHASE1-FIX: Clean up subscribers AND timestamps
             this.jobSubscribers.delete(jobId);
+            this.jobSubscriberTimestamps.delete(jobId);
 
             // Emit queue update
             this.emit('queue:update');

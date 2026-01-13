@@ -140,8 +140,9 @@ def chunk_text_by_chars(text: str, max_chars: int = 2000, overlap_chars: int = 2
         start = end - overlap_chars
         if start < 0:
             start = 0
-        # Ensure progress
-        if start <= chunks[-1] if chunks else 0:
+        # PHASE1-FIX: Ensure progress - compare positions, not string with int
+        # If new start position hasn't advanced past the previous end, force progress
+        if start <= (end - len(chunk)) if chunk else 0:
             start = end
 
     logger.debug(f"Split text into {len(chunks)} chunks (max_chars={max_chars}, overlap={overlap_chars})")

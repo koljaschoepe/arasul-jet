@@ -26,6 +26,15 @@ SERVICE_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', '11435'))
 VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '768'))
 MAX_INPUT_TOKENS = int(os.getenv('EMBEDDING_MAX_INPUT_TOKENS', '4096'))
 
+# PHASE1-FIX: Whitelist of trusted models that require trust_remote_code
+# Only these verified models can execute custom code from HuggingFace
+TRUSTED_MODELS_REQUIRING_REMOTE_CODE = frozenset({
+    'nomic-ai/nomic-embed-text-v1.5',
+    'nomic-ai/nomic-embed-text-v1',
+    'jinaai/jina-embeddings-v2-base-en',
+    'jinaai/jina-embeddings-v2-small-en',
+})
+
 # Initialize Flask app
 app = Flask(__name__)
 
@@ -68,8 +77,14 @@ def load_model():
             logger.info(f"Model found in cache at {model_path}")
 
         # Load model (will download if not cached)
-        # trust_remote_code=True required for nomic-ai models
-        model = SentenceTransformer(MODEL_NAME, device=device, trust_remote_code=True)
+        # PHASE1-FIX: Only enable trust_remote_code for whitelisted models
+        trust_remote = MODEL_NAME in TRUSTED_MODELS_REQUIRING_REMOTE_CODE
+        if trust_remote:
+            logger.info(f"Model '{MODEL_NAME}' is in trusted whitelist, enabling remote code execution")
+        else:
+            logger.info(f"Model '{MODEL_NAME}' not in trusted whitelist, remote code disabled")
+
+        model = SentenceTransformer(MODEL_NAME, device=device, trust_remote_code=trust_remote)
 
         load_time = time.time() - start_time
         logger.info(f"Model loaded successfully in {load_time:.2f}s")

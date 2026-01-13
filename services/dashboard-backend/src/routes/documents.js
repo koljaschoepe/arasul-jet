@@ -60,6 +60,40 @@ function sanitizeFilename(filename) {
     return sanitized;
 }
 
+/**
+ * PHASE2-FIX: Validate file path from database before MinIO operations
+ * Prevents path traversal attacks from manipulated database entries
+ * @param {string} filePath - The file path to validate
+ * @returns {boolean} - True if path is safe, false otherwise
+ */
+function isValidMinioPath(filePath) {
+    if (!filePath || typeof filePath !== 'string') {
+        return false;
+    }
+
+    // Check for path traversal sequences
+    if (filePath.includes('..') || filePath.includes('./')) {
+        return false;
+    }
+
+    // Must not start with slash (absolute path)
+    if (filePath.startsWith('/')) {
+        return false;
+    }
+
+    // Must not contain backslashes (Windows path)
+    if (filePath.includes('\\')) {
+        return false;
+    }
+
+    // Must not contain null bytes
+    if (filePath.includes('\x00')) {
+        return false;
+    }
+
+    return true;
+}
+
 // Configuration
 const MINIO_HOST = process.env.MINIO_HOST || 'minio';
 const MINIO_PORT = parseInt(process.env.MINIO_PORT || '9000');
@@ -470,6 +504,15 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
         const filePath = docResult.rows[0].file_path;
 
+        // PHASE2-FIX: Validate file path before MinIO delete
+        if (!isValidMinioPath(filePath)) {
+            logger.error(`Invalid file path detected for deletion: ${filePath}`);
+            return res.status(400).json({
+                error: 'Ungültiger Dateipfad',
+                timestamp: new Date().toISOString()
+            });
+        }
+
         // Delete from MinIO
         try {
             const minio = getMinioClient();
@@ -874,6 +917,15 @@ router.get('/:id/content', requireAuth, async (req, res) => {
             });
         }
 
+        // PHASE2-FIX: Validate file path before MinIO access
+        if (!isValidMinioPath(doc.file_path)) {
+            logger.error(`Invalid file path detected: ${doc.file_path}`);
+            return res.status(400).json({
+                error: 'Ungültiger Dateipfad',
+                timestamp: new Date().toISOString()
+            });
+        }
+
         // Get file from MinIO
         const minio = getMinioClient();
         const dataStream = await minio.getObject(MINIO_BUCKET, doc.file_path);
@@ -1036,6 +1088,15 @@ router.get('/:id/download', requireAuth, async (req, res) => {
         }
 
         const doc = docResult.rows[0];
+
+        // PHASE2-FIX: Validate file path before MinIO access
+        if (!isValidMinioPath(doc.file_path)) {
+            logger.error(`Invalid file path detected for download: ${doc.file_path}`);
+            return res.status(400).json({
+                error: 'Ungültiger Dateipfad',
+                timestamp: new Date().toISOString()
+            });
+        }
 
         // Get file from MinIO
         const minio = getMinioClient();

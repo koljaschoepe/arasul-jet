@@ -175,8 +175,8 @@ class SelfHealingEngine:
             if conn:
                 try:
                     conn.rollback()
-                except:
-                    pass
+                except Exception:
+                    pass  # PHASE1-FIX: Explicit Exception type
             return None
         finally:
             if conn:
@@ -297,8 +297,8 @@ class SelfHealingEngine:
                     inspect = container.attrs
                     if 'Health' in inspect.get('State', {}):
                         health = inspect['State']['Health']['Status']
-                except:
-                    pass
+                except Exception:
+                    pass  # PHASE1-FIX: Explicit Exception type
 
                 services_status[name] = {
                     'status': status,
@@ -453,8 +453,8 @@ class SelfHealingEngine:
                 logger.info("GPU session reset via model unload")
                 time.sleep(2)  # Wait for GPU to fully release
                 return True
-        except:
-            pass
+        except Exception:
+            pass  # PHASE1-FIX: Explicit Exception type
 
         # Fallback: restart service
         try:
@@ -681,8 +681,12 @@ class SelfHealingEngine:
         logger.info("Starting comprehensive disk cleanup")
         success = True
 
+        # PHASE1-FIX (HIGH-P05): Security note - all paths are hardcoded to prevent command injection
+        # Never use user-supplied paths in subprocess calls
+
         try:
             # Clean old logs (older than 7 days)
+            # Path hardcoded to /arasul/logs for security
             logger.info("Cleaning old logs")
             result = subprocess.run(
                 ['find', '/arasul/logs', '-name', '*.log.*', '-mtime', '+7', '-delete'],

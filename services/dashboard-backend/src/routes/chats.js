@@ -10,6 +10,12 @@ const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const llmJobService = require('../services/llmJobService');
 
+// PHASE3-FIX: Input validation helper for conversation_id
+function isValidConversationId(id) {
+    const parsed = parseInt(id, 10);
+    return !isNaN(parsed) && parsed > 0 && parsed <= 2147483647 && String(parsed) === String(id);
+}
+
 // GET /api/chats - Get all chat conversations
 router.get('/', requireAuth, async (req, res) => {
     try {
@@ -66,6 +72,14 @@ router.get('/:id/messages', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
 
+        // PHASE3-FIX: Validate conversation_id
+        if (!isValidConversationId(id)) {
+            return res.status(400).json({
+                error: 'Invalid conversation_id: must be a positive integer',
+                timestamp: new Date().toISOString()
+            });
+        }
+
         // Query that joins with llm_jobs to get live content for streaming messages
         const result = await db.query(
             `SELECT
@@ -113,6 +127,14 @@ router.get('/:id/jobs', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
 
+        // PHASE3-FIX: Validate conversation_id
+        if (!isValidConversationId(id)) {
+            return res.status(400).json({
+                error: 'Invalid conversation_id: must be a positive integer',
+                timestamp: new Date().toISOString()
+            });
+        }
+
         const jobs = await llmJobService.getActiveJobsForConversation(parseInt(id));
 
         res.json({
@@ -133,6 +155,14 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { role, content, thinking } = req.body;
+
+        // PHASE3-FIX: Validate conversation_id
+        if (!isValidConversationId(id)) {
+            return res.status(400).json({
+                error: 'Invalid conversation_id: must be a positive integer',
+                timestamp: new Date().toISOString()
+            });
+        }
 
         if (!role || !content) {
             return res.status(400).json({
@@ -173,6 +203,14 @@ router.patch('/:id', requireAuth, async (req, res) => {
         const { id } = req.params;
         const { title } = req.body;
 
+        // PHASE3-FIX: Validate conversation_id
+        if (!isValidConversationId(id)) {
+            return res.status(400).json({
+                error: 'Invalid conversation_id: must be a positive integer',
+                timestamp: new Date().toISOString()
+            });
+        }
+
         if (!title) {
             return res.status(400).json({
                 error: 'Title is required',
@@ -212,6 +250,14 @@ router.patch('/:id', requireAuth, async (req, res) => {
 router.delete('/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // PHASE3-FIX: Validate conversation_id
+        if (!isValidConversationId(id)) {
+            return res.status(400).json({
+                error: 'Invalid conversation_id: must be a positive integer',
+                timestamp: new Date().toISOString()
+            });
+        }
 
         const result = await db.query(
             `UPDATE chat_conversations

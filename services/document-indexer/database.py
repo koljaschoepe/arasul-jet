@@ -167,17 +167,32 @@ class DatabaseManager:
                 result = cur.fetchone()
                 return dict(result) if result else None
 
+    # PHASE1-FIX: Whitelist of allowed fields to prevent SQL injection
+    ALLOWED_UPDATE_FIELDS = frozenset({
+        'status', 'title', 'author', 'language', 'page_count',
+        'word_count', 'char_count', 'chunk_count', 'processing_error',
+        'processing_started_at', 'processing_completed_at', 'indexed_at',
+        'summary', 'keywords', 'category_id', 'space_id', 'metadata'
+    })
+
     def update_document(self, doc_id: str, updates: Dict[str, Any]) -> bool:
         """Update document fields"""
         if not updates:
             return False
 
-        # Build dynamic UPDATE query
+        # PHASE1-FIX: Validate field names against whitelist to prevent SQL injection
         set_parts = []
         values = []
         for key, value in updates.items():
+            if key not in self.ALLOWED_UPDATE_FIELDS:
+                logger.warning(f"Attempted to update non-whitelisted field: {key}")
+                continue
             set_parts.append(f"{key} = %s")
             values.append(value)
+
+        if not set_parts:
+            logger.warning("No valid fields to update after whitelist filtering")
+            return False
 
         values.append(doc_id)
 

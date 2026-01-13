@@ -40,7 +40,9 @@ const corsOptions = {
     if (!origin || allowedOrigins.includes(origin) || isLocalNetwork) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked origin: ${origin}`);
+      // PHASE3-FIX: Migrated from console.warn to logger
+      // Note: logger imported later in file, use require inline
+      require('./utils/logger').warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -54,8 +56,9 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 
+// PHASE3-FIX: Migrated from console.log to logger (inline require for module order)
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  require('./utils/logger').debug(`${req.method} ${req.path}`);
   next();
 });
 
@@ -112,8 +115,9 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// PHASE3-FIX: Migrated from console.error to logger
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  require('./utils/logger').error(`Request error: ${err.message}`, { stack: err.stack });
   res.status(500).json({
     error: 'Internal server error',
     timestamp: new Date().toISOString()
@@ -189,8 +193,9 @@ module.exports = { app, server, wss };
 // Only start server if not in test mode
 if (require.main === module) {
   server.listen(PORT, '0.0.0.0', async () => {
-    console.log('ARASUL DASHBOARD BACKEND - Port', PORT);
-    console.log('WebSocket server ready at ws://0.0.0.0:' + PORT + '/api/metrics/live-stream');
+    // PHASE3-FIX: Migrated from console.log to logger
+    logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
+    logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);
 
     // Sync installed models with Ollama
     try {

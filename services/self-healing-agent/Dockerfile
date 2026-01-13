@@ -19,7 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure passwordless sudo for reboot command
-# Security note: Container runs in privileged mode with docker socket access
+# PHASE1-FIX: Security notes:
+# 1. Reboot is DISABLED by default (SELF_HEALING_REBOOT_ENABLED=false)
+# 2. When enabled, max 2 reboots/hour limit prevents reboot loops
+# 3. Pre-reboot state saved to database for validation
+# 4. Container has Docker socket + CAP_SYS_ADMIN (higher privilege than reboot)
 RUN echo 'root ALL=(ALL) NOPASSWD: /sbin/reboot' > /etc/sudoers.d/arasul-reboot && \
     chmod 0440 /etc/sudoers.d/arasul-reboot
 

@@ -531,15 +531,21 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
 
         res.write(`data: ${JSON.stringify({ type: 'sources', sources })}\n\n`);
 
-        // Track client connection
+        // PHASE1-FIX: Track client connection with single close handler
         let clientConnected = true;
+        let unsubscribe = null;
+
+        // Single close handler to prevent race conditions and memory leaks
         res.on('close', () => {
             clientConnected = false;
             logger.debug(`[RAG ${jobId}] Client disconnected, job continues in background`);
+            if (unsubscribe) {
+                unsubscribe();
+            }
         });
 
         // Subscribe to job updates and forward to client
-        const unsubscribe = llmQueueService.subscribeToJob(jobId, (event) => {
+        unsubscribe = llmQueueService.subscribeToJob(jobId, (event) => {
             if (!clientConnected) return;
 
             try {
@@ -552,11 +558,6 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
             } catch (err) {
                 logger.debug(`[RAG ${jobId}] Write error: ${err.message}`);
             }
-        });
-
-        // Handle client disconnect
-        res.on('close', () => {
-            unsubscribe();
         });
 
     } catch (error) {

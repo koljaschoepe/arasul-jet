@@ -77,15 +77,21 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
                 status: queuePosition > 1 ? 'queued' : 'pending'
             })}\n\n`);
 
-            // Track client connection
+            // Track client connection state
             let clientConnected = true;
+            let unsubscribe = null;
+
+            // PHASE1-FIX: Single close handler to prevent race conditions and memory leaks
             res.on('close', () => {
                 clientConnected = false;
                 logger.debug(`[JOB ${jobId}] Client disconnected, job continues in background`);
+                if (unsubscribe) {
+                    unsubscribe();
+                }
             });
 
             // Subscribe to job updates and forward to client
-            const unsubscribe = llmQueueService.subscribeToJob(jobId, (event) => {
+            unsubscribe = llmQueueService.subscribeToJob(jobId, (event) => {
                 if (!clientConnected) return;
 
                 try {
@@ -98,11 +104,6 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
                 } catch (err) {
                     logger.debug(`[JOB ${jobId}] Write error: ${err.message}`);
                 }
-            });
-
-            // Handle client disconnect
-            res.on('close', () => {
-                unsubscribe();
             });
 
         } else {
@@ -215,7 +216,8 @@ router.get('/jobs/:jobId/stream', requireAuth, async (req, res) => {
 
     try {
         const job = await llmJobService.getJob(jobId);
-        console.log(`[RECONNECT ${jobId}] Job status: ${job?.status}, content length: ${job?.content?.length || 0}`);
+        // PHASE3-FIX: Migrated from console.log to logger
+        logger.debug(`[RECONNECT ${jobId}] Job status: ${job?.status}, content length: ${job?.content?.length || 0}`);
 
         if (!job) {
             return res.status(404).json({ error: 'Job not found' });
@@ -227,7 +229,8 @@ router.get('/jobs/:jobId/stream', requireAuth, async (req, res) => {
         res.setHeader('X-Accel-Buffering', 'no');
 
         // Send current content immediately
-        console.log(`[RECONNECT ${jobId}] Sending content: "${(job.content || '').substring(0, 50)}..."`);
+        // PHASE3-FIX: Migrated from console.log to logger
+        logger.debug(`[RECONNECT ${jobId}] Sending content: "${(job.content || '').substring(0, 50)}..."`);
         res.write(`data: ${JSON.stringify({
             type: 'reconnect',
             content: job.content || '',
@@ -261,16 +264,25 @@ router.get('/jobs/:jobId/stream', requireAuth, async (req, res) => {
             })}\n\n`);
         }
 
-        // Track client connection
+        // PHASE1-FIX: Track client connection and manage cleanup in single handler
         let clientConnected = true;
+        let unsubscribe = null;
+        let pollInterval = null;
+
+        // Single close handler for all cleanup
         res.on('close', () => {
             clientConnected = false;
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+            if (unsubscribe) {
+                unsubscribe();
+            }
         });
 
         // Subscribe to job updates
-        const unsubscribe = llmQueueService.subscribeToJob(jobId, (event) => {
+        unsubscribe = llmQueueService.subscribeToJob(jobId, (event) => {
             if (!clientConnected) {
-                unsubscribe();
                 return;
             }
 
@@ -279,11 +291,9 @@ router.get('/jobs/:jobId/stream', requireAuth, async (req, res) => {
 
                 if (event.done) {
                     res.end();
-                    unsubscribe();
                 }
             } catch (err) {
                 logger.debug(`[RECONNECT ${jobId}] Write error: ${err.message}`);
-                unsubscribe();
             }
         });
 
@@ -292,7 +302,7 @@ router.get('/jobs/:jobId/stream', requireAuth, async (req, res) => {
             let lastContent = job.content || '';
             let lastThinking = job.thinking || '';
 
-            const pollInterval = setInterval(async () => {
+            pollInterval = setInterval(async () => {
                 if (!clientConnected) {
                     clearInterval(pollInterval);
                     return;
@@ -353,11 +363,6 @@ router.get('/jobs/:jobId/stream', requireAuth, async (req, res) => {
                 }
 
             }, 200); // Poll every 200ms
-
-            res.on('close', () => {
-                clearInterval(pollInterval);
-                unsubscribe();
-            });
         }
 
     } catch (error) {

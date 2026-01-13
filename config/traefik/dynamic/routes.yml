@@ -184,7 +184,7 @@ http:
       tls: {}
 
     # n8n Workflow Engine - HTTP
-    # The main /n8n route with strip-prefix - n8n runs on root internally
+    # Traefik strips /n8n prefix before forwarding to n8n (n8n runs on root)
     n8n-http:
       rule: "PathPrefix(`/n8n`)"
       service: n8n-service
@@ -209,8 +209,31 @@ http:
         - websecure
       tls: {}
 
-    # n8n Assets - HTTP (served directly, no prefix stripping needed)
-    # These routes handle n8n's frontend assets when accessed from /n8n/
+    # n8n SPA routes - These paths are used by n8n's frontend router
+    # Without this, navigating to /signin would hit the dashboard frontend
+    n8n-spa-http:
+      rule: "PathPrefix(`/signin`) || PathPrefix(`/setup`) || PathPrefix(`/forgot-password`) || PathPrefix(`/workflows`) || PathPrefix(`/credentials`) || PathPrefix(`/executions`) || PathPrefix(`/settings`) || PathPrefix(`/users`) || PathPrefix(`/variables`) || PathPrefix(`/personal-data`)"
+      service: n8n-service
+      priority: 90
+      middlewares:
+        - forward-auth
+        - security-headers
+      entryPoints:
+        - web
+
+    # n8n SPA routes - HTTPS
+    n8n-spa-https:
+      rule: "PathPrefix(`/signin`) || PathPrefix(`/setup`) || PathPrefix(`/forgot-password`) || PathPrefix(`/workflows`) || PathPrefix(`/credentials`) || PathPrefix(`/executions`) || PathPrefix(`/settings`) || PathPrefix(`/users`) || PathPrefix(`/variables`) || PathPrefix(`/personal-data`)"
+      service: n8n-service
+      priority: 90
+      middlewares:
+        - forward-auth
+        - security-headers
+      entryPoints:
+        - websecure
+      tls: {}
+
+    # n8n Assets - HTTP (served directly without prefix)
     n8n-assets-http:
       rule: "PathPrefix(`/assets`) && !PathPrefix(`/api`)"
       service: n8n-service
@@ -231,9 +254,9 @@ http:
         - websecure
       tls: {}
 
-    # n8n Static files - HTTP (base-path.js, etc.)
+    # n8n Static files - HTTP
     n8n-static-http:
-      rule: "Path(`/static/base-path.js`) || Path(`/static/posthog.init.js`) || Path(`/static/prefers-color-scheme.css`)"
+      rule: "PathPrefix(`/static`)"
       service: n8n-service
       priority: 60
       middlewares:
@@ -243,7 +266,7 @@ http:
 
     # n8n Static files - HTTPS
     n8n-static-https:
-      rule: "Path(`/static/base-path.js`) || Path(`/static/posthog.init.js`) || Path(`/static/prefers-color-scheme.css`)"
+      rule: "PathPrefix(`/static`)"
       service: n8n-service
       priority: 60
       middlewares:

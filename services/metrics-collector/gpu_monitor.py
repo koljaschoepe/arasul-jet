@@ -126,17 +126,20 @@ class GPUMonitor:
             if isinstance(name, bytes):
                 name = name.decode('utf-8')
 
+            # PHASE1-FIX (HIGH-P03): Replace bare except with explicit Exception type
+            # These catches handle NVML-specific errors when certain metrics are unavailable
+
             # Temperature
             try:
                 temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
-            except:
+            except Exception:
                 temp = 0.0
 
             # Utilization
             try:
                 util = pynvml.nvmlDeviceGetUtilizationRates(handle)
                 gpu_util = util.gpu
-            except:
+            except Exception:
                 gpu_util = 0.0
 
             # Memory
@@ -145,7 +148,7 @@ class GPUMonitor:
                 mem_used = mem_info.used // (1024 * 1024)  # Convert to MB
                 mem_total = mem_info.total // (1024 * 1024)
                 mem_percent = (mem_info.used / mem_info.total) * 100
-            except:
+            except Exception:
                 mem_used = 0
                 mem_total = 1
                 mem_percent = 0.0
@@ -153,29 +156,29 @@ class GPUMonitor:
             # Power
             try:
                 power_draw = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0  # Convert to W
-            except:
+            except Exception:
                 power_draw = 0.0
 
             try:
                 power_limit = pynvml.nvmlDeviceGetPowerManagementLimit(handle) / 1000.0
-            except:
+            except Exception:
                 power_limit = 0.0
 
             # Fan (may not be available on all GPUs)
             try:
                 fan_speed = pynvml.nvmlDeviceGetFanSpeed(handle)
-            except:
+            except Exception:
                 fan_speed = None
 
             # Clocks
             try:
                 clock_graphics = pynvml.nvmlDeviceGetClockInfo(handle, pynvml.NVML_CLOCK_GRAPHICS)
-            except:
+            except Exception:
                 clock_graphics = 0
 
             try:
                 clock_memory = pynvml.nvmlDeviceGetClockInfo(handle, pynvml.NVML_CLOCK_MEM)
-            except:
+            except Exception:
                 clock_memory = 0
 
             # Detect health and errors
@@ -412,8 +415,8 @@ class GPUMonitor:
             try:
                 pynvml.nvmlShutdown()
                 logger.info("NVML shut down successfully")
-            except:
-                pass
+            except Exception:
+                pass  # PHASE1-FIX (HIGH-P03): Explicit Exception type
 
 
 def main():
