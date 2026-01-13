@@ -8,11 +8,13 @@ const db = require('../database');
 const logger = require('../utils/logger');
 
 /**
- * Login rate limiter - 5 attempts per 15 minutes per IP
+ * Login rate limiter - 30 attempts per 5 minutes per IP
+ * Balance security vs. usability for development/testing
+ * Additional security: Database tracks failed attempts per user account
  */
 const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5,
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 30,
     message: {
         error: 'Too many login attempts from this IP, please try again after 15 minutes',
         timestamp: new Date().toISOString()

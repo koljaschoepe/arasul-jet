@@ -26,12 +26,14 @@ http:
         period: 1s
         burst: 10
 
-    # Auth endpoints: 5 requests/15 minutes (prevent brute force)
+    # Auth endpoints: 30 requests/minute (prevent brute force while allowing normal use)
+    # Previous: 5/15min was too restrictive, caused login failures
+    # Note: Backend also has login attempt tracking in database for security
     rate-limit-auth:
       rateLimit:
-        average: 5
-        period: 15m
-        burst: 2
+        average: 30
+        period: 1m
+        burst: 10
 
     # General API: 100 requests/second
     rate-limit-api:
