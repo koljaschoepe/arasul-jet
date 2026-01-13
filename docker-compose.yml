@@ -507,6 +507,8 @@ services:
       N8N_PORT: ${N8N_PORT}
       N8N_PROTOCOL: http
       N8N_SECURE_COOKIE: "false"
+      # N8N_EDITOR_BASE_URL tells n8n the external URL (for links in emails, etc.)
+      # Traefik strips /n8n prefix before forwarding to n8n
       N8N_EDITOR_BASE_URL: http://${INTERNAL_IP}/n8n
       N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE}
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}

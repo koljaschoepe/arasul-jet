@@ -184,7 +184,7 @@ http:
       tls: {}
 
     # n8n Workflow Engine - HTTP
-    # Accessible from any IP address in the network via HTTP
+    # The main /n8n route with strip-prefix - n8n runs on root internally
     n8n-http:
       rule: "PathPrefix(`/n8n`)"
       service: n8n-service
@@ -197,7 +197,6 @@ http:
         - web
 
     # n8n Workflow Engine - HTTPS
-    # Accessible from any IP address in the network via HTTPS
     n8n-https:
       rule: "PathPrefix(`/n8n`)"
       service: n8n-service
@@ -207,6 +206,84 @@ http:
         - forward-auth
         - security-headers
       entryPoints:
+        - websecure
+      tls: {}
+
+    # n8n Assets - HTTP (served directly, no prefix stripping needed)
+    # These routes handle n8n's frontend assets when accessed from /n8n/
+    n8n-assets-http:
+      rule: "PathPrefix(`/assets`) && !PathPrefix(`/api`)"
+      service: n8n-service
+      priority: 50
+      middlewares:
+        - forward-auth
+      entryPoints:
+        - web
+
+    # n8n Assets - HTTPS
+    n8n-assets-https:
+      rule: "PathPrefix(`/assets`) && !PathPrefix(`/api`)"
+      service: n8n-service
+      priority: 50
+      middlewares:
+        - forward-auth
+      entryPoints:
+        - websecure
+      tls: {}
+
+    # n8n Static files - HTTP (base-path.js, etc.)
+    n8n-static-http:
+      rule: "Path(`/static/base-path.js`) || Path(`/static/posthog.init.js`) || Path(`/static/prefers-color-scheme.css`)"
+      service: n8n-service
+      priority: 60
+      middlewares:
+        - forward-auth
+      entryPoints:
+        - web
+
+    # n8n Static files - HTTPS
+    n8n-static-https:
+      rule: "Path(`/static/base-path.js`) || Path(`/static/posthog.init.js`) || Path(`/static/prefers-color-scheme.css`)"
+      service: n8n-service
+      priority: 60
+      middlewares:
+        - forward-auth
+      entryPoints:
+        - websecure
+      tls: {}
+
+    # n8n REST API - HTTP
+    n8n-rest-http:
+      rule: "PathPrefix(`/rest`)"
+      service: n8n-service
+      priority: 50
+      middlewares:
+        - forward-auth
+        - security-headers
+      entryPoints:
+        - web
+
+    # n8n REST API - HTTPS
+    n8n-rest-https:
+      rule: "PathPrefix(`/rest`)"
+      service: n8n-service
+      priority: 50
+      middlewares:
+        - forward-auth
+        - security-headers
+      entryPoints:
+        - websecure
+      tls: {}
+
+    # n8n favicon
+    n8n-favicon:
+      rule: "Path(`/favicon.ico`)"
+      service: n8n-service
+      priority: 45
+      middlewares:
+        - forward-auth
+      entryPoints:
+        - web
         - websecure
       tls: {}
 
@@ -306,6 +383,8 @@ http:
           timeout: 5s
 
     # n8n
+    # Note: API endpoints (like /healthz) are NOT prefixed with N8N_PATH
+    # Only the frontend UI uses the /n8n/ prefix
     n8n-service:
       loadBalancer:
         servers:

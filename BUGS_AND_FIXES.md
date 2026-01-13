@@ -23,6 +23,50 @@
 
 ---
 
+## HIGH-018: n8n Not Accessible via /n8n/ Subpath (2026-01-13)
+
+### Status: ✅ FIXED
+
+**Files**:
+- `config/traefik/dynamic/routes.yml`
+- `docker-compose.yml` (n8n environment)
+- `.env`
+
+**Severity**: HIGH
+
+**Issue**: n8n was not accessible via the Traefik reverse proxy at `arasul.local/n8n`. Users received either 401 Unauthorized or 503 Service Unavailable errors.
+
+**Root Cause**:
+1. The `strip-n8n-prefix` middleware was removed, but n8n wasn't configured with `N8N_PATH=/n8n/`
+2. When `N8N_PATH` was added, n8n generated HTML with `/n8n/assets/...` URLs, but only served assets from `/assets/...` (a known n8n bug with subpath deployments)
+3. The healthcheck path was updated to `/n8n/healthz`, but n8n's API endpoints don't respect the subpath
+
+**Fix Applied**:
+1. Kept `strip-n8n-prefix` middleware for the main `/n8n/*` route
+2. Added dedicated routes for n8n assets and static files that bypass the prefix stripping:
+   - `/assets/*` → n8n-service (for JavaScript/CSS bundles)
+   - `/static/base-path.js`, `/static/posthog.init.js`, `/static/prefers-color-scheme.css` → n8n-service
+   - `/rest/*` → n8n-service (for n8n REST API)
+3. Removed `N8N_PATH` environment variable (n8n runs on root internally)
+4. Kept `N8N_EDITOR_BASE_URL` for external URL generation
+
+**Verification**:
+```bash
+# With auth cookie:
+curl -b cookies.txt http://localhost/n8n/        # → 200 (HTML)
+curl -b cookies.txt http://localhost/assets/...  # → 200 (~1MB JS)
+curl -b cookies.txt http://localhost/rest/settings # → 200 (JSON)
+
+# Without auth:
+curl http://localhost/n8n/                        # → 401 (protected)
+```
+
+**Related Issues**:
+- [n8n GitHub Issue #19635](https://github.com/n8n-io/n8n/issues/19635) - Subpath deployment bugs
+- [n8n GitHub Issue #18596](https://github.com/n8n-io/n8n/issues/18596) - Login redirect issues with subpath
+
+---
+
 ## NEW: Schema Migration Bug (2025-12-30)
 
 ### SCHEMA-001: Duplicate Column Addition in Migrations
