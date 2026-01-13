@@ -194,35 +194,46 @@ describe('Design System Validation', () => {
     expect(forbiddenColorIssues.length).toBe(0);
   });
 
-  test('Hardcodierte Farben-Audit (Warnings)', () => {
+  test('Hardcodierte Farben sollten CSS-Variablen verwenden', () => {
     const hardcodedIssues = allIssues.filter(i => i.type === 'HARDCODED_COLOR');
 
-    if (hardcodedIssues.length > 0) {
-      console.warn(`\n⚠ ${hardcodedIssues.length} HARDCODIERTE FARBEN ZU PRÜFEN:`);
-      hardcodedIssues.slice(0, 10).forEach(issue => {
-        console.warn(`  ${issue.file}:${issue.line} - ${issue.message}`);
+    // Akzeptierter Schwellenwert für bestehende hardcodierte Farben
+    // Dieser Wert sollte bei neuen Änderungen nicht steigen
+    const ACCEPTED_THRESHOLD = 50; // Anpassen nach Baseline-Messung
+
+    if (hardcodedIssues.length > ACCEPTED_THRESHOLD) {
+      console.error(`\n❌ ZU VIELE HARDCODIERTE FARBEN: ${hardcodedIssues.length} (max: ${ACCEPTED_THRESHOLD})`);
+      hardcodedIssues.slice(0, 15).forEach(issue => {
+        console.error(`  ${issue.file}:${issue.line} - ${issue.message}`);
       });
-      if (hardcodedIssues.length > 10) {
-        console.warn(`  ... und ${hardcodedIssues.length - 10} weitere`);
-      }
+      console.error('\n  LÖSUNG: Verwende CSS-Variablen aus dem Design System (z.B. var(--primary-color))');
+    } else if (hardcodedIssues.length > 0) {
+      console.warn(`\n⚠ ${hardcodedIssues.length} hardcodierte Farben gefunden (Schwellenwert: ${ACCEPTED_THRESHOLD})`);
     }
 
-    // Nur Warning, kein Failure
-    expect(true).toBe(true);
+    // Test failt, wenn mehr hardcodierte Farben als der Schwellenwert existieren
+    expect(hardcodedIssues.length).toBeLessThanOrEqual(ACCEPTED_THRESHOLD);
   });
 
-  test('Transitions für Hover/Focus-States vorhanden (Warnings)', () => {
+  test('Transitions für Hover/Focus-States vorhanden', () => {
     const transitionIssues = allIssues.filter(i => i.type === 'MISSING_TRANSITION');
 
-    if (transitionIssues.length > 0) {
-      console.warn(`\n⚠ ${transitionIssues.length} FEHLENDE TRANSITIONS:`);
-      transitionIssues.slice(0, 5).forEach(issue => {
-        console.warn(`  ${issue.file}:${issue.line}`);
+    // Akzeptierter Schwellenwert für fehlende Transitions
+    // Dieser Wert sollte bei neuen Änderungen nicht steigen
+    const ACCEPTED_THRESHOLD = 30; // Anpassen nach Baseline-Messung
+
+    if (transitionIssues.length > ACCEPTED_THRESHOLD) {
+      console.error(`\n❌ ZU VIELE FEHLENDE TRANSITIONS: ${transitionIssues.length} (max: ${ACCEPTED_THRESHOLD})`);
+      transitionIssues.slice(0, 10).forEach(issue => {
+        console.error(`  ${issue.file}:${issue.line}`);
       });
+      console.error('\n  LÖSUNG: Füge "transition: all 0.2s ease;" zu interaktiven Elementen hinzu');
+    } else if (transitionIssues.length > 0) {
+      console.warn(`\n⚠ ${transitionIssues.length} fehlende Transitions gefunden (Schwellenwert: ${ACCEPTED_THRESHOLD})`);
     }
 
-    // Nur Warning, kein Failure
-    expect(true).toBe(true);
+    // Test failt, wenn mehr fehlende Transitions als der Schwellenwert existieren
+    expect(transitionIssues.length).toBeLessThanOrEqual(ACCEPTED_THRESHOLD);
   });
 });
 

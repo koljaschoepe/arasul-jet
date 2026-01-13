@@ -236,60 +236,64 @@ describe('Code Quality Analysis', () => {
     expect(xssIssues.length).toBe(0);
   });
 
-  test('Memory Leak Analyse (Warnings)', () => {
+  test('Keine unbehandelten Memory Leaks (useEffect ohne Cleanup)', () => {
     const memoryIssues = allIssues.filter(i => i.type === 'POTENTIAL_MEMORY_LEAK');
 
     if (memoryIssues.length > 0) {
-      console.warn(`\n⚠ ${memoryIssues.length} POTENTIELLE MEMORY LEAKS:`);
+      console.error(`\n❌ ${memoryIssues.length} POTENTIELLE MEMORY LEAKS GEFUNDEN:`);
       memoryIssues.forEach(issue => {
-        console.warn(`  ${issue.file} - ${issue.message}`);
+        console.error(`  ${issue.file} - ${issue.message}`);
       });
+      console.error('\n  LÖSUNG: Füge return () => { cleanup(); } zu useEffect hinzu');
     }
 
-    // Nur Warning, kein Failure
-    expect(true).toBe(true);
+    // Test failt, wenn Memory Leaks gefunden werden
+    expect(memoryIssues).toHaveLength(0);
   });
 
-  test('Unbehandelte Promises (Warnings)', () => {
+  test('Keine unbehandelten Promises (fetch/axios ohne catch)', () => {
     const promiseIssues = allIssues.filter(i => i.type === 'UNHANDLED_PROMISE');
 
     if (promiseIssues.length > 0) {
-      console.warn(`\n⚠ ${promiseIssues.length} POTENTIELLE UNBEHANDELTE PROMISES:`);
-      promiseIssues.slice(0, 5).forEach(issue => {
-        console.warn(`  ${issue.file}:${issue.line}`);
+      console.error(`\n❌ ${promiseIssues.length} UNBEHANDELTE PROMISES GEFUNDEN:`);
+      promiseIssues.forEach(issue => {
+        console.error(`  ${issue.file}:${issue.line}`);
       });
+      console.error('\n  LÖSUNG: Füge .catch() oder try/catch Block hinzu');
     }
 
-    // Nur Warning, kein Failure
-    expect(true).toBe(true);
+    // Test failt, wenn unbehandelte Promises gefunden werden
+    expect(promiseIssues).toHaveLength(0);
   });
 
-  test('Console.log Statements (Info)', () => {
+  test('Keine console.log Statements in Produktionscode', () => {
     const logIssues = allIssues.filter(i => i.type === 'CONSOLE_LOG');
 
     if (logIssues.length > 0) {
-      console.info(`\nℹ ${logIssues.length} CONSOLE.LOG STATEMENTS (für Produktion entfernen):`);
-      logIssues.slice(0, 10).forEach(issue => {
-        console.info(`  ${issue.file}:${issue.line}`);
+      console.error(`\n❌ ${logIssues.length} CONSOLE.LOG STATEMENTS GEFUNDEN:`);
+      logIssues.forEach(issue => {
+        console.error(`  ${issue.file}:${issue.line} - ${issue.lineContent}`);
       });
+      console.error('\n  LÖSUNG: Entferne console.log oder ersetze durch Logger-Service');
     }
 
-    // Nur Info, kein Failure
-    expect(true).toBe(true);
+    // Test failt, wenn console.log Statements gefunden werden (außer in Error-Handling)
+    expect(logIssues).toHaveLength(0);
   });
 
-  test('Hardcodierte URLs', () => {
+  test('Keine hardcodierten externen URLs', () => {
     const urlIssues = allIssues.filter(i => i.type === 'HARDCODED_URL');
 
     if (urlIssues.length > 0) {
-      console.warn(`\n⚠ ${urlIssues.length} HARDCODIERTE URLS:`);
+      console.error(`\n❌ ${urlIssues.length} HARDCODIERTE URLS GEFUNDEN:`);
       urlIssues.forEach(issue => {
-        console.warn(`  ${issue.file}:${issue.line} - ${issue.lineContent}`);
+        console.error(`  ${issue.file}:${issue.line} - ${issue.lineContent}`);
       });
+      console.error('\n  LÖSUNG: Verwende Environment Variables (process.env.REACT_APP_*)');
     }
 
-    // Nur Warning, kein Failure
-    expect(true).toBe(true);
+    // Test failt, wenn hardcodierte URLs gefunden werden
+    expect(urlIssues).toHaveLength(0);
   });
 });
 

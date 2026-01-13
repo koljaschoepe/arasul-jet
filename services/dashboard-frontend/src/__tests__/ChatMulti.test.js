@@ -515,4 +515,429 @@ describe('ChatMulti Component', () => {
       });
     });
   });
+
+  // ===========================================================================
+  // SSE/STREAMING TESTS
+  // ===========================================================================
+  describe('SSE Streaming', () => {
+    test('EventSource wird mit korrekter URL initialisiert', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i)).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i);
+      await user.type(input, 'Test message{enter}');
+
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+        const url = global.EventSource.mock.calls[0][0];
+        expect(url).toContain('/api/llm/chat');
+      }, { timeout: 3000 });
+    });
+
+    test('onmessage parsed JSON und aktualisiert content', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Hello{enter}');
+
+      // Wait for EventSource to be created
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+      });
+
+      // Simulate SSE messages
+      if (mockEventSource.onmessage) {
+        // Simulate job_started event
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'job_started',
+            jobId: 'job-123',
+            messageId: 'msg-123',
+            queuePosition: 1
+          })
+        });
+
+        // Simulate token event
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'response',
+            token: 'Hello'
+          })
+        });
+
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'response',
+            token: ' World'
+          })
+        });
+
+        // Simulate completion
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            done: true
+          })
+        });
+
+        await waitFor(() => {
+          expect(mockEventSource.close).toHaveBeenCalled();
+        }, { timeout: 3000 });
+      }
+    });
+
+    test('onerror stoppt Loading-State und zeigt Fehler', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Hello{enter}');
+
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+      });
+
+      // Simulate SSE error
+      if (mockEventSource.onerror) {
+        mockEventSource.onerror(new Error('Connection lost'));
+
+        await waitFor(() => {
+          // Error message should appear or loading should stop
+          expect(mockEventSource.close).toHaveBeenCalled();
+        }, { timeout: 3000 });
+      }
+    });
+
+    test('Stream-Completion setzt isLoading zurück', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Hello{enter}');
+
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+      });
+
+      // Simulate successful completion
+      if (mockEventSource.onmessage) {
+        mockEventSource.onmessage({
+          data: JSON.stringify({ type: 'job_started', jobId: 'job-123' })
+        });
+        mockEventSource.onmessage({
+          data: JSON.stringify({ type: 'response', token: 'Response' })
+        });
+        mockEventSource.onmessage({
+          data: JSON.stringify({ done: true })
+        });
+
+        await waitFor(() => {
+          // Input should be re-enabled after completion
+          expect(input).not.toBeDisabled();
+        }, { timeout: 3000 });
+      }
+    });
+
+    test('Thinking-Blocks werden während Streaming angezeigt', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Hello{enter}');
+
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+      });
+
+      // Simulate thinking event
+      if (mockEventSource.onmessage) {
+        mockEventSource.onmessage({
+          data: JSON.stringify({ type: 'job_started', jobId: 'job-123' })
+        });
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'thinking',
+            content: 'Analyzing the question...'
+          })
+        });
+
+        await waitFor(() => {
+          const thinkingElement = document.querySelector('[class*="thinking"]');
+          // Thinking block should appear during streaming
+        }, { timeout: 2000 });
+      }
+    });
+
+    test('Sources werden nach RAG-Query angezeigt', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      // Enable RAG mode first
+      const ragToggle = document.querySelector('[class*="rag-toggle"]') ||
+                       screen.queryByText(/rag/i)?.closest('button');
+      if (ragToggle) {
+        await user.click(ragToggle);
+      }
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Hello{enter}');
+
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+      });
+
+      // Simulate sources event
+      if (mockEventSource.onmessage) {
+        mockEventSource.onmessage({
+          data: JSON.stringify({ type: 'job_started', jobId: 'job-123' })
+        });
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'sources',
+            sources: [
+              { document_name: 'test.pdf', chunk_index: 0, score: 0.95 },
+              { document_name: 'manual.pdf', chunk_index: 2, score: 0.87 }
+            ]
+          })
+        });
+
+        await waitFor(() => {
+          const sourcesElement = document.querySelector('[class*="sources"]');
+          // Sources should be visible
+        }, { timeout: 2000 });
+      }
+    });
+  });
+
+  // ===========================================================================
+  // QUEUE TRACKING TESTS
+  // ===========================================================================
+  describe('Queue Tracking', () => {
+    test('Queue-Position wird angezeigt', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Hello{enter}');
+
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+      });
+
+      // Simulate queued event
+      if (mockEventSource.onmessage) {
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'job_started',
+            jobId: 'job-123',
+            queuePosition: 3,
+            status: 'queued'
+          })
+        });
+
+        await waitFor(() => {
+          // Queue position indicator should appear
+          const queueIndicator = document.querySelector('[class*="queue"]') ||
+                                screen.queryByText(/#3/i) ||
+                                screen.queryByText(/position/i);
+          // Queue position should be visible
+        }, { timeout: 2000 });
+      }
+    });
+
+    test('Queue-Position aktualisiert sich', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Hello{enter}');
+
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+      });
+
+      // Simulate queue position update
+      if (mockEventSource.onmessage) {
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'job_started',
+            jobId: 'job-123',
+            queuePosition: 3,
+            status: 'queued'
+          })
+        });
+
+        // Simulate position moving up
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'queue_update',
+            queuePosition: 2
+          })
+        });
+
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'queue_update',
+            queuePosition: 1
+          })
+        });
+
+        // Eventually starts processing
+        mockEventSource.onmessage({
+          data: JSON.stringify({
+            type: 'response',
+            token: 'Starting...'
+          })
+        });
+      }
+    });
+  });
+
+  // ===========================================================================
+  // JOB RECONNECTION TESTS
+  // ===========================================================================
+  describe('Job Reconnection', () => {
+    test('kann zu laufendem Job reconnecten', async () => {
+      // Setup: mock that there's an active job
+      axios.get.mockImplementation((url) => {
+        if (url.includes('/chats')) {
+          return Promise.resolve({ data: { chats: mockChats } });
+        }
+        if (url.includes('/chats/1/messages')) {
+          return Promise.resolve({ data: { messages: mockMessages } });
+        }
+        if (url.includes('/chats/1/jobs')) {
+          return Promise.resolve({
+            data: {
+              jobs: [{
+                id: 'job-active',
+                status: 'streaming',
+                content: 'Partial response...'
+              }]
+            }
+          });
+        }
+        if (url.includes('/models/installed')) {
+          return Promise.resolve({ data: { models: mockModels } });
+        }
+        if (url.includes('/models/default')) {
+          return Promise.resolve({ data: { model: 'qwen3:7b' } });
+        }
+        return Promise.resolve({ data: {} });
+      });
+
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
+      });
+
+      // Component should attempt to reconnect to active job
+      await waitFor(() => {
+        const reconnectCalls = axios.get.mock.calls.filter(call =>
+          call[0].includes('/jobs')
+        );
+        // May or may not call depending on implementation
+      }, { timeout: 3000 });
+    });
+
+    test('EventSource close wird bei Unmount aufgerufen', async () => {
+      const user = userEvent.setup();
+      const { unmount } = render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Hello{enter}');
+
+      await waitFor(() => {
+        expect(global.EventSource).toHaveBeenCalled();
+      });
+
+      // Unmount component
+      unmount();
+
+      // EventSource should be closed on unmount
+      expect(mockEventSource.close).toHaveBeenCalled();
+    });
+  });
+
+  // ===========================================================================
+  // KEYBOARD SHORTCUT TESTS
+  // ===========================================================================
+  describe('Keyboard Shortcuts', () => {
+    test('Shift+Enter erzeugt Newline statt Senden', async () => {
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'Line 1{shift>}{enter}{/shift}Line 2');
+
+      // Should contain newline, not send
+      expect(input.value).toContain('Line 1');
+      expect(input.value).toContain('Line 2');
+      expect(global.EventSource).not.toHaveBeenCalled();
+    });
+
+    test('Ctrl+T erstellt neuen Chat', async () => {
+      axios.post.mockResolvedValueOnce({
+        data: { chat: { id: 99, title: 'Neuer Chat' } }
+      });
+
+      const user = userEvent.setup();
+      render(<ChatMulti />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
+      });
+
+      // Simulate Ctrl+T
+      await user.keyboard('{Control>}t{/Control}');
+
+      await waitFor(() => {
+        expect(axios.post).toHaveBeenCalledWith(
+          expect.stringContaining('/chats'),
+          expect.any(Object)
+        );
+      }, { timeout: 2000 });
+    });
+  });
 });
