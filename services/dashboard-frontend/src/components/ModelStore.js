@@ -26,12 +26,12 @@ import '../modelstore.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
-// Category configuration
+// Category configuration - neutral gray per Design System
 const categoryConfig = {
-    small: { label: 'Klein', color: '#10b981', description: '7-12 GB RAM' },
-    medium: { label: 'Mittel', color: '#3b82f6', description: '15-25 GB RAM' },
-    large: { label: 'Gross', color: '#8b5cf6', description: '30-40 GB RAM' },
-    xlarge: { label: 'Sehr Gross', color: '#ef4444', description: '45+ GB RAM' }
+    small: { label: 'Klein', color: '#2A3544', description: '7-12 GB RAM' },
+    medium: { label: 'Mittel', color: '#2A3544', description: '15-25 GB RAM' },
+    large: { label: 'Gross', color: '#2A3544', description: '30-40 GB RAM' },
+    xlarge: { label: 'Sehr Gross', color: '#2A3544', description: '45+ GB RAM' }
 };
 
 // Format bytes to human readable
