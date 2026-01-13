@@ -3,6 +3,8 @@
 Document Indexer Service for Arasul Platform
 Automatically indexes documents from MinIO into Qdrant vector database
 Runs every 30 seconds and supports PDF, TXT, DOCX, and Markdown files
+
+RAG 2.0: Extended with Knowledge Space metadata support
 """
 
 import os
@@ -11,7 +13,7 @@ import time
 import logging
 import hashlib
 import uuid
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from io import BytesIO
 
 from minio import Minio
@@ -19,6 +21,8 @@ from minio.error import S3Error
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 import requests
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 from document_parsers import parse_pdf, parse_docx, parse_txt, parse_markdown
 from text_chunker import chunk_text
@@ -49,6 +53,13 @@ CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHUNK_SIZE', '500'))
 CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
 INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '30'))
 
+# PostgreSQL configuration (RAG 2.0)
+POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'postgres-db')
+POSTGRES_PORT = int(os.getenv('POSTGRES_PORT', '5432'))
+POSTGRES_DB = os.getenv('POSTGRES_DB', 'arasul_db')
+POSTGRES_USER = os.getenv('POSTGRES_USER', 'arasul')
+POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', '')
+
 
 class DocumentIndexer:
     def __init__(self):
@@ -61,6 +72,9 @@ class DocumentIndexer:
         # Initialize Qdrant client
         self.qdrant_client = self._init_qdrant()
 
+        # Initialize PostgreSQL connection (RAG 2.0)
+        self.pg_conn = None
+
         # File extension to parser mapping
         self.parsers = {
             '.pdf': parse_pdf,
@@ -71,6 +85,90 @@ class DocumentIndexer:
         }
 
         logger.info("Document Indexer initialized successfully")
+
+    def _get_pg_connection(self):
+        """Get or create PostgreSQL connection (RAG 2.0)"""
+        try:
+            if self.pg_conn is None or self.pg_conn.closed:
+                self.pg_conn = psycopg2.connect(
+                    host=POSTGRES_HOST,
+                    port=POSTGRES_PORT,
+                    dbname=POSTGRES_DB,
+                    user=POSTGRES_USER,
+                    password=POSTGRES_PASSWORD
+                )
+                self.pg_conn.autocommit = True
+                logger.info("PostgreSQL connection established")
+            return self.pg_conn
+        except Exception as e:
+            logger.error(f"Failed to connect to PostgreSQL: {e}")
+            return None
+
+    def get_document_metadata(self, file_path: str) -> Optional[Dict]:
+        """Get document metadata including space info from PostgreSQL (RAG 2.0)"""
+        try:
+            conn = self._get_pg_connection()
+            if not conn:
+                return None
+
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT d.id, d.filename, d.space_id, d.title, d.document_summary,
+                           ks.name as space_name, ks.slug as space_slug
+                    FROM documents d
+                    LEFT JOIN knowledge_spaces ks ON d.space_id = ks.id
+                    WHERE d.file_path = %s AND d.deleted_at IS NULL
+                """, (file_path,))
+                result = cur.fetchone()
+                return dict(result) if result else None
+        except Exception as e:
+            logger.error(f"Failed to get document metadata: {e}")
+            return None
+
+    def update_document_status(self, file_path: str, status: str, chunk_count: int = None, error: str = None):
+        """Update document status in PostgreSQL (RAG 2.0)"""
+        try:
+            conn = self._get_pg_connection()
+            if not conn:
+                return
+
+            with conn.cursor() as cur:
+                if status == 'indexed':
+                    cur.execute("""
+                        UPDATE documents
+                        SET status = %s, chunk_count = %s, indexed_at = NOW(),
+                            processing_completed_at = NOW(), processing_error = NULL
+                        WHERE file_path = %s
+                    """, (status, chunk_count, file_path))
+                elif status == 'failed':
+                    cur.execute("""
+                        UPDATE documents
+                        SET status = %s, processing_error = %s,
+                            processing_completed_at = NOW(), retry_count = retry_count + 1
+                        WHERE file_path = %s
+                    """, (status, error, file_path))
+                elif status == 'processing':
+                    cur.execute("""
+                        UPDATE documents
+                        SET status = %s, processing_started_at = NOW()
+                        WHERE file_path = %s
+                    """, (status, file_path))
+                logger.debug(f"Updated document status: {file_path} -> {status}")
+        except Exception as e:
+            logger.error(f"Failed to update document status: {e}")
+
+    def update_space_statistics(self, space_id: str):
+        """Update space statistics after indexing (RAG 2.0)"""
+        try:
+            conn = self._get_pg_connection()
+            if not conn or not space_id:
+                return
+
+            with conn.cursor() as cur:
+                cur.execute("SELECT update_space_statistics(%s)", (space_id,))
+                logger.debug(f"Updated statistics for space: {space_id}")
+        except Exception as e:
+            logger.error(f"Failed to update space statistics: {e}")
 
     def _init_minio(self) -> Minio:
         """Initialize MinIO client with retry logic"""
@@ -199,10 +297,23 @@ class DocumentIndexer:
                 logger.debug(f"Document {object_name} already indexed, skipping")
                 return
 
+            # RAG 2.0: Get document metadata including space info from PostgreSQL
+            doc_meta = self.get_document_metadata(object_name)
+            document_id = str(doc_meta.get('id', '')) if doc_meta else None
+            space_id = str(doc_meta.get('space_id', '')) if doc_meta and doc_meta.get('space_id') else None
+            space_name = doc_meta.get('space_name', '') if doc_meta else None
+            space_slug = doc_meta.get('space_slug', '') if doc_meta else None
+            doc_title = doc_meta.get('title', '') if doc_meta else None
+            doc_summary = doc_meta.get('document_summary', '') if doc_meta else None
+
+            # Update status to processing
+            self.update_document_status(object_name, 'processing')
+
             # Parse document
             text = self.parse_document(object_name, data)
             if not text:
                 logger.warning(f"Failed to extract text from {object_name}")
+                self.update_document_status(object_name, 'failed', error='Failed to extract text')
                 return
 
             # Chunk text
@@ -211,6 +322,7 @@ class DocumentIndexer:
 
             if not chunks:
                 logger.warning(f"No chunks generated for {object_name}")
+                self.update_document_status(object_name, 'failed', error='No chunks generated')
                 return
 
             # Generate embeddings and store in Qdrant
@@ -224,17 +336,27 @@ class DocumentIndexer:
                 # Generate UUID from hash for deterministic but valid point ID
                 point_id = str(uuid.UUID(hashlib.md5(f"{doc_hash}:{i}".encode()).hexdigest()))
 
+                # RAG 2.0: Extended payload with space metadata
+                payload = {
+                    "document_name": object_name,
+                    "document_hash": doc_hash,
+                    "chunk_index": i,
+                    "total_chunks": len(chunks),
+                    "text": chunk,
+                    "indexed_at": time.time(),
+                    # RAG 2.0 fields
+                    "document_id": document_id,
+                    "space_id": space_id,
+                    "space_name": space_name or "",
+                    "space_slug": space_slug or "",
+                    "title": doc_title or object_name,
+                    "document_summary": doc_summary or ""
+                }
+
                 point = PointStruct(
                     id=point_id,
                     vector=embedding,
-                    payload={
-                        "document_name": object_name,
-                        "document_hash": doc_hash,
-                        "chunk_index": i,
-                        "total_chunks": len(chunks),
-                        "text": chunk,
-                        "indexed_at": time.time()
-                    }
+                    payload=payload
                 )
                 points.append(point)
 
@@ -244,11 +366,18 @@ class DocumentIndexer:
                     points=points
                 )
                 logger.info(f"Indexed {len(points)} chunks from {object_name}")
+
+                # RAG 2.0: Update document status and space statistics
+                self.update_document_status(object_name, 'indexed', chunk_count=len(points))
+                if space_id:
+                    self.update_space_statistics(space_id)
             else:
                 logger.warning(f"No points to index for {object_name}")
+                self.update_document_status(object_name, 'failed', error='No embeddings generated')
 
         except Exception as e:
             logger.error(f"Error indexing document {object_name}: {e}", exc_info=True)
+            self.update_document_status(object_name, 'failed', error=str(e))
 
     def scan_and_index(self):
         """Scan MinIO bucket and index new documents"""

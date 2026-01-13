@@ -4,6 +4,11 @@
  * Uses Queue System for sequential LLM processing
  *
  * HYBRID SEARCH: Combines vector similarity with keyword matching for better recall
+ *
+ * RAG 2.0: Hierarchical Context with Knowledge Spaces
+ * - Company context (global)
+ * - Space routing based on query
+ * - Space-filtered document retrieval
  */
 
 const express = require('express');
@@ -27,6 +32,10 @@ const EMBEDDING_SERVICE_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
 const HYBRID_SEARCH_ENABLED = process.env.RAG_HYBRID_SEARCH !== 'false';
 const RRF_K = 60;  // Reciprocal Rank Fusion constant
 
+// RAG 2.0: Space routing configuration
+const SPACE_ROUTING_THRESHOLD = parseFloat(process.env.SPACE_ROUTING_THRESHOLD || '0.4');
+const SPACE_ROUTING_MAX_SPACES = parseInt(process.env.SPACE_ROUTING_MAX_SPACES || '3');
+
 /**
  * Get embedding vector for text
  */
@@ -44,18 +53,174 @@ async function getEmbedding(text) {
     }
 }
 
+// =============================================================================
+// RAG 2.0: KNOWLEDGE SPACES FUNCTIONS
+// =============================================================================
+
+/**
+ * Get company context from database (RAG 2.0)
+ */
+async function getCompanyContext() {
+    try {
+        const result = await db.query(`
+            SELECT content FROM company_context WHERE id = 1
+        `);
+        return result.rows.length > 0 ? result.rows[0].content : null;
+    } catch (error) {
+        logger.warn(`Failed to get company context: ${error.message}`);
+        return null;
+    }
+}
+
+/**
+ * Calculate cosine similarity between two vectors
+ */
+function cosineSimilarity(a, b) {
+    if (!a || !b || a.length !== b.length) return 0;
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+        dotProduct += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+    }
+
+    normA = Math.sqrt(normA);
+    normB = Math.sqrt(normB);
+
+    if (normA === 0 || normB === 0) return 0;
+    return dotProduct / (normA * normB);
+}
+
+/**
+ * Route query to relevant spaces based on description embeddings (RAG 2.0)
+ */
+async function routeToSpaces(queryEmbedding, options = {}) {
+    const { threshold = SPACE_ROUTING_THRESHOLD, maxSpaces = SPACE_ROUTING_MAX_SPACES } = options;
+
+    try {
+        // Get all spaces with their description embeddings
+        const result = await db.query(`
+            SELECT id, name, slug, description, description_embedding, auto_summary
+            FROM knowledge_spaces
+            WHERE description_embedding IS NOT NULL
+        `);
+
+        if (result.rows.length === 0) {
+            logger.debug('No spaces with embeddings found, returning all spaces');
+            const allSpaces = await db.query('SELECT id, name, slug, description FROM knowledge_spaces');
+            return { spaces: allSpaces.rows, method: 'all' };
+        }
+
+        // Calculate similarity for each space
+        const scoredSpaces = result.rows
+            .map(space => {
+                const spaceEmbedding = JSON.parse(space.description_embedding);
+                const similarity = cosineSimilarity(queryEmbedding, spaceEmbedding);
+                return {
+                    id: space.id,
+                    name: space.name,
+                    slug: space.slug,
+                    description: space.description,
+                    auto_summary: space.auto_summary,
+                    score: similarity
+                };
+            })
+            .filter(space => space.score >= threshold)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, maxSpaces);
+
+        // If no spaces meet threshold, get default space
+        if (scoredSpaces.length === 0) {
+            logger.debug(`No spaces above threshold ${threshold}, using default space`);
+            const defaultResult = await db.query(`
+                SELECT id, name, slug, description FROM knowledge_spaces WHERE is_default = TRUE
+            `);
+
+            if (defaultResult.rows.length > 0) {
+                return {
+                    spaces: [{ ...defaultResult.rows[0], score: 0, fallback: true }],
+                    method: 'fallback'
+                };
+            }
+
+            // No default space? Return all spaces
+            const allSpaces = await db.query('SELECT id, name, slug, description FROM knowledge_spaces');
+            return { spaces: allSpaces.rows, method: 'all' };
+        }
+
+        logger.debug(`Routed to ${scoredSpaces.length} spaces: ${scoredSpaces.map(s => s.name).join(', ')}`);
+        return { spaces: scoredSpaces, method: 'routing' };
+
+    } catch (error) {
+        logger.error(`Space routing error: ${error.message}`);
+        // Fallback: search all spaces
+        return { spaces: [], method: 'error' };
+    }
+}
+
+/**
+ * Build hierarchical context for LLM (RAG 2.0)
+ */
+function buildHierarchicalContext(companyContext, spaces, chunks) {
+    const parts = [];
+
+    // Level 1: Company context (if available)
+    if (companyContext) {
+        parts.push(`## Unternehmenshintergrund\n${companyContext}`);
+    }
+
+    // Level 2: Relevant spaces (if routing was used)
+    if (spaces && spaces.length > 0) {
+        const spaceDescriptions = spaces
+            .map(s => `### ${s.name}\n${s.description}`)
+            .join('\n\n');
+        parts.push(`## Relevante Wissensbereiche\n${spaceDescriptions}`);
+    }
+
+    // Level 3: Document chunks
+    if (chunks && chunks.length > 0) {
+        const chunkTexts = chunks
+            .map((c, i) => {
+                const spaceBadge = c.space_name ? `[${c.space_name}] ` : '';
+                return `[${i + 1}] ${spaceBadge}${c.document_name}:\n${c.text}`;
+            })
+            .join('\n\n---\n\n');
+        parts.push(`## Gefundene Informationen\n${chunkTexts}`);
+    }
+
+    return parts.join('\n\n');
+}
+
 /**
  * Search for similar chunks in Qdrant (Vector Search)
+ * RAG 2.0: Supports space_ids filter for targeted search
  */
-async function searchVectorSimilar(embedding, limit = 10) {
+async function searchVectorSimilar(embedding, limit = 10, spaceIds = null) {
     try {
+        const searchBody = {
+            vector: embedding,
+            limit: limit,
+            with_payload: true
+        };
+
+        // RAG 2.0: Add space filter if provided
+        if (spaceIds && spaceIds.length > 0) {
+            searchBody.filter = {
+                should: spaceIds.map(spaceId => ({
+                    key: 'space_id',
+                    match: { value: spaceId }
+                }))
+            };
+            logger.debug(`Qdrant search with space filter: ${spaceIds.join(', ')}`);
+        }
+
         const response = await axios.post(
             `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/search`,
-            {
-                vector: embedding,
-                limit: limit,
-                with_payload: true
-            },
+            searchBody,
             { timeout: 10000 }
         );
 
@@ -69,28 +234,42 @@ async function searchVectorSimilar(embedding, limit = 10) {
 /**
  * Search for chunks using PostgreSQL full-text search (Keyword Search)
  * This catches exact matches that vector search might miss
+ * RAG 2.0: Supports space_ids filter
  */
-async function searchKeywordChunks(query, limit = 10) {
+async function searchKeywordChunks(query, limit = 10, spaceIds = null) {
     try {
+        // Build space filter condition
+        let spaceCondition = '';
+        const params = [query, limit];
+
+        if (spaceIds && spaceIds.length > 0) {
+            spaceCondition = `AND d.space_id = ANY($3::uuid[])`;
+            params.push(spaceIds);
+        }
+
         // Use PostgreSQL full-text search with German dictionary
         const result = await db.query(`
             SELECT
                 dc.id,
                 dc.document_id,
                 dc.chunk_index,
-                dc.text_content as text,
+                dc.chunk_text as text,
                 d.filename as document_name,
+                d.space_id,
+                ks.name as space_name,
                 ts_rank(
-                    to_tsvector('german', dc.text_content),
+                    to_tsvector('german', dc.chunk_text),
                     plainto_tsquery('german', $1)
                 ) as keyword_score
             FROM document_chunks dc
             JOIN documents d ON dc.document_id = d.id
+            LEFT JOIN knowledge_spaces ks ON d.space_id = ks.id
             WHERE d.deleted_at IS NULL
-            AND to_tsvector('german', dc.text_content) @@ plainto_tsquery('german', $1)
+            AND to_tsvector('german', dc.chunk_text) @@ plainto_tsquery('german', $1)
+            ${spaceCondition}
             ORDER BY keyword_score DESC
             LIMIT $2
-        `, [query, limit]);
+        `, params);
 
         return result.rows.map((row, index) => ({
             id: row.id,
@@ -98,7 +277,9 @@ async function searchKeywordChunks(query, limit = 10) {
                 document_id: row.document_id,
                 document_name: row.document_name,
                 chunk_index: row.chunk_index,
-                text: row.text
+                text: row.text,
+                space_id: row.space_id,
+                space_name: row.space_name
             },
             score: row.keyword_score,
             rank: index + 1,
@@ -172,18 +353,19 @@ function reciprocalRankFusion(vectorResults, keywordResults, k = RRF_K) {
 
 /**
  * Hybrid search combining vector similarity and keyword matching
+ * RAG 2.0: Supports space filtering
  */
-async function hybridSearch(query, embedding, limit = 5) {
+async function hybridSearch(query, embedding, limit = 5, spaceIds = null) {
     // Fetch more results from each source for better fusion
     const fetchLimit = limit * 2;
 
     // Run vector and keyword search in parallel
     const [vectorResults, keywordResults] = await Promise.all([
-        searchVectorSimilar(embedding, fetchLimit),
-        HYBRID_SEARCH_ENABLED ? searchKeywordChunks(query, fetchLimit) : Promise.resolve([])
+        searchVectorSimilar(embedding, fetchLimit, spaceIds),
+        HYBRID_SEARCH_ENABLED ? searchKeywordChunks(query, fetchLimit, spaceIds) : Promise.resolve([])
     ]);
 
-    logger.debug(`Hybrid search: ${vectorResults.length} vector + ${keywordResults.length} keyword results`);
+    logger.debug(`Hybrid search: ${vectorResults.length} vector + ${keywordResults.length} keyword results (spaces: ${spaceIds ? spaceIds.length : 'all'})`);
 
     if (keywordResults.length === 0) {
         // No keyword results - return vector results only
@@ -200,10 +382,18 @@ async function hybridSearch(query, embedding, limit = 5) {
 /**
  * POST /api/rag/query
  * Perform RAG query with Queue support
+ * RAG 2.0: Hierarchical context with Knowledge Spaces
  */
 router.post('/query', requireAuth, llmLimiter, async (req, res) => {
     try {
-        const { query, top_k = 5, thinking, conversation_id } = req.body;
+        const {
+            query,
+            top_k = 5,
+            thinking,
+            conversation_id,
+            space_ids = null,      // RAG 2.0: Optional pre-selected spaces
+            auto_routing = true    // RAG 2.0: Enable automatic space routing
+        } = req.body;
         const enableThinking = thinking !== false;
 
         if (!query || typeof query !== 'string') {
@@ -220,34 +410,72 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
             });
         }
 
-        logger.info(`RAG query: "${query}" (top_k=${top_k}, thinking=${enableThinking}, hybrid=${HYBRID_SEARCH_ENABLED})`);
+        logger.info(`RAG query: "${query}" (top_k=${top_k}, thinking=${enableThinking}, hybrid=${HYBRID_SEARCH_ENABLED}, auto_routing=${auto_routing})`);
 
         // Step 1: Generate embedding for query (fast, do before queue)
         const queryEmbedding = await getEmbedding(query);
 
-        // Step 2: Hybrid search - combines vector similarity with keyword matching
-        // This improves recall for exact matches (e.g., "Q3 2024 Report")
-        const searchResults = await hybridSearch(query, queryEmbedding, top_k);
+        // RAG 2.0: Get company context
+        const companyContext = await getCompanyContext();
 
-        // Step 3: Build context and sources from search results
-        const contextParts = [];
-        const sources = [];
+        // RAG 2.0: Space routing
+        let targetSpaces = [];
+        let routingMethod = 'none';
+        let targetSpaceIds = space_ids;
 
-        for (let i = 0; i < searchResults.length; i++) {
-            const result = searchResults[i];
+        if (space_ids && space_ids.length > 0) {
+            // User pre-selected spaces
+            const spacesResult = await db.query(
+                'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',
+                [space_ids]
+            );
+            targetSpaces = spacesResult.rows;
+            routingMethod = 'manual';
+            logger.debug(`Using ${targetSpaces.length} pre-selected spaces`);
+        } else if (auto_routing) {
+            // Automatic space routing based on query
+            const routingResult = await routeToSpaces(queryEmbedding);
+            targetSpaces = routingResult.spaces;
+            routingMethod = routingResult.method;
+            targetSpaceIds = targetSpaces.map(s => s.id);
+            logger.debug(`Auto-routing: ${routingMethod}, ${targetSpaces.length} spaces`);
+        }
+
+        // Step 2: Hybrid search with space filter
+        const searchResults = await hybridSearch(
+            query,
+            queryEmbedding,
+            top_k,
+            targetSpaceIds && targetSpaceIds.length > 0 ? targetSpaceIds : null
+        );
+
+        // Step 3: Build sources from search results
+        const sources = searchResults.map((result, i) => {
             const payload = result.payload;
-
-            contextParts.push(`[Document ${i + 1}: ${payload.document_name}]\n${payload.text}`);
-
-            sources.push({
+            return {
                 document_name: payload.document_name,
                 chunk_index: payload.chunk_index,
                 score: result.score,
-                text_preview: payload.text.substring(0, 200) + (payload.text.length > 200 ? '...' : '')
-            });
-        }
+                text_preview: payload.text.substring(0, 200) + (payload.text.length > 200 ? '...' : ''),
+                // RAG 2.0 fields
+                space_id: payload.space_id,
+                space_name: payload.space_name || '',
+                document_id: payload.document_id
+            };
+        });
 
-        const context = contextParts.join('\n\n---\n\n');
+        // Step 4: Build hierarchical context (RAG 2.0)
+        const chunks = searchResults.map(r => ({
+            document_name: r.payload.document_name,
+            text: r.payload.text,
+            space_name: r.payload.space_name
+        }));
+
+        const context = buildHierarchicalContext(
+            companyContext,
+            targetSpaces.length > 0 ? targetSpaces : null,
+            chunks
+        );
 
         // Set up SSE headers early
         res.setHeader('Content-Type', 'text/event-stream');
@@ -285,7 +513,7 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
 
         logger.info(`[QUEUE] RAG job ${jobId} enqueued at position ${queuePosition}`);
 
-        // Send job info and sources
+        // Send job info, matched spaces, and sources
         res.write(`data: ${JSON.stringify({
             type: 'job_started',
             jobId,
@@ -293,6 +521,14 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
             queuePosition,
             status: queuePosition > 1 ? 'queued' : 'pending'
         })}\n\n`);
+
+        // RAG 2.0: Send matched spaces info
+        res.write(`data: ${JSON.stringify({
+            type: 'matched_spaces',
+            spaces: targetSpaces.map(s => ({ id: s.id, name: s.name, slug: s.slug, score: s.score })),
+            routing_method: routingMethod
+        })}\n\n`);
+
         res.write(`data: ${JSON.stringify({ type: 'sources', sources })}\n\n`);
 
         // Track client connection

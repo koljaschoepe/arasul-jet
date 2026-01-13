@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   FiSettings,
   FiUpload,
   FiTool,
   FiLock,
   FiInfo,
-  FiChevronRight
+  FiChevronRight,
+  FiFileText,
+  FiSave,
+  FiCheck,
+  FiAlertCircle
 } from 'react-icons/fi';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
@@ -21,6 +25,12 @@ function Settings() {
       label: 'General',
       icon: <FiInfo />,
       description: 'System information and configuration'
+    },
+    {
+      id: 'company-context',
+      label: 'Unternehmenskontext',
+      icon: <FiFileText />,
+      description: 'Globaler Kontext für RAG-Anfragen'
     },
     {
       id: 'updates',
@@ -46,6 +56,8 @@ function Settings() {
     switch (activeSection) {
       case 'general':
         return <GeneralSettings />;
+      case 'company-context':
+        return <CompanyContextSettings />;
       case 'updates':
         return <UpdatePage />;
       case 'selfhealing':
@@ -93,6 +105,217 @@ function Settings() {
       <div className="settings-content-area">
         <div className="settings-content-wrapper">
           {renderContent()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Company Context Settings Component (RAG 2.0)
+function CompanyContextSettings() {
+  const [content, setContent] = useState('');
+  const [originalContent, setOriginalContent] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const defaultTemplate = `# Unternehmensprofil
+
+**Firma:** [Firmenname]
+**Branche:** [Branche]
+**Gegründet:** [Jahr]
+
+## Hauptprodukte/Dienstleistungen
+- [Produkt 1]
+- [Produkt 2]
+- [Produkt 3]
+
+## Kunden
+- [Kundensegment 1]
+- [Kundensegment 2]
+
+## Besonderheiten
+- [Besonderheit 1]
+- [Besonderheit 2]
+
+---
+*Diese Informationen werden bei jeder RAG-Anfrage als Hintergrundkontext bereitgestellt.*`;
+
+  const fetchContent = useCallback(async () => {
+    try {
+      const response = await fetch('/api/settings/company-context', {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setContent(data.content || defaultTemplate);
+        setOriginalContent(data.content || defaultTemplate);
+        setLastUpdated(data.updated_at);
+      }
+    } catch (error) {
+      console.error('Error fetching company context:', error);
+      setContent(defaultTemplate);
+      setOriginalContent(defaultTemplate);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchContent();
+  }, [fetchContent]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/settings/company-context', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ content })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setOriginalContent(content);
+        setLastUpdated(data.updated_at);
+        setMessage({ type: 'success', text: 'Unternehmenskontext erfolgreich gespeichert' });
+      } else {
+        const data = await response.json();
+        setMessage({ type: 'error', text: data.error || 'Fehler beim Speichern' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Netzwerkfehler beim Speichern' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hasChanges = content !== originalContent;
+
+  const formatDate = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="settings-section">
+        <div className="settings-section-header">
+          <h1 className="settings-section-title">Unternehmenskontext</h1>
+          <p className="settings-section-description">Lade...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="settings-section">
+      <div className="settings-section-header">
+        <h1 className="settings-section-title">Unternehmenskontext</h1>
+        <p className="settings-section-description">
+          Dieser Text wird bei jeder RAG-Anfrage als Hintergrundkontext an die KI übergeben.
+        </p>
+      </div>
+
+      <div className="settings-cards">
+        <div className="settings-card company-context-card">
+          <div className="settings-card-header">
+            <h3 className="settings-card-title">
+              <FiFileText style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              Unternehmensprofil
+            </h3>
+            <p className="settings-card-description">
+              Beschreiben Sie Ihr Unternehmen, Ihre Produkte und Ihre Zielgruppen.
+              Diese Informationen helfen der KI, Ihre Fragen besser zu verstehen.
+            </p>
+          </div>
+          <div className="settings-card-body">
+            {message && (
+              <div className={`company-context-message ${message.type}`}>
+                {message.type === 'success' ? <FiCheck /> : <FiAlertCircle />}
+                <span>{message.text}</span>
+              </div>
+            )}
+
+            <textarea
+              className="company-context-textarea"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Beschreiben Sie Ihr Unternehmen..."
+              spellCheck="false"
+            />
+
+            <div className="company-context-footer">
+              <div className="company-context-meta">
+                {lastUpdated && (
+                  <span className="company-context-updated">
+                    Zuletzt aktualisiert: {formatDate(lastUpdated)}
+                  </span>
+                )}
+                {hasChanges && (
+                  <span className="company-context-unsaved">Ungespeicherte Änderungen</span>
+                )}
+              </div>
+              <button
+                className={`company-context-save-btn ${hasChanges ? 'has-changes' : ''}`}
+                onClick={handleSave}
+                disabled={saving || !hasChanges}
+              >
+                {saving ? (
+                  <>Speichern...</>
+                ) : (
+                  <>
+                    <FiSave />
+                    Speichern
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Card */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <h3 className="settings-card-title">Tipps für guten Kontext</h3>
+            <p className="settings-card-description">So nutzen Sie den Unternehmenskontext optimal</p>
+          </div>
+          <div className="settings-card-body">
+            <div className="settings-about-features">
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon">1</div>
+                <div className="settings-feature-text">
+                  <strong>Seien Sie spezifisch</strong>
+                  <span>Nennen Sie konkrete Produktnamen, Dienstleistungen und Fachbegriffe</span>
+                </div>
+              </div>
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon">2</div>
+                <div className="settings-feature-text">
+                  <strong>Beschreiben Sie Ihre Zielgruppe</strong>
+                  <span>Wer sind Ihre Kunden? In welcher Branche sind Sie tätig?</span>
+                </div>
+              </div>
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon">3</div>
+                <div className="settings-feature-text">
+                  <strong>Halten Sie es aktuell</strong>
+                  <span>Aktualisieren Sie den Kontext bei wichtigen Änderungen</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

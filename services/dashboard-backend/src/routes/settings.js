@@ -328,4 +328,126 @@ router.get('/password-requirements', requireAuth, (req, res) => {
     });
 });
 
+// =============================================================================
+// COMPANY CONTEXT (RAG 2.0)
+// =============================================================================
+
+const axios = require('axios');
+const EMBEDDING_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service';
+const EMBEDDING_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
+
+/**
+ * GET /api/settings/company-context
+ * Get the company context used in RAG queries
+ */
+router.get('/company-context', requireAuth, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT content, updated_at, updated_by
+            FROM company_context
+            WHERE id = 1
+        `);
+
+        if (result.rows.length === 0) {
+            // Return default template if not set
+            return res.json({
+                content: `# Unternehmensprofil
+
+**Firma:** [Firmenname]
+**Branche:** [Branche]
+
+## Hauptprodukte/Dienstleistungen
+- [Produkt 1]
+- [Produkt 2]
+
+## Kunden
+- [Kundensegment 1]
+- [Kundensegment 2]
+
+---
+*Diese Informationen werden bei jeder RAG-Anfrage als Hintergrundkontext bereitgestellt.*`,
+                updated_at: null,
+                updated_by: null,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.json({
+            content: result.rows[0].content,
+            updated_at: result.rows[0].updated_at,
+            updated_by: result.rows[0].updated_by,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Get company context error: ${error.message}`);
+        res.status(500).json({
+            error: 'Fehler beim Laden des Unternehmenskontexts',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * PUT /api/settings/company-context
+ * Update the company context
+ */
+router.put('/company-context', requireAuth, async (req, res) => {
+    try {
+        const { content } = req.body;
+
+        if (content === undefined || typeof content !== 'string') {
+            return res.status(400).json({
+                error: 'Inhalt ist erforderlich',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Generate embedding for the content (for potential future use)
+        let embeddingJson = null;
+        try {
+            const response = await axios.post(
+                `http://${EMBEDDING_HOST}:${EMBEDDING_PORT}/embed`,
+                { texts: content },
+                { timeout: 30000 }
+            );
+            if (response.data.vectors && response.data.vectors[0]) {
+                embeddingJson = JSON.stringify(response.data.vectors[0]);
+            }
+        } catch (embedError) {
+            logger.warn(`Failed to generate company context embedding: ${embedError.message}`);
+            // Continue without embedding - not critical
+        }
+
+        // Upsert the company context
+        const result = await db.query(`
+            INSERT INTO company_context (id, content, content_embedding, updated_at, updated_by)
+            VALUES (1, $1, $2, NOW(), $3)
+            ON CONFLICT (id) DO UPDATE SET
+                content = $1,
+                content_embedding = $2,
+                updated_at = NOW(),
+                updated_by = $3
+            RETURNING content, updated_at, updated_by
+        `, [content.trim(), embeddingJson, req.user.id]);
+
+        logger.info(`Company context updated by user ${req.user.username}`);
+
+        res.json({
+            content: result.rows[0].content,
+            updated_at: result.rows[0].updated_at,
+            message: 'Unternehmenskontext erfolgreich gespeichert',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Update company context error: ${error.message}`);
+        res.status(500).json({
+            error: 'Fehler beim Speichern des Unternehmenskontexts',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 module.exports = router;

@@ -850,6 +850,151 @@
   background: rgba(239, 68, 68, 0.2);
 }
 
+/* ============================================
+   Knowledge Spaces Tabs (RAG 2.0)
+   ============================================ */
+
+.dm-spaces-tabs {
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.spaces-tabs-list {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.25rem 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.spaces-tabs-list::-webkit-scrollbar {
+  height: 4px;
+}
+
+.spaces-tabs-list::-webkit-scrollbar-track {
+  background: rgba(69, 173, 255, 0.05);
+  border-radius: 2px;
+}
+
+.spaces-tabs-list::-webkit-scrollbar-thumb {
+  background: rgba(69, 173, 255, 0.2);
+  border-radius: 2px;
+}
+
+.space-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: linear-gradient(135deg, #1a2330 0%, #1f2835 100%);
+  border: 1px solid rgba(69, 173, 255, 0.15);
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.space-tab:hover {
+  border-color: rgba(69, 173, 255, 0.35);
+  background: linear-gradient(135deg, rgba(69, 173, 255, 0.08) 0%, rgba(69, 173, 255, 0.04) 100%);
+  color: #f1f5f9;
+}
+
+.space-tab.active {
+  border-color: var(--space-color, #45ADFF);
+  background: linear-gradient(135deg, rgba(69, 173, 255, 0.12) 0%, rgba(69, 173, 255, 0.06) 100%);
+  color: #f1f5f9;
+  box-shadow: 0 2px 8px rgba(69, 173, 255, 0.15);
+}
+
+.space-tab.add-space {
+  border-style: dashed;
+  color: #45ADFF;
+}
+
+.space-tab.add-space:hover {
+  border-color: #45ADFF;
+  background: linear-gradient(135deg, rgba(69, 173, 255, 0.1) 0%, rgba(69, 173, 255, 0.05) 100%);
+}
+
+.space-count {
+  background: rgba(69, 173, 255, 0.15);
+  color: #45ADFF;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.space-edit-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.2rem;
+  margin-left: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.space-tab:hover .space-edit-btn {
+  display: flex;
+}
+
+.space-edit-btn:hover {
+  color: #45ADFF;
+  background: rgba(69, 173, 255, 0.15);
+}
+
+/* Space Info Box */
+.dm-space-info {
+  background: linear-gradient(135deg, rgba(69, 173, 255, 0.05) 0%, rgba(69, 173, 255, 0.02) 100%);
+  border: 1px solid rgba(69, 173, 255, 0.15);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.space-info-content h4 {
+  margin: 0 0 0.5rem 0;
+  color: #f1f5f9;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.space-info-content p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* Space Badge in Table */
+.space-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--space-color, #6366f1);
+  border: 1px solid currentColor;
+  opacity: 0.9;
+}
+
+/* Upload Space Hint */
+.upload-space-hint {
+  color: #45ADFF;
+  font-weight: 500;
+}
+
 /* Animations */
 @keyframes spin {
   from { transform: rotate(0deg); }

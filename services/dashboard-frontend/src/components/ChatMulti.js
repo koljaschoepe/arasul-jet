@@ -4,7 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   FiAlertCircle, FiChevronDown, FiChevronUp, FiPlus, FiX, FiArrowDown,
-  FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp, FiBox
+  FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp, FiBox,
+  FiFolder, FiCheck
 } from 'react-icons/fi';
 import '../chatmulti.css';
 
@@ -30,6 +31,13 @@ function ChatMulti() {
   const [defaultModel, setDefaultModel] = useState('');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const modelDropdownRef = useRef(null);
+
+  // Knowledge Spaces (RAG 2.0)
+  const [spaces, setSpaces] = useState([]);
+  const [selectedSpaces, setSelectedSpaces] = useState([]); // empty = auto-routing
+  const [showSpacesDropdown, setShowSpacesDropdown] = useState(false);
+  const [matchedSpaces, setMatchedSpaces] = useState([]); // Spaces matched by auto-routing
+  const spacesDropdownRef = useRef(null);
 
   // Background job tracking - enables tab-switch resilience
   const [activeJobIds, setActiveJobIds] = useState({}); // chatId -> jobId
@@ -75,6 +83,9 @@ function ChatMulti() {
       if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
         setShowModelDropdown(false);
       }
+      if (spacesDropdownRef.current && !spacesDropdownRef.current.contains(e.target)) {
+        setShowSpacesDropdown(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -98,6 +109,38 @@ function ChatMulti() {
       console.error('Error loading models:', err);
       // Non-blocking error - models will just show default
     }
+  };
+
+  // Load Knowledge Spaces for RAG 2.0
+  const loadSpaces = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/spaces`);
+      setSpaces(response.data.spaces || []);
+    } catch (err) {
+      console.error('Error loading spaces:', err);
+    }
+  };
+
+  // Load spaces on mount (for RAG filtering)
+  useEffect(() => {
+    loadSpaces();
+  }, []);
+
+  // Toggle space selection
+  const toggleSpaceSelection = (spaceId) => {
+    setSelectedSpaces(prev => {
+      if (prev.includes(spaceId)) {
+        return prev.filter(id => id !== spaceId);
+      } else {
+        return [...prev, spaceId];
+      }
+    });
+  };
+
+  // Clear all space selections (use auto-routing)
+  const clearSpaceSelection = () => {
+    setSelectedSpaces([]);
+    setShowSpacesDropdown(false);
   };
 
   // Load messages when chat changes and check for active jobs
@@ -542,18 +585,29 @@ function ChatMulti() {
 
       const token = localStorage.getItem('arasul_token');
 
+      // RAG 2.0: Include space_ids for filtered search
+      const ragPayload = {
+        query: userMessage,
+        top_k: 5,
+        thinking: useThinking,
+        conversation_id: targetChatId  // Required for job-based streaming
+      };
+
+      // If specific spaces are selected, include them; otherwise auto-routing is used
+      if (selectedSpaces.length > 0) {
+        ragPayload.space_ids = selectedSpaces;
+        ragPayload.auto_routing = false;
+      } else {
+        ragPayload.auto_routing = true;
+      }
+
       const response = await fetch(`${API_BASE}/rag/query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          query: userMessage,
-          top_k: 5,
-          thinking: useThinking,
-          conversation_id: targetChatId  // Required for job-based streaming
-        }),
+        body: JSON.stringify(ragPayload),
         signal: abortController.signal
       });
 
@@ -606,6 +660,13 @@ function ChatMulti() {
             // Only update UI if still viewing the same chat
             const isCurrentChat = currentChatIdRef.current === targetChatId;
 
+            // RAG 2.0: Handle matched_spaces event
+            if (data.type === 'matched_spaces' && data.spaces) {
+              if (isCurrentChat) {
+                setMatchedSpaces(data.spaces);
+              }
+            }
+
             if (data.type === 'sources' && data.sources) {
               ragSources = data.sources;
               if (isCurrentChat) {
@@ -615,7 +676,8 @@ function ChatMulti() {
                     updated[assistantMessageIndex] = {
                       ...updated[assistantMessageIndex],
                       sources: ragSources,
-                      sourcesCollapsed: ragSources.length > 0
+                      sourcesCollapsed: ragSources.length > 0,
+                      matchedSpaces: matchedSpaces  // Include matched spaces in message
                     };
                   }
                   return updated;
@@ -1197,6 +1259,48 @@ function ChatMulti() {
             <FiSearch />
             {useRAG && <span>RAG</span>}
           </button>
+
+          {/* Space Filter (RAG 2.0) - Only shown when RAG is active */}
+          {useRAG && spaces.length > 0 && (
+            <div className="space-selector" ref={spacesDropdownRef}>
+              <button
+                className={`input-toggle space-toggle ${selectedSpaces.length > 0 ? 'active' : ''}`}
+                onClick={() => setShowSpacesDropdown(!showSpacesDropdown)}
+                title={selectedSpaces.length > 0 ? `${selectedSpaces.length} Bereiche ausgewählt` : "Alle Bereiche (Auto-Routing)"}
+              >
+                <FiFolder />
+                <span className="space-toggle-label">
+                  {selectedSpaces.length > 0 ? `${selectedSpaces.length} Bereiche` : 'Auto'}
+                </span>
+                <FiChevronDown className={`dropdown-arrow ${showSpacesDropdown ? 'open' : ''}`} />
+              </button>
+              {showSpacesDropdown && (
+                <div className="space-dropdown">
+                  <div
+                    className={`space-option auto-option ${selectedSpaces.length === 0 ? 'selected' : ''}`}
+                    onClick={clearSpaceSelection}
+                  >
+                    <FiCheck className="check-icon" />
+                    <span className="space-option-name">Auto-Routing</span>
+                    <span className="space-option-desc">KI wählt relevante Bereiche</span>
+                  </div>
+                  <div className="space-dropdown-divider" />
+                  {spaces.map(space => (
+                    <div
+                      key={space.id}
+                      className={`space-option ${selectedSpaces.includes(space.id) ? 'selected' : ''}`}
+                      onClick={() => toggleSpaceSelection(space.id)}
+                    >
+                      <FiCheck className="check-icon" />
+                      <FiFolder style={{ color: space.color }} className="space-icon" />
+                      <span className="space-option-name">{space.name}</span>
+                      <span className="space-option-count">{space.document_count || 0} Dok.</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Thinking Toggle Button */}
           <button

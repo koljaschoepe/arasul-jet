@@ -123,6 +123,7 @@ router.get('/', requireAuth, async (req, res) => {
         const {
             status,
             category_id,
+            space_id,
             search,
             limit = 50,
             offset = 0,
@@ -131,22 +132,32 @@ router.get('/', requireAuth, async (req, res) => {
         } = req.query;
 
         // Build query
-        const conditions = ['deleted_at IS NULL'];
+        const conditions = ['d.deleted_at IS NULL'];
         const params = [];
         let paramIndex = 1;
 
         if (status) {
-            conditions.push(`status = $${paramIndex++}`);
+            conditions.push(`d.status = $${paramIndex++}`);
             params.push(status);
         }
 
         if (category_id) {
-            conditions.push(`category_id = $${paramIndex++}`);
+            conditions.push(`d.category_id = $${paramIndex++}`);
             params.push(parseInt(category_id));
         }
 
+        // Filter by space_id (new for RAG 2.0)
+        if (space_id) {
+            if (space_id === 'null' || space_id === 'unassigned') {
+                conditions.push('d.space_id IS NULL');
+            } else {
+                conditions.push(`d.space_id = $${paramIndex++}`);
+                params.push(space_id);
+            }
+        }
+
         if (search) {
-            conditions.push(`(filename ILIKE $${paramIndex} OR title ILIKE $${paramIndex})`);
+            conditions.push(`(d.filename ILIKE $${paramIndex} OR d.title ILIKE $${paramIndex})`);
             params.push(`%${search}%`);
             paramIndex++;
         }
@@ -160,18 +171,21 @@ router.get('/', requireAuth, async (req, res) => {
 
         // Get total count
         const countResult = await pool.query(
-            `SELECT COUNT(*) FROM documents WHERE ${whereClause}`,
+            `SELECT COUNT(*) FROM documents d WHERE ${whereClause}`,
             params
         );
         const total = parseInt(countResult.rows[0].count);
 
-        // Get documents
+        // Get documents with space info
         const documentsResult = await pool.query(
-            `SELECT d.*, dc.name as category_name, dc.color as category_color, dc.icon as category_icon
+            `SELECT d.*,
+                    dc.name as category_name, dc.color as category_color, dc.icon as category_icon,
+                    ks.name as space_name, ks.slug as space_slug, ks.icon as space_icon, ks.color as space_color
              FROM documents d
              LEFT JOIN document_categories dc ON d.category_id = dc.id
+             LEFT JOIN knowledge_spaces ks ON d.space_id = ks.id
              WHERE ${whereClause}
-             ORDER BY ${orderField} ${orderDirection}
+             ORDER BY d.${orderField} ${orderDirection}
              LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
             [...params, parseInt(limit), parseInt(offset)]
         );
@@ -320,6 +334,23 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
         const filename = sanitizeFilename(file.originalname);
         const fileExt = '.' + filename.split('.').pop().toLowerCase();
 
+        // Get space_id from form data (RAG 2.0)
+        let spaceId = req.body.space_id || null;
+
+        // Validate space_id if provided
+        if (spaceId) {
+            const spaceCheck = await pool.query(
+                'SELECT id FROM knowledge_spaces WHERE id = $1',
+                [spaceId]
+            );
+            if (spaceCheck.rows.length === 0) {
+                return res.status(400).json({
+                    error: 'Ungültiger Wissensbereich',
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+
         // Calculate hashes
         const contentHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
         const fileHash = crypto.createHash('sha256')
@@ -366,8 +397,8 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
             `INSERT INTO documents (
                 id, filename, original_filename, file_path, file_size,
                 mime_type, file_extension, content_hash, file_hash,
-                status, uploaded_by
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                status, uploaded_by, space_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
             [
                 docId,
                 filename,
@@ -379,9 +410,19 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
                 contentHash,
                 fileHash,
                 'pending',
-                req.user?.username || 'admin'
+                req.user?.username || 'admin',
+                spaceId
             ]
         );
+
+        // Update space statistics if assigned to a space
+        if (spaceId) {
+            try {
+                await pool.query('SELECT update_space_statistics($1)', [spaceId]);
+            } catch (e) {
+                logger.warn(`Failed to update space statistics: ${e.message}`);
+            }
+        }
 
         res.status(201).json({
             status: 'uploaded',
@@ -389,7 +430,8 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
                 id: docId,
                 filename,
                 file_size: file.size,
-                status: 'pending'
+                status: 'pending',
+                space_id: spaceId
             },
             message: 'Dokument erfolgreich hochgeladen. Indexierung wird gestartet.',
             timestamp: new Date().toISOString()
@@ -586,6 +628,88 @@ router.patch('/:id', requireAuth, async (req, res) => {
         logger.error(`Update error: ${error.message}`);
         res.status(500).json({
             error: 'Fehler beim Aktualisieren',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * PUT /api/documents/:id/move
+ * Move document to a different space (RAG 2.0)
+ */
+router.put('/:id/move', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { space_id } = req.body;
+
+        // Get current document
+        const docResult = await pool.query(
+            `SELECT id, space_id FROM documents WHERE id = $1 AND deleted_at IS NULL`,
+            [id]
+        );
+
+        if (docResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Dokument nicht gefunden',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        const oldSpaceId = docResult.rows[0].space_id;
+
+        // Validate new space_id if provided
+        let newSpaceId = space_id || null;
+        if (newSpaceId) {
+            const spaceCheck = await pool.query(
+                'SELECT id FROM knowledge_spaces WHERE id = $1',
+                [newSpaceId]
+            );
+            if (spaceCheck.rows.length === 0) {
+                return res.status(400).json({
+                    error: 'Ungültiger Wissensbereich',
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+
+        // Update document's space
+        await pool.query(
+            `UPDATE documents SET space_id = $1, updated_at = NOW() WHERE id = $2`,
+            [newSpaceId, id]
+        );
+
+        // Update statistics for both old and new spaces
+        if (oldSpaceId) {
+            try {
+                await pool.query('SELECT update_space_statistics($1)', [oldSpaceId]);
+            } catch (e) {
+                logger.warn(`Failed to update old space statistics: ${e.message}`);
+            }
+        }
+
+        if (newSpaceId) {
+            try {
+                await pool.query('SELECT update_space_statistics($1)', [newSpaceId]);
+            } catch (e) {
+                logger.warn(`Failed to update new space statistics: ${e.message}`);
+            }
+        }
+
+        logger.info(`Document ${id} moved from space ${oldSpaceId} to ${newSpaceId}`);
+
+        res.json({
+            status: 'moved',
+            id,
+            old_space_id: oldSpaceId,
+            new_space_id: newSpaceId,
+            message: 'Dokument erfolgreich verschoben',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Move document error: ${error.message}`);
+        res.status(500).json({
+            error: 'Fehler beim Verschieben des Dokuments',
             timestamp: new Date().toISOString()
         });
     }

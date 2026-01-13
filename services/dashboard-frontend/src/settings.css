@@ -646,6 +646,128 @@
 }
 
 /* ===================================
+   COMPANY CONTEXT SECTION (RAG 2.0)
+   =================================== */
+
+.company-context-card {
+  border-color: var(--border-glow);
+}
+
+.company-context-textarea {
+  width: 100%;
+  min-height: 400px;
+  padding: 1.25rem;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-subtle);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  resize: vertical;
+  transition: all 0.25s ease;
+}
+
+.company-context-textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+}
+
+.company-context-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.company-context-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.company-context-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.company-context-updated {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.company-context-unsaved {
+  font-size: 0.8rem;
+  color: var(--warning-color);
+  font-weight: 500;
+}
+
+.company-context-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: not-allowed;
+  transition: all 0.25s ease;
+}
+
+.company-context-save-btn.has-changes {
+  background: var(--gradient-primary);
+  border-color: transparent;
+  color: white;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+.company-context-save-btn.has-changes:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.company-context-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.company-context-message {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  animation: slideInDown 0.3s ease;
+}
+
+.company-context-message svg {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.company-context-message.success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 2px solid rgba(16, 185, 129, 0.3);
+  color: var(--success-color);
+}
+
+.company-context-message.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  color: var(--error-color);
+}
+
+/* ===================================
    ANIMATIONS
    =================================== */
 
@@ -875,6 +997,24 @@
   .settings-content-wrapper {
     max-width: 100%;
     padding: 1rem;
+  }
+
+  /* Company Context responsive */
+  .company-context-textarea {
+    min-height: 300px;
+    padding: 1rem;
+    font-size: 0.85rem;
+  }
+
+  .company-context-footer {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .company-context-save-btn {
+    justify-content: center;
+    width: 100%;
   }
 
   .settings-section-header {

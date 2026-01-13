@@ -4,9 +4,11 @@ import {
   FiUpload, FiFile, FiSearch, FiFilter, FiTrash2, FiDownload,
   FiRefreshCw, FiX, FiCheck, FiAlertCircle, FiClock, FiFolder,
   FiChevronDown, FiChevronUp, FiStar, FiTag, FiFileText,
-  FiDatabase, FiCpu, FiLayers, FiEye, FiLink, FiEdit2
+  FiDatabase, FiCpu, FiLayers, FiEye, FiLink, FiEdit2, FiPlus,
+  FiSettings
 } from 'react-icons/fi';
 import MarkdownEditor from './MarkdownEditor';
+import SpaceModal from './SpaceModal';
 import '../documents.css';
 import '../markdown-editor.css';
 
@@ -62,6 +64,14 @@ const CategoryBadge = ({ name, color }) => (
   </span>
 );
 
+// Space badge component (RAG 2.0)
+const SpaceBadge = ({ name, color }) => (
+  <span className="space-badge" style={{ '--space-color': color || '#6366f1' }}>
+    <FiFolder />
+    {name || 'Allgemein'}
+  </span>
+);
+
 function DocumentManager() {
   // State
   const [documents, setDocuments] = useState([]);
@@ -69,6 +79,13 @@ function DocumentManager() {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Knowledge Spaces (RAG 2.0)
+  const [spaces, setSpaces] = useState([]);
+  const [activeSpaceId, setActiveSpaceId] = useState(null); // null = all spaces
+  const [showSpaceModal, setShowSpaceModal] = useState(false);
+  const [editingSpace, setEditingSpace] = useState(null);
+  const [uploadSpaceId, setUploadSpaceId] = useState(null);
 
   // Filters & Pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,6 +141,7 @@ function DocumentManager() {
       if (statusFilter) params.append('status', statusFilter);
       if (categoryFilter) params.append('category_id', categoryFilter);
       if (searchQuery) params.append('search', searchQuery);
+      if (activeSpaceId) params.append('space_id', activeSpaceId);
 
       const response = await axios.get(`${API_BASE}/documents?${params}`);
       setDocuments(response.data.documents || []);
@@ -135,7 +153,7 @@ function DocumentManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, categoryFilter, searchQuery, itemsPerPage]);
+  }, [currentPage, statusFilter, categoryFilter, searchQuery, itemsPerPage, activeSpaceId]);
 
   // Load categories
   const loadCategories = async () => {
@@ -157,11 +175,44 @@ function DocumentManager() {
     }
   };
 
+  // Load Knowledge Spaces (RAG 2.0)
+  const loadSpaces = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/spaces`);
+      setSpaces(response.data.spaces || []);
+    } catch (err) {
+      console.error('Error loading spaces:', err);
+    }
+  };
+
+  // Handle space change (for tabs)
+  const handleSpaceChange = (spaceId) => {
+    setActiveSpaceId(spaceId);
+    setCurrentPage(1);
+    // Also set as default upload space
+    setUploadSpaceId(spaceId);
+  };
+
+  // Handle space modal save
+  const handleSpaceSave = (savedSpace) => {
+    loadSpaces();
+    loadStatistics();
+    loadDocuments();
+  };
+
+  // Edit space
+  const handleEditSpace = (space, e) => {
+    e.stopPropagation();
+    setEditingSpace(space);
+    setShowSpaceModal(true);
+  };
+
   // Initial load
   useEffect(() => {
     loadDocuments();
     loadCategories();
     loadStatistics();
+    loadSpaces();
 
     // Refresh every 30 seconds
     const interval = setInterval(() => {
@@ -182,10 +233,17 @@ function DocumentManager() {
     const totalFiles = files.length;
     let completedFiles = 0;
 
+    // Use active space or upload space selection
+    const targetSpaceId = uploadSpaceId || activeSpaceId;
+
     for (const file of files) {
       try {
         const formData = new FormData();
         formData.append('file', file);
+        // RAG 2.0: Include space_id for document organization
+        if (targetSpaceId) {
+          formData.append('space_id', targetSpaceId);
+        }
 
         await axios.post(`${API_BASE}/documents/upload`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -212,9 +270,10 @@ function DocumentManager() {
     setUploading(false);
     setUploadProgress(0);
 
-    // Refresh documents list
+    // Refresh documents list and spaces (for updated counts)
     loadDocuments();
     loadStatistics();
+    loadSpaces();
   };
 
   // Drag and drop handlers
@@ -387,6 +446,62 @@ function DocumentManager() {
         </div>
       </div>
 
+      {/* Knowledge Spaces Tabs (RAG 2.0) */}
+      <div className="dm-spaces-tabs">
+        <div className="spaces-tabs-list">
+          <button
+            className={`space-tab ${activeSpaceId === null ? 'active' : ''}`}
+            onClick={() => handleSpaceChange(null)}
+          >
+            <FiFolder />
+            <span>Alle</span>
+            <span className="space-count">{statistics?.total_documents || 0}</span>
+          </button>
+          {spaces.map(space => (
+            <button
+              key={space.id}
+              className={`space-tab ${activeSpaceId === space.id ? 'active' : ''}`}
+              onClick={() => handleSpaceChange(space.id)}
+              style={{ '--space-color': space.color }}
+            >
+              <FiFolder style={{ color: space.color }} />
+              <span>{space.name}</span>
+              <span className="space-count">{space.document_count || 0}</span>
+              {!space.is_default && !space.is_system && (
+                <button
+                  className="space-edit-btn"
+                  onClick={(e) => handleEditSpace(space, e)}
+                  title="Bearbeiten"
+                >
+                  <FiSettings />
+                </button>
+              )}
+            </button>
+          ))}
+          <button
+            className="space-tab add-space"
+            onClick={() => {
+              setEditingSpace(null);
+              setShowSpaceModal(true);
+            }}
+            title="Neuen Bereich erstellen"
+          >
+            <FiPlus />
+            <span>Neu</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Active Space Description (if a space is selected) */}
+      {activeSpaceId && spaces.find(s => s.id === activeSpaceId) && (
+        <div className="dm-space-info">
+          <div className="space-info-content">
+            <h4>{spaces.find(s => s.id === activeSpaceId)?.name}</h4>
+            <p>{spaces.find(s => s.id === activeSpaceId)?.description?.substring(0, 200)}...</p>
+          </div>
+        </div>
+      )}
+
       {/* Upload Zone */}
       <div
         className={`dm-upload-zone ${dragActive ? 'drag-active' : ''} ${uploading ? 'uploading' : ''}`}
@@ -413,7 +528,14 @@ function DocumentManager() {
         ) : (
           <>
             <FiUpload className="upload-icon" />
-            <p>Dateien hier ablegen oder klicken zum Auswählen</p>
+            <p>
+              Dateien hier ablegen oder klicken zum Auswählen
+              {(uploadSpaceId || activeSpaceId) && spaces.length > 0 && (
+                <span className="upload-space-hint">
+                  {' → '}{spaces.find(s => s.id === (uploadSpaceId || activeSpaceId))?.name || 'Allgemein'}
+                </span>
+              )}
+            </p>
             <span className="upload-hint">PDF, DOCX, Markdown (max. 50MB)</span>
           </>
         )}
@@ -546,7 +668,7 @@ function DocumentManager() {
               <tr>
                 <th></th>
                 <th>Dokument</th>
-                <th>Kategorie</th>
+                <th>Bereich</th>
                 <th>Status</th>
                 <th>Größe</th>
                 <th>Hochgeladen</th>
@@ -580,7 +702,7 @@ function DocumentManager() {
                     </div>
                   </td>
                   <td>
-                    <CategoryBadge name={doc.category_name} color={doc.category_color} />
+                    <SpaceBadge name={doc.space_name} color={doc.space_color} />
                   </td>
                   <td>
                     <StatusBadge status={doc.status} />
@@ -828,6 +950,18 @@ function DocumentManager() {
           token={getAuthToken()}
         />
       )}
+
+      {/* Space Modal (RAG 2.0) */}
+      <SpaceModal
+        isOpen={showSpaceModal}
+        onClose={() => {
+          setShowSpaceModal(false);
+          setEditingSpace(null);
+        }}
+        onSave={handleSpaceSave}
+        space={editingSpace}
+        mode={editingSpace ? 'edit' : 'create'}
+      />
     </div>
   );
 }

@@ -79,6 +79,7 @@ const documentsRouter = require('./routes/documents');
 const appstoreRouter = require('./routes/appstore');
 const modelsRouter = require('./routes/models');
 const workspacesRouter = require('./routes/workspaces');
+const spacesRouter = require('./routes/spaces');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -99,6 +100,7 @@ app.use('/api/documents', documentsRouter);
 app.use('/api/apps', appstoreRouter);
 app.use('/api/models', modelsRouter);
 app.use('/api/workspaces', workspacesRouter);
+app.use('/api/spaces', spacesRouter);
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
