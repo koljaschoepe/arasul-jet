@@ -37,8 +37,8 @@
   opacity: 0.8;
 }
 
-.dm-stat-icon.success { color: #22c55e; }
-.dm-stat-icon.warning { color: #f59e0b; }
+.dm-stat-icon.success { color: #45ADFF; }
+.dm-stat-icon.warning { color: #45ADFF; }
 
 .dm-stat-content {
   display: flex;
@@ -191,7 +191,7 @@
 }
 
 .search-btn {
-  background: linear-gradient(135deg, #45ADFF 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #45ADFF 0%, #2D8FD9 100%);
   border: none;
   border-radius: 8px;
   color: white;
@@ -481,8 +481,8 @@
 }
 
 .status-pending { --status-color: 245, 158, 11; }
-.status-processing { --status-color: 59, 130, 246; }
-.status-indexed { --status-color: 34, 197, 94; }
+.status-processing { --status-color: 69, 173, 255; }
+.status-indexed { --status-color: 69, 173, 255; }
 .status-failed { --status-color: 239, 68, 68; }
 
 /* Category Badge */
@@ -526,8 +526,8 @@
 }
 
 .action-btn.edit:hover {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.1);
+  color: #45ADFF;
+  background: rgba(69, 173, 255, 0.1);
 }
 
 /* Loading & Empty States */
@@ -751,8 +751,8 @@
 }
 
 .sim-score {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
+  background: rgba(69, 173, 255, 0.1);
+  color: #45ADFF;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   font-size: 0.8rem;
@@ -831,13 +831,13 @@
 }
 
 .modal-btn.primary {
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.4);
-  color: #22c55e;
+  background: rgba(69, 173, 255, 0.15);
+  border: 1px solid rgba(69, 173, 255, 0.4);
+  color: #45ADFF;
 }
 
 .modal-btn.primary:hover {
-  background: rgba(34, 197, 94, 0.25);
+  background: rgba(69, 173, 255, 0.25);
 }
 
 .modal-btn.danger {
@@ -983,8 +983,8 @@
   padding: 0.3rem 0.6rem;
   border-radius: 6px;
   font-size: 0.8rem;
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--space-color, #6366f1);
+  background: rgba(69, 173, 255, 0.1);
+  color: var(--space-color, #45ADFF);
   border: 1px solid currentColor;
   opacity: 0.9;
 }

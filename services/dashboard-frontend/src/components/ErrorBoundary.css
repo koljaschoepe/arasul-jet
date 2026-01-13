@@ -23,7 +23,7 @@
 }
 
 .error-boundary-content h1 {
-  color: #ff3366;
+  color: #ef4444;
   margin-bottom: 1rem;
   font-size: 1.8rem;
 }
@@ -44,7 +44,7 @@
 }
 
 .error-details summary {
-  color: #00ff88;
+  color: #45ADFF;
   cursor: pointer;
   font-weight: 600;
   user-select: none;
@@ -56,7 +56,7 @@
 
 .error-stack {
   margin-top: 1rem;
-  color: #ff3366;
+  color: #ef4444;
   font-size: 0.85rem;
   overflow-x: auto;
   white-space: pre-wrap;
@@ -86,12 +86,12 @@
 }
 
 .btn-reload {
-  background: #00ff88;
-  color: #0a0a0a;
+  background: #45ADFF;
+  color: #000;
 }
 
 .btn-reload:hover {
-  background: #00cc6f;
+  background: #6EC4FF;
   transform: translateY(-2px);
 }
 
@@ -103,8 +103,8 @@
 
 .btn-back:hover {
   background: #222;
-  border-color: #00ff88;
-  color: #00ff88;
+  border-color: #45ADFF;
+  color: #45ADFF;
 }
 
 .error-hint {

@@ -517,12 +517,12 @@
 }
 
 .confirm-yes {
-  background: #22c55e;
-  color: #fff;
+  background: #45ADFF;
+  color: #000;
 }
 
 .confirm-yes:hover {
-  background: #16a34a;
+  background: #6EC4FF;
   transform: scale(1.1);
 }
 

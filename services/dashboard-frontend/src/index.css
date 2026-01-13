@@ -60,15 +60,15 @@ code {
   --space-responsive-lg: clamp(16px, 2vw, 32px);
   --space-responsive-xl: clamp(24px, 3vw, 48px);
 
-  /* Blue Theme Colors */
+  /* Blue Theme Colors - Design System */
   --primary-color: #45ADFF;
-  --primary-hover: #3498db;
-  --primary-light: #6ec4ff;
-  --secondary-color: #8b5cf6;
-  --accent-color: #06b6d4;
+  --primary-hover: #2D8FD9;
+  --primary-light: #6EC4FF;
+  --primary-muted: rgba(69, 173, 255, 0.15);
   --danger-color: #ef4444;
   --warning-color: #f59e0b;
-  --success-color: #10b981;
+  --success-color: #22c55e;
+  --error-color: #ef4444;
 
   /* Background Colors */
   --bg-dark: #101923;
@@ -93,11 +93,9 @@ code {
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(69, 173, 255, 0.2);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(69, 173, 255, 0.3);
 
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #45ADFF 0%, #3498db 100%);
-  --gradient-secondary: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  --gradient-accent: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-  --gradient-card: linear-gradient(135deg, #1a2330 0%, #1f2835 100%);
+  /* Gradients - Design System (only blue) */
+  --gradient-primary: linear-gradient(135deg, #45ADFF 0%, #2D8FD9 100%);
+  --gradient-card: linear-gradient(135deg, #1A2330 0%, #1f2835 100%);
 }
 
 /* Keyframe Animations */
@@ -195,7 +193,7 @@ code {
   width: 100%;
   height: 100%;
   background: radial-gradient(circle at 20% 50%, rgba(69, 173, 255, 0.05) 0%, transparent 50%),
-              radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+              radial-gradient(circle at 80% 80%, rgba(69, 173, 255, 0.03) 0%, transparent 50%);
   pointer-events: none;
   z-index: 0;
 }

@@ -330,15 +330,15 @@
   align-items: flex-start;
   gap: 1rem;
   padding: 1rem;
-  background: rgba(16, 185, 129, 0.05);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(69, 173, 255, 0.05);
+  border: 1px solid rgba(69, 173, 255, 0.15);
   border-radius: 8px;
   transition: all 0.25s ease;
 }
 
 .settings-feature-item:hover {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(69, 173, 255, 0.08);
+  border-color: rgba(69, 173, 255, 0.25);
   transform: translateX(4px);
 }
 
@@ -346,8 +346,8 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.2);
-  color: var(--success-color);
+  background: rgba(69, 173, 255, 0.2);
+  color: var(--primary-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -636,11 +636,11 @@
 .info-text {
   margin-top: 1rem;
   padding: 0.875rem 1rem;
-  background: rgba(59, 130, 246, 0.1);
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  background: rgba(69, 173, 255, 0.1);
+  border: 2px solid rgba(69, 173, 255, 0.3);
   border-radius: 8px;
   font-size: 0.875rem;
-  color: #3b82f6;
+  color: #45ADFF;
   text-align: center;
   line-height: 1.5;
 }
