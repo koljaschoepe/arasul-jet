@@ -101,6 +101,7 @@ Quick navigation to all Arasul Platform documentation.
 
 | Document | Description |
 |----------|-------------|
+| [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | **Frontend Design Guidelines (MANDATORY)** |
 | [TODO.md](TODO.md) | Implementation roadmap |
 | [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md) | Bug tracking & resolutions |
 
@@ -111,7 +112,7 @@ Quick navigation to all Arasul Platform documentation.
 ### Common Tasks
 
 - **Add new API endpoint**: [Dashboard Backend README](../services/dashboard-backend/README.md)
-- **Modify frontend UI**: [Dashboard Frontend README](../services/dashboard-frontend/README.md)
+- **Modify frontend UI**: [Dashboard Frontend README](../services/dashboard-frontend/README.md) + [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
 - **Change database schema**: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)
 - **Configure environment**: [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - **Troubleshoot services**: [CLAUDE.md - Troubleshooting](../CLAUDE.md#troubleshooting-common-issues)
@@ -133,7 +134,8 @@ services/postgres/init/             # Database migrations
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
-| CLAUDE.md | Complete | 2024-12 |
+| CLAUDE.md | Complete | 2026-01 |
+| DESIGN_SYSTEM.md | **New** | 2026-01 |
 | API_REFERENCE.md | Complete | 2024-12 |
 | API_GUIDE.md | Complete | 2024-11 |
 | ARCHITECTURE.md | New | 2024-12 |

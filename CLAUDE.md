@@ -9,6 +9,7 @@ Instructions for Claude Code working in the Arasul Platform repository.
 | Looking for... | Go to... |
 |----------------|----------|
 | All documentation | [docs/INDEX.md](docs/INDEX.md) |
+| **Frontend Design System** | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) |
 | API endpoints | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) |
 | Database schema | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) |
 | Environment variables | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) |
@@ -48,6 +49,7 @@ When you modify these areas, update the corresponding docs:
 | New service/component | Create `services/{name}/README.md` |
 | Architecture change | `docs/ARCHITECTURE.md` |
 | Bug fix | `BUGS_AND_FIXES.md` |
+| **Frontend component** | Follow `docs/DESIGN_SYSTEM.md` |
 
 ### Git Commit Convention
 
@@ -271,7 +273,73 @@ CREATE TABLE IF NOT EXISTS new_table (
 1. Create in `services/dashboard-frontend/src/components/`
 2. Add route in `App.js` if needed
 3. Add CSS in corresponding `.css` file
-4. Update service README
+4. **Follow [Design System](docs/DESIGN_SYSTEM.md) guidelines**
+5. Update service README
+
+---
+
+## Frontend Design System (MANDATORY)
+
+> **Bei JEDER Frontend-Änderung MÜSSEN diese Richtlinien befolgt werden.**
+> Vollständige Dokumentation: [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
+
+### Farbpalette (NUR diese Farben verwenden!)
+
+```
+BLAU (Einzige Akzentfarbe):
+  Primary:     #45ADFF  → Buttons, Links, aktive Elemente
+  Hover:       #6EC4FF  → Hover-Zustände
+  Active:      #2D8FD9  → Pressed/Active
+  Muted:       rgba(69, 173, 255, 0.15)  → Hintergrund-Akzente
+
+GRAUSTUFEN (Hintergründe & Text):
+  bg-dark:     #101923  → Haupt-Hintergrund
+  bg-card:     #1A2330  → Karten
+  bg-hover:    #222D3D  → Hover auf Karten
+  border:      #2A3544  → Standard Border
+  text-primary:#F8FAFC  → Haupttext (weiß)
+  text-secondary:#CBD5E1 → Sekundär
+  text-muted:  #94A3B8  → Gedämpft
+```
+
+### Status-Farben (NUR wenn semantisch notwendig)
+
+```
+Erfolg:  #22C55E  → "Indexiert", "Online"
+Warnung: #F59E0B  → "Verarbeitung", "Ausstehend"
+Fehler:  #EF4444  → "Fehlgeschlagen", "Offline"
+```
+
+### Quick Reference für Komponenten
+
+```css
+/* Button Primary */
+background: #45ADFF; color: #000; border-radius: 6px; padding: 0.625rem 1rem;
+
+/* Button Secondary */
+background: transparent; border: 1px solid #2A3544; color: #CBD5E1;
+
+/* Karte */
+background: #1A2330; border: 1px solid #2A3544; border-radius: 12px; padding: 1.25rem;
+
+/* Input */
+background: #101923; border: 1px solid #2A3544; border-radius: 8px; color: #F8FAFC;
+
+/* Hover-Effekt */
+transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+
+/* Focus-Ring */
+border-color: #45ADFF; box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
+```
+
+### Checkliste vor Frontend-Commit
+
+- [ ] Nur Blau (#45ADFF) als Akzentfarbe
+- [ ] Graustufen aus der Palette
+- [ ] Status-Farben nur wenn semantisch notwendig
+- [ ] Hover/Focus-States definiert
+- [ ] Responsive (Mobile-First)
+- [ ] Transitions: `all 0.2s ease`
 
 ### Modify Self-Healing Thresholds
 
@@ -434,6 +502,7 @@ Full reference: [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 ## References
 
 - [docs/INDEX.md](docs/INDEX.md) - Documentation navigator
+- [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) - **Frontend Design Guidelines (MANDATORY)**
 - [docs/prd.md](docs/prd.md) - Original PRD (German)
 - [BUGS_AND_FIXES.md](BUGS_AND_FIXES.md) - Bug history & solutions
 - [docs/API_GUIDE.md](docs/API_GUIDE.md) - Detailed API examples
