@@ -49,10 +49,19 @@ check_auth_status() {
     fi
 }
 
-# Check API key
-if [ -n "$ANTHROPIC_API_KEY" ] && [ "$ANTHROPIC_API_KEY" != "sk-ant-test12345" ]; then
+# Check API key - clear invalid placeholder keys so OAuth can be used
+# Set USE_OAUTH flag if we should use OAuth instead of API key
+USE_OAUTH=""
+if [ "$ANTHROPIC_API_KEY" = "sk-ant-test12345" ] || [ "$ANTHROPIC_API_KEY" = "" ]; then
+    # Clear the invalid/empty key so Claude Code will use OAuth instead
+    unset ANTHROPIC_API_KEY
+    export ANTHROPIC_API_KEY=""
+    USE_OAUTH="true"
+    echo "API Key: Not set (using OAuth authentication)"
+elif [ -n "$ANTHROPIC_API_KEY" ]; then
     echo "API Key: Set (fallback enabled)"
 else
+    USE_OAUTH="true"
     echo "API Key: Not set"
 fi
 
@@ -88,8 +97,17 @@ echo "============================================"
 # --writable allows input
 # --base-path for proper routing behind Traefik reverse proxy
 # No authentication - open access within the local network (protected by forward-auth in Traefik)
-exec ttyd \
-    --port 7681 \
-    --writable \
-    --base-path /claude-terminal \
-    bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: $(whoami)' && echo '---' && claude"
+# If using OAuth, explicitly unset the API key when starting claude using env -u
+if [ "$USE_OAUTH" = "true" ]; then
+    exec ttyd \
+        --port 7681 \
+        --writable \
+        --base-path /claude-terminal \
+        bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: \$(whoami)' && echo '---' && unset ANTHROPIC_API_KEY && claude"
+else
+    exec ttyd \
+        --port 7681 \
+        --writable \
+        --base-path /claude-terminal \
+        bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: \$(whoami)' && echo '---' && claude"
+fi
