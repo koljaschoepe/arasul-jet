@@ -309,10 +309,9 @@ ${context}`;
 
         const prompt = `${systemPrompt}\n\nUser: ${query}\nAssistant:`;
 
-        // Store sources in job
+        // Store sources in job (don't notify - rag.js already sent sources event)
         if (sources) {
             await llmJobService.updateJobContent(jobId, null, null, sources);
-            this.notifySubscribers(jobId, { type: 'sources', sources });
         }
 
         await this.streamFromOllama(jobId, prompt, enableThinking, 0.7, 32768, requested_model);
