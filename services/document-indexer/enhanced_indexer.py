@@ -240,6 +240,36 @@ class EnhancedDocumentIndexer:
             logger.error(f"Parse error for {filename}: {e}")
             return None
 
+    def get_document_space_info(self, doc_id: str) -> Dict[str, str]:
+        """
+        Get Knowledge Space info for a document (RAG 2.0)
+
+        Args:
+            doc_id: Document UUID
+
+        Returns:
+            Dict with space_id, space_name, space_slug
+        """
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT d.space_id, ks.name as space_name, ks.slug as space_slug
+                        FROM documents d
+                        LEFT JOIN knowledge_spaces ks ON d.space_id = ks.id
+                        WHERE d.id = %s
+                    """, (doc_id,))
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        return {
+                            'space_id': str(row[0]),
+                            'space_name': row[1] or '',
+                            'space_slug': row[2] or ''
+                        }
+        except Exception as e:
+            logger.debug(f"Failed to get space info for {doc_id}: {e}")
+        return {'space_id': '', 'space_name': '', 'space_slug': ''}
+
     def index_document(self, doc_id: str, text: str, metadata: Dict[str, Any]) -> int:
         """
         Index document text into Qdrant
@@ -284,7 +314,7 @@ class EnhancedDocumentIndexer:
                         hashlib.md5(f"{doc_id}:{chunk_index}".encode()).hexdigest()
                     ))
 
-                    # Create Qdrant point
+                    # Create Qdrant point (RAG 2.0: includes space metadata)
                     point = PointStruct(
                         id=chunk_id,
                         vector=embedding,
@@ -298,7 +328,11 @@ class EnhancedDocumentIndexer:
                             "title": metadata.get('title', ''),
                             "category": metadata.get('category_name', 'Allgemein'),
                             "language": metadata.get('language', 'de'),
-                            "indexed_at": time.time()
+                            "indexed_at": time.time(),
+                            # RAG 2.0: Knowledge Space metadata
+                            "space_id": metadata.get('space_id', ''),
+                            "space_name": metadata.get('space_name', ''),
+                            "space_slug": metadata.get('space_slug', '')
                         }
                     )
                     all_points.append(point)
@@ -449,13 +483,17 @@ class EnhancedDocumentIndexer:
                 if simple_topics:
                     self.db.update_document(doc_id, {'key_topics': simple_topics})
 
+            # RAG 2.0: Get space info for document
+            space_info = self.get_document_space_info(doc_id)
+
             # Index into Qdrant
             chunk_count = self.index_document(doc_id, text, {
                 'filename': filename,
                 'content_hash': content_hash,
                 'title': metadata.get('title', filename),
                 'language': metadata.get('language', 'de'),
-                'category_name': analysis.get('category', 'Allgemein') if ENABLE_AI_ANALYSIS else 'Allgemein'
+                'category_name': analysis.get('category', 'Allgemein') if ENABLE_AI_ANALYSIS else 'Allgemein',
+                **space_info  # RAG 2.0: Include space metadata
             })
 
             # Mark as indexed
@@ -465,7 +503,7 @@ class EnhancedDocumentIndexer:
             with self._status_lock:
                 self.status['documents_processed'] += 1
 
-            logger.info(f"Successfully indexed document: {filename} ({chunk_count} chunks)")
+            logger.info(f"Successfully indexed document: {filename} ({chunk_count} chunks) [space: {space_info.get('space_name', 'none')}]")
 
             # Calculate similarity if enabled
             if ENABLE_SIMILARITY:
@@ -560,13 +598,17 @@ class EnhancedDocumentIndexer:
                 if simple_topics:
                     self.db.update_document(doc_id, {'key_topics': simple_topics})
 
+            # RAG 2.0: Get space info for document
+            space_info = self.get_document_space_info(doc_id)
+
             # Index into Qdrant
             chunk_count = self.index_document(doc_id, text, {
                 'filename': filename,
                 'content_hash': content_hash,
                 'title': metadata.get('title', filename),
                 'language': metadata.get('language', 'de'),
-                'category_name': analysis.get('category', 'Allgemein') if ENABLE_AI_ANALYSIS else 'Allgemein'
+                'category_name': analysis.get('category', 'Allgemein') if ENABLE_AI_ANALYSIS else 'Allgemein',
+                **space_info  # RAG 2.0: Include space metadata
             })
 
             # Mark as indexed
@@ -576,7 +618,7 @@ class EnhancedDocumentIndexer:
             with self._status_lock:
                 self.status['documents_processed'] += 1
 
-            logger.info(f"Successfully indexed pending document: {filename} ({chunk_count} chunks)")
+            logger.info(f"Successfully indexed pending document: {filename} ({chunk_count} chunks) [space: {space_info.get('space_name', 'none')}]")
 
             # Calculate similarity if enabled
             if ENABLE_SIMILARITY:
