@@ -1602,3 +1602,160 @@
     padding: 0.75rem 1rem;
   }
 }
+
+/* ============================================
+   Auth Status Badge
+   ============================================ */
+
+.claude-auth-status {
+  margin-left: auto;
+  margin-right: 1rem;
+}
+
+.auth-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.auth-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.auth-badge.auth-valid {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.auth-badge.auth-expired {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+}
+
+.auth-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
+}
+
+.auth-timer svg {
+  width: 12px;
+  height: 12px;
+}
+
+.auth-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.auth-refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.auth-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth-refresh-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Auth status in Settings Panel */
+.settings-auth-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #2a3544);
+}
+
+.settings-auth-section h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #8b99a9);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.auth-info-row:last-child {
+  border-bottom: none;
+}
+
+.auth-info-label {
+  color: var(--text-secondary, #8b99a9);
+  font-size: 0.85rem;
+}
+
+.auth-info-value {
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.auth-info-value.valid {
+  color: #10b981;
+}
+
+.auth-info-value.expired {
+  color: #f59e0b;
+}
+
+.auth-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Responsive adjustments for auth badge */
+@media (max-width: 768px) {
+  .claude-auth-status {
+    margin-right: 0.5rem;
+  }
+
+  .auth-badge {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .auth-badge span:not(.auth-timer) {
+    display: none;
+  }
+
+  .auth-timer {
+    margin-left: 0;
+  }
+}

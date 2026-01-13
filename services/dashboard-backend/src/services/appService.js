@@ -1314,6 +1314,179 @@ class AppService {
                 'cd /home/arasul/arasul/arasul-jet && echo "Dein Prompt hier" | /home/arasul/.local/bin/claude -p --dangerously-skip-permissions'
         };
     }
+
+    /**
+     * Get Claude Code OAuth authentication status
+     * Reads credentials and config from the container volume
+     * @returns {Promise<Object>} Auth status with oauth and apiKey info
+     */
+    async getClaudeAuthStatus() {
+        try {
+            // First try to read the status file written by token-refresh service
+            const statusResult = await this._execInContainer(
+                'claude-code',
+                'cat /home/claude/.claude/auth-status.json 2>/dev/null || echo "{}"'
+            );
+
+            if (statusResult && statusResult !== '{}') {
+                try {
+                    const status = JSON.parse(statusResult);
+                    if (status.oauth) {
+                        return status;
+                    }
+                } catch (e) {
+                    logger.debug('Could not parse auth-status.json');
+                }
+            }
+
+            // Fallback: read credentials directly
+            const credentialsResult = await this._execInContainer(
+                'claude-code',
+                'cat /home/claude/.claude/.credentials.json 2>/dev/null || echo "{}"'
+            );
+
+            const configResult = await this._execInContainer(
+                'claude-code',
+                'cat /home/claude/.claude/config.json 2>/dev/null || echo "{}"'
+            );
+
+            let credentials = {};
+            let config = {};
+
+            try {
+                credentials = JSON.parse(credentialsResult);
+            } catch (e) {
+                logger.debug('Could not parse credentials.json');
+            }
+
+            try {
+                config = JSON.parse(configResult);
+            } catch (e) {
+                logger.debug('Could not parse config.json');
+            }
+
+            const now = Date.now();
+            const oauthData = credentials.claudeAiOauth || {};
+            const expiresAt = oauthData.expiresAt || 0;
+            const valid = expiresAt > now;
+
+            // Get API key status from our config
+            const appConfig = await this.getAppConfigRaw('claude-code');
+            const apiKey = appConfig.ANTHROPIC_API_KEY || '';
+            const apiKeySet = apiKey.length > 0 && apiKey !== 'sk-ant-test12345';
+
+            return {
+                oauth: {
+                    valid,
+                    expiresAt,
+                    expiresIn: valid ? Math.floor((expiresAt - now) / 1000) : 0,
+                    expiresInHours: valid ? ((expiresAt - now) / 3600000).toFixed(1) : '0',
+                    hasRefreshToken: !!oauthData.refreshToken,
+                    subscriptionType: oauthData.subscriptionType || null,
+                    account: config.oauthAccount ? {
+                        email: config.oauthAccount.emailAddress || null,
+                        displayName: config.oauthAccount.displayName || null
+                    } : null
+                },
+                apiKey: {
+                    set: apiKeySet,
+                    masked: apiKeySet ? '****' + apiKey.slice(-4) : null
+                },
+                lastCheck: now
+            };
+        } catch (error) {
+            logger.error(`Error getting Claude auth status: ${error.message}`);
+            return {
+                oauth: { valid: false, error: error.message },
+                apiKey: { set: false },
+                lastCheck: Date.now()
+            };
+        }
+    }
+
+    /**
+     * Trigger OAuth token refresh for Claude Code
+     * @returns {Promise<Object>} Refresh result
+     */
+    async refreshClaudeAuth() {
+        try {
+            logger.info('Triggering Claude Code OAuth refresh...');
+
+            const result = await this._execInContainer(
+                'claude-code',
+                'claude auth refresh 2>&1'
+            );
+
+            logger.info(`Claude auth refresh result: ${result}`);
+
+            // Check new status after refresh
+            const status = await this.getClaudeAuthStatus();
+
+            return {
+                success: status.oauth.valid,
+                message: status.oauth.valid
+                    ? `Token erfolgreich erneuert. Gültig für ${status.oauth.expiresInHours}h`
+                    : 'Token-Refresh fehlgeschlagen. Bitte neu anmelden.',
+                output: result,
+                status
+            };
+        } catch (error) {
+            logger.error(`Error refreshing Claude auth: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Execute a command inside a running container
+     * @param {string} containerName - Container name
+     * @param {string} command - Command to execute
+     * @returns {Promise<string>} Command output
+     */
+    async _execInContainer(containerName, command) {
+        try {
+            const container = docker.getContainer(containerName);
+
+            // Create exec instance
+            const exec = await container.exec({
+                Cmd: ['bash', '-c', command],
+                AttachStdout: true,
+                AttachStderr: true
+            });
+
+            // Start exec and collect output
+            const stream = await exec.start();
+
+            return new Promise((resolve, reject) => {
+                let output = '';
+
+                stream.on('data', (chunk) => {
+                    // Docker exec streams have a header, extract the actual data
+                    // Header is 8 bytes: [STREAM_TYPE, 0, 0, 0, SIZE1, SIZE2, SIZE3, SIZE4]
+                    if (chunk.length > 8) {
+                        output += chunk.slice(8).toString('utf8');
+                    } else {
+                        output += chunk.toString('utf8');
+                    }
+                });
+
+                stream.on('end', () => {
+                    resolve(output.trim());
+                });
+
+                stream.on('error', (err) => {
+                    reject(err);
+                });
+
+                // Handle case where stream doesn't emit 'end'
+                setTimeout(() => {
+                    resolve(output.trim());
+                }, 5000);
+            });
+        } catch (error) {
+            logger.error(`Error executing in container ${containerName}: ${error.message}`);
+            throw error;
+        }
+    }
 }
 
 module.exports = new AppService();

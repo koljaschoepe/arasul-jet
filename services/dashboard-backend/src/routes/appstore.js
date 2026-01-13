@@ -370,6 +370,53 @@ router.post('/sync', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/apps/claude-code/auth-status
+ * Get Claude Code OAuth authentication status
+ * Returns: oauth status, API key status, account info
+ */
+router.get('/claude-code/auth-status', requireAuth, async (req, res) => {
+    try {
+        const authStatus = await appService.getClaudeAuthStatus();
+
+        res.json({
+            ...authStatus,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Error getting Claude Code auth status: ${error.message}`);
+        res.status(500).json({
+            error: 'Fehler beim Laden des Auth-Status',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * POST /api/apps/claude-code/auth-refresh
+ * Trigger OAuth token refresh for Claude Code
+ */
+router.post('/claude-code/auth-refresh', requireAuth, apiLimiter, async (req, res) => {
+    try {
+        const result = await appService.refreshClaudeAuth();
+
+        res.json({
+            ...result,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Error refreshing Claude Code auth: ${error.message}`);
+        res.status(500).json({
+            error: 'Token-Refresh fehlgeschlagen',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
  * GET /api/apps/:id/config
  * Get app configuration (secrets are masked)
  */

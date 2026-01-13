@@ -28,7 +28,10 @@ import {
   FiPlus,
   FiTrash2,
   FiStar,
-  FiEdit2
+  FiEdit2,
+  FiUser,
+  FiLogIn,
+  FiClock
 } from 'react-icons/fi';
 import '../claudecode.css';
 
@@ -524,6 +527,8 @@ function ClaudeCode() {
   const [error, setError] = useState(null);
   const [saveMessage, setSaveMessage] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [authStatus, setAuthStatus] = useState(null);
+  const [authRefreshing, setAuthRefreshing] = useState(false);
 
   // Load workspaces
   const loadWorkspaces = useCallback(async () => {
@@ -557,6 +562,41 @@ function ClaudeCode() {
       ]);
     }
   }, []);
+
+  // Load auth status
+  const loadAuthStatus = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/apps/claude-code/auth-status`);
+      setAuthStatus(response.data);
+    } catch (err) {
+      console.error('Error loading auth status:', err);
+      setAuthStatus(null);
+    }
+  }, []);
+
+  // Refresh OAuth token
+  const handleAuthRefresh = async () => {
+    setAuthRefreshing(true);
+    try {
+      const response = await axios.post(`${API_BASE}/apps/claude-code/auth-refresh`);
+      setAuthStatus(response.data.status);
+      if (response.data.success) {
+        setSaveMessage({ type: 'success', text: response.data.message });
+      } else {
+        setSaveMessage({ type: 'error', text: response.data.message });
+      }
+    } catch (err) {
+      console.error('Error refreshing auth:', err);
+      setSaveMessage({
+        type: 'error',
+        text: err.response?.data?.message || 'Token-Refresh fehlgeschlagen'
+      });
+    } finally {
+      setAuthRefreshing(false);
+      // Clear message after 5 seconds
+      setTimeout(() => setSaveMessage(null), 5000);
+    }
+  };
 
   // Load app status and config
   const loadAppData = useCallback(async () => {
@@ -600,7 +640,16 @@ function ClaudeCode() {
   useEffect(() => {
     loadAppData();
     loadWorkspaces();
-  }, [loadAppData, loadWorkspaces]);
+    loadAuthStatus();
+  }, [loadAppData, loadWorkspaces, loadAuthStatus]);
+
+  // Poll auth status every 30 seconds when app is running
+  useEffect(() => {
+    if (appStatus?.status === 'running') {
+      const interval = setInterval(loadAuthStatus, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [appStatus?.status, loadAuthStatus]);
 
   // Poll for status updates when action is in progress
   useEffect(() => {
@@ -899,6 +948,38 @@ function ClaudeCode() {
           </div>
           {getStatusBadge(appStatus?.status)}
         </div>
+
+        {/* Auth Status Badge */}
+        {authStatus && appStatus?.status === 'running' && (
+          <div className="claude-auth-status">
+            {authStatus.oauth?.valid ? (
+              <div className="auth-badge auth-valid" title={`Token gueltig fuer ${authStatus.oauth.expiresInHours}h`}>
+                <FiUser />
+                <span>{authStatus.oauth.account?.displayName || authStatus.oauth.account?.email || 'Angemeldet'}</span>
+                <span className="auth-timer">
+                  <FiClock /> {authStatus.oauth.expiresInHours}h
+                </span>
+              </div>
+            ) : (
+              <div className="auth-badge auth-expired">
+                <FiAlertTriangle />
+                <span>Session abgelaufen</span>
+                <button
+                  className="auth-refresh-btn"
+                  onClick={handleAuthRefresh}
+                  disabled={authRefreshing}
+                  title="Token erneuern"
+                >
+                  {authRefreshing ? (
+                    <FiRefreshCw className="spinning" />
+                  ) : (
+                    <FiLogIn />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="claude-code-actions">
           {appStatus?.status === 'running' && (

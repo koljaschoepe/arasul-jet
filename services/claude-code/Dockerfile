@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     sudo \
     gnupg \
     lsb-release \
+    jq \
+    bc \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (for interacting with host Docker)
@@ -44,6 +46,7 @@ WORKDIR /workspace
 
 # Entrypoint script (must be readable for shell scripts to work)
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
+COPY --chmod=755 token-refresh.sh /token-refresh.sh
 
 # Switch to non-root user
 USER claude
