@@ -325,6 +325,20 @@ docker compose logs document-indexer              # Check indexer
 docker compose logs embedding-service             # Check embeddings
 ```
 
+### Traefik Routing Issues (localhost vs. external)
+```bash
+# Test HTTP routing
+curl -v http://localhost/api/health
+curl -v http://127.0.0.1/api/health
+
+# Check Traefik logs
+docker compose logs reverse-proxy | tail -50
+
+# IMPORTANT: All routing is defined in config/traefik/dynamic/routes.yml
+# Docker labels in docker-compose.yml should have traefik.enable=false
+# See HIGH-016 in BUGS_AND_FIXES.md for details
+```
+
 ---
 
 ## Power Tips for Claude Code

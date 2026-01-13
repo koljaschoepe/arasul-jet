@@ -28,14 +28,19 @@ const logger = require('../utils/logger');
  */
 router.get('/catalog', requireAuth, async (req, res) => {
     try {
+        // Debug logging for localhost vs. external access investigation
+        logger.info(`[Models] Catalog request - Host: ${req.headers.host}, Origin: ${req.headers.origin || 'same-origin'}, IP: ${req.ip}`);
+
         const catalog = await modelService.getCatalog();
+
+        logger.info(`[Models] Catalog response - total: ${catalog.length} models`);
         res.json({
             models: catalog,
             total: catalog.length,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
-        logger.error(`Error getting catalog: ${error.message}`);
+        logger.error(`[Models] Error getting catalog: ${error.message}`);
         res.status(500).json({ error: 'Fehler beim Laden des Modell-Katalogs' });
     }
 });
@@ -64,10 +69,15 @@ router.get('/installed', requireAuth, async (req, res) => {
  */
 router.get('/status', requireAuth, async (req, res) => {
     try {
+        // Debug logging for localhost vs. external access investigation
+        logger.info(`[Models] Status request - Host: ${req.headers.host}, Origin: ${req.headers.origin || 'same-origin'}, IP: ${req.ip}`);
+
         const status = await modelService.getStatus();
+
+        logger.info(`[Models] Status response - loaded_model: ${status.loaded_model ? status.loaded_model.model_id : 'null'}`);
         res.json(status);
     } catch (error) {
-        logger.error(`Error getting status: ${error.message}`);
+        logger.error(`[Models] Error getting status: ${error.message}`);
         res.status(500).json({ error: 'Fehler beim Laden des Modell-Status' });
     }
 });

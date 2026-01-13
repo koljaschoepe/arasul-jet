@@ -67,11 +67,29 @@ function ModelStore() {
     const loadData = useCallback(async () => {
         try {
             const headers = getAuthHeaders();
+
+            // Debug: Log API base URL
+            console.log('[ModelStore] Loading data from:', API_BASE, 'Host:', window.location.host);
+
+            // Fetch with explicit error checking
+            const fetchWithCheck = async (url, name) => {
+                const response = await fetch(url, { headers });
+                if (!response.ok) {
+                    console.error(`[ModelStore] ${name} failed:`, response.status, response.statusText);
+                    throw new Error(`${name}: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            };
+
             const [catalogRes, statusRes, defaultRes] = await Promise.all([
-                fetch(`${API_BASE}/models/catalog`, { headers }).then(r => r.json()),
-                fetch(`${API_BASE}/models/status`, { headers }).then(r => r.json()),
-                fetch(`${API_BASE}/models/default`, { headers }).then(r => r.json())
+                fetchWithCheck(`${API_BASE}/models/catalog`, 'Catalog'),
+                fetchWithCheck(`${API_BASE}/models/status`, 'Status'),
+                fetchWithCheck(`${API_BASE}/models/default`, 'Default')
             ]);
+
+            // Debug: Log responses
+            console.log('[ModelStore] Catalog:', catalogRes.total, 'models');
+            console.log('[ModelStore] Status:', statusRes.loaded_model ? statusRes.loaded_model.model_id : 'no model loaded');
 
             setCatalog(catalogRes.models || []);
             setLoadedModel(statusRes.loaded_model);
@@ -79,8 +97,8 @@ function ModelStore() {
             setDefaultModel(defaultRes.default_model);
             setError(null);
         } catch (err) {
-            console.error('Error loading model data:', err);
-            setError(err.message);
+            console.error('[ModelStore] Error loading model data:', err);
+            setError(`Fehler beim Laden: ${err.message}`);
         } finally {
             setLoading(false);
         }

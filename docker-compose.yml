@@ -448,13 +448,11 @@ services:
       resources:
         limits:
           cpus: '${CPU_LIMIT_DASHBOARD}'
+    # FIX: Routing komplett über File Provider (config/traefik/dynamic/routes.yml)
+    # Docker-Labels deaktiviert, da sie nur websecure (HTTPS) unterstützten
+    # und HTTP-Zugriff (localhost, LAN) blockierten
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.api.priority=10"
-      - "traefik.http.routers.api.entrypoints=websecure"
-      - "traefik.http.routers.api.tls=true"
-      - "traefik.http.services.api.loadbalancer.server.port=3001"
+      - "traefik.enable=false"
     logging:
       driver: json-file
       options:
@@ -481,13 +479,11 @@ services:
       interval: 10s
       timeout: 1s
       retries: 3
+    # FIX: Routing komplett über File Provider (config/traefik/dynamic/routes.yml)
+    # Docker-Labels deaktiviert, da sie nur websecure (HTTPS) unterstützten
+    # und HTTP-Zugriff (localhost, LAN) blockierten
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=PathPrefix(`/`) && !PathPrefix(`/n8n`) && !PathPrefix(`/api`) && !PathPrefix(`/claude-terminal`)"
-      - "traefik.http.routers.frontend.priority=1"
-      - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls=true"
-      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      - "traefik.enable=false"
     logging:
       driver: json-file
       options:

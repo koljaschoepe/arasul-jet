@@ -1,6 +1,6 @@
 # Arasul Platform - Bug Analysis & Fix Plan
 **Generated**: 2025-11-14
-**Last Updated**: 2025-12-30
+**Last Updated**: 2026-01-13
 **Analysis Scope**: Complete codebase audit
 **Total Issues Found**: 51
 
@@ -1982,6 +1982,62 @@ Monitor these metrics during fix deployment:
 
 ---
 
+## HIGH-016: HTTP Routing Not Working for localhost (2026-01-13)
+
+### Status: ✅ FIXED
+
+**Files Modified**:
+- `docker-compose.yml` (lines 451-457, 484-490)
+- `services/dashboard-backend/src/routes/models.js` (debug logging)
+- `services/dashboard-frontend/src/components/ModelStore.js` (error handling)
+
+**Severity**: HIGH
+**Impact**: Users accessing the dashboard via `http://localhost` on the Jetson could not see KI-Modelle, while external access via `arasul.local` worked correctly.
+
+### Root Cause
+
+Docker Compose labels for `dashboard-backend` and `dashboard-frontend` defined Traefik routers with **only HTTPS entry points**:
+
+```yaml
+# BEFORE (problematic)
+labels:
+  - "traefik.http.routers.api.entrypoints=websecure"  # Only HTTPS!
+```
+
+This conflicted with the file-based routing in `config/traefik/dynamic/routes.yml` which correctly supports both HTTP and HTTPS.
+
+When accessing via `http://localhost`:
+- The file provider routes (dashboard-api, dashboard-frontend) were present but Docker-provided routes (api, frontend) only accepted HTTPS
+- This caused inconsistent routing behavior
+
+### Solution
+
+Disabled Docker-based routing and delegated all routing to the file provider:
+
+```yaml
+# AFTER (fixed)
+labels:
+  - "traefik.enable=false"  # Routing via File Provider (routes.yml)
+```
+
+The file provider already correctly defines all routes with both `web` (HTTP) and `websecure` (HTTPS) entry points.
+
+### Best Practices for Future Implementations
+
+1. **Single Source of Truth**: Use ONLY `config/traefik/dynamic/routes.yml` for routing, NOT Docker labels
+2. **Always Support Both Protocols**: Every router should have both `web` and `websecure` entry points
+3. **Test All Access Methods**: Always test from localhost, 127.0.0.1, internal IP, and mDNS hostname
+4. **Use Relative API URLs**: Frontend should always use relative URLs (`/api`), never hardcoded hosts
+
+### Verification
+
+After the fix:
+- `http://localhost/api/health` → 200 OK
+- `http://localhost/api/models/catalog` → Works with valid token
+- Both `localhost` and `arasul.local` show identical functionality
+
+---
+
 **End of Bug Analysis Report**
-**Implementation Status**: ✅ Complete (17 legitimate bugs fixed, 1 false positive identified)
+**Implementation Status**: ✅ Complete (18 legitimate bugs fixed, 1 false positive identified)
 **Next Steps**: Deploy fixes to production after testing phase
