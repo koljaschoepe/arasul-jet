@@ -8,6 +8,11 @@ const db = require('../database');
 const logger = require('../utils/logger');
 
 /**
+ * Check if rate limiting is disabled (for testing)
+ */
+const isRateLimitDisabled = () => process.env.RATE_LIMIT_ENABLED === 'false';
+
+/**
  * Login rate limiter - 30 attempts per 5 minutes per IP
  * Balance security vs. usability for development/testing
  * Additional security: Database tracks failed attempts per user account
@@ -15,6 +20,7 @@ const logger = require('../utils/logger');
 const loginLimiter = rateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutes
     max: 30,
+    skip: isRateLimitDisabled,
     message: {
         error: 'Too many login attempts from this IP, please try again after 15 minutes',
         timestamp: new Date().toISOString()
@@ -37,6 +43,7 @@ const loginLimiter = rateLimit({
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 100,
+    skip: isRateLimitDisabled,
     message: {
         error: 'Too many requests from this IP, please try again later',
         timestamp: new Date().toISOString()
@@ -59,6 +66,7 @@ const apiLimiter = rateLimit({
 const llmLimiter = rateLimit({
     windowMs: 1000, // 1 second
     max: 10,
+    skip: isRateLimitDisabled,
     message: {
         error: 'LLM request rate limit exceeded, please slow down',
         timestamp: new Date().toISOString()
@@ -81,6 +89,7 @@ const llmLimiter = rateLimit({
 const metricsLimiter = rateLimit({
     windowMs: 1000, // 1 second
     max: 20,
+    skip: isRateLimitDisabled,
     message: {
         error: 'Metrics request rate limit exceeded',
         timestamp: new Date().toISOString()
@@ -104,6 +113,7 @@ const metricsLimiter = rateLimit({
 const webhookLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 100,
+    skip: isRateLimitDisabled,
     message: {
         error: 'Webhook rate limit exceeded',
         timestamp: new Date().toISOString()
@@ -133,6 +143,11 @@ const USER_TIMEOUT = 60 * 60 * 1000; // 1 hour - remove user data if no activity
  */
 function createUserRateLimiter(maxRequests, windowMs) {
     return async (req, res, next) => {
+        // Skip if rate limiting is disabled (for testing)
+        if (isRateLimitDisabled()) {
+            return next();
+        }
+
         if (!req.user) {
             return next();
         }

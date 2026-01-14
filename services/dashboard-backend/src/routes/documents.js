@@ -354,7 +354,18 @@ router.get('/:id', requireAuth, async (req, res) => {
  * POST /api/documents/upload
  * Upload a new document
  */
-router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
+router.post('/upload', requireAuth, (req, res, next) => {
+    // Handle multer errors (file type, size) and return 400 instead of 500
+    upload.single('file')(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({
+                error: err.message || 'Fehler beim Datei-Upload',
+                timestamp: new Date().toISOString()
+            });
+        }
+        next();
+    });
+}, async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({

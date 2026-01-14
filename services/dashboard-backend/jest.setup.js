@@ -50,8 +50,14 @@ jest.setTimeout(10000); // 10 seconds default timeout
 // ============================================================================
 
 /**
- * Reset all mocks before each test
- * This ensures test isolation
+ * Clear mock call history before each test
+ *
+ * Note: We use clearAllMocks() (not resetAllMocks()) because:
+ * - clearAllMocks() clears call history but preserves mock implementations
+ * - resetAllMocks() would clear module-level mock implementations
+ *
+ * Tests that need to clear mockResolvedValueOnce queues should
+ * call db.query.mockReset() explicitly in their setup.
  */
 beforeEach(() => {
   jest.clearAllMocks();

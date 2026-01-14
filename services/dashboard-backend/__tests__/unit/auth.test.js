@@ -39,7 +39,8 @@ const {
   setupAuthMocks,
   setupAuthMocksSequential,
   setupLoginMocks,
-  setupLogoutMocks
+  setupLogoutMocks,
+  setupPasswordChangeMocks
 } = require('../helpers/authMock');
 
 // Valid bcrypt hash for 'TestPassword123!'
@@ -95,6 +96,8 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 401 if user does not exist', async () => {
+      // Reset mock to clear any leftover queued responses
+      db.query.mockReset();
       // Mock not locked
       db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
       // Mock user not found
@@ -111,6 +114,8 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 403 if user is inactive', async () => {
+      // Reset mock to clear any leftover queued responses
+      db.query.mockReset();
       // Mock not locked
       db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
       // Mock inactive user
@@ -127,6 +132,8 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 401 if password is incorrect', async () => {
+      // Reset mock to clear any leftover queued responses
+      db.query.mockReset();
       // Mock not locked
       db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
       // Mock user found with password hash that won't match
@@ -360,10 +367,8 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      // Mock auth middleware
-      setupAuthMocksSequential(db);
-      // Mock password lookup - return different hash
-      db.query.mockResolvedValueOnce({ rows: [{ password_hash: hash }] });
+      // Use pattern-based mock for password change flow
+      setupPasswordChangeMocks(db, hash);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -388,10 +393,8 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      // Mock auth middleware
-      setupAuthMocksSequential(db);
-      // Mock password lookup
-      db.query.mockResolvedValueOnce({ rows: [{ password_hash: hash }] });
+      // Use pattern-based mock for password change flow
+      setupPasswordChangeMocks(db, hash);
 
       const response = await request(app)
         .post('/api/auth/change-password')

@@ -276,6 +276,52 @@ function createMockAuthMiddleware(userOverrides = {}) {
 }
 
 /**
+ * Setup mocks for password change flow
+ *
+ * Password change flow requires:
+ * 1-4. Auth middleware queries (blacklist, session, activity, user)
+ * 5. Password hash lookup for verification
+ * 6. Password update query (if successful)
+ *
+ * @param {Object} db - Mocked database module
+ * @param {string} passwordHash - Bcrypt hash of the current password
+ * @param {Object} options - Configuration options
+ */
+function setupPasswordChangeMocks(db, passwordHash, options = {}) {
+  const {
+    user = mockUser,
+    updateSuccess = true
+  } = options;
+
+  db.query.mockImplementation((query, params) => {
+    // Auth middleware queries
+    if (query.includes('token_blacklist')) {
+      return Promise.resolve({ rows: [] });
+    }
+    if (query.includes('active_sessions') && query.includes('SELECT')) {
+      return Promise.resolve({ rows: [mockSession] });
+    }
+    if (query.includes('update_session_activity')) {
+      return Promise.resolve({ rows: [] });
+    }
+    // User lookup from auth middleware - returns full user
+    if (query.includes('admin_users') && query.includes('SELECT') && !query.includes('password_hash')) {
+      return Promise.resolve({ rows: user ? [user] : [] });
+    }
+    // Password hash lookup - specific query for password_hash
+    if (query.includes('password_hash') && query.includes('SELECT')) {
+      return Promise.resolve({ rows: [{ password_hash: passwordHash }] });
+    }
+    // Password update
+    if (query.includes('admin_users') && query.includes('UPDATE')) {
+      return Promise.resolve({ rowCount: updateSuccess ? 1 : 0 });
+    }
+
+    return Promise.resolve({ rows: [] });
+  });
+}
+
+/**
  * Verify that auth was checked correctly
  *
  * @param {Object} db - Mocked database module
@@ -322,6 +368,7 @@ module.exports = {
   setupAuthMocks,
   setupLoginMocks,
   setupLogoutMocks,
+  setupPasswordChangeMocks,
 
   // Mock setup (order-based - legacy)
   setupAuthMocksSequential,
