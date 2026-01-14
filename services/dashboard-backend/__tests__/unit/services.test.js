@@ -1,281 +1,251 @@
 /**
  * Backend Services Unit Tests
- * Tests für LLMQueueService, LLMJobService und ModelService
+ * Tests for LLMQueueService, LLMJobService (legacy), and ModelService
+ *
+ * Uses Factory Pattern with Dependency Injection for proper test isolation
  */
 
-// Mock dependencies before requiring modules
-jest.mock('../../src/database');
-jest.mock('../../src/utils/logger');
-jest.mock('axios');
+const { createLLMJobService } = require('../../src/services/llmJobService');
+const { createLLMQueueService } = require('../../src/services/llmQueueService');
+const { createModelService } = require('../../src/services/modelService');
 
-const db = require('../../src/database');
-const logger = require('../../src/utils/logger');
-const axios = require('axios');
-
-// Mock logger methods
-logger.info = jest.fn();
-logger.warn = jest.fn();
-logger.error = jest.fn();
-logger.debug = jest.fn();
-
-// Mock db.transaction
-db.transaction = jest.fn(async (callback) => {
-    const mockClient = {
-        query: jest.fn()
+// Shared mock factories
+function createMockDatabase() {
+    const mockClient = { query: jest.fn() };
+    return {
+        query: jest.fn(),
+        transaction: jest.fn(async (callback) => callback(mockClient)),
+        _mockClient: mockClient
     };
-    return callback(mockClient);
-});
+}
 
-describe('LLMJobService', () => {
-    // Fresh import for each test suite
-    let llmJobService;
+function createMockLogger() {
+    return {
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn()
+    };
+}
+
+function createMockAxios() {
+    return {
+        get: jest.fn(),
+        post: jest.fn(),
+        delete: jest.fn()
+    };
+}
+
+// =====================================================
+// LLMJobService Tests (using singleton for backwards compat)
+// =====================================================
+describe('LLMJobService (Legacy)', () => {
+    let service;
+    let mockDb;
+    let mockLogger;
 
     beforeEach(() => {
-        jest.clearAllMocks();
-        jest.resetModules();
-
-        // Re-mock after reset
-        jest.mock('../../src/database');
-        jest.mock('../../src/utils/logger');
-
-        llmJobService = require('../../src/services/llmJobService');
-    });
-
-    // =====================================================
-    // createJob
-    // =====================================================
-    describe('createJob()', () => {
-        test('erstellt Job und Placeholder-Nachricht in Transaction', async () => {
-            const mockClient = {
-                query: jest.fn()
-                    .mockResolvedValueOnce({ rows: [{ id: 'job-123' }] })  // Insert job
-                    .mockResolvedValueOnce({ rows: [{ id: 456 }] })  // Insert message
-                    .mockResolvedValueOnce({ rows: [] })  // Update job with message_id
-            };
-
-            db.transaction.mockImplementationOnce(async (callback) => {
-                return callback(mockClient);
-            });
-
-            const result = await llmJobService.createJob(
-                1,  // conversationId
-                'chat',  // jobType
-                { messages: [{ role: 'user', content: 'Hello' }] }
-            );
-
-            expect(result.jobId).toBe('job-123');
-            expect(result.messageId).toBe(456);
-            expect(mockClient.query).toHaveBeenCalledTimes(3);
+        mockDb = createMockDatabase();
+        mockLogger = createMockLogger();
+        service = createLLMJobService({
+            database: mockDb,
+            logger: mockLogger
         });
     });
 
-    // =====================================================
-    // updateJobContent
-    // =====================================================
+    afterEach(() => {
+        if (service._resetForTesting) {
+            service._resetForTesting();
+        }
+    });
+
+    describe('createJob()', () => {
+        test('erstellt Job und Placeholder-Nachricht in Transaction', async () => {
+            mockDb._mockClient.query
+                .mockResolvedValueOnce({ rows: [{ id: 'job-123' }] })
+                .mockResolvedValueOnce({ rows: [{ id: 456 }] })
+                .mockResolvedValueOnce({ rows: [] });
+
+            const result = await service.createJob(1, 'chat', {
+                messages: [{ role: 'user', content: 'Hello' }]
+            });
+
+            expect(result.jobId).toBe('job-123');
+            expect(result.messageId).toBe(456);
+            expect(mockDb._mockClient.query).toHaveBeenCalledTimes(3);
+        });
+    });
+
     describe('updateJobContent()', () => {
         test('aktualisiert Content-Delta', async () => {
-            db.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
 
-            await llmJobService.updateJobContent('job-123', 'new content', null, null);
+            await service.updateJobContent('job-123', 'new content', null, null);
 
-            expect(db.query).toHaveBeenCalledWith(
+            expect(mockDb.query).toHaveBeenCalledWith(
                 expect.stringContaining('content = content ||'),
                 expect.arrayContaining(['job-123', 'new content'])
             );
         });
 
         test('aktualisiert Thinking-Delta', async () => {
-            db.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
 
-            await llmJobService.updateJobContent('job-123', null, 'thinking...', null);
+            await service.updateJobContent('job-123', null, 'thinking...', null);
 
-            expect(db.query).toHaveBeenCalledWith(
+            expect(mockDb.query).toHaveBeenCalledWith(
                 expect.stringContaining('thinking = COALESCE'),
                 expect.arrayContaining(['job-123', 'thinking...'])
             );
         });
 
         test('aktualisiert Sources', async () => {
-            db.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
             const sources = [{ title: 'Doc 1', score: 0.9 }];
 
-            await llmJobService.updateJobContent('job-123', null, null, sources);
+            await service.updateJobContent('job-123', null, null, sources);
 
-            expect(db.query).toHaveBeenCalledWith(
+            expect(mockDb.query).toHaveBeenCalledWith(
                 expect.stringContaining('sources ='),
                 expect.arrayContaining(['job-123', JSON.stringify(sources)])
             );
         });
 
         test('macht nichts wenn keine Deltas', async () => {
-            await llmJobService.updateJobContent('job-123', null, null, null);
+            await service.updateJobContent('job-123', null, null, null);
 
-            // Should not call query since no updates
-            expect(db.query).not.toHaveBeenCalled();
+            expect(mockDb.query).not.toHaveBeenCalled();
         });
     });
 
-    // =====================================================
-    // completeJob
-    // =====================================================
     describe('completeJob()', () => {
         test('finalisiert Job und Message', async () => {
-            const mockClient = {
-                query: jest.fn()
-                    .mockResolvedValueOnce({
-                        rows: [{
-                            content: 'final content',
-                            thinking: 'final thinking',
-                            sources: '[]',
-                            message_id: 456
-                        }]
-                    })  // Get job
-                    .mockResolvedValueOnce({ rows: [] })  // Update message
-                    .mockResolvedValueOnce({ rows: [] })  // Mark job completed
-            };
+            mockDb._mockClient.query
+                .mockResolvedValueOnce({
+                    rows: [{
+                        content: 'final content',
+                        thinking: 'final thinking',
+                        sources: '[]',
+                        message_id: 456
+                    }]
+                })
+                .mockResolvedValueOnce({ rows: [] })
+                .mockResolvedValueOnce({ rows: [] });
 
-            db.transaction.mockImplementationOnce(async (callback) => {
-                return callback(mockClient);
-            });
+            await service.completeJob('job-123');
 
-            await llmJobService.completeJob('job-123');
-
-            expect(mockClient.query).toHaveBeenCalledTimes(3);
-            expect(mockClient.query).toHaveBeenCalledWith(
+            expect(mockDb._mockClient.query).toHaveBeenCalledTimes(3);
+            expect(mockDb._mockClient.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'completed'"),
                 expect.arrayContaining(['job-123'])
             );
         });
 
         test('behandelt nicht gefundenen Job graceful', async () => {
-            const mockClient = {
-                query: jest.fn().mockResolvedValueOnce({ rows: [] })
-            };
+            mockDb._mockClient.query.mockResolvedValueOnce({ rows: [] });
 
-            db.transaction.mockImplementationOnce(async (callback) => {
-                return callback(mockClient);
-            });
+            await service.completeJob('nonexistent');
 
-            await llmJobService.completeJob('nonexistent');
-
-            expect(logger.warn).toHaveBeenCalledWith(
+            expect(mockLogger.warn).toHaveBeenCalledWith(
                 expect.stringContaining('not found during completion')
             );
         });
     });
 
-    // =====================================================
-    // errorJob
-    // =====================================================
     describe('errorJob()', () => {
         test('markiert Job als fehlerhaft', async () => {
-            db.query.mockResolvedValue({ rows: [] });
+            mockDb.query.mockResolvedValue({ rows: [] });
 
-            await llmJobService.errorJob('job-123', 'Connection timeout');
+            await service.errorJob('job-123', 'Connection timeout');
 
-            expect(db.query).toHaveBeenCalledWith(
+            expect(mockDb.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'error'"),
                 expect.arrayContaining(['job-123', 'Connection timeout'])
             );
         });
     });
 
-    // =====================================================
-    // getJob
-    // =====================================================
     describe('getJob()', () => {
         test('gibt Job-Details zurück', async () => {
             const mockJob = { id: 'job-123', status: 'streaming', content: 'partial' };
-            db.query.mockResolvedValueOnce({ rows: [mockJob] });
+            mockDb.query.mockResolvedValueOnce({ rows: [mockJob] });
 
-            const result = await llmJobService.getJob('job-123');
+            const result = await service.getJob('job-123');
 
             expect(result).toEqual(mockJob);
         });
 
         test('gibt null für nicht existierenden Job', async () => {
-            db.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
 
-            const result = await llmJobService.getJob('nonexistent');
+            const result = await service.getJob('nonexistent');
 
             expect(result).toBeNull();
         });
     });
 
-    // =====================================================
-    // cancelJob
-    // =====================================================
     describe('cancelJob()', () => {
         test('cancelled Job und aktualisiert Message', async () => {
-            db.query.mockResolvedValue({ rows: [] });
+            mockDb.query.mockResolvedValue({ rows: [] });
 
-            await llmJobService.cancelJob('job-123');
+            await service.cancelJob('job-123');
 
-            expect(db.query).toHaveBeenCalledWith(
+            expect(mockDb.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'cancelled'"),
                 expect.arrayContaining(['job-123'])
             );
         });
     });
 
-    // =====================================================
-    // cleanupStaleJobs
-    // =====================================================
     describe('cleanupStaleJobs()', () => {
         test('bereinigt veraltete Jobs', async () => {
-            db.query
+            mockDb.query
                 .mockResolvedValueOnce({ rows: [{ id: 'stale-1' }, { id: 'stale-2' }] })
                 .mockResolvedValueOnce({ rows: [] });
 
-            const count = await llmJobService.cleanupStaleJobs();
+            const count = await service.cleanupStaleJobs();
 
             expect(count).toBe(2);
-            expect(logger.info).toHaveBeenCalledWith(
+            expect(mockLogger.info).toHaveBeenCalledWith(
                 expect.stringContaining('Cleaned up 2 stale jobs')
             );
         });
 
         test('gibt 0 zurück wenn keine veralteten Jobs', async () => {
-            db.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
 
-            const count = await llmJobService.cleanupStaleJobs();
+            const count = await service.cleanupStaleJobs();
 
             expect(count).toBe(0);
         });
     });
 
-    // =====================================================
-    // Stream Registration
-    // =====================================================
     describe('Stream Registration', () => {
         test('registerStream speichert AbortController', () => {
             const abortController = new AbortController();
-            llmJobService.registerStream('job-123', abortController);
+            service.registerStream('job-123', abortController);
 
-            expect(llmJobService.isStreamActive('job-123')).toBe(true);
+            expect(service.isStreamActive('job-123')).toBe(true);
         });
 
         test('isStreamActive gibt false für unbekannten Job', () => {
-            expect(llmJobService.isStreamActive('unknown')).toBe(false);
+            expect(service.isStreamActive('unknown')).toBe(false);
         });
 
         test('getActiveStream gibt Stream-Info zurück', () => {
             const abortController = new AbortController();
-            llmJobService.registerStream('job-456', abortController);
+            service.registerStream('job-456', abortController);
 
-            const stream = llmJobService.getActiveStream('job-456');
+            const stream = service.getActiveStream('job-456');
 
             expect(stream.abortController).toBe(abortController);
             expect(stream.startTime).toBeDefined();
         });
     });
 
-    // =====================================================
-    // getStats
-    // =====================================================
     describe('getStats()', () => {
         test('gibt Job-Statistiken zurück', async () => {
-            db.query.mockResolvedValueOnce({
+            mockDb.query.mockResolvedValueOnce({
                 rows: [{
                     active_jobs: '2',
                     pending_jobs: '5',
@@ -284,7 +254,7 @@ describe('LLMJobService', () => {
                 }]
             });
 
-            const stats = await llmJobService.getStats();
+            const stats = await service.getStats();
 
             expect(stats.active_jobs).toBe('2');
             expect(stats.pending_jobs).toBe('5');
@@ -297,60 +267,61 @@ describe('LLMJobService', () => {
 // ModelService Tests
 // =====================================================
 describe('ModelService', () => {
-    let modelService;
+    let service;
+    let mockDb;
+    let mockLogger;
+    let mockAxios;
 
     beforeEach(() => {
-        jest.clearAllMocks();
-        jest.resetModules();
+        mockDb = createMockDatabase();
+        mockLogger = createMockLogger();
+        mockAxios = createMockAxios();
 
-        // Re-setup mocks
-        jest.mock('../../src/database');
-        jest.mock('axios');
-
-        modelService = require('../../src/services/modelService');
+        service = createModelService({
+            database: mockDb,
+            logger: mockLogger,
+            axios: mockAxios
+        });
     });
 
-    // =====================================================
-    // getCatalog
-    // =====================================================
+    afterEach(() => {
+        if (service._resetForTesting) {
+            service._resetForTesting();
+        }
+    });
+
     describe('getCatalog()', () => {
         test('gibt Model-Katalog zurück', async () => {
             const mockModels = [
                 { id: 'llama3:8b', name: 'Llama 3 8B', ram_required_gb: 8 },
                 { id: 'qwen3:14b', name: 'Qwen 3 14B', ram_required_gb: 14 }
             ];
-            db.query.mockResolvedValueOnce({ rows: mockModels });
+            mockDb.query.mockResolvedValueOnce({ rows: mockModels });
 
-            const catalog = await modelService.getCatalog();
+            const catalog = await service.getCatalog();
 
             expect(catalog).toHaveLength(2);
             expect(catalog[0].id).toBe('llama3:8b');
         });
     });
 
-    // =====================================================
-    // getInstalledModels
-    // =====================================================
     describe('getInstalledModels()', () => {
         test('gibt nur installierte Modelle zurück', async () => {
             const mockInstalled = [
                 { id: 'llama3:8b', status: 'available', is_default: true }
             ];
-            db.query.mockResolvedValueOnce({ rows: mockInstalled });
+            mockDb.query.mockResolvedValueOnce({ rows: mockInstalled });
 
-            const installed = await modelService.getInstalledModels();
+            const installed = await service.getInstalledModels();
 
             expect(installed).toHaveLength(1);
             expect(installed[0].status).toBe('available');
         });
     });
 
-    // =====================================================
-    // getLoadedModel
-    // =====================================================
     describe('getLoadedModel()', () => {
         test('gibt geladenes Model zurück', async () => {
-            axios.get.mockResolvedValueOnce({
+            mockAxios.get.mockResolvedValueOnce({
                 data: {
                     models: [{
                         name: 'qwen3:14b-q8',
@@ -359,101 +330,83 @@ describe('ModelService', () => {
                 }
             });
 
-            const loaded = await modelService.getLoadedModel();
+            const loaded = await service.getLoadedModel();
 
             expect(loaded.model_id).toBe('qwen3:14b-q8');
             expect(loaded.ram_usage_mb).toBeGreaterThan(0);
         });
 
         test('gibt null wenn kein Model geladen', async () => {
-            axios.get.mockResolvedValueOnce({ data: { models: [] } });
+            mockAxios.get.mockResolvedValueOnce({ data: { models: [] } });
 
-            const loaded = await modelService.getLoadedModel();
+            const loaded = await service.getLoadedModel();
 
             expect(loaded).toBeNull();
         });
 
         test('behandelt Fehler graceful', async () => {
-            axios.get.mockRejectedValueOnce(new Error('Connection refused'));
+            mockAxios.get.mockRejectedValueOnce(new Error('Connection refused'));
 
-            const loaded = await modelService.getLoadedModel();
+            const loaded = await service.getLoadedModel();
 
             expect(loaded).toBeNull();
-            expect(logger.error).toHaveBeenCalled();
+            expect(mockLogger.error).toHaveBeenCalled();
         });
     });
 
-    // =====================================================
-    // setDefaultModel
-    // =====================================================
     describe('setDefaultModel()', () => {
         test('setzt neues Default-Model', async () => {
-            const mockClient = {
-                query: jest.fn().mockResolvedValue({ rows: [] })
-            };
-            db.transaction.mockImplementationOnce(async (callback) => {
-                return callback(mockClient);
-            });
+            mockDb._mockClient.query.mockResolvedValue({ rows: [] });
 
-            const result = await modelService.setDefaultModel('llama3:8b');
+            const result = await service.setDefaultModel('llama3:8b');
 
             expect(result.success).toBe(true);
             expect(result.defaultModel).toBe('llama3:8b');
-            expect(mockClient.query).toHaveBeenCalledWith(
-                expect.stringContaining('is_default = false'),
+            expect(mockDb._mockClient.query).toHaveBeenCalledWith(
+                expect.stringContaining('is_default = false')
             );
         });
     });
 
-    // =====================================================
-    // getDefaultModel
-    // =====================================================
     describe('getDefaultModel()', () => {
         test('gibt Default-Model aus DB zurück', async () => {
-            db.query.mockResolvedValueOnce({ rows: [{ id: 'llama3:8b' }] });
+            mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'llama3:8b' }] });
 
-            const defaultModel = await modelService.getDefaultModel();
+            const defaultModel = await service.getDefaultModel();
 
             expect(defaultModel).toBe('llama3:8b');
         });
 
         test('fällt auf env-Variable zurück wenn kein Default', async () => {
-            db.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
 
-            const defaultModel = await modelService.getDefaultModel();
+            const defaultModel = await service.getDefaultModel();
 
-            // Falls back to env or hardcoded default
             expect(defaultModel).toBeDefined();
         });
     });
 
-    // =====================================================
-    // deleteModel
-    // =====================================================
     describe('deleteModel()', () => {
         test('löscht Model aus Ollama und DB', async () => {
-            axios.get.mockResolvedValueOnce({ data: { models: [] } });  // getLoadedModel
-            axios.delete.mockResolvedValueOnce({ data: {} });
-            db.query.mockResolvedValueOnce({ rows: [] });
+            mockAxios.get.mockResolvedValueOnce({ data: { models: [] } });
+            mockAxios.delete.mockResolvedValueOnce({ data: {} });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
 
-            const result = await modelService.deleteModel('old-model');
+            const result = await service.deleteModel('old-model');
 
             expect(result.success).toBe(true);
             expect(result.modelId).toBe('old-model');
         });
     });
 
-    // =====================================================
-    // unloadModel
-    // =====================================================
     describe('unloadModel()', () => {
         test('entlädt Model mit keep_alive=0', async () => {
-            axios.post.mockResolvedValueOnce({ data: {} });
+            mockAxios.post.mockResolvedValueOnce({ data: {} });
 
-            const result = await modelService.unloadModel('some-model');
+            const result = await service.unloadModel('some-model');
 
             expect(result.success).toBe(true);
-            expect(axios.post).toHaveBeenCalledWith(
+            expect(mockAxios.post).toHaveBeenCalledWith(
                 expect.stringContaining('/api/generate'),
                 expect.objectContaining({ keep_alive: 0 }),
                 expect.any(Object)
@@ -461,28 +414,25 @@ describe('ModelService', () => {
         });
 
         test('behandelt Fehler graceful', async () => {
-            axios.post.mockRejectedValueOnce(new Error('Model not found'));
+            mockAxios.post.mockRejectedValueOnce(new Error('Model not found'));
 
-            const result = await modelService.unloadModel('nonexistent');
+            const result = await service.unloadModel('nonexistent');
 
             expect(result.success).toBe(false);
         });
     });
 
-    // =====================================================
-    // getStatus
-    // =====================================================
     describe('getStatus()', () => {
         test('gibt Model-Status-Zusammenfassung zurück', async () => {
-            axios.get.mockResolvedValueOnce({
+            mockAxios.get.mockResolvedValueOnce({
                 data: { models: [{ name: 'qwen3:14b-q8' }] }
             });
-            db.query
+            mockDb.query
                 .mockResolvedValueOnce({ rows: [{ count: '3' }] })
                 .mockResolvedValueOnce({ rows: [] })
                 .mockResolvedValueOnce({ rows: [{ total_switches: 5 }] });
 
-            const status = await modelService.getStatus();
+            const status = await service.getStatus();
 
             expect(status.loaded_model).toBeDefined();
             expect(status.installed_count).toBe(3);
@@ -490,69 +440,74 @@ describe('ModelService', () => {
         });
     });
 
-    // =====================================================
-    // isModelInstalled
-    // =====================================================
     describe('isModelInstalled()', () => {
         test('gibt true für installiertes Model', async () => {
-            db.query.mockResolvedValueOnce({ rows: [{ id: 'model-1' }] });
+            mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'model-1' }] });
 
-            const installed = await modelService.isModelInstalled('model-1');
+            const installed = await service.isModelInstalled('model-1');
 
             expect(installed).toBe(true);
         });
 
         test('gibt false für nicht installiertes Model', async () => {
-            db.query.mockResolvedValueOnce({ rows: [] });
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
 
-            const installed = await modelService.isModelInstalled('not-installed');
+            const installed = await service.isModelInstalled('not-installed');
 
             expect(installed).toBe(false);
         });
     });
 
-    // =====================================================
-    // syncWithOllama
-    // =====================================================
     describe('syncWithOllama()', () => {
         test('synchronisiert mit Ollama', async () => {
-            axios.get.mockResolvedValueOnce({
+            mockAxios.get.mockResolvedValueOnce({
                 data: { models: [{ name: 'model-1' }, { name: 'model-2' }] }
             });
-            db.query.mockResolvedValue({ rows: [{ id: 'model-1' }] });
+            mockDb.query.mockResolvedValue({ rows: [{ id: 'model-1' }] });
 
-            const result = await modelService.syncWithOllama();
+            const result = await service.syncWithOllama();
 
             expect(result.success).toBe(true);
             expect(result.ollamaModels).toHaveLength(2);
         });
 
         test('behandelt Verbindungsfehler', async () => {
-            axios.get.mockRejectedValueOnce(new Error('Connection refused'));
+            mockAxios.get.mockRejectedValueOnce(new Error('Connection refused'));
 
-            const result = await modelService.syncWithOllama();
+            const result = await service.syncWithOllama();
 
             expect(result.success).toBe(false);
             expect(result.error).toBeDefined();
         });
     });
 
-    // =====================================================
-    // resolveModel
-    // =====================================================
     describe('resolveModel()', () => {
         test('gibt angefordetes Model zurück wenn angegeben', async () => {
-            const model = await modelService.resolveModel('llama3:8b');
+            const model = await service.resolveModel('llama3:8b');
 
             expect(model).toBe('llama3:8b');
         });
 
         test('gibt Default-Model zurück wenn nicht angegeben', async () => {
-            db.query.mockResolvedValueOnce({ rows: [{ id: 'default-model' }] });
+            mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'default-model' }] });
 
-            const model = await modelService.resolveModel(null);
+            const model = await service.resolveModel(null);
 
             expect(model).toBe('default-model');
+        });
+    });
+
+    describe('Test Isolation', () => {
+        test('_resetForTesting clears switch state', () => {
+            // Access internal state via getter
+            const stateBefore = service._getSwitchState();
+            expect(stateBefore.switchInProgress).toBe(false);
+
+            service._resetForTesting();
+
+            const stateAfter = service._getSwitchState();
+            expect(stateAfter.lastSwitchTime).toBe(0);
+            expect(stateAfter.switchInProgress).toBe(false);
         });
     });
 });
@@ -561,28 +516,55 @@ describe('ModelService', () => {
 // LLMQueueService Tests
 // =====================================================
 describe('LLMQueueService', () => {
-    let llmQueueService;
+    let service;
+    let mockDb;
+    let mockLogger;
+    let mockLlmJobService;
+    let mockModelService;
+    let mockAxios;
 
     beforeEach(() => {
-        jest.clearAllMocks();
-        jest.resetModules();
+        mockDb = createMockDatabase();
+        mockLogger = createMockLogger();
+        mockAxios = createMockAxios();
 
-        // Setup mocks
-        jest.mock('../../src/database');
-        jest.mock('../../src/services/llmJobService');
-        jest.mock('../../src/services/modelService');
-        jest.mock('axios');
+        mockLlmJobService = {
+            createJob: jest.fn(),
+            updateJobContent: jest.fn(),
+            completeJob: jest.fn(),
+            errorJob: jest.fn(),
+            getJob: jest.fn(),
+            registerStream: jest.fn(),
+            isStreamActive: jest.fn(),
+            cancelJob: jest.fn()
+        };
 
-        llmQueueService = require('../../src/services/llmQueueService');
+        mockModelService = {
+            getLoadedModel: jest.fn(),
+            activateModel: jest.fn(),
+            resolveModel: jest.fn(),
+            getDefaultModel: jest.fn()
+        };
+
+        service = createLLMQueueService({
+            database: mockDb,
+            logger: mockLogger,
+            llmJobService: mockLlmJobService,
+            modelService: mockModelService,
+            axios: mockAxios
+        });
     });
 
-    // =====================================================
-    // subscribeToJob / notifySubscribers
-    // =====================================================
+    afterEach(() => {
+        if (service._resetForTesting) {
+            service._resetForTesting();
+        }
+    });
+
     describe('Job Subscription', () => {
         test('subscribeToJob fügt Callback hinzu', () => {
             const callback = jest.fn();
-            const unsubscribe = llmQueueService.subscribeToJob('job-123', callback);
+            const unsubscribe = service.subscribeToJob('job-123', callback);
 
             expect(typeof unsubscribe).toBe('function');
         });
@@ -591,10 +573,10 @@ describe('LLMQueueService', () => {
             const callback1 = jest.fn();
             const callback2 = jest.fn();
 
-            llmQueueService.subscribeToJob('job-123', callback1);
-            llmQueueService.subscribeToJob('job-123', callback2);
+            service.subscribeToJob('job-123', callback1);
+            service.subscribeToJob('job-123', callback2);
 
-            llmQueueService.notifySubscribers('job-123', { type: 'response', token: 'Hello' });
+            service.notifySubscribers('job-123', { type: 'response', token: 'Hello' });
 
             expect(callback1).toHaveBeenCalledWith({ type: 'response', token: 'Hello' });
             expect(callback2).toHaveBeenCalledWith({ type: 'response', token: 'Hello' });
@@ -602,11 +584,11 @@ describe('LLMQueueService', () => {
 
         test('unsubscribe entfernt Callback', () => {
             const callback = jest.fn();
-            const unsubscribe = llmQueueService.subscribeToJob('job-123', callback);
+            const unsubscribe = service.subscribeToJob('job-123', callback);
 
             unsubscribe();
 
-            llmQueueService.notifySubscribers('job-123', { type: 'test' });
+            service.notifySubscribers('job-123', { type: 'test' });
             expect(callback).not.toHaveBeenCalled();
         });
 
@@ -616,66 +598,109 @@ describe('LLMQueueService', () => {
             });
             const goodCallback = jest.fn();
 
-            llmQueueService.subscribeToJob('job-123', badCallback);
-            llmQueueService.subscribeToJob('job-123', goodCallback);
+            service.subscribeToJob('job-123', badCallback);
+            service.subscribeToJob('job-123', goodCallback);
 
             // Should not throw
-            llmQueueService.notifySubscribers('job-123', { type: 'test' });
+            service.notifySubscribers('job-123', { type: 'test' });
 
             expect(goodCallback).toHaveBeenCalled();
         });
     });
 
-    // =====================================================
-    // onJobComplete
-    // =====================================================
     describe('onJobComplete()', () => {
         test('setzt isProcessing zurück', () => {
-            // Set processing state manually
-            llmQueueService.isProcessing = true;
-            llmQueueService.processingJobId = 'job-123';
+            service.isProcessing = true;
+            service.processingJobId = 'job-123';
 
-            llmQueueService.onJobComplete('job-123');
+            service.onJobComplete('job-123');
 
-            expect(llmQueueService.isProcessing).toBe(false);
-            expect(llmQueueService.processingJobId).toBeNull();
+            expect(service.isProcessing).toBe(false);
+            expect(service.processingJobId).toBeNull();
         });
 
         test('räumt Subscribers auf', () => {
             const callback = jest.fn();
-            llmQueueService.subscribeToJob('job-123', callback);
+            service.subscribeToJob('job-123', callback);
 
-            llmQueueService.isProcessing = true;
-            llmQueueService.processingJobId = 'job-123';
+            service.isProcessing = true;
+            service.processingJobId = 'job-123';
 
-            llmQueueService.onJobComplete('job-123');
+            service.onJobComplete('job-123');
 
             // Subscribers should be cleaned up
-            llmQueueService.notifySubscribers('job-123', { type: 'test' });
+            service.notifySubscribers('job-123', { type: 'test' });
             expect(callback).not.toHaveBeenCalled();
         });
     });
 
-    // =====================================================
-    // EventEmitter functionality
-    // =====================================================
     describe('EventEmitter', () => {
         test('emittiert queue:update Events', () => {
             const handler = jest.fn();
-            llmQueueService.on('queue:update', handler);
+            service.on('queue:update', handler);
 
-            llmQueueService.emit('queue:update');
+            service.emit('queue:update');
 
             expect(handler).toHaveBeenCalled();
         });
 
         test('emittiert model:switching Events', () => {
             const handler = jest.fn();
-            llmQueueService.on('model:switching', handler);
+            service.on('model:switching', handler);
 
-            llmQueueService.emit('model:switching', { from: 'old', to: 'new' });
+            service.emit('model:switching', { from: 'old', to: 'new' });
 
             expect(handler).toHaveBeenCalledWith({ from: 'old', to: 'new' });
+        });
+    });
+
+    describe('Test Isolation', () => {
+        test('_resetForTesting clears all state', () => {
+            service.subscribeToJob('job-1', jest.fn());
+            service.subscribeToJob('job-2', jest.fn());
+            service.isProcessing = true;
+            service.processingJobId = 'job-1';
+
+            service._resetForTesting();
+
+            expect(service.isProcessing).toBe(false);
+            expect(service.processingJobId).toBeNull();
+            // Subscribers should be cleared
+            const callback = jest.fn();
+            service.notifySubscribers('job-1', { type: 'test' });
+            expect(callback).not.toHaveBeenCalled();
+        });
+
+        test('different instances have isolated state', () => {
+            const service1 = createLLMQueueService({
+                database: mockDb,
+                logger: mockLogger,
+                llmJobService: mockLlmJobService,
+                modelService: mockModelService,
+                axios: mockAxios
+            });
+            const service2 = createLLMQueueService({
+                database: mockDb,
+                logger: mockLogger,
+                llmJobService: mockLlmJobService,
+                modelService: mockModelService,
+                axios: mockAxios
+            });
+
+            const callback1 = jest.fn();
+            const callback2 = jest.fn();
+
+            service1.subscribeToJob('job-1', callback1);
+            service2.subscribeToJob('job-1', callback2);
+
+            service1.notifySubscribers('job-1', { type: 'test' });
+
+            expect(callback1).toHaveBeenCalled();
+            expect(callback2).not.toHaveBeenCalled();
+
+            // Cleanup
+            service1._resetForTesting();
+            service2._resetForTesting();
         });
     });
 });
@@ -684,51 +709,69 @@ describe('LLMQueueService', () => {
 // Integration-Style Tests (Services working together)
 // =====================================================
 describe('Service Integration', () => {
+    let mockDb;
+    let mockLogger;
+    let llmJobService;
+
     beforeEach(() => {
-        jest.clearAllMocks();
+        mockDb = createMockDatabase();
+        mockLogger = createMockLogger();
+        llmJobService = createLLMJobService({
+            database: mockDb,
+            logger: mockLogger
+        });
+    });
+
+    afterEach(() => {
+        if (llmJobService._resetForTesting) {
+            llmJobService._resetForTesting();
+        }
     });
 
     test('Job-Flow: Create -> Stream -> Complete', async () => {
-        const llmJobService = require('../../src/services/llmJobService');
-
         // Mock create
-        const mockClient = {
-            query: jest.fn()
-                .mockResolvedValueOnce({ rows: [{ id: 'job-123' }] })
-                .mockResolvedValueOnce({ rows: [{ id: 456 }] })
-                .mockResolvedValueOnce({ rows: [] })
-        };
-        db.transaction.mockImplementationOnce(async (cb) => cb(mockClient));
+        mockDb._mockClient.query
+            .mockResolvedValueOnce({ rows: [{ id: 'job-123' }] })
+            .mockResolvedValueOnce({ rows: [{ id: 456 }] })
+            .mockResolvedValueOnce({ rows: [] });
 
         // Create job
         const { jobId, messageId } = await llmJobService.createJob(1, 'chat', {});
         expect(jobId).toBe('job-123');
 
         // Simulate streaming updates
-        db.query.mockResolvedValue({ rows: [] });
+        mockDb.query.mockResolvedValue({ rows: [] });
         await llmJobService.updateJobContent(jobId, 'Hello ', null, null);
         await llmJobService.updateJobContent(jobId, 'World!', null, null);
 
-        // Complete job
-        const completeClient = {
-            query: jest.fn()
-                .mockResolvedValueOnce({
-                    rows: [{ content: 'Hello World!', thinking: null, sources: null, message_id: 456 }]
-                })
-                .mockResolvedValue({ rows: [] })
-        };
-        db.transaction.mockImplementationOnce(async (cb) => cb(completeClient));
+        // Complete job - need to reset mock client for new transaction
+        mockDb._mockClient.query
+            .mockResolvedValueOnce({
+                rows: [{ content: 'Hello World!', thinking: null, sources: null, message_id: 456 }]
+            })
+            .mockResolvedValue({ rows: [] });
 
         await llmJobService.completeJob(jobId);
 
-        expect(completeClient.query).toHaveBeenCalledWith(
+        expect(mockDb._mockClient.query).toHaveBeenCalledWith(
             expect.stringContaining("status = 'completed'"),
             expect.any(Array)
         );
     });
 
     test('Queue: Subscribe -> Notify -> Unsubscribe', () => {
-        const llmQueueService = require('../../src/services/llmQueueService');
+        const mockAxios = createMockAxios();
+        const mockLlmJobService = { registerStream: jest.fn() };
+        const mockModelService = { getLoadedModel: jest.fn() };
+
+        const llmQueueService = createLLMQueueService({
+            database: mockDb,
+            logger: mockLogger,
+            llmJobService: mockLlmJobService,
+            modelService: mockModelService,
+            axios: mockAxios
+        });
+
         const events = [];
 
         const unsubscribe = llmQueueService.subscribeToJob('test-job', (event) => {
@@ -746,5 +789,7 @@ describe('Service Integration', () => {
 
         llmQueueService.notifySubscribers('test-job', { type: 'done' });
         expect(events).toHaveLength(2);  // No new events
+
+        llmQueueService._resetForTesting();
     });
 });

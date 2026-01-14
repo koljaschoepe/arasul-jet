@@ -1,6 +1,9 @@
 /**
  * Documents Routes Unit Tests
  * Tests für alle /api/documents Endpoints
+ *
+ * Uses middleware mock for route isolation (valid pattern for route tests)
+ * Auth is mocked at middleware level since we're testing route logic, not auth flow
  */
 
 const request = require('supertest');
@@ -24,10 +27,12 @@ logger.warn = jest.fn();
 logger.error = jest.fn();
 logger.debug = jest.fn();
 
-// Mock auth middleware
+// Mock auth middleware - bypasses auth for route testing
+// For auth flow tests, see auth.test.js which uses generateTestToken + setupAuthMocks
 jest.mock('../../src/middleware/auth', () => ({
     requireAuth: (req, res, next) => {
         req.user = { username: 'testuser', id: 1 };
+        req.tokenData = { userId: 1, username: 'testuser', jti: 'test-jti', type: 'access' };
         next();
     }
 }));
