@@ -254,6 +254,24 @@ http:
         - websecure
       tls: {}
 
+    # Dashboard Frontend Static Files - HTTP
+    # These must have higher priority than n8n-static to serve React bundles
+    dashboard-static-http:
+      rule: "PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)"
+      service: dashboard-frontend-service
+      priority: 65
+      entryPoints:
+        - web
+
+    # Dashboard Frontend Static Files - HTTPS
+    dashboard-static-https:
+      rule: "PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)"
+      service: dashboard-frontend-service
+      priority: 65
+      entryPoints:
+        - websecure
+      tls: {}
+
     # n8n Static files - HTTP
     n8n-static-http:
       rule: "PathPrefix(`/static`)"
