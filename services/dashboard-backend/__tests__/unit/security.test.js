@@ -241,6 +241,8 @@ describe('Security Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Set up default mock return values for db.query
+    db.query.mockResolvedValue({ rows: [{ id: 1, username: 'testuser' }] });
   });
 
   // =====================================================
@@ -810,6 +812,12 @@ describe('Additional Security Vectors', () => {
     validToken = generateToken({ disabled: false });
   });
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Set up default mock return values for db.query
+    db.query.mockResolvedValue({ rows: [{ id: 1, username: 'testuser' }] });
+  });
+
   describe('JSON Injection', () => {
     it('Handles deeply nested JSON', async () => {
       // Create deeply nested object
@@ -873,173 +881,3 @@ describe('Additional Security Vectors', () => {
     });
   });
 });
-
-// Helper function for creating the app
-function createSecureApp() {
-  const app = express();
-  app.use(express.json({ limit: '10mb' }));
-
-  // Security headers middleware
-  app.use((req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Content-Security-Policy', "default-src 'self'");
-    next();
-  });
-
-  // Auth middleware
-  const authMiddleware = (req, res, next) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      if (decoded.disabled) {
-        return res.status(403).json({ error: 'Account disabled' });
-      }
-      req.user = decoded;
-      next();
-    } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ error: 'Token expired' });
-      }
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-  };
-
-  // Input sanitization helper
-  const sanitizeFilename = (filename) => {
-    return filename
-      .replace(/[/\\]/g, '')
-      .replace(/\0/g, '')
-      .replace(/\.\./g, '')
-      .replace(/[\u200B-\u200D\u202E]/g, '') // Remove special unicode
-      .trim();
-  };
-
-  // Protected route with parameterized query
-  app.get('/api/users/:id', authMiddleware, async (req, res) => {
-    const userId = parseInt(req.params.id, 10);
-    if (isNaN(userId) || userId < 0) {
-      return res.status(400).json({ error: 'Invalid user ID' });
-    }
-
-    try {
-      const result = await db.query(
-        'SELECT id, username FROM users WHERE id = $1',
-        [userId]
-      );
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      res.json(result.rows[0]);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  // Search endpoint
-  app.get('/api/search', authMiddleware, async (req, res) => {
-    const { q } = req.query;
-    if (!q || typeof q !== 'string') {
-      return res.status(400).json({ error: 'Query required' });
-    }
-
-    const result = await db.query(
-      'SELECT * FROM documents WHERE filename ILIKE $1 LIMIT 100',
-      [`%${q}%`]
-    );
-
-    res.json(result.rows);
-  });
-
-  // File download
-  app.get('/api/documents/:id/download', authMiddleware, async (req, res) => {
-    const docId = parseInt(req.params.id, 10);
-    if (isNaN(docId)) {
-      return res.status(400).json({ error: 'Invalid document ID' });
-    }
-
-    const result = await db.query(
-      'SELECT filename, file_path FROM documents WHERE id = $1',
-      [docId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Document not found' });
-    }
-
-    const doc = result.rows[0];
-    const basePath = '/data/documents';
-    const fullPath = path.resolve(basePath, doc.file_path);
-
-    if (!fullPath.startsWith(basePath)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    res.json({ path: fullPath, filename: sanitizeFilename(doc.filename) });
-  });
-
-  // File upload
-  app.post('/api/documents/upload', authMiddleware, (req, res) => {
-    const { filename, content } = req.body;
-
-    if (!filename || typeof filename !== 'string') {
-      return res.status(400).json({ error: 'Filename required' });
-    }
-
-    const sanitized = sanitizeFilename(filename);
-    if (sanitized !== filename) {
-      return res.status(400).json({ error: 'Invalid filename characters' });
-    }
-
-    const allowedExtensions = ['.pdf', '.docx', '.txt', '.md'];
-    const ext = path.extname(filename).toLowerCase();
-    if (!allowedExtensions.includes(ext)) {
-      return res.status(400).json({ error: 'File type not allowed' });
-    }
-
-    res.status(201).json({ filename: sanitized, status: 'uploaded' });
-  });
-
-  // Service restart
-  app.post('/api/settings/restart-service', authMiddleware, async (req, res) => {
-    const { serviceName } = req.body;
-    const allowedServices = ['llm-service', 'embedding-service', 'n8n'];
-
-    if (!serviceName || !allowedServices.includes(serviceName)) {
-      return res.status(400).json({ error: 'Invalid service name' });
-    }
-
-    res.json({ message: `Service ${serviceName} restart initiated` });
-  });
-
-  // Content endpoint
-  app.post('/api/content', authMiddleware, (req, res) => {
-    const { html } = req.body;
-    res.json({ content: html, sanitized: true });
-  });
-
-  // Rate limiting simulation
-  let requestCounts = {};
-  app.post('/api/auth/login', (req, res) => {
-    const ip = req.ip || 'test-ip';
-    requestCounts[ip] = (requestCounts[ip] || 0) + 1;
-
-    if (requestCounts[ip] > 30) {
-      return res.status(429).json({ error: 'Too many requests' });
-    }
-
-    res.json({ message: 'Login processed' });
-  });
-
-  app.post('/api/test/reset-rate-limit', (req, res) => {
-    requestCounts = {};
-    res.json({ reset: true });
-  });
-
-  return app;
-}

@@ -47,6 +47,19 @@ const mockUser = {
 // Valid bcrypt hash for 'TestPassword123!'
 const validPasswordHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.L3lfB8S.Xr9z.q';
 
+// Helper to mock auth middleware for authenticated requests
+// The auth flow makes 4 db.query calls:
+// 1. verifyToken: blacklist check
+// 2. verifyToken: session check
+// 3. verifyToken: update session activity
+// 4. requireAuth: user lookup
+function mockAuthMiddleware() {
+  db.query.mockResolvedValueOnce({ rows: [] }); // blacklist check (empty = not blacklisted)
+  db.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // session check (session exists)
+  db.query.mockResolvedValueOnce({ rows: [] }); // update session activity (result ignored)
+  db.query.mockResolvedValueOnce({ rows: [mockUser] }); // user lookup
+}
+
 describe('Authentication Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -240,10 +253,9 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware checks for logout
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] }); // blacklist check
-      db.query.mockResolvedValueOnce({ rows: [mockUser] }); // user lookup
-      db.query.mockResolvedValueOnce({ rows: [] }); // update session activity
+      mockAuthMiddleware();
       db.query.mockResolvedValueOnce({ rows: [] }); // blacklist token
+      db.query.mockResolvedValueOnce({ rows: [] }); // delete session
 
       const response = await request(app)
         .post('/api/auth/logout')
@@ -285,9 +297,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware checks
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] }); // blacklist check
-      db.query.mockResolvedValueOnce({ rows: [mockUser] }); // user lookup
-      db.query.mockResolvedValueOnce({ rows: [] }); // update session activity
+      mockAuthMiddleware();
 
       const response = await request(app)
         .get('/api/auth/me')
@@ -335,9 +345,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      mockAuthMiddleware();
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -365,9 +373,7 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      mockAuthMiddleware();
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -395,9 +401,7 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      mockAuthMiddleware();
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -426,9 +430,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      mockAuthMiddleware();
       // Mock password lookup - return different hash
       db.query.mockResolvedValueOnce({ rows: [{ password_hash: hash }] });
 
@@ -462,9 +464,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      mockAuthMiddleware();
       // Mock password lookup
       db.query.mockResolvedValueOnce({ rows: [{ password_hash: hash }] });
 
@@ -510,9 +510,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      mockAuthMiddleware();
       // Mock sessions query
       db.query.mockResolvedValueOnce({
         rows: [{
@@ -593,10 +591,8 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      // Mock blacklist check
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      // Mock user lookup
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
+      // Mock auth middleware
+      mockAuthMiddleware();
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -623,10 +619,8 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      // Mock blacklist check
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      // Mock user lookup
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
+      // Mock auth middleware
+      mockAuthMiddleware();
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -654,10 +648,11 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      // Mock blacklist check
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      // Mock user lookup - user not found or inactive
-      db.query.mockResolvedValueOnce({ rows: [] });
+      // Mock auth flow but with no user found
+      db.query.mockResolvedValueOnce({ rows: [] }); // blacklist check (empty = not blacklisted)
+      db.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // session check (session exists)
+      db.query.mockResolvedValueOnce({ rows: [] }); // update session activity (result ignored)
+      db.query.mockResolvedValueOnce({ rows: [] }); // user lookup - empty means not found
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -696,11 +691,11 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] });
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      // Mock blacklist all tokens
-      db.query.mockResolvedValueOnce({ rows: [] });
+      mockAuthMiddleware();
+      // Mock blacklist all tokens (get sessions, blacklist each, delete sessions)
+      db.query.mockResolvedValueOnce({ rows: [{ token_jti: 'jti1', expires_at: new Date() }] }); // get sessions
+      db.query.mockResolvedValueOnce({ rows: [] }); // blacklist token
+      db.query.mockResolvedValueOnce({ rows: [] }); // delete sessions
 
       const response = await request(app)
         .post('/api/auth/logout-all')

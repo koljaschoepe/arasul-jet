@@ -30,12 +30,12 @@ jest.mock('../../src/database', () => {
 });
 
 jest.mock('axios');
-jest.mock('bcryptjs');
+jest.mock('bcrypt');
 jest.mock('minio');
 
 const db = require('../../src/database');
 const axios = require('axios');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 // Helper functions
 const generateToken = (userId, username = 'testuser') => {

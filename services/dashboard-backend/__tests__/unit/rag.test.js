@@ -81,10 +81,16 @@ async function getAuthToken() {
 }
 
 // Helper to mock auth middleware
+// The auth flow makes 4 db.query calls:
+// 1. verifyToken: blacklist check
+// 2. verifyToken: session check
+// 3. verifyToken: update session activity
+// 4. requireAuth: user lookup
 function mockAuthMiddleware() {
-  db.query.mockResolvedValueOnce({ rows: [{ count: 0 }] }); // blacklist check
+  db.query.mockResolvedValueOnce({ rows: [] }); // blacklist check (empty = not blacklisted)
+  db.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // session check (session exists)
+  db.query.mockResolvedValueOnce({ rows: [] }); // update session activity (result ignored)
   db.query.mockResolvedValueOnce({ rows: [mockUser] }); // user lookup
-  db.query.mockResolvedValueOnce({ rows: [] }); // update session activity
 }
 
 describe('RAG Routes', () => {
