@@ -14,10 +14,6 @@
 
 const request = require('supertest');
 
-// Set environment variables before importing server
-process.env.JWT_SECRET = 'test-secret-for-unit-tests-32-chars-min';
-process.env.NODE_ENV = 'test';
-
 // Mock database module
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
@@ -57,25 +53,22 @@ const llmJobService = require('../../src/services/llmJobService');
 const llmQueueService = require('../../src/services/llmQueueService');
 const { app } = require('../../src/server');
 
-// Test data
-const mockUser = {
-  id: 1,
-  username: 'admin',
-  email: 'admin@arasul.local',
-  is_active: true
-};
+// Import auth mock helpers
+const {
+  mockUser,
+  setupAuthMocks,
+  setupAuthMocksSequential,
+  setupLoginMocks
+} = require('../helpers/authMock');
 
-// Helper to get auth token
+/**
+ * Helper to get auth token via login
+ * Uses the standardized auth mock helper
+ */
 async function getAuthToken() {
   const bcrypt = require('bcrypt');
   const hash = await bcrypt.hash('TestPassword123!', 12);
-
-  db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-  db.query.mockResolvedValueOnce({
-    rows: [{ ...mockUser, password_hash: hash }]
-  });
-  db.query.mockResolvedValueOnce({ rows: [] });
-  db.query.mockResolvedValueOnce({ rows: [] });
+  setupLoginMocks(db, hash);
 
   const loginResponse = await request(app)
     .post('/api/auth/login')
@@ -84,23 +77,8 @@ async function getAuthToken() {
   return loginResponse.body.token;
 }
 
-// Helper to mock auth middleware
-// The auth flow makes 4 db.query calls:
-// 1. verifyToken: blacklist check
-// 2. verifyToken: session check
-// 3. verifyToken: update session activity
-// 4. requireAuth: user lookup
-function mockAuthMiddleware() {
-  db.query.mockResolvedValueOnce({ rows: [] }); // blacklist check (empty = not blacklisted)
-  db.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // session check (session exists)
-  db.query.mockResolvedValueOnce({ rows: [] }); // update session activity (result ignored)
-  db.query.mockResolvedValueOnce({ rows: [mockUser] }); // user lookup
-}
-
 describe('LLM Routes', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  // Note: jest.clearAllMocks() is called globally in jest.setup.js
 
   // ============================================================================
   // POST /api/llm/chat
@@ -116,7 +94,7 @@ describe('LLM Routes', () => {
 
     test('should return 400 if messages is missing', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/llm/chat')
@@ -129,7 +107,7 @@ describe('LLM Routes', () => {
 
     test('should return 400 if messages is not an array', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/llm/chat')
@@ -142,7 +120,7 @@ describe('LLM Routes', () => {
 
     test('should return 400 if conversation_id is missing', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/llm/chat')
@@ -155,7 +133,7 @@ describe('LLM Routes', () => {
 
     test('should enqueue job and return job info for non-streaming', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmQueueService.enqueue.mockResolvedValueOnce({
         jobId: 'job-123',
@@ -183,7 +161,7 @@ describe('LLM Routes', () => {
 
     test('should handle LLM service unavailable', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const error = new Error('Connection refused');
       error.code = 'ECONNREFUSED';
@@ -204,7 +182,7 @@ describe('LLM Routes', () => {
 
     test('should handle generic errors', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmQueueService.enqueue.mockRejectedValueOnce(new Error('Queue error'));
 
@@ -223,7 +201,7 @@ describe('LLM Routes', () => {
 
     test('should accept model parameter', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmQueueService.enqueue.mockResolvedValueOnce({
         jobId: 'job-123',
@@ -254,7 +232,7 @@ describe('LLM Routes', () => {
 
     test('should accept priority parameter', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmQueueService.enqueue.mockResolvedValueOnce({
         jobId: 'job-123',
@@ -295,7 +273,7 @@ describe('LLM Routes', () => {
 
     test('should return queue status', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmQueueService.getQueueStatus.mockResolvedValueOnce({
         queueLength: 3,
@@ -315,7 +293,7 @@ describe('LLM Routes', () => {
 
     test('should handle errors', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmQueueService.getQueueStatus.mockRejectedValueOnce(new Error('DB error'));
 
@@ -341,7 +319,7 @@ describe('LLM Routes', () => {
 
     test('should return 400 if job_id is missing', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/llm/queue/prioritize')
@@ -354,7 +332,7 @@ describe('LLM Routes', () => {
 
     test('should prioritize job successfully', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmQueueService.prioritizeJob.mockResolvedValueOnce();
 
@@ -382,7 +360,7 @@ describe('LLM Routes', () => {
 
     test('should return 404 if job not found', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getJob.mockResolvedValueOnce(null);
 
@@ -396,7 +374,7 @@ describe('LLM Routes', () => {
 
     test('should return job details', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
@@ -431,7 +409,7 @@ describe('LLM Routes', () => {
 
     test('should return 404 if job not found', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getJob.mockResolvedValueOnce(null);
 
@@ -444,7 +422,7 @@ describe('LLM Routes', () => {
 
     test('should cancel job successfully', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
@@ -476,7 +454,7 @@ describe('LLM Routes', () => {
 
     test('should return all active jobs', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getAllActiveJobs.mockResolvedValueOnce([
         { id: 'job-1', status: 'streaming' },
@@ -495,7 +473,7 @@ describe('LLM Routes', () => {
 
     test('should filter jobs by conversation_id', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getActiveJobsForConversation.mockResolvedValueOnce([
         { id: 'job-1', status: 'streaming', conversation_id: 5 }
@@ -525,7 +503,7 @@ describe('LLM Routes', () => {
 
     test('should return available models', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       axios.get.mockResolvedValueOnce({
         data: {
@@ -548,7 +526,7 @@ describe('LLM Routes', () => {
 
     test('should handle LLM service unavailable', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       axios.get.mockRejectedValueOnce(new Error('ECONNREFUSED'));
 
@@ -562,7 +540,7 @@ describe('LLM Routes', () => {
 
     test('should return empty array if no models', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       axios.get.mockResolvedValueOnce({ data: {} });
 
@@ -588,7 +566,7 @@ describe('LLM Routes', () => {
 
     test('should return 404 if job not found', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getJob.mockResolvedValueOnce(null);
 
@@ -601,7 +579,7 @@ describe('LLM Routes', () => {
 
     test('should set correct SSE headers', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
@@ -620,7 +598,7 @@ describe('LLM Routes', () => {
 
     test('should immediately close for completed jobs', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
@@ -641,7 +619,7 @@ describe('LLM Routes', () => {
 
     test('should return error for errored jobs', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
@@ -665,7 +643,7 @@ describe('LLM Routes', () => {
   describe('Error Response Format', () => {
     test('should always include timestamp in error responses', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/llm/chat')

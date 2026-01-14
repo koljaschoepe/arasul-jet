@@ -14,10 +14,6 @@
 
 const request = require('supertest');
 
-// Set environment variables before importing server
-process.env.JWT_SECRET = 'test-secret-for-unit-tests-32-chars-min';
-process.env.NODE_ENV = 'test';
-
 // Mock database module
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
@@ -36,34 +32,21 @@ jest.mock('../../src/utils/logger', () => ({
 const db = require('../../src/database');
 const { app } = require('../../src/server');
 
-// Test data
-const mockUser = {
-  id: 1,
-  username: 'admin',
-  email: 'admin@arasul.local',
-  is_active: true
-};
+// Import auth mock helpers
+const {
+  mockUser,
+  generateTestToken,
+  setupAuthMocks,
+  setupAuthMocksSequential,
+  setupLoginMocks,
+  setupLogoutMocks
+} = require('../helpers/authMock');
 
 // Valid bcrypt hash for 'TestPassword123!'
 const validPasswordHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.L3lfB8S.Xr9z.q';
 
-// Helper to mock auth middleware for authenticated requests
-// The auth flow makes 4 db.query calls:
-// 1. verifyToken: blacklist check
-// 2. verifyToken: session check
-// 3. verifyToken: update session activity
-// 4. requireAuth: user lookup
-function mockAuthMiddleware() {
-  db.query.mockResolvedValueOnce({ rows: [] }); // blacklist check (empty = not blacklisted)
-  db.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // session check (session exists)
-  db.query.mockResolvedValueOnce({ rows: [] }); // update session activity (result ignored)
-  db.query.mockResolvedValueOnce({ rows: [mockUser] }); // user lookup
-}
-
 describe('Authentication Routes', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  // Note: jest.clearAllMocks() is called globally in jest.setup.js
 
   // ============================================================================
   // POST /api/auth/login
@@ -99,8 +82,9 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 403 if user is locked', async () => {
-      // Mock locked user check
-      db.query.mockResolvedValueOnce({ rows: [{ locked: true }] });
+      const bcrypt = require('bcrypt');
+      const hash = await bcrypt.hash('TestPassword123!', 12);
+      setupLoginMocks(db, hash, { accountLocked: true });
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -161,18 +145,9 @@ describe('Authentication Routes', () => {
     });
 
     test('should return token on successful login', async () => {
-      // Mock not locked
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      // Mock user found - use actual bcrypt hash for 'TestPassword123!'
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      // Mock record login attempt
-      db.query.mockResolvedValueOnce({ rows: [] });
-      // Mock insert session
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -189,13 +164,7 @@ describe('Authentication Routes', () => {
     test('should set HttpOnly cookie on successful login', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -238,13 +207,7 @@ describe('Authentication Routes', () => {
       // First login to get token
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -252,10 +215,8 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      // Mock auth middleware checks for logout
-      mockAuthMiddleware();
-      db.query.mockResolvedValueOnce({ rows: [] }); // blacklist token
-      db.query.mockResolvedValueOnce({ rows: [] }); // delete session
+      // Mock auth middleware checks for logout using pattern-based mocks
+      setupLogoutMocks(db);
 
       const response = await request(app)
         .post('/api/auth/logout')
@@ -282,13 +243,7 @@ describe('Authentication Routes', () => {
       // Login first
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -296,8 +251,8 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      // Mock auth middleware checks
-      mockAuthMiddleware();
+      // Mock auth middleware checks using pattern-based mocks
+      setupAuthMocks(db);
 
       const response = await request(app)
         .get('/api/auth/me')
@@ -330,13 +285,7 @@ describe('Authentication Routes', () => {
       // Login first
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -345,7 +294,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -359,13 +308,7 @@ describe('Authentication Routes', () => {
     test('should return 400 if newPassword is missing', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -373,7 +316,7 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -387,13 +330,7 @@ describe('Authentication Routes', () => {
     test('should return 400 if newPassword does not meet complexity requirements', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -401,7 +338,7 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -415,13 +352,7 @@ describe('Authentication Routes', () => {
     test('should return 401 if currentPassword is incorrect', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -430,7 +361,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
       // Mock password lookup - return different hash
       db.query.mockResolvedValueOnce({ rows: [{ password_hash: hash }] });
 
@@ -449,13 +380,7 @@ describe('Authentication Routes', () => {
     test('should return 400 if newPassword is same as currentPassword', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -464,7 +389,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
       // Mock password lookup
       db.query.mockResolvedValueOnce({ rows: [{ password_hash: hash }] });
 
@@ -495,13 +420,7 @@ describe('Authentication Routes', () => {
     test('should return sessions list with valid token', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -509,8 +428,8 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      // Mock auth middleware
-      mockAuthMiddleware();
+      // Mock auth middleware using sequential (for additional query)
+      setupAuthMocksSequential(db);
       // Mock sessions query
       db.query.mockResolvedValueOnce({
         rows: [{
@@ -577,13 +496,7 @@ describe('Authentication Routes', () => {
     test('should return 200 with valid token from cookie', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -592,7 +505,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -605,13 +518,7 @@ describe('Authentication Routes', () => {
     test('should return 200 with valid Bearer token', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -620,7 +527,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -631,16 +538,10 @@ describe('Authentication Routes', () => {
       expect(response.headers['x-user-name']).toBeDefined();
     });
 
-    test('should return 401 if user is inactive', async () => {
+    test('should return 401 if user is not found', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -649,10 +550,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth flow but with no user found
-      db.query.mockResolvedValueOnce({ rows: [] }); // blacklist check (empty = not blacklisted)
-      db.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // session check (session exists)
-      db.query.mockResolvedValueOnce({ rows: [] }); // update session activity (result ignored)
-      db.query.mockResolvedValueOnce({ rows: [] }); // user lookup - empty means not found
+      setupAuthMocksSequential(db, { user: null });
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -676,13 +574,7 @@ describe('Authentication Routes', () => {
     test('should invalidate all sessions with valid token', async () => {
       const bcrypt = require('bcrypt');
       const hash = await bcrypt.hash('TestPassword123!', 12);
-
-      db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-      db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: hash }]
-      });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
+      setupLoginMocks(db, hash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -691,7 +583,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
       // Mock blacklist all tokens (get sessions, blacklist each, delete sessions)
       db.query.mockResolvedValueOnce({ rows: [{ token_jti: 'jti1', expires_at: new Date() }] }); // get sessions
       db.query.mockResolvedValueOnce({ rows: [] }); // blacklist token

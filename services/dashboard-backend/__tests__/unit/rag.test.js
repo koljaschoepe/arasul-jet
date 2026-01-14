@@ -13,10 +13,6 @@
 
 const request = require('supertest');
 
-// Set environment variables before importing server
-process.env.JWT_SECRET = 'test-secret-for-unit-tests-32-chars-min';
-process.env.NODE_ENV = 'test';
-
 // Mock database module
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
@@ -53,25 +49,21 @@ const llmJobService = require('../../src/services/llmJobService');
 const llmQueueService = require('../../src/services/llmQueueService');
 const { app } = require('../../src/server');
 
-// Test data
-const mockUser = {
-  id: 1,
-  username: 'admin',
-  email: 'admin@arasul.local',
-  is_active: true
-};
+// Import auth mock helpers
+const {
+  mockUser,
+  setupAuthMocksSequential,
+  setupLoginMocks
+} = require('../helpers/authMock');
 
-// Helper to get auth token
+/**
+ * Helper to get auth token via login
+ * Uses the standardized auth mock helper
+ */
 async function getAuthToken() {
   const bcrypt = require('bcrypt');
   const hash = await bcrypt.hash('TestPassword123!', 12);
-
-  db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
-  db.query.mockResolvedValueOnce({
-    rows: [{ ...mockUser, password_hash: hash }]
-  });
-  db.query.mockResolvedValueOnce({ rows: [] });
-  db.query.mockResolvedValueOnce({ rows: [] });
+  setupLoginMocks(db, hash);
 
   const loginResponse = await request(app)
     .post('/api/auth/login')
@@ -80,23 +72,8 @@ async function getAuthToken() {
   return loginResponse.body.token;
 }
 
-// Helper to mock auth middleware
-// The auth flow makes 4 db.query calls:
-// 1. verifyToken: blacklist check
-// 2. verifyToken: session check
-// 3. verifyToken: update session activity
-// 4. requireAuth: user lookup
-function mockAuthMiddleware() {
-  db.query.mockResolvedValueOnce({ rows: [] }); // blacklist check (empty = not blacklisted)
-  db.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // session check (session exists)
-  db.query.mockResolvedValueOnce({ rows: [] }); // update session activity (result ignored)
-  db.query.mockResolvedValueOnce({ rows: [mockUser] }); // user lookup
-}
-
 describe('RAG Routes', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  // Note: jest.clearAllMocks() is called globally in jest.setup.js
 
   // ============================================================================
   // POST /api/rag/query
@@ -112,7 +89,7 @@ describe('RAG Routes', () => {
 
     test('should return 400 if query is missing', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/rag/query')
@@ -125,7 +102,7 @@ describe('RAG Routes', () => {
 
     test('should return 400 if query is not a string', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/rag/query')
@@ -138,7 +115,7 @@ describe('RAG Routes', () => {
 
     test('should return 400 if conversation_id is missing', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/rag/query')
@@ -151,7 +128,7 @@ describe('RAG Routes', () => {
 
     test('should handle embedding service error', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       // Mock embedding service failure
       axios.post.mockRejectedValueOnce(new Error('Embedding service down'));
@@ -167,7 +144,7 @@ describe('RAG Routes', () => {
 
     test('should return no documents message when search returns empty', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       // Mock embedding generation
       axios.post.mockResolvedValueOnce({
@@ -209,7 +186,7 @@ describe('RAG Routes', () => {
 
     test('should process RAG query with documents found', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       // Mock embedding generation
       axios.post.mockResolvedValueOnce({
@@ -282,7 +259,7 @@ describe('RAG Routes', () => {
 
     test('should support manual space selection', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       // Mock embedding generation
       axios.post.mockResolvedValueOnce({
@@ -334,7 +311,7 @@ describe('RAG Routes', () => {
 
     test('should disable auto routing when specified', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       // Mock embedding
       axios.post.mockResolvedValueOnce({
@@ -373,7 +350,7 @@ describe('RAG Routes', () => {
 
     test('should use default top_k of 5', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       axios.post.mockResolvedValueOnce({
         data: { vectors: [new Array(768).fill(0.1)] }
@@ -424,7 +401,7 @@ describe('RAG Routes', () => {
 
     test('should return operational status when Qdrant is healthy', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       axios.get.mockResolvedValueOnce({
         data: {
@@ -449,7 +426,7 @@ describe('RAG Routes', () => {
 
     test('should return degraded status when Qdrant is unavailable', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       axios.get.mockRejectedValueOnce(new Error('Connection refused'));
 
@@ -465,7 +442,7 @@ describe('RAG Routes', () => {
 
     test('should handle timeout gracefully', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const timeoutError = new Error('Timeout');
       timeoutError.code = 'ECONNABORTED';
@@ -486,7 +463,7 @@ describe('RAG Routes', () => {
   describe('Hybrid Search', () => {
     test('should combine vector and keyword results', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       axios.post.mockResolvedValueOnce({
         data: { vectors: [new Array(768).fill(0.1)] }
@@ -554,7 +531,7 @@ describe('RAG Routes', () => {
   describe('Error Response Format', () => {
     test('should always include timestamp in error responses', async () => {
       const token = await getAuthToken();
-      mockAuthMiddleware();
+      setupAuthMocksSequential(db);
 
       const response = await request(app)
         .post('/api/rag/query')
