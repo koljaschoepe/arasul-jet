@@ -206,6 +206,26 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 | BACKUP_SCHEDULE | 0 2 * * * | Cron schedule (default: 2:00 AM daily) |
 | BACKUP_RETENTION_DAYS | 30 | Days to keep daily backups |
 
+---
+
+## Telegram Bot
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| TELEGRAM_BOT_TOKEN | (required) | Bot token from @BotFather |
+| TELEGRAM_CHAT_ID | - | Default chat for notifications |
+| TELEGRAM_ALLOWED_USERS | - | Comma-separated user IDs (whitelist) |
+| TELEGRAM_BOT_PORT | 8090 | Health check port |
+| TELEGRAM_NOTIFY_STARTUP | true | Send startup notification |
+| TELEGRAM_NOTIFY_ERRORS | true | Send error notifications |
+
+### Setup Instructions
+
+1. Create bot via Telegram @BotFather (`/newbot`)
+2. Copy bot token to `TELEGRAM_BOT_TOKEN`
+3. Start bot and send `/start` to get your user ID
+4. Optionally add your user ID to `TELEGRAM_ALLOWED_USERS`
+
 ### Optional: S3 Offsite Backups
 
 | Variable | Default | Description |

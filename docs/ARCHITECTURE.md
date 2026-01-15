@@ -31,11 +31,11 @@ Complete architecture overview of the Arasul Platform.
 │  │   (Database)    │  │  (Object Store) │  │   Collector     │  │
 │  │   Port: 5432    │  │  Port: 9000/01  │  │   Port: 9100    │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
-│  ┌─────────────────┐  ┌─────────────────┐                       │
-│  │  Reverse Proxy  │  │  Self-Healing   │                       │
-│  │   (Traefik)     │  │     Agent       │                       │
-│  │  Port: 80/443   │  │   Port: 9200    │                       │
-│  └─────────────────┘  └─────────────────┘                       │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │  Reverse Proxy  │  │  Self-Healing   │  │  Telegram Bot   │  │
+│  │   (Traefik)     │  │     Agent       │  │  (Notifications)│  │
+│  │  Port: 80/443   │  │   Port: 9200    │  │   Port: 8090    │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
 │                        CORE RUNTIME                              │
 │     Docker Engine  │  Docker Compose  │  NVIDIA Container RT    │
@@ -102,6 +102,7 @@ Complete architecture overview of the Arasul Platform.
 | metrics-collector | 9100 | - | HTTP |
 | self-healing-agent | 9200 | - | HTTP |
 | n8n | 5678 | 5678 | HTTP |
+| telegram-bot | 8090 | - | HTTP |
 
 ## Startup Order
 
@@ -129,7 +130,7 @@ Tier 6: reverse-proxy
 Tier 7: dashboard-backend, dashboard-frontend, n8n
          │
          ▼
-Tier 8: self-healing-agent (starts last, monitors all)
+Tier 8: self-healing-agent, backup-service, telegram-bot
 ```
 
 ## Data Flow
@@ -239,6 +240,7 @@ Upload Document
 | n8n | wget spider | 15s | 2s | - |
 | reverse-proxy | traefik ping | 10s | 3s | - |
 | self-healing-agent | python heartbeat | 30s | 3s | 10s |
+| telegram-bot | HTTP /health | 30s | 3s | 10s |
 
 ## Security Architecture
 

@@ -8,9 +8,11 @@
 # 5. embedding-service (depends on postgres-db)
 # 6. reverse-proxy (depends on postgres-db, minio, metrics-collector, llm-service, embedding-service)
 # 7. dashboard-backend (depends on postgres-db, minio, metrics-collector, llm-service, embedding-service, reverse-proxy)
-# 8. dashboard-frontend (depends on reverse-proxy) <-- NOW ENFORCED VIA depends_on
+# 8. dashboard-frontend (depends on reverse-proxy)
 # 9. n8n (depends on postgres-db, llm-service, embedding-service, minio)
-# 10. self-healing-agent (depends on all services - starts last)
+# 10. self-healing-agent (depends on all services - monitors all)
+# 11. backup-service (depends on postgres-db, minio)
+# 12. telegram-bot (depends on postgres-db, dashboard-backend)
 #
 # IMPORTANT: All services implement retry logic for database and service connections.
 # Healthchecks are robust (see HIGH-010 fix) and properly handle timeouts.
@@ -761,6 +763,50 @@ services:
         max-size: "10m"
         max-file: "5"
     # PHASE2-FIX: Add memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # 12. Telegram Bot - System notifications and command interface
+  telegram-bot:
+    build:
+      context: ./services/telegram-bot
+      dockerfile: Dockerfile
+    container_name: telegram-bot
+    hostname: telegram-bot
+    restart: always
+    networks:
+      - arasul-net
+    environment:
+      # Telegram Configuration
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS:-}
+      TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT:-8090}
+      # Feature Flags
+      TELEGRAM_NOTIFY_STARTUP: ${TELEGRAM_NOTIFY_STARTUP:-true}
+      TELEGRAM_NOTIFY_ERRORS: ${TELEGRAM_NOTIFY_ERRORS:-true}
+      # Backend Integration
+      DASHBOARD_BACKEND_URL: http://dashboard-backend:${DASHBOARD_BACKEND_PORT:-3001}
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      dashboard-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
     deploy:
       resources:
         limits:
