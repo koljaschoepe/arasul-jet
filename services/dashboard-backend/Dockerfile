@@ -13,6 +13,10 @@ RUN npm ci
 # Copy source code
 COPY src/ ./src/
 
+# Copy test files and setup
+COPY __tests__/ ./__tests__/
+COPY jest.setup.js ./
+
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

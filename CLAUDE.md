@@ -506,3 +506,100 @@ Full reference: [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 - [docs/prd.md](docs/prd.md) - Original PRD (German)
 - [BUGS_AND_FIXES.md](BUGS_AND_FIXES.md) - Bug history & solutions
 - [docs/API_GUIDE.md](docs/API_GUIDE.md) - Detailed API examples
+
+---
+
+## Autonomer Entwicklungsmodus
+
+### Task-Queue System
+
+Claude arbeitet Tasks aus `tasks.md` sequentiell ab:
+
+1. **Priority 1** zuerst (von oben nach unten)
+2. Nach jedem Task: Tests ausführen
+3. Bei grünen Tests: Commit erstellen
+4. Task abhaken und zum nächsten wechseln
+
+### Nach jeder Implementierung
+
+```bash
+# 1. Tests ausführen
+./scripts/run-tests.sh
+
+# 2. Type-Check (automatisch via Hook)
+./scripts/run-typecheck.sh
+
+# 3. Bei Erfolg: Commit
+git add .
+git commit -m "feat|fix|refactor: Beschreibung"
+```
+
+### Bei Problemen
+
+- **Stoppen** - nicht raten bei Unklarheit
+- **Dokumentieren** - Blocker in `docs/blockers.md` eintragen
+- **Benachrichtigen** - `./scripts/telegram-notify.sh "BLOCKER: [Beschreibung]"`
+
+### Session-Management
+
+| Datei | Zweck |
+|-------|-------|
+| `tasks.md` | Aktuelle Task-Queue |
+| `docs/blockers.md` | Blockierende Probleme |
+| `docs/session-state.md` | Session-Persistenz |
+| `~/logs/claude/` | Session-Logs |
+
+### Custom Commands
+
+- `/project:implement [task]` - Feature implementieren
+- `/project:test [component]` - Tests schreiben
+- `/project:review [scope]` - Code-Review durchführen
+
+### Batch/Parallel Analyse-Modus
+
+Wenn du einen Prompt mit "ANALYSE-MODUS" erhältst:
+
+1. **Nur analysieren, NICHT implementieren**
+2. **IMMER Fragen stellen** - auch bei scheinbar klaren Tasks
+3. **JSON-Format strikt einhalten**
+
+**Beispiel-Fragen die du stellen solltest:**
+- UI-Platzierung: "Soll der Button in der Navbar oder Sidebar sein?"
+- Design-Präferenz: "Welche Farbe soll der Active-State haben?"
+- Feature-Scope: "Soll das Feature auch auf Mobile funktionieren?"
+- Format-Optionen: "JSON, CSV oder beides exportieren?"
+- Verhalten: "Automatischer Dark Mode Wechsel mit System?"
+
+**Antwort-Format (strikt!):**
+```json
+{
+  "plan": {
+    "summary": "Was implementiert wird",
+    "steps": ["Schritt 1", "Schritt 2"],
+    "files": ["pfad/datei.js"],
+    "complexity": "low|medium|high"
+  },
+  "questions": [
+    "Mindestens eine Frage zur User-Präferenz",
+    "Optional: weitere Fragen"
+  ]
+}
+```
+
+**WICHTIG:** Gib NUR das JSON aus, keinen anderen Text!
+
+### Autonome Session starten
+
+```bash
+# Hintergrund-Session starten
+./scripts/claude-autonomous.sh
+
+# Mit sofortigem Attach
+./scripts/claude-autonomous.sh --attach
+
+# Session-Status prüfen
+./scripts/claude-autonomous.sh --status
+
+# Session beenden
+./scripts/claude-autonomous.sh --kill
+```
