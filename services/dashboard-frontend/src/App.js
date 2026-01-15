@@ -12,7 +12,6 @@ import ModelStore from './components/ModelStore';
 import ClaudeCode from './components/ClaudeCode';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
-import ThemeToggle from './components/ThemeToggle';
 import { ThemeProvider } from './contexts/ThemeContext';
 import './index.css';
 
@@ -518,7 +517,6 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onTogg
 
       <div className="sidebar-footer">
         <div className="sidebar-footer-actions">
-          <ThemeToggle compact={collapsed} />
           <button
             onClick={handleLogout}
             className="logout-button"

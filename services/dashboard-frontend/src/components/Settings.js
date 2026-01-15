@@ -9,8 +9,11 @@ import {
   FiFileText,
   FiSave,
   FiCheck,
-  FiAlertCircle
+  FiAlertCircle,
+  FiSun,
+  FiMoon
 } from 'react-icons/fi';
+import { useTheme } from '../contexts/ThemeContext';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
 import PasswordManagement from './PasswordManagement';
@@ -25,6 +28,12 @@ function Settings() {
       label: 'General',
       icon: <FiInfo />,
       description: 'System information and configuration'
+    },
+    {
+      id: 'appearance',
+      label: 'Darstellung',
+      icon: <FiSun />,
+      description: 'Theme und Anzeige-Einstellungen'
     },
     {
       id: 'company-context',
@@ -56,6 +65,8 @@ function Settings() {
     switch (activeSection) {
       case 'general':
         return <GeneralSettings />;
+      case 'appearance':
+        return <AppearanceSettings />;
       case 'company-context':
         return <CompanyContextSettings />;
       case 'updates':
@@ -105,6 +116,59 @@ function Settings() {
       <div className="settings-content-area">
         <div className="settings-content-wrapper">
           {renderContent()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Appearance Settings Component
+function AppearanceSettings() {
+  const { isDark, toggleTheme } = useTheme();
+
+  return (
+    <div className="settings-section">
+      <div className="settings-section-header">
+        <h1 className="settings-section-title">Darstellung</h1>
+        <p className="settings-section-description">Theme und Anzeige-Einstellungen anpassen</p>
+      </div>
+
+      <div className="settings-cards">
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <h3 className="settings-card-title">Theme</h3>
+            <p className="settings-card-description">Wählen Sie zwischen hellem und dunklem Erscheinungsbild</p>
+          </div>
+          <div className="settings-card-body">
+            <div className="theme-selector">
+              <button
+                className={`theme-option ${!isDark ? 'theme-option-active' : ''}`}
+                onClick={() => isDark && toggleTheme()}
+              >
+                <div className="theme-option-icon">
+                  <FiSun />
+                </div>
+                <div className="theme-option-content">
+                  <span className="theme-option-label">Light Mode</span>
+                  <span className="theme-option-description">Helles Erscheinungsbild</span>
+                </div>
+                {!isDark && <FiCheck className="theme-option-check" />}
+              </button>
+              <button
+                className={`theme-option ${isDark ? 'theme-option-active' : ''}`}
+                onClick={() => !isDark && toggleTheme()}
+              >
+                <div className="theme-option-icon">
+                  <FiMoon />
+                </div>
+                <div className="theme-option-content">
+                  <span className="theme-option-label">Dark Mode</span>
+                  <span className="theme-option-description">Dunkles Erscheinungsbild</span>
+                </div>
+                {isDark && <FiCheck className="theme-option-check" />}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

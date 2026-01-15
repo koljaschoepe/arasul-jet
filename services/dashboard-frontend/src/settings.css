@@ -646,6 +646,110 @@
 }
 
 /* ===================================
+   THEME SELECTOR (Appearance Settings)
+   =================================== */
+
+.theme-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-subtle);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.theme-option:hover {
+  background: rgba(69, 173, 255, 0.08);
+  border-color: var(--border-glow);
+  transform: translateX(4px);
+}
+
+.theme-option-active {
+  background: rgba(69, 173, 255, 0.12);
+  border-color: var(--primary-color);
+}
+
+.theme-option-active:hover {
+  transform: none;
+}
+
+.theme-option-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(69, 173, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: var(--primary-color);
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.theme-option-active .theme-option-icon {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.theme-option-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.theme-option-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.theme-option-description {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.theme-option-check {
+  font-size: 1.25rem;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .theme-option {
+    padding: 1rem;
+  }
+
+  .theme-option-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.25rem;
+    border-radius: 10px;
+  }
+
+  .theme-option-label {
+    font-size: 0.95rem;
+  }
+
+  .theme-option-description {
+    font-size: 0.8rem;
+  }
+}
+
+/* ===================================
    COMPANY CONTEXT SECTION (RAG 2.0)
    =================================== */
 
