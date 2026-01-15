@@ -137,6 +137,7 @@ Response: Server-Sent Events (SSE) stream
 | DELETE | `/api/chats/:id` | Soft delete conversation |
 | GET | `/api/chats/:id/messages` | Get messages |
 | POST | `/api/chats/:id/messages` | Add message |
+| GET | `/api/chats/:id/export` | Export chat (JSON/Markdown) |
 
 **POST /api/chats:**
 ```json
@@ -153,6 +154,51 @@ Response: Server-Sent Events (SSE) stream
   "thinking": "Optional thinking content"
 }
 ```
+
+**GET /api/chats/:id/export:**
+
+Exports a chat conversation to JSON or Markdown format.
+
+Query Parameters:
+- `format`: Export format (`json` or `markdown`/`md`). Default: `json`
+
+Response: File download with appropriate Content-Type and Content-Disposition headers.
+
+JSON Export Example:
+```json
+{
+  "chat": {
+    "id": 1,
+    "title": "Chat Title",
+    "created_at": "2026-01-15T10:00:00.000Z",
+    "updated_at": "2026-01-15T10:30:00.000Z"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello",
+      "thinking": null,
+      "sources": [],
+      "created_at": "2026-01-15T10:00:00.000Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi! How can I help?",
+      "thinking": "Thinking about greeting...",
+      "sources": [],
+      "created_at": "2026-01-15T10:00:05.000Z"
+    }
+  ],
+  "export_info": {
+    "exported_at": "2026-01-15T10:35:00.000Z",
+    "format": "json",
+    "version": "1.0",
+    "message_count": 2
+  }
+}
+```
+
+Markdown Export: Generates a human-readable Markdown file with collapsible thinking blocks and source citations.
 
 ### RAG (Document Q&A)
 

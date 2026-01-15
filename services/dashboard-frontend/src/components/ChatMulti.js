@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import {
   FiAlertCircle, FiChevronDown, FiChevronUp, FiPlus, FiX, FiArrowDown,
   FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp, FiBox,
-  FiFolder, FiCheck
+  FiFolder, FiCheck, FiDownload
 } from 'react-icons/fi';
 import '../chatmulti.css';
 
@@ -496,6 +496,45 @@ function ChatMulti() {
       saveTitle(chatId);
     } else if (e.key === 'Escape') {
       cancelEditingTitle();
+    }
+  };
+
+  // Export chat to JSON or Markdown
+  const exportChat = async (e, chatId, format = 'json') => {
+    e.stopPropagation();
+    try {
+      const token = localStorage.getItem('arasul_token');
+      const response = await fetch(`${API_BASE}/chats/${chatId}/export?format=${format}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
+      }
+
+      // Get filename from Content-Disposition header or generate one
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `chat-${chatId}.${format === 'json' ? 'json' : 'md'}`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error exporting chat:', err);
+      setError('Export fehlgeschlagen');
     }
   };
 
@@ -1113,6 +1152,13 @@ function ChatMulti() {
                     title="Umbenennen"
                   >
                     <FiEdit2 />
+                  </button>
+                  <button
+                    className="tab-action-btn export"
+                    onClick={(e) => exportChat(e, chat.id, 'markdown')}
+                    title="Als Markdown exportieren"
+                  >
+                    <FiDownload />
                   </button>
                   {chats.length > 1 && (
                     <button

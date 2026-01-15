@@ -207,6 +207,11 @@
   color: #ef4444;
 }
 
+.chat-tab .tab-action-btn.export:hover {
+  background: rgba(69, 173, 255, 0.15);
+  color: #45ADFF;
+}
+
 .chat-tab .tab-action-btn svg {
   width: 14px;
   height: 14px;
