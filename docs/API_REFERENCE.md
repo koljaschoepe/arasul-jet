@@ -290,12 +290,27 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 |--------|----------|-------------|------------|
 | POST | `/api/telegram/config` | Save bot token and settings | 100/min |
 | GET | `/api/telegram/config` | Get configuration (token masked) | - |
+| GET | `/api/telegram/updates` | Get recent messages to discover chat IDs | 5/min |
+| GET | `/api/telegram/thresholds` | Get alert thresholds | - |
+| PUT | `/api/telegram/thresholds` | Update alert thresholds | 100/min |
 | POST | `/api/telegram/test` | Send test message | 5/min |
+| GET | `/api/telegram/audit-logs` | Get bot audit logs | - |
+| GET | `/api/telegram/audit-logs/stats` | Get audit statistics | - |
 
 **POST /api/telegram/config:**
+
+Full configuration (with token):
 ```json
 {
   "bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+  "chat_id": "-1001234567890",
+  "enabled": true
+}
+```
+
+Partial update (without token):
+```json
+{
   "chat_id": "-1001234567890",
   "enabled": true
 }
@@ -305,6 +320,7 @@ Response:
 ```json
 {
   "success": true,
+  "has_token": true,
   "message": "Telegram configuration saved successfully",
   "token_masked": "12345...xyz",
   "chat_id": "-1001234567890",
@@ -322,6 +338,85 @@ Response:
   "enabled": true,
   "created_at": "2026-01-15T10:00:00.000Z",
   "updated_at": "2026-01-15T10:00:00.000Z",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/telegram/updates:**
+
+Fetches recent messages sent to the bot to discover chat IDs. Useful when the user doesn't know their chat ID.
+
+Response:
+```json
+{
+  "success": true,
+  "chats": [
+    {
+      "chat_id": "-1001234567890",
+      "type": "supergroup",
+      "title": "My Group",
+      "username": null,
+      "first_name": null,
+      "last_message": "Hello bot!",
+      "date": "2026-01-15T10:00:00.000Z"
+    },
+    {
+      "chat_id": "123456789",
+      "type": "private",
+      "title": null,
+      "username": "johndoe",
+      "first_name": "John",
+      "last_message": "/start",
+      "date": "2026-01-15T09:55:00.000Z"
+    }
+  ],
+  "total_updates": 5,
+  "hint": "Select a chat ID from the list above.",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/telegram/thresholds:**
+```json
+{
+  "thresholds": {
+    "cpu_warning": 80,
+    "cpu_critical": 95,
+    "ram_warning": 80,
+    "ram_critical": 95,
+    "disk_warning": 80,
+    "disk_critical": 95,
+    "gpu_warning": 85,
+    "gpu_critical": 95,
+    "temperature_warning": 75,
+    "temperature_critical": 85,
+    "notify_on_warning": false,
+    "notify_on_critical": true,
+    "notify_on_service_down": true,
+    "notify_on_self_healing": true,
+    "cooldown_minutes": 15
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**PUT /api/telegram/thresholds:**
+```json
+{
+  "thresholds": {
+    "cpu_warning": 75,
+    "cpu_critical": 90,
+    "notify_on_warning": true
+  }
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Alert thresholds updated successfully",
+  "thresholds": { ... },
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
@@ -344,11 +439,53 @@ Response:
 }
 ```
 
+**GET /api/telegram/audit-logs:**
+
+Query Parameters:
+- `limit`: Number of records (default: 50, max: 200)
+- `offset`: Pagination offset
+- `userId`: Filter by Telegram user ID
+- `chatId`: Filter by chat ID
+- `command`: Filter by command
+- `success`: Filter by success ('true' or 'false')
+- `startDate`: Filter from date (ISO string)
+- `endDate`: Filter to date (ISO string)
+
+Response:
+```json
+{
+  "logs": [
+    {
+      "id": 1,
+      "timestamp": "2026-01-15T10:00:00.000Z",
+      "user_id": 123456789,
+      "username": "johndoe",
+      "chat_id": -1001234567890,
+      "command": "/status",
+      "message_text": "/status",
+      "response_text": "System running normally",
+      "response_time_ms": 150,
+      "success": true,
+      "interaction_type": "command"
+    }
+  ],
+  "pagination": {
+    "total": 100,
+    "limit": 50,
+    "offset": 0,
+    "hasMore": true
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
 **Notes:**
 - Bot token is encrypted using AES-256-GCM before storage
 - Token is never returned in plaintext, only masked (first 5, last 3 chars)
 - Chat ID can be a user ID, group ID, or channel ID
-- Test endpoint updates stored chat_id if provided
+- Use `/updates` endpoint to discover chat IDs by sending a message to your bot
+- Alert thresholds control when Telegram notifications are sent for system metrics
+- Cooldown prevents notification spam (default: 15 minutes between same alerts)
 
 ### Updates
 
@@ -566,6 +703,122 @@ Loads model into RAM. Only one model can be loaded at a time.
 - `medium` - 10-25GB RAM (14B models)
 - `large` - 25-45GB RAM (32B models)
 - `xlarge` - Over 45GB RAM (70B+ models)
+
+### Audit Logging
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/audit/logs` | Get audit logs with pagination and filtering |
+| GET | `/api/audit/stats/daily` | Get daily aggregated statistics |
+| GET | `/api/audit/stats/endpoints` | Get endpoint usage statistics |
+
+**GET /api/audit/logs:**
+
+Query Parameters:
+- `limit`: Number of records (default: 50, max: 500)
+- `offset`: Number of records to skip (default: 0)
+- `date_from`: Start date (ISO 8601)
+- `date_to`: End date (ISO 8601)
+- `action_type`: HTTP method filter (GET, POST, PUT, DELETE, PATCH)
+- `user_id`: Filter by user ID
+- `endpoint`: Filter by endpoint (partial match)
+- `status_min`: Minimum response status code
+- `status_max`: Maximum response status code
+
+Response:
+```json
+{
+  "logs": [
+    {
+      "id": 1,
+      "timestamp": "2026-01-15T10:30:00.000Z",
+      "user_id": 1,
+      "username": "admin",
+      "action_type": "POST",
+      "target_endpoint": "/api/chats",
+      "request_method": "POST",
+      "request_payload": {"title": "New Chat"},
+      "response_status": 201,
+      "duration_ms": 45,
+      "ip_address": "192.168.1.100",
+      "user_agent": "Mozilla/5.0...",
+      "error_message": null
+    }
+  ],
+  "pagination": {
+    "total": 150,
+    "limit": 50,
+    "offset": 0,
+    "has_more": true
+  },
+  "filters": {
+    "date_from": null,
+    "date_to": null,
+    "action_type": null,
+    "user_id": null,
+    "endpoint": null,
+    "status_min": null,
+    "status_max": null
+  },
+  "timestamp": "2026-01-15T10:35:00.000Z"
+}
+```
+
+**GET /api/audit/stats/daily:**
+
+Query Parameters:
+- `days`: Number of days to include (default: 30, max: 90)
+
+Response:
+```json
+{
+  "stats": [
+    {
+      "date": "2026-01-15",
+      "total_requests": 1250,
+      "unique_users": 5,
+      "success_count": 1180,
+      "client_error_count": 50,
+      "server_error_count": 20,
+      "avg_duration_ms": 45.23,
+      "max_duration_ms": 2500
+    }
+  ],
+  "days_included": 30,
+  "timestamp": "2026-01-15T10:35:00.000Z"
+}
+```
+
+**GET /api/audit/stats/endpoints:**
+
+Query Parameters:
+- `days`: Number of days to include (default: 7, max: 30)
+- `limit`: Number of endpoints to return (default: 20, max: 100)
+
+Response:
+```json
+{
+  "endpoints": [
+    {
+      "target_endpoint": "/api/chats",
+      "action_type": "GET",
+      "request_count": 500,
+      "unique_users": 3,
+      "error_count": 5,
+      "avg_duration_ms": 35.50,
+      "last_called": "2026-01-15T10:30:00.000Z"
+    }
+  ],
+  "days_included": 7,
+  "timestamp": "2026-01-15T10:35:00.000Z"
+}
+```
+
+**Notes:**
+- All `/api/*` requests are automatically logged (except `/api/health` and `/api/metrics/*`)
+- Sensitive data (passwords, tokens, API keys) is automatically masked as `***REDACTED***`
+- Audit logs are stored for 90 days by default
+- Only authenticated users can access audit logs
 
 ---
 
