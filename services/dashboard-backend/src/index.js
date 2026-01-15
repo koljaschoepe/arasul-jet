@@ -62,6 +62,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// Audit logging middleware - logs all /api/* requests
+const { createAuditMiddleware } = require('./middleware/audit');
+app.use(createAuditMiddleware());
+
 // Register all API routes
 const authRouter = require('./routes/auth');
 const systemRouter = require('./routes/system');
@@ -86,6 +90,7 @@ const spacesRouter = require('./routes/spaces');
 const telegramRouter = require('./routes/telegram');
 const claudeTerminalRouter = require('./routes/claudeTerminal');
 const alertsRouter = require('./routes/alerts');
+const auditRouter = require('./routes/audit');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -110,6 +115,7 @@ app.use('/api/spaces', spacesRouter);
 app.use('/api/telegram', telegramRouter);
 app.use('/api/claude-terminal', claudeTerminalRouter);
 app.use('/api/alerts', alertsRouter);
+app.use('/api/audit', auditRouter);
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {

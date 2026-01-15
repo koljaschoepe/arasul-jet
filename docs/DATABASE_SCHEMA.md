@@ -416,7 +416,7 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 ---
 
-### 023_api_audit_logs_schema.sql - API Audit Logging
+### 016_api_audit_logs_schema.sql - API Audit Logging
 
 #### api_audit_logs
 | Column | Type | Description |
@@ -424,22 +424,23 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 | id | serial | Primary key |
 | timestamp | timestamptz | Request timestamp |
 | user_id | integer | FK to admin_users (nullable for unauth requests) |
-| action_type | varchar(10) | HTTP method (GET, POST, PUT, DELETE, PATCH) |
+| username | varchar(255) | Username at time of request |
+| action_type | varchar(50) | HTTP method (GET, POST, PUT, DELETE, PATCH) |
 | target_endpoint | varchar(500) | Full API endpoint path |
+| request_method | varchar(10) | HTTP method (for efficient filtering) |
 | request_payload | jsonb | Sanitized request body (no passwords/tokens) |
 | response_status | integer | HTTP response status code |
 | duration_ms | integer | Request processing time in ms |
-| ip_address | inet | Client IP address |
+| ip_address | varchar(45) | Client IP address (IPv4/IPv6) |
 | user_agent | text | Client user agent string |
-| request_id | varchar(36) | UUID for request correlation |
 | error_message | text | Error details for failed requests |
 
 **Indexes:**
 - `idx_api_audit_logs_timestamp` on timestamp DESC
 - `idx_api_audit_logs_user_id` on user_id, timestamp DESC
 - `idx_api_audit_logs_action_type` on action_type, timestamp DESC
-- `idx_api_audit_logs_response_status` on response_status, timestamp DESC
-- `idx_api_audit_logs_timestamp_action` on timestamp DESC, action_type
+- `idx_api_audit_logs_status` on response_status, timestamp DESC
+- `idx_api_audit_logs_date_action` on DATE(timestamp), action_type
 - `idx_api_audit_logs_endpoint` on target_endpoint, timestamp DESC
 - `idx_api_audit_logs_errors` on timestamp DESC WHERE response_status >= 400
 
@@ -449,7 +450,6 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 **Functions:**
 - `cleanup_old_api_audit_logs(retention_days)` - Remove logs older than N days (default: 90)
-- `sanitize_api_payload(payload)` - Remove sensitive fields from request body
 
 **Retention:** 90 days (recommended)
 
