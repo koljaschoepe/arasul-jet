@@ -9,7 +9,7 @@ Complete schema reference for the Arasul Platform PostgreSQL database.
 | Database | arasul_db |
 | User | arasul |
 | Schema | public |
-| Migrations | 22 files in `/services/postgres/init/` |
+| Migrations | 24 files in `/services/postgres/init/` |
 
 ## Entity Relationship Diagram
 
@@ -416,6 +416,83 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 ---
 
+### 015_notification_events_schema.sql - Notification Events
+
+#### notification_events
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| event_type | varchar(50) | Event type (service_status, workflow_event, etc.) |
+| event_category | varchar(50) | Category (status_change, completion, failure) |
+| source_service | varchar(100) | Container or service name |
+| severity | varchar(20) | info, warning, error, critical |
+| title | varchar(255) | Event title |
+| message | text | Event message |
+| metadata | jsonb | Additional event data |
+| notification_sent | boolean | Whether notification was sent |
+| notification_sent_at | timestamptz | When notification was sent |
+| notification_error | text | Error if sending failed |
+| retry_count | integer | Number of retry attempts |
+| created_at | timestamptz | Creation time |
+
+#### notification_settings
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| user_id | integer | FK to users |
+| channel | varchar(50) | telegram, webhook, email |
+| enabled | boolean | Channel enabled |
+| event_types | text[] | Filtered event types |
+| min_severity | varchar(20) | Minimum severity to send |
+| rate_limit_per_minute | integer | Rate limit per minute |
+| rate_limit_per_hour | integer | Rate limit per hour |
+| quiet_hours_start | time | Quiet hours start |
+| quiet_hours_end | time | Quiet hours end |
+| telegram_chat_id | varchar(100) | Telegram chat ID |
+| telegram_bot_token_override | varchar(255) | Optional custom bot token |
+| webhook_url | varchar(500) | Webhook URL |
+| webhook_secret | varchar(255) | Webhook secret |
+| created_at | timestamptz | Creation time |
+| updated_at | timestamptz | Last update |
+
+#### service_status_cache
+| Column | Type | Description |
+|--------|------|-------------|
+| service_name | varchar(100) | Primary key |
+| container_name | varchar(255) | Docker container name |
+| status | varchar(50) | running, stopped, exited, etc. |
+| health | varchar(50) | healthy, unhealthy, starting |
+| last_status | varchar(50) | Previous status |
+| last_health | varchar(50) | Previous health |
+| status_changed_at | timestamptz | When status changed |
+| last_checked_at | timestamptz | Last check time |
+| metadata | jsonb | Additional data |
+
+#### system_boot_events
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| boot_timestamp | timestamptz | Boot time |
+| previous_shutdown_timestamp | timestamptz | Previous shutdown |
+| shutdown_reason | varchar(100) | Reason for shutdown |
+| uptime_before_shutdown_seconds | integer | Uptime before shutdown |
+| services_status_at_boot | jsonb | Services status at boot |
+| boot_duration_ms | integer | Boot duration in ms |
+| notification_sent | boolean | Notification sent |
+| created_at | timestamptz | Creation time |
+
+#### notification_rate_limits
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| user_id | integer | FK to users |
+| channel | varchar(50) | Notification channel |
+| event_type | varchar(50) | Event type |
+| window_start | timestamptz | Rate limit window start |
+| count | integer | Message count in window |
+
+---
+
 ### 016_api_audit_logs_schema.sql - API Audit Logging
 
 #### api_audit_logs
@@ -455,6 +532,90 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 ---
 
+### 025_telegram_notification_system.sql - Telegram Notification System
+
+Extended columns added to `telegram_config`:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| notification_preferences | jsonb | Notification type preferences |
+| test_message_sent_at | timestamptz | Last test message time |
+| last_error | text | Last error message |
+| last_error_at | timestamptz | Last error time |
+| connection_verified | boolean | Connection verified flag |
+| connection_verified_at | timestamptz | Verification time |
+| bot_username | varchar(100) | Bot username from getMe |
+
+**notification_preferences JSON Schema:**
+```json
+{
+  "system_alerts": true,
+  "self_healing_events": true,
+  "service_status_changes": true,
+  "login_alerts": true,
+  "daily_summary": false,
+  "quiet_hours_enabled": false,
+  "quiet_hours_start": "22:00",
+  "quiet_hours_end": "07:00"
+}
+```
+
+#### telegram_rate_limits
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| chat_id | varchar(50) | Telegram chat ID |
+| window_start | timestamptz | Rate limit window start |
+| message_count | integer | Messages in window |
+| last_message_at | timestamptz | Last message time |
+
+**Purpose:** Enforces Telegram API rate limits (30 msg/sec per chat)
+
+#### telegram_message_log
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| chat_id | varchar(50) | Telegram chat ID |
+| message_type | varchar(50) | alert, test, notification, daily_summary |
+| severity | varchar(20) | info, warning, error, critical |
+| title | varchar(255) | Message title |
+| message_text | text | Full message content |
+| message_id | integer | Telegram message ID |
+| metadata | jsonb | Additional data |
+| sent_at | timestamptz | Send time |
+| delivered | boolean | Delivery success |
+| error_message | text | Error if failed |
+| retry_count | integer | Retry attempts |
+| source_event_id | integer | Reference to notification_events |
+| triggered_by | varchar(100) | system, user:{username}, scheduler |
+
+**Retention:** 30 days
+
+#### telegram_alert_cooldowns
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| alert_type | varchar(100) | Alert type (cpu_critical, service_down:name) |
+| chat_id | varchar(50) | Telegram chat ID |
+| last_alert_at | timestamptz | Last alert time |
+| alert_count | integer | Total alert count |
+
+**Purpose:** Prevents alert spam with configurable cooldown per alert type
+
+**Functions:**
+- `check_telegram_rate_limit(chat_id, max_per_sec, max_per_min)` - Check and increment rate limit
+- `check_telegram_alert_cooldown(alert_type, chat_id, cooldown_min)` - Check if alert can be sent
+- `log_telegram_message(...)` - Log sent message
+- `cleanup_telegram_rate_limits()` - Clean entries older than 1 hour
+- `cleanup_telegram_message_logs(retention_days)` - Clean old message logs
+
+**Views:**
+- `v_telegram_stats_24h` - Message statistics for last 24 hours
+- `v_telegram_active_cooldowns` - Currently active cooldowns
+- `v_telegram_recent_messages` - Last 50 messages
+
+---
+
 ## Indexes Summary
 
 | Table | Index | Columns |
@@ -473,6 +634,14 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 | api_audit_logs | idx_api_audit_logs_timestamp_action | timestamp DESC, action_type |
 | api_audit_logs | idx_api_audit_logs_endpoint | target_endpoint, timestamp DESC |
 | api_audit_logs | idx_api_audit_logs_errors | timestamp DESC (WHERE >= 400) |
+| telegram_rate_limits | idx_telegram_rate_limits_chat | chat_id, window_start DESC |
+| telegram_rate_limits | idx_telegram_rate_limits_cleanup | window_start |
+| telegram_message_log | idx_telegram_message_log_chat | chat_id, sent_at DESC |
+| telegram_message_log | idx_telegram_message_log_type | message_type, sent_at DESC |
+| telegram_message_log | idx_telegram_message_log_severity | severity, sent_at DESC |
+| telegram_message_log | idx_telegram_message_log_sent | sent_at DESC |
+| telegram_message_log | idx_telegram_message_log_failed | delivered (WHERE FALSE) |
+| telegram_alert_cooldowns | idx_telegram_alert_cooldowns_lookup | alert_type, chat_id, last_alert_at |
 
 ---
 
@@ -487,6 +656,8 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 | Update history | Permanent |
 | User accounts | Permanent |
 | Telegram config | Permanent (singleton) |
+| Telegram message log | 30 days |
+| Telegram rate limits | 1 hour |
 | API audit logs | 90 days |
 
 ---
