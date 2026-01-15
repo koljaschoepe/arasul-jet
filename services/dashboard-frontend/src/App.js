@@ -12,6 +12,8 @@ import ModelStore from './components/ModelStore';
 import ClaudeCode from './components/ClaudeCode';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
+import ThemeToggle from './components/ThemeToggle';
+import { ThemeProvider } from './contexts/ThemeContext';
 import './index.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
@@ -412,16 +414,17 @@ function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <Router>
-        <div className="app">
-          <Sidebar
-            handleLogout={handleLogout}
-            systemStatus={systemStatus}
-            getStatusColor={getStatusColor}
-            collapsed={sidebarCollapsed}
-            onToggle={toggleSidebar}
-          />
+    <ThemeProvider>
+      <ErrorBoundary>
+        <Router>
+          <div className="app">
+            <Sidebar
+              handleLogout={handleLogout}
+              systemStatus={systemStatus}
+              getStatusColor={getStatusColor}
+              collapsed={sidebarCollapsed}
+              onToggle={toggleSidebar}
+            />
 
           <div className="container">
             <TopBar
@@ -462,6 +465,7 @@ function App() {
         </div>
       </Router>
     </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 
@@ -513,14 +517,16 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onTogg
       </nav>
 
       <div className="sidebar-footer">
-        <button
-          onClick={handleLogout}
-          className="logout-button"
-          style={{ width: '100%', justifyContent: 'center' }}
-          title="Logout"
-        >
-          <FiLogOut /> <span>Logout</span>
-        </button>
+        <div className="sidebar-footer-actions">
+          <ThemeToggle compact={collapsed} />
+          <button
+            onClick={handleLogout}
+            className="logout-button"
+            title="Logout"
+          >
+            <FiLogOut /> <span>Logout</span>
+          </button>
+        </div>
       </div>
     </div>
   );
