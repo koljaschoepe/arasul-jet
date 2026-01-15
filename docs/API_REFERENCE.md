@@ -284,6 +284,72 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 - At least 1 number
 - At least 1 special character
 
+### Telegram Bot
+
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|------------|
+| POST | `/api/telegram/config` | Save bot token and settings | 100/min |
+| GET | `/api/telegram/config` | Get configuration (token masked) | - |
+| POST | `/api/telegram/test` | Send test message | 5/min |
+
+**POST /api/telegram/config:**
+```json
+{
+  "bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+  "chat_id": "-1001234567890",
+  "enabled": true
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Telegram configuration saved successfully",
+  "token_masked": "12345...xyz",
+  "chat_id": "-1001234567890",
+  "enabled": true,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/telegram/config:**
+```json
+{
+  "configured": true,
+  "token_masked": "12345...xyz",
+  "chat_id": "-1001234567890",
+  "enabled": true,
+  "created_at": "2026-01-15T10:00:00.000Z",
+  "updated_at": "2026-01-15T10:00:00.000Z",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/telegram/test:**
+```json
+{
+  "chat_id": "-1001234567890"
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Test message sent successfully",
+  "chat_id": "-1001234567890",
+  "message_id": 12345,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**Notes:**
+- Bot token is encrypted using AES-256-GCM before storage
+- Token is never returned in plaintext, only masked (first 5, last 3 chars)
+- Chat ID can be a user ID, group ID, or channel ID
+- Test endpoint updates stored chat_id if provided
+
 ### Updates
 
 | Method | Endpoint | Description |
@@ -543,6 +609,7 @@ All responses include:
 | Metrics API | 20 req | 1 sec |
 | Password Changes | 3 req | 15 min |
 | n8n Webhooks | 100 req | 1 min |
+| Telegram Test | 5 req | 1 min |
 
 ---
 

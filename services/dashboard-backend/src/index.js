@@ -83,6 +83,9 @@ const appstoreRouter = require('./routes/appstore');
 const modelsRouter = require('./routes/models');
 const workspacesRouter = require('./routes/workspaces');
 const spacesRouter = require('./routes/spaces');
+const telegramRouter = require('./routes/telegram');
+const claudeTerminalRouter = require('./routes/claudeTerminal');
+const alertsRouter = require('./routes/alerts');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -104,6 +107,9 @@ app.use('/api/apps', appstoreRouter);
 app.use('/api/models', modelsRouter);
 app.use('/api/workspaces', workspacesRouter);
 app.use('/api/spaces', spacesRouter);
+app.use('/api/telegram', telegramRouter);
+app.use('/api/claude-terminal', claudeTerminalRouter);
+app.use('/api/alerts', alertsRouter);
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
@@ -135,6 +141,7 @@ const logger = require('./utils/logger');
 const llmJobService = require('./services/llmJobService');
 const llmQueueService = require('./services/llmQueueService');
 const modelService = require('./services/modelService');
+const alertEngine = require('./services/alertEngine');
 
 wss.on('connection', (ws) => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
@@ -225,5 +232,25 @@ if (require.main === module) {
         logger.error(`Failed to cleanup old LLM jobs: ${err.message}`);
       }
     }, 30 * 60 * 1000); // 30 minutes
+
+    // Initialize Alert Engine with WebSocket broadcast support
+    try {
+      // Create broadcast function for alert notifications
+      const broadcastAlert = (data) => {
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(data));
+          }
+        });
+      };
+
+      await alertEngine.initialize({
+        broadcast: broadcastAlert,
+        checkIntervalMs: 30000  // Check every 30 seconds
+      });
+      logger.info('Alert Engine initialized successfully');
+    } catch (err) {
+      logger.error(`Failed to initialize Alert Engine: ${err.message}`);
+    }
   });
 }

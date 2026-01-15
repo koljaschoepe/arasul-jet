@@ -18,22 +18,22 @@ Complete schema reference for the Arasul Platform PostgreSQL database.
 │  admin_users    │     │ chat_conversations│    │ telegram_config │
 │─────────────────│     │─────────────────│     │─────────────────│
 │ id (PK)         │     │ id (PK)         │     │ id (PK)         │
-│ username        │     │ title           │     │ bot_token       │
+│ username        │     │ title           │     │ bot_token_enc   │
 │ password_hash   │     │ message_count   │     │ chat_id         │
 │ ...             │     │ deleted_at      │     │ enabled         │
 └────────┬────────┘     └────────┬────────┘     └─────────────────┘
          │                       │
          │ 1:N                   │ 1:N
          ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ active_sessions │     │ chat_messages   │     │telegram_audit_log│
-│─────────────────│     │─────────────────│     │─────────────────│
-│ id (PK)         │     │ id (PK)         │     │ id (PK)         │
-│ user_id (FK)    │     │ conversation_id │     │ event_type      │
-│ token_jti       │     │ role            │     │ user_id (FK)    │
-│ ...             │     │ content         │     │ payload         │
-└─────────────────┘     │ thinking        │     │ created_at      │
-                        │ sources         │     └─────────────────┘
+┌─────────────────┐     ┌─────────────────┐
+│ active_sessions │     │ chat_messages   │
+│─────────────────│     │─────────────────│
+│ id (PK)         │     │ id (PK)         │
+│ user_id (FK)    │     │ conversation_id │
+│ token_jti       │     │ role            │
+│ ...             │     │ content         │
+└─────────────────┘     │ thinking        │
+                        │ sources         │
 ┌─────────────────┐     └─────────────────┘
 │ llm_jobs        │
 │─────────────────│     ┌─────────────────┐
@@ -368,69 +368,51 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 ---
 
-### 015_telegram_schema.sql - Telegram Bot
+### 015_telegram_config_schema.sql - Telegram Bot
 
 #### telegram_config
 | Column | Type | Description |
 |--------|------|-------------|
-| id | bigserial | Primary key (singleton: always 1) |
-| bot_token | text | Telegram Bot API token (sensitive) |
-| chat_id | text | Target chat/channel ID |
-| enabled | boolean | Bot enabled flag |
-| webhook_url | text | Webhook URL for updates |
-| webhook_secret | text | Webhook verification secret |
-| notification_settings | jsonb | Notification type configuration |
+| id | integer | Primary key (always 1, singleton) |
+| bot_token_encrypted | text | AES-256-GCM encrypted token |
+| bot_token_iv | text | Initialization vector for decryption |
+| bot_token_tag | text | GCM authentication tag |
+| chat_id | varchar(50) | Default chat ID for broadcasts |
+| enabled | boolean | Master switch for notifications |
+| alert_thresholds | jsonb | Alert threshold configuration (see below) |
 | created_at | timestamptz | Creation time |
-| updated_at | timestamptz | Last update (auto-updated) |
+| updated_at | timestamptz | Last update (auto-updated via trigger) |
 
-**Constraints:**
-- `telegram_config_singleton` - Only id=1 allowed (singleton pattern)
-- `idx_telegram_config_singleton` - Unique index on (true)
-
-**Default notification_settings:**
+**alert_thresholds JSON Schema:**
 ```json
 {
-  "system_alerts": true,
-  "self_healing_events": true,
-  "update_notifications": true,
-  "login_alerts": true,
-  "daily_summary": false
+  "cpu_warning": 80,           // CPU % for warning
+  "cpu_critical": 95,          // CPU % for critical alert
+  "ram_warning": 80,           // RAM % for warning
+  "ram_critical": 95,          // RAM % for critical alert
+  "disk_warning": 80,          // Disk % for warning
+  "disk_critical": 95,         // Disk % for critical alert
+  "gpu_warning": 85,           // GPU % for warning
+  "gpu_critical": 95,          // GPU % for critical alert
+  "temperature_warning": 75,   // Temperature °C for warning
+  "temperature_critical": 85,  // Temperature °C for critical alert
+  "notify_on_warning": false,  // Send notifications on warning level
+  "notify_on_critical": true,  // Send notifications on critical level
+  "notify_on_service_down": true,    // Alert when services fail
+  "notify_on_self_healing": true,    // Alert on self-healing events
+  "cooldown_minutes": 15       // Minimum minutes between repeated alerts
 }
 ```
 
-#### telegram_audit_log
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigserial | Primary key |
-| event_type | varchar(50) | Event type identifier |
-| event_description | text | Human-readable description |
-| payload | jsonb | Event-specific data |
-| success | boolean | Success flag |
-| error_message | text | Error details if failed |
-| user_id | bigint | FK to admin_users (nullable) |
-| ip_address | inet | Client IP address |
-| created_at | timestamptz | Event time |
-
-**Event Types:**
-- `config_updated` - Configuration changed
-- `message_sent` - Notification sent
-- `webhook_received` - Incoming webhook
-- `connection_test` - Bot connection test
-- `schema_created` - Initial schema setup
+**Constraints:**
+- `CHECK (id = 1)` - Single-row enforced (singleton pattern)
+- Token encrypted with AES-256-GCM using JWT_SECRET as key
 
 **Indexes:**
-- `idx_telegram_audit_created` on created_at DESC
-- `idx_telegram_audit_event_type` on event_type
-- `idx_telegram_audit_success` on success
-- `idx_telegram_audit_type_created` on (event_type, created_at DESC)
+- `idx_telegram_config_enabled` on enabled
 
-**Functions:**
-- `log_telegram_event()` - Log events to audit table
-- `get_or_create_telegram_config()` - Get singleton config row
-
-**Views:**
-- `v_telegram_recent_activity` - Last 100 events with usernames
-- `v_telegram_stats_24h` - Event statistics (24h)
+**Triggers:**
+- `trigger_telegram_config_updated_at` - Auto-updates `updated_at` on changes
 
 ---
 
@@ -444,12 +426,7 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 | documents | idx_documents_status | status |
 | documents | idx_documents_created | created_at DESC |
 | document_chunks | idx_chunks_document | document_id |
-| telegram_config | idx_telegram_config_singleton | (true) |
 | telegram_config | idx_telegram_config_enabled | enabled |
-| telegram_audit_log | idx_telegram_audit_created | created_at DESC |
-| telegram_audit_log | idx_telegram_audit_event_type | event_type |
-| telegram_audit_log | idx_telegram_audit_success | success |
-| telegram_audit_log | idx_telegram_audit_type_created | event_type, created_at DESC |
 
 ---
 
@@ -463,7 +440,6 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 | Deleted conversations | 30 days (soft delete) |
 | Update history | Permanent |
 | User accounts | Permanent |
-| Telegram audit logs | Permanent (configurable via self-healing) |
 | Telegram config | Permanent (singleton) |
 
 ---
