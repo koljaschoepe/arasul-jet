@@ -79,51 +79,103 @@ function maskToken(token) {
 /**
  * POST /api/telegram/config
  * Save Telegram bot configuration (token and optional chat ID)
+ * If bot_token is provided, creates/updates the full config.
+ * If only enabled/chat_id are provided, updates existing config.
  */
 router.post('/config', requireAuth, apiLimiter, async (req, res) => {
     try {
         const { bot_token, chat_id, enabled } = req.body;
 
-        // Validate input
-        if (!bot_token || typeof bot_token !== 'string') {
-            return res.status(400).json({
-                error: 'Bot token is required',
+        // If bot_token is provided, do full upsert with new token
+        if (bot_token && typeof bot_token === 'string') {
+            // Basic validation of bot token format (should contain a colon)
+            if (!bot_token.includes(':')) {
+                return res.status(400).json({
+                    error: 'Invalid bot token format',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // Encrypt the token
+            const { encrypted, iv, tag } = encrypt(bot_token);
+
+            // Upsert configuration (single record with id=1)
+            await db.query(`
+                INSERT INTO telegram_config (id, bot_token_encrypted, bot_token_iv, bot_token_tag, chat_id, enabled, updated_at)
+                VALUES (1, $1, $2, $3, $4, $5, NOW())
+                ON CONFLICT (id) DO UPDATE SET
+                    bot_token_encrypted = $1,
+                    bot_token_iv = $2,
+                    bot_token_tag = $3,
+                    chat_id = COALESCE($4, telegram_config.chat_id),
+                    enabled = COALESCE($5, telegram_config.enabled),
+                    updated_at = NOW()
+            `, [encrypted, iv, tag, chat_id || null, enabled !== undefined ? enabled : true]);
+
+            logger.info(`Telegram config updated with new token by user ${req.user.username}`);
+
+            return res.json({
+                success: true,
+                has_token: true,
+                message: 'Telegram configuration saved successfully',
+                token_masked: maskToken(bot_token),
+                chat_id: chat_id || null,
+                enabled: enabled !== undefined ? enabled : true,
                 timestamp: new Date().toISOString()
             });
         }
 
-        // Basic validation of bot token format (should contain a colon)
-        if (!bot_token.includes(':')) {
+        // Partial update (enabled and/or chat_id only)
+        // Check if config exists first
+        const existingConfig = await db.query(`
+            SELECT id, bot_token_encrypted FROM telegram_config WHERE id = 1
+        `);
+
+        if (existingConfig.rows.length === 0) {
             return res.status(400).json({
-                error: 'Invalid bot token format',
+                error: 'No configuration exists. Please provide a bot token first.',
                 timestamp: new Date().toISOString()
             });
         }
 
-        // Encrypt the token
-        const { encrypted, iv, tag } = encrypt(bot_token);
+        // Build dynamic update query
+        const updates = [];
+        const params = [];
+        let paramIndex = 1;
 
-        // Upsert configuration (single record with id=1)
+        if (chat_id !== undefined) {
+            updates.push(`chat_id = $${paramIndex++}`);
+            params.push(chat_id || null);
+        }
+
+        if (enabled !== undefined) {
+            updates.push(`enabled = $${paramIndex++}`);
+            params.push(enabled);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                error: 'No fields to update',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        updates.push('updated_at = NOW()');
+
         await db.query(`
-            INSERT INTO telegram_config (id, bot_token_encrypted, bot_token_iv, bot_token_tag, chat_id, enabled, updated_at)
-            VALUES (1, $1, $2, $3, $4, $5, NOW())
-            ON CONFLICT (id) DO UPDATE SET
-                bot_token_encrypted = $1,
-                bot_token_iv = $2,
-                bot_token_tag = $3,
-                chat_id = COALESCE($4, telegram_config.chat_id),
-                enabled = COALESCE($5, telegram_config.enabled),
-                updated_at = NOW()
-        `, [encrypted, iv, tag, chat_id || null, enabled !== undefined ? enabled : true]);
+            UPDATE telegram_config
+            SET ${updates.join(', ')}
+            WHERE id = 1
+        `, params);
 
-        logger.info(`Telegram config updated by user ${req.user.username}`);
+        logger.info(`Telegram config partially updated by user ${req.user.username}`);
 
         res.json({
             success: true,
-            message: 'Telegram configuration saved successfully',
-            token_masked: maskToken(bot_token),
-            chat_id: chat_id || null,
-            enabled: enabled !== undefined ? enabled : true,
+            has_token: !!existingConfig.rows[0].bot_token_encrypted,
+            message: 'Telegram configuration updated successfully',
+            chat_id: chat_id !== undefined ? chat_id : undefined,
+            enabled: enabled !== undefined ? enabled : undefined,
             timestamp: new Date().toISOString()
         });
 
@@ -190,6 +242,231 @@ router.get('/config', requireAuth, async (req, res) => {
         logger.error(`Error retrieving Telegram config: ${error.message}`);
         res.status(500).json({
             error: 'Failed to retrieve Telegram configuration',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * GET /api/telegram/updates
+ * Fetch recent updates from the bot to discover chat IDs
+ * This allows users to find their chat ID by sending a message to the bot
+ */
+router.get('/updates', requireAuth, testLimiter, async (req, res) => {
+    try {
+        // Get configuration from database
+        const result = await db.query(`
+            SELECT bot_token_encrypted, bot_token_iv, bot_token_tag
+            FROM telegram_config
+            WHERE id = 1
+        `);
+
+        if (result.rows.length === 0 || !result.rows[0].bot_token_encrypted) {
+            return res.status(400).json({
+                error: 'Telegram bot is not configured',
+                hint: 'Please save a bot token first',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        const config = result.rows[0];
+
+        // Decrypt the token
+        let botToken;
+        try {
+            botToken = decrypt(
+                config.bot_token_encrypted,
+                config.bot_token_iv,
+                config.bot_token_tag
+            );
+        } catch (decryptError) {
+            logger.error(`Failed to decrypt Telegram token for updates: ${decryptError.message}`);
+            return res.status(500).json({
+                error: 'Failed to decrypt bot token',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Fetch updates from Telegram API
+        const telegramApiUrl = `https://api.telegram.org/bot${botToken}/getUpdates`;
+
+        const response = await axios.get(telegramApiUrl, {
+            params: {
+                limit: 10,
+                timeout: 0
+            },
+            timeout: 10000
+        });
+
+        if (response.data.ok) {
+            // Extract unique chats from updates
+            const chats = [];
+            const seenChatIds = new Set();
+
+            for (const update of response.data.result) {
+                const message = update.message || update.edited_message || update.channel_post;
+                if (message && message.chat && !seenChatIds.has(message.chat.id)) {
+                    seenChatIds.add(message.chat.id);
+                    chats.push({
+                        chat_id: message.chat.id.toString(),
+                        type: message.chat.type,
+                        title: message.chat.title || null,
+                        username: message.chat.username || null,
+                        first_name: message.chat.first_name || null,
+                        last_message: message.text ? message.text.substring(0, 50) : null,
+                        date: new Date(message.date * 1000).toISOString()
+                    });
+                }
+            }
+
+            logger.info(`Telegram updates fetched by user ${req.user.username}: ${chats.length} unique chats found`);
+
+            res.json({
+                success: true,
+                chats,
+                total_updates: response.data.result.length,
+                hint: chats.length === 0
+                    ? 'No messages found. Send a message to your bot to discover the chat ID.'
+                    : 'Select a chat ID from the list above.',
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            throw new Error(response.data.description || 'Unknown Telegram API error');
+        }
+
+    } catch (error) {
+        logger.error(`Error fetching Telegram updates: ${error.message}`);
+
+        if (error.response && error.response.data) {
+            const telegramError = error.response.data;
+            return res.status(400).json({
+                error: 'Telegram API error',
+                details: telegramError.description || 'Unknown error',
+                error_code: telegramError.error_code,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.status(500).json({
+            error: 'Failed to fetch updates',
+            details: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * GET /api/telegram/thresholds
+ * Get current alert thresholds
+ */
+router.get('/thresholds', requireAuth, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT alert_thresholds
+            FROM telegram_config
+            WHERE id = 1
+        `);
+
+        const defaultThresholds = {
+            cpu_warning: 80,
+            cpu_critical: 95,
+            ram_warning: 80,
+            ram_critical: 95,
+            disk_warning: 80,
+            disk_critical: 95,
+            gpu_warning: 85,
+            gpu_critical: 95,
+            temperature_warning: 75,
+            temperature_critical: 85,
+            notify_on_warning: false,
+            notify_on_critical: true,
+            notify_on_service_down: true,
+            notify_on_self_healing: true,
+            cooldown_minutes: 15
+        };
+
+        if (result.rows.length === 0) {
+            return res.json({
+                thresholds: defaultThresholds,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.json({
+            thresholds: result.rows[0].alert_thresholds || defaultThresholds,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Error retrieving alert thresholds: ${error.message}`);
+        res.status(500).json({
+            error: 'Failed to retrieve alert thresholds',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * PUT /api/telegram/thresholds
+ * Update alert thresholds
+ */
+router.put('/thresholds', requireAuth, apiLimiter, async (req, res) => {
+    try {
+        const { thresholds } = req.body;
+
+        if (!thresholds || typeof thresholds !== 'object') {
+            return res.status(400).json({
+                error: 'Thresholds object is required',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Validate threshold values
+        const numericFields = [
+            'cpu_warning', 'cpu_critical', 'ram_warning', 'ram_critical',
+            'disk_warning', 'disk_critical', 'gpu_warning', 'gpu_critical',
+            'temperature_warning', 'temperature_critical', 'cooldown_minutes'
+        ];
+
+        for (const field of numericFields) {
+            if (thresholds[field] !== undefined) {
+                const value = thresholds[field];
+                if (typeof value !== 'number' || value < 0 || value > 100) {
+                    if (field === 'cooldown_minutes' && (value < 0 || value > 1440)) {
+                        return res.status(400).json({
+                            error: `Invalid value for ${field}: must be between 0 and 1440`,
+                            timestamp: new Date().toISOString()
+                        });
+                    } else if (field !== 'cooldown_minutes') {
+                        return res.status(400).json({
+                            error: `Invalid value for ${field}: must be between 0 and 100`,
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                }
+            }
+        }
+
+        // Update thresholds
+        await db.query(`
+            UPDATE telegram_config
+            SET alert_thresholds = $1, updated_at = NOW()
+            WHERE id = 1
+        `, [JSON.stringify(thresholds)]);
+
+        logger.info(`Alert thresholds updated by user ${req.user.username}`);
+
+        res.json({
+            success: true,
+            message: 'Alert thresholds updated successfully',
+            thresholds,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Error updating alert thresholds: ${error.message}`);
+        res.status(500).json({
+            error: 'Failed to update alert thresholds',
             timestamp: new Date().toISOString()
         });
     }
