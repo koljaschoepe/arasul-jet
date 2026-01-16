@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft } from 'react-icons/fi';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft, FiSend } from 'react-icons/fi';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
@@ -10,6 +10,7 @@ import DocumentManager from './components/DocumentManager';
 import AppStore from './components/AppStore';
 import ModelStore from './components/ModelStore';
 import ClaudeCode from './components/ClaudeCode';
+import TelegramBotApp from './components/TelegramBotApp';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -459,6 +460,7 @@ function App() {
               <Route path="/appstore" element={<AppStore />} />
               <Route path="/models" element={<ModelStore />} />
               <Route path="/claude-code" element={<ClaudeCode />} />
+              <Route path="/telegram-bot" element={<TelegramBotApp />} />
             </Routes>
           </div>
         </div>
@@ -611,7 +613,8 @@ function DashboardHome({
       'FiCode': FiCode,
       'FiGitBranch': FiGitBranch,
       'FiBox': FiBox,
-      'FiTerminal': FiTerminal
+      'FiTerminal': FiTerminal,
+      'FiSend': FiSend
     };
     const IconComponent = icons[iconName] || FiBox;
     return <IconComponent className="service-link-icon" />;

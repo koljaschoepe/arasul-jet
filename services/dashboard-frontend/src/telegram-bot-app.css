@@ -1,0 +1,1105 @@
+/**
+ * Telegram Bot App Styles
+ * Design System: Blue/Gray/White theme
+ * Primary: #45ADFF
+ */
+
+/* ============================================================================
+   MAIN APP CONTAINER
+   ============================================================================ */
+
+.telegram-bot-app {
+  min-height: 100vh;
+  background: #101923;
+  color: #F8FAFC;
+  padding: 1.5rem;
+}
+
+.telegram-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 1rem;
+  color: #94A3B8;
+}
+
+.telegram-loading .spin {
+  animation: spin 1s linear infinite;
+  font-size: 2rem;
+  color: #45ADFF;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   HEADER
+   ============================================================================ */
+
+.telegram-app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #2A3544;
+}
+
+.telegram-app-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.telegram-app-icon {
+  font-size: 2.5rem;
+  color: #45ADFF;
+  padding: 0.75rem;
+  background: rgba(69, 173, 255, 0.1);
+  border-radius: 12px;
+}
+
+.telegram-app-title h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.telegram-app-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #94A3B8;
+}
+
+.telegram-app-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* ============================================================================
+   ERROR BANNER
+   ============================================================================ */
+
+.telegram-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  color: #EF4444;
+}
+
+.telegram-error-banner button {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #EF4444;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.telegram-error-banner button:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* ============================================================================
+   NAVIGATION TABS
+   ============================================================================ */
+
+.telegram-app-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #2A3544;
+  padding-bottom: 0.5rem;
+}
+
+.telegram-app-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s ease;
+}
+
+.telegram-app-tabs button:hover {
+  color: #F8FAFC;
+  background: rgba(69, 173, 255, 0.05);
+}
+
+.telegram-app-tabs button.active {
+  color: #45ADFF;
+  background: rgba(69, 173, 255, 0.1);
+  border-bottom: 2px solid #45ADFF;
+  margin-bottom: -0.5rem;
+  padding-bottom: 1rem;
+}
+
+/* ============================================================================
+   CONTENT AREA
+   ============================================================================ */
+
+.telegram-app-content {
+  max-width: 1200px;
+}
+
+/* ============================================================================
+   OVERVIEW TAB
+   ============================================================================ */
+
+.telegram-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.telegram-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #1A2330;
+  border: 1px solid #2A3544;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.telegram-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: rgba(69, 173, 255, 0.1);
+  color: #45ADFF;
+  border-radius: 10px;
+  font-size: 1.5rem;
+}
+
+.stat-icon.active {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22C55E;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #F8FAFC;
+}
+
+.stat-label {
+  font-size: 0.8125rem;
+  color: #94A3B8;
+}
+
+/* ============================================================================
+   SECTIONS
+   ============================================================================ */
+
+.telegram-section {
+  margin-bottom: 2rem;
+}
+
+.telegram-section h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #F8FAFC;
+}
+
+/* ============================================================================
+   QUICK ACTIONS
+   ============================================================================ */
+
+.telegram-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: #1A2330;
+  border: 1px solid #2A3544;
+  border-radius: 10px;
+  color: #F8FAFC;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.quick-action-btn:hover {
+  background: #222D3D;
+  border-color: #45ADFF;
+}
+
+.quick-action-btn svg:first-child {
+  color: #45ADFF;
+  font-size: 1.25rem;
+}
+
+.quick-action-btn span {
+  flex: 1;
+}
+
+.quick-action-btn svg:last-child {
+  color: #94A3B8;
+}
+
+/* ============================================================================
+   RULES PREVIEW
+   ============================================================================ */
+
+.telegram-rules-preview {
+  background: #1A2330;
+  border: 1px solid #2A3544;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.rule-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid #2A3544;
+}
+
+.rule-preview-item:last-child {
+  border-bottom: none;
+}
+
+.rule-source-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.rule-name {
+  flex: 1;
+  font-size: 0.9375rem;
+}
+
+.severity-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  color: #000;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.no-data {
+  padding: 2rem;
+  text-align: center;
+  color: #94A3B8;
+}
+
+/* ============================================================================
+   RULES TAB
+   ============================================================================ */
+
+.telegram-rules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.telegram-rules-group {
+  margin-bottom: 2rem;
+}
+
+.rules-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #CBD5E1;
+}
+
+.rules-count {
+  background: #2A3544;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rule-card {
+  background: #1A2330;
+  border: 1px solid #2A3544;
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.rule-card:hover {
+  border-color: #45ADFF;
+}
+
+.rule-card.disabled {
+  opacity: 0.6;
+}
+
+.rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.rule-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rule-info .rule-name {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.toggle-btn.active {
+  color: #22C55E;
+}
+
+.rule-description {
+  font-size: 0.875rem;
+  color: #94A3B8;
+  margin-bottom: 0.75rem;
+}
+
+.rule-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  color: #64748B;
+  margin-bottom: 1rem;
+}
+
+.rule-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-icon {
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid #2A3544;
+  border-radius: 6px;
+  color: #94A3B8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: #222D3D;
+  color: #45ADFF;
+  border-color: #45ADFF;
+}
+
+.btn-icon.btn-danger:hover {
+  color: #EF4444;
+  border-color: #EF4444;
+}
+
+/* ============================================================================
+   ORCHESTRATOR TAB
+   ============================================================================ */
+
+.orchestrator-info-card {
+  background: #1A2330;
+  border: 1px solid #2A3544;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.orchestrator-config {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.config-label {
+  font-size: 0.8125rem;
+  color: #94A3B8;
+}
+
+.config-value {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #F8FAFC;
+}
+
+.config-value.active {
+  color: #22C55E;
+}
+
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.agent-card {
+  background: #1A2330;
+  border: 1px solid #2A3544;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.agent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.agent-name {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.agent-status {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 10px;
+  background: rgba(100, 116, 139, 0.2);
+  color: #94A3B8;
+}
+
+.agent-status.active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+}
+
+.agent-stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.agent-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.agent-stat .stat-label {
+  font-size: 0.75rem;
+}
+
+.agent-stat .stat-value {
+  font-size: 1.25rem;
+}
+
+.agent-last-action {
+  font-size: 0.75rem;
+  color: #64748B;
+}
+
+/* ============================================================================
+   HISTORY TAB
+   ============================================================================ */
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #1A2330;
+  border: 1px solid #2A3544;
+  border-radius: 10px;
+}
+
+.history-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+}
+
+.history-icon:has(svg[data-icon="x"]) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+}
+
+.history-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.history-rule {
+  font-weight: 500;
+}
+
+.history-message {
+  font-size: 0.8125rem;
+  color: #94A3B8;
+}
+
+.history-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.history-time {
+  font-size: 0.75rem;
+  color: #64748B;
+}
+
+/* ============================================================================
+   EMPTY STATE
+   ============================================================================ */
+
+.telegram-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background: #1A2330;
+  border: 1px dashed #2A3544;
+  border-radius: 12px;
+}
+
+.telegram-empty svg {
+  font-size: 3rem;
+  color: #64748B;
+  margin-bottom: 1rem;
+}
+
+.telegram-empty p {
+  color: #94A3B8;
+  margin-bottom: 1.5rem;
+}
+
+/* ============================================================================
+   BUTTONS
+   ============================================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btn-primary {
+  background: #45ADFF;
+  color: #000;
+}
+
+.btn-primary:hover {
+  background: #6EC4FF;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid #2A3544;
+  color: #CBD5E1;
+}
+
+.btn-secondary:hover {
+  background: #222D3D;
+  border-color: #45ADFF;
+  color: #F8FAFC;
+}
+
+.btn-large {
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   SETUP WIZARD
+   ============================================================================ */
+
+.telegram-setup-wizard {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.setup-wizard-container {
+  width: 100%;
+  max-width: 600px;
+  background: #1A2330;
+  border: 1px solid #2A3544;
+  border-radius: 16px;
+  padding: 2rem;
+}
+
+.setup-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.setup-icon {
+  font-size: 3rem;
+  color: #45ADFF;
+  margin-bottom: 1rem;
+}
+
+.setup-header h1 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.setup-header p {
+  color: #94A3B8;
+}
+
+/* Progress bar */
+.setup-progress {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  padding: 0 1rem;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  flex: 1;
+}
+
+.progress-step::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: #2A3544;
+  z-index: 0;
+}
+
+.progress-step:last-child::after {
+  display: none;
+}
+
+.progress-step.active::after {
+  background: #45ADFF;
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2A3544;
+  color: #94A3B8;
+  font-size: 0.875rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.progress-step.active .step-number {
+  background: #45ADFF;
+  color: #000;
+}
+
+.progress-step.current .step-number {
+  box-shadow: 0 0 0 4px rgba(69, 173, 255, 0.2);
+}
+
+.step-label {
+  font-size: 0.75rem;
+  color: #64748B;
+}
+
+.progress-step.active .step-label {
+  color: #F8FAFC;
+}
+
+/* Setup error */
+.setup-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  color: #EF4444;
+}
+
+.setup-error button {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #EF4444;
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+
+/* Setup step */
+.setup-step {
+  text-align: center;
+}
+
+.step-content {
+  margin-bottom: 2rem;
+}
+
+.step-icon-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(69, 173, 255, 0.1);
+  color: #45ADFF;
+  font-size: 2.5rem;
+  margin: 0 auto 1.5rem;
+}
+
+.step-icon-large.success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22C55E;
+}
+
+.step-content h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.step-content > p {
+  color: #94A3B8;
+  margin-bottom: 1.5rem;
+}
+
+/* Instructions */
+.step-instructions {
+  text-align: left;
+  background: #101923;
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.instruction-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #2A3544;
+}
+
+.instruction-item:last-child {
+  border-bottom: none;
+}
+
+.instruction-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #45ADFF;
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.instruction-item span:last-child {
+  color: #CBD5E1;
+  font-size: 0.9375rem;
+}
+
+.instruction-item code {
+  background: #2A3544;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-family: monospace;
+  color: #45ADFF;
+}
+
+/* Token input */
+.token-input-container {
+  text-align: left;
+}
+
+.token-input {
+  width: 100%;
+  padding: 1rem;
+  background: #101923;
+  border: 1px solid #2A3544;
+  border-radius: 8px;
+  color: #F8FAFC;
+  font-size: 1rem;
+  font-family: monospace;
+  margin-bottom: 0.5rem;
+}
+
+.token-input:focus {
+  outline: none;
+  border-color: #45ADFF;
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
+}
+
+.token-input-container small {
+  color: #64748B;
+  font-size: 0.8125rem;
+}
+
+.token-input-container code {
+  background: #2A3544;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Connect options */
+.connect-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.qr-placeholder {
+  text-align: center;
+}
+
+.qr-code {
+  width: 200px;
+  height: 200px;
+  background: #fff;
+  border-radius: 12px;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.qr-code img {
+  width: 100%;
+  height: 100%;
+}
+
+.qr-placeholder p {
+  font-size: 0.875rem;
+  color: #94A3B8;
+  margin: 0;
+}
+
+.connect-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  color: #64748B;
+}
+
+.connect-divider::before,
+.connect-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #2A3544;
+}
+
+.connect-link {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.waiting-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #45ADFF;
+  padding: 1rem;
+  background: rgba(69, 173, 255, 0.1);
+  border-radius: 8px;
+}
+
+/* Completion details */
+.completion-details {
+  background: #101923;
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #2A3544;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  color: #94A3B8;
+}
+
+.detail-value {
+  font-weight: 500;
+  font-family: monospace;
+}
+
+.completion-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #22C55E;
+  font-size: 0.9375rem;
+}
+
+/* Step actions */
+.step-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .telegram-bot-app {
+    padding: 1rem;
+  }
+
+  .telegram-app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .telegram-app-tabs {
+    overflow-x: auto;
+    padding-bottom: 0.75rem;
+  }
+
+  .telegram-app-tabs button {
+    white-space: nowrap;
+  }
+
+  .telegram-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .orchestrator-config {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .setup-wizard-container {
+    padding: 1.5rem;
+  }
+
+  .step-actions {
+    flex-direction: column;
+  }
+
+  .step-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
