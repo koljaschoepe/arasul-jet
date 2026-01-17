@@ -1,22 +1,7 @@
 /* ============================================
    Store Styles - Blue/Gray/White Theme
+   Uses global CSS variables from index.css for Light/Dark mode support
    ============================================ */
-
-/* Color Variables */
-:root {
-  --store-primary: #45ADFF;
-  --store-primary-light: #7ac4ff;
-  --store-primary-dark: #2d8fd9;
-  --store-gray-100: #f8fafc;
-  --store-gray-200: #e2e8f0;
-  --store-gray-300: #cbd5e1;
-  --store-gray-400: #94a3b8;
-  --store-gray-500: #64748b;
-  --store-gray-600: #475569;
-  --store-gray-700: #334155;
-  --store-gray-800: #1e293b;
-  --store-gray-900: #0f172a;
-}
 
 .appstore {
   padding: clamp(1rem, 2vw, 1.5rem);
@@ -43,13 +28,13 @@
 
 .appstore-title svg {
   font-size: 1.75rem;
-  color: var(--store-primary);
+  color: var(--primary-color);
 }
 
 .appstore-title h1 {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -58,43 +43,43 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: var(--store-gray-800);
-  border: 1px solid var(--store-gray-700);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 0.75rem 1rem;
   flex: 1;
   max-width: 400px;
   min-width: 200px;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   transition: border-color 0.2s ease;
 }
 
 .appstore-search:focus-within {
-  border-color: var(--store-primary);
+  border-color: var(--primary-color);
 }
 
 .appstore-search svg {
   flex-shrink: 0;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
 }
 
 .appstore-search input {
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--text-primary);
   width: 100%;
   outline: none;
   font-size: 0.95rem;
 }
 
 .appstore-search input::placeholder {
-  color: var(--store-gray-500);
+  color: var(--text-muted);
 }
 
 .search-clear {
   background: none;
   border: none;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0.25rem;
   display: flex;
@@ -104,7 +89,7 @@
 }
 
 .search-clear:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 /* Categories */
@@ -116,24 +101,24 @@
 }
 
 .category-btn {
-  background: var(--store-gray-800);
-  border: 1px solid var(--store-gray-700);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 0.5rem 1rem;
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .category-btn:hover {
-  border-color: var(--store-primary);
-  color: #fff;
+  border-color: var(--primary-color);
+  color: var(--text-primary);
 }
 
 .category-btn.active {
-  background: var(--store-primary);
-  border-color: var(--store-primary);
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   color: #000;
   font-weight: 600;
 }
@@ -143,31 +128,31 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(71, 85, 105, 0.3);
-  border: 1px solid var(--store-gray-600);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 1rem;
   margin-bottom: 1.5rem;
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
 }
 
 .appstore-error svg {
-  color: var(--store-gray-400);
+  color: var(--text-muted);
 }
 
 .appstore-error button {
   margin-left: auto;
-  background: var(--store-gray-700);
+  background: var(--bg-elevated);
   border: none;
   border-radius: 6px;
   padding: 0.5rem 1rem;
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
 .appstore-error button:hover {
-  background: var(--store-gray-600);
+  background: var(--border-color);
 }
 
 /* Loading */
@@ -178,12 +163,12 @@
   justify-content: center;
   gap: 1rem;
   padding: 4rem 2rem;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
 }
 
 .appstore-loading svg {
   font-size: 2rem;
-  color: var(--store-primary);
+  color: var(--primary-color);
 }
 
 /* Empty state */
@@ -194,7 +179,7 @@
   justify-content: center;
   gap: 1rem;
   padding: 4rem 2rem;
-  color: var(--store-gray-500);
+  color: var(--text-muted);
   grid-column: 1 / -1;
 }
 
@@ -212,8 +197,8 @@
 
 /* App Card */
 .app-card {
-  background: linear-gradient(135deg, var(--store-gray-800) 0%, var(--store-gray-900) 100%);
-  border: 1px solid var(--store-gray-700);
+  background: var(--gradient-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1.25rem;
   display: flex;
@@ -224,7 +209,7 @@
 }
 
 .app-card:hover {
-  border-color: var(--store-primary);
+  border-color: var(--primary-color);
   box-shadow: 0 0 25px rgba(69, 173, 255, 0.2);
   transform: translateY(-2px);
 }
@@ -244,7 +229,7 @@
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  color: var(--store-primary);
+  color: var(--primary-color);
 }
 
 .app-badges {
@@ -265,12 +250,12 @@
 }
 
 .badge-system {
-  background: rgba(69, 173, 255, 0.15);
-  color: var(--store-primary-light);
+  background: var(--primary-muted);
+  color: var(--primary-light);
 }
 
 .badge-status {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .badge-status svg {
@@ -280,13 +265,13 @@
 .app-name {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .app-description {
   font-size: 0.85rem;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   margin: 0;
   line-height: 1.4;
   flex-grow: 1;
@@ -297,14 +282,14 @@
   justify-content: space-between;
   align-items: center;
   font-size: 0.75rem;
-  color: var(--store-gray-500);
+  color: var(--text-muted);
 }
 
 .app-version {
-  background: var(--store-gray-700);
+  background: var(--bg-elevated);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
 }
 
 .app-category {
@@ -324,8 +309,8 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.75rem;
-  color: var(--store-gray-300);
-  background: var(--store-gray-700);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
   padding: 0.5rem;
   border-radius: 6px;
   margin-top: 0.5rem;
@@ -333,7 +318,7 @@
 
 .app-error svg {
   flex-shrink: 0;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
 }
 
 /* Buttons - Blue/Gray/White only */
@@ -356,45 +341,45 @@
 }
 
 .btn-primary {
-  background: var(--store-primary);
+  background: var(--primary-color);
   color: #000;
 }
 
 .btn-primary:hover {
-  background: var(--store-primary-light);
+  background: var(--primary-light);
   transform: scale(1.02);
 }
 
 .btn-success {
-  background: var(--store-primary);
+  background: var(--primary-color);
   color: #000;
 }
 
 .btn-success:hover {
-  background: var(--store-primary-light);
+  background: var(--primary-light);
 }
 
 .btn-warning {
-  background: var(--store-gray-500);
-  color: #fff;
+  background: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .btn-warning:hover {
-  background: var(--store-gray-400);
+  background: var(--text-secondary);
 }
 
 .btn-danger {
-  background: var(--store-gray-600);
-  color: #fff;
+  background: var(--border-color);
+  color: var(--text-primary);
 }
 
 .btn-danger:hover {
-  background: var(--store-gray-500);
+  background: var(--text-muted);
 }
 
 .btn-disabled {
-  background: var(--store-gray-700);
-  color: var(--store-gray-500);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
@@ -433,8 +418,8 @@
 
 /* Variants */
 .btn-icon-danger {
-  background: var(--store-gray-700);
-  color: var(--store-gray-300);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .btn-icon-danger:hover:not(:disabled) {
@@ -443,22 +428,22 @@
 }
 
 .btn-icon-warning {
-  background: var(--store-gray-700);
-  color: var(--store-gray-300);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .btn-icon-warning:hover:not(:disabled) {
-  background: var(--store-gray-500);
-  color: #fff;
+  background: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .btn-icon-primary {
-  background: var(--store-gray-700);
-  color: var(--store-gray-300);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .btn-icon-primary:hover:not(:disabled) {
-  background: var(--store-primary);
+  background: var(--primary-color);
   color: #000;
 }
 
@@ -468,7 +453,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0.5rem;
-  background: var(--store-gray-700);
+  background: var(--bg-elevated);
   border-radius: 6px;
   animation: popupAppear 0.15s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -491,13 +476,13 @@
 }
 
 .confirm-popup-warning {
-  border: 1px solid var(--store-gray-500);
+  border: 1px solid var(--text-muted);
 }
 
 .confirm-text {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   padding: 0 0.25rem;
 }
 
@@ -517,23 +502,23 @@
 }
 
 .confirm-yes {
-  background: #45ADFF;
+  background: var(--primary-color);
   color: #000;
 }
 
 .confirm-yes:hover {
-  background: #6EC4FF;
+  background: var(--primary-light);
   transform: scale(1.1);
 }
 
 .confirm-no {
-  background: var(--store-gray-600);
-  color: var(--store-gray-300);
+  background: var(--border-color);
+  color: var(--text-secondary);
 }
 
 .confirm-no:hover {
-  background: var(--store-gray-500);
-  color: #fff;
+  background: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .btn-small {
@@ -571,7 +556,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--backdrop-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -581,8 +566,8 @@
 }
 
 .modal-content {
-  background: var(--store-gray-800);
-  border: 1px solid var(--store-gray-700);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   width: 100%;
   max-width: 700px;
@@ -612,7 +597,7 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: 1.5rem;
-  border-bottom: 1px solid var(--store-gray-700);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .modal-header-left {
@@ -630,14 +615,14 @@
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  color: var(--store-primary);
+  color: var(--primary-color);
   flex-shrink: 0;
 }
 
 .app-header-info h2 {
   margin: 0 0 0.5rem 0;
   font-size: 1.5rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .app-header-meta {
@@ -649,8 +634,8 @@
 
 .version {
   font-size: 0.8rem;
-  color: var(--store-gray-400);
-  background: var(--store-gray-700);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
 }
@@ -658,7 +643,7 @@
 .modal-close {
   background: none;
   border: none;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0.5rem;
   font-size: 1.25rem;
@@ -669,14 +654,14 @@
 }
 
 .modal-close:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 /* Tabs */
 .modal-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid var(--store-gray-700);
+  border-bottom: 1px solid var(--border-color);
   padding: 0 1.5rem;
 }
 
@@ -687,7 +672,7 @@
   padding: 1rem 1.25rem;
   background: none;
   border: none;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   font-size: 0.9rem;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -696,12 +681,12 @@
 }
 
 .tab:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .tab.active {
-  color: var(--store-primary);
-  border-bottom-color: var(--store-primary);
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
 }
 
 /* Modal Body */
@@ -717,7 +702,7 @@
 
 /* Info Tab */
 .app-long-description {
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 1.5rem;
 }
@@ -733,12 +718,12 @@
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: var(--store-gray-700);
+  background: var(--bg-elevated);
   border-radius: 8px;
 }
 
 .info-item svg {
-  color: var(--store-primary);
+  color: var(--primary-color);
   font-size: 1rem;
   margin-top: 0.2rem;
   flex-shrink: 0;
@@ -747,18 +732,18 @@
 .info-item .label {
   display: block;
   font-size: 0.75rem;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   margin-bottom: 0.25rem;
 }
 
 .info-item .value {
   display: block;
   font-size: 0.9rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .info-item .value.link {
-  color: var(--store-primary);
+  color: var(--primary-color);
   text-decoration: none;
   word-break: break-all;
 }
@@ -772,17 +757,17 @@
   align-items: flex-start;
   gap: 0.75rem;
   padding: 1rem;
-  background: var(--store-gray-700);
-  border: 1px solid var(--store-gray-600);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   margin-top: 1.5rem;
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
 }
 
 .error-box svg {
   flex-shrink: 0;
   margin-top: 0.2rem;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
 }
 
 .error-box .label {
@@ -811,18 +796,18 @@
 
 .logs-header span {
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .logs-content {
-  background: var(--store-gray-900);
-  border: 1px solid var(--store-gray-700);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: var(--store-gray-200);
+  color: var(--text-secondary);
   overflow-x: auto;
   max-height: 400px;
   white-space: pre-wrap;
@@ -841,13 +826,13 @@
   grid-template-columns: 120px auto 1fr;
   gap: 1rem;
   padding: 0.75rem;
-  background: var(--store-gray-700);
+  background: var(--bg-elevated);
   border-radius: 8px;
   font-size: 0.85rem;
 }
 
 .event-time {
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
@@ -862,18 +847,18 @@
 
 .event-install_start,
 .event-install_complete {
-  background: rgba(69, 173, 255, 0.2);
-  color: var(--store-primary);
+  background: var(--primary-muted);
+  color: var(--primary-color);
 }
 
 .event-start {
-  background: rgba(69, 173, 255, 0.2);
-  color: var(--store-primary);
+  background: var(--primary-muted);
+  color: var(--primary-color);
 }
 
 .event-stop {
   background: rgba(148, 163, 184, 0.2);
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
 }
 
 .event-error,
@@ -881,11 +866,11 @@
 .event-start_error,
 .event-stop_error {
   background: rgba(71, 85, 105, 0.3);
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
 }
 
 .event-message {
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
 }
 
 .loading, .empty {
@@ -894,7 +879,7 @@
   justify-content: center;
   gap: 0.75rem;
   padding: 2rem;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
 }
 
 /* Modal Footer */
@@ -902,7 +887,7 @@
   display: flex;
   gap: 0.75rem;
   padding: 1.5rem;
-  border-top: 1px solid var(--store-gray-700);
+  border-top: 1px solid var(--border-color);
   justify-content: flex-end;
   flex-wrap: wrap;
 }
@@ -1049,7 +1034,7 @@
 }
 
 .n8n-section {
-  background: var(--store-gray-700);
+  background: var(--bg-elevated);
   border-radius: 10px;
   padding: 1.25rem;
 }
@@ -1060,15 +1045,15 @@
   gap: 0.5rem;
   margin: 0 0 0.75rem 0;
   font-size: 1rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .n8n-section h4 svg {
-  color: var(--store-primary);
+  color: var(--primary-color);
 }
 
 .n8n-description {
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   font-size: 0.85rem;
   margin: 0 0 1rem 0;
   line-height: 1.5;
@@ -1088,8 +1073,8 @@
 }
 
 .credential-item {
-  background: var(--store-gray-800);
-  border: 1px solid var(--store-gray-600);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 0.875rem;
 }
@@ -1098,7 +1083,7 @@
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 0.5rem;
@@ -1114,31 +1099,31 @@
 .credential-value code {
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 0.95rem;
-  color: var(--store-primary-light);
+  color: var(--primary-light);
   background: transparent;
   word-break: break-all;
 }
 
 .credential-value .password-hint {
-  color: var(--store-gray-400);
+  color: var(--text-muted);
   font-style: italic;
 }
 
 .credential-hint {
   display: block;
   font-size: 0.7rem;
-  color: var(--store-gray-500);
+  color: var(--text-muted);
   margin-top: 0.5rem;
   line-height: 1.4;
 }
 
 /* Copy Button */
 .copy-btn {
-  background: var(--store-gray-600);
+  background: var(--border-color);
   border: none;
   border-radius: 4px;
   padding: 0.4rem;
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1148,7 +1133,7 @@
 }
 
 .copy-btn:hover {
-  background: var(--store-primary);
+  background: var(--primary-color);
   color: #000;
 }
 
@@ -1161,8 +1146,8 @@
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
-  background: var(--store-gray-900);
-  border: 1px solid var(--store-gray-600);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
 }
@@ -1170,7 +1155,7 @@
 .command-box code {
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 0.8rem;
-  color: var(--store-gray-200);
+  color: var(--text-secondary);
   flex: 1;
   word-break: break-all;
   line-height: 1.5;
@@ -1184,7 +1169,7 @@
 .instructions-list {
   margin: 0;
   padding-left: 1.5rem;
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
 }
 
 .instructions-list li {
@@ -1194,14 +1179,14 @@
 }
 
 .instructions-list li::marker {
-  color: var(--store-primary);
+  color: var(--primary-color);
   font-weight: bold;
 }
 
 /* Private Key Box */
 .private-key-box {
-  background: var(--store-gray-900);
-  border: 1px solid var(--store-gray-600);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
   position: relative;
@@ -1210,7 +1195,7 @@
 .private-key-box pre {
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 0.7rem;
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-all;
   margin: 0 0 1rem 0;
@@ -1248,7 +1233,7 @@
 }
 
 .uninstall-dialog .modal-header {
-  border-bottom: 1px solid var(--store-gray-700);
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 1rem;
 }
 
@@ -1256,7 +1241,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #ef4444;
+  color: var(--danger-color);
   font-size: 1.1rem;
 }
 
@@ -1266,7 +1251,7 @@
 
 .uninstall-dialog .modal-body p {
   margin: 0 0 1rem;
-  color: var(--store-gray-300);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -1300,12 +1285,12 @@
 }
 
 .uninstall-buttons .btn-secondary {
-  background: var(--store-gray-600);
-  color: var(--store-gray-200);
+  background: var(--border-color);
+  color: var(--text-secondary);
 }
 
 .uninstall-buttons .btn-secondary:hover {
-  background: var(--store-gray-500);
+  background: var(--text-muted);
 }
 
 .uninstall-buttons .btn-warning {

@@ -99,6 +99,32 @@ code {
   --gradient-primary: linear-gradient(135deg, #45ADFF 0%, #2D8FD9 100%);
   --gradient-card: linear-gradient(135deg, #1A2330 0%, #1f2835 100%);
 
+  /* Additional Background Colors for Components */
+  --bg-input: #101923;
+  --bg-table-header: rgba(69, 173, 255, 0.05);
+  --bg-table-row-hover: rgba(69, 173, 255, 0.03);
+  --bg-table-row-active: rgba(69, 173, 255, 0.08);
+  --bg-dropzone: rgba(69, 173, 255, 0.05);
+  --bg-dropzone-hover: rgba(69, 173, 255, 0.08);
+  --bg-dropzone-active: rgba(69, 173, 255, 0.15);
+  --bg-code: rgba(69, 173, 255, 0.03);
+  --bg-modal: #1a2330;
+
+  /* Additional Border Colors */
+  --border-dropzone: rgba(69, 173, 255, 0.3);
+  --border-dropzone-hover: rgba(69, 173, 255, 0.5);
+  --border-dropzone-active: #45ADFF;
+  --border-input: rgba(69, 173, 255, 0.15);
+  --border-input-focus: rgba(69, 173, 255, 0.4);
+  --border-table: rgba(69, 173, 255, 0.1);
+  --border-modal: rgba(69, 173, 255, 0.2);
+
+  /* Modal Backdrop */
+  --backdrop-color: rgba(0, 0, 0, 0.7);
+
+  /* Select Option Background (for dropdowns) */
+  --bg-option: #1a2330;
+
   /* Scrollbar colors */
   --scrollbar-track: #101923;
   --scrollbar-thumb: var(--primary-color);
@@ -134,6 +160,32 @@ code {
 
   /* Gradients - Light Theme */
   --gradient-card: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+
+  /* Additional Background Colors - Light Theme */
+  --bg-input: #ffffff;
+  --bg-table-header: rgba(69, 173, 255, 0.08);
+  --bg-table-row-hover: rgba(69, 173, 255, 0.05);
+  --bg-table-row-active: rgba(69, 173, 255, 0.1);
+  --bg-dropzone: rgba(69, 173, 255, 0.04);
+  --bg-dropzone-hover: rgba(69, 173, 255, 0.08);
+  --bg-dropzone-active: rgba(69, 173, 255, 0.12);
+  --bg-code: rgba(69, 173, 255, 0.05);
+  --bg-modal: #ffffff;
+
+  /* Additional Border Colors - Light Theme */
+  --border-dropzone: rgba(69, 173, 255, 0.4);
+  --border-dropzone-hover: rgba(69, 173, 255, 0.6);
+  --border-dropzone-active: #45ADFF;
+  --border-input: #e2e8f0;
+  --border-input-focus: rgba(69, 173, 255, 0.5);
+  --border-table: rgba(69, 173, 255, 0.15);
+  --border-modal: #e2e8f0;
+
+  /* Modal Backdrop - Light Theme */
+  --backdrop-color: rgba(0, 0, 0, 0.5);
+
+  /* Select Option Background - Light Theme */
+  --bg-option: #ffffff;
 
   /* Scrollbar colors - Light Theme */
   --scrollbar-track: #f1f5f9;

@@ -1,6 +1,7 @@
 /* ============================================
    Space Modal Styles
    Knowledge Spaces - RAG 2.0
+   Uses global CSS variables from index.css for Light/Dark mode support
    ============================================ */
 
 .space-modal-overlay {
@@ -9,7 +10,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: var(--backdrop-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -19,8 +20,8 @@
 }
 
 .space-modal {
-  background: linear-gradient(135deg, #1a2330 0%, #1f2835 100%);
-  border: 1px solid rgba(69, 173, 255, 0.25);
+  background: var(--bg-modal);
+  border: 1px solid var(--border-modal);
   border-radius: 16px;
   width: 100%;
   max-width: 550px;
@@ -54,13 +55,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid rgba(69, 173, 255, 0.15);
-  background: rgba(69, 173, 255, 0.03);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--primary-muted);
 }
 
 .space-modal-header h3 {
   margin: 0;
-  color: #f1f5f9;
+  color: var(--text-primary);
   font-size: 1.15rem;
   font-weight: 600;
   display: flex;
@@ -71,7 +72,7 @@
 .space-modal-header .close-btn {
   background: none;
   border: none;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0.5rem;
   border-radius: 6px;
@@ -118,9 +119,9 @@
 }
 
 .space-message.success {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-muted);
   border: 1px solid rgba(69, 173, 255, 0.3);
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 /* Form Groups */
@@ -136,13 +137,13 @@
   display: block;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .space-form-group .label-hint {
   font-weight: 400;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.8rem;
   margin-left: 0.5rem;
 }
@@ -150,10 +151,10 @@
 .space-form-group input,
 .space-form-group textarea {
   width: 100%;
-  background: rgba(15, 23, 42, 0.5);
-  border: 2px solid rgba(69, 173, 255, 0.15);
+  background: var(--bg-input);
+  border: 2px solid var(--border-input);
   border-radius: 8px;
-  color: #f1f5f9;
+  color: var(--text-primary);
   font-size: 0.95rem;
   padding: 0.75rem 1rem;
   transition: all 0.2s ease;
@@ -162,14 +163,14 @@
 .space-form-group input:focus,
 .space-form-group textarea:focus {
   outline: none;
-  border-color: #45ADFF;
-  background: rgba(15, 23, 42, 0.8);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  border-color: var(--primary-color);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px var(--primary-muted);
 }
 
 .space-form-group input::placeholder,
 .space-form-group textarea::placeholder {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .space-form-group input:disabled {
@@ -188,7 +189,7 @@
 .description-hint {
   margin: 0.5rem 0 0 0;
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -213,10 +214,10 @@
 .icon-option {
   width: 36px;
   height: 36px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 2px solid rgba(69, 173, 255, 0.15);
+  background: var(--bg-input);
+  border: 2px solid var(--border-input);
   border-radius: 8px;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -225,14 +226,14 @@
 }
 
 .icon-option:hover {
-  border-color: rgba(69, 173, 255, 0.4);
-  color: #94a3b8;
+  border-color: var(--border-input-focus);
+  color: var(--text-secondary);
 }
 
 .icon-option.selected {
-  background: rgba(69, 173, 255, 0.15);
-  border-color: #45ADFF;
-  color: #45ADFF;
+  background: var(--primary-muted);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 /* Color Selector */
@@ -267,8 +268,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-top: 1px solid rgba(69, 173, 255, 0.1);
-  background: rgba(69, 173, 255, 0.02);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
 }
 
 .footer-actions {
@@ -309,14 +310,14 @@
 
 .space-btn.secondary {
   background: transparent;
-  border: 1px solid rgba(69, 173, 255, 0.3);
-  color: #94a3b8;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
 }
 
 .space-btn.secondary:hover:not(:disabled) {
-  border-color: rgba(69, 173, 255, 0.5);
-  color: #f1f5f9;
-  background: rgba(69, 173, 255, 0.05);
+  border-color: var(--primary-color);
+  color: var(--text-primary);
+  background: var(--primary-muted);
 }
 
 .space-btn.danger {

@@ -38,7 +38,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  background: #0f0f0f;
+  background: var(--bg-dark);
 }
 
 /* Custom Scrollbar */
@@ -56,7 +56,7 @@
 }
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
-  background: #444444;
+  background: var(--bg-elevated);
 }
 
 /* Chat Message */
@@ -198,7 +198,7 @@
 .chat-input {
   flex: 1;
   padding: 0.75rem 1rem;
-  background: #0f0f0f;
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   color: var(--text-primary);
@@ -268,7 +268,7 @@
 
 .chat-info kbd {
   padding: 0.2rem 0.4rem;
-  background: #0f0f0f;
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-family: monospace;
@@ -307,14 +307,14 @@
 .thinking-title {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #45ADFF;
+  color: var(--primary-color);
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
 .thinking-toggle {
-  color: #45ADFF;
+  color: var(--primary-color);
   display: flex;
   align-items: center;
   font-size: 1.1rem;

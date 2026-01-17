@@ -1,9 +1,8 @@
 /* ============================================
    Model Store Styles - Blue/Gray/White Theme
    LLM Model Management for Jetson AGX Orin
+   Uses global CSS variables from index.css for Light/Dark mode support
    ============================================ */
-
-/* Use existing store variables from appstore.css */
 
 .model-store {
     padding: clamp(1rem, 2vw, 1.5rem);
@@ -31,18 +30,18 @@
 
 .model-store-title svg {
     font-size: 1.75rem;
-    color: var(--store-primary, #45ADFF);
+    color: var(--primary-color);
 }
 
 .model-store-title h1 {
     font-size: 1.75rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--text-primary);
     margin: 0;
 }
 
 .model-store-subtitle {
-    color: var(--store-gray-400, #94a3b8);
+    color: var(--text-muted);
     margin: 0;
     font-size: 0.95rem;
 }
@@ -55,7 +54,7 @@
     justify-content: center;
     min-height: 300px;
     gap: 1rem;
-    color: var(--store-gray-400, #94a3b8);
+    color: var(--text-muted);
 }
 
 .model-store-loading .spin {
@@ -86,11 +85,11 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    color: #fff;
+    color: var(--text-primary);
 }
 
 .loaded-model-info svg {
-    color: var(--store-primary, #45ADFF);
+    color: var(--primary-color);
     font-size: 1.25rem;
 }
 
@@ -104,7 +103,7 @@
 }
 
 .loaded-model-info strong {
-    color: var(--store-primary, #45ADFF);
+    color: var(--primary-color);
 }
 
 .loaded-model-stats {
@@ -117,10 +116,10 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: var(--store-gray-800, #1A2330);
+    background: var(--bg-card);
     padding: 0.5rem 0.75rem;
     border-radius: 8px;
-    color: var(--store-gray-300, #cbd5e1);
+    color: var(--text-secondary);
     font-size: 0.875rem;
 }
 
@@ -128,16 +127,16 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    background: var(--store-gray-800, #1A2330);
-    border: 1px solid var(--store-gray-700, #2A3544);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 1rem 1.5rem;
     margin-bottom: 1.5rem;
-    color: var(--store-gray-400, #94a3b8);
+    color: var(--text-muted);
 }
 
 .no-model-banner svg {
-    color: var(--store-primary, #45ADFF);
+    color: var(--primary-color);
     font-size: 1.25rem;
 }
 
@@ -188,8 +187,8 @@
 
 /* Model Card */
 .model-card {
-    background: var(--store-gray-800, #1A2330);
-    border: 1px solid var(--store-gray-700, #2A3544);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 1.25rem;
     cursor: pointer;
@@ -200,18 +199,18 @@
 }
 
 .model-card:hover {
-    border-color: var(--store-gray-600, #3A4554);
+    border-color: var(--bg-elevated);
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .model-card.active {
-    border-color: var(--store-primary, #45ADFF);
+    border-color: var(--primary-color);
     background: linear-gradient(135deg, rgba(69, 173, 255, 0.1), rgba(69, 173, 255, 0.02));
 }
 
 .model-card.installed {
-    border-color: #3A4554;
+    border-color: var(--bg-elevated);
 }
 
 /* Card Header */
@@ -225,19 +224,19 @@
 .model-icon {
     width: 48px;
     height: 48px;
-    background: var(--store-gray-700, #2A3544);
+    background: var(--bg-elevated);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--store-primary, #45ADFF);
+    color: var(--primary-color);
     font-size: 1.5rem;
     flex-shrink: 0;
 }
 
 .model-card.active .model-icon {
-    background: var(--store-primary, #45ADFF);
-    color: #fff;
+    background: var(--primary-color);
+    color: var(--text-on-primary, #000);
 }
 
 .model-badges {
@@ -264,35 +263,35 @@
 }
 
 .badge-default {
-    background: rgba(69, 173, 255, 0.15);
-    color: #45ADFF;
+    background: var(--primary-muted);
+    color: var(--primary-color);
 }
 
 .badge-loaded {
-    background: rgba(69, 173, 255, 0.15);
-    color: #45ADFF;
+    background: var(--primary-muted);
+    color: var(--primary-color);
 }
 
 .badge-queue {
-    background: var(--store-gray-700, #2A3544);
-    color: var(--store-gray-300, #cbd5e1);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
 }
 
 .badge-category {
-    background: #2A3544;
-    color: #CBD5E1;
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
 }
 
 /* Model Name & Description */
 .model-name {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #fff;
+    color: var(--text-primary);
     margin: 0;
 }
 
 .model-description {
-    color: var(--store-gray-400, #94a3b8);
+    color: var(--text-muted);
     font-size: 0.875rem;
     line-height: 1.5;
     margin: 0;
@@ -317,14 +316,14 @@
 
 .spec-label {
     font-size: 0.75rem;
-    color: var(--store-gray-500, #64748b);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.025em;
 }
 
 .spec-value {
     font-size: 0.875rem;
-    color: #fff;
+    color: var(--text-primary);
     font-weight: 500;
 }
 
@@ -336,28 +335,28 @@
 }
 
 .capability-tag {
-    background: var(--store-gray-700, #2A3544);
-    color: var(--store-gray-300, #cbd5e1);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-size: 0.75rem;
 }
 
 .capability-tag.recommended {
-    background: rgba(69, 173, 255, 0.2);
-    color: var(--store-primary, #45ADFF);
+    background: var(--primary-muted);
+    color: var(--primary-color);
 }
 
 /* Download Progress */
 .download-progress {
-    background: var(--store-gray-700, #2A3544);
+    background: var(--bg-elevated);
     border-radius: 8px;
     padding: 0.75rem;
 }
 
 .progress-bar {
     height: 8px;
-    background: var(--store-gray-600, #3A4554);
+    background: var(--border-color);
     border-radius: 4px;
     overflow: hidden;
     margin-bottom: 0.5rem;
@@ -365,7 +364,7 @@
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--store-primary, #45ADFF), #7ac4ff);
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
     border-radius: 4px;
     transition: width 0.3s ease;
 }
@@ -378,12 +377,12 @@
 }
 
 .progress-percent {
-    color: var(--store-primary, #45ADFF);
+    color: var(--primary-color);
     font-weight: 600;
 }
 
 .progress-status {
-    color: var(--store-gray-400, #94a3b8);
+    color: var(--text-muted);
 }
 
 /* Model Actions */
@@ -415,30 +414,30 @@
 }
 
 .model-actions .btn-primary {
-    background: var(--store-primary, #45ADFF);
-    color: #fff;
+    background: var(--primary-color);
+    color: var(--text-on-primary, #000);
 }
 
 .model-actions .btn-primary:hover {
-    background: #2d8fd9;
+    background: var(--primary-active);
 }
 
 .model-actions .btn-success {
-    background: #45ADFF;
-    color: #000;
+    background: var(--primary-color);
+    color: var(--text-on-primary, #000);
 }
 
 .model-actions .btn-success:hover {
-    background: #6EC4FF;
+    background: var(--primary-hover);
 }
 
 .model-actions .btn-secondary {
-    background: var(--store-gray-700, #2A3544);
-    color: var(--store-gray-300, #cbd5e1);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
 }
 
 .model-actions .btn-secondary:hover {
-    background: var(--store-gray-600, #3A4554);
+    background: var(--border-color);
 }
 
 .model-actions .btn-danger {
@@ -451,8 +450,8 @@
 }
 
 .model-actions .btn-active {
-    background: rgba(69, 173, 255, 0.15);
-    color: #45ADFF;
+    background: var(--primary-muted);
+    color: var(--primary-color);
     cursor: default;
 }
 
@@ -472,7 +471,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--backdrop-color);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -482,8 +481,8 @@
 }
 
 .modal-content {
-    background: var(--store-gray-800, #1A2330);
-    border: 1px solid var(--store-gray-700, #2A3544);
+    background: var(--bg-modal);
+    border: 1px solid var(--border-modal);
     border-radius: 16px;
     max-width: 600px;
     width: 100%;
@@ -502,7 +501,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--store-gray-700, #2A3544);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .modal-header h2 {
@@ -511,18 +510,18 @@
     gap: 0.75rem;
     font-size: 1.25rem;
     font-weight: 600;
-    color: #fff;
+    color: var(--text-primary);
     margin: 0;
 }
 
 .modal-header h2 svg {
-    color: var(--store-primary, #45ADFF);
+    color: var(--primary-color);
 }
 
 .modal-close {
     background: transparent;
     border: none;
-    color: var(--store-gray-400, #94a3b8);
+    color: var(--text-muted);
     cursor: pointer;
     padding: 0.5rem;
     display: flex;
@@ -531,8 +530,8 @@
 }
 
 .modal-close:hover {
-    background: var(--store-gray-700, #2A3544);
-    color: #fff;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
 }
 
 .modal-body {
@@ -541,7 +540,7 @@
 
 /* Model Detail Modal */
 .model-detail-description {
-    color: var(--store-gray-300, #cbd5e1);
+    color: var(--text-secondary);
     line-height: 1.6;
     margin: 0 0 1.5rem 0;
 }
@@ -561,13 +560,13 @@
 
 .detail-label {
     font-size: 0.75rem;
-    color: var(--store-gray-500, #64748b);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.025em;
 }
 
 .detail-value {
-    color: #fff;
+    color: var(--text-primary);
     font-weight: 500;
 }
 
@@ -578,7 +577,7 @@
 
 code.detail-value {
     font-family: 'SF Mono', Monaco, monospace;
-    background: var(--store-gray-700, #2A3544);
+    background: var(--bg-elevated);
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-size: 0.875rem;
@@ -587,13 +586,13 @@ code.detail-value {
 .model-detail-section {
     margin-top: 1.5rem;
     padding-top: 1.5rem;
-    border-top: 1px solid var(--store-gray-700, #2A3544);
+    border-top: 1px solid var(--border-color);
 }
 
 .model-detail-section h3 {
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--store-gray-400, #94a3b8);
+    color: var(--text-muted);
     margin: 0 0 0.75rem 0;
     text-transform: uppercase;
     letter-spacing: 0.05em;
