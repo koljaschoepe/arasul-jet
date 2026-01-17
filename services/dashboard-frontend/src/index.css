@@ -63,9 +63,11 @@ code {
 
   /* Blue Theme Colors - Design System */
   --primary-color: #45ADFF;
-  --primary-hover: #2D8FD9;
+  --primary-hover: #6EC4FF;
+  --primary-active: #2D8FD9;
   --primary-light: #6EC4FF;
   --primary-muted: rgba(69, 173, 255, 0.15);
+  --text-on-primary: #000000;
   --danger-color: #ef4444;
   --warning-color: #f59e0b;
   --success-color: #22c55e;
@@ -131,65 +133,75 @@ code {
 }
 
 /* ========================================
-   LIGHT THEME
+   LIGHT THEME - Clean Minimal Design
+   Principle: White/Gray backgrounds, Blue ONLY for accents
    ======================================== */
 [data-theme="light"] {
-  /* Background Colors - Light Theme */
-  --bg-dark: #f8fafc;
-  --bg-app: #f1f5f9;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f8fafc;
-  --bg-sidebar: #ffffff;
-  --bg-elevated: #e2e8f0;
+  /* Primary Colors - Slightly darker blue for better contrast on white */
+  --primary-color: #2563EB;
+  --primary-hover: #1D4ED8;
+  --primary-light: #3B82F6;
+  --primary-muted: rgba(37, 99, 235, 0.08);
+  --primary-active: #1E40AF;
 
-  /* Border Colors - Light Theme */
-  --border-color: #e2e8f0;
-  --border-subtle: #f1f5f9;
-  --border-glow: rgba(69, 173, 255, 0.4);
+  /* Background Colors - Clean whites and neutral grays */
+  --bg-dark: #F8FAFC;
+  --bg-app: #F1F5F9;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F8FAFC;
+  --bg-sidebar: #FFFFFF;
+  --bg-elevated: #F1F5F9;
 
-  /* Text Colors - Light Theme */
-  --text-primary: #0f172a;
+  /* Border Colors - Neutral grays, no blue tint */
+  --border-color: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  --border-glow: rgba(37, 99, 235, 0.25);
+
+  /* Text Colors - High contrast for readability */
+  --text-primary: #1E293B;
   --text-secondary: #475569;
-  --text-muted: #64748b;
+  --text-muted: #64748B;
+  --text-on-primary: #FFFFFF;
 
-  /* Shadows - Light Theme (softer) */
+  /* Shadows - Subtle, neutral */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(69, 173, 255, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(69, 173, 255, 0.08);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(69, 173, 255, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 
-  /* Gradients - Light Theme */
-  --gradient-card: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  /* Gradients - White/Light gray, no blue */
+  --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFBFC 100%);
+  --gradient-primary: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
 
-  /* Additional Background Colors - Light Theme */
-  --bg-input: #ffffff;
-  --bg-table-header: rgba(69, 173, 255, 0.08);
-  --bg-table-row-hover: rgba(69, 173, 255, 0.05);
-  --bg-table-row-active: rgba(69, 173, 255, 0.1);
-  --bg-dropzone: rgba(69, 173, 255, 0.04);
-  --bg-dropzone-hover: rgba(69, 173, 255, 0.08);
-  --bg-dropzone-active: rgba(69, 173, 255, 0.12);
-  --bg-code: rgba(69, 173, 255, 0.05);
-  --bg-modal: #ffffff;
+  /* Additional Background Colors - Neutral, minimal blue */
+  --bg-input: #FFFFFF;
+  --bg-table-header: #F8FAFC;
+  --bg-table-row-hover: #F8FAFC;
+  --bg-table-row-active: #F1F5F9;
+  --bg-dropzone: #FAFBFC;
+  --bg-dropzone-hover: #F1F5F9;
+  --bg-dropzone-active: rgba(37, 99, 235, 0.08);
+  --bg-code: #F8FAFC;
+  --bg-modal: #FFFFFF;
 
-  /* Additional Border Colors - Light Theme */
-  --border-dropzone: rgba(69, 173, 255, 0.4);
-  --border-dropzone-hover: rgba(69, 173, 255, 0.6);
-  --border-dropzone-active: #45ADFF;
-  --border-input: #e2e8f0;
-  --border-input-focus: rgba(69, 173, 255, 0.5);
-  --border-table: rgba(69, 173, 255, 0.15);
-  --border-modal: #e2e8f0;
+  /* Additional Border Colors - Neutral */
+  --border-dropzone: #E2E8F0;
+  --border-dropzone-hover: #CBD5E1;
+  --border-dropzone-active: #2563EB;
+  --border-input: #E2E8F0;
+  --border-input-focus: #2563EB;
+  --border-table: #E2E8F0;
+  --border-modal: #E2E8F0;
 
-  /* Modal Backdrop - Light Theme */
-  --backdrop-color: rgba(0, 0, 0, 0.5);
+  /* Modal Backdrop - Lighter */
+  --backdrop-color: rgba(15, 23, 42, 0.4);
 
-  /* Select Option Background - Light Theme */
-  --bg-option: #ffffff;
+  /* Select Option Background */
+  --bg-option: #FFFFFF;
 
-  /* Scrollbar colors - Light Theme */
-  --scrollbar-track: #f1f5f9;
-  --scrollbar-thumb: var(--primary-color);
+  /* Scrollbar colors */
+  --scrollbar-track: #F1F5F9;
+  --scrollbar-thumb: #CBD5E1;
 }
 
 /* Keyframe Animations */
