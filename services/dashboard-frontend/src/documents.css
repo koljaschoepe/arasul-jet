@@ -60,7 +60,7 @@
 
 /* Upload Zone */
 .dm-upload-zone {
-  background: linear-gradient(135deg, var(--bg-dropzone) 0%, rgba(69, 173, 255, 0.02) 100%);
+  background: var(--bg-dropzone);
   border: 2px dashed var(--border-dropzone);
   border-radius: 12px;
   padding: 2rem;
@@ -72,12 +72,12 @@
 
 .dm-upload-zone:hover {
   border-color: var(--border-dropzone-hover);
-  background: linear-gradient(135deg, var(--bg-dropzone-hover) 0%, rgba(69, 173, 255, 0.04) 100%);
+  background: var(--bg-dropzone-hover);
 }
 
 .dm-upload-zone.drag-active {
   border-color: var(--border-dropzone-active);
-  background: linear-gradient(135deg, var(--bg-dropzone-active) 0%, rgba(69, 173, 255, 0.08) 100%);
+  background: var(--bg-dropzone-active);
   transform: scale(1.01);
 }
 
@@ -206,7 +206,7 @@
 
 .search-btn:hover:not(:disabled) {
   transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 12px var(--border-glow);
 }
 
 .search-btn:disabled {
@@ -435,7 +435,7 @@
 }
 
 .dm-table tr.clickable-row:active {
-  background: rgba(69, 173, 255, 0.12) !important;
+  background: var(--bg-table-row-active) !important;
 }
 
 .doc-info {
@@ -821,23 +821,25 @@
 }
 
 .modal-btn.secondary {
-  background: var(--primary-muted);
-  border: 1px solid rgba(69, 173, 255, 0.3);
-  color: var(--primary-color);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
 .modal-btn.secondary:hover {
-  background: rgba(69, 173, 255, 0.2);
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
 }
 
 .modal-btn.primary {
-  background: rgba(69, 173, 255, 0.15);
-  border: 1px solid rgba(69, 173, 255, 0.4);
-  color: var(--primary-color);
+  background: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  color: var(--text-on-primary);
 }
 
 .modal-btn.primary:hover {
-  background: rgba(69, 173, 255, 0.25);
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .modal-btn.danger {
@@ -872,12 +874,12 @@
 }
 
 .spaces-tabs-list::-webkit-scrollbar-track {
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--scrollbar-track);
   border-radius: 2px;
 }
 
 .spaces-tabs-list::-webkit-scrollbar-thumb {
-  background: rgba(69, 173, 255, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 2px;
 }
 
@@ -900,16 +902,16 @@
 }
 
 .space-tab:hover {
-  border-color: rgba(69, 173, 255, 0.35);
-  background: linear-gradient(135deg, var(--bg-dropzone-hover) 0%, rgba(69, 173, 255, 0.04) 100%);
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
   color: var(--text-primary);
 }
 
 .space-tab.active {
   border-color: var(--space-color, var(--primary-color));
-  background: linear-gradient(135deg, var(--bg-dropzone-active) 0%, rgba(69, 173, 255, 0.06) 100%);
+  background: var(--primary-muted);
   color: var(--text-primary);
-  box-shadow: 0 2px 8px rgba(69, 173, 255, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 
 .space-tab.add-space {
@@ -919,7 +921,7 @@
 
 .space-tab.add-space:hover {
   border-color: var(--primary-color);
-  background: linear-gradient(135deg, var(--primary-muted) 0%, rgba(69, 173, 255, 0.05) 100%);
+  background: var(--primary-muted);
 }
 
 .space-count {
@@ -954,8 +956,8 @@
 
 /* Space Info Box */
 .dm-space-info {
-  background: linear-gradient(135deg, var(--bg-dropzone) 0%, rgba(69, 173, 255, 0.02) 100%);
-  border: 1px solid var(--border-input);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
@@ -1122,4 +1124,130 @@
   .dm-modal {
     max-height: 95vh;
   }
+}
+
+/* ========================================
+   LIGHT MODE OVERRIDES
+   White backgrounds, visible borders, blue accents
+   ======================================== */
+
+[data-theme="light"] .dm-stat-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .dm-stat-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .dm-upload-zone {
+  background: #FFFFFF;
+  border: 2px dashed var(--border-color);
+}
+
+[data-theme="light"] .dm-upload-zone:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .dm-upload-zone.drag-active {
+  background: var(--primary-muted);
+  border-color: var(--primary-color);
+}
+
+[data-theme="light"] .dm-documents {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .dm-table th {
+  background: var(--bg-table-header);
+  border-bottom: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .dm-table td {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+[data-theme="light"] .dm-table tr:hover {
+  background: var(--bg-table-row-hover);
+}
+
+[data-theme="light"] .filter-group {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .filter-group:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-muted);
+}
+
+[data-theme="light"] .semantic-search-input {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .semantic-search-input:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-muted);
+}
+
+[data-theme="light"] .search-results {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .dm-modal {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-xl);
+}
+
+[data-theme="light"] .space-tab {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .space-tab:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .space-tab.active {
+  background: var(--primary-muted);
+  border-color: var(--primary-color);
+}
+
+[data-theme="light"] .dm-pagination button {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .dm-pagination button:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .status-badge {
+  border: 1px solid currentColor;
+}
+
+[data-theme="light"] .topic-tag {
+  background: var(--primary-muted);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+[data-theme="light"] .similar-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .summary-text {
+  background: var(--bg-elevated);
+  border-left: 3px solid var(--primary-color);
 }

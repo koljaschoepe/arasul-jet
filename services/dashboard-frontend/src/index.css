@@ -134,74 +134,76 @@ code {
 
 /* ========================================
    LIGHT THEME - Clean Minimal Design
-   Principle: White/Gray backgrounds, Blue ONLY for accents
+   Principle: White backgrounds, Black text, Blue accents only
+   Borders for visual separation on white
    ======================================== */
 [data-theme="light"] {
-  /* Primary Colors - Slightly darker blue for better contrast on white */
+  /* Primary Colors - Blue for accents only */
   --primary-color: #2563EB;
   --primary-hover: #1D4ED8;
   --primary-light: #3B82F6;
-  --primary-muted: rgba(37, 99, 235, 0.08);
+  --primary-muted: rgba(37, 99, 235, 0.1);
   --primary-active: #1E40AF;
 
-  /* Background Colors - Clean whites and neutral grays */
-  --bg-dark: #F8FAFC;
-  --bg-app: #F1F5F9;
+  /* Background Colors - Pure whites and neutral grays */
+  --bg-dark: #F9FAFB;
+  --bg-app: #F3F4F6;
   --bg-card: #FFFFFF;
-  --bg-card-hover: #F8FAFC;
+  --bg-card-hover: #FAFAFA;
   --bg-sidebar: #FFFFFF;
-  --bg-elevated: #F1F5F9;
+  --bg-elevated: #F3F4F6;
 
-  /* Border Colors - Neutral grays, no blue tint */
-  --border-color: #E2E8F0;
-  --border-subtle: #F1F5F9;
+  /* Border Colors - Visible grays for content separation */
+  --border-color: #E5E7EB;
+  --border-subtle: #F3F4F6;
+  --border-hover: #D1D5DB;
   --border-glow: rgba(37, 99, 235, 0.25);
 
-  /* Text Colors - High contrast for readability */
-  --text-primary: #1E293B;
-  --text-secondary: #475569;
-  --text-muted: #64748B;
+  /* Text Colors - High contrast black/dark gray */
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6B7280;
   --text-on-primary: #FFFFFF;
 
-  /* Shadows - Subtle, neutral */
+  /* Shadows - Subtle depth for cards */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
-  /* Gradients - White/Light gray, no blue */
-  --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFBFC 100%);
+  /* Gradients - Pure white, no tint */
+  --gradient-card: #FFFFFF;
   --gradient-primary: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
 
-  /* Additional Background Colors - Neutral, minimal blue */
+  /* Additional Background Colors - Neutral */
   --bg-input: #FFFFFF;
-  --bg-table-header: #F8FAFC;
-  --bg-table-row-hover: #F8FAFC;
-  --bg-table-row-active: #F1F5F9;
-  --bg-dropzone: #FAFBFC;
-  --bg-dropzone-hover: #F1F5F9;
-  --bg-dropzone-active: rgba(37, 99, 235, 0.08);
-  --bg-code: #F8FAFC;
+  --bg-table-header: #F9FAFB;
+  --bg-table-row-hover: #F9FAFB;
+  --bg-table-row-active: #F3F4F6;
+  --bg-dropzone: #FFFFFF;
+  --bg-dropzone-hover: #F9FAFB;
+  --bg-dropzone-active: rgba(37, 99, 235, 0.05);
+  --bg-code: #F9FAFB;
   --bg-modal: #FFFFFF;
 
-  /* Additional Border Colors - Neutral */
-  --border-dropzone: #E2E8F0;
-  --border-dropzone-hover: #CBD5E1;
+  /* Additional Border Colors - Visible */
+  --border-dropzone: #E5E7EB;
+  --border-dropzone-hover: #D1D5DB;
   --border-dropzone-active: #2563EB;
-  --border-input: #E2E8F0;
+  --border-input: #E5E7EB;
   --border-input-focus: #2563EB;
-  --border-table: #E2E8F0;
-  --border-modal: #E2E8F0;
+  --border-table: #E5E7EB;
+  --border-modal: #E5E7EB;
 
-  /* Modal Backdrop - Lighter */
-  --backdrop-color: rgba(15, 23, 42, 0.4);
+  /* Modal Backdrop */
+  --backdrop-color: rgba(17, 24, 39, 0.5);
 
   /* Select Option Background */
   --bg-option: #FFFFFF;
 
   /* Scrollbar colors */
-  --scrollbar-track: #F1F5F9;
-  --scrollbar-thumb: #CBD5E1;
+  --scrollbar-track: #F3F4F6;
+  --scrollbar-thumb: #D1D5DB;
 }
 
 /* Keyframe Animations */

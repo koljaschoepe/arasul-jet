@@ -210,7 +210,7 @@
 
 .app-card:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 0 25px rgba(69, 173, 255, 0.2);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
@@ -223,7 +223,7 @@
 .app-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, rgba(69, 173, 255, 0.2), rgba(69, 173, 255, 0.05));
+  background: var(--primary-muted);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -609,7 +609,7 @@
 .app-icon-large {
   width: 64px;
   height: 64px;
-  background: linear-gradient(135deg, rgba(69, 173, 255, 0.2), rgba(69, 173, 255, 0.05));
+  background: var(--primary-muted);
   border-radius: 16px;
   display: flex;
   align-items: center;
@@ -1319,4 +1319,184 @@
 
 .btn-icon svg {
   margin: 0;
+}
+
+/* ========================================
+   LIGHT MODE OVERRIDES
+   White backgrounds, visible borders, blue accents
+   ======================================== */
+
+[data-theme="light"] .app-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .app-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .app-icon {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .app-icon-large {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .appstore-search {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .appstore-search:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-muted);
+}
+
+[data-theme="light"] .category-btn {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .category-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .category-btn.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .badge-system {
+  background: var(--primary-muted);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+[data-theme="light"] .app-version {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .modal-content {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-xl);
+}
+
+[data-theme="light"] .modal-tabs {
+  border-bottom: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .tab {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .tab:hover {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .tab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+[data-theme="light"] .info-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .event-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .logs-content {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .n8n-section {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .credential-item {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .command-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .private-key-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .btn-primary {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+[data-theme="light"] .btn-success {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .btn-success:hover {
+  background: var(--primary-hover);
+}
+
+[data-theme="light"] .appstore-error {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .app-error {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .error-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .confirm-popup {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme="light"] .copy-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .copy-btn:hover {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .version {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .uninstall-dialog .modal-content {
+  background: #FFFFFF;
 }

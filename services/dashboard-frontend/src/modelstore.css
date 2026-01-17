@@ -72,8 +72,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: linear-gradient(135deg, rgba(69, 173, 255, 0.15), rgba(69, 173, 255, 0.05));
-    border: 1px solid rgba(69, 173, 255, 0.3);
+    background: var(--primary-muted);
+    border: 1px solid var(--primary-color);
     border-radius: 12px;
     padding: 1rem 1.5rem;
     margin-bottom: 1.5rem;
@@ -206,7 +206,7 @@
 
 .model-card.active {
     border-color: var(--primary-color);
-    background: linear-gradient(135deg, rgba(69, 173, 255, 0.1), rgba(69, 173, 255, 0.02));
+    background: var(--primary-muted);
 }
 
 .model-card.installed {
@@ -639,4 +639,135 @@ code.detail-value {
     .model-actions .btn-icon {
         flex: 1;
     }
+}
+
+/* ========================================
+   LIGHT MODE OVERRIDES
+   White backgrounds, visible borders, blue accents
+   ======================================== */
+
+[data-theme="light"] .model-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .model-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+[data-theme="light"] .model-card.active {
+    background: #FFFFFF;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-muted);
+}
+
+[data-theme="light"] .model-card.installed {
+    border-color: var(--border-color);
+    background: #FFFFFF;
+}
+
+[data-theme="light"] .loaded-model-banner {
+    background: #FFFFFF;
+    border: 1px solid var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-muted);
+}
+
+[data-theme="light"] .no-model-banner {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .model-icon {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .model-card.active .model-icon {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #FFFFFF;
+}
+
+[data-theme="light"] .badge-default,
+[data-theme="light"] .badge-loaded {
+    background: var(--primary-muted);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+[data-theme="light"] .badge-queue,
+[data-theme="light"] .badge-category {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .capability-tag {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .capability-tag.recommended {
+    background: var(--primary-muted);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+[data-theme="light"] .download-progress {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .progress-bar {
+    background: var(--border-color);
+}
+
+[data-theme="light"] .ram-usage {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="light"] .modal-content {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-xl);
+}
+
+[data-theme="light"] .model-actions .btn-primary {
+    background: var(--primary-color);
+    color: #FFFFFF;
+}
+
+[data-theme="light"] .model-actions .btn-primary:hover {
+    background: var(--primary-hover);
+}
+
+[data-theme="light"] .model-actions .btn-secondary {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+[data-theme="light"] .model-actions .btn-secondary:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-hover);
+}
+
+[data-theme="light"] .model-actions .btn-success {
+    background: var(--primary-color);
+    color: #FFFFFF;
+}
+
+[data-theme="light"] .model-actions .btn-active {
+    background: var(--primary-muted);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+[data-theme="light"] code.detail-value {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
 }
