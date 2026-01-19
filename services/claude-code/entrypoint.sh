@@ -96,6 +96,7 @@ echo "============================================"
 # Start ttyd with Claude Code
 # --writable allows input
 # --base-path for proper routing behind Traefik reverse proxy
+# -t enableWebLinks=true enables clickable URLs in terminal (xterm-addon-web-links)
 # No authentication - open access within the local network (protected by forward-auth in Traefik)
 # If using OAuth, explicitly unset the API key when starting claude using env -u
 if [ "$USE_OAUTH" = "true" ]; then
@@ -103,11 +104,13 @@ if [ "$USE_OAUTH" = "true" ]; then
         --port 7681 \
         --writable \
         --base-path /claude-terminal \
-        bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: \$(whoami)' && echo '---' && unset ANTHROPIC_API_KEY && claude"
+        -t enableWebLinks=true \
+        bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: \$(whoami)' && echo '' && echo 'TIP: URLs are clickable - Ctrl+Click to open OAuth links!' && echo '---' && unset ANTHROPIC_API_KEY && claude"
 else
     exec ttyd \
         --port 7681 \
         --writable \
         --base-path /claude-terminal \
-        bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: \$(whoami)' && echo '---' && claude"
+        -t enableWebLinks=true \
+        bash -c "cd '$WORKSPACE' && echo 'Claude Code Terminal - Workspace: $WORKSPACE' && echo 'User: \$(whoami)' && echo '' && echo 'TIP: URLs are clickable - Ctrl+Click to open OAuth links!' && echo '---' && claude"
 fi
