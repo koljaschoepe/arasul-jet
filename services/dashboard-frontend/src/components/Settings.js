@@ -10,13 +10,18 @@ import {
   FiSave,
   FiCheck,
   FiAlertCircle,
-  FiSun,
-  FiMoon
+  FiSend,
+  FiServer,
+  FiRefreshCw,
+  FiX,
+  FiAlertTriangle,
+  FiTerminal
 } from 'react-icons/fi';
-import { useTheme } from '../contexts/ThemeContext';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
 import PasswordManagement from './PasswordManagement';
+import TelegramSettings from './TelegramSettings';
+import ClaudeTerminal from './ClaudeTerminal';
 import '../settings.css';
 
 function Settings() {
@@ -28,12 +33,6 @@ function Settings() {
       label: 'General',
       icon: <FiInfo />,
       description: 'System information and configuration'
-    },
-    {
-      id: 'appearance',
-      label: 'Darstellung',
-      icon: <FiSun />,
-      description: 'Theme und Anzeige-Einstellungen'
     },
     {
       id: 'company-context',
@@ -54,6 +53,24 @@ function Settings() {
       description: 'View system recovery events'
     },
     {
+      id: 'services',
+      label: 'Services',
+      icon: <FiServer />,
+      description: 'Dienste verwalten und neustarten'
+    },
+    {
+      id: 'telegram',
+      label: 'Telegram',
+      icon: <FiSend />,
+      description: 'Bot-Benachrichtigungen konfigurieren'
+    },
+    {
+      id: 'claude-terminal',
+      label: 'Claude Terminal',
+      icon: <FiTerminal />,
+      description: 'Freie Textanfragen an das LLM'
+    },
+    {
       id: 'security',
       label: 'Security',
       icon: <FiLock />,
@@ -65,14 +82,18 @@ function Settings() {
     switch (activeSection) {
       case 'general':
         return <GeneralSettings />;
-      case 'appearance':
-        return <AppearanceSettings />;
       case 'company-context':
         return <CompanyContextSettings />;
       case 'updates':
         return <UpdatePage />;
       case 'selfhealing':
         return <SelfHealingEvents />;
+      case 'services':
+        return <ServicesSettings />;
+      case 'telegram':
+        return <TelegramSettings />;
+      case 'claude-terminal':
+        return <ClaudeTerminal />;
       case 'security':
         return <PasswordManagement />;
       default:
@@ -116,59 +137,6 @@ function Settings() {
       <div className="settings-content-area">
         <div className="settings-content-wrapper">
           {renderContent()}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Appearance Settings Component
-function AppearanceSettings() {
-  const { isDark, toggleTheme } = useTheme();
-
-  return (
-    <div className="settings-section">
-      <div className="settings-section-header">
-        <h1 className="settings-section-title">Darstellung</h1>
-        <p className="settings-section-description">Theme und Anzeige-Einstellungen anpassen</p>
-      </div>
-
-      <div className="settings-cards">
-        <div className="settings-card">
-          <div className="settings-card-header">
-            <h3 className="settings-card-title">Theme</h3>
-            <p className="settings-card-description">Wählen Sie zwischen hellem und dunklem Erscheinungsbild</p>
-          </div>
-          <div className="settings-card-body">
-            <div className="theme-selector">
-              <button
-                className={`theme-option ${!isDark ? 'theme-option-active' : ''}`}
-                onClick={() => isDark && toggleTheme()}
-              >
-                <div className="theme-option-icon">
-                  <FiSun />
-                </div>
-                <div className="theme-option-content">
-                  <span className="theme-option-label">Light Mode</span>
-                  <span className="theme-option-description">Helles Erscheinungsbild</span>
-                </div>
-                {!isDark && <FiCheck className="theme-option-check" />}
-              </button>
-              <button
-                className={`theme-option ${isDark ? 'theme-option-active' : ''}`}
-                onClick={() => !isDark && toggleTheme()}
-              >
-                <div className="theme-option-icon">
-                  <FiMoon />
-                </div>
-                <div className="theme-option-content">
-                  <span className="theme-option-label">Dark Mode</span>
-                  <span className="theme-option-description">Dunkles Erscheinungsbild</span>
-                </div>
-                {isDark && <FiCheck className="theme-option-check" />}
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -474,6 +442,261 @@ function GeneralSettings() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Services Settings Component
+function ServicesSettings() {
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [restartingService, setRestartingService] = useState(null);
+  const [confirmRestart, setConfirmRestart] = useState(null);
+  const [message, setMessage] = useState(null);
+
+  const fetchServices = useCallback(async () => {
+    try {
+      const response = await fetch('/api/services/all', {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setServices(data.services || []);
+      }
+    } catch (error) {
+      console.error('Error fetching services:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchServices();
+    // Refresh services every 10 seconds
+    const interval = setInterval(fetchServices, 10000);
+    return () => clearInterval(interval);
+  }, [fetchServices]);
+
+  const handleRestartClick = (service) => {
+    setConfirmRestart(service);
+    setMessage(null);
+  };
+
+  const handleConfirmRestart = async () => {
+    if (!confirmRestart) return;
+
+    const serviceName = confirmRestart.name;
+    setRestartingService(serviceName);
+    setConfirmRestart(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/services/restart/${serviceName}`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setMessage({
+          type: 'success',
+          text: `Service "${serviceName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`
+        });
+        // Refresh services list
+        setTimeout(fetchServices, 2000);
+      } else if (response.status === 429) {
+        setMessage({
+          type: 'error',
+          text: data.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten'
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          text: data.message || 'Fehler beim Neustart des Service'
+        });
+      }
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: 'Netzwerkfehler beim Neustart des Service'
+      });
+    } finally {
+      setRestartingService(null);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy':
+        return 'service-status-healthy';
+      case 'starting':
+      case 'restarting':
+        return 'service-status-warning';
+      case 'failed':
+      case 'exited':
+      case 'unhealthy':
+        return 'service-status-error';
+      default:
+        return 'service-status-unknown';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'healthy':
+        return 'Aktiv';
+      case 'starting':
+        return 'Startet...';
+      case 'restarting':
+        return 'Neustart...';
+      case 'failed':
+      case 'unhealthy':
+        return 'Fehler';
+      case 'exited':
+        return 'Beendet';
+      default:
+        return 'Unbekannt';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="settings-section">
+        <div className="settings-section-header">
+          <h1 className="settings-section-title">Services</h1>
+          <p className="settings-section-description">Lade Dienste...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="settings-section">
+      <div className="settings-section-header">
+        <h1 className="settings-section-title">Services</h1>
+        <p className="settings-section-description">
+          Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und Dienste bei Bedarf neustarten.
+        </p>
+      </div>
+
+      {message && (
+        <div className={`services-message ${message.type}`}>
+          {message.type === 'success' ? <FiCheck /> : <FiAlertCircle />}
+          <span>{message.text}</span>
+          <button className="services-message-close" onClick={() => setMessage(null)}>
+            <FiX />
+          </button>
+        </div>
+      )}
+
+      <div className="settings-cards">
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <h3 className="settings-card-title">
+              <FiServer style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              Platform Dienste
+            </h3>
+            <p className="settings-card-description">
+              Alle aktiven Dienste der Arasul Platform
+            </p>
+          </div>
+          <div className="settings-card-body">
+            <div className="services-list-settings">
+              {services.map((service) => (
+                <div key={service.id} className="service-item-settings">
+                  <div className="service-info-settings">
+                    <div className={`service-status-dot ${getStatusColor(service.status)}`} />
+                    <div className="service-details-settings">
+                      <span className="service-name-settings">{service.name}</span>
+                      <span className={`service-status-text ${getStatusColor(service.status)}`}>
+                        {getStatusLabel(service.status)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="service-actions-settings">
+                    {service.canRestart && (
+                      <button
+                        className={`service-restart-btn ${restartingService === service.name ? 'restarting' : ''}`}
+                        onClick={() => handleRestartClick(service)}
+                        disabled={restartingService === service.name}
+                        title={`${service.name} neustarten`}
+                      >
+                        <FiRefreshCw className={restartingService === service.name ? 'spinning' : ''} />
+                        <span>{restartingService === service.name ? 'Neustart...' : 'Neustart'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Warning Card */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <h3 className="settings-card-title">
+              <FiAlertTriangle style={{ marginRight: '0.5rem', verticalAlign: 'middle', color: 'var(--warning-color)' }} />
+              Hinweise
+            </h3>
+          </div>
+          <div className="settings-card-body">
+            <div className="settings-about-features">
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon" style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--warning-color)' }}>!</div>
+                <div className="settings-feature-text">
+                  <strong>Downtime beachten</strong>
+                  <span>Während des Neustarts ist der Dienst kurzzeitig nicht verfügbar</span>
+                </div>
+              </div>
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon" style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--warning-color)' }}>!</div>
+                <div className="settings-feature-text">
+                  <strong>Rate Limit</strong>
+                  <span>Jeder Dienst kann maximal einmal pro Minute neugestartet werden</span>
+                </div>
+              </div>
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon" style={{ background: 'rgba(69, 173, 255, 0.2)', color: 'var(--primary-color)' }}>i</div>
+                <div className="settings-feature-text">
+                  <strong>Audit-Log</strong>
+                  <span>Alle Neustarts werden im Self-Healing Event-Log protokolliert</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      {confirmRestart && (
+        <div className="modal-overlay" onClick={() => setConfirmRestart(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <FiAlertTriangle className="modal-warning-icon" />
+              <h3>Service neustarten?</h3>
+            </div>
+            <div className="modal-body">
+              <p>
+                Möchten Sie den Service <strong>{confirmRestart.name}</strong> wirklich neustarten?
+              </p>
+              <p className="modal-warning-text">
+                Der Dienst wird während des Neustarts kurzzeitig nicht verfügbar sein.
+              </p>
+            </div>
+            <div className="modal-actions">
+              <button className="modal-btn modal-btn-cancel" onClick={() => setConfirmRestart(null)}>
+                Abbrechen
+              </button>
+              <button className="modal-btn modal-btn-confirm" onClick={handleConfirmRestart}>
+                <FiRefreshCw />
+                Neustarten
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

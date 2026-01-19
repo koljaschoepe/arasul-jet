@@ -13,7 +13,6 @@ import ClaudeCode from './components/ClaudeCode';
 import TelegramBotApp from './components/TelegramBotApp';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
-import { ThemeProvider } from './contexts/ThemeContext';
 import './index.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
@@ -414,17 +413,16 @@ function App() {
   }
 
   return (
-    <ThemeProvider>
-      <ErrorBoundary>
-        <Router>
-          <div className="app">
-            <Sidebar
-              handleLogout={handleLogout}
-              systemStatus={systemStatus}
-              getStatusColor={getStatusColor}
-              collapsed={sidebarCollapsed}
-              onToggle={toggleSidebar}
-            />
+    <ErrorBoundary>
+      <Router>
+        <div className="app">
+          <Sidebar
+            handleLogout={handleLogout}
+            systemStatus={systemStatus}
+            getStatusColor={getStatusColor}
+            collapsed={sidebarCollapsed}
+            onToggle={toggleSidebar}
+          />
 
           <div className="container">
             <TopBar
@@ -466,7 +464,6 @@ function App() {
         </div>
       </Router>
     </ErrorBoundary>
-    </ThemeProvider>
   );
 }
 
