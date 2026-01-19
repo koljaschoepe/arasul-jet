@@ -292,9 +292,25 @@ function createLLMQueueService(deps = {}) {
                         await modelService.activateModel(requested_model, 'queue');
                         this.emit('model:switched', { model: requested_model });
                     } catch (switchError) {
+                        // Classify error for better UX
+                        let userMessage;
+                        const errMsg = switchError.message.toLowerCase();
+
+                        if (errMsg.includes('nicht gefunden') || errMsg.includes('not found')) {
+                            userMessage = `Modell "${requested_model}" nicht verfügbar. Bitte im Model Store erneut herunterladen.`;
+                        } else if (errMsg.includes('timeout') || errMsg.includes('econnrefused') || errMsg.includes('nicht erreichbar')) {
+                            userMessage = `LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.`;
+                        } else {
+                            userMessage = `Modell-Wechsel fehlgeschlagen: ${switchError.message}`;
+                        }
+
                         logger.error(`Failed to switch model: ${switchError.message}`);
-                        await llmJobService.errorJob(jobId, `Model switch failed: ${switchError.message}`);
-                        this.notifySubscribers(jobId, { error: `Model switch failed: ${switchError.message}`, done: true });
+                        await llmJobService.errorJob(jobId, userMessage);
+                        this.notifySubscribers(jobId, {
+                            error: userMessage,
+                            errorCode: 'MODEL_SWITCH_FAILED',
+                            done: true
+                        });
                         this.isProcessing = false;
                         this.processingJobId = null;
                         setImmediate(() => this.processNext());

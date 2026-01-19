@@ -766,10 +766,33 @@
   color: #45ADFF;
 }
 
+.model-option.unavailable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.model-option.unavailable:hover {
+  background: transparent;
+}
+
+.model-option.unavailable .model-option-name {
+  color: var(--text-muted);
+}
+
+.model-option.unavailable .model-option-desc {
+  color: #EF4444;
+}
+
+.model-warning-icon {
+  vertical-align: middle;
+}
+
 .model-option-name {
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
 }
 
 .model-option-desc {

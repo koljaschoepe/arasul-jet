@@ -325,6 +325,19 @@ function createModelService(deps = {}) {
             const startTime = Date.now();
 
             try {
+                // Validate model exists in Ollama before trying to load
+                const validation = await this.validateModelAvailability(modelId);
+                if (!validation.available) {
+                    // Update DB status to reflect reality
+                    await database.query(
+                        `UPDATE llm_installed_models
+                         SET status = 'error', error_message = $1
+                         WHERE id = $2`,
+                        [validation.error, modelId]
+                    );
+                    throw new Error(validation.error);
+                }
+
                 // Get currently loaded model
                 const currentLoaded = await this.getLoadedModel();
                 const fromModel = currentLoaded?.model_id;
@@ -460,6 +473,33 @@ function createModelService(deps = {}) {
                 [modelId, 'available']
             );
             return result.rows.length > 0;
+        }
+
+        /**
+         * Validate model exists in Ollama
+         * @param {string} modelId - Model to validate
+         * @returns {Promise<{available: boolean, error?: string}>}
+         */
+        async validateModelAvailability(modelId) {
+            try {
+                const response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 10000 });
+                const ollamaModels = (response.data.models || []).map(m => m.name);
+
+                if (ollamaModels.includes(modelId)) {
+                    return { available: true };
+                }
+
+                return {
+                    available: false,
+                    error: `Model "${modelId}" nicht in Ollama gefunden. Bitte im Model Store erneut herunterladen.`
+                };
+            } catch (err) {
+                logger.error(`Error validating model ${modelId}: ${err.message}`);
+                return {
+                    available: false,
+                    error: `Ollama nicht erreichbar: ${err.message}`
+                };
+            }
         }
 
         /**

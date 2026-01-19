@@ -694,6 +694,14 @@ function ChatMulti() {
               if (currentChatIdRef.current === targetChatId) {
                 setError(data.error);
               }
+              // Refresh models list if model switch failed (model might have been removed from Ollama)
+              if (data.errorCode === 'MODEL_SWITCH_FAILED') {
+                loadInstalledModels();
+                // Reset to default model if selected model is no longer available
+                if (selectedModel) {
+                  setSelectedModel('');
+                }
+              }
               break;
             }
 
@@ -940,6 +948,14 @@ function ChatMulti() {
               // Only show error if still on same chat
               if (currentChatIdRef.current === targetChatId) {
                 setError(data.error);
+              }
+              // Refresh models list if model switch failed (model might have been removed from Ollama)
+              if (data.errorCode === 'MODEL_SWITCH_FAILED') {
+                loadInstalledModels();
+                // Reset to default model if selected model is no longer available
+                if (selectedModel) {
+                  setSelectedModel('');
+                }
               }
               break;
             }
@@ -1384,16 +1400,30 @@ function ChatMulti() {
                     <span className="model-option-name">Standard</span>
                     <span className="model-option-desc">{defaultModel ? defaultModel.split(':')[0] : 'Automatisch'}</span>
                   </div>
-                  {installedModels.map(model => (
-                    <div
-                      key={model.id}
-                      className={`model-option ${selectedModel === model.id ? 'selected' : ''}`}
-                      onClick={() => { setSelectedModel(model.id); setShowModelDropdown(false); }}
-                    >
-                      <span className="model-option-name">{model.name}</span>
-                      <span className="model-option-desc">{model.category} • {model.ram_required_gb}GB RAM</span>
-                    </div>
-                  ))}
+                  {installedModels.map(model => {
+                    const isAvailable = model.install_status === 'available' || model.status === 'available';
+                    return (
+                      <div
+                        key={model.id}
+                        className={`model-option ${selectedModel === model.id ? 'selected' : ''} ${!isAvailable ? 'unavailable' : ''}`}
+                        onClick={() => {
+                          if (isAvailable) {
+                            setSelectedModel(model.id);
+                            setShowModelDropdown(false);
+                          }
+                        }}
+                        title={!isAvailable ? (model.install_error || 'Modell nicht verfügbar') : ''}
+                      >
+                        <span className="model-option-name">
+                          {model.name}
+                          {!isAvailable && <FiAlertCircle className="model-warning-icon" style={{ marginLeft: '6px', color: '#EF4444' }} />}
+                        </span>
+                        <span className="model-option-desc">
+                          {!isAvailable ? (model.install_error || 'Nicht verfügbar') : `${model.category} • ${model.ram_required_gb}GB RAM`}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
