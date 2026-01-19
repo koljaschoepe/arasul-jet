@@ -1,7 +1,7 @@
 /* ============================================
    Model Store Styles - Blue/Gray/White Theme
    LLM Model Management for Jetson AGX Orin
-   Uses global CSS variables from index.css for Light/Dark mode support
+   Uses global CSS variables from index.css (Dark mode only)
    ============================================ */
 
 .model-store {

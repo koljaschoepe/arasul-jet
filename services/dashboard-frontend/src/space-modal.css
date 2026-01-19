@@ -1,7 +1,7 @@
 /* ============================================
    Space Modal Styles
    Knowledge Spaces - RAG 2.0
-   Uses global CSS variables from index.css for Light/Dark mode support
+   Uses global CSS variables from index.css (Dark mode only)
    ============================================ */
 
 .space-modal-overlay {
