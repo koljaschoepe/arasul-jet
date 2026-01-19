@@ -50,7 +50,9 @@ function ModelStore() {
     const [downloading, setDownloading] = useState(null);
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [downloadStatus, setDownloadStatus] = useState('');
+    const [downloadPhase, setDownloadPhase] = useState('init'); // init, download, verify, complete
     const [activating, setActivating] = useState(null);
+    const [activatingProgress, setActivatingProgress] = useState(''); // Loading status text
     const [queueByModel, setQueueByModel] = useState([]);
     const [selectedModel, setSelectedModel] = useState(null);
 
@@ -110,11 +112,34 @@ function ModelStore() {
         return () => clearInterval(interval);
     }, [loadData]);
 
-    // Download model with SSE progress
+    // Helper: Interpret Ollama status messages and determine phase
+    const interpretDownloadStatus = (status) => {
+        if (!status) return { phase: 'init', label: 'Initialisiere...' };
+
+        const statusLower = status.toLowerCase();
+        if (statusLower.includes('pulling manifest')) {
+            return { phase: 'init', label: 'Lade Manifest...' };
+        } else if (statusLower.includes('pulling') || statusLower.includes('downloading')) {
+            return { phase: 'download', label: 'Download laeuft...' };
+        } else if (statusLower.includes('verifying')) {
+            return { phase: 'verify', label: 'Verifiziere Daten...' };
+        } else if (statusLower.includes('writing') || statusLower.includes('extracting')) {
+            return { phase: 'verify', label: 'Schreibe Daten...' };
+        } else if (statusLower.includes('success')) {
+            return { phase: 'complete', label: 'Abgeschlossen!' };
+        }
+        return { phase: 'download', label: status };
+    };
+
+    // Download model with SSE progress - improved version
     const handleDownload = async (modelId) => {
         setDownloading(modelId);
         setDownloadProgress(0);
+        setDownloadPhase('init');
         setDownloadStatus('Starte Download...');
+
+        let downloadComplete = false;
+        let lastProgressTime = Date.now();
 
         try {
             const token = localStorage.getItem('arasul_token');
@@ -126,6 +151,10 @@ function ModelStore() {
                 },
                 body: JSON.stringify({ model_id: modelId })
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -143,14 +172,29 @@ function ModelStore() {
                     if (line.startsWith('data: ')) {
                         try {
                             const data = JSON.parse(line.substring(6));
+                            lastProgressTime = Date.now();
+
+                            // Update progress percentage
                             if (data.progress !== undefined) {
                                 setDownloadProgress(data.progress);
                             }
+
+                            // Interpret status and update phase
                             if (data.status) {
-                                setDownloadStatus(data.status);
+                                const interpreted = interpretDownloadStatus(data.status);
+                                setDownloadPhase(interpreted.phase);
+                                setDownloadStatus(interpreted.label);
                             }
+
+                            // Handle completion
                             if (data.done) {
+                                downloadComplete = true;
                                 if (data.success) {
+                                    setDownloadPhase('complete');
+                                    setDownloadStatus('Abgeschlossen!');
+                                    setDownloadProgress(100);
+                                    // Give user time to see completion
+                                    await new Promise(resolve => setTimeout(resolve, 1500));
                                     await loadData();
                                 }
                                 if (data.error) {
@@ -158,24 +202,51 @@ function ModelStore() {
                                 }
                             }
                         } catch (e) {
-                            // Ignore parse errors
+                            // Ignore parse errors for incomplete JSON
+                            console.debug('SSE parse error (ignoring):', e.message);
                         }
                     }
                 }
             }
+
+            // Stream ended without explicit done signal - check if download completed
+            if (!downloadComplete) {
+                console.log('[ModelStore] Stream ended without done signal, reloading data...');
+                await loadData();
+            }
+
         } catch (err) {
             console.error('Download error:', err);
-            setError(err.message);
+            setError(`Download fehlgeschlagen: ${err.message}`);
         } finally {
+            // Only reset state after completion or error
             setDownloading(null);
             setDownloadProgress(0);
+            setDownloadPhase('init');
             setDownloadStatus('');
         }
     };
 
-    // Activate model
+    // Activate model - improved with progress feedback
     const handleActivate = async (modelId) => {
         setActivating(modelId);
+        setActivatingProgress('Initialisiere...');
+
+        // Start progress indicator
+        let progressInterval = setInterval(() => {
+            setActivatingProgress(prev => {
+                const messages = [
+                    'Modell wird geladen...',
+                    'Lade in GPU-Speicher...',
+                    'Initialisiere Gewichte...',
+                    'Fast fertig...'
+                ];
+                const currentIndex = messages.indexOf(prev);
+                const nextIndex = (currentIndex + 1) % messages.length;
+                return messages[nextIndex];
+            });
+        }, 3000);
+
         try {
             const response = await fetch(`${API_BASE}/models/${modelId}/activate`, {
                 method: 'POST',
@@ -185,12 +256,16 @@ function ModelStore() {
             if (!response.ok) {
                 throw new Error(result.error || 'Aktivierung fehlgeschlagen');
             }
+            setActivatingProgress('Erfolgreich aktiviert!');
+            await new Promise(resolve => setTimeout(resolve, 1000));
             await loadData();
         } catch (err) {
             console.error('Activation error:', err);
-            setError(err.message);
+            setError(`Aktivierung fehlgeschlagen: ${err.message}`);
         } finally {
+            clearInterval(progressInterval);
             setActivating(null);
+            setActivatingProgress('');
         }
     };
 
@@ -368,19 +443,25 @@ function ModelStore() {
                                 </div>
                             )}
 
-                            {/* Download Progress */}
+                            {/* Download Progress - Improved */}
                             {isDownloading && (
-                                <div className="download-progress" onClick={e => e.stopPropagation()}>
+                                <div className={`download-progress phase-${downloadPhase}`} onClick={e => e.stopPropagation()}>
+                                    <div className="progress-header">
+                                        <span className="progress-phase-label">
+                                            {downloadPhase === 'init' && 'Initialisiere'}
+                                            {downloadPhase === 'download' && 'Download'}
+                                            {downloadPhase === 'verify' && 'Verifiziere'}
+                                            {downloadPhase === 'complete' && 'Fertig'}
+                                        </span>
+                                        <span className="progress-percent">{downloadProgress}%</span>
+                                    </div>
                                     <div className="progress-bar">
                                         <div
-                                            className="progress-fill"
-                                            style={{ width: `${downloadProgress}%` }}
+                                            className={`progress-fill ${downloadPhase === 'verify' ? 'pulsing' : ''}`}
+                                            style={{ width: `${downloadPhase === 'verify' && downloadProgress < 100 ? 100 : downloadProgress}%` }}
                                         />
                                     </div>
-                                    <div className="progress-info">
-                                        <span className="progress-percent">{downloadProgress}%</span>
-                                        <span className="progress-status">{downloadStatus}</span>
-                                    </div>
+                                    <div className="progress-status">{downloadStatus}</div>
                                 </div>
                             )}
 
@@ -403,7 +484,7 @@ function ModelStore() {
                                             disabled={isActivating}
                                         >
                                             {isActivating ? (
-                                                <><FiRefreshCw className="spin" /> Lade...</>
+                                                <><FiRefreshCw className="spin" /> {activatingProgress || 'Lade...'}</>
                                             ) : (
                                                 <><FiPlay /> Aktivieren</>
                                             )}

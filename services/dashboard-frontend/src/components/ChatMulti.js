@@ -102,8 +102,9 @@ function ChatMulti() {
       const models = installedRes.data.models || [];
       setInstalledModels(models);
 
-      if (defaultRes.data.model) {
-        setDefaultModel(defaultRes.data.model.id);
+      // FIX: API returns { default_model: "model-id" }, not { model: { id: "..." } }
+      if (defaultRes.data.default_model) {
+        setDefaultModel(defaultRes.data.default_model);
       }
     } catch (err) {
       console.error('Error loading models:', err);

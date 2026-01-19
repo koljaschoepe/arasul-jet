@@ -344,6 +344,8 @@ function createModelService(deps = {}) {
 
                 // Load new model by making a minimal request
                 // This triggers Ollama to load the model into RAM
+                // Large models (30-70B) can take 10+ minutes on Jetson AGX Orin
+                logger.info(`Loading model ${modelId} into RAM (this may take several minutes)...`);
                 await axios.post(`${LLM_SERVICE_URL}/api/generate`, {
                     model: modelId,
                     prompt: 'hello',
@@ -353,7 +355,7 @@ function createModelService(deps = {}) {
                         num_predict: 1 // Minimal generation
                     }
                 }, {
-                    timeout: 300000 // 5 min timeout for loading large models
+                    timeout: 900000 // 15 min timeout for loading very large models (70B+)
                 });
 
                 const switchDuration = Date.now() - startTime;
