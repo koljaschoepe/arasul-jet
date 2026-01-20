@@ -18,6 +18,10 @@ const DEFAULT_MAX_WAIT_SECONDS = parseInt(process.env.MODEL_MAX_WAIT_SECONDS || 
 const BATCH_INTERVAL_MS = 500;
 const BATCH_SIZE_CHARS = 100;
 
+// Burst traffic handling configuration
+const BURST_WINDOW_MS = parseInt(process.env.LLM_BURST_WINDOW_MS || '1000'); // 1 second window
+const MAX_CONCURRENT_ENQUEUE = parseInt(process.env.LLM_MAX_CONCURRENT_ENQUEUE || '10'); // Max parallel enqueues
+
 /**
  * Factory function to create LLMQueueService with injected dependencies
  * @param {Object} deps - Dependencies
@@ -26,6 +30,7 @@ const BATCH_SIZE_CHARS = 100;
  * @param {Object} deps.llmJobService - LLM Job Service
  * @param {Object} deps.modelService - Model Service
  * @param {Object} deps.axios - Axios HTTP client
+ * @param {Object} deps.ollamaReadiness - Ollama Readiness Service (optional)
  * @returns {LLMQueueService} Service instance
  */
 function createLLMQueueService(deps = {}) {
@@ -34,7 +39,11 @@ function createLLMQueueService(deps = {}) {
         logger = require('../utils/logger'),
         llmJobService = require('./llmJobService'),
         modelService = require('./modelService'),
-        axios = require('axios')
+        axios = require('axios'),
+        // Lazy-load ollamaReadiness to avoid circular dependency
+        getOllamaReadiness = () => {
+            try { return require('./ollamaReadiness'); } catch (e) { return null; }
+        }
     } = deps;
 
     const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
@@ -145,6 +154,17 @@ function createLLMQueueService(deps = {}) {
 
             // Resolve model: explicit > default
             const resolvedModel = model || await modelService.getDefaultModel();
+
+            // Validate model is available
+            if (!resolvedModel) {
+                throw new Error('Kein LLM-Model verfügbar. Bitte laden Sie ein Model im Model Store herunter.');
+            }
+
+            // Check if model exists in Ollama
+            const isAvailable = await modelService.isModelAvailable(resolvedModel);
+            if (!isAvailable) {
+                throw new Error(`Model "${resolvedModel}" ist nicht in Ollama verfügbar. Bitte im Model Store synchronisieren oder erneut herunterladen.`);
+            }
 
             // Get next queue position
             const posResult = await database.query(`SELECT get_next_queue_position() as pos`);
@@ -327,6 +347,12 @@ function createLLMQueueService(deps = {}) {
                     [job.id]
                 );
 
+                // Track request start for smart unloading
+                const ollamaReadiness = getOllamaReadiness();
+                if (ollamaReadiness) {
+                    ollamaReadiness.trackRequestStart(job.id, requested_model || currentModel);
+                }
+
                 // Update queue positions for remaining jobs
                 await this.updateQueuePositions();
 
@@ -363,11 +389,30 @@ function createLLMQueueService(deps = {}) {
             const { messages, temperature, max_tokens, thinking } = requestData;
             const enableThinking = thinking !== false;
 
+            // Fetch company context for normal chat (same as RAG)
+            let companyContext = '';
+            try {
+                const contextResult = await database.query(
+                    `SELECT content FROM company_context WHERE id = 1`
+                );
+                if (contextResult.rows.length > 0 && contextResult.rows[0].content) {
+                    companyContext = contextResult.rows[0].content;
+                }
+            } catch (ctxErr) {
+                logger.warn(`Could not fetch company context: ${ctxErr.message}`);
+            }
+
+            // Build system prompt with company context
+            let systemPrompt = '';
+            if (companyContext) {
+                systemPrompt = `## Unternehmenskontext\n\n${companyContext}\n\nBitte beziehe diesen Kontext in deine Antworten ein, wenn relevant.`;
+            }
+
             // Build prompt
             const thinkingPrefix = enableThinking ? '' : '/no_think\n';
             const prompt = thinkingPrefix + messages.map(m => `${m.role}: ${m.content}`).join('\n');
 
-            await this.streamFromOllama(jobId, prompt, enableThinking, temperature, max_tokens, requested_model);
+            await this.streamFromOllama(jobId, prompt, enableThinking, temperature, max_tokens, requested_model, systemPrompt);
         }
 
         /**
@@ -397,10 +442,21 @@ ${context}`;
 
         /**
          * Stream from Ollama and persist to database
+         * @param {string} jobId - Job UUID
+         * @param {string} prompt - User prompt/messages
+         * @param {boolean} enableThinking - Whether thinking mode is enabled
+         * @param {number} temperature - Temperature setting
+         * @param {number} maxTokens - Max tokens to generate
+         * @param {string|null} model - Model to use (null = default)
+         * @param {string} systemPrompt - Optional system prompt (e.g., company context)
          */
-        async streamFromOllama(jobId, prompt, enableThinking, temperature, maxTokens, model = null) {
-            // Use specified model or fall back to default
-            const catalogModelId = model || process.env.LLM_MODEL || 'qwen3:14b-q8';
+        async streamFromOllama(jobId, prompt, enableThinking, temperature, maxTokens, model = null, systemPrompt = '') {
+            // Use specified model or resolve default (model should already be validated in enqueue)
+            const catalogModelId = model || await modelService.getDefaultModel();
+
+            if (!catalogModelId) {
+                throw new Error('Kein LLM-Model verfügbar. Bitte laden Sie ein Model im Model Store herunter.');
+            }
 
             // Resolve ollama_name from catalog (catalog ID -> Ollama registry name)
             let ollamaName = catalogModelId;
@@ -454,21 +510,29 @@ ${context}`;
                 const abortController = new AbortController();
                 llmJobService.registerStream(jobId, abortController);
 
-                logger.info(`[QUEUE] Starting Ollama stream for job ${jobId} with model ${catalogModelId} (Ollama: ${ollamaName})`);
+                logger.info(`[QUEUE] Starting Ollama stream for job ${jobId} with model ${catalogModelId} (Ollama: ${ollamaName})${systemPrompt ? ' [with system prompt]' : ''}`);
+
+                // Build Ollama payload
+                const ollamaPayload = {
+                    model: ollamaName,
+                    prompt: prompt,
+                    stream: true,
+                    keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),
+                    options: {
+                        temperature: temperature || 0.7,
+                        num_predict: maxTokens || 32768
+                    }
+                };
+
+                // Add system prompt if provided (for company context injection)
+                if (systemPrompt) {
+                    ollamaPayload.system = systemPrompt;
+                }
 
                 const response = await axios({
                     method: 'post',
                     url: `${LLM_SERVICE_URL}/api/generate`,
-                    data: {
-                        model: ollamaName,
-                        prompt: prompt,
-                        stream: true,
-                        keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),
-                        options: {
-                            temperature: temperature || 0.7,
-                            num_predict: maxTokens || 32768
-                        }
-                    },
+                    data: ollamaPayload,
                     responseType: 'stream',
                     timeout: 600000,
                     signal: abortController.signal
@@ -604,6 +668,12 @@ ${context}`;
                 this.isProcessing = false;
                 this.processingJobId = null;
 
+                // Track request end for smart unloading
+                const ollamaReadiness = getOllamaReadiness();
+                if (ollamaReadiness) {
+                    ollamaReadiness.trackRequestEnd(jobId);
+                }
+
                 // Clean up subscribers AND timestamps
                 this.jobSubscribers.delete(jobId);
                 this.jobSubscriberTimestamps.delete(jobId);
@@ -618,11 +688,13 @@ ${context}`;
 
         /**
          * Update queue positions after a job starts or completes
+         * Also broadcasts position updates to all waiting subscribers
          */
         async updateQueuePositions() {
-            await database.query(`
+            // Update positions and get affected jobs
+            const result = await database.query(`
                 WITH ranked AS (
-                    SELECT id, ROW_NUMBER() OVER (ORDER BY queued_at ASC) as new_pos
+                    SELECT id, ROW_NUMBER() OVER (ORDER BY priority DESC, queued_at ASC) as new_pos
                     FROM llm_jobs
                     WHERE status = 'pending'
                 )
@@ -630,7 +702,17 @@ ${context}`;
                 SET queue_position = r.new_pos
                 FROM ranked r
                 WHERE j.id = r.id
+                RETURNING j.id, r.new_pos as queue_position
             `);
+
+            // Broadcast position updates to all waiting jobs
+            for (const row of result.rows) {
+                this.notifySubscribers(row.id, {
+                    type: 'queue_position',
+                    queuePosition: row.queue_position,
+                    status: 'pending'
+                });
+            }
         }
 
         /**
@@ -639,7 +721,7 @@ ${context}`;
         async getQueueStatus() {
             const result = await database.query(`
                 SELECT j.id, j.conversation_id, j.job_type, j.status, j.queue_position,
-                       j.queued_at, j.started_at, c.title as chat_title
+                       j.queued_at, j.started_at, j.requested_model, c.title as chat_title
                 FROM llm_jobs j
                 JOIN chat_conversations c ON j.conversation_id = c.id
                 WHERE j.status IN ('pending', 'streaming')
@@ -651,10 +733,49 @@ ${context}`;
             const processing = result.rows.find(j => j.status === 'streaming') || null;
             const pending = result.rows.filter(j => j.status === 'pending');
 
+            // Group pending by model for batching insight
+            const pendingByModel = pending.reduce((acc, job) => {
+                const model = job.requested_model || 'default';
+                acc[model] = (acc[model] || 0) + 1;
+                return acc;
+            }, {});
+
             return {
                 queue: result.rows,
                 processing,
                 pending_count: pending.length,
+                pending_by_model: pendingByModel,
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        /**
+         * Get detailed queue metrics (for monitoring burst traffic)
+         */
+        async getQueueMetrics() {
+            const result = await database.query(`
+                SELECT
+                    COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+                    COUNT(*) FILTER (WHERE status = 'streaming') as streaming_count,
+                    COUNT(*) FILTER (WHERE status = 'completed' AND completed_at > NOW() - INTERVAL '1 minute') as completed_last_minute,
+                    COUNT(*) FILTER (WHERE status = 'error' AND completed_at > NOW() - INTERVAL '1 minute') as errors_last_minute,
+                    AVG(EXTRACT(EPOCH FROM (started_at - queued_at)))::INTEGER FILTER (WHERE started_at IS NOT NULL AND queued_at IS NOT NULL) as avg_wait_seconds,
+                    MAX(queue_position) FILTER (WHERE status = 'pending') as max_queue_position
+                FROM llm_jobs
+                WHERE queued_at > NOW() - INTERVAL '1 hour'
+            `);
+
+            const metrics = result.rows[0] || {};
+
+            return {
+                pending: parseInt(metrics.pending_count) || 0,
+                streaming: parseInt(metrics.streaming_count) || 0,
+                completed_per_minute: parseInt(metrics.completed_last_minute) || 0,
+                errors_per_minute: parseInt(metrics.errors_last_minute) || 0,
+                avg_wait_seconds: parseInt(metrics.avg_wait_seconds) || 0,
+                queue_depth: parseInt(metrics.max_queue_position) || 0,
+                is_processing: this.isProcessing,
+                subscriber_count: this._getSubscriberCount(),
                 timestamp: new Date().toISOString()
             };
         }

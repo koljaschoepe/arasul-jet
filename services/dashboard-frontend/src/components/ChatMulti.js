@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import {
   FiAlertCircle, FiChevronDown, FiChevronUp, FiPlus, FiX, FiArrowDown,
   FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp, FiBox,
-  FiFolder, FiCheck, FiDownload
+  FiFolder, FiCheck, FiDownload, FiStar
 } from 'react-icons/fi';
 import '../chatmulti.css';
 
@@ -29,6 +29,7 @@ function ChatMulti() {
   const [selectedModel, setSelectedModel] = useState(''); // '' = default
   const [installedModels, setInstalledModels] = useState([]);
   const [defaultModel, setDefaultModel] = useState('');
+  const [loadedModel, setLoadedModel] = useState(null); // Currently loaded in RAM
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const modelDropdownRef = useRef(null);
 
@@ -94,21 +95,38 @@ function ChatMulti() {
   // Load installed models from API
   const loadInstalledModels = async () => {
     try {
-      const [installedRes, defaultRes] = await Promise.all([
+      const [installedRes, defaultRes, loadedRes] = await Promise.all([
         axios.get(`${API_BASE}/models/installed`),
-        axios.get(`${API_BASE}/models/default`)
+        axios.get(`${API_BASE}/models/default`),
+        axios.get(`${API_BASE}/models/loaded`).catch(() => ({ data: null }))
       ]);
 
       const models = installedRes.data.models || [];
       setInstalledModels(models);
 
-      // FIX: API returns { default_model: "model-id" }, not { model: { id: "..." } }
+      // API returns { default_model: "model-id" }
       if (defaultRes.data.default_model) {
         setDefaultModel(defaultRes.data.default_model);
+      }
+
+      // Track currently loaded model in RAM
+      if (loadedRes.data?.model_id) {
+        setLoadedModel(loadedRes.data.model_id);
       }
     } catch (err) {
       console.error('Error loading models:', err);
       // Non-blocking error - models will just show default
+    }
+  };
+
+  // Set a model as the new default
+  const setModelAsDefault = async (modelId) => {
+    try {
+      await axios.post(`${API_BASE}/models/default`, { model_id: modelId });
+      setDefaultModel(modelId);
+      // If "Standard" was selected, keep it as default but update the actual default model
+    } catch (err) {
+      console.error('Error setting default model:', err);
     }
   };
 
@@ -630,7 +648,8 @@ function ChatMulti() {
         query: userMessage,
         top_k: 5,
         thinking: useThinking,
-        conversation_id: targetChatId  // Required for job-based streaming
+        conversation_id: targetChatId,  // Required for job-based streaming
+        model: selectedModel || undefined  // Pass selected model for RAG queries
       };
 
       // If specific spaces are selected, include them; otherwise auto-routing is used
@@ -1397,11 +1416,21 @@ function ChatMulti() {
                     className={`model-option ${!selectedModel ? 'selected' : ''}`}
                     onClick={() => { setSelectedModel(''); setShowModelDropdown(false); }}
                   >
-                    <span className="model-option-name">Standard</span>
+                    <span className="model-option-name">
+                      <FiStar style={{ color: '#45ADFF', marginRight: '4px' }} />
+                      Standard
+                    </span>
                     <span className="model-option-desc">{defaultModel ? defaultModel.split(':')[0] : 'Automatisch'}</span>
                   </div>
                   {installedModels.map(model => {
                     const isAvailable = model.install_status === 'available' || model.status === 'available';
+                    const isDefault = model.id === defaultModel;
+                    // Check if this model is currently loaded in RAM (compare by ollama_name or id)
+                    const isLoaded = loadedModel && (
+                      model.effective_ollama_name === loadedModel ||
+                      model.id === loadedModel ||
+                      loadedModel.startsWith(model.id.split(':')[0])
+                    );
                     return (
                       <div
                         key={model.id}
@@ -1415,11 +1444,30 @@ function ChatMulti() {
                         title={!isAvailable ? (model.install_error || 'Modell nicht verfügbar') : ''}
                       >
                         <span className="model-option-name">
+                          {isDefault && <FiStar style={{ color: '#45ADFF', marginRight: '4px' }} />}
                           {model.name}
+                          {isLoaded && <FiCpu style={{ marginLeft: '6px', color: '#22C55E' }} title="Im RAM geladen" />}
                           {!isAvailable && <FiAlertCircle className="model-warning-icon" style={{ marginLeft: '6px', color: '#EF4444' }} />}
                         </span>
                         <span className="model-option-desc">
-                          {!isAvailable ? (model.install_error || 'Nicht verfügbar') : `${model.category} • ${model.ram_required_gb}GB RAM`}
+                          {!isAvailable ? (model.install_error || 'Nicht verfügbar') : (
+                            <>
+                              {`${model.category} • ${model.ram_required_gb}GB RAM`}
+                              {isLoaded && <span style={{ color: '#22C55E', marginLeft: '8px' }}>• Aktiv</span>}
+                              {!isDefault && isAvailable && (
+                                <button
+                                  className="set-default-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setModelAsDefault(model.id);
+                                  }}
+                                  title="Als Standard setzen"
+                                >
+                                  <FiStar /> Standard
+                                </button>
+                              )}
+                            </>
+                          )}
                         </span>
                       </div>
                     );

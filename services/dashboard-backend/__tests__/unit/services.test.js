@@ -378,11 +378,19 @@ describe('ModelService', () => {
         });
 
         test('fällt auf env-Variable zurück wenn kein Default', async () => {
+            // 1. No default in DB
+            mockDb.query.mockResolvedValueOnce({ rows: [] });
+            // 2. getLoadedModel() makes axios call - no model loaded
+            mockAxios.get.mockResolvedValueOnce({ data: { models: [] } });
+            // 3. No match for loaded model in DB (not called since no loaded model)
+            // 4. No installed models
             mockDb.query.mockResolvedValueOnce({ rows: [] });
 
             const defaultModel = await service.getDefaultModel();
 
-            expect(defaultModel).toBeDefined();
+            // Falls back to env variable or returns null if not set
+            // In test env, env var is not set so will be null
+            expect(defaultModel === null || typeof defaultModel === 'string').toBe(true);
         });
     });
 

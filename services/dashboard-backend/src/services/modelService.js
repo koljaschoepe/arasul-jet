@@ -213,6 +213,18 @@ function createModelService(deps = {}) {
                                         WHERE id = $1
                                     `, [modelId]);
                                     logger.info(`Model ${modelId} downloaded successfully`);
+
+                                    // Auto-set as default if no default exists yet
+                                    const hasDefault = await database.query(
+                                        'SELECT id FROM llm_installed_models WHERE is_default = true'
+                                    );
+                                    if (hasDefault.rows.length === 0) {
+                                        await database.query(
+                                            'UPDATE llm_installed_models SET is_default = true WHERE id = $1',
+                                            [modelId]
+                                        );
+                                        logger.info(`Auto-set ${modelId} as default model (first model downloaded)`);
+                                    }
                                 }
                             } catch (parseError) {
                                 // Ignore JSON parse errors for partial lines
@@ -233,6 +245,18 @@ function createModelService(deps = {}) {
                                 SET status = 'available', download_progress = 100, downloaded_at = NOW()
                                 WHERE id = $1
                             `, [modelId]);
+
+                            // Auto-set as default if no default exists yet
+                            const hasDefault = await database.query(
+                                'SELECT id FROM llm_installed_models WHERE is_default = true'
+                            );
+                            if (hasDefault.rows.length === 0) {
+                                await database.query(
+                                    'UPDATE llm_installed_models SET is_default = true WHERE id = $1',
+                                    [modelId]
+                                );
+                                logger.info(`Auto-set ${modelId} as default model (first model downloaded)`);
+                            }
                         }
                         resolve({ success: true, modelId });
                     });
@@ -329,16 +353,54 @@ function createModelService(deps = {}) {
 
         /**
          * Get default model ID
+         * Priority: 1. DB default -> 2. Loaded model -> 3. Any installed -> 4. ENV -> 5. null
          */
         async getDefaultModel() {
-            const result = await database.query(
+            // 1. Check for explicitly set default in DB
+            const defaultResult = await database.query(
                 'SELECT id FROM llm_installed_models WHERE is_default = true LIMIT 1'
             );
-            if (result.rows.length > 0) {
-                return result.rows[0].id;
+            if (defaultResult.rows.length > 0) {
+                return defaultResult.rows[0].id;
             }
-            // Fallback to env variable
-            return process.env.LLM_MODEL || 'qwen3:14b-q8';
+
+            // 2. Check currently loaded model in Ollama
+            const loadedModel = await this.getLoadedModel();
+            if (loadedModel?.model_id) {
+                // Validate it exists in our DB (match by ollama_name or id)
+                const existsResult = await database.query(
+                    `SELECT i.id FROM llm_installed_models i
+                     JOIN llm_model_catalog c ON i.id = c.id
+                     WHERE COALESCE(c.ollama_name, c.id) = $1 AND i.status = 'available'`,
+                    [loadedModel.model_id]
+                );
+                if (existsResult.rows.length > 0) {
+                    logger.debug(`Using currently loaded model as default: ${existsResult.rows[0].id}`);
+                    return existsResult.rows[0].id;
+                }
+            }
+
+            // 3. Use most recently downloaded available model
+            const anyModelResult = await database.query(
+                `SELECT id FROM llm_installed_models
+                 WHERE status = 'available'
+                 ORDER BY downloaded_at DESC NULLS LAST
+                 LIMIT 1`
+            );
+            if (anyModelResult.rows.length > 0) {
+                logger.debug(`Using most recent installed model as default: ${anyModelResult.rows[0].id}`);
+                return anyModelResult.rows[0].id;
+            }
+
+            // 4. Fallback to environment variable
+            if (process.env.LLM_MODEL) {
+                logger.debug(`Using LLM_MODEL env variable as default: ${process.env.LLM_MODEL}`);
+                return process.env.LLM_MODEL;
+            }
+
+            // 5. No model available - return null (let caller handle the error)
+            logger.warn('No default model available - no models installed');
+            return null;
         }
 
         /**
@@ -526,6 +588,16 @@ function createModelService(deps = {}) {
         }
 
         /**
+         * Quick check if model is available in Ollama (for queue validation)
+         * @param {string} modelId - Model ID (catalog ID or ollama name)
+         * @returns {Promise<boolean>}
+         */
+        async isModelAvailable(modelId) {
+            const validation = await this.validateModelAvailability(modelId);
+            return validation.available;
+        }
+
+        /**
          * Validate model exists in Ollama
          * @param {string} modelId - Model ID from catalog
          * @returns {Promise<{available: boolean, error?: string}>}
@@ -565,15 +637,16 @@ function createModelService(deps = {}) {
          * Sync installed models with Ollama
          * Updates database based on what's actually in Ollama
          * Matches by ollama_name field to handle ID mapping
+         * Also cleans up stale downloads that were interrupted
          */
         async syncWithOllama() {
             try {
                 const response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 10000 });
                 const ollamaModels = (response.data.models || []).map(m => m.name);
 
-                logger.debug(`Ollama has ${ollamaModels.length} models installed`);
+                logger.info(`[SYNC] Ollama has ${ollamaModels.length} models: ${ollamaModels.join(', ') || 'none'}`);
 
-                // For each Ollama model, find matching catalog entry by ollama_name or id
+                // 1. For each Ollama model, find matching catalog entry and mark as available
                 for (const ollamaModelName of ollamaModels) {
                     const catalogResult = await database.query(
                         `SELECT id FROM llm_model_catalog
@@ -588,36 +661,56 @@ function createModelService(deps = {}) {
                             VALUES ($1, 'available', 100, NOW())
                             ON CONFLICT (id) DO UPDATE SET
                                 status = 'available',
-                                download_progress = 100
-                            WHERE llm_installed_models.status != 'available'
+                                download_progress = 100,
+                                error_message = NULL
                         `, [catalogId]);
+                        logger.debug(`[SYNC] Model ${catalogId} marked as available`);
                     }
                 }
 
-                // Mark models as error if their ollama_name is not in Ollama but marked as available
-                // Get all catalog models with their effective ollama names
+                // 2. Mark models as error if marked available in DB but not in Ollama
                 const catalogWithOllama = await database.query(`
-                    SELECT id, COALESCE(ollama_name, id) as effective_ollama_name
-                    FROM llm_model_catalog
+                    SELECT c.id, COALESCE(c.ollama_name, c.id) as effective_ollama_name
+                    FROM llm_model_catalog c
+                    JOIN llm_installed_models i ON c.id = i.id
+                    WHERE i.status = 'available'
                 `);
 
-                // Find catalog IDs where ollama_name is NOT in Ollama's list
                 const missingIds = catalogWithOllama.rows
                     .filter(row => !ollamaModels.includes(row.effective_ollama_name))
                     .map(row => row.id);
 
                 if (missingIds.length > 0) {
+                    logger.warn(`[SYNC] Models missing from Ollama: ${missingIds.join(', ')}`);
                     await database.query(`
                         UPDATE llm_installed_models
-                        SET status = 'error', error_message = 'Model not found in Ollama'
+                        SET status = 'error',
+                            error_message = 'Modell nicht in Ollama gefunden - bitte erneut herunterladen'
                         WHERE status = 'available'
                         AND id = ANY($1::text[])
                     `, [missingIds]);
                 }
 
-                return { success: true, ollamaModels };
+                // 3. Clean up stale downloads (stuck in 'downloading' for > 1 hour)
+                const staleResult = await database.query(`
+                    UPDATE llm_installed_models
+                    SET status = 'error',
+                        error_message = 'Download abgebrochen - bitte erneut versuchen'
+                    WHERE status = 'downloading'
+                    AND (
+                        downloaded_at IS NULL
+                        OR downloaded_at < NOW() - INTERVAL '1 hour'
+                    )
+                    RETURNING id
+                `);
+
+                if (staleResult.rows.length > 0) {
+                    logger.warn(`[SYNC] Cleaned up ${staleResult.rows.length} stale downloads: ${staleResult.rows.map(r => r.id).join(', ')}`);
+                }
+
+                return { success: true, ollamaModels, cleanedUp: staleResult.rows.length };
             } catch (err) {
-                logger.error(`Error syncing with Ollama: ${err.message}`);
+                logger.error(`[SYNC] Error syncing with Ollama: ${err.message}`);
                 return { success: false, error: err.message };
             }
         }
