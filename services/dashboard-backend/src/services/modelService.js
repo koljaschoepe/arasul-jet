@@ -47,6 +47,7 @@ function createModelService(deps = {}) {
             const result = await database.query(`
                 SELECT
                     c.*,
+                    COALESCE(c.ollama_name, c.id) as effective_ollama_name,
                     i.status as install_status,
                     i.download_progress,
                     i.is_default,
@@ -74,7 +75,8 @@ function createModelService(deps = {}) {
                     c.category,
                     c.capabilities,
                     c.recommended_for,
-                    c.performance_tier
+                    c.performance_tier,
+                    COALESCE(c.ollama_name, c.id) as effective_ollama_name
                 FROM llm_installed_models i
                 JOIN llm_model_catalog c ON i.id = c.id
                 WHERE i.status = 'available'
@@ -114,14 +116,18 @@ function createModelService(deps = {}) {
          * @param {function} progressCallback - Callback for progress updates (progress, status)
          */
         async downloadModel(modelId, progressCallback = null) {
-            // Verify model is in catalog
+            // Verify model is in catalog and get ollama_name
             const catalogResult = await database.query(
-                'SELECT * FROM llm_model_catalog WHERE id = $1',
+                `SELECT *, COALESCE(ollama_name, id) as effective_ollama_name
+                 FROM llm_model_catalog WHERE id = $1`,
                 [modelId]
             );
             if (catalogResult.rows.length === 0) {
                 throw new Error(`Model ${modelId} not found in catalog`);
             }
+
+            // Use effective_ollama_name for Ollama API calls
+            const ollamaName = catalogResult.rows[0].effective_ollama_name;
 
             // Create or update installed model record
             await database.query(`
@@ -133,14 +139,14 @@ function createModelService(deps = {}) {
                     error_message = NULL
             `, [modelId]);
 
-            logger.info(`Starting download of model ${modelId}`);
+            logger.info(`Starting download of model ${modelId} (Ollama: ${ollamaName})`);
 
             try {
-                // Start pull with streaming
+                // Start pull with streaming - use ollamaName for the API call
                 const response = await axios({
                     method: 'post',
                     url: `${LLM_SERVICE_URL}/api/pull`,
-                    data: { name: modelId, stream: true },
+                    data: { name: ollamaName, stream: true },
                     responseType: 'stream',
                     timeout: 3600000 // 1 hour for large models
                 });
@@ -158,27 +164,41 @@ function createModelService(deps = {}) {
                             if (!line.trim()) continue;
                             try {
                                 const data = JSON.parse(line);
+                                let progress = lastProgress;
 
-                                // Calculate progress
-                                if (data.total && data.completed) {
-                                    const progress = Math.round((data.completed / data.total) * 100);
-                                    if (progress !== lastProgress) {
-                                        lastProgress = progress;
-                                        await database.query(
-                                            'UPDATE llm_installed_models SET download_progress = $1 WHERE id = $2',
-                                            [progress, modelId]
-                                        );
-                                        if (progressCallback) {
-                                            progressCallback(progress, data.status || 'downloading');
-                                        }
+                                // Improved progress calculation based on status
+                                if (data.status) {
+                                    const statusLower = data.status.toLowerCase();
+
+                                    if (statusLower.includes('pulling manifest')) {
+                                        // Manifest phase: 1%
+                                        progress = 1;
+                                    } else if (data.total && data.completed) {
+                                        // Download phase: 2% to 95%
+                                        progress = 2 + Math.round((data.completed / data.total) * 93);
+                                    } else if (statusLower.includes('verifying')) {
+                                        // Verifying phase: 96%
+                                        progress = 96;
+                                    } else if (statusLower.includes('writing')) {
+                                        // Writing phase: 98%
+                                        progress = 98;
+                                    } else if (statusLower.includes('success')) {
+                                        // Success: 100%
+                                        progress = 100;
                                     }
+
+                                    logger.debug(`Model ${modelId} download status: ${data.status} (${progress}%)`);
                                 }
 
-                                // Handle status updates
-                                if (data.status) {
-                                    logger.debug(`Model ${modelId} download status: ${data.status}`);
+                                // Update progress if changed
+                                if (progress !== lastProgress) {
+                                    lastProgress = progress;
+                                    await database.query(
+                                        'UPDATE llm_installed_models SET download_progress = $1 WHERE id = $2',
+                                        [progress, modelId]
+                                    );
                                     if (progressCallback) {
-                                        progressCallback(lastProgress, data.status);
+                                        progressCallback(progress, data.status || 'downloading');
                                     }
                                 }
 
@@ -228,12 +248,26 @@ function createModelService(deps = {}) {
                 });
 
             } catch (err) {
-                logger.error(`Model ${modelId} download failed: ${err.message}`);
+                logger.error(`Model ${modelId} (Ollama: ${ollamaName}) download failed: ${err.message}`);
+
+                // User-friendly error messages based on error type
+                let errorMessage = err.message;
+
+                if (err.response?.data?.error?.includes('not found')) {
+                    errorMessage = `Model "${ollamaName}" nicht in Ollama Registry gefunden. Bitte Modell-Konfiguration prüfen.`;
+                } else if (err.code === 'ECONNREFUSED') {
+                    errorMessage = 'LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.';
+                } else if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+                    errorMessage = 'Download-Timeout. Bitte erneut versuchen.';
+                } else if (err.message.includes('ENOSPC')) {
+                    errorMessage = 'Nicht genügend Speicherplatz für den Download.';
+                }
+
                 await database.query(
                     'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
-                    ['error', err.message, modelId]
+                    ['error', errorMessage, modelId]
                 );
-                throw err;
+                throw new Error(errorMessage);
             }
         }
 
@@ -241,17 +275,25 @@ function createModelService(deps = {}) {
          * Delete a model
          */
         async deleteModel(modelId) {
+            // Get ollama_name from catalog
+            const catalogResult = await database.query(
+                `SELECT COALESCE(ollama_name, id) as effective_ollama_name
+                 FROM llm_model_catalog WHERE id = $1`,
+                [modelId]
+            );
+            const ollamaName = catalogResult.rows[0]?.effective_ollama_name || modelId;
+
             // Check if it's the currently loaded model
             const loaded = await this.getLoadedModel();
-            if (loaded && loaded.model_id === modelId) {
+            if (loaded && loaded.model_id === ollamaName) {
                 // Unload first
-                await this.unloadModel(modelId);
+                await this.unloadModel(ollamaName);
             }
 
             try {
-                // Delete from Ollama
+                // Delete from Ollama using ollamaName
                 await axios.delete(`${LLM_SERVICE_URL}/api/delete`, {
-                    data: { name: modelId },
+                    data: { name: ollamaName },
                     timeout: 30000
                 });
             } catch (err) {
@@ -264,7 +306,7 @@ function createModelService(deps = {}) {
             // Remove from installed models
             await database.query('DELETE FROM llm_installed_models WHERE id = $1', [modelId]);
 
-            logger.info(`Model ${modelId} deleted`);
+            logger.info(`Model ${modelId} (Ollama: ${ollamaName}) deleted`);
             return { success: true, modelId };
         }
 
@@ -301,7 +343,7 @@ function createModelService(deps = {}) {
 
         /**
          * Activate/Load a model into RAM
-         * @param {string} modelId - Model to load
+         * @param {string} modelId - Model to load (catalog ID)
          * @param {string} triggeredBy - Who triggered the switch ('user', 'queue', 'workflow')
          */
         async activateModel(modelId, triggeredBy = 'user') {
@@ -325,6 +367,14 @@ function createModelService(deps = {}) {
             const startTime = Date.now();
 
             try {
+                // Get ollama_name from catalog for API calls
+                const catalogResult = await database.query(
+                    `SELECT COALESCE(ollama_name, id) as effective_ollama_name
+                     FROM llm_model_catalog WHERE id = $1`,
+                    [modelId]
+                );
+                const ollamaName = catalogResult.rows[0]?.effective_ollama_name || modelId;
+
                 // Validate model exists in Ollama before trying to load
                 const validation = await this.validateModelAvailability(modelId);
                 if (!validation.available) {
@@ -338,29 +388,29 @@ function createModelService(deps = {}) {
                     throw new Error(validation.error);
                 }
 
-                // Get currently loaded model
+                // Get currently loaded model (returns Ollama name, not catalog ID)
                 const currentLoaded = await this.getLoadedModel();
                 const fromModel = currentLoaded?.model_id;
 
-                // If same model is already loaded, just return
-                if (fromModel === modelId) {
-                    logger.debug(`Model ${modelId} already loaded`);
+                // Compare using ollamaName since getLoadedModel returns Ollama names
+                if (fromModel === ollamaName) {
+                    logger.debug(`Model ${modelId} (Ollama: ${ollamaName}) already loaded`);
                     return { success: true, alreadyLoaded: true, model: modelId };
                 }
 
-                logger.info(`Switching model: ${fromModel || 'none'} -> ${modelId}`);
+                logger.info(`Switching model: ${fromModel || 'none'} -> ${modelId} (Ollama: ${ollamaName})`);
 
                 // Unload current model if different
                 if (fromModel) {
                     await this.unloadModel(fromModel);
                 }
 
-                // Load new model by making a minimal request
+                // Load new model by making a minimal request using ollamaName
                 // This triggers Ollama to load the model into RAM
                 // Large models (30-70B) can take 10+ minutes on Jetson AGX Orin
-                logger.info(`Loading model ${modelId} into RAM (this may take several minutes)...`);
+                logger.info(`Loading model ${modelId} (Ollama: ${ollamaName}) into RAM (this may take several minutes)...`);
                 await axios.post(`${LLM_SERVICE_URL}/api/generate`, {
-                    model: modelId,
+                    model: ollamaName,
                     prompt: 'hello',
                     stream: false,
                     keep_alive: DEFAULT_KEEP_ALIVE,
@@ -477,15 +527,24 @@ function createModelService(deps = {}) {
 
         /**
          * Validate model exists in Ollama
-         * @param {string} modelId - Model to validate
+         * @param {string} modelId - Model ID from catalog
          * @returns {Promise<{available: boolean, error?: string}>}
          */
         async validateModelAvailability(modelId) {
             try {
+                // Get ollama_name from catalog
+                const catalogResult = await database.query(
+                    `SELECT COALESCE(ollama_name, id) as effective_ollama_name
+                     FROM llm_model_catalog WHERE id = $1`,
+                    [modelId]
+                );
+
+                const ollamaName = catalogResult.rows[0]?.effective_ollama_name || modelId;
+
                 const response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 10000 });
                 const ollamaModels = (response.data.models || []).map(m => m.name);
 
-                if (ollamaModels.includes(modelId)) {
+                if (ollamaModels.includes(ollamaName)) {
                     return { available: true };
                 }
 
@@ -505,6 +564,7 @@ function createModelService(deps = {}) {
         /**
          * Sync installed models with Ollama
          * Updates database based on what's actually in Ollama
+         * Matches by ollama_name field to handle ID mapping
          */
         async syncWithOllama() {
             try {
@@ -513,14 +573,16 @@ function createModelService(deps = {}) {
 
                 logger.debug(`Ollama has ${ollamaModels.length} models installed`);
 
-                // For each Ollama model, ensure it's in installed_models if it's in catalog
-                for (const modelId of ollamaModels) {
+                // For each Ollama model, find matching catalog entry by ollama_name or id
+                for (const ollamaModelName of ollamaModels) {
                     const catalogResult = await database.query(
-                        'SELECT id FROM llm_model_catalog WHERE id = $1',
-                        [modelId]
+                        `SELECT id FROM llm_model_catalog
+                         WHERE ollama_name = $1 OR (ollama_name IS NULL AND id = $1)`,
+                        [ollamaModelName]
                     );
 
                     if (catalogResult.rows.length > 0) {
+                        const catalogId = catalogResult.rows[0].id;
                         await database.query(`
                             INSERT INTO llm_installed_models (id, status, download_progress, downloaded_at)
                             VALUES ($1, 'available', 100, NOW())
@@ -528,17 +590,30 @@ function createModelService(deps = {}) {
                                 status = 'available',
                                 download_progress = 100
                             WHERE llm_installed_models.status != 'available'
-                        `, [modelId]);
+                        `, [catalogId]);
                     }
                 }
 
-                // Mark models as error if they're not in Ollama but marked as available
-                await database.query(`
-                    UPDATE llm_installed_models
-                    SET status = 'error', error_message = 'Model not found in Ollama'
-                    WHERE status = 'available'
-                    AND id NOT IN (SELECT unnest($1::text[]))
-                `, [ollamaModels]);
+                // Mark models as error if their ollama_name is not in Ollama but marked as available
+                // Get all catalog models with their effective ollama names
+                const catalogWithOllama = await database.query(`
+                    SELECT id, COALESCE(ollama_name, id) as effective_ollama_name
+                    FROM llm_model_catalog
+                `);
+
+                // Find catalog IDs where ollama_name is NOT in Ollama's list
+                const missingIds = catalogWithOllama.rows
+                    .filter(row => !ollamaModels.includes(row.effective_ollama_name))
+                    .map(row => row.id);
+
+                if (missingIds.length > 0) {
+                    await database.query(`
+                        UPDATE llm_installed_models
+                        SET status = 'error', error_message = 'Model not found in Ollama'
+                        WHERE status = 'available'
+                        AND id = ANY($1::text[])
+                    `, [missingIds]);
+                }
 
                 return { success: true, ollamaModels };
             } catch (err) {
@@ -554,6 +629,7 @@ function createModelService(deps = {}) {
             const result = await database.query(`
                 SELECT
                     c.*,
+                    COALESCE(c.ollama_name, c.id) as effective_ollama_name,
                     i.status as install_status,
                     i.download_progress,
                     i.is_default,
