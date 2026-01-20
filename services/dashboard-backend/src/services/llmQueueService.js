@@ -400,7 +400,23 @@ ${context}`;
          */
         async streamFromOllama(jobId, prompt, enableThinking, temperature, maxTokens, model = null) {
             // Use specified model or fall back to default
-            const resolvedModel = model || process.env.LLM_MODEL || 'qwen3:14b-q8';
+            const catalogModelId = model || process.env.LLM_MODEL || 'qwen3:14b-q8';
+
+            // Resolve ollama_name from catalog (catalog ID -> Ollama registry name)
+            let ollamaName = catalogModelId;
+            try {
+                const catalogResult = await database.query(
+                    `SELECT COALESCE(ollama_name, id) as effective_ollama_name
+                     FROM llm_model_catalog WHERE id = $1`,
+                    [catalogModelId]
+                );
+                if (catalogResult.rows.length > 0) {
+                    ollamaName = catalogResult.rows[0].effective_ollama_name;
+                }
+            } catch (err) {
+                logger.warn(`Could not resolve ollama_name for ${catalogModelId}, using as-is: ${err.message}`);
+            }
+
             let contentBuffer = '';
             let thinkingBuffer = '';
             let lastDbWrite = Date.now();
@@ -438,13 +454,13 @@ ${context}`;
                 const abortController = new AbortController();
                 llmJobService.registerStream(jobId, abortController);
 
-                logger.info(`[QUEUE] Starting Ollama stream for job ${jobId} with model ${resolvedModel}`);
+                logger.info(`[QUEUE] Starting Ollama stream for job ${jobId} with model ${catalogModelId} (Ollama: ${ollamaName})`);
 
                 const response = await axios({
                     method: 'post',
                     url: `${LLM_SERVICE_URL}/api/generate`,
                     data: {
-                        model: resolvedModel,
+                        model: ollamaName,
                         prompt: prompt,
                         stream: true,
                         keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),
@@ -543,7 +559,7 @@ ${context}`;
 
                                 this.notifySubscribers(jobId, {
                                     done: true,
-                                    model: data.model || resolvedModel || 'unknown',
+                                    model: data.model || catalogModelId || 'unknown',
                                     jobId,
                                     timestamp: new Date().toISOString()
                                 });
