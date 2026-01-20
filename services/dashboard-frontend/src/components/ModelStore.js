@@ -22,6 +22,7 @@ import {
     FiX,
     FiInfo
 } from 'react-icons/fi';
+import { useDownloads } from '../contexts/DownloadContext';
 import '../modelstore.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
@@ -47,14 +48,13 @@ function ModelStore() {
     const [error, setError] = useState(null);
     const [loadedModel, setLoadedModel] = useState(null);
     const [defaultModel, setDefaultModel] = useState(null);
-    const [downloading, setDownloading] = useState(null);
-    const [downloadProgress, setDownloadProgress] = useState(0);
-    const [downloadStatus, setDownloadStatus] = useState('');
-    const [downloadPhase, setDownloadPhase] = useState('init'); // init, download, verify, complete
     const [activating, setActivating] = useState(null);
     const [activatingProgress, setActivatingProgress] = useState(''); // Loading status text
     const [queueByModel, setQueueByModel] = useState([]);
     const [selectedModel, setSelectedModel] = useState(null);
+
+    // Global download state from context
+    const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
 
     // Get auth token
     const getAuthHeaders = () => {
@@ -112,119 +112,19 @@ function ModelStore() {
         return () => clearInterval(interval);
     }, [loadData]);
 
-    // Helper: Interpret Ollama status messages and determine phase
-    const interpretDownloadStatus = (status) => {
-        if (!status) return { phase: 'init', label: 'Initialisiere...' };
+    // Reload data when a download completes
+    useEffect(() => {
+        const unsubscribe = onDownloadComplete((modelId, success) => {
+            console.log(`[ModelStore] Download ${success ? 'completed' : 'failed'} for ${modelId}`);
+            loadData();
+        });
+        return unsubscribe;
+    }, [onDownloadComplete, loadData]);
 
-        const statusLower = status.toLowerCase();
-        if (statusLower.includes('pulling manifest')) {
-            return { phase: 'init', label: 'Lade Manifest...' };
-        } else if (statusLower.includes('pulling') || statusLower.includes('downloading')) {
-            return { phase: 'download', label: 'Download laeuft...' };
-        } else if (statusLower.includes('verifying')) {
-            return { phase: 'verify', label: 'Verifiziere Daten...' };
-        } else if (statusLower.includes('writing') || statusLower.includes('extracting')) {
-            return { phase: 'verify', label: 'Schreibe Daten...' };
-        } else if (statusLower.includes('success')) {
-            return { phase: 'complete', label: 'Abgeschlossen!' };
-        }
-        return { phase: 'download', label: status };
-    };
-
-    // Download model with SSE progress - improved version
-    const handleDownload = async (modelId) => {
-        setDownloading(modelId);
-        setDownloadProgress(0);
-        setDownloadPhase('init');
-        setDownloadStatus('Starte Download...');
-
-        let downloadComplete = false;
-        let lastProgressTime = Date.now();
-
-        try {
-            const token = localStorage.getItem('arasul_token');
-            const response = await fetch(`${API_BASE}/models/download`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ model_id: modelId })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.substring(6));
-                            lastProgressTime = Date.now();
-
-                            // Update progress percentage
-                            if (data.progress !== undefined) {
-                                setDownloadProgress(data.progress);
-                            }
-
-                            // Interpret status and update phase
-                            if (data.status) {
-                                const interpreted = interpretDownloadStatus(data.status);
-                                setDownloadPhase(interpreted.phase);
-                                setDownloadStatus(interpreted.label);
-                            }
-
-                            // Handle completion
-                            if (data.done) {
-                                downloadComplete = true;
-                                if (data.success) {
-                                    setDownloadPhase('complete');
-                                    setDownloadStatus('Abgeschlossen!');
-                                    setDownloadProgress(100);
-                                    // Give user time to see completion
-                                    await new Promise(resolve => setTimeout(resolve, 1500));
-                                    await loadData();
-                                }
-                                if (data.error) {
-                                    setError(data.error);
-                                }
-                            }
-                        } catch (e) {
-                            // Ignore parse errors for incomplete JSON
-                            console.debug('SSE parse error (ignoring):', e.message);
-                        }
-                    }
-                }
-            }
-
-            // Stream ended without explicit done signal - check if download completed
-            if (!downloadComplete) {
-                console.log('[ModelStore] Stream ended without done signal, reloading data...');
-                await loadData();
-            }
-
-        } catch (err) {
-            console.error('Download error:', err);
-            setError(`Download fehlgeschlagen: ${err.message}`);
-        } finally {
-            // Only reset state after completion or error
-            setDownloading(null);
-            setDownloadProgress(0);
-            setDownloadPhase('init');
-            setDownloadStatus('');
-        }
+    // Download model using global download context
+    // Downloads persist even when navigating away from this page
+    const handleDownload = (modelId, modelName) => {
+        startDownload(modelId, modelName);
     };
 
     // Activate model - improved with progress feedback
@@ -377,8 +277,9 @@ function ModelStore() {
             <div className="model-grid">
                 {catalog.map(model => {
                     const isInstalled = model.install_status === 'available';
-                    const isLoaded = loadedModel?.model_id === model.id;
-                    const isDownloading = downloading === model.id;
+                    const isLoaded = loadedModel?.model_id === model.id || loadedModel?.model_id === model.effective_ollama_name;
+                    const modelIsDownloading = isDownloading(model.id);
+                    const downloadState = getDownloadState(model.id);
                     const isActivating = activating === model.id;
                     const isDefault = defaultModel === model.id;
                     const pendingJobs = getQueueCount(model.id);
@@ -387,7 +288,7 @@ function ModelStore() {
                     return (
                         <div
                             key={model.id}
-                            className={`model-card ${isLoaded ? 'active' : ''} ${isInstalled ? 'installed' : ''}`}
+                            className={`model-card ${isLoaded ? 'active' : ''} ${isInstalled ? 'installed' : ''} ${modelIsDownloading ? 'downloading' : ''}`}
                             onClick={() => setSelectedModel(model)}
                         >
                             <div className="model-card-header">
@@ -443,34 +344,37 @@ function ModelStore() {
                                 </div>
                             )}
 
-                            {/* Download Progress - Improved */}
-                            {isDownloading && (
-                                <div className={`download-progress phase-${downloadPhase}`} onClick={e => e.stopPropagation()}>
+                            {/* Download Progress - Using global context */}
+                            {modelIsDownloading && downloadState && (
+                                <div className={`download-progress phase-${downloadState.phase}`} onClick={e => e.stopPropagation()}>
                                     <div className="progress-header">
                                         <span className="progress-phase-label">
-                                            {downloadPhase === 'init' && 'Initialisiere'}
-                                            {downloadPhase === 'download' && 'Download'}
-                                            {downloadPhase === 'verify' && 'Verifiziere'}
-                                            {downloadPhase === 'complete' && 'Fertig'}
+                                            {downloadState.phase === 'init' && 'Initialisiere'}
+                                            {downloadState.phase === 'download' && 'Download'}
+                                            {downloadState.phase === 'verify' && 'Verifiziere'}
+                                            {downloadState.phase === 'complete' && 'Fertig'}
+                                            {downloadState.phase === 'error' && 'Fehler'}
                                         </span>
-                                        <span className="progress-percent">{downloadProgress}%</span>
+                                        <span className="progress-percent">{downloadState.progress}%</span>
                                     </div>
                                     <div className="progress-bar">
                                         <div
-                                            className={`progress-fill ${downloadPhase === 'verify' ? 'pulsing' : ''}`}
-                                            style={{ width: `${downloadPhase === 'verify' && downloadProgress < 100 ? 100 : downloadProgress}%` }}
+                                            className={`progress-fill ${downloadState.phase === 'verify' ? 'pulsing' : ''}`}
+                                            style={{ width: `${downloadState.phase === 'verify' && downloadState.progress < 100 ? 100 : downloadState.progress}%` }}
                                         />
                                     </div>
-                                    <div className="progress-status">{downloadStatus}</div>
+                                    <div className="progress-status">
+                                        {downloadState.error || downloadState.status}
+                                    </div>
                                 </div>
                             )}
 
                             {/* Actions */}
                             <div className="model-actions" onClick={e => e.stopPropagation()}>
-                                {!isInstalled && !isDownloading && (
+                                {!isInstalled && !modelIsDownloading && (
                                     <button
                                         className="btn btn-primary"
-                                        onClick={() => handleDownload(model.id)}
+                                        onClick={() => handleDownload(model.id, model.name)}
                                     >
                                         <FiDownload /> Herunterladen
                                     </button>

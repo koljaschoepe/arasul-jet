@@ -132,6 +132,243 @@ code {
   --scrollbar-thumb: var(--primary-color);
 }
 
+/* ========================================
+   LIGHT MODE - Theme Override
+   Helle Hintergründe, dunkler Text
+   ======================================== */
+.light-mode {
+  /* Hintergründe - Hell/Weiß */
+  --bg-dark: #FFFFFF;
+  --bg-app: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F1F5F9;
+  --bg-sidebar: #FFFFFF;
+  --bg-elevated: #F1F5F9;
+  --bg-input: #FFFFFF;
+  --bg-modal: #FFFFFF;
+  --scrollbar-track: #F1F5F9;
+
+  /* Text - Dunkel (Schwarz/Grautöne) */
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+
+  /* Borders - Dezent */
+  --border-color: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  --border-glow: rgba(33, 150, 243, 0.3);
+
+  /* Shadows - Weicher für Light Mode */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
+
+  /* Gradients - Light Mode */
+  --gradient-primary: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+
+  /* Primary Blau - leicht angepasst für besseren Kontrast */
+  --primary-color: #2196F3;
+  --primary-hover: #42A5F5;
+  --primary-active: #1976D2;
+  --primary-light: #42A5F5;
+  --primary-muted: rgba(33, 150, 243, 0.12);
+  --text-on-primary: #FFFFFF;
+
+  /* Additional Background Colors for Components */
+  --bg-table-header: rgba(33, 150, 243, 0.05);
+  --bg-table-row-hover: rgba(33, 150, 243, 0.03);
+  --bg-table-row-active: rgba(33, 150, 243, 0.08);
+  --bg-dropzone: rgba(33, 150, 243, 0.05);
+  --bg-dropzone-hover: rgba(33, 150, 243, 0.08);
+  --bg-dropzone-active: rgba(33, 150, 243, 0.15);
+  --bg-code: rgba(33, 150, 243, 0.05);
+  --bg-option: #FFFFFF;
+
+  /* Additional Border Colors */
+  --border-dropzone: rgba(33, 150, 243, 0.3);
+  --border-dropzone-hover: rgba(33, 150, 243, 0.5);
+  --border-dropzone-active: #2196F3;
+  --border-input: rgba(33, 150, 243, 0.2);
+  --border-input-focus: rgba(33, 150, 243, 0.4);
+  --border-table: rgba(33, 150, 243, 0.1);
+  --border-modal: rgba(33, 150, 243, 0.2);
+
+  /* Modal Backdrop */
+  --backdrop-color: rgba(0, 0, 0, 0.5);
+
+  /* Scrollbar */
+  --scrollbar-thumb: #2196F3;
+}
+
+/* Light Mode - Animated background override */
+.light-mode .app::before {
+  background: radial-gradient(circle at 20% 50%, rgba(33, 150, 243, 0.03) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(33, 150, 243, 0.02) 0%, transparent 50%);
+}
+
+/* Light Mode - Status colors with better contrast */
+.light-mode .status-ok {
+  background: rgba(22, 163, 74, 0.12);
+  color: #16A34A;
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+.light-mode .status-ok::before {
+  background: #16A34A;
+}
+
+.light-mode .status-warning {
+  background: rgba(217, 119, 6, 0.12);
+  color: #D97706;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.light-mode .status-warning::before {
+  background: #D97706;
+}
+
+.light-mode .status-critical {
+  background: rgba(220, 38, 38, 0.12);
+  color: #DC2626;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.light-mode .status-critical::before {
+  background: #DC2626;
+}
+
+/* Light Mode - Status dots */
+.light-mode .status-dot-ok {
+  background: #16A34A;
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.4);
+}
+
+.light-mode .status-dot-error {
+  background: #DC2626;
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+}
+
+/* Light Mode - Stat changes */
+.light-mode .stat-change-positive {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16A34A;
+  border: 1px solid rgba(22, 163, 74, 0.2);
+}
+
+.light-mode .stat-change-negative {
+  background: rgba(220, 38, 38, 0.1);
+  color: #DC2626;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.light-mode .stat-change-warning {
+  background: rgba(217, 119, 6, 0.1);
+  color: #D97706;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+/* Light Mode - Service indicators */
+.light-mode .service-healthy {
+  background: #16A34A;
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.4);
+}
+
+.light-mode .service-error {
+  background: #DC2626;
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+}
+
+/* Light Mode - Badge overrides */
+.light-mode .badge-success {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16A34A;
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+.light-mode .badge-warning {
+  background: rgba(217, 119, 6, 0.1);
+  color: #D97706;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.light-mode .badge-error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #DC2626;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.light-mode .badge-info {
+  background: rgba(33, 150, 243, 0.1);
+  color: #2196F3;
+  border: 1px solid rgba(33, 150, 243, 0.25);
+}
+
+/* Light Mode - Status indicator utility class */
+.light-mode .status-indicator.success {
+  background: #16A34A;
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.4);
+}
+
+.light-mode .status-indicator.warning {
+  background: #D97706;
+  box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
+}
+
+.light-mode .status-indicator.error {
+  background: #DC2626;
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+}
+
+/* Light Mode - Progress bar container */
+.light-mode .progress-bar-container {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Light Mode - Storage bar container */
+.light-mode .storage-bar-container {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Light Mode - Sidebar header gradient */
+.light-mode .sidebar-header {
+  background: linear-gradient(180deg, rgba(33, 150, 243, 0.05) 0%, transparent 100%);
+}
+
+/* Light Mode - Sidebar footer gradient */
+.light-mode .sidebar-footer {
+  background: linear-gradient(180deg, transparent 0%, rgba(33, 150, 243, 0.03) 100%);
+}
+
+/* Light Mode - Navigation hover state */
+.light-mode .nav-link:hover {
+  background: rgba(33, 150, 243, 0.06);
+}
+
+.light-mode .nav-link.active {
+  background: rgba(33, 150, 243, 0.1);
+}
+
+/* Light Mode - Shimmer animation */
+.light-mode .stat-card-large::before,
+.light-mode .header::before {
+  background: linear-gradient(90deg, transparent, rgba(33, 150, 243, 0.05), transparent);
+}
+
+/* Light Mode - Circular progress styling */
+.light-mode .circular-bg {
+  stroke: rgba(33, 150, 243, 0.1);
+}
+
+/* Light Mode - Print override */
+@media print {
+  .light-mode body {
+    background: white;
+    color: black;
+  }
+}
+
 /* Keyframe Animations */
 @keyframes fadeIn {
   from {
@@ -520,6 +757,46 @@ code {
 
 .logout-button:active {
   transform: scale(0.95);
+}
+
+/* Theme Toggle Button */
+.theme-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--primary-muted);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.theme-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Theme toggle in collapsed sidebar */
+.sidebar.collapsed .theme-toggle-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0.5rem;
+}
+
+.sidebar.collapsed .theme-toggle-btn span {
+  display: none;
 }
 
 /* Minimal Metrics Overview */
@@ -1125,6 +1402,99 @@ code {
   width: 36px;
   height: 36px;
   padding: 0.5rem;
+}
+
+/* Sidebar Download Indicator */
+.sidebar-downloads {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border-color);
+  background: rgba(69, 173, 255, 0.05);
+}
+
+.sidebar-downloads-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-downloads-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sidebar-download-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar-download-name {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-download-progress {
+  height: 4px;
+  background: var(--bg-dark);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sidebar-download-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.sidebar-download-percent {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Download badge on nav link */
+.nav-link.has-downloads {
+  position: relative;
+}
+
+.download-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--primary-color);
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+.download-badge-icon {
+  width: 10px;
+  height: 10px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Slow spin animation for download icon */
+.spin-slow {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* Scrollbar Styling */

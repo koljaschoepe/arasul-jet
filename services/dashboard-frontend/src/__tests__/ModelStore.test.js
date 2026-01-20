@@ -10,465 +10,357 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import axios from 'axios';
 import ModelStore from '../components/ModelStore';
+import { DownloadProvider } from '../contexts/DownloadContext';
 
-jest.mock('axios');
+// Helper to render with DownloadProvider
+const renderWithProvider = (ui) => {
+  return render(
+    <DownloadProvider>
+      {ui}
+    </DownloadProvider>
+  );
+};
 
 describe('ModelStore Component', () => {
-  const mockCatalog = [
-    {
-      name: 'qwen3:1.5b',
-      size: '1.5B',
-      category: 'Small',
-      description: 'Fast small model',
-      ram_required: '4GB',
-      parameters: '1.5B',
-    },
-    {
-      name: 'qwen3:7b',
-      size: '7B',
-      category: 'Medium',
-      description: 'Balanced model',
-      ram_required: '8GB',
-      parameters: '7B',
-    },
-    {
-      name: 'qwen3:14b',
-      size: '14B',
-      category: 'Large',
-      description: 'High quality model',
-      ram_required: '16GB',
-      parameters: '14B',
-    },
-  ];
+  const mockCatalog = {
+    models: [
+      {
+        id: 'qwen3:1.5b',
+        name: 'qwen3:1.5b',
+        size_bytes: 1073741824,
+        category: 'small',
+        description: 'Fast small model',
+        ram_required_gb: 4,
+        capabilities: ['chat'],
+        install_status: 'not_installed',
+      },
+      {
+        id: 'qwen3:7b',
+        name: 'qwen3:7b',
+        size_bytes: 4294967296,
+        category: 'medium',
+        description: 'Balanced model',
+        ram_required_gb: 8,
+        capabilities: ['chat', 'code'],
+        install_status: 'available',
+      },
+      {
+        id: 'qwen3:14b',
+        name: 'qwen3:14b',
+        size_bytes: 8589934592,
+        category: 'large',
+        description: 'High quality model',
+        ram_required_gb: 16,
+        capabilities: ['chat', 'code', 'reasoning'],
+        install_status: 'not_installed',
+      },
+    ],
+    total: 3,
+  };
 
-  const mockInstalledModels = [
-    { name: 'qwen3:7b', size: '4.5GB', modified_at: '2024-01-15T10:00:00Z' },
-  ];
+  const mockStatus = {
+    loaded_model: { model_id: 'qwen3:7b', ram_usage_mb: 8192 },
+    queue_by_model: [],
+  };
 
-  const mockDefaultModel = 'qwen3:7b';
-  const mockLoadedModel = 'qwen3:7b';
+  const mockDefaultResponse = {
+    default_model: 'qwen3:7b',
+  };
+
+  // Helper to setup fetch mock with custom responses
+  const setupFetchMock = (customResponses = {}) => {
+    const responses = {
+      catalog: customResponses.catalog || mockCatalog,
+      status: customResponses.status || mockStatus,
+      default: customResponses.default || mockDefaultResponse,
+    };
+
+    global.fetch = jest.fn((url, options) => {
+      if (url.includes('/models/catalog')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(responses.catalog),
+        });
+      }
+      if (url.includes('/models/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(responses.status),
+        });
+      }
+      if (url.includes('/models/default')) {
+        if (options?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ success: true }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(responses.default),
+        });
+      }
+      if (url.includes('/models/') && url.includes('/activate')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        });
+      }
+      if (url.includes('/models/download')) {
+        return Promise.resolve({
+          ok: true,
+          body: {
+            getReader: () => ({
+              read: jest.fn()
+                .mockResolvedValueOnce({
+                  done: false,
+                  value: new TextEncoder().encode('data: {"progress": 50, "status": "downloading"}\n'),
+                })
+                .mockResolvedValueOnce({
+                  done: false,
+                  value: new TextEncoder().encode('data: {"progress": 100, "done": true, "success": true}\n'),
+                })
+                .mockResolvedValueOnce({ done: true }),
+            }),
+          },
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+    });
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    setupFetchMock();
+  });
 
-    axios.get.mockImplementation((url) => {
-      if (url.includes('/models/catalog')) {
-        return Promise.resolve({ data: { models: mockCatalog } });
-      }
-      if (url.includes('/models/installed')) {
-        return Promise.resolve({ data: { models: mockInstalledModels } });
-      }
-      if (url.includes('/models/default')) {
-        return Promise.resolve({ data: { model: mockDefaultModel } });
-      }
-      if (url.includes('/models/loaded')) {
-        return Promise.resolve({ data: { model: mockLoadedModel } });
-      }
-      return Promise.resolve({ data: {} });
-    });
-
-    axios.post.mockResolvedValue({ data: { success: true } });
-    axios.delete.mockResolvedValue({ data: { success: true } });
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('Rendering', () => {
     test('rendert ModelStore korrekt', async () => {
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(screen.getByText('Model Store') || screen.getByText('Modelle')).toBeInTheDocument();
+        expect(screen.getByText('KI-Modelle')).toBeInTheDocument();
       });
     });
 
     test('zeigt Katalog-Kategorien', async () => {
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(screen.getByText('Small') || screen.getByText(/klein/i)).toBeInTheDocument();
-        expect(screen.getByText('Medium') || screen.getByText(/mittel/i)).toBeInTheDocument();
-        expect(screen.getByText('Large') || screen.getByText(/groß/i)).toBeInTheDocument();
+        expect(screen.getByText('Klein')).toBeInTheDocument();
+        expect(screen.getByText('Mittel')).toBeInTheDocument();
+        expect(screen.getByText('Gross')).toBeInTheDocument();
       });
     });
 
     test('zeigt Modell-Karten', async () => {
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
+        // Use getAllByText since qwen3:7b appears in loaded banner and card
+        expect(screen.getAllByText('qwen3:7b').length).toBeGreaterThan(0);
         expect(screen.getByText('qwen3:1.5b')).toBeInTheDocument();
-        expect(screen.getByText('qwen3:7b')).toBeInTheDocument();
         expect(screen.getByText('qwen3:14b')).toBeInTheDocument();
       });
     });
 
     test('zeigt RAM-Anforderungen', async () => {
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(screen.getByText(/4GB/) || screen.getByText(/4 GB/)).toBeInTheDocument();
-        expect(screen.getByText(/8GB/) || screen.getByText(/8 GB/)).toBeInTheDocument();
-        expect(screen.getByText(/16GB/) || screen.getByText(/16 GB/)).toBeInTheDocument();
+        expect(screen.getByText('4 GB')).toBeInTheDocument();
+        expect(screen.getByText('8 GB')).toBeInTheDocument();
+        expect(screen.getByText('16 GB')).toBeInTheDocument();
       });
     });
   });
 
   describe('Installed Models', () => {
-    test('zeigt installierte Modelle als "Installiert"', async () => {
-      render(<ModelStore />);
+    test('zeigt aktives Modell Banner', async () => {
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(
-          screen.queryByText(/installiert/i) ||
-          screen.queryByText(/installed/i)
-        ).toBeInTheDocument();
+        // Check for loaded model banner - text includes colon
+        const banner = document.querySelector('.loaded-model-banner');
+        expect(banner).toBeInTheDocument();
+        expect(screen.getByText('qwen3:7b')).toBeInTheDocument();
       });
     });
 
-    test('zeigt aktives Modell', async () => {
-      render(<ModelStore />);
+    test('zeigt Aktiv Badge für geladenes Modell', async () => {
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(
-          screen.queryByText(/aktiv/i) ||
-          screen.queryByText(/active/i) ||
-          screen.queryByText(/geladen/i)
-        ).toBeInTheDocument();
+        // Badge text may include icon, use regex matcher
+        const badges = document.querySelectorAll('.badge-loaded');
+        expect(badges.length).toBeGreaterThan(0);
       });
     });
 
-    test('zeigt Default-Modell Indikator', async () => {
-      render(<ModelStore />);
+    test('zeigt Standard Badge für Default-Modell', async () => {
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(
-          screen.queryByText(/default/i) ||
-          screen.queryByText(/standard/i)
-        ).toBeInTheDocument();
+        // Badge text may include icon, use class selector
+        const badges = document.querySelectorAll('.badge-default');
+        expect(badges.length).toBeGreaterThan(0);
       });
     });
   });
 
   describe('Model Download', () => {
     test('Download-Button ist sichtbar für nicht installierte Modelle', async () => {
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        const downloadButtons = screen.getAllByRole('button').filter(btn =>
-          btn.textContent.toLowerCase().includes('download') ||
-          btn.textContent.toLowerCase().includes('herunterladen') ||
-          btn.innerHTML.includes('download')
-        );
+        const downloadButtons = screen.getAllByText('Herunterladen');
         expect(downloadButtons.length).toBeGreaterThan(0);
       });
     });
 
     test('Download startet bei Button-Click', async () => {
       const user = userEvent.setup();
-
-      axios.post.mockImplementation((url, data) => {
-        if (url.includes('/models/download')) {
-          return Promise.resolve({ data: { success: true, job_id: 'download-1' } });
-        }
-        return Promise.resolve({ data: {} });
-      });
-
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
         expect(screen.getByText('qwen3:14b')).toBeInTheDocument();
       });
 
-      // Finde Download-Button für qwen3:14b (nicht installiert)
-      const modelCard = screen.getByText('qwen3:14b').closest('.model-card, [class*="card"]');
-      if (modelCard) {
-        const downloadBtn = modelCard.querySelector('[class*="download"], button');
-        if (downloadBtn) {
-          await user.click(downloadBtn);
-
-          await waitFor(() => {
-            expect(axios.post).toHaveBeenCalledWith(
-              expect.stringContaining('/models/download'),
-              expect.objectContaining({ model: 'qwen3:14b' })
-            );
-          });
-        }
-      }
-    });
-
-    test('zeigt Download-Progress', async () => {
-      axios.post.mockImplementation((url) => {
-        if (url.includes('/models/download')) {
-          return new Promise(() => {}); // Never resolve
-        }
-        return Promise.resolve({ data: {} });
-      });
-
-      render(<ModelStore />);
+      const downloadButtons = screen.getAllByText('Herunterladen');
+      await user.click(downloadButtons[0]);
 
       await waitFor(() => {
-        expect(screen.getByText('qwen3:14b')).toBeInTheDocument();
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/models/download'),
+          expect.objectContaining({
+            method: 'POST',
+          })
+        );
       });
-
-      // Simuliere laufenden Download
-      const progressIndicator = document.querySelector('[class*="progress"], .downloading');
-
-      // Progress sollte bei Download sichtbar sein
-      // (Implementation-abhängig)
     });
   });
 
   describe('Model Activation', () => {
-    test('Aktivieren-Button für installierte Modelle', async () => {
-      render(<ModelStore />);
+    test('Aktivieren-Button für installierte aber nicht geladene Modelle', async () => {
+      // Konfiguriere Mock für ein installiertes aber nicht geladenes Modell
+      const modifiedCatalog = {
+        ...mockCatalog,
+        models: mockCatalog.models.map(m =>
+          m.id === 'qwen3:1.5b' ? { ...m, install_status: 'available' } : m
+        ),
+      };
+      const modifiedStatus = {
+        loaded_model: null,
+        queue_by_model: [],
+      };
+
+      setupFetchMock({ catalog: modifiedCatalog, status: modifiedStatus });
+
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        const activateButtons = screen.getAllByRole('button').filter(btn =>
-          btn.textContent.toLowerCase().includes('aktivieren') ||
-          btn.textContent.toLowerCase().includes('activate') ||
-          btn.textContent.toLowerCase().includes('laden')
-        );
-        expect(activateButtons.length).toBeGreaterThanOrEqual(0);
+        const activateButtons = screen.getAllByText('Aktivieren');
+        expect(activateButtons.length).toBeGreaterThan(0);
       });
-    });
-
-    test('Aktivierung sendet korrekten API-Call', async () => {
-      const user = userEvent.setup();
-
-      render(<ModelStore />);
-
-      await waitFor(() => {
-        expect(screen.getByText('qwen3:7b')).toBeInTheDocument();
-      });
-
-      const activateButton = screen.queryByText(/aktivieren/i) || screen.queryByText(/activate/i);
-
-      if (activateButton) {
-        await user.click(activateButton);
-
-        await waitFor(() => {
-          expect(axios.post).toHaveBeenCalledWith(
-            expect.stringContaining('/models/activate'),
-            expect.any(Object)
-          );
-        });
-      }
     });
   });
 
   describe('Set Default Model', () => {
-    test('Default-Modell kann gesetzt werden', async () => {
-      const user = userEvent.setup();
+    test('Als Standard Button ist sichtbar', async () => {
+      // Setup: qwen3:7b is loaded but qwen3:1.5b is installed and could be set as default
+      const modifiedCatalog = {
+        ...mockCatalog,
+        models: mockCatalog.models.map(m =>
+          m.id === 'qwen3:1.5b' ? { ...m, install_status: 'available' } : m
+        ),
+      };
+      const modifiedDefault = { default_model: 'qwen3:14b' }; // Different default
 
-      render(<ModelStore />);
+      setupFetchMock({ catalog: modifiedCatalog, default: modifiedDefault });
 
-      await waitFor(() => {
-        expect(screen.getByText('qwen3:7b')).toBeInTheDocument();
-      });
-
-      const defaultButton = screen.queryByText(/als standard/i) ||
-                           screen.queryByText(/set default/i) ||
-                           screen.queryByText(/standard setzen/i);
-
-      if (defaultButton) {
-        await user.click(defaultButton);
-
-        await waitFor(() => {
-          expect(axios.post).toHaveBeenCalledWith(
-            expect.stringContaining('/models/default'),
-            expect.any(Object)
-          );
-        });
-      }
-    });
-  });
-
-  describe('Model Uninstall', () => {
-    test('Deinstallieren-Button für installierte Modelle', async () => {
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(
-          screen.queryByText(/deinstallieren/i) ||
-          screen.queryByText(/uninstall/i) ||
-          screen.queryByText(/entfernen/i)
-        ).toBeInTheDocument();
+        // Buttons mit Star-Icon für "Als Standard setzen"
+        const buttons = screen.getAllByTitle('Als Standard setzen');
+        expect(buttons.length).toBeGreaterThanOrEqual(1);
       });
-    });
-
-    test('Deinstallation mit Bestätigung', async () => {
-      const user = userEvent.setup();
-
-      render(<ModelStore />);
-
-      await waitFor(() => {
-        expect(screen.getByText('qwen3:7b')).toBeInTheDocument();
-      });
-
-      const uninstallButton = screen.queryByText(/deinstallieren/i) ||
-                             screen.queryByText(/uninstall/i) ||
-                             screen.queryByText(/entfernen/i);
-
-      if (uninstallButton) {
-        await user.click(uninstallButton);
-
-        // Bestätigungs-Dialog
-        const confirmButton = screen.queryByText(/bestätigen/i) || screen.queryByText(/confirm/i);
-        if (confirmButton) {
-          await user.click(confirmButton);
-
-          await waitFor(() => {
-            expect(axios.delete).toHaveBeenCalled();
-          });
-        }
-      }
-    });
-  });
-
-  describe('Refresh', () => {
-    test('Refresh-Button aktualisiert Katalog', async () => {
-      const user = userEvent.setup();
-
-      render(<ModelStore />);
-
-      await waitFor(() => {
-        expect(screen.getByText('qwen3:7b')).toBeInTheDocument();
-      });
-
-      const refreshButton = screen.queryByText(/aktualisieren/i) ||
-                           screen.queryByText(/refresh/i) ||
-                           screen.queryByRole('button', { name: /refresh/i });
-
-      if (refreshButton) {
-        await user.click(refreshButton);
-
-        await waitFor(() => {
-          expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/models'));
-        });
-      }
     });
   });
 
   describe('Error Handling', () => {
     test('zeigt Fehler bei Katalog-Ladefehler', async () => {
-      axios.get.mockRejectedValue(new Error('Network Error'));
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network Error'));
 
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(
-          screen.queryByText(/error/i) ||
-          screen.queryByText(/fehler/i) ||
-          screen.queryByText(/laden/i)
-        ).toBeInTheDocument();
+        expect(screen.getByText(/fehler/i)).toBeInTheDocument();
       });
     });
 
-    test('zeigt Fehler bei Download-Fehler', async () => {
-      axios.post.mockRejectedValue({
-        response: { data: { error: 'Download failed' } },
+    test('zeigt spezifischen Fehler bei API-Fehler', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
       });
 
-      const user = userEvent.setup();
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(screen.getByText('qwen3:14b')).toBeInTheDocument();
+        expect(screen.getByText(/fehler beim laden/i)).toBeInTheDocument();
       });
-
-      // Versuche Download
-      const downloadButtons = screen.getAllByRole('button').filter(btn =>
-        btn.textContent.toLowerCase().includes('download')
-      );
-
-      if (downloadButtons.length > 0) {
-        await user.click(downloadButtons[0]);
-
-        await waitFor(() => {
-          expect(screen.queryByText(/failed/i) || screen.queryByText(/fehler/i)).toBeInTheDocument();
-        }, { timeout: 3000 });
-      }
     });
   });
 
   describe('Loading States', () => {
-    test('zeigt Loading während Katalog geladen wird', async () => {
-      axios.get.mockImplementation(() => new Promise(() => {}));
+    test('zeigt Loading während Katalog geladen wird', () => {
+      global.fetch = jest.fn(() => new Promise(() => {})); // Never resolves
 
-      render(<ModelStore />);
+      renderWithProvider(<ModelStore />);
 
-      expect(
-        screen.queryByText(/laden/i) ||
-        screen.queryByText(/loading/i) ||
-        document.querySelector('.loading-spinner, [class*="loading"]')
-      ).toBeTruthy();
-    });
-
-    test('zeigt Loading während Aktivierung', async () => {
-      axios.post.mockImplementation(() => new Promise(() => {}));
-
-      const user = userEvent.setup();
-      render(<ModelStore />);
-
-      await waitFor(() => {
-        expect(screen.getByText('qwen3:7b')).toBeInTheDocument();
-      });
-
-      const activateButton = screen.queryByText(/aktivieren/i);
-
-      if (activateButton) {
-        await user.click(activateButton);
-
-        // Loading state sollte angezeigt werden
-        await waitFor(() => {
-          expect(
-            screen.queryByText(/laden/i) ||
-            document.querySelector('[class*="loading"], [class*="spinner"]')
-          ).toBeTruthy();
-        }, { timeout: 1000 });
-      }
+      expect(screen.getByText(/lade modell-katalog/i)).toBeInTheDocument();
     });
   });
 
-  describe('Category Filtering', () => {
-    test('Filter nach Kategorie funktioniert', async () => {
-      const user = userEvent.setup();
-      render(<ModelStore />);
+  describe('No Model Loaded', () => {
+    test('zeigt Hinweis wenn kein Modell geladen', async () => {
+      const noModelStatus = {
+        loaded_model: null,
+        queue_by_model: [],
+      };
+
+      setupFetchMock({ status: noModelStatus });
+
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(screen.getByText('qwen3:1.5b')).toBeInTheDocument();
-      });
-
-      const smallFilter = screen.queryByText(/small/i) || screen.queryByText(/klein/i);
-
-      if (smallFilter && smallFilter.closest('button')) {
-        await user.click(smallFilter.closest('button'));
-
-        await waitFor(() => {
-          // Nur Small-Modelle sollten sichtbar sein
-          expect(screen.getByText('qwen3:1.5b')).toBeInTheDocument();
-        });
-      }
+        expect(screen.getByText(/kein modell geladen/i)).toBeInTheDocument();
+      }, { timeout: 5000 });
     });
   });
 
-  describe('Memory Warning', () => {
-    test('zeigt Warnung für Modelle mit hohem RAM-Bedarf', async () => {
-      render(<ModelStore />);
+  describe('Model Capabilities', () => {
+    test('zeigt Modell-Fähigkeiten', async () => {
+      renderWithProvider(<ModelStore />);
 
       await waitFor(() => {
-        expect(screen.getByText('qwen3:14b')).toBeInTheDocument();
+        // Look for capability tags with 'chat' text
+        const capabilityTags = document.querySelectorAll('.capability-tag');
+        const hasChat = Array.from(capabilityTags).some(tag => tag.textContent === 'chat');
+        expect(hasChat).toBe(true);
       });
-
-      // Bei 16GB RAM-Anforderung sollte eine Warnung erscheinen
-      // (Implementation-abhängig)
-      const warning = screen.queryByText(/16GB/) ||
-                     screen.queryByText(/warnung/i) ||
-                     screen.queryByText(/warning/i);
-
-      expect(warning).toBeTruthy();
     });
   });
 });

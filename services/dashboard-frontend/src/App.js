@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft, FiSend } from 'react-icons/fi';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft, FiSend, FiDownload, FiSun, FiMoon } from 'react-icons/fi';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
@@ -13,6 +13,7 @@ import ClaudeCode from './components/ClaudeCode';
 import TelegramBotApp from './components/TelegramBotApp';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
+import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
 import './index.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
@@ -91,6 +92,12 @@ function App() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  // Theme state - persisted in localStorage (default: dark)
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('arasul_theme');
+    return saved || 'dark';
+  });
+
   // Toggle sidebar collapsed state
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
@@ -99,6 +106,21 @@ function App() {
       return newState;
     });
   }, []);
+
+  // Toggle theme between dark and light
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => {
+      const newTheme = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('arasul_theme', newTheme);
+      return newTheme;
+    });
+  }, []);
+
+  // Apply theme class to body
+  useEffect(() => {
+    document.body.classList.remove('light-mode', 'dark-mode');
+    document.body.classList.add(`${theme}-mode`);
+  }, [theme]);
 
   // Keyboard shortcut: Cmd/Ctrl + B to toggle sidebar
   useEffect(() => {
@@ -414,15 +436,18 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Router>
-        <div className="app">
-          <Sidebar
-            handleLogout={handleLogout}
-            systemStatus={systemStatus}
-            getStatusColor={getStatusColor}
-            collapsed={sidebarCollapsed}
-            onToggle={toggleSidebar}
-          />
+      <DownloadProvider>
+        <Router>
+          <div className="app">
+            <SidebarWithDownloads
+              handleLogout={handleLogout}
+              systemStatus={systemStatus}
+              getStatusColor={getStatusColor}
+              collapsed={sidebarCollapsed}
+              onToggle={toggleSidebar}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+            />
 
           <div className="container">
             <TopBar
@@ -462,12 +487,25 @@ function App() {
             </Routes>
           </div>
         </div>
-      </Router>
+        </Router>
+      </DownloadProvider>
     </ErrorBoundary>
   );
 }
 
-function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onToggle }) {
+// Wrapper to inject download state into Sidebar
+function SidebarWithDownloads(props) {
+  const { activeDownloadCount, activeDownloadsList } = useDownloads();
+  return (
+    <Sidebar
+      {...props}
+      downloadCount={activeDownloadCount}
+      activeDownloads={activeDownloadsList}
+    />
+  );
+}
+
+function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onToggle, downloadCount = 0, activeDownloads = [], theme = 'dark', onToggleTheme }) {
   const location = useLocation();
 
   const isActive = (path) => {
@@ -505,8 +543,15 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onTogg
           <Link to="/appstore" className={isActive('/appstore')} title="Store">
             <FiPackage /> <span>Store</span>
           </Link>
-          <Link to="/models" className={isActive('/models')} title="KI-Modelle">
-            <FiBox /> <span>KI-Modelle</span>
+          <Link to="/models" className={`${isActive('/models')} ${downloadCount > 0 ? 'has-downloads' : ''}`} title="KI-Modelle">
+            <FiBox />
+            <span>KI-Modelle</span>
+            {downloadCount > 0 && (
+              <span className="download-badge" title={`${downloadCount} Download(s) aktiv`}>
+                <FiDownload className="download-badge-icon" />
+                {!collapsed && downloadCount}
+              </span>
+            )}
           </Link>
           <Link to="/settings" className={isActive('/settings')} title="Einstellungen">
             <FiSettings /> <span>Einstellungen</span>
@@ -514,8 +559,40 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onTogg
         </div>
       </nav>
 
+      {/* Active Downloads Indicator */}
+      {downloadCount > 0 && !collapsed && (
+        <div className="sidebar-downloads">
+          <div className="sidebar-downloads-header">
+            <FiDownload className="spin-slow" />
+            <span>Downloads</span>
+          </div>
+          <div className="sidebar-downloads-list">
+            {activeDownloads.slice(0, 3).map(dl => (
+              <div key={dl.modelId} className="sidebar-download-item">
+                <span className="sidebar-download-name">{dl.modelName || dl.modelId}</span>
+                <div className="sidebar-download-progress">
+                  <div
+                    className="sidebar-download-bar"
+                    style={{ width: `${dl.progress}%` }}
+                  />
+                </div>
+                <span className="sidebar-download-percent">{dl.progress}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="sidebar-footer">
         <div className="sidebar-footer-actions">
+          <button
+            onClick={onToggleTheme}
+            className="theme-toggle-btn"
+            title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          >
+            {theme === 'dark' ? <FiSun /> : <FiMoon />}
+            <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
           <button
             onClick={handleLogout}
             className="logout-button"
