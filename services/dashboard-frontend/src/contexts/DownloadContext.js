@@ -20,7 +20,7 @@ const interpretDownloadStatus = (status) => {
     if (statusLower.includes('pulling manifest')) {
         return { phase: 'init', label: 'Lade Manifest...' };
     } else if (statusLower.includes('pulling') || statusLower.includes('downloading')) {
-        return { phase: 'download', label: 'Download laeuft...' };
+        return { phase: 'download', label: 'Download läuft...' };
     } else if (statusLower.includes('verifying')) {
         return { phase: 'verify', label: 'Verifiziere Daten...' };
     } else if (statusLower.includes('writing') || statusLower.includes('extracting')) {
@@ -66,7 +66,7 @@ export function DownloadProvider({ children }) {
                         downloading.forEach(m => {
                             newDownloads[m.id] = {
                                 progress: m.download_progress || 0,
-                                status: 'Download laeuft...',
+                                status: 'Download läuft...',
                                 phase: 'download',
                                 error: null,
                                 modelName: m.name

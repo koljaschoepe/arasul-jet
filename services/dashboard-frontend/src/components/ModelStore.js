@@ -180,7 +180,7 @@ function ModelStore() {
             });
             const result = await response.json();
             if (!response.ok) {
-                throw new Error(result.error || 'Loeschen fehlgeschlagen');
+                throw new Error(result.error || 'Löschen fehlgeschlagen');
             }
             await loadData();
         } catch (err) {
@@ -234,7 +234,7 @@ function ModelStore() {
                     <h1>KI-Modelle</h1>
                 </div>
                 <p className="model-store-subtitle">
-                    Verwalte LLM-Modelle fuer deinen Jetson AGX Orin (64 GB RAM)
+                    Verwalte LLM-Modelle für deinen Jetson AGX Orin (64 GB RAM)
                 </p>
             </div>
 
@@ -297,7 +297,7 @@ function ModelStore() {
                                 </div>
                                 <div className="model-badges">
                                     {isDefault && (
-                                        <span className="badge badge-default" title="Standard-Modell fuer neue Chats">
+                                        <span className="badge badge-default" title="Standard-Modell für neue Chats">
                                             <FiStar /> Standard
                                         </span>
                                     )}
@@ -313,7 +313,6 @@ function ModelStore() {
                                     )}
                                     <span
                                         className="badge badge-category"
-                                        style={{ backgroundColor: category.color }}
                                         title={category.description}
                                     >
                                         {category.label}
@@ -405,7 +404,7 @@ function ModelStore() {
                                         <button
                                             className="btn btn-danger btn-icon"
                                             onClick={() => handleDelete(model.id)}
-                                            title="Loeschen"
+                                            title="Löschen"
                                         >
                                             <FiTrash2 />
                                         </button>
@@ -462,10 +461,7 @@ function ModelStore() {
                                 </div>
                                 <div className="detail-spec">
                                     <span className="detail-label">Kategorie</span>
-                                    <span
-                                        className="detail-value badge"
-                                        style={{ backgroundColor: categoryConfig[selectedModel.category]?.color }}
-                                    >
+                                    <span className="detail-value badge badge-category">
                                         {categoryConfig[selectedModel.category]?.label}
                                     </span>
                                 </div>
@@ -491,7 +487,7 @@ function ModelStore() {
 
                             {selectedModel.recommended_for && selectedModel.recommended_for.length > 0 && (
                                 <div className="model-detail-section">
-                                    <h3>Empfohlen fuer</h3>
+                                    <h3>Empfohlen für</h3>
                                     <div className="model-capabilities">
                                         {selectedModel.recommended_for.map(use => (
                                             <span key={use} className="capability-tag recommended">{use}</span>

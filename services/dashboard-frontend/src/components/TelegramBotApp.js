@@ -432,7 +432,7 @@ function TelegramBotApp() {
                           <button
                             className="btn btn-icon btn-danger"
                             onClick={() => deleteRule(rule.id, rule.name)}
-                            title="Loeschen"
+                            title="Löschen"
                           >
                             <FiTrash2 />
                           </button>

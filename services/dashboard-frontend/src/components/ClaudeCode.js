@@ -76,7 +76,7 @@ function WorkspaceManager({ workspaces, onClose, onWorkspaceCreated, onWorkspace
   };
 
   const handleDelete = async (workspace) => {
-    if (!window.confirm(`Workspace "${workspace.name}" wirklich loeschen?`)) {
+    if (!window.confirm(`Workspace "${workspace.name}" wirklich löschen?`)) {
       return;
     }
 
@@ -84,7 +84,7 @@ function WorkspaceManager({ workspaces, onClose, onWorkspaceCreated, onWorkspace
       await axios.delete(`${API_BASE}/workspaces/${workspace.id}`);
       onWorkspaceDeleted(workspace.id);
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Loeschen');
+      setError(err.response?.data?.error || 'Fehler beim Löschen');
     }
   };
 
@@ -142,7 +142,7 @@ function WorkspaceManager({ workspaces, onClose, onWorkspaceCreated, onWorkspace
                   <button
                     className="ws-action-btn delete"
                     onClick={() => handleDelete(ws)}
-                    title="Loeschen"
+                    title="Löschen"
                   >
                     <FiTrash2 />
                   </button>
@@ -225,7 +225,7 @@ function WorkspaceManager({ workspaces, onClose, onWorkspaceCreated, onWorkspace
         <div className="workspace-manager-footer">
           <p>
             <FiAlertTriangle /> Nach dem Erstellen eines neuen Workspace muss Claude Code
-            neu gestartet werden, damit der Workspace verfuegbar ist.
+            neu gestartet werden, damit der Workspace verfügbar ist.
           </p>
         </div>
       </div>
@@ -262,7 +262,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip, workspaces, onOpen
       return false;
     }
     if (!apiKey.startsWith('sk-ant-')) {
-      setError('Ungueltiges API-Key Format. Der Key sollte mit "sk-ant-" beginnen.');
+      setError('Ungültiges API-Key Format. Der Key sollte mit "sk-ant-" beginnen.');
       return false;
     }
     return true;
@@ -348,8 +348,8 @@ function SetupWizard({ config, setConfig, onComplete, onSkip, workspaces, onOpen
               </div>
               <h2>Willkommen bei Claude Code</h2>
               <p className="setup-description">
-                Claude Code ist ein KI-Programmierassistent, der direkt in deinem Browser laeuft.
-                Um loszulegen, benoetigst du einen Anthropic API-Key.
+                Claude Code ist ein KI-Programmierassistent, der direkt in deinem Browser läuft.
+                Um loszulegen, benötigst du einen Anthropic API-Key.
               </p>
 
               <div className="setup-form">
@@ -386,9 +386,9 @@ function SetupWizard({ config, setConfig, onComplete, onSkip, workspaces, onOpen
               <div className="setup-icon">
                 <FiFolder />
               </div>
-              <h2>Workspace auswaehlen</h2>
+              <h2>Workspace auswählen</h2>
               <p className="setup-description">
-                Waehle das Verzeichnis, in dem Claude Code arbeiten soll.
+                Wähle das Verzeichnis, in dem Claude Code arbeiten soll.
               </p>
 
               <div className="setup-form">
@@ -433,7 +433,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip, workspaces, onOpen
               </div>
               <h2>Bereit zum Starten!</h2>
               <p className="setup-description">
-                Deine Konfiguration ist vollstaendig. Claude Code wird jetzt eingerichtet und gestartet.
+                Deine Konfiguration ist vollständig. Claude Code wird jetzt eingerichtet und gestartet.
               </p>
 
               <div className="setup-summary">
@@ -455,7 +455,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip, workspaces, onOpen
 
               <div className="setup-info">
                 <FiAlertTriangle />
-                <span>Claude Code laeuft im autonomen Modus fuer beste Performance.</span>
+                <span>Claude Code läuft im autonomen Modus für beste Performance.</span>
               </div>
             </div>
           )}
@@ -469,7 +469,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip, workspaces, onOpen
               onClick={prevStep}
               disabled={saving}
             >
-              <FiChevronLeft /> Zurueck
+              <FiChevronLeft /> Zurück
             </button>
           )}
 
@@ -479,7 +479,7 @@ function SetupWizard({ config, setConfig, onComplete, onSkip, workspaces, onOpen
                 className="setup-btn setup-btn-text"
                 onClick={onSkip}
               >
-                Spaeter einrichten
+                Später einrichten
               </button>
             )}
 
@@ -553,7 +553,7 @@ function ClaudeCode() {
           id: 2,
           name: 'Eigener Workspace',
           slug: 'custom',
-          description: 'Dein persoenliches Verzeichnis',
+          description: 'Dein persönliches Verzeichnis',
           host_path: '/home/arasul/workspace',
           container_path: '/workspace/custom',
           is_default: false,
@@ -764,7 +764,7 @@ function ClaudeCode() {
 
               if (attempts >= maxAttempts) {
                 clearInterval(pollInterval);
-                setSaveMessage({ type: 'warning', text: 'Container-Neustart dauert laenger als erwartet. Pruefe den Status manuell.' });
+                setSaveMessage({ type: 'warning', text: 'Container-Neustart dauert länger als erwartet. Prüfe den Status manuell.' });
                 setTimeout(() => {
                   loadAppData();
                   setSaveMessage(null);
@@ -866,7 +866,7 @@ function ClaudeCode() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      'running': { class: 'status-running', text: 'Laeuft' },
+      'running': { class: 'status-running', text: 'Läuft' },
       'stopped': { class: 'status-stopped', text: 'Gestoppt' },
       'installed': { class: 'status-installed', text: 'Installiert' },
       'installing': { class: 'status-installing', text: 'Installiert...' },
@@ -899,7 +899,7 @@ function ClaudeCode() {
       <div className="claude-code-page">
         <div className="claude-error-state">
           <FiAlertCircle className="error-icon" />
-          <h2>Claude Code nicht verfuegbar</h2>
+          <h2>Claude Code nicht verfügbar</h2>
           <p>{error}</p>
           <a href="/appstore" className="claude-btn claude-btn-primary">
             Zum Store
@@ -953,7 +953,7 @@ function ClaudeCode() {
         {authStatus && appStatus?.status === 'running' && (
           <div className="claude-auth-status">
             {authStatus.oauth?.valid ? (
-              <div className="auth-badge auth-valid" title={`Token gueltig fuer ${authStatus.oauth.expiresInHours}h`}>
+              <div className="auth-badge auth-valid" title={`Token gültig für ${authStatus.oauth.expiresInHours}h`}>
                 <FiUser />
                 <span>{authStatus.oauth.account?.displayName || authStatus.oauth.account?.email || 'Angemeldet'}</span>
                 <span className="auth-timer">
@@ -1042,12 +1042,12 @@ function ClaudeCode() {
                 type="password"
                 value={config.ANTHROPIC_API_KEY?.startsWith('****') ? '' : (config.ANTHROPIC_API_KEY || '')}
                 onChange={(e) => setConfig({ ...config, ANTHROPIC_API_KEY: e.target.value })}
-                placeholder={config.ANTHROPIC_API_KEY_set ? 'Aktuell gesetzt - zum Aendern neuen Wert eingeben' : 'sk-ant-api03-...'}
+                placeholder={config.ANTHROPIC_API_KEY_set ? 'Aktuell gesetzt - zum Ändern neuen Wert eingeben' : 'sk-ant-api03-...'}
                 className="setting-input"
               />
               <span className="setting-hint">
                 {config.ANTHROPIC_API_KEY_set
-                  ? 'API-Key ist gesetzt. Leer lassen um beizubehalten, neuen Wert eingeben zum Aendern.'
+                  ? 'API-Key ist gesetzt. Leer lassen um beizubehalten, neuen Wert eingeben zum Ändern.'
                   : 'Dein API-Key von anthropic.com'}
               </span>
             </div>
@@ -1078,14 +1078,14 @@ function ClaudeCode() {
                 </button>
               </div>
               <span className="setting-hint">
-                Arbeitsverzeichnis fuer Claude Code
+                Arbeitsverzeichnis für Claude Code
               </span>
             </div>
           </div>
 
           <div className="setting-hint" style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(69, 173, 255, 0.1)', borderRadius: '8px' }}>
-            <strong>Hinweis:</strong> Claude Code laeuft im autonomen Modus (--dangerously-skip-permissions).
-            Das Terminal ist ohne Passwort zugaenglich.
+            <strong>Hinweis:</strong> Claude Code läuft im autonomen Modus (--dangerously-skip-permissions).
+            Das Terminal ist ohne Passwort zugänglich.
           </div>
 
           {saveMessage && (
@@ -1147,7 +1147,7 @@ function ClaudeCode() {
                 <FiZap /> Einrichtung starten
               </button>
               <button className="claude-btn claude-btn-secondary" onClick={() => setShowSettings(true)}>
-                <FiSettings /> Einstellungen oeffnen
+                <FiSettings /> Einstellungen öffnen
               </button>
             </div>
           </div>
@@ -1157,7 +1157,7 @@ function ClaudeCode() {
               <FiTerminal />
             </div>
             <h3>Claude Code ist nicht gestartet</h3>
-            <p>Klicke auf Starten, um das Terminal zu oeffnen.</p>
+            <p>Klicke auf Starten, um das Terminal zu öffnen.</p>
             <button
               className="claude-btn claude-btn-primary"
               onClick={startApp}

@@ -102,7 +102,7 @@ function TelegramSetupWizard({ onComplete }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.message || 'Token ungueltig');
+        throw new Error(data.error || data.message || 'Token ungültig');
       }
 
       setBotInfo(data.botInfo);
@@ -293,7 +293,7 @@ function TelegramSetupWizard({ onComplete }) {
                 rel="noopener noreferrer"
                 className="btn btn-primary btn-large"
               >
-                <FiExternalLink /> @BotFather oeffnen
+                <FiExternalLink /> @BotFather öffnen
               </a>
             </div>
 
@@ -339,7 +339,7 @@ function TelegramSetupWizard({ onComplete }) {
                 className="btn btn-secondary"
                 onClick={() => setStep(1)}
               >
-                <FiChevronLeft /> Zurueck
+                <FiChevronLeft /> Zurück
               </button>
               <button
                 className="btn btn-primary"
@@ -391,7 +391,7 @@ function TelegramSetupWizard({ onComplete }) {
                     rel="noopener noreferrer"
                     className="btn btn-secondary btn-large"
                   >
-                    <FiExternalLink /> Bot im Browser oeffnen
+                    <FiExternalLink /> Bot im Browser öffnen
                   </a>
 
                   <button
@@ -415,7 +415,7 @@ function TelegramSetupWizard({ onComplete }) {
                 className="btn btn-secondary"
                 onClick={() => setStep(2)}
               >
-                <FiChevronLeft /> Zurueck
+                <FiChevronLeft /> Zurück
               </button>
             </div>
           </div>
