@@ -392,7 +392,8 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
             thinking,
             conversation_id,
             space_ids = null,      // RAG 2.0: Optional pre-selected spaces
-            auto_routing = true    // RAG 2.0: Enable automatic space routing
+            auto_routing = true,   // RAG 2.0: Enable automatic space routing
+            model = null           // Optional: explicit model selection
         } = req.body;
         const enableThinking = thinking !== false;
 
@@ -508,7 +509,8 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
         const { jobId, messageId, queuePosition } = await llmQueueService.enqueue(
             conversation_id,
             'rag',
-            { query, context, thinking: enableThinking, sources }
+            { query, context, thinking: enableThinking, sources },
+            { model }  // Pass model selection to queue
         );
 
         logger.info(`[QUEUE] RAG job ${jobId} enqueued at position ${queuePosition}`);
@@ -542,6 +544,13 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
             if (unsubscribe) {
                 unsubscribe();
             }
+        });
+
+        // SSE-002: Handle response errors to prevent unhandled exceptions
+        res.on('error', (error) => {
+            logger.debug(`[RAG ${jobId}] Response error: ${error.message}`);
+            clientConnected = false;
+            if (unsubscribe) unsubscribe();
         });
 
         // Subscribe to job updates and forward to client

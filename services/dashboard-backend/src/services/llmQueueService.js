@@ -495,10 +495,20 @@ ${context}`;
                     lastDbWrite = now;
 
                     flushPromise = flushPromise.then(async () => {
-                        try {
-                            await llmJobService.updateJobContent(jobId, contentToFlush || null, thinkingToFlush || null);
-                        } catch (dbError) {
-                            logger.error(`Failed to flush content to DB for job ${jobId}: ${dbError.message}`);
+                        // QUEUE-002: Retry logic for DB errors (2 attempts with backoff)
+                        const maxRetries = 2;
+                        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                await llmJobService.updateJobContent(jobId, contentToFlush || null, thinkingToFlush || null);
+                                return; // Success, exit retry loop
+                            } catch (dbError) {
+                                if (attempt < maxRetries) {
+                                    logger.warn(`DB write attempt ${attempt} failed for job ${jobId}, retrying in ${attempt * 100}ms: ${dbError.message}`);
+                                    await new Promise(r => setTimeout(r, attempt * 100));
+                                } else {
+                                    logger.error(`Failed to flush content to DB for job ${jobId} after ${maxRetries} attempts: ${dbError.message}`);
+                                }
+                            }
                         }
                     });
                 }
@@ -541,7 +551,36 @@ ${context}`;
                 let buffer = '';
                 let inThinkBlock = false;
 
+                // TIMEOUT-001: Inactivity timeout (2 minutes)
+                // If no data received for 2 minutes, abort the stream to prevent deadlock
+                const INACTIVITY_TIMEOUT_MS = 120000; // 2 minutes
+                let inactivityTimer = null;
+
+                const resetInactivityTimer = () => {
+                    if (inactivityTimer) clearTimeout(inactivityTimer);
+                    inactivityTimer = setTimeout(async () => {
+                        logger.warn(`[QUEUE] Job ${jobId} stream timed out due to inactivity (${INACTIVITY_TIMEOUT_MS / 1000}s)`);
+                        abortController.abort();
+                        await flushToDatabase(true);
+                        await llmJobService.errorJob(jobId, 'Stream timed out due to inactivity');
+                        this.notifySubscribers(jobId, { error: 'Stream timed out due to inactivity', done: true });
+                        this.onJobComplete(jobId);
+                    }, INACTIVITY_TIMEOUT_MS);
+                };
+
+                const clearInactivityTimer = () => {
+                    if (inactivityTimer) {
+                        clearTimeout(inactivityTimer);
+                        inactivityTimer = null;
+                    }
+                };
+
+                // Start the inactivity timer
+                resetInactivityTimer();
+
                 response.data.on('data', async (chunk) => {
+                    // Reset inactivity timer on each chunk
+                    resetInactivityTimer();
                     buffer += chunk.toString();
 
                     const lines = buffer.split('\n');
@@ -618,6 +657,7 @@ ${context}`;
 
                             if (data.done) {
                                 logger.info(`[QUEUE] Job ${jobId} stream complete`);
+                                clearInactivityTimer(); // Clear timeout on completion
                                 await flushToDatabase(true);
                                 await llmJobService.completeJob(jobId);
 
@@ -637,6 +677,7 @@ ${context}`;
                 });
 
                 response.data.on('error', async (error) => {
+                    clearInactivityTimer(); // Clear timeout on error
                     logger.error(`[QUEUE] Stream error for job ${jobId}: ${error.message}`);
                     await flushToDatabase(true);
                     await llmJobService.errorJob(jobId, error.message);
@@ -646,8 +687,29 @@ ${context}`;
                 });
 
                 response.data.on('end', async () => {
+                    clearInactivityTimer(); // Clear timeout on stream end
                     if (contentBuffer || thinkingBuffer) {
                         await flushToDatabase(true);
+                    }
+
+                    // CRITICAL FIX (QUEUE-001): Complete job if stream ended without done signal
+                    // This prevents permanent deadlock when Ollama closes stream unexpectedly
+                    try {
+                        const job = await llmJobService.getJob(jobId);
+                        if (job && job.status === 'streaming') {
+                            logger.warn(`[QUEUE] Job ${jobId} stream ended without done signal - completing`);
+                            await llmJobService.completeJob(jobId);
+                            this.notifySubscribers(jobId, {
+                                done: true,
+                                model: catalogModelId || 'unknown',
+                                jobId,
+                                timestamp: new Date().toISOString()
+                            });
+                            this.onJobComplete(jobId);
+                        }
+                    } catch (endError) {
+                        logger.error(`[QUEUE] Error in end handler for job ${jobId}: ${endError.message}`);
+                        this.onJobComplete(jobId); // Prevent permanent deadlock
                     }
                 });
 

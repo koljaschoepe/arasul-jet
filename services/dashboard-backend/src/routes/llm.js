@@ -90,6 +90,13 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
                 }
             });
 
+            // SSE-001: Handle response errors to prevent unhandled exceptions
+            res.on('error', (error) => {
+                logger.debug(`[JOB ${jobId}] Response error: ${error.message}`);
+                clientConnected = false;
+                if (unsubscribe) unsubscribe();
+            });
+
             // Subscribe to job updates and forward to client
             unsubscribe = llmQueueService.subscribeToJob(jobId, (event) => {
                 if (!clientConnected) return;
@@ -147,6 +154,22 @@ router.get('/queue', requireAuth, async (req, res) => {
         logger.error(`Error getting queue status: ${error.message}`);
         res.status(500).json({
             error: 'Failed to get queue status',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * GET /api/llm/queue/metrics - Get detailed queue metrics (for monitoring)
+ */
+router.get('/queue/metrics', requireAuth, async (req, res) => {
+    try {
+        const metrics = await llmQueueService.getQueueMetrics();
+        res.json(metrics);
+    } catch (error) {
+        logger.error(`Error getting queue metrics: ${error.message}`);
+        res.status(500).json({
+            error: 'Failed to get queue metrics',
             timestamp: new Date().toISOString()
         });
     }
@@ -270,14 +293,27 @@ router.get('/jobs/:jobId/stream', requireAuth, async (req, res) => {
         let pollInterval = null;
 
         // Single close handler for all cleanup
+        // CLEANUP-002: Clear interval BEFORE setting clientConnected = false to prevent race condition
         res.on('close', () => {
-            clientConnected = false;
             if (pollInterval) {
                 clearInterval(pollInterval);
+                pollInterval = null;
             }
+            clientConnected = false;
             if (unsubscribe) {
                 unsubscribe();
             }
+        });
+
+        // CLEANUP-002: Handle response errors in reconnect endpoint
+        res.on('error', (error) => {
+            logger.debug(`[RECONNECT ${jobId}] Response error: ${error.message}`);
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            clientConnected = false;
+            if (unsubscribe) unsubscribe();
         });
 
         // Subscribe to job updates

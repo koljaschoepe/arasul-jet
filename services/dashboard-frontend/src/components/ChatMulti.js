@@ -62,11 +62,36 @@ function ChatMulti() {
   const tabsContainerRef = useRef(null);
   const currentChatIdRef = useRef(currentChatId); // Track current chat for streaming callbacks
   const abortControllersRef = useRef({}); // Track abort controllers per chat
+  const generationRef = useRef(0); // RACE-001: Generation counter to detect chat switches during async operations
+
+  // RENDER-001: Token batching refs to reduce re-renders
+  const tokenBatchRef = useRef({ content: '', thinking: '' });
+  const batchTimerRef = useRef(null);
+  const BATCH_INTERVAL_MS = 50; // Update state every 50ms instead of on every token
 
   // Keep ref in sync with state
   useEffect(() => {
     currentChatIdRef.current = currentChatId;
   }, [currentChatId]);
+
+  // CLEANUP-001: Cleanup all abort controllers and timers on unmount
+  useEffect(() => {
+    return () => {
+      // Abort all ongoing fetch operations
+      Object.values(abortControllersRef.current).forEach(controller => {
+        if (controller && typeof controller.abort === 'function') {
+          controller.abort();
+        }
+      });
+      abortControllersRef.current = {};
+
+      // Clear batch timer if exists
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Load all chats on mount
   useEffect(() => {
@@ -171,17 +196,40 @@ function ChatMulti() {
   }, [currentChatId]);
 
   // Sequential chat initialization to fix race condition
+  // RACE-001: Uses generation counter to prevent stale updates from previous chats
   const initializeChat = async (chatId) => {
+    // Increment generation counter - any ongoing async operations for previous chat will be ignored
+    const currentGeneration = ++generationRef.current;
+
+    // Abort any ongoing operations for the previous chat
+    const previousChatId = currentChatIdRef.current;
+    if (previousChatId && previousChatId !== chatId && abortControllersRef.current[previousChatId]) {
+      abortControllersRef.current[previousChatId].abort();
+      delete abortControllersRef.current[previousChatId];
+    }
+
     // Reset UI state
     setIsLoading(false);
     setError(null);
     setIsUserScrolling(false);
 
     // 1. FIRST: Load messages (now includes live content from llm_jobs)
-    await loadMessages(chatId);
+    const msgs = await loadMessages(chatId);
+
+    // RACE-001: Check if chat changed during async operation
+    if (generationRef.current !== currentGeneration) {
+      console.log(`[ChatMulti] initializeChat: chat changed during loadMessages, aborting (gen ${currentGeneration} vs ${generationRef.current})`);
+      return;
+    }
 
     // 2. THEN: Check for active jobs
     const activeJob = await checkActiveJobsAsync(chatId);
+
+    // RACE-001: Check again after async operation
+    if (generationRef.current !== currentGeneration) {
+      console.log(`[ChatMulti] initializeChat: chat changed during checkActiveJobs, aborting`);
+      return;
+    }
 
     // 3. If active job exists: reconnect to stream
     if (activeJob) {
@@ -1446,14 +1494,14 @@ function ChatMulti() {
                         <span className="model-option-name">
                           {isDefault && <FiStar style={{ color: '#45ADFF', marginRight: '4px' }} />}
                           {model.name}
-                          {isLoaded && <FiCpu style={{ marginLeft: '6px', color: '#22C55E' }} title="Im RAM geladen" />}
+                          {isLoaded && <FiCpu style={{ marginLeft: '6px', color: '#94A3B8' }} title="Im RAM geladen" />}
                           {!isAvailable && <FiAlertCircle className="model-warning-icon" style={{ marginLeft: '6px', color: '#EF4444' }} />}
                         </span>
                         <span className="model-option-desc">
                           {!isAvailable ? (model.install_error || 'Nicht verfügbar') : (
                             <>
                               {`${model.category} • ${model.ram_required_gb}GB RAM`}
-                              {isLoaded && <span style={{ color: '#22C55E', marginLeft: '8px' }}>• Aktiv</span>}
+                              {isLoaded && <span style={{ color: '#94A3B8', marginLeft: '8px' }}>• Aktiv</span>}
                               {!isDefault && isAvailable && (
                                 <button
                                   className="set-default-btn"
