@@ -73,6 +73,16 @@ code {
   --success-color: #22c55e;
   --error-color: #ef4444;
 
+  /* Status Colors - Semantic (NEW) */
+  --status-neutral: #94A3B8;        /* Grau - für "Normal", "OK", "Indexiert" */
+  --status-neutral-bg: rgba(148, 163, 184, 0.15);
+  --status-neutral-border: rgba(148, 163, 184, 0.3);
+  --status-critical: #EF4444;       /* Rot - für kritische Zustände */
+  --status-critical-bg: rgba(239, 68, 68, 0.15);
+  --status-critical-border: rgba(239, 68, 68, 0.3);
+  --status-warning: #F59E0B;        /* Orange - für Warnungen */
+  --status-performance: #22C55E;    /* Grün - NUR für Performance-Indikatoren */
+
   /* Background Colors */
   --bg-dark: #101923;
   --bg-app: #101923;
@@ -200,6 +210,16 @@ code {
 
   /* Scrollbar */
   --scrollbar-thumb: #2196F3;
+
+  /* Status Colors - Semantic (Light Mode) */
+  --status-neutral: #64748B;        /* Dunkleres Grau für besseren Kontrast */
+  --status-neutral-bg: rgba(100, 116, 139, 0.12);
+  --status-neutral-border: rgba(100, 116, 139, 0.25);
+  --status-critical: #DC2626;       /* Dunkleres Rot für Light Mode */
+  --status-critical-bg: rgba(220, 38, 38, 0.12);
+  --status-critical-border: rgba(220, 38, 38, 0.25);
+  --status-warning: #D97706;        /* Dunkleres Orange */
+  --status-performance: #16A34A;    /* Dunkleres Grün für Performance */
 }
 
 /* Light Mode - Animated background override */
@@ -210,13 +230,13 @@ code {
 
 /* Light Mode - Status colors with better contrast */
 .light-mode .status-ok {
-  background: rgba(22, 163, 74, 0.12);
-  color: #16A34A;
-  border: 1px solid rgba(22, 163, 74, 0.25);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);
+  border: 1px solid var(--status-neutral-border);
 }
 
 .light-mode .status-ok::before {
-  background: #16A34A;
+  background: var(--status-neutral);
 }
 
 .light-mode .status-warning {
@@ -241,8 +261,8 @@ code {
 
 /* Light Mode - Status dots */
 .light-mode .status-dot-ok {
-  background: #16A34A;
-  box-shadow: 0 0 8px rgba(22, 163, 74, 0.4);
+  background: var(--status-neutral);
+  box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
 }
 
 .light-mode .status-dot-error {
@@ -252,9 +272,9 @@ code {
 
 /* Light Mode - Stat changes */
 .light-mode .stat-change-positive {
-  background: rgba(22, 163, 74, 0.1);
-  color: #16A34A;
-  border: 1px solid rgba(22, 163, 74, 0.2);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);
+  border: 1px solid var(--status-neutral-border);
 }
 
 .light-mode .stat-change-negative {
@@ -271,8 +291,8 @@ code {
 
 /* Light Mode - Service indicators */
 .light-mode .service-healthy {
-  background: #16A34A;
-  box-shadow: 0 0 8px rgba(22, 163, 74, 0.4);
+  background: var(--status-neutral);
+  box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
 }
 
 .light-mode .service-error {
@@ -280,35 +300,27 @@ code {
   box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
 }
 
-/* Light Mode - Badge overrides */
-.light-mode .badge-success {
-  background: rgba(22, 163, 74, 0.1);
-  color: #16A34A;
-  border: 1px solid rgba(22, 163, 74, 0.25);
-}
-
-.light-mode .badge-warning {
-  background: rgba(217, 119, 6, 0.1);
-  color: #D97706;
-  border: 1px solid rgba(217, 119, 6, 0.25);
-}
-
-.light-mode .badge-error {
-  background: rgba(220, 38, 38, 0.1);
-  color: #DC2626;
-  border: 1px solid rgba(220, 38, 38, 0.25);
-}
-
+/* Light Mode - ALL Badges unified gray (like version badges) */
+.light-mode .badge-success,
+.light-mode .badge-warning,
+.light-mode .badge-error,
 .light-mode .badge-info {
-  background: rgba(33, 150, 243, 0.1);
-  color: #2196F3;
-  border: 1px solid rgba(33, 150, 243, 0.25);
+  background: #F1F5F9;
+  color: #334155;
+  border: none;
+  font-weight: 500;
 }
 
 /* Light Mode - Status indicator utility class */
-.light-mode .status-indicator.success {
-  background: #16A34A;
-  box-shadow: 0 0 8px rgba(22, 163, 74, 0.4);
+.light-mode .status-indicator.success,
+.light-mode .status-indicator.normal {
+  background: var(--status-neutral);
+  box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
+}
+
+.light-mode .status-indicator.critical {
+  background: var(--status-critical);
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
 }
 
 .light-mode .status-indicator.warning {
@@ -380,43 +392,19 @@ code {
   color: #0F172A;
 }
 
-/* Light Mode - Global Badge Overrides: Neutral colors */
-.light-mode .badge {
-  background: #F1F5F9;
-  color: #334155;
-  border: 1px solid #E2E8F0;
-}
-
+/* Light Mode - ALL Badges unified gray (like version badges) */
+.light-mode .badge,
 .light-mode .badge-primary,
-.light-mode .badge-default {
+.light-mode .badge-default,
+.light-mode .badge-success,
+.light-mode .badge-warning,
+.light-mode .badge-error,
+.light-mode .badge-danger,
+.light-mode .badge-info {
   background: #F1F5F9;
   color: #334155;
-}
-
-/* Keep semantic colors for status badges but make them subtler */
-.light-mode .badge-success {
-  background: rgba(34, 197, 94, 0.1);
-  color: #16A34A;
-  border-color: rgba(34, 197, 94, 0.3);
-}
-
-.light-mode .badge-warning {
-  background: #FFFBEB;
-  color: #D97706;
-  border-color: #FDE68A;
-}
-
-.light-mode .badge-error,
-.light-mode .badge-danger {
-  background: #FEF2F2;
-  color: #DC2626;
-  border-color: #FECACA;
-}
-
-.light-mode .badge-info {
-  background: rgba(33, 150, 243, 0.08);
-  color: var(--primary-color);
-  border-color: rgba(33, 150, 243, 0.2);
+  border: none;
+  font-weight: 500;
 }
 
 /* Light Mode - Cards */
@@ -464,7 +452,7 @@ code {
 }
 
 .light-mode .metric-trend.positive {
-  color: #16A34A;
+  color: var(--status-neutral);
 }
 
 .light-mode .metric-trend.negative {
@@ -797,13 +785,13 @@ code {
 }
 
 .status-ok {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);
+  border: 1px solid var(--status-neutral-border);
 }
 
 .status-ok::before {
-  background: #10b981;
+  background: var(--status-neutral);
 }
 
 .status-warning {
@@ -994,8 +982,8 @@ code {
 }
 
 .status-dot-ok {
-  background: #10b981;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  background: var(--status-neutral);
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.5);
 }
 
 .status-dot-error {
@@ -2513,9 +2501,9 @@ code {
 }
 
 .stat-change-positive {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);
+  border: 1px solid var(--status-neutral-border);
 }
 
 .stat-change-negative {
@@ -2775,8 +2763,8 @@ code {
 }
 
 .service-healthy {
-  background: #10b981;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  background: var(--status-neutral);
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.5);
 }
 
 .service-error {
@@ -3145,7 +3133,9 @@ code {
 .text-primary { color: var(--text-primary); }
 .text-secondary { color: var(--text-secondary); }
 .text-muted { color: var(--text-muted); }
-.text-success { color: var(--success-color); }
+.text-success { color: var(--status-neutral); }  /* Grau statt Grün */
+.text-critical { color: var(--status-critical); }  /* Rot für kritische Zustände */
+.text-performance { color: var(--status-performance); }  /* Grün NUR für Performance */
 .text-warning { color: var(--warning-color); }
 .text-danger { color: var(--danger-color); }
 
@@ -3195,9 +3185,17 @@ code {
   animation: pulse 2s ease-in-out infinite;
 }
 
-.status-indicator.success {
-  background: var(--success-color);
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+/* Normal/OK Status - Grau statt Grün */
+.status-indicator.success,
+.status-indicator.normal {
+  background: var(--status-neutral);
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.4);
+}
+
+/* Kritischer Status - Rot */
+.status-indicator.critical {
+  background: var(--status-critical);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
 }
 
 .status-indicator.warning {
@@ -3223,10 +3221,19 @@ code {
   letter-spacing: 0.05em;
 }
 
-.badge-success {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--success-color);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+/* Normal/OK Badge - Grau statt Grün */
+.badge-success,
+.badge-normal {
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);
+  border: 1px solid var(--status-neutral-border);
+}
+
+/* Kritisches Badge - Rot */
+.badge-critical {
+  background: var(--status-critical-bg);
+  color: var(--status-critical);
+  border: 1px solid var(--status-critical-border);
 }
 
 .badge-warning {

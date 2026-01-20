@@ -158,6 +158,9 @@ const createTestApp = () => {
 };
 
 describe('E2E Integration Tests', () => {
+  // Increase timeout for complex E2E tests on ARM hardware (Jetson)
+  jest.setTimeout(30000);
+
   let app;
   let testToken;
   const testUserId = 1;

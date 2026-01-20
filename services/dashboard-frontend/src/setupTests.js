@@ -6,6 +6,11 @@
 // Import jest-dom matchers for better assertions
 import '@testing-library/jest-dom';
 
+// Polyfill TextEncoder/TextDecoder for JSDOM
+import { TextEncoder, TextDecoder } from 'util';
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 // Mock localStorage
 const localStorageMock = {
   store: {},
@@ -50,6 +55,9 @@ window.ResizeObserver = class ResizeObserver {
   unobserve() {}
   disconnect() {}
 };
+
+// Mock Element.scrollIntoView (not supported in jsdom)
+Element.prototype.scrollIntoView = jest.fn();
 
 // Mock WebSocket
 class MockWebSocket {

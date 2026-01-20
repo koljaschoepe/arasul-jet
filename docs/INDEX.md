@@ -56,6 +56,7 @@ Quick navigation to all Arasul Platform documentation.
 | PostgreSQL | [README](../services/postgres/README.md) | Database |
 | Metrics Collector | [README](../services/metrics-collector/README.md) | System metrics |
 | Self-Healing Agent | [README](../services/self-healing-agent/README.md) | Autonomous recovery |
+| Telegram Bot | [README](../services/telegram-bot/README.md) | Notifications & commands |
 
 ### External Services
 | Service | README | Description |
@@ -63,6 +64,7 @@ Quick navigation to all Arasul Platform documentation.
 | n8n | [BUILD_CUSTOM_NODES.md](../services/n8n/BUILD_CUSTOM_NODES.md) | Workflow automation |
 | MinIO | [MINIO_BUCKETS.md](MINIO_BUCKETS.md) | Object storage |
 | Qdrant | - | Vector database |
+| Traefik | [README](../config/traefik/README.md) | Reverse proxy + SSL |
 
 ---
 
@@ -102,6 +104,7 @@ Quick navigation to all Arasul Platform documentation.
 | Document | Description |
 |----------|-------------|
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | **Frontend Design Guidelines (MANDATORY)** |
+| [CONTEXT_ENGINEERING_PLAN.md](CONTEXT_ENGINEERING_PLAN.md) | Claude Code context optimization |
 | [TODO.md](TODO.md) | Implementation roadmap |
 | [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md) | Bug tracking & resolutions |
 
@@ -134,10 +137,11 @@ services/postgres/init/             # Database migrations
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
-| CLAUDE.md | Complete | 2026-01 |
-| DESIGN_SYSTEM.md | **New** | 2026-01 |
-| API_REFERENCE.md | Complete | 2024-12 |
+| CLAUDE.md | **Updated** - 13 Services, Complete Routes | 2026-01-16 |
+| DESIGN_SYSTEM.md | Complete | 2026-01 |
+| CONTEXT_ENGINEERING_PLAN.md | **New** | 2026-01-16 |
+| API_REFERENCE.md | Partial (~53% coverage) | 2024-12 |
 | API_GUIDE.md | Complete | 2024-11 |
-| ARCHITECTURE.md | New | 2024-12 |
-| DATABASE_SCHEMA.md | New | 2024-12 |
-| Service READMEs | In Progress | 2024-12 |
+| ARCHITECTURE.md | Complete | 2024-12 |
+| DATABASE_SCHEMA.md | Partial (~52% migrations) | 2024-12 |
+| Service READMEs | 12/13 documented | 2026-01 |

@@ -227,7 +227,7 @@
 
 .no-events-icon {
   font-size: 3rem;
-  color: var(--success-color);
+  color: var(--status-neutral);  /* Grau statt Grün */
   display: block;
   margin-bottom: 1.25rem;
 }
@@ -389,8 +389,8 @@
 }
 
 .event-action {
-  background: rgba(16, 185, 129, 0.05);
-  border-left: 3px solid var(--success-color);
+  background: var(--status-neutral-bg);
+  border-left: 3px solid var(--status-neutral);  /* Grau statt Grün */
 }
 
 .event-action:hover,

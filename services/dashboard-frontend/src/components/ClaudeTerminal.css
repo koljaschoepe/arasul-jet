@@ -1,0 +1,524 @@
+/* ===================================
+   CLAUDE TERMINAL - Design System Compliant
+   =================================== */
+
+/* Status Card Header */
+.claude-terminal-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.claude-terminal-refresh-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.claude-terminal-refresh-btn:hover {
+  background: rgba(69, 173, 255, 0.1);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* Status Grid */
+.claude-terminal-status-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.claude-terminal-status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(69, 173, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.claude-terminal-status-item.online {
+  background: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
+  color: var(--status-neutral);  /* Grau statt Grün */
+}
+
+.claude-terminal-status-item.offline {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error-color);
+}
+
+.claude-terminal-status-item.info svg {
+  color: var(--primary-color);
+}
+
+/* Main Terminal Card */
+.claude-terminal-main-card {
+  border-color: var(--border-glow);
+}
+
+/* Input Form */
+.claude-terminal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.claude-terminal-input-wrapper {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.claude-terminal-input {
+  flex: 1;
+  padding: 1rem;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-subtle);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: none;
+  transition: all 0.25s ease;
+  min-height: 60px;
+}
+
+.claude-terminal-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+}
+
+.claude-terminal-input::placeholder {
+  color: var(--text-muted);
+}
+
+.claude-terminal-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.claude-terminal-send-btn {
+  padding: 1rem 1.25rem;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+  min-height: 60px;
+}
+
+.claude-terminal-send-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.claude-terminal-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Options */
+.claude-terminal-options {
+  display: flex;
+  align-items: center;
+}
+
+.claude-terminal-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.claude-terminal-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+/* Error Display */
+.claude-terminal-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: var(--error-color);
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  animation: slideInDown 0.3s ease;
+}
+
+.claude-terminal-error svg {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+}
+
+/* Response Container */
+.claude-terminal-response-container {
+  margin-top: 1.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  animation: fadeIn 0.3s ease;
+}
+
+.claude-terminal-response-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(69, 173, 255, 0.05);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.claude-terminal-response-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.claude-terminal-copy-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 0.375rem 0.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.claude-terminal-copy-btn:hover {
+  background: rgba(69, 173, 255, 0.1);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.claude-terminal-response {
+  padding: 1.25rem;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.claude-terminal-response.loading {
+  min-height: 60px;
+}
+
+.claude-terminal-cursor {
+  animation: blink 1s infinite;
+  color: var(--primary-color);
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.claude-terminal-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(69, 173, 255, 0.03);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Unavailable Message */
+.claude-terminal-unavailable {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 2px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+  margin-top: 1rem;
+}
+
+.claude-terminal-unavailable > svg {
+  font-size: 1.5rem;
+  color: var(--warning-color);
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.claude-terminal-unavailable strong {
+  display: block;
+  color: var(--warning-color);
+  margin-bottom: 0.5rem;
+}
+
+.claude-terminal-unavailable p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0 0 1rem 0;
+}
+
+.claude-terminal-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 6px;
+  color: var(--warning-color);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.claude-terminal-retry-btn:hover {
+  background: rgba(245, 158, 11, 0.3);
+}
+
+/* History Card */
+.claude-terminal-history-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.claude-terminal-history-header:hover {
+  background: rgba(69, 173, 255, 0.05);
+}
+
+.claude-terminal-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.claude-terminal-history-actions > svg {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.claude-terminal-clear-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.375rem 0.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.claude-terminal-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error-color);
+}
+
+.claude-terminal-empty-history {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+.claude-terminal-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.claude-terminal-history-item {
+  padding: 0.875rem 1rem;
+  background: rgba(69, 173, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.claude-terminal-history-item:hover {
+  background: rgba(69, 173, 255, 0.08);
+  border-color: var(--border-glow);
+  transform: translateX(4px);
+}
+
+.claude-terminal-history-query {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.claude-terminal-history-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.claude-terminal-history-status {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 500;
+}
+
+.claude-terminal-history-status.completed {
+  color: var(--status-neutral);  /* Grau statt Grün */
+}
+
+.claude-terminal-history-status.error {
+  color: var(--error-color);
+}
+
+.claude-terminal-history-status.timeout {
+  color: var(--warning-color);
+}
+
+/* Examples */
+.claude-terminal-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.claude-terminal-example-btn {
+  padding: 0.625rem 1rem;
+  background: rgba(69, 173, 255, 0.05);
+  border: 1px solid rgba(69, 173, 255, 0.2);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.claude-terminal-example-btn:hover:not(:disabled) {
+  background: rgba(69, 173, 255, 0.12);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+.claude-terminal-example-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Spinning animation */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .claude-terminal-input-wrapper {
+    flex-direction: column;
+  }
+
+  .claude-terminal-send-btn {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .claude-terminal-status-grid {
+    flex-direction: column;
+  }
+
+  .claude-terminal-status-item {
+    justify-content: center;
+  }
+
+  .claude-terminal-response {
+    max-height: 300px;
+    font-size: 0.85rem;
+    padding: 1rem;
+  }
+
+  .claude-terminal-examples {
+    flex-direction: column;
+  }
+
+  .claude-terminal-example-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .claude-terminal-history-meta {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .claude-terminal-input {
+    padding: 0.875rem;
+    font-size: 0.85rem;
+  }
+
+  .claude-terminal-unavailable {
+    flex-direction: column;
+    padding: 1.25rem;
+  }
+
+  .claude-terminal-unavailable > svg {
+    font-size: 1.25rem;
+  }
+
+  .claude-terminal-history-item {
+    padding: 0.75rem;
+  }
+
+  .claude-terminal-history-query {
+    font-size: 0.8rem;
+  }
+}

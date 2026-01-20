@@ -250,12 +250,35 @@
 }
 
 .badge-system {
-  background: var(--primary-muted);
-  color: var(--primary-light);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .badge-status {
+  background: var(--bg-elevated);
   color: var(--text-primary);
+}
+
+/* Dark Mode Status Badge Colors */
+.badge-running {
+  background: var(--primary-color);
+  color: #000;
+}
+
+.badge-installed {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.badge-available {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+.badge-installing,
+.badge-starting {
+  background: var(--primary-muted);
+  color: var(--primary-color);
 }
 
 .badge-status svg {
@@ -1319,5 +1342,498 @@
 
 .btn-icon svg {
   margin: 0;
+}
+
+/* ============================================
+   LIGHT MODE - App Store
+   Icons: Black, Badges: White/Light Gray
+   ============================================ */
+
+/* Light Mode - Container */
+.light-mode .appstore {
+  background: var(--bg-app);
+}
+
+/* Light Mode - Title Icon: BLACK instead of blue */
+.light-mode .appstore-title svg {
+  color: #0F172A;
+}
+
+/* Light Mode - Search */
+.light-mode .appstore-search {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+}
+
+.light-mode .appstore-search:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.light-mode .appstore-search svg {
+  color: #64748B;
+}
+
+.light-mode .appstore-search input {
+  color: #0F172A;
+}
+
+.light-mode .appstore-search input::placeholder {
+  color: #94A3B8;
+}
+
+/* Light Mode - Categories */
+.light-mode .category-btn {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #334155;
+}
+
+.light-mode .category-btn:hover {
+  border-color: var(--primary-color);
+  color: #0F172A;
+  background: #F8FAFC;
+}
+
+.light-mode .category-btn.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #FFFFFF;
+}
+
+/* Light Mode - App Card */
+.light-mode .app-card {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.light-mode .app-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Light Mode - App Icon: Subtler in light mode */
+.light-mode .app-icon {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+/* Light Mode - Badges: WHITE/LIGHT GRAY instead of blue */
+/* Light Mode - ALL Badges unified like version badge */
+.light-mode .badge-system,
+.light-mode .badge-status,
+.light-mode .badge-running,
+.light-mode .badge-installed,
+.light-mode .badge-available,
+.light-mode .badge-installing,
+.light-mode .badge-starting,
+.light-mode .badge-stopped,
+.light-mode .badge-active {
+  background: #F1F5F9;
+  color: #334155;
+  border: none;
+  font-weight: 500;
+}
+
+/* Light Mode - App Name & Description */
+.light-mode .app-name {
+  color: #0F172A;
+}
+
+.light-mode .app-description {
+  color: #64748B;
+}
+
+/* Light Mode - App Meta */
+.light-mode .app-meta {
+  color: #64748B;
+}
+
+.light-mode .app-version {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+/* Light Mode - Buttons */
+.light-mode .btn-primary {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.light-mode .btn-primary:hover {
+  background: #1976D2;
+}
+
+.light-mode .btn-success {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.light-mode .btn-warning {
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+}
+
+.light-mode .btn-warning:hover {
+  background: #E2E8F0;
+}
+
+.light-mode .btn-danger {
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+.light-mode .btn-danger:hover {
+  background: #FEE2E2;
+}
+
+.light-mode .btn-disabled {
+  background: #F1F5F9;
+  color: #94A3B8;
+}
+
+/* Light Mode - Icon Buttons */
+.light-mode .btn-icon-danger {
+  background: #F8FAFC;
+  color: #64748B;
+}
+
+.light-mode .btn-icon-danger:hover:not(:disabled) {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+.light-mode .btn-icon-warning {
+  background: #F8FAFC;
+  color: #64748B;
+}
+
+.light-mode .btn-icon-warning:hover:not(:disabled) {
+  background: #F59E0B;
+  color: #FFFFFF;
+}
+
+.light-mode .btn-icon-primary {
+  background: #F8FAFC;
+  color: #64748B;
+}
+
+.light-mode .btn-icon-primary:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+/* Light Mode - Confirm Popup */
+.light-mode .confirm-popup {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.light-mode .confirm-popup-danger {
+  border-color: #DC2626;
+}
+
+.light-mode .confirm-text {
+  color: #0F172A;
+}
+
+.light-mode .confirm-yes {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.light-mode .confirm-no {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .confirm-no:hover {
+  background: #E2E8F0;
+}
+
+/* Light Mode - Modal */
+.light-mode .modal-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.light-mode .modal-content {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.light-mode .modal-header {
+  border-bottom-color: #E2E8F0;
+}
+
+.light-mode .app-icon-large {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .app-header-info h2 {
+  color: #0F172A;
+}
+
+.light-mode .version {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .modal-close {
+  color: #64748B;
+}
+
+.light-mode .modal-close:hover {
+  color: #0F172A;
+}
+
+/* Light Mode - Tabs */
+.light-mode .modal-tabs {
+  border-bottom-color: #E2E8F0;
+}
+
+.light-mode .tab {
+  color: #64748B;
+}
+
+.light-mode .tab:hover {
+  color: #0F172A;
+}
+
+.light-mode .tab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+/* Light Mode - Info Grid */
+.light-mode .app-long-description {
+  color: #334155;
+}
+
+.light-mode .info-item {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+}
+
+.light-mode .info-item svg {
+  color: #334155;
+}
+
+.light-mode .info-item .label {
+  color: #64748B;
+}
+
+.light-mode .info-item .value {
+  color: #0F172A;
+}
+
+.light-mode .info-item .value.link {
+  color: var(--primary-color);
+}
+
+/* Light Mode - Error Box */
+.light-mode .error-box {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #DC2626;
+}
+
+.light-mode .error-box svg {
+  color: #DC2626;
+}
+
+/* Light Mode - Logs */
+.light-mode .logs-header span {
+  color: #0F172A;
+}
+
+.light-mode .logs-content {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  color: #334155;
+}
+
+/* Light Mode - Events */
+.light-mode .event-item {
+  background: #F8FAFC;
+}
+
+.light-mode .event-time {
+  color: #64748B;
+}
+
+.light-mode .event-message {
+  color: #334155;
+}
+
+.light-mode .event-install_start,
+.light-mode .event-install_complete,
+.light-mode .event-start {
+  background: rgba(33, 150, 243, 0.1);
+  color: var(--primary-color);
+}
+
+.light-mode .event-stop {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+.light-mode .event-error,
+.light-mode .event-install_error,
+.light-mode .event-start_error,
+.light-mode .event-stop_error {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+/* Light Mode - Loading/Empty */
+.light-mode .loading,
+.light-mode .empty {
+  color: #64748B;
+}
+
+.light-mode .appstore-loading svg {
+  color: var(--primary-color);
+}
+
+.light-mode .appstore-empty svg {
+  color: #94A3B8;
+}
+
+/* Light Mode - Modal Footer */
+.light-mode .modal-footer {
+  border-top-color: #E2E8F0;
+}
+
+/* Light Mode - n8n Section */
+.light-mode .n8n-section {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+}
+
+.light-mode .n8n-section h4 {
+  color: #0F172A;
+}
+
+.light-mode .n8n-section h4 svg {
+  color: #334155;
+}
+
+.light-mode .n8n-description {
+  color: #64748B;
+}
+
+.light-mode .credential-item {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+}
+
+.light-mode .credential-item label {
+  color: #64748B;
+}
+
+.light-mode .credential-value code {
+  color: var(--primary-color);
+}
+
+.light-mode .credential-value .password-hint {
+  color: #94A3B8;
+}
+
+.light-mode .command-box {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+.light-mode .command-box code {
+  color: #334155;
+}
+
+.light-mode .copy-btn {
+  background: #E2E8F0;
+  color: #334155;
+}
+
+.light-mode .copy-btn:hover {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.light-mode .instructions-list {
+  color: #334155;
+}
+
+.light-mode .instructions-list li::marker {
+  color: var(--primary-color);
+}
+
+.light-mode .private-key-box {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+.light-mode .private-key-box pre {
+  color: #334155;
+}
+
+/* Light Mode - Uninstall Dialog */
+.light-mode .uninstall-dialog .modal-header h3 {
+  color: #DC2626;
+}
+
+.light-mode .uninstall-dialog .modal-body p {
+  color: #334155;
+}
+
+.light-mode .uninstall-warning {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  color: #D97706 !important;
+}
+
+.light-mode .uninstall-buttons .btn-secondary {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .uninstall-buttons .btn-secondary:hover {
+  background: #E2E8F0;
+}
+
+/* Light Mode - App Error */
+.light-mode .app-error {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #DC2626;
+}
+
+.light-mode .app-error svg {
+  color: #DC2626;
+}
+
+/* Light Mode - Appstore Error */
+.light-mode .appstore-error {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  color: #334155;
+}
+
+.light-mode .appstore-error svg {
+  color: #64748B;
+}
+
+.light-mode .appstore-error button {
+  background: #FFFFFF;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+}
+
+.light-mode .appstore-error button:hover {
+  background: #F1F5F9;
 }
 

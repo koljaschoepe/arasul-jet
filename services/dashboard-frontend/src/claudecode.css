@@ -1759,3 +1759,506 @@
     margin-left: 0;
   }
 }
+
+/* ========================================
+   LIGHT MODE - Claude Code Page
+   Terminal stays light for consistency
+   ======================================== */
+
+/* Light Mode - Page container */
+.light-mode .claude-code-page {
+  background: var(--bg-app);
+}
+
+/* Light Mode - Title Icon: BLACK instead of blue */
+.light-mode .claude-code-title .title-icon {
+  color: #0F172A;
+}
+
+.light-mode .claude-code-title .title-text h1 {
+  color: #0F172A;
+}
+
+.light-mode .claude-code-title .title-text p {
+  color: #64748B;
+}
+
+/* Light Mode - Header */
+.light-mode .claude-code-header {
+  border-bottom-color: var(--border-color);
+}
+
+/* Light Mode - Buttons */
+.light-mode .claude-btn {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.light-mode .claude-btn:hover:not(:disabled) {
+  background: #F1F5F9;
+  border-color: #2196F3;
+  color: var(--text-primary);
+}
+
+.light-mode .claude-btn-primary {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  color: white;
+}
+
+.light-mode .claude-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.35);
+}
+
+.light-mode .claude-btn-active {
+  background: rgba(33, 150, 243, 0.1);
+  border-color: #2196F3;
+  color: #2196F3;
+}
+
+/* Light Mode - Status badges */
+.light-mode .claude-status-badge.status-running {
+  background: rgba(33, 150, 243, 0.12);
+  color: #2196F3;
+  border-color: rgba(33, 150, 243, 0.25);
+}
+
+.light-mode .claude-status-badge.status-stopped {
+  background: rgba(220, 38, 38, 0.1);
+  color: #DC2626;
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+.light-mode .claude-status-badge.status-installed {
+  background: rgba(33, 150, 243, 0.12);
+  color: #2196F3;
+  border-color: rgba(33, 150, 243, 0.25);
+}
+
+.light-mode .claude-status-badge.status-installing {
+  background: rgba(217, 119, 6, 0.1);
+  color: #D97706;
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+/* Light Mode - Error banner */
+.light-mode .claude-error-banner {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.2);
+  color: #DC2626;
+}
+
+.light-mode .claude-error-banner button:hover {
+  background: rgba(220, 38, 38, 0.15);
+}
+
+/* Light Mode - Settings panel */
+.light-mode .claude-code-settings {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.light-mode .claude-code-settings h3 {
+  border-bottom-color: var(--border-color);
+}
+
+.light-mode .setting-input,
+.light-mode .setting-select {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .setting-input:focus,
+.light-mode .setting-select:focus {
+  border-color: #2196F3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.light-mode .setting-select option {
+  background: var(--bg-card);
+}
+
+.light-mode .settings-actions {
+  border-top-color: var(--border-color);
+}
+
+/* Light Mode - Save message */
+.light-mode .save-message.success {
+  background: rgba(33, 150, 243, 0.08);
+  border-color: rgba(33, 150, 243, 0.2);
+  color: #2196F3;
+}
+
+.light-mode .save-message.error {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.15);
+  color: #DC2626;
+}
+
+.light-mode .save-message.warning {
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.2);
+  color: #D97706;
+}
+
+/* Light Mode - Terminal area */
+.light-mode .claude-code-terminal {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.light-mode .terminal-wrapper {
+  background: #F8FAFC;
+}
+
+.light-mode .terminal-iframe {
+  background: #F8FAFC;
+}
+
+/* Light Mode - Placeholder state */
+.light-mode .terminal-placeholder .placeholder-icon {
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%);
+}
+
+.light-mode .terminal-placeholder .placeholder-icon svg {
+  color: #2196F3;
+}
+
+/* Light Mode - Loading state */
+.light-mode .claude-loading-spinner {
+  border-color: var(--border-color);
+  border-top-color: #2196F3;
+}
+
+/* Light Mode - Setup wizard */
+.light-mode .setup-wizard-container {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.light-mode .setup-progress {
+  border-bottom-color: var(--border-color);
+}
+
+.light-mode .setup-progress-bar {
+  background: #2196F3;
+}
+
+.light-mode .setup-progress-step {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .setup-progress-step.active {
+  background: #2196F3;
+  border-color: #2196F3;
+}
+
+.light-mode .setup-progress-step.current {
+  box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
+}
+
+.light-mode .setup-icon {
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.12) 0%, rgba(33, 150, 243, 0.04) 100%);
+}
+
+.light-mode .setup-icon svg {
+  color: #2196F3;
+}
+
+.light-mode .setup-input {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .setup-input:focus {
+  border-color: #2196F3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.12);
+}
+
+.light-mode .setup-input.error {
+  border-color: #DC2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.light-mode .setup-error {
+  color: #DC2626;
+}
+
+.light-mode .setup-link {
+  color: #2196F3;
+}
+
+.light-mode .setup-link:hover {
+  color: #1976D2;
+}
+
+.light-mode .workspace-option {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .workspace-option:hover {
+  border-color: #2196F3;
+  background: rgba(33, 150, 243, 0.04);
+}
+
+.light-mode .workspace-option.selected {
+  border-color: #2196F3;
+  background: rgba(33, 150, 243, 0.08);
+}
+
+.light-mode .workspace-option-icon {
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.light-mode .workspace-option-icon svg {
+  color: #2196F3;
+}
+
+.light-mode .workspace-option-content code {
+  background: rgba(33, 150, 243, 0.08);
+}
+
+.light-mode .workspace-check {
+  color: #2196F3;
+}
+
+.light-mode .setup-summary {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .summary-item {
+  border-bottom-color: var(--border-subtle);
+}
+
+.light-mode .summary-label svg {
+  color: #2196F3;
+}
+
+.light-mode .setup-error-banner {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.15);
+  color: #DC2626;
+}
+
+.light-mode .setup-info {
+  background: rgba(217, 119, 6, 0.06);
+  border-color: rgba(217, 119, 6, 0.2);
+  color: #D97706;
+}
+
+.light-mode .setup-actions {
+  border-top-color: var(--border-color);
+}
+
+.light-mode .setup-btn-primary {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+}
+
+.light-mode .setup-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.35);
+}
+
+.light-mode .setup-btn-secondary {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .setup-btn-secondary:hover:not(:disabled) {
+  background: #F1F5F9;
+  border-color: #2196F3;
+}
+
+/* Light Mode - Workspace manager */
+.light-mode .workspace-manager-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.light-mode .workspace-manager-modal {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.light-mode .workspace-manager-header {
+  border-bottom-color: var(--border-color);
+}
+
+.light-mode .workspace-manager-header h2 svg {
+  color: #2196F3;
+}
+
+.light-mode .workspace-manager-header .close-btn:hover {
+  background: var(--bg-app);
+}
+
+.light-mode .workspace-error {
+  background: rgba(220, 38, 38, 0.06);
+  border-bottom-color: rgba(220, 38, 38, 0.15);
+  color: #DC2626;
+}
+
+.light-mode .workspace-error button:hover {
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.light-mode .workspace-item {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .workspace-item:hover {
+  border-color: rgba(33, 150, 243, 0.3);
+}
+
+.light-mode .workspace-item.default {
+  border-color: #2196F3;
+  background: rgba(33, 150, 243, 0.04);
+}
+
+.light-mode .workspace-item-name .default-star {
+  color: #D97706;
+}
+
+.light-mode .workspace-item-path code {
+  background: rgba(33, 150, 243, 0.08);
+}
+
+.light-mode .ws-action-btn {
+  border-color: var(--border-color);
+}
+
+.light-mode .ws-action-btn:hover {
+  background: #F1F5F9;
+  border-color: #2196F3;
+  color: #2196F3;
+}
+
+.light-mode .ws-action-btn.delete:hover {
+  border-color: #DC2626;
+  color: #DC2626;
+}
+
+.light-mode .workspace-add-btn {
+  border-color: var(--border-color);
+}
+
+.light-mode .workspace-add-btn:hover {
+  border-color: #2196F3;
+  color: #2196F3;
+  background: rgba(33, 150, 243, 0.04);
+}
+
+.light-mode .workspace-create-form {
+  border-top-color: var(--border-color);
+}
+
+.light-mode .workspace-create-form .form-group input {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .workspace-create-form .form-group input:focus {
+  border-color: #2196F3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.light-mode .workspace-create-form .btn-cancel {
+  border-color: var(--border-color);
+}
+
+.light-mode .workspace-create-form .btn-cancel:hover {
+  background: #F1F5F9;
+}
+
+.light-mode .workspace-create-form .btn-create {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+}
+
+.light-mode .workspace-create-form .btn-create:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.light-mode .workspace-manager-footer {
+  background: rgba(217, 119, 6, 0.04);
+  border-top-color: rgba(217, 119, 6, 0.15);
+}
+
+.light-mode .workspace-manager-footer p {
+  color: #D97706;
+}
+
+.light-mode .workspace-manage-btn {
+  background: var(--bg-app);
+  border-color: var(--border-color);
+}
+
+.light-mode .workspace-manage-btn:hover {
+  background: #F1F5F9;
+  border-color: #2196F3;
+  color: #2196F3;
+}
+
+.light-mode .workspace-manage-link {
+  border-color: var(--border-color);
+}
+
+.light-mode .workspace-manage-link:hover {
+  border-color: #2196F3;
+  color: #2196F3;
+  background: rgba(33, 150, 243, 0.04);
+}
+
+.light-mode .default-indicator {
+  color: #D97706;
+}
+
+/* Light Mode - Auth badges */
+.light-mode .auth-badge.auth-valid {
+  background: rgba(33, 150, 243, 0.1);
+  border-color: rgba(33, 150, 243, 0.25);
+  color: #2196F3;
+}
+
+.light-mode .auth-badge.auth-expired {
+  background: rgba(217, 119, 6, 0.1);
+  border-color: rgba(217, 119, 6, 0.25);
+  color: #D97706;
+}
+
+.light-mode .auth-timer {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light-mode .auth-refresh-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .auth-refresh-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.light-mode .settings-auth-section {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: var(--border-color);
+}
+
+.light-mode .auth-info-row {
+  border-bottom-color: rgba(0, 0, 0, 0.05);
+}
+
+.light-mode .auth-info-value.valid {
+  color: #2196F3;
+}
+
+.light-mode .auth-info-value.expired {
+  color: #D97706;
+}

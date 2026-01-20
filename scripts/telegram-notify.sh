@@ -1,9 +1,48 @@
 #!/bin/bash
 # Telegram Notification Helper für Claude Autonomous
 # Sendet Benachrichtigungen an einen Telegram-Bot oder loggt lokal
+#
+# Verwendung:
+#   ./telegram-notify.sh                     # Auto-Nachricht basierend auf Test-Ergebnis
+#   ./telegram-notify.sh "Custom Message"    # Benutzerdefinierte Nachricht
+#   ./telegram-notify.sh "Message" "Context" # Mit Kontext (z.B. "Backend")
 
-MESSAGE="${1:-Keine Nachricht}"
+MESSAGE="${1:-}"
+CONTEXT="${2:-}"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Test-Status lesen wenn keine Nachricht angegeben
+TEST_RESULT_FILE="/tmp/last_test_result"
+if [ -z "$MESSAGE" ]; then
+    if [ -f "$TEST_RESULT_FILE" ]; then
+        LAST_EXIT=$(cat "$TEST_RESULT_FILE")
+        if [ "$LAST_EXIT" = "0" ]; then
+            MESSAGE="Task abgeschlossen - Tests erfolgreich"
+        else
+            MESSAGE="Task abgeschlossen - Tests fehlgeschlagen (Exit: $LAST_EXIT)"
+        fi
+        rm -f "$TEST_RESULT_FILE"
+    else
+        MESSAGE="Task abgeschlossen"
+    fi
+fi
+
+# Task-Kontext aus aktuellem Verzeichnis extrahieren wenn nicht angegeben
+if [ -z "$CONTEXT" ]; then
+    CURRENT_DIR=$(pwd)
+    if [[ "$CURRENT_DIR" == *"dashboard-backend"* ]]; then
+        CONTEXT="Backend"
+    elif [[ "$CURRENT_DIR" == *"dashboard-frontend"* ]]; then
+        CONTEXT="Frontend"
+    elif [[ "$CURRENT_DIR" == *"arasul-jet"* ]]; then
+        CONTEXT="Arasul"
+    fi
+fi
+
+# Kontext zur Nachricht hinzufügen
+if [ -n "$CONTEXT" ]; then
+    MESSAGE="[$CONTEXT] $MESSAGE"
+fi
 
 # Telegram-Credentials aus Umgebung
 # Falls nicht gesetzt, versuche aus .env zu laden

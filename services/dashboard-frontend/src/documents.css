@@ -1126,3 +1126,136 @@
   }
 }
 
+/* ========================================
+   LIGHT MODE - Document Manager
+   ======================================== */
+
+/* Light Mode - General */
+.light-mode .dm-stat-card,
+.light-mode .dm-documents,
+.light-mode .dm-modal,
+.light-mode .search-results,
+.light-mode .filter-group,
+.light-mode .semantic-search-input {
+  background: var(--bg-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Light Mode - Upload zone */
+.light-mode .dm-upload-zone {
+  background: rgba(33, 150, 243, 0.03);
+  border-color: rgba(33, 150, 243, 0.25);
+}
+
+.light-mode .dm-upload-zone:hover {
+  background: rgba(33, 150, 243, 0.06);
+  border-color: rgba(33, 150, 243, 0.4);
+}
+
+.light-mode .dm-upload-zone.drag-active {
+  background: rgba(33, 150, 243, 0.1);
+  border-color: #2196F3;
+}
+
+/* Light Mode - Error styles */
+.light-mode .dm-error {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.25);
+  color: #DC2626;
+}
+
+.light-mode .dm-error button {
+  color: #DC2626;
+}
+
+.light-mode .error-section {
+  background: rgba(220, 38, 38, 0.04);
+  border-color: rgba(220, 38, 38, 0.15);
+}
+
+.light-mode .error-text {
+  color: #DC2626;
+}
+
+.light-mode .retry-btn {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.2);
+  color: #DC2626;
+}
+
+.light-mode .retry-btn:hover {
+  background: rgba(220, 38, 38, 0.15);
+}
+
+/* Light Mode - Table */
+.light-mode .dm-table th {
+  background: rgba(33, 150, 243, 0.04);
+}
+
+.light-mode .dm-table tr:hover {
+  background: rgba(33, 150, 243, 0.03);
+}
+
+.light-mode .dm-table tr.favorite {
+  background: rgba(217, 119, 6, 0.04);
+}
+
+/* Light Mode - Action buttons */
+.light-mode .action-btn:hover {
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.light-mode .action-btn.delete:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: #DC2626;
+}
+
+/* Light Mode - Modal buttons */
+.light-mode .modal-btn.danger {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.2);
+  color: #DC2626;
+}
+
+.light-mode .modal-btn.danger:hover {
+  background: rgba(220, 38, 38, 0.15);
+}
+
+/* Light Mode - Status badges */
+.light-mode .status-pending {
+  --status-color: 217, 119, 6;
+}
+
+.light-mode .status-processing,
+.light-mode .status-indexed {
+  --status-color: 33, 150, 243;
+}
+
+.light-mode .status-failed {
+  --status-color: 220, 38, 38;
+}
+
+/* Light Mode - Space tabs */
+.light-mode .space-tab {
+  background: var(--bg-card);
+}
+
+.light-mode .space-tab:hover {
+  background: #F1F5F9;
+}
+
+.light-mode .space-tab.active {
+  background: rgba(33, 150, 243, 0.08);
+}
+
+/* Light Mode - Summary text */
+.light-mode .summary-text {
+  background: rgba(33, 150, 243, 0.04);
+  border-left-color: #2196F3;
+}
+
+/* Light Mode - Similar items */
+.light-mode .similar-item {
+  background: rgba(33, 150, 243, 0.04);
+}
+

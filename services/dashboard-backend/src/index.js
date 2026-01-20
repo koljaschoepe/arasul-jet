@@ -92,6 +92,7 @@ const telegramAppRouter = require('./routes/telegramApp');
 const claudeTerminalRouter = require('./routes/claudeTerminal');
 const alertsRouter = require('./routes/alerts');
 const auditRouter = require('./routes/audit');
+const externalApiRouter = require('./routes/externalApi');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -118,6 +119,7 @@ app.use('/api/telegram-app', telegramAppRouter);
 app.use('/api/claude-terminal', claudeTerminalRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/audit', auditRouter);
+app.use('/api/v1/external', externalApiRouter);  // External API for n8n, automations
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
@@ -150,6 +152,7 @@ const llmJobService = require('./services/llmJobService');
 const llmQueueService = require('./services/llmQueueService');
 const modelService = require('./services/modelService');
 const alertEngine = require('./services/alertEngine');
+const ollamaReadiness = require('./services/ollamaReadiness');
 
 wss.on('connection', (ws) => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
@@ -212,16 +215,12 @@ if (require.main === module) {
     logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
     logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);
 
-    // Sync installed models with Ollama
+    // Initialize Ollama Readiness Service (handles waiting for Ollama + periodic sync)
     try {
-      const syncResult = await modelService.syncWithOllama();
-      if (syncResult.success) {
-        logger.info(`Model sync complete: ${syncResult.ollamaModels?.length || 0} models found in Ollama`);
-      } else {
-        logger.warn(`Model sync failed: ${syncResult.error}`);
-      }
+      await ollamaReadiness.initialize({ modelService });
+      logger.info('Ollama Readiness Service initialized - models synced');
     } catch (err) {
-      logger.error(`Failed to sync models with Ollama: ${err.message}`);
+      logger.error(`Failed to initialize Ollama Readiness Service: ${err.message}`);
     }
 
     // Initialize LLM Queue Service (handles cleanup and starts processing)

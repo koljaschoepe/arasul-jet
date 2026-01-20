@@ -225,7 +225,6 @@ function AppStore() {
             )}
             <span
               className={`badge badge-status badge-${app.status}`}
-              style={{ backgroundColor: status.color }}
             >
               {isLoading ? (
                 <FiRefreshCw className="spin" />

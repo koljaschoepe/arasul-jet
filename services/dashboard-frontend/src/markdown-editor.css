@@ -412,3 +412,194 @@
         border-bottom: 1px solid #313244;
     }
 }
+
+/* ========================================
+   LIGHT MODE - Markdown Editor
+   Catppuccin Latte inspired palette
+   ======================================== */
+
+/* Light Mode - Overlay */
+.light-mode .markdown-editor-overlay {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+/* Light Mode - Container */
+.light-mode .markdown-editor-container {
+    background: #EFF1F5;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+/* Light Mode - Header */
+.light-mode .markdown-editor-header {
+    background: #E6E9EF;
+    border-bottom-color: #DCE0E8;
+}
+
+.light-mode .markdown-editor-title {
+    color: #4C4F69;
+}
+
+.light-mode .markdown-editor-title svg {
+    color: #1E66F5;
+}
+
+.light-mode .unsaved-indicator {
+    color: #DF8E1D;
+}
+
+/* Light Mode - Toolbar */
+.light-mode .toolbar-group {
+    background: #DCE0E8;
+}
+
+.light-mode .toolbar-btn {
+    color: #5C5F77;
+}
+
+.light-mode .toolbar-btn:hover {
+    background: #CCD0DA;
+    color: #4C4F69;
+}
+
+.light-mode .toolbar-btn.active {
+    background: #BCC0CC;
+    color: #1E66F5;
+}
+
+.light-mode .toolbar-btn.save-btn {
+    background: #BCC0CC;
+    color: #5C5F77;
+}
+
+.light-mode .toolbar-btn.save-btn.has-changes {
+    background: #1E66F5;
+    color: #FFFFFF;
+}
+
+.light-mode .toolbar-btn.save-btn.has-changes:hover {
+    background: #2a75f7;
+}
+
+.light-mode .toolbar-btn.close-btn:hover {
+    background: #D20F39;
+    color: #FFFFFF;
+}
+
+/* Light Mode - Error message */
+.light-mode .markdown-editor-error {
+    background: rgba(210, 15, 57, 0.1);
+    border-bottom-color: #D20F39;
+    color: #D20F39;
+}
+
+.light-mode .markdown-editor-error button {
+    color: #D20F39;
+}
+
+/* Light Mode - Pane header */
+.light-mode .pane-header {
+    background: #E6E9EF;
+    border-bottom-color: #DCE0E8;
+    color: #6C6F85;
+}
+
+/* Light Mode - Editor pane */
+.light-mode .editor-pane {
+    border-right-color: #DCE0E8;
+}
+
+.light-mode .editor-pane textarea {
+    background: #EFF1F5;
+    color: #4C4F69;
+}
+
+.light-mode .editor-pane textarea::placeholder {
+    color: #9CA0B0;
+}
+
+/* Light Mode - Preview content */
+.light-mode .preview-content {
+    background: #EFF1F5;
+    color: #4C4F69;
+}
+
+.light-mode .preview-content h1,
+.light-mode .preview-content h2,
+.light-mode .preview-content h3,
+.light-mode .preview-content h4,
+.light-mode .preview-content h5,
+.light-mode .preview-content h6 {
+    color: #4C4F69;
+}
+
+.light-mode .preview-content h1,
+.light-mode .preview-content h2 {
+    border-bottom-color: #DCE0E8;
+}
+
+.light-mode .preview-content a {
+    color: #1E66F5;
+}
+
+.light-mode .preview-content code {
+    background: #DCE0E8;
+    color: #D20F39;
+}
+
+.light-mode .preview-content pre {
+    background: #E6E9EF;
+}
+
+.light-mode .preview-content pre code {
+    color: #4C4F69;
+}
+
+.light-mode .preview-content blockquote {
+    border-left-color: #1E66F5;
+    background: rgba(30, 102, 245, 0.08);
+    color: #5C5F77;
+}
+
+.light-mode .preview-content hr {
+    border-top-color: #DCE0E8;
+}
+
+.light-mode .preview-content strong {
+    color: #DC8A78;
+}
+
+.light-mode .preview-content em {
+    color: #8839EF;
+}
+
+.light-mode .preview-content del {
+    color: #9CA0B0;
+}
+
+/* Light Mode - Footer */
+.light-mode .markdown-editor-footer {
+    background: #E6E9EF;
+    border-top-color: #DCE0E8;
+    color: #6C6F85;
+}
+
+.light-mode .changes-indicator {
+    color: #DF8E1D;
+}
+
+/* Light Mode - Loading state */
+.light-mode .markdown-editor-loading {
+    color: #5C5F77;
+}
+
+.light-mode .markdown-editor-loading .spinner {
+    border-color: #DCE0E8;
+    border-top-color: #1E66F5;
+}
+
+/* Light Mode - Responsive override */
+@media (max-width: 768px) {
+    .light-mode .editor-pane {
+        border-bottom-color: #DCE0E8;
+    }
+}

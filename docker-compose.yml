@@ -193,8 +193,9 @@ services:
       - arasul-net
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
-      OLLAMA_MODELS: /models
-      LLM_MODEL: ${LLM_MODEL:-llama2}
+      # OLLAMA_MODELS removed - Ollama uses default /root/.ollama where volume is mounted
+      # This ensures models persist across container restarts (see HIGH-017)
+      LLM_MODEL: ${LLM_MODEL:-qwen3:14b-q8}
       LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-300}
     volumes:
       - arasul-llm-models:/root/.ollama
@@ -540,14 +541,22 @@ services:
       # N8N_EDITOR_BASE_URL tells n8n the external URL (for links in emails, etc.)
       # Traefik strips /n8n prefix before forwarding to n8n
       N8N_EDITOR_BASE_URL: http://${INTERNAL_IP}/n8n
-      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE}
-      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
-      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      # Disable basic auth - use n8n's built-in user management instead
+      N8N_BASIC_AUTH_ACTIVE: "false"
       WEBHOOK_URL: http://${N8N_HOST}:${N8N_WEBHOOK_PORT}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
       EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "true"
+      # Session duration: 30 days (720 hours) for persistent login
+      N8N_USER_MANAGEMENT_JWT_DURATION_HOURS: "720"
+      # Enable personalization for better UX
+      N8N_PERSONALIZATION_ENABLED: "true"
+      # Use WebSocket for real-time updates
+      N8N_PUSH_BACKEND: "websocket"
+      # Timezone
+      GENERIC_TIMEZONE: "Europe/Berlin"
+      TZ: "Europe/Berlin"
       # Custom nodes are baked into the image via Dockerfile
       N8N_CUSTOM_EXTENSIONS: /custom-nodes
     volumes:
@@ -575,7 +584,7 @@ services:
         limits:
           memory: ${RAM_LIMIT_N8N}
     labels:
-      # Router defined in config/traefik/dynamic/routes.yml with forward-auth SSO
+      # Router defined in config/traefik/dynamic/routes.yml (n8n handles own auth)
       - "traefik.enable=true"
       - "traefik.http.services.n8n-docker.loadbalancer.server.port=5678"
     logging:

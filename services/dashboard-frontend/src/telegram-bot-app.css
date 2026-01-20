@@ -200,8 +200,8 @@
 }
 
 .stat-icon.active {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22C55E;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);  /* Grau statt Grün */
 }
 
 .stat-content {
@@ -409,7 +409,7 @@
 }
 
 .toggle-btn.active {
-  color: #22C55E;
+  color: var(--status-neutral);  /* Grau statt Grün */
 }
 
 .rule-description {
@@ -487,7 +487,7 @@
 }
 
 .config-value.active {
-  color: #22C55E;
+  color: var(--status-neutral);  /* Grau statt Grün */
 }
 
 .agents-grid {
@@ -525,8 +525,8 @@
 }
 
 .agent-status.active {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22C55E;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);  /* Grau statt Grün */
 }
 
 .agent-stats {
@@ -581,8 +581,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(34, 197, 94, 0.15);
-  color: #22C55E;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);  /* Grau statt Grün */
 }
 
 .history-icon:has(svg[data-icon="x"]) {
@@ -847,8 +847,8 @@
 }
 
 .step-icon-large.success {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22C55E;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);  /* Grau statt Grün */
 }
 
 .step-content h2 {
@@ -1046,7 +1046,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  color: #22C55E;
+  color: var(--status-neutral);  /* Grau statt Grün */
   font-size: 0.9375rem;
 }
 

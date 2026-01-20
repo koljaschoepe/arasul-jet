@@ -687,3 +687,285 @@ code.detail-value {
     }
 }
 
+/* ============================================
+   LIGHT MODE - Model Store
+   Icons: Black, Badges: White/Light Gray
+   ============================================ */
+
+/* Light Mode - Title Icon: BLACK instead of blue */
+.light-mode .model-store-title svg {
+  color: #0F172A;
+}
+
+.light-mode .model-store-title h1 {
+  color: #0F172A;
+}
+
+.light-mode .model-store-subtitle {
+  color: #64748B;
+}
+
+/* Light Mode - Loading */
+.light-mode .model-store-loading {
+  color: #64748B;
+}
+
+.light-mode .model-store-loading .spin {
+  color: var(--primary-color);
+}
+
+/* Light Mode - Loaded Model Banner */
+.light-mode .loaded-model-banner {
+  background: rgba(33, 150, 243, 0.08);
+  border-color: var(--primary-color);
+}
+
+.light-mode .loaded-model-info {
+  color: #0F172A;
+}
+
+.light-mode .loaded-model-info svg {
+  color: var(--primary-color);
+}
+
+.light-mode .loaded-model-info strong {
+  color: var(--primary-color);
+}
+
+.light-mode .ram-usage {
+  background: #FFFFFF;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+}
+
+/* Light Mode - No Model Banner */
+.light-mode .no-model-banner {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #64748B;
+}
+
+.light-mode .no-model-banner svg {
+  color: #334155;
+}
+
+/* Light Mode - Error Message */
+.light-mode .model-store-error {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #DC2626;
+}
+
+.light-mode .model-store-error button {
+  color: #DC2626;
+}
+
+.light-mode .model-store-error button:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* Light Mode - Model Card */
+.light-mode .model-card {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.light-mode .model-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .model-card.active {
+  border-color: var(--primary-color);
+  background: rgba(33, 150, 243, 0.05);
+}
+
+.light-mode .model-card.installed {
+  border-color: #CBD5E1;
+}
+
+/* Light Mode - Model Icon: Subtler in light mode */
+.light-mode .model-icon {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .model-card.active .model-icon {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+/* Light Mode - Badges: WHITE/LIGHT GRAY instead of blue */
+/* Light Mode - ALL Badges unified like version badge */
+.light-mode .badge,
+.light-mode .badge-default,
+.light-mode .badge-loaded,
+.light-mode .badge-queue,
+.light-mode .badge-category {
+  background: #F1F5F9;
+  color: #334155;
+  border: none;
+  font-weight: 500;
+}
+
+/* Light Mode - Model Name & Description */
+.light-mode .model-name {
+  color: #0F172A;
+}
+
+.light-mode .model-description {
+  color: #64748B;
+}
+
+/* Light Mode - Model Specs */
+.light-mode .spec-label {
+  color: #64748B;
+}
+
+.light-mode .spec-value {
+  color: #0F172A;
+}
+
+/* Light Mode - Capabilities */
+.light-mode .capability-tag {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .capability-tag.recommended {
+  background: rgba(33, 150, 243, 0.1);
+  color: var(--primary-color);
+}
+
+/* Light Mode - Download Progress */
+.light-mode .download-progress {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+.light-mode .download-progress.phase-complete {
+  border-color: #22C55E;
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.light-mode .progress-phase-label {
+  color: #334155;
+}
+
+.light-mode .progress-bar {
+  background: #E2E8F0;
+}
+
+.light-mode .progress-fill {
+  background: linear-gradient(90deg, var(--primary-color), #42A5F5);
+}
+
+.light-mode .progress-percent {
+  color: var(--primary-color);
+}
+
+.light-mode .progress-status {
+  color: #64748B;
+}
+
+/* Light Mode - Model Actions */
+.light-mode .model-actions .btn-primary {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.light-mode .model-actions .btn-primary:hover {
+  background: #1976D2;
+}
+
+.light-mode .model-actions .btn-success {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.light-mode .model-actions .btn-success:hover {
+  background: #42A5F5;
+}
+
+.light-mode .model-actions .btn-secondary {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .model-actions .btn-secondary:hover {
+  background: #E2E8F0;
+}
+
+.light-mode .model-actions .btn-danger {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+.light-mode .model-actions .btn-danger:hover {
+  background: #FEE2E2;
+}
+
+.light-mode .model-actions .btn-active {
+  background: rgba(33, 150, 243, 0.1);
+  color: var(--primary-color);
+}
+
+/* Light Mode - Modal */
+.light-mode .modal-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.light-mode .modal-content {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.light-mode .modal-header {
+  border-bottom-color: #E2E8F0;
+}
+
+.light-mode .modal-header h2 {
+  color: #0F172A;
+}
+
+.light-mode .modal-header h2 svg {
+  color: #334155;
+}
+
+.light-mode .modal-close {
+  color: #64748B;
+}
+
+.light-mode .modal-close:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+/* Light Mode - Model Detail */
+.light-mode .model-detail-description {
+  color: #334155;
+}
+
+.light-mode .detail-label {
+  color: #64748B;
+}
+
+.light-mode .detail-value {
+  color: #0F172A;
+}
+
+.light-mode code.detail-value {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .model-detail-section {
+  border-top-color: #E2E8F0;
+}
+
+.light-mode .model-detail-section h3 {
+  color: #64748B;
+}
+

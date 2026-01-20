@@ -4,6 +4,10 @@
 
 const { hashPassword, verifyPassword, validatePasswordComplexity } = require('../../src/utils/password');
 
+// bcrypt with 12 salt rounds is slow on ARM/Jetson hardware
+// Each hash operation can take 10-15 seconds, so we need generous timeouts
+const BCRYPT_TEST_TIMEOUT = 30000;
+
 describe('Password Utilities', () => {
   describe('hashPassword', () => {
     test('should hash a password', async () => {
@@ -13,7 +17,7 @@ describe('Password Utilities', () => {
       expect(hash).toBeDefined();
       expect(hash).not.toBe(password);
       expect(hash.length).toBeGreaterThan(50);
-    });
+    }, BCRYPT_TEST_TIMEOUT);
 
     test('should generate different hashes for same password', async () => {
       const password = 'TestPassword123!';
@@ -21,7 +25,7 @@ describe('Password Utilities', () => {
       const hash2 = await hashPassword(password);
 
       expect(hash1).not.toBe(hash2);
-    });
+    }, BCRYPT_TEST_TIMEOUT * 2);
   });
 
   describe('verifyPassword', () => {
@@ -31,7 +35,7 @@ describe('Password Utilities', () => {
       const isValid = await verifyPassword(password, hash);
 
       expect(isValid).toBe(true);
-    });
+    }, BCRYPT_TEST_TIMEOUT * 2);
 
     test('should reject incorrect password', async () => {
       const password = 'TestPassword123!';
@@ -40,7 +44,7 @@ describe('Password Utilities', () => {
       const isValid = await verifyPassword(wrongPassword, hash);
 
       expect(isValid).toBe(false);
-    });
+    }, BCRYPT_TEST_TIMEOUT * 2);
   });
 
   describe('validatePasswordComplexity', () => {

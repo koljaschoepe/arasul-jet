@@ -8,6 +8,28 @@ const router = express.Router();
 const dockerService = require('../services/docker');
 const logger = require('../utils/logger');
 const axios = require('axios');
+const db = require('../database');
+const { requireAuth } = require('../middleware/auth');
+
+// Allowed services whitelist - only Arasul services can be restarted
+const ALLOWED_SERVICES = [
+    'postgres-db',
+    'minio',
+    'qdrant',
+    'metrics-collector',
+    'llm-service',
+    'embedding-service',
+    'document-indexer',
+    'reverse-proxy',
+    'dashboard-backend',
+    'dashboard-frontend',
+    'n8n',
+    'self-healing-agent',
+    'backup-service'
+];
+
+// Rate limiting: Track last restart per service (in-memory, resets on service restart)
+const lastRestartTimes = new Map();
 
 // GET /api/services
 router.get('/', async (req, res) => {
@@ -368,6 +390,190 @@ router.get('/embedding/info', async (req, res) => {
         res.status(500).json({
             error: 'Failed to retrieve embedding service information',
             details: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// GET /api/services/all - Get all services with detailed status
+router.get('/all', requireAuth, async (req, res) => {
+    try {
+        const statuses = await dockerService.getAllServicesStatus();
+
+        // Transform to array format with more details
+        const services = Object.entries(statuses).map(([key, value]) => ({
+            id: key,
+            name: value.containerName || key,
+            status: value.status,
+            health: value.health,
+            state: value.state,
+            canRestart: ALLOWED_SERVICES.includes(value.containerName || key)
+        }));
+
+        res.json({
+            services,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`Error in /api/services/all: ${error.message}`);
+        res.status(500).json({
+            error: 'Failed to get services status',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// POST /api/services/restart/:serviceName - Restart a specific service
+router.post('/restart/:serviceName', requireAuth, async (req, res) => {
+    const { serviceName } = req.params;
+    const userId = req.user?.id;
+    const username = req.user?.username || 'unknown';
+
+    try {
+        // Validate service name against whitelist
+        if (!ALLOWED_SERVICES.includes(serviceName)) {
+            logger.warn(`Restart attempt for unauthorized service: ${serviceName} by user ${username}`);
+            return res.status(403).json({
+                error: 'Service restart not allowed',
+                message: `Service '${serviceName}' is not in the allowed services list`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Rate limiting: Max 1 restart per service per 60 seconds
+        const now = Date.now();
+        const lastRestart = lastRestartTimes.get(serviceName) || 0;
+        const cooldownMs = 60000; // 60 seconds
+
+        if (now - lastRestart < cooldownMs) {
+            const remainingSeconds = Math.ceil((cooldownMs - (now - lastRestart)) / 1000);
+            logger.warn(`Rate limit hit for service restart: ${serviceName} by user ${username}`);
+            return res.status(429).json({
+                error: 'Rate limit exceeded',
+                message: `Please wait ${remainingSeconds} seconds before restarting this service again`,
+                remainingSeconds,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Log the restart attempt
+        logger.info(`Service restart initiated: ${serviceName} by user ${username} (ID: ${userId})`);
+
+        // Perform the restart with timeout
+        const startTime = Date.now();
+        const success = await Promise.race([
+            dockerService.restartContainer(serviceName),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Restart timeout')), 30000)
+            )
+        ]);
+
+        const duration = Date.now() - startTime;
+
+        if (success) {
+            // Update rate limit tracker
+            lastRestartTimes.set(serviceName, now);
+
+            // Log to self_healing_events table for audit trail
+            try {
+                await db.query(
+                    `INSERT INTO self_healing_events
+                     (event_type, service_name, action_taken, details, success, created_at)
+                     VALUES ($1, $2, $3, $4, $5, NOW())`,
+                    [
+                        'manual_restart',
+                        serviceName,
+                        'container_restart',
+                        JSON.stringify({
+                            initiated_by: username,
+                            user_id: userId,
+                            duration_ms: duration,
+                            source: 'dashboard_api'
+                        }),
+                        true
+                    ]
+                );
+            } catch (dbError) {
+                // Log but don't fail the request if audit logging fails
+                logger.error(`Failed to log restart event to database: ${dbError.message}`);
+            }
+
+            logger.info(`Service restart successful: ${serviceName} (took ${duration}ms)`);
+
+            res.json({
+                success: true,
+                message: `Service '${serviceName}' restarted successfully`,
+                service: serviceName,
+                duration_ms: duration,
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            // Log failed restart attempt
+            try {
+                await db.query(
+                    `INSERT INTO self_healing_events
+                     (event_type, service_name, action_taken, details, success, created_at)
+                     VALUES ($1, $2, $3, $4, $5, NOW())`,
+                    [
+                        'manual_restart',
+                        serviceName,
+                        'container_restart',
+                        JSON.stringify({
+                            initiated_by: username,
+                            user_id: userId,
+                            error: 'Restart returned false',
+                            source: 'dashboard_api'
+                        }),
+                        false
+                    ]
+                );
+            } catch (dbError) {
+                logger.error(`Failed to log restart event to database: ${dbError.message}`);
+            }
+
+            logger.error(`Service restart failed: ${serviceName}`);
+
+            res.status(500).json({
+                success: false,
+                error: 'Restart failed',
+                message: `Failed to restart service '${serviceName}'`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+    } catch (error) {
+        logger.error(`Error restarting service ${serviceName}: ${error.message}`);
+
+        // Log failed restart attempt
+        try {
+            await db.query(
+                `INSERT INTO self_healing_events
+                 (event_type, service_name, action_taken, details, success, created_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW())`,
+                [
+                    'manual_restart',
+                    serviceName,
+                    'container_restart',
+                    JSON.stringify({
+                        initiated_by: username,
+                        user_id: userId,
+                        error: error.message,
+                        source: 'dashboard_api'
+                    }),
+                    false
+                ]
+            );
+        } catch (dbError) {
+            logger.error(`Failed to log restart event to database: ${dbError.message}`);
+        }
+
+        res.status(500).json({
+            success: false,
+            error: 'Restart failed',
+            message: error.message === 'Restart timeout'
+                ? 'Service restart timed out after 30 seconds'
+                : `Error restarting service: ${error.message}`,
             timestamp: new Date().toISOString()
         });
     }

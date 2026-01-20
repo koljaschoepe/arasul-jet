@@ -17,6 +17,7 @@ Instructions for Claude Code working in the Arasul Platform repository.
 | Backend service | [services/dashboard-backend/README.md](services/dashboard-backend/README.md) |
 | Frontend service | [services/dashboard-frontend/README.md](services/dashboard-frontend/README.md) |
 | Docker dependencies | [docs/DOCKER_DEPENDENCIES.md](docs/DOCKER_DEPENDENCIES.md) |
+| Context Engineering | [docs/CONTEXT_ENGINEERING_PLAN.md](docs/CONTEXT_ENGINEERING_PLAN.md) |
 
 ---
 
@@ -31,7 +32,7 @@ Instructions for Claude Code working in the Arasul Platform repository.
 
 ```bash
 # Standard workflow after implementing a feature
-npm test                           # or pytest for Python
+./scripts/run-tests.sh --backend   # Run backend tests
 git add -A
 git commit -m "feat: description"
 git push origin main
@@ -74,38 +75,206 @@ chore: Maintenance tasks
 | Runtime | Docker Compose V2 + NVIDIA Container Runtime |
 | Frontend | React 18 SPA |
 | Backend | Node.js/Express |
-| Database | PostgreSQL 15 |
+| Database | PostgreSQL 16 |
 | AI | Ollama (LLM) + Sentence Transformers (Embeddings) |
 | Vector DB | Qdrant |
-| Storage | MinIO |
+| Storage | MinIO (S3-compatible) |
 
 ---
 
-## Architecture (10 Services)
+## Complete Architecture (13 Services)
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  FRONTEND (3000) ─── BACKEND (3001) ─── n8n (5678)     │
-├─────────────────────────────────────────────────────────┤
-│  LLM (11434) ── EMBEDDING (11435) ── QDRANT (6333)     │
-│                 DOCUMENT-INDEXER (8080)                 │
-├─────────────────────────────────────────────────────────┤
-│  POSTGRES (5432) ── MINIO (9000) ── METRICS (9100)     │
-│  TRAEFIK (80/443) ── SELF-HEALING (9200)               │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER LAYER                              │
+│  FRONTEND (3000) ──── TRAEFIK (80/443) ──── TELEGRAM-BOT (8090)│
+├─────────────────────────────────────────────────────────────────┤
+│                       APPLICATION LAYER                         │
+│  BACKEND (3001) ─────── n8n (5678) ─────── DOCUMENT-INDEXER    │
+├─────────────────────────────────────────────────────────────────┤
+│                          AI LAYER                               │
+│  LLM-SERVICE (11434) ── EMBEDDING (11435) ── QDRANT (6333)     │
+├─────────────────────────────────────────────────────────────────┤
+│                      INFRASTRUCTURE LAYER                       │
+│  POSTGRES (5432) ── MINIO (9000) ── METRICS (9100)             │
+│                  SELF-HEALING-AGENT (9200)                      │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+### Complete Service Reference
+
+| # | Service | Port | Technology | Entry Point | Purpose |
+|---|---------|------|------------|-------------|---------|
+| 1 | dashboard-frontend | 3000 | React 18 | `src/App.js` | Web UI |
+| 2 | dashboard-backend | 3001 | Node.js/Express | `src/index.js` | REST API + SSE + WebSocket |
+| 3 | postgres-db | 5432 | PostgreSQL 16 | `init/*.sql` | Relational database |
+| 4 | llm-service | 11434 | Ollama + Flask | `api_server.py` | LLM inference |
+| 5 | embedding-service | 11435 | Flask | `embedding_server.py` | Text vectorization |
+| 6 | document-indexer | 8080 | Flask | `indexer.py` | RAG document processing |
+| 7 | qdrant | 6333 | Qdrant | - | Vector database |
+| 8 | minio | 9000/9001 | MinIO | - | S3-compatible storage |
+| 9 | metrics-collector | 9100 | aiohttp | `collector.py` | System metrics |
+| 10 | self-healing-agent | 9200 | Python | `healing_engine.py` | Autonomous recovery |
+| 11 | telegram-bot | 8090 | python-telegram-bot | `bot.py` | Notifications & commands |
+| 12 | n8n | 5678 | n8n | - | Workflow automation |
+| 13 | reverse-proxy | 80/443 | Traefik | `routes.yml` | Reverse proxy + SSL |
 
 ### Startup Order (Enforced by depends_on)
 
 ```
-1. postgres-db, minio
-2. qdrant
-3. metrics-collector
-4. llm-service, embedding-service
-5. document-indexer
-6. reverse-proxy
-7. dashboard-backend, dashboard-frontend, n8n
-8. self-healing-agent (LAST - monitors all)
+1. postgres-db, minio              # Storage foundation
+2. qdrant                          # Vector DB
+3. metrics-collector               # Monitoring
+4. llm-service, embedding-service  # AI services
+5. document-indexer                # RAG pipeline
+6. reverse-proxy (Traefik)         # Routing
+7. dashboard-backend               # API
+8. dashboard-frontend, n8n         # UI + Workflows
+9. telegram-bot                    # Notifications
+10. self-healing-agent             # LAST - monitors all
+```
+
+---
+
+## Key File Locations
+
+### Backend (Node.js/Express)
+```
+services/dashboard-backend/
+├── src/index.js              # Entry point, Express app setup
+├── src/server.js             # Server initialization
+├── src/database.js           # PostgreSQL connection pool
+├── src/routes/               # 24 route files (see below)
+├── src/middleware/
+│   ├── auth.js               # JWT validation
+│   ├── audit.js              # Request logging
+│   └── rateLimit.js          # Per-user rate limiting
+├── src/services/             # 13 business logic services
+│   ├── llmJobService.js      # LLM job persistence
+│   ├── llmQueueService.js    # Sequential LLM processing
+│   ├── alertEngine.js        # Alert processing
+│   ├── telegramNotificationService.js
+│   └── contextInjectionService.js
+└── src/utils/
+    ├── logger.js             # Winston logging
+    ├── jwt.js                # Token utilities
+    └── password.js           # bcrypt hashing
+```
+
+### Backend Routes (24 Files)
+
+| Category | Route File | Key Endpoints |
+|----------|------------|---------------|
+| **Auth** | auth.js | `/api/auth/login`, `/logout`, `/me` |
+| **AI Chat** | llm.js | `/api/llm/chat` (SSE), `/queue`, `/jobs` |
+| **RAG** | rag.js | `/api/rag/query` (SSE) |
+| **Conversations** | chats.js | `/api/chats` CRUD |
+| **Documents** | documents.js | `/api/documents/upload`, list, delete |
+| **System** | metrics.js | `/api/metrics/live`, `/history` |
+| **Services** | services.js | `/api/services/status`, `/restart` |
+| **Settings** | settings.js | `/api/settings/password` |
+| **Alerts** | alerts.js | `/api/alerts/settings`, `/thresholds`, `/history` |
+| **Events** | events.js | `/api/events`, `/webhook/*` |
+| **Telegram** | telegram.js | `/api/telegram/config`, `/send`, `/audit-logs` |
+| **Audit** | audit.js | `/api/audit/logs`, `/stats/*` |
+| **Terminal** | claudeTerminal.js | `/api/terminal/query`, `/history` |
+| **Spaces** | spaces.js | `/api/spaces` CRUD |
+| **Models** | models.js | `/api/models/installed`, `/download`, `/sync` |
+| **Apps** | appstore.js | `/api/apps` CRUD, `/config` |
+| **Database** | database.js | `/api/database/health`, `/pool` |
+| **Logs** | logs.js | `/api/logs/list`, `/stream` |
+| **System Info** | system.js | `/api/system/info`, `/network` |
+| **Embeddings** | embeddings.js | `/api/embeddings/*` proxy |
+| **Self-Healing** | selfhealing.js | `/api/selfhealing/events` |
+| **Update** | update.js | `/api/update/*` |
+| **Workflows** | workflows.js | `/api/workflows/stats` |
+| **Health** | (in index.js) | `/api/health` |
+
+### Frontend (React 18)
+```
+services/dashboard-frontend/
+├── src/App.js                # Routes, WebSocket, Auth context
+├── src/components/
+│   ├── ChatMulti.js          # AI Chat with RAG toggle (Hauptkomponente)
+│   ├── DocumentManager.js    # Document upload + management
+│   ├── Settings.js           # Settings tabs container
+│   ├── PasswordManagement.js # Password change UI
+│   ├── ModelStore.js         # LLM model management
+│   ├── AppStore.js           # App marketplace
+│   ├── ClaudeTerminal.js     # Claude Code terminal
+│   ├── TelegramSettings.js   # Telegram configuration
+│   ├── SelfHealingEvents.js  # Event viewer
+│   ├── UpdatePage.js         # System updates
+│   ├── Login.js              # Auth form
+│   ├── ErrorBoundary.js      # Error handling
+│   └── LoadingSpinner.js     # Loading states
+├── src/__tests__/            # 9 test files
+└── src/*.css                 # Styling (dark theme)
+```
+
+### AI Services (Python)
+```
+services/llm-service/
+├── api_server.py             # Flask management API (port 11435)
+├── entrypoint.sh             # Dual server startup (Ollama + Flask)
+└── healthcheck.sh            # Custom health check
+
+services/embedding-service/
+└── embedding_server.py       # Flask server, nomic-embed-text-v1.5
+
+services/document-indexer/
+├── indexer.py                # Main loop (30s intervals)
+├── document_parsers.py       # PDF, DOCX, TXT, Markdown
+├── text_chunker.py           # 500 char chunks
+├── ai_services.py            # Embedding & Qdrant integration
+└── api_server.py             # Flask management API
+```
+
+### Telegram Bot (Python)
+```
+services/telegram-bot/
+├── bot.py                    # Main bot application
+├── health.py                 # Flask health endpoint (port 8090)
+├── config.py                 # Environment handling
+├── commands/
+│   ├── disk.py               # Disk commands
+│   ├── logs.py               # Log commands
+│   ├── services.py           # Service management
+│   └── status.py             # System status
+└── src/
+    ├── handlers/             # Callback handlers
+    ├── middleware/           # Audit middleware
+    └── services/             # Audit logging
+```
+
+### Database Migrations (25 Files)
+```
+services/postgres/init/
+├── 001_init_schema.sql       # metrics, metric_history
+├── 002_auth_schema.sql       # users, sessions
+├── 003_self_healing_schema.sql
+├── 004_update_schema.sql     # update_packages, update_history
+├── 005_chat_schema.sql       # conversations, messages
+├── 006_llm_jobs_schema.sql
+├── 007_add_sources_to_messages.sql
+├── 008_llm_queue_schema.sql
+├── 009_documents_schema.sql  # documents, document_chunks
+├── 010_alert_config_schema.sql
+├── 010_llm_models_schema.sql
+├── 010_performance_indexes.sql
+├── 011_appstore_schema.sql
+├── 012_convert_system_apps.sql
+├── 013_claude_workspaces_schema.sql
+├── 014_knowledge_spaces_schema.sql
+├── 015_audit_log_schema.sql
+├── 015_claude_terminal_schema.sql
+├── 015_notification_events_schema.sql
+├── 015_telegram_config_schema.sql
+├── 015_telegram_schema.sql
+├── 015_telegram_security_schema.sql
+├── 016_api_audit_logs_schema.sql
+├── 023_api_audit_logs_schema.sql
+└── 025_telegram_notification_system.sql
 ```
 
 ---
@@ -128,69 +297,10 @@ docker exec -it postgres-db psql -U arasul -d arasul_db
 # Validate setup
 ./scripts/validate_dependencies.sh
 ./scripts/validate_config.sh
-```
 
----
-
-## Key File Locations
-
-### Backend (Node.js/Express)
-```
-services/dashboard-backend/
-├── src/index.js              # Entry point, Express app
-├── src/routes/               # 17 route files
-│   ├── auth.js               # Login, logout, sessions
-│   ├── llm.js                # LLM chat (SSE streaming)
-│   ├── rag.js                # RAG queries
-│   ├── chats.js              # Multi-conversation
-│   ├── documents.js          # Document management
-│   └── settings.js           # Password management
-├── src/middleware/auth.js    # JWT middleware
-├── src/database.js           # PostgreSQL pool
-└── src/services/
-    ├── llmJobService.js      # LLM job queue
-    └── llmQueueService.js    # Sequential processing
-```
-
-### Frontend (React)
-```
-services/dashboard-frontend/
-├── src/App.js                # Routes, WebSocket, Auth
-└── src/components/
-    ├── ChatMulti.js          # AI Chat with RAG toggle
-    ├── DocumentManager.js    # Document upload
-    ├── Settings.js           # Settings tabs
-    └── Login.js              # Auth form
-```
-
-### AI Services (Python)
-```
-services/llm-service/
-├── api_server.py             # Management API (Flask)
-├── entrypoint.sh             # Dual server startup
-└── healthcheck.sh            # Custom health check
-
-services/embedding-service/
-└── embedding_server.py       # Flask server (NOT FastAPI)
-
-services/document-indexer/
-├── indexer.py                # Main loop
-├── document_parsers.py       # PDF, DOCX, TXT, MD
-└── text_chunker.py           # 500 char chunks
-```
-
-### Database Migrations
-```
-services/postgres/init/
-├── 001_init_schema.sql       # Metrics tables
-├── 002_auth_schema.sql       # Users, sessions
-├── 003_self_healing_schema.sql
-├── 004_update_schema.sql
-├── 005_chat_schema.sql       # Conversations, messages
-├── 006_llm_jobs_schema.sql
-├── 007_add_sources_to_messages.sql  # RAG sources
-├── 008_llm_queue_schema.sql
-└── 009_documents_schema.sql
+# Run tests
+./scripts/run-tests.sh --backend    # Backend only (recommended)
+./scripts/run-tests.sh              # All tests
 ```
 
 ---
@@ -198,83 +308,54 @@ services/postgres/init/
 ## API Quick Reference
 
 ### Authentication
-| Method | Path | Auth |
-|--------|------|------|
-| POST | `/api/auth/login` | No |
-| POST | `/api/auth/logout` | Yes |
-| GET | `/api/auth/me` | Yes |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/login` | No | Login, get JWT |
+| POST | `/api/auth/logout` | Yes | Logout |
+| GET | `/api/auth/me` | Yes | Current user |
 
 ### AI Chat
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/llm/chat` | LLM inference (SSE) |
-| POST | `/api/rag/query` | RAG query (SSE) |
-| GET | `/api/chats` | List conversations |
-| POST | `/api/chats` | Create conversation |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/llm/chat` | Yes | LLM inference (SSE) |
+| POST | `/api/rag/query` | Yes | RAG query (SSE) |
+| GET | `/api/chats` | Yes | List conversations |
+| POST | `/api/chats` | Yes | Create conversation |
+| GET | `/api/llm/queue` | Yes | Queue status |
 
 ### Documents
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/documents/upload` | Upload (multipart) |
-| GET | `/api/documents` | List all |
-| DELETE | `/api/documents/:id` | Delete |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/documents/upload` | Yes | Upload (multipart) |
+| GET | `/api/documents` | Yes | List all |
+| DELETE | `/api/documents/:id` | Yes | Delete |
 
-### System
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/health` | Health check |
-| GET | `/api/metrics/live` | Current metrics |
-| WS | `/api/metrics/live-stream` | Real-time (5s) |
+### System & Monitoring
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/health` | No | Health check |
+| GET | `/api/metrics/live` | Yes | Current metrics |
+| WS | `/api/metrics/live-stream` | Yes | Real-time (5s) |
+| GET | `/api/services/status` | Yes | Container status |
+| POST | `/api/services/restart` | Yes | Restart service |
+
+### Alerts & Events
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/alerts/settings` | Yes | Alert config |
+| PUT | `/api/alerts/thresholds` | Yes | Update thresholds |
+| GET | `/api/alerts/history` | Yes | Alert history |
+| GET | `/api/events` | Yes | List events |
+| POST | `/api/events/webhook/*` | Yes | Webhook triggers |
+
+### Telegram
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/telegram/config` | Yes | Get config |
+| PUT | `/api/telegram/config` | Yes | Update config |
+| GET | `/api/telegram/audit-logs` | Yes | Audit logs |
 
 Full reference: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
-
----
-
-## Common Development Tasks
-
-### Add New API Endpoint
-
-1. Create route in `services/dashboard-backend/src/routes/`
-2. Register in `src/index.js`
-3. Add auth middleware if needed
-4. Update `docs/API_REFERENCE.md`
-5. Test with curl or frontend
-
-```javascript
-// Example: src/routes/example.js
-const router = require('express').Router();
-const auth = require('../middleware/auth');
-
-router.get('/', auth, async (req, res) => {
-  res.json({ data: 'example', timestamp: new Date().toISOString() });
-});
-
-module.exports = router;
-```
-
-### Add Database Migration
-
-1. Create `services/postgres/init/0XX_name.sql`
-2. Use `IF NOT EXISTS` for idempotency
-3. Update `docs/DATABASE_SCHEMA.md`
-4. Rebuild postgres: `docker compose up -d --build postgres-db`
-
-```sql
--- Example: 010_new_table.sql
-CREATE TABLE IF NOT EXISTS new_table (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### Add Frontend Component
-
-1. Create in `services/dashboard-frontend/src/components/`
-2. Add route in `App.js` if needed
-3. Add CSS in corresponding `.css` file
-4. **Follow [Design System](docs/DESIGN_SYSTEM.md) guidelines**
-5. Update service README
 
 ---
 
@@ -341,17 +422,55 @@ border-color: #45ADFF; box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
 - [ ] Responsive (Mobile-First)
 - [ ] Transitions: `all 0.2s ease`
 
-### Modify Self-Healing Thresholds
+---
 
-Edit `.env`:
-```bash
-DISK_WARNING_PERCENT=80
-DISK_CLEANUP_PERCENT=90
-DISK_CRITICAL_PERCENT=95
-CPU_CRITICAL_PERCENT=90
-RAM_CRITICAL_PERCENT=90
-SELF_HEALING_INTERVAL=10
+## Common Development Tasks
+
+### Add New API Endpoint
+
+1. Create route in `services/dashboard-backend/src/routes/`
+2. Register in `src/index.js`
+3. Add auth middleware if needed
+4. Update `docs/API_REFERENCE.md`
+5. Test with curl or frontend
+
+```javascript
+// Example: src/routes/example.js
+const router = require('express').Router();
+const auth = require('../middleware/auth');
+
+router.get('/', auth, async (req, res) => {
+  res.json({ data: 'example', timestamp: new Date().toISOString() });
+});
+
+module.exports = router;
 ```
+
+### Add Database Migration
+
+1. Create `services/postgres/init/0XX_name.sql`
+2. Use `IF NOT EXISTS` for idempotency
+3. Update `docs/DATABASE_SCHEMA.md`
+4. Rebuild postgres: `docker compose up -d --build postgres-db`
+
+```sql
+-- Example: 026_new_table.sql
+CREATE TABLE IF NOT EXISTS new_table (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_new_table_name ON new_table(name);
+```
+
+### Add Frontend Component
+
+1. Create in `services/dashboard-frontend/src/components/`
+2. Add route in `App.js` if needed
+3. Add CSS in corresponding `.css` file
+4. **Follow [Design System](docs/DESIGN_SYSTEM.md) guidelines**
+5. Update service README
 
 ---
 
@@ -393,7 +512,7 @@ docker compose logs document-indexer              # Check indexer
 docker compose logs embedding-service             # Check embeddings
 ```
 
-### Traefik Routing Issues (localhost vs. external)
+### Traefik Routing Issues
 ```bash
 # Test HTTP routing
 curl -v http://localhost/api/health
@@ -403,60 +522,48 @@ curl -v http://127.0.0.1/api/health
 docker compose logs reverse-proxy | tail -50
 
 # IMPORTANT: All routing is defined in config/traefik/dynamic/routes.yml
-# Docker labels in docker-compose.yml should have traefik.enable=false
 # See HIGH-016 in BUGS_AND_FIXES.md for details
 ```
 
 ---
 
-## Power Tips for Claude Code
+## Subagent Context (For Task Agents)
 
-### 1. Use Parallel Operations
-When reading multiple files, request them in parallel:
-```
-Read file A, file B, file C simultaneously
-```
+When using Task agents, they should understand this context:
 
-### 2. Search Before Creating
-Always search for existing implementations before writing new code:
-```bash
-# Find similar patterns
-grep -r "pattern" services/
+### Base Context
 ```
+Project: Arasul Platform
+Hardware: NVIDIA Jetson AGX Orin (ARM64)
+Stack: React 18 + Node.js/Express + PostgreSQL 16
+AI: Ollama LLM + Embeddings + Qdrant
+Services: 13 Docker containers
 
-### 3. Verify Before Committing
-```bash
-# Run tests
-npm test
-# Check for TypeScript/lint errors
-npm run lint
-# Verify docker builds
-docker compose build <service>
+Critical Rules:
+1. Follow docs/DESIGN_SYSTEM.md for all UI changes
+2. Run ./scripts/run-tests.sh --backend before commits
+3. Update docs/API_REFERENCE.md for API changes
+4. Use IF NOT EXISTS in all migrations
 ```
 
-### 4. Use Service READMEs
-Each service has a README with entry points, APIs, and dependencies. Read them first.
+### Domain-Specific Context
 
-### 5. Check BUGS_AND_FIXES.md
-Historical bugs are documented. Check if your issue was already solved:
-- HIGH-010: Health check timeouts
-- HIGH-014: Startup order
-- HIGH-015: Connection pool exhaustion
+**Frontend Tasks:**
+- Entry: `services/dashboard-frontend/src/App.js`
+- Components: `src/components/` (20 files)
+- Reference: `ChatMulti.js` (main pattern), `Settings.js` (forms)
+- Colors: Primary #45ADFF, Background #101923/#1A2330
 
-### 6. Test Incrementally
-Don't implement everything at once. Test each piece:
-1. Add endpoint → Test with curl
-2. Add frontend → Test in browser
-3. Add database → Test with psql
+**Backend Tasks:**
+- Entry: `services/dashboard-backend/src/index.js`
+- Routes: `src/routes/` (24 files)
+- Auth: `require('../middleware/auth')` for protected routes
+- Reference: `auth.js` (simple), `llm.js` (SSE streaming)
 
-### 7. Keep Context Small
-For specific tasks, read only relevant files. Don't load the entire codebase.
-
-### 8. Use Existing Patterns
-Copy patterns from existing code:
-- Route structure from `routes/auth.js`
-- Database queries from `database.js`
-- Frontend components from `ChatMulti.js`
+**Database Tasks:**
+- Migrations: `services/postgres/init/` (25 files, start at 026)
+- Tables: users, conversations, messages, documents, alerts
+- Always: `IF NOT EXISTS`, indexes for frequently queried columns
 
 ---
 
@@ -474,6 +581,7 @@ Copy patterns from existing code:
 | n8n | wget spider | 2s | - |
 | metrics-collector | curl /health | 1s | - |
 | self-healing-agent | python heartbeat | 3s | 10s |
+| telegram-bot | curl /health | 3s | 10s |
 
 ---
 
@@ -488,6 +596,10 @@ MINIO_ROOT_USER=<key>
 MINIO_ROOT_PASSWORD=<secure>
 N8N_ENCRYPTION_KEY=<32+ chars>
 
+# Telegram Bot
+TELEGRAM_BOT_TOKEN=<from @BotFather>
+TELEGRAM_ALLOWED_CHAT_IDS=<comma-separated>
+
 # Key settings
 LLM_MODEL=qwen3:14b-q8
 LLM_KEEP_ALIVE_SECONDS=300
@@ -499,13 +611,67 @@ Full reference: [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 
 ---
 
+## Self-Healing Configuration
+
+Edit `.env`:
+```bash
+DISK_WARNING_PERCENT=80
+DISK_CLEANUP_PERCENT=90
+DISK_CRITICAL_PERCENT=95
+CPU_CRITICAL_PERCENT=90
+RAM_CRITICAL_PERCENT=90
+SELF_HEALING_INTERVAL=10
+```
+
+---
+
 ## References
 
 - [docs/INDEX.md](docs/INDEX.md) - Documentation navigator
 - [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) - **Frontend Design Guidelines (MANDATORY)**
-- [docs/prd.md](docs/prd.md) - Original PRD (German)
+- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) - API documentation
+- [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) - Database schema
+- [docs/CONTEXT_ENGINEERING_PLAN.md](docs/CONTEXT_ENGINEERING_PLAN.md) - Context optimization plan
 - [BUGS_AND_FIXES.md](BUGS_AND_FIXES.md) - Bug history & solutions
-- [docs/API_GUIDE.md](docs/API_GUIDE.md) - Detailed API examples
+- [docs/prd.md](docs/prd.md) - Original PRD (German)
+
+---
+
+## Power Tips for Claude Code
+
+### 1. Use Parallel Operations
+When reading multiple files, request them in parallel to save context.
+
+### 2. Search Before Creating
+Always search for existing implementations before writing new code.
+
+### 3. Verify Before Committing
+```bash
+./scripts/run-tests.sh --backend   # Always run tests
+```
+
+### 4. Use Service READMEs
+Each service has a README with entry points, APIs, and dependencies.
+
+### 5. Check BUGS_AND_FIXES.md
+Historical bugs are documented. Check if your issue was already solved:
+- HIGH-010: Health check timeouts
+- HIGH-014: Startup order
+- HIGH-015: Connection pool exhaustion
+- HIGH-016: Traefik routing
+
+### 6. Test Incrementally
+Don't implement everything at once. Test each piece.
+
+### 7. Keep Context Small
+For specific tasks, read only relevant files.
+
+### 8. Use Existing Patterns
+Copy patterns from existing code:
+- Route structure: `routes/auth.js`
+- SSE streaming: `routes/llm.js`
+- Database queries: `database.js`
+- Frontend components: `ChatMulti.js`
 
 ---
 
@@ -524,7 +690,7 @@ Claude arbeitet Tasks aus `tasks.md` sequentiell ab:
 
 ```bash
 # 1. Tests ausführen
-./scripts/run-tests.sh
+./scripts/run-tests.sh --backend
 
 # 2. Type-Check (automatisch via Hook)
 ./scripts/run-typecheck.sh
@@ -563,13 +729,6 @@ Wenn du einen Prompt mit "ANALYSE-MODUS" erhältst:
 2. **IMMER Fragen stellen** - auch bei scheinbar klaren Tasks
 3. **JSON-Format strikt einhalten**
 
-**Beispiel-Fragen die du stellen solltest:**
-- UI-Platzierung: "Soll der Button in der Navbar oder Sidebar sein?"
-- Design-Präferenz: "Welche Farbe soll der Active-State haben?"
-- Feature-Scope: "Soll das Feature auch auf Mobile funktionieren?"
-- Format-Optionen: "JSON, CSV oder beides exportieren?"
-- Verhalten: "Automatischer Dark Mode Wechsel mit System?"
-
 **Antwort-Format (strikt!):**
 ```json
 {
@@ -580,13 +739,10 @@ Wenn du einen Prompt mit "ANALYSE-MODUS" erhältst:
     "complexity": "low|medium|high"
   },
   "questions": [
-    "Mindestens eine Frage zur User-Präferenz",
-    "Optional: weitere Fragen"
+    "Mindestens eine Frage zur User-Präferenz"
   ]
 }
 ```
-
-**WICHTIG:** Gib NUR das JSON aus, keinen anderen Text!
 
 ### Autonome Session starten
 

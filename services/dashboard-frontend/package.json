@@ -46,7 +46,7 @@
   },
   "jest": {
     "transformIgnorePatterns": [
-      "node_modules/(?!(axios|react-markdown|remark-gfm|unified|bail|is-plain-obj|trough|vfile|unist-util-stringify-position|mdast-util-from-markdown|mdast-util-to-string|micromark|decode-named-character-reference|character-entities|mdast-util-gfm|mdast-util-gfm-autolink-literal|mdast-util-gfm-footnote|mdast-util-gfm-strikethrough|mdast-util-gfm-table|mdast-util-gfm-task-list-item|micromark-util-combine-extensions|micromark-util-chunked|micromark-util-character|micromark-extension-gfm|micromark-extension-gfm-autolink-literal|micromark-extension-gfm-footnote|micromark-extension-gfm-strikethrough|micromark-extension-gfm-table|micromark-extension-gfm-tagfilter|micromark-extension-gfm-task-list-item|ccount|escape-string-regexp|markdown-table)/)"
+      "node_modules/(?!(axios|react-markdown|remark-.*|unified|bail|is-plain-obj|trough|vfile.*|unist-util-.*|mdast-util-.*|micromark.*|decode-named-character-reference|character-entities.*|ccount|escape-string-regexp|markdown-table|devlop|hast-util-.*|property-information|space-separated-tokens|comma-separated-tokens|estree-util-.*|style-to-object|inline-style-parser|html-url-attributes|trim-lines|zwitch|longest-streak)/)"
     ]
   }
 }

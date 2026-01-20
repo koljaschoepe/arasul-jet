@@ -41,7 +41,7 @@ const StatusBadge = ({ status }) => {
   const statusConfig = {
     pending: { icon: FiClock, color: '#f59e0b', label: 'Wartend' },
     processing: { icon: FiRefreshCw, color: '#3b82f6', label: 'Verarbeitung' },
-    indexed: { icon: FiCheck, color: '#22c55e', label: 'Indexiert' },
+    indexed: { icon: FiCheck, color: '#94A3B8', label: 'Indexiert' },  /* Grau statt Grün */
     failed: { icon: FiAlertCircle, color: '#ef4444', label: 'Fehlgeschlagen' }
   };
 

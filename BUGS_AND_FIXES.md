@@ -23,6 +23,181 @@
 
 ---
 
+## HIGH-017: LLM-Modelle nicht persistent nach Service-Restart (2026-01-20)
+
+### Status: ✅ FIXED
+
+**Files**:
+- `docker-compose.yml` (llm-service environment)
+- `services/dashboard-backend/src/services/modelService.js` (syncWithOllama)
+
+**Severity**: HIGH
+
+**Issue**: Nach jedem `docker compose restart llm-service` oder Container-Neustart musste das LLM-Modell (~15 GB) komplett neu heruntergeladen werden. Modelle waren nicht persistent.
+
+**Symptom**:
+- Volume `arasul-llm-models` zeigte nur 468 Bytes (praktisch leer)
+- Modell war nach Restart "verschwunden"
+- Benutzer musste Modell bei jedem Neustart erneut herunterladen
+
+**Root Cause**:
+```yaml
+# docker-compose.yml (VORHER - FALSCH)
+llm-service:
+  environment:
+    OLLAMA_MODELS: /models          # ← Ollama speichert hier
+  volumes:
+    - arasul-llm-models:/root/.ollama   # ← Volume hier gemountet
+```
+
+Die Umgebungsvariable `OLLAMA_MODELS=/models` wies Ollama an, Modelle in `/models` zu speichern. Das persistente Docker-Volume war jedoch auf `/root/.ollama` gemountet. Dadurch landeten die Modelle im ephemeren Container-Dateisystem statt im Volume.
+
+**Fix Applied**:
+1. `OLLAMA_MODELS` Umgebungsvariable entfernt
+2. Ollama nutzt jetzt den Standardpfad `/root/.ollama` (wo das Volume gemountet ist)
+3. `syncWithOllama()` verbessert mit:
+   - Stale Download Cleanup (>1h im "downloading" Status)
+   - Bessere Fehlermeldungen auf Deutsch
+   - Logging für Debugging
+
+```yaml
+# docker-compose.yml (NACHHER - KORREKT)
+llm-service:
+  environment:
+    OLLAMA_HOST: 0.0.0.0:11434
+    # OLLAMA_MODELS removed - uses default /root/.ollama
+    LLM_MODEL: ${LLM_MODEL:-qwen3:14b-q8}
+  volumes:
+    - arasul-llm-models:/root/.ollama   # Modelle persistent hier
+```
+
+**Migration nach Fix**:
+```bash
+# Nach dem Fix muss das Modell einmalig neu heruntergeladen werden
+docker compose down llm-service
+docker compose up -d llm-service
+# Dann Modell über Dashboard herunterladen (einmalig)
+```
+
+**Verifizierung**:
+```bash
+# Volume sollte nach Download mehrere GB groß sein
+docker system df -v | grep arasul-llm-models
+
+# Modelle im Volume prüfen
+docker exec llm-service ls -la /root/.ollama/models/
+
+# Nach Restart sollte Modell noch da sein
+docker compose restart llm-service
+docker exec llm-service curl -s http://localhost:11434/api/tags
+```
+
+**Impact**:
+- Modelle persistieren jetzt über alle Restarts, Reboots und Updates
+- Kein wiederholtes Herunterladen von 15+ GB nötig
+- Schnellerer Service-Start
+
+---
+
+## HIGH-018: Comprehensive LLM Management System (2026-01-20)
+
+### Status: ✅ IMPLEMENTED
+
+**Files Created**:
+- `services/dashboard-backend/src/services/ollamaReadiness.js` - Ollama readiness & smart unloading
+- `services/dashboard-backend/src/middleware/apiKeyAuth.js` - API key authentication
+- `services/dashboard-backend/src/routes/externalApi.js` - External API for n8n
+- `services/postgres/init/027_api_keys_schema.sql` - API keys database schema
+
+**Files Modified**:
+- `services/dashboard-backend/src/index.js` - Service initialization
+- `services/dashboard-backend/src/services/llmQueueService.js` - Queue optimizations
+- `services/dashboard-backend/src/routes/llm.js` - Queue metrics endpoint
+- `services/dashboard-frontend/src/components/ChatMulti.js` - Default model UI
+- `services/dashboard-frontend/src/chatmulti.css` - UI styling
+- `scripts/setup_dev.sh` - RAM detection
+
+**Severity**: FEATURE
+
+**Features Implemented**:
+
+### 1. Ollama Readiness Service
+- Waits for Ollama to be ready with exponential backoff retry
+- Periodic sync (every 60s) to keep DB in sync with Ollama
+- Fixes model not recognized after restart issue
+
+### 2. Smart Model Unloading
+- Unloads models after 30 minutes of inactivity
+- Tracks active requests to prevent unload during processing
+- Auto-reload on new request
+
+### 3. Default Model UI Improvements
+- Star indicator (⭐) for default model in dropdown
+- "Set as Default" button directly in model selector
+- Better model status display
+
+### 4. n8n Backend-Queue Integration
+- New External API at `/api/v1/external/*`
+- API key authentication (X-API-Key header)
+- Rate limiting per key (configurable, default 60/min)
+- Synchronous mode with `wait_for_result=true`
+- Supports burst traffic from workflow automation
+
+**API Key Usage**:
+```bash
+# Create API key (requires JWT auth)
+curl -X POST http://localhost/api/v1/external/api-keys \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "n8n-integration"}'
+# Returns: { "api_key": "aras_abc123...", ... }
+
+# Use API key for LLM requests
+curl -X POST http://localhost/api/v1/external/llm/chat \
+  -H "X-API-Key: aras_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello", "wait_for_result": true}'
+```
+
+### 5. Automatic RAM Detection
+- `setup_dev.sh` now detects system RAM and GPU
+- Creates `config/system_hardware.json` with hardware info
+- Auto-configures recommended model based on RAM:
+  - ≥50GB → xlarge models (32B)
+  - ≥30GB → large models (14B)
+  - ≥15GB → medium models (7B)
+  - <15GB → small models (1.7B)
+
+### 6. Queue Optimization for Burst Traffic
+- Position broadcasts to waiting clients
+- Detailed queue metrics endpoint (`/api/llm/queue/metrics`)
+- Model batching awareness
+- Configurable burst window via environment variables
+
+**Environment Variables Added**:
+```bash
+# Ollama Readiness
+OLLAMA_READY_TIMEOUT=300000     # Max wait for Ollama (5 min)
+OLLAMA_RETRY_INTERVAL=5000       # Retry interval (5 sec)
+MODEL_SYNC_INTERVAL=60000        # Sync interval (1 min)
+MODEL_INACTIVITY_THRESHOLD=1800000  # Unload after 30 min
+RAM_CRITICAL_THRESHOLD=95        # Critical RAM %
+LONG_REQUEST_THRESHOLD=180000    # Long request (3 min)
+
+# Queue Burst Handling
+LLM_BURST_WINDOW_MS=1000         # Burst detection window
+LLM_MAX_CONCURRENT_ENQUEUE=10    # Max parallel enqueues
+```
+
+**Impact**:
+- Models auto-recognized after service restart (no manual download click)
+- Smart memory management prevents OOM
+- n8n and external workflows can use LLM via API
+- Better UX for default model selection
+- Hardware-optimized initial configuration
+
+---
+
 ## HIGH-018: n8n Not Accessible via /n8n/ Subpath (2026-01-13)
 
 ### Status: ✅ FIXED
@@ -64,6 +239,72 @@ curl http://localhost/n8n/                        # → 401 (protected)
 **Related Issues**:
 - [n8n GitHub Issue #19635](https://github.com/n8n-io/n8n/issues/19635) - Subpath deployment bugs
 - [n8n GitHub Issue #18596](https://github.com/n8n-io/n8n/issues/18596) - Login redirect issues with subpath
+
+---
+
+## HIGH-019: n8n 404 Error on Initial Access & Session Configuration (2026-01-19)
+
+### Status: ✅ FIXED
+
+**Files**:
+- `config/traefik/dynamic/middlewares.yml`
+- `config/traefik/dynamic/routes.yml`
+- `docker-compose.yml` (n8n service)
+
+**Severity**: HIGH
+
+**Issue**: When accessing n8n via `/n8n` from the frontend, users received a 404 error page. After clicking "Go back", they could reach the signin page. Additionally, n8n required Arasul forward-auth on top of its own authentication.
+
+**Root Cause**:
+1. Traefik's `strip-n8n-prefix` middleware removed `/n8n`, leaving n8n with an empty root path `/`
+2. n8n v1.70+ doesn't handle the root path `/` properly - it expects specific routes like `/signin` or `/workflows`
+3. `forward-auth` middleware required users to log into Arasul dashboard before accessing n8n
+4. Session duration was not configured for long-term persistence
+
+**Fix Applied**:
+1. **New Redirect Middleware** (`middlewares.yml`):
+   - Added `n8n-root-to-signin` middleware with `replacePath: /signin`
+   - This redirects `/n8n` root access to n8n's signin page
+
+2. **New High-Priority Route** (`routes.yml`):
+   - Added `n8n-root-http` and `n8n-root-https` routes with priority 110
+   - Matches exact `/n8n` or `/n8n/` paths and redirects to `/signin`
+
+3. **Removed Forward-Auth** (`routes.yml`):
+   - Removed `forward-auth` middleware from all n8n routes
+   - n8n now handles its own authentication independently
+   - Routes affected: n8n-http/https, n8n-spa, n8n-assets, n8n-static, n8n-rest, n8n-favicon
+
+4. **30-Day Session Configuration** (`docker-compose.yml`):
+   ```yaml
+   N8N_USER_MANAGEMENT_JWT_DURATION_HOURS: "720"  # 30 days
+   N8N_BASIC_AUTH_ACTIVE: "false"  # Use n8n user management
+   N8N_PERSONALIZATION_ENABLED: "true"
+   N8N_PUSH_BACKEND: "websocket"
+   ```
+
+5. **Fixed Favicon Route** (`routes.yml`):
+   - Split into separate HTTP/HTTPS routes with priority 85
+   - Ensures favicon loads correctly for browser tabs
+
+**Verification**:
+```bash
+# All tests pass:
+curl http://localhost/n8n       # → 200 (signin page)
+curl http://localhost/signin    # → 200
+curl http://localhost/setup     # → 200 (first-time registration)
+curl http://localhost/workflows # → 200
+curl http://localhost/assets/*  # → 200 (JS bundles ~1MB)
+curl http://localhost/rest/settings # → 200
+curl http://localhost/favicon.ico   # → 200
+```
+
+**User Experience After Fix**:
+- First access: Redirected to setup wizard (create owner account)
+- After registration: 30-day persistent login session
+- No double authentication (only n8n's login required)
+- Works from any device on the same LAN
+- Functions like a smartphone app - install once, stay logged in
 
 ---
 

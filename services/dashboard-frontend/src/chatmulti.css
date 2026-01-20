@@ -799,6 +799,38 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   text-transform: capitalize;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Set as Default button in model dropdown */
+.set-default-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.set-default-btn:hover {
+  background: rgba(69, 173, 255, 0.15);
+  border-color: #45ADFF;
+  color: #45ADFF;
+}
+
+.set-default-btn svg {
+  width: 10px;
+  height: 10px;
 }
 
 /* Space Selector (RAG 2.0) */
@@ -1479,4 +1511,196 @@
     bottom: 12px;
     right: 12px;
   }
+}
+
+/* ========================================
+   LIGHT MODE - Chat Interface
+   ======================================== */
+
+/* Light Mode - Container */
+.light-mode .chat-container {
+  background: var(--bg-app);
+}
+
+/* Light Mode - Messages */
+.light-mode .message.user .message-body {
+  background: rgba(33, 150, 243, 0.08);
+  border-left-color: #2196F3;
+}
+
+.light-mode .message-body {
+  background: var(--bg-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Light Mode - Code blocks */
+.light-mode .message-body code {
+  background: rgba(33, 150, 243, 0.06);
+  color: var(--text-secondary);
+}
+
+.light-mode .message-body pre {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+/* Light Mode - Input box */
+.light-mode .input-box {
+  background: var(--bg-card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.light-mode .input-box:focus-within {
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.15);
+}
+
+/* Light Mode - Toggle buttons */
+.light-mode .input-toggle {
+  background: #F1F5F9;
+}
+
+.light-mode .input-toggle:hover {
+  background: #E2E8F0;
+}
+
+.light-mode .input-toggle.rag-toggle.active,
+.light-mode .input-toggle.think-toggle.active,
+.light-mode .input-toggle.model-toggle.active,
+.light-mode .input-toggle.space-toggle.active {
+  background: rgba(33, 150, 243, 0.12);
+  color: #2196F3;
+}
+
+/* Light Mode - Send button */
+.light-mode .input-box .send-btn {
+  background: #2196F3;
+}
+
+.light-mode .input-box .send-btn:hover:not(:disabled) {
+  background: #42A5F5;
+}
+
+.light-mode .input-box .send-btn:disabled {
+  background: #E2E8F0;
+}
+
+/* Light Mode - Tabs */
+.light-mode .chat-tabs-bar {
+  background: var(--bg-card);
+  border-bottom-color: var(--border-color);
+}
+
+.light-mode .chat-tab {
+  color: var(--text-muted);
+}
+
+.light-mode .chat-tab:hover {
+  background: #F1F5F9;
+}
+
+.light-mode .chat-tab.active {
+  border-color: #2196F3;
+  color: var(--text-primary);
+}
+
+.light-mode .chat-tab.active .tab-icon {
+  color: #2196F3;
+}
+
+/* Light Mode - Tab actions */
+.light-mode .chat-tab .tab-action-btn.delete:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: #DC2626;
+}
+
+.light-mode .chat-tab .tab-action-btn.export:hover {
+  background: rgba(33, 150, 243, 0.1);
+  color: #2196F3;
+}
+
+/* Light Mode - Dropdowns */
+.light-mode .model-dropdown,
+.light-mode .space-dropdown {
+  background: var(--bg-card);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.light-mode .model-option:hover,
+.light-mode .space-option:hover {
+  background: #F1F5F9;
+}
+
+.light-mode .model-option.selected,
+.light-mode .space-option.selected {
+  background: rgba(33, 150, 243, 0.08);
+}
+
+.light-mode .model-option.selected .model-option-name,
+.light-mode .space-option.selected .space-option-name,
+.light-mode .space-option .check-icon {
+  color: #2196F3;
+}
+
+.light-mode .model-option.unavailable .model-option-desc {
+  color: #DC2626;
+}
+
+/* Light Mode - Thinking and Sources blocks */
+.light-mode .thinking-block,
+.light-mode .sources-block {
+  background: var(--bg-card);
+}
+
+.light-mode .thinking-header:hover,
+.light-mode .sources-header:hover {
+  background: #F1F5F9;
+}
+
+.light-mode .thinking-content,
+.light-mode .sources-content {
+  background: #F8FAFC;
+}
+
+.light-mode .source-item {
+  background: var(--bg-card);
+  border-left-color: #2196F3;
+}
+
+/* Light Mode - Error banner */
+.light-mode .error-banner {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.light-mode .error-banner svg:first-child {
+  color: #DC2626;
+}
+
+.light-mode .error-banner button:hover {
+  background: rgba(220, 38, 38, 0.15);
+  color: #DC2626;
+}
+
+/* Light Mode - Pulse dots */
+.light-mode .pulse-dot.active {
+  background: #2196F3;
+}
+
+.light-mode .pulse-dot.queued {
+  background: #D97706;
+}
+
+.light-mode .queue-position {
+  color: #D97706;
+}
+
+/* Light Mode - Scroll button */
+.light-mode .scroll-bottom-btn {
+  background: var(--bg-card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .scroll-bottom-btn:hover {
+  border-color: #2196F3;
+  color: #2196F3;
 }

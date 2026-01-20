@@ -7,6 +7,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
+# ============================================================
+# INFINITE-LOOP-PROTECTION für Stop Hooks
+# ============================================================
+# Lese stdin für Hook-Input (mit 1 Sekunde Timeout)
+read -t 1 HOOK_INPUT 2>/dev/null || HOOK_INPUT="{}"
+
+# Prüfe ob wir bereits in einem Stop-Hook-Cycle sind
+if echo "$HOOK_INPUT" | grep -q '"stop_hook_active":true'; then
+  echo "Already in stop hook cycle, skipping tests to prevent infinite loop"
+  echo '{"decision": "allow"}'
+  exit 0
+fi
+
+# Log-Verzeichnis für Stop-Hook-Debugging
+LOG_DIR="$HOME/logs/claude"
+LOG_FILE="$LOG_DIR/stop_hooks.log"
+mkdir -p "$LOG_DIR"
+
+# Start-Timestamp loggen
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stop hook started - run-tests.sh $*" >> "$LOG_FILE"
+
 echo "======================================================="
 echo "  Arasul Test Runner"
 echo "======================================================="
@@ -185,5 +206,18 @@ else
   echo "  Test Run Complete - SOME FAILURES"
 fi
 echo "======================================================="
+
+# Exit-Code für Telegram-Script persistieren
+echo $EXIT_CODE > /tmp/last_test_result
+
+# ============================================================
+# FALLBACK-LOGGING für Stop-Hook-Debugging
+# ============================================================
+# Logge immer das Ergebnis, auch wenn Hook-Output nicht sichtbar ist
+if [ "$EXIT_CODE" -eq 0 ]; then
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stop hook completed - EXIT_CODE: $EXIT_CODE (PASSED)" >> "$LOG_FILE"
+else
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stop hook completed - EXIT_CODE: $EXIT_CODE (FAILED)" >> "$LOG_FILE"
+fi
 
 exit $EXIT_CODE

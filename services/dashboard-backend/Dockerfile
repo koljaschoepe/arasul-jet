@@ -13,6 +13,9 @@ RUN npm ci
 # Copy source code
 COPY src/ ./src/
 
+# Copy OpenAPI spec for API docs
+COPY openapi.yaml ./
+
 # Copy test files and setup
 COPY __tests__/ ./__tests__/
 COPY jest.setup.js ./

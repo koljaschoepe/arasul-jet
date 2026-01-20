@@ -162,7 +162,7 @@ function TelegramBotApp() {
   // Source labels and icons
   const sourceInfo = {
     claude: { label: 'Claude Sessions', icon: FiTerminal, color: '#45ADFF' },
-    system: { label: 'System Events', icon: FiActivity, color: '#22C55E' },
+    system: { label: 'System Events', icon: FiActivity, color: '#94A3B8' },  /* Grau statt Grün */
     n8n: { label: 'Workflow Events', icon: FiZap, color: '#F59E0B' },
     custom: { label: 'Benutzerdefiniert', icon: FiBell, color: '#94A3B8' }
   };

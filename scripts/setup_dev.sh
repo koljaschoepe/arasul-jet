@@ -130,6 +130,124 @@ if [ ! -f "config/secrets/jwt_secret" ]; then
     fi
 fi
 
+# 6. System Hardware Detection
+log_info "Detecting system hardware..."
+
+# Detect total RAM
+TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+TOTAL_RAM_GB=$((TOTAL_RAM_KB / 1024 / 1024))
+TOTAL_RAM_MB=$((TOTAL_RAM_KB / 1024))
+
+# Detect if running on Jetson
+IS_JETSON="false"
+JETSON_MODEL=""
+if [ -f "/etc/nv_tegra_release" ] || [ -d "/sys/devices/platform/tegra-pmc" ]; then
+    IS_JETSON="true"
+    if [ -f "/proc/device-tree/model" ]; then
+        JETSON_MODEL=$(cat /proc/device-tree/model | tr -d '\0')
+    fi
+fi
+
+# Detect GPU
+GPU_INFO=""
+GPU_MEMORY_MB=0
+if command -v nvidia-smi &> /dev/null; then
+    GPU_INFO=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+    GPU_MEMORY_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)
+fi
+
+# Calculate recommended settings based on RAM
+# For Jetson: shared memory between CPU and GPU
+# For desktop: separate GPU memory
+if [ "$IS_JETSON" = "true" ]; then
+    # Jetson AGX Orin 64GB: ~12GB for GPU, rest for system
+    # Leave 20% for system, 95% threshold for LLM safety
+    AVAILABLE_FOR_LLM=$((TOTAL_RAM_GB * 80 / 100))
+    RAM_CRITICAL_THRESHOLD="95"
+    RAM_WARNING_THRESHOLD="90"
+else
+    # Desktop/Server with dedicated GPU
+    AVAILABLE_FOR_LLM=$((TOTAL_RAM_GB * 85 / 100))
+    RAM_CRITICAL_THRESHOLD="95"
+    RAM_WARNING_THRESHOLD="85"
+fi
+
+# Determine recommended model category
+if [ "$AVAILABLE_FOR_LLM" -ge 50 ]; then
+    RECOMMENDED_CATEGORY="xlarge"
+    RECOMMENDED_MODEL="qwen3:32b-q8"
+elif [ "$AVAILABLE_FOR_LLM" -ge 30 ]; then
+    RECOMMENDED_CATEGORY="large"
+    RECOMMENDED_MODEL="qwen3:14b-q8"
+elif [ "$AVAILABLE_FOR_LLM" -ge 15 ]; then
+    RECOMMENDED_CATEGORY="medium"
+    RECOMMENDED_MODEL="qwen3:7b-q8"
+else
+    RECOMMENDED_CATEGORY="small"
+    RECOMMENDED_MODEL="qwen3:1.7b"
+fi
+
+# Write system config
+cat > config/system_hardware.json << EOF
+{
+    "detected_at": "$(date -Iseconds)",
+    "ram": {
+        "total_mb": ${TOTAL_RAM_MB},
+        "total_gb": ${TOTAL_RAM_GB},
+        "available_for_llm_gb": ${AVAILABLE_FOR_LLM}
+    },
+    "gpu": {
+        "name": "${GPU_INFO}",
+        "memory_mb": ${GPU_MEMORY_MB}
+    },
+    "platform": {
+        "is_jetson": ${IS_JETSON},
+        "jetson_model": "${JETSON_MODEL}"
+    },
+    "recommended_settings": {
+        "model_category": "${RECOMMENDED_CATEGORY}",
+        "default_model": "${RECOMMENDED_MODEL}",
+        "ram_warning_threshold": ${RAM_WARNING_THRESHOLD},
+        "ram_critical_threshold": ${RAM_CRITICAL_THRESHOLD},
+        "model_inactivity_timeout_minutes": 30,
+        "keep_alive_seconds": 300
+    }
+}
+EOF
+
+log_success "System hardware detected:"
+echo "  - Total RAM: ${TOTAL_RAM_GB} GB"
+echo "  - Available for LLM: ~${AVAILABLE_FOR_LLM} GB"
+if [ "$IS_JETSON" = "true" ]; then
+    echo "  - Platform: Jetson (${JETSON_MODEL})"
+else
+    echo "  - Platform: Standard (${GPU_INFO:-No GPU detected})"
+fi
+echo "  - Recommended model: ${RECOMMENDED_MODEL}"
+echo "  - Configuration saved to config/system_hardware.json"
+
+# Update .env with recommended settings if not already set
+if [ -f ".env" ]; then
+    # Check if LLM_MODEL is placeholder or not set
+    if grep -q "^LLM_MODEL=.*PLACEHOLDER" .env || ! grep -q "^LLM_MODEL=" .env; then
+        if grep -q "^LLM_MODEL=" .env; then
+            sed -i.bak "s|^LLM_MODEL=.*|LLM_MODEL=${RECOMMENDED_MODEL}|g" .env
+        else
+            echo "LLM_MODEL=${RECOMMENDED_MODEL}" >> .env
+        fi
+        rm -f .env.bak
+        log_info "Updated LLM_MODEL in .env to ${RECOMMENDED_MODEL}"
+    fi
+
+    # Set RAM thresholds if not present
+    if ! grep -q "^RAM_CRITICAL_PERCENT=" .env; then
+        echo "RAM_CRITICAL_PERCENT=${RAM_CRITICAL_THRESHOLD}" >> .env
+    fi
+    if ! grep -q "^RAM_WARNING_PERCENT=" .env; then
+        echo "RAM_WARNING_PERCENT=${RAM_WARNING_THRESHOLD}" >> .env
+    fi
+fi
+
 echo ""
 log_success "Development environment setup complete!"
 echo "You can now run 'docker-compose up -d' to start the platform."

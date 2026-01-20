@@ -52,11 +52,19 @@ describe('Settings Component', () => {
 
       render(<Settings />);
 
-      expect(screen.getByText('General')).toBeInTheDocument();
-      expect(screen.getByText('Unternehmenskontext')).toBeInTheDocument();
-      expect(screen.getByText('Updates')).toBeInTheDocument();
-      expect(screen.getByText('Self-Healing')).toBeInTheDocument();
-      expect(screen.getByText('Security')).toBeInTheDocument();
+      // Use getAllByText since nav items and section titles may share text
+      const nav = document.querySelector('.settings-nav');
+      expect(nav).toBeInTheDocument();
+
+      // Check nav items by their label class
+      const navLabels = document.querySelectorAll('.settings-nav-item-label');
+      const labelTexts = Array.from(navLabels).map(el => el.textContent);
+
+      expect(labelTexts).toContain('General');
+      expect(labelTexts).toContain('Unternehmenskontext');
+      expect(labelTexts).toContain('Updates');
+      expect(labelTexts).toContain('Self-Healing');
+      expect(labelTexts).toContain('Security');
     });
 
     test('zeigt Beschreibungen für Navigation-Items', () => {
@@ -67,8 +75,12 @@ describe('Settings Component', () => {
 
       render(<Settings />);
 
-      expect(screen.getByText('System information and configuration')).toBeInTheDocument();
-      expect(screen.getByText('Globaler Kontext für RAG-Anfragen')).toBeInTheDocument();
+      // Check nav item descriptions by their class
+      const navDescriptions = document.querySelectorAll('.settings-nav-item-description');
+      const descTexts = Array.from(navDescriptions).map(el => el.textContent);
+
+      expect(descTexts).toContain('System information and configuration');
+      expect(descTexts).toContain('Globaler Kontext für RAG-Anfragen');
     });
 
     test('startet mit General Section aktiv', () => {
@@ -156,14 +168,19 @@ describe('Settings Component', () => {
 
       render(<Settings />);
 
-      // Initial - General should be active
-      const generalButton = screen.getByText('General').closest('button');
+      // Initial - General should be active (find within nav)
+      const navItems = document.querySelectorAll('.settings-nav-item');
+      const generalButton = Array.from(navItems).find(btn =>
+        btn.querySelector('.settings-nav-item-label')?.textContent === 'General'
+      );
       expect(generalButton).toHaveClass('active');
 
-      // Click Updates
-      await user.click(screen.getByText('Updates'));
+      // Click Updates (nav item only)
+      const updatesButton = Array.from(navItems).find(btn =>
+        btn.querySelector('.settings-nav-item-label')?.textContent === 'Updates'
+      );
+      await user.click(updatesButton);
 
-      const updatesButton = screen.getByText('Updates').closest('button');
       expect(updatesButton).toHaveClass('active');
       expect(generalButton).not.toHaveClass('active');
     });
