@@ -369,6 +369,136 @@ code {
   }
 }
 
+/* Light Mode - Global Page Title Icons: BLACK instead of blue */
+.light-mode .card-title svg {
+  color: #0F172A;
+}
+
+.light-mode .page-title svg,
+.light-mode .page-header svg,
+.light-mode [class*="-title"] > svg:first-child {
+  color: #0F172A;
+}
+
+/* Light Mode - Global Badge Overrides: Neutral colors */
+.light-mode .badge {
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+}
+
+.light-mode .badge-primary,
+.light-mode .badge-default {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+/* Keep semantic colors for status badges but make them subtler */
+.light-mode .badge-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16A34A;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.light-mode .badge-warning {
+  background: #FFFBEB;
+  color: #D97706;
+  border-color: #FDE68A;
+}
+
+.light-mode .badge-error,
+.light-mode .badge-danger {
+  background: #FEF2F2;
+  color: #DC2626;
+  border-color: #FECACA;
+}
+
+.light-mode .badge-info {
+  background: rgba(33, 150, 243, 0.08);
+  color: var(--primary-color);
+  border-color: rgba(33, 150, 243, 0.2);
+}
+
+/* Light Mode - Cards */
+.light-mode .stat-card,
+.light-mode .metric-card,
+.light-mode .info-card {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+}
+
+.light-mode .stat-card:hover,
+.light-mode .metric-card:hover,
+.light-mode .info-card:hover {
+  border-color: rgba(33, 150, 243, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Light Mode - Card Content */
+.light-mode .card-value {
+  color: #0F172A;
+}
+
+.light-mode .card-label {
+  color: #64748B;
+}
+
+.light-mode .card-description {
+  color: #64748B;
+}
+
+/* Light Mode - Sidebar nav icons should be dark gray */
+.light-mode .nav-link svg {
+  color: #334155;
+}
+
+.light-mode .nav-link:hover svg,
+.light-mode .nav-link.active svg {
+  color: var(--primary-color);
+}
+
+/* Light Mode - Dashboard specific metrics */
+.light-mode .metric-icon {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.light-mode .metric-trend.positive {
+  color: #16A34A;
+}
+
+.light-mode .metric-trend.negative {
+  color: #DC2626;
+}
+
+/* Light Mode - Ensure tables are readable */
+.light-mode table {
+  background: #FFFFFF;
+}
+
+.light-mode th {
+  background: #F8FAFC;
+  color: #0F172A;
+  border-color: #E2E8F0;
+}
+
+.light-mode td {
+  color: #334155;
+  border-color: #E2E8F0;
+}
+
+.light-mode tr:hover {
+  background: #F8FAFC;
+}
+
+/* Light Mode - Form focus states */
+.light-mode input:focus,
+.light-mode select:focus,
+.light-mode textarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
 /* Keyframe Animations */
 @keyframes fadeIn {
   from {
@@ -621,33 +751,6 @@ code {
   transition: opacity 0.2s ease;
   white-space: nowrap;
   overflow: hidden;
-}
-
-/* Header */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem 1.75rem;
-  background: var(--gradient-card);
-  border-radius: 16px;
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-md);
-  position: relative;
-  overflow: hidden;
-  animation: fadeIn 0.5s ease;
-}
-
-.header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(69, 173, 255, 0.1), transparent);
-  animation: shimmer 3s infinite;
 }
 
 .header-title {

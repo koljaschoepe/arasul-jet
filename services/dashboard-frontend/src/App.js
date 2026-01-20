@@ -450,13 +450,6 @@ function App() {
             />
 
           <div className="container">
-            <TopBar
-              wsConnected={wsConnected}
-              wsReconnecting={wsReconnecting}
-              systemStatus={systemStatus}
-              getStatusColor={getStatusColor}
-            />
-
             <Routes>
               <Route
                 path="/"
@@ -602,14 +595,6 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onTogg
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function TopBar({ wsConnected, wsReconnecting, systemStatus, getStatusColor }) {
-  return (
-    <div className="header">
-      {/* System messages removed as requested */}
     </div>
   );
 }
