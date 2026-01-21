@@ -63,10 +63,10 @@ if [ ! -f ".env" ]; then
     
     rm .env.bak
     log_success ".env created and populated with secure values"
-    
-    # Save admin password to secrets file for reference
-    echo "$ADMIN_PASSWORD" > config/secrets/admin_password.txt
-    log_info "Admin password saved to config/secrets/admin_password.txt"
+
+    # Note: Admin password is stored in .env only, not in separate plaintext file
+    # This is more secure than keeping a plaintext copy
+    log_info "Admin password stored securely in .env file (not in separate file)"
 else
     log_warning ".env already exists, skipping creation"
 fi
@@ -91,8 +91,11 @@ if [ ! -f "config/secrets/public_update_key.pem" ]; then
     
     openssl genrsa -out config/secrets/private_update_key.pem 2048
     openssl rsa -in config/secrets/private_update_key.pem -pubout -out config/secrets/public_update_key.pem
-    
-    log_success "Update signing keys generated in config/secrets/"
+
+    # Set secure permissions on private key
+    chmod 600 config/secrets/private_update_key.pem
+
+    log_success "Update signing keys generated with secure permissions"
 else
     log_warning "Update keys already exist, skipping generation"
 fi
@@ -100,17 +103,23 @@ fi
 # 4. Admin Hash
 if [ ! -f "config/secrets/admin.hash" ]; then
     log_info "Generating admin hash..."
-    # Simple hash generation (in production use bcrypt)
-    # For dev script we just create a placeholder or use a simple python one-liner if available
-    
+
     if command -v python3 &> /dev/null; then
-        ADMIN_PASS=$(cat config/secrets/admin_password.txt 2>/dev/null || echo "admin")
+        # Get admin password from .env (not from separate file)
+        ADMIN_PASS=$(grep ADMIN_PASSWORD .env 2>/dev/null | cut -d '=' -f2 || echo "admin")
+
         # Use python to generate bcrypt hash
         # Requires bcrypt module, if not present, warn
         if python3 -c "import bcrypt" 2>/dev/null; then
-             HASH=$(python3 -c "import bcrypt; print(bcrypt.hashpw('$ADMIN_PASS'.encode(), bcrypt.gensalt()).decode())")
+             # Use stdin to pass password (avoids password in process list)
+             HASH=$(echo "$ADMIN_PASS" | python3 -c "
+import sys, bcrypt
+password = sys.stdin.read().strip()
+print(bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode())
+")
              echo "$HASH" > config/secrets/admin.hash
-             log_success "Admin hash generated"
+             chmod 600 config/secrets/admin.hash
+             log_success "Admin hash generated with secure permissions"
         else
              log_warning "python3-bcrypt not found, skipping admin hash generation. Run bootstrap or install dependencies."
              echo "HASH_PLACEHOLDER" > config/secrets/admin.hash
@@ -123,10 +132,11 @@ fi
 
 # 5. JWT Secret File
 if [ ! -f "config/secrets/jwt_secret" ]; then
-    # Extract from .env
+    # Extract from .env and set secure permissions
     if [ -f ".env" ]; then
         grep JWT_SECRET .env | cut -d '=' -f2 > config/secrets/jwt_secret
-        log_success "JWT secret file created"
+        chmod 600 config/secrets/jwt_secret
+        log_success "JWT secret file created with secure permissions (0600)"
     fi
 fi
 

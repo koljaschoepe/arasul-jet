@@ -1,17 +1,26 @@
 #!/bin/bash
 # Generiert htpasswd für Traefik Basic Auth
-# Usage: ./generate_htpasswd.sh <username> <password>
+# Usage: ./generate_htpasswd.sh [username]
 
 set -e
 
 USERNAME="${1:-admin}"
-PASSWORD="${2}"
+
+# Secure password input - never accept password as command line argument
+echo "🔐 Generating bcrypt hash for user: $USERNAME"
+echo ""
+read -s -p "Enter password: " PASSWORD
+echo ""
+read -s -p "Confirm password: " PASSWORD_CONFIRM
+echo ""
 
 if [ -z "$PASSWORD" ]; then
-  echo "Usage: $0 <username> <password>"
-  echo "Example: $0 admin MySecurePassword123"
-  echo ""
-  echo "Generates a bcrypt password hash suitable for Traefik Basic Auth"
+  echo "❌ ERROR: Password cannot be empty"
+  exit 1
+fi
+
+if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
+  echo "❌ ERROR: Passwords do not match"
   exit 1
 fi
 
@@ -27,8 +36,8 @@ if ! command -v htpasswd &> /dev/null; then
 fi
 
 # Generate bcrypt hash (Apache htpasswd format)
-echo "🔐 Generating bcrypt hash for user: $USERNAME"
-HASH=$(htpasswd -nbB "$USERNAME" "$PASSWORD" | cut -d: -f2)
+# Use -i flag to read password from stdin (avoids password in process list)
+HASH=$(echo "$PASSWORD" | htpasswd -niB "$USERNAME" | cut -d: -f2)
 
 # Escape $ for YAML (double $$ in YAML)
 ESCAPED_HASH=$(echo "$HASH" | sed 's/\$/\$\$/g')
@@ -49,7 +58,6 @@ echo "        removeHeader: true"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "📋 Credentials:"
-echo "   Username: $USERNAME"
-echo "   Password: $PASSWORD"
+echo "📋 Username: $USERNAME"
+echo "   (Password not displayed for security)"
 echo ""
