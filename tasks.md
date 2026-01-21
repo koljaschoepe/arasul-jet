@@ -1,13 +1,379 @@
-# Arasul Development Queue
-Letzte Aktualisierung: 2026-01-19 09:33
+# Arasul Platform - Optimierungs- und Cleanup-Plan
 
-## 🔴 Priority 1 – Aktuelle Tasks (Claude Orchestrator)
-
-- [ ]  Analysiere meine Codebase auf Unstimmigkeiten und Fehler im Frontend. Teste ausführlich und schreibe einen detallierten Plan, den du danach umsetzt. Ultrathink
-
-## ✅ Erledigt (0 Tasks)
-
-_Noch keine Tasks abgeschlossen._
+**Erstellt:** 2026-01-22
+**Basierend auf:** Umfassende Codebase-Analyse mit 8 parallelen Subagenten
 
 ---
-_Generiert von Claude Orchestrator_
+
+## Executive Summary
+
+Die Analyse identifizierte **150+ Optimierungsmoglichkeiten** in folgenden Kategorien:
+- Code-Duplikate (Frontend + Backend)
+- Veraltete/ungenutzte Dateien
+- Dokumentations-Inkonsistenzen
+- Test-Lucken
+- Security-Probleme
+- Performance-Verbesserungen
+
+**Geschatzter Gesamtaufwand:** 80-100 Stunden
+
+---
+
+## Prioritat 1: KRITISCH (Sofort beheben)
+
+### 1.1 Security: Plaintext Secrets in Scripts
+**Aufwand:** 2h | **Impact:** Hoch
+
+| Problem | Datei | Zeile |
+|---------|-------|-------|
+| Admin Password im Plaintext | `scripts/setup_dev.sh` | 68 |
+| JWT Secret im Plaintext | `scripts/setup_dev.sh` | 128 |
+| Password in Shell History | `scripts/generate_htpasswd.sh` | 31, 54 |
+
+**Losung:**
+- [x] ~~Secrets verschlusselt speichern oder via Docker Secrets~~ (Plaintext-Datei entfernt)
+- [x] `generate_htpasswd.sh` auf `read -s` fur Password Input umgestellt
+- [x] Secrets-Dateien mit Permissions `0600` erstellen
+
+### 1.2 Database: Fehlende `users` Tabelle
+**Aufwand:** 1h | **Impact:** Kritisch (Foreign Key Failures)
+
+**Problem:** 4 Migrationen referenzieren `users(id)`, aber Tabelle existiert nicht:
+- `services/postgres/init/015_claude_terminal_schema.sql:8`
+- `services/postgres/init/015_notification_events_schema.sql:26`
+- `services/postgres/init/027_telegram_app_schema.sql:124, 220`
+
+**Losung:**
+- [x] Alle `REFERENCES users(id)` zu `REFERENCES admin_users(id)` geandert
+- [x] Migration `030_fix_user_references.sql` erstellt
+
+### 1.3 Database: Duplicate/Konflikt-Migrationen
+**Aufwand:** 3h | **Impact:** Schema-Inkonsistenzen
+
+| Problem | Dateien |
+|---------|---------|
+| Doppelte `telegram_config` | 015_telegram_schema.sql, 015_telegram_config_schema.sql, 015_telegram_security_schema.sql |
+| Doppelte `api_audit_logs` | 016_api_audit_logs_schema.sql vs 023_api_audit_logs_schema.sql |
+| Uberlappende Nummern | 3x `010_*`, 6x `015_*`, 2x `027_*`, 2x `029_*` |
+
+**Losung:**
+- [x] `015_telegram_schema.sql` als .deprecated markiert
+- [x] `015_telegram_security_schema.sql` als .deprecated markiert
+- [x] `016_api_audit_logs_schema.sql` als .deprecated markiert
+- [ ] Migrations umbenennen zu sequentiellen Nummern (030+)
+
+### 1.4 Backend: Fehlende Transaktionen
+**Aufwand:** 4h | **Impact:** Datenkonsistenz
+
+| Operation | Datei | Zeilen |
+|-----------|-------|--------|
+| Password Change | `routes/auth.js` | 260-271 |
+| Document Upload | `routes/documents.js` | 360-420 |
+| Chat Deletion | `routes/chats.js` | 250-270 |
+
+**Losung:**
+- [ ] `db.transaction()` Wrapper fur zusammenhangende Operations
+- [ ] Rollback bei Fehlern implementieren
+
+---
+
+## Prioritat 2: HOCH (Diese Woche)
+
+### 2.1 Frontend: Code-Duplikate entfernen
+**Aufwand:** 4h | **Impact:** Wartbarkeit
+
+#### 2.1.1 `formatDate` - 6x identisch
+| Datei | Zeilen |
+|-------|--------|
+| `components/DocumentManager.js` | 27-37 |
+| `components/Settings.js` | 231-241 |
+| `components/AppDetailModal.js` | 140-150 |
+| `components/SelfHealingEvents.js` | 95-105 |
+| `components/UpdatePage.js` | 168-178 |
+| `components/ClaudeTerminal.js` | 176-186 |
+
+**Losung:**
+- [ ] `src/utils/formatting.js` erstellen
+- [ ] `formatDate()`, `formatFileSize()`, `formatBytes()` extrahieren
+- [ ] Alle Komponenten auf Import umstellen
+
+#### 2.1.2 `API_BASE` - 33x definiert
+**Losung:**
+- [ ] `src/config/api.js` erstellen: `export const API_BASE = process.env.REACT_APP_API_URL || '/api'`
+- [ ] Alle Komponenten aktualisieren
+
+#### 2.1.3 Hardcoded Farben - 150+ Violations
+**Betroffene Dateien:** Alle CSS-Dateien
+**Losung:**
+- [ ] CSS-Variablen aus Design System konsequent nutzen
+- [ ] `#45ADFF` -> `var(--primary-color)`
+- [ ] `#1A2330` -> `var(--bg-card)`
+
+### 2.2 Backend: Error-Handling Standardisieren
+**Aufwand:** 6h | **Impact:** Code-Qualitat
+
+**Problem:** 128+ identische try/catch Blocke in 28 Route-Dateien
+
+**Losung:**
+- [ ] `src/utils/errorHandler.js` erstellen:
+```javascript
+function sendErrorResponse(res, error, statusCode = 500, message = 'Internal error') {
+    logger.error(error.message, { stack: error.stack });
+    res.status(statusCode).json({ error: message, timestamp: new Date().toISOString() });
+}
+```
+- [ ] Alle Routes auf Utility umstellen
+
+### 2.3 Docker: Fehlende .dockerignore
+**Aufwand:** 1h | **Impact:** Build-Grosse/Sicherheit
+
+**Fehlend in:**
+- [ ] `services/dashboard-frontend/.dockerignore`
+- [ ] `services/embedding-service/.dockerignore`
+- [ ] `services/document-indexer/.dockerignore`
+- [ ] `services/telegram-bot/.dockerignore`
+- [ ] `services/self-healing-agent/.dockerignore`
+- [ ] `services/metrics-collector/.dockerignore`
+
+**Inhalt:**
+```
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.git/
+*.test.js
+tests/
+```
+
+### 2.4 Dokumentation: Route-Count korrigieren
+**Aufwand:** 2h | **Impact:** Entwickler-Onboarding
+
+**CLAUDE.md behauptet 24 Routes, tatsachlich 28:**
+- [ ] `docs.js` dokumentieren
+- [ ] `externalApi.js` dokumentieren
+- [ ] `telegramApp.js` dokumentieren (15 Endpoints!)
+- [ ] Route-Tabelle auf 28 aktualisieren
+
+**Migration-Count korrigieren:**
+- [ ] 25 -> 30 Migrationen dokumentieren
+- [ ] Neue Migrationen 027-029 in DATABASE_SCHEMA.md
+
+---
+
+## Prioritat 3: MITTEL (Nachste 2 Wochen)
+
+### 3.1 Python Services: Shared Library erstellen
+**Aufwand:** 8h | **Impact:** Code-Wiederverwendung
+
+**Duplikate zwischen Services:**
+- HTTP Client Code (5+ Services)
+- Database Connection Pool (3 Services: document-indexer, self-healing-agent, metrics-collector)
+- Logging Configuration (6 Services)
+- Health Check Endpoints (4 Services)
+
+**Losung:**
+- [ ] `services/shared-python/` erstellen
+- [ ] `http_client.py` - Wrapper mit Retry/Timeout
+- [ ] `db_pool.py` - Standardisierter Connection Pool
+- [ ] `logging_config.py` - Einheitliches Format
+- [ ] `health_check.py` - Standard Health Endpoint
+
+### 3.2 Backend: Service-URL Zentralisierung
+**Aufwand:** 3h | **Impact:** Wartbarkeit
+
+**Problem:** 20+ mal definiert:
+```javascript
+const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${...}`
+const QDRANT_HOST = process.env.QDRANT_HOST || 'qdrant'
+const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service'
+```
+
+**Losung:**
+- [ ] `src/config/services.js` erstellen
+- [ ] Alle Service-URLs zentral definieren
+- [ ] Routes auf Import umstellen
+
+### 3.3 Tests: Kritische Lucken schliessen
+**Aufwand:** 16h | **Impact:** Qualitatssicherung
+
+**Backend Routes ohne Tests (15+):**
+- [ ] `telegram.js` - 6 Endpoints
+- [ ] `alerts.js` - 4 Endpoints (KRITISCH fur Monitoring!)
+- [ ] `selfhealing.js` - 3 Endpoints
+- [ ] `workflows.js` - 3 Endpoints
+- [ ] `appstore.js` - 3 Endpoints
+- [ ] `claudeTerminal.js` - 3 Endpoints
+
+**Python Services ohne Tests:**
+- [ ] `llm-service` - AI Core!
+- [ ] `embedding-service` - Vektorisierung
+- [ ] `document-indexer` - RAG Pipeline
+- [ ] `telegram-bot` - Notifications
+
+### 3.4 Frontend: Fehlende Komponenten-Tests
+**Aufwand:** 6h | **Impact:** Regression Prevention
+
+**14 Komponenten ohne Tests:**
+- [ ] `PasswordManagement.js` (Security!)
+- [ ] `TelegramSettings.js`
+- [ ] `AppStore.js`
+- [ ] `ClaudeTerminal.js`
+- [ ] `TelegramBotApp.js`
+- [ ] `TelegramSetupWizard.js`
+- [ ] `SpaceModal.js`
+- [ ] `MarkdownEditor.js`
+- [ ] `ClaudeCode.js`
+- [ ] `ConfirmIconButton.js`
+- [ ] `SelfHealingEvents.js`
+- [ ] `UpdatePage.js`
+- [ ] `AppDetailModal.js`
+- [ ] `LoadingSpinner.js`
+
+### 3.5 Ungenutzte Dateien/Code entfernen
+**Aufwand:** 2h | **Impact:** Code-Hygiene
+
+**Frontend:**
+- [ ] `components/Chat.js` loschen (durch ChatMulti.js ersetzt)
+- [ ] Auskommentierter Code in `App.js` (Zeilen 954-1090) entfernen
+
+**Backend:**
+- [ ] Ungenutzte Imports in `routes/documents.js:23` (`pool` nicht verwendet)
+
+**Database:**
+- [ ] `document_access_log` Tabelle - nicht im Backend genutzt
+- [ ] `bot_audit_log` Tabelle - durch telegram_message_log ersetzt
+
+---
+
+## Prioritat 4: LOW (Langfristig)
+
+### 4.1 Performance: Caching implementieren
+**Aufwand:** 8h | **Impact:** Response Times
+
+**Kandidaten:**
+- [ ] `/api/models/installed` - 5min Cache
+- [ ] LLM Service Tags - 30s Cache
+- [ ] Company Context in RAG - 60s Cache
+- [ ] System Info - 10s Cache
+
+### 4.2 Async/Await in Python Services
+**Aufwand:** 12h | **Impact:** Throughput
+
+**Blocking I/O ersetzen:**
+- [ ] `document-indexer/indexer.py` - `requests` -> `aiohttp`
+- [ ] `self-healing-agent/healing_engine.py` - `requests` -> `aiohttp`
+- [ ] `metrics-collector/collector.py` - bereits asyncio, aber inkonsistent
+
+### 4.3 Console.log Statements entfernen
+**Aufwand:** 2h | **Impact:** Code-Qualitat
+
+- [ ] 33 JavaScript-Dateien mit console.log/warn/error
+- [ ] 9 Python-Dateien mit print statements
+- [ ] Logger verwenden statt console
+
+### 4.4 Port-Dokumentation korrigieren
+**Aufwand:** 1h | **Impact:** Entwickler-Confusion
+
+**Falsch in CLAUDE.md:**
+- [ ] LLM Flask API: 11435 -> 11436 korrigieren
+
+### 4.5 Telegram: Dual-Implementation konsolidieren
+**Aufwand:** 8h | **Impact:** Feature-Konsistenz
+
+**Problem:** 2 separate Telegram-Implementierungen
+1. Python Bot (`services/telegram-bot/`)
+2. Node.js Backend (`routes/telegram.js` + Services)
+
+**Losung:**
+- [ ] Entscheiden: Python Bot ODER Node.js Integration
+- [ ] Andere Implementation entfernen oder als Legacy markieren
+
+### 4.6 React Performance: Memoization
+**Aufwand:** 4h | **Impact:** UI Performance
+
+**Komponenten fur React.memo:**
+- [ ] `StatusBadge` (DocumentManager.js)
+- [ ] `CategoryBadge` (DocumentManager.js)
+- [ ] `SpaceBadge` (DocumentManager.js)
+
+**ChatMulti.js Optimierung:**
+- [ ] Token Batching Refs nutzen (bereits deklariert aber ungenutzt)
+- [ ] Queue-Polling Interval-Management verbessern
+
+---
+
+## Veraltete Dokumentation
+
+### Zu aktualisierende Dateien:
+
+| Datei | Problem | Zeilen |
+|-------|---------|--------|
+| `CLAUDE.md` | Route-Count: 24 -> 28 | 147, 152, 164 |
+| `CLAUDE.md` | Migration-Count: 25 -> 30 | 250 |
+| `CLAUDE.md` | Service-Count: 13 -> 15 | 559 |
+| `CLAUDE.md` | LLM Port: 11435 -> 11436 | Multiple |
+| `docs/INDEX.md` | API Coverage: 53% -> aktualisieren | 143 |
+| `docs/DATABASE_SCHEMA.md` | 5 neue Migrationen fehlen | N/A |
+| `docs/API_REFERENCE.md` | telegramApp.js Endpoints fehlen (15!) | N/A |
+| `docs/API_REFERENCE.md` | externalApi.js Endpoints fehlen (7) | N/A |
+
+---
+
+## Nicht mehr benotigter Code
+
+### Zum Loschen:
+
+| Datei/Code | Grund | Impact |
+|------------|-------|--------|
+| `services/dashboard-frontend/src/components/Chat.js` | Durch ChatMulti.js ersetzt | None |
+| `services/postgres/init/015_telegram_schema.sql` | Durch 025 ersetzt | Schema Cleanup |
+| `services/postgres/init/015_telegram_security_schema.sql` | Durch 025 ersetzt | Schema Cleanup |
+| `services/postgres/init/016_api_audit_logs_schema.sql` | Durch 023 ersetzt | Schema Cleanup |
+| App.js Zeilen 954-1090 | Auskommentierter "Minimal System Overview" | None |
+
+### Ungenutzte DB-Tabellen:
+
+| Tabelle | Migration | Status |
+|---------|-----------|--------|
+| `document_access_log` | 009_documents_schema.sql | Nie im Backend genutzt |
+| `bot_audit_log` | 015_audit_log_schema.sql | Durch telegram_message_log ersetzt |
+| `telegram_orchestrator_state` | 027_telegram_app_schema.sql | Backend nicht implementiert |
+
+---
+
+## Quick Wins (< 30 Min)
+
+1. [x] `.dockerignore` fur 6 Services erstellt
+2. [x] `Chat.js` geloscht
+3. [x] Auskommentierter Code in App.js entfernt (~140 Zeilen)
+4. [ ] `API_BASE` in zentrale Config verschieben
+5. [x] LLM Port in Docs korrigiert (11435 -> 11436)
+6. [x] Route-Count in CLAUDE.md korrigiert (24 -> 28)
+
+---
+
+## Metriken fur Erfolg
+
+| Metrik | Vorher | Ziel |
+|--------|--------|------|
+| Code-Duplikate (formatDate etc.) | 6+ | 0 |
+| API_BASE Definitionen | 33 | 1 |
+| Backend Tests Coverage | ~40% | 80% |
+| Python Service Tests | ~15% | 60% |
+| Hardcoded Colors | 150+ | 0 |
+| Console.log Statements | 42 | 0 |
+| Dokumentations-Accuracy | ~70% | 95% |
+
+---
+
+## Nachste Schritte
+
+1. **Sofort:** Security-Fixes (Secrets in Scripts)
+2. **Diese Woche:** Database Migration Cleanup + Frontend Duplikate
+3. **Nachste Woche:** Backend Error Handling + Tests
+4. **Laufend:** Performance Monitoring + Optimierung
+
+---
+
+_Generiert durch 8 parallele Analyse-Agenten am 2026-01-22_
