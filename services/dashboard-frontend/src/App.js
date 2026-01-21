@@ -122,6 +122,12 @@ function App() {
     document.body.classList.add(`${theme}-mode`);
   }, [theme]);
 
+  // Apply sidebar state class to body (for components like markdown editor overlay)
+  useEffect(() => {
+    document.body.classList.remove('sidebar-expanded', 'sidebar-collapsed');
+    document.body.classList.add(sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded');
+  }, [sidebarCollapsed]);
+
   // Keyboard shortcut: Cmd/Ctrl + B to toggle sidebar
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -939,145 +945,6 @@ function DashboardHome({
             <div className="info-item-modern">
               <span className="info-label-modern">Hostname</span>
               <span className="info-value-modern">{systemInfo?.hostname || 'arasul'}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Minimal System Overview - REMOVED */}
-      <div className="metrics-overview" style={{ display: 'none' }}>
-        {/* CPU Metric */}
-        <div className="metric-card-minimal">
-          <div className="metric-header-minimal">
-            <span className="metric-label-minimal">CPU</span>
-            <span className="metric-value-minimal">{metrics?.cpu?.toFixed(0) || 0}%</span>
-          </div>
-          <div className="progress-bar-container">
-            <div
-              className="progress-bar"
-              style={{
-                width: `${metrics?.cpu || 0}%`,
-                background: getProgressColor(metrics?.cpu || 0)
-              }}
-            />
-          </div>
-        </div>
-
-        {/* RAM Metric */}
-        <div className="metric-card-minimal">
-          <div className="metric-header-minimal">
-            <span className="metric-label-minimal">RAM</span>
-            <span className="metric-value-minimal">{metrics?.ram?.toFixed(0) || 0}%</span>
-          </div>
-          <div className="progress-bar-container">
-            <div
-              className="progress-bar"
-              style={{
-                width: `${metrics?.ram || 0}%`,
-                background: getProgressColor(metrics?.ram || 0)
-              }}
-            />
-          </div>
-        </div>
-
-        {/* GPU Metric */}
-        <div className="metric-card-minimal">
-          <div className="metric-header-minimal">
-            <span className="metric-label-minimal">GPU</span>
-            <span className="metric-value-minimal">{metrics?.gpu?.toFixed(0) || 0}%</span>
-          </div>
-          <div className="progress-bar-container">
-            <div
-              className="progress-bar"
-              style={{
-                width: `${metrics?.gpu || 0}%`,
-                background: getProgressColor(metrics?.gpu || 0)
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Storage Metric */}
-        <div className="metric-card-minimal">
-          <div className="metric-header-minimal">
-            <span className="metric-label-minimal">Speicher</span>
-            <span className="metric-value-minimal">{metrics?.disk?.percent?.toFixed(0) || 0}%</span>
-          </div>
-          <div className="progress-bar-container">
-            <div
-              className="progress-bar"
-              style={{
-                width: `${metrics?.disk?.percent || 0}%`,
-                background: getProgressColor(metrics?.disk?.percent || 0)
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Temperature Metric */}
-        <div className="metric-card-minimal">
-          <div className="metric-header-minimal">
-            <span className="metric-label-minimal"><FiThermometer /> Temp</span>
-            <span className="metric-value-minimal">{metrics?.temperature?.toFixed(0) || 0}°C</span>
-          </div>
-          <div className="temp-indicator" style={{
-            background: metrics?.temperature > 80 ? '#ef4444' :
-                       metrics?.temperature > 70 ? '#f59e0b' : '#45ADFF',
-            height: '4px',
-            borderRadius: '2px',
-            marginTop: '0.5rem'
-          }} />
-        </div>
-
-        {/* AI Services Status */}
-        <div className="metric-card-minimal">
-          <div className="metric-header-minimal">
-            <span className="metric-label-minimal"><FiCpu /> AI Services</span>
-          </div>
-          <div className="services-status-minimal">
-            <div className="service-status-item">
-              <div className={`status-dot ${services?.llm?.status === 'healthy' ? 'status-dot-ok' : 'status-dot-error'}`} />
-              <span>LLM</span>
-            </div>
-            <div className="service-status-item">
-              <div className={`status-dot ${services?.embeddings?.status === 'healthy' ? 'status-dot-ok' : 'status-dot-error'}`} />
-              <span>Embeddings</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Internet Status */}
-        <div className="metric-card-minimal">
-          <div className="metric-header-minimal">
-            <span className="metric-label-minimal">Konnektivität</span>
-          </div>
-          <div className="services-status-minimal">
-            <div className="service-status-item">
-              <div className={`status-dot ${networkInfo?.internet_reachable ? 'status-dot-ok' : 'status-dot-error'}`} />
-              <span>Internet</span>
-            </div>
-            <div className="service-status-item">
-              <div className="status-dot status-dot-ok" />
-              <span>{networkInfo?.mdns || 'Local'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* System Info */}
-        <div className="metric-card-minimal">
-          <div className="metric-header-minimal">
-            <span className="metric-label-minimal">System</span>
-          </div>
-          <div className="system-info-minimal">
-            <div className="info-row-minimal">
-              <span className="info-label-minimal">Uptime</span>
-              <span className="info-value-minimal">
-                {systemInfo?.uptime_seconds ? formatUptime(systemInfo.uptime_seconds) : 'N/A'}
-              </span>
-            </div>
-            <div className="info-row-minimal">
-              <span className="info-label-minimal">Version</span>
-              <span className="info-value-minimal">{systemInfo?.version || '1.0.0'}</span>
             </div>
           </div>
         </div>

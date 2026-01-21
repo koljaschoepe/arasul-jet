@@ -82,7 +82,7 @@ chore: Maintenance tasks
 
 ---
 
-## Complete Architecture (13 Services)
+## Complete Architecture (15 Services)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -144,12 +144,12 @@ services/dashboard-backend/
 ├── src/index.js              # Entry point, Express app setup
 ├── src/server.js             # Server initialization
 ├── src/database.js           # PostgreSQL connection pool
-├── src/routes/               # 24 route files (see below)
+├── src/routes/               # 28 route files (see below)
 ├── src/middleware/
 │   ├── auth.js               # JWT validation
 │   ├── audit.js              # Request logging
 │   └── rateLimit.js          # Per-user rate limiting
-├── src/services/             # 13 business logic services
+├── src/services/             # 15 business logic services
 │   ├── llmJobService.js      # LLM job persistence
 │   ├── llmQueueService.js    # Sequential LLM processing
 │   ├── alertEngine.js        # Alert processing
@@ -161,7 +161,7 @@ services/dashboard-backend/
     └── password.js           # bcrypt hashing
 ```
 
-### Backend Routes (24 Files)
+### Backend Routes (28 Files)
 
 | Category | Route File | Key Endpoints |
 |----------|------------|---------------|
@@ -188,6 +188,10 @@ services/dashboard-backend/
 | **Self-Healing** | selfhealing.js | `/api/selfhealing/events` |
 | **Update** | update.js | `/api/update/*` |
 | **Workflows** | workflows.js | `/api/workflows/stats` |
+| **Workspaces** | workspaces.js | `/api/workspaces` CRUD |
+| **Docs** | docs.js | `/api/docs/`, `/openapi.json`, `/openapi.yaml` |
+| **External API** | externalApi.js | `/api/external/llm/*`, `/api-keys` |
+| **Telegram App** | telegramApp.js | `/api/telegram-app/*` (15 endpoints) |
 | **Health** | (in index.js) | `/api/health` |
 
 ### Frontend (React 18)
@@ -215,7 +219,7 @@ services/dashboard-frontend/
 ### AI Services (Python)
 ```
 services/llm-service/
-├── api_server.py             # Flask management API (port 11435)
+├── api_server.py             # Flask management API (port 11436)
 ├── entrypoint.sh             # Dual server startup (Ollama + Flask)
 └── healthcheck.sh            # Custom health check
 
@@ -247,7 +251,7 @@ services/telegram-bot/
     └── services/             # Audit logging
 ```
 
-### Database Migrations (25 Files)
+### Database Migrations (30 Files)
 ```
 services/postgres/init/
 ├── 001_init_schema.sql       # metrics, metric_history
@@ -556,12 +560,12 @@ Critical Rules:
 
 **Backend Tasks:**
 - Entry: `services/dashboard-backend/src/index.js`
-- Routes: `src/routes/` (24 files)
+- Routes: `src/routes/` (28 files)
 - Auth: `require('../middleware/auth')` for protected routes
 - Reference: `auth.js` (simple), `llm.js` (SSE streaming)
 
 **Database Tasks:**
-- Migrations: `services/postgres/init/` (25 files, start at 026)
+- Migrations: `services/postgres/init/` (30 files, start at 031)
 - Tables: users, conversations, messages, documents, alerts
 - Always: `IF NOT EXISTS`, indexes for frequently queried columns
 

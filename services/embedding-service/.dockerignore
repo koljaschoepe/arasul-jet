@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.eggs/
+*.egg-info/
+*.egg
+
+# Distribution
+dist/
+build/
+*.whl
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+**/*_test.py
+**/test_*.py
+
+# Development
+.git/
+.gitignore
+.env
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Models (downloaded at runtime)
+models/
+*.onnx
+*.pt
+*.bin
+
+# Documentation
+README.md
+docs/
+
+# OS
+.DS_Store
+Thumbs.db
