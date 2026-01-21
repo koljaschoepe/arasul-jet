@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS telegram_setup_sessions (
     chat_first_name VARCHAR(100),
 
     -- User association
-    user_id INTEGER REFERENCES users(id),
+    user_id INTEGER REFERENCES admin_users(id),
 
     -- Status tracking
     status telegram_setup_status DEFAULT 'pending',
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS telegram_notification_rules (
     is_enabled BOOLEAN DEFAULT TRUE,
 
     -- User association
-    user_id INTEGER REFERENCES users(id),
+    user_id INTEGER REFERENCES admin_users(id),
 
     -- Timestamps
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -176,7 +176,7 @@ CREATE TABLE IF NOT EXISTS telegram_bot_configs (
     id SERIAL PRIMARY KEY,
 
     -- User association
-    user_id INTEGER REFERENCES users(id) UNIQUE,
+    user_id INTEGER REFERENCES admin_users(id) UNIQUE,
 
     -- Bot credentials (encrypted)
     bot_token_encrypted BYTEA,
@@ -217,7 +217,7 @@ CREATE TABLE IF NOT EXISTS telegram_notification_history (
     rule_id INTEGER REFERENCES telegram_notification_rules(id) ON DELETE SET NULL,
 
     -- User reference
-    user_id INTEGER REFERENCES users(id),
+    user_id INTEGER REFERENCES admin_users(id),
     chat_id BIGINT,
 
     -- Notification content

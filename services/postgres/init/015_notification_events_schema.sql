@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS notification_events (
 -- Benutzer-Konfiguration für Benachrichtigungen
 CREATE TABLE IF NOT EXISTS notification_settings (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES admin_users(id) ON DELETE CASCADE,
     channel VARCHAR(50) NOT NULL DEFAULT 'telegram',  -- telegram, webhook, email (future)
     enabled BOOLEAN DEFAULT TRUE,
     -- Event-Typ-Filter (NULL = alle)
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS system_boot_events (
 -- Verhindert Spam bei vielen Events
 CREATE TABLE IF NOT EXISTS notification_rate_limits (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES admin_users(id) ON DELETE CASCADE,
     channel VARCHAR(50) NOT NULL,
     event_type VARCHAR(50) NOT NULL,
     window_start TIMESTAMPTZ NOT NULL,

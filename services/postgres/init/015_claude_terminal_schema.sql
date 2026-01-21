@@ -5,7 +5,7 @@
 -- Claude Terminal Sessions
 CREATE TABLE IF NOT EXISTS claude_terminal_sessions (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES admin_users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     last_activity_at TIMESTAMPTZ DEFAULT NOW(),
     session_context JSONB DEFAULT '{}'::jsonb
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS claude_terminal_sessions (
 CREATE TABLE IF NOT EXISTS claude_terminal_queries (
     id SERIAL PRIMARY KEY,
     session_id INTEGER REFERENCES claude_terminal_sessions(id) ON DELETE CASCADE,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES admin_users(id) ON DELETE CASCADE,
     query TEXT NOT NULL,
     response TEXT,
     injected_context JSONB,
