@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft, FiSend, FiDownload, FiSun, FiMoon } from 'react-icons/fi';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft, FiSend, FiDownload } from 'react-icons/fi';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import ChatMulti from './components/ChatMulti';
@@ -449,8 +449,6 @@ function App() {
               getStatusColor={getStatusColor}
               collapsed={sidebarCollapsed}
               onToggle={toggleSidebar}
-              theme={theme}
-              onToggleTheme={toggleTheme}
             />
 
           <div className="container">
@@ -474,7 +472,7 @@ function App() {
                   />
                 }
               />
-              <Route path="/settings" element={<Settings handleLogout={handleLogout} />} />
+              <Route path="/settings" element={<Settings handleLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />} />
               <Route path="/chat" element={<ChatMulti />} />
               <Route path="/documents" element={<DocumentManager />} />
               <Route path="/appstore" element={<AppStore />} />
@@ -502,7 +500,7 @@ function SidebarWithDownloads(props) {
   );
 }
 
-function Sidebar({ systemStatus, getStatusColor, collapsed, onToggle, downloadCount = 0, activeDownloads = [], theme = 'dark', onToggleTheme }) {
+function Sidebar({ systemStatus, getStatusColor, collapsed, onToggle, downloadCount = 0, activeDownloads = [] }) {
   const location = useLocation();
 
   const isActive = (path) => {
@@ -582,20 +580,6 @@ function Sidebar({ systemStatus, getStatusColor, collapsed, onToggle, downloadCo
         <Link to="/settings" className={`nav-link ${isActive('/settings')}`} title="Einstellungen">
           <FiSettings /> <span>Einstellungen</span>
         </Link>
-
-        {/* iOS-Style Theme Toggle */}
-        <button
-          onClick={onToggleTheme}
-          className="theme-toggle-switch"
-          title={theme === 'dark' ? 'Zu Light Mode wechseln' : 'Zu Dark Mode wechseln'}
-          aria-label="Theme umschalten"
-        >
-          <span className="theme-toggle-label">
-            {theme === 'dark' ? <FiMoon /> : <FiSun />}
-            <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
-          </span>
-          <span className="theme-toggle-track" />
-        </button>
       </div>
     </div>
   );

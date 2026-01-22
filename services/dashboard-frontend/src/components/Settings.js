@@ -16,7 +16,9 @@ import {
   FiX,
   FiAlertTriangle,
   FiTerminal,
-  FiLogOut
+  FiLogOut,
+  FiSun,
+  FiMoon
 } from 'react-icons/fi';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
@@ -26,7 +28,7 @@ import ClaudeTerminal from './ClaudeTerminal';
 import { formatDate } from '../utils/formatting';
 import '../settings.css';
 
-function Settings({ handleLogout }) {
+function Settings({ handleLogout, theme, onToggleTheme }) {
   const [activeSection, setActiveSection] = useState('general');
 
   const sections = [
@@ -83,7 +85,7 @@ function Settings({ handleLogout }) {
   const renderContent = () => {
     switch (activeSection) {
       case 'general':
-        return <GeneralSettings />;
+        return <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />;
       case 'company-context':
         return <CompanyContextSettings />;
       case 'updates':
@@ -361,7 +363,7 @@ function CompanyContextSettings() {
 }
 
 // General Settings Component
-function GeneralSettings() {
+function GeneralSettings({ theme, onToggleTheme }) {
   const [systemInfo, setSystemInfo] = useState({
     version: '1.0.0',
     hostname: 'arasul-edge',
@@ -378,6 +380,43 @@ function GeneralSettings() {
       </div>
 
       <div className="settings-cards">
+        {/* Theme Toggle */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <h3 className="settings-card-title">
+              {theme === 'dark' ? <FiMoon style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} /> : <FiSun style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />}
+              Erscheinungsbild
+            </h3>
+            <p className="settings-card-description">Wählen Sie zwischen hellem und dunklem Design</p>
+          </div>
+          <div className="settings-card-body">
+            <div className="theme-toggle-row">
+              <div className="theme-toggle-info">
+                <span className="theme-toggle-current">
+                  Aktuelles Theme: <strong>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</strong>
+                </span>
+                <span className="theme-toggle-hint">
+                  {theme === 'dark'
+                    ? 'Dunkles Design für reduzierte Augenbelastung'
+                    : 'Helles Design für bessere Lesbarkeit bei Tageslicht'}
+                </span>
+              </div>
+              <button
+                onClick={onToggleTheme}
+                className="theme-toggle-switch-settings"
+                title={theme === 'dark' ? 'Zu Light Mode wechseln' : 'Zu Dark Mode wechseln'}
+                aria-label="Theme umschalten"
+              >
+                <span className="theme-toggle-label">
+                  {theme === 'dark' ? <FiMoon /> : <FiSun />}
+                  <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+                </span>
+                <span className="theme-toggle-track" />
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* System Information */}
         <div className="settings-card">
           <div className="settings-card-header">
