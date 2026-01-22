@@ -326,9 +326,9 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 |-------|---------|--------|
 | `CLAUDE.md` | Route-Count: 24 -> 28 | ✅ Bereits korrekt |
 | `CLAUDE.md` | Migration-Count: 25 -> 28 | ✅ Bereits korrekt |
-| `CLAUDE.md` | Service-Count: 13 -> 15 | ⬜ Offen |
+| `CLAUDE.md` | Service-Count: 13 -> 14 | ✅ Erledigt |
 | `CLAUDE.md` | LLM Port: 11435 -> 11436 | ✅ Korrigiert |
-| `docs/INDEX.md` | API Coverage: 53% -> aktualisieren | ⬜ Offen |
+| `docs/INDEX.md` | API Coverage + Service Count aktualisiert | ✅ Erledigt |
 | `docs/DATABASE_SCHEMA.md` | Migrationen 010-028 dokumentieren | ✅ Erledigt |
 | `docs/API_REFERENCE.md` | telegramApp.js Endpoints (15) | ✅ Erledigt |
 | `docs/API_REFERENCE.md` | externalApi.js Endpoints (7) | ✅ Erledigt |

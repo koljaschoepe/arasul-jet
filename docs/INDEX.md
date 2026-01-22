@@ -58,13 +58,14 @@ Quick navigation to all Arasul Platform documentation.
 | Self-Healing Agent | [README](../services/self-healing-agent/README.md) | Autonomous recovery |
 | Telegram Bot | [README](../services/telegram-bot/README.md) | Notifications & commands |
 
-### External Services
+### Infrastructure Services
 | Service | README | Description |
 |---------|--------|-------------|
 | n8n | [BUILD_CUSTOM_NODES.md](../services/n8n/BUILD_CUSTOM_NODES.md) | Workflow automation |
 | MinIO | [MINIO_BUCKETS.md](MINIO_BUCKETS.md) | Object storage |
 | Qdrant | - | Vector database |
 | Traefik | [README](../config/traefik/README.md) | Reverse proxy + SSL |
+| Backup Service | - | Automated DB & MinIO backups |
 
 ---
 
@@ -137,11 +138,11 @@ services/postgres/init/             # Database migrations
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
-| CLAUDE.md | **Updated** - 13 Services, Complete Routes | 2026-01-16 |
+| CLAUDE.md | **Updated** - 14 Services, Complete Routes | 2026-01-22 |
 | DESIGN_SYSTEM.md | Complete | 2026-01 |
 | CONTEXT_ENGINEERING_PLAN.md | **New** | 2026-01-16 |
-| API_REFERENCE.md | Partial (~53% coverage) | 2024-12 |
+| API_REFERENCE.md | ~54% coverage (109/203 endpoints) | 2026-01-22 |
 | API_GUIDE.md | Complete | 2024-11 |
 | ARCHITECTURE.md | Complete | 2024-12 |
-| DATABASE_SCHEMA.md | Partial (~52% migrations) | 2024-12 |
-| Service READMEs | 12/13 documented | 2026-01 |
+| DATABASE_SCHEMA.md | Complete (28 migrations) | 2026-01-22 |
+| Service READMEs | 9/14 documented | 2026-01-22 |

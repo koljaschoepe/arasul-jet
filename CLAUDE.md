@@ -82,7 +82,7 @@ chore: Maintenance tasks
 
 ---
 
-## Complete Architecture (15 Services)
+## Complete Architecture (14 Services)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -97,7 +97,7 @@ chore: Maintenance tasks
 ├─────────────────────────────────────────────────────────────────┤
 │                      INFRASTRUCTURE LAYER                       │
 │  POSTGRES (5432) ── MINIO (9000) ── METRICS (9100)             │
-│                  SELF-HEALING-AGENT (9200)                      │
+│       SELF-HEALING-AGENT (9200) ── BACKUP-SERVICE              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -118,6 +118,7 @@ chore: Maintenance tasks
 | 11 | telegram-bot | 8090 | python-telegram-bot | `bot.py` | Notifications & commands |
 | 12 | n8n | 5678 | n8n | - | Workflow automation |
 | 13 | reverse-proxy | 80/443 | Traefik | `routes.yml` | Reverse proxy + SSL |
+| 14 | backup-service | - | Alpine + cron | `backup.sh` | Automated backups (DB + MinIO) |
 
 ### Startup Order (Enforced by depends_on)
 
@@ -131,7 +132,8 @@ chore: Maintenance tasks
 7. dashboard-backend               # API
 8. dashboard-frontend, n8n         # UI + Workflows
 9. telegram-bot                    # Notifications
-10. self-healing-agent             # LAST - monitors all
+10. backup-service                 # Automated backups (cron)
+11. self-healing-agent             # LAST - monitors all
 ```
 
 ---
@@ -544,7 +546,7 @@ Project: Arasul Platform
 Hardware: NVIDIA Jetson AGX Orin (ARM64)
 Stack: React 18 + Node.js/Express + PostgreSQL 16
 AI: Ollama LLM + Embeddings + Qdrant
-Services: 13 Docker containers
+Services: 14 Docker containers
 
 Critical Rules:
 1. Follow docs/DESIGN_SYSTEM.md for all UI changes
