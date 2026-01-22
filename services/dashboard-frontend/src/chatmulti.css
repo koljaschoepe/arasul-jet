@@ -204,12 +204,12 @@
 
 .chat-tab .tab-action-btn.delete:hover {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--error-color);
 }
 
 .chat-tab .tab-action-btn.export:hover {
   background: rgba(69, 173, 255, 0.15);
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 .chat-tab .tab-action-btn svg {
@@ -246,13 +246,13 @@
 
 /* Active (streaming) job - blue pulse */
 .pulse-dot.active {
-  background: #45ADFF;
+  background: var(--primary-color);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 /* Queued job - orange slower pulse */
 .pulse-dot.queued {
-  background: #f59e0b;
+  background: var(--warning-color);
   animation: pulse-slow 2s ease-in-out infinite;
 }
 
@@ -265,7 +265,7 @@
 /* Queue position badge */
 .queue-position {
   font-size: 10px;
-  color: #f59e0b;
+  color: var(--warning-color);
   font-weight: 600;
 }
 
@@ -451,7 +451,7 @@
 
 /* Light Mode - Tables */
 .light-mode .message-body table th {
-  background: #F1F5F9;
+  background: var(--bg-elevated);
 }
 
 .light-mode .message-body table thead {
@@ -459,7 +459,7 @@
 }
 
 .light-mode .message-body table tbody tr:nth-child(even) {
-  background: #F8FAFC;
+  background: var(--bg-elevated);
 }
 
 .light-mode .message-body table tbody tr:hover {
@@ -486,7 +486,7 @@
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 8px;
-  color: #ef4444;
+  color: var(--error-color);
   font-size: 0.9rem;
 }
 
@@ -503,14 +503,14 @@
 
 /* Light Mode - Mermaid */
 .light-mode .mermaid-container {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
 }
 
 .light-mode .mermaid-error {
   background: rgba(220, 38, 38, 0.06);
   border-color: rgba(220, 38, 38, 0.2);
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 /* Message Loading Animation */
@@ -698,7 +698,7 @@
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  color: #ef4444;
+  color: var(--error-color);
 }
 
 .error-banner span { flex: 1; }
@@ -715,7 +715,7 @@
 
 .error-banner button:hover {
   background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  color: var(--error-color);
 }
 
 /* -------------------- Input Box - Single Row -------------------- */
@@ -773,13 +773,13 @@
 /* RAG Toggle Active */
 .input-toggle.rag-toggle.active {
   background: rgba(69, 173, 255, 0.15);
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 /* Think Toggle Active */
 .input-toggle.think-toggle.active {
   background: rgba(69, 173, 255, 0.15);
-  color: #6EC4FF;
+  color: var(--primary-hover);
 }
 
 /* Model Selector */
@@ -814,7 +814,7 @@
 
 .input-toggle.model-toggle.active {
   background: rgba(69, 173, 255, 0.15);
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 .model-dropdown {
@@ -867,7 +867,7 @@
 }
 
 .model-option.selected .model-option-name {
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 .model-option.unavailable {
@@ -884,7 +884,7 @@
 }
 
 .model-option.unavailable .model-option-desc {
-  color: #EF4444;
+  color: var(--error-color);
 }
 
 .model-warning-icon {
@@ -928,8 +928,8 @@
 
 .set-default-btn:hover {
   background: rgba(69, 173, 255, 0.15);
-  border-color: #45ADFF;
-  color: #45ADFF;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .set-default-btn svg {
@@ -969,7 +969,7 @@
 
 .input-toggle.space-toggle.active {
   background: rgba(69, 173, 255, 0.15);
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 .space-dropdown {
@@ -1017,7 +1017,7 @@
   height: 16px;
   flex-shrink: 0;
   opacity: 0;
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 .space-option.selected .check-icon {
@@ -1038,7 +1038,7 @@
 }
 
 .space-option.selected .space-option-name {
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 .space-option-desc {
@@ -1107,7 +1107,7 @@
 }
 
 .input-box .send-btn:hover:not(:disabled) {
-  background: #6EC4FF;
+  background: var(--primary-hover);
   transform: scale(1.05);
 }
 
@@ -1629,7 +1629,7 @@
 /* Light Mode - Messages */
 .light-mode .message.user .message-body {
   background: rgba(33, 150, 243, 0.08);
-  border-left-color: #2196F3;
+  border-left-color: var(--primary-color);
 }
 
 .light-mode .message-body {
@@ -1644,8 +1644,8 @@
 }
 
 .light-mode .message-body pre {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
 }
 
 /* Light Mode - Input box */
@@ -1660,11 +1660,11 @@
 
 /* Light Mode - Toggle buttons */
 .light-mode .input-toggle {
-  background: #F1F5F9;
+  background: var(--bg-elevated);
 }
 
 .light-mode .input-toggle:hover {
-  background: #E2E8F0;
+  background: var(--border-color);
 }
 
 .light-mode .input-toggle.rag-toggle.active,
@@ -1672,20 +1672,20 @@
 .light-mode .input-toggle.model-toggle.active,
 .light-mode .input-toggle.space-toggle.active {
   background: rgba(33, 150, 243, 0.12);
-  color: #2196F3;
+  color: var(--primary-color);
 }
 
 /* Light Mode - Send button */
 .light-mode .input-box .send-btn {
-  background: #2196F3;
+  background: var(--primary-color);
 }
 
 .light-mode .input-box .send-btn:hover:not(:disabled) {
-  background: #42A5F5;
+  background: var(--primary-hover);
 }
 
 .light-mode .input-box .send-btn:disabled {
-  background: #E2E8F0;
+  background: var(--border-color);
 }
 
 /* Light Mode - Tabs */
@@ -1699,27 +1699,27 @@
 }
 
 .light-mode .chat-tab:hover {
-  background: #F1F5F9;
+  background: var(--bg-elevated);
 }
 
 .light-mode .chat-tab.active {
-  border-color: #2196F3;
+  border-color: var(--primary-color);
   color: var(--text-primary);
 }
 
 .light-mode .chat-tab.active .tab-icon {
-  color: #2196F3;
+  color: var(--primary-color);
 }
 
 /* Light Mode - Tab actions */
 .light-mode .chat-tab .tab-action-btn.delete:hover {
   background: rgba(220, 38, 38, 0.1);
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 .light-mode .chat-tab .tab-action-btn.export:hover {
   background: rgba(33, 150, 243, 0.1);
-  color: #2196F3;
+  color: var(--primary-color);
 }
 
 /* Light Mode - Dropdowns */
@@ -1731,7 +1731,7 @@
 
 .light-mode .model-option:hover,
 .light-mode .space-option:hover {
-  background: #F1F5F9;
+  background: var(--bg-elevated);
 }
 
 .light-mode .model-option.selected,
@@ -1742,11 +1742,11 @@
 .light-mode .model-option.selected .model-option-name,
 .light-mode .space-option.selected .space-option-name,
 .light-mode .space-option .check-icon {
-  color: #2196F3;
+  color: var(--primary-color);
 }
 
 .light-mode .model-option.unavailable .model-option-desc {
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 /* Light Mode - Thinking and Sources blocks */
@@ -1757,17 +1757,17 @@
 
 .light-mode .thinking-header:hover,
 .light-mode .sources-header:hover {
-  background: #F1F5F9;
+  background: var(--bg-elevated);
 }
 
 .light-mode .thinking-content,
 .light-mode .sources-content {
-  background: #F8FAFC;
+  background: var(--bg-elevated);
 }
 
 .light-mode .source-item {
   background: var(--bg-card);
-  border-left-color: #2196F3;
+  border-left-color: var(--primary-color);
 }
 
 /* Light Mode - Error banner */
@@ -1777,25 +1777,25 @@
 }
 
 .light-mode .error-banner svg:first-child {
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 .light-mode .error-banner button:hover {
   background: rgba(220, 38, 38, 0.15);
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 /* Light Mode - Pulse dots */
 .light-mode .pulse-dot.active {
-  background: #2196F3;
+  background: var(--primary-color);
 }
 
 .light-mode .pulse-dot.queued {
-  background: #D97706;
+  background: var(--warning-color);
 }
 
 .light-mode .queue-position {
-  color: #D97706;
+  color: var(--warning-color);
 }
 
 /* Light Mode - Scroll button */
@@ -1805,6 +1805,6 @@
 }
 
 .light-mode .scroll-bottom-btn:hover {
-  border-color: #2196F3;
-  color: #2196F3;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }

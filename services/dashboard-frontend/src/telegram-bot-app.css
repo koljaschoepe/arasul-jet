@@ -93,14 +93,14 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
   margin-bottom: 1.5rem;
-  color: #EF4444;
+  color: var(--error-color);
 }
 
 .telegram-error-banner button {
   margin-left: auto;
   background: transparent;
   border: 1px solid rgba(239, 68, 68, 0.5);
-  color: #EF4444;
+  color: var(--error-color);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   cursor: pointer;
@@ -315,7 +315,7 @@
   font-size: 0.75rem;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
-  color: #000;
+  color: var(--text-on-primary);
   font-weight: 500;
   text-transform: uppercase;
 }
@@ -448,8 +448,8 @@
 }
 
 .btn-icon.btn-danger:hover {
-  color: #EF4444;
-  border-color: #EF4444;
+  color: var(--error-color);
+  border-color: var(--error-color);
 }
 
 /* ============================================================================
@@ -587,7 +587,7 @@
 
 .history-icon:has(svg[data-icon="x"]) {
   background: rgba(239, 68, 68, 0.15);
-  color: #EF4444;
+  color: var(--error-color);
 }
 
 .history-content {
@@ -664,7 +664,7 @@
 
 .btn-primary {
   background: var(--primary-color);
-  color: var(--text-on-primary, #000);
+  color: var(--text-on-primary);
 }
 
 .btn-primary:hover {
@@ -786,7 +786,7 @@
 
 .progress-step.active .step-number {
   background: var(--primary-color);
-  color: var(--text-on-primary, #000);
+  color: var(--text-on-primary);
 }
 
 .progress-step.current .step-number {
@@ -812,14 +812,14 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
   margin-bottom: 1.5rem;
-  color: #EF4444;
+  color: var(--error-color);
 }
 
 .setup-error button {
   margin-left: auto;
   background: transparent;
   border: none;
-  color: #EF4444;
+  color: var(--error-color);
   cursor: pointer;
   font-size: 1.25rem;
 }
@@ -890,7 +890,7 @@
   align-items: center;
   justify-content: center;
   background: var(--primary-color);
-  color: var(--text-on-primary, #000);
+  color: var(--text-on-primary);
   font-size: 0.75rem;
   font-weight: 600;
   flex-shrink: 0;
@@ -960,7 +960,7 @@
 .qr-code {
   width: 200px;
   height: 200px;
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 12px;
   margin: 0 auto 1rem;
   display: flex;

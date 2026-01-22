@@ -150,7 +150,7 @@
     border-radius: 10px;
     padding: 0.875rem 1rem;
     margin-bottom: 1.5rem;
-    color: #f87171;
+    color: var(--danger-light);
 }
 
 .model-store-error svg {
@@ -164,7 +164,7 @@
 .model-store-error button {
     background: transparent;
     border: none;
-    color: #f87171;
+    color: var(--danger-light);
     cursor: pointer;
     padding: 0.25rem;
     display: flex;
@@ -356,7 +356,7 @@
 }
 
 .download-progress.phase-complete {
-    border-color: #22C55E;
+    border-color: var(--success-color);
     background: rgba(34, 197, 94, 0.1);
 }
 
@@ -376,7 +376,7 @@
 }
 
 .phase-complete .progress-phase-label {
-    color: #22C55E;
+    color: var(--success-color);
 }
 
 .progress-bar {
@@ -404,11 +404,11 @@
 }
 
 .phase-complete .progress-fill {
-    background: linear-gradient(90deg, #22C55E, #4ADE80);
+    background: linear-gradient(90deg, var(--success-color), var(--success-light));
 }
 
 .phase-verify .progress-fill {
-    background: linear-gradient(90deg, #F59E0B, #FBBF24);
+    background: linear-gradient(90deg, var(--warning-color), var(--warning-light));
 }
 
 .progress-percent {
@@ -418,7 +418,7 @@
 }
 
 .phase-complete .progress-percent {
-    color: #22C55E;
+    color: var(--success-color);
 }
 
 .progress-status {
@@ -428,7 +428,7 @@
 }
 
 .phase-complete .progress-status {
-    color: #22C55E;
+    color: var(--success-color);
 }
 
 /* Model Actions */
@@ -488,7 +488,7 @@
 
 .model-actions .btn-danger {
     background: rgba(239, 68, 68, 0.2);
-    color: #f87171;
+    color: var(--danger-light);
 }
 
 .model-actions .btn-danger:hover {
@@ -694,20 +694,20 @@ code.detail-value {
 
 /* Light Mode - Title Icon: BLACK instead of blue */
 .light-mode .model-store-title svg {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .model-store-title h1 {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .model-store-subtitle {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Loading */
 .light-mode .model-store-loading {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .model-store-loading .spin {
@@ -721,7 +721,7 @@ code.detail-value {
 }
 
 .light-mode .loaded-model-info {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .loaded-model-info svg {
@@ -733,31 +733,31 @@ code.detail-value {
 }
 
 .light-mode .ram-usage {
-  background: #FFFFFF;
-  color: #334155;
-  border: 1px solid #E2E8F0;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
 }
 
 /* Light Mode - No Model Banner */
 .light-mode .no-model-banner {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
-  color: #64748B;
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-muted);
 }
 
 .light-mode .no-model-banner svg {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 /* Light Mode - Error Message */
 .light-mode .model-store-error {
-  background: #FEF2F2;
-  border-color: #FECACA;
-  color: #DC2626;
+  background: rgba(239, 68, 68, 0.06);
+  border-color: var(--danger-light);
+  color: var(--danger-color);
 }
 
 .light-mode .model-store-error button {
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 .light-mode .model-store-error button:hover {
@@ -766,13 +766,13 @@ code.detail-value {
 
 /* Light Mode - Model Card */
 .light-mode .model-card {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: var(--bg-card);
+  border-color: var(--border-color);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .light-mode .model-card:hover {
-  border-color: #CBD5E1;
+  border-color: var(--border-input);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -782,18 +782,18 @@ code.detail-value {
 }
 
 .light-mode .model-card.installed {
-  border-color: #CBD5E1;
+  border-color: var(--border-input);
 }
 
 /* Light Mode - Model Icon: Subtler in light mode */
 .light-mode .model-icon {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .light-mode .model-card.active .model-icon {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: var(--text-on-primary);
 }
 
 /* Light Mode - Badges: WHITE/LIGHT GRAY instead of blue */
@@ -803,34 +803,34 @@ code.detail-value {
 .light-mode .badge-loaded,
 .light-mode .badge-queue,
 .light-mode .badge-category {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
   border: none;
   font-weight: 500;
 }
 
 /* Light Mode - Model Name & Description */
 .light-mode .model-name {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .model-description {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Model Specs */
 .light-mode .spec-label {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .spec-value {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 /* Light Mode - Capabilities */
 .light-mode .capability-tag {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .light-mode .capability-tag.recommended {
@@ -840,25 +840,25 @@ code.detail-value {
 
 /* Light Mode - Download Progress */
 .light-mode .download-progress {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
 }
 
 .light-mode .download-progress.phase-complete {
-  border-color: #22C55E;
+  border-color: var(--success-color);
   background: rgba(34, 197, 94, 0.05);
 }
 
 .light-mode .progress-phase-label {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .progress-bar {
-  background: #E2E8F0;
+  background: var(--border-color);
 }
 
 .light-mode .progress-fill {
-  background: linear-gradient(90deg, var(--primary-color), #42A5F5);
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
 }
 
 .light-mode .progress-percent {
@@ -866,44 +866,44 @@ code.detail-value {
 }
 
 .light-mode .progress-status {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Model Actions */
 .light-mode .model-actions .btn-primary {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: var(--text-on-primary);
 }
 
 .light-mode .model-actions .btn-primary:hover {
-  background: #1976D2;
+  background: var(--primary-active);
 }
 
 .light-mode .model-actions .btn-success {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: var(--text-on-primary);
 }
 
 .light-mode .model-actions .btn-success:hover {
-  background: #42A5F5;
+  background: var(--primary-hover);
 }
 
 .light-mode .model-actions .btn-secondary {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .light-mode .model-actions .btn-secondary:hover {
-  background: #E2E8F0;
+  background: var(--border-color);
 }
 
 .light-mode .model-actions .btn-danger {
-  background: #FEF2F2;
-  color: #DC2626;
+  background: rgba(239, 68, 68, 0.06);
+  color: var(--danger-color);
 }
 
 .light-mode .model-actions .btn-danger:hover {
-  background: #FEE2E2;
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .light-mode .model-actions .btn-active {
@@ -917,55 +917,55 @@ code.detail-value {
 }
 
 .light-mode .modal-content {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: var(--bg-card);
+  border-color: var(--border-color);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
 }
 
 .light-mode .modal-header {
-  border-bottom-color: #E2E8F0;
+  border-bottom-color: var(--border-color);
 }
 
 .light-mode .modal-header h2 {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .modal-header h2 svg {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .modal-close {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .modal-close:hover {
-  background: #F1F5F9;
-  color: #0F172A;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 /* Light Mode - Model Detail */
 .light-mode .model-detail-description {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .detail-label {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .detail-value {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode code.detail-value {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .light-mode .model-detail-section {
-  border-top-color: #E2E8F0;
+  border-top-color: var(--border-color);
 }
 
 .light-mode .model-detail-section h3 {
-  color: #64748B;
+  color: var(--text-muted);
 }
 

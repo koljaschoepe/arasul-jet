@@ -119,7 +119,7 @@
 .category-btn.active {
   background: var(--primary-color);
   border-color: var(--primary-color);
-  color: #000;
+  color: var(--text-on-primary);
   font-weight: 600;
 }
 
@@ -262,7 +262,7 @@
 /* Dark Mode Status Badge Colors */
 .badge-running {
   background: var(--primary-color);
-  color: #000;
+  color: var(--text-on-primary);
 }
 
 .badge-installed {
@@ -365,7 +365,7 @@
 
 .btn-primary {
   background: var(--primary-color);
-  color: #000;
+  color: var(--text-on-primary);
 }
 
 .btn-primary:hover {
@@ -375,7 +375,7 @@
 
 .btn-success {
   background: var(--primary-color);
-  color: #000;
+  color: var(--text-on-primary);
 }
 
 .btn-success:hover {
@@ -446,8 +446,8 @@
 }
 
 .btn-icon-danger:hover:not(:disabled) {
-  background: #dc2626;
-  color: #fff;
+  background: var(--danger-color);
+  color: white;
 }
 
 .btn-icon-warning {
@@ -467,7 +467,7 @@
 
 .btn-icon-primary:hover:not(:disabled) {
   background: var(--primary-color);
-  color: #000;
+  color: var(--text-on-primary);
 }
 
 /* Confirmation Popup */
@@ -495,7 +495,7 @@
 }
 
 .confirm-popup-danger {
-  border: 1px solid #dc2626;
+  border: 1px solid var(--danger-color);
 }
 
 .confirm-popup-warning {
@@ -526,7 +526,7 @@
 
 .confirm-yes {
   background: var(--primary-color);
-  color: #000;
+  color: var(--text-on-primary);
 }
 
 .confirm-yes:hover {
@@ -1157,7 +1157,7 @@
 
 .copy-btn:hover {
   background: var(--primary-color);
-  color: #000;
+  color: var(--text-on-primary);
 }
 
 .copy-btn svg {
@@ -1286,7 +1286,7 @@
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 6px;
-  color: #f59e0b !important;
+  color: var(--warning-color) !important;
   font-size: 0.9rem;
 }
 
@@ -1317,21 +1317,21 @@
 }
 
 .uninstall-buttons .btn-warning {
-  background: #f59e0b;
-  color: #000;
+  background: var(--warning-color);
+  color: var(--text-on-primary);
 }
 
 .uninstall-buttons .btn-warning:hover {
-  background: #d97706;
+  background: var(--warning-hover);
 }
 
 .uninstall-buttons .btn-danger {
-  background: #ef4444;
-  color: #fff;
+  background: var(--error-color);
+  color: white;
 }
 
 .uninstall-buttons .btn-danger:hover {
-  background: #dc2626;
+  background: var(--danger-color);
 }
 
 /* Button icon only style */
@@ -1356,13 +1356,13 @@
 
 /* Light Mode - Title Icon: BLACK instead of blue */
 .light-mode .appstore-title svg {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 /* Light Mode - Search */
 .light-mode .appstore-search {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: var(--bg-card);
+  border-color: var(--border-color);
 }
 
 .light-mode .appstore-search:focus-within {
@@ -1371,40 +1371,40 @@
 }
 
 .light-mode .appstore-search svg {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .appstore-search input {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .appstore-search input::placeholder {
-  color: #94A3B8;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Categories */
 .light-mode .category-btn {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
-  color: #334155;
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
 }
 
 .light-mode .category-btn:hover {
   border-color: var(--primary-color);
-  color: #0F172A;
-  background: #F8FAFC;
+  color: var(--text-primary);
+  background: var(--bg-subtle);
 }
 
 .light-mode .category-btn.active {
   background: var(--primary-color);
   border-color: var(--primary-color);
-  color: #FFFFFF;
+  color: white;
 }
 
 /* Light Mode - App Card */
 .light-mode .app-card {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: var(--bg-card);
+  border-color: var(--border-color);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
@@ -1415,8 +1415,8 @@
 
 /* Light Mode - App Icon: Subtler in light mode */
 .light-mode .app-icon {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 /* Light Mode - Badges: WHITE/LIGHT GRAY instead of blue */
@@ -1430,129 +1430,129 @@
 .light-mode .badge-starting,
 .light-mode .badge-stopped,
 .light-mode .badge-active {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
   border: none;
   font-weight: 500;
 }
 
 /* Light Mode - App Name & Description */
 .light-mode .app-name {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .app-description {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - App Meta */
 .light-mode .app-meta {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .app-version {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 /* Light Mode - Buttons */
 .light-mode .btn-primary {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: white;
 }
 
 .light-mode .btn-primary:hover {
-  background: #1976D2;
+  background: var(--primary-active);
 }
 
 .light-mode .btn-success {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: white;
 }
 
 .light-mode .btn-warning {
-  background: #F1F5F9;
-  color: #334155;
-  border: 1px solid #E2E8F0;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .light-mode .btn-warning:hover {
-  background: #E2E8F0;
+  background: var(--border-color);
 }
 
 .light-mode .btn-danger {
-  background: #FEF2F2;
-  color: #DC2626;
-  border: 1px solid #FECACA;
+  background: var(--danger-bg-light);
+  color: var(--danger-color);
+  border: 1px solid var(--danger-border-light);
 }
 
 .light-mode .btn-danger:hover {
-  background: #FEE2E2;
+  background: var(--danger-bg-lighter);
 }
 
 .light-mode .btn-disabled {
-  background: #F1F5F9;
-  color: #94A3B8;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
 }
 
 /* Light Mode - Icon Buttons */
 .light-mode .btn-icon-danger {
-  background: #F8FAFC;
-  color: #64748B;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
 }
 
 .light-mode .btn-icon-danger:hover:not(:disabled) {
-  background: #DC2626;
-  color: #FFFFFF;
+  background: var(--danger-color);
+  color: white;
 }
 
 .light-mode .btn-icon-warning {
-  background: #F8FAFC;
-  color: #64748B;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
 }
 
 .light-mode .btn-icon-warning:hover:not(:disabled) {
-  background: #F59E0B;
-  color: #FFFFFF;
+  background: var(--warning-color);
+  color: white;
 }
 
 .light-mode .btn-icon-primary {
-  background: #F8FAFC;
-  color: #64748B;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
 }
 
 .light-mode .btn-icon-primary:hover:not(:disabled) {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: white;
 }
 
 /* Light Mode - Confirm Popup */
 .light-mode .confirm-popup {
-  background: #FFFFFF;
-  border: 1px solid #E2E8F0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .light-mode .confirm-popup-danger {
-  border-color: #DC2626;
+  border-color: var(--danger-color);
 }
 
 .light-mode .confirm-text {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .confirm-yes {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: white;
 }
 
 .light-mode .confirm-no {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .light-mode .confirm-no:hover {
-  background: #E2E8F0;
+  background: var(--border-color);
 }
 
 /* Light Mode - Modal */
@@ -1561,48 +1561,48 @@
 }
 
 .light-mode .modal-content {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: var(--bg-card);
+  border-color: var(--border-color);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
 }
 
 .light-mode .modal-header {
-  border-bottom-color: #E2E8F0;
+  border-bottom-color: var(--border-color);
 }
 
 .light-mode .app-icon-large {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .light-mode .app-header-info h2 {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .version {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .light-mode .modal-close {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .modal-close:hover {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 /* Light Mode - Tabs */
 .light-mode .modal-tabs {
-  border-bottom-color: #E2E8F0;
+  border-bottom-color: var(--border-color);
 }
 
 .light-mode .tab {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .tab:hover {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .tab.active {
@@ -1612,24 +1612,24 @@
 
 /* Light Mode - Info Grid */
 .light-mode .app-long-description {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .info-item {
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
 }
 
 .light-mode .info-item svg {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .info-item .label {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .info-item .value {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .info-item .value.link {
@@ -1638,37 +1638,37 @@
 
 /* Light Mode - Error Box */
 .light-mode .error-box {
-  background: #FEF2F2;
-  border-color: #FECACA;
-  color: #DC2626;
+  background: var(--danger-bg-light);
+  border-color: var(--danger-border-light);
+  color: var(--danger-color);
 }
 
 .light-mode .error-box svg {
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 /* Light Mode - Logs */
 .light-mode .logs-header span {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .logs-content {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
-  color: #334155;
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
 }
 
 /* Light Mode - Events */
 .light-mode .event-item {
-  background: #F8FAFC;
+  background: var(--bg-subtle);
 }
 
 .light-mode .event-time {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .event-message {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .event-install_start,
@@ -1679,22 +1679,22 @@
 }
 
 .light-mode .event-stop {
-  background: #F1F5F9;
-  color: #64748B;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
 }
 
 .light-mode .event-error,
 .light-mode .event-install_error,
 .light-mode .event-start_error,
 .light-mode .event-stop_error {
-  background: #FEF2F2;
-  color: #DC2626;
+  background: var(--danger-bg-light);
+  color: var(--danger-color);
 }
 
 /* Light Mode - Loading/Empty */
 .light-mode .loading,
 .light-mode .empty {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .appstore-loading svg {
@@ -1702,39 +1702,39 @@
 }
 
 .light-mode .appstore-empty svg {
-  color: #94A3B8;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Modal Footer */
 .light-mode .modal-footer {
-  border-top-color: #E2E8F0;
+  border-top-color: var(--border-color);
 }
 
 /* Light Mode - n8n Section */
 .light-mode .n8n-section {
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
 }
 
 .light-mode .n8n-section h4 {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .n8n-section h4 svg {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .n8n-description {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .credential-item {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: var(--bg-card);
+  border-color: var(--border-color);
 }
 
 .light-mode .credential-item label {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .credential-value code {
@@ -1742,30 +1742,30 @@
 }
 
 .light-mode .credential-value .password-hint {
-  color: #94A3B8;
+  color: var(--text-muted);
 }
 
 .light-mode .command-box {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
 }
 
 .light-mode .command-box code {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .copy-btn {
-  background: #E2E8F0;
-  color: #334155;
+  background: var(--border-color);
+  color: var(--text-secondary);
 }
 
 .light-mode .copy-btn:hover {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: white;
 }
 
 .light-mode .instructions-list {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .instructions-list li::marker {
@@ -1773,67 +1773,67 @@
 }
 
 .light-mode .private-key-box {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
 }
 
 .light-mode .private-key-box pre {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 /* Light Mode - Uninstall Dialog */
 .light-mode .uninstall-dialog .modal-header h3 {
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 .light-mode .uninstall-dialog .modal-body p {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .uninstall-warning {
-  background: #FFFBEB;
-  border-color: #FDE68A;
-  color: #D97706 !important;
+  background: var(--warning-bg-light);
+  border-color: var(--warning-border-light);
+  color: var(--warning-hover) !important;
 }
 
 .light-mode .uninstall-buttons .btn-secondary {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .light-mode .uninstall-buttons .btn-secondary:hover {
-  background: #E2E8F0;
+  background: var(--border-color);
 }
 
 /* Light Mode - App Error */
 .light-mode .app-error {
-  background: #FEF2F2;
-  border: 1px solid #FECACA;
-  color: #DC2626;
+  background: var(--danger-bg-light);
+  border: 1px solid var(--danger-border-light);
+  color: var(--danger-color);
 }
 
 .light-mode .app-error svg {
-  color: #DC2626;
+  color: var(--danger-color);
 }
 
 /* Light Mode - Appstore Error */
 .light-mode .appstore-error {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
-  color: #334155;
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
 }
 
 .light-mode .appstore-error svg {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .appstore-error button {
-  background: #FFFFFF;
-  color: #0F172A;
-  border: 1px solid #E2E8F0;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .light-mode .appstore-error button:hover {
-  background: #F1F5F9;
+  background: var(--bg-elevated);
 }
 

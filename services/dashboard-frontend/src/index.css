@@ -69,8 +69,18 @@ code {
   --primary-muted: rgba(69, 173, 255, 0.15);
   --text-on-primary: #000000;
   --danger-color: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-light: #fca5a5;
+  --danger-bg-light: #FEF2F2;
+  --danger-bg-lighter: #FEE2E2;
+  --danger-border-light: #FECACA;
   --warning-color: #f59e0b;
+  --warning-hover: #d97706;
+  --warning-bg-light: #FFFBEB;
+  --warning-border-light: #FDE68A;
   --success-color: #22c55e;
+  --success-light: #4ADE80;
+  --warning-light: #FBBF24;
   --error-color: #ef4444;
 
   /* Status Colors - Semantic (NEW) */
@@ -90,6 +100,7 @@ code {
   --bg-card-hover: #222d3d;
   --bg-sidebar: #101923;
   --bg-elevated: #2a3544;
+  --bg-subtle: #1d2835;
 
   /* Border Colors */
   --border-color: #2a3544;
@@ -100,6 +111,7 @@ code {
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
+  --text-disabled: #64748b;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
@@ -110,6 +122,11 @@ code {
   /* Gradients - Design System (only blue) */
   --gradient-primary: linear-gradient(135deg, #45ADFF 0%, #2D8FD9 100%);
   --gradient-card: linear-gradient(135deg, #1A2330 0%, #1f2835 100%);
+  --gradient-mid: #3498db;
+  --gradient-end: #2980b9;
+
+  /* Terminal Background */
+  --bg-terminal: #1a1a2e;
 
   /* Additional Background Colors for Components */
   --bg-input: #101923;
@@ -154,6 +171,7 @@ code {
   --bg-card-hover: #F1F5F9;
   --bg-sidebar: #FFFFFF;
   --bg-elevated: #F1F5F9;
+  --bg-subtle: #F8FAFC;
   --bg-input: #FFFFFF;
   --bg-modal: #FFFFFF;
   --scrollbar-track: #F1F5F9;
@@ -162,6 +180,7 @@ code {
   --text-primary: #0F172A;
   --text-secondary: #334155;
   --text-muted: #64748B;
+  --text-disabled: #94A3B8;
 
   /* Borders - Dezent */
   --border-color: #E2E8F0;
@@ -177,6 +196,11 @@ code {
   /* Gradients - Light Mode */
   --gradient-primary: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
   --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+  --gradient-mid: #1976D2;
+  --gradient-end: #1565C0;
+
+  /* Terminal Background (light mode keeps dark terminal) */
+  --bg-terminal: #1a1a2e;
 
   /* Primary Blau - leicht angepasst für besseren Kontrast */
   --primary-color: #2196F3;

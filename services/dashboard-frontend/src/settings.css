@@ -640,7 +640,7 @@
   border: 2px solid rgba(69, 173, 255, 0.3);
   border-radius: 8px;
   font-size: 0.875rem;
-  color: #45ADFF;
+  color: var(--primary-color);
   text-align: center;
   line-height: 1.5;
 }
@@ -739,15 +739,15 @@
 
 /* Light Mode - Theme Toggle Row */
 .light-mode .theme-toggle-current {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .theme-toggle-hint {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .theme-toggle-switch-settings {
-  border-color: #E2E8F0;
+  border-color: var(--border-color);
 }
 
 .light-mode .theme-toggle-switch-settings:hover {
@@ -756,12 +756,12 @@
 }
 
 .light-mode .theme-toggle-switch-settings .theme-toggle-label {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .theme-toggle-switch-settings .theme-toggle-track {
-  background: #F1F5F9;
-  border-color: #E2E8F0;
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
 }
 
 /* Responsive */
@@ -833,24 +833,24 @@
 
 /* Light Mode - Security Logout */
 .light-mode .security-logout-section {
-  border-top-color: #E2E8F0;
+  border-top-color: var(--border-color);
 }
 
 .light-mode .security-logout-section h3 {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .security-logout-section p {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .logout-button-settings {
-  border-color: #DC2626;
-  color: #DC2626;
+  border-color: var(--danger-color);
+  color: var(--danger-color);
 }
 
 .light-mode .logout-button-settings:hover {
-  background: #DC2626;
+  background: var(--danger-color);
   color: white;
 }
 
@@ -1878,31 +1878,31 @@
 
 /* Light Mode - Sidebar */
 .light-mode .settings-sidebar {
-  background: #FFFFFF;
-  border-right-color: #E2E8F0;
+  background: var(--bg-card);
+  border-right-color: var(--border-color);
 }
 
 .light-mode .settings-sidebar-header {
-  border-bottom-color: #E2E8F0;
+  border-bottom-color: var(--border-color);
   background: linear-gradient(180deg, rgba(33, 150, 243, 0.03) 0%, transparent 100%);
 }
 
 /* Light Mode - Sidebar Icon: BLACK instead of blue */
 .light-mode .settings-sidebar-icon {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .settings-sidebar-title {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .settings-sidebar-subtitle {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Navigation Items */
 .light-mode .settings-nav-item {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .settings-nav-item:hover {
@@ -1922,16 +1922,16 @@
 }
 
 .light-mode .settings-nav-item-description {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .settings-nav-item:hover .settings-nav-item-description,
 .light-mode .settings-nav-item.active .settings-nav-item-description {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .settings-nav-item-arrow {
-  color: #94A3B8;
+  color: var(--text-disabled);
 }
 
 .light-mode .settings-nav-item:hover .settings-nav-item-arrow,
@@ -1946,21 +1946,21 @@
 
 /* Light Mode - Section Header */
 .light-mode .settings-section-header {
-  border-bottom-color: #E2E8F0;
+  border-bottom-color: var(--border-color);
 }
 
 .light-mode .settings-section-title {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .settings-section-description {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Cards */
 .light-mode .settings-card {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: var(--bg-card);
+  border-color: var(--border-color);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
@@ -1970,22 +1970,22 @@
 }
 
 .light-mode .settings-card-header {
-  border-bottom-color: #E2E8F0;
+  border-bottom-color: var(--border-color);
   background: rgba(248, 250, 252, 0.5);
 }
 
 .light-mode .settings-card-title {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .settings-card-description {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Info Grid */
 .light-mode .settings-info-item {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
 }
 
 .light-mode .settings-info-item:hover {
@@ -1994,21 +1994,21 @@
 }
 
 .light-mode .settings-info-label {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .settings-info-value {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 /* Light Mode - About Section */
 .light-mode .settings-about-text {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light-mode .settings-feature-item {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
 }
 
 .light-mode .settings-feature-item:hover {
@@ -2022,64 +2022,64 @@
 }
 
 .light-mode .settings-feature-text strong {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .settings-feature-text span {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Password Management */
 .light-mode .password-header h2 {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .password-header p {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Service Selector */
 .light-mode .service-button {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
-  color: #334155;
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
 }
 
 .light-mode .service-button:hover {
-  background: #F8FAFC;
+  background: var(--bg-subtle);
   border-color: rgba(33, 150, 243, 0.3);
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .service-button.active {
   background: var(--primary-color);
   border-color: var(--primary-color);
-  color: #FFFFFF;
+  color: var(--text-on-primary);
 }
 
 /* Light Mode - Form Elements */
 .light-mode .form-group label {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .form-group small {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .password-input-wrapper input {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
-  color: #0F172A;
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-primary);
 }
 
 .light-mode .password-input-wrapper input:focus {
   border-color: var(--primary-color);
-  background: #FFFFFF;
+  background: var(--bg-card);
   box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
 }
 
 .light-mode .toggle-password {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .toggle-password:hover {
@@ -2088,12 +2088,12 @@
 
 /* Light Mode - Password Requirements */
 .light-mode .password-requirements {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
 }
 
 .light-mode .password-requirements h4 {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .password-requirements li.valid {
@@ -2101,7 +2101,7 @@
 }
 
 .light-mode .password-requirements li.invalid {
-  color: #94A3B8;
+  color: var(--text-disabled);
 }
 
 /* Light Mode - Messages */
@@ -2112,31 +2112,31 @@
 }
 
 .light-mode .password-message.error {
-  background: #FEF2F2;
-  border-color: #FECACA;
-  color: #DC2626;
+  background: var(--danger-bg-light);
+  border-color: var(--danger-border-light);
+  color: var(--danger-color);
 }
 
 /* Light Mode - Submit Button */
 .light-mode .submit-button {
   background: var(--primary-color);
-  color: #FFFFFF;
+  color: var(--text-on-primary);
 }
 
 .light-mode .submit-button:hover:not(:disabled) {
-  background: #1976D2;
+  background: var(--primary-active);
 }
 
 .light-mode .submit-button:disabled {
-  background: #E2E8F0;
-  color: #94A3B8;
+  background: var(--border-color);
+  color: var(--text-disabled);
 }
 
 /* Light Mode - Warning/Info Text */
 .light-mode .warning-text {
-  background: #FFFBEB;
-  border-color: #FDE68A;
-  color: #D97706;
+  background: var(--warning-bg-light);
+  border-color: var(--warning-border-light);
+  color: var(--warning-hover);
 }
 
 .light-mode .info-text {
@@ -2147,43 +2147,43 @@
 
 /* Light Mode - Company Context */
 .light-mode .company-context-textarea {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
-  color: #0F172A;
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-primary);
 }
 
 .light-mode .company-context-textarea:focus {
   border-color: var(--primary-color);
-  background: #FFFFFF;
+  background: var(--bg-card);
   box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
 }
 
 .light-mode .company-context-textarea::placeholder {
-  color: #94A3B8;
+  color: var(--text-disabled);
 }
 
 .light-mode .company-context-footer {
-  border-top-color: #E2E8F0;
+  border-top-color: var(--border-color);
 }
 
 .light-mode .company-context-updated {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .company-context-unsaved {
-  color: #D97706;
+  color: var(--warning-hover);
 }
 
 .light-mode .company-context-save-btn {
-  background: #F1F5F9;
-  border-color: #E2E8F0;
-  color: #94A3B8;
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
+  color: var(--text-disabled);
 }
 
 .light-mode .company-context-save-btn.has-changes {
   background: var(--primary-color);
   border-color: var(--primary-color);
-  color: #FFFFFF;
+  color: var(--text-on-primary);
 }
 
 .light-mode .company-context-message.success {
@@ -2193,19 +2193,19 @@
 }
 
 .light-mode .company-context-message.error {
-  background: #FEF2F2;
-  border-color: #FECACA;
-  color: #DC2626;
+  background: var(--danger-bg-light);
+  border-color: var(--danger-border-light);
+  color: var(--danger-color);
 }
 
 /* Light Mode - Telegram Settings */
 .light-mode .telegram-status-row {
-  background: #F8FAFC;
-  border-color: #E2E8F0;
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
 }
 
 .light-mode .telegram-status-label {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .telegram-status-value.active {
@@ -2213,12 +2213,12 @@
 }
 
 .light-mode .telegram-status-value.inactive {
-  color: #94A3B8;
+  color: var(--text-disabled);
 }
 
 .light-mode .telegram-toggle-btn {
-  background: #F1F5F9;
-  border-color: #E2E8F0;
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
 }
 
 .light-mode .telegram-toggle-btn:hover:not(:disabled) {
@@ -2231,40 +2231,40 @@
 }
 
 .light-mode .telegram-toggle-slider {
-  background: #94A3B8;
+  background: var(--text-disabled);
 }
 
 .light-mode .telegram-toggle-btn.active .telegram-toggle-slider {
-  background: #FFFFFF;
+  background: var(--bg-card);
 }
 
 .light-mode .telegram-hint {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 /* Light Mode - Telegram Form */
 .light-mode .telegram-form-group label {
-  color: #0F172A;
+  color: var(--text-primary);
 }
 
 .light-mode .telegram-form-group input {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
-  color: #0F172A;
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-primary);
 }
 
 .light-mode .telegram-form-group input:focus {
   border-color: var(--primary-color);
-  background: #FFFFFF;
+  background: var(--bg-card);
   box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
 }
 
 .light-mode .telegram-form-group input::placeholder {
-  color: #94A3B8;
+  color: var(--text-disabled);
 }
 
 .light-mode .telegram-form-group small {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .telegram-form-group small strong {
@@ -2272,7 +2272,7 @@
 }
 
 .light-mode .telegram-toggle-visibility {
-  color: #64748B;
+  color: var(--text-muted);
 }
 
 .light-mode .telegram-toggle-visibility:hover {
@@ -2281,15 +2281,15 @@
 
 /* Light Mode - Telegram Actions */
 .light-mode .telegram-save-btn {
-  background: #F1F5F9;
-  border-color: #E2E8F0;
-  color: #94A3B8;
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
+  color: var(--text-disabled);
 }
 
 .light-mode .telegram-save-btn.has-changes {
   background: var(--primary-color);
   border-color: var(--primary-color);
-  color: #FFFFFF;
+  color: var(--text-on-primary);
 }
 
 .light-mode .telegram-test-btn {
@@ -2309,7 +2309,7 @@
 }
 
 .light-mode .telegram-message.error {
-  background: #FEF2F2;
-  border-color: #FECACA;
-  color: #DC2626;
+  background: var(--danger-bg-light);
+  border-color: var(--danger-border-light);
+  color: var(--danger-color);
 }

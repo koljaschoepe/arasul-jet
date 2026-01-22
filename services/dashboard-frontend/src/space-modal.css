@@ -84,7 +84,7 @@
 
 .space-modal-header .close-btn:hover {
   background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  color: var(--error-color);
 }
 
 /* Body */
@@ -115,7 +115,7 @@
 .space-message.error {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  color: var(--danger-light);
 }
 
 .space-message.success {
@@ -297,7 +297,7 @@
 }
 
 .space-btn.primary {
-  background: linear-gradient(135deg, #45ADFF 0%, #3b82f6 100%);
+  background: var(--gradient-primary);
   border: none;
   color: white;
   box-shadow: 0 4px 12px rgba(69, 173, 255, 0.2);
@@ -323,7 +323,7 @@
 .space-btn.danger {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  color: var(--danger-light);
 }
 
 .space-btn.danger:hover:not(:disabled) {
