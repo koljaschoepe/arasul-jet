@@ -105,9 +105,10 @@ Die Analyse identifizierte **150+ Optimierungsmoglichkeiten** in folgenden Kateg
 #### 2.1.3 Hardcoded Farben - 150+ Violations
 **Betroffene Dateien:** Alle CSS-Dateien
 **Losung:**
-- [ ] CSS-Variablen aus Design System konsequent nutzen
-- [ ] `#45ADFF` -> `var(--primary-color)`
-- [ ] `#1A2330` -> `var(--bg-card)`
+- [x] CSS-Variablen aus Design System konsequent nutzen
+- [x] `#45ADFF` -> `var(--primary-color)`
+- [x] `#1A2330` -> `var(--bg-card)`
+- [x] 11 Haupt-CSS-Dateien migriert (appstore, chat, chatmulti, claudecode, documents, index, markdown-editor, modelstore, settings, space-modal, telegram-bot-app)
 
 ### 2.2 Backend: Error-Handling Standardisieren
 **Aufwand:** 6h | **Impact:** Code-Qualitat
