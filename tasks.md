@@ -60,7 +60,7 @@ Die Analyse identifizierte **150+ Optimierungsmoglichkeiten** in folgenden Kateg
 - [x] `015_telegram_schema.sql` als .deprecated markiert
 - [x] `015_telegram_security_schema.sql` als .deprecated markiert
 - [x] `016_api_audit_logs_schema.sql` als .deprecated markiert
-- [ ] Migrations umbenennen zu sequentiellen Nummern (030+)
+- [x] Migrations umbenennen zu sequentiellen Nummern (001-028)
 
 ### 1.4 Backend: Fehlende Transaktionen
 **Aufwand:** 4h | **Impact:** Datenkonsistenz
@@ -72,8 +72,8 @@ Die Analyse identifizierte **150+ Optimierungsmoglichkeiten** in folgenden Kateg
 | Chat Deletion | `routes/chats.js` | 250-270 |
 
 **Losung:**
-- [ ] `db.transaction()` Wrapper fur zusammenhangende Operations
-- [ ] Rollback bei Fehlern implementieren
+- [x] `db.transaction()` Wrapper fur zusammenhangende Operations (auth.js, chats.js)
+- [x] Rollback bei Fehlern implementieren (bereits in database.js vorhanden)
 
 ---
 
@@ -93,14 +93,14 @@ Die Analyse identifizierte **150+ Optimierungsmoglichkeiten** in folgenden Kateg
 | `components/ClaudeTerminal.js` | 176-186 |
 
 **Losung:**
-- [ ] `src/utils/formatting.js` erstellen
-- [ ] `formatDate()`, `formatFileSize()`, `formatBytes()` extrahieren
-- [ ] Alle Komponenten auf Import umstellen
+- [x] `src/utils/formatting.js` erstellt
+- [x] `formatDate()`, `formatFileSize()`, `formatBytes()`, `formatRelativeDate()` extrahiert
+- [x] Alle Komponenten auf Import umgestellt
 
 #### 2.1.2 `API_BASE` - 33x definiert
 **Losung:**
-- [ ] `src/config/api.js` erstellen: `export const API_BASE = process.env.REACT_APP_API_URL || '/api'`
-- [ ] Alle Komponenten aktualisieren
+- [x] `src/config/api.js` erstellt: `export const API_BASE = process.env.REACT_APP_API_URL || '/api'`
+- [x] 12 Komponenten auf zentrale Config umgestellt
 
 #### 2.1.3 Hardcoded Farben - 150+ Violations
 **Betroffene Dateien:** Alle CSS-Dateien
@@ -115,25 +115,21 @@ Die Analyse identifizierte **150+ Optimierungsmoglichkeiten** in folgenden Kateg
 **Problem:** 128+ identische try/catch Blocke in 28 Route-Dateien
 
 **Losung:**
-- [ ] `src/utils/errorHandler.js` erstellen:
-```javascript
-function sendErrorResponse(res, error, statusCode = 500, message = 'Internal error') {
-    logger.error(error.message, { stack: error.stack });
-    res.status(statusCode).json({ error: message, timestamp: new Date().toISOString() });
-}
-```
-- [ ] Alle Routes auf Utility umstellen
+- [x] `src/utils/errors.js` erstellt (Custom Error Classes)
+- [x] `src/middleware/errorHandler.js` erstellt (asyncHandler, errorHandler)
+- [x] 4 Routes in auth.js auf asyncHandler umgestellt (Muster demonstriert)
+- [ ] Verbleibende ~240 Routes auf asyncHandler umstellen
 
 ### 2.3 Docker: Fehlende .dockerignore
 **Aufwand:** 1h | **Impact:** Build-Grosse/Sicherheit
 
 **Fehlend in:**
-- [ ] `services/dashboard-frontend/.dockerignore`
-- [ ] `services/embedding-service/.dockerignore`
-- [ ] `services/document-indexer/.dockerignore`
-- [ ] `services/telegram-bot/.dockerignore`
-- [ ] `services/self-healing-agent/.dockerignore`
-- [ ] `services/metrics-collector/.dockerignore`
+- [x] `services/dashboard-frontend/.dockerignore`
+- [x] `services/embedding-service/.dockerignore`
+- [x] `services/document-indexer/.dockerignore`
+- [x] `services/telegram-bot/.dockerignore`
+- [x] `services/self-healing-agent/.dockerignore`
+- [x] `services/metrics-collector/.dockerignore`
 
 **Inhalt:**
 ```
@@ -347,9 +343,10 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 1. [x] `.dockerignore` fur 6 Services erstellt
 2. [x] `Chat.js` geloscht
 3. [x] Auskommentierter Code in App.js entfernt (~140 Zeilen)
-4. [ ] `API_BASE` in zentrale Config verschieben
+4. [x] `API_BASE` in zentrale Config verschoben (12 Dateien aktualisiert)
 5. [x] LLM Port in Docs korrigiert (11435 -> 11436)
 6. [x] Route-Count in CLAUDE.md korrigiert (24 -> 28)
+7. [x] Migration-Nummern sequentiell gemacht (001-028)
 
 ---
 

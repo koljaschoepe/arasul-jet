@@ -251,34 +251,37 @@ services/telegram-bot/
     └── services/             # Audit logging
 ```
 
-### Database Migrations (30 Files)
+### Database Migrations (28 Files)
 ```
 services/postgres/init/
-├── 001_init_schema.sql       # metrics, metric_history
-├── 002_auth_schema.sql       # users, sessions
+├── 001_init_schema.sql           # metrics, metric_history
+├── 002_auth_schema.sql           # admin_users, sessions
 ├── 003_self_healing_schema.sql
-├── 004_update_schema.sql     # update_packages, update_history
-├── 005_chat_schema.sql       # conversations, messages
+├── 004_update_schema.sql         # update_packages, update_history
+├── 005_chat_schema.sql           # conversations, messages
 ├── 006_llm_jobs_schema.sql
 ├── 007_add_sources_to_messages.sql
 ├── 008_llm_queue_schema.sql
-├── 009_documents_schema.sql  # documents, document_chunks
+├── 009_documents_schema.sql      # documents, document_chunks
 ├── 010_alert_config_schema.sql
-├── 010_llm_models_schema.sql
-├── 010_performance_indexes.sql
-├── 011_appstore_schema.sql
-├── 012_convert_system_apps.sql
-├── 013_claude_workspaces_schema.sql
-├── 014_knowledge_spaces_schema.sql
-├── 015_audit_log_schema.sql
-├── 015_claude_terminal_schema.sql
-├── 015_notification_events_schema.sql
-├── 015_telegram_config_schema.sql
-├── 015_telegram_schema.sql
-├── 015_telegram_security_schema.sql
-├── 016_api_audit_logs_schema.sql
-├── 023_api_audit_logs_schema.sql
-└── 025_telegram_notification_system.sql
+├── 011_llm_models_schema.sql
+├── 012_performance_indexes.sql
+├── 013_appstore_schema.sql
+├── 014_convert_system_apps.sql
+├── 015_claude_workspaces_schema.sql
+├── 016_knowledge_spaces_schema.sql
+├── 017_audit_log_schema.sql
+├── 018_claude_terminal_schema.sql
+├── 019_notification_events_schema.sql
+├── 020_telegram_config_schema.sql
+├── 021_api_audit_logs_schema.sql
+├── 022_telegram_notification_system.sql
+├── 023_api_keys_schema.sql
+├── 024_telegram_app_schema.sql
+├── 025_telegram_functions_fix.sql
+├── 026_fix_default_model.sql
+├── 027_model_ollama_name.sql
+└── 028_fix_user_references.sql
 ```
 
 ---
@@ -565,7 +568,7 @@ Critical Rules:
 - Reference: `auth.js` (simple), `llm.js` (SSE streaming)
 
 **Database Tasks:**
-- Migrations: `services/postgres/init/` (30 files, start at 031)
+- Migrations: `services/postgres/init/` (28 files, start at 029)
 - Tables: users, conversations, messages, documents, alerts
 - Always: `IF NOT EXISTS`, indexes for frequently queried columns
 
