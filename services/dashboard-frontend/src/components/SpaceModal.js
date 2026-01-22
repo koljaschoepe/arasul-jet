@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiX, FiFolder, FiSave, FiAlertCircle, FiCheck, FiTrash2 } from 'react-icons/fi';
+import { API_BASE } from '../config/api';
 import '../space-modal.css';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 // Available icons for spaces
 const SPACE_ICONS = [

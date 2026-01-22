@@ -20,9 +20,8 @@ import {
   FiChevronRight
 } from 'react-icons/fi';
 import TelegramSetupWizard from './TelegramSetupWizard';
+import { API_BASE } from '../config/api';
 import '../telegram-bot-app.css';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 /**
  * TelegramBotApp - Main component for Telegram Bot App in Store

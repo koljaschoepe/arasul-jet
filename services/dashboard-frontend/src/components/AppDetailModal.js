@@ -22,8 +22,8 @@ import {
   FiServer
 } from 'react-icons/fi';
 import ConfirmIconButton from './ConfirmIconButton';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
+import { API_BASE } from '../config/api';
+import { formatDate } from '../utils/formatting';
 
 // Get app URL based on port or traefik route
 const getAppUrl = (app) => {
@@ -135,18 +135,6 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
     } catch (err) {
       console.error('Copy failed:', err);
     }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   return (

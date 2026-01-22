@@ -14,9 +14,8 @@ import TelegramBotApp from './components/TelegramBotApp';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
+import { API_BASE } from './config/api';
 import './index.css';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
 // WebSocket URL: use wss:// if page is https://, otherwise ws://
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE = process.env.REACT_APP_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;

@@ -23,9 +23,8 @@ import {
     FiInfo
 } from 'react-icons/fi';
 import { useDownloads } from '../contexts/DownloadContext';
+import { API_BASE } from '../config/api';
 import '../modelstore.css';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 // Category configuration - neutral gray per Design System
 const categoryConfig = {

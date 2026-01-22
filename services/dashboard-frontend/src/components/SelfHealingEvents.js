@@ -12,6 +12,7 @@ import {
   FiThermometer,
   FiPower
 } from 'react-icons/fi';
+import { formatRelativeDate } from '../utils/formatting';
 import './SelfHealingEvents.css';
 
 const SelfHealingEvents = () => {
@@ -92,22 +93,7 @@ const SelfHealingEvents = () => {
     return <IconComponent />;
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleString();
-  };
+  // Using formatRelativeDate from utils/formatting
 
   const filteredEvents = events.filter((event) => {
     if (filter === 'all') return true;
@@ -248,7 +234,7 @@ const SelfHealingEvents = () => {
                 </div>
                 <div className="event-title">
                   <h4>{event.event_type?.replace(/_/g, ' ').toUpperCase()}</h4>
-                  <span className="event-time">{formatDate(event.timestamp)}</span>
+                  <span className="event-time">{formatRelativeDate(event.timestamp)}</span>
                 </div>
                 <div className="event-severity">
                   {getSeverityBadge(event.severity)}

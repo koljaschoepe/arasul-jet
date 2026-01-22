@@ -13,6 +13,7 @@ import {
   FiCopy,
   FiCheck
 } from 'react-icons/fi';
+import { formatDate } from '../utils/formatting';
 import './ClaudeTerminal.css';
 
 function ClaudeTerminal() {
@@ -171,16 +172,6 @@ function ClaudeTerminal() {
   const formatTime = (ms) => {
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   const isAvailable = status?.available;

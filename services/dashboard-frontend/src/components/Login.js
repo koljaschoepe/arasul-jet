@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config/api';
 import './Login.css';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState('');

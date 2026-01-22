@@ -22,9 +22,8 @@ import {
 } from 'react-icons/fi';
 import AppDetailModal from './AppDetailModal';
 import ConfirmIconButton from './ConfirmIconButton';
+import { API_BASE } from '../config/api';
 import '../appstore.css';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 // Icon mapping
 const iconMap = {

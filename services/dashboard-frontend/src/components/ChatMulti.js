@@ -7,9 +7,9 @@ import {
   FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp, FiBox,
   FiFolder, FiCheck, FiDownload, FiStar
 } from 'react-icons/fi';
+import MermaidDiagram from './MermaidDiagram';
+import { API_BASE } from '../config/api';
 import '../chatmulti.css';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 function ChatMulti() {
   // Chat list state
@@ -1299,7 +1299,27 @@ function ChatMulti() {
                 {/* Message Content */}
                 {message.content && (
                   <div className="message-body">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        code({ node, inline, className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          const language = match ? match[1] : '';
+
+                          // Handle mermaid code blocks
+                          if (!inline && language === 'mermaid') {
+                            return <MermaidDiagram content={String(children).replace(/\n$/, '')} />;
+                          }
+
+                          // Default code rendering
+                          return (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          );
+                        }
+                      }}
+                    >
                       {message.content}
                     </ReactMarkdown>
                   </div>

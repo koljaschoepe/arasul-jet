@@ -12,8 +12,7 @@ import {
   FiCopy,
   FiCheckCircle
 } from 'react-icons/fi';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
+import { API_BASE } from '../config/api';
 
 /**
  * TelegramSetupWizard - Zero-Config Magic Setup

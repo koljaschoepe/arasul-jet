@@ -6,8 +6,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
+import { API_BASE } from '../config/api';
 
 // Context
 const DownloadContext = createContext(null);

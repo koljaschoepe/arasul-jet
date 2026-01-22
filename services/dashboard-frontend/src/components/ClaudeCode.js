@@ -33,9 +33,8 @@ import {
   FiLogIn,
   FiClock
 } from 'react-icons/fi';
+import { API_BASE } from '../config/api';
 import '../claudecode.css';
-
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 // Workspace Manager Modal Component
 function WorkspaceManager({ workspaces, onClose, onWorkspaceCreated, onWorkspaceDeleted, onSetDefault }) {

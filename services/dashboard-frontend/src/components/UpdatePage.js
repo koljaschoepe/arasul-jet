@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FiPackage, FiLock, FiCheckCircle, FiXCircle, FiSettings, FiAlertCircle } from 'react-icons/fi';
+import { formatDate } from '../utils/formatting';
 import './UpdatePage.css';
 
 const UpdatePage = () => {
@@ -163,12 +164,6 @@ const UpdatePage = () => {
     setValidationResult(null);
     setUpdateStatus(null);
     setErrorMessage('');
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString();
   };
 
   const getStatusBadge = (status) => {

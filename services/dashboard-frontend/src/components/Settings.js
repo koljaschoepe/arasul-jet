@@ -22,6 +22,7 @@ import SelfHealingEvents from './SelfHealingEvents';
 import PasswordManagement from './PasswordManagement';
 import TelegramSettings from './TelegramSettings';
 import ClaudeTerminal from './ClaudeTerminal';
+import { formatDate } from '../utils/formatting';
 import '../settings.css';
 
 function Settings() {
@@ -227,18 +228,6 @@ function CompanyContextSettings() {
   };
 
   const hasChanges = content !== originalContent;
-
-  const formatDate = (dateString) => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   if (loading) {
     return (
