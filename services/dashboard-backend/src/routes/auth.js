@@ -10,6 +10,8 @@ const { generateToken, blacklistToken, blacklistAllUserTokens, getUserSessions }
 const { verifyPassword, hashPassword, validatePasswordComplexity } = require('../utils/password');
 const { requireAuth } = require('../middleware/auth');
 const { loginLimiter, createUserRateLimiter } = require('../middleware/rateLimit');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { ValidationError, UnauthorizedError, ForbiddenError, NotFoundError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
 // Rate limiter for password changes
@@ -137,63 +139,45 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 // POST /api/auth/logout
-router.post('/logout', requireAuth, async (req, res) => {
-    try {
-        // Get token from header or cookie
-        const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
+router.post('/logout', requireAuth, asyncHandler(async (req, res) => {
+    // Get token from header or cookie
+    const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
 
-        // Blacklist the token
-        if (token) {
-            await blacklistToken(token);
-        }
-
-        // Clear session cookie
-        res.clearCookie('arasul_session', {
-            httpOnly: true,
-            secure: false,
-            sameSite: 'lax',
-            path: '/'
-        });
-
-        logger.info(`User ${req.user.username} logged out`);
-
-        res.json({
-            success: true,
-            message: 'Logged out successfully',
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error in /api/auth/logout: ${error.message}`);
-        res.status(500).json({
-            error: 'Logout failed',
-            timestamp: new Date().toISOString()
-        });
+    // Blacklist the token
+    if (token) {
+        await blacklistToken(token);
     }
-});
+
+    // Clear session cookie
+    res.clearCookie('arasul_session', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/'
+    });
+
+    logger.info(`User ${req.user.username} logged out`);
+
+    res.json({
+        success: true,
+        message: 'Logged out successfully',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 // POST /api/auth/logout-all
-router.post('/logout-all', requireAuth, async (req, res) => {
-    try {
-        // Blacklist all user tokens
-        await blacklistAllUserTokens(req.user.id);
+router.post('/logout-all', requireAuth, asyncHandler(async (req, res) => {
+    // Blacklist all user tokens
+    await blacklistAllUserTokens(req.user.id);
 
-        logger.info(`User ${req.user.username} logged out from all sessions`);
+    logger.info(`User ${req.user.username} logged out from all sessions`);
 
-        res.json({
-            success: true,
-            message: 'Logged out from all sessions successfully',
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error in /api/auth/logout-all: ${error.message}`);
-        res.status(500).json({
-            error: 'Logout all failed',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        success: true,
+        message: 'Logged out from all sessions successfully',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 // POST /api/auth/change-password
 router.post('/change-password', requireAuth, passwordChangeLimiter, async (req, res) => {
@@ -291,52 +275,34 @@ router.post('/change-password', requireAuth, passwordChangeLimiter, async (req, 
 });
 
 // GET /api/auth/me - Get current user info
-router.get('/me', requireAuth, async (req, res) => {
-    try {
-        res.json({
-            user: {
-                id: req.user.id,
-                username: req.user.username,
-                email: req.user.email
-            },
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error in /api/auth/me: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to get user info',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+router.get('/me', requireAuth, asyncHandler(async (req, res) => {
+    res.json({
+        user: {
+            id: req.user.id,
+            username: req.user.username,
+            email: req.user.email
+        },
+        timestamp: new Date().toISOString()
+    });
+}));
 
 // GET /api/auth/sessions - Get active sessions
-router.get('/sessions', requireAuth, async (req, res) => {
-    try {
-        const sessions = await getUserSessions(req.user.id);
+router.get('/sessions', requireAuth, asyncHandler(async (req, res) => {
+    const sessions = await getUserSessions(req.user.id);
 
-        res.json({
-            sessions: sessions.map(s => ({
-                id: s.token_jti,
-                ipAddress: s.ip_address,
-                userAgent: s.user_agent,
-                createdAt: s.created_at,
-                expiresAt: s.expires_at,
-                lastActivity: s.last_activity,
-                isCurrent: s.token_jti === req.tokenData.jti
-            })),
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error in /api/auth/sessions: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to get sessions',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        sessions: sessions.map(s => ({
+            id: s.token_jti,
+            ipAddress: s.ip_address,
+            userAgent: s.user_agent,
+            createdAt: s.created_at,
+            expiresAt: s.expires_at,
+            lastActivity: s.last_activity,
+            isCurrent: s.token_jti === req.tokenData.jti
+        })),
+        timestamp: new Date().toISOString()
+    });
+}));
 
 // GET /api/auth/password-requirements
 router.get('/password-requirements', (req, res) => {

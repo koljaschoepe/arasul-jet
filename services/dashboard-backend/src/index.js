@@ -131,14 +131,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// PHASE3-FIX: Migrated from console.error to logger
-app.use((err, req, res, next) => {
-  require('./utils/logger').error(`Request error: ${err.message}`, { stack: err.stack });
-  res.status(500).json({
-    error: 'Internal server error',
-    timestamp: new Date().toISOString()
-  });
-});
+// Import centralized error handling
+const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
+
+// 404 handler for undefined routes
+app.use(notFoundHandler);
+
+// Global error handler (must be last middleware)
+app.use(errorHandler);
 
 // HIGH-001 FIX: WebSocket server for live metrics streaming
 const wss = new WebSocket.Server({
