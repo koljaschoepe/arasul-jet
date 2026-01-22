@@ -47,6 +47,7 @@ jest.mock('fs', () => ({
 // Import dependencies after mocking
 const updateRouter = require('../../src/routes/update');
 const updateService = require('../../src/services/updateService');
+const { errorHandler } = require('../../src/middleware/errorHandler');
 
 const app = express();
 app.use(express.json());
@@ -60,6 +61,9 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/update', updateRouter);
+
+// Error handler middleware (required for asyncHandler errors)
+app.use(errorHandler);
 
 describe('Update API Routes', () => {
     const validFiles = {

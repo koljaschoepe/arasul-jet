@@ -13,6 +13,7 @@ const { requireAuth } = require('../middleware/auth');
 const { createUserRateLimiter } = require('../middleware/rateLimit');
 const contextService = require('../services/contextInjectionService');
 const modelService = require('../services/modelService');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 // Configuration
 const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
@@ -433,7 +434,7 @@ Guidelines:
 /**
  * GET /api/claude-terminal/status - Check terminal service status
  */
-router.get('/status', requireAuth, async (req, res) => {
+router.get('/status', requireAuth, asyncHandler(async (req, res) => {
     const llmStatus = await checkLLMAvailability();
 
     // Get current default model dynamically
@@ -441,7 +442,7 @@ router.get('/status', requireAuth, async (req, res) => {
     try {
         const terminalModel = await getTerminalModel();
         defaultModel = terminalModel.id;
-    } catch (e) {
+    } catch {
         // No model available
     }
 
@@ -461,98 +462,74 @@ router.get('/status', requireAuth, async (req, res) => {
         },
         timestamp: new Date().toISOString()
     });
-});
+}));
 
 /**
  * GET /api/claude-terminal/history - Get user's query history
  */
-router.get('/history', requireAuth, async (req, res) => {
+router.get('/history', requireAuth, asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const { limit = 20, offset = 0 } = req.query;
 
-    try {
-        const result = await db.query(
-            `SELECT id, query, response, model_used, tokens_used, response_time_ms,
-                    status, error_message, created_at, completed_at
-             FROM claude_terminal_queries
-             WHERE user_id = $1
-             ORDER BY created_at DESC
-             LIMIT $2 OFFSET $3`,
-            [userId, Math.min(parseInt(limit) || 20, 100), parseInt(offset) || 0]
-        );
+    const result = await db.query(
+        `SELECT id, query, response, model_used, tokens_used, response_time_ms,
+                status, error_message, created_at, completed_at
+         FROM claude_terminal_queries
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [userId, Math.min(parseInt(limit) || 20, 100), parseInt(offset) || 0]
+    );
 
-        const countResult = await db.query(
-            `SELECT COUNT(*) as total FROM claude_terminal_queries WHERE user_id = $1`,
-            [userId]
-        );
+    const countResult = await db.query(
+        `SELECT COUNT(*) as total FROM claude_terminal_queries WHERE user_id = $1`,
+        [userId]
+    );
 
-        res.json({
-            queries: result.rows,
-            total: parseInt(countResult.rows[0].total),
-            limit: parseInt(limit),
-            offset: parseInt(offset),
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error(`Failed to get query history: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to retrieve query history',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        queries: result.rows,
+        total: parseInt(countResult.rows[0].total),
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/claude-terminal/context - Get current system context (for debugging)
  */
-router.get('/context', requireAuth, async (req, res) => {
-    try {
-        const context = await contextService.buildContext({
-            includeMetrics: true,
-            includeLogs: true,
-            includeServices: true,
-            logLines: 20,
-            logServices: ['system', 'self_healing']
-        });
+router.get('/context', requireAuth, asyncHandler(async (req, res) => {
+    const context = await contextService.buildContext({
+        includeMetrics: true,
+        includeLogs: true,
+        includeServices: true,
+        logLines: 20,
+        logServices: ['system', 'self_healing']
+    });
 
-        res.json({
-            context,
-            formatted: contextService.formatContextForPrompt(context),
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error(`Failed to get context: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to build context',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        context,
+        formatted: contextService.formatContextForPrompt(context),
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * DELETE /api/claude-terminal/history - Clear user's query history
  */
-router.delete('/history', requireAuth, async (req, res) => {
+router.delete('/history', requireAuth, asyncHandler(async (req, res) => {
     const userId = req.user.id;
 
-    try {
-        await db.query(
-            `DELETE FROM claude_terminal_queries WHERE user_id = $1`,
-            [userId]
-        );
+    await db.query(
+        `DELETE FROM claude_terminal_queries WHERE user_id = $1`,
+        [userId]
+    );
 
-        res.json({
-            success: true,
-            message: 'Query history cleared',
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error(`Failed to clear history: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to clear query history',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        success: true,
+        message: 'Query history cleared',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 module.exports = router;

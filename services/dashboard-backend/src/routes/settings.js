@@ -13,6 +13,8 @@ const db = require('../database');
 const logger = require('../utils/logger');
 const { execFile } = require('child_process');
 const util = require('util');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { ValidationError, UnauthorizedError } = require('../utils/errors');
 
 // SECURITY: Use execFile (not exec) to prevent shell injection
 const execFilePromise = util.promisify(execFile);
@@ -95,225 +97,180 @@ async function restartService(serviceName) {
  * POST /api/settings/password/dashboard
  * Change Dashboard admin password
  */
-router.post('/password/dashboard', requireAuth, passwordChangeLimiter, async (req, res) => {
-    let backupPath = null;
+router.post('/password/dashboard', requireAuth, passwordChangeLimiter, asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
 
-    try {
-        const { currentPassword, newPassword } = req.body;
-
-        // Validate input
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({
-                error: 'Current password and new password are required',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Validate new password complexity
-        const validation = validatePasswordComplexity(newPassword);
-        if (!validation.valid) {
-            return res.status(400).json({
-                error: 'Password does not meet complexity requirements',
-                details: validation.errors,
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Verify current password
-        await verifyCurrentDashboardPassword(req.user.id, currentPassword);
-
-        // Check if new password is same as current
-        const result = await db.query(
-            'SELECT password_hash FROM admin_users WHERE id = $1',
-            [req.user.id]
-        );
-
-        const sameAsOld = await verifyPassword(newPassword, result.rows[0].password_hash);
-        if (sameAsOld) {
-            return res.status(400).json({
-                error: 'New password must be different from current password',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Create backup before making changes
-        backupPath = await backupEnvFile();
-
-        // Hash new password
-        const newPasswordHash = await hashPassword(newPassword);
-
-        // Update database
-        await db.query(
-            'UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
-            [newPasswordHash, req.user.id]
-        );
-
-        // SECURITY FIX: Only store the hash, not the plaintext password
-        // The hash is sufficient for authentication (DB is source of truth)
-        await updateEnvVariables({
-            ADMIN_HASH: newPasswordHash
-        });
-
-        // Record password change
-        await db.query(
-            `INSERT INTO password_history (user_id, password_hash, changed_by, ip_address)
-             VALUES ($1, $2, $3, $4)`,
-            [req.user.id, newPasswordHash, req.user.username, req.ip]
-        );
-
-        logger.info(`Dashboard password changed successfully by ${req.user.username}`);
-
-        res.json({
-            success: true,
-            message: 'Dashboard password changed successfully',
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error changing dashboard password: ${error.message}`);
-
-        res.status(error.message === 'Current password is incorrect' ? 401 : 500).json({
-            error: error.message || 'Failed to change dashboard password',
-            timestamp: new Date().toISOString()
-        });
+    // Validate input
+    if (!currentPassword || !newPassword) {
+        throw new ValidationError('Current password and new password are required');
     }
-});
+
+    // Validate new password complexity
+    const validation = validatePasswordComplexity(newPassword);
+    if (!validation.valid) {
+        throw new ValidationError('Password does not meet complexity requirements');
+    }
+
+    // Verify current password
+    try {
+        await verifyCurrentDashboardPassword(req.user.id, currentPassword);
+    } catch (error) {
+        if (error.message === 'Current password is incorrect') {
+            throw new UnauthorizedError('Current password is incorrect');
+        }
+        throw error;
+    }
+
+    // Check if new password is same as current
+    const result = await db.query(
+        'SELECT password_hash FROM admin_users WHERE id = $1',
+        [req.user.id]
+    );
+
+    const sameAsOld = await verifyPassword(newPassword, result.rows[0].password_hash);
+    if (sameAsOld) {
+        throw new ValidationError('New password must be different from current password');
+    }
+
+    // Create backup before making changes
+    await backupEnvFile();
+
+    // Hash new password
+    const newPasswordHash = await hashPassword(newPassword);
+
+    // Update database
+    await db.query(
+        'UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+        [newPasswordHash, req.user.id]
+    );
+
+    // SECURITY FIX: Only store the hash, not the plaintext password
+    // The hash is sufficient for authentication (DB is source of truth)
+    await updateEnvVariables({
+        ADMIN_HASH: newPasswordHash
+    });
+
+    // Record password change
+    await db.query(
+        `INSERT INTO password_history (user_id, password_hash, changed_by, ip_address)
+         VALUES ($1, $2, $3, $4)`,
+        [req.user.id, newPasswordHash, req.user.username, req.ip]
+    );
+
+    logger.info(`Dashboard password changed successfully by ${req.user.username}`);
+
+    res.json({
+        success: true,
+        message: 'Dashboard password changed successfully',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/settings/password/minio
  * Change MinIO root password
  */
-router.post('/password/minio', requireAuth, passwordChangeLimiter, async (req, res) => {
-    let backupPath = null;
+router.post('/password/minio', requireAuth, passwordChangeLimiter, asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
 
-    try {
-        const { currentPassword, newPassword } = req.body;
-
-        // Validate input
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({
-                error: 'Current password and new password are required',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Validate new password complexity
-        const validation = validatePasswordComplexity(newPassword);
-        if (!validation.valid) {
-            return res.status(400).json({
-                error: 'Password does not meet complexity requirements',
-                details: validation.errors,
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Verify current dashboard password for authorization
-        await verifyCurrentDashboardPassword(req.user.id, currentPassword);
-
-        // Check if new password is different
-        if (newPassword === process.env.MINIO_ROOT_PASSWORD) {
-            return res.status(400).json({
-                error: 'New password must be different from current password',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Create backup before making changes
-        backupPath = await backupEnvFile();
-
-        // Update .env file
-        await updateEnvVariables({
-            MINIO_ROOT_PASSWORD: newPassword
-        });
-
-        // Restart MinIO service to apply new password
-        await restartService('minio');
-
-        logger.info(`MinIO password changed successfully by ${req.user.username}`);
-
-        res.json({
-            success: true,
-            message: 'MinIO password changed successfully. Service restarted.',
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error changing MinIO password: ${error.message}`);
-
-        res.status(error.message === 'Current password is incorrect' ? 401 : 500).json({
-            error: error.message || 'Failed to change MinIO password',
-            timestamp: new Date().toISOString()
-        });
+    // Validate input
+    if (!currentPassword || !newPassword) {
+        throw new ValidationError('Current password and new password are required');
     }
-});
+
+    // Validate new password complexity
+    const validation = validatePasswordComplexity(newPassword);
+    if (!validation.valid) {
+        throw new ValidationError('Password does not meet complexity requirements');
+    }
+
+    // Verify current dashboard password for authorization
+    try {
+        await verifyCurrentDashboardPassword(req.user.id, currentPassword);
+    } catch (error) {
+        if (error.message === 'Current password is incorrect') {
+            throw new UnauthorizedError('Current password is incorrect');
+        }
+        throw error;
+    }
+
+    // Check if new password is different
+    if (newPassword === process.env.MINIO_ROOT_PASSWORD) {
+        throw new ValidationError('New password must be different from current password');
+    }
+
+    // Create backup before making changes
+    await backupEnvFile();
+
+    // Update .env file
+    await updateEnvVariables({
+        MINIO_ROOT_PASSWORD: newPassword
+    });
+
+    // Restart MinIO service to apply new password
+    await restartService('minio');
+
+    logger.info(`MinIO password changed successfully by ${req.user.username}`);
+
+    res.json({
+        success: true,
+        message: 'MinIO password changed successfully. Service restarted.',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/settings/password/n8n
  * Change n8n basic auth password
  */
-router.post('/password/n8n', requireAuth, passwordChangeLimiter, async (req, res) => {
-    let backupPath = null;
+router.post('/password/n8n', requireAuth, passwordChangeLimiter, asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
 
-    try {
-        const { currentPassword, newPassword } = req.body;
-
-        // Validate input
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({
-                error: 'Current password and new password are required',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Validate new password complexity
-        const validation = validatePasswordComplexity(newPassword);
-        if (!validation.valid) {
-            return res.status(400).json({
-                error: 'Password does not meet complexity requirements',
-                details: validation.errors,
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Verify current dashboard password for authorization
-        await verifyCurrentDashboardPassword(req.user.id, currentPassword);
-
-        // Check if new password is different
-        if (newPassword === process.env.N8N_BASIC_AUTH_PASSWORD) {
-            return res.status(400).json({
-                error: 'New password must be different from current password',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Create backup before making changes
-        backupPath = await backupEnvFile();
-
-        // Update .env file
-        await updateEnvVariables({
-            N8N_BASIC_AUTH_PASSWORD: newPassword
-        });
-
-        // Restart n8n service to apply new password
-        await restartService('n8n');
-
-        logger.info(`n8n password changed successfully by ${req.user.username}`);
-
-        res.json({
-            success: true,
-            message: 'n8n password changed successfully. Service restarted.',
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error changing n8n password: ${error.message}`);
-
-        res.status(error.message === 'Current password is incorrect' ? 401 : 500).json({
-            error: error.message || 'Failed to change n8n password',
-            timestamp: new Date().toISOString()
-        });
+    // Validate input
+    if (!currentPassword || !newPassword) {
+        throw new ValidationError('Current password and new password are required');
     }
-});
+
+    // Validate new password complexity
+    const validation = validatePasswordComplexity(newPassword);
+    if (!validation.valid) {
+        throw new ValidationError('Password does not meet complexity requirements');
+    }
+
+    // Verify current dashboard password for authorization
+    try {
+        await verifyCurrentDashboardPassword(req.user.id, currentPassword);
+    } catch (error) {
+        if (error.message === 'Current password is incorrect') {
+            throw new UnauthorizedError('Current password is incorrect');
+        }
+        throw error;
+    }
+
+    // Check if new password is different
+    if (newPassword === process.env.N8N_BASIC_AUTH_PASSWORD) {
+        throw new ValidationError('New password must be different from current password');
+    }
+
+    // Create backup before making changes
+    await backupEnvFile();
+
+    // Update .env file
+    await updateEnvVariables({
+        N8N_BASIC_AUTH_PASSWORD: newPassword
+    });
+
+    // Restart n8n service to apply new password
+    await restartService('n8n');
+
+    logger.info(`n8n password changed successfully by ${req.user.username}`);
+
+    res.json({
+        success: true,
+        message: 'n8n password changed successfully. Service restarted.',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/settings/password-requirements
@@ -340,18 +297,17 @@ const EMBEDDING_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
  * GET /api/settings/company-context
  * Get the company context used in RAG queries
  */
-router.get('/company-context', requireAuth, async (req, res) => {
-    try {
-        const result = await db.query(`
-            SELECT content, updated_at, updated_by
-            FROM company_context
-            WHERE id = 1
-        `);
+router.get('/company-context', requireAuth, asyncHandler(async (req, res) => {
+    const result = await db.query(`
+        SELECT content, updated_at, updated_by
+        FROM company_context
+        WHERE id = 1
+    `);
 
-        if (result.rows.length === 0) {
-            // Return default template if not set
-            return res.json({
-                content: `# Unternehmensprofil
+    if (result.rows.length === 0) {
+        // Return default template if not set
+        return res.json({
+            content: `# Unternehmensprofil
 
 **Firma:** [Firmenname]
 **Branche:** [Branche]
@@ -366,88 +322,67 @@ router.get('/company-context', requireAuth, async (req, res) => {
 
 ---
 *Diese Informationen werden bei jeder RAG-Anfrage als Hintergrundkontext bereitgestellt.*`,
-                updated_at: null,
-                updated_by: null,
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        res.json({
-            content: result.rows[0].content,
-            updated_at: result.rows[0].updated_at,
-            updated_by: result.rows[0].updated_by,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Get company context error: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Laden des Unternehmenskontexts',
+            updated_at: null,
+            updated_by: null,
             timestamp: new Date().toISOString()
         });
     }
-});
+
+    res.json({
+        content: result.rows[0].content,
+        updated_at: result.rows[0].updated_at,
+        updated_by: result.rows[0].updated_by,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * PUT /api/settings/company-context
  * Update the company context
  */
-router.put('/company-context', requireAuth, async (req, res) => {
-    try {
-        const { content } = req.body;
+router.put('/company-context', requireAuth, asyncHandler(async (req, res) => {
+    const { content } = req.body;
 
-        if (content === undefined || typeof content !== 'string') {
-            return res.status(400).json({
-                error: 'Inhalt ist erforderlich',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Generate embedding for the content (for potential future use)
-        let embeddingJson = null;
-        try {
-            const response = await axios.post(
-                `http://${EMBEDDING_HOST}:${EMBEDDING_PORT}/embed`,
-                { texts: content },
-                { timeout: 30000 }
-            );
-            if (response.data.vectors && response.data.vectors[0]) {
-                embeddingJson = JSON.stringify(response.data.vectors[0]);
-            }
-        } catch (embedError) {
-            logger.warn(`Failed to generate company context embedding: ${embedError.message}`);
-            // Continue without embedding - not critical
-        }
-
-        // Upsert the company context
-        const result = await db.query(`
-            INSERT INTO company_context (id, content, content_embedding, updated_at, updated_by)
-            VALUES (1, $1, $2, NOW(), $3)
-            ON CONFLICT (id) DO UPDATE SET
-                content = $1,
-                content_embedding = $2,
-                updated_at = NOW(),
-                updated_by = $3
-            RETURNING content, updated_at, updated_by
-        `, [content.trim(), embeddingJson, req.user.id]);
-
-        logger.info(`Company context updated by user ${req.user.username}`);
-
-        res.json({
-            content: result.rows[0].content,
-            updated_at: result.rows[0].updated_at,
-            message: 'Unternehmenskontext erfolgreich gespeichert',
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Update company context error: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Speichern des Unternehmenskontexts',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
+    if (content === undefined || typeof content !== 'string') {
+        throw new ValidationError('Inhalt ist erforderlich');
     }
-});
+
+    // Generate embedding for the content (for potential future use)
+    let embeddingJson = null;
+    try {
+        const response = await axios.post(
+            `http://${EMBEDDING_HOST}:${EMBEDDING_PORT}/embed`,
+            { texts: content },
+            { timeout: 30000 }
+        );
+        if (response.data.vectors && response.data.vectors[0]) {
+            embeddingJson = JSON.stringify(response.data.vectors[0]);
+        }
+    } catch (embedError) {
+        logger.warn(`Failed to generate company context embedding: ${embedError.message}`);
+        // Continue without embedding - not critical
+    }
+
+    // Upsert the company context
+    const result = await db.query(`
+        INSERT INTO company_context (id, content, content_embedding, updated_at, updated_by)
+        VALUES (1, $1, $2, NOW(), $3)
+        ON CONFLICT (id) DO UPDATE SET
+            content = $1,
+            content_embedding = $2,
+            updated_at = NOW(),
+            updated_by = $3
+        RETURNING content, updated_at, updated_by
+    `, [content.trim(), embeddingJson, req.user.id]);
+
+    logger.info(`Company context updated by user ${req.user.username}`);
+
+    res.json({
+        content: result.rows[0].content,
+        updated_at: result.rows[0].updated_at,
+        message: 'Unternehmenskontext erfolgreich gespeichert',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 module.exports = router;
