@@ -13,6 +13,8 @@ const { requireAuth } = require('../middleware/auth');
 const { llmLimiter } = require('../middleware/rateLimit');
 const llmJobService = require('../services/llmJobService');
 const llmQueueService = require('../services/llmQueueService');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
 
 const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
 
@@ -146,90 +148,52 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
 /**
  * GET /api/llm/queue - Get global queue status
  */
-router.get('/queue', requireAuth, async (req, res) => {
-    try {
-        const queueStatus = await llmQueueService.getQueueStatus();
-        res.json(queueStatus);
-    } catch (error) {
-        logger.error(`Error getting queue status: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to get queue status',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+router.get('/queue', requireAuth, asyncHandler(async (req, res) => {
+    const queueStatus = await llmQueueService.getQueueStatus();
+    res.json(queueStatus);
+}));
 
 /**
  * GET /api/llm/queue/metrics - Get detailed queue metrics (for monitoring)
  */
-router.get('/queue/metrics', requireAuth, async (req, res) => {
-    try {
-        const metrics = await llmQueueService.getQueueMetrics();
-        res.json(metrics);
-    } catch (error) {
-        logger.error(`Error getting queue metrics: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to get queue metrics',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+router.get('/queue/metrics', requireAuth, asyncHandler(async (req, res) => {
+    const metrics = await llmQueueService.getQueueMetrics();
+    res.json(metrics);
+}));
 
 /**
  * POST /api/llm/queue/prioritize - Prioritize a job
  */
-router.post('/queue/prioritize', requireAuth, async (req, res) => {
-    try {
-        const { job_id } = req.body;
+router.post('/queue/prioritize', requireAuth, asyncHandler(async (req, res) => {
+    const { job_id } = req.body;
 
-        if (!job_id) {
-            return res.status(400).json({
-                error: 'job_id is required',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        await llmQueueService.prioritizeJob(job_id);
-
-        res.json({
-            success: true,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error(`Error prioritizing job: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to prioritize job',
-            timestamp: new Date().toISOString()
-        });
+    if (!job_id) {
+        throw new ValidationError('job_id is required');
     }
-});
+
+    await llmQueueService.prioritizeJob(job_id);
+
+    res.json({
+        success: true,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/llm/jobs/:jobId - Get job status and current content
  */
-router.get('/jobs/:jobId', requireAuth, async (req, res) => {
-    try {
-        const job = await llmJobService.getJob(req.params.jobId);
+router.get('/jobs/:jobId', requireAuth, asyncHandler(async (req, res) => {
+    const job = await llmJobService.getJob(req.params.jobId);
 
-        if (!job) {
-            return res.status(404).json({
-                error: 'Job not found',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        res.json({
-            ...job,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error(`Error getting job ${req.params.jobId}: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to get job status',
-            timestamp: new Date().toISOString()
-        });
+    if (!job) {
+        throw new NotFoundError('Job not found');
     }
-});
+
+    res.json({
+        ...job,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/llm/jobs/:jobId/stream - Reconnect to an active job's stream
@@ -410,79 +374,56 @@ router.get('/jobs/:jobId/stream', requireAuth, async (req, res) => {
 /**
  * DELETE /api/llm/jobs/:jobId - Cancel a job
  */
-router.delete('/jobs/:jobId', requireAuth, async (req, res) => {
-    try {
-        const job = await llmJobService.getJob(req.params.jobId);
+router.delete('/jobs/:jobId', requireAuth, asyncHandler(async (req, res) => {
+    const job = await llmJobService.getJob(req.params.jobId);
 
-        if (!job) {
-            return res.status(404).json({
-                error: 'Job not found',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        await llmQueueService.cancelJob(req.params.jobId);
-
-        res.json({
-            success: true,
-            jobId: req.params.jobId,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error(`Error cancelling job ${req.params.jobId}: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to cancel job',
-            timestamp: new Date().toISOString()
-        });
+    if (!job) {
+        throw new NotFoundError('Job not found');
     }
-});
+
+    await llmQueueService.cancelJob(req.params.jobId);
+
+    res.json({
+        success: true,
+        jobId: req.params.jobId,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/llm/jobs - Get all active jobs (optional: filter by conversation)
  */
-router.get('/jobs', requireAuth, async (req, res) => {
-    try {
-        const { conversation_id } = req.query;
+router.get('/jobs', requireAuth, asyncHandler(async (req, res) => {
+    const { conversation_id } = req.query;
 
-        let jobs;
-        if (conversation_id) {
-            jobs = await llmJobService.getActiveJobsForConversation(parseInt(conversation_id));
-        } else {
-            jobs = await llmJobService.getAllActiveJobs();
-        }
-
-        res.json({
-            jobs,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error(`Error getting jobs: ${error.message}`);
-        res.status(500).json({
-            error: 'Failed to get jobs',
-            timestamp: new Date().toISOString()
-        });
+    let jobs;
+    if (conversation_id) {
+        jobs = await llmJobService.getActiveJobsForConversation(parseInt(conversation_id));
+    } else {
+        jobs = await llmJobService.getAllActiveJobs();
     }
-});
+
+    res.json({
+        jobs,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/llm/models - Get available LLM models
  */
-router.get('/models', requireAuth, async (req, res) => {
+router.get('/models', requireAuth, asyncHandler(async (req, res) => {
+    let response;
     try {
-        const response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 5000 });
-
-        res.json({
-            models: response.data.models || [],
-            timestamp: new Date().toISOString()
-        });
-
+        response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 5000 });
     } catch (error) {
-        logger.error(`Error in /api/llm/models: ${error.message}`);
-        res.status(503).json({
-            error: 'Failed to get LLM models',
-            timestamp: new Date().toISOString()
-        });
+        throw new ServiceUnavailableError('Failed to get LLM models');
     }
-});
+
+    res.json({
+        models: response.data.models || [],
+        timestamp: new Date().toISOString()
+    });
+}));
 
 module.exports = router;

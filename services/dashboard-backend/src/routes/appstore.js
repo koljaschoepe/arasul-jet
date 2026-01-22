@@ -9,510 +9,283 @@ const { requireAuth } = require('../middleware/auth');
 const { apiLimiter } = require('../middleware/rateLimit');
 const appService = require('../services/appService');
 const logger = require('../utils/logger');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
 
 /**
  * GET /api/apps
  * List all apps with optional filters
  * Query params: category, status, search
  */
-router.get('/', requireAuth, async (req, res) => {
-    try {
-        const { category, status, search } = req.query;
+router.get('/', requireAuth, asyncHandler(async (req, res) => {
+    const { category, status, search } = req.query;
 
-        const apps = await appService.getAllApps({
-            category,
-            status,
-            search
-        });
+    const apps = await appService.getAllApps({
+        category,
+        status,
+        search
+    });
 
-        res.json({
-            apps,
-            total: apps.length,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error listing apps: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Laden der Apps',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        apps,
+        total: apps.length,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/apps/categories
  * List available app categories
  */
-router.get('/categories', requireAuth, async (req, res) => {
-    try {
-        const categories = await appService.getCategories();
+router.get('/categories', requireAuth, asyncHandler(async (req, res) => {
+    const categories = await appService.getCategories();
 
-        res.json({
-            categories,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error getting categories: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Laden der Kategorien',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        categories,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/apps/:id
  * Get single app details
  */
-router.get('/:id', requireAuth, async (req, res) => {
-    try {
-        const { id } = req.params;
+router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
+    const { id } = req.params;
 
-        const app = await appService.getApp(id);
+    const app = await appService.getApp(id);
 
-        if (!app) {
-            return res.status(404).json({
-                error: 'App nicht gefunden',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        res.json({
-            app,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error getting app ${req.params.id}: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Laden der App',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
+    if (!app) {
+        throw new NotFoundError('App nicht gefunden');
     }
-});
+
+    res.json({
+        app,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/apps/:id/logs
  * Get container logs for an app
  */
-router.get('/:id/logs', requireAuth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const tail = parseInt(req.query.tail) || 100;
+router.get('/:id/logs', requireAuth, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const tail = parseInt(req.query.tail) || 100;
 
-        const logs = await appService.getAppLogs(id, tail);
+    const logs = await appService.getAppLogs(id, tail);
 
-        res.json({
-            appId: id,
-            logs,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error getting logs for ${req.params.id}: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Laden der Logs',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        appId: id,
+        logs,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/apps/:id/events
  * Get event history for an app
  */
-router.get('/:id/events', requireAuth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const limit = parseInt(req.query.limit) || 50;
+router.get('/:id/events', requireAuth, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
 
-        const events = await appService.getAppEvents(id, limit);
+    const events = await appService.getAppEvents(id, limit);
 
-        res.json({
-            appId: id,
-            events,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error getting events for ${req.params.id}: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Laden der Events',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        appId: id,
+        events,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/apps/:id/install
  * Install an app
  */
-router.post('/:id/install', requireAuth, apiLimiter, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const config = req.body.config || {};
+router.post('/:id/install', requireAuth, apiLimiter, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const config = req.body.config || {};
 
-        logger.info(`User ${req.user.username} installing app ${id}`);
+    logger.info(`User ${req.user.username} installing app ${id}`);
 
-        const result = await appService.installApp(id, config);
+    const result = await appService.installApp(id, config);
 
-        res.status(201).json({
-            ...result,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error installing app ${req.params.id}: ${error.message}`);
-
-        // Determine appropriate status code
-        let statusCode = 500;
-        if (error.message.includes('not found')) {
-            statusCode = 404;
-        } else if (error.message.includes('already installed')) {
-            statusCode = 409;
-        } else if (error.message.includes('Abhängigkeit')) {
-            statusCode = 424; // Failed Dependency
-        }
-
-        res.status(statusCode).json({
-            error: 'Installation fehlgeschlagen',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.status(201).json({
+        ...result,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/apps/:id/uninstall
  * Uninstall an app
  */
-router.post('/:id/uninstall', requireAuth, apiLimiter, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const removeVolumes = req.body.removeVolumes === true;
+router.post('/:id/uninstall', requireAuth, apiLimiter, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const removeVolumes = req.body.removeVolumes === true;
 
-        logger.info(`User ${req.user.username} uninstalling app ${id}`);
+    logger.info(`User ${req.user.username} uninstalling app ${id}`);
 
-        const result = await appService.uninstallApp(id, removeVolumes);
+    const result = await appService.uninstallApp(id, removeVolumes);
 
-        res.json({
-            ...result,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error uninstalling app ${req.params.id}: ${error.message}`);
-
-        let statusCode = error.statusCode || 500;
-        if (error.message.includes('nicht installiert')) {
-            statusCode = 404;
-        }
-
-        const response = {
-            error: 'Deinstallation fehlgeschlagen',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        };
-
-        // Include dependent apps info if available (for dependency conflicts)
-        if (error.dependentApps) {
-            response.dependentApps = error.dependentApps;
-        }
-
-        res.status(statusCode).json(response);
-    }
-});
+    res.json({
+        ...result,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/apps/:id/start
  * Start an installed app
  */
-router.post('/:id/start', requireAuth, apiLimiter, async (req, res) => {
-    try {
-        const { id } = req.params;
+router.post('/:id/start', requireAuth, apiLimiter, asyncHandler(async (req, res) => {
+    const { id } = req.params;
 
-        logger.info(`User ${req.user.username} starting app ${id}`);
+    logger.info(`User ${req.user.username} starting app ${id}`);
 
-        const result = await appService.startApp(id);
+    const result = await appService.startApp(id);
 
-        res.json({
-            ...result,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error starting app ${req.params.id}: ${error.message}`);
-
-        let statusCode = 500;
-        if (error.message.includes('nicht installiert')) {
-            statusCode = 404;
-        }
-
-        res.status(statusCode).json({
-            error: 'Start fehlgeschlagen',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        ...result,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/apps/:id/stop
  * Stop a running app
  */
-router.post('/:id/stop', requireAuth, apiLimiter, async (req, res) => {
-    try {
-        const { id } = req.params;
+router.post('/:id/stop', requireAuth, apiLimiter, asyncHandler(async (req, res) => {
+    const { id } = req.params;
 
-        logger.info(`User ${req.user.username} stopping app ${id}`);
+    logger.info(`User ${req.user.username} stopping app ${id}`);
 
-        const result = await appService.stopApp(id);
+    const result = await appService.stopApp(id);
 
-        res.json({
-            ...result,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error stopping app ${req.params.id}: ${error.message}`);
-
-        let statusCode = error.statusCode || 500;
-        if (error.message.includes('nicht installiert')) {
-            statusCode = 404;
-        }
-
-        const response = {
-            error: 'Stop fehlgeschlagen',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        };
-
-        // Include dependent apps info if available (for dependency conflicts)
-        if (error.dependentApps) {
-            response.dependentApps = error.dependentApps;
-        }
-
-        res.status(statusCode).json(response);
-    }
-});
+    res.json({
+        ...result,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/apps/:id/restart
  * Restart an app
  * Body: { applyConfig: boolean, async: boolean } - applyConfig recreates container, async returns immediately
  */
-router.post('/:id/restart', requireAuth, apiLimiter, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { applyConfig, async: asyncMode } = req.body || {};
+router.post('/:id/restart', requireAuth, apiLimiter, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { applyConfig, async: asyncMode } = req.body || {};
 
-        // Default to async mode for applyConfig to avoid timeout issues
-        const useAsync = asyncMode !== false && applyConfig === true;
+    // Default to async mode for applyConfig to avoid timeout issues
+    const useAsync = asyncMode !== false && applyConfig === true;
 
-        logger.info(`User ${req.user.username} restarting app ${id}${applyConfig ? ' with config update' : ''}${useAsync ? ' (async)' : ''}`);
+    logger.info(`User ${req.user.username} restarting app ${id}${applyConfig ? ' with config update' : ''}${useAsync ? ' (async)' : ''}`);
 
-        let result;
-        if (applyConfig === true) {
-            result = await appService.recreateAppWithConfig(id, useAsync);
-        } else {
-            result = await appService.restartApp(id, false);
-        }
-
-        res.json({
-            ...result,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error restarting app ${req.params.id}: ${error.message}`);
-
-        let statusCode = 500;
-        if (error.message.includes('nicht installiert')) {
-            statusCode = 404;
-        }
-
-        res.status(statusCode).json({
-            error: 'Neustart fehlgeschlagen',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
+    let result;
+    if (applyConfig === true) {
+        result = await appService.recreateAppWithConfig(id, useAsync);
+    } else {
+        result = await appService.restartApp(id, false);
     }
-});
+
+    res.json({
+        ...result,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/apps/sync
  * Sync system apps status with Docker
  */
-router.post('/sync', requireAuth, async (req, res) => {
-    try {
-        await appService.syncSystemApps();
+router.post('/sync', requireAuth, asyncHandler(async (req, res) => {
+    await appService.syncSystemApps();
 
-        res.json({
-            success: true,
-            message: 'Synchronisation abgeschlossen',
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error syncing apps: ${error.message}`);
-        res.status(500).json({
-            error: 'Synchronisation fehlgeschlagen',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        success: true,
+        message: 'Synchronisation abgeschlossen',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/apps/claude-code/auth-status
  * Get Claude Code OAuth authentication status
  * Returns: oauth status, API key status, account info
  */
-router.get('/claude-code/auth-status', requireAuth, async (req, res) => {
-    try {
-        const authStatus = await appService.getClaudeAuthStatus();
+router.get('/claude-code/auth-status', requireAuth, asyncHandler(async (req, res) => {
+    const authStatus = await appService.getClaudeAuthStatus();
 
-        res.json({
-            ...authStatus,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error getting Claude Code auth status: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Laden des Auth-Status',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        ...authStatus,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/apps/claude-code/auth-refresh
  * Trigger OAuth token refresh for Claude Code
  */
-router.post('/claude-code/auth-refresh', requireAuth, apiLimiter, async (req, res) => {
-    try {
-        const result = await appService.refreshClaudeAuth();
+router.post('/claude-code/auth-refresh', requireAuth, apiLimiter, asyncHandler(async (req, res) => {
+    const result = await appService.refreshClaudeAuth();
 
-        res.json({
-            ...result,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error refreshing Claude Code auth: ${error.message}`);
-        res.status(500).json({
-            error: 'Token-Refresh fehlgeschlagen',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        ...result,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/apps/:id/config
  * Get app configuration (secrets are masked)
  */
-router.get('/:id/config', requireAuth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const config = await appService.getAppConfig(id);
+router.get('/:id/config', requireAuth, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const config = await appService.getAppConfig(id);
 
-        res.json({
-            config,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error getting config for ${req.params.id}: ${error.message}`);
-        res.status(500).json({
-            error: 'Fehler beim Laden der Konfiguration',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        config,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * GET /api/apps/:id/n8n-credentials
  * Get n8n integration credentials (SSH credentials for host access)
  * Used to display connection info for triggering apps from n8n
  */
-router.get('/:id/n8n-credentials', requireAuth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const credentials = await appService.getN8nCredentials(id);
+router.get('/:id/n8n-credentials', requireAuth, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const credentials = await appService.getN8nCredentials(id);
 
-        res.json({
-            appId: id,
-            credentials,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error getting n8n credentials for ${req.params.id}: ${error.message}`);
-
-        let statusCode = 500;
-        if (error.message.includes('not found')) {
-            statusCode = 404;
-        } else if (error.message.includes('unterstützt keine')) {
-            statusCode = 400;
-        }
-
-        res.status(statusCode).json({
-            error: 'Fehler beim Laden der n8n-Credentials',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+    res.json({
+        appId: id,
+        credentials,
+        timestamp: new Date().toISOString()
+    });
+}));
 
 /**
  * POST /api/apps/:id/config
  * Update app configuration
  */
-router.post('/:id/config', requireAuth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { config } = req.body;
+router.post('/:id/config', requireAuth, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { config } = req.body;
 
-        if (!config || typeof config !== 'object') {
-            return res.status(400).json({
-                error: 'Ungültige Konfiguration',
-                message: 'config object is required',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        await appService.setAppConfig(id, config);
-
-        res.json({
-            success: true,
-            message: 'Konfiguration gespeichert',
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error(`Error setting config for ${req.params.id}: ${error.message}`);
-
-        let statusCode = 500;
-        if (error.message.includes('not found')) {
-            statusCode = 404;
-        }
-
-        res.status(statusCode).json({
-            error: 'Fehler beim Speichern der Konfiguration',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
+    if (!config || typeof config !== 'object') {
+        throw new ValidationError('Ungültige Konfiguration: config object is required');
     }
-});
+
+    await appService.setAppConfig(id, config);
+
+    res.json({
+        success: true,
+        message: 'Konfiguration gespeichert',
+        timestamp: new Date().toISOString()
+    });
+}));
 
 module.exports = router;

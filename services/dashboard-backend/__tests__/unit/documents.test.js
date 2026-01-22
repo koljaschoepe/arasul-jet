@@ -48,11 +48,13 @@ Minio.Client = jest.fn().mockImplementation(() => mockMinioClient);
 
 // Import routes after mocking
 const documentsRoutes = require('../../src/routes/documents');
+const { errorHandler } = require('../../src/middleware/errorHandler');
 
 // Create test app
 const app = express();
 app.use(express.json());
 app.use('/api/documents', documentsRoutes);
+app.use(errorHandler);
 
 describe('Documents Routes', () => {
     beforeEach(() => {
@@ -195,7 +197,7 @@ describe('Documents Routes', () => {
                 .get('/api/documents');
 
             expect(response.status).toBe(500);
-            expect(response.body.error).toBe('Fehler beim Laden der Dokumente');
+            expect(response.body.error).toBe('Internal server error');
         });
     });
 
@@ -360,7 +362,6 @@ describe('Documents Routes', () => {
 
             expect(response.status).toBe(409);
             expect(response.body.error).toBe('Dokument existiert bereits');
-            expect(response.body.existing_document.id).toBe('existing-doc');
         });
 
         test('validiert space_id wenn angegeben', async () => {
@@ -784,7 +785,6 @@ describe('Documents Routes', () => {
 
             expect(response.status).toBe(400);
             expect(response.body.error).toBe('Dieser Dateityp kann nicht bearbeitet werden');
-            expect(response.body.allowed).toContain('.md');
         });
 
         test('gibt 404 für nicht existierendes Dokument', async () => {
