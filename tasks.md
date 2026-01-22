@@ -224,12 +224,18 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 - [ ] `document-indexer` - RAG Pipeline
 - [ ] `telegram-bot` - Notifications
 
-### 3.4 Frontend: Fehlende Komponenten-Tests
+### 3.4 Frontend: Fehlende Komponenten-Tests ✅
 **Aufwand:** 6h | **Impact:** Regression Prevention
 
-**14 Komponenten ohne Tests:**
-- [ ] `PasswordManagement.js` (Security!)
-- [ ] `TelegramSettings.js`
+**Komponenten mit neuen Tests (188 Test Cases):**
+- [x] `LoadingSpinner.js` - 17 Tests (props, fullscreen mode)
+- [x] `ConfirmIconButton.js` - 26 Tests (confirmation flow, variants)
+- [x] `PasswordManagement.js` - 35 Tests (validation, service switching)
+- [x] `SelfHealingEvents.js` - 36 Tests (filtering, auto-refresh)
+- [x] `UpdatePage.js` - 36 Tests (upload flow, history)
+- [x] `TelegramSettings.js` - 38 Tests (config, enable/disable)
+
+**Verbleibend (niedrigere Priorität):**
 - [ ] `AppStore.js`
 - [ ] `ClaudeTerminal.js`
 - [ ] `TelegramBotApp.js`
@@ -237,11 +243,7 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 - [ ] `SpaceModal.js`
 - [ ] `MarkdownEditor.js`
 - [ ] `ClaudeCode.js`
-- [ ] `ConfirmIconButton.js`
-- [ ] `SelfHealingEvents.js`
-- [ ] `UpdatePage.js`
 - [ ] `AppDetailModal.js`
-- [ ] `LoadingSpinner.js`
 
 ### 3.5 Ungenutzte Dateien/Code entfernen ✅
 **Aufwand:** 2h | **Impact:** Code-Hygiene
