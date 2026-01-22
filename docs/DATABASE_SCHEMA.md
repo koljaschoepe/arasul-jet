@@ -9,7 +9,7 @@ Complete schema reference for the Arasul Platform PostgreSQL database.
 | Database | arasul_db |
 | User | arasul |
 | Schema | public |
-| Migrations | 24 files in `/services/postgres/init/` |
+| Migrations | 28 files in `/services/postgres/init/` |
 
 ## Entity Relationship Diagram
 
@@ -368,7 +368,118 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 ---
 
-### 015_telegram_config_schema.sql - Telegram Bot
+### 010_alert_config_schema.sql - Alert Configuration
+
+#### alert_thresholds
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| metric_type | alert_metric_type | cpu, ram, disk, temperature |
+| warning_threshold | decimal(5,2) | Warning level |
+| critical_threshold | decimal(5,2) | Critical level |
+| enabled | boolean | Enable/disable this alert |
+| cooldown_seconds | integer | Min seconds between alerts (default: 300) |
+| display_name | varchar(100) | UI display name |
+
+#### alert_history
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| metric_type | alert_metric_type | Alert type |
+| severity | alert_severity | warning/critical |
+| value | decimal(10,2) | Actual value |
+| threshold | decimal(10,2) | Threshold that was exceeded |
+| triggered_at | timestamptz | Alert time |
+| resolved_at | timestamptz | Resolution time |
+| notification_sent | boolean | Notification status |
+
+---
+
+### 011_llm_models_schema.sql - LLM Model Management
+
+#### llm_model_catalog
+| Column | Type | Description |
+|--------|------|-------------|
+| id | varchar(100) | Primary key (e.g., 'qwen3:7b-q8') |
+| name | varchar(255) | Display name |
+| description | text | Model description |
+| size_bytes | bigint | Download size |
+| ram_required_gb | integer | RAM requirement |
+| category | varchar(50) | small/medium/large/xlarge |
+| capabilities | jsonb | ['coding', 'reasoning', etc.] |
+| jetson_tested | boolean | Tested on Jetson AGX Orin |
+| performance_tier | integer | 1=fastest, 3=slowest |
+
+#### llm_installed_models
+| Column | Type | Description |
+|--------|------|-------------|
+| id | varchar(100) | Primary key |
+| status | varchar(20) | downloading/available/error |
+| download_progress | integer | 0-100 percent |
+| downloaded_at | timestamptz | Download completion |
+| last_used_at | timestamptz | Last usage |
+| usage_count | integer | Usage counter |
+| is_default | boolean | Default model flag |
+
+#### llm_model_switches
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| from_model | varchar(100) | Previous model |
+| to_model | varchar(100) | New model |
+| switch_duration_ms | integer | Switch time |
+| triggered_by | varchar(50) | user/queue/workflow/auto |
+| switched_at | timestamptz | Switch timestamp |
+
+---
+
+### 013_appstore_schema.sql - App Store
+
+#### installed_apps
+| Column | Type | Description |
+|--------|------|-------------|
+| id | varchar(100) | Primary key |
+| name | varchar(255) | App name |
+| description | text | App description |
+| version | varchar(50) | Installed version |
+| category | varchar(50) | App category |
+| status | varchar(20) | installed/running/stopped |
+| config | jsonb | App configuration |
+| installed_at | timestamptz | Installation time |
+
+---
+
+### 017_audit_log_schema.sql - Audit Logging
+
+#### audit_logs
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| user_id | integer | FK to admin_users |
+| action | varchar(100) | Action performed |
+| resource_type | varchar(50) | Type of resource |
+| resource_id | varchar(100) | Resource identifier |
+| details | jsonb | Action details |
+| ip_address | varchar(45) | Client IP |
+| created_at | timestamptz | Action time |
+
+---
+
+### 018_claude_terminal_schema.sql - Claude Terminal
+
+#### claude_terminal_sessions
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| user_id | integer | FK to admin_users |
+| query | text | User query |
+| response | text | Claude response |
+| context | jsonb | Session context |
+| created_at | timestamptz | Query time |
+
+---
+
+### 020_telegram_config_schema.sql - Telegram Bot
 
 #### telegram_config
 | Column | Type | Description |
@@ -416,7 +527,7 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 ---
 
-### 015_notification_events_schema.sql - Notification Events
+### 019_notification_events_schema.sql - Notification Events
 
 #### notification_events
 | Column | Type | Description |
@@ -493,7 +604,7 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 ---
 
-### 016_api_audit_logs_schema.sql - API Audit Logging
+### 021_api_audit_logs_schema.sql - API Audit Logging
 
 #### api_audit_logs
 | Column | Type | Description |
@@ -532,7 +643,7 @@ Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
 
 ---
 
-### 025_telegram_notification_system.sql - Telegram Notification System
+### 022_telegram_notification_system.sql - Telegram Notification System
 
 Extended columns added to `telegram_config`:
 
@@ -613,6 +724,76 @@ Extended columns added to `telegram_config`:
 - `v_telegram_stats_24h` - Message statistics for last 24 hours
 - `v_telegram_active_cooldowns` - Currently active cooldowns
 - `v_telegram_recent_messages` - Last 50 messages
+
+---
+
+### 023_api_keys_schema.sql - API Keys for External Access
+
+#### api_keys
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| key_hash | varchar(128) | bcrypt hash of API key |
+| key_prefix | varchar(8) | First 8 chars for identification |
+| name | varchar(100) | Key name |
+| description | text | Key description |
+| created_by | integer | FK to admin_users |
+| created_at | timestamptz | Creation time |
+| last_used_at | timestamptz | Last usage |
+| expires_at | timestamptz | Expiration time |
+| is_active | boolean | Active status |
+| rate_limit_per_minute | integer | Rate limit (default: 60) |
+| allowed_endpoints | text[] | Allowed endpoint patterns |
+
+#### api_key_usage
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| api_key_id | integer | FK to api_keys |
+| endpoint | varchar(255) | Called endpoint |
+| method | varchar(10) | HTTP method |
+| status_code | integer | Response status |
+| response_time_ms | integer | Response time |
+| request_ip | varchar(45) | Client IP |
+| created_at | timestamptz | Request time |
+
+---
+
+### 024_telegram_app_schema.sql - Telegram Bot App
+
+#### telegram_setup_sessions
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| setup_token | varchar(64) | Unique setup token |
+| bot_token_encrypted | bytea | AES-256 encrypted bot token |
+| bot_username | varchar(100) | Bot username |
+| chat_id | bigint | Connected chat ID |
+| user_id | integer | FK to admin_users |
+| status | telegram_setup_status | pending/token_valid/completed/expired |
+| expires_at | timestamptz | Session expiration |
+
+#### telegram_notification_rules
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| name | varchar(100) | Rule name |
+| event_source | notification_event_source | claude/system/n8n/services/custom |
+| event_type | varchar(100) | Event type filter |
+| severity_filter | varchar(20)[] | Severity levels to match |
+| message_template | text | Message template |
+| enabled | boolean | Rule enabled |
+| created_at | timestamptz | Creation time |
+
+---
+
+### 025-028 - Maintenance Migrations
+
+These migrations contain fixes and incremental updates:
+- **025_telegram_functions_fix.sql**: Fixes for Telegram notification functions
+- **026_fix_default_model.sql**: Fix for default model handling
+- **027_model_ollama_name.sql**: Add ollama_name column to model catalog
+- **028_fix_user_references.sql**: Fix user reference constraints
 
 ---
 

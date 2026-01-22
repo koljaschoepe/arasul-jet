@@ -822,6 +822,139 @@ Response:
 
 ---
 
+## External API (for n8n, Workflows, Automations)
+
+**Base Path:** `/api/v1/external`
+
+Uses API key authentication instead of JWT. Create API keys via the web UI or POST to `/api/v1/external/api-keys`.
+
+### LLM Chat
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/v1/external/llm/chat` | API Key | LLM chat with queue support |
+| GET | `/api/v1/external/llm/job/:jobId` | API Key | Get job status |
+| GET | `/api/v1/external/llm/queue` | API Key | Get queue status |
+| GET | `/api/v1/external/models` | API Key | Get available models |
+
+**POST /api/v1/external/llm/chat:**
+
+```json
+{
+  "prompt": "Your question here",
+  "model": "qwen3:14b-q8",     // Optional
+  "temperature": 0.7,          // Optional
+  "max_tokens": 2048,          // Optional
+  "thinking": false,           // Optional
+  "wait_for_result": true,     // Optional (default: true)
+  "timeout_seconds": 300       // Optional (default: 300)
+}
+```
+
+**Response (wait_for_result=true):**
+
+```json
+{
+  "success": true,
+  "response": "AI generated text...",
+  "model": "qwen3:14b-q8",
+  "job_id": "uuid",
+  "processing_time_ms": 1234
+}
+```
+
+### API Key Management
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/v1/external/api-keys` | JWT | Create new API key |
+| GET | `/api/v1/external/api-keys` | JWT | List API keys |
+| DELETE | `/api/v1/external/api-keys/:keyId` | JWT | Revoke API key |
+
+**POST /api/v1/external/api-keys:**
+
+```json
+{
+  "name": "n8n-integration",
+  "description": "API key for n8n workflows",
+  "rate_limit_per_minute": 60,
+  "allowed_endpoints": ["llm:chat", "llm:status"],
+  "expires_at": "2025-12-31T23:59:59Z"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "api_key": "aras_xxxx...",  // Only shown once!
+  "key_prefix": "aras_xxx",
+  "key_id": 1,
+  "message": "Store this API key securely - it will not be shown again!"
+}
+```
+
+---
+
+## Telegram App API
+
+**Base Path:** `/api/telegram-app`
+
+Advanced Telegram bot configuration with zero-config setup.
+
+### Zero-Config Setup
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/setup/init` | Initialize setup session |
+| GET | `/setup/:token/status` | Check setup status |
+| DELETE | `/setup/:token` | Cancel setup session |
+
+### Notification Rules
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/rules` | List notification rules |
+| POST | `/rules` | Create notification rule |
+| PUT | `/rules/:ruleId` | Update rule |
+| DELETE | `/rules/:ruleId` | Delete rule |
+| PATCH | `/rules/:ruleId/toggle` | Enable/disable rule |
+
+**POST /api/telegram-app/rules:**
+
+```json
+{
+  "name": "High CPU Alert",
+  "eventSource": "system",
+  "eventType": "cpu_critical",
+  "severityFilter": ["critical"],
+  "messageTemplate": "⚠️ CPU at {{value}}%!",
+  "enabled": true
+}
+```
+
+### Orchestrator
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/orchestrator/process` | Process event through rules |
+| GET | `/orchestrator/stats` | Get processing statistics |
+
+---
+
+## Documentation API
+
+**Base Path:** `/api/docs`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/docs/` | OpenAPI documentation UI |
+| GET | `/api/docs/openapi.json` | OpenAPI spec (JSON) |
+| GET | `/api/docs/openapi.yaml` | OpenAPI spec (YAML) |
+
+---
+
 ## Response Format
 
 All responses include:
