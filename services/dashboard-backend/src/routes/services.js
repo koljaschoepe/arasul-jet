@@ -12,6 +12,7 @@ const db = require('../database');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ForbiddenError, RateLimitError, ServiceUnavailableError } = require('../utils/errors');
+const serviceConfig = require('../config/services');
 
 // Allowed services whitelist - only Arasul services can be restarted
 const ALLOWED_SERVICES = [
@@ -79,7 +80,7 @@ router.get('/ai', asyncHandler(async (req, res) => {
     // Get GPU stats from Metrics Collector
     let gpuStats = null;
     try {
-        const metricsCollectorUrl = `http://${process.env.METRICS_COLLECTOR_HOST || 'metrics-collector'}:9100`;
+        const metricsCollectorUrl = serviceConfig.metrics.url;
         const gpuResponse = await axios.get(`${metricsCollectorUrl}/api/gpu`, {
             timeout: 3000
         });
@@ -148,7 +149,7 @@ router.get('/ai', asyncHandler(async (req, res) => {
 
 // GET /api/services/llm/models - List available LLM models
 router.get('/llm/models', asyncHandler(async (req, res) => {
-    const llmServiceUrl = `http://${process.env.LLM_SERVICE_HOST}:${process.env.LLM_SERVICE_PORT}`;
+    const llmServiceUrl = serviceConfig.llm.url;
 
     let response;
     try {
@@ -184,7 +185,7 @@ router.get('/llm/models', asyncHandler(async (req, res) => {
 // GET /api/services/llm/models/:name - Get detailed information about a specific model
 router.get('/llm/models/:name', asyncHandler(async (req, res) => {
     const { name } = req.params;
-    const llmServiceUrl = `http://${process.env.LLM_SERVICE_HOST}:${process.env.LLM_SERVICE_PORT}`;
+    const llmServiceUrl = serviceConfig.llm.url;
 
     let response;
     try {
@@ -224,7 +225,7 @@ router.post('/llm/models/pull', asyncHandler(async (req, res) => {
         throw new ValidationError('Model name is required');
     }
 
-    const llmServiceUrl = `http://${process.env.LLM_SERVICE_HOST}:${process.env.LLM_SERVICE_PORT}`;
+    const llmServiceUrl = serviceConfig.llm.url;
 
     logger.info(`Starting model pull: ${model_name}`);
 
@@ -252,7 +253,7 @@ router.post('/llm/models/pull', asyncHandler(async (req, res) => {
 // DELETE /api/services/llm/models/:name - Delete a model
 router.delete('/llm/models/:name', asyncHandler(async (req, res) => {
     const { name } = req.params;
-    const llmServiceUrl = `http://${process.env.LLM_SERVICE_HOST}:${process.env.LLM_SERVICE_PORT}`;
+    const llmServiceUrl = serviceConfig.llm.url;
 
     logger.info(`Deleting model: ${name}`);
 
@@ -287,7 +288,7 @@ router.delete('/llm/models/:name', asyncHandler(async (req, res) => {
 
 // GET /api/services/embedding/info - Get embedding service information
 router.get('/embedding/info', asyncHandler(async (req, res) => {
-    const embeddingServiceUrl = `http://${process.env.EMBEDDING_SERVICE_HOST}:${process.env.EMBEDDING_SERVICE_PORT}`;
+    const embeddingServiceUrl = serviceConfig.embedding.url;
 
     let response;
     try {

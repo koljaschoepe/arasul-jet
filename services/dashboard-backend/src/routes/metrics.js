@@ -12,8 +12,9 @@ const axios = require('axios');
 const { metricsLimiter } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError } = require('../utils/errors');
+const services = require('../config/services');
 
-const METRICS_COLLECTOR_URL = `http://${process.env.METRICS_COLLECTOR_HOST || 'metrics-collector'}:9100`;
+const METRICS_COLLECTOR_URL = services.metrics.url;
 
 // HIGH-006 FIX: Apply metricsLimiter (20/s) to metrics endpoints
 // GET /api/metrics/live

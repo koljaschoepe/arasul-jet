@@ -14,9 +14,10 @@ const { createUserRateLimiter } = require('../middleware/rateLimit');
 const contextService = require('../services/contextInjectionService');
 const modelService = require('../services/modelService');
 const { asyncHandler } = require('../middleware/errorHandler');
+const services = require('../config/services');
 
 // Configuration
-const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
+const LLM_SERVICE_URL = services.llm.url;
 const DEFAULT_TIMEOUT = parseInt(process.env.CLAUDE_TERMINAL_TIMEOUT) || 60000; // 60s default
 const MAX_QUERY_LENGTH = 5000;
 

@@ -8,13 +8,15 @@
  *   const testService = createModelService({ database: mockDb, logger: mockLogger });
  */
 
-// Service URLs - read from environment
-const LLM_SERVICE_HOST = process.env.LLM_SERVICE_HOST || 'llm-service';
-const LLM_SERVICE_PORT = process.env.LLM_SERVICE_PORT || '11434';
-const LLM_MANAGEMENT_PORT = process.env.LLM_SERVICE_MANAGEMENT_PORT || '11436';
+const services = require('../config/services');
 
-const LLM_SERVICE_URL = `http://${LLM_SERVICE_HOST}:${LLM_SERVICE_PORT}`;
-const LLM_MANAGEMENT_URL = `http://${LLM_SERVICE_HOST}:${LLM_MANAGEMENT_PORT}`;
+// Service URLs (from centralized config)
+const LLM_SERVICE_HOST = services.llm.host;
+const LLM_SERVICE_PORT = services.llm.port;
+const LLM_MANAGEMENT_PORT = services.llm.managementPort;
+
+const LLM_SERVICE_URL = services.llm.url;
+const LLM_MANAGEMENT_URL = services.llm.managementUrl;
 
 // Configuration
 const DEFAULT_KEEP_ALIVE = parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300');

@@ -15,6 +15,8 @@ const { execFile } = require('child_process');
 const util = require('util');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, UnauthorizedError } = require('../utils/errors');
+const axios = require('axios');
+const services = require('../config/services');
 
 // SECURITY: Use execFile (not exec) to prevent shell injection
 const execFilePromise = util.promisify(execFile);
@@ -289,9 +291,8 @@ router.get('/password-requirements', requireAuth, (req, res) => {
 // COMPANY CONTEXT (RAG 2.0)
 // =============================================================================
 
-const axios = require('axios');
-const EMBEDDING_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service';
-const EMBEDDING_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
+const EMBEDDING_HOST = services.embedding.host;
+const EMBEDDING_PORT = services.embedding.port;
 
 /**
  * GET /api/settings/company-context

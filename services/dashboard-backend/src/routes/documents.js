@@ -23,6 +23,7 @@ const { requireAuth } = require('../middleware/auth');
 const pool = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
+const services = require('../config/services');
 
 /**
  * SECURITY: Sanitize filename to prevent path traversal attacks
@@ -96,22 +97,22 @@ function isValidMinioPath(filePath) {
     return true;
 }
 
-// Configuration
-const MINIO_HOST = process.env.MINIO_HOST || 'minio';
-const MINIO_PORT = parseInt(process.env.MINIO_PORT || '9000');
+// Configuration (using centralized service config)
+const MINIO_HOST = services.minio.host;
+const MINIO_PORT = services.minio.port;
 const MINIO_ROOT_USER = process.env.MINIO_ROOT_USER || 'admin';
 const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD || '';
 const MINIO_BUCKET = process.env.DOCUMENT_INDEXER_MINIO_BUCKET || 'documents';
 
-const DOCUMENT_INDEXER_HOST = process.env.DOCUMENT_INDEXER_HOST || 'document-indexer';
-const DOCUMENT_INDEXER_PORT = process.env.DOCUMENT_INDEXER_API_PORT || '9102';
+const DOCUMENT_INDEXER_HOST = services.documentIndexer.host;
+const DOCUMENT_INDEXER_PORT = services.documentIndexer.port;
 
-const QDRANT_HOST = process.env.QDRANT_HOST || 'qdrant';
-const QDRANT_PORT = process.env.QDRANT_PORT || '6333';
+const QDRANT_HOST = services.qdrant.host;
+const QDRANT_PORT = services.qdrant.port;
 const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
 
-const EMBEDDING_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service';
-const EMBEDDING_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
+const EMBEDDING_HOST = services.embedding.host;
+const EMBEDDING_PORT = services.embedding.port;
 
 // Allowed file types and size limits
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt'];

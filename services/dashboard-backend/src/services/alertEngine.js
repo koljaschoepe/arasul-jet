@@ -16,6 +16,7 @@
 
 const axios = require('axios');
 const crypto = require('crypto');
+const services = require('../config/services');
 
 /**
  * Factory function to create AlertEngine with injected dependencies
@@ -429,7 +430,7 @@ function createAlertEngine(deps = {}) {
                 }
 
                 // Get current metrics from metrics collector
-                const METRICS_URL = `http://${process.env.METRICS_COLLECTOR_HOST || 'metrics-collector'}:9100/metrics`;
+                const METRICS_URL = services.metrics.metricsEndpoint;
                 let metrics;
 
                 try {

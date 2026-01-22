@@ -10,8 +10,9 @@ const { requireAuth } = require('../middleware/auth');
 const { apiLimiter } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError } = require('../utils/errors');
+const services = require('../config/services');
 
-const EMBEDDING_SERVICE_URL = `http://${process.env.EMBEDDING_SERVICE_HOST || 'embedding-service'}:${process.env.EMBEDDING_SERVICE_PORT || '11435'}`;
+const EMBEDDING_SERVICE_URL = services.embedding.url;
 
 // POST /api/embeddings - SEC-005 FIX: Added authentication and rate limiting
 router.post('/', requireAuth, apiLimiter, asyncHandler(async (req, res) => {

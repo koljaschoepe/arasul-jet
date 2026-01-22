@@ -5,8 +5,9 @@
 
 const axios = require('axios');
 const logger = require('../utils/logger');
+const services = require('../config/services');
 
-const METRICS_COLLECTOR_URL = `http://${process.env.METRICS_COLLECTOR_HOST || 'metrics-collector'}:9100`;
+const METRICS_COLLECTOR_URL = services.metrics.url;
 const STREAM_INTERVAL = 5000; // 5 seconds
 
 let streamInterval = null;

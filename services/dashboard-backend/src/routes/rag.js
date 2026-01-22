@@ -20,13 +20,14 @@ const { llmLimiter } = require('../middleware/rateLimit');
 const llmJobService = require('../services/llmJobService');
 const llmQueueService = require('../services/llmQueueService');
 const db = require('../database');
+const services = require('../config/services');
 
 // Environment variables
-const QDRANT_HOST = process.env.QDRANT_HOST || 'qdrant';
-const QDRANT_PORT = process.env.QDRANT_PORT || '6333';
+const QDRANT_HOST = services.qdrant.host;
+const QDRANT_PORT = services.qdrant.port;
 const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
-const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service';
-const EMBEDDING_SERVICE_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
+const EMBEDDING_SERVICE_HOST = services.embedding.host;
+const EMBEDDING_SERVICE_PORT = services.embedding.port;
 
 // Hybrid search configuration
 const HYBRID_SEARCH_ENABLED = process.env.RAG_HYBRID_SEARCH !== 'false';

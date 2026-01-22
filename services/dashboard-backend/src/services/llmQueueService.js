@@ -9,6 +9,7 @@
  */
 
 const EventEmitter = require('events');
+const services = require('../config/services');
 
 // Configuration from environment
 const MODEL_BATCHING_ENABLED = process.env.MODEL_BATCHING_ENABLED !== 'false';
@@ -46,7 +47,7 @@ function createLLMQueueService(deps = {}) {
         }
     } = deps;
 
-    const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
+    const LLM_SERVICE_URL = services.llm.url;
 
     class LLMQueueService extends EventEmitter {
         constructor() {

@@ -15,8 +15,9 @@ const llmJobService = require('../services/llmJobService');
 const llmQueueService = require('../services/llmQueueService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
+const services = require('../config/services');
 
-const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
+const LLM_SERVICE_URL = services.llm.url;
 
 /**
  * POST /api/llm/chat - Start a chat completion with Queue support

@@ -8,9 +8,10 @@ const axios = require('axios');
 const fs = require('fs').promises;
 const path = require('path');
 const logger = require('../utils/logger');
+const services = require('../config/services');
 
-const METRICS_COLLECTOR_URL = `http://${process.env.METRICS_COLLECTOR_HOST || 'metrics-collector'}:9100`;
-const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${process.env.LLM_SERVICE_PORT || '11434'}`;
+const METRICS_COLLECTOR_URL = services.metrics.url;
+const LLM_SERVICE_URL = services.llm.url;
 const LOG_DIR = '/arasul/logs';
 
 // Sensitive patterns to mask in logs and context

@@ -176,10 +176,10 @@ tests/
 - [ ] `logging_config.py` - Einheitliches Format
 - [ ] `health_check.py` - Standard Health Endpoint
 
-### 3.2 Backend: Service-URL Zentralisierung
+### 3.2 Backend: Service-URL Zentralisierung ✅
 **Aufwand:** 3h | **Impact:** Wartbarkeit
 
-**Problem:** 20+ mal definiert:
+**Problem:** 40+ mal definiert:
 ```javascript
 const LLM_SERVICE_URL = `http://${process.env.LLM_SERVICE_HOST || 'llm-service'}:${...}`
 const QDRANT_HOST = process.env.QDRANT_HOST || 'qdrant'
@@ -187,9 +187,9 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 ```
 
 **Losung:**
-- [ ] `src/config/services.js` erstellen
-- [ ] Alle Service-URLs zentral definieren
-- [ ] Routes auf Import umstellen
+- [x] `src/config/services.js` erstellt (alle 8 Services: LLM, Embedding, Qdrant, Metrics, MinIO, DocumentIndexer, SelfHealing, n8n)
+- [x] Alle Service-URLs zentral definiert mit strukturierten Objekten
+- [x] 16 Dateien auf Import umgestellt (routes + services)
 
 ### 3.3 Tests: Kritische Lucken schliessen
 **Aufwand:** 16h | **Impact:** Qualitatssicherung
@@ -227,19 +227,19 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 - [ ] `AppDetailModal.js`
 - [ ] `LoadingSpinner.js`
 
-### 3.5 Ungenutzte Dateien/Code entfernen
+### 3.5 Ungenutzte Dateien/Code entfernen ✅
 **Aufwand:** 2h | **Impact:** Code-Hygiene
 
 **Frontend:**
-- [ ] `components/Chat.js` loschen (durch ChatMulti.js ersetzt)
-- [ ] Auskommentierter Code in `App.js` (Zeilen 954-1090) entfernen
+- [x] `components/Chat.js` geloscht (durch ChatMulti.js ersetzt)
+- [x] Auskommentierter Code in `App.js` entfernt
 
 **Backend:**
-- [ ] Ungenutzte Imports in `routes/documents.js:23` (`pool` nicht verwendet)
+- [x] `pool` in `routes/documents.js` - WIRD genutzt (30+ Stellen), Analyse war falsch
 
 **Database:**
-- [ ] `document_access_log` Tabelle - nicht im Backend genutzt
-- [ ] `bot_audit_log` Tabelle - durch telegram_message_log ersetzt
+- [x] `document_access_log` Tabelle - WIRD genutzt (5 INSERTs in documents.js)
+- [x] `bot_audit_log` Tabelle - WIRD genutzt (telegram.js audit endpoints)
 
 ---
 
@@ -333,9 +333,9 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 
 | Tabelle | Migration | Status |
 |---------|-----------|--------|
-| `document_access_log` | 009_documents_schema.sql | Nie im Backend genutzt |
-| `bot_audit_log` | 015_audit_log_schema.sql | Durch telegram_message_log ersetzt |
-| `telegram_orchestrator_state` | 027_telegram_app_schema.sql | Backend nicht implementiert |
+| `document_access_log` | 009_documents_schema.sql | ✅ WIRD genutzt (documents.js) |
+| `bot_audit_log` | 015_audit_log_schema.sql | ✅ WIRD genutzt (telegram.js) |
+| `telegram_orchestrator_state` | 027_telegram_app_schema.sql | ⬜ Backend nicht implementiert |
 
 ---
 

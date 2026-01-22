@@ -148,6 +148,7 @@ const wss = new WebSocket.Server({
 
 const axios = require('axios');
 const logger = require('./utils/logger');
+const services = require('./config/services');
 const llmJobService = require('./services/llmJobService');
 const llmQueueService = require('./services/llmQueueService');
 const modelService = require('./services/modelService');
@@ -162,8 +163,7 @@ wss.on('connection', (ws) => {
   const sendMetrics = async () => {
     try {
       // Get live metrics from metrics collector
-      const METRICS_COLLECTOR_URL = `http://${process.env.METRICS_COLLECTOR_HOST || 'metrics-collector'}:9100`;
-      const response = await axios.get(`${METRICS_COLLECTOR_URL}/metrics`, { timeout: 2000 });
+      const response = await axios.get(services.metrics.metricsEndpoint, { timeout: 2000 });
 
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({

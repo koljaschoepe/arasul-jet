@@ -16,12 +16,13 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 const database = require('../database');
+const services = require('../config/services');
 
-// Service URLs
-const LLM_SERVICE_HOST = process.env.LLM_SERVICE_HOST || 'llm-service';
-const LLM_SERVICE_PORT = process.env.LLM_SERVICE_PORT || '11434';
-const LLM_SERVICE_URL = `http://${LLM_SERVICE_HOST}:${LLM_SERVICE_PORT}`;
-const METRICS_COLLECTOR_URL = `http://${process.env.METRICS_COLLECTOR_HOST || 'metrics-collector'}:9100`;
+// Service URLs (from centralized config)
+const LLM_SERVICE_HOST = services.llm.host;
+const LLM_SERVICE_PORT = services.llm.port;
+const LLM_SERVICE_URL = services.llm.url;
+const METRICS_COLLECTOR_URL = services.metrics.url;
 
 // Configuration
 const OLLAMA_READY_TIMEOUT = parseInt(process.env.OLLAMA_READY_TIMEOUT || '300000'); // 5 min default

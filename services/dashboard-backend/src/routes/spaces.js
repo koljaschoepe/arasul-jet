@@ -17,10 +17,11 @@ const { requireAuth } = require('../middleware/auth');
 const pool = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ForbiddenError, ConflictError } = require('../utils/errors');
+const services = require('../config/services');
 
 // Configuration
-const EMBEDDING_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service';
-const EMBEDDING_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
+const EMBEDDING_HOST = services.embedding.host;
+const EMBEDDING_PORT = services.embedding.port;
 
 /**
  * Helper: Generate embedding for text
