@@ -171,18 +171,25 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
             });
         }
 
-        const result = await db.query(
-            `INSERT INTO chat_messages (conversation_id, role, content, thinking, created_at)
-             VALUES ($1, $2, $3, $4, NOW())
-             RETURNING id, role, content, thinking, created_at`,
-            [id, role, content, thinking || null]
-        );
+        // Use transaction to ensure atomicity of insert + update
+        const result = await db.transaction(async (client) => {
+            const insertResult = await client.query(
+                `INSERT INTO chat_messages (conversation_id, role, content, thinking, created_at)
+                 VALUES ($1, $2, $3, $4, NOW())
+                 RETURNING id, role, content, thinking, created_at`,
+                [id, role, content, thinking || null]
+            );
 
-        // Update conversation's updated_at timestamp
-        await db.query(
-            `UPDATE chat_conversations SET updated_at = NOW() WHERE id = $1`,
-            [id]
-        );
+            // Update conversation's updated_at timestamp and message count
+            await client.query(
+                `UPDATE chat_conversations
+                 SET updated_at = NOW(), message_count = message_count + 1
+                 WHERE id = $1`,
+                [id]
+            );
+
+            return insertResult;
+        });
 
         res.json({
             message: result.rows[0],

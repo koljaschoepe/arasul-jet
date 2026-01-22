@@ -241,20 +241,24 @@ router.post('/change-password', requireAuth, passwordChangeLimiter, async (req, 
         // Hash new password
         const newPasswordHash = await hashPassword(newPassword);
 
-        // Update password
-        await db.query(
-            'UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
-            [newPasswordHash, req.user.id]
-        );
+        // Use transaction for atomicity: password update + history record
+        await db.transaction(async (client) => {
+            // Update password
+            await client.query(
+                'UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+                [newPasswordHash, req.user.id]
+            );
 
-        // Record password change in history
-        await db.query(
-            `INSERT INTO password_history (user_id, password_hash, changed_by, ip_address)
-             VALUES ($1, $2, $3, $4)`,
-            [req.user.id, newPasswordHash, req.user.username, ipAddress]
-        );
+            // Record password change in history
+            await client.query(
+                `INSERT INTO password_history (user_id, password_hash, changed_by, ip_address)
+                 VALUES ($1, $2, $3, $4)`,
+                [req.user.id, newPasswordHash, req.user.username, ipAddress]
+            );
+        });
 
-        // Invalidate all existing sessions (force re-login)
+        // Invalidate all existing sessions (force re-login) - outside transaction
+        // since token blacklisting may use different storage
         await blacklistAllUserTokens(req.user.id);
 
         logger.info(`Password changed for user: ${req.user.username}`);
