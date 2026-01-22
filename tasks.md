@@ -119,7 +119,7 @@ Die Analyse identifizierte **150+ Optimierungsmoglichkeiten** in folgenden Kateg
 - [x] `src/utils/errors.js` erstellt (Custom Error Classes)
 - [x] `src/middleware/errorHandler.js` erstellt (asyncHandler, errorHandler)
 - [x] 4 Routes in auth.js auf asyncHandler umgestellt (Muster demonstriert)
-- [ ] Verbleibende ~240 Routes auf asyncHandler umstellen
+- [x] Verbleibende ~240 Routes auf asyncHandler umgestellt (alle 28 Route-Dateien migriert)
 
 ### 2.3 Docker: Fehlende .dockerignore
 **Aufwand:** 1h | **Impact:** Build-Grosse/Sicherheit
@@ -143,18 +143,18 @@ node_modules/
 tests/
 ```
 
-### 2.4 Dokumentation: Route-Count korrigieren
+### 2.4 Dokumentation: Route-Count korrigieren ✅
 **Aufwand:** 2h | **Impact:** Entwickler-Onboarding
 
 **CLAUDE.md behauptet 24 Routes, tatsachlich 28:**
-- [ ] `docs.js` dokumentieren
-- [ ] `externalApi.js` dokumentieren
-- [ ] `telegramApp.js` dokumentieren (15 Endpoints!)
-- [ ] Route-Tabelle auf 28 aktualisieren
+- [x] `docs.js` dokumentieren
+- [x] `externalApi.js` dokumentieren
+- [x] `telegramApp.js` dokumentieren (15 Endpoints!)
+- [x] Route-Tabelle auf 28 aktualisieren
 
 **Migration-Count korrigieren:**
-- [ ] 25 -> 30 Migrationen dokumentieren
-- [ ] Neue Migrationen 027-029 in DATABASE_SCHEMA.md
+- [x] 24 -> 28 Migrationen dokumentieren
+- [x] Neue Migrationen 010-028 in DATABASE_SCHEMA.md
 
 ---
 
@@ -304,16 +304,16 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 
 ### Zu aktualisierende Dateien:
 
-| Datei | Problem | Zeilen |
+| Datei | Problem | Status |
 |-------|---------|--------|
-| `CLAUDE.md` | Route-Count: 24 -> 28 | 147, 152, 164 |
-| `CLAUDE.md` | Migration-Count: 25 -> 30 | 250 |
-| `CLAUDE.md` | Service-Count: 13 -> 15 | 559 |
-| `CLAUDE.md` | LLM Port: 11435 -> 11436 | Multiple |
-| `docs/INDEX.md` | API Coverage: 53% -> aktualisieren | 143 |
-| `docs/DATABASE_SCHEMA.md` | 5 neue Migrationen fehlen | N/A |
-| `docs/API_REFERENCE.md` | telegramApp.js Endpoints fehlen (15!) | N/A |
-| `docs/API_REFERENCE.md` | externalApi.js Endpoints fehlen (7) | N/A |
+| `CLAUDE.md` | Route-Count: 24 -> 28 | ✅ Bereits korrekt |
+| `CLAUDE.md` | Migration-Count: 25 -> 28 | ✅ Bereits korrekt |
+| `CLAUDE.md` | Service-Count: 13 -> 15 | ⬜ Offen |
+| `CLAUDE.md` | LLM Port: 11435 -> 11436 | ✅ Korrigiert |
+| `docs/INDEX.md` | API Coverage: 53% -> aktualisieren | ⬜ Offen |
+| `docs/DATABASE_SCHEMA.md` | Migrationen 010-028 dokumentieren | ✅ Erledigt |
+| `docs/API_REFERENCE.md` | telegramApp.js Endpoints (15) | ✅ Erledigt |
+| `docs/API_REFERENCE.md` | externalApi.js Endpoints (7) | ✅ Erledigt |
 
 ---
 
