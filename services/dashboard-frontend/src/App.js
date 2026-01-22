@@ -445,7 +445,6 @@ function App() {
         <Router>
           <div className="app">
             <SidebarWithDownloads
-              handleLogout={handleLogout}
               systemStatus={systemStatus}
               getStatusColor={getStatusColor}
               collapsed={sidebarCollapsed}
@@ -475,7 +474,7 @@ function App() {
                   />
                 }
               />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings" element={<Settings handleLogout={handleLogout} />} />
               <Route path="/chat" element={<ChatMulti />} />
               <Route path="/documents" element={<DocumentManager />} />
               <Route path="/appstore" element={<AppStore />} />
@@ -503,7 +502,7 @@ function SidebarWithDownloads(props) {
   );
 }
 
-function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onToggle, downloadCount = 0, activeDownloads = [], theme = 'dark', onToggleTheme }) {
+function Sidebar({ systemStatus, getStatusColor, collapsed, onToggle, downloadCount = 0, activeDownloads = [], theme = 'dark', onToggleTheme }) {
   const location = useLocation();
 
   const isActive = (path) => {
@@ -551,9 +550,6 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onTogg
               </span>
             )}
           </Link>
-          <Link to="/settings" className={isActive('/settings')} title="Einstellungen">
-            <FiSettings /> <span>Einstellungen</span>
-          </Link>
         </div>
       </nav>
 
@@ -582,23 +578,24 @@ function Sidebar({ handleLogout, systemStatus, getStatusColor, collapsed, onTogg
       )}
 
       <div className="sidebar-footer">
-        <div className="sidebar-footer-actions">
-          <button
-            onClick={onToggleTheme}
-            className="theme-toggle-btn"
-            title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-          >
-            {theme === 'dark' ? <FiSun /> : <FiMoon />}
-            <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
-          </button>
-          <button
-            onClick={handleLogout}
-            className="logout-button"
-            title="Logout"
-          >
-            <FiLogOut /> <span>Logout</span>
-          </button>
-        </div>
+        {/* Einstellungen-Link */}
+        <Link to="/settings" className={`nav-link ${isActive('/settings')}`} title="Einstellungen">
+          <FiSettings /> <span>Einstellungen</span>
+        </Link>
+
+        {/* iOS-Style Theme Toggle */}
+        <button
+          onClick={onToggleTheme}
+          className="theme-toggle-switch"
+          title={theme === 'dark' ? 'Zu Light Mode wechseln' : 'Zu Dark Mode wechseln'}
+          aria-label="Theme umschalten"
+        >
+          <span className="theme-toggle-label">
+            {theme === 'dark' ? <FiMoon /> : <FiSun />}
+            <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+          </span>
+          <span className="theme-toggle-track" />
+        </button>
       </div>
     </div>
   );

@@ -646,6 +646,82 @@
 }
 
 /* ===================================
+   SECURITY LOGOUT SECTION
+   =================================== */
+
+.security-logout-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.security-logout-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+}
+
+.security-logout-section p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.logout-button-settings {
+  background: transparent;
+  border: 1px solid var(--danger-color);
+  color: var(--danger-color);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.logout-button-settings:hover {
+  background: var(--danger-color);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.logout-button-settings:active {
+  transform: translateY(0);
+}
+
+/* Light Mode - Security Logout */
+.light-mode .security-logout-section {
+  border-top-color: #E2E8F0;
+}
+
+.light-mode .security-logout-section h3 {
+  color: #0F172A;
+}
+
+.light-mode .security-logout-section p {
+  color: #64748B;
+}
+
+.light-mode .logout-button-settings {
+  border-color: #DC2626;
+  color: #DC2626;
+}
+
+.light-mode .logout-button-settings:hover {
+  background: #DC2626;
+  color: white;
+}
+
+/* ===================================
    COMPANY CONTEXT SECTION (RAG 2.0)
    =================================== */
 

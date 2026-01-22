@@ -349,6 +349,25 @@ code {
   background: transparent;
 }
 
+/* Light Mode - Theme Toggle Switch */
+.light-mode .theme-toggle-switch {
+  border-color: #E2E8F0;
+}
+
+.light-mode .theme-toggle-switch:hover {
+  background: rgba(33, 150, 243, 0.06);
+  border-color: rgba(33, 150, 243, 0.3);
+}
+
+.light-mode .theme-toggle-track {
+  background: #F1F5F9;
+  border-color: #E2E8F0;
+}
+
+.light-mode .theme-toggle-label {
+  color: #334155;
+}
+
 /* Light Mode - Navigation hover state */
 .light-mode .nav-link:hover {
   background: rgba(33, 150, 243, 0.06);
@@ -875,6 +894,94 @@ code {
 
 .sidebar.collapsed .theme-toggle-btn span {
   display: none;
+}
+
+/* ===================================
+   iOS-STYLE THEME TOGGLE SWITCH
+   =================================== */
+
+/* Container für den Toggle */
+.theme-toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+/* iOS-Style Track */
+.theme-toggle-track {
+  width: 44px;
+  height: 24px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+/* Beweglicher Kreis (Knob) */
+.theme-toggle-track::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  top: 1px;
+  left: 2px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Light mode: Knob nach rechts, Track heller */
+.light-mode .theme-toggle-track {
+  background: var(--primary-muted);
+  border-color: var(--primary-color);
+}
+
+.light-mode .theme-toggle-track::after {
+  transform: translateX(18px);
+}
+
+/* Label-Text */
+.theme-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Hover-Effekt */
+.theme-toggle-switch:hover {
+  background: var(--primary-muted);
+  border-color: var(--primary-color);
+}
+
+.theme-toggle-switch:hover .theme-toggle-track {
+  border-color: var(--primary-color);
+}
+
+/* Collapsed sidebar: Nur Toggle, kein Label */
+.sidebar.collapsed .theme-toggle-switch {
+  padding: 0.5rem;
+  justify-content: center;
+}
+
+.sidebar.collapsed .theme-toggle-label {
+  display: none;
+}
+
+/* Settings Link im Footer */
+.sidebar-footer .nav-link {
+  margin-bottom: 0.5rem;
 }
 
 /* Minimal Metrics Overview */

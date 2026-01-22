@@ -15,7 +15,8 @@ import {
   FiRefreshCw,
   FiX,
   FiAlertTriangle,
-  FiTerminal
+  FiTerminal,
+  FiLogOut
 } from 'react-icons/fi';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
@@ -25,7 +26,7 @@ import ClaudeTerminal from './ClaudeTerminal';
 import { formatDate } from '../utils/formatting';
 import '../settings.css';
 
-function Settings() {
+function Settings({ handleLogout }) {
   const [activeSection, setActiveSection] = useState('general');
 
   const sections = [
@@ -96,7 +97,23 @@ function Settings() {
       case 'claude-terminal':
         return <ClaudeTerminal />;
       case 'security':
-        return <PasswordManagement />;
+        return (
+          <div className="settings-section">
+            <PasswordManagement />
+
+            {/* Logout-Bereich */}
+            <div className="security-logout-section">
+              <h3><FiLogOut /> Abmelden</h3>
+              <p>Beendet Ihre aktuelle Sitzung und leitet Sie zur Login-Seite weiter.</p>
+              <button
+                onClick={handleLogout}
+                className="logout-button-settings"
+              >
+                <FiLogOut /> Abmelden
+              </button>
+            </div>
+          </div>
+        );
       default:
         return <GeneralSettings />;
     }
