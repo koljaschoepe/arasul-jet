@@ -1,89 +1,15 @@
 /**
  * MarkdownEditor Component
  * Simple markdown editor with live preview
+ * Uses ReactMarkdown with remarkGfm for full GFM support (tables, strikethrough, etc.)
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiX, FiSave, FiEye, FiEdit2, FiMaximize2, FiMinimize2, FiAlertCircle } from 'react-icons/fi';
-import DOMPurify from 'dompurify';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import MermaidDiagram from './MermaidDiagram';
 import '../markdown-editor.css';
-
-// SECURITY: Configure DOMPurify with strict settings
-const purifyConfig = {
-    ALLOWED_TAGS: [
-        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'strong', 'em', 'del', 'code', 'pre',
-        'ul', 'ol', 'li', 'blockquote', 'hr', 'br',
-        'a', 'img'
-    ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'target', 'rel'],
-    ALLOW_DATA_ATTR: false,
-    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input'],
-    FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover', 'onfocus']
-};
-
-// Simple markdown to HTML converter with XSS protection
-function markdownToHtml(markdown) {
-    if (!markdown) return '';
-
-    let html = markdown
-        // Escape HTML first
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        // Code blocks (must be before other processing)
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-        // Inline code
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Headers
-        .replace(/^######\s+(.*)$/gm, '<h6>$1</h6>')
-        .replace(/^#####\s+(.*)$/gm, '<h5>$1</h5>')
-        .replace(/^####\s+(.*)$/gm, '<h4>$1</h4>')
-        .replace(/^###\s+(.*)$/gm, '<h3>$1</h3>')
-        .replace(/^##\s+(.*)$/gm, '<h2>$1</h2>')
-        .replace(/^#\s+(.*)$/gm, '<h1>$1</h1>')
-        // Bold and italic
-        .replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-        .replace(/___([^_]+)___/g, '<strong><em>$1</em></strong>')
-        .replace(/__([^_]+)__/g, '<strong>$1</strong>')
-        .replace(/_([^_]+)_/g, '<em>$1</em>')
-        // Strikethrough
-        .replace(/~~([^~]+)~~/g, '<del>$1</del>')
-        // Blockquotes
-        .replace(/^>\s+(.*)$/gm, '<blockquote>$1</blockquote>')
-        // Horizontal rule
-        .replace(/^---$/gm, '<hr>')
-        .replace(/^\*\*\*$/gm, '<hr>')
-        // Unordered lists
-        .replace(/^[\*\-]\s+(.*)$/gm, '<li>$1</li>')
-        // Ordered lists
-        .replace(/^\d+\.\s+(.*)$/gm, '<li>$1</li>')
-        // Links - SECURITY: Force safe attributes
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-        // Images
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
-        // Line breaks (double newline = paragraph)
-        .replace(/\n\n/g, '</p><p>')
-        // Single line breaks
-        .replace(/\n/g, '<br>');
-
-    // Wrap in paragraph tags
-    html = '<p>' + html + '</p>';
-
-    // Fix empty paragraphs
-    html = html.replace(/<p><\/p>/g, '');
-
-    // Wrap consecutive li elements in ul
-    html = html.replace(/(<li>.*?<\/li>)+/g, '<ul>$&</ul>');
-
-    // Clean up blockquotes
-    html = html.replace(/<\/blockquote><br><blockquote>/g, '<br>');
-
-    // SECURITY FIX: Sanitize HTML with DOMPurify before returning
-    return DOMPurify.sanitize(html, purifyConfig);
-}
 
 function MarkdownEditor({ documentId, filename, onClose, onSave, token }) {
     const [content, setContent] = useState('');
@@ -368,14 +294,36 @@ function MarkdownEditor({ documentId, filename, onClose, onSave, token }) {
                         </div>
                     )}
 
-                    {/* Preview pane */}
+                    {/* Preview pane - using ReactMarkdown with remarkGfm for full GFM support */}
                     {viewMode !== 'edit' && (
                         <div className="preview-pane">
                             <div className="pane-header">Vorschau</div>
-                            <div
-                                className="preview-content"
-                                dangerouslySetInnerHTML={{ __html: markdownToHtml(content) }}
-                            />
+                            <div className="preview-content">
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        // Custom code renderer for mermaid diagrams
+                                        code({ node, inline, className, children, ...props }) {
+                                            const match = /language-(\w+)/.exec(className || '');
+                                            const language = match ? match[1] : '';
+
+                                            // Handle mermaid code blocks
+                                            if (!inline && language === 'mermaid') {
+                                                return <MermaidDiagram content={String(children).replace(/\n$/, '')} />;
+                                            }
+
+                                            // Default code rendering
+                                            return (
+                                                <code className={className} {...props}>
+                                                    {children}
+                                                </code>
+                                            );
+                                        }
+                                    }}
+                                >
+                                    {content}
+                                </ReactMarkdown>
+                            </div>
                         </div>
                     )}
                 </div>

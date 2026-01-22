@@ -409,6 +409,110 @@
 .message-body h2 { font-size: 1.15rem; }
 .message-body h3 { font-size: 1.05rem; }
 
+/* -------------------- Tables (GFM) -------------------- */
+.message-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.95rem;
+  overflow-x: auto;
+  display: block;
+}
+
+.message-body table thead {
+  background: rgba(69, 173, 255, 0.1);
+}
+
+.message-body table th,
+.message-body table td {
+  padding: 10px 14px;
+  text-align: left;
+  border: 1px solid var(--border-color);
+}
+
+.message-body table th {
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-dark);
+  white-space: nowrap;
+}
+
+.message-body table td {
+  color: var(--text-secondary);
+}
+
+.message-body table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.message-body table tbody tr:hover {
+  background: rgba(69, 173, 255, 0.05);
+}
+
+/* Light Mode - Tables */
+.light-mode .message-body table th {
+  background: #F1F5F9;
+}
+
+.light-mode .message-body table thead {
+  background: rgba(33, 150, 243, 0.08);
+}
+
+.light-mode .message-body table tbody tr:nth-child(even) {
+  background: #F8FAFC;
+}
+
+.light-mode .message-body table tbody tr:hover {
+  background: rgba(33, 150, 243, 0.05);
+}
+
+/* -------------------- Mermaid Diagrams -------------------- */
+.mermaid-container {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  overflow-x: auto;
+}
+
+.mermaid-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-error {
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
+.mermaid-error code {
+  display: block;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--bg-dark);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  color: var(--text-muted);
+}
+
+/* Light Mode - Mermaid */
+.light-mode .mermaid-container {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+.light-mode .mermaid-error {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.2);
+  color: #DC2626;
+}
+
 /* Message Loading Animation */
 .message-loading {
   display: flex;

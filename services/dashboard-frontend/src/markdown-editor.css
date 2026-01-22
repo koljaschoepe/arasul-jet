@@ -2,11 +2,11 @@
  * Markdown Editor Styles
  */
 
-/* Overlay */
+/* Overlay - Sidebar-aware positioning */
 .markdown-editor-overlay {
     position: fixed;
     top: 0;
-    left: 0;
+    left: var(--sidebar-width, 260px);  /* Sidebar-Breite mit Fallback */
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.7);
@@ -14,10 +14,20 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    padding: 20px;
+    padding: 32px;
+    padding-left: 48px;  /* Großzügiger Abstand zur Sidebar */
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);  /* Smooth transition */
 }
 
+/* Bei eingeklappter Sidebar */
+body.sidebar-collapsed .markdown-editor-overlay {
+    left: var(--sidebar-width-collapsed, 72px);
+    padding-left: 32px;  /* Weniger Abstand bei collapsed Sidebar */
+}
+
+/* Fullscreen-Modus - immer volle Breite */
 .markdown-editor-overlay.fullscreen {
+    left: 0;
     padding: 0;
 }
 
@@ -26,7 +36,7 @@
     background: #1e1e2e;
     border-radius: 12px;
     width: 100%;
-    max-width: 1400px;
+    max-width: min(1400px, calc(100% - 32px));  /* Immer mindestens 16px Abstand auf jeder Seite */
     height: 90vh;
     display: flex;
     flex-direction: column;
@@ -333,6 +343,81 @@
     color: #6c7086;
 }
 
+/* Tables (GFM) */
+.preview-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 0.95em;
+    overflow-x: auto;
+    display: block;
+}
+
+.preview-content table thead {
+    background: rgba(137, 180, 250, 0.15);
+}
+
+.preview-content table th,
+.preview-content table td {
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid #313244;
+}
+
+.preview-content table th {
+    font-weight: 600;
+    color: #cdd6f4;
+    background: #181825;
+    white-space: nowrap;
+}
+
+.preview-content table td {
+    color: #a6adc8;
+}
+
+.preview-content table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.preview-content table tbody tr:hover {
+    background: rgba(137, 180, 250, 0.08);
+}
+
+/* Mermaid Diagrams */
+.preview-content .mermaid-container {
+    background: #11111b;
+    border: 1px solid #313244;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 1em 0;
+    overflow-x: auto;
+}
+
+.preview-content .mermaid-container svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.preview-content .mermaid-error {
+    padding: 12px;
+    background: rgba(243, 139, 168, 0.15);
+    border: 1px solid rgba(243, 139, 168, 0.3);
+    border-radius: 8px;
+    color: #f38ba8;
+    font-size: 0.9rem;
+}
+
+.preview-content .mermaid-error code {
+    display: block;
+    margin-top: 8px;
+    padding: 8px;
+    background: #181825;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    color: #6c7086;
+}
+
 /* Footer */
 .markdown-editor-footer {
     display: flex;
@@ -377,7 +462,33 @@
     }
 }
 
-/* Responsive */
+/* Responsive - Tablet: Sidebar wird schmaler */
+@media (max-width: 1279px) and (min-width: 1025px) {
+    .markdown-editor-overlay {
+        left: var(--sidebar-width-tablet, 220px);
+        padding-left: 40px;  /* Konsistenter Abstand zur Sidebar */
+    }
+
+    body.sidebar-collapsed .markdown-editor-overlay {
+        left: var(--sidebar-width-collapsed, 72px);
+        padding-left: 32px;
+    }
+}
+
+/* Responsive - Mobile/Small Tablet: Sidebar wird zur Top-Bar */
+@media (max-width: 1024px) {
+    .markdown-editor-overlay {
+        left: 0;  /* Volle Breite - Sidebar ist oben */
+        top: 60px;  /* Unter der Sidebar-Top-Bar */
+        padding: 24px;
+    }
+
+    body.sidebar-collapsed .markdown-editor-overlay {
+        left: 0;
+        top: 60px;
+    }
+}
+
 @media (max-width: 768px) {
     .markdown-editor-overlay {
         padding: 0;
@@ -574,6 +685,50 @@
 
 .light-mode .preview-content del {
     color: #9CA0B0;
+}
+
+/* Light Mode - Tables */
+.light-mode .preview-content table th,
+.light-mode .preview-content table td {
+    border-color: #DCE0E8;
+}
+
+.light-mode .preview-content table th {
+    background: #E6E9EF;
+    color: #4C4F69;
+}
+
+.light-mode .preview-content table thead {
+    background: rgba(30, 102, 245, 0.08);
+}
+
+.light-mode .preview-content table td {
+    color: #5C5F77;
+}
+
+.light-mode .preview-content table tbody tr:nth-child(even) {
+    background: #F8FAFC;
+}
+
+.light-mode .preview-content table tbody tr:hover {
+    background: rgba(30, 102, 245, 0.05);
+}
+
+/* Light Mode - Mermaid */
+.light-mode .preview-content .mermaid-container {
+    background: #E6E9EF;
+    border-color: #DCE0E8;
+}
+
+.light-mode .preview-content .mermaid-error {
+    background: rgba(210, 15, 57, 0.08);
+    border-color: rgba(210, 15, 57, 0.2);
+    color: #D20F39;
+}
+
+.light-mode .preview-content .mermaid-error code {
+    background: #DCE0E8;
+    color: #6C6F85;
 }
 
 /* Light Mode - Footer */
