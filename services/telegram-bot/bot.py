@@ -26,6 +26,12 @@ from telegram.constants import ParseMode
 from config import Config, mask_token
 from health import start_health_server_thread, update_health
 
+# Command handlers from commands module
+from commands.disk import cmd_disk
+from commands.services import cmd_services
+from commands.logs import cmd_logs
+from commands.status import cmd_status as cmd_status_detailed
+
 # Configure logging
 logging.basicConfig(
     level=os.getenv('LOG_LEVEL', 'INFO'),
@@ -99,8 +105,12 @@ class ArasulTelegramBot:
 
 *System Commands:*
 /status - System status overview
+/fullstatus - Detailed status with progress bars
 /health - All services health status
 /metrics - Current CPU, RAM, GPU, Disk metrics
+/disk - Disk usage for all volumes
+/services - List all Docker services
+/logs <service> - Show logs for a service
 
 *Information:*
 /help - Show this help message
@@ -299,6 +309,12 @@ Your User ID: `{update.effective_user.id}`
         application.add_handler(CommandHandler("health", self.cmd_health))
         application.add_handler(CommandHandler("metrics", self.cmd_metrics))
         application.add_handler(CommandHandler("info", self.cmd_info))
+
+        # Extended commands from commands module
+        application.add_handler(CommandHandler("disk", cmd_disk))
+        application.add_handler(CommandHandler("services", cmd_services))
+        application.add_handler(CommandHandler("logs", cmd_logs))
+        application.add_handler(CommandHandler("fullstatus", cmd_status_detailed))
 
         # Handle non-command messages
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))

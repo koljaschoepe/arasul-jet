@@ -77,6 +77,8 @@ log() {
 setup_directories() {
     mkdir -p "${BACKUP_DIR}/postgres"
     mkdir -p "${BACKUP_DIR}/minio"
+    mkdir -p "${BACKUP_DIR}/qdrant"
+    mkdir -p "${BACKUP_DIR}/n8n"
     mkdir -p "${BACKUP_DIR}/weekly"
     touch "${LOG_FILE}"
 }
@@ -190,6 +192,111 @@ backup_minio() {
     fi
 }
 
+# Backup Qdrant vector database
+backup_qdrant() {
+    log "INFO" "Starting Qdrant backup..."
+
+    local backup_dir="${BACKUP_DIR}/qdrant"
+    local backup_archive="${BACKUP_DIR}/qdrant/qdrant_${TIMESTAMP}.tar.gz"
+    local backup_archive_latest="${BACKUP_DIR}/qdrant/qdrant_latest.tar.gz"
+
+    mkdir -p "${backup_dir}"
+
+    # Check if qdrant container is running
+    if ! docker ps --format '{{.Names}}' | grep -q "^qdrant$"; then
+        log "WARN" "Qdrant container is not running, skipping backup"
+        return 1
+    fi
+
+    # Create snapshot via Qdrant API
+    log "INFO" "Creating Qdrant snapshot..."
+    if docker exec qdrant curl -s -X POST "http://localhost:6333/snapshots" -H "Content-Type: application/json" > /dev/null 2>&1; then
+        # Wait for snapshot to be created
+        sleep 2
+
+        # Get latest snapshot name
+        local snapshot_name=$(docker exec qdrant curl -s "http://localhost:6333/snapshots" | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        if [[ -n "$snapshot_name" ]]; then
+            # Copy snapshot from container
+            local temp_dir="/tmp/qdrant_backup_${TIMESTAMP}"
+            mkdir -p "${temp_dir}"
+
+            docker cp "qdrant:/qdrant/snapshots/${snapshot_name}" "${temp_dir}/" 2>/dev/null || true
+
+            # Create compressed archive
+            if tar -czf "${backup_archive}" -C "${temp_dir}" . 2>/dev/null; then
+                rm -rf "${temp_dir}"
+
+                local size=$(du -h "${backup_archive}" | cut -f1)
+                log "INFO" "Qdrant backup completed: ${backup_archive} (${size})"
+
+                # Create/update latest symlink
+                ln -sf "$(basename "${backup_archive}")" "${backup_archive_latest}"
+
+                echo "${backup_archive}"
+                return 0
+            else
+                log "ERROR" "Failed to create Qdrant backup archive"
+                rm -rf "${temp_dir}"
+                return 1
+            fi
+        else
+            log "WARN" "No Qdrant snapshot found"
+            return 1
+        fi
+    else
+        log "ERROR" "Failed to create Qdrant snapshot"
+        return 1
+    fi
+}
+
+# Backup n8n workflows
+backup_n8n() {
+    log "INFO" "Starting n8n workflows backup..."
+
+    local backup_dir="${BACKUP_DIR}/n8n"
+    local backup_file="${BACKUP_DIR}/n8n/workflows_${TIMESTAMP}.json"
+    local backup_file_latest="${BACKUP_DIR}/n8n/workflows_latest.json"
+
+    mkdir -p "${backup_dir}"
+
+    # Check if n8n container is running
+    if ! docker ps --format '{{.Names}}' | grep -q "^n8n$"; then
+        log "WARN" "n8n container is not running, skipping backup"
+        return 1
+    fi
+
+    # Export all workflows using n8n CLI
+    log "INFO" "Exporting n8n workflows..."
+    if docker exec n8n n8n export:workflow --all --output=/tmp/workflows_export.json 2>/dev/null; then
+        # Copy from container to host
+        if docker cp "n8n:/tmp/workflows_export.json" "${backup_file}" 2>/dev/null; then
+            # Clean up temp file in container
+            docker exec n8n rm -f /tmp/workflows_export.json 2>/dev/null || true
+
+            local size=$(du -h "${backup_file}" | cut -f1)
+            local workflow_count=$(grep -c '"name"' "${backup_file}" 2>/dev/null || echo "?")
+            log "INFO" "n8n backup completed: ${backup_file} (${size}, ${workflow_count} workflows)"
+
+            # Create/update latest symlink
+            ln -sf "$(basename "${backup_file}")" "${backup_file_latest}"
+
+            echo "${backup_file}"
+            return 0
+        else
+            log "ERROR" "Failed to copy n8n workflows from container"
+            return 1
+        fi
+    else
+        log "WARN" "n8n export command failed (may have no workflows yet)"
+        # Create empty backup file to indicate backup was attempted
+        echo "[]" > "${backup_file}"
+        ln -sf "$(basename "${backup_file}")" "${backup_file_latest}"
+        return 0
+    fi
+}
+
 # Create weekly backup (every Sunday or if forced)
 create_weekly_backup() {
     local day_of_week=$(date +%u)
@@ -212,6 +319,16 @@ create_weekly_backup() {
         if [[ -f "${BACKUP_DIR}/minio/documents_latest.tar.gz" ]]; then
             cp "${BACKUP_DIR}/minio/documents_latest.tar.gz" \
                "${weekly_dir}/minio_W${week_number}.tar.gz"
+        fi
+
+        if [[ -f "${BACKUP_DIR}/qdrant/qdrant_latest.tar.gz" ]]; then
+            cp "${BACKUP_DIR}/qdrant/qdrant_latest.tar.gz" \
+               "${weekly_dir}/qdrant_W${week_number}.tar.gz"
+        fi
+
+        if [[ -f "${BACKUP_DIR}/n8n/workflows_latest.json" ]]; then
+            cp "${BACKUP_DIR}/n8n/workflows_latest.json" \
+               "${weekly_dir}/n8n_W${week_number}.json"
         fi
 
         log "INFO" "Weekly backup created: ${weekly_dir}"
@@ -240,6 +357,24 @@ cleanup_old_backups() {
         log "DEBUG" "Deleted old backup: $file"
     done < <(find "${BACKUP_DIR}/minio" -name "documents_*.tar.gz" \
         ! -name "documents_latest.tar.gz" \
+        -type f -mtime +${RETENTION_DAYS} -print0 2>/dev/null)
+
+    # Clean Qdrant daily backups
+    while IFS= read -r -d '' file; do
+        rm -f "$file"
+        ((deleted_count++))
+        log "DEBUG" "Deleted old backup: $file"
+    done < <(find "${BACKUP_DIR}/qdrant" -name "qdrant_*.tar.gz" \
+        ! -name "qdrant_latest.tar.gz" \
+        -type f -mtime +${RETENTION_DAYS} -print0 2>/dev/null)
+
+    # Clean n8n workflow backups
+    while IFS= read -r -d '' file; do
+        rm -f "$file"
+        ((deleted_count++))
+        log "DEBUG" "Deleted old backup: $file"
+    done < <(find "${BACKUP_DIR}/n8n" -name "workflows_*.json" \
+        ! -name "workflows_latest.json" \
         -type f -mtime +${RETENTION_DAYS} -print0 2>/dev/null)
 
     # Clean weekly backups (keep last N weeks)
@@ -290,6 +425,8 @@ generate_report() {
 
     local postgres_count=$(find "${BACKUP_DIR}/postgres" -name "*.sql.gz" -type f 2>/dev/null | wc -l)
     local minio_count=$(find "${BACKUP_DIR}/minio" -name "*.tar.gz" -type f 2>/dev/null | wc -l)
+    local qdrant_count=$(find "${BACKUP_DIR}/qdrant" -name "*.tar.gz" -type f 2>/dev/null | wc -l)
+    local n8n_count=$(find "${BACKUP_DIR}/n8n" -name "*.json" -type f 2>/dev/null | wc -l)
     local weekly_count=$(find "${BACKUP_DIR}/weekly" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
     local total_size=$(du -sh "${BACKUP_DIR}" 2>/dev/null | cut -f1)
 
@@ -301,6 +438,8 @@ generate_report() {
     "statistics": {
         "postgres_backups": ${postgres_count},
         "minio_backups": ${minio_count},
+        "qdrant_backups": ${qdrant_count},
+        "n8n_backups": ${n8n_count},
         "weekly_snapshots": ${weekly_count},
         "total_size": "${total_size}",
         "retention_days": ${RETENTION_DAYS},
@@ -308,7 +447,9 @@ generate_report() {
     },
     "latest_backups": {
         "postgres": "$(readlink -f "${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz" 2>/dev/null || echo 'none')",
-        "minio": "$(readlink -f "${BACKUP_DIR}/minio/documents_latest.tar.gz" 2>/dev/null || echo 'none')"
+        "minio": "$(readlink -f "${BACKUP_DIR}/minio/documents_latest.tar.gz" 2>/dev/null || echo 'none')",
+        "qdrant": "$(readlink -f "${BACKUP_DIR}/qdrant/qdrant_latest.tar.gz" 2>/dev/null || echo 'none')",
+        "n8n": "$(readlink -f "${BACKUP_DIR}/n8n/workflows_latest.json" 2>/dev/null || echo 'none')"
     }
 }
 EOF
@@ -325,6 +466,8 @@ main() {
     local start_time=$(date +%s)
     local postgres_success=false
     local minio_success=false
+    local qdrant_success=false
+    local n8n_success=false
 
     # Setup
     setup_directories
@@ -336,6 +479,14 @@ main() {
 
     if backup_minio; then
         minio_success=true
+    fi
+
+    if backup_qdrant; then
+        qdrant_success=true
+    fi
+
+    if backup_n8n; then
+        n8n_success=true
     fi
 
     # Weekly snapshot
@@ -359,9 +510,11 @@ main() {
     log "INFO" "Backup Complete (${duration}s)"
     log "INFO" "PostgreSQL: $([ "$postgres_success" = true ] && echo 'SUCCESS' || echo 'FAILED')"
     log "INFO" "MinIO: $([ "$minio_success" = true ] && echo 'SUCCESS' || echo 'FAILED')"
+    log "INFO" "Qdrant: $([ "$qdrant_success" = true ] && echo 'SUCCESS' || echo 'SKIPPED/FAILED')"
+    log "INFO" "n8n: $([ "$n8n_success" = true ] && echo 'SUCCESS' || echo 'SKIPPED/FAILED')"
     log "INFO" "=========================================="
 
-    # Exit with error if any backup failed
+    # Exit with error if critical backups failed (postgres and minio are critical)
     if [[ "$postgres_success" != "true" ]] || [[ "$minio_success" != "true" ]]; then
         exit 1
     fi

@@ -64,6 +64,10 @@ CRITICAL_WINDOW_MINUTES = 30
 MAX_FAILURES_IN_WINDOW = 3
 MAX_CRITICAL_EVENTS = 3
 
+# Reboot safety limits (SECURITY: prevent reboot loops)
+MAX_REBOOTS_PER_HOUR = int(os.getenv('MAX_REBOOTS_PER_HOUR', '1'))
+REBOOT_COOLDOWN_MINUTES = int(os.getenv('REBOOT_COOLDOWN_MINUTES', '30'))
+
 # Application services (excluding system services)
 APPLICATION_SERVICES = [
     'llm-service',
@@ -694,13 +698,21 @@ class SelfHealingEngine:
             )
             logger.info("Old logs cleaned")
 
-            # Docker system prune
-            logger.info("Running Docker system prune")
+            # Docker system prune (WITHOUT --volumes to protect data)
+            # SECURITY FIX: Removed --volumes flag to prevent accidental data loss
+            logger.info("Running Docker system prune (without volumes)")
             result = subprocess.run(
-                ['docker', 'system', 'prune', '-af', '--volumes'],
+                ['docker', 'system', 'prune', '-af'],
                 capture_output=True, timeout=120
             )
             logger.info(f"Docker cleanup: {result.stdout.decode()}")
+
+            # Only prune old unused images (older than 7 days)
+            logger.info("Pruning old unused images")
+            subprocess.run(
+                ['docker', 'image', 'prune', '-af', '--filter', 'until=168h'],
+                capture_output=True, timeout=60
+            )
 
             # Clean Docker build cache
             logger.info("Cleaning Docker build cache")
@@ -946,6 +958,7 @@ class SelfHealingEngine:
         logger.info("Performing reboot safety checks...")
 
         # Check 1: Verify reboot is not due to a bug (too frequent reboots)
+        # SECURITY FIX: Stricter reboot limits to prevent reboot loops
         try:
             recent_reboots_query = """
                 SELECT COUNT(*) FROM reboot_events
@@ -959,13 +972,14 @@ class SelfHealingEngine:
                 recent_count = result.fetchone()[0]
                 result.close()
 
-                if recent_count >= 3:
-                    logger.error(f"Safety check failed: {recent_count} reboots in last hour (max 2)")
+                # SECURITY FIX: Stricter reboot limits (configurable via MAX_REBOOTS_PER_HOUR)
+                if recent_count >= MAX_REBOOTS_PER_HOUR:
+                    logger.error(f"Safety check failed: {recent_count} reboots in last hour (max {MAX_REBOOTS_PER_HOUR})")
                     self.log_event(
                         'reboot_safety_check_failed',
                         'CRITICAL',
-                        f'Too many recent reboots: {recent_count} in last hour',
-                        'Reboot aborted - possible reboot loop',
+                        f'Too many recent reboots: {recent_count} in last hour (limit: {MAX_REBOOTS_PER_HOUR})',
+                        'Reboot aborted - possible reboot loop detected',
                         None,
                         False
                     )

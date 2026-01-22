@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
+import DOMPurify from 'dompurify';
 
 // Initialize mermaid with dark theme settings
 mermaid.initialize({
@@ -66,7 +67,9 @@ function MermaidDiagram({ content }) {
 
       // Render the diagram
       const { svg: renderedSvg } = await mermaid.render(idRef.current, diagramCode);
-      setSvg(renderedSvg);
+      // Sanitize SVG to prevent XSS attacks
+      const sanitizedSvg = DOMPurify.sanitize(renderedSvg, { USE_PROFILES: { svg: true } });
+      setSvg(sanitizedSvg);
     } catch (err) {
       console.error('Mermaid rendering error:', err);
       setError(err.message || 'Failed to render diagram');
