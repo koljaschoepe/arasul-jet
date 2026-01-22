@@ -207,16 +207,16 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 - [x] Alle Service-URLs zentral definiert mit strukturierten Objekten
 - [x] 16 Dateien auf Import umgestellt (routes + services)
 
-### 3.3 Tests: Kritische Lucken schliessen
+### 3.3 Tests: Kritische Lucken schliessen ✅
 **Aufwand:** 16h | **Impact:** Qualitatssicherung
 
-**Backend Routes ohne Tests (15+):**
-- [ ] `telegram.js` - 6 Endpoints
-- [ ] `alerts.js` - 4 Endpoints (KRITISCH fur Monitoring!)
-- [ ] `selfhealing.js` - 3 Endpoints
-- [ ] `workflows.js` - 3 Endpoints
-- [ ] `appstore.js` - 3 Endpoints
-- [ ] `claudeTerminal.js` - 3 Endpoints
+**Backend Routes mit neuen Tests:**
+- [x] `alerts.js` - 14 Endpoints getestet (KRITISCH fur Monitoring!)
+- [x] `selfhealing.js` - 6 Endpoints getestet
+- [x] `workflows.js` - 7 Endpoints getestet
+- [x] `appstore.js` - 16 Endpoints getestet
+- [x] `claudeTerminal.js` - 5 Endpoints getestet
+- [ ] `telegram.js` - bereits in telegram.test.js vorhanden
 
 **Python Services ohne Tests:**
 - [ ] `llm-service` - AI Core!
