@@ -1270,7 +1270,7 @@ function ChatMulti() {
           <div className="messages-wrapper">
             {messages.map((message, index) => (
               <div
-                key={index}
+                key={message.id || message.jobId || `${currentChatId}-msg-${index}`}
                 className={`message ${message.role === 'user' ? 'user' : 'assistant'}`}
               >
                 <div className="message-label">

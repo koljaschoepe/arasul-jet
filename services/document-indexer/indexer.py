@@ -231,9 +231,11 @@ class DocumentIndexer:
     def get_embedding(self, text: str) -> Optional[List[float]]:
         """Get embedding vector for text from embedding service"""
         try:
+            # HIGH-PRIORITY-FIX 2.5: Send text as list, not string
+            # The embedding service expects {"texts": ["text1", "text2"]}
             response = requests.post(
                 f"http://{EMBEDDING_HOST}:{EMBEDDING_PORT}/embed",
-                json={"texts": text},
+                json={"texts": [text]},  # FIX: Wrap in list
                 timeout=30
             )
             response.raise_for_status()
@@ -243,6 +245,36 @@ class DocumentIndexer:
         except Exception as e:
             logger.error(f"Error getting embedding: {e}")
             return None
+
+    def get_batch_embeddings(self, texts: List[str]) -> List[Optional[List[float]]]:
+        """
+        HIGH-PRIORITY-FIX 2.5: Get embeddings for multiple texts in a single request
+        This is much more efficient than calling get_embedding() for each chunk
+        """
+        if not texts:
+            return []
+
+        try:
+            response = requests.post(
+                f"http://{EMBEDDING_HOST}:{EMBEDDING_PORT}/embed",
+                json={"texts": texts},  # Send all texts at once
+                timeout=60  # Longer timeout for batches
+            )
+            response.raise_for_status()
+            result = response.json()
+            vectors = result.get('vectors', [])
+
+            # Ensure we return same number of results as inputs
+            if len(vectors) != len(texts):
+                logger.warning(f"Embedding count mismatch: got {len(vectors)}, expected {len(texts)}")
+                # Pad with None if needed
+                while len(vectors) < len(texts):
+                    vectors.append(None)
+
+            return vectors
+        except Exception as e:
+            logger.error(f"Error getting batch embeddings: {e}")
+            return [None] * len(texts)
 
     def get_document_hash(self, object_name: str, data: bytes) -> str:
         """Calculate hash of document for tracking"""
@@ -325,40 +357,53 @@ class DocumentIndexer:
                 self.update_document_status(object_name, 'failed', error='No chunks generated')
                 return
 
-            # Generate embeddings and store in Qdrant
+            # HIGH-PRIORITY-FIX 2.5: Generate embeddings in batches for efficiency
+            # Process chunks in batches of 10 to reduce HTTP overhead
             points = []
-            for i, chunk in enumerate(chunks):
-                embedding = self.get_embedding(chunk)
-                if embedding is None:
-                    logger.warning(f"Failed to get embedding for chunk {i} of {object_name}")
-                    continue
+            batch_size = 10
 
-                # Generate UUID from hash for deterministic but valid point ID
-                point_id = str(uuid.UUID(hashlib.md5(f"{doc_hash}:{i}".encode()).hexdigest()))
+            for batch_start in range(0, len(chunks), batch_size):
+                batch_end = min(batch_start + batch_size, len(chunks))
+                batch_chunks = chunks[batch_start:batch_end]
 
-                # RAG 2.0: Extended payload with space metadata
-                payload = {
-                    "document_name": object_name,
-                    "document_hash": doc_hash,
-                    "chunk_index": i,
-                    "total_chunks": len(chunks),
-                    "text": chunk,
-                    "indexed_at": time.time(),
-                    # RAG 2.0 fields
-                    "document_id": document_id,
-                    "space_id": space_id,
-                    "space_name": space_name or "",
-                    "space_slug": space_slug or "",
-                    "title": doc_title or object_name,
-                    "document_summary": doc_summary or ""
-                }
+                # Get embeddings for entire batch at once
+                batch_embeddings = self.get_batch_embeddings(batch_chunks)
 
-                point = PointStruct(
-                    id=point_id,
-                    vector=embedding,
-                    payload=payload
-                )
-                points.append(point)
+                for j, (chunk, embedding) in enumerate(zip(batch_chunks, batch_embeddings)):
+                    i = batch_start + j  # Global chunk index
+
+                    if embedding is None:
+                        logger.warning(f"Failed to get embedding for chunk {i} of {object_name}")
+                        continue
+
+                    # Generate UUID from hash for deterministic but valid point ID
+                    point_id = str(uuid.UUID(hashlib.md5(f"{doc_hash}:{i}".encode()).hexdigest()))
+
+                    # RAG 2.0: Extended payload with space metadata
+                    payload = {
+                        "document_name": object_name,
+                        "document_hash": doc_hash,
+                        "chunk_index": i,
+                        "total_chunks": len(chunks),
+                        "text": chunk,
+                        "indexed_at": time.time(),
+                        # RAG 2.0 fields
+                        "document_id": document_id,
+                        "space_id": space_id,
+                        "space_name": space_name or "",
+                        "space_slug": space_slug or "",
+                        "title": doc_title or object_name,
+                        "document_summary": doc_summary or ""
+                    }
+
+                    point = PointStruct(
+                        id=point_id,
+                        vector=embedding,
+                        payload=payload
+                    )
+                    points.append(point)
+
+                logger.debug(f"Processed batch {batch_start//batch_size + 1}: {len(batch_chunks)} chunks")
 
             if points:
                 self.qdrant_client.upsert(

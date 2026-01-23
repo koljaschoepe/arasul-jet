@@ -17,11 +17,16 @@ Endpoints:
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import subprocess
 import logging
 import psutil
 import os
+import re
 import json
+import threading
+import time
 from datetime import datetime
 
 app = Flask(__name__)
@@ -37,6 +42,50 @@ logger = logging.getLogger(__name__)
 # Configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama3.1:8b")  # Used for session reset
+
+# HIGH-PRIORITY-FIX 2.2: Background CPU monitoring to avoid blocking requests
+_cpu_percent = 0.0
+_cpu_last_update = 0
+_cpu_lock = threading.Lock()
+
+def _update_cpu_percent():
+    """Background thread for CPU monitoring - updates every 3 seconds"""
+    global _cpu_percent, _cpu_last_update
+    while True:
+        try:
+            cpu = psutil.cpu_percent(interval=1)
+            with _cpu_lock:
+                _cpu_percent = cpu
+                _cpu_last_update = time.time()
+        except Exception as e:
+            logger.warning(f"CPU monitoring error: {e}")
+        time.sleep(2)  # Total cycle: 1s measure + 2s sleep = 3s
+
+# Start CPU monitoring thread
+_cpu_thread = threading.Thread(target=_update_cpu_percent, daemon=True)
+_cpu_thread.start()
+
+
+def create_retry_session(retries=3, backoff_factor=0.5):
+    """
+    HIGH-PRIORITY-FIX 2.3: Create HTTP session with automatic retry logic
+    for transient network failures during model operations
+    """
+    session = requests.Session()
+    retry = Retry(
+        total=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods=["POST", "GET", "DELETE"]
+    )
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=5, pool_maxsize=10)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
+
+
+# Global session with connection pooling and retry logic
+_http_session = create_retry_session()
 
 
 @app.route('/health', methods=['GET'])
@@ -103,6 +152,8 @@ def pull_model():
     """
     Download a model (called from Dashboard)
     Body: {"model": "llama3.1:8b"}
+
+    HIGH-PRIORITY-FIX 2.3: Added retry logic and input validation
     """
     try:
         data = request.get_json()
@@ -111,10 +162,17 @@ def pull_model():
         if not model_name:
             return jsonify({"error": "model parameter required"}), 400
 
+        # Input validation - prevent injection and limit length
+        if len(model_name) > 255:
+            return jsonify({"error": "Model name too long (max 255 chars)"}), 400
+        if not re.match(r'^[a-zA-Z0-9_:./-]+$', model_name):
+            return jsonify({"error": "Invalid model name format"}), 400
+
         logger.info(f"Pulling model: {model_name}")
 
-        # Start model pull (can take long!)
-        response = requests.post(
+        # Use retry session for transient network failures
+        # This will automatically retry up to 3 times with exponential backoff
+        response = _http_session.post(
             f"{OLLAMA_BASE_URL}/api/pull",
             json={"name": model_name},
             stream=False,
@@ -134,6 +192,11 @@ def pull_model():
                 "message": response.text
             }), 500
 
+    except requests.exceptions.RetryError as e:
+        logger.error(f"Model pull failed after retries: {e}")
+        return jsonify({
+            "error": "Download failed after multiple retries. Please check network connection."
+        }), 503
     except Exception as e:
         logger.error(f"Pull model error: {e}")
         return jsonify({"error": str(e)}), 500
@@ -303,7 +366,12 @@ def reset_session():
 
 @app.route('/api/stats', methods=['GET'])
 def stats():
-    """Return current GPU/Memory statistics"""
+    """
+    Return current GPU/Memory statistics
+
+    HIGH-PRIORITY-FIX 2.1: Added validation for Jetson Orin GPU memory values
+    HIGH-PRIORITY-FIX 2.2: Non-blocking CPU measurement via background thread
+    """
     try:
         # GPU Stats via nvidia-smi
         gpu_util = "N/A"
@@ -321,9 +389,37 @@ def stats():
                 check=True
             )
             parts = result.stdout.strip().split(',')
-            gpu_util = f"{parts[0].strip()}%"
-            gpu_memory = f"{parts[1].strip()}MB / {parts[2].strip()}MB"
-            gpu_temp = f"{parts[3].strip()}°C"
+
+            # HIGH-PRIORITY-FIX 2.1: Validate GPU values (Jetson Orin returns [N/A])
+            raw_util = parts[0].strip() if len(parts) > 0 else ""
+            raw_mem_used = parts[1].strip() if len(parts) > 1 else ""
+            raw_mem_total = parts[2].strip() if len(parts) > 2 else ""
+            raw_temp = parts[3].strip() if len(parts) > 3 else ""
+
+            # GPU Utilization validation
+            if raw_util and raw_util.replace('%', '').isdigit():
+                gpu_util = f"{raw_util}%"
+            elif '[N/A]' in raw_util or 'N/A' in raw_util:
+                gpu_util = "Integrated GPU"
+            else:
+                gpu_util = raw_util if raw_util else "N/A"
+
+            # GPU Memory validation (Jetson uses shared memory)
+            if raw_mem_used.isdigit() and raw_mem_total.isdigit():
+                gpu_memory = f"{raw_mem_used}MB / {raw_mem_total}MB"
+            elif '[N/A]' in raw_mem_used or '[N/A]' in raw_mem_total:
+                gpu_memory = "Shared (Jetson)"
+            else:
+                gpu_memory = "N/A"
+
+            # GPU Temperature validation
+            if raw_temp and raw_temp.replace('.', '').isdigit():
+                gpu_temp = f"{raw_temp}°C"
+            elif '[N/A]' in raw_temp:
+                gpu_temp = "N/A (Jetson)"
+            else:
+                gpu_temp = raw_temp if raw_temp else "N/A"
+
         except subprocess.CalledProcessError as e:
             logger.warning(f"nvidia-smi command failed: {e}")
         except Exception as e:
@@ -333,11 +429,11 @@ def stats():
         process = psutil.Process()
         mem_info = process.memory_info()
 
-        # CPU usage
-        cpu_percent = psutil.cpu_percent(interval=1)
+        # HIGH-PRIORITY-FIX 2.2: Use cached CPU value from background thread
+        # This eliminates the 1-second blocking call that was slowing down the endpoint
+        with _cpu_lock:
+            cpu_percent = _cpu_percent
 
-        # SEC-010 FIX: Use Python datetime instead of subprocess for timestamp
-        from datetime import datetime
         return jsonify({
             "gpu_utilization": gpu_util,
             "gpu_memory": gpu_memory,
