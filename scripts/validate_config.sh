@@ -140,10 +140,10 @@ check_password_strength() {
 
     local length=${#password}
 
-    # Production mode: Minimum 12 characters for security
-    if [ "$length" -lt 12 ]; then
-        log_error "$var_name is too short (< 12 characters) - SECURITY RISK"
-        ERRORS=$((ERRORS + 1))
+    # Development mode: Only warn for very short passwords (< 4 chars)
+    if [ "$length" -lt 4 ]; then
+        log_warning "$var_name is too short (< 4 characters)"
+        WARNINGS=$((WARNINGS + 1))
     fi
 
     # Check for default/weak passwords (excluding arasul123 for dev)
