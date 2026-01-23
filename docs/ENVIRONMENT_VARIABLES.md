@@ -72,6 +72,7 @@ All variables are defined in `.env` file at repository root.
 | LLM_MAX_RAM_GB | 40 | Max RAM allocation (GB) |
 | LLM_GPU_LAYERS | 33 | GPU layers |
 | LLM_KEEP_ALIVE_SECONDS | 300 | Model unload timeout |
+| OLLAMA_STARTUP_TIMEOUT | 120 | Ollama startup timeout (seconds) |
 
 ---
 
@@ -134,6 +135,7 @@ When enabled, the queue system batches all requests for the currently loaded mod
 | DOCUMENT_INDEXER_CHUNK_SIZE | 500 | Chunk size (chars) |
 | DOCUMENT_INDEXER_CHUNK_OVERLAP | 50 | Chunk overlap (chars) |
 | DOCUMENT_INDEXER_MINIO_BUCKET | documents | Source bucket |
+| DOCUMENT_MAX_SIZE_MB | 100 | Maximum file size (MB) |
 
 ---
 

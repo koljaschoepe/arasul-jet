@@ -197,6 +197,8 @@ services:
       # This ensures models persist across container restarts (see HIGH-017)
       LLM_MODEL: ${LLM_MODEL:-qwen3:14b-q8}
       LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-300}
+      # CRITICAL-FIX: Configurable startup timeout (default 120s, increase for slow systems)
+      OLLAMA_STARTUP_TIMEOUT: ${OLLAMA_STARTUP_TIMEOUT:-120}
     volumes:
       - arasul-llm-models:/root/.ollama
       - ./services/llm-service/healthcheck.sh:/healthcheck.sh:ro
@@ -320,6 +322,8 @@ services:
       DOCUMENT_INDEXER_ENABLE_AI: ${DOCUMENT_INDEXER_ENABLE_AI:-true}
       DOCUMENT_INDEXER_ENABLE_SIMILARITY: ${DOCUMENT_INDEXER_ENABLE_SIMILARITY:-true}
       DOCUMENT_INDEXER_SIMILARITY_THRESHOLD: ${DOCUMENT_INDEXER_SIMILARITY_THRESHOLD:-0.8}
+      # CRITICAL-FIX: Maximum file size to prevent OOM (default 100MB)
+      DOCUMENT_MAX_SIZE_MB: ${DOCUMENT_MAX_SIZE_MB:-100}
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -559,6 +563,11 @@ services:
       TZ: "Europe/Berlin"
       # Custom nodes are baked into the image via Dockerfile
       N8N_CUSTOM_EXTENSIONS: /custom-nodes
+      # n8n 2.x: Trust proxy for correct X-Forwarded-For handling (behind Traefik)
+      N8N_TRUST_PROXY: "true"
+      # n8n 2.x: Enable task runners for secure code execution (sandbox)
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_RUNNERS_MODE: "internal"
     volumes:
       - arasul-n8n:/home/node/.n8n
       # Mount credential templates

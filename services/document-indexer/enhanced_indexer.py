@@ -60,6 +60,10 @@ CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHUNK_SIZE', '500'))
 CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
 INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '30'))
 
+# CRITICAL-FIX: Maximum file size limit to prevent OOM (default: 100MB)
+MAX_FILE_SIZE_MB = int(os.getenv('DOCUMENT_MAX_SIZE_MB', '100'))
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
 # AI Features
 ENABLE_AI_ANALYSIS = os.getenv('DOCUMENT_INDEXER_ENABLE_AI', 'true').lower() == 'true'
 ENABLE_SIMILARITY = os.getenv('DOCUMENT_INDEXER_ENABLE_SIMILARITY', 'true').lower() == 'true'
@@ -379,6 +383,34 @@ class EnhancedDocumentIndexer:
         # Check if file type is supported
         if file_ext not in self.parsers:
             logger.info(f"Skipping unsupported file: {filename}")
+            return None
+
+        # CRITICAL-FIX: File size validation to prevent OOM on large files
+        file_size_mb = len(data) / (1024 * 1024)
+        if len(data) > MAX_FILE_SIZE_BYTES:
+            logger.warning(
+                f"File {filename} exceeds max size ({file_size_mb:.1f}MB > {MAX_FILE_SIZE_MB}MB), "
+                f"skipping. Set DOCUMENT_MAX_SIZE_MB to increase limit."
+            )
+            # Try to create a record to track the rejection
+            try:
+                doc_data = {
+                    'filename': filename,
+                    'original_filename': filename,
+                    'file_path': object_name,
+                    'file_size': len(data),
+                    'mime_type': self.get_mime_type(filename),
+                    'file_extension': file_ext,
+                    'status': 'failed',
+                }
+                doc_id = self.db.create_document(doc_data)
+                self.db.update_document_status(
+                    doc_id,
+                    'failed',
+                    f'File size ({file_size_mb:.1f}MB) exceeds {MAX_FILE_SIZE_MB}MB limit'
+                )
+            except Exception as e:
+                logger.debug(f"Could not create rejection record: {e}")
             return None
 
         # Calculate hashes

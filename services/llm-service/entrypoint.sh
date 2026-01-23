@@ -17,13 +17,17 @@ OLLAMA_PID=$!
 echo "Ollama server started with PID: $OLLAMA_PID"
 
 # Wait until Ollama is ready
-echo "[2/3] Waiting for Ollama to be ready..."
-MAX_ATTEMPTS=30
+# CRITICAL-FIX: Configurable timeout via environment variable (default: 120s)
+# This prevents startup failures on heavily loaded systems where Ollama takes longer to initialize
+OLLAMA_STARTUP_TIMEOUT=${OLLAMA_STARTUP_TIMEOUT:-120}
+MAX_ATTEMPTS=$((OLLAMA_STARTUP_TIMEOUT / 2))
 ATTEMPT=0
+
+echo "[2/3] Waiting for Ollama to be ready (max ${OLLAMA_STARTUP_TIMEOUT}s)..."
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-        echo "✓ Ollama is ready!"
+        echo "✓ Ollama is ready! (took $((ATTEMPT * 2))s)"
         break
     fi
     ATTEMPT=$((ATTEMPT + 1))
@@ -31,8 +35,9 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     sleep 2
 done
 
-if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-    echo "ERROR: Ollama failed to start within $((MAX_ATTEMPTS * 2)) seconds"
+if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
+    echo "ERROR: Ollama failed to start within ${OLLAMA_STARTUP_TIMEOUT} seconds"
+    echo "TIP: Set OLLAMA_STARTUP_TIMEOUT to a higher value if this persists"
     kill $OLLAMA_PID 2>/dev/null || true
     exit 1
 fi

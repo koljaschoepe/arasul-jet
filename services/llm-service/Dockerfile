@@ -39,7 +39,9 @@ EXPOSE 11436
 VOLUME ["/root/.ollama"]
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+# CRITICAL-FIX: Increased start-period from 60s to 300s to prevent container restart loops
+# on heavy GPU loads where Ollama + model loading can exceed 60s
+HEALTHCHECK --interval=30s --timeout=5s --start-period=300s --retries=3 \
     CMD curl -f http://localhost:11436/health || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
