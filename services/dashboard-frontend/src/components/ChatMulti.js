@@ -64,10 +64,73 @@ function ChatMulti() {
   const abortControllersRef = useRef({}); // Track abort controllers per chat
   const generationRef = useRef(0); // RACE-001: Generation counter to detect chat switches during async operations
 
-  // RENDER-001: Token batching refs to reduce re-renders
-  const tokenBatchRef = useRef({ content: '', thinking: '' });
+  // RENDER-001: Token batching refs to reduce re-renders during streaming
+  // Instead of updating state on every single token (can be 100+ times/second),
+  // we batch tokens and update state at most every BATCH_INTERVAL_MS
+  const tokenBatchRef = useRef({ content: '', thinking: '', pendingContent: '', pendingThinking: '' });
   const batchTimerRef = useRef(null);
   const BATCH_INTERVAL_MS = 50; // Update state every 50ms instead of on every token
+
+  // Flush batched tokens to state - called periodically or when stream ends
+  const flushTokenBatch = useCallback((assistantMessageIndex, forceFlush = false) => {
+    const batch = tokenBatchRef.current;
+
+    // Only update if there are pending tokens
+    if (batch.pendingContent || batch.pendingThinking || forceFlush) {
+      // Accumulate pending tokens
+      if (batch.pendingContent) {
+        batch.content += batch.pendingContent;
+        batch.pendingContent = '';
+      }
+      if (batch.pendingThinking) {
+        batch.thinking += batch.pendingThinking;
+        batch.pendingThinking = '';
+      }
+
+      // Update state with accumulated content
+      setMessages(prevMessages => {
+        const updated = [...prevMessages];
+        if (updated[assistantMessageIndex]) {
+          updated[assistantMessageIndex] = {
+            ...updated[assistantMessageIndex],
+            content: batch.content,
+            thinking: batch.thinking,
+            hasThinking: batch.thinking.length > 0
+          };
+        }
+        return updated;
+      });
+    }
+  }, []);
+
+  // Schedule a batched flush if not already scheduled
+  const scheduleTokenFlush = useCallback((assistantMessageIndex) => {
+    if (!batchTimerRef.current) {
+      batchTimerRef.current = setTimeout(() => {
+        flushTokenBatch(assistantMessageIndex);
+        batchTimerRef.current = null;
+      }, BATCH_INTERVAL_MS);
+    }
+  }, [flushTokenBatch]);
+
+  // Add token to batch (instead of immediately updating state)
+  const addTokenToBatch = useCallback((type, token, assistantMessageIndex) => {
+    if (type === 'content') {
+      tokenBatchRef.current.pendingContent += token;
+    } else if (type === 'thinking') {
+      tokenBatchRef.current.pendingThinking += token;
+    }
+    scheduleTokenFlush(assistantMessageIndex);
+  }, [scheduleTokenFlush]);
+
+  // Reset batch state for new stream
+  const resetTokenBatch = useCallback(() => {
+    tokenBatchRef.current = { content: '', thinking: '', pendingContent: '', pendingThinking: '' };
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+      batchTimerRef.current = null;
+    }
+  }, []);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -86,12 +149,9 @@ function ChatMulti() {
       abortControllersRef.current = {};
 
       // Clear batch timer if exists
-      if (batchTimerRef.current) {
-        clearTimeout(batchTimerRef.current);
-        batchTimerRef.current = null;
-      }
+      resetTokenBatch();
     };
-  }, []);
+  }, [resetTokenBatch]);
 
   // Load all chats on mount
   useEffect(() => {
@@ -682,9 +742,10 @@ function ChatMulti() {
     const abortController = new AbortController();
     abortControllersRef.current[targetChatId] = abortController;
 
+    // RENDER-001: Reset token batch for new stream
+    resetTokenBatch();
+
     try {
-      let fullResponse = '';
-      let fullThinking = '';
       let ragSources = [];
       let streamError = false;
       let currentJobId = null;
@@ -800,25 +861,17 @@ function ChatMulti() {
               }
             }
 
+            // RENDER-001: Use batched token updates to reduce re-renders
             if (data.type === 'thinking' && data.token) {
-              fullThinking += data.token;
               if (isCurrentChat) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      thinking: fullThinking,
-                      hasThinking: true
-                    };
-                  }
-                  return updated;
-                });
+                addTokenToBatch('thinking', data.token, assistantMessageIndex);
               }
             }
 
             if (data.type === 'thinking_end') {
               if (isCurrentChat) {
+                // Flush pending thinking tokens before collapsing
+                flushTokenBatch(assistantMessageIndex, true);
                 setMessages(prevMessages => {
                   const updated = [...prevMessages];
                   if (updated[assistantMessageIndex]) {
@@ -833,22 +886,16 @@ function ChatMulti() {
             }
 
             if (data.type === 'response' && data.token) {
-              fullResponse += data.token;
               if (isCurrentChat) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      content: fullResponse
-                    };
-                  }
-                  return updated;
-                });
+                addTokenToBatch('content', data.token, assistantMessageIndex);
               }
             }
 
             if (data.type === 'done' || data.done) {
+              // RENDER-001: Flush any remaining tokens before marking done
+              if (isCurrentChat) {
+                flushTokenBatch(assistantMessageIndex, true);
+              }
               // Clear active job
               setActiveJobIds(prev => {
                 const newState = { ...prev };
@@ -864,6 +911,9 @@ function ChatMulti() {
 
         if (streamError) break;
       }
+
+      // RENDER-001: Get accumulated content from batch for final check
+      const { content: fullResponse, thinking: fullThinking } = tokenBatchRef.current;
 
       // Backend saves message automatically - just reload for UI sync
       if (fullResponse || fullThinking) {
@@ -899,8 +949,9 @@ function ChatMulti() {
       if (currentChatIdRef.current === targetChatId) {
         setIsLoading(false);
       }
-      // Cleanup abort controller
+      // Cleanup abort controller and batch timer
       delete abortControllersRef.current[targetChatId];
+      resetTokenBatch();
     }
   };
 
@@ -948,10 +999,11 @@ function ChatMulti() {
     const abortController = new AbortController();
     abortControllersRef.current[targetChatId] = abortController;
 
+    // RENDER-001: Reset token batch for new stream
+    resetTokenBatch();
+
     try {
       const token = localStorage.getItem('arasul_token');
-      let fullResponse = '';
-      let fullThinking = '';
       let streamError = false;
       let currentJobId = null;
 
@@ -1030,25 +1082,17 @@ function ChatMulti() {
             // Only update UI if still viewing the same chat
             const isCurrentChat = currentChatIdRef.current === targetChatId;
 
+            // RENDER-001: Use batched token updates to reduce re-renders
             if (data.type === 'thinking' && data.token) {
-              fullThinking += data.token;
               if (isCurrentChat) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      thinking: fullThinking,
-                      hasThinking: true
-                    };
-                  }
-                  return updated;
-                });
+                addTokenToBatch('thinking', data.token, assistantMessageIndex);
               }
             }
 
             if (data.type === 'thinking_end') {
               if (isCurrentChat) {
+                // Flush pending thinking tokens before collapsing
+                flushTokenBatch(assistantMessageIndex, true);
                 setMessages(prevMessages => {
                   const updated = [...prevMessages];
                   if (updated[assistantMessageIndex]) {
@@ -1063,22 +1107,16 @@ function ChatMulti() {
             }
 
             if (data.type === 'response' && data.token) {
-              fullResponse += data.token;
               if (isCurrentChat) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      content: fullResponse
-                    };
-                  }
-                  return updated;
-                });
+                addTokenToBatch('content', data.token, assistantMessageIndex);
               }
             }
 
             if (data.done) {
+              // RENDER-001: Flush any remaining tokens before marking done
+              if (isCurrentChat) {
+                flushTokenBatch(assistantMessageIndex, true);
+              }
               // Clear active job
               setActiveJobIds(prev => {
                 const newState = { ...prev };
@@ -1094,6 +1132,9 @@ function ChatMulti() {
 
         if (streamError) break;
       }
+
+      // RENDER-001: Get accumulated content from batch for final check
+      const { content: fullResponse, thinking: fullThinking } = tokenBatchRef.current;
 
       // Backend saves message automatically - just reload for UI sync
       if (fullResponse || fullThinking) {
@@ -1129,8 +1170,9 @@ function ChatMulti() {
       if (currentChatIdRef.current === targetChatId) {
         setIsLoading(false);
       }
-      // Cleanup abort controller
+      // Cleanup abort controller and batch timer
       delete abortControllersRef.current[targetChatId];
+      resetTokenBatch();
     }
   };
 
