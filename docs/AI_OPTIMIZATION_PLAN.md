@@ -919,33 +919,36 @@ const getValidToken = () => {
 
 ## Implementierungsreihenfolge
 
-### Sprint 1: Kritische Fixes (1-2 Tage)
+### Sprint 1: Kritische Fixes (1-2 Tage) ✅ COMPLETED
 1. ✅ 1.1 Health Check Start Period (5 min)
 2. ✅ 1.2 Flexibler Ollama Startup (15 min)
 3. ✅ 1.3 Memory-Limit für Dokumente (20 min)
 
-### Sprint 2: Hohe Priorität (3-5 Tage)
-4. 2.1 GPU Memory Validation (15 min)
-5. 2.2 CPU-Messung ohne Blocking (30 min)
-6. 2.3 Retry-Logik für Model Pull (30 min)
-7. 2.5 Batch-Embedding Fix (45 min)
-8. 2.6 Token Batching Frontend (1h)
-9. 2.7 Message-Keys mit IDs (30 min)
-10. 2.4 Parallele Dokument-Verarbeitung (2-3h)
+### Sprint 2: Hohe Priorität (3-5 Tage) ✅ COMPLETED
+4. ✅ 2.1 GPU Memory Validation (15 min)
+5. ✅ 2.2 CPU-Messung ohne Blocking (30 min)
+6. ✅ 2.3 Retry-Logik für Model Pull (30 min)
+7. ✅ 2.5 Batch-Embedding Fix (45 min)
+8. ✅ 2.6 Token Batching Frontend (1h)
+9. ✅ 2.7 Message-Keys mit IDs (30 min)
+10. ⏸️ 2.4 Parallele Dokument-Verarbeitung (2-3h) - Deferred
 
-### Sprint 3: Mittlere Priorität (1 Woche)
-11. 3.1 Connection Pooling (30 min)
-12. 3.2 Model Metadata Caching (20 min)
-13. 3.5 Memoization Frontend (15 min)
-14. 3.7 Async Embedding Backend (30 min)
-15. 3.3 Streaming PDF Parsing (1-2h)
-16. 3.4 Similarity-Optimierung (1-2h)
+### Sprint 3: Mittlere Priorität (1 Woche) ✅ COMPLETED
+11. ✅ 3.1 Connection Pooling (30 min) - Implemented in 2.3
+12. ✅ 3.2 Model Metadata Caching (20 min)
+13. ✅ 3.5 Memoization Frontend (15 min)
+14. ✅ 3.7 Async Embedding Backend (30 min)
+15. ✅ 3.3 Streaming PDF Parsing (1-2h)
+16. ✅ 3.4 Similarity-Optimierung (1-2h)
+17. ⏸️ 3.6 Virtualisierung Frontend (3-4h) - Deferred (requires new dependency)
+18. ⏸️ 3.8 FP16 Quantization Option (30 min) - ✅ COMPLETED
 
-### Sprint 4: Niedrige Priorität (Optional)
-17. 4.1 Dokumentation Fix (5 min)
-18. 4.3 JSON-Parser Healthcheck (30 min)
-19. 3.6 Virtualisierung Frontend (3-4h)
-20. 4.2 Async Model Pull (1-2h)
+### Sprint 4: Niedrige Priorität (Optional) ✅ PARTIALLY COMPLETED
+19. ✅ 4.1 Dokumentation Fix (5 min)
+20. ✅ 4.3 JSON-Parser Healthcheck (30 min)
+21. ✅ 4.5 localStorage Token Validation (30 min)
+22. ⏸️ 4.2 Async Model Pull (1-2h) - Deferred
+23. ⏸️ 4.4 Embedding Request Queuing (2h) - Deferred
 
 ---
 
@@ -994,3 +997,4 @@ const getValidToken = () => {
 | Datum | Version | Änderung |
 |-------|---------|----------|
 | 2026-01-23 | 1.0 | Initiale Erstellung |
+| 2026-01-23 | 2.0 | Sprint 1-4 implementiert (Critical, High, Medium, Low Priority Fixes) |
