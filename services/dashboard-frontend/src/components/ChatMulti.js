@@ -678,7 +678,8 @@ function ChatMulti() {
     }
   };
 
-  const toggleThinking = (index) => {
+  // MEDIUM-PRIORITY-FIX 3.5: Memoized toggle functions to prevent unnecessary re-renders
+  const toggleThinking = useCallback((index) => {
     setMessages(prevMessages => {
       const updated = [...prevMessages];
       updated[index] = {
@@ -687,9 +688,9 @@ function ChatMulti() {
       };
       return updated;
     });
-  };
+  }, []);
 
-  const toggleSources = (index) => {
+  const toggleSources = useCallback((index) => {
     setMessages(prevMessages => {
       const updated = [...prevMessages];
       updated[index] = {
@@ -698,7 +699,7 @@ function ChatMulti() {
       };
       return updated;
     });
-  };
+  }, []);
 
   const handleRAGSend = async () => {
     // Validate required fields

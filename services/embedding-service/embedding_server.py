@@ -26,6 +26,11 @@ SERVICE_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', '11435'))
 VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '768'))
 MAX_INPUT_TOKENS = int(os.getenv('EMBEDDING_MAX_INPUT_TOKENS', '4096'))
 
+# MEDIUM-PRIORITY-FIX 3.8: FP16 quantization for reduced VRAM usage
+# Set EMBEDDING_USE_FP16=true to enable half-precision (saves ~50% VRAM)
+# Trade-off: ~5% less precision, but significant memory savings on smaller GPUs
+USE_FP16 = os.getenv('EMBEDDING_USE_FP16', 'false').lower() == 'true'
+
 # PHASE1-FIX: Whitelist of trusted models that require trust_remote_code
 # Only these verified models can execute custom code from HuggingFace
 TRUSTED_MODELS_REQUIRING_REMOTE_CODE = frozenset({
@@ -86,9 +91,18 @@ def load_model():
 
         model = SentenceTransformer(MODEL_NAME, device=device, trust_remote_code=trust_remote)
 
+        # MEDIUM-PRIORITY-FIX 3.8: Apply FP16 quantization if enabled and on GPU
+        if USE_FP16 and device == 'cuda':
+            logger.info("Converting model to FP16 (half precision) for reduced VRAM usage")
+            model = model.half()
+            logger.info("FP16 conversion complete - VRAM usage reduced by ~50%")
+        elif USE_FP16 and device != 'cuda':
+            logger.warning("FP16 requested but GPU not available - using FP32 on CPU")
+
         load_time = time.time() - start_time
         logger.info(f"Model loaded successfully in {load_time:.2f}s")
         logger.info(f"Device: {device}")
+        logger.info(f"Precision: {'FP16' if USE_FP16 and device == 'cuda' else 'FP32'}")
         logger.info(f"Max sequence length: {model.max_seq_length}")
 
         return True

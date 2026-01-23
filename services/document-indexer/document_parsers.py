@@ -1,11 +1,14 @@
 """
 Document parsers for different file formats
 Supports PDF, DOCX, TXT, and Markdown
+
+MEDIUM-PRIORITY-FIX 3.3: Added streaming PDF parser for memory-efficient processing
 """
 
+import gc
 import logging
 from io import BytesIO
-from typing import IO
+from typing import IO, Generator, Optional
 
 import PyPDF2
 from docx import Document
@@ -40,6 +43,83 @@ def parse_pdf(file_obj: IO[bytes]) -> str:
     except Exception as e:
         logger.error(f"Error parsing PDF: {e}")
         raise
+
+
+def parse_pdf_streaming(file_obj: IO[bytes], gc_interval: int = 10) -> Generator[str, None, None]:
+    """
+    MEDIUM-PRIORITY-FIX 3.3: Memory-efficient streaming PDF parser
+
+    Parse PDF file page by page using a generator to reduce memory usage.
+    Useful for large PDFs (100+ pages) where loading all text at once
+    would cause memory spikes.
+
+    Args:
+        file_obj: File object containing PDF data
+        gc_interval: Run garbage collection every N pages (default: 10)
+
+    Yields:
+        Text content from each page
+
+    Example:
+        for page_text in parse_pdf_streaming(file_obj):
+            # Process page_text chunk by chunk
+            chunks = chunk_text(page_text)
+            for chunk in chunks:
+                process_chunk(chunk)
+    """
+    try:
+        pdf_reader = PyPDF2.PdfReader(file_obj)
+        total_pages = len(pdf_reader.pages)
+        logger.info(f"Starting streaming PDF parse: {total_pages} pages")
+
+        for page_num in range(total_pages):
+            try:
+                page = pdf_reader.pages[page_num]
+                text = page.extract_text()
+
+                if text and text.strip():
+                    yield text.strip()
+
+                # Explicit cleanup to free page memory
+                del page
+
+                # Periodic garbage collection for very large PDFs
+                if gc_interval > 0 and (page_num + 1) % gc_interval == 0:
+                    gc.collect()
+                    logger.debug(f"Processed {page_num + 1}/{total_pages} pages (GC triggered)")
+
+            except Exception as page_error:
+                logger.warning(f"Error extracting text from page {page_num + 1}: {page_error}")
+                # Continue with next page instead of failing entire document
+                continue
+
+        logger.info(f"Completed streaming PDF parse: {total_pages} pages processed")
+
+    except Exception as e:
+        logger.error(f"Error in streaming PDF parse: {e}")
+        raise
+
+
+def get_pdf_page_count(file_obj: IO[bytes]) -> int:
+    """
+    Get the number of pages in a PDF without extracting text.
+    Useful for progress tracking and deciding whether to use streaming parser.
+
+    Args:
+        file_obj: File object containing PDF data
+
+    Returns:
+        Number of pages in the PDF
+    """
+    try:
+        file_obj.seek(0)
+        pdf_reader = PyPDF2.PdfReader(file_obj)
+        count = len(pdf_reader.pages)
+        file_obj.seek(0)  # Reset for subsequent reads
+        return count
+    except Exception as e:
+        logger.error(f"Error getting PDF page count: {e}")
+        return 0
 
 
 def parse_docx(file_obj: IO[bytes]) -> str:

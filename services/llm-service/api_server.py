@@ -87,6 +87,12 @@ def create_retry_session(retries=3, backoff_factor=0.5):
 # Global session with connection pooling and retry logic
 _http_session = create_retry_session()
 
+# MEDIUM-PRIORITY-FIX 3.2: Model metadata caching to reduce Ollama API calls
+_model_cache = None
+_model_cache_time = 0
+_model_cache_lock = threading.Lock()
+MODEL_CACHE_TTL = 30  # Cache models for 30 seconds
+
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -121,9 +127,24 @@ def health():
 
 @app.route('/api/models', methods=['GET'])
 def list_models():
-    """List all downloaded models"""
+    """
+    List all downloaded models
+
+    MEDIUM-PRIORITY-FIX 3.2: Uses caching to reduce Ollama API calls
+    Cache TTL: 30 seconds (configurable via MODEL_CACHE_TTL)
+    """
+    global _model_cache, _model_cache_time
+
     try:
-        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        # Check cache first
+        now = time.time()
+        with _model_cache_lock:
+            if _model_cache is not None and (now - _model_cache_time) < MODEL_CACHE_TTL:
+                logger.debug("Returning cached model list")
+                return jsonify(_model_cache), 200
+
+        # Cache miss or expired - fetch from Ollama
+        response = _http_session.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
         if response.status_code != 200:
             return jsonify({"error": "Failed to fetch models"}), 500
 
@@ -137,10 +158,17 @@ def list_models():
                 "digest": m.get("digest")
             })
 
-        return jsonify({
+        result = {
             "models": models,
             "count": len(models)
-        }), 200
+        }
+
+        # Update cache
+        with _model_cache_lock:
+            _model_cache = result
+            _model_cache_time = now
+
+        return jsonify(result), 200
 
     except Exception as e:
         logger.error(f"List models error: {e}")
@@ -181,6 +209,11 @@ def pull_model():
 
         if response.status_code == 200:
             logger.info(f"Model {model_name} pulled successfully")
+            # MEDIUM-PRIORITY-FIX 3.2: Invalidate model cache after pull
+            global _model_cache, _model_cache_time
+            with _model_cache_lock:
+                _model_cache = None
+                _model_cache_time = 0
             return jsonify({
                 "status": "success",
                 "message": f"Model {model_name} pulled successfully"
@@ -225,6 +258,11 @@ def delete_model():
 
         if response.status_code == 200:
             logger.info(f"Model {model_name} deleted successfully")
+            # MEDIUM-PRIORITY-FIX 3.2: Invalidate model cache after delete
+            global _model_cache, _model_cache_time
+            with _model_cache_lock:
+                _model_cache = None
+                _model_cache_time = 0
             return jsonify({
                 "status": "success",
                 "message": f"Model {model_name} deleted successfully"
