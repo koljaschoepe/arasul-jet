@@ -104,6 +104,7 @@ check_gpu_availability() {
 }
 
 # Check 3: Model Loaded
+# LOW-PRIORITY-FIX 4.3: Use jq for JSON parsing if available, fallback to grep
 check_model_loaded() {
     log "Checking if model is loaded..."
 
@@ -115,28 +116,59 @@ check_model_loaded() {
         return 1
     fi
 
-    # Check if any models are available
-    MODEL_COUNT=$(echo "$MODELS_RESPONSE" | grep -o '"name"' | wc -l)
+    # LOW-PRIORITY-FIX 4.3: Use jq if available for more reliable JSON parsing
+    if command -v jq &> /dev/null; then
+        # Parse with jq (more reliable)
+        MODEL_COUNT=$(echo "$MODELS_RESPONSE" | jq '.models | length' 2>/dev/null || echo "0")
 
-    if [ "$MODEL_COUNT" -eq 0 ]; then
-        error "No models loaded"
-        return 1
-    fi
+        if [ "$MODEL_COUNT" -eq 0 ]; then
+            error "No models loaded"
+            return 1
+        fi
 
-    # Check if default model is available
-    if echo "$MODELS_RESPONSE" | grep -q "\"name\":\"${TEST_MODEL}\""; then
-        success "Model '${TEST_MODEL}' is loaded (${MODEL_COUNT} total models)"
-        return 0
-    else
-        warning "Default model '${TEST_MODEL}' not found, but ${MODEL_COUNT} other model(s) available"
-        # Get first available model name
-        TEST_MODEL=$(echo "$MODELS_RESPONSE" | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4)
-        if [ -n "$TEST_MODEL" ]; then
-            log "Using model: ${TEST_MODEL}"
+        # Check if default model is available
+        MODEL_EXISTS=$(echo "$MODELS_RESPONSE" | jq --arg model "$TEST_MODEL" '.models[]? | select(.name == $model) | .name' 2>/dev/null)
+
+        if [ -n "$MODEL_EXISTS" ]; then
+            success "Model '${TEST_MODEL}' is loaded (${MODEL_COUNT} total models)"
             return 0
         else
-            error "No usable models found"
+            warning "Default model '${TEST_MODEL}' not found, but ${MODEL_COUNT} other model(s) available"
+            # Get first available model name
+            FIRST_MODEL=$(echo "$MODELS_RESPONSE" | jq -r '.models[0].name // empty' 2>/dev/null)
+            if [ -n "$FIRST_MODEL" ]; then
+                TEST_MODEL="$FIRST_MODEL"
+                log "Using model: ${TEST_MODEL}"
+                return 0
+            else
+                error "No usable models found"
+                return 1
+            fi
+        fi
+    else
+        # Fallback to grep (less reliable but works without jq)
+        MODEL_COUNT=$(echo "$MODELS_RESPONSE" | grep -o '"name"' | wc -l)
+
+        if [ "$MODEL_COUNT" -eq 0 ]; then
+            error "No models loaded"
             return 1
+        fi
+
+        # Check if default model is available
+        if echo "$MODELS_RESPONSE" | grep -q "\"name\":\"${TEST_MODEL}\""; then
+            success "Model '${TEST_MODEL}' is loaded (${MODEL_COUNT} total models)"
+            return 0
+        else
+            warning "Default model '${TEST_MODEL}' not found, but ${MODEL_COUNT} other model(s) available"
+            # Get first available model name
+            TEST_MODEL=$(echo "$MODELS_RESPONSE" | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4)
+            if [ -n "$TEST_MODEL" ]; then
+                log "Using model: ${TEST_MODEL}"
+                return 0
+            else
+                error "No usable models found"
+                return 1
+            fi
         fi
     fi
 }

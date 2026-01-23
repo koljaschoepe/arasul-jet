@@ -15,12 +15,14 @@ Flexible LLM service based on Ollama with Dashboard-managed model downloads.
 
 ```
 Port 11434: Ollama API (for n8n workflows)
-Port 11435: Management API (for Dashboard + Self-Healing)
+Port 11436: Management API (for Dashboard + Self-Healing)
 ```
+
+Note: Port 11435 is reserved for the Embedding Service.
 
 ## API Endpoints
 
-### Management API (Port 11435)
+### Management API (Port 11436)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -54,7 +56,7 @@ docker-compose up -d llm-service
 ### Downloading a Model
 
 ```bash
-curl -X POST http://localhost:11435/api/models/pull \
+curl -X POST http://localhost:11436/api/models/pull \
   -H "Content-Type: application/json" \
   -d '{"model":"llama3.1:8b"}'
 ```
@@ -62,7 +64,7 @@ curl -X POST http://localhost:11435/api/models/pull \
 ### Listing Models
 
 ```bash
-curl http://localhost:11435/api/models
+curl http://localhost:11436/api/models
 ```
 
 ### Using in n8n
@@ -123,7 +125,7 @@ Any model from [Ollama Library](https://ollama.com/library):
 curl http://localhost:11434/api/tags
 
 # Check Management API
-curl http://localhost:11435/health
+curl http://localhost:11436/health
 ```
 
 ### No models available
@@ -131,7 +133,7 @@ curl http://localhost:11435/health
 Download a model first:
 
 ```bash
-curl -X POST http://localhost:11435/api/models/pull \
+curl -X POST http://localhost:11436/api/models/pull \
   -H "Content-Type: application/json" \
   -d '{"model":"llama3.1:8b"}'
 ```
