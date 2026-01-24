@@ -27,8 +27,13 @@ const StatusBadge = ({ status }) => {
   const Icon = config.icon;
 
   return (
-    <span className={`status-badge status-${status}`} style={{ '--status-color': config.color }}>
-      <Icon className={status === 'processing' ? 'spin' : ''} />
+    <span
+      className={`status-badge status-${status}`}
+      style={{ '--status-color': config.color }}
+      role="status"
+      aria-label={`Status: ${config.label}`}
+    >
+      <Icon className={status === 'processing' ? 'spin' : ''} aria-hidden="true" />
       {config.label}
     </span>
   );
@@ -37,7 +42,7 @@ const StatusBadge = ({ status }) => {
 // Category badge component
 const CategoryBadge = ({ name, color }) => (
   <span className="category-badge" style={{ '--cat-color': color || '#6b7280' }}>
-    <FiFolder />
+    <FiFolder aria-hidden="true" />
     {name || 'Unkategorisiert'}
   </span>
 );
@@ -45,7 +50,7 @@ const CategoryBadge = ({ name, color }) => (
 // Space badge component (RAG 2.0)
 const SpaceBadge = ({ name, color }) => (
   <span className="space-badge" style={{ '--space-color': color || '#6366f1' }}>
-    <FiFolder />
+    <FiFolder aria-hidden="true" />
     {name || 'Allgemein'}
   </span>
 );
@@ -88,6 +93,9 @@ function DocumentManager() {
   const [semanticSearch, setSemanticSearch] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [searching, setSearching] = useState(false);
+
+  // RC-003 FIX: Request ID counter for race condition protection in semantic search
+  const searchRequestIdRef = useRef(0);
 
   // Editor state
   const [showEditor, setShowEditor] = useState(false);
@@ -143,15 +151,15 @@ function DocumentManager() {
     }
   };
 
-  // Load statistics
-  const loadStatistics = async () => {
+  // Load statistics - wrapped in useCallback for stable reference
+  const loadStatistics = useCallback(async () => {
     try {
       const response = await axios.get(`${API_BASE}/documents/statistics`);
       setStatistics(response.data);
     } catch (err) {
       console.error('Error loading statistics:', err);
     }
-  };
+  }, []);
 
   // Load Knowledge Spaces (RAG 2.0)
   const loadSpaces = async () => {
@@ -185,21 +193,35 @@ function DocumentManager() {
     setShowSpaceModal(true);
   };
 
-  // Initial load
+  // ML-001 FIX: Use ref to track loadDocuments to prevent interval recreation
+  // when filter dependencies change. The interval should only be created once on mount.
+  const loadDocumentsRef = useRef(loadDocuments);
+  const loadStatisticsRef = useRef(loadStatistics);
+
+  // Keep refs in sync with latest functions
   useEffect(() => {
-    loadDocuments();
+    loadDocumentsRef.current = loadDocuments;
+  }, [loadDocuments]);
+
+  useEffect(() => {
+    loadStatisticsRef.current = loadStatistics;
+  }, [loadStatistics]);
+
+  // Initial load - empty dependency array for mount-only
+  useEffect(() => {
+    loadDocumentsRef.current();
     loadCategories();
-    loadStatistics();
+    loadStatisticsRef.current();
     loadSpaces();
 
-    // Refresh every 30 seconds
+    // Refresh every 30 seconds - uses refs so interval is only created once
     const interval = setInterval(() => {
-      loadDocuments();
-      loadStatistics();
+      loadDocumentsRef.current();
+      loadStatisticsRef.current();
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [loadDocuments]);
+  }, []); // Empty array - only run on mount
 
   // File upload handler
   const handleFileUpload = async (files) => {
@@ -338,21 +360,34 @@ function DocumentManager() {
     }
   };
 
-  // Semantic search
+  // Semantic search - RC-003 FIX: Race condition protection
   const handleSemanticSearch = async () => {
     if (!semanticSearch.trim()) return;
 
+    // Increment request ID to track this specific search
+    const currentRequestId = ++searchRequestIdRef.current;
     setSearching(true);
+
     try {
       const response = await axios.post(`${API_BASE}/documents/search`, {
         query: semanticSearch,
         top_k: 10
       });
-      setSearchResults(response.data);
+
+      // RC-003: Only update state if this is still the most recent search
+      if (searchRequestIdRef.current === currentRequestId) {
+        setSearchResults(response.data);
+      }
     } catch (err) {
-      setError('Fehler bei der Suche');
+      // Only show error if this is still the most recent search
+      if (searchRequestIdRef.current === currentRequestId) {
+        setError('Fehler bei der Suche');
+      }
     } finally {
-      setSearching(false);
+      // Only reset loading if this is still the most recent search
+      if (searchRequestIdRef.current === currentRequestId) {
+        setSearching(false);
+      }
     }
   };
 
@@ -389,69 +424,77 @@ function DocumentManager() {
   const totalPages = Math.ceil(totalDocuments / itemsPerPage);
 
   return (
-    <div className="document-manager">
+    <main className="document-manager" role="main" aria-label="Dokumentenverwaltung">
       {/* Header with statistics */}
-      <div className="dm-header">
-        <div className="dm-stats-row">
-          <div className="dm-stat-card">
-            <FiDatabase className="dm-stat-icon" />
+      <header className="dm-header" aria-label="Dokumenten-Statistiken">
+        <div className="dm-stats-row" role="group" aria-label="Übersicht">
+          <div className="dm-stat-card" aria-label={`${statistics?.total_documents || 0} Dokumente insgesamt`}>
+            <FiDatabase className="dm-stat-icon" aria-hidden="true" />
             <div className="dm-stat-content">
               <span className="dm-stat-value">{statistics?.total_documents || 0}</span>
               <span className="dm-stat-label">Dokumente</span>
             </div>
           </div>
-          <div className="dm-stat-card">
-            <FiCheck className="dm-stat-icon success" />
+          <div className="dm-stat-card" aria-label={`${statistics?.indexed_documents || 0} Dokumente indexiert`}>
+            <FiCheck className="dm-stat-icon success" aria-hidden="true" />
             <div className="dm-stat-content">
               <span className="dm-stat-value">{statistics?.indexed_documents || 0}</span>
               <span className="dm-stat-label">Indexiert</span>
             </div>
           </div>
-          <div className="dm-stat-card">
-            <FiClock className="dm-stat-icon warning" />
+          <div className="dm-stat-card" aria-label={`${statistics?.pending_documents || 0} Dokumente wartend`}>
+            <FiClock className="dm-stat-icon warning" aria-hidden="true" />
             <div className="dm-stat-content">
               <span className="dm-stat-value">{statistics?.pending_documents || 0}</span>
               <span className="dm-stat-label">Wartend</span>
             </div>
           </div>
-          <div className="dm-stat-card">
-            <FiLayers className="dm-stat-icon" />
+          <div className="dm-stat-card" aria-label={`${statistics?.total_chunks || 0} Text-Chunks`}>
+            <FiLayers className="dm-stat-icon" aria-hidden="true" />
             <div className="dm-stat-content">
               <span className="dm-stat-value">{statistics?.total_chunks || 0}</span>
               <span className="dm-stat-label">Chunks</span>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Knowledge Spaces Tabs (RAG 2.0) */}
-      <div className="dm-spaces-tabs">
-        <div className="spaces-tabs-list">
+      <nav className="dm-spaces-tabs" aria-label="Wissensbereiche">
+        <div className="spaces-tabs-list" role="tablist" aria-label="Dokumenten-Bereiche">
           <button
+            role="tab"
+            aria-selected={activeSpaceId === null}
             className={`space-tab ${activeSpaceId === null ? 'active' : ''}`}
             onClick={() => handleSpaceChange(null)}
           >
-            <FiFolder />
+            <FiFolder aria-hidden="true" />
             <span>Alle</span>
-            <span className="space-count">{statistics?.total_documents || 0}</span>
+            <span className="space-count" aria-label={`${statistics?.total_documents || 0} Dokumente`}>
+              {statistics?.total_documents || 0}
+            </span>
           </button>
           {spaces.map(space => (
             <button
               key={space.id}
+              role="tab"
+              aria-selected={activeSpaceId === space.id}
               className={`space-tab ${activeSpaceId === space.id ? 'active' : ''}`}
               onClick={() => handleSpaceChange(space.id)}
               style={{ '--space-color': space.color }}
             >
-              <FiFolder style={{ color: space.color }} />
+              <FiFolder style={{ color: space.color }} aria-hidden="true" />
               <span>{space.name}</span>
-              <span className="space-count">{space.document_count || 0}</span>
+              <span className="space-count" aria-label={`${space.document_count || 0} Dokumente`}>
+                {space.document_count || 0}
+              </span>
               {!space.is_default && !space.is_system && (
                 <button
                   className="space-edit-btn"
                   onClick={(e) => handleEditSpace(space, e)}
-                  title="Bearbeiten"
+                  aria-label={`${space.name} bearbeiten`}
                 >
-                  <FiSettings />
+                  <FiSettings aria-hidden="true" />
                 </button>
               )}
             </button>
@@ -462,13 +505,13 @@ function DocumentManager() {
               setEditingSpace(null);
               setShowSpaceModal(true);
             }}
-            title="Neuen Bereich erstellen"
+            aria-label="Neuen Bereich erstellen"
           >
-            <FiPlus />
+            <FiPlus aria-hidden="true" />
             <span>Neu</span>
           </button>
         </div>
-      </div>
+      </nav>
 
       {/* Active Space Description (if a space is selected) */}
       {activeSpaceId && spaces.find(s => s.id === activeSpaceId) && (
@@ -488,6 +531,10 @@ function DocumentManager() {
         onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
+        onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        aria-label="Dateien hochladen - Klicken oder Dateien hierher ziehen"
       >
         <input
           type="file"
@@ -496,16 +543,17 @@ function DocumentManager() {
           multiple
           accept=".pdf,.docx,.md,.markdown,.txt"
           style={{ display: 'none' }}
+          aria-label="Datei auswählen"
         />
 
         {uploading ? (
-          <div className="upload-progress">
+          <div className="upload-progress" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin={0} aria-valuemax={100}>
             <div className="progress-bar" style={{ width: `${uploadProgress}%` }} />
-            <span>{uploadProgress}% hochgeladen</span>
+            <span aria-live="polite">{uploadProgress}% hochgeladen</span>
           </div>
         ) : (
           <>
-            <FiUpload className="upload-icon" />
+            <FiUpload className="upload-icon" aria-hidden="true" />
             <p>
               Dateien hier ablegen oder klicken zum Auswählen
               {(uploadSpaceId || activeSpaceId) && spaces.length > 0 && (
@@ -521,63 +569,71 @@ function DocumentManager() {
 
       {/* Error message */}
       {error && (
-        <div className="dm-error">
-          <FiAlertCircle />
+        <div className="dm-error" role="alert" aria-live="assertive">
+          <FiAlertCircle aria-hidden="true" />
           <span>{error}</span>
-          <button onClick={() => setError(null)}><FiX /></button>
+          <button onClick={() => setError(null)} aria-label="Fehlermeldung schließen">
+            <FiX aria-hidden="true" />
+          </button>
         </div>
       )}
 
       {/* Semantic Search */}
-      <div className="dm-semantic-search">
-        <div className="semantic-search-input">
-          <FiCpu className="search-icon" />
+      <section className="dm-semantic-search" aria-label="Semantische Suche">
+        <div className="semantic-search-input" role="search">
+          <FiCpu className="search-icon" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
             placeholder="Semantische Suche in allen Dokumenten..."
             value={semanticSearch}
             onChange={(e) => setSemanticSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSemanticSearch()}
+            aria-label="Semantische Suche in Dokumenten"
           />
           <button
             className="search-btn"
             onClick={handleSemanticSearch}
             disabled={searching || !semanticSearch.trim()}
+            aria-label={searching ? 'Suche läuft...' : 'Suchen'}
           >
-            {searching ? <FiRefreshCw className="spin" /> : <FiSearch />}
+            {searching ? <FiRefreshCw className="spin" aria-hidden="true" /> : <FiSearch aria-hidden="true" />}
           </button>
         </div>
 
         {/* Search Results */}
         {searchResults && (
-          <div className="search-results">
+          <div className="search-results" role="region" aria-label="Suchergebnisse" aria-live="polite">
             <div className="search-results-header">
-              <h4>Suchergebnisse für "{searchResults.query}"</h4>
-              <button onClick={() => setSearchResults(null)}><FiX /></button>
+              <h4 id="search-results-title">Suchergebnisse für "{searchResults.query}"</h4>
+              <button onClick={() => setSearchResults(null)} aria-label="Suchergebnisse schließen">
+                <FiX aria-hidden="true" />
+              </button>
             </div>
             {searchResults.results.length === 0 ? (
               <p className="no-results">Keine Ergebnisse gefunden</p>
             ) : (
-              <div className="search-results-list">
+              <ul className="search-results-list" aria-labelledby="search-results-title">
                 {searchResults.results.map((result, idx) => (
-                  <div key={idx} className="search-result-item">
+                  <li key={idx} className="search-result-item">
                     <div className="result-header">
                       <span className="result-name">{result.document_name}</span>
-                      <span className="result-score">{(result.score * 100).toFixed(0)}%</span>
+                      <span className="result-score" aria-label={`Relevanz: ${(result.score * 100).toFixed(0)} Prozent`}>
+                        {(result.score * 100).toFixed(0)}%
+                      </span>
                     </div>
                     <p className="result-preview">{result.chunk_text}</p>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Filters */}
-      <div className="dm-filters">
+      <div className="dm-filters" role="group" aria-label="Dokumenten-Filter">
         <div className="filter-group">
-          <FiSearch className="filter-icon" />
+          <FiSearch className="filter-icon" aria-hidden="true" />
           <input
             type="text"
             placeholder="Dokumente suchen..."
@@ -586,17 +642,19 @@ function DocumentManager() {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
+            aria-label="Dokumente nach Namen suchen"
           />
         </div>
 
         <div className="filter-group">
-          <FiFilter className="filter-icon" />
+          <FiFilter className="filter-icon" aria-hidden="true" />
           <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);
               setCurrentPage(1);
             }}
+            aria-label="Nach Status filtern"
           >
             <option value="">Alle Status</option>
             <option value="indexed">Indexiert</option>
@@ -607,13 +665,14 @@ function DocumentManager() {
         </div>
 
         <div className="filter-group">
-          <FiFolder className="filter-icon" />
+          <FiFolder className="filter-icon" aria-hidden="true" />
           <select
             value={categoryFilter}
             onChange={(e) => {
               setCategoryFilter(e.target.value);
               setCurrentPage(1);
             }}
+            aria-label="Nach Kategorie filtern"
           >
             <option value="">Alle Kategorien</option>
             {categories.map(cat => (
@@ -622,35 +681,35 @@ function DocumentManager() {
           </select>
         </div>
 
-        <button className="refresh-btn" onClick={loadDocuments}>
-          <FiRefreshCw className={loading ? 'spin' : ''} />
+        <button className="refresh-btn" onClick={loadDocuments} aria-label="Dokumente aktualisieren">
+          <FiRefreshCw className={loading ? 'spin' : ''} aria-hidden="true" />
         </button>
       </div>
 
       {/* Documents List */}
-      <div className="dm-documents">
+      <section className="dm-documents" aria-label="Dokumentenliste">
         {loading && documents.length === 0 ? (
-          <div className="dm-loading">
-            <FiRefreshCw className="spin" />
+          <div className="dm-loading" role="status" aria-live="polite">
+            <FiRefreshCw className="spin" aria-hidden="true" />
             <p>Dokumente werden geladen...</p>
           </div>
         ) : documents.length === 0 ? (
-          <div className="dm-empty">
-            <FiFileText />
+          <div className="dm-empty" role="status">
+            <FiFileText aria-hidden="true" />
             <p>Keine Dokumente gefunden</p>
             <span>Laden Sie Dokumente hoch, um sie zu indexieren</span>
           </div>
         ) : (
-          <table className="dm-table">
+          <table className="dm-table" aria-label={`${documents.length} Dokumente`}>
             <thead>
               <tr>
-                <th></th>
-                <th>Dokument</th>
-                <th>Bereich</th>
-                <th>Status</th>
-                <th>Größe</th>
-                <th>Hochgeladen</th>
-                <th>Aktionen</th>
+                <th scope="col" aria-label="Favorit"></th>
+                <th scope="col">Dokument</th>
+                <th scope="col">Bereich</th>
+                <th scope="col">Status</th>
+                <th scope="col">Größe</th>
+                <th scope="col">Hochgeladen</th>
+                <th scope="col">Aktionen</th>
               </tr>
             </thead>
             <tbody>
@@ -659,18 +718,23 @@ function DocumentManager() {
                   key={doc.id}
                   className={`clickable-row ${doc.is_favorite ? 'favorite' : ''}`}
                   onClick={() => viewDocumentDetails(doc)}
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && viewDocumentDetails(doc)}
+                  aria-label={`${doc.title || doc.filename}, Status: ${doc.status}`}
                 >
                   <td>
                     <button
                       className={`favorite-btn ${doc.is_favorite ? 'active' : ''}`}
                       onClick={(e) => { e.stopPropagation(); toggleFavorite(doc); }}
+                      aria-label={doc.is_favorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
+                      aria-pressed={doc.is_favorite}
                     >
-                      <FiStar />
+                      <FiStar aria-hidden="true" />
                     </button>
                   </td>
                   <td className="doc-name-cell">
                     <div className="doc-info">
-                      <FiFile className="doc-icon" />
+                      <FiFile className="doc-icon" aria-hidden="true" />
                       <div>
                         <span className="doc-title">{doc.title || doc.filename}</span>
                         {doc.title && doc.title !== doc.filename && (
@@ -691,41 +755,41 @@ function DocumentManager() {
                     <button
                       className="action-btn"
                       onClick={() => viewDocumentDetails(doc)}
-                      title="Details"
+                      aria-label={`Details für ${doc.title || doc.filename} anzeigen`}
                     >
-                      <FiEye />
+                      <FiEye aria-hidden="true" />
                     </button>
                     {isEditable(doc) && (
                       <button
                         className="action-btn edit"
                         onClick={() => handleEdit(doc)}
-                        title="Bearbeiten"
+                        aria-label={`${doc.title || doc.filename} bearbeiten`}
                       >
-                        <FiEdit2 />
+                        <FiEdit2 aria-hidden="true" />
                       </button>
                     )}
                     <button
                       className="action-btn"
                       onClick={() => handleDownload(doc.id, doc.filename)}
-                      title="Download"
+                      aria-label={`${doc.filename} herunterladen`}
                     >
-                      <FiDownload />
+                      <FiDownload aria-hidden="true" />
                     </button>
                     {doc.status === 'failed' && (
                       <button
                         className="action-btn"
                         onClick={() => handleReindex(doc.id)}
-                        title="Neu indexieren"
+                        aria-label={`${doc.title || doc.filename} neu indexieren`}
                       >
-                        <FiRefreshCw />
+                        <FiRefreshCw aria-hidden="true" />
                       </button>
                     )}
                     <button
                       className="action-btn delete"
                       onClick={() => handleDelete(doc.id, doc.filename)}
-                      title="Löschen"
+                      aria-label={`${doc.title || doc.filename} löschen`}
                     >
-                      <FiTrash2 />
+                      <FiTrash2 aria-hidden="true" />
                     </button>
                   </td>
                 </tr>
@@ -733,34 +797,50 @@ function DocumentManager() {
             </tbody>
           </table>
         )}
-      </div>
+      </section>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="dm-pagination">
+        <nav className="dm-pagination" role="navigation" aria-label="Seitennavigation">
           <button
             disabled={currentPage === 1}
             onClick={() => setCurrentPage(p => p - 1)}
+            aria-label="Vorherige Seite"
           >
             Zurück
           </button>
-          <span>Seite {currentPage} von {totalPages}</span>
+          <span aria-live="polite" aria-atomic="true">
+            Seite {currentPage} von {totalPages}
+          </span>
           <button
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage(p => p + 1)}
+            aria-label="Nächste Seite"
           >
             Weiter
           </button>
-        </div>
+        </nav>
       )}
 
       {/* Document Details Modal */}
       {showDetails && selectedDocument && (
-        <div className="dm-modal-overlay" onClick={() => setShowDetails(false)}>
-          <div className="dm-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="dm-modal-overlay"
+          onClick={() => setShowDetails(false)}
+          role="presentation"
+        >
+          <div
+            className="dm-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="doc-modal-title"
+          >
             <div className="modal-header">
-              <h3>{selectedDocument.title || selectedDocument.filename}</h3>
-              <button onClick={() => setShowDetails(false)}><FiX /></button>
+              <h3 id="doc-modal-title">{selectedDocument.title || selectedDocument.filename}</h3>
+              <button onClick={() => setShowDetails(false)} aria-label="Dialog schließen">
+                <FiX aria-hidden="true" />
+              </button>
             </div>
 
             <div className="modal-body">
@@ -806,7 +886,7 @@ function DocumentManager() {
               {/* AI Summary */}
               {selectedDocument.summary && (
                 <div className="detail-section">
-                  <h4><FiCpu /> KI-Zusammenfassung</h4>
+                  <h4><FiCpu aria-hidden="true" /> KI-Zusammenfassung</h4>
                   <p className="summary-text">{selectedDocument.summary}</p>
                 </div>
               )}
@@ -814,26 +894,26 @@ function DocumentManager() {
               {/* Topics */}
               {selectedDocument.key_topics && selectedDocument.key_topics.length > 0 && (
                 <div className="detail-section">
-                  <h4><FiTag /> Themen</h4>
-                  <div className="topics-list">
+                  <h4><FiTag aria-hidden="true" /> Themen</h4>
+                  <ul className="topics-list" aria-label="Dokumenten-Themen">
                     {selectedDocument.key_topics.map((topic, idx) => (
-                      <span key={idx} className="topic-tag">{topic}</span>
+                      <li key={idx} className="topic-tag">{topic}</li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               )}
 
               {/* Category with confidence */}
               {selectedDocument.category_name && (
                 <div className="detail-section">
-                  <h4><FiFolder /> Kategorie</h4>
+                  <h4><FiFolder aria-hidden="true" /> Kategorie</h4>
                   <div className="category-info">
                     <CategoryBadge
                       name={selectedDocument.category_name}
                       color={selectedDocument.category_color}
                     />
                     {selectedDocument.category_confidence && (
-                      <span className="confidence">
+                      <span className="confidence" aria-label={`Konfidenz: ${(selectedDocument.category_confidence * 100).toFixed(0)} Prozent`}>
                         ({(selectedDocument.category_confidence * 100).toFixed(0)}% Konfidenz)
                       </span>
                     )}
@@ -844,34 +924,34 @@ function DocumentManager() {
               {/* Similar Documents */}
               {selectedDocument.status === 'indexed' && (
                 <div className="detail-section">
-                  <h4><FiLink /> Ähnliche Dokumente</h4>
+                  <h4><FiLink aria-hidden="true" /> Ähnliche Dokumente</h4>
                   {loadingSimilar ? (
-                    <div className="loading-similar">
-                      <FiRefreshCw className="spin" />
+                    <div className="loading-similar" role="status" aria-live="polite">
+                      <FiRefreshCw className="spin" aria-hidden="true" />
                       <span>Suche ähnliche Dokumente...</span>
                     </div>
                   ) : similarDocuments.length === 0 ? (
                     <p className="no-similar">Keine ähnlichen Dokumente gefunden</p>
                   ) : (
-                    <div className="similar-list">
+                    <ul className="similar-list" aria-label="Ähnliche Dokumente">
                       {similarDocuments.map((sim, idx) => (
-                        <div key={idx} className="similar-item">
-                          <FiFile />
+                        <li key={idx} className="similar-item">
+                          <FiFile aria-hidden="true" />
                           <span className="sim-name">{sim.title || sim.filename}</span>
-                          <span className="sim-score">
+                          <span className="sim-score" aria-label={`Ähnlichkeit: ${(sim.similarity_score * 100).toFixed(0)} Prozent`}>
                             {(sim.similarity_score * 100).toFixed(0)}%
                           </span>
-                        </div>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   )}
                 </div>
               )}
 
               {/* Error message if failed */}
               {selectedDocument.status === 'failed' && selectedDocument.processing_error && (
-                <div className="detail-section error-section">
-                  <h4><FiAlertCircle /> Fehler</h4>
+                <div className="detail-section error-section" role="alert">
+                  <h4><FiAlertCircle aria-hidden="true" /> Fehler</h4>
                   <p className="error-text">{selectedDocument.processing_error}</p>
                   <button
                     className="retry-btn"
@@ -879,14 +959,15 @@ function DocumentManager() {
                       handleReindex(selectedDocument.id);
                       setShowDetails(false);
                     }}
+                    aria-label="Indexierung erneut versuchen"
                   >
-                    <FiRefreshCw /> Erneut versuchen
+                    <FiRefreshCw aria-hidden="true" /> Erneut versuchen
                   </button>
                 </div>
               )}
             </div>
 
-            <div className="modal-footer">
+            <div className="modal-footer" role="group" aria-label="Aktionen">
               {isEditable(selectedDocument) && (
                 <button
                   className="modal-btn primary"
@@ -894,15 +975,17 @@ function DocumentManager() {
                     setShowDetails(false);
                     handleEdit(selectedDocument);
                   }}
+                  aria-label="Dokument bearbeiten"
                 >
-                  <FiEdit2 /> Bearbeiten
+                  <FiEdit2 aria-hidden="true" /> Bearbeiten
                 </button>
               )}
               <button
                 className="modal-btn secondary"
                 onClick={() => handleDownload(selectedDocument.id, selectedDocument.filename)}
+                aria-label="Dokument herunterladen"
               >
-                <FiDownload /> Download
+                <FiDownload aria-hidden="true" /> Download
               </button>
               <button
                 className="modal-btn danger"
@@ -910,8 +993,9 @@ function DocumentManager() {
                   handleDelete(selectedDocument.id, selectedDocument.filename);
                   setShowDetails(false);
                 }}
+                aria-label="Dokument löschen"
               >
-                <FiTrash2 /> Löschen
+                <FiTrash2 aria-hidden="true" /> Löschen
               </button>
             </div>
           </div>
@@ -940,7 +1024,7 @@ function DocumentManager() {
         space={editingSpace}
         mode={editingSpace ? 'edit' : 'create'}
       />
-    </div>
+    </main>
   );
 }
 

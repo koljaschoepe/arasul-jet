@@ -1,0 +1,279 @@
+/**
+ * Modal Styles
+ * PHASE 5: Accessible modal dialog styles
+ */
+
+/* Overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  animation: modal-overlay-fade-in 0.2s ease-out;
+}
+
+@keyframes modal-overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal container */
+.modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2rem);
+  background: var(--bg-card, #1A2330);
+  border: 1px solid var(--border-color, #2A3544);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  animation: modal-slide-in 0.2s ease-out;
+  outline: none;
+}
+
+@keyframes modal-slide-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Modal sizes */
+.modal-small {
+  width: 100%;
+  max-width: 400px;
+}
+
+.modal-medium {
+  width: 100%;
+  max-width: 560px;
+}
+
+.modal-large {
+  width: 100%;
+  max-width: 800px;
+}
+
+.modal-fullscreen {
+  width: calc(100vw - 2rem);
+  height: calc(100vh - 2rem);
+  max-width: none;
+  border-radius: 8px;
+}
+
+/* Modal header */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color, #2A3544);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary, #F8FAFC);
+}
+
+.modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted, #94A3B8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #F8FAFC);
+}
+
+.modal-close-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #45ADFF);
+  outline-offset: 2px;
+}
+
+/* Modal body */
+.modal-body {
+  flex: 1;
+  padding: 1.25rem;
+  overflow-y: auto;
+  color: var(--text-secondary, #CBD5E1);
+}
+
+/* Modal footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border-color, #2A3544);
+  flex-shrink: 0;
+}
+
+/* Modal actions */
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+/* Modal message */
+.modal-message {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--text-secondary, #CBD5E1);
+}
+
+/* Alert modal content */
+.alert-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+}
+
+.alert-modal-icon {
+  font-size: 2.5rem;
+}
+
+/* Alert types */
+.alert-info .modal-message {
+  color: var(--text-secondary, #CBD5E1);
+}
+
+.alert-success .modal-message {
+  color: #22C55E;
+}
+
+.alert-warning .modal-message {
+  color: #F59E0B;
+}
+
+.alert-error .modal-message {
+  color: #EF4444;
+}
+
+/* Button styles for modal */
+.modal .btn {
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal .btn-primary {
+  background: var(--primary-color, #45ADFF);
+  color: #000;
+}
+
+.modal .btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover, #6EC4FF);
+}
+
+.modal .btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-color, #2A3544);
+  color: var(--text-secondary, #CBD5E1);
+}
+
+.modal .btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--primary-color, #45ADFF);
+  color: var(--text-primary, #F8FAFC);
+}
+
+.modal .btn-danger {
+  background: #EF4444;
+  color: #fff;
+}
+
+.modal .btn-danger:hover:not(:disabled) {
+  background: #DC2626;
+}
+
+/* Focus visible for all modal buttons */
+.modal .btn:focus-visible {
+  outline: 2px solid var(--primary-color, #45ADFF);
+  outline-offset: 2px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-height: 90vh;
+    border-radius: 12px 12px 0 0;
+    animation: modal-slide-up 0.2s ease-out;
+  }
+
+  @keyframes modal-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-small,
+  .modal-medium,
+  .modal-large {
+    max-width: none;
+    width: 100%;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal .btn {
+    width: 100%;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal {
+    animation: none;
+  }
+}

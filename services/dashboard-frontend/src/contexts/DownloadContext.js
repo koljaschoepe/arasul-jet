@@ -41,6 +41,15 @@ export function DownloadProvider({ children }) {
     // Callbacks to notify when download completes (for ModelStore to refresh)
     const onCompleteCallbacksRef = useRef(new Set());
 
+    // RC-004 FIX: Use ref to track activeDownloads for polling
+    // This prevents the useEffect from re-running when activeDownloads changes
+    const activeDownloadsRef = useRef(activeDownloads);
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        activeDownloadsRef.current = activeDownloads;
+    }, [activeDownloads]);
+
     // Check for existing downloads on mount (poll DB state)
     useEffect(() => {
         const checkExistingDownloads = async () => {
@@ -81,9 +90,11 @@ export function DownloadProvider({ children }) {
 
         checkExistingDownloads();
 
-        // Poll every 5 seconds for download progress updates from DB
+        // RC-004 FIX: Poll using ref instead of state in dependency array
+        // This creates only one interval that persists for the component lifetime
         const pollInterval = setInterval(async () => {
-            const currentDownloads = Object.keys(activeDownloads);
+            // Use ref to get current downloads
+            const currentDownloads = Object.keys(activeDownloadsRef.current);
             if (currentDownloads.length === 0) return;
 
             try {
@@ -143,7 +154,7 @@ export function DownloadProvider({ children }) {
         }, 3000);
 
         return () => clearInterval(pollInterval);
-    }, [activeDownloads]);
+    }, []); // RC-004 FIX: Empty dependency array - only run on mount
 
     // Start a download
     const startDownload = useCallback(async (modelId, modelName) => {

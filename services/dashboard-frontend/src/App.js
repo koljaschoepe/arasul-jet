@@ -1,29 +1,37 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiLogOut, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft, FiSend, FiDownload } from 'react-icons/fi';
+import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft, FiSend, FiDownload } from 'react-icons/fi';
+
+// PHASE 2: Code-Splitting - Synchronous imports for critical components
 import Login from './components/Login';
-import Settings from './components/Settings';
-import ChatMulti from './components/ChatMulti';
-import DocumentManager from './components/DocumentManager';
-import AppStore from './components/AppStore';
-import ModelStore from './components/ModelStore';
-import ClaudeCode from './components/ClaudeCode';
-import TelegramBotApp from './components/TelegramBotApp';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
+
+// PHASE 3: State Management - Contexts and Hooks
 import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { useWebSocketMetrics } from './hooks/useWebSocketMetrics';
+
 import { API_BASE } from './config/api';
 import './index.css';
-// WebSocket URL: use wss:// if page is https://, otherwise ws://
-const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const WS_BASE = process.env.REACT_APP_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;
+
+// PHASE 2: Code-Splitting - Lazy imports for route components
+// These components are loaded on-demand when the user navigates to them
+const Settings = lazy(() => import('./components/Settings'));
+const ChatMulti = lazy(() => import('./components/ChatMulti'));
+const DocumentManager = lazy(() => import('./components/DocumentManager'));
+const AppStore = lazy(() => import('./components/AppStore'));
+const ModelStore = lazy(() => import('./components/ModelStore'));
+const ClaudeCode = lazy(() => import('./components/ClaudeCode'));
+const TelegramBotApp = lazy(() => import('./components/TelegramBotApp'));
 
 // Enable sending cookies with all requests (for LAN access support)
 axios.defaults.withCredentials = true;
 
-// Axios interceptor for authentication
+// Axios interceptor for authentication (request interceptor - adds token)
 axios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('arasul_token');
@@ -35,55 +43,54 @@ axios.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Track if we're already handling a 401 to prevent reload loops
-let isHandling401 = false;
-
-// Axios interceptor for 401 responses
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Don't trigger logout for auth/me endpoint (that's expected when not logged in)
-    const isAuthMeRequest = error.config?.url?.includes('/auth/me');
-    const isAuthRequest = error.config?.url?.includes('/auth/');
-
-    if (error.response?.status === 401 && !isAuthMeRequest && !isHandling401) {
-      // Token expired or invalid for a protected endpoint
-      isHandling401 = true;
-      console.log('[Auth] 401 received, clearing token and redirecting to login');
-      localStorage.removeItem('arasul_token');
-      localStorage.removeItem('arasul_user');
-
-      // Use a short delay to allow current request cycle to complete
-      setTimeout(() => {
-        // Only reload if we're not already on the login page
-        if (window.location.pathname !== '/') {
-          window.location.href = '/';
-        }
-        isHandling401 = false;
-      }, 100);
-    }
-    return Promise.reject(error);
-  }
-);
-
+/**
+ * Main App Component
+ * PHASE 3: Wraps the application with providers (AuthProvider, DownloadProvider)
+ */
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+  return (
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
+  );
+}
+
+/**
+ * App Content - Uses auth context and contains main app logic
+ * PHASE 3: Separated from App to use hooks inside AuthProvider
+ */
+function AppContent() {
+  const { isAuthenticated, loading: authLoading, login, logout } = useAuth();
+
+  // Dashboard state
   const [systemStatus, setSystemStatus] = useState(null);
-  const [metrics, setMetrics] = useState(null);
   const [metricsHistory, setMetricsHistory] = useState(null);
   const [services, setServices] = useState(null);
   const [workflows, setWorkflows] = useState(null);
   const [systemInfo, setSystemInfo] = useState(null);
   const [networkInfo, setNetworkInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [ws, setWs] = useState(null);
-  const [wsConnected, setWsConnected] = useState(false);
-  const [wsReconnecting, setWsReconnecting] = useState(false);
   const [runningApps, setRunningApps] = useState([]);
   const [thresholds, setThresholds] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState(null);
+
+  // PHASE 3: Use WebSocket hook for real-time metrics
+  const { metrics: wsMetrics } = useWebSocketMetrics(isAuthenticated);
+
+  // Local metrics state (updated by WebSocket or initial fetch)
+  const [metrics, setMetrics] = useState(null);
+
+  // Update metrics from WebSocket
+  useEffect(() => {
+    if (wsMetrics) {
+      setMetrics(wsMetrics);
+    }
+  }, [wsMetrics]);
 
   // Sidebar collapsed state - persisted in localStorage
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -140,73 +147,7 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleSidebar]);
 
-  // Check for existing session on mount (supports both localStorage and cookie-based auth)
-  useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        // Try to verify with backend (works with both cookie and localStorage token)
-        const response = await axios.get(`${API_BASE}/auth/me`);
-        if (response.data.user) {
-          setIsAuthenticated(true);
-          setUser(response.data.user);
-          // Sync localStorage for consistency
-          localStorage.setItem('arasul_user', JSON.stringify(response.data.user));
-        } else {
-          setLoading(false);
-        }
-      } catch (err) {
-        // Cookie/token invalid - check localStorage fallback
-        const token = localStorage.getItem('arasul_token');
-        const storedUser = localStorage.getItem('arasul_user');
-
-        if (token && storedUser) {
-          // Try with localStorage token (will be added by interceptor)
-          try {
-            const retryResponse = await axios.get(`${API_BASE}/auth/me`);
-            if (retryResponse.data.user) {
-              setIsAuthenticated(true);
-              setUser(retryResponse.data.user);
-            } else {
-              localStorage.removeItem('arasul_token');
-              localStorage.removeItem('arasul_user');
-              setLoading(false);
-            }
-          } catch {
-            localStorage.removeItem('arasul_token');
-            localStorage.removeItem('arasul_user');
-            setLoading(false);
-          }
-        } else {
-          setLoading(false);
-        }
-      }
-    };
-
-    verifyAuth();
-  }, []);
-
-  // Handle login success
-  const handleLoginSuccess = (data) => {
-    setIsAuthenticated(true);
-    setUser(data.user);
-    setLoading(true);
-  };
-
-  // Handle logout
-  const handleLogout = async () => {
-    try {
-      await axios.post(`${API_BASE}/auth/logout`);
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      localStorage.removeItem('arasul_token');
-      localStorage.removeItem('arasul_user');
-      setIsAuthenticated(false);
-      setUser(null);
-    }
-  };
-
-  // Fetch initial data
+  // Fetch initial dashboard data
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) return;
 
@@ -233,173 +174,43 @@ function App() {
       setRunningApps(appsRes.data.apps || []);
       setThresholds(thresholdsRes.data.thresholds);
       setDeviceInfo(thresholdsRes.data.device);
-      setLoading(false);
+      setDataLoading(false);
       setError(null);
 
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err.message);
-      setLoading(false);
+      setDataLoading(false);
     }
   }, [isAuthenticated]);
 
-  // Setup WebSocket for live metrics with robust reconnect logic
+  // Fetch data on auth change and setup refresh interval
   useEffect(() => {
     if (!isAuthenticated) return;
 
     fetchData();
-
-    let websocket = null;
-    let reconnectTimer = null;
-    let reconnectAttempts = 0;
-    let maxReconnectAttempts = 10;
-    let isIntentionallyClosed = false;
-
-    const calculateReconnectDelay = (attempt) => {
-      // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
-      const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
-      // Add jitter ±25%
-      const jitter = delay * 0.25 * (Math.random() * 2 - 1);
-      return Math.floor(delay + jitter);
-    };
-
-    let httpPollingInterval = null;
-
-    const startHttpPolling = () => {
-      console.log('Starting HTTP polling fallback for metrics...');
-
-      // Poll every 5 seconds (same as WebSocket)
-      httpPollingInterval = setInterval(async () => {
-        try {
-          const metricsRes = await axios.get(`${API_BASE}/metrics/live`);
-          setMetrics(metricsRes.data);
-        } catch (err) {
-          console.error('HTTP polling error:', err);
-        }
-      }, 5000);
-    };
-
-    const connectWebSocket = () => {
-      try {
-        websocket = new WebSocket(`${WS_BASE}/metrics/live-stream`);
-
-        websocket.onopen = () => {
-          console.log('WebSocket connected to live metrics stream');
-          reconnectAttempts = 0; // Reset attempts on successful connection
-          setWsConnected(true);
-          setWsReconnecting(false);
-
-          // Stop HTTP polling if it was running
-          if (httpPollingInterval) {
-            clearInterval(httpPollingInterval);
-            httpPollingInterval = null;
-          }
-        };
-
-        websocket.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            // Only update if data doesn't contain an error
-            if (!data.error) {
-              setMetrics(data);
-            } else {
-              console.warn('Metrics service temporarily unavailable:', data.error);
-            }
-          } catch (err) {
-            console.error('WebSocket message error:', err);
-          }
-        };
-
-        websocket.onerror = (error) => {
-          console.error('WebSocket error:', error);
-        };
-
-        websocket.onclose = (event) => {
-          setWsConnected(false);
-
-          // Don't reconnect if closed intentionally
-          if (isIntentionallyClosed) {
-            console.log('WebSocket closed intentionally');
-            return;
-          }
-
-          console.log(`WebSocket disconnected (code: ${event.code})`);
-
-          // Check if we should retry
-          if (reconnectAttempts >= maxReconnectAttempts) {
-            console.error('Max reconnect attempts reached. Falling back to HTTP polling.');
-            setWsReconnecting(false);
-            // Start HTTP polling fallback
-            startHttpPolling();
-            return;
-          }
-
-          reconnectAttempts++;
-          setWsReconnecting(true);
-          const delay = calculateReconnectDelay(reconnectAttempts - 1);
-
-          console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})...`);
-
-          reconnectTimer = setTimeout(() => {
-            connectWebSocket();
-          }, delay);
-        };
-
-        setWs(websocket);
-
-      } catch (error) {
-        console.error('Failed to create WebSocket:', error);
-
-        // Retry connection
-        if (reconnectAttempts < maxReconnectAttempts) {
-          reconnectAttempts++;
-          setWsReconnecting(true);
-          const delay = calculateReconnectDelay(reconnectAttempts - 1);
-          reconnectTimer = setTimeout(() => {
-            connectWebSocket();
-          }, delay);
-        } else {
-          // Fallback to HTTP polling
-          startHttpPolling();
-        }
-      }
-    };
-
-    // Initial connection
-    connectWebSocket();
 
     // Refresh non-metric data every 30 seconds
     const interval = setInterval(() => {
       fetchData();
     }, 30000);
 
-    return () => {
-      isIntentionallyClosed = true;
-      if (websocket) {
-        websocket.close();
-      }
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-      }
-      if (httpPollingInterval) {
-        clearInterval(httpPollingInterval);
-      }
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [fetchData, isAuthenticated]);
 
-  const getStatusColor = (status) => {
+  // PHASE 2: Memoize utility functions with useCallback
+  const getStatusColor = useCallback((status) => {
     if (status === 'OK') return 'status-ok';
     if (status === 'WARNING') return 'status-warning';
     return 'status-critical';
-  };
+  }, []);
 
-  const formatUptime = (seconds) => {
+  const formatUptime = useCallback((seconds) => {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${days}d ${hours}h ${minutes}m`;
-  };
+  }, []);
 
   const formatChartData = useCallback(() => {
     if (!metricsHistory) return [];
@@ -415,12 +226,26 @@ function App() {
     }));
   }, [metricsHistory]);
 
+  // Handle login success - called from Login component
+  const handleLoginSuccess = useCallback((data) => {
+    login(data);
+    setDataLoading(true);
+  }, [login]);
+
+  // Handle logout
+  const handleLogout = useCallback(async () => {
+    await logout();
+  }, [logout]);
+
   // Show login screen if not authenticated
   if (!isAuthenticated) {
+    if (authLoading) {
+      return <LoadingSpinner message="Prüfe Authentifizierung..." fullscreen={true} />;
+    }
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  if (loading) {
+  if (dataLoading) {
     return <LoadingSpinner message="Lade Dashboard..." fullscreen={true} />;
   }
 
@@ -440,51 +265,57 @@ function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <DownloadProvider>
-        <Router>
-          <div className="app">
-            <SidebarWithDownloads
-              systemStatus={systemStatus}
-              getStatusColor={getStatusColor}
-              collapsed={sidebarCollapsed}
-              onToggle={toggleSidebar}
-            />
+    <DownloadProvider>
+      <Router>
+        <div className="app">
+          {/* PHASE 5: Skip-to-content link for keyboard navigation */}
+          <a href="#main-content" className="skip-to-content">
+            Zum Hauptinhalt springen
+          </a>
 
-          <div className="container">
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <DashboardHome
-                    metrics={metrics}
-                    metricsHistory={metricsHistory}
-                    services={services}
-                    workflows={workflows}
-                    systemInfo={systemInfo}
-                    networkInfo={networkInfo}
-                    runningApps={runningApps}
-                    formatChartData={formatChartData}
-                    formatUptime={formatUptime}
-                    getStatusColor={getStatusColor}
-                    thresholds={thresholds}
-                    deviceInfo={deviceInfo}
-                  />
-                }
-              />
-              <Route path="/settings" element={<Settings handleLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />} />
-              <Route path="/chat" element={<ChatMulti />} />
-              <Route path="/documents" element={<DocumentManager />} />
-              <Route path="/appstore" element={<AppStore />} />
-              <Route path="/models" element={<ModelStore />} />
-              <Route path="/claude-code" element={<ClaudeCode />} />
-              <Route path="/telegram-bot" element={<TelegramBotApp />} />
-            </Routes>
+          <SidebarWithDownloads
+            systemStatus={systemStatus}
+            getStatusColor={getStatusColor}
+            collapsed={sidebarCollapsed}
+            onToggle={toggleSidebar}
+          />
+
+          <div className="container" id="main-content" role="main" tabIndex={-1}>
+            {/* PHASE 2: Suspense wrapper for lazy-loaded route components */}
+            <Suspense fallback={<LoadingSpinner message="Lade..." />}>
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <DashboardHome
+                      metrics={metrics}
+                      metricsHistory={metricsHistory}
+                      services={services}
+                      workflows={workflows}
+                      systemInfo={systemInfo}
+                      networkInfo={networkInfo}
+                      runningApps={runningApps}
+                      formatChartData={formatChartData}
+                      formatUptime={formatUptime}
+                      getStatusColor={getStatusColor}
+                      thresholds={thresholds}
+                      deviceInfo={deviceInfo}
+                    />
+                  }
+                />
+                <Route path="/settings" element={<Settings handleLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />} />
+                <Route path="/chat" element={<ChatMulti />} />
+                <Route path="/documents" element={<DocumentManager />} />
+                <Route path="/appstore" element={<AppStore />} />
+                <Route path="/models" element={<ModelStore />} />
+                <Route path="/claude-code" element={<ClaudeCode />} />
+                <Route path="/telegram-bot" element={<TelegramBotApp />} />
+              </Routes>
+            </Suspense>
           </div>
         </div>
-        </Router>
-      </DownloadProvider>
-    </ErrorBoundary>
+      </Router>
+    </DownloadProvider>
   );
 }
 
@@ -500,92 +331,149 @@ function SidebarWithDownloads(props) {
   );
 }
 
-function Sidebar({ systemStatus, getStatusColor, collapsed, onToggle, downloadCount = 0, activeDownloads = [] }) {
+// PHASE 2 & 5: Memoize Sidebar with ARIA accessibility
+const Sidebar = React.memo(function Sidebar({ systemStatus, getStatusColor, collapsed, onToggle, downloadCount = 0, activeDownloads = [] }) {
   const location = useLocation();
 
   const isActive = (path) => {
     return location.pathname === path ? 'nav-link active' : 'nav-link';
   };
 
+  // PHASE 5: Check if link is current page for aria-current
+  const isCurrent = (path) => location.pathname === path;
+
   // Build className based on collapsed state
   const sidebarClassName = `sidebar ${collapsed ? 'collapsed' : 'expanded'}`;
 
   return (
-    <div className={sidebarClassName}>
+    <aside
+      className={sidebarClassName}
+      aria-label="Hauptnavigation"
+    >
       <div className="sidebar-header">
         <h1 className="sidebar-title">{collapsed ? 'A' : 'Arasul'}</h1>
         <p className="sidebar-subtitle">Edge AI Platform</p>
         <button
           className="sidebar-toggle"
           onClick={onToggle}
+          aria-expanded={!collapsed}
+          aria-controls="sidebar-nav"
+          aria-label={collapsed ? 'Sidebar erweitern' : 'Sidebar minimieren'}
           title={collapsed ? 'Sidebar erweitern (Ctrl+B)' : 'Sidebar minimieren (Ctrl+B)'}
         >
-          <FiChevronLeft />
+          <FiChevronLeft aria-hidden="true" />
         </button>
       </div>
 
-      <nav className="navigation">
-        <div className="nav-bar">
-          <Link to="/" className={isActive('/')} title="Dashboard">
-            <FiHome /> <span>Dashboard</span>
-          </Link>
-          <Link to="/chat" className={isActive('/chat')} title="AI Chat">
-            <FiMessageSquare /> <span>AI Chat</span>
-          </Link>
-          <Link to="/documents" className={isActive('/documents')} title="Dokumente">
-            <FiFileText /> <span>Dokumente</span>
-          </Link>
-          <Link to="/appstore" className={isActive('/appstore')} title="Store">
-            <FiPackage /> <span>Store</span>
-          </Link>
-          <Link to="/models" className={`${isActive('/models')} ${downloadCount > 0 ? 'has-downloads' : ''}`} title="KI-Modelle">
-            <FiBox />
-            <span>KI-Modelle</span>
-            {downloadCount > 0 && (
-              <span className="download-badge" title={`${downloadCount} Download(s) aktiv`}>
-                <FiDownload className="download-badge-icon" />
-                {!collapsed && downloadCount}
-              </span>
-            )}
-          </Link>
-        </div>
+      <nav id="sidebar-nav" className="navigation" aria-label="Hauptmenü">
+        <ul className="nav-bar" role="menubar">
+          <li role="none">
+            <Link
+              to="/"
+              className={isActive('/')}
+              role="menuitem"
+              aria-current={isCurrent('/') ? 'page' : undefined}
+            >
+              <FiHome aria-hidden="true" /> <span>Dashboard</span>
+            </Link>
+          </li>
+          <li role="none">
+            <Link
+              to="/chat"
+              className={isActive('/chat')}
+              role="menuitem"
+              aria-current={isCurrent('/chat') ? 'page' : undefined}
+            >
+              <FiMessageSquare aria-hidden="true" /> <span>AI Chat</span>
+            </Link>
+          </li>
+          <li role="none">
+            <Link
+              to="/documents"
+              className={isActive('/documents')}
+              role="menuitem"
+              aria-current={isCurrent('/documents') ? 'page' : undefined}
+            >
+              <FiFileText aria-hidden="true" /> <span>Dokumente</span>
+            </Link>
+          </li>
+          <li role="none">
+            <Link
+              to="/appstore"
+              className={isActive('/appstore')}
+              role="menuitem"
+              aria-current={isCurrent('/appstore') ? 'page' : undefined}
+            >
+              <FiPackage aria-hidden="true" /> <span>Store</span>
+            </Link>
+          </li>
+          <li role="none">
+            <Link
+              to="/models"
+              className={`${isActive('/models')} ${downloadCount > 0 ? 'has-downloads' : ''}`}
+              role="menuitem"
+              aria-current={isCurrent('/models') ? 'page' : undefined}
+              aria-label={downloadCount > 0 ? `KI-Modelle, ${downloadCount} Downloads aktiv` : 'KI-Modelle'}
+            >
+              <FiBox aria-hidden="true" />
+              <span>KI-Modelle</span>
+              {downloadCount > 0 && (
+                <span className="download-badge" aria-hidden="true">
+                  <FiDownload className="download-badge-icon" />
+                  {!collapsed && downloadCount}
+                </span>
+              )}
+            </Link>
+          </li>
+        </ul>
       </nav>
 
       {/* Active Downloads Indicator */}
       {downloadCount > 0 && !collapsed && (
-        <div className="sidebar-downloads">
+        <section className="sidebar-downloads" aria-label="Aktive Downloads">
           <div className="sidebar-downloads-header">
-            <FiDownload className="spin-slow" />
+            <FiDownload className="spin-slow" aria-hidden="true" />
             <span>Downloads</span>
           </div>
-          <div className="sidebar-downloads-list">
+          <ul className="sidebar-downloads-list">
             {activeDownloads.slice(0, 3).map(dl => (
-              <div key={dl.modelId} className="sidebar-download-item">
+              <li key={dl.modelId} className="sidebar-download-item">
                 <span className="sidebar-download-name">{dl.modelName || dl.modelId}</span>
-                <div className="sidebar-download-progress">
+                <div
+                  className="sidebar-download-progress"
+                  role="progressbar"
+                  aria-valuenow={dl.progress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${dl.modelName || dl.modelId} Download`}
+                >
                   <div
                     className="sidebar-download-bar"
                     style={{ width: `${dl.progress}%` }}
                   />
                 </div>
-                <span className="sidebar-download-percent">{dl.progress}%</span>
-              </div>
+                <span className="sidebar-download-percent" aria-hidden="true">{dl.progress}%</span>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
 
       <div className="sidebar-footer">
-        {/* Einstellungen-Link */}
-        <Link to="/settings" className={`nav-link ${isActive('/settings')}`} title="Einstellungen">
-          <FiSettings /> <span>Einstellungen</span>
+        <Link
+          to="/settings"
+          className={`nav-link ${isActive('/settings')}`}
+          aria-current={isCurrent('/settings') ? 'page' : undefined}
+        >
+          <FiSettings aria-hidden="true" /> <span>Einstellungen</span>
         </Link>
       </div>
-    </div>
+    </aside>
   );
-}
+});
 
-function DashboardHome({
+// PHASE 2: Memoize DashboardHome to prevent re-renders when props haven't changed
+const DashboardHome = React.memo(function DashboardHome({
   metrics,
   metricsHistory,
   services,
@@ -932,6 +820,6 @@ function DashboardHome({
 
     </div>
   );
-}
+});
 
 export default App;

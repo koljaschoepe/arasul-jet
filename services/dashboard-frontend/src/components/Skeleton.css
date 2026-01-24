@@ -1,0 +1,194 @@
+/**
+ * Skeleton Loading Styles
+ * PHASE 4: Skeleton loading animations and styles
+ */
+
+/* Base skeleton with shimmer animation */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card, #1A2330) 0%,
+    var(--bg-elevated, #2A3544) 50%,
+    var(--bg-card, #1A2330) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Skeleton text */
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Skeleton avatar */
+.skeleton-avatar {
+  flex-shrink: 0;
+}
+
+/* Skeleton card */
+.skeleton-card {
+  background: var(--bg-card, #1A2330);
+  border: 1px solid var(--border-color, #2A3544);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.skeleton-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.skeleton-card-body {
+  padding-top: 0.5rem;
+}
+
+/* Skeleton list */
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Skeleton table */
+.skeleton-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-table-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-elevated, #2A3544);
+  border-radius: 8px 8px 0 0;
+}
+
+.skeleton-table-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color, #2A3544);
+}
+
+/* Skeleton stat card */
+.skeleton-stat-card {
+  background: var(--bg-card, #1A2330);
+  border: 1px solid var(--border-color, #2A3544);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.skeleton-stat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Skeleton chat message */
+.skeleton-chat-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.skeleton-chat-message.user {
+  justify-content: flex-end;
+}
+
+.skeleton-chat-message.assistant {
+  justify-content: flex-start;
+}
+
+.skeleton-message-content {
+  max-width: 70%;
+  background: var(--bg-card, #1A2330);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.skeleton-chat-message.user .skeleton-message-content {
+  background: rgba(69, 173, 255, 0.1);
+}
+
+/* Skeleton chat container */
+.skeleton-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+/* Skeleton document item */
+.skeleton-document-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card, #1A2330);
+  border: 1px solid var(--border-color, #2A3544);
+  border-radius: 8px;
+}
+
+.skeleton-document-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Skeleton document list */
+.skeleton-document-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Skeleton dashboard */
+.skeleton-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.skeleton-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.skeleton-chart {
+  width: 100%;
+}
+
+.skeleton-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--bg-elevated, #2A3544);
+  }
+}

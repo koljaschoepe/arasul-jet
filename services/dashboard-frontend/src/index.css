@@ -605,6 +605,50 @@ code {
   }
 }
 
+/* ========================================
+   PHASE 5: Skip-to-content Link (Accessibility)
+   Allows keyboard users to skip navigation
+   ======================================== */
+.skip-to-content {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  padding: 0.875rem 1.5rem;
+  background: var(--primary-color);
+  color: var(--text-on-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: var(--shadow-lg);
+  transition: top 0.2s ease;
+}
+
+.skip-to-content:focus {
+  top: 0;
+  outline: none;
+}
+
+.skip-to-content:focus-visible {
+  outline: 3px solid var(--primary-hover);
+  outline-offset: 2px;
+}
+
+/* Screen reader only utility class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .app {
   min-height: 100vh;
   display: flex;
@@ -625,6 +669,16 @@ code {
   position: relative;
   z-index: 1;
   animation: fadeIn 0.4s ease;
+}
+
+/* Focus style when skip-to-content link is used */
+.container:focus {
+  outline: none;
+}
+
+.container:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
 }
 
 /* Sidebar */
@@ -3591,5 +3645,146 @@ code {
   .message-body {
     background: #f5f5f5;
     border: 1px solid #ddd;
+  }
+}
+
+/* ========================================
+   TOAST NOTIFICATION SYSTEM
+   PHASE 4: Global toast notifications
+   ======================================== */
+
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-card, #1A2330);
+  border: 1px solid var(--border-color, #2A3544);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: toast-slide-in 0.3s ease-out;
+  pointer-events: auto;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.toast-message {
+  flex: 1;
+  color: var(--text-primary, #F8FAFC);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.toast-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, #94A3B8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #F8FAFC);
+}
+
+/* Toast types */
+.toast-success {
+  border-left: 3px solid #22C55E;
+}
+
+.toast-success .toast-icon {
+  color: #22C55E;
+}
+
+.toast-error {
+  border-left: 3px solid #EF4444;
+}
+
+.toast-error .toast-icon {
+  color: #EF4444;
+}
+
+.toast-warning {
+  border-left: 3px solid #F59E0B;
+}
+
+.toast-warning .toast-icon {
+  color: #F59E0B;
+}
+
+.toast-info {
+  border-left: 3px solid #45ADFF;
+}
+
+.toast-info .toast-icon {
+  color: #45ADFF;
+}
+
+/* Responsive toast */
+@media (max-width: 480px) {
+  .toast-container {
+    top: auto;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    max-width: none;
+  }
+
+  .toast {
+    animation: toast-slide-up 0.3s ease-out;
+  }
+
+  @keyframes toast-slide-up {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
   }
 }

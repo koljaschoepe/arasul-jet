@@ -72,6 +72,7 @@ function ChatMulti() {
   const BATCH_INTERVAL_MS = 50; // Update state every 50ms instead of on every token
 
   // Flush batched tokens to state - called periodically or when stream ends
+  // RC-001 FIX: Added index validation and warning for out-of-bounds access
   const flushTokenBatch = useCallback((assistantMessageIndex, forceFlush = false) => {
     const batch = tokenBatchRef.current;
 
@@ -89,6 +90,12 @@ function ChatMulti() {
 
       // Update state with accumulated content
       setMessages(prevMessages => {
+        // RC-001: Validate index before update
+        if (assistantMessageIndex < 0 || assistantMessageIndex >= prevMessages.length) {
+          console.warn(`[ChatMulti] flushTokenBatch: Invalid index ${assistantMessageIndex}, messages length: ${prevMessages.length}`);
+          return prevMessages; // Don't modify state with invalid index
+        }
+
         const updated = [...prevMessages];
         if (updated[assistantMessageIndex]) {
           updated[assistantMessageIndex] = {
@@ -257,6 +264,7 @@ function ChatMulti() {
 
   // Sequential chat initialization to fix race condition
   // RACE-001: Uses generation counter to prevent stale updates from previous chats
+  // RC-002 FIX: setMessages is called AFTER generation check, not inside loadMessages
   const initializeChat = async (chatId) => {
     // Increment generation counter - any ongoing async operations for previous chat will be ignored
     const currentGeneration = ++generationRef.current;
@@ -276,11 +284,14 @@ function ChatMulti() {
     // 1. FIRST: Load messages (now includes live content from llm_jobs)
     const msgs = await loadMessages(chatId);
 
-    // RACE-001: Check if chat changed during async operation
+    // RC-002 FIX: Check if chat changed BEFORE setting messages
     if (generationRef.current !== currentGeneration) {
       console.log(`[ChatMulti] initializeChat: chat changed during loadMessages, aborting (gen ${currentGeneration} vs ${generationRef.current})`);
       return;
     }
+
+    // RC-002 FIX: Now safe to set messages - generation is still current
+    setMessages(msgs);
 
     // 2. THEN: Check for active jobs
     const activeJob = await checkActiveJobsAsync(chatId);
@@ -393,6 +404,8 @@ function ChatMulti() {
     }
   };
 
+  // RC-002 FIX: loadMessages no longer calls setMessages directly
+  // This allows the caller to check generation counter before updating state
   const loadMessages = async (chatId) => {
     try {
       const response = await axios.get(`${API_BASE}/chats/${chatId}/messages`);
@@ -411,11 +424,10 @@ function ChatMulti() {
         jobStatus: msg.job_status  // Track job status for UI
       }));
 
-      setMessages(formattedMessages);
+      // RC-002: Return messages without setting state - caller will set state after generation check
       return formattedMessages;
     } catch (err) {
       console.error('Error loading messages:', err);
-      setMessages([]);
       return [];
     }
   };
@@ -493,7 +505,11 @@ function ChatMulti() {
               });
               // Reload messages to get final state (only if still viewing this chat)
               if (isCurrentChat) {
-                loadMessages(targetChatId);
+                // RC-002 FIX: Set messages after loading since loadMessages no longer calls setMessages
+                const finalMsgs = await loadMessages(targetChatId);
+                if (currentChatIdRef.current === targetChatId) {
+                  setMessages(finalMsgs);
+                }
               }
               loadChats(); // Update message count
             }
@@ -921,7 +937,11 @@ function ChatMulti() {
         loadChats(); // Update message count
         // If user switched back to this chat, reload messages to show final state
         if (currentChatIdRef.current === targetChatId) {
-          loadMessages(targetChatId);
+          // RC-002 FIX: Set messages after loading since loadMessages no longer calls setMessages
+          const finalMsgs = await loadMessages(targetChatId);
+          if (currentChatIdRef.current === targetChatId) {
+            setMessages(finalMsgs);
+          }
         }
       }
 
@@ -1142,7 +1162,11 @@ function ChatMulti() {
         loadChats(); // Update message count
         // If user switched back to this chat, reload messages to show final state
         if (currentChatIdRef.current === targetChatId) {
-          loadMessages(targetChatId);
+          // RC-002 FIX: Set messages after loading since loadMessages no longer calls setMessages
+          const finalMsgs = await loadMessages(targetChatId);
+          if (currentChatIdRef.current === targetChatId) {
+            setMessages(finalMsgs);
+          }
         }
       }
 
@@ -1213,16 +1237,21 @@ function ChatMulti() {
   }
 
   return (
-    <div className={`chat-container ${hasMessages ? 'has-messages' : 'empty-state'}`}>
+    <main
+      className={`chat-container ${hasMessages ? 'has-messages' : 'empty-state'}`}
+      role="main"
+      aria-label="AI Chat"
+    >
       {/* Top Chat Tabs Bar */}
-      <div className="chat-tabs-bar">
+      <div className="chat-tabs-bar" role="tablist" aria-label="Chat-Unterhaltungen">
         {/* New Chat Button */}
         <button
           className="new-chat-tab-btn"
           onClick={createNewChat}
           title="Neuer Chat (Ctrl+T)"
+          aria-label="Neuen Chat erstellen"
         >
-          <FiPlus />
+          <FiPlus aria-hidden="true" />
         </button>
 
         {/* Chat Tabs */}
@@ -1230,8 +1259,13 @@ function ChatMulti() {
           {chats.map(chat => (
             <div
               key={chat.id}
+              role="tab"
+              tabIndex={currentChatId === chat.id ? 0 : -1}
+              aria-selected={currentChatId === chat.id}
+              aria-controls={`chat-panel-${chat.id}`}
               className={`chat-tab ${currentChatId === chat.id ? 'active' : ''} ${activeJobIds[chat.id] ? 'has-active-job' : ''}`}
               onClick={() => selectChat(chat.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectChat(chat.id); }}}
               onMouseEnter={() => setHoveredChatId(chat.id)}
               onMouseLeave={() => setHoveredChatId(null)}
             >
@@ -1272,28 +1306,28 @@ function ChatMulti() {
               )}
               {/* Show actions on hover or if active */}
               {(hoveredChatId === chat.id || currentChatId === chat.id) && editingChatId !== chat.id && (
-                <div className="tab-actions">
+                <div className="tab-actions" role="group" aria-label={`Aktionen für ${chat.title}`}>
                   <button
                     className="tab-action-btn"
                     onClick={(e) => startEditingTitle(e, chat)}
-                    title="Umbenennen"
+                    aria-label={`Chat "${chat.title}" umbenennen`}
                   >
-                    <FiEdit2 />
+                    <FiEdit2 aria-hidden="true" />
                   </button>
                   <button
                     className="tab-action-btn export"
                     onClick={(e) => exportChat(e, chat.id, 'markdown')}
-                    title="Als Markdown exportieren"
+                    aria-label={`Chat "${chat.title}" als Markdown exportieren`}
                   >
-                    <FiDownload />
+                    <FiDownload aria-hidden="true" />
                   </button>
                   {chats.length > 1 && (
                     <button
                       className="tab-action-btn delete"
                       onClick={(e) => deleteChat(e, chat.id)}
-                      title="Löschen"
+                      aria-label={`Chat "${chat.title}" löschen`}
                     >
-                      <FiTrash2 />
+                      <FiTrash2 aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -1309,14 +1343,19 @@ function ChatMulti() {
           className="chat-messages"
           ref={messagesContainerRef}
           onScroll={handleScroll}
+          role="log"
+          aria-label="Chat-Nachrichten"
+          aria-live="polite"
+          aria-relevant="additions"
         >
           <div className="messages-wrapper">
             {messages.map((message, index) => (
-              <div
+              <article
                 key={message.id || message.jobId || `${currentChatId}-msg-${index}`}
                 className={`message ${message.role === 'user' ? 'user' : 'assistant'}`}
+                aria-label={message.role === 'user' ? 'Deine Nachricht' : 'AI Antwort'}
               >
-                <div className="message-label">
+                <div className="message-label" aria-hidden="true">
                   {message.role === 'user' ? 'Du' : 'AI'}
                 </div>
 
@@ -1403,7 +1442,7 @@ function ChatMulti() {
                     )}
                   </div>
                 )}
-              </div>
+              </article>
             ))}
             <div ref={messagesEndRef} />
           </div>
@@ -1416,8 +1455,9 @@ function ChatMulti() {
                 setIsUserScrolling(false);
                 scrollToBottom();
               }}
+              aria-label="Zum Ende scrollen"
             >
-              <FiArrowDown />
+              <FiArrowDown aria-hidden="true" />
             </button>
           )}
         </div>
@@ -1434,22 +1474,25 @@ function ChatMulti() {
 
         {/* Error Display */}
         {error && (
-          <div className="error-banner">
-            <FiAlertCircle />
+          <div className="error-banner" role="alert">
+            <FiAlertCircle aria-hidden="true" />
             <span>{error}</span>
-            <button onClick={() => setError(null)}><FiX /></button>
+            <button onClick={() => setError(null)} aria-label="Fehlermeldung schließen">
+              <FiX aria-hidden="true" />
+            </button>
           </div>
         )}
 
         {/* Main Input Box - Single Row */}
-        <div className="input-box">
+        <div className="input-box" role="toolbar" aria-label="Chat-Eingabe Optionen">
           {/* RAG Toggle Button */}
           <button
             className={`input-toggle rag-toggle ${useRAG ? 'active' : ''}`}
             onClick={() => setUseRAG(!useRAG)}
-            title={useRAG ? "RAG deaktivieren" : "RAG aktivieren"}
+            aria-pressed={useRAG}
+            aria-label={useRAG ? "RAG deaktivieren (Dokumentensuche)" : "RAG aktivieren (Dokumentensuche)"}
           >
-            <FiSearch />
+            <FiSearch aria-hidden="true" />
             {useRAG && <span>RAG</span>}
           </button>
 
@@ -1499,9 +1542,10 @@ function ChatMulti() {
           <button
             className={`input-toggle think-toggle ${useThinking ? 'active' : ''}`}
             onClick={() => setUseThinking(!useThinking)}
-            title={useThinking ? "Thinking deaktivieren" : "Thinking aktivieren"}
+            aria-pressed={useThinking}
+            aria-label={useThinking ? "Thinking-Modus deaktivieren" : "Thinking-Modus aktivieren"}
           >
-            <FiCpu />
+            <FiCpu aria-hidden="true" />
             {useThinking && <span>Think</span>}
           </button>
 
@@ -1597,20 +1641,27 @@ function ChatMulti() {
             onKeyDown={handleKeyDown}
             placeholder={useRAG ? "Frage zu Dokumenten stellen..." : "Nachricht eingeben..."}
             disabled={isLoading || loadingChats || !currentChatId}
+            aria-label={useRAG ? "Frage zu Dokumenten eingeben" : "Chat-Nachricht eingeben"}
+            aria-describedby={isLoading ? "chat-loading-status" : undefined}
           />
+          {isLoading && (
+            <span id="chat-loading-status" className="sr-only">
+              Antwort wird generiert...
+            </span>
+          )}
 
           {/* Send Button */}
           <button
             className="send-btn"
             onClick={handleSend}
             disabled={!input.trim() || isLoading || loadingChats || !currentChatId}
-            title="Senden (Enter)"
+            aria-label="Nachricht senden"
           >
-            <FiArrowUp />
+            <FiArrowUp aria-hidden="true" />
           </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
