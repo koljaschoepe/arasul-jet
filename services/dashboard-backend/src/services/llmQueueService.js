@@ -302,30 +302,69 @@ function createLLMQueueService(deps = {}) {
                 this.isProcessing = true;
                 this.processingJobId = job.id;
 
-                // Model switch if needed
+                // Model switch if needed - P2-006: With retry logic
                 if (should_switch && requested_model && requested_model !== currentModel) {
                     logger.info(`Switching model: ${currentModel || 'none'} -> ${requested_model} (reason: ${switch_reason})`);
 
                     // Notify waiting clients about model switch
                     this.emit('model:switching', { from: currentModel, to: requested_model, reason: switch_reason });
 
-                    try {
-                        await modelService.activateModel(requested_model, 'queue');
-                        this.emit('model:switched', { model: requested_model });
-                    } catch (switchError) {
-                        // Classify error for better UX
+                    // P2-006: Retry logic for transient failures
+                    const MAX_SWITCH_RETRIES = 2;
+                    const RETRY_DELAY_MS = 5000;
+                    let switchSuccess = false;
+                    let lastError = null;
+
+                    for (let attempt = 1; attempt <= MAX_SWITCH_RETRIES; attempt++) {
+                        try {
+                            await modelService.activateModel(requested_model, 'queue');
+                            this.emit('model:switched', { model: requested_model });
+                            switchSuccess = true;
+                            break;
+                        } catch (switchError) {
+                            lastError = switchError;
+                            const errMsg = switchError.message.toLowerCase();
+
+                            // Don't retry on permanent errors (model not found, out of memory)
+                            const isPermanentError =
+                                errMsg.includes('nicht gefunden') ||
+                                errMsg.includes('not found') ||
+                                errMsg.includes('nicht genügend') ||
+                                errMsg.includes('speicher');
+
+                            if (isPermanentError || attempt === MAX_SWITCH_RETRIES) {
+                                // Final failure - don't retry
+                                break;
+                            }
+
+                            // Transient error - retry after delay
+                            logger.warn(`[QUEUE] Model switch attempt ${attempt}/${MAX_SWITCH_RETRIES} failed: ${switchError.message}. Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+                            this.notifySubscribers(jobId, {
+                                type: 'retry',
+                                message: `Modell-Wechsel fehlgeschlagen, Wiederholung ${attempt + 1}/${MAX_SWITCH_RETRIES}...`,
+                                attempt: attempt + 1,
+                                maxAttempts: MAX_SWITCH_RETRIES
+                            });
+                            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                        }
+                    }
+
+                    if (!switchSuccess) {
+                        // All retries failed - classify error for better UX
                         let userMessage;
-                        const errMsg = switchError.message.toLowerCase();
+                        const errMsg = lastError?.message?.toLowerCase() || '';
 
                         if (errMsg.includes('nicht gefunden') || errMsg.includes('not found')) {
                             userMessage = `Modell "${requested_model}" nicht verfügbar. Bitte im Model Store erneut herunterladen.`;
                         } else if (errMsg.includes('timeout') || errMsg.includes('econnrefused') || errMsg.includes('nicht erreichbar')) {
                             userMessage = `LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.`;
+                        } else if (errMsg.includes('nicht genügend') || errMsg.includes('speicher')) {
+                            userMessage = lastError?.message || `Nicht genügend Speicher für Modell "${requested_model}".`;
                         } else {
-                            userMessage = `Modell-Wechsel fehlgeschlagen: ${switchError.message}`;
+                            userMessage = `Modell-Wechsel fehlgeschlagen nach ${MAX_SWITCH_RETRIES} Versuchen: ${lastError?.message}`;
                         }
 
-                        logger.error(`Failed to switch model: ${switchError.message}`);
+                        logger.error(`Failed to switch model after ${MAX_SWITCH_RETRIES} attempts: ${lastError?.message}`);
                         await llmJobService.errorJob(jobId, userMessage);
                         this.notifySubscribers(jobId, {
                             error: userMessage,

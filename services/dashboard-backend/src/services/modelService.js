@@ -9,6 +9,9 @@
  */
 
 const services = require('../config/services');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_HOST = services.llm.host;
@@ -128,8 +131,28 @@ function createModelService(deps = {}) {
                 throw new Error(`Model ${modelId} not found in catalog`);
             }
 
+            const catalogModel = catalogResult.rows[0];
+
+            // P1-001: Check disk space before download
+            const modelSizeBytes = catalogModel.size_bytes || 0;
+            if (modelSizeBytes > 0) {
+                const diskSpace = await this.getDiskSpace();
+                const requiredSpace = Math.floor(modelSizeBytes * 1.5); // 50% buffer for extraction/temp files
+
+                if (diskSpace.free < requiredSpace) {
+                    const errorMsg = `Nicht genügend Speicherplatz für Download. ` +
+                        `Benötigt: ${this.formatBytes(requiredSpace)}, ` +
+                        `Verfügbar: ${this.formatBytes(diskSpace.free)}. ` +
+                        `Bitte Speicherplatz freigeben oder ein kleineres Modell wählen.`;
+                    logger.error(`[DOWNLOAD] ${errorMsg}`);
+                    throw new Error(errorMsg);
+                }
+
+                logger.info(`[DOWNLOAD] Disk space check passed: ${this.formatBytes(diskSpace.free)} available, ${this.formatBytes(requiredSpace)} required`);
+            }
+
             // Use effective_ollama_name for Ollama API calls
-            const ollamaName = catalogResult.rows[0].effective_ollama_name;
+            const ollamaName = catalogModel.effective_ollama_name;
 
             // Create or update installed model record
             await database.query(`
@@ -431,13 +454,38 @@ function createModelService(deps = {}) {
             const startTime = Date.now();
 
             try {
-                // Get ollama_name from catalog for API calls
+                // Get model info from catalog for API calls and RAM check
                 const catalogResult = await database.query(
-                    `SELECT COALESCE(ollama_name, id) as effective_ollama_name
+                    `SELECT COALESCE(ollama_name, id) as effective_ollama_name, ram_required_gb
                      FROM llm_model_catalog WHERE id = $1`,
                     [modelId]
                 );
-                const ollamaName = catalogResult.rows[0]?.effective_ollama_name || modelId;
+                const catalogModel = catalogResult.rows[0];
+                const ollamaName = catalogModel?.effective_ollama_name || modelId;
+                const requiredRamGb = catalogModel?.ram_required_gb || 0;
+
+                // P2-005: Check GPU/RAM availability before loading
+                if (requiredRamGb > 0) {
+                    const gpuMemory = await this.getGpuMemory();
+                    const requiredRamMb = requiredRamGb * 1024;
+                    const bufferMb = 2048; // 2GB buffer for system
+
+                    // Check if there's enough memory (considering currently loaded model will be unloaded)
+                    const currentLoaded = await this.getLoadedModel();
+                    const currentRamMb = currentLoaded?.ram_usage_mb || 0;
+                    const effectiveFreeRam = gpuMemory.free_mb + currentRamMb; // Add back RAM from model to be unloaded
+
+                    if (effectiveFreeRam < requiredRamMb + bufferMb) {
+                        const errorMsg = `Nicht genügend GPU-Speicher für Modell "${modelId}". ` +
+                            `Benötigt: ${requiredRamGb}GB, ` +
+                            `Verfügbar: ${(effectiveFreeRam / 1024).toFixed(1)}GB. ` +
+                            `Bitte ein kleineres Modell wählen oder System neu starten.`;
+                        logger.error(`[ACTIVATE] ${errorMsg}`);
+                        throw new Error(errorMsg);
+                    }
+
+                    logger.info(`[ACTIVATE] GPU memory check passed: ${(effectiveFreeRam / 1024).toFixed(1)}GB available, ${requiredRamGb}GB required`);
+                }
 
                 // Validate model exists in Ollama before trying to load
                 const validation = await this.validateModelAvailability(modelId);
@@ -452,9 +500,9 @@ function createModelService(deps = {}) {
                     throw new Error(validation.error);
                 }
 
-                // Get currently loaded model (returns Ollama name, not catalog ID)
-                const currentLoaded = await this.getLoadedModel();
-                const fromModel = currentLoaded?.model_id;
+                // Get currently loaded model for comparison (may already be fetched above)
+                const loadedModelInfo = await this.getLoadedModel();
+                const fromModel = loadedModelInfo?.model_id;
 
                 // Compare using ollamaName since getLoadedModel returns Ollama names
                 if (fromModel === ollamaName) {
@@ -747,6 +795,68 @@ function createModelService(deps = {}) {
                 return requestedModel;
             }
             return await this.getDefaultModel();
+        }
+
+        /**
+         * Get available disk space for model downloads
+         * P1-001: Check disk space before download to prevent mid-download failures
+         * @returns {Promise<{free: number, total: number}>} Disk space in bytes
+         */
+        async getDiskSpace() {
+            try {
+                // Check /data partition (where Ollama stores models) or fallback to /
+                const { stdout } = await execAsync(
+                    "df -B1 /data 2>/dev/null || df -B1 / | tail -1 | awk '{print $4, $2}'"
+                );
+                const [free, total] = stdout.trim().split(/\s+/).map(v => parseInt(v));
+                return { free: free || 0, total: total || 0 };
+            } catch (err) {
+                logger.warn(`Could not get disk space: ${err.message}`);
+                // Return large value to not block on error
+                return { free: 100 * 1024 * 1024 * 1024, total: 100 * 1024 * 1024 * 1024 };
+            }
+        }
+
+        /**
+         * Get available GPU memory
+         * P2-005: Check GPU memory before model activation to prevent OOM
+         * @returns {Promise<{free_mb: number, total_mb: number, used_mb: number}>}
+         */
+        async getGpuMemory() {
+            try {
+                // For Jetson AGX Orin: Use tegrastats or nvidia-smi
+                // Try nvidia-smi first (works on both desktop and Jetson with newer JetPack)
+                const { stdout } = await execAsync(
+                    "nvidia-smi --query-gpu=memory.free,memory.total,memory.used --format=csv,noheader,nounits 2>/dev/null"
+                );
+                const [free, total, used] = stdout.trim().split(',').map(v => parseInt(v.trim()));
+                return { free_mb: free || 0, total_mb: total || 0, used_mb: used || 0 };
+            } catch (err) {
+                // Fallback for Jetson without nvidia-smi or desktop without GPU
+                try {
+                    // Check if we're on Jetson by looking at tegrastats
+                    const { stdout: memInfo } = await execAsync("cat /proc/meminfo | grep MemAvailable");
+                    const availableKb = parseInt(memInfo.split(':')[1].trim().split(' ')[0]);
+                    // On Jetson, GPU shares RAM - estimate 80% available for GPU
+                    const estimatedGpuMb = Math.floor((availableKb / 1024) * 0.8);
+                    return { free_mb: estimatedGpuMb, total_mb: 64000, used_mb: 64000 - estimatedGpuMb };
+                } catch {
+                    logger.warn(`Could not get GPU memory info: ${err.message}`);
+                    // Assume 64GB Jetson AGX Orin with plenty of memory
+                    return { free_mb: 50000, total_mb: 64000, used_mb: 14000 };
+                }
+            }
+        }
+
+        /**
+         * Format bytes to human-readable string
+         */
+        formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
         /**
