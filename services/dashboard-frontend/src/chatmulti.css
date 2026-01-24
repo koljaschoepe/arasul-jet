@@ -542,6 +542,28 @@
   overflow: hidden;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
+  /* P3-002: Smooth collapse animation */
+  transition: all 0.3s ease-out;
+}
+
+/* P3-002: Collapsing animation state */
+.thinking-block.collapsing {
+  opacity: 0.7;
+}
+
+/* P3-002: Collapsed state - show only header */
+.thinking-block.collapsed .thinking-content {
+  max-height: 0;
+  padding: 0 18px;
+  opacity: 0;
+  overflow: hidden;
+  border-top: none;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out, opacity 0.2s ease-out;
+}
+
+/* P3-002: Expanded state */
+.thinking-block:not(.collapsed) .thinking-content {
+  transition: max-height 0.3s ease-in, padding 0.3s ease-in, opacity 0.2s ease-in;
 }
 
 /* Sources Block - displayed at the bottom of message */
@@ -581,6 +603,61 @@
 .thinking-header span,
 .sources-header span {
   flex: 1;
+}
+
+/* P3-003: Matched Spaces Display */
+.matched-spaces-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(69, 173, 255, 0.05);
+  border: 1px solid rgba(69, 173, 255, 0.15);
+  border-radius: 8px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.matched-spaces-label {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.matched-spaces-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.matched-space-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left-width: 3px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.matched-space-chip:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary-color);
+}
+
+.matched-space-chip .space-score {
+  margin-left: 6px;
+  padding: 1px 5px;
+  background: rgba(69, 173, 255, 0.15);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: var(--primary-color);
 }
 
 .thinking-content,

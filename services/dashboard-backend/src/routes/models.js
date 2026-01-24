@@ -140,24 +140,101 @@ router.delete('/:modelId', requireAuth, asyncHandler(async (req, res) => {
 /**
  * POST /api/models/:modelId/activate
  * Load a model into RAM
+ * Supports SSE streaming for progress updates via ?stream=true
  */
-router.post('/:modelId/activate', requireAuth, asyncHandler(async (req, res) => {
+router.post('/:modelId/activate', requireAuth, async (req, res) => {
     const { modelId } = req.params;
+    const useStream = req.query.stream === 'true';
 
     // Check if model is installed
     const isInstalled = await modelService.isModelInstalled(modelId);
     if (!isInstalled) {
-        throw new NotFoundError(`Modell ${modelId} ist nicht installiert`);
+        if (useStream) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.write(`data: ${JSON.stringify({ error: `Modell ${modelId} ist nicht installiert`, done: true })}\n\n`);
+            return res.end();
+        }
+        return res.status(404).json({ error: `Modell ${modelId} ist nicht installiert` });
     }
 
-    const result = await modelService.activateModel(modelId, 'user');
-    res.json({
-        ...result,
-        message: result.alreadyLoaded
-            ? `Modell ${modelId} ist bereits geladen`
-            : `Modell ${modelId} wurde aktiviert`
-    });
-}));
+    // P3-001: SSE streaming for activation progress
+    if (useStream) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+
+        // Get model info for estimated time
+        const modelInfo = await modelService.getModelInfo(modelId);
+        const estimatedSeconds = (modelInfo?.ram_required_gb || 10) * 3; // ~3s per GB
+
+        // Send initial status
+        res.write(`data: ${JSON.stringify({
+            status: 'starting',
+            progress: 0,
+            message: 'Modell wird vorbereitet...',
+            estimatedSeconds
+        })}\n\n`);
+
+        // Simulate progress updates while activation runs
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress = Math.min(progress + 5, 95);
+            const messages = [
+                'Modell wird vorbereitet...',
+                'Lade Modell-Gewichte...',
+                'Initialisiere GPU-Speicher...',
+                'Optimiere für Inferenz...',
+                'Fast fertig...'
+            ];
+            const messageIndex = Math.floor(progress / 20);
+            res.write(`data: ${JSON.stringify({
+                status: 'loading',
+                progress,
+                message: messages[Math.min(messageIndex, messages.length - 1)]
+            })}\n\n`);
+        }, estimatedSeconds * 50); // Update every ~5% of estimated time
+
+        try {
+            const result = await modelService.activateModel(modelId, 'user');
+            clearInterval(progressInterval);
+
+            res.write(`data: ${JSON.stringify({
+                status: 'complete',
+                progress: 100,
+                message: result.alreadyLoaded
+                    ? `Modell ${modelId} war bereits geladen`
+                    : `Modell ${modelId} erfolgreich aktiviert`,
+                ...result,
+                done: true
+            })}\n\n`);
+            res.end();
+        } catch (err) {
+            clearInterval(progressInterval);
+            logger.error(`Error activating model ${modelId}: ${err.message}`);
+            res.write(`data: ${JSON.stringify({
+                status: 'error',
+                error: err.message,
+                done: true
+            })}\n\n`);
+            res.end();
+        }
+    } else {
+        // Non-streaming (original behavior)
+        try {
+            const result = await modelService.activateModel(modelId, 'user');
+            res.json({
+                ...result,
+                message: result.alreadyLoaded
+                    ? `Modell ${modelId} ist bereits geladen`
+                    : `Modell ${modelId} wurde aktiviert`
+            });
+        } catch (err) {
+            logger.error(`Error activating model ${modelId}: ${err.message}`);
+            res.status(500).json({ error: err.message });
+        }
+    }
+});
 
 /**
  * POST /api/models/:modelId/deactivate

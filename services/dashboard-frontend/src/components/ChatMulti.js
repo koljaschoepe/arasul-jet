@@ -1359,9 +1359,9 @@ function ChatMulti() {
                   {message.role === 'user' ? 'Du' : 'AI'}
                 </div>
 
-                {/* Thinking Block */}
+                {/* Thinking Block - P3-002: Always render for smooth CSS transitions */}
                 {message.hasThinking && message.thinking && (
-                  <div className={`thinking-block ${message.thinkingCollapsed ? 'collapsed' : ''}`}>
+                  <div className={`thinking-block ${message.thinkingCollapsed ? 'collapsed' : ''} ${message.thinkingCollapsing ? 'collapsing' : ''}`}>
                     <div
                       className="thinking-header"
                       onClick={() => toggleThinking(index)}
@@ -1370,11 +1370,10 @@ function ChatMulti() {
                       <span>Gedankengang</span>
                       {message.thinkingCollapsed ? <FiChevronDown /> : <FiChevronUp />}
                     </div>
-                    {!message.thinkingCollapsed && (
-                      <div className="thinking-content">
-                        {message.thinking}
-                      </div>
-                    )}
+                    {/* P3-002: Always render content for smooth transitions */}
+                    <div className="thinking-content">
+                      {message.thinking}
+                    </div>
                   </div>
                 )}
 
@@ -1413,6 +1412,30 @@ function ChatMulti() {
                     <span></span>
                     <span></span>
                     <span></span>
+                  </div>
+                )}
+
+                {/* P3-003: Matched Spaces Display - shows which knowledge spaces were searched */}
+                {message.matchedSpaces && message.matchedSpaces.length > 0 && (
+                  <div className="matched-spaces-block">
+                    <span className="matched-spaces-label">
+                      <FiFolder style={{ marginRight: '6px' }} />
+                      Durchsuchte Bereiche:
+                    </span>
+                    <div className="matched-spaces-chips">
+                      {message.matchedSpaces.map((space, i) => (
+                        <span
+                          key={space.id || i}
+                          className="matched-space-chip"
+                          style={{ borderLeftColor: space.color || '#45ADFF' }}
+                          title={`Relevanz: ${((space.score || 0) * 100).toFixed(0)}%`}
+                        >
+                          <FiFolder style={{ color: space.color || '#45ADFF', marginRight: '4px' }} />
+                          {space.name}
+                          <span className="space-score">{((space.score || 0) * 100).toFixed(0)}%</span>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
 

@@ -7,7 +7,7 @@
  * - Set default model for new chats
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     FiCpu,
     FiDownload,
@@ -49,6 +49,7 @@ function ModelStore() {
     const [defaultModel, setDefaultModel] = useState(null);
     const [activating, setActivating] = useState(null);
     const [activatingProgress, setActivatingProgress] = useState(''); // Loading status text
+    const [activatingPercent, setActivatingPercent] = useState(0); // P3-001: Progress percentage
     const [queueByModel, setQueueByModel] = useState([]);
     const [selectedModel, setSelectedModel] = useState(null);
 
@@ -126,45 +127,86 @@ function ModelStore() {
         startDownload(modelId, modelName);
     };
 
-    // Activate model - improved with progress feedback
+    // ML-002 FIX: Ref to prevent double-click race condition
+    const activatingRef = useRef(false);
+
+    // Activate model - improved with progress feedback and double-click protection
     const handleActivate = async (modelId) => {
+        // ML-002: Guard against double-clicks before React re-renders
+        if (activatingRef.current) {
+            console.log('[ModelStore] Activation already in progress, ignoring click');
+            return;
+        }
+        activatingRef.current = true;
+
         setActivating(modelId);
         setActivatingProgress('Initialisiere...');
-
-        // Start progress indicator
-        let progressInterval = setInterval(() => {
-            setActivatingProgress(prev => {
-                const messages = [
-                    'Modell wird geladen...',
-                    'Lade in GPU-Speicher...',
-                    'Initialisiere Gewichte...',
-                    'Fast fertig...'
-                ];
-                const currentIndex = messages.indexOf(prev);
-                const nextIndex = (currentIndex + 1) % messages.length;
-                return messages[nextIndex];
-            });
-        }, 3000);
+        setActivatingPercent(0);
 
         try {
-            const response = await fetch(`${API_BASE}/models/${modelId}/activate`, {
+            // P3-001: Use SSE streaming for real-time progress
+            const token = localStorage.getItem('arasul_token');
+            const response = await fetch(`${API_BASE}/models/${modelId}/activate?stream=true`, {
                 method: 'POST',
-                headers: getAuthHeaders()
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
             });
-            const result = await response.json();
+
             if (!response.ok) {
-                throw new Error(result.error || 'Aktivierung fehlgeschlagen');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Aktivierung fehlgeschlagen');
             }
-            setActivatingProgress('Erfolgreich aktiviert!');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await loadData();
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+
+                            if (data.progress !== undefined) {
+                                setActivatingPercent(data.progress);
+                            }
+                            if (data.message) {
+                                setActivatingProgress(data.message);
+                            }
+                            if (data.error) {
+                                throw new Error(data.error);
+                            }
+                            if (data.done) {
+                                setActivatingProgress(data.message || 'Erfolgreich aktiviert!');
+                                setActivatingPercent(100);
+                                await new Promise(resolve => setTimeout(resolve, 800));
+                                await loadData();
+                            }
+                        } catch (parseErr) {
+                            if (parseErr.message !== 'Unexpected end of JSON input') {
+                                console.error('SSE parse error:', parseErr);
+                            }
+                        }
+                    }
+                }
+            }
         } catch (err) {
             console.error('Activation error:', err);
             setError(`Aktivierung fehlgeschlagen: ${err.message}`);
         } finally {
-            clearInterval(progressInterval);
             setActivating(null);
             setActivatingProgress('');
+            setActivatingPercent(0);
+            activatingRef.current = false; // ML-002: Reset guard
         }
     };
 
@@ -381,12 +423,16 @@ function ModelStore() {
                                 {isInstalled && !isLoaded && (
                                     <>
                                         <button
-                                            className="btn btn-success"
+                                            className={`btn btn-success ${isActivating ? 'activating-btn' : ''}`}
                                             onClick={() => handleActivate(model.id)}
                                             disabled={isActivating}
+                                            style={isActivating ? {
+                                                background: `linear-gradient(90deg, #22C55E ${activatingPercent}%, #1A2330 ${activatingPercent}%)`,
+                                                borderColor: '#22C55E'
+                                            } : {}}
                                         >
                                             {isActivating ? (
-                                                <><FiRefreshCw className="spin" /> {activatingProgress || 'Lade...'}</>
+                                                <><FiRefreshCw className="spin" /> {activatingPercent}% - {activatingProgress || 'Lade...'}</>
                                             ) : (
                                                 <><FiPlay /> Aktivieren</>
                                             )}
