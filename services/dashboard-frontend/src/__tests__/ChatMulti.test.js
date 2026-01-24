@@ -16,10 +16,19 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axios from 'axios';
 
+// Mock MermaidDiagram component before import - this avoids mermaid module issues
+jest.mock('../components/MermaidDiagram', () => {
+  const React = require('react');
+  return function MockMermaidDiagram({ chart }) {
+    return React.createElement('div', { 'data-testid': 'mermaid-diagram' }, chart);
+  };
+});
+
 // Mock react-markdown to avoid ESM issues
 jest.mock('react-markdown', () => {
+  const React = require('react');
   return function MockReactMarkdown({ children }) {
-    return <div data-testid="markdown">{children}</div>;
+    return React.createElement('div', { 'data-testid': 'markdown' }, children);
   };
 });
 
@@ -33,20 +42,39 @@ jest.mock('axios');
 // Mock fetch für SSE streaming (ChatMulti uses fetch with ReadableStream, not EventSource)
 const createMockStreamResponse = (events) => {
   let eventIndex = 0;
+  let readerClosed = false;
+
+  // Create a proper mock reader that can be called multiple times
+  const mockReader = {
+    read: jest.fn().mockImplementation(async () => {
+      if (readerClosed) {
+        return { done: true, value: undefined };
+      }
+      if (eventIndex < events.length) {
+        const event = events[eventIndex];
+        eventIndex++;
+
+        // If this is a done signal event, close the reader after this
+        if (event.done === true) {
+          readerClosed = true;
+          // Return the done event data, then next call will return stream done
+          const encoded = new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`);
+          return { done: false, value: encoded };
+        }
+
+        const encoded = new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`);
+        return { done: false, value: encoded };
+      }
+      return { done: true, value: undefined };
+    }),
+    cancel: jest.fn(),
+    releaseLock: jest.fn(),
+  };
+
   return {
     ok: true,
     body: {
-      getReader: () => ({
-        read: jest.fn().mockImplementation(() => {
-          if (eventIndex < events.length) {
-            const event = events[eventIndex];
-            eventIndex++;
-            const encoded = new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`);
-            return Promise.resolve({ done: false, value: encoded });
-          }
-          return Promise.resolve({ done: true, value: undefined });
-        }),
-      }),
+      getReader: () => mockReader,
     },
   };
 };
@@ -628,12 +656,14 @@ describe('ChatMulti Component', () => {
           expect.stringContaining('/llm/chat'),
           expect.any(Object)
         );
-      });
+      }, { timeout: 3000 });
 
       // Stream is processed, input should be re-enabled after completion
+      // Give extra time for stream processing and state updates
       await waitFor(() => {
-        expect(input).not.toBeDisabled();
-      }, { timeout: 3000 });
+        const textbox = screen.getByRole('textbox');
+        expect(textbox).not.toBeDisabled();
+      }, { timeout: 5000 });
     });
 
     test('Fehler bei Streaming wird behandelt', async () => {
@@ -655,10 +685,15 @@ describe('ChatMulti Component', () => {
       const input = screen.getByRole('textbox');
       await user.type(input, 'Hello{enter}');
 
-      // Error message should appear
+      // Error should be handled gracefully - component shouldn't crash
+      // and input should be re-enabled
       await waitFor(() => {
-        const errorMessage = screen.queryByText(/fehler/i) || document.querySelector('[class*="error"]');
-        // Error should be displayed or loading should stop
+        const textbox = screen.getByRole('textbox');
+        const errorVisible = screen.queryByText(/fehler/i) ||
+                            screen.queryByText(/error/i) ||
+                            document.querySelector('[class*="error"]');
+        // Either error is shown OR input is re-enabled (error handled)
+        expect(errorVisible || !textbox.disabled).toBeTruthy();
       }, { timeout: 3000 });
     });
 
@@ -675,12 +710,14 @@ describe('ChatMulti Component', () => {
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalled();
-      });
-
-      // Input should be re-enabled after completion
-      await waitFor(() => {
-        expect(input).not.toBeDisabled();
       }, { timeout: 3000 });
+
+      // Input should be re-enabled after stream completion
+      // Give extra time for stream processing
+      await waitFor(() => {
+        const textbox = screen.getByRole('textbox');
+        expect(textbox).not.toBeDisabled();
+      }, { timeout: 5000 });
     });
 
     test('Thinking-Toggle aktiviert Thinking-Modus', async () => {

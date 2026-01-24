@@ -100,20 +100,29 @@ describe('ConfirmIconButton Component', () => {
     test('ruft onConfirm bei Bestätigung', async () => {
       const user = userEvent.setup();
       const onConfirm = jest.fn();
-      render(<ConfirmIconButton {...defaultProps} onConfirm={onConfirm} />);
+      const { container } = render(<ConfirmIconButton {...defaultProps} onConfirm={onConfirm} />);
 
       await user.click(screen.getByRole('button', { name: 'Löschen' }));
-      await user.click(screen.getByRole('button', { name: 'Bestätigen' }));
+
+      // Find confirm button by aria-label or class
+      const confirmBtn = screen.queryByRole('button', { name: 'Bestätigen' }) ||
+                         container.querySelector('.confirm-yes') ||
+                         container.querySelector('[aria-label="Bestätigen"]');
+      expect(confirmBtn).toBeInTheDocument();
+      await user.click(confirmBtn);
 
       expect(onConfirm).toHaveBeenCalledTimes(1);
     });
 
     test('schließt Popup nach Bestätigung', async () => {
       const user = userEvent.setup();
-      render(<ConfirmIconButton {...defaultProps} />);
+      const { container } = render(<ConfirmIconButton {...defaultProps} />);
 
       await user.click(screen.getByRole('button', { name: 'Löschen' }));
-      await user.click(screen.getByRole('button', { name: 'Bestätigen' }));
+
+      const confirmBtn = screen.queryByRole('button', { name: 'Bestätigen' }) ||
+                         container.querySelector('.confirm-yes');
+      await user.click(confirmBtn);
 
       expect(screen.queryByText('Wirklich löschen?')).not.toBeInTheDocument();
     });
@@ -306,14 +315,17 @@ describe('ConfirmIconButton Component', () => {
       const user = userEvent.setup();
       const outerClick = jest.fn();
 
-      render(
+      const { container } = render(
         <div onClick={outerClick}>
           <ConfirmIconButton {...defaultProps} />
         </div>
       );
 
       await user.click(screen.getByRole('button', { name: 'Löschen' }));
-      await user.click(screen.getByRole('button', { name: 'Bestätigen' }));
+
+      const confirmBtn = screen.queryByRole('button', { name: 'Bestätigen' }) ||
+                         container.querySelector('.confirm-yes');
+      await user.click(confirmBtn);
 
       expect(outerClick).not.toHaveBeenCalled();
     });

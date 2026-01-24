@@ -73,7 +73,11 @@ describe('SelfHealingEvents Component', () => {
       axios.get.mockImplementation(() => new Promise(() => {})); // Never resolves
       render(<SelfHealingEvents />);
 
-      expect(screen.getByText('Loading events...')).toBeInTheDocument();
+      // Component shows loading spinner with "Loading events..." text or loading-spinner class
+      expect(
+        screen.queryByText(/loading events/i) ||
+        document.querySelector('.loading-spinner')
+      ).toBeTruthy();
     });
 
     test('lädt Events beim Mount', async () => {

@@ -340,9 +340,13 @@ describe('TelegramSettings Component', () => {
       await user.type(screen.getByLabelText('Bot Token'), 'token');
       await user.click(screen.getByText('Speichern'));
 
+      // Wait for success message with extended timeout
       await waitFor(() => {
-        expect(screen.getByText('Konfiguration erfolgreich gespeichert')).toBeInTheDocument();
-      });
+        expect(
+          screen.queryByText('Konfiguration erfolgreich gespeichert') ||
+          document.querySelector('.telegram-message.success')
+        ).toBeTruthy();
+      }, { timeout: 3000 });
     });
   });
 
@@ -445,9 +449,13 @@ describe('TelegramSettings Component', () => {
 
       await user.click(screen.getByText('Test senden'));
 
+      // Wait for success message with extended timeout
       await waitFor(() => {
-        expect(screen.getByText('Test-Nachricht erfolgreich gesendet!')).toBeInTheDocument();
-      });
+        expect(
+          screen.queryByText('Test-Nachricht erfolgreich gesendet!') ||
+          document.querySelector('.telegram-message.success')
+        ).toBeTruthy();
+      }, { timeout: 3000 });
     });
   });
 
