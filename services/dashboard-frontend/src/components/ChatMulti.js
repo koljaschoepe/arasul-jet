@@ -1483,6 +1483,33 @@ function ChatMulti() {
           </div>
         )}
 
+        {/* P2-001/P2-003: Model Capability Warnings */}
+        {(() => {
+          const currentModel = selectedModel
+            ? installedModels.find(m => m.id === selectedModel)
+            : installedModels.find(m => m.id === defaultModel);
+
+          const showThinkWarning = useThinking && currentModel && currentModel.supports_thinking === false;
+          const showRagWarning = useRAG && currentModel && currentModel.rag_optimized === false;
+
+          if (showThinkWarning || showRagWarning) {
+            return (
+              <div className="capability-warning" role="status">
+                <FiAlertCircle style={{ color: '#F59E0B', flexShrink: 0 }} />
+                <span>
+                  {showThinkWarning && showRagWarning
+                    ? `"${currentModel.name}" ist weder für Think-Mode noch RAG optimiert.`
+                    : showThinkWarning
+                      ? `"${currentModel.name}" unterstützt Think-Mode möglicherweise nicht optimal.`
+                      : `"${currentModel.name}" ist nicht für RAG optimiert. Empfohlen: Qwen3-Modelle.`
+                  }
+                </span>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         {/* Main Input Box - Single Row */}
         <div className="input-box" role="toolbar" aria-label="Chat-Eingabe Optionen">
           {/* RAG Toggle Button */}
@@ -1608,6 +1635,8 @@ function ChatMulti() {
                           {!isAvailable ? (model.install_error || 'Nicht verfügbar') : (
                             <>
                               {`${model.category} • ${model.ram_required_gb}GB RAM`}
+                              {model.supports_thinking && <span style={{ color: '#45ADFF', marginLeft: '6px' }} title="Unterstützt Think-Mode">💭</span>}
+                              {model.rag_optimized && <span style={{ color: '#22C55E', marginLeft: '4px' }} title="RAG-optimiert">📚</span>}
                               {isLoaded && <span style={{ color: '#94A3B8', marginLeft: '8px' }}>• Aktiv</span>}
                               {!isDefault && isAvailable && (
                                 <button

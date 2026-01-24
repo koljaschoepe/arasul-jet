@@ -427,7 +427,35 @@ function createLLMQueueService(deps = {}) {
         async processChatJob(job) {
             const { id: jobId, request_data: requestData, requested_model } = job;
             const { messages, temperature, max_tokens, thinking } = requestData;
-            const enableThinking = thinking !== false;
+
+            // P2-001: Check if model supports thinking mode
+            let modelSupportsThinking = true; // Default to true for backwards compatibility
+            if (requested_model) {
+                try {
+                    const capResult = await database.query(
+                        `SELECT supports_thinking FROM llm_model_catalog WHERE id = $1`,
+                        [requested_model]
+                    );
+                    if (capResult.rows.length > 0 && capResult.rows[0].supports_thinking !== null) {
+                        modelSupportsThinking = capResult.rows[0].supports_thinking;
+                    }
+                } catch (capErr) {
+                    logger.debug(`Could not check model capabilities: ${capErr.message}`);
+                }
+            }
+
+            // Enable thinking only if requested AND model supports it
+            const enableThinking = (thinking !== false) && modelSupportsThinking;
+
+            // Notify if thinking was requested but model doesn't support it
+            if (thinking !== false && !modelSupportsThinking) {
+                logger.info(`[JOB ${jobId}] Think mode requested but model ${requested_model} doesn't support it - disabled`);
+                this.notifySubscribers(jobId, {
+                    type: 'warning',
+                    message: `Modell "${requested_model}" unterstützt Think-Mode nicht optimal. Thinking deaktiviert.`,
+                    code: 'THINKING_NOT_SUPPORTED'
+                });
+            }
 
             // Fetch company context for normal chat (same as RAG)
             let companyContext = '';

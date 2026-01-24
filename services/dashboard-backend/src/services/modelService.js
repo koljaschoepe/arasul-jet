@@ -264,7 +264,32 @@ function createModelService(deps = {}) {
                             [modelId]
                         );
                         if (finalResult.rows.length > 0 && finalResult.rows[0].status === 'downloading') {
-                            // If still downloading, set to available (download completed without explicit success message)
+                            // P2-002: Verify model is actually available in Ollama before marking as available
+                            logger.info(`[DOWNLOAD] Verifying model ${modelId} (Ollama: ${ollamaName}) after download...`);
+
+                            try {
+                                const tagsResponse = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 10000 });
+                                const ollamaModels = (tagsResponse.data.models || []).map(m => m.name);
+
+                                if (!ollamaModels.includes(ollamaName)) {
+                                    logger.error(`[DOWNLOAD] Model ${modelId} not found in Ollama after download!`);
+                                    await database.query(
+                                        `UPDATE llm_installed_models
+                                         SET status = 'error', error_message = $1
+                                         WHERE id = $2`,
+                                        ['Download abgeschlossen, aber Modell nicht in Ollama verfügbar. Bitte erneut herunterladen.', modelId]
+                                    );
+                                    reject(new Error('Model verification failed - model not found in Ollama'));
+                                    return;
+                                }
+
+                                logger.info(`[DOWNLOAD] Model ${modelId} verified successfully in Ollama`);
+                            } catch (verifyError) {
+                                logger.warn(`[DOWNLOAD] Could not verify model ${modelId}: ${verifyError.message}, assuming success`);
+                                // Don't fail if we can't verify - Ollama might be busy
+                            }
+
+                            // Mark as available
                             await database.query(`
                                 UPDATE llm_installed_models
                                 SET status = 'available', download_progress = 100, downloaded_at = NOW()

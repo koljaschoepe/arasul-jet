@@ -718,6 +718,24 @@
   color: var(--error-color);
 }
 
+/* P2-001/P2-003: Model Capability Warning */
+.capability-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.capability-warning span {
+  flex: 1;
+}
+
 /* -------------------- Input Box - Single Row -------------------- */
 .input-box {
   width: 100%;
