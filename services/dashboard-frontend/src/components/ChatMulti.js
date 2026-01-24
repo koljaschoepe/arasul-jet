@@ -32,6 +32,12 @@ function ChatMulti() {
   const [loadedModel, setLoadedModel] = useState(null); // Currently loaded in RAM
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const modelDropdownRef = useRef(null);
+  // P4-003: Favorite models (persisted in localStorage)
+  const [favoriteModels, setFavoriteModels] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('arasul_favorite_models') || '[]');
+    } catch { return []; }
+  });
 
   // Knowledge Spaces (RAG 2.0)
   const [spaces, setSpaces] = useState([]);
@@ -703,6 +709,17 @@ function ChatMulti() {
         thinkingCollapsed: !updated[index].thinkingCollapsed
       };
       return updated;
+    });
+  }, []);
+
+  // P4-003: Toggle favorite model
+  const toggleFavorite = useCallback((modelId) => {
+    setFavoriteModels(prev => {
+      const newFavorites = prev.includes(modelId)
+        ? prev.filter(id => id !== modelId)
+        : [...prev, modelId];
+      localStorage.setItem('arasul_favorite_models', JSON.stringify(newFavorites));
+      return newFavorites;
     });
   }, []);
 
@@ -1627,9 +1644,18 @@ function ChatMulti() {
                     </span>
                     <span className="model-option-desc">{defaultModel ? defaultModel.split(':')[0] : 'Automatisch'}</span>
                   </div>
-                  {installedModels.map(model => {
+                  {/* P4-003: Sort models - favorites first, then by category */}
+                  {[...installedModels]
+                    .sort((a, b) => {
+                      const aFav = favoriteModels.includes(a.id) ? 0 : 1;
+                      const bFav = favoriteModels.includes(b.id) ? 0 : 1;
+                      if (aFav !== bFav) return aFav - bFav;
+                      return (a.performance_tier || 1) - (b.performance_tier || 1);
+                    })
+                    .map(model => {
                     const isAvailable = model.install_status === 'available' || model.status === 'available';
                     const isDefault = model.id === defaultModel;
+                    const isFavorite = favoriteModels.includes(model.id);
                     // Check if this model is currently loaded in RAM (compare by ollama_name or id)
                     const isLoaded = loadedModel && (
                       model.effective_ollama_name === loadedModel ||
@@ -1639,7 +1665,7 @@ function ChatMulti() {
                     return (
                       <div
                         key={model.id}
-                        className={`model-option ${selectedModel === model.id ? 'selected' : ''} ${!isAvailable ? 'unavailable' : ''}`}
+                        className={`model-option ${selectedModel === model.id ? 'selected' : ''} ${!isAvailable ? 'unavailable' : ''} ${isFavorite ? 'favorite' : ''}`}
                         onClick={() => {
                           if (isAvailable) {
                             setSelectedModel(model.id);
@@ -1649,7 +1675,14 @@ function ChatMulti() {
                         title={!isAvailable ? (model.install_error || 'Modell nicht verfügbar') : ''}
                       >
                         <span className="model-option-name">
-                          {isDefault && <FiStar style={{ color: '#45ADFF', marginRight: '4px' }} />}
+                          {/* P4-003: Favorite toggle button */}
+                          <button
+                            className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(model.id); }}
+                            title={isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
+                          >
+                            <FiStar style={{ color: isFavorite ? '#F59E0B' : '#4A5568' }} />
+                          </button>
                           {model.name}
                           {isLoaded && <FiCpu style={{ marginLeft: '6px', color: '#94A3B8' }} title="Im RAM geladen" />}
                           {!isAvailable && <FiAlertCircle className="model-warning-icon" style={{ marginLeft: '6px', color: '#EF4444' }} />}

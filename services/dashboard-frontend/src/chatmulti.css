@@ -947,6 +947,7 @@
   cursor: pointer;
   transition: background 0.15s ease;
   border-bottom: 1px solid var(--border-color);
+  position: relative; /* P4-003: For favorite indicator */
 }
 
 .model-option:last-child {
@@ -980,6 +981,43 @@
 
 .model-option.unavailable .model-option-desc {
   color: var(--error-color);
+}
+
+/* P4-003: Favorite model styling */
+.model-option.favorite {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.model-option.favorite::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #F59E0B;
+}
+
+.favorite-btn {
+  background: transparent;
+  border: none;
+  padding: 2px;
+  margin-right: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.favorite-btn:hover {
+  background: rgba(245, 158, 11, 0.15);
+  transform: scale(1.1);
+}
+
+.favorite-btn.active svg {
+  fill: #F59E0B;
 }
 
 .model-warning-icon {

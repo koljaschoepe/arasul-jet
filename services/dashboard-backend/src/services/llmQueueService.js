@@ -24,6 +24,46 @@ const BURST_WINDOW_MS = parseInt(process.env.LLM_BURST_WINDOW_MS || '1000'); // 
 const MAX_CONCURRENT_ENQUEUE = parseInt(process.env.LLM_MAX_CONCURRENT_ENQUEUE || '10'); // Max parallel enqueues
 
 /**
+ * P2-004: Simple async mutex for queue position protection
+ * Prevents race conditions during burst enqueue operations
+ */
+class AsyncMutex {
+    constructor() {
+        this._locked = false;
+        this._waiting = [];
+    }
+
+    async acquire() {
+        return new Promise(resolve => {
+            if (!this._locked) {
+                this._locked = true;
+                resolve();
+            } else {
+                this._waiting.push(resolve);
+            }
+        });
+    }
+
+    release() {
+        if (this._waiting.length > 0) {
+            const next = this._waiting.shift();
+            next();
+        } else {
+            this._locked = false;
+        }
+    }
+
+    async withLock(fn) {
+        await this.acquire();
+        try {
+            return await fn();
+        } finally {
+            this.release();
+        }
+    }
+}
+
+/**
  * Factory function to create LLMQueueService with injected dependencies
  * @param {Object} deps - Dependencies
  * @param {Object} deps.database - Database module
@@ -59,6 +99,8 @@ function createLLMQueueService(deps = {}) {
             this.initialized = false;
             this.subscriberCleanupInterval = null;
             this.timeoutInterval = null;
+            // P2-004: Mutex for queue position protection during burst traffic
+            this.enqueueMutex = new AsyncMutex();
         }
 
         /**
@@ -167,25 +209,31 @@ function createLLMQueueService(deps = {}) {
                 throw new Error(`Model "${resolvedModel}" ist nicht in Ollama verfügbar. Bitte im Model Store synchronisieren oder erneut herunterladen.`);
             }
 
-            // Get next queue position
-            const posResult = await database.query(`SELECT get_next_queue_position() as pos`);
-            const queuePosition = posResult.rows[0].pos;
+            // P2-004: Use mutex to prevent race conditions during burst traffic
+            // This ensures queue positions are assigned atomically
+            const { jobId, messageId, queuePosition } = await this.enqueueMutex.withLock(async () => {
+                // Get next queue position (protected by mutex)
+                const posResult = await database.query(`SELECT get_next_queue_position() as pos`);
+                const queuePos = posResult.rows[0].pos;
 
-            // Create job in database
-            const { jobId, messageId } = await llmJobService.createJob(
-                conversationId,
-                jobType,
-                requestData
-            );
+                // Create job in database
+                const { jobId: jId, messageId: mId } = await llmJobService.createJob(
+                    conversationId,
+                    jobType,
+                    requestData
+                );
 
-            // Update with queue info and model data
-            await database.query(
-                `UPDATE llm_jobs
-                 SET queue_position = $1, queued_at = NOW(), status = 'pending',
-                     requested_model = $2, model_sequence = $3, max_wait_seconds = $4, priority = $5
-                 WHERE id = $6`,
-                [queuePosition, resolvedModel, JSON.stringify(modelSequence), maxWaitSeconds, priority, jobId]
-            );
+                // Update with queue info and model data
+                await database.query(
+                    `UPDATE llm_jobs
+                     SET queue_position = $1, queued_at = NOW(), status = 'pending',
+                         requested_model = $2, model_sequence = $3, max_wait_seconds = $4, priority = $5
+                     WHERE id = $6`,
+                    [queuePos, resolvedModel, JSON.stringify(modelSequence), maxWaitSeconds, priority, jId]
+                );
+
+                return { jobId: jId, messageId: mId, queuePosition: queuePos };
+            });
 
             logger.info(`Job ${jobId} enqueued for model ${resolvedModel} at position ${queuePosition}`);
 
@@ -588,6 +636,11 @@ ${context}`;
                 const abortController = new AbortController();
                 llmJobService.registerStream(jobId, abortController);
 
+                // P4-002: Performance metrics tracking
+                const streamStartTime = Date.now();
+                let firstTokenTime = null;
+                let tokenCount = 0;
+
                 logger.info(`[QUEUE] Starting Ollama stream for job ${jobId} with model ${catalogModelId} (Ollama: ${ollamaName})${systemPrompt ? ' [with system prompt]' : ''}`);
 
                 // Build Ollama payload
@@ -663,6 +716,12 @@ ${context}`;
                             if (data.response) {
                                 const token = data.response;
 
+                                // P4-002: Track first token time and count
+                                if (firstTokenTime === null) {
+                                    firstTokenTime = Date.now();
+                                }
+                                tokenCount++;
+
                                 // Process thinking blocks
                                 if (!enableThinking) {
                                     if (token.includes('<think>')) {
@@ -724,16 +783,54 @@ ${context}`;
                             }
 
                             if (data.done) {
-                                logger.info(`[QUEUE] Job ${jobId} stream complete`);
+                                const streamEndTime = Date.now();
+                                const totalDuration = streamEndTime - streamStartTime;
+                                const ttft = firstTokenTime ? firstTokenTime - streamStartTime : null;
+                                const tokensPerSecond = totalDuration > 0 ? (tokenCount * 1000 / totalDuration).toFixed(2) : 0;
+
+                                logger.info(`[QUEUE] Job ${jobId} stream complete - ${tokenCount} tokens in ${totalDuration}ms (${tokensPerSecond} tok/s)`);
                                 clearInactivityTimer(); // Clear timeout on completion
                                 await flushToDatabase(true);
                                 await llmJobService.completeJob(jobId);
+
+                                // P4-002: Record performance metrics
+                                try {
+                                    // Get job type from database
+                                    const jobResult = await database.query(
+                                        `SELECT job_type FROM llm_jobs WHERE id = $1`,
+                                        [jobId]
+                                    );
+                                    const jobType = jobResult.rows[0]?.job_type || 'chat';
+
+                                    await database.query(
+                                        `SELECT record_model_performance($1, $2, $3, $4, $5, $6, $7, $8)`,
+                                        [
+                                            catalogModelId,
+                                            jobId,
+                                            jobType,
+                                            tokenCount,
+                                            totalDuration,
+                                            ttft,
+                                            enableThinking,
+                                            prompt.length
+                                        ]
+                                    );
+                                } catch (metricsError) {
+                                    logger.warn(`[QUEUE] Failed to record performance metrics: ${metricsError.message}`);
+                                }
 
                                 this.notifySubscribers(jobId, {
                                     done: true,
                                     model: data.model || catalogModelId || 'unknown',
                                     jobId,
-                                    timestamp: new Date().toISOString()
+                                    timestamp: new Date().toISOString(),
+                                    // P4-002: Include performance stats in response
+                                    performance: {
+                                        tokens: tokenCount,
+                                        duration_ms: totalDuration,
+                                        tokens_per_second: parseFloat(tokensPerSecond),
+                                        ttft_ms: ttft
+                                    }
                                 });
 
                                 this.onJobComplete(jobId);
