@@ -1,0 +1,322 @@
+{
+  "name": "DB Maintenance - Arasul Platform",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Clean up metrics older than 30 days\nDELETE FROM metrics_cpu WHERE timestamp < NOW() - INTERVAL '30 days';\nDELETE FROM metrics_ram WHERE timestamp < NOW() - INTERVAL '30 days';\nDELETE FROM metrics_gpu WHERE timestamp < NOW() - INTERVAL '30 days';\nDELETE FROM metrics_temperature WHERE timestamp < NOW() - INTERVAL '30 days';\nDELETE FROM metrics_disk WHERE timestamp < NOW() - INTERVAL '30 days';\n\n-- Return count of remaining rows\nSELECT \n  (SELECT COUNT(*) FROM metrics_cpu) as cpu_count,\n  (SELECT COUNT(*) FROM metrics_ram) as ram_count,\n  (SELECT COUNT(*) FROM metrics_gpu) as gpu_count,\n  (SELECT COUNT(*) FROM metrics_temperature) as temp_count,\n  (SELECT COUNT(*) FROM metrics_disk) as disk_count;",
+        "options": {}
+      },
+      "id": "cleanup-metrics",
+      "name": "Cleanup Old Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 200],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Arasul PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Clean up old sessions (expired more than 7 days ago)\nDELETE FROM active_sessions WHERE expires_at < NOW() - INTERVAL '7 days';\n\n-- Clean up old blacklisted tokens (expired more than 24 hours ago)\nDELETE FROM token_blacklist WHERE expires_at < NOW() - INTERVAL '24 hours';\n\n-- Return cleanup stats\nSELECT \n  (SELECT COUNT(*) FROM active_sessions) as active_sessions,\n  (SELECT COUNT(*) FROM token_blacklist) as blacklisted_tokens;",
+        "options": {}
+      },
+      "id": "cleanup-sessions",
+      "name": "Cleanup Sessions",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 400],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Arasul PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Clean up audit logs older than 90 days\nDELETE FROM api_audit_logs WHERE timestamp < NOW() - INTERVAL '90 days';\nDELETE FROM telegram_audit_logs WHERE timestamp < NOW() - INTERVAL '90 days';\n\n-- Clean up old self-healing events (older than 30 days)\nDELETE FROM self_healing_events WHERE timestamp < NOW() - INTERVAL '30 days';\n\n-- Return counts\nSELECT \n  (SELECT COUNT(*) FROM api_audit_logs) as api_audit_count,\n  (SELECT COUNT(*) FROM telegram_audit_logs) as telegram_audit_count,\n  (SELECT COUNT(*) FROM self_healing_events) as healing_events_count;",
+        "options": {}
+      },
+      "id": "cleanup-audit",
+      "name": "Cleanup Audit Logs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 600],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Arasul PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Vacuum and analyze tables for performance\nVACUUM ANALYZE metrics_cpu;\nVACUUM ANALYZE metrics_ram;\nVACUUM ANALYZE metrics_gpu;\nVACUUM ANALYZE metrics_temperature;\nVACUUM ANALYZE metrics_disk;\nVACUUM ANALYZE conversations;\nVACUUM ANALYZE messages;\nVACUUM ANALYZE documents;\nVACUUM ANALYZE active_sessions;\nVACUUM ANALYZE api_audit_logs;\n\n-- Return database size stats\nSELECT \n  pg_database_size('arasul_db') as db_size_bytes,\n  pg_size_pretty(pg_database_size('arasul_db')) as db_size_human;",
+        "options": {}
+      },
+      "id": "vacuum-analyze",
+      "name": "Vacuum & Analyze",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [750, 400],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Arasul PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const metricsResult = items[0].json;\nconst sessionsResult = items[1].json;\nconst auditResult = items[2].json;\nconst vacuumResult = items[3].json;\n\nconst timestamp = new Date().toISOString();\n\nconst report = {\n  timestamp,\n  status: 'completed',\n  metrics: {\n    cpu_rows: metricsResult[0]?.cpu_count || 0,\n    ram_rows: metricsResult[0]?.ram_count || 0,\n    gpu_rows: metricsResult[0]?.gpu_count || 0,\n    temp_rows: metricsResult[0]?.temp_count || 0,\n    disk_rows: metricsResult[0]?.disk_count || 0\n  },\n  sessions: {\n    active_sessions: sessionsResult[0]?.active_sessions || 0,\n    blacklisted_tokens: sessionsResult[0]?.blacklisted_tokens || 0\n  },\n  audit: {\n    api_audit_count: auditResult[0]?.api_audit_count || 0,\n    telegram_audit_count: auditResult[0]?.telegram_audit_count || 0,\n    healing_events_count: auditResult[0]?.healing_events_count || 0\n  },\n  database: {\n    size_bytes: vacuumResult[0]?.db_size_bytes || 0,\n    size_human: vacuumResult[0]?.db_size_human || 'unknown'\n  }\n};\n\nreturn [{ json: report }];"
+      },
+      "id": "generate-report",
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard-backend:3001/api/events/webhook/db-maintenance",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event",
+              "value": "db_maintenance_completed"
+            },
+            {
+              "name": "data",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "notify-backend",
+      "name": "Notify Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Internal API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-telegram-enabled",
+              "leftValue": "={{ $env.TELEGRAM_BOT_TOKEN }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-telegram",
+      "name": "Telegram Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1500, 400]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=🔧 *DB Maintenance Report*\n\n📊 *Metrics Rows:*\n• CPU: {{ $json.metrics.cpu_rows }}\n• RAM: {{ $json.metrics.ram_rows }}\n• GPU: {{ $json.metrics.gpu_rows }}\n• Temp: {{ $json.metrics.temp_rows }}\n• Disk: {{ $json.metrics.disk_rows }}\n\n🔐 *Sessions:*\n• Active: {{ $json.sessions.active_sessions }}\n• Blacklisted: {{ $json.sessions.blacklisted_tokens }}\n\n📝 *Audit Logs:*\n• API: {{ $json.audit.api_audit_count }}\n• Telegram: {{ $json.audit.telegram_audit_count }}\n• Healing: {{ $json.audit.healing_events_count }}\n\n💾 *Database Size:* {{ $json.database.size_human }}\n\n✅ Maintenance completed at {{ $json.timestamp }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-notify",
+      "name": "Send Telegram Report",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1750, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "3",
+          "name": "Arasul Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-op",
+      "name": "Skip Telegram",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1750, 500]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "Cleanup Old Metrics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Cleanup Sessions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Cleanup Audit Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup Old Metrics": {
+      "main": [
+        [
+          {
+            "node": "Vacuum & Analyze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup Sessions": {
+      "main": [
+        [
+          {
+            "node": "Vacuum & Analyze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup Audit Logs": {
+      "main": [
+        [
+          {
+            "node": "Vacuum & Analyze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vacuum & Analyze": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Notify Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Backend": {
+      "main": [
+        [
+          {
+            "node": "Telegram Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "arasul-platform"
+  },
+  "tags": [
+    {
+      "name": "maintenance",
+      "id": "1"
+    },
+    {
+      "name": "database",
+      "id": "2"
+    }
+  ]
+}

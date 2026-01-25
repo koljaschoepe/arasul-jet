@@ -1,0 +1,297 @@
+{
+  "name": "Alerting Pipeline - Arasul Platform",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "alerts",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-alerts",
+      "name": "Alert Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 400],
+      "webhookId": "arasul-alerts"
+    },
+    {
+      "parameters": {
+        "functionCode": "const alert = items[0].json.body || items[0].json;\n\n// Normalize alert structure\nconst normalizedAlert = {\n  id: alert.id || `alert-${Date.now()}`,\n  type: alert.type || 'unknown',\n  severity: (alert.severity || 'info').toLowerCase(),\n  source: alert.source || 'system',\n  message: alert.message || 'No message provided',\n  value: alert.value,\n  threshold: alert.threshold,\n  timestamp: alert.timestamp || new Date().toISOString(),\n  metadata: alert.metadata || {}\n};\n\n// Determine emoji based on severity\nconst severityEmoji = {\n  critical: '🔴',\n  warning: '🟡',\n  info: '🔵'\n};\n\nnormalizedAlert.emoji = severityEmoji[normalizedAlert.severity] || '⚪';\n\n// Build human-readable message\nlet details = normalizedAlert.message;\nif (normalizedAlert.value !== undefined && normalizedAlert.threshold !== undefined) {\n  details += ` (Value: ${normalizedAlert.value}, Threshold: ${normalizedAlert.threshold})`;\n}\nnormalizedAlert.details = details;\n\nreturn [{ json: normalizedAlert }];"
+      },
+      "id": "normalize-alert",
+      "name": "Normalize Alert",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "critical",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": "critical",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-critical",
+      "name": "Is Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "warning",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": "warning",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-warning",
+      "name": "Is Warning?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 500]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.emoji }} *CRITICAL ALERT*\n\n*Type:* {{ $json.type }}\n*Source:* {{ $json.source }}\n*Message:* {{ $json.details }}\n*Time:* {{ $json.timestamp }}\n\n⚠️ Immediate action required!",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-critical",
+      "name": "Telegram Critical",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1000, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "3",
+          "name": "Arasul Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.emoji }} *Warning Alert*\n\n*Type:* {{ $json.type }}\n*Source:* {{ $json.source }}\n*Message:* {{ $json.details }}\n*Time:* {{ $json.timestamp }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-warning",
+      "name": "Telegram Warning",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1000, 400],
+      "credentials": {
+        "telegramApi": {
+          "id": "3",
+          "name": "Arasul Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO notification_events (event_type, severity, source, message, metadata, created_at)\nVALUES ($1, $2, $3, $4, $5, $6)",
+        "options": {
+          "queryParams": "={{ JSON.stringify([$json.type, $json.severity, $json.source, $json.message, JSON.stringify($json.metadata), $json.timestamp]) }}"
+        }
+      },
+      "id": "log-alert",
+      "name": "Log Alert to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1250, 400],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Arasul PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, alertId: $json.id, processed: true }) }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1500, 400]
+    },
+    {
+      "parameters": {},
+      "id": "info-noop",
+      "name": "Info - No Notification",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1000, 600]
+    }
+  ],
+  "connections": {
+    "Alert Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Alert": {
+      "main": [
+        [
+          {
+            "node": "Is Critical?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Warning?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Critical?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Critical",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Warning?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Warning?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Warning",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Info - No Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Critical": {
+      "main": [
+        [
+          {
+            "node": "Log Alert to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Warning": {
+      "main": [
+        [
+          {
+            "node": "Log Alert to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Info - No Notification": {
+      "main": [
+        [
+          {
+            "node": "Log Alert to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Alert to DB": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "arasul-platform"
+  },
+  "tags": [
+    {
+      "name": "alerting",
+      "id": "3"
+    },
+    {
+      "name": "monitoring",
+      "id": "4"
+    }
+  ]
+}

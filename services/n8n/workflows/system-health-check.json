@@ -1,0 +1,250 @@
+{
+  "name": "System Health Check - Arasul Platform",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule-5min",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://dashboard-backend:3001/api/metrics/live",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "fetch-metrics",
+      "name": "Fetch Live Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Internal API Key"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://dashboard-backend:3001/api/services/status",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "fetch-services",
+      "name": "Fetch Service Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Internal API Key"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "const metrics = items[0]?.json;\nconst services = items[1]?.json;\nconst alerts = [];\n\n// Thresholds (can be moved to env vars)\nconst thresholds = {\n  cpu: { warning: 80, critical: 95 },\n  ram: { warning: 85, critical: 95 },\n  gpu: { warning: 85, critical: 95 },\n  temperature: { warning: 75, critical: 85 },\n  disk: { warning: 80, critical: 90 }\n};\n\n// Check metrics\nif (metrics && !metrics.error) {\n  // CPU check\n  if (metrics.cpu >= thresholds.cpu.critical) {\n    alerts.push({\n      type: 'cpu_critical',\n      severity: 'critical',\n      source: 'health-check',\n      message: 'CPU usage critically high',\n      value: metrics.cpu,\n      threshold: thresholds.cpu.critical\n    });\n  } else if (metrics.cpu >= thresholds.cpu.warning) {\n    alerts.push({\n      type: 'cpu_warning',\n      severity: 'warning',\n      source: 'health-check',\n      message: 'CPU usage elevated',\n      value: metrics.cpu,\n      threshold: thresholds.cpu.warning\n    });\n  }\n\n  // RAM check\n  if (metrics.ram >= thresholds.ram.critical) {\n    alerts.push({\n      type: 'ram_critical',\n      severity: 'critical',\n      source: 'health-check',\n      message: 'RAM usage critically high',\n      value: metrics.ram,\n      threshold: thresholds.ram.critical\n    });\n  } else if (metrics.ram >= thresholds.ram.warning) {\n    alerts.push({\n      type: 'ram_warning',\n      severity: 'warning',\n      source: 'health-check',\n      message: 'RAM usage elevated',\n      value: metrics.ram,\n      threshold: thresholds.ram.warning\n    });\n  }\n\n  // GPU check\n  if (metrics.gpu >= thresholds.gpu.critical) {\n    alerts.push({\n      type: 'gpu_critical',\n      severity: 'critical',\n      source: 'health-check',\n      message: 'GPU usage critically high',\n      value: metrics.gpu,\n      threshold: thresholds.gpu.critical\n    });\n  } else if (metrics.gpu >= thresholds.gpu.warning) {\n    alerts.push({\n      type: 'gpu_warning',\n      severity: 'warning',\n      source: 'health-check',\n      message: 'GPU usage elevated',\n      value: metrics.gpu,\n      threshold: thresholds.gpu.warning\n    });\n  }\n\n  // Temperature check\n  if (metrics.temperature >= thresholds.temperature.critical) {\n    alerts.push({\n      type: 'temperature_critical',\n      severity: 'critical',\n      source: 'health-check',\n      message: 'System temperature critically high',\n      value: metrics.temperature,\n      threshold: thresholds.temperature.critical\n    });\n  } else if (metrics.temperature >= thresholds.temperature.warning) {\n    alerts.push({\n      type: 'temperature_warning',\n      severity: 'warning',\n      source: 'health-check',\n      message: 'System temperature elevated',\n      value: metrics.temperature,\n      threshold: thresholds.temperature.warning\n    });\n  }\n\n  // Disk check\n  const diskPercent = metrics.disk?.percent || 0;\n  if (diskPercent >= thresholds.disk.critical) {\n    alerts.push({\n      type: 'disk_critical',\n      severity: 'critical',\n      source: 'health-check',\n      message: 'Disk usage critically high',\n      value: diskPercent,\n      threshold: thresholds.disk.critical\n    });\n  } else if (diskPercent >= thresholds.disk.warning) {\n    alerts.push({\n      type: 'disk_warning',\n      severity: 'warning',\n      source: 'health-check',\n      message: 'Disk usage elevated',\n      value: diskPercent,\n      threshold: thresholds.disk.warning\n    });\n  }\n}\n\n// Check services\nif (services && services.services) {\n  for (const [name, status] of Object.entries(services.services)) {\n    if (status.status === 'unhealthy' || status.status === 'down') {\n      alerts.push({\n        type: 'service_down',\n        severity: 'critical',\n        source: 'health-check',\n        message: `Service ${name} is ${status.status}`,\n        metadata: { service: name, status: status.status }\n      });\n    }\n  }\n}\n\nreturn alerts.length > 0 ? alerts.map(a => ({ json: a })) : [{ json: { noAlerts: true } }];"
+      },
+      "id": "analyze-health",
+      "name": "Analyze Health",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [750, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-alerts",
+              "leftValue": "={{ $json.noAlerts }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-alerts",
+      "name": "Has Alerts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1000, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/alerts",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "={{ $json.type }}"
+            },
+            {
+              "name": "severity",
+              "value": "={{ $json.severity }}"
+            },
+            {
+              "name": "source",
+              "value": "={{ $json.source }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "value",
+              "value": "={{ $json.value }}"
+            },
+            {
+              "name": "threshold",
+              "value": "={{ $json.threshold }}"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify($json.metadata || {}) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-to-alerting",
+      "name": "Send to Alerting Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {},
+      "id": "all-healthy",
+      "name": "All Healthy",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1250, 500]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Live Metrics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Service Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Live Metrics": {
+      "main": [
+        [
+          {
+            "node": "Analyze Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Service Status": {
+      "main": [
+        [
+          {
+            "node": "Analyze Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Health": {
+      "main": [
+        [
+          {
+            "node": "Has Alerts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Alerts?": {
+      "main": [
+        [
+          {
+            "node": "Send to Alerting Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "All Healthy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "arasul-platform"
+  },
+  "tags": [
+    {
+      "name": "monitoring",
+      "id": "4"
+    },
+    {
+      "name": "health-check",
+      "id": "5"
+    }
+  ]
+}

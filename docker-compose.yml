@@ -13,6 +13,8 @@
 # 10. self-healing-agent (depends on all services - monitors all)
 # 11. backup-service (depends on postgres-db, minio)
 # 12. telegram-bot (depends on postgres-db, dashboard-backend)
+# 13. loki (log aggregation - no dependencies)
+# 14. promtail (log collector - depends on loki)
 #
 # IMPORTANT: All services implement retry logic for database and service connections.
 # Healthchecks are robust (see HIGH-010 fix) and properly handle timeouts.
@@ -40,6 +42,7 @@ volumes:
       o: bind
       device: /arasul/logs
   arasul-letsencrypt:
+  arasul-loki:
 
 services:
   # 1. PostgreSQL - Telemetry and Audit Database
@@ -101,11 +104,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
-    # PHASE2-FIX: Add memory limits
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: ${RAM_LIMIT_MINIO:-4G}
 
   # 2.5 Qdrant - Vector Database for RAG
   qdrant:
@@ -134,11 +137,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
-    # PHASE2-FIX: Add memory limits
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: ${RAM_LIMIT_QDRANT:-4G}
 
   # 3. Metrics Collector
   metrics-collector:
@@ -171,10 +174,11 @@ services:
       interval: 10s
       timeout: 1s
       retries: 3
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: ${RAM_LIMIT_METRICS:-512M}
     logging:
       driver: json-file
       options:
@@ -245,9 +249,9 @@ services:
       SERVICE_URL: http://localhost:${EMBEDDING_SERVICE_PORT}
       VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE}
       MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS}
-      # Jetson Orin GPU activation
+      # Jetson GPU activation (TORCH_CUDA_ARCH_LIST: 8.7=Orin, 7.2=Xavier, 5.3=Nano)
       CUDA_VISIBLE_DEVICES: 0
-      TORCH_CUDA_ARCH_LIST: "8.7"
+      TORCH_CUDA_ARCH_LIST: "${TORCH_CUDA_ARCH_LIST:-8.7}"
     volumes:
       - arasul-embeddings-models:/models
       - ./services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
@@ -346,11 +350,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
-    # PHASE2-FIX: Add memory limits
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: ${RAM_LIMIT_DOCUMENT_INDEXER:-2G}
 
   # 6. Reverse Proxy (Traefik) - Starts AFTER core services, BEFORE dashboards
   reverse-proxy:
@@ -393,11 +397,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
-    # PHASE2-FIX: Add memory limits
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: ${RAM_LIMIT_REVERSE_PROXY:-512M}
 
   # 7. Dashboard Backend
   dashboard-backend:
@@ -473,10 +477,12 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    # Jetson-flexible: Resource limits configurable via environment
     deploy:
       resources:
         limits:
           cpus: '${CPU_LIMIT_DASHBOARD}'
+          memory: ${RAM_LIMIT_BACKEND:-1G}
     # FIX: Routing komplett über File Provider (config/traefik/dynamic/routes.yml)
     # Docker-Labels deaktiviert, da sie nur websecure (HTTPS) unterstützten
     # und HTTP-Zugriff (localhost, LAN) blockierten
@@ -518,11 +524,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
-    # PHASE2-FIX: Add memory limits
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: ${RAM_LIMIT_FRONTEND:-256M}
 
   # 9. n8n Workflow Engine
   n8n:
@@ -543,8 +549,11 @@ services:
       # PHASE2-FIX: Make SECURE_COOKIE configurable (default false for LAN access)
       N8N_SECURE_COOKIE: "${N8N_SECURE_COOKIE:-false}"
       # N8N_EDITOR_BASE_URL tells n8n the external URL (for links in emails, etc.)
-      # Traefik strips /n8n prefix before forwarding to n8n
-      N8N_EDITOR_BASE_URL: http://${INTERNAL_IP}/n8n
+      # Use actual LAN IP for external access (not Docker internal IP)
+      N8N_EDITOR_BASE_URL: http://192.168.0.112/n8n
+      # N8N_PATH tells n8n it's running under a subpath (sets window.BASE_PATH)
+      # Trailing slash required per n8n docs for correct path generation
+      N8N_PATH: "/n8n/"
       # Disable basic auth - use n8n's built-in user management instead
       N8N_BASIC_AUTH_ACTIVE: "false"
       WEBHOOK_URL: http://${N8N_HOST}:${N8N_WEBHOOK_PORT}
@@ -671,11 +680,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
-    # PHASE2-FIX: Add memory limits
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: ${RAM_LIMIT_SELF_HEALING:-512M}
 
   # 11. Backup Service - Automated PostgreSQL and MinIO backups
   backup-service:
@@ -780,11 +789,11 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
-    # PHASE2-FIX: Add memory limits
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: ${RAM_LIMIT_BACKUP:-256M}
 
   # 12. Telegram Bot - System notifications and command interface
   telegram-bot:
@@ -825,7 +834,71 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: ${RAM_LIMIT_TELEGRAM:-256M}
+
+  # 13. Loki - Log Aggregation System
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: loki
+    hostname: loki
+    restart: always
+    networks:
+      - arasul-net
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./config/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - arasul-loki:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: ${RAM_LIMIT_LOKI:-512M}
+
+  # 14. Promtail - Log Collector
+  promtail:
+    image: grafana/promtail:2.9.3
+    container_name: promtail
+    hostname: promtail
+    restart: always
+    networks:
+      - arasul-net
+    volumes:
+      - ./config/promtail/config.yaml:/etc/promtail/config.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - arasul-logs:/arasul/logs:ro
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9080/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: ${RAM_LIMIT_PROMTAIL:-256M}
