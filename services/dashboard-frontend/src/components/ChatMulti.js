@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,8 +8,58 @@ import {
   FiFolder, FiCheck, FiDownload, FiStar
 } from 'react-icons/fi';
 import MermaidDiagram from './MermaidDiagram';
+import ContentTransition from './ContentTransition';
+import { useMinLoadingTime } from '../hooks/useMinLoadingTime';
 import { API_BASE } from '../config/api';
 import '../chatmulti.css';
+
+/**
+ * ChatSkeleton - Skeleton placeholder for chat loading state
+ * Shows tabs skeleton, messages skeleton, and input skeleton
+ */
+const ChatSkeleton = memo(function ChatSkeleton() {
+  return (
+    <div className="chat-container" aria-hidden="true">
+      {/* Tabs skeleton */}
+      <div className="chat-tabs-bar chat-skeleton-tabs">
+        <div className="skeleton skeleton-tab-btn"></div>
+        <div className="chat-tabs">
+          <div className="skeleton skeleton-tab"></div>
+          <div className="skeleton skeleton-tab"></div>
+          <div className="skeleton skeleton-tab"></div>
+        </div>
+      </div>
+
+      {/* Messages skeleton */}
+      <div className="chat-messages chat-skeleton-messages">
+        <div className="messages-wrapper">
+          <div className="chat-skeleton-message user">
+            <div className="skeleton skeleton-label"></div>
+            <div className="skeleton skeleton-message-body short"></div>
+          </div>
+          <div className="chat-skeleton-message assistant">
+            <div className="skeleton skeleton-label"></div>
+            <div className="skeleton skeleton-message-body"></div>
+          </div>
+          <div className="chat-skeleton-message user">
+            <div className="skeleton skeleton-label"></div>
+            <div className="skeleton skeleton-message-body medium"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Input skeleton */}
+      <div className="chat-input-section bottom chat-skeleton-input">
+        <div className="input-box">
+          <div className="skeleton skeleton-toggle"></div>
+          <div className="skeleton skeleton-toggle"></div>
+          <div className="skeleton skeleton-input"></div>
+          <div className="skeleton skeleton-send-btn"></div>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 function ChatMulti() {
   // Chat list state
@@ -292,7 +342,7 @@ function ChatMulti() {
 
     // RC-002 FIX: Check if chat changed BEFORE setting messages
     if (generationRef.current !== currentGeneration) {
-      console.log(`[ChatMulti] initializeChat: chat changed during loadMessages, aborting (gen ${currentGeneration} vs ${generationRef.current})`);
+      // [ChatMulti] initializeChat: chat changed during loadMessages, aborting (gen ${currentGeneration} vs ${generationRef.current})
       return;
     }
 
@@ -304,7 +354,7 @@ function ChatMulti() {
 
     // RACE-001: Check again after async operation
     if (generationRef.current !== currentGeneration) {
-      console.log(`[ChatMulti] initializeChat: chat changed during checkActiveJobs, aborting`);
+      // [ChatMulti] initializeChat: chat changed during checkActiveJobs, aborting
       return;
     }
 
@@ -391,14 +441,14 @@ function ChatMulti() {
       setLoadingChats(true);
       const response = await axios.get(`${API_BASE}/chats`);
       const chatList = response.data.chats || [];
-      console.log('[ChatMulti] loadChats: loaded', chatList.length, 'chats');
+      // [ChatMulti] loadChats: loaded', chatList.length, 'chats');
       setChats(chatList);
 
       if (!currentChatId && chatList.length > 0) {
-        console.log('[ChatMulti] loadChats: setting currentChatId to', chatList[0].id);
+        // [ChatMulti] loadChats: setting currentChatId to', chatList[0].id);
         setCurrentChatId(chatList[0].id);
       } else if (chatList.length === 0) {
-        console.log('[ChatMulti] loadChats: no chats, creating new one');
+        // [ChatMulti] loadChats: no chats, creating new one');
         // Don't set loadingChats to false yet - createNewChat will do it
         await createNewChat();
         return; // createNewChat handles setLoadingChats(false)
@@ -539,7 +589,7 @@ function ChatMulti() {
     } catch (err) {
       // Ignore abort errors
       if (err.name === 'AbortError') {
-        console.log(`Reconnect stream aborted for chat ${targetChatId}`);
+        // Stream aborted for chat ${targetChatId}`);
         return;
       }
       console.error('Reconnect error:', err);
@@ -567,7 +617,7 @@ function ChatMulti() {
       });
 
       const newChat = response.data.chat;
-      console.log('[ChatMulti] Created new chat:', newChat.id);
+      // [ChatMulti] Created new chat:', newChat.id);
 
       setChats(prevChats => [...prevChats, newChat]);
       setCurrentChatId(newChat.id);
@@ -747,7 +797,7 @@ function ChatMulti() {
 
     // Capture chat context at start - this won't change during streaming
     const targetChatId = currentChatId;
-    console.log('[ChatMulti] handleRAGSend: targetChatId =', targetChatId, 'type:', typeof targetChatId);
+    // [ChatMulti] handleRAGSend: targetChatId =', targetChatId, 'type:', typeof targetChatId);
     const userMessage = input.trim();
     setInput('');
     setError(null);
@@ -969,7 +1019,7 @@ function ChatMulti() {
     } catch (err) {
       // Ignore abort errors (user switched chat)
       if (err.name === 'AbortError') {
-        console.log(`RAG stream aborted for chat ${targetChatId} - user switched chat`);
+        // RAG stream aborted for chat ${targetChatId} - user switched chat`);
         return;
       }
       console.error('RAG error:', err);
@@ -1010,7 +1060,7 @@ function ChatMulti() {
 
     // Capture chat context at start - this won't change during streaming
     const targetChatId = currentChatId;
-    console.log('[ChatMulti] handleSend: targetChatId =', targetChatId, 'type:', typeof targetChatId);
+    // [ChatMulti] handleSend: targetChatId =', targetChatId, 'type:', typeof targetChatId);
     const userMessage = input.trim();
     setInput('');
     setError(null);
@@ -1194,7 +1244,7 @@ function ChatMulti() {
     } catch (err) {
       // Ignore abort errors (user switched chat)
       if (err.name === 'AbortError') {
-        console.log(`Stream aborted for chat ${targetChatId} - user switched chat`);
+        // Stream aborted for chat ${targetChatId} - user switched chat`);
         return;
       }
       console.error('Chat error:', err);
@@ -1242,23 +1292,20 @@ function ChatMulti() {
 
   const hasMessages = messages.length > 0;
 
-  if (loadingChats) {
-    return (
-      <div className="chat-container">
-        <div className="chat-loading">
-          <div className="loading-spinner"></div>
-          <p>Laden...</p>
-        </div>
-      </div>
-    );
-  }
+  // Use smoothed loading state to prevent flash of loading content
+  const showLoading = useMinLoadingTime(loadingChats, 300);
 
   return (
-    <main
-      className={`chat-container ${hasMessages ? 'has-messages' : 'empty-state'}`}
-      role="main"
-      aria-label="AI Chat"
+    <ContentTransition
+      isLoading={showLoading}
+      skeleton={<ChatSkeleton />}
+      className="chat-transition-wrapper"
     >
+      <main
+        className={`chat-container ${hasMessages ? 'has-messages' : 'empty-state'}`}
+        role="main"
+        aria-label="AI Chat"
+      >
       {/* Top Chat Tabs Bar */}
       <div className="chat-tabs-bar" role="tablist" aria-label="Chat-Unterhaltungen">
         {/* New Chat Button */}
@@ -1746,7 +1793,8 @@ function ChatMulti() {
           </button>
         </div>
       </div>
-    </main>
+      </main>
+    </ContentTransition>
   );
 }
 

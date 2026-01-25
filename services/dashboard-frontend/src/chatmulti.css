@@ -43,11 +43,113 @@
   border: 2px solid var(--border-color);
   border-top-color: var(--primary-color);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  /* Use smooth easing instead of linear for iOS-like feel */
+  animation: spin 0.8s var(--ease-smooth, cubic-bezier(0.4, 0, 0.2, 1)) infinite;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* -------------------- Chat Skeleton Styles -------------------- */
+/* ContentTransition wrapper */
+.chat-transition-wrapper {
+  height: calc(100vh - 8rem);
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Skeleton shimmer effect */
+.chat-container .skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card, #1A2330) 0%,
+    var(--bg-elevated, #2A3544) 50%,
+    var(--bg-card, #1A2330) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-wave 1.5s var(--ease-smooth, ease-in-out) infinite;
+  border-radius: 8px;
+}
+
+/* Skeleton tabs */
+.chat-skeleton-tabs {
+  pointer-events: none;
+}
+
+.skeleton-tab-btn {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 10px;
+}
+
+.skeleton-tab {
+  width: 120px;
+  height: 42px;
+  border-radius: 10px;
+}
+
+/* Skeleton messages */
+.chat-skeleton-messages {
+  pointer-events: none;
+}
+
+.chat-skeleton-message {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.skeleton-label {
+  width: 40px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.skeleton-message-body {
+  width: 100%;
+  height: 80px;
+  border-radius: 14px;
+  /* CLS prevention */
+  min-height: 80px;
+}
+
+.skeleton-message-body.short {
+  width: 60%;
+  height: 60px;
+  min-height: 60px;
+}
+
+.skeleton-message-body.medium {
+  width: 80%;
+  height: 70px;
+  min-height: 70px;
+}
+
+/* Skeleton input */
+.chat-skeleton-input {
+  pointer-events: none;
+}
+
+.skeleton-toggle {
+  width: 60px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.skeleton-input {
+  flex: 1;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.skeleton-send-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
 }
 
 /* -------------------- Chat Tabs Bar -------------------- */
@@ -513,7 +615,7 @@
   color: var(--danger-color);
 }
 
-/* Message Loading Animation */
+/* Message Loading Animation - iOS-style coordinated dots */
 .message-loading {
   display: flex;
   gap: 6px;
@@ -525,13 +627,17 @@
   height: 8px;
   background: var(--primary-color);
   border-radius: 50%;
-  animation: pulse 1.4s ease-in-out infinite both;
+  /* Use unified loading-dot animation with coordinated delays */
+  animation: loading-dot 1.2s var(--ease-smooth, ease-in-out) infinite both;
 }
 
-.message-loading span:nth-child(1) { animation-delay: -0.32s; }
-.message-loading span:nth-child(2) { animation-delay: -0.16s; }
+/* Coordinated delays for smooth wave effect (0ms, 150ms, 300ms) */
+.message-loading span:nth-child(1) { animation-delay: 0ms; }
+.message-loading span:nth-child(2) { animation-delay: 150ms; }
+.message-loading span:nth-child(3) { animation-delay: 300ms; }
 
-@keyframes pulse {
+/* Fallback keyframes if global not loaded */
+@keyframes loading-dot {
   0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
   40% { transform: scale(1); opacity: 0.8; }
 }
@@ -542,8 +648,8 @@
   overflow: hidden;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  /* P3-002: Smooth collapse animation */
-  transition: all 0.3s ease-out;
+  /* Use global timing variables for smooth collapse animation */
+  transition: all var(--duration-medium, 300ms) var(--ease-exit, ease-out);
 }
 
 /* P3-002: Collapsing animation state */
@@ -558,12 +664,18 @@
   opacity: 0;
   overflow: hidden;
   border-top: none;
-  transition: max-height 0.3s ease-out, padding 0.3s ease-out, opacity 0.2s ease-out;
+  transition:
+    max-height var(--duration-medium, 300ms) var(--ease-exit, ease-out),
+    padding var(--duration-medium, 300ms) var(--ease-exit, ease-out),
+    opacity var(--duration-normal, 200ms) var(--ease-exit, ease-out);
 }
 
 /* P3-002: Expanded state */
 .thinking-block:not(.collapsed) .thinking-content {
-  transition: max-height 0.3s ease-in, padding 0.3s ease-in, opacity 0.2s ease-in;
+  transition:
+    max-height var(--duration-medium, 300ms) var(--ease-enter, ease-in),
+    padding var(--duration-medium, 300ms) var(--ease-enter, ease-in),
+    opacity var(--duration-normal, 200ms) var(--ease-enter, ease-in);
 }
 
 /* Sources Block - displayed at the bottom of message */

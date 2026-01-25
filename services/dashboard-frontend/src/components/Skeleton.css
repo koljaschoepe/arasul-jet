@@ -1,6 +1,7 @@
 /**
  * Skeleton Loading Styles
- * PHASE 4: Skeleton loading animations and styles
+ * Apple iOS-style with CLS prevention
+ * Uses unified animation system for consistency
  */
 
 /* Base skeleton with shimmer animation */
@@ -12,10 +13,14 @@
     var(--bg-card, #1A2330) 100%
   );
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  /* Use unified shimmer animation with smooth easing */
+  animation: shimmer-wave 1.5s var(--ease-smooth, ease-in-out) infinite;
+  /* CLS Prevention: Always have defined dimensions */
+  min-height: 1rem;
 }
 
-@keyframes skeleton-shimmer {
+/* Unified shimmer keyframes (fallback if global not loaded) */
+@keyframes shimmer-wave {
   0% {
     background-position: 200% 0;
   }
@@ -24,23 +29,47 @@
   }
 }
 
-/* Skeleton text */
+/* Skeleton text - CLS Prevention */
 .skeleton-text {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
+  /* CLS: Define minimum height for text blocks */
+  min-height: 1rem;
 }
 
-/* Skeleton avatar */
+.skeleton-text-line {
+  height: 1rem;
+  min-height: 1rem;
+  border-radius: 4px;
+}
+
+.skeleton-text-line.short { width: 40%; }
+.skeleton-text-line.medium { width: 70%; }
+.skeleton-text-line.long { width: 100%; }
+
+/* Skeleton avatar - CLS Prevention */
 .skeleton-avatar {
   flex-shrink: 0;
+  border-radius: 50%;
+  /* CLS: Define default avatar size */
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
 }
 
-/* Skeleton card */
+.skeleton-avatar.small { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+.skeleton-avatar.large { width: 64px; height: 64px; min-width: 64px; min-height: 64px; }
+
+/* Skeleton card - CLS Prevention */
 .skeleton-card {
   background: var(--bg-card, #1A2330);
   border: 1px solid var(--border-color, #2A3544);
   border-radius: 12px;
   padding: 1rem;
+  /* CLS: Define minimum card height */
+  min-height: 120px;
 }
 
 .skeleton-card-header {
@@ -83,9 +112,17 @@
   gap: 1rem;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-color, #2A3544);
+  /* CLS: Minimum row height */
+  min-height: 48px;
 }
 
-/* Skeleton stat card */
+.skeleton-table-cell {
+  height: 1rem;
+  min-height: 1rem;
+  border-radius: 4px;
+}
+
+/* Skeleton stat card - CLS Prevention */
 .skeleton-stat-card {
   background: var(--bg-card, #1A2330);
   border: 1px solid var(--border-color, #2A3544);
@@ -94,20 +131,39 @@
   display: flex;
   align-items: flex-start;
   gap: 1rem;
+  /* CLS: Minimum stat card height */
+  min-height: 100px;
 }
 
 .skeleton-stat-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
-/* Skeleton chat message */
+.skeleton-stat-value {
+  height: 2rem;
+  min-height: 2rem;
+  width: 60%;
+  border-radius: 6px;
+}
+
+.skeleton-stat-label {
+  height: 1rem;
+  min-height: 1rem;
+  width: 80%;
+  border-radius: 4px;
+}
+
+/* Skeleton chat message - CLS Prevention */
 .skeleton-chat-message {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.5rem 0;
+  /* CLS: Minimum message height */
+  min-height: 60px;
 }
 
 .skeleton-chat-message.user {
@@ -123,6 +179,9 @@
   background: var(--bg-card, #1A2330);
   border-radius: 12px;
   padding: 1rem;
+  /* CLS: Minimum content height */
+  min-height: 60px;
+  min-width: 200px;
 }
 
 .skeleton-chat-message.user .skeleton-message-content {
@@ -137,7 +196,7 @@
   padding: 1rem;
 }
 
-/* Skeleton document item */
+/* Skeleton document item - CLS Prevention */
 .skeleton-document-item {
   display: flex;
   align-items: center;
@@ -146,12 +205,37 @@
   background: var(--bg-card, #1A2330);
   border: 1px solid var(--border-color, #2A3544);
   border-radius: 8px;
+  /* CLS: Minimum document item height */
+  min-height: 64px;
+}
+
+.skeleton-document-icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 8px;
 }
 
 .skeleton-document-info {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 0.375rem;
+}
+
+.skeleton-document-name {
+  height: 1rem;
+  min-height: 1rem;
+  width: 60%;
+  border-radius: 4px;
+}
+
+.skeleton-document-meta {
+  height: 0.75rem;
+  min-height: 0.75rem;
+  width: 40%;
+  border-radius: 4px;
 }
 
 /* Skeleton document list */

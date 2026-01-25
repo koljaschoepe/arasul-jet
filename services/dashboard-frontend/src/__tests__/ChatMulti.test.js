@@ -491,16 +491,18 @@ describe('ChatMulti Component', () => {
   });
 
   describe('Error Handling', () => {
-    test('zeigt Loading wenn Verbindung langsam ist', async () => {
-      // When API is slow, component should show loading state
+    test('zeigt Skeleton Loading wenn Verbindung langsam ist', async () => {
+      // When API is slow, component should show skeleton loading state
       axios.get.mockImplementation(() => new Promise(() => {})); // Never resolves
 
       render(<ChatMulti />);
 
-      // Should show loading indicator while waiting
+      // Should show skeleton indicator while waiting (ContentTransition pattern)
       expect(
         screen.queryByText(/laden/i) ||
-        document.querySelector('[class*="loading"]')
+        document.querySelector('[class*="loading"]') ||
+        document.querySelector('[class*="skeleton"]') ||
+        document.querySelector('[aria-busy="true"]')
       ).toBeTruthy();
     });
 
@@ -532,14 +534,17 @@ describe('ChatMulti Component', () => {
   });
 
   describe('Loading States', () => {
-    test('zeigt Loading während Chats geladen werden', async () => {
+    test('zeigt Skeleton während Chats geladen werden', async () => {
       axios.get.mockImplementation(() => new Promise(() => {}));
 
       render(<ChatMulti />);
 
+      // ContentTransition shows skeleton during loading
       expect(
         screen.queryByText(/laden/i) ||
-        document.querySelector('[class*="loading"]')
+        document.querySelector('[class*="loading"]') ||
+        document.querySelector('[class*="skeleton"]') ||
+        document.querySelector('[aria-busy="true"]')
       ).toBeTruthy();
     });
 
