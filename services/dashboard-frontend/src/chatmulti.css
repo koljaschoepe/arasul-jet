@@ -51,105 +51,26 @@
   to { transform: rotate(360deg); }
 }
 
-/* -------------------- Chat Skeleton Styles -------------------- */
-/* ContentTransition wrapper */
-.chat-transition-wrapper {
-  height: calc(100vh - 8rem);
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* Skeleton shimmer effect */
-.chat-container .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--bg-card, #1A2330) 0%,
-    var(--bg-elevated, #2A3544) 50%,
-    var(--bg-card, #1A2330) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer-wave 1.5s var(--ease-smooth, ease-in-out) infinite;
-  border-radius: 8px;
-}
-
-/* Skeleton tabs */
-.chat-skeleton-tabs {
+/* -------------------- Smooth Loading Transition -------------------- */
+/* Simple fade-in when chat becomes ready - no loading indicator needed */
+.chat-container.is-loading {
+  opacity: 0.5;
   pointer-events: none;
 }
 
-.skeleton-tab-btn {
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
-  border-radius: 10px;
+.chat-container.is-ready {
+  opacity: 1;
+  pointer-events: auto;
+  animation: chat-fade-in 0.2s var(--ease-enter, ease-out);
 }
 
-.skeleton-tab {
-  width: 120px;
-  height: 42px;
-  border-radius: 10px;
-}
-
-/* Skeleton messages */
-.chat-skeleton-messages {
-  pointer-events: none;
-}
-
-.chat-skeleton-message {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 32px;
-}
-
-.skeleton-label {
-  width: 40px;
-  height: 14px;
-  border-radius: 4px;
-}
-
-.skeleton-message-body {
-  width: 100%;
-  height: 80px;
-  border-radius: 14px;
-  /* CLS prevention */
-  min-height: 80px;
-}
-
-.skeleton-message-body.short {
-  width: 60%;
-  height: 60px;
-  min-height: 60px;
-}
-
-.skeleton-message-body.medium {
-  width: 80%;
-  height: 70px;
-  min-height: 70px;
-}
-
-/* Skeleton input */
-.chat-skeleton-input {
-  pointer-events: none;
-}
-
-.skeleton-toggle {
-  width: 60px;
-  height: 40px;
-  border-radius: 10px;
-}
-
-.skeleton-input {
-  flex: 1;
-  height: 40px;
-  border-radius: 8px;
-}
-
-.skeleton-send-btn {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
+@keyframes chat-fade-in {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* -------------------- Chat Tabs Bar -------------------- */

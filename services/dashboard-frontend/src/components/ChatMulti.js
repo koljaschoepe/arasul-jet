@@ -8,58 +8,9 @@ import {
   FiFolder, FiCheck, FiDownload, FiStar
 } from 'react-icons/fi';
 import MermaidDiagram from './MermaidDiagram';
-import ContentTransition from './ContentTransition';
-import { useMinLoadingTime } from '../hooks/useMinLoadingTime';
 import { API_BASE } from '../config/api';
 import '../chatmulti.css';
 
-/**
- * ChatSkeleton - Skeleton placeholder for chat loading state
- * Shows tabs skeleton, messages skeleton, and input skeleton
- */
-const ChatSkeleton = memo(function ChatSkeleton() {
-  return (
-    <div className="chat-container" aria-hidden="true">
-      {/* Tabs skeleton */}
-      <div className="chat-tabs-bar chat-skeleton-tabs">
-        <div className="skeleton skeleton-tab-btn"></div>
-        <div className="chat-tabs">
-          <div className="skeleton skeleton-tab"></div>
-          <div className="skeleton skeleton-tab"></div>
-          <div className="skeleton skeleton-tab"></div>
-        </div>
-      </div>
-
-      {/* Messages skeleton */}
-      <div className="chat-messages chat-skeleton-messages">
-        <div className="messages-wrapper">
-          <div className="chat-skeleton-message user">
-            <div className="skeleton skeleton-label"></div>
-            <div className="skeleton skeleton-message-body short"></div>
-          </div>
-          <div className="chat-skeleton-message assistant">
-            <div className="skeleton skeleton-label"></div>
-            <div className="skeleton skeleton-message-body"></div>
-          </div>
-          <div className="chat-skeleton-message user">
-            <div className="skeleton skeleton-label"></div>
-            <div className="skeleton skeleton-message-body medium"></div>
-          </div>
-        </div>
-      </div>
-
-      {/* Input skeleton */}
-      <div className="chat-input-section bottom chat-skeleton-input">
-        <div className="input-box">
-          <div className="skeleton skeleton-toggle"></div>
-          <div className="skeleton skeleton-toggle"></div>
-          <div className="skeleton skeleton-input"></div>
-          <div className="skeleton skeleton-send-btn"></div>
-        </div>
-      </div>
-    </div>
-  );
-});
 
 function ChatMulti() {
   // Chat list state
@@ -1292,20 +1243,13 @@ function ChatMulti() {
 
   const hasMessages = messages.length > 0;
 
-  // Use smoothed loading state to prevent flash of loading content
-  const showLoading = useMinLoadingTime(loadingChats, 300);
-
   return (
-    <ContentTransition
-      isLoading={showLoading}
-      skeleton={<ChatSkeleton />}
-      className="chat-transition-wrapper"
+    <main
+      className={`chat-container ${hasMessages ? 'has-messages' : 'empty-state'} ${loadingChats ? 'is-loading' : 'is-ready'}`}
+      role="main"
+      aria-label="AI Chat"
+      aria-busy={loadingChats}
     >
-      <main
-        className={`chat-container ${hasMessages ? 'has-messages' : 'empty-state'}`}
-        role="main"
-        aria-label="AI Chat"
-      >
       {/* Top Chat Tabs Bar */}
       <div className="chat-tabs-bar" role="tablist" aria-label="Chat-Unterhaltungen">
         {/* New Chat Button */}
@@ -1793,8 +1737,7 @@ function ChatMulti() {
           </button>
         </div>
       </div>
-      </main>
-    </ContentTransition>
+    </main>
   );
 }
 
