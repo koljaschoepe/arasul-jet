@@ -11,57 +11,53 @@ const axios = require('axios');
 // HIGH-006 FIX: Add rate limiting for metrics API (20 requests/second per CLAUDE.md)
 const { metricsLimiter } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { ValidationError } = require('../utils/errors');
+const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
 const services = require('../config/services');
 
 const METRICS_COLLECTOR_URL = services.metrics.url;
 
 // HIGH-006 FIX: Apply metricsLimiter (20/s) to metrics endpoints
 // GET /api/metrics/live
-router.get('/live', metricsLimiter, async (req, res) => {
+router.get('/live', metricsLimiter, asyncHandler(async (req, res) => {
+    // Try to get live metrics from metrics collector
     try {
-        // Get live metrics from metrics collector
         const response = await axios.get(`${METRICS_COLLECTOR_URL}/metrics`, { timeout: 1000 });
-        res.json(response.data);
-
-    } catch (error) {
-        logger.error(`Error in /api/metrics/live: ${error.message}`);
-
-        // Fallback: get latest from database
-        try {
-            const result = await db.query(`
-                SELECT
-                    (SELECT value FROM metrics_cpu ORDER BY timestamp DESC LIMIT 1) as cpu,
-                    (SELECT value FROM metrics_ram ORDER BY timestamp DESC LIMIT 1) as ram,
-                    (SELECT value FROM metrics_gpu ORDER BY timestamp DESC LIMIT 1) as gpu,
-                    (SELECT value FROM metrics_temperature ORDER BY timestamp DESC LIMIT 1) as temperature,
-                    (SELECT json_build_object(
-                        'used', used,
-                        'free', free,
-                        'total', used + free,
-                        'percent', percent
-                    ) FROM metrics_disk ORDER BY timestamp DESC LIMIT 1) as disk
-            `);
-
-            const data = result.rows[0];
-            res.json({
-                cpu: parseFloat(data.cpu) || 0,
-                ram: parseFloat(data.ram) || 0,
-                gpu: parseFloat(data.gpu) || 0,
-                temperature: parseFloat(data.temperature) || 0,
-                disk: data.disk || { used: 0, free: 0, total: 0, percent: 0 },
-                timestamp: new Date().toISOString()
-            });
-
-        } catch (dbError) {
-            logger.error(`Database fallback failed: ${dbError.message}`);
-            res.status(503).json({
-                error: 'Metrics service unavailable',
-                timestamp: new Date().toISOString()
-            });
-        }
+        return res.json(response.data);
+    } catch (collectorError) {
+        logger.warn(`Metrics collector unavailable, falling back to database: ${collectorError.message}`);
     }
-});
+
+    // Fallback: get latest from database
+    try {
+        const result = await db.query(`
+            SELECT
+                (SELECT value FROM metrics_cpu ORDER BY timestamp DESC LIMIT 1) as cpu,
+                (SELECT value FROM metrics_ram ORDER BY timestamp DESC LIMIT 1) as ram,
+                (SELECT value FROM metrics_gpu ORDER BY timestamp DESC LIMIT 1) as gpu,
+                (SELECT value FROM metrics_temperature ORDER BY timestamp DESC LIMIT 1) as temperature,
+                (SELECT json_build_object(
+                    'used', used,
+                    'free', free,
+                    'total', used + free,
+                    'percent', percent
+                ) FROM metrics_disk ORDER BY timestamp DESC LIMIT 1) as disk
+        `);
+
+        const data = result.rows[0];
+        return res.json({
+            cpu: parseFloat(data.cpu) || 0,
+            ram: parseFloat(data.ram) || 0,
+            gpu: parseFloat(data.gpu) || 0,
+            temperature: parseFloat(data.temperature) || 0,
+            disk: data.disk || { used: 0, free: 0, total: 0, percent: 0 },
+            timestamp: new Date().toISOString(),
+            source: 'database_fallback'
+        });
+    } catch (dbError) {
+        logger.error(`Database fallback also failed: ${dbError.message}`);
+        throw new ServiceUnavailableError('Metrics service unavailable');
+    }
+}));
 
 // HIGH-006 FIX: Apply metricsLimiter (20/s) to history endpoint
 // GET /api/metrics/history

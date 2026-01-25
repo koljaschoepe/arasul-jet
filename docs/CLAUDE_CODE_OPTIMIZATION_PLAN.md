@@ -639,12 +639,12 @@ Actions:
 - [ ] Branch Protection aktivieren (manuell in GitHub)
 - [x] Dependabot konfigurieren
 
-### Woche 4-5: Code Patterns
+### Woche 4-5: Code Patterns ✅ ABGESCHLOSSEN
 
-- [ ] routes/metrics.js standardisieren
-- [ ] routes/services.js standardisieren
-- [ ] BACKEND_PATTERNS.md erstellen
-- [ ] Response Format durchsetzen
+- [x] routes/metrics.js standardisieren (asyncHandler)
+- [x] routes/services.js standardisieren (bereits konform)
+- [x] BACKEND_PATTERNS.md erstellen
+- [x] Response Format dokumentiert
 
 ### Woche 5-6: Monitoring
 
