@@ -89,10 +89,12 @@ const workspacesRouter = require('./routes/workspaces');
 const spacesRouter = require('./routes/spaces');
 const telegramRouter = require('./routes/telegram');
 const telegramAppRouter = require('./routes/telegramApp');
+const telegramBotsRouter = require('./routes/telegramBots');
 const claudeTerminalRouter = require('./routes/claudeTerminal');
 const alertsRouter = require('./routes/alerts');
 const auditRouter = require('./routes/audit');
 const externalApiRouter = require('./routes/externalApi');
+const datentabellenRouter = require('./routes/datentabellen');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -116,10 +118,12 @@ app.use('/api/workspaces', workspacesRouter);
 app.use('/api/spaces', spacesRouter);
 app.use('/api/telegram', telegramRouter);
 app.use('/api/telegram-app', telegramAppRouter);
+app.use('/api/telegram-bots', telegramBotsRouter);
 app.use('/api/claude-terminal', claudeTerminalRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/v1/external', externalApiRouter);  // External API for n8n, automations
+app.use('/api/v1/datentabellen', datentabellenRouter);  // Dynamic database builder
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
@@ -154,6 +158,7 @@ const llmQueueService = require('./services/llmQueueService');
 const modelService = require('./services/modelService');
 const alertEngine = require('./services/alertEngine');
 const ollamaReadiness = require('./services/ollamaReadiness');
+const dataDatabase = require('./dataDatabase');
 
 wss.on('connection', (ws) => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
@@ -214,6 +219,18 @@ if (require.main === module) {
     // PHASE3-FIX: Migrated from console.log to logger
     logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
     logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);
+
+    // Initialize Data Database for Datentabellen feature
+    try {
+      const dataDbInitialized = await dataDatabase.initialize();
+      if (dataDbInitialized) {
+        logger.info('Data Database (Datentabellen) initialized successfully');
+      } else {
+        logger.warn('Data Database initialization skipped - database may not exist yet');
+      }
+    } catch (err) {
+      logger.warn(`Data Database initialization failed (non-critical): ${err.message}`);
+    }
 
     // Initialize Ollama Readiness Service (handles waiting for Ollama + periodic sync)
     try {
