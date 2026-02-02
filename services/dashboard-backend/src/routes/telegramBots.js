@@ -31,7 +31,7 @@
 const express = require('express');
 const router = express.Router();
 const logger = require('../utils/logger');
-const { authenticateToken } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const telegramBotService = require('../services/telegramBotService');
 const telegramLLMService = require('../services/telegramLLMService');
 const telegramWebhookService = require('../services/telegramWebhookService');
@@ -87,7 +87,7 @@ router.get('/models/claude', (req, res) => {
 // ============================================================================
 
 // Apply auth to all routes below
-router.use(authenticateToken);
+router.use(requireAuth);
 
 // ----------------------------------------------------------------------------
 // BOT CRUD

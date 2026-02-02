@@ -7,12 +7,14 @@
  * - Claude integration (Anthropic API)
  * - Session management with context
  * - Custom command execution
+ * - Tool/Skill system for system operations
  */
 
 const database = require('../database');
 const logger = require('../utils/logger');
 const telegramBotService = require('./telegramBotService');
 const services = require('../config/services');
+const toolRegistry = require('../tools');
 
 // LLM Service URLs
 const OLLAMA_URL = services.llm?.url || process.env.OLLAMA_URL || 'http://llm-service:11434';
@@ -241,13 +243,32 @@ async function chatWithClaude(bot, messages, systemPrompt, apiKey) {
 }
 
 /**
+ * Build enhanced system prompt with tools
+ * @param {string} basePrompt - Bot's base system prompt
+ * @returns {Promise<string>} Enhanced system prompt
+ */
+async function buildSystemPrompt(basePrompt) {
+  const toolsPrompt = await toolRegistry.generateToolsPrompt();
+
+  if (!toolsPrompt) {
+    return basePrompt;
+  }
+
+  return `${basePrompt}\n\n${toolsPrompt}`;
+}
+
+/**
  * Main chat function - routes to appropriate provider
  * @param {number} botId - Bot ID
  * @param {number} chatId - Telegram chat ID
  * @param {string} userMessage - User's message
+ * @param {Object} options - Additional options
+ * @param {boolean} options.enableTools - Enable tool execution (default: true)
  * @returns {Promise<string>} Assistant's response
  */
-async function chat(botId, chatId, userMessage) {
+async function chat(botId, chatId, userMessage, options = {}) {
+  const { enableTools = true } = options;
+
   // Get bot configuration
   const botResult = await database.query(
     `SELECT id, name, llm_provider, llm_model, system_prompt FROM telegram_bots WHERE id = $1`,
@@ -259,7 +280,12 @@ async function chat(botId, chatId, userMessage) {
   }
 
   const bot = botResult.rows[0];
-  const systemPrompt = bot.system_prompt || 'Du bist ein hilfreicher Assistent.';
+  const baseSystemPrompt = bot.system_prompt || 'Du bist ein hilfreicher Assistent.';
+
+  // Build system prompt with tools if enabled
+  const systemPrompt = enableTools
+    ? await buildSystemPrompt(baseSystemPrompt)
+    : baseSystemPrompt;
 
   // Ensure session exists
   await getOrCreateSession(botId, chatId);
@@ -276,12 +302,29 @@ async function chat(botId, chatId, userMessage) {
     // Get Claude API key
     const apiKey = await telegramBotService.getClaudeApiKey(botId);
     if (!apiKey) {
-      throw new Error('Claude API-Key nicht konfiguriert. Bitte in den Bot-Einstellungen hinzufügen.');
+      throw new Error('Claude API-Key nicht konfiguriert. Bitte in den Bot-Einstellungen hinzufuegen.');
     }
     response = await chatWithClaude(bot, contextMessages, systemPrompt, apiKey);
   } else {
     // Default to Ollama
     response = await chatWithOllama(bot, contextMessages, systemPrompt);
+  }
+
+  // Process tool calls if enabled
+  if (enableTools) {
+    const context = { botId, chatId };
+    const toolResult = await toolRegistry.processToolCalls(response, context);
+
+    if (toolResult.hasTools) {
+      // Build response with tool results
+      const toolOutputs = toolResult.results
+        .map(r => `\n\n---\n${r.result}`)
+        .join('');
+
+      response = toolResult.cleanResponse + toolOutputs;
+
+      logger.debug(`Executed ${toolResult.results.length} tools for bot ${botId}`);
+    }
   }
 
   // Add assistant response to session
@@ -387,6 +430,30 @@ function getClaudeModels() {
   ];
 }
 
+/**
+ * Get available tools list
+ * @returns {Promise<Array>} List of available tools with descriptions
+ */
+async function getAvailableTools() {
+  const tools = await toolRegistry.getAvailable();
+  return tools.map(t => ({
+    name: t.name,
+    description: t.description,
+    parameters: t.parameters,
+  }));
+}
+
+/**
+ * Execute a tool directly
+ * @param {string} toolName - Tool name
+ * @param {Object} params - Tool parameters
+ * @param {Object} context - Execution context
+ * @returns {Promise<string>} Tool result
+ */
+async function executeTool(toolName, params = {}, context = {}) {
+  return toolRegistry.execute(toolName, params, context);
+}
+
 module.exports = {
   // Chat
   chat,
@@ -400,6 +467,11 @@ module.exports = {
   // Models
   getOllamaModels,
   getClaudeModels,
+
+  // Tools
+  getAvailableTools,
+  executeTool,
+  toolRegistry,
 
   // Utilities
   estimateTokens,

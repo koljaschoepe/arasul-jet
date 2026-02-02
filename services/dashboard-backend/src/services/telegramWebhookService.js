@@ -95,12 +95,14 @@ async function handleStartCommand(bot, token, message) {
   // Send welcome message
   const welcomeText = `🤖 <b>Willkommen bei ${bot.name}!</b>
 
-Ich bin dein persönlicher Assistent. Schreib mir einfach eine Nachricht und ich antworte dir.
+Ich bin dein persoenlicher Assistent. Schreib mir einfach eine Nachricht und ich antworte dir.
 
-<b>Verfügbare Befehle:</b>
+<b>Verfuegbare Befehle:</b>
 /help - Zeigt diese Hilfe
 /new - Startet eine neue Konversation
-/commands - Zeigt alle verfügbaren Befehle
+/commands - Zeigt alle verfuegbaren Befehle
+/tools - Zeigt System-Tools
+/status - Zeigt System-Status
 
 Wie kann ich dir helfen?`;
 
@@ -127,7 +129,12 @@ async function handleHelpCommand(bot, token, message) {
 /start - Bot starten
 /help - Diese Hilfe anzeigen
 /new - Neue Konversation starten
-/commands - Alle Befehle anzeigen`;
+/commands - Alle Befehle anzeigen
+
+<b>System-Tools:</b>
+/tools - Verfuegbare Tools anzeigen
+/status - System-Status anzeigen
+/services - Docker-Services anzeigen`;
 
   if (enabledCommands.length > 0) {
     helpText += '\n\n<b>Custom Commands:</b>';
@@ -153,6 +160,82 @@ async function handleNewCommand(bot, token, message) {
   await telegramLLMService.clearSession(bot.id, chatId);
 
   await sendMessage(token, chatId, '🔄 <b>Neue Konversation gestartet!</b>\n\nDer Kontext wurde gelöscht. Wie kann ich dir helfen?');
+}
+
+/**
+ * Handle /tools command - list available system tools
+ * @param {Object} bot - Bot object
+ * @param {string} token - Bot token
+ * @param {Object} message - Telegram message
+ */
+async function handleToolsCommand(bot, token, message) {
+  const chatId = message.chat.id;
+
+  try {
+    const tools = await telegramLLMService.getAvailableTools();
+
+    if (tools.length === 0) {
+      await sendMessage(token, chatId, '🔧 <b>Keine System-Tools verfuegbar.</b>');
+      return;
+    }
+
+    let text = '🛠️ <b>Verfuegbare System-Tools</b>\n\n';
+    text += 'Du kannst mich nach folgenden System-Informationen fragen:\n\n';
+
+    for (const tool of tools) {
+      text += `• <b>${tool.name}</b> - ${tool.description}\n`;
+    }
+
+    text += '\n💡 <i>Beispiele:</i>\n';
+    text += '- "Wie ist der CPU-Status?"\n';
+    text += '- "Zeige die laufenden Services"\n';
+    text += '- "Zeige mir die Logs vom Backend"';
+
+    await sendMessage(token, chatId, text);
+  } catch (error) {
+    logger.error('Error fetching tools:', error);
+    await sendMessage(token, chatId, '❌ Fehler beim Laden der Tools.');
+  }
+}
+
+/**
+ * Handle /status command - show system status directly
+ * @param {Object} bot - Bot object
+ * @param {string} token - Bot token
+ * @param {Object} message - Telegram message
+ */
+async function handleStatusCommand(bot, token, message) {
+  const chatId = message.chat.id;
+
+  await sendTypingAction(token, chatId);
+
+  try {
+    const result = await telegramLLMService.executeTool('status', {}, { botId: bot.id, chatId });
+    await sendMessage(token, chatId, result, { parseMode: 'Markdown' });
+  } catch (error) {
+    logger.error('Status tool error:', error);
+    await sendMessage(token, chatId, `❌ Fehler: ${error.message}`);
+  }
+}
+
+/**
+ * Handle /services command - show docker services directly
+ * @param {Object} bot - Bot object
+ * @param {string} token - Bot token
+ * @param {Object} message - Telegram message
+ */
+async function handleServicesCommand(bot, token, message) {
+  const chatId = message.chat.id;
+
+  await sendTypingAction(token, chatId);
+
+  try {
+    const result = await telegramLLMService.executeTool('services', {}, { botId: bot.id, chatId });
+    await sendMessage(token, chatId, result, { parseMode: 'Markdown' });
+  } catch (error) {
+    logger.error('Services tool error:', error);
+    await sendMessage(token, chatId, `❌ Fehler: ${error.message}`);
+  }
 }
 
 /**
@@ -288,6 +371,15 @@ async function processUpdate(botId, update) {
             break;
           case 'commands':
             await handleCommandsCommand(bot, token, message);
+            break;
+          case 'tools':
+            await handleToolsCommand(bot, token, message);
+            break;
+          case 'status':
+            await handleStatusCommand(bot, token, message);
+            break;
+          case 'services':
+            await handleServicesCommand(bot, token, message);
             break;
           default:
             // Try custom command
