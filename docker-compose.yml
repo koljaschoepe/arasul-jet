@@ -15,6 +15,7 @@
 # 12. telegram-bot (depends on postgres-db, dashboard-backend)
 # 13. loki (log aggregation - no dependencies)
 # 14. promtail (log collector - depends on loki)
+# 15. cloudflared (OAuth tunnel - depends on reverse-proxy, optional if token not set)
 #
 # IMPORTANT: All services implement retry logic for database and service connections.
 # Healthchecks are robust (see HIGH-010 fix) and properly handle timeouts.
@@ -29,6 +30,7 @@ networks:
 
 volumes:
   arasul-postgres:
+  arasul-data-db:
   arasul-minio:
   arasul-n8n:
   arasul-llm-models:
@@ -58,9 +60,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS}
+      # Datentabellen Data-DB configuration
+      ARASUL_DATA_DB_NAME: ${ARASUL_DATA_DB_NAME:-arasul_data_db}
+      ARASUL_DATA_DB_USER: ${ARASUL_DATA_DB_USER:-arasul_data}
+      ARASUL_DATA_DB_PASSWORD: ${ARASUL_DATA_DB_PASSWORD:-${POSTGRES_PASSWORD}}
     volumes:
       - arasul-postgres:/var/lib/postgresql/data
       - ./services/postgres/init:/docker-entrypoint-initdb.d
+      - ./services/postgres/init-data-db:/docker-entrypoint-initdb.d/data-db:ro
       - ./services/postgres/migrations:/migrations
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -440,6 +447,12 @@ services:
       DOCUMENT_INDEXER_HOST: ${DOCUMENT_INDEXER_HOST:-document-indexer}
       DOCUMENT_INDEXER_API_PORT: ${DOCUMENT_INDEXER_API_PORT:-9102}
       DOCUMENT_INDEXER_MINIO_BUCKET: ${DOCUMENT_INDEXER_MINIO_BUCKET:-documents}
+      # Datentabellen Data-DB configuration
+      ARASUL_DATA_DB_HOST: ${ARASUL_DATA_DB_HOST:-postgres-db}
+      ARASUL_DATA_DB_PORT: ${ARASUL_DATA_DB_PORT:-5432}
+      ARASUL_DATA_DB_NAME: ${ARASUL_DATA_DB_NAME:-arasul_data_db}
+      ARASUL_DATA_DB_USER: ${ARASUL_DATA_DB_USER:-arasul_data}
+      ARASUL_DATA_DB_PASSWORD: ${ARASUL_DATA_DB_PASSWORD:-${POSTGRES_PASSWORD}}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: ${JWT_EXPIRY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
@@ -546,17 +559,20 @@ services:
       N8N_HOST: ${N8N_HOST}
       N8N_PORT: ${N8N_PORT}
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
-      # PHASE2-FIX: Make SECURE_COOKIE configurable (default false for LAN access)
+      # SECURE_COOKIE: false for localhost/LAN access, true only with HTTPS tunnel
       N8N_SECURE_COOKIE: "${N8N_SECURE_COOKIE:-false}"
-      # N8N_EDITOR_BASE_URL tells n8n the external URL (for links in emails, etc.)
-      # Use actual LAN IP for external access (not Docker internal IP)
-      N8N_EDITOR_BASE_URL: http://192.168.0.112/n8n
+      # N8N_EDITOR_BASE_URL: URL for OAuth callbacks
+      # DEFAULT: localhost:5678 (works with SSH tunnel from any device)
+      # For Cloudflare tunnel: set N8N_EXTERNAL_URL=https://n8n.yourdomain.com
+      N8N_EDITOR_BASE_URL: ${N8N_EXTERNAL_URL:-http://localhost:5678}
       # N8N_PATH tells n8n it's running under a subpath (sets window.BASE_PATH)
       # Trailing slash required per n8n docs for correct path generation
       N8N_PATH: "/n8n/"
       # Disable basic auth - use n8n's built-in user management instead
       N8N_BASIC_AUTH_ACTIVE: "false"
-      WEBHOOK_URL: http://${N8N_HOST}:${N8N_WEBHOOK_PORT}
+      # WEBHOOK_URL: URL for external webhook triggers
+      # Note: External webhooks still need tunnel or port-forward
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
@@ -816,12 +832,31 @@ services:
       TELEGRAM_NOTIFY_ERRORS: ${TELEGRAM_NOTIFY_ERRORS:-true}
       # Backend Integration
       DASHBOARD_BACKEND_URL: http://dashboard-backend:${DASHBOARD_BACKEND_PORT:-3001}
+      # Database (for LLM sessions)
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}
+      # LLM Configuration (Bot 2.0)
+      TELEGRAM_LLM_ENABLED: ${TELEGRAM_LLM_ENABLED:-true}
+      TELEGRAM_DEFAULT_LLM_PROVIDER: ${TELEGRAM_DEFAULT_LLM_PROVIDER:-ollama}
+      OLLAMA_URL: http://llm-service:11434
+      TELEGRAM_DEFAULT_OLLAMA_MODEL: ${TELEGRAM_DEFAULT_OLLAMA_MODEL:-}
+      TELEGRAM_DEFAULT_CLAUDE_MODEL: ${TELEGRAM_DEFAULT_CLAUDE_MODEL:-claude-3-5-sonnet-20241022}
+      # Voice Configuration
+      TELEGRAM_VOICE_ENABLED: ${TELEGRAM_VOICE_ENABLED:-false}
+      TELEGRAM_VOICE_PROVIDER: ${TELEGRAM_VOICE_PROVIDER:-local}
+      TELEGRAM_WHISPER_MODEL: ${TELEGRAM_WHISPER_MODEL:-base}
+      # Session Configuration
+      TELEGRAM_MAX_CONTEXT_TOKENS: ${TELEGRAM_MAX_CONTEXT_TOKENS:-4096}
+      TELEGRAM_SESSION_TIMEOUT_HOURS: ${TELEGRAM_SESSION_TIMEOUT_HOURS:-24}
+      # Security
+      TELEGRAM_ENCRYPTION_KEY: ${JWT_SECRET:-}
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       postgres-db:
         condition: service_healthy
       dashboard-backend:
+        condition: service_healthy
+      llm-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
@@ -902,3 +937,79 @@ services:
       resources:
         limits:
           memory: ${RAM_LIMIT_PROMTAIL:-256M}
+
+  # 15. Cloudflare Tunnel - OAuth & Webhook Gateway (OPTIONAL)
+  # ==============================================================================
+  # ALTERNATIVE to SSH tunnel for OAuth. Only needed if you want:
+  # - External webhook access from the internet
+  # - OAuth without SSH tunnel setup
+  #
+  # DEFAULT APPROACH: Use SSH tunnel (scripts/oauth-tunnel.sh) - no external deps
+  #
+  # To enable Cloudflare Tunnel:
+  #   1. Create tunnel at https://one.dash.cloudflare.com → Networks → Tunnels
+  #   2. Set CLOUDFLARE_TUNNEL_TOKEN in .env
+  #   3. Set N8N_EXTERNAL_URL=https://your-tunnel-domain.com
+  #   4. Start with: docker compose --profile tunnel up -d
+  # ==============================================================================
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    hostname: cloudflared
+    # unless-stopped: won't auto-restart on boot if manually stopped (e.g., no token)
+    restart: unless-stopped
+    networks:
+      - arasul-net
+    environment:
+      # Pass token as env var for better security (not visible in process list)
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    # Use shell to check if token exists before starting tunnel
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        if [ -z "$$TUNNEL_TOKEN" ]; then
+          echo "╔═══════════════════════════════════════════════════════════════╗"
+          echo "║  CLOUDFLARE_TUNNEL_TOKEN not set - tunnel inactive            ║"
+          echo "║                                                               ║"
+          echo "║  To enable OAuth from external devices:                       ║"
+          echo "║  1. Create tunnel: https://one.dash.cloudflare.com            ║"
+          echo "║  2. Add CLOUDFLARE_TUNNEL_TOKEN to .env                       ║"
+          echo "║  3. Run: docker compose up -d cloudflared                     ║"
+          echo "║                                                               ║"
+          echo "║  See: docs/N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md             ║"
+          echo "╚═══════════════════════════════════════════════════════════════╝"
+          # Sleep to prevent restart loop, exit 0 to mark as "stopped"
+          sleep infinity
+        else
+          echo "Starting Cloudflare Tunnel..."
+          exec cloudflared tunnel --no-autoupdate run --token "$$TUNNEL_TOKEN"
+        fi
+    depends_on:
+      reverse-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -x cloudflared || [ -z \"$$TUNNEL_TOKEN\" ]"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: ${RAM_LIMIT_CLOUDFLARED:-128M}
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+    labels:
+      - "com.arasul.service=cloudflared"
+      - "com.arasul.description=Cloudflare Tunnel for OAuth and Webhooks"
+      - "com.arasul.docs=docs/N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Only start when explicitly requested: docker compose --profile tunnel up -d
+    profiles:
+      - tunnel
