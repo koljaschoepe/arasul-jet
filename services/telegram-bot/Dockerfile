@@ -1,18 +1,23 @@
-# Arasul Platform - Telegram Bot Service
-# Lightweight Python container for ARM64/x86_64
+# Arasul Platform - Telegram Bot Service 2.0
+# LLM-powered assistant with voice support
 
 FROM python:3.11-slim
 
 LABEL maintainer="Arasul Platform"
-LABEL description="Telegram Bot Service for system notifications and commands"
+LABEL description="Telegram Bot 2.0 - LLM-powered assistant with voice support"
 LABEL org.opencontainers.image.architecture="arm64,amd64"
 
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies
+# - curl: Health checks
+# - ffmpeg: Audio processing for voice messages
+# - libpq-dev: PostgreSQL client library
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    ffmpeg \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -23,6 +28,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY *.py ./
+COPY providers/ ./providers/
+COPY session/ ./session/
+COPY handlers/ ./handlers/
+COPY security/ ./security/
+COPY tools/ ./tools/
+COPY commands/ ./commands/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 botuser && chown -R botuser:botuser /app

@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-ARASUL PLATFORM - Telegram Bot Service
-System notifications and command interface via Telegram
+ARASUL PLATFORM - Telegram Bot Service 2.0
+LLM-powered digital assistant with system notifications
 """
 
 import os
 import sys
 import asyncio
 import logging
-import signal
 from datetime import datetime
 from typing import Optional
 
@@ -18,7 +17,7 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     ContextTypes,
-    filters
+    filters,
 )
 from telegram.constants import ParseMode
 
@@ -31,6 +30,10 @@ from commands.disk import cmd_disk
 from commands.services import cmd_services
 from commands.logs import cmd_logs
 from commands.status import cmd_status as cmd_status_detailed
+from commands.llm import cmd_new, cmd_model, cmd_context
+
+# LLM handler
+from handlers.llm import handle_llm_message
 
 # Configure logging
 logging.basicConfig(
@@ -45,12 +48,13 @@ logging.getLogger('httpcore').setLevel(logging.WARNING)
 
 
 class ArasulTelegramBot:
-    """Telegram Bot for Arasul Platform notifications and commands."""
+    """Telegram Bot 2.0 for Arasul Platform - LLM-powered assistant."""
 
     def __init__(self):
         self.application: Optional[Application] = None
         self.allowed_users = Config.get_allowed_user_ids()
         self._running = False
+        self._session_manager = None
 
     def _is_user_allowed(self, user_id: int) -> bool:
         """Check if user is allowed to use the bot."""
@@ -81,15 +85,29 @@ class ArasulTelegramBot:
         user = update.effective_user
         logger.info(f"/start command from user {user.id} ({user.username})")
 
+        # Check LLM status
+        llm_status = "aktiviert" if Config.LLM_ENABLED else "deaktiviert"
+        voice_status = "aktiviert" if Config.VOICE_ENABLED else "deaktiviert"
+
         await update.message.reply_text(
-            f"Hello {user.first_name}!\n\n"
-            "I'm the Arasul Platform Bot.\n\n"
-            "Available commands:\n"
-            "/status - System status overview\n"
-            "/health - Service health check\n"
-            "/metrics - Current system metrics\n"
-            "/help - Show this help message\n\n"
-            f"Your User ID: `{user.id}`",
+            f"Hallo {user.first_name}!\n\n"
+            "Ich bin der *Arasul-Assistent* - dein KI-gestützter Helfer für die Arasul Edge AI Platform.\n\n"
+            "*Chat-Modus:*\n"
+            "Du kannst mir einfach Nachrichten schreiben und ich antworte mit Hilfe von KI.\n\n"
+            "*System-Befehle:*\n"
+            "/status - System-Übersicht\n"
+            "/services - Docker-Container\n"
+            "/disk - Festplattennutzung\n"
+            "/logs <service> - Service-Logs\n\n"
+            "*Chat-Befehle:*\n"
+            "/new - Neue Konversation starten\n"
+            "/model - LLM-Provider/Model wechseln\n"
+            "/context - Kontext-Nutzung anzeigen\n"
+            "/help - Alle Befehle\n\n"
+            f"*Status:*\n"
+            f"LLM-Chat: {llm_status}\n"
+            f"Sprachnachrichten: {voice_status}\n\n"
+            f"_Deine User-ID:_ `{user.id}`",
             parse_mode=ParseMode.MARKDOWN
         )
         update_health(message_sent=True)
@@ -101,29 +119,36 @@ class ArasulTelegramBot:
 
         update_health(message_received=True)
         help_text = """
-*Arasul Platform Bot Commands*
+*Arasul-Assistent - Befehle*
 
-*System Commands:*
-/status - System status overview
-/fullstatus - Detailed status with progress bars
-/health - All services health status
-/metrics - Current CPU, RAM, GPU, Disk metrics
-/disk - Disk usage for all volumes
-/services - List all Docker services
-/logs <service> - Show logs for a service
+*Chat & KI:*
+Sende einfach eine Nachricht, um mit der KI zu chatten.
 
-*Information:*
-/help - Show this help message
-/info - Bot and system information
+/new - Konversation zurücksetzen
+/model - LLM-Provider/Model anzeigen/wechseln
+/model list - Verfügbare Modelle
+/model ollama <name> - Zu Ollama wechseln
+/model claude - Zu Claude wechseln
+/context - Kontext-Nutzung anzeigen
+/apikey - API-Keys verwalten
 
-*Notifications:*
-The bot will automatically notify you about:
-- System startup/shutdown
-- Critical errors
-- Resource warnings (high CPU, RAM, Disk)
-- Service failures
+*System:*
+/status - System-Übersicht
+/fullstatus - Detaillierter Status
+/health - Service-Gesundheit
+/metrics - Live-Metriken
+/disk - Festplatten-Nutzung
+/services - Docker-Container
+/logs <service> - Service-Logs
 
-_Note: Some commands may require backend connectivity._
+*Info:*
+/help - Diese Hilfe
+/info - Bot-Informationen
+
+*Automatische Benachrichtigungen:*
+• System-Starts und -Fehler
+• Ressourcen-Warnungen (CPU, RAM, Disk)
+• Service-Ausfälle
 """
         await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
         update_health(message_sent=True)
@@ -136,18 +161,28 @@ _Note: Some commands may require backend connectivity._
         update_health(message_received=True)
         logger.info(f"/status command from user {update.effective_user.id}")
 
-        # Get basic status
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Get LLM provider status
+        provider = Config.DEFAULT_LLM_PROVIDER
+        try:
+            from providers import get_provider
+            prov = get_provider(provider)
+            llm_healthy = await prov.health_check()
+            llm_status = "online" if llm_healthy else "offline"
+        except Exception:
+            llm_status = "unbekannt"
 
         status_text = f"""
 *Arasul Platform Status*
 
-Time: `{now}`
+Zeit: `{now}`
 Bot Status: Online
+LLM Provider: `{provider}` ({llm_status})
 Backend: `{Config.DASHBOARD_BACKEND_URL}`
 
-_Use /health for detailed service status_
-_Use /metrics for system metrics_
+_Nutze /health für Service-Details_
+_Nutze /metrics für System-Metriken_
 """
         await update.message.reply_text(status_text, parse_mode=ParseMode.MARKDOWN)
         update_health(message_sent=True)
@@ -200,14 +235,12 @@ _Backend responded successfully_
                 if response.status_code == 200:
                     data = response.json()
 
-                    # Format metrics
                     cpu = data.get('cpu_percent', 0)
                     ram = data.get('ram_percent', 0)
                     gpu = data.get('gpu_percent', 0)
                     disk = data.get('disk_percent', 0)
                     temp = data.get('temperature', 0)
 
-                    # Status indicators
                     def indicator(val, warn=70, crit=90):
                         if val >= crit:
                             return "🔴"
@@ -244,12 +277,18 @@ _Updated: {datetime.now().strftime('%H:%M:%S')}_
         update_health(message_received=True)
 
         info_text = f"""
-*Arasul Telegram Bot*
+*Arasul Telegram Bot 2.0*
 
-Version: `1.0.0`
+Version: `2.0.0`
 Service Port: `{Config.SERVICE_PORT}`
 Webhook Mode: `{Config.TELEGRAM_WEBHOOK_ENABLED}`
 Backend: `{Config.DASHBOARD_BACKEND_URL}`
+
+*LLM Configuration:*
+LLM Enabled: `{Config.LLM_ENABLED}`
+Default Provider: `{Config.DEFAULT_LLM_PROVIDER}`
+Voice Enabled: `{Config.VOICE_ENABLED}`
+Max Context: `{Config.MAX_CONTEXT_TOKENS}` tokens
 
 Your User ID: `{update.effective_user.id}`
 """
@@ -257,15 +296,44 @@ Your User ID: `{update.effective_user.id}`
         update_health(message_sent=True)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle non-command messages."""
+        """Handle non-command text messages - route to LLM."""
         if not await self._check_permission(update):
             return
 
         update_health(message_received=True)
 
-        await update.message.reply_text(
-            "I only respond to commands. Use /help to see available commands."
-        )
+        if Config.LLM_ENABLED:
+            # Route to LLM handler
+            await handle_llm_message(update, context)
+        else:
+            await update.message.reply_text(
+                "LLM-Chat ist derzeit deaktiviert.\n"
+                "Nutze /help um verfügbare Befehle zu sehen."
+            )
+
+        update_health(message_sent=True)
+
+    async def handle_voice(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle voice messages."""
+        if not await self._check_permission(update):
+            return
+
+        update_health(message_received=True)
+
+        if Config.VOICE_ENABLED:
+            try:
+                from handlers.voice import handle_voice_message
+                await handle_voice_message(update, context)
+            except ImportError:
+                await update.message.reply_text(
+                    "Sprachnachrichten-Verarbeitung ist noch nicht implementiert."
+                )
+        else:
+            await update.message.reply_text(
+                "Sprachnachrichten sind deaktiviert.\n"
+                "Bitte sende mir Text-Nachrichten."
+            )
+
         update_health(message_sent=True)
 
     async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -274,20 +342,48 @@ Your User ID: `{update.effective_user.id}`
         update_health(error=True)
 
     async def post_init(self, application: Application):
-        """Post-initialization hook - send startup notification."""
+        """Post-initialization hook - initialize session manager and send startup notification."""
         update_health(bot_running=True)
 
+        # Initialize session manager
+        if Config.LLM_ENABLED:
+            try:
+                from session.manager import initialize_session_manager
+                self._session_manager = await initialize_session_manager()
+                logger.info("Session manager initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize session manager: {e}")
+
+        # Send startup notification
         if Config.NOTIFY_ON_STARTUP and Config.TELEGRAM_CHAT_ID:
             try:
                 await application.bot.send_message(
                     chat_id=Config.TELEGRAM_CHAT_ID,
-                    text="Arasul Telegram Bot started successfully.",
+                    text="*Arasul Bot 2.0 gestartet*\n\nLLM-Chat ist bereit.",
                     parse_mode=ParseMode.MARKDOWN
                 )
                 logger.info("Startup notification sent")
                 update_health(message_sent=True)
             except Exception as e:
                 logger.warning(f"Failed to send startup notification: {e}")
+
+    async def post_shutdown(self, application: Application):
+        """Cleanup on shutdown."""
+        # Close session manager
+        if self._session_manager:
+            try:
+                await self._session_manager.close()
+                logger.info("Session manager closed")
+            except Exception as e:
+                logger.error(f"Error closing session manager: {e}")
+
+        # Close provider connections
+        try:
+            from providers import ProviderRegistry
+            await ProviderRegistry.close_all()
+            logger.info("Providers closed")
+        except Exception as e:
+            logger.error(f"Error closing providers: {e}")
 
     def build_application(self) -> Application:
         """Build the telegram application."""
@@ -297,12 +393,13 @@ Your User ID: `{update.effective_user.id}`
         # Build application
         builder = Application.builder().token(Config.TELEGRAM_BOT_TOKEN)
 
-        # Add post_init callback
+        # Add callbacks
         builder.post_init(self.post_init)
+        builder.post_shutdown(self.post_shutdown)
 
         application = builder.build()
 
-        # Add handlers
+        # --- Core Commands ---
         application.add_handler(CommandHandler("start", self.cmd_start))
         application.add_handler(CommandHandler("help", self.cmd_help))
         application.add_handler(CommandHandler("status", self.cmd_status))
@@ -310,14 +407,34 @@ Your User ID: `{update.effective_user.id}`
         application.add_handler(CommandHandler("metrics", self.cmd_metrics))
         application.add_handler(CommandHandler("info", self.cmd_info))
 
-        # Extended commands from commands module
+        # --- System Commands (from commands module) ---
         application.add_handler(CommandHandler("disk", cmd_disk))
         application.add_handler(CommandHandler("services", cmd_services))
         application.add_handler(CommandHandler("logs", cmd_logs))
         application.add_handler(CommandHandler("fullstatus", cmd_status_detailed))
 
-        # Handle non-command messages
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        # --- LLM Commands ---
+        application.add_handler(CommandHandler("new", cmd_new))
+        application.add_handler(CommandHandler("model", cmd_model))
+        application.add_handler(CommandHandler("context", cmd_context))
+
+        # --- API Key Command (will be added in Phase 5) ---
+        try:
+            from commands.apikey import cmd_apikey
+            application.add_handler(CommandHandler("apikey", cmd_apikey))
+        except ImportError:
+            logger.debug("API key command not yet available")
+
+        # --- Message Handlers ---
+        # Handle text messages (route to LLM)
+        application.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
+        )
+
+        # Handle voice messages
+        application.add_handler(
+            MessageHandler(filters.VOICE, self.handle_voice)
+        )
 
         # Error handler
         application.add_error_handler(self.error_handler)
@@ -327,7 +444,7 @@ Your User ID: `{update.effective_user.id}`
 
     def run(self):
         """Run the bot (polling mode)."""
-        logger.info("Starting Arasul Telegram Bot...")
+        logger.info("Starting Arasul Telegram Bot 2.0...")
 
         # Start health server in background
         start_health_server_thread(Config.SERVICE_PORT)
@@ -350,7 +467,7 @@ Your User ID: `{update.effective_user.id}`
 def main():
     """Main entry point."""
     logger.info("=" * 60)
-    logger.info("ARASUL TELEGRAM BOT SERVICE")
+    logger.info("ARASUL TELEGRAM BOT SERVICE 2.0")
     logger.info("=" * 60)
 
     try:
