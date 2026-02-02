@@ -12,10 +12,10 @@
 # 9. n8n (depends on postgres-db, llm-service, embedding-service, minio)
 # 10. self-healing-agent (depends on all services - monitors all)
 # 11. backup-service (depends on postgres-db, minio)
-# 12. telegram-bot (depends on postgres-db, dashboard-backend)
-# 13. loki (log aggregation - no dependencies)
-# 14. promtail (log collector - depends on loki)
-# 15. cloudflared (OAuth tunnel - depends on reverse-proxy, optional if token not set)
+# 12. loki (log aggregation - no dependencies)
+# 13. promtail (log collector - depends on loki)
+# 14. cloudflared (OAuth tunnel - depends on reverse-proxy, optional if token not set)
+# NOTE: Telegram bots are now managed via the dashboard UI, not as a separate container
 #
 # IMPORTANT: All services implement retry logic for database and service connections.
 # Healthchecks are robust (see HIGH-010 fix) and properly handle timeouts.
@@ -811,71 +811,7 @@ services:
         limits:
           memory: ${RAM_LIMIT_BACKUP:-256M}
 
-  # 12. Telegram Bot - System notifications and command interface
-  telegram-bot:
-    build:
-      context: ./services/telegram-bot
-      dockerfile: Dockerfile
-    container_name: telegram-bot
-    hostname: telegram-bot
-    restart: always
-    networks:
-      - arasul-net
-    environment:
-      # Telegram Configuration
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS:-}
-      TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT:-8090}
-      # Feature Flags
-      TELEGRAM_NOTIFY_STARTUP: ${TELEGRAM_NOTIFY_STARTUP:-true}
-      TELEGRAM_NOTIFY_ERRORS: ${TELEGRAM_NOTIFY_ERRORS:-true}
-      # Backend Integration
-      DASHBOARD_BACKEND_URL: http://dashboard-backend:${DASHBOARD_BACKEND_PORT:-3001}
-      # Database (for LLM sessions)
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}
-      # LLM Configuration (Bot 2.0)
-      TELEGRAM_LLM_ENABLED: ${TELEGRAM_LLM_ENABLED:-true}
-      TELEGRAM_DEFAULT_LLM_PROVIDER: ${TELEGRAM_DEFAULT_LLM_PROVIDER:-ollama}
-      OLLAMA_URL: http://llm-service:11434
-      TELEGRAM_DEFAULT_OLLAMA_MODEL: ${TELEGRAM_DEFAULT_OLLAMA_MODEL:-}
-      TELEGRAM_DEFAULT_CLAUDE_MODEL: ${TELEGRAM_DEFAULT_CLAUDE_MODEL:-claude-3-5-sonnet-20241022}
-      # Voice Configuration
-      TELEGRAM_VOICE_ENABLED: ${TELEGRAM_VOICE_ENABLED:-false}
-      TELEGRAM_VOICE_PROVIDER: ${TELEGRAM_VOICE_PROVIDER:-local}
-      TELEGRAM_WHISPER_MODEL: ${TELEGRAM_WHISPER_MODEL:-base}
-      # Session Configuration
-      TELEGRAM_MAX_CONTEXT_TOKENS: ${TELEGRAM_MAX_CONTEXT_TOKENS:-4096}
-      TELEGRAM_SESSION_TIMEOUT_HOURS: ${TELEGRAM_SESSION_TIMEOUT_HOURS:-24}
-      # Security
-      TELEGRAM_ENCRYPTION_KEY: ${JWT_SECRET:-}
-      # Logging
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    depends_on:
-      postgres-db:
-        condition: service_healthy
-      dashboard-backend:
-        condition: service_healthy
-      llm-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "10"
-    # Jetson-flexible: Memory limit configurable via environment
-    deploy:
-      resources:
-        limits:
-          memory: ${RAM_LIMIT_TELEGRAM:-256M}
-
-  # 13. Loki - Log Aggregation System
+  # 12. Loki - Log Aggregation System
   loki:
     image: grafana/loki:2.9.3
     container_name: loki
