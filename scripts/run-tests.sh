@@ -53,7 +53,16 @@ run_backend_tests() {
     echo ""
     echo "-> Running Backend Tests (Jest)..."
 
-    if check_npm; then
+    # Prefer Docker when container is running (has all dependencies)
+    if docker compose ps dashboard-backend 2>/dev/null | grep -q "Up\|running"; then
+      echo "   Running in Docker container..."
+      if docker compose exec -T dashboard-backend npm test -- --passWithNoTests; then
+        echo "   Backend tests: PASSED"
+      else
+        echo "   Backend tests: FAILED"
+        EXIT_CODE=1
+      fi
+    elif check_npm; then
       cd services/dashboard-backend
       if npm test -- --passWithNoTests; then
         echo "   Backend tests: PASSED"
@@ -62,18 +71,9 @@ run_backend_tests() {
         EXIT_CODE=1
       fi
       cd "$PROJECT_ROOT"
-    elif docker compose ps dashboard-backend 2>/dev/null | grep -q "Up"; then
-      # Tests im Docker-Container ausführen
-      echo "   Running in Docker container..."
-      if docker compose exec -T dashboard-backend npm test -- --passWithNoTests; then
-        echo "   Backend tests: PASSED"
-      else
-        echo "   Backend tests: FAILED"
-        EXIT_CODE=1
-      fi
     else
-      echo "   SKIPPED: npm not available and container not running"
-      echo "   Install npm or start container: docker compose up -d dashboard-backend"
+      echo "   SKIPPED: Container not running and npm not available"
+      echo "   Start container: docker compose up -d dashboard-backend"
     fi
   fi
 }

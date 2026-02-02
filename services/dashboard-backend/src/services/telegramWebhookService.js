@@ -13,6 +13,8 @@ const database = require('../database');
 const logger = require('../utils/logger');
 const telegramBotService = require('./telegramBotService');
 const telegramLLMService = require('./telegramLLMService');
+const telegramVoiceService = require('./telegramVoiceService');
+const cryptoService = require('./cryptoService');
 
 // Telegram API
 const TELEGRAM_API = 'https://api.telegram.org/bot';
@@ -103,6 +105,9 @@ Ich bin dein persoenlicher Assistent. Schreib mir einfach eine Nachricht und ich
 /commands - Zeigt alle verfuegbaren Befehle
 /tools - Zeigt System-Tools
 /status - Zeigt System-Status
+/apikey - API Key Management
+
+🎤 Du kannst mir auch Sprachnachrichten senden!
 
 Wie kann ich dir helfen?`;
 
@@ -134,7 +139,12 @@ async function handleHelpCommand(bot, token, message) {
 <b>System-Tools:</b>
 /tools - Verfuegbare Tools anzeigen
 /status - System-Status anzeigen
-/services - Docker-Services anzeigen`;
+/services - Docker-Services anzeigen
+
+<b>Einstellungen:</b>
+/apikey - API Key Management
+
+🎤 Sprachnachrichten werden automatisch transkribiert!`;
 
   if (enabledCommands.length > 0) {
     helpText += '\n\n<b>Custom Commands:</b>';
@@ -321,6 +331,237 @@ async function handleTextMessage(bot, token, message) {
 }
 
 /**
+ * Handle /apikey command - manage API keys
+ * @param {Object} bot - Bot object
+ * @param {string} token - Bot token
+ * @param {Object} message - Telegram message
+ * @param {string} args - Command arguments
+ */
+async function handleApiKeyCommand(bot, token, message, args) {
+  const chatId = message.chat.id;
+  const userId = message.from.id;
+
+  // Parse arguments: /apikey [set|delete|status] [provider] [key]
+  const parts = args.trim().split(/\s+/);
+  const action = parts[0]?.toLowerCase();
+  const provider = parts[1]?.toLowerCase();
+  const apiKey = parts.slice(2).join(' ');
+
+  // Delete the message containing the API key for security
+  if (action === 'set' && apiKey) {
+    try {
+      await fetch(`${TELEGRAM_API}${token}/deleteMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: message.message_id,
+        }),
+      });
+    } catch (error) {
+      logger.warn('Could not delete message with API key:', error.message);
+    }
+  }
+
+  if (!action || action === 'help') {
+    const helpText = `🔑 <b>API Key Management</b>
+
+<b>Befehle:</b>
+<code>/apikey set claude &lt;key&gt;</code> - Claude API Key setzen
+<code>/apikey set openai &lt;key&gt;</code> - OpenAI API Key setzen (fuer Whisper)
+<code>/apikey delete claude</code> - Claude API Key loeschen
+<code>/apikey delete openai</code> - OpenAI API Key loeschen
+<code>/apikey status</code> - Status der API Keys
+
+⚠️ <b>Hinweis:</b> Nachrichten mit API Keys werden automatisch geloescht.`;
+
+    await sendMessage(token, chatId, helpText);
+    return;
+  }
+
+  if (action === 'status') {
+    try {
+      const result = await database.query(
+        `SELECT
+           CASE WHEN claude_api_key_encrypted IS NOT NULL THEN true ELSE false END as has_claude,
+           CASE WHEN openai_api_key_encrypted IS NOT NULL THEN true ELSE false END as has_openai
+         FROM telegram_bots WHERE id = $1`,
+        [bot.id]
+      );
+
+      if (result.rows.length === 0) {
+        await sendMessage(token, chatId, '❌ Bot nicht gefunden.');
+        return;
+      }
+
+      const { has_claude, has_openai } = result.rows[0];
+
+      const statusText = `🔑 <b>API Key Status</b>
+
+• Claude API: ${has_claude ? '✅ Konfiguriert' : '❌ Nicht gesetzt'}
+• OpenAI API: ${has_openai ? '✅ Konfiguriert' : '❌ Nicht gesetzt'}
+
+${!has_openai ? '💡 Fuer Sprachnachrichten wird ein OpenAI API Key benoetigt.' : ''}`;
+
+      await sendMessage(token, chatId, statusText);
+    } catch (error) {
+      logger.error('Error checking API key status:', error);
+      await sendMessage(token, chatId, '❌ Fehler beim Abrufen des Status.');
+    }
+    return;
+  }
+
+  if (action === 'set') {
+    if (!provider || !['claude', 'openai'].includes(provider)) {
+      await sendMessage(token, chatId, '❌ Ungueltiger Provider. Nutze: <code>claude</code> oder <code>openai</code>');
+      return;
+    }
+
+    if (!apiKey) {
+      await sendMessage(token, chatId, '❌ Kein API Key angegeben.');
+      return;
+    }
+
+    try {
+      const { encrypted, iv, authTag } = cryptoService.encrypt(apiKey);
+
+      const column = provider === 'claude' ? 'claude_api_key' : 'openai_api_key';
+
+      await database.query(
+        `UPDATE telegram_bots
+         SET ${column}_encrypted = $1,
+             ${column}_iv = $2,
+             ${column}_auth_tag = $3,
+             updated_at = NOW()
+         WHERE id = $4`,
+        [encrypted, iv, authTag, bot.id]
+      );
+
+      await sendMessage(token, chatId, `✅ ${provider.toUpperCase()} API Key wurde gespeichert.`);
+      logger.info(`API key set for bot ${bot.id}: ${provider}`);
+    } catch (error) {
+      logger.error('Error setting API key:', error);
+      await sendMessage(token, chatId, '❌ Fehler beim Speichern des API Keys.');
+    }
+    return;
+  }
+
+  if (action === 'delete') {
+    if (!provider || !['claude', 'openai'].includes(provider)) {
+      await sendMessage(token, chatId, '❌ Ungueltiger Provider. Nutze: <code>claude</code> oder <code>openai</code>');
+      return;
+    }
+
+    try {
+      const column = provider === 'claude' ? 'claude_api_key' : 'openai_api_key';
+
+      await database.query(
+        `UPDATE telegram_bots
+         SET ${column}_encrypted = NULL,
+             ${column}_iv = NULL,
+             ${column}_auth_tag = NULL,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [bot.id]
+      );
+
+      await sendMessage(token, chatId, `✅ ${provider.toUpperCase()} API Key wurde geloescht.`);
+      logger.info(`API key deleted for bot ${bot.id}: ${provider}`);
+    } catch (error) {
+      logger.error('Error deleting API key:', error);
+      await sendMessage(token, chatId, '❌ Fehler beim Loeschen des API Keys.');
+    }
+    return;
+  }
+
+  await sendMessage(token, chatId, '❌ Unbekannte Aktion. Nutze <code>/apikey help</code> fuer Hilfe.');
+}
+
+/**
+ * Handle voice message
+ * @param {Object} bot - Bot object
+ * @param {string} token - Bot token
+ * @param {Object} message - Telegram message with voice
+ */
+async function handleVoiceMessage(bot, token, message) {
+  const chatId = message.chat.id;
+  const voice = message.voice;
+
+  // Show typing while processing
+  await sendTypingAction(token, chatId);
+
+  // Check if voice is enabled
+  if (!telegramVoiceService.isEnabled()) {
+    await sendMessage(token, chatId, '🎤 Sprachnachrichten sind deaktiviert.');
+    return;
+  }
+
+  try {
+    // Send processing notification
+    await sendMessage(token, chatId, '🎤 <i>Transkribiere Sprachnachricht...</i>');
+
+    // Process voice message
+    const result = await telegramVoiceService.processVoiceMessage(bot.id, token, voice);
+
+    if (!result.success) {
+      await sendMessage(token, chatId, `❌ ${result.error}`);
+      return;
+    }
+
+    // Show transcription
+    await sendMessage(token, chatId, `📝 <b>Transkript:</b>\n<i>"${result.text}"</i>`);
+
+    // Process transcribed text with LLM
+    await sendTypingAction(token, chatId);
+    const response = await telegramLLMService.chat(bot.id, chatId, result.text);
+    await sendMessage(token, chatId, response);
+  } catch (error) {
+    logger.error('Voice message error:', error);
+    await sendMessage(token, chatId, `❌ Fehler bei der Sprachverarbeitung: ${error.message}`);
+  }
+}
+
+// Validation constants
+const MAX_MESSAGE_LENGTH = parseInt(process.env.TELEGRAM_MAX_MESSAGE_LENGTH) || 4096;
+
+/**
+ * Check if user is allowed to use the bot
+ * @param {Object} bot - Bot object
+ * @param {number} userId - Telegram user ID
+ * @returns {Promise<boolean>}
+ */
+async function isUserAllowed(bot, userId) {
+  try {
+    const result = await database.query(
+      `SELECT restrict_users, allowed_users FROM telegram_bots WHERE id = $1`,
+      [bot.id]
+    );
+
+    if (result.rows.length === 0) {
+      return false;
+    }
+
+    const { restrict_users, allowed_users } = result.rows[0];
+
+    // If restrictions not enabled, allow all
+    if (!restrict_users) {
+      return true;
+    }
+
+    // Check if user is in allowed list
+    const allowedList = allowed_users || [];
+    return allowedList.includes(userId) || allowedList.includes(String(userId));
+  } catch (error) {
+    // If table/column doesn't exist yet, allow all
+    if (error.message.includes('does not exist')) {
+      return true;
+    }
+    logger.error('Error checking user access:', error);
+    return true; // Fail open
+  }
+}
+
+/**
  * Process a Telegram update
  * @param {number} botId - Bot ID
  * @param {Object} update - Telegram update object
@@ -347,10 +588,29 @@ async function processUpdate(botId, update) {
   // Handle message
   if (update.message) {
     const message = update.message;
+    const userId = message.from?.id;
+
+    // Check user whitelist (skip for /start command to allow new users to register)
+    const isStartCommand = message.text?.trim().toLowerCase().startsWith('/start');
+    if (!isStartCommand && !(await isUserAllowed(bot, userId))) {
+      logger.warn(`User ${userId} not allowed for bot ${botId}`);
+      await sendMessage(token, message.chat.id, '⛔ Du bist nicht berechtigt, diesen Bot zu nutzen.');
+      return false;
+    }
 
     // Handle text messages
     if (message.text) {
       const text = message.text.trim();
+
+      // Input validation: message length
+      if (text.length > MAX_MESSAGE_LENGTH) {
+        await sendMessage(
+          token,
+          message.chat.id,
+          `⚠️ Nachricht zu lang (${text.length}/${MAX_MESSAGE_LENGTH} Zeichen). Bitte kuerze deine Nachricht.`
+        );
+        return false;
+      }
 
       // Check for commands
       if (text.startsWith('/')) {
@@ -381,6 +641,9 @@ async function processUpdate(botId, update) {
           case 'services':
             await handleServicesCommand(bot, token, message);
             break;
+          case 'apikey':
+            await handleApiKeyCommand(bot, token, message, args);
+            break;
           default:
             // Try custom command
             await handleCustomCommand(bot, token, message, command, args);
@@ -389,6 +652,11 @@ async function processUpdate(botId, update) {
         // Regular text message -> LLM
         await handleTextMessage(bot, token, message);
       }
+    }
+
+    // Handle voice messages
+    if (message.voice) {
+      await handleVoiceMessage(bot, token, message);
     }
 
     // Update last message timestamp

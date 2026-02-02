@@ -15,6 +15,7 @@ const logger = require('../utils/logger');
 const telegramBotService = require('./telegramBotService');
 const services = require('../config/services');
 const toolRegistry = require('../tools');
+const rateLimitService = require('./telegramRateLimitService');
 
 // LLM Service URLs
 const OLLAMA_URL = services.llm?.url || process.env.OLLAMA_URL || 'http://llm-service:11434';
@@ -264,10 +265,20 @@ async function buildSystemPrompt(basePrompt) {
  * @param {string} userMessage - User's message
  * @param {Object} options - Additional options
  * @param {boolean} options.enableTools - Enable tool execution (default: true)
+ * @param {boolean} options.skipRateLimit - Skip rate limit check (default: false)
  * @returns {Promise<string>} Assistant's response
  */
 async function chat(botId, chatId, userMessage, options = {}) {
-  const { enableTools = true } = options;
+  const { enableTools = true, skipRateLimit = false } = options;
+
+  // Check rate limit
+  if (!skipRateLimit) {
+    const rateLimit = await rateLimitService.checkRateLimit(botId, chatId);
+    if (!rateLimit.allowed) {
+      const waitTime = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+      throw new Error(`Rate-Limit erreicht. Bitte warte ${waitTime} Sekunden.`);
+    }
+  }
 
   // Get bot configuration
   const botResult = await database.query(
