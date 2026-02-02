@@ -1,8 +1,38 @@
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FiCpu, FiHardDrive, FiActivity, FiThermometer, FiHome, FiSettings, FiMessageSquare, FiZap, FiDatabase, FiExternalLink, FiFileText, FiPackage, FiCode, FiGitBranch, FiBox, FiTerminal, FiChevronLeft, FiSend, FiDownload } from 'react-icons/fi';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import {
+  FiCpu,
+  FiHardDrive,
+  FiActivity,
+  FiThermometer,
+  FiHome,
+  FiSettings,
+  FiMessageSquare,
+  FiZap,
+  FiDatabase,
+  FiExternalLink,
+  FiFileText,
+  FiPackage,
+  FiCode,
+  FiGitBranch,
+  FiBox,
+  FiTerminal,
+  FiChevronLeft,
+  FiSend,
+  FiDownload,
+  FiMessageCircle,
+} from 'react-icons/fi';
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
 import Login from './components/Login';
@@ -27,20 +57,23 @@ const AppStore = lazy(() => import('./components/AppStore'));
 const ModelStore = lazy(() => import('./components/ModelStore'));
 const ClaudeCode = lazy(() => import('./components/ClaudeCode'));
 const TelegramBotApp = lazy(() => import('./components/TelegramBotApp'));
+const TelegramBotsPage = lazy(() => import('./components/TelegramBots/TelegramBotsPage'));
+const DatabaseOverview = lazy(() => import('./components/Database/DatabaseOverview'));
+const DatabaseTable = lazy(() => import('./components/Database/DatabaseTable'));
 
 // Enable sending cookies with all requests (for LAN access support)
 axios.defaults.withCredentials = true;
 
 // Axios interceptor for authentication (request interceptor - adds token)
 axios.interceptors.request.use(
-  (config) => {
+  config => {
     const token = localStorage.getItem('arasul_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  error => Promise.reject(error)
 );
 
 /**
@@ -136,7 +169,7 @@ function AppContent() {
 
   // Keyboard shortcut: Cmd/Ctrl + B to toggle sidebar
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = e => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
         toggleSidebar();
@@ -152,7 +185,17 @@ function AppContent() {
     if (!isAuthenticated) return;
 
     try {
-      const [statusRes, metricsRes, historyRes, servicesRes, workflowsRes, infoRes, networkRes, appsRes, thresholdsRes] = await Promise.all([
+      const [
+        statusRes,
+        metricsRes,
+        historyRes,
+        servicesRes,
+        workflowsRes,
+        infoRes,
+        networkRes,
+        appsRes,
+        thresholdsRes,
+      ] = await Promise.all([
         axios.get(`${API_BASE}/system/status`),
         axios.get(`${API_BASE}/metrics/live`),
         axios.get(`${API_BASE}/metrics/history?range=24h`),
@@ -161,7 +204,7 @@ function AppContent() {
         axios.get(`${API_BASE}/system/info`),
         axios.get(`${API_BASE}/system/network`),
         axios.get(`${API_BASE}/apps?status=running,installed`),
-        axios.get(`${API_BASE}/system/thresholds`)
+        axios.get(`${API_BASE}/system/thresholds`),
       ]);
 
       setSystemStatus(statusRes.data);
@@ -176,7 +219,6 @@ function AppContent() {
       setDeviceInfo(thresholdsRes.data.device);
       setDataLoading(false);
       setError(null);
-
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err.message);
@@ -199,13 +241,13 @@ function AppContent() {
   }, [fetchData, isAuthenticated]);
 
   // PHASE 2: Memoize utility functions with useCallback
-  const getStatusColor = useCallback((status) => {
+  const getStatusColor = useCallback(status => {
     if (status === 'OK') return 'status-ok';
     if (status === 'WARNING') return 'status-warning';
     return 'status-critical';
   }, []);
 
-  const formatUptime = useCallback((seconds) => {
+  const formatUptime = useCallback(seconds => {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -222,15 +264,18 @@ function AppContent() {
       CPU: metricsHistory.cpu[index],
       RAM: metricsHistory.ram[index],
       GPU: metricsHistory.gpu[index],
-      Temp: metricsHistory.temperature[index]
+      Temp: metricsHistory.temperature[index],
     }));
   }, [metricsHistory]);
 
   // Handle login success - called from Login component
-  const handleLoginSuccess = useCallback((data) => {
-    login(data);
-    setDataLoading(true);
-  }, [login]);
+  const handleLoginSuccess = useCallback(
+    data => {
+      login(data);
+      setDataLoading(true);
+    },
+    [login]
+  );
 
   // Handle logout
   const handleLogout = useCallback(async () => {
@@ -303,13 +348,25 @@ function AppContent() {
                     />
                   }
                 />
-                <Route path="/settings" element={<Settings handleLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />} />
+                <Route
+                  path="/settings"
+                  element={
+                    <Settings
+                      handleLogout={handleLogout}
+                      theme={theme}
+                      onToggleTheme={toggleTheme}
+                    />
+                  }
+                />
                 <Route path="/chat" element={<ChatMulti />} />
                 <Route path="/documents" element={<DocumentManager />} />
                 <Route path="/appstore" element={<AppStore />} />
                 <Route path="/models" element={<ModelStore />} />
                 <Route path="/claude-code" element={<ClaudeCode />} />
                 <Route path="/telegram-bot" element={<TelegramBotApp />} />
+                <Route path="/telegram-bots" element={<TelegramBotsPage />} />
+                <Route path="/database" element={<DatabaseOverview />} />
+                <Route path="/database/:slug" element={<DatabaseTable />} />
               </Routes>
             </Suspense>
           </div>
@@ -323,33 +380,33 @@ function AppContent() {
 function SidebarWithDownloads(props) {
   const { activeDownloadCount, activeDownloadsList } = useDownloads();
   return (
-    <Sidebar
-      {...props}
-      downloadCount={activeDownloadCount}
-      activeDownloads={activeDownloadsList}
-    />
+    <Sidebar {...props} downloadCount={activeDownloadCount} activeDownloads={activeDownloadsList} />
   );
 }
 
 // PHASE 2 & 5: Memoize Sidebar with ARIA accessibility
-const Sidebar = React.memo(function Sidebar({ systemStatus, getStatusColor, collapsed, onToggle, downloadCount = 0, activeDownloads = [] }) {
+const Sidebar = React.memo(function Sidebar({
+  systemStatus,
+  getStatusColor,
+  collapsed,
+  onToggle,
+  downloadCount = 0,
+  activeDownloads = [],
+}) {
   const location = useLocation();
 
-  const isActive = (path) => {
+  const isActive = path => {
     return location.pathname === path ? 'nav-link active' : 'nav-link';
   };
 
   // PHASE 5: Check if link is current page for aria-current
-  const isCurrent = (path) => location.pathname === path;
+  const isCurrent = path => location.pathname === path;
 
   // Build className based on collapsed state
   const sidebarClassName = `sidebar ${collapsed ? 'collapsed' : 'expanded'}`;
 
   return (
-    <aside
-      className={sidebarClassName}
-      aria-label="Hauptnavigation"
-    >
+    <aside className={sidebarClassName} aria-label="Hauptnavigation">
       <div className="sidebar-header">
         <h1 className="sidebar-title">{collapsed ? 'A' : 'Arasul'}</h1>
         <p className="sidebar-subtitle">Edge AI Platform</p>
@@ -399,6 +456,16 @@ const Sidebar = React.memo(function Sidebar({ systemStatus, getStatusColor, coll
           </li>
           <li role="none">
             <Link
+              to="/database"
+              className={isActive('/database')}
+              role="menuitem"
+              aria-current={isCurrent('/database') ? 'page' : undefined}
+            >
+              <FiDatabase aria-hidden="true" /> <span>Datenbank</span>
+            </Link>
+          </li>
+          <li role="none">
+            <Link
               to="/appstore"
               className={isActive('/appstore')}
               role="menuitem"
@@ -413,7 +480,9 @@ const Sidebar = React.memo(function Sidebar({ systemStatus, getStatusColor, coll
               className={`${isActive('/models')} ${downloadCount > 0 ? 'has-downloads' : ''}`}
               role="menuitem"
               aria-current={isCurrent('/models') ? 'page' : undefined}
-              aria-label={downloadCount > 0 ? `KI-Modelle, ${downloadCount} Downloads aktiv` : 'KI-Modelle'}
+              aria-label={
+                downloadCount > 0 ? `KI-Modelle, ${downloadCount} Downloads aktiv` : 'KI-Modelle'
+              }
             >
               <FiBox aria-hidden="true" />
               <span>KI-Modelle</span>
@@ -423,6 +492,16 @@ const Sidebar = React.memo(function Sidebar({ systemStatus, getStatusColor, coll
                   {!collapsed && downloadCount}
                 </span>
               )}
+            </Link>
+          </li>
+          <li role="none">
+            <Link
+              to="/telegram-bots"
+              className={isActive('/telegram-bots')}
+              role="menuitem"
+              aria-current={isCurrent('/telegram-bots') ? 'page' : undefined}
+            >
+              <FiMessageCircle aria-hidden="true" /> <span>Telegram Bots</span>
             </Link>
           </li>
         </ul>
@@ -447,12 +526,11 @@ const Sidebar = React.memo(function Sidebar({ systemStatus, getStatusColor, coll
                   aria-valuemax={100}
                   aria-label={`${dl.modelName || dl.modelId} Download`}
                 >
-                  <div
-                    className="sidebar-download-bar"
-                    style={{ width: `${dl.progress}%` }}
-                  />
+                  <div className="sidebar-download-bar" style={{ width: `${dl.progress}%` }} />
                 </div>
-                <span className="sidebar-download-percent" aria-hidden="true">{dl.progress}%</span>
+                <span className="sidebar-download-percent" aria-hidden="true">
+                  {dl.progress}%
+                </span>
               </li>
             ))}
           </ul>
@@ -485,7 +563,7 @@ const DashboardHome = React.memo(function DashboardHome({
   formatUptime,
   getStatusColor,
   thresholds,
-  deviceInfo
+  deviceInfo,
 }) {
   // Default thresholds if not loaded yet
   const defaultThresholds = {
@@ -493,7 +571,7 @@ const DashboardHome = React.memo(function DashboardHome({
     ram: { warning: 70, critical: 90 },
     gpu: { warning: 80, critical: 95 },
     storage: { warning: 70, critical: 85 },
-    temperature: { warning: 65, critical: 80 }
+    temperature: { warning: 65, critical: 80 },
   };
 
   const t = thresholds || defaultThresholds;
@@ -513,7 +591,7 @@ const DashboardHome = React.memo(function DashboardHome({
   };
 
   // Temperature-specific status labels
-  const getTempStatusInfo = (value) => {
+  const getTempStatusInfo = value => {
     const threshold = t.temperature;
     if (value >= threshold.critical) {
       return { status: 'Hot', className: 'stat-change-negative' };
@@ -534,34 +612,34 @@ const DashboardHome = React.memo(function DashboardHome({
     if (!allData.length) return [];
 
     const now = Date.now();
-    const cutoff = now - (chartTimeRange * 60 * 60 * 1000);
+    const cutoff = now - chartTimeRange * 60 * 60 * 1000;
     return allData.filter(d => d.timestamp >= cutoff);
   }, [formatChartData, chartTimeRange]);
 
   // Icon mapping for apps
-  const getAppIcon = (iconName) => {
+  const getAppIcon = iconName => {
     const icons = {
-      'FiZap': FiZap,
-      'FiDatabase': FiDatabase,
-      'FiCode': FiCode,
-      'FiGitBranch': FiGitBranch,
-      'FiBox': FiBox,
-      'FiTerminal': FiTerminal,
-      'FiSend': FiSend
+      FiZap: FiZap,
+      FiDatabase: FiDatabase,
+      FiCode: FiCode,
+      FiGitBranch: FiGitBranch,
+      FiBox: FiBox,
+      FiTerminal: FiTerminal,
+      FiSend: FiSend,
     };
     const IconComponent = icons[iconName] || FiBox;
     return <IconComponent className="service-link-icon" />;
   };
 
   // Get app URL based on port or traefik route
-  const getAppUrl = (app) => {
+  const getAppUrl = app => {
     // Apps with custom pages should link internally
     if (app.hasCustomPage && app.customPageRoute) {
       return app.customPageRoute;
     }
     // Apps routed through Traefik path (use same origin, no port)
     const traefikPaths = {
-      'n8n': '/n8n'
+      n8n: '/n8n',
     };
     if (traefikPaths[app.id]) {
       return `${window.location.origin}${traefikPaths[app.id]}`;
@@ -572,9 +650,9 @@ const DashboardHome = React.memo(function DashboardHome({
     }
     // Fallback to known ports for direct access
     const knownPorts = {
-      'minio': 9001,
+      minio: 9001,
       'code-server': 8443,
-      'gitea': 3002
+      gitea: 3002,
     };
     if (knownPorts[app.id]) {
       return `http://${window.location.hostname}:${knownPorts[app.id]}`;
@@ -583,7 +661,7 @@ const DashboardHome = React.memo(function DashboardHome({
   };
 
   // Check if app link should be internal (React Router) or external
-  const isInternalLink = (app) => {
+  const isInternalLink = app => {
     return app.hasCustomPage && app.customPageRoute;
   };
   // Dynamic progress color based on thresholds
@@ -594,11 +672,11 @@ const DashboardHome = React.memo(function DashboardHome({
     return '#45ADFF';
   };
 
-  const formatBytes = (bytes) => {
+  const formatBytes = bytes => {
     return (bytes / 1024 / 1024 / 1024).toFixed(0);
   };
 
-  const totalDisk = ((metrics?.disk?.used || 0) + (metrics?.disk?.free || 0));
+  const totalDisk = (metrics?.disk?.used || 0) + (metrics?.disk?.free || 0);
   const usedDisk = metrics?.disk?.used || 0;
 
   return (
@@ -611,7 +689,10 @@ const DashboardHome = React.memo(function DashboardHome({
           </div>
           <div className="stat-content">
             <div className="stat-label">CPU USAGE</div>
-            <div className="stat-value-large">{metrics?.cpu?.toFixed(1) || 0}<span className="stat-unit">%</span></div>
+            <div className="stat-value-large">
+              {metrics?.cpu?.toFixed(1) || 0}
+              <span className="stat-unit">%</span>
+            </div>
             <div className={`stat-change ${getStatusInfo(metrics?.cpu || 0, 'cpu').className}`}>
               {getStatusInfo(metrics?.cpu || 0, 'cpu').status}
             </div>
@@ -624,7 +705,10 @@ const DashboardHome = React.memo(function DashboardHome({
           </div>
           <div className="stat-content">
             <div className="stat-label">RAM USAGE</div>
-            <div className="stat-value-large">{metrics?.ram?.toFixed(1) || 0}<span className="stat-unit">%</span></div>
+            <div className="stat-value-large">
+              {metrics?.ram?.toFixed(1) || 0}
+              <span className="stat-unit">%</span>
+            </div>
             <div className={`stat-change ${getStatusInfo(metrics?.ram || 0, 'ram').className}`}>
               {getStatusInfo(metrics?.ram || 0, 'ram').status}
             </div>
@@ -637,17 +721,22 @@ const DashboardHome = React.memo(function DashboardHome({
           </div>
           <div className="stat-content">
             <div className="stat-label">STORAGE</div>
-            <div className="stat-value-large">{metrics?.disk?.percent?.toFixed(0) || 0}<span className="stat-unit">%</span></div>
+            <div className="stat-value-large">
+              {metrics?.disk?.percent?.toFixed(0) || 0}
+              <span className="stat-unit">%</span>
+            </div>
             <div className="storage-bar-container">
               <div
                 className="storage-bar-fill"
                 style={{
                   width: `${metrics?.disk?.percent || 0}%`,
-                  background: getProgressColor(metrics?.disk?.percent || 0, 'storage')
+                  background: getProgressColor(metrics?.disk?.percent || 0, 'storage'),
                 }}
               />
             </div>
-            <div className="stat-sublabel">{formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB</div>
+            <div className="stat-sublabel">
+              {formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB
+            </div>
           </div>
         </div>
 
@@ -657,8 +746,13 @@ const DashboardHome = React.memo(function DashboardHome({
           </div>
           <div className="stat-content">
             <div className="stat-label">TEMPERATURE</div>
-            <div className="stat-value-large">{metrics?.temperature?.toFixed(0) || 0}<span className="stat-unit">°C</span></div>
-            <div className={`stat-change ${getTempStatusInfo(metrics?.temperature || 0).className}`}>
+            <div className="stat-value-large">
+              {metrics?.temperature?.toFixed(0) || 0}
+              <span className="stat-unit">°C</span>
+            </div>
+            <div
+              className={`stat-change ${getTempStatusInfo(metrics?.temperature || 0).className}`}
+            >
               {getTempStatusInfo(metrics?.temperature || 0).status}
             </div>
           </div>
@@ -668,41 +762,35 @@ const DashboardHome = React.memo(function DashboardHome({
       {/* Installed Apps - Dynamic */}
       {runningApps && runningApps.length > 0 && (
         <div className="service-links-modern">
-          {runningApps.filter(app => app.status === 'running').map(app => (
-            isInternalLink(app) ? (
-              <Link
-                key={app.id}
-                to={getAppUrl(app)}
-                className="service-link-card"
-              >
-                <div className="service-link-icon-wrapper">
-                  {getAppIcon(app.icon)}
-                </div>
-                <div className="service-link-content">
-                  <div className="service-link-name">{app.name}</div>
-                  <div className="service-link-description">{app.description}</div>
-                </div>
-                <FiExternalLink className="service-link-arrow" />
-              </Link>
-            ) : (
-              <a
-                key={app.id}
-                href={getAppUrl(app)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="service-link-card"
-              >
-                <div className="service-link-icon-wrapper">
-                  {getAppIcon(app.icon)}
-                </div>
-                <div className="service-link-content">
-                  <div className="service-link-name">{app.name}</div>
-                  <div className="service-link-description">{app.description}</div>
-                </div>
-                <FiExternalLink className="service-link-arrow" />
-              </a>
-            )
-          ))}
+          {runningApps
+            .filter(app => app.status === 'running')
+            .map(app =>
+              isInternalLink(app) ? (
+                <Link key={app.id} to={getAppUrl(app)} className="service-link-card">
+                  <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
+                  <div className="service-link-content">
+                    <div className="service-link-name">{app.name}</div>
+                    <div className="service-link-description">{app.description}</div>
+                  </div>
+                  <FiExternalLink className="service-link-arrow" />
+                </Link>
+              ) : (
+                <a
+                  key={app.id}
+                  href={getAppUrl(app)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="service-link-card"
+                >
+                  <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
+                  <div className="service-link-content">
+                    <div className="service-link-name">{app.name}</div>
+                    <div className="service-link-description">{app.description}</div>
+                  </div>
+                  <FiExternalLink className="service-link-arrow" />
+                </a>
+              )
+            )}
         </div>
       )}
 
@@ -742,14 +830,14 @@ const DashboardHome = React.memo(function DashboardHome({
                 axisLine={{ stroke: '#94a3b8' }}
                 tickLine={{ stroke: '#94a3b8' }}
                 domain={[0, 100]}
-                tickFormatter={(value) => `${value}%`}
+                tickFormatter={value => `${value}%`}
               />
               <Tooltip
                 contentStyle={{
                   background: 'linear-gradient(135deg, #1a2330 0%, #1f2835 100%)',
                   border: '1px solid rgba(69, 173, 255, 0.3)',
                   borderRadius: '10px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)'
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
                 }}
                 labelStyle={{ color: '#45ADFF', fontWeight: 600 }}
                 formatter={(value, name) => {
@@ -758,10 +846,38 @@ const DashboardHome = React.memo(function DashboardHome({
                 }}
               />
               <Legend />
-              <Line type="monotone" dataKey="CPU" stroke="#45ADFF" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
-              <Line type="monotone" dataKey="RAM" stroke="#8b5cf6" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
-              <Line type="monotone" dataKey="GPU" stroke="#06b6d4" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
-              <Line type="monotone" dataKey="Temp" stroke="#f59e0b" strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
+              <Line
+                type="monotone"
+                dataKey="CPU"
+                stroke="#45ADFF"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="RAM"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="GPU"
+                stroke="#06b6d4"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Temp"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -771,24 +887,32 @@ const DashboardHome = React.memo(function DashboardHome({
           <h3 className="dashboard-card-title">AI Services</h3>
           <div className="services-list">
             <div className="service-item-modern">
-              <div className={`service-indicator ${services?.llm?.status === 'healthy' ? 'service-healthy' : 'service-error'}`} />
+              <div
+                className={`service-indicator ${services?.llm?.status === 'healthy' ? 'service-healthy' : 'service-error'}`}
+              />
               <div className="service-info">
                 <div className="service-name">LLM Service</div>
                 <div className="service-status">{services?.llm?.status || 'unknown'}</div>
               </div>
             </div>
             <div className="service-item-modern">
-              <div className={`service-indicator ${services?.embeddings?.status === 'healthy' ? 'service-healthy' : 'service-error'}`} />
+              <div
+                className={`service-indicator ${services?.embeddings?.status === 'healthy' ? 'service-healthy' : 'service-error'}`}
+              />
               <div className="service-info">
                 <div className="service-name">Embeddings</div>
                 <div className="service-status">{services?.embeddings?.status || 'unknown'}</div>
               </div>
             </div>
             <div className="service-item-modern">
-              <div className={`service-indicator ${networkInfo?.internet_reachable ? 'service-healthy' : 'service-error'}`} />
+              <div
+                className={`service-indicator ${networkInfo?.internet_reachable ? 'service-healthy' : 'service-error'}`}
+              />
               <div className="service-info">
                 <div className="service-name">Internet</div>
-                <div className="service-status">{networkInfo?.internet_reachable ? 'Connected' : 'Offline'}</div>
+                <div className="service-status">
+                  {networkInfo?.internet_reachable ? 'Connected' : 'Offline'}
+                </div>
               </div>
             </div>
           </div>
@@ -804,7 +928,9 @@ const DashboardHome = React.memo(function DashboardHome({
             </div>
             <div className="info-item-modern">
               <span className="info-label-modern">Uptime</span>
-              <span className="info-value-modern">{systemInfo?.uptime_seconds ? formatUptime(systemInfo.uptime_seconds) : 'N/A'}</span>
+              <span className="info-value-modern">
+                {systemInfo?.uptime_seconds ? formatUptime(systemInfo.uptime_seconds) : 'N/A'}
+              </span>
             </div>
             <div className="info-item-modern">
               <span className="info-label-modern">Version</span>
@@ -817,7 +943,6 @@ const DashboardHome = React.memo(function DashboardHome({
           </div>
         </div>
       </div>
-
     </div>
   );
 });
