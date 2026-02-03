@@ -37,14 +37,13 @@ const {
   mockUser,
   generateTestToken,
   setupAuthMocks,
-  setupAuthMocksSequential,
   setupLoginMocks,
   setupLogoutMocks,
   setupPasswordChangeMocks
 } = require('../helpers/authMock');
 
-// Valid bcrypt hash for 'TestPassword123!'
-const validPasswordHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.L3lfB8S.Xr9z.q';
+// Valid bcrypt hash for 'TestPassword123!' (generated with cost 12)
+const validPasswordHash = '$2b$12$Z3DIUzPHNm5xStB/T1motO1FkeScrNYO1LSOgIAm0iqI8sFS/kmua';
 
 describe('Authentication Routes', () => {
   // Note: jest.clearAllMocks() is called globally in jest.setup.js
@@ -83,9 +82,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 403 if user is locked', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash, { accountLocked: true });
+      setupLoginMocks(db, validPasswordHash, { accountLocked: true });
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -152,9 +149,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return token on successful login', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -169,9 +164,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should set HttpOnly cookie on successful login', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -212,9 +205,7 @@ describe('Authentication Routes', () => {
 
     test('should successfully logout with valid token', async () => {
       // First login to get token
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -248,9 +239,7 @@ describe('Authentication Routes', () => {
 
     test('should return user info with valid token', async () => {
       // Login first
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -290,9 +279,7 @@ describe('Authentication Routes', () => {
 
     test('should return 400 if currentPassword is missing', async () => {
       // Login first
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -301,7 +288,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -313,9 +300,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 400 if newPassword is missing', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -323,7 +308,7 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -335,9 +320,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 400 if newPassword does not meet complexity requirements', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -345,7 +328,7 @@ describe('Authentication Routes', () => {
 
       const token = loginResponse.body.token;
 
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -357,9 +340,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 401 if currentPassword is incorrect', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -368,7 +349,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Use pattern-based mock for password change flow
-      setupPasswordChangeMocks(db, hash);
+      setupPasswordChangeMocks(db, validPasswordHash);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -383,9 +364,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 400 if newPassword is same as currentPassword', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -394,7 +373,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Use pattern-based mock for password change flow
-      setupPasswordChangeMocks(db, hash);
+      setupPasswordChangeMocks(db, validPasswordHash);
 
       const response = await request(app)
         .post('/api/auth/change-password')
@@ -421,28 +400,36 @@ describe('Authentication Routes', () => {
     });
 
     test('should return sessions list with valid token', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      const token = generateTestToken();
 
-      const loginResponse = await request(app)
-        .post('/api/auth/login')
-        .send({ username: 'admin', password: 'TestPassword123!' });
-
-      const token = loginResponse.body.token;
-
-      // Mock auth middleware using sequential (for additional query)
-      setupAuthMocksSequential(db);
-      // Mock sessions query
-      db.query.mockResolvedValueOnce({
-        rows: [{
-          token_jti: 'test-jti',
-          ip_address: '127.0.0.1',
-          user_agent: 'test-agent',
-          created_at: new Date(),
-          expires_at: new Date(Date.now() + 86400000),
-          last_activity: new Date()
-        }]
+      // Mock auth and sessions query
+      db.query.mockImplementation((query) => {
+        if (query.includes('token_blacklist')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('active_sessions') && query.includes('SELECT') && !query.includes('ORDER')) {
+          return Promise.resolve({ rows: [{ id: 1, token_jti: 'test-jti-12345', expires_at: new Date(Date.now() + 86400000) }] });
+        }
+        if (query.includes('update_session_activity')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('admin_users')) {
+          return Promise.resolve({ rows: [mockUser] });
+        }
+        // Sessions list query
+        if (query.includes('ORDER BY')) {
+          return Promise.resolve({
+            rows: [{
+              token_jti: 'test-jti',
+              ip_address: '127.0.0.1',
+              user_agent: 'test-agent',
+              created_at: new Date(),
+              expires_at: new Date(Date.now() + 86400000),
+              last_activity: new Date()
+            }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
       });
 
       const response = await request(app)
@@ -497,9 +484,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 200 with valid token from cookie', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -508,7 +493,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -519,9 +504,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 200 with valid Bearer token', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -530,7 +513,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth middleware
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -542,9 +525,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return 401 if user is not found', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      setupLoginMocks(db, validPasswordHash);
 
       const loginResponse = await request(app)
         .post('/api/auth/login')
@@ -553,7 +534,7 @@ describe('Authentication Routes', () => {
       const token = loginResponse.body.token;
 
       // Mock auth flow but with no user found
-      setupAuthMocksSequential(db, { user: null });
+      setupAuthMocks(db, { user: null });
 
       const response = await request(app)
         .get('/api/auth/verify')
@@ -575,22 +556,31 @@ describe('Authentication Routes', () => {
     });
 
     test('should invalidate all sessions with valid token', async () => {
-      const bcrypt = require('bcrypt');
-      const hash = await bcrypt.hash('TestPassword123!', 12);
-      setupLoginMocks(db, hash);
+      const token = generateTestToken();
 
-      const loginResponse = await request(app)
-        .post('/api/auth/login')
-        .send({ username: 'admin', password: 'TestPassword123!' });
-
-      const token = loginResponse.body.token;
-
-      // Mock auth middleware
-      setupAuthMocksSequential(db);
-      // Mock blacklist all tokens (get sessions, blacklist each, delete sessions)
-      db.query.mockResolvedValueOnce({ rows: [{ token_jti: 'jti1', expires_at: new Date() }] }); // get sessions
-      db.query.mockResolvedValueOnce({ rows: [] }); // blacklist token
-      db.query.mockResolvedValueOnce({ rows: [] }); // delete sessions
+      // Mock auth and logout-all queries
+      db.query.mockImplementation((query) => {
+        if (query.includes('token_blacklist') && query.includes('SELECT')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('active_sessions') && query.includes('SELECT')) {
+          return Promise.resolve({ rows: [{ id: 1, token_jti: 'test-jti-12345', expires_at: new Date(Date.now() + 86400000) }] });
+        }
+        if (query.includes('update_session_activity')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('admin_users')) {
+          return Promise.resolve({ rows: [mockUser] });
+        }
+        // Blacklist and delete operations
+        if (query.includes('token_blacklist') && query.includes('INSERT')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('DELETE')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .post('/api/auth/logout-all')

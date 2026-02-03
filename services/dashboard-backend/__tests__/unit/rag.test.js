@@ -52,24 +52,15 @@ const { app } = require('../../src/server');
 // Import auth mock helpers
 const {
   mockUser,
-  setupAuthMocksSequential,
-  setupLoginMocks
+  setupAuthMocks,
+  generateTestToken
 } = require('../helpers/authMock');
 
 /**
- * Helper to get auth token via login
- * Uses the standardized auth mock helper
+ * Helper to get auth token directly (fast, no bcrypt)
  */
-async function getAuthToken() {
-  const bcrypt = require('bcrypt');
-  const hash = await bcrypt.hash('TestPassword123!', 12);
-  setupLoginMocks(db, hash);
-
-  const loginResponse = await request(app)
-    .post('/api/auth/login')
-    .send({ username: 'admin', password: 'TestPassword123!' });
-
-  return loginResponse.body.token;
+function getAuthToken() {
+  return generateTestToken();
 }
 
 describe('RAG Routes', () => {
@@ -99,7 +90,7 @@ describe('RAG Routes', () => {
 
     test('should return 400 if query is missing', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .post('/api/rag/query')
@@ -112,7 +103,7 @@ describe('RAG Routes', () => {
 
     test('should return 400 if query is not a string', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .post('/api/rag/query')
@@ -125,7 +116,7 @@ describe('RAG Routes', () => {
 
     test('should return 400 if conversation_id is missing', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .post('/api/rag/query')
@@ -138,7 +129,7 @@ describe('RAG Routes', () => {
 
     test('should handle embedding service error', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       // Mock embedding service failure
       axios.post.mockRejectedValueOnce(new Error('Embedding service down'));
@@ -154,7 +145,7 @@ describe('RAG Routes', () => {
 
     test('should return no documents message when search returns empty', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       // Mock embedding generation
       axios.post.mockResolvedValueOnce({
@@ -196,7 +187,7 @@ describe('RAG Routes', () => {
 
     test('should process RAG query with documents found', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       // Mock embedding generation
       axios.post.mockResolvedValueOnce({
@@ -269,7 +260,7 @@ describe('RAG Routes', () => {
 
     test('should support manual space selection', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       // Mock embedding generation
       axios.post.mockResolvedValueOnce({
@@ -321,7 +312,7 @@ describe('RAG Routes', () => {
 
     test('should disable auto routing when specified', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       // Mock embedding
       axios.post.mockResolvedValueOnce({
@@ -361,7 +352,7 @@ describe('RAG Routes', () => {
     // Skip: Complex mock setup issue with axios.post sequence
     test.skip('should use default top_k of 5', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       axios.post.mockResolvedValueOnce({
         data: { vectors: [new Array(768).fill(0.1)] }
@@ -412,7 +403,7 @@ describe('RAG Routes', () => {
 
     test('should return operational status when Qdrant is healthy', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       axios.get.mockResolvedValueOnce({
         data: {
@@ -437,7 +428,7 @@ describe('RAG Routes', () => {
 
     test('should return degraded status when Qdrant is unavailable', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       axios.get.mockRejectedValueOnce(new Error('Connection refused'));
 
@@ -453,7 +444,7 @@ describe('RAG Routes', () => {
 
     test('should handle timeout gracefully', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const timeoutError = new Error('Timeout');
       timeoutError.code = 'ECONNABORTED';
@@ -474,7 +465,7 @@ describe('RAG Routes', () => {
   describe('Hybrid Search', () => {
     test('should combine vector and keyword results', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       axios.post.mockResolvedValueOnce({
         data: { vectors: [new Array(768).fill(0.1)] }
@@ -542,7 +533,7 @@ describe('RAG Routes', () => {
   describe('Error Response Format', () => {
     test('should always include timestamp in error responses', async () => {
       const token = await getAuthToken();
-      setupAuthMocksSequential(db);
+      setupAuthMocks(db);
 
       const response = await request(app)
         .post('/api/rag/query')
