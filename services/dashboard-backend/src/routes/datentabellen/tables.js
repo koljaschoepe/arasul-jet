@@ -225,9 +225,10 @@ router.get('/:slug', requireAuth, asyncHandler(async (req, res) => {
 /**
  * POST /api/v1/datentabellen/tables
  * Create a new table
+ * Optionally creates a default "Name" field if createDefaultField is true
  */
 router.post('/', requireAuth, asyncHandler(async (req, res) => {
-    const { name, description, icon, color } = req.body;
+    const { name, description, icon, color, createDefaultField } = req.body;
 
     // Validation
     if (!name || !name.trim()) {
@@ -268,15 +269,37 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
 
         const table = tableResult.rows[0];
 
-        // Create physical data table
-        await client.query(`
-            CREATE TABLE data_${slug} (
-                _id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                _created_at TIMESTAMPTZ DEFAULT NOW(),
-                _updated_at TIMESTAMPTZ DEFAULT NOW(),
-                _created_by VARCHAR(100)
-            )
-        `);
+        // Create physical data table with optional default "name" column
+        if (createDefaultField) {
+            await client.query(`
+                CREATE TABLE data_${slug} (
+                    _id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    _created_at TIMESTAMPTZ DEFAULT NOW(),
+                    _updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    _created_by VARCHAR(100),
+                    name TEXT
+                )
+            `);
+
+            // Create default "Name" field metadata
+            await client.query(`
+                INSERT INTO dt_fields (table_id, name, slug, field_type, field_order, is_primary_display)
+                VALUES ($1, 'Name', 'name', 'text', 0, true)
+            `, [table.id]);
+
+            logger.info(`[Datentabellen] Created table with default field: ${name} (${slug})`);
+        } else {
+            await client.query(`
+                CREATE TABLE data_${slug} (
+                    _id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    _created_at TIMESTAMPTZ DEFAULT NOW(),
+                    _updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    _created_by VARCHAR(100)
+                )
+            `);
+
+            logger.info(`[Datentabellen] Created table: ${name} (${slug})`);
+        }
 
         // Create update trigger
         await client.query(`
@@ -285,8 +308,6 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
                 FOR EACH ROW
                 EXECUTE FUNCTION update_dt_updated_at()
         `);
-
-        logger.info(`[Datentabellen] Created table: ${name} (${slug})`);
 
         return table;
     });
