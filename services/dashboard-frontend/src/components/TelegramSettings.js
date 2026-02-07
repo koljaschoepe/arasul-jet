@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FiSend,
   FiCheck,
@@ -26,12 +26,16 @@ function TelegramSettings() {
   const [message, setMessage] = useState(null);
   const [originalConfig, setOriginalConfig] = useState(null);
 
-  const fetchConfig = useCallback(async () => {
+  // ML-003 FIX: Ref to track if component is mounted
+  const isMountedRef = useRef(true);
+
+  const fetchConfig = useCallback(async (signal) => {
     try {
       const response = await fetch('/api/telegram/config', {
-        credentials: 'include'
+        credentials: 'include',
+        signal // ML-003: Pass abort signal
       });
-      if (response.ok) {
+      if (response.ok && isMountedRef.current) {
         const data = await response.json();
         setConfig({
           bot_token: '', // Never returned from backend
@@ -47,15 +51,30 @@ function TelegramSettings() {
         });
       }
     } catch (error) {
+      // ML-003: Ignore abort errors
+      if (error.name === 'AbortError') return;
       console.error('Error fetching Telegram config:', error);
-      setMessage({ type: 'error', text: 'Fehler beim Laden der Konfiguration' });
+      if (isMountedRef.current) {
+        setMessage({ type: 'error', text: 'Fehler beim Laden der Konfiguration' });
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
+  // ML-003 FIX: Use AbortController and track mounted state
   useEffect(() => {
-    fetchConfig();
+    isMountedRef.current = true;
+    const controller = new AbortController();
+
+    fetchConfig(controller.signal);
+
+    return () => {
+      isMountedRef.current = false;
+      controller.abort();
+    };
   }, [fetchConfig]);
 
   const handleSave = async () => {
@@ -81,6 +100,9 @@ function TelegramSettings() {
         body: JSON.stringify(payload)
       });
 
+      // ML-003: Check if still mounted before updating state
+      if (!isMountedRef.current) return;
+
       if (response.ok) {
         const data = await response.json();
         // Backend returns has_token: true when token is configured
@@ -97,9 +119,12 @@ function TelegramSettings() {
         setMessage({ type: 'error', text: data.error || 'Fehler beim Speichern' });
       }
     } catch (error) {
+      if (!isMountedRef.current) return;
       setMessage({ type: 'error', text: 'Netzwerkfehler beim Speichern' });
     } finally {
-      setSaving(false);
+      if (isMountedRef.current) {
+        setSaving(false);
+      }
     }
   };
 
@@ -118,6 +143,9 @@ function TelegramSettings() {
         body: JSON.stringify({ enabled: newEnabled })
       });
 
+      // ML-003: Check if still mounted before updating state
+      if (!isMountedRef.current) return;
+
       if (response.ok) {
         setConfig(prev => ({ ...prev, enabled: newEnabled }));
         setOriginalConfig(prev => ({ ...prev, enabled: newEnabled }));
@@ -130,9 +158,12 @@ function TelegramSettings() {
         setMessage({ type: 'error', text: data.error || 'Fehler beim Umschalten' });
       }
     } catch (error) {
+      if (!isMountedRef.current) return;
       setMessage({ type: 'error', text: 'Netzwerkfehler' });
     } finally {
-      setSaving(false);
+      if (isMountedRef.current) {
+        setSaving(false);
+      }
     }
   };
 
@@ -147,6 +178,9 @@ function TelegramSettings() {
         credentials: 'include'
       });
 
+      // ML-003: Check if still mounted before updating state
+      if (!isMountedRef.current) return;
+
       if (response.ok) {
         setMessage({ type: 'success', text: 'Test-Nachricht erfolgreich gesendet!' });
       } else {
@@ -154,9 +188,12 @@ function TelegramSettings() {
         setMessage({ type: 'error', text: data.error || 'Test fehlgeschlagen' });
       }
     } catch (error) {
+      if (!isMountedRef.current) return;
       setMessage({ type: 'error', text: 'Netzwerkfehler beim Test' });
     } finally {
-      setTesting(false);
+      if (isMountedRef.current) {
+        setTesting(false);
+      }
     }
   };
 

@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# Arasul Platform - Commit Message Hook
+# Enforces Conventional Commits format
+
+commit_msg_file=$1
+commit_msg=$(cat "$commit_msg_file")
+
+# Conventional Commits pattern:
+# type(scope): message
+# type: message
+#
+# Allowed types: feat, fix, docs, refactor, test, chore, style, perf, ci, build, revert
+
+pattern="^(feat|fix|docs|refactor|test|chore|style|perf|ci|build|revert)(\([a-zA-Z0-9_-]+\))?: .{1,}"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo ""
+  echo "ERROR: Invalid commit message format!"
+  echo ""
+  echo "Commit message must follow Conventional Commits:"
+  echo "  type(scope): message"
+  echo ""
+  echo "Allowed types:"
+  echo "  feat     - New feature"
+  echo "  fix      - Bug fix"
+  echo "  docs     - Documentation changes"
+  echo "  refactor - Code refactoring"
+  echo "  test     - Test additions/changes"
+  echo "  chore    - Maintenance tasks"
+  echo "  style    - Code style changes"
+  echo "  perf     - Performance improvements"
+  echo "  ci       - CI/CD changes"
+  echo "  build    - Build system changes"
+  echo "  revert   - Revert previous commit"
+  echo ""
+  echo "Examples:"
+  echo "  feat(auth): add JWT refresh token"
+  echo "  fix(api): resolve timeout issue"
+  echo "  docs: update API documentation"
+  echo ""
+  echo "Your message was:"
+  echo "  $commit_msg"
+  echo ""
+  exit 1
+fi
+
+# Check message length (max 72 chars for first line)
+first_line=$(echo "$commit_msg" | head -1)
+if [ ${#first_line} -gt 72 ]; then
+  echo ""
+  echo "WARNING: First line of commit message is too long (${#first_line} > 72 chars)"
+  echo "Consider shortening: $first_line"
+  echo ""
+fi
+
+exit 0

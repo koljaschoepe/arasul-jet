@@ -160,7 +160,6 @@ export function DownloadProvider({ children }) {
     const startDownload = useCallback(async (modelId, modelName) => {
         // Don't start if already downloading
         if (activeDownloads[modelId]) {
-            console.log(`[DownloadContext] Model ${modelId} already downloading`);
             return;
         }
 
@@ -263,7 +262,7 @@ export function DownloadProvider({ children }) {
 
         } catch (err) {
             if (err.name === 'AbortError') {
-                console.log(`[DownloadContext] Download ${modelId} aborted`);
+                // Download was intentionally aborted
             } else {
                 console.error(`[DownloadContext] Download error for ${modelId}:`, err);
                 setActiveDownloads(prev => ({

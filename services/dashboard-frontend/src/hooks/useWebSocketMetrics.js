@@ -46,14 +46,14 @@ export function useWebSocketMetrics(isAuthenticated) {
   const startHttpPolling = useCallback(() => {
     if (httpPollingRef.current) return; // Already polling
 
-    console.log('[useWebSocketMetrics] Starting HTTP polling fallback...');
+    // [useWebSocketMetrics] Starting HTTP polling fallback...');
 
     httpPollingRef.current = setInterval(async () => {
       try {
         const response = await axios.get(`${API_BASE}/metrics/live`);
         setMetrics(response.data);
       } catch (err) {
-        console.error('[useWebSocketMetrics] HTTP polling error:', err);
+        // console.error('[useWebSocketMetrics] HTTP polling error:', err);
       }
     }, 5000);
   }, []);
@@ -74,7 +74,7 @@ export function useWebSocketMetrics(isAuthenticated) {
       const ws = new WebSocket(`${WS_BASE}/metrics/live-stream`);
 
       ws.onopen = () => {
-        console.log('[useWebSocketMetrics] WebSocket connected');
+        // [useWebSocketMetrics] WebSocket connected');
         reconnectAttemptsRef.current = 0;
         setWsConnected(true);
         setWsReconnecting(false);
@@ -88,15 +88,15 @@ export function useWebSocketMetrics(isAuthenticated) {
           if (!data.error) {
             setMetrics(data);
           } else {
-            console.warn('[useWebSocketMetrics] Metrics service error:', data.error);
+            // console.warn('[useWebSocketMetrics] Metrics service error:', data.error);
           }
         } catch (err) {
-          console.error('[useWebSocketMetrics] Message parse error:', err);
+          // console.error('[useWebSocketMetrics] Message parse error:', err);
         }
       };
 
       ws.onerror = (error) => {
-        console.error('[useWebSocketMetrics] WebSocket error:', error);
+        // console.error('[useWebSocketMetrics] WebSocket error:', error);
       };
 
       ws.onclose = (event) => {
@@ -105,15 +105,15 @@ export function useWebSocketMetrics(isAuthenticated) {
 
         // Don't reconnect if closed intentionally
         if (isIntentionallyClosedRef.current) {
-          console.log('[useWebSocketMetrics] WebSocket closed intentionally');
+          // [useWebSocketMetrics] WebSocket closed intentionally');
           return;
         }
 
-        console.log(`[useWebSocketMetrics] WebSocket disconnected (code: ${event.code})`);
+        // [useWebSocketMetrics] WebSocket disconnected (code: ${event.code})
 
         // Check if we should retry
         if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          console.error('[useWebSocketMetrics] Max reconnect attempts reached. Using HTTP polling.');
+          // console.error('[useWebSocketMetrics] Max reconnect attempts reached. Using HTTP polling.');
           setWsReconnecting(false);
           startHttpPolling();
           return;
@@ -123,7 +123,7 @@ export function useWebSocketMetrics(isAuthenticated) {
         setWsReconnecting(true);
         const delay = calculateReconnectDelay(reconnectAttemptsRef.current - 1);
 
-        console.log(`[useWebSocketMetrics] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...`);
+        // [useWebSocketMetrics] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...
 
         reconnectTimerRef.current = setTimeout(() => {
           connectWebSocket();
@@ -133,7 +133,7 @@ export function useWebSocketMetrics(isAuthenticated) {
       wsRef.current = ws;
 
     } catch (error) {
-      console.error('[useWebSocketMetrics] Failed to create WebSocket:', error);
+      // console.error('[useWebSocketMetrics] Failed to create WebSocket:', error);
 
       // Retry connection
       if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {

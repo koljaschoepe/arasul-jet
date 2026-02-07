@@ -4,12 +4,23 @@ Complete schema reference for the Arasul Platform PostgreSQL database.
 
 ## Overview
 
+### Main Database
+
 | Property | Value |
 |----------|-------|
 | Database | arasul_db |
 | User | arasul |
 | Schema | public |
-| Migrations | 28 files in `/services/postgres/init/` |
+| Migrations | `/services/postgres/init/` |
+
+### Data Database (Datentabellen)
+
+| Property | Value |
+|----------|-------|
+| Database | arasul_data_db |
+| User | arasul_data |
+| Schema | public |
+| Migrations | `/services/postgres/init-data-db/` |
 
 ## Entity Relationship Diagram
 
@@ -840,6 +851,69 @@ These migrations contain fixes and incremental updates:
 | Telegram message log | 30 days |
 | Telegram rate limits | 1 hour |
 | API audit logs | 90 days |
+
+---
+
+## Datentabellen (Dynamic Database)
+
+Separate database `arasul_data_db` for user-created dynamic tables and quote management.
+
+### Meta Tables
+
+| Table | Purpose |
+|-------|---------|
+| dt_tables | Table definitions (name, slug, icon, color) |
+| dt_fields | Field definitions (type, validation, options) |
+| dt_relations | Relationships between tables |
+| dt_views | Saved filter/sort configurations |
+
+### Dynamic Data Tables
+
+User-created tables follow the naming convention `data_{slug}`:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| _id | UUID | Primary key |
+| _created_at | TIMESTAMPTZ | Creation timestamp |
+| _updated_at | TIMESTAMPTZ | Last update timestamp |
+| _created_by | VARCHAR(100) | Creator username |
+| *user_fields* | *varies* | User-defined columns |
+
+### Quote Tables
+
+| Table | Purpose |
+|-------|---------|
+| dt_quote_templates | Company branding, PDF settings, tax rates |
+| dt_quotes | Quote header (customer, totals, status) |
+| dt_quote_positions | Line items/positions |
+| dt_quote_history | Audit trail of status changes |
+
+### Supported Field Types
+
+| Type | PostgreSQL Type | Description |
+|------|----------------|-------------|
+| text | TEXT | Single-line text |
+| textarea | TEXT | Multi-line text |
+| number | NUMERIC | Numbers |
+| currency | NUMERIC(12,2) | Currency values |
+| date | DATE | Date only |
+| datetime | TIMESTAMPTZ | Date and time |
+| select | TEXT | Single selection |
+| multiselect | TEXT[] | Multiple selection |
+| checkbox | BOOLEAN | True/false |
+| relation | UUID | Foreign key reference |
+| email | TEXT | Email addresses |
+| url | TEXT | Web URLs |
+| phone | TEXT | Phone numbers |
+
+### Schema Files
+
+| File | Description |
+|------|-------------|
+| init/031_datentabellen_database.sql | Config table in main DB |
+| init/032_create_data_database.sh | Creates arasul_data_db |
+| init-data-db/001_meta_schema.sql | Meta tables |
+| init-data-db/002_quotes_schema.sql | Quote tables |
 
 ---
 

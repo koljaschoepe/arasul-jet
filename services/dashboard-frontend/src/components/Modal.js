@@ -9,7 +9,7 @@
  * - Click outside to close (optional)
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { memo, useEffect, useRef, useCallback } from 'react';
 import { FiX } from 'react-icons/fi';
 import './Modal.css';
 
@@ -32,7 +32,7 @@ function getFocusableElements(container) {
 /**
  * Modal Component
  */
-function Modal({
+const Modal = memo(function Modal({
   isOpen,
   onClose,
   title,
@@ -188,12 +188,12 @@ function Modal({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Confirmation Modal - Pre-configured for confirm/cancel actions
  */
-export function ConfirmModal({
+export const ConfirmModal = memo(function ConfirmModal({
   isOpen,
   onClose,
   onConfirm,
@@ -240,12 +240,12 @@ export function ConfirmModal({
       <p className="modal-message">{message}</p>
     </Modal>
   );
-}
+});
 
 /**
  * Alert Modal - For displaying messages
  */
-export function AlertModal({
+export const AlertModal = memo(function AlertModal({
   isOpen,
   onClose,
   title,
@@ -286,6 +286,6 @@ export function AlertModal({
       </div>
     </Modal>
   );
-}
+});
 
 export default Modal;

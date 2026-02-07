@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { FiX, FiFolder, FiSave, FiAlertCircle, FiCheck, FiTrash2 } from 'react-icons/fi';
 import { API_BASE } from '../config/api';
 import '../space-modal.css';
@@ -40,7 +40,7 @@ const descriptionTemplate = `**Inhalt:** Beschreiben Sie, welche Dokumente diese
 - Frage 2
 - Frage 3`;
 
-function SpaceModal({ isOpen, onClose, onSave, space = null, mode = 'create' }) {
+const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = null, mode = 'create' }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState(descriptionTemplate);
   const [icon, setIcon] = useState('folder');
@@ -301,6 +301,6 @@ function SpaceModal({ isOpen, onClose, onSave, space = null, mode = 'create' }) 
       </div>
     </div>
   );
-}
+});
 
 export default SpaceModal;

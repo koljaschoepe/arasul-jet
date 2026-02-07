@@ -95,6 +95,7 @@ const alertsRouter = require('./routes/alerts');
 const auditRouter = require('./routes/audit');
 const externalApiRouter = require('./routes/externalApi');
 const datentabellenRouter = require('./routes/datentabellen');
+const storeRouter = require('./routes/store');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -114,6 +115,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/apps', appstoreRouter);
 app.use('/api/models', modelsRouter);
+app.use('/api/store', storeRouter);
 app.use('/api/workspaces', workspacesRouter);
 app.use('/api/spaces', spacesRouter);
 app.use('/api/telegram', telegramRouter);
@@ -159,6 +161,7 @@ const modelService = require('./services/modelService');
 const alertEngine = require('./services/alertEngine');
 const ollamaReadiness = require('./services/ollamaReadiness');
 const dataDatabase = require('./dataDatabase');
+const telegramWebSocketService = require('./services/telegramWebSocketService');
 
 wss.on('connection', (ws) => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
@@ -219,6 +222,14 @@ if (require.main === module) {
     // PHASE3-FIX: Migrated from console.log to logger
     logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
     logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);
+
+    // Initialize Telegram WebSocket Service for real-time setup notifications
+    try {
+      telegramWebSocketService.initialize(server);
+      logger.info(`Telegram WebSocket ready at ws://0.0.0.0:${PORT}/api/telegram-app/ws`);
+    } catch (err) {
+      logger.error(`Failed to initialize Telegram WebSocket Service: ${err.message}`);
+    }
 
     // Initialize Data Database for Datentabellen feature
     try {

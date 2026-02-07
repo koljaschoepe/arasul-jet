@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# Arasul Platform - Pre-commit Hook
+# Runs lint-staged for staged files and validates design system compliance
+
+echo "Running pre-commit checks..."
+
+# Run lint-staged (ESLint + Prettier on staged files)
+npx lint-staged
+
+# Check if lint-staged passed
+if [ $? -ne 0 ]; then
+  echo "Lint-staged failed. Please fix the issues and try again."
+  exit 1
+fi
+
+# Run typecheck script if it exists
+if [ -f "./scripts/run-typecheck.sh" ]; then
+  echo "Running type checks..."
+  ./scripts/run-typecheck.sh
+  if [ $? -ne 0 ]; then
+    echo "Type check failed. Please fix the issues and try again."
+    exit 1
+  fi
+fi
+
+echo "Pre-commit checks passed!"

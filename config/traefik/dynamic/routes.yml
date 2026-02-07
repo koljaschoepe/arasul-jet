@@ -183,33 +183,13 @@ http:
         - websecure
       tls: {}
 
-    # n8n Root Redirect - HTTP
-    # Exact match for /n8n or /n8n/ redirects to /signin (fixes 404 on first access)
-    # Priority 110 ensures this matches before the general /n8n/* route
-    n8n-root-http:
-      rule: "Path(`/n8n`) || Path(`/n8n/`)"
-      service: n8n-service
-      priority: 110
-      middlewares:
-        - n8n-root-to-signin
-        - security-headers
-      entryPoints:
-        - web
-
-    # n8n Root Redirect - HTTPS
-    n8n-root-https:
-      rule: "Path(`/n8n`) || Path(`/n8n/`)"
-      service: n8n-service
-      priority: 110
-      middlewares:
-        - n8n-root-to-signin
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
+    # n8n Root Redirect - REMOVED
+    # With N8N_PATH=/n8n, n8n handles root path redirect internally
+    # No Traefik redirect middleware needed - n8n serves /n8n/ directly
 
     # n8n Workflow Engine - HTTP
-    # Traefik strips /n8n prefix before forwarding to n8n (n8n runs on root)
+    # N8N_PATH=/n8n/ makes frontend generate paths with /n8n prefix
+    # But n8n server still serves files at root, so we must strip the prefix
     # No forward-auth: n8n handles its own authentication
     n8n-http:
       rule: "PathPrefix(`/n8n`)"
@@ -234,50 +214,19 @@ http:
         - websecure
       tls: {}
 
-    # n8n SPA routes - These paths are used by n8n's frontend router
-    # Without this, navigating to /signin would hit the dashboard frontend
-    # No forward-auth: n8n handles its own authentication
-    # NOTE: /settings, /users, /variables removed to avoid conflict with Arasul dashboard
-    # n8n internal navigation still works via client-side SPA routing
-    n8n-spa-http:
-      rule: "PathPrefix(`/signin`) || PathPrefix(`/setup`) || PathPrefix(`/forgot-password`) || PathPrefix(`/workflows`) || PathPrefix(`/credentials`) || PathPrefix(`/executions`) || PathPrefix(`/personal-data`)"
-      service: n8n-service
-      priority: 90
-      middlewares:
-        - security-headers
-      entryPoints:
-        - web
+    # n8n SPA routes - REMOVED
+    # These root-level routes (/signin, /workflows, etc.) conflicted with the dashboard
+    # All n8n access should go through /n8n/* which strips prefix and forwards to n8n
+    # n8n handles its own internal routing via client-side SPA
+    #
+    # If needed in future, add routes like:
+    # n8n-spa-http:
+    #   rule: "PathPrefix(`/n8n/signin`) || PathPrefix(`/n8n/workflows`)"
+    #   ... (but this is handled by the general /n8n route already)
 
-    # n8n SPA routes - HTTPS
-    # No forward-auth: n8n handles its own authentication
-    n8n-spa-https:
-      rule: "PathPrefix(`/signin`) || PathPrefix(`/setup`) || PathPrefix(`/forgot-password`) || PathPrefix(`/workflows`) || PathPrefix(`/credentials`) || PathPrefix(`/executions`) || PathPrefix(`/personal-data`)"
-      service: n8n-service
-      priority: 90
-      middlewares:
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # n8n Assets - HTTP (served directly without prefix)
-    # No forward-auth: Assets must load for signin page to work
-    n8n-assets-http:
-      rule: "PathPrefix(`/assets`) && !PathPrefix(`/api`)"
-      service: n8n-service
-      priority: 50
-      entryPoints:
-        - web
-
-    # n8n Assets - HTTPS
-    # No forward-auth: Assets must load for signin page to work
-    n8n-assets-https:
-      rule: "PathPrefix(`/assets`) && !PathPrefix(`/api`)"
-      service: n8n-service
-      priority: 50
-      entryPoints:
-        - websecure
-      tls: {}
+    # n8n Assets - REMOVED
+    # With N8N_PATH=/n8n, n8n now serves assets at /n8n/assets/* (handled by main /n8n route)
+    # Root-level /assets route no longer needed
 
     # Dashboard Frontend Static Files - HTTP
     # These must have higher priority than n8n-static to serve React bundles
@@ -297,47 +246,13 @@ http:
         - websecure
       tls: {}
 
-    # n8n Static files - HTTP
-    # No forward-auth: Static files must load for signin page
-    n8n-static-http:
-      rule: "PathPrefix(`/static`)"
-      service: n8n-service
-      priority: 60
-      entryPoints:
-        - web
+    # n8n Static files - REMOVED
+    # With N8N_PATH=/n8n, n8n now serves static files at /n8n/static/* (handled by main /n8n route)
+    # Root-level /static route no longer needed (dashboard has its own /static/js, /static/css routes)
 
-    # n8n Static files - HTTPS
-    # No forward-auth: Static files must load for signin page
-    n8n-static-https:
-      rule: "PathPrefix(`/static`)"
-      service: n8n-service
-      priority: 60
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # n8n REST API - HTTP
-    # No forward-auth: n8n handles its own authentication
-    n8n-rest-http:
-      rule: "PathPrefix(`/rest`)"
-      service: n8n-service
-      priority: 50
-      middlewares:
-        - security-headers
-      entryPoints:
-        - web
-
-    # n8n REST API - HTTPS
-    # No forward-auth: n8n handles its own authentication
-    n8n-rest-https:
-      rule: "PathPrefix(`/rest`)"
-      service: n8n-service
-      priority: 50
-      middlewares:
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
+    # n8n REST API - REMOVED
+    # With N8N_PATH=/n8n, n8n REST API is at /n8n/rest/* (handled by main /n8n route)
+    # Root-level /rest route no longer needed
 
     # n8n favicon - HTTP
     # No forward-auth: favicon must load publicly

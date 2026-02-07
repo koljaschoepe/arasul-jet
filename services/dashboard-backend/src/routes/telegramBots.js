@@ -42,22 +42,64 @@ const telegramWebhookService = require('../services/telegramWebhookService');
 
 router.post('/webhook/:botId/:secret', async (req, res) => {
   const { botId, secret } = req.params;
+  const startTime = Date.now();
+
+  // Request logging with update details
+  const updateId = req.body?.update_id;
+  const messageType = req.body?.message?.text ? 'text' :
+                      req.body?.message?.voice ? 'voice' :
+                      req.body?.callback_query ? 'callback' :
+                      req.body?.message ? 'other' : 'unknown';
+
+  logger.info(`Webhook received for bot ${botId}`, {
+    updateId,
+    messageType,
+    hasMessage: !!req.body?.message,
+    chatId: req.body?.message?.chat?.id,
+    textPreview: req.body?.message?.text?.substring(0, 30)
+  });
 
   try {
     // Verify webhook secret
     const bot = await telegramBotService.getBotByWebhookSecret(parseInt(botId), secret);
 
     if (!bot) {
-      logger.warn(`Invalid webhook attempt for bot ${botId}`);
+      logger.warn(`Invalid webhook attempt for bot ${botId} - secret mismatch`, {
+        updateId,
+        secretLength: secret?.length
+      });
       return res.status(401).json({ error: 'Invalid webhook' });
     }
 
     // Process update
-    await telegramWebhookService.processUpdate(parseInt(botId), req.body);
+    const success = await telegramWebhookService.processUpdate(parseInt(botId), req.body);
+
+    const duration = Date.now() - startTime;
+    if (success) {
+      logger.info(`Webhook processed successfully for bot ${botId}`, {
+        updateId,
+        duration,
+        messageType
+      });
+    } else {
+      logger.warn(`Webhook processing returned false for bot ${botId}`, {
+        updateId,
+        duration,
+        messageType
+      });
+    }
 
     res.status(200).send('OK');
   } catch (error) {
-    logger.error('Webhook processing error:', error);
+    const duration = Date.now() - startTime;
+    logger.error(`Webhook processing error for bot ${botId}:`, {
+      error: error.message,
+      stack: error.stack?.split('\n').slice(0, 3).join('\n'),
+      updateId,
+      duration,
+      messageType,
+      requestBodyKeys: Object.keys(req.body || {})
+    });
     // Always return 200 to prevent Telegram from retrying
     res.status(200).send('OK');
   }

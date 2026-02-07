@@ -332,6 +332,10 @@ const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-
 | `docs/DATABASE_SCHEMA.md` | Migrationen 010-028 dokumentieren | ✅ Erledigt |
 | `docs/API_REFERENCE.md` | telegramApp.js Endpoints (15) | ✅ Erledigt |
 | `docs/API_REFERENCE.md` | externalApi.js Endpoints (7) | ✅ Erledigt |
+| `docs/API_REFERENCE.md` | alerts.js Endpoints (14) | ✅ Erledigt |
+| `docs/API_REFERENCE.md` | claudeTerminal.js Endpoints (5) | ✅ Erledigt |
+| `docs/API_REFERENCE.md` | events.js Endpoints (13) | ✅ Erledigt |
+| `docs/API_REFERENCE.md` | spaces.js Endpoints (7) | ✅ Erledigt |
 
 ---
 

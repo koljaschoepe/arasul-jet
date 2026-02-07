@@ -139,12 +139,13 @@ http:
           - "/n8n"
         forceSlash: false
 
-    # n8n Root Redirect: /n8n or /n8n/ → /signin
+    # n8n Root Redirect: /n8n or /n8n/ → /n8n/signin
     # Uses HTTP 302 redirect so browser URL changes (required for n8n SPA routing)
+    # FIX: Must redirect to /n8n/signin (not /signin) to stay within n8n context
     n8n-root-to-signin:
       redirectRegex:
         regex: "^(https?://[^/]+)/n8n/?$"
-        replacement: "${1}/signin"
+        replacement: "${1}/n8n/signin"
         permanent: false
 
     # Strip terminal prefix for Claude Code (legacy)

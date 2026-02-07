@@ -57,6 +57,7 @@ BUCKETS=(
     "embeddings-cache:private:Embedding model caching:disabled:7"
     "backups:private:System backups:enabled:90"
     "updates:private:System update packages:enabled:0"
+    "quotes:private:PDF-Angebote und Dokumentvorlagen:enabled:365"
 )
 
 # Create buckets

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { memo, useState, useRef, useEffect } from 'react';
 import { FiCheck, FiX } from 'react-icons/fi';
 
 /**
@@ -19,7 +19,7 @@ import { FiCheck, FiX } from 'react-icons/fi';
  * @param {boolean} disabled - Whether the button is disabled
  * @param {boolean} loading - Whether to show loading state
  */
-function ConfirmIconButton({
+const ConfirmIconButton = memo(function ConfirmIconButton({
   icon,
   label,
   confirmText,
@@ -109,6 +109,6 @@ function ConfirmIconButton({
       )}
     </div>
   );
-}
+});
 
 export default ConfirmIconButton;

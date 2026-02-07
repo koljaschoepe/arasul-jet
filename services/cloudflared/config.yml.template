@@ -1,0 +1,52 @@
+# Cloudflare Tunnel Konfiguration
+#
+# Kopiere diese Datei zu config.yml und passe die Werte an.
+# Wird nur benötigt wenn du config-basierte Authentifizierung verwendest.
+# Bei Token-basierter Auth (empfohlen) nicht nötig.
+
+tunnel: arasul-n8n
+credentials-file: /etc/cloudflared/credentials.json
+
+# Logging
+loglevel: info
+
+# Ingress-Regeln (von spezifisch zu allgemein)
+ingress:
+  # 1. OAuth2 Callback (höchste Priorität)
+  - hostname: ${N8N_PUBLIC_DOMAIN}
+    path: /rest/oauth2-credential/*
+    service: http://reverse-proxy:80
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+
+  # 2. n8n Webhooks
+  - hostname: ${N8N_PUBLIC_DOMAIN}
+    path: /webhook/*
+    service: http://reverse-proxy:80
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 60s
+
+  # 3. n8n Webhook Test
+  - hostname: ${N8N_PUBLIC_DOMAIN}
+    path: /webhook-test/*
+    service: http://reverse-proxy:80
+    originRequest:
+      noTLSVerify: true
+
+  # 4. n8n UI (optional - für externen n8n-Zugriff)
+  # Auskommentieren wenn nur OAuth/Webhooks exponiert werden sollen
+  - hostname: ${N8N_PUBLIC_DOMAIN}
+    path: /n8n/*
+    service: http://reverse-proxy:80
+    originRequest:
+      noTLSVerify: true
+
+  # 5. Gesundheitscheck
+  - hostname: ${N8N_PUBLIC_DOMAIN}
+    path: /healthz
+    service: http://reverse-proxy:80
+
+  # Catch-all: Alles andere blockieren
+  - service: http_status:404

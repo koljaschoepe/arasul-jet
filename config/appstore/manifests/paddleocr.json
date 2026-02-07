@@ -1,0 +1,46 @@
+{
+  "id": "paddleocr",
+  "name": "PaddleOCR",
+  "description": "KI-basierte Texterkennung mit GPU-Beschleunigung. Hohe Genauigkeit bei komplexen Layouts und Tabellen.",
+  "version": "2.7.0",
+  "category": "ai",
+  "appType": "official",
+  "icon": "FiEye",
+  "image": "paddlepaddle/paddle:latest-gpu-cuda11.7-cudnn8.4-trt8.4",
+  "ports": {
+    "internal": 8080,
+    "external": 8086
+  },
+  "volumes": [
+    {
+      "host": "/arasul/data/paddleocr",
+      "container": "/data"
+    },
+    {
+      "host": "/arasul/data/paddleocr/models",
+      "container": "/root/.paddleocr"
+    }
+  ],
+  "environment": {
+    "NVIDIA_VISIBLE_DEVICES": "all",
+    "NVIDIA_DRIVER_CAPABILITIES": "compute,utility"
+  },
+  "resources": {
+    "memory": "4g",
+    "cpus": "4"
+  },
+  "runtime": "nvidia",
+  "healthcheck": {
+    "test": ["CMD", "python", "-c", "import paddleocr; print('ok')"],
+    "interval": "60s",
+    "timeout": "30s",
+    "retries": 3
+  },
+  "traefik": {
+    "enabled": false
+  },
+  "dependencies": [],
+  "capabilities": ["ocr", "table-recognition", "layout-analysis", "gpu-accelerated"],
+  "recommended_for": ["document-processing", "table-extraction", "complex-layouts"],
+  "featured": false
+}

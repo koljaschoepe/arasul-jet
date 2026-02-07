@@ -27,7 +27,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 import requests
 
-from document_parsers import parse_pdf, parse_docx, parse_txt, parse_markdown
+from document_parsers import parse_pdf, parse_docx, parse_txt, parse_markdown, parse_yaml_table, parse_image
 from text_chunker import chunk_text
 from metadata_extractor import extract_metadata, extract_key_topics
 from database import DatabaseManager
@@ -93,6 +93,15 @@ class EnhancedDocumentIndexer:
             '.md': parse_markdown,
             '.markdown': parse_markdown,
             '.docx': parse_docx,
+            '.yaml': parse_yaml_table,
+            '.yml': parse_yaml_table,
+            # Image formats (OCR)
+            '.png': parse_image,
+            '.jpg': parse_image,
+            '.jpeg': parse_image,
+            '.tiff': parse_image,
+            '.tif': parse_image,
+            '.bmp': parse_image,
         }
 
         # Supported MIME types
@@ -101,6 +110,13 @@ class EnhancedDocumentIndexer:
             'text/plain': '.txt',
             'text/markdown': '.md',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+            'text/yaml': '.yaml',
+            'application/x-yaml': '.yaml',
+            # Image formats (OCR)
+            'image/png': '.png',
+            'image/jpeg': '.jpg',
+            'image/tiff': '.tiff',
+            'image/bmp': '.bmp',
         }
 
         # Status tracking
@@ -224,6 +240,8 @@ class EnhancedDocumentIndexer:
             '.md': 'text/markdown',
             '.markdown': 'text/markdown',
             '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.yaml': 'text/yaml',
+            '.yml': 'text/yaml',
         }
         return mime_map.get(ext, 'application/octet-stream')
 

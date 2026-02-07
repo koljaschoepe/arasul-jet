@@ -32,7 +32,6 @@ export function AuthProvider({ children }) {
         if (error.response?.status === 401 && !isAuthMeRequest && !isHandling401Ref.current) {
           // Token expired or invalid for a protected endpoint
           isHandling401Ref.current = true;
-          console.log('[Auth] 401 received, clearing token and redirecting to login');
           localStorage.removeItem('arasul_token');
           localStorage.removeItem('arasul_user');
 
@@ -67,6 +66,7 @@ export function AuthProvider({ children }) {
         setUser(response.data.user);
         // Sync localStorage for consistency
         localStorage.setItem('arasul_user', JSON.stringify(response.data.user));
+        setLoading(false);
         return true;
       } else {
         setLoading(false);
@@ -84,6 +84,7 @@ export function AuthProvider({ children }) {
           if (retryResponse.data.user) {
             setIsAuthenticated(true);
             setUser(retryResponse.data.user);
+            setLoading(false);
             return true;
           } else {
             localStorage.removeItem('arasul_token');
@@ -111,9 +112,11 @@ export function AuthProvider({ children }) {
 
   // Handle login success
   const login = useCallback((data) => {
+    // Token is already stored by Login component
+    // Sync user data and mark as authenticated
     setIsAuthenticated(true);
     setUser(data.user);
-    setLoading(true); // Trigger data loading in App.js
+    // Note: Loading state is managed by App.js dataLoading, not here
   }, []);
 
   // Handle logout

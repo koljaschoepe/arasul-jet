@@ -15,6 +15,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
 const logger = require('../../utils/logger');
 const services = require('../../config/services');
+const llmDataAccess = require('../../services/llmDataAccessService');
 
 // RAG/Embedding configuration
 const QDRANT_HOST = services.qdrant?.host || 'qdrant';
@@ -381,6 +382,149 @@ router.get('/tables/:slug/index/status', requireAuth, asyncHandler(async (req, r
             timestamp: new Date().toISOString()
         });
     }
+}));
+
+// ============================================================
+// Natural Language Query Endpoints (Phase 3)
+// ============================================================
+
+/**
+ * POST /api/v1/datentabellen/query/natural
+ * Execute a natural language query using AI-generated SQL
+ *
+ * @body {string} query - Natural language query (e.g., "Zeige mir alle Produkte über 100€")
+ * @body {string} tableSlug - Target table slug (optional)
+ * @returns {Object} { sql, results, explanation, rowCount }
+ */
+router.post('/query/natural', requireAuth, asyncHandler(async (req, res) => {
+    const { query, tableSlug } = req.body;
+
+    if (!query || typeof query !== 'string') {
+        return res.status(400).json({
+            success: false,
+            error: 'Query parameter is required',
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    if (query.trim().length < 5) {
+        return res.status(400).json({
+            success: false,
+            error: 'Query is too short (minimum 5 characters)',
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    logger.info(`[Datentabellen] Natural language query: "${query}" for table: ${tableSlug || 'auto'}`);
+
+    const result = await llmDataAccess.generateAndExecuteSQL(query, tableSlug);
+
+    if (result.error) {
+        return res.status(400).json({
+            success: false,
+            error: result.error,
+            details: result.details,
+            sql: result.sql,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    res.json({
+        success: true,
+        data: {
+            sql: result.sql,
+            results: result.results,
+            explanation: result.explanation,
+            rowCount: result.rowCount,
+            table: result.table
+        },
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * POST /api/v1/datentabellen/query/sql
+ * Execute a validated SQL query (SELECT only)
+ *
+ * @body {string} sql - SQL query
+ * @returns {Object} { results, rowCount }
+ */
+router.post('/query/sql', requireAuth, asyncHandler(async (req, res) => {
+    const { sql } = req.body;
+
+    if (!sql || typeof sql !== 'string') {
+        return res.status(400).json({
+            success: false,
+            error: 'SQL parameter is required',
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    logger.info(`[Datentabellen] Direct SQL query: ${sql.substring(0, 100)}...`);
+
+    const result = await llmDataAccess.executeValidatedSQL(sql);
+
+    if (result.error) {
+        return res.status(400).json({
+            success: false,
+            error: result.error,
+            details: result.details,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    res.json({
+        success: true,
+        data: {
+            results: result.results,
+            rowCount: result.rowCount
+        },
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * GET /api/v1/datentabellen/schema/:tableSlug
+ * Get the schema of a table for AI/SQL purposes
+ *
+ * @param {string} tableSlug - Table slug
+ * @returns {Object} Table schema with fields
+ */
+router.get('/schema/:tableSlug', requireAuth, asyncHandler(async (req, res) => {
+    const { tableSlug } = req.params;
+
+    const schema = await llmDataAccess.getTableSchema(tableSlug);
+
+    if (schema.error) {
+        return res.status(404).json({
+            success: false,
+            error: schema.error,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    res.json({
+        success: true,
+        data: schema,
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * GET /api/v1/datentabellen/schemas
+ * Get all table schemas for AI/SQL purposes
+ *
+ * @returns {Array} All table schemas
+ */
+router.get('/schemas', requireAuth, asyncHandler(async (req, res) => {
+    const schemas = await llmDataAccess.getAllTableSchemas();
+
+    res.json({
+        success: true,
+        data: schemas,
+        count: schemas.length,
+        timestamp: new Date().toISOString()
+    });
 }));
 
 module.exports = router;

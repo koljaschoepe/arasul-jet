@@ -116,12 +116,12 @@ const SimpleTableCreateDialog = memo(function SimpleTableCreateDialog({
                 )}
 
                 <div className="yaml-modal-actions">
-                    <button type="button" className="btn-secondary" onClick={onClose}>
+                    <button type="button" className="btn btn-secondary" onClick={onClose}>
                         Abbrechen
                     </button>
                     <button
                         type="submit"
-                        className="btn-primary"
+                        className="btn btn-primary"
                         disabled={loading || !name.trim()}
                     >
                         {loading ? 'Erstelle...' : 'Erstellen & Bearbeiten'}

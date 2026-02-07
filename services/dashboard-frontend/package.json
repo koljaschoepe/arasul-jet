@@ -20,6 +20,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:ci": "react-scripts test --watchAll=false --coverage --coverageReporters=lcov --coverageReporters=text",
+    "lint": "eslint src/ --ext .js,.jsx",
+    "lint:fix": "eslint src/ --ext .js,.jsx --fix",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

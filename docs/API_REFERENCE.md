@@ -216,7 +216,7 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 }
 ```
 
-### Documents
+### Documents (Data Tab)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -225,10 +225,47 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 | GET | `/api/documents/:id` | Get document details |
 | DELETE | `/api/documents/:id` | Delete document |
 | GET | `/api/documents/:id/status` | Indexing status |
+| GET | `/api/documents/:id/content` | Get file content (text files) |
+| PUT | `/api/documents/:id/content` | Update file content |
 
 **POST /api/documents/upload:**
 - Content-Type: `multipart/form-data`
-- Field: `file` (PDF, TXT, DOCX, or Markdown)
+- Field: `file` (PDF, TXT, DOCX, Markdown, or YAML)
+
+### YAML Tables
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/yaml-tables/create` | Create new YAML table |
+| GET | `/api/yaml-tables/:docId` | Get parsed YAML data |
+| PUT | `/api/yaml-tables/:docId` | Update YAML content |
+| POST | `/api/yaml-tables/:docId/rows` | Add row to table |
+| DELETE | `/api/yaml-tables/:docId/rows/:rowId` | Delete row |
+| POST | `/api/yaml-tables/:docId/import` | Import from CSV |
+| GET | `/api/yaml-tables/:docId/export` | Export as CSV |
+
+**POST /api/yaml-tables/create:**
+```json
+{
+  "name": "My Table",
+  "description": "Optional description",
+  "columns": [
+    { "slug": "name", "name": "Name", "type": "text", "required": false }
+  ],
+  "space_id": "optional-space-uuid"
+}
+```
+
+**PUT /api/yaml-tables/:docId:**
+```json
+{
+  "data": {
+    "_meta": { "name": "Table Name" },
+    "columns": [...],
+    "rows": [...]
+  }
+}
+```
 
 ### Embeddings
 
@@ -259,6 +296,331 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 **Query Parameters (events):**
 - `limit`: Max results (default: 100)
 - `severity`: Filter by severity (INFO, WARNING, CRITICAL)
+
+### Alerts
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/alerts/settings` | Get global alert settings |
+| PUT | `/api/alerts/settings` | Update global alert settings |
+| GET | `/api/alerts/thresholds` | Get all threshold configurations |
+| PUT | `/api/alerts/thresholds/:metricType` | Update threshold (cpu, ram, disk, temperature) |
+| GET | `/api/alerts/quiet-hours` | Get quiet hours for all days |
+| PUT | `/api/alerts/quiet-hours/:dayOfWeek` | Update quiet hours for single day (0-6) |
+| PUT | `/api/alerts/quiet-hours` | Bulk update quiet hours |
+| GET | `/api/alerts/history` | Get alert history |
+| POST | `/api/alerts/history/:id/acknowledge` | Acknowledge single alert |
+| POST | `/api/alerts/history/acknowledge-all` | Acknowledge all alerts |
+| GET | `/api/alerts/statistics` | Get alert statistics |
+| POST | `/api/alerts/test-webhook` | Test webhook configuration |
+| POST | `/api/alerts/trigger-check` | Manually trigger alert check |
+| GET | `/api/alerts/status` | Get alert engine status |
+
+**PUT /api/alerts/settings:**
+```json
+{
+  "alerts_enabled": true,
+  "webhook_enabled": false,
+  "webhook_url": "https://...",
+  "in_app_notifications": true
+}
+```
+
+**PUT /api/alerts/thresholds/:metricType:**
+```json
+{
+  "warning_threshold": 75,
+  "critical_threshold": 90,
+  "enabled": true
+}
+```
+
+**PUT /api/alerts/quiet-hours/:dayOfWeek:**
+```json
+{
+  "enabled": true,
+  "start_time": "22:00",
+  "end_time": "07:00"
+}
+```
+
+**GET /api/alerts/history Query Parameters:**
+- `limit`: Max results (default: 100, max: 500)
+- `offset`: Pagination offset
+- `metric_type`: Filter by type (cpu, ram, disk, temperature)
+- `severity`: Filter by severity (warning, critical)
+- `unacknowledged`: Boolean, show only unacknowledged
+
+**GET /api/alerts/status Response:**
+```json
+{
+  "enabled": true,
+  "in_quiet_hours": false,
+  "webhook_enabled": false,
+  "in_app_notifications": true,
+  "statistics": {
+    "total_24h": 5,
+    "unacknowledged": 2
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+### Claude Terminal
+
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|------------|
+| POST | `/api/claude-terminal/query` | Execute query (SSE streaming) | 5/min |
+| GET | `/api/claude-terminal/status` | Terminal service status | - |
+| GET | `/api/claude-terminal/history` | User's query history | - |
+| GET | `/api/claude-terminal/context` | Current system context | - |
+| DELETE | `/api/claude-terminal/history` | Clear query history | - |
+
+**POST /api/claude-terminal/query:**
+```json
+{
+  "query": "What is the current system status?",
+  "includeContext": true,
+  "timeout": 60000
+}
+```
+
+Response: SSE stream with events:
+```
+data: {"type": "start", "queryId": 123, "model": "qwen3:14b-q8"}
+data: {"type": "content", "content": "The system is..."}
+data: {"type": "complete", "totalTokens": 150, "responseTimeMs": 2500}
+data: {"done": true, "status": "completed"}
+```
+
+**GET /api/claude-terminal/status:**
+```json
+{
+  "service": "claude-terminal",
+  "available": true,
+  "llm": {
+    "available": true,
+    "models": ["qwen3:14b-q8"],
+    "error": null
+  },
+  "config": {
+    "defaultModel": "qwen3:14b-q8",
+    "defaultTimeout": 60000,
+    "maxQueryLength": 5000,
+    "rateLimit": "5 requests per minute"
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/claude-terminal/history:**
+```json
+{
+  "queries": [
+    {
+      "id": 1,
+      "query": "What is the system status?",
+      "response": "The system is running...",
+      "model_used": "qwen3:14b-q8",
+      "tokens_used": 150,
+      "response_time_ms": 2500,
+      "status": "completed",
+      "error_message": null,
+      "created_at": "2026-01-15T10:00:00.000Z"
+    }
+  ],
+  "total": 10,
+  "limit": 20,
+  "offset": 0,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**Notes:**
+- Context includes system metrics, service status, and recent logs
+- Sessions expire after 30 minutes of inactivity
+- Max query length: 5000 characters
+- Timeout: 60 seconds (max 120 seconds)
+
+### Events (Notifications)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/events` | Yes | Get recent notification events |
+| GET | `/api/events/stats` | Yes | Event and notification statistics |
+| GET | `/api/events/settings` | Yes | User notification settings |
+| PUT | `/api/events/settings` | Yes | Update notification settings |
+| POST | `/api/events/test` | Yes | Send test notification |
+| POST | `/api/events/webhook/n8n` | Secret | n8n workflow webhook |
+| POST | `/api/events/webhook/self-healing` | IP | Self-healing agent webhook |
+| POST | `/api/events/manual` | Yes | Create manual notification |
+| GET | `/api/events/service-status` | Yes | Service status cache |
+| GET | `/api/events/boot-history` | Yes | System boot history |
+| DELETE | `/api/events/:id` | Yes | Delete specific event |
+| POST | `/api/events/cleanup` | Yes | Cleanup old events |
+| GET | `/api/events/telegram/status` | Yes | Telegram connection status |
+
+**GET /api/events Query Parameters:**
+- `limit`: Max results (default: 50)
+- `event_type`: Filter by event type
+- `severity`: Filter by severity
+
+**PUT /api/events/settings:**
+```json
+{
+  "channel": "telegram",
+  "enabled": true,
+  "event_types": ["service_status", "alert"],
+  "min_severity": "warning",
+  "rate_limit_per_minute": 10,
+  "quiet_hours_start": "22:00",
+  "quiet_hours_end": "07:00",
+  "telegram_chat_id": "-1001234567890"
+}
+```
+
+**POST /api/events/webhook/n8n:**
+
+Requires `X-Webhook-Secret` header or `secret` query param if `N8N_WEBHOOK_SECRET` is configured.
+
+```json
+{
+  "workflow_id": "workflow-123",
+  "workflow_name": "Backup Workflow",
+  "execution_id": "exec-456",
+  "status": "success",
+  "error": null,
+  "duration_ms": 5000
+}
+```
+
+**POST /api/events/webhook/self-healing:**
+
+Only accepts requests from localhost or Docker network IPs.
+
+```json
+{
+  "action_type": "container_restart",
+  "service_name": "llm-service",
+  "reason": "Memory threshold exceeded",
+  "success": true,
+  "duration_ms": 3000,
+  "error_message": null
+}
+```
+
+**GET /api/events/telegram/status:**
+```json
+{
+  "connected": true,
+  "botInfo": {
+    "id": 123456789,
+    "username": "MyArasulBot"
+  },
+  "error": null,
+  "stats": {
+    "sent_24h": 15,
+    "failed_24h": 0
+  },
+  "configured": {
+    "botToken": true,
+    "chatId": true
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+### Knowledge Spaces
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/spaces` | List all knowledge spaces |
+| GET | `/api/spaces/:id` | Get space details with documents |
+| POST | `/api/spaces` | Create knowledge space |
+| PUT | `/api/spaces/:id` | Update knowledge space |
+| DELETE | `/api/spaces/:id` | Delete space (moves docs to default) |
+| POST | `/api/spaces/:id/regenerate` | Trigger context regeneration |
+| POST | `/api/spaces/route` | Find relevant spaces for query |
+
+**GET /api/spaces:**
+```json
+{
+  "spaces": [
+    {
+      "id": 1,
+      "name": "Allgemein",
+      "slug": "allgemein",
+      "description": "Allgemeine Dokumente",
+      "icon": "folder",
+      "color": "#6366f1",
+      "is_default": true,
+      "is_system": true,
+      "sort_order": 0,
+      "actual_document_count": 5,
+      "indexed_document_count": 5
+    }
+  ],
+  "total": 1,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/spaces:**
+```json
+{
+  "name": "Technische Dokumentation",
+  "description": "API-Dokumentation, Architektur-Diagramme",
+  "icon": "book",
+  "color": "#22c55e"
+}
+```
+
+**PUT /api/spaces/:id:**
+```json
+{
+  "name": "Updated Name",
+  "description": "Updated description",
+  "icon": "star",
+  "color": "#f59e0b",
+  "sort_order": 5
+}
+```
+
+**POST /api/spaces/route:**
+
+Find relevant spaces for a RAG query using embedding similarity.
+
+```json
+{
+  "query": "How do I configure the API?",
+  "top_k": 3,
+  "threshold": 0.5
+}
+```
+
+Response:
+```json
+{
+  "query": "How do I configure the API?",
+  "spaces": [
+    {
+      "id": 2,
+      "name": "Technische Dokumentation",
+      "slug": "tech-docs",
+      "description": "API-Dokumentation...",
+      "score": 0.85
+    }
+  ],
+  "method": "embedding_similarity",
+  "threshold": 0.5,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**Notes:**
+- System spaces cannot be deleted
+- Documents are moved to default space when deleting
+- Space descriptions are embedded for semantic routing
 
 ### Settings / Passwords
 
@@ -704,6 +1066,54 @@ Loads model into RAM. Only one model can be loaded at a time.
 - `large` - 25-45GB RAM (32B models)
 - `xlarge` - Over 45GB RAM (70B+ models)
 
+**Model Types:**
+- `llm` - Language models (chat, reasoning, code)
+- `ocr` - Text recognition (Tesseract, PaddleOCR)
+- `vision` - Image analysis
+- `audio` - Speech processing
+
+### Store (Unified)
+
+The Store API provides a unified interface for browsing models and apps.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/store/recommendations` | Get recommended models + apps |
+| GET | `/api/store/search` | Search across models and apps |
+| GET | `/api/store/info` | Get system info (RAM, disk) |
+
+**GET /api/store/recommendations:**
+Returns models recommended for the system's RAM capacity and featured apps.
+```json
+{
+  "models": [
+    { "id": "qwen3:14b-q8", "name": "Qwen 3 14B", ... }
+  ],
+  "apps": [
+    { "id": "n8n", "name": "n8n", "featured": true, ... }
+  ],
+  "systemInfo": { "availableRamGB": 64 }
+}
+```
+
+**GET /api/store/search?q=query:**
+```json
+{
+  "models": [...],
+  "apps": [...],
+  "query": "qwen"
+}
+```
+
+**GET /api/store/info:**
+```json
+{
+  "availableRamGB": 64,
+  "availableDiskGB": 120,
+  "totalDiskGB": 500
+}
+```
+
 ### Audit Logging
 
 | Method | Endpoint | Description |
@@ -905,11 +1315,97 @@ Advanced Telegram bot configuration with zero-config setup.
 
 ### Zero-Config Setup
 
+Bot-Wizard mit automatischer Chat-Erkennung via WebSocket.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/setup/init` | Initialize setup session |
-| GET | `/setup/:token/status` | Check setup status |
-| DELETE | `/setup/:token` | Cancel setup session |
+| POST | `/zero-config/init` | Start setup session, returns setupToken |
+| POST | `/zero-config/token` | Validate bot token, returns deep link |
+| GET | `/zero-config/status/:token` | Poll setup status |
+| POST | `/zero-config/complete` | Finalize setup, send test message |
+| WS | `/ws` | WebSocket for real-time chat detection |
+
+**POST /zero-config/init:**
+
+Startet eine neue Setup-Session (10 Min gültig).
+
+```json
+// Response
+{
+  "success": true,
+  "setupToken": "a1b2c3d4e5f6...",  // 32-char hex
+  "expiresIn": 600
+}
+```
+
+**POST /zero-config/token:**
+
+Validiert Bot-Token bei Telegram API und generiert Deep-Link.
+
+```json
+// Request
+{
+  "setupToken": "a1b2c3d4e5f6...",
+  "botToken": "123456789:ABCdefGHI..."
+}
+
+// Response
+{
+  "success": true,
+  "botInfo": {
+    "id": 123456789,
+    "first_name": "My Bot",
+    "username": "my_bot"
+  },
+  "deepLink": "https://t.me/my_bot?start=setup_a1b2c3d4"
+}
+```
+
+**GET /zero-config/status/:token:**
+
+Polling-Endpoint für Setup-Status (Fallback wenn WebSocket nicht verfügbar).
+
+```json
+// Response (waiting)
+{
+  "status": "waiting_start",
+  "chatId": null,
+  "botUsername": "my_bot"
+}
+
+// Response (completed)
+{
+  "status": "completed",
+  "chatId": 987654321,
+  "chatUsername": "user123",
+  "chatFirstName": "Max"
+}
+```
+
+**WebSocket /ws:**
+
+Real-time Updates für Chat-Erkennung.
+
+```javascript
+// Client → Server: Subscribe
+{ "type": "subscribe", "setupToken": "a1b2c3d4..." }
+
+// Server → Client: Subscribed
+{ "type": "subscribed", "timestamp": "..." }
+
+// Server → Client: Chat detected
+{
+  "type": "setup_complete",
+  "status": "completed",
+  "chatId": 987654321,
+  "chatUsername": "user123",
+  "chatFirstName": "Max",
+  "chatType": "private"
+}
+
+// Server → Client: Error
+{ "type": "error", "error": "Session expired" }
+```
 
 ### Notification Rules
 
@@ -943,6 +1439,76 @@ Advanced Telegram bot configuration with zero-config setup.
 
 ---
 
+## Telegram Bots API
+
+**Base Path:** `/api/telegram-bots`
+
+CRUD-Operationen für Telegram-Bot-Verwaltung mit LLM-Integration.
+
+### Bot Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List all bots |
+| POST | `/` | Create new bot |
+| GET | `/:id` | Get bot details |
+| PUT | `/:id` | Update bot config |
+| DELETE | `/:id` | Delete bot |
+| POST | `/:id/activate` | Activate bot (set webhook) |
+| POST | `/:id/deactivate` | Deactivate bot |
+| POST | `/validate-token` | Validate Telegram bot token |
+
+**POST / (Create Bot):**
+
+```json
+{
+  "name": "Mein Assistent",
+  "botToken": "123456789:ABCdefGHI...",
+  "llmProvider": "ollama",           // "ollama" | "claude"
+  "llmModel": "llama3.2",
+  "systemPrompt": "Du bist ein hilfreicher Assistent...",
+  "maxTokens": 2048,
+  "temperature": 0.7
+}
+```
+
+### Bot Commands
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/:id/commands` | List custom commands |
+| POST | `/:id/commands` | Add custom command |
+| PUT | `/:id/commands/:cmdId` | Update command |
+| DELETE | `/:id/commands/:cmdId` | Delete command |
+
+### Chat Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/:id/chats` | List authorized chats |
+| DELETE | `/:id/chats/:chatRowId` | Remove chat access |
+| GET | `/:id/session/:chatId` | Get chat session |
+| DELETE | `/:id/session/:chatId` | Clear chat session |
+
+### Webhook Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/:id/webhook` | Get webhook status |
+| POST | `/:id/webhook` | Set webhook |
+| DELETE | `/:id/webhook` | Remove webhook |
+| POST | `/webhook/:botId/:secret` | Webhook receiver (Telegram) |
+
+### Testing & Models
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/:id/test-message` | Send test message |
+| GET | `/models/ollama` | List Ollama models |
+| GET | `/models/claude` | List Claude models |
+
+---
+
 ## Documentation API
 
 **Base Path:** `/api/docs`
@@ -952,6 +1518,103 @@ Advanced Telegram bot configuration with zero-config setup.
 | GET | `/api/docs/` | OpenAPI documentation UI |
 | GET | `/api/docs/openapi.json` | OpenAPI spec (JSON) |
 | GET | `/api/docs/openapi.yaml` | OpenAPI spec (YAML) |
+
+---
+
+## Datentabellen API (Dynamic Database)
+
+**Base Path:** `/api/v1/datentabellen`
+
+Dynamic database builder for creating custom tables and automated quote generation.
+
+### Tables
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/tables` | List all tables with stats |
+| POST | `/tables` | Create new table |
+| GET | `/tables/:slug` | Get table with fields |
+| PATCH | `/tables/:slug` | Update table metadata |
+| DELETE | `/tables/:slug` | Delete table and data |
+| POST | `/tables/:slug/fields` | Add field to table |
+| PATCH | `/tables/:slug/fields/:fieldSlug` | Update field |
+| DELETE | `/tables/:slug/fields/:fieldSlug` | Remove field |
+
+**Supported Field Types:**
+- `text`, `textarea`, `number`, `currency`, `date`, `datetime`
+- `select`, `multiselect`, `checkbox`, `relation`
+- `file`, `image`, `email`, `url`, `phone`, `formula`
+
+### Rows (Data)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/tables/:slug/rows` | List rows (paginated) |
+| POST | `/tables/:slug/rows` | Create row |
+| GET | `/tables/:slug/rows/:rowId` | Get single row |
+| PATCH | `/tables/:slug/rows/:rowId` | Update row |
+| DELETE | `/tables/:slug/rows/:rowId` | Delete row |
+| POST | `/tables/:slug/rows/bulk` | Bulk import (max 1000) |
+| DELETE | `/tables/:slug/rows/bulk` | Bulk delete |
+
+**Query Parameters (GET /rows):**
+- `page`: Page number (default: 1)
+- `limit`: Items per page (default: 50, max: 100)
+- `sort`: Field to sort by (default: `_created_at`)
+- `order`: `asc` or `desc` (default: `desc`)
+- `filters`: JSON array of filter objects
+- `search`: Search in primary display field
+
+**Filter Format:**
+```json
+[
+  {"field": "name", "operator": "like", "value": "Widget"},
+  {"field": "price", "operator": "gte", "value": 100}
+]
+```
+
+**Operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `in`, `is_null`, `is_not_null`
+
+### Quotes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/quotes` | List quotes (paginated) |
+| POST | `/quotes` | Create quote |
+| GET | `/quotes/:quoteId` | Get quote with positions |
+| PATCH | `/quotes/:quoteId` | Update draft quote |
+| POST | `/quotes/:quoteId/status` | Change quote status |
+| GET | `/quotes/:quoteId/pdf` | Download quote as PDF |
+| GET | `/quotes/templates` | List quote templates |
+| POST | `/quotes/templates` | Create template |
+| PATCH | `/quotes/templates/:templateId` | Update template |
+
+**Quote Statuses:** `draft`, `sent`, `viewed`, `accepted`, `rejected`, `expired`, `cancelled`
+
+**Create Quote Example:**
+```json
+{
+  "customer_email": "kunde@example.com",
+  "customer_name": "Max Mustermann",
+  "customer_company": "Muster GmbH",
+  "positions": [
+    {
+      "name": "Product A",
+      "quantity": 2,
+      "unit": "Stück",
+      "unit_price": 99.99
+    }
+  ],
+  "valid_days": 30
+}
+```
+
+### Stats & Health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Data database health check |
+| GET | `/stats` | Overview statistics |
 
 ---
 

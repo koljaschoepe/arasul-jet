@@ -5,13 +5,13 @@
  * Shows content placeholders while data is loading.
  */
 
-import React from 'react';
+import React, { memo } from 'react';
 import './Skeleton.css';
 
 /**
  * Base skeleton element with shimmer animation
  */
-export function Skeleton({ width, height, borderRadius, className = '', style = {} }) {
+export const Skeleton = memo(function Skeleton({ width, height, borderRadius, className = '', style = {} }) {
   return (
     <div
       className={`skeleton ${className}`}
@@ -24,12 +24,12 @@ export function Skeleton({ width, height, borderRadius, className = '', style = 
       aria-hidden="true"
     />
   );
-}
+});
 
 /**
  * Skeleton text lines
  */
-export function SkeletonText({ lines = 3, width = '100%', lineHeight = '1rem', gap = '0.5rem' }) {
+export const SkeletonText = memo(function SkeletonText({ lines = 3, width = '100%', lineHeight = '1rem', gap = '0.5rem' }) {
   return (
     <div className="skeleton-text" style={{ width }} aria-hidden="true">
       {Array(lines).fill(0).map((_, i) => (
@@ -42,12 +42,12 @@ export function SkeletonText({ lines = 3, width = '100%', lineHeight = '1rem', g
       ))}
     </div>
   );
-}
+});
 
 /**
  * Skeleton avatar/circle
  */
-export function SkeletonAvatar({ size = '40px' }) {
+export const SkeletonAvatar = memo(function SkeletonAvatar({ size = '40px' }) {
   return (
     <Skeleton
       width={size}
@@ -56,12 +56,12 @@ export function SkeletonAvatar({ size = '40px' }) {
       className="skeleton-avatar"
     />
   );
-}
+});
 
 /**
  * Skeleton card - Common card loading state
  */
-export function SkeletonCard({ hasAvatar = true, lines = 2 }) {
+export const SkeletonCard = memo(function SkeletonCard({ hasAvatar = true, lines = 2 }) {
   return (
     <div className="skeleton-card" aria-hidden="true">
       <div className="skeleton-card-header">
@@ -73,12 +73,12 @@ export function SkeletonCard({ hasAvatar = true, lines = 2 }) {
       </div>
     </div>
   );
-}
+});
 
 /**
  * Skeleton list - Multiple skeleton cards
  */
-export function SkeletonList({ count = 5, hasAvatar = true }) {
+export const SkeletonList = memo(function SkeletonList({ count = 5, hasAvatar = true }) {
   return (
     <div className="skeleton-list" aria-label="Lade Inhalte..." role="status">
       {Array(count).fill(0).map((_, i) => (
@@ -86,12 +86,12 @@ export function SkeletonList({ count = 5, hasAvatar = true }) {
       ))}
     </div>
   );
-}
+});
 
 /**
  * Skeleton table row
  */
-export function SkeletonTableRow({ columns = 4 }) {
+export const SkeletonTableRow = memo(function SkeletonTableRow({ columns = 4 }) {
   return (
     <div className="skeleton-table-row" aria-hidden="true">
       {Array(columns).fill(0).map((_, i) => (
@@ -99,12 +99,12 @@ export function SkeletonTableRow({ columns = 4 }) {
       ))}
     </div>
   );
-}
+});
 
 /**
  * Skeleton table - Multiple rows
  */
-export function SkeletonTable({ rows = 5, columns = 4 }) {
+export const SkeletonTable = memo(function SkeletonTable({ rows = 5, columns = 4 }) {
   return (
     <div className="skeleton-table" aria-label="Lade Tabelle..." role="status">
       {/* Header */}
@@ -119,12 +119,12 @@ export function SkeletonTable({ rows = 5, columns = 4 }) {
       ))}
     </div>
   );
-}
+});
 
 /**
  * Skeleton stat card - Dashboard stat cards
  */
-export function SkeletonStatCard() {
+export const SkeletonStatCard = memo(function SkeletonStatCard() {
   return (
     <div className="skeleton-stat-card" aria-hidden="true">
       <SkeletonAvatar size="48px" />
@@ -135,12 +135,12 @@ export function SkeletonStatCard() {
       </div>
     </div>
   );
-}
+});
 
 /**
  * Skeleton chat message
  */
-export function SkeletonChatMessage({ isUser = false }) {
+export const SkeletonChatMessage = memo(function SkeletonChatMessage({ isUser = false }) {
   return (
     <div className={`skeleton-chat-message ${isUser ? 'user' : 'assistant'}`} aria-hidden="true">
       {!isUser && <SkeletonAvatar size="32px" />}
@@ -150,12 +150,12 @@ export function SkeletonChatMessage({ isUser = false }) {
       {isUser && <SkeletonAvatar size="32px" />}
     </div>
   );
-}
+});
 
 /**
  * Skeleton chat - Multiple messages
  */
-export function SkeletonChat({ messageCount = 4 }) {
+export const SkeletonChat = memo(function SkeletonChat({ messageCount = 4 }) {
   return (
     <div className="skeleton-chat" aria-label="Lade Chat..." role="status">
       {Array(messageCount).fill(0).map((_, i) => (
@@ -163,12 +163,12 @@ export function SkeletonChat({ messageCount = 4 }) {
       ))}
     </div>
   );
-}
+});
 
 /**
  * Skeleton document list item
  */
-export function SkeletonDocumentItem() {
+export const SkeletonDocumentItem = memo(function SkeletonDocumentItem() {
   return (
     <div className="skeleton-document-item" aria-hidden="true">
       <Skeleton width="24px" height="24px" borderRadius="4px" />
@@ -179,12 +179,12 @@ export function SkeletonDocumentItem() {
       <Skeleton width="60px" height="1.5rem" borderRadius="4px" />
     </div>
   );
-}
+});
 
 /**
  * Skeleton document list
  */
-export function SkeletonDocumentList({ count = 5 }) {
+export const SkeletonDocumentList = memo(function SkeletonDocumentList({ count = 5 }) {
   return (
     <div className="skeleton-document-list" aria-label="Lade Dokumente..." role="status">
       {Array(count).fill(0).map((_, i) => (
@@ -192,12 +192,12 @@ export function SkeletonDocumentList({ count = 5 }) {
       ))}
     </div>
   );
-}
+});
 
 /**
  * Dashboard skeleton - Full dashboard loading state
  */
-export function SkeletonDashboard() {
+export const SkeletonDashboard = memo(function SkeletonDashboard() {
   return (
     <div className="skeleton-dashboard" aria-label="Lade Dashboard..." role="status">
       {/* Stats row */}
@@ -217,6 +217,6 @@ export function SkeletonDashboard() {
       </div>
     </div>
   );
-}
+});
 
 export default Skeleton;

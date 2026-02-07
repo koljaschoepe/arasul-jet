@@ -1,0 +1,41 @@
+{
+  "name": "arasul-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Arasul Platform - Private AI on your Desktop",
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd services/dashboard-backend && npm run lint",
+    "lint:frontend": "cd services/dashboard-frontend && npm run lint",
+    "lint:fix": "npm run lint:fix:backend && npm run lint:fix:frontend",
+    "lint:fix:backend": "cd services/dashboard-backend && npm run lint:fix",
+    "lint:fix:frontend": "cd services/dashboard-frontend && npm run lint:fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "./scripts/run-tests.sh --all",
+    "test:backend": "./scripts/run-tests.sh --backend",
+    "test:frontend": "./scripts/run-tests.sh --frontend",
+    "typecheck": "./scripts/run-typecheck.sh"
+  },
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.2.4"
+  },
+  "lint-staged": {
+    "services/dashboard-backend/src/**/*.js": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "services/dashboard-frontend/src/**/*.{js,jsx}": [
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

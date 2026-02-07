@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+**/coverage/
+
+# Docker & Data
+data/
+logs/
+*.log
+
+# Generated files
+*.min.js
+*.min.css
+package-lock.json
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+!.env.template
+
+# Config files that shouldn't be formatted
+docker-compose.yml
+*.sql
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

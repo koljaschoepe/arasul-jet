@@ -129,7 +129,7 @@ function TelegramSetupWizard({ onComplete }) {
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
-        console.log('WebSocket connected for chat detection');
+        // WebSocket connected for chat detection');
         wsRef.current.send(JSON.stringify({
           type: 'subscribe',
           setupToken
@@ -146,12 +146,12 @@ function TelegramSetupWizard({ onComplete }) {
       };
 
       wsRef.current.onerror = () => {
-        console.log('WebSocket failed, falling back to polling');
+        // WebSocket failed, falling back to polling');
         startPolling();
       };
 
     } catch (err) {
-      console.log('WebSocket not available, using polling');
+      // WebSocket not available, using polling');
       startPolling();
     }
   };

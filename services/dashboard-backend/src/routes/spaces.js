@@ -18,6 +18,11 @@ const pool = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ForbiddenError, ConflictError } = require('../utils/errors');
 const services = require('../config/services');
+const { cacheService, cacheMiddleware } = require('../services/cacheService');
+
+// Cache configuration
+const CACHE_KEY_SPACES = 'spaces:list';
+const CACHE_TTL_SPACES = 30000; // 30 seconds
 
 // Configuration
 const EMBEDDING_HOST = services.embedding.host;
@@ -60,8 +65,9 @@ function generateSlug(name) {
 /**
  * GET /api/spaces
  * List all knowledge spaces with statistics
+ * Cached for 30 seconds to reduce database load
  */
-router.get('/', requireAuth, asyncHandler(async (req, res) => {
+router.get('/', requireAuth, cacheMiddleware(CACHE_KEY_SPACES, CACHE_TTL_SPACES), asyncHandler(async (req, res) => {
     const result = await pool.query(`
         SELECT
             ks.*,
@@ -192,6 +198,9 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
 
     logger.info(`Created knowledge space: ${name} (${slug})`);
 
+    // Invalidate spaces cache
+    cacheService.invalidate(CACHE_KEY_SPACES);
+
     res.status(201).json({
         space: result.rows[0],
         message: 'Wissensbereich erfolgreich erstellt',
@@ -275,6 +284,9 @@ router.put('/:id', requireAuth, asyncHandler(async (req, res) => {
 
     logger.info(`Updated knowledge space: ${id}`);
 
+    // Invalidate spaces cache
+    cacheService.invalidate(CACHE_KEY_SPACES);
+
     res.json({
         space: result.rows[0],
         message: 'Wissensbereich erfolgreich aktualisiert',
@@ -329,6 +341,9 @@ router.delete('/:id', requireAuth, asyncHandler(async (req, res) => {
     await pool.query('DELETE FROM knowledge_spaces WHERE id = $1', [id]);
 
     logger.info(`Deleted knowledge space: ${id}, moved ${movedCount} documents`);
+
+    // Invalidate spaces cache
+    cacheService.invalidate(CACHE_KEY_SPACES);
 
     res.json({
         status: 'deleted',

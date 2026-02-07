@@ -22,7 +22,6 @@ import {
   FiZap,
   FiDatabase,
   FiExternalLink,
-  FiFileText,
   FiPackage,
   FiCode,
   FiGitBranch,
@@ -31,7 +30,7 @@ import {
   FiChevronLeft,
   FiSend,
   FiDownload,
-  FiMessageCircle,
+  FiGrid,
 } from 'react-icons/fi';
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
@@ -53,11 +52,12 @@ import './index.css';
 const Settings = lazy(() => import('./components/Settings'));
 const ChatMulti = lazy(() => import('./components/ChatMulti'));
 const DocumentManager = lazy(() => import('./components/DocumentManager'));
-const AppStore = lazy(() => import('./components/AppStore'));
-const ModelStore = lazy(() => import('./components/ModelStore'));
+const Store = lazy(() => import('./components/Store'));
 const ClaudeCode = lazy(() => import('./components/ClaudeCode'));
 const TelegramBotApp = lazy(() => import('./components/TelegramBotApp'));
 const TelegramBotsPage = lazy(() => import('./components/TelegramBots/TelegramBotsPage'));
+const TelegramAppModal = lazy(() => import('./components/TelegramAppModal'));
+// Database components for Datentabellen feature
 const DatabaseOverview = lazy(() => import('./components/Database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./components/Database/DatabaseTable'));
 
@@ -111,6 +111,8 @@ function AppContent() {
   const [runningApps, setRunningApps] = useState([]);
   const [thresholds, setThresholds] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState(null);
+  const [telegramAppData, setTelegramAppData] = useState(null);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
 
   // PHASE 3: Use WebSocket hook for real-time metrics
   const { metrics: wsMetrics } = useWebSocketMetrics(isAuthenticated);
@@ -240,6 +242,27 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [fetchData, isAuthenticated]);
 
+  // Fetch Telegram App data for dashboard icon
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchTelegramData = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/telegram-app/dashboard-data`);
+        setTelegramAppData(response.data.app);
+      } catch (err) {
+        // Silently ignore - telegram app might not be configured
+        console.debug('Telegram app data not available:', err.message);
+      }
+    };
+
+    fetchTelegramData();
+
+    // Refresh telegram data every 60 seconds
+    const interval = setInterval(fetchTelegramData, 60000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
   // PHASE 2: Memoize utility functions with useCallback
   const getStatusColor = useCallback(status => {
     if (status === 'OK') return 'status-ok';
@@ -345,6 +368,8 @@ function AppContent() {
                       getStatusColor={getStatusColor}
                       thresholds={thresholds}
                       deviceInfo={deviceInfo}
+                      telegramAppData={telegramAppData}
+                      onTelegramClick={() => setShowTelegramModal(true)}
                     />
                   }
                 />
@@ -359,9 +384,9 @@ function AppContent() {
                   }
                 />
                 <Route path="/chat" element={<ChatMulti />} />
-                <Route path="/documents" element={<DocumentManager />} />
-                <Route path="/appstore" element={<AppStore />} />
-                <Route path="/models" element={<ModelStore />} />
+                <Route path="/data" element={<DocumentManager />} />
+                <Route path="/documents" element={<DocumentManager />} /> {/* Legacy redirect */}
+                <Route path="/store/*" element={<Store />} />
                 <Route path="/claude-code" element={<ClaudeCode />} />
                 <Route path="/telegram-bot" element={<TelegramBotApp />} />
                 <Route path="/telegram-bots" element={<TelegramBotsPage />} />
@@ -372,6 +397,16 @@ function AppContent() {
           </div>
         </div>
       </Router>
+
+      {/* Telegram App Modal */}
+      {showTelegramModal && (
+        <Suspense fallback={null}>
+          <TelegramAppModal
+            isOpen={showTelegramModal}
+            onClose={() => setShowTelegramModal(false)}
+          />
+        </Suspense>
+      )}
     </DownloadProvider>
   );
 }
@@ -396,7 +431,11 @@ const Sidebar = React.memo(function Sidebar({
   const location = useLocation();
 
   const isActive = path => {
-    return location.pathname === path ? 'nav-link active' : 'nav-link';
+    // For root path, use exact match; for others, use startsWith for nested routes
+    const isMatch = path === '/'
+      ? location.pathname === path
+      : location.pathname === path || location.pathname.startsWith(path + '/');
+    return isMatch ? 'nav-link active' : 'nav-link';
   };
 
   // PHASE 5: Check if link is current page for aria-current
@@ -446,46 +485,26 @@ const Sidebar = React.memo(function Sidebar({
           </li>
           <li role="none">
             <Link
-              to="/documents"
-              className={isActive('/documents')}
+              to="/data"
+              className={isActive('/data')}
               role="menuitem"
-              aria-current={isCurrent('/documents') ? 'page' : undefined}
+              aria-current={isCurrent('/data') ? 'page' : undefined}
             >
-              <FiFileText aria-hidden="true" /> <span>Dokumente</span>
+              <FiDatabase aria-hidden="true" /> <span>Data</span>
             </Link>
           </li>
           <li role="none">
             <Link
-              to="/database"
-              className={isActive('/database')}
+              to="/store"
+              className={`${isActive('/store')} ${downloadCount > 0 ? 'has-downloads' : ''}`}
               role="menuitem"
-              aria-current={isCurrent('/database') ? 'page' : undefined}
-            >
-              <FiDatabase aria-hidden="true" /> <span>Datenbank</span>
-            </Link>
-          </li>
-          <li role="none">
-            <Link
-              to="/appstore"
-              className={isActive('/appstore')}
-              role="menuitem"
-              aria-current={isCurrent('/appstore') ? 'page' : undefined}
-            >
-              <FiPackage aria-hidden="true" /> <span>Store</span>
-            </Link>
-          </li>
-          <li role="none">
-            <Link
-              to="/models"
-              className={`${isActive('/models')} ${downloadCount > 0 ? 'has-downloads' : ''}`}
-              role="menuitem"
-              aria-current={isCurrent('/models') ? 'page' : undefined}
+              aria-current={isCurrent('/store') ? 'page' : undefined}
               aria-label={
-                downloadCount > 0 ? `KI-Modelle, ${downloadCount} Downloads aktiv` : 'KI-Modelle'
+                downloadCount > 0 ? `Store, ${downloadCount} Downloads aktiv` : 'Store'
               }
             >
-              <FiBox aria-hidden="true" />
-              <span>KI-Modelle</span>
+              <FiPackage aria-hidden="true" />
+              <span>Store</span>
               {downloadCount > 0 && (
                 <span className="download-badge" aria-hidden="true">
                   <FiDownload className="download-badge-icon" />
@@ -494,16 +513,7 @@ const Sidebar = React.memo(function Sidebar({
               )}
             </Link>
           </li>
-          <li role="none">
-            <Link
-              to="/telegram-bots"
-              className={isActive('/telegram-bots')}
-              role="menuitem"
-              aria-current={isCurrent('/telegram-bots') ? 'page' : undefined}
-            >
-              <FiMessageCircle aria-hidden="true" /> <span>Telegram Bots</span>
-            </Link>
-          </li>
+          {/* Telegram Bots - Removed from sidebar, now accessible via Dashboard icon */}
         </ul>
       </nav>
 
@@ -564,6 +574,8 @@ const DashboardHome = React.memo(function DashboardHome({
   getStatusColor,
   thresholds,
   deviceInfo,
+  telegramAppData,
+  onTelegramClick,
 }) {
   // Default thresholds if not loaded yet
   const defaultThresholds = {
@@ -760,10 +772,11 @@ const DashboardHome = React.memo(function DashboardHome({
       </div>
 
       {/* Installed Apps - Dynamic */}
-      {runningApps && runningApps.length > 0 && (
+      {((runningApps && runningApps.length > 0) || telegramAppData) && (
         <div className="service-links-modern">
+          {/* Running Apps */}
           {runningApps
-            .filter(app => app.status === 'running')
+            ?.filter(app => app.status === 'running')
             .map(app =>
               isInternalLink(app) ? (
                 <Link key={app.id} to={getAppUrl(app)} className="service-link-card">
@@ -791,6 +804,27 @@ const DashboardHome = React.memo(function DashboardHome({
                 </a>
               )
             )}
+
+          {/* Telegram Bot App Icon */}
+          {telegramAppData && (
+            <button
+              key="telegram-bot-app"
+              className="service-link-card telegram-app-card"
+              onClick={onTelegramClick}
+              type="button"
+            >
+              <div className="service-link-icon-wrapper telegram-icon">
+                <FiSend className="service-link-icon" />
+              </div>
+              <div className="service-link-content">
+                <div className="service-link-name">{telegramAppData.name}</div>
+                <div className="service-link-description">{telegramAppData.description}</div>
+              </div>
+              {telegramAppData.badge && (
+                <span className="service-link-badge">{telegramAppData.badge}</span>
+              )}
+            </button>
+          )}
         </div>
       )}
 

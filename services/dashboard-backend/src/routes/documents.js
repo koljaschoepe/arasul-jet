@@ -115,7 +115,7 @@ const EMBEDDING_HOST = services.embedding.host;
 const EMBEDDING_PORT = services.embedding.port;
 
 // Allowed file types and size limits
-const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt'];
+const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 // MinIO client
@@ -387,7 +387,9 @@ router.post('/upload', requireAuth, (req, res, next) => {
         '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         '.md': 'text/markdown',
         '.markdown': 'text/markdown',
-        '.txt': 'text/plain'
+        '.txt': 'text/plain',
+        '.yaml': 'text/yaml',
+        '.yml': 'text/yaml'
     };
 
     await pool.query(
@@ -779,7 +781,7 @@ router.get('/:id/content', requireAuth, asyncHandler(async (req, res) => {
     const doc = docResult.rows[0];
 
     // Only allow text-based files
-    const editableExtensions = ['.md', '.markdown', '.txt'];
+    const editableExtensions = ['.md', '.markdown', '.txt', '.yaml', '.yml'];
     if (!editableExtensions.includes(doc.file_extension)) {
         throw new ValidationError('Dieser Dateityp kann nicht bearbeitet werden');
     }
@@ -847,7 +849,7 @@ router.put('/:id/content', requireAuth, asyncHandler(async (req, res) => {
     const doc = docResult.rows[0];
 
     // Only allow text-based files
-    const editableExtensions = ['.md', '.markdown', '.txt'];
+    const editableExtensions = ['.md', '.markdown', '.txt', '.yaml', '.yml'];
     if (!editableExtensions.includes(doc.file_extension)) {
         throw new ValidationError('Dieser Dateityp kann nicht bearbeitet werden');
     }
@@ -948,6 +950,126 @@ router.get('/:id/download', requireAuth, asyncHandler(async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
 
     dataStream.pipe(res);
+}));
+
+/**
+ * POST /api/documents/create-markdown
+ * Create a new markdown document
+ */
+router.post('/create-markdown', requireAuth, asyncHandler(async (req, res) => {
+    const { filename, content, description, space_id } = req.body;
+
+    if (!filename || typeof filename !== 'string' || !filename.trim()) {
+        throw new ValidationError('Dateiname erforderlich');
+    }
+
+    // Sanitize filename and ensure .md extension
+    let sanitizedName = filename.trim()
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+        .replace(/\s+/g, '_');
+
+    // Add .md extension if not present
+    if (!sanitizedName.toLowerCase().endsWith('.md') && !sanitizedName.toLowerCase().endsWith('.markdown')) {
+        sanitizedName = `${sanitizedName}.md`;
+    }
+
+    // Validate space_id if provided
+    let spaceId = space_id || null;
+    if (spaceId) {
+        const spaceCheck = await pool.query(
+            'SELECT id FROM knowledge_spaces WHERE id = $1',
+            [spaceId]
+        );
+        if (spaceCheck.rows.length === 0) {
+            throw new ValidationError('Ungültiger Wissensbereich');
+        }
+    }
+
+    // Create default content if not provided
+    const documentContent = content || `# ${filename.trim()}\n\n${description || 'Neues Dokument'}\n`;
+
+    // Calculate hash
+    const contentBuffer = Buffer.from(documentContent, 'utf-8');
+    const contentHash = crypto.createHash('sha256').update(contentBuffer).digest('hex');
+
+    // Check for duplicates
+    const existingResult = await pool.query(
+        `SELECT id, filename FROM documents WHERE content_hash = $1 AND deleted_at IS NULL`,
+        [contentHash]
+    );
+
+    if (existingResult.rows.length > 0) {
+        throw new ConflictError('Dokument mit identischem Inhalt existiert bereits');
+    }
+
+    // Generate unique path in MinIO
+    const timestamp = Date.now();
+    const objectName = `${timestamp}_${sanitizedName}`;
+
+    // Upload to MinIO
+    const minio = getMinioClient();
+    await minio.putObject(MINIO_BUCKET, objectName, contentBuffer, contentBuffer.length, {
+        'Content-Type': 'text/markdown'
+    });
+
+    logger.info(`Created markdown file in MinIO: ${objectName}`);
+
+    // Create document record
+    const docId = crypto.randomUUID();
+    const fileHash = crypto.createHash('sha256')
+        .update(`${sanitizedName}:${contentBuffer.length}`)
+        .digest('hex');
+
+    await pool.query(
+        `INSERT INTO documents (
+            id, filename, original_filename, file_path, file_size,
+            mime_type, file_extension, content_hash, file_hash,
+            status, uploaded_by, space_id, title,
+            char_count, word_count
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [
+            docId,
+            sanitizedName,
+            sanitizedName,
+            objectName,
+            contentBuffer.length,
+            'text/markdown',
+            '.md',
+            contentHash,
+            fileHash,
+            'pending',
+            req.user?.username || 'admin',
+            spaceId,
+            filename.trim(),
+            documentContent.length,
+            documentContent.split(/\s+/).filter(w => w.length > 0).length
+        ]
+    );
+
+    // Update space statistics if assigned
+    if (spaceId) {
+        try {
+            await pool.query('SELECT update_space_statistics($1)', [spaceId]);
+        } catch (e) {
+            logger.warn(`Failed to update space statistics: ${e.message}`);
+        }
+    }
+
+    logger.info(`Created new markdown document: ${docId}`);
+
+    res.status(201).json({
+        status: 'created',
+        document: {
+            id: docId,
+            filename: sanitizedName,
+            file_path: objectName,
+            file_size: contentBuffer.length,
+            status: 'pending',
+            space_id: spaceId
+        },
+        message: 'Markdown-Dokument erstellt.',
+        timestamp: new Date().toISOString()
+    });
 }));
 
 module.exports = router;

@@ -71,7 +71,7 @@ function ModelStore() {
             const headers = getAuthHeaders();
 
             // Debug: Log API base URL
-            console.log('[ModelStore] Loading data from:', API_BASE, 'Host:', window.location.host);
+            // [ModelStore] Loading data from:', API_BASE, 'Host:', window.location.host);
 
             // Fetch with explicit error checking
             const fetchWithCheck = async (url, name) => {
@@ -90,8 +90,8 @@ function ModelStore() {
             ]);
 
             // Debug: Log responses
-            console.log('[ModelStore] Catalog:', catalogRes.total, 'models');
-            console.log('[ModelStore] Status:', statusRes.loaded_model ? statusRes.loaded_model.model_id : 'no model loaded');
+            // [ModelStore] Catalog:', catalogRes.total, 'models');
+            // [ModelStore] Status:', statusRes.loaded_model ? statusRes.loaded_model.model_id : 'no model loaded');
 
             setCatalog(catalogRes.models || []);
             setLoadedModel(statusRes.loaded_model);
@@ -115,7 +115,7 @@ function ModelStore() {
     // Reload data when a download completes
     useEffect(() => {
         const unsubscribe = onDownloadComplete((modelId, success) => {
-            console.log(`[ModelStore] Download ${success ? 'completed' : 'failed'} for ${modelId}`);
+            // [ModelStore] Download ${success ? 'completed' : 'failed'} for ${modelId}
             loadData();
         });
         return unsubscribe;
@@ -134,7 +134,7 @@ function ModelStore() {
     const handleActivate = async (modelId) => {
         // ML-002: Guard against double-clicks before React re-renders
         if (activatingRef.current) {
-            console.log('[ModelStore] Activation already in progress, ignoring click');
+            // [ModelStore] Activation already in progress, ignoring click');
             return;
         }
         activatingRef.current = true;

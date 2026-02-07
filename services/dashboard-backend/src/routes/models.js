@@ -23,18 +23,35 @@ const modelService = require('../services/modelService');
 const logger = require('../utils/logger');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../utils/errors');
+const { cacheService, cacheMiddleware } = require('../services/cacheService');
+
+// Cache keys
+const CACHE_KEYS = {
+    CATALOG: 'models:catalog',
+    INSTALLED: 'models:installed',
+    STATUS: 'models:status',
+    DEFAULT: 'models:default'
+};
+
+// Cache TTLs (in milliseconds)
+const CACHE_TTLS = {
+    CATALOG: 30000,    // 30 seconds - changes rarely
+    INSTALLED: 15000,  // 15 seconds
+    STATUS: 5000,      // 5 seconds - changes more frequently
+    DEFAULT: 60000     // 60 seconds - changes rarely
+};
 
 /**
  * GET /api/models/catalog
  * Get curated model catalog with installation status
+ * Cached for 30 seconds to reduce database load
  */
-router.get('/catalog', requireAuth, asyncHandler(async (req, res) => {
-    // Debug logging for localhost vs. external access investigation
-    logger.info(`[Models] Catalog request - Host: ${req.headers.host}, Origin: ${req.headers.origin || 'same-origin'}, IP: ${req.ip}`);
+router.get('/catalog', requireAuth, cacheMiddleware(CACHE_KEYS.CATALOG, CACHE_TTLS.CATALOG), asyncHandler(async (req, res) => {
+    logger.debug(`[Models] Catalog request - Host: ${req.headers.host}, Origin: ${req.headers.origin || 'same-origin'}, IP: ${req.ip}`);
 
     const catalog = await modelService.getCatalog();
 
-    logger.info(`[Models] Catalog response - total: ${catalog.length} models`);
+    logger.debug(`[Models] Catalog response - total: ${catalog.length} models`);
     res.json({
         models: catalog,
         total: catalog.length,
@@ -45,8 +62,9 @@ router.get('/catalog', requireAuth, asyncHandler(async (req, res) => {
 /**
  * GET /api/models/installed
  * Get installed models only
+ * Cached for 15 seconds
  */
-router.get('/installed', requireAuth, asyncHandler(async (req, res) => {
+router.get('/installed', requireAuth, cacheMiddleware(CACHE_KEYS.INSTALLED, CACHE_TTLS.INSTALLED), asyncHandler(async (req, res) => {
     const models = await modelService.getInstalledModels();
     res.json({
         models,
@@ -58,14 +76,14 @@ router.get('/installed', requireAuth, asyncHandler(async (req, res) => {
 /**
  * GET /api/models/status
  * Get current model status (loaded model, queue stats)
+ * Cached for 5 seconds (short TTL as status can change)
  */
-router.get('/status', requireAuth, asyncHandler(async (req, res) => {
-    // Debug logging for localhost vs. external access investigation
-    logger.info(`[Models] Status request - Host: ${req.headers.host}, Origin: ${req.headers.origin || 'same-origin'}, IP: ${req.ip}`);
+router.get('/status', requireAuth, cacheMiddleware(CACHE_KEYS.STATUS, CACHE_TTLS.STATUS), asyncHandler(async (req, res) => {
+    logger.debug(`[Models] Status request - Host: ${req.headers.host}, Origin: ${req.headers.origin || 'same-origin'}, IP: ${req.ip}`);
 
     const status = await modelService.getStatus();
 
-    logger.info(`[Models] Status response - loaded_model: ${status.loaded_model ? status.loaded_model.model_id : 'null'}`);
+    logger.debug(`[Models] Status response - loaded_model: ${status.loaded_model ? status.loaded_model.model_id : 'null'}`);
     res.json(status);
 }));
 
@@ -113,6 +131,9 @@ router.post('/download', requireAuth, async (req, res) => {
             res.write(`data: ${JSON.stringify({ progress, status, model_id })}\n\n`);
         });
 
+        // Invalidate model caches after successful download
+        cacheService.invalidatePattern('models:*');
+
         res.write(`data: ${JSON.stringify({ done: true, success: true, model_id })}\n\n`);
         res.end();
 
@@ -131,6 +152,10 @@ router.delete('/:modelId', requireAuth, asyncHandler(async (req, res) => {
     const { modelId } = req.params;
 
     const result = await modelService.deleteModel(modelId);
+
+    // Invalidate model caches after deletion
+    cacheService.invalidatePattern('models:*');
+
     res.json({
         ...result,
         message: `Modell ${modelId} wurde geloescht`
@@ -199,6 +224,9 @@ router.post('/:modelId/activate', requireAuth, async (req, res) => {
             const result = await modelService.activateModel(modelId, 'user');
             clearInterval(progressInterval);
 
+            // Invalidate status cache after activation
+            cacheService.invalidate(CACHE_KEYS.STATUS);
+
             res.write(`data: ${JSON.stringify({
                 status: 'complete',
                 progress: 100,
@@ -223,6 +251,10 @@ router.post('/:modelId/activate', requireAuth, async (req, res) => {
         // Non-streaming (original behavior)
         try {
             const result = await modelService.activateModel(modelId, 'user');
+
+            // Invalidate status cache after activation
+            cacheService.invalidate(CACHE_KEYS.STATUS);
+
             res.json({
                 ...result,
                 message: result.alreadyLoaded
@@ -244,6 +276,10 @@ router.post('/:modelId/deactivate', requireAuth, asyncHandler(async (req, res) =
     const { modelId } = req.params;
 
     const result = await modelService.unloadModel(modelId);
+
+    // Invalidate status cache after deactivation
+    cacheService.invalidate(CACHE_KEYS.STATUS);
+
     res.json({
         ...result,
         message: `Modell ${modelId} wurde entladen`
@@ -268,6 +304,10 @@ router.post('/default', requireAuth, asyncHandler(async (req, res) => {
     }
 
     const result = await modelService.setDefaultModel(model_id);
+
+    // Invalidate default model cache
+    cacheService.invalidate(CACHE_KEYS.DEFAULT);
+
     res.json({
         ...result,
         message: `${model_id} ist jetzt das Standard-Modell`
@@ -277,8 +317,9 @@ router.post('/default', requireAuth, asyncHandler(async (req, res) => {
 /**
  * GET /api/models/default
  * Get default model
+ * Cached for 60 seconds (changes rarely)
  */
-router.get('/default', requireAuth, asyncHandler(async (req, res) => {
+router.get('/default', requireAuth, cacheMiddleware(CACHE_KEYS.DEFAULT, CACHE_TTLS.DEFAULT), asyncHandler(async (req, res) => {
     const defaultModel = await modelService.getDefaultModel();
     res.json({
         default_model: defaultModel,
@@ -292,6 +333,10 @@ router.get('/default', requireAuth, asyncHandler(async (req, res) => {
  */
 router.post('/sync', requireAuth, asyncHandler(async (req, res) => {
     const result = await modelService.syncWithOllama();
+
+    // Invalidate all model caches after sync
+    cacheService.invalidatePattern('models:*');
+
     res.json({
         ...result,
         message: 'Modell-Synchronisation abgeschlossen'

@@ -10,7 +10,9 @@ Quick navigation to all Arasul Platform documentation.
 |----------|-------------|
 | [README.md](../README.md) | Project overview & quick start |
 | [INSTALLATION.md](../INSTALLATION.md) | Hardware requirements & setup |
-| [CLAUDE.md](../CLAUDE.md) | Claude Code instructions (comprehensive) |
+| [CLAUDE.md](../CLAUDE.md) | Claude Code quick start (compact) |
+| [CLAUDE_ARCHITECTURE.md](CLAUDE_ARCHITECTURE.md) | Services, ports, startup order |
+| [CLAUDE_DEVELOPMENT.md](CLAUDE_DEVELOPMENT.md) | Workflows, API reference, debugging |
 
 ---
 
@@ -61,11 +63,12 @@ Quick navigation to all Arasul Platform documentation.
 ### Infrastructure Services
 | Service | README | Description |
 |---------|--------|-------------|
-| n8n | [BUILD_CUSTOM_NODES.md](../services/n8n/BUILD_CUSTOM_NODES.md) | Workflow automation |
-| MinIO | [MINIO_BUCKETS.md](MINIO_BUCKETS.md) | Object storage |
+| n8n | [README](../services/n8n/README.md) | Workflow automation |
+| Cloudflared | [OAuth Guide](N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md) | OAuth tunnel for external access |
+| MinIO | [MINIO_SERVICE.md](MINIO_SERVICE.md) | S3-compatible storage |
 | Qdrant | - | Vector database |
 | Traefik | [README](../config/traefik/README.md) | Reverse proxy + SSL |
-| Backup Service | - | Automated DB & MinIO backups |
+| Backup Service | [BACKUP_SYSTEM.md](BACKUP_SYSTEM.md) | Automated backups |
 
 ---
 
@@ -105,6 +108,7 @@ Quick navigation to all Arasul Platform documentation.
 | Document | Description |
 |----------|-------------|
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | **Frontend Design Guidelines (MANDATORY)** |
+| [CLAUDE_CODE_OPTIMIZATION_PLAN.md](CLAUDE_CODE_OPTIMIZATION_PLAN.md) | **AI-Driven Development Optimization** |
 | [CONTEXT_ENGINEERING_PLAN.md](CONTEXT_ENGINEERING_PLAN.md) | Claude Code context optimization |
 | [TODO.md](TODO.md) | Implementation roadmap |
 | [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md) | Bug tracking & resolutions |
@@ -115,16 +119,20 @@ Quick navigation to all Arasul Platform documentation.
 
 ### Common Tasks
 
-- **Add new API endpoint**: [Dashboard Backend README](../services/dashboard-backend/README.md)
-- **Modify frontend UI**: [Dashboard Frontend README](../services/dashboard-frontend/README.md) + [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
-- **Change database schema**: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)
+- **Add new API endpoint**: [Context Template](../.claude/context/api-endpoint.md) | [Backend README](../services/dashboard-backend/README.md)
+- **Add React component**: [Context Template](../.claude/context/component.md) | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
+- **Add database migration**: [Context Template](../.claude/context/migration.md) | [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)
 - **Configure environment**: [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
-- **Troubleshoot services**: [CLAUDE.md - Troubleshooting](../CLAUDE.md#troubleshooting-common-issues)
+- **Troubleshoot services**: [Debug Context](../.claude/context/debug.md) | [CLAUDE_DEVELOPMENT.md](CLAUDE_DEVELOPMENT.md#debugging-cheatsheet)
+- **Enable n8n OAuth from LAN devices**: [N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md](N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md)
 
 ### Key Files
 
 ```
-CLAUDE.md                           # Claude Code comprehensive instructions
+CLAUDE.md                           # Claude Code quick start
+docs/CLAUDE_ARCHITECTURE.md         # Services & file locations
+docs/CLAUDE_DEVELOPMENT.md          # Workflows & debugging
+.claude/context/                    # Task-specific context templates
 docker-compose.yml                  # All service definitions
 .env                               # Environment configuration
 services/dashboard-backend/src/     # Backend source code
@@ -138,11 +146,20 @@ services/postgres/init/             # Database migrations
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
-| CLAUDE.md | **Updated** - 14 Services, Complete Routes | 2026-01-22 |
+| CLAUDE.md | **Refactored** - Compact quick start (~160 lines) | 2026-01-25 |
+| CLAUDE_ARCHITECTURE.md | **New** - Services, ports, file locations | 2026-01-25 |
+| CLAUDE_DEVELOPMENT.md | **New** - Workflows, debugging, autonomous mode | 2026-01-25 |
+| CLAUDE_CODE_OPTIMIZATION_PLAN.md | **New** - 6-Phase Optimization | 2026-01-25 |
 | DESIGN_SYSTEM.md | Complete | 2026-01 |
 | CONTEXT_ENGINEERING_PLAN.md | **New** | 2026-01-16 |
-| API_REFERENCE.md | ~54% coverage (109/203 endpoints) | 2026-01-22 |
+| API_REFERENCE.md | ~75% coverage (149/203 endpoints) | 2026-01-22 |
 | API_GUIDE.md | Complete | 2024-11 |
 | ARCHITECTURE.md | Complete | 2024-12 |
-| DATABASE_SCHEMA.md | Complete (28 migrations) | 2026-01-22 |
-| Service READMEs | 9/14 documented | 2026-01-22 |
+| DATABASE_SCHEMA.md | Complete (30 migrations) | 2026-01-24 |
+| Dashboard Backend README | **Updated** - 28 Routes, 15 Services | 2026-01-24 |
+| Dashboard Frontend README | **Updated** - 23 Components, Contexts | 2026-01-24 |
+| n8n README | **New** - Custom Nodes, Security | 2026-01-24 |
+| MinIO Service | **New** - Buckets, Backup Integration | 2026-01-24 |
+| Backup System | **New** - Full Backup Documentation | 2026-01-24 |
+| LLM Service README | **Updated** - Jetson Platform | 2026-01-24 |
+| Service READMEs | 14/14 documented | 2026-01-24 |

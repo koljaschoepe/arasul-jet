@@ -1,0 +1,65 @@
+# Cloudflare Tunnel Service
+#
+# Ermöglicht OAuth2 und Webhook-Zugriff von externen Diensten
+# ohne Ports am Jetson zu öffnen.
+#
+# Verwendung:
+#   docker compose -f docker-compose.yml -f services/cloudflared/docker-compose.override.yml up -d cloudflared
+#
+# Voraussetzungen:
+#   - Cloudflare Account (kostenlos)
+#   - Domain bei Cloudflare
+#   - CLOUDFLARE_TUNNEL_TOKEN in .env
+#
+# Setup-Anleitung: docs/N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    hostname: cloudflared
+    restart: unless-stopped
+    networks:
+      - arasul-net
+
+    # Token-basierte Authentifizierung (empfohlen)
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+
+    # Alternative: Config-Datei basiert (auskommentieren wenn gewünscht)
+    # command: tunnel --config /etc/cloudflared/config.yml run
+    # volumes:
+    #   - ./config.yml:/etc/cloudflared/config.yml:ro
+    #   - ./credentials.json:/etc/cloudflared/credentials.json:ro
+
+    depends_on:
+      reverse-proxy:
+        condition: service_healthy
+
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+
+    healthcheck:
+      test: ["CMD", "pgrep", "cloudflared"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    labels:
+      - "com.arasul.service=cloudflared"
+      - "com.arasul.description=Cloudflare Tunnel for OAuth and Webhooks"
+
+networks:
+  arasul-net:
+    external: true

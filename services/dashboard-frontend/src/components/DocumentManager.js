@@ -8,17 +8,22 @@ import {
   FiSettings, FiTable, FiGrid
 } from 'react-icons/fi';
 import MarkdownEditor from './MarkdownEditor';
-import YamlGridEditor from './YamlGridEditor';
-import YamlCreateDialog from './YamlCreateDialog';
 import MarkdownCreateDialog from './MarkdownCreateDialog';
 import SimpleTableCreateDialog from './SimpleTableCreateDialog';
-import DataTableEditor from './DataTableEditor';
+import ExcelEditor from './Database/ExcelEditor';
 import SpaceModal from './SpaceModal';
 import { API_BASE } from '../config/api';
 import { formatDate, formatFileSize } from '../utils/formatting';
 import '../documents.css';
 import '../markdown-editor.css';
-import '../yamltable.css';
+
+// Table badge component for data tables
+const TableBadge = () => (
+  <span className="type-badge type-table">
+    <FiGrid aria-hidden="true" />
+    Tabelle
+  </span>
+);
 
 // Status badge component
 const StatusBadge = ({ status }) => {
@@ -64,9 +69,11 @@ const SpaceBadge = ({ name, color }) => (
 function DocumentManager() {
   // State
   const [documents, setDocuments] = useState([]);
+  const [tables, setTables] = useState([]);  // PostgreSQL Datentabellen
   const [categories, setCategories] = useState([]);
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingTables, setLoadingTables] = useState(false);
   const [error, setError] = useState(null);
 
   // Knowledge Spaces (RAG 2.0)
@@ -107,21 +114,13 @@ function DocumentManager() {
   const [showEditor, setShowEditor] = useState(false);
   const [editingDocument, setEditingDocument] = useState(null);
 
-  // YAML Editor state
-  const [showYamlEditor, setShowYamlEditor] = useState(false);
-  const [editingYamlDocument, setEditingYamlDocument] = useState(null);
+  // Table Editor state (ExcelEditor popup)
+  const [showTableEditor, setShowTableEditor] = useState(false);
+  const [editingTable, setEditingTable] = useState(null);
 
   // Create dialog state
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showMarkdownCreate, setShowMarkdownCreate] = useState(false);
   const [showSimpleTableCreate, setShowSimpleTableCreate] = useState(false);
-
-  // DataTable Editor state (for PostgreSQL Datentabellen)
-  const [showDataTableEditor, setShowDataTableEditor] = useState(false);
-  const [editingDataTable, setEditingDataTable] = useState(null);
-
-  // Type filter for documents vs tables
-  const [typeFilter, setTypeFilter] = useState('all'); // 'all', 'document', 'table'
 
   // Refs
   const fileInputRef = useRef(null);
@@ -137,27 +136,19 @@ function DocumentManager() {
     return editableExtensions.includes(doc.file_extension?.toLowerCase());
   };
 
-  // Check if file is a YAML table
-  const isYamlTable = (doc) => {
-    const yamlExtensions = ['.yaml', '.yml'];
-    return yamlExtensions.includes(doc.file_extension?.toLowerCase());
-  };
-
   // Check if any type of editing is supported
   const canEdit = (doc) => {
-    return isEditable(doc) || isYamlTable(doc);
+    return isEditable(doc);
   };
 
   // Get file type icon
   const getFileIcon = (doc) => {
-    if (isYamlTable(doc)) return FiTable;
     if (isEditable(doc)) return FiFileText;
     return FiFile;
   };
 
   // Get document type label
   const getDocumentType = (doc) => {
-    if (isYamlTable(doc)) return 'Tabelle';
     return 'Dokument';
   };
 
@@ -217,6 +208,24 @@ function DocumentManager() {
     }
   };
 
+  // Load Datentabellen (PostgreSQL tables)
+  const loadTables = useCallback(async () => {
+    try {
+      setLoadingTables(true);
+      const response = await axios.get(`${API_BASE}/datentabellen/tables`);
+      const allTables = response.data.tables || [];
+      // Filter by active space if one is selected
+      const filteredTables = activeSpaceId
+        ? allTables.filter(t => t.space_id === activeSpaceId)
+        : allTables;
+      setTables(filteredTables);
+    } catch (err) {
+      console.error('Error loading tables:', err);
+    } finally {
+      setLoadingTables(false);
+    }
+  }, [activeSpaceId]);
+
   // Handle space change (for tabs)
   const handleSpaceChange = (spaceId) => {
     setActiveSpaceId(spaceId);
@@ -243,6 +252,7 @@ function DocumentManager() {
   // when filter dependencies change. The interval should only be created once on mount.
   const loadDocumentsRef = useRef(loadDocuments);
   const loadStatisticsRef = useRef(loadStatistics);
+  const loadTablesRef = useRef(loadTables);
 
   // Keep refs in sync with latest functions
   useEffect(() => {
@@ -253,21 +263,32 @@ function DocumentManager() {
     loadStatisticsRef.current = loadStatistics;
   }, [loadStatistics]);
 
+  useEffect(() => {
+    loadTablesRef.current = loadTables;
+  }, [loadTables]);
+
   // Initial load - empty dependency array for mount-only
   useEffect(() => {
     loadDocumentsRef.current();
     loadCategories();
     loadStatisticsRef.current();
     loadSpaces();
+    loadTablesRef.current();
 
     // Refresh every 30 seconds - uses refs so interval is only created once
     const interval = setInterval(() => {
       loadDocumentsRef.current();
       loadStatisticsRef.current();
+      loadTablesRef.current();
     }, 30000);
 
     return () => clearInterval(interval);
   }, []); // Empty array - only run on mount
+
+  // Reload tables when space changes
+  useEffect(() => {
+    loadTablesRef.current();
+  }, [activeSpaceId]);
 
   // File upload handler
   const handleFileUpload = async (files) => {
@@ -451,10 +472,7 @@ function DocumentManager() {
 
   // Open editor for a document
   const handleEdit = (doc) => {
-    if (isYamlTable(doc)) {
-      setEditingYamlDocument(doc);
-      setShowYamlEditor(true);
-    } else if (isEditable(doc)) {
+    if (isEditable(doc)) {
       setEditingDocument(doc);
       setShowEditor(true);
     }
@@ -466,28 +484,10 @@ function DocumentManager() {
     setEditingDocument(null);
   };
 
-  // Close YAML editor
-  const handleYamlEditorClose = () => {
-    setShowYamlEditor(false);
-    setEditingYamlDocument(null);
-  };
-
   // Handle save from editor (refresh documents)
   const handleEditorSave = () => {
     loadDocuments();
     loadStatistics();
-  };
-
-  // Handle YAML table creation
-  const handleYamlCreated = (newDoc) => {
-    setShowCreateDialog(false);
-    loadDocuments();
-    loadStatistics();
-    // Open the new table for editing
-    if (newDoc) {
-      setEditingYamlDocument(newDoc);
-      setShowYamlEditor(true);
-    }
   };
 
   // Handle Markdown document creation
@@ -506,30 +506,63 @@ function DocumentManager() {
   // Handle Datentabelle (PostgreSQL) creation
   const handleDataTableCreated = (newTable) => {
     setShowSimpleTableCreate(false);
-    loadDocuments();
-    loadStatistics();
-    // Open the new table in DataTableEditor
-    if (newTable) {
-      setEditingDataTable({
-        slug: newTable.slug,
-        name: newTable.name
-      });
-      setShowDataTableEditor(true);
+    loadTables(); // Refresh tables list
+    // Open the new table in the editor popup
+    if (newTable?.slug) {
+      setEditingTable(newTable);
+      setShowTableEditor(true);
     }
   };
 
-  // Close DataTableEditor
-  const handleDataTableEditorClose = () => {
-    setShowDataTableEditor(false);
-    setEditingDataTable(null);
+  // Handle table edit
+  const handleTableEdit = (table) => {
+    setEditingTable(table);
+    setShowTableEditor(true);
   };
 
-  // Filter documents by type
-  const filteredDocuments = documents.filter(doc => {
-    if (typeFilter === 'all') return true;
-    if (typeFilter === 'table') return isYamlTable(doc);
-    if (typeFilter === 'document') return !isYamlTable(doc);
-    return true;
+  // Handle table editor close
+  const handleTableEditorClose = () => {
+    setShowTableEditor(false);
+    setEditingTable(null);
+    loadTables(); // Refresh tables after editing
+  };
+
+  // Delete table
+  const handleDeleteTable = async (tableId, tableName) => {
+    if (!window.confirm(`Tabelle "${tableName}" wirklich löschen?`)) return;
+
+    try {
+      await axios.delete(`${API_BASE}/datentabellen/tables/${tableId}`);
+      loadTables();
+    } catch (err) {
+      setError('Fehler beim Löschen der Tabelle');
+    }
+  };
+
+  // Get space name for a table
+  const getTableSpaceName = (table) => {
+    const space = spaces.find(s => s.id === table.space_id);
+    return space?.name || 'Allgemein';
+  };
+
+  const getTableSpaceColor = (table) => {
+    const space = spaces.find(s => s.id === table.space_id);
+    return space?.color || '#6366f1';
+  };
+
+  // Combine documents and tables into a unified list for display
+  const combinedItems = [
+    // Tables first (marked as type 'table')
+    ...tables.map(t => ({ ...t, _type: 'table' })),
+    // Then documents (marked as type 'document')
+    ...documents.map(d => ({ ...d, _type: 'document' }))
+  ];
+
+  // Filter combined items by search query
+  const filteredItems = combinedItems.filter(item => {
+    if (!searchQuery) return true;
+    const name = item._type === 'table' ? item.name : (item.title || item.filename);
+    return name?.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const totalPages = Math.ceil(totalDocuments / itemsPerPage);
@@ -758,22 +791,6 @@ function DocumentManager() {
         </div>
 
         <div className="filter-group">
-          <FiGrid className="filter-icon" aria-hidden="true" />
-          <select
-            value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            aria-label="Nach Typ filtern"
-          >
-            <option value="all">Alle Typen</option>
-            <option value="document">Dokumente</option>
-            <option value="table">Tabellen (YAML)</option>
-          </select>
-        </div>
-
-        <div className="filter-group">
           <FiFilter className="filter-icon" aria-hidden="true" />
           <select
             value={statusFilter}
@@ -831,21 +848,21 @@ function DocumentManager() {
         </button>
       </div>
 
-      {/* Documents List */}
+      {/* Documents and Tables List */}
       <section className="dm-documents" aria-label="Datenliste">
-        {loading && filteredDocuments.length === 0 ? (
+        {(loading || loadingTables) && filteredItems.length === 0 ? (
           <div className="dm-loading" role="status" aria-live="polite">
             <FiRefreshCw className="spin" aria-hidden="true" />
             <p>Daten werden geladen...</p>
           </div>
-        ) : filteredDocuments.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <div className="dm-empty" role="status">
             <FiDatabase aria-hidden="true" />
             <p>Keine Einträge gefunden</p>
             <span>Laden Sie Dateien hoch oder erstellen Sie eine neue Tabelle</span>
           </div>
         ) : (
-          <table className="dm-table" aria-label={`${filteredDocuments.length} Einträge`}>
+          <table className="dm-table" aria-label={`${filteredItems.length} Einträge`}>
             <thead>
               <tr>
                 <th scope="col" aria-label="Favorit"></th>
@@ -853,18 +870,80 @@ function DocumentManager() {
                 <th scope="col">Typ</th>
                 <th scope="col">Bereich</th>
                 <th scope="col">Status</th>
-                <th scope="col">Größe</th>
+                <th scope="col">Info</th>
                 <th scope="col">Aktionen</th>
               </tr>
             </thead>
             <tbody>
-              {filteredDocuments.map(doc => (
+              {/* Render Tables */}
+              {filteredItems.filter(item => item._type === 'table').map(table => (
                 <tr
-                  key={doc.id}
-                  className={`clickable-row ${doc.is_favorite ? 'favorite' : ''} ${isYamlTable(doc) ? 'is-table' : ''}`}
-                  onClick={() => isYamlTable(doc) ? handleEdit(doc) : viewDocumentDetails(doc)}
+                  key={`table-${table.id}`}
+                  className="clickable-row table-row"
+                  onClick={() => handleTableEdit(table)}
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && (isYamlTable(doc) ? handleEdit(doc) : viewDocumentDetails(doc))}
+                  onKeyDown={(e) => e.key === 'Enter' && handleTableEdit(table)}
+                  aria-label={`Tabelle: ${table.name}`}
+                >
+                  <td>
+                    <span className="table-icon-placeholder">
+                      <FiGrid aria-hidden="true" />
+                    </span>
+                  </td>
+                  <td className="doc-name-cell">
+                    <div className="doc-info">
+                      <FiTable className="doc-icon table-icon" aria-hidden="true" />
+                      <div>
+                        <span className="doc-title">{table.name}</span>
+                        {table.description && (
+                          <span className="doc-filename">{table.description}</span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <TableBadge />
+                  </td>
+                  <td>
+                    <SpaceBadge name={getTableSpaceName(table)} color={getTableSpaceColor(table)} />
+                  </td>
+                  <td>
+                    <span className="status-badge status-indexed" style={{ '--status-color': '#94A3B8' }}>
+                      <FiCheck aria-hidden="true" />
+                      Bereit
+                    </span>
+                  </td>
+                  <td>
+                    <span className="table-info">
+                      {table.column_count || 0} Spalten
+                    </span>
+                  </td>
+                  <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="action-btn edit"
+                      onClick={() => handleTableEdit(table)}
+                      aria-label={`${table.name} bearbeiten`}
+                    >
+                      <FiEdit2 aria-hidden="true" />
+                    </button>
+                    <button
+                      className="action-btn delete"
+                      onClick={() => handleDeleteTable(table.id, table.name)}
+                      aria-label={`${table.name} löschen`}
+                    >
+                      <FiTrash2 aria-hidden="true" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {/* Render Documents */}
+              {filteredItems.filter(item => item._type === 'document').map(doc => (
+                <tr
+                  key={`doc-${doc.id}`}
+                  className={`clickable-row ${doc.is_favorite ? 'favorite' : ''}`}
+                  onClick={() => viewDocumentDetails(doc)}
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && viewDocumentDetails(doc)}
                   aria-label={`${doc.title || doc.filename}, Typ: ${getDocumentType(doc)}, Status: ${doc.status}`}
                 >
                   <td>
@@ -879,7 +958,7 @@ function DocumentManager() {
                   </td>
                   <td className="doc-name-cell">
                     <div className="doc-info">
-                      {React.createElement(getFileIcon(doc), { className: `doc-icon ${isYamlTable(doc) ? 'table-icon' : ''}`, 'aria-hidden': 'true' })}
+                      {React.createElement(getFileIcon(doc), { className: 'doc-icon', 'aria-hidden': 'true' })}
                       <div>
                         <span className="doc-title">{doc.title || doc.filename}</span>
                         {doc.title && doc.title !== doc.filename && (
@@ -889,7 +968,7 @@ function DocumentManager() {
                     </div>
                   </td>
                   <td>
-                    <span className={`type-badge ${isYamlTable(doc) ? 'type-table' : 'type-document'}`}>
+                    <span className="type-badge type-document">
                       {getDocumentType(doc)}
                     </span>
                   </td>
@@ -901,15 +980,13 @@ function DocumentManager() {
                   </td>
                   <td>{formatFileSize(doc.file_size)}</td>
                   <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
-                    {!isYamlTable(doc) && (
-                      <button
-                        className="action-btn"
-                        onClick={() => viewDocumentDetails(doc)}
-                        aria-label={`Details für ${doc.title || doc.filename} anzeigen`}
-                      >
-                        <FiEye aria-hidden="true" />
-                      </button>
-                    )}
+                    <button
+                      className="action-btn"
+                      onClick={() => viewDocumentDetails(doc)}
+                      aria-label={`Details für ${doc.title || doc.filename} anzeigen`}
+                    >
+                      <FiEye aria-hidden="true" />
+                    </button>
                     {canEdit(doc) && (
                       <button
                         className="action-btn edit"
@@ -1176,26 +1253,6 @@ function DocumentManager() {
         mode={editingSpace ? 'edit' : 'create'}
       />
 
-      {/* YAML Grid Editor */}
-      {showYamlEditor && editingYamlDocument && (
-        <YamlGridEditor
-          documentId={editingYamlDocument.id}
-          filename={editingYamlDocument.filename}
-          onClose={handleYamlEditorClose}
-          onSave={handleEditorSave}
-        />
-      )}
-
-      {/* Create New Table Dialog */}
-      {showCreateDialog && (
-        <YamlCreateDialog
-          isOpen={showCreateDialog}
-          onClose={() => setShowCreateDialog(false)}
-          onCreated={handleYamlCreated}
-          spaceId={activeSpaceId || uploadSpaceId}
-        />
-      )}
-
       {/* Create New Markdown Document Dialog */}
       {showMarkdownCreate && (
         <MarkdownCreateDialog
@@ -1218,15 +1275,15 @@ function DocumentManager() {
         />
       )}
 
-      {/* DataTable Editor (PostgreSQL Datentabellen) */}
-      {showDataTableEditor && editingDataTable && (
-        <DataTableEditor
-          tableSlug={editingDataTable.slug}
-          tableName={editingDataTable.name}
-          onClose={handleDataTableEditorClose}
-          onSave={loadDocuments}
+      {/* Excel Editor Popup (PostgreSQL Datentabellen) */}
+      {showTableEditor && editingTable && (
+        <ExcelEditor
+          tableSlug={editingTable.slug}
+          tableName={editingTable.name}
+          onClose={handleTableEditorClose}
         />
       )}
+
     </main>
   );
 }

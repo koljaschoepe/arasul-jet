@@ -44,7 +44,7 @@ jobs:
 
       - name: Run linter
         working-directory: services/dashboard-backend
-        run: npm run lint || echo "Linter not configured yet"
+        run: npm run lint
 
       - name: Run unit tests
         working-directory: services/dashboard-backend
@@ -185,6 +185,76 @@ jobs:
           files: ./services/self-healing-agent/coverage.xml
           flags: self-healing
           name: self-healing-coverage
+
+  # Dashboard Frontend Tests (React/Jest)
+  frontend-tests:
+    name: Dashboard Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: services/dashboard-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: services/dashboard-frontend
+        run: npm ci
+
+      - name: Run linter
+        working-directory: services/dashboard-frontend
+        run: npm run lint
+
+      - name: Run tests with coverage
+        working-directory: services/dashboard-frontend
+        run: npm run test:ci
+        env:
+          CI: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./services/dashboard-frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+
+  # Python Type Checking (mypy)
+  python-type-check:
+    name: Python Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install mypy and type stubs
+        run: |
+          pip install mypy types-requests types-PyYAML
+
+      - name: Type check metrics-collector
+        working-directory: services/metrics-collector
+        run: |
+          pip install -r requirements.txt
+          mypy --ignore-missing-imports --no-error-summary . || echo "Type errors found (non-blocking)"
+        continue-on-error: true
+
+      - name: Type check self-healing-agent
+        working-directory: services/self-healing-agent
+        run: |
+          pip install -r requirements.txt
+          mypy --ignore-missing-imports --no-error-summary . || echo "Type errors found (non-blocking)"
+        continue-on-error: true
 
   # API Tests (Newman/Postman)
   api-tests:
@@ -373,26 +443,32 @@ jobs:
   # Overall Test Summary
   test-summary:
     name: Test Summary
-    needs: [backend-tests, metrics-collector-tests, self-healing-tests, api-tests, docker-build-tests, dependency-validation]
+    needs: [backend-tests, frontend-tests, metrics-collector-tests, self-healing-tests, api-tests, docker-build-tests, dependency-validation, security-scan]
     runs-on: ubuntu-latest
     if: always()
 
     steps:
       - name: Check test results
         run: |
+          echo "=== Test Results Summary ==="
           echo "Backend Tests: ${{ needs.backend-tests.result }}"
+          echo "Frontend Tests: ${{ needs.frontend-tests.result }}"
           echo "Metrics Collector Tests: ${{ needs.metrics-collector-tests.result }}"
           echo "Self-Healing Tests: ${{ needs.self-healing-tests.result }}"
           echo "API Tests: ${{ needs.api-tests.result }}"
           echo "Docker Build Tests: ${{ needs.docker-build-tests.result }}"
           echo "Dependency Validation: ${{ needs.dependency-validation.result }}"
+          echo "Security Scan: ${{ needs.security-scan.result }}"
+          echo "============================"
 
           if [[ "${{ needs.backend-tests.result }}" == "failure" ]] || \
+             [[ "${{ needs.frontend-tests.result }}" == "failure" ]] || \
              [[ "${{ needs.metrics-collector-tests.result }}" == "failure" ]] || \
              [[ "${{ needs.self-healing-tests.result }}" == "failure" ]] || \
              [[ "${{ needs.api-tests.result }}" == "failure" ]] || \
              [[ "${{ needs.docker-build-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.dependency-validation.result }}" == "failure" ]]; then
+             [[ "${{ needs.dependency-validation.result }}" == "failure" ]] || \
+             [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
             echo "❌ One or more test suites failed"
             exit 1
           fi

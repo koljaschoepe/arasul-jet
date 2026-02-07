@@ -1,0 +1,40 @@
+{
+  "env": {
+    "node": true,
+    "es2021": true,
+    "jest": true
+  },
+  "extends": ["eslint:recommended"],
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "prefer-const": "error",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "curly": ["error", "all"],
+    "no-throw-literal": "error",
+    "no-var": "error",
+    "no-duplicate-imports": "error",
+    "no-template-curly-in-string": "warn",
+    "no-return-await": "warn",
+    "require-await": "warn",
+    "no-async-promise-executor": "error",
+    "no-promise-executor-return": "error",
+    "prefer-promise-reject-errors": "error",
+    "no-useless-catch": "warn",
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "no-constant-condition": ["error", { "checkLoops": false }]
+  },
+  "globals": {
+    "process": "readonly"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "coverage/",
+    "**/*.test.js",
+    "__tests__/"
+  ]
+}

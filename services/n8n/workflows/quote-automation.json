@@ -1,0 +1,327 @@
+{
+  "name": "Angebots-Automatisierung - Arasul Datentabellen",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quote-request",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Quote Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 400],
+      "webhookId": "quote-request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://llm-service:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'qwen2.5:latest', messages: [{ role: 'system', content: 'Du bist ein Assistent der Anfragen analysiert und Produkte/Mengen extrahiert. Antworte IMMER als JSON mit dem Format: { \"products\": [{ \"name\": \"...\", \"quantity\": N }], \"customer\": { \"email\": \"...\", \"name\": \"...\", \"company\": \"...\" }, \"notes\": \"...\" }' }, { role: 'user', content: $json.emailBody || $json.requestText }], stream: false }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "analyze-request",
+      "name": "Analyze Request with LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "const llmResponse = items[0].json;\nlet parsedData;\n\ntry {\n  // Extract JSON from LLM response\n  const content = llmResponse.message?.content || llmResponse.response || '';\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    parsedData = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('No JSON found in response');\n  }\n} catch (e) {\n  return [{ json: { error: 'Failed to parse LLM response', details: e.message } }];\n}\n\n// Return structured data for product lookup\nreturn [{\n  json: {\n    products: parsedData.products || [],\n    customer: parsedData.customer || {},\n    notes: parsedData.notes || '',\n    originalRequest: items[0].json\n  }\n}];"
+      },
+      "id": "parse-response",
+      "name": "Parse LLM Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [750, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-products",
+              "leftValue": "={{ $json.products.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-products",
+      "name": "Has Products?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1000, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT p._id, p.name, p.artikel_nr, p.preis, p.einheit, p.bestand\nFROM data_produkte p\nWHERE LOWER(p.name) LIKE LOWER('%' || $1 || '%')\n   OR LOWER(p.artikel_nr) LIKE LOWER('%' || $1 || '%')\nLIMIT 5",
+        "options": {}
+      },
+      "id": "lookup-products",
+      "name": "Lookup Products in Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1250, 300],
+      "credentials": {
+        "postgres": {
+          "id": "arasul-data-db",
+          "name": "Arasul Data DB"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "const requestData = items[0].json;\nconst products = requestData.products || [];\nconst customer = requestData.customer || {};\n\n// Build quote positions\nconst positions = [];\nlet subtotal = 0;\nlet unknownProducts = [];\n\nfor (const product of products) {\n  // In a real scenario, this would use results from database lookup\n  // For now, we mark products without price as unknown\n  if (product.price) {\n    const total = product.price * product.quantity;\n    positions.push({\n      name: product.name,\n      quantity: product.quantity,\n      unit: product.unit || 'Stück',\n      unit_price: product.price,\n      total_price: total\n    });\n    subtotal += total;\n  } else {\n    unknownProducts.push(product.name);\n  }\n}\n\nconst taxRate = 19;\nconst taxAmount = subtotal * (taxRate / 100);\nconst total = subtotal + taxAmount;\n\nreturn [{\n  json: {\n    customer_email: customer.email || '',\n    customer_name: customer.name || '',\n    customer_company: customer.company || '',\n    positions: positions,\n    subtotal: subtotal.toFixed(2),\n    tax_rate: taxRate,\n    tax_amount: taxAmount.toFixed(2),\n    total: total.toFixed(2),\n    notes: requestData.notes,\n    unknown_products: unknownProducts,\n    has_unknown: unknownProducts.length > 0\n  }\n}];"
+      },
+      "id": "build-quote",
+      "name": "Build Quote Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-unknown",
+              "leftValue": "={{ $json.has_unknown }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "all-products-found",
+      "name": "All Products Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1750, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dashboard-backend:3001/api/v1/datentabellen/quotes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ customer_email: $json.customer_email, customer_name: $json.customer_name, customer_company: $json.customer_company, positions: $json.positions, subtotal: parseFloat($json.subtotal), tax_rate: $json.tax_rate, tax_amount: parseFloat($json.tax_amount), total: parseFloat($json.total), notes: $json.notes, status: 'draft' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "create-quote",
+      "name": "Create Quote in Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Internal API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, quoteId: $json.data?.id, quoteNumber: $json.data?.quote_number, message: 'Angebot erfolgreich erstellt' }) }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2250, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, message: 'Unbekannte Produkte gefunden', unknownProducts: $json.unknown_products, needsReview: true }) }}",
+        "options": {
+          "responseCode": 206
+        }
+      },
+      "id": "respond-needs-review",
+      "name": "Respond Needs Review",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: 'Keine Produkte in der Anfrage gefunden', message: 'Bitte geben Sie mindestens ein Produkt an' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-no-products",
+      "name": "Respond No Products",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1250, 500]
+    }
+  ],
+  "connections": {
+    "Quote Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Analyze Request with LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Request with LLM": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM Response": {
+      "main": [
+        [
+          {
+            "node": "Has Products?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Products?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Products in Database",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond No Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Products in Database": {
+      "main": [
+        [
+          {
+            "node": "Build Quote Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Quote Data": {
+      "main": [
+        [
+          {
+            "node": "All Products Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Products Found?": {
+      "main": [
+        [
+          {
+            "node": "Create Quote in Database",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Needs Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Quote in Database": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "arasul-platform"
+  },
+  "tags": [
+    {
+      "name": "datentabellen",
+      "id": "10"
+    },
+    {
+      "name": "quotes",
+      "id": "11"
+    },
+    {
+      "name": "automation",
+      "id": "12"
+    }
+  ]
+}

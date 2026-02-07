@@ -16,6 +16,7 @@
     "inlineSources": true
   },
   "include": [
+    "index.ts",
     "nodes/**/*",
     "credentials/**/*"
   ],

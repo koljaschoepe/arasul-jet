@@ -1,0 +1,222 @@
+# Dependabot configuration for Arasul Platform
+# Automatically creates PRs for dependency updates
+# Documentation: https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # Root npm packages (husky, lint-staged, prettier)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Dashboard Backend (Node.js)
+  - package-ecosystem: "npm"
+    directory: "/services/dashboard-backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "npm"
+      - "backend"
+    commit-message:
+      prefix: "chore(deps-backend)"
+    groups:
+      express:
+        patterns:
+          - "express*"
+          - "body-parser"
+          - "cors"
+      security:
+        patterns:
+          - "jsonwebtoken"
+          - "bcrypt*"
+          - "helmet"
+      testing:
+        patterns:
+          - "jest*"
+          - "supertest"
+
+  # Dashboard Frontend (React)
+  - package-ecosystem: "npm"
+    directory: "/services/dashboard-frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "npm"
+      - "frontend"
+    commit-message:
+      prefix: "chore(deps-frontend)"
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@testing-library/*"
+      visualization:
+        patterns:
+          - "recharts"
+          - "mermaid"
+
+  # n8n Custom Nodes
+  - package-ecosystem: "npm"
+    directory: "/services/n8n/custom-nodes/n8n-nodes-arasul-llm"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "npm"
+      - "n8n"
+    commit-message:
+      prefix: "chore(deps-n8n)"
+
+  - package-ecosystem: "npm"
+    directory: "/services/n8n/custom-nodes/n8n-nodes-arasul-embeddings"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "npm"
+      - "n8n"
+    commit-message:
+      prefix: "chore(deps-n8n)"
+
+  # Python services (pip)
+  - package-ecosystem: "pip"
+    directory: "/services/metrics-collector"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps-python)"
+
+  - package-ecosystem: "pip"
+    directory: "/services/self-healing-agent"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps-python)"
+
+  - package-ecosystem: "pip"
+    directory: "/services/telegram-bot"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps-python)"
+
+  - package-ecosystem: "pip"
+    directory: "/services/llm-service"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps-python)"
+
+  - package-ecosystem: "pip"
+    directory: "/services/embedding-service"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps-python)"
+
+  - package-ecosystem: "pip"
+    directory: "/services/document-indexer"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps-python)"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps-actions)"
+
+  # Docker (Dockerfile base images)
+  - package-ecosystem: "docker"
+    directory: "/services/dashboard-backend"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps-docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/services/dashboard-frontend"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps-docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/services/metrics-collector"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps-docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/services/self-healing-agent"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps-docker)"

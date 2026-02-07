@@ -4,14 +4,14 @@
  * Uses ReactMarkdown with remarkGfm for full GFM support (tables, strikethrough, etc.)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { memo, useState, useEffect, useCallback } from 'react';
 import { FiX, FiSave, FiEye, FiEdit2, FiMaximize2, FiMinimize2, FiAlertCircle } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MermaidDiagram from './MermaidDiagram';
 import '../markdown-editor.css';
 
-function MarkdownEditor({ documentId, filename, onClose, onSave, token }) {
+const MarkdownEditor = memo(function MarkdownEditor({ documentId, filename, onClose, onSave, token }) {
     const [content, setContent] = useState('');
     const [originalContent, setOriginalContent] = useState('');
     const [loading, setLoading] = useState(true);
@@ -338,6 +338,6 @@ function MarkdownEditor({ documentId, filename, onClose, onSave, token }) {
             </div>
         </div>
     );
-}
+});
 
 export default MarkdownEditor;

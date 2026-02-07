@@ -3,7 +3,7 @@
  * Renders Mermaid diagrams from markdown code blocks
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { memo, useEffect, useRef, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
 import DOMPurify from 'dompurify';
 
@@ -37,7 +37,7 @@ mermaid.initialize({
 let diagramCounter = 0;
 const generateId = () => `mermaid-diagram-${++diagramCounter}`;
 
-function MermaidDiagram({ content }) {
+const MermaidDiagram = memo(function MermaidDiagram({ content }) {
   const containerRef = useRef(null);
   const [error, setError] = useState(null);
   const [svg, setSvg] = useState(null);
@@ -97,6 +97,6 @@ function MermaidDiagram({ content }) {
       dangerouslySetInnerHTML={svg ? { __html: svg } : undefined}
     />
   );
-}
+});
 
 export default MermaidDiagram;

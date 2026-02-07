@@ -21,6 +21,80 @@ try {
     logger.warn('Telegram Orchestrator Service not yet available');
 }
 
+// Import App Service for lifecycle management
+const telegramAppService = require('../services/telegramAppService');
+
+// ============================================================================
+// APP STATUS ENDPOINTS (Dashboard Integration)
+// ============================================================================
+
+/**
+ * GET /api/telegram-app/status
+ * Get current app status for the authenticated user
+ */
+router.get('/status', requireAuth, asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const status = await telegramAppService.getAppStatus(userId);
+
+    res.json({
+        success: true,
+        ...status
+    });
+}));
+
+/**
+ * GET /api/telegram-app/dashboard-data
+ * Get data for dashboard icon display
+ * Returns null if icon should not be shown
+ */
+router.get('/dashboard-data', requireAuth, asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const appData = await telegramAppService.getDashboardAppData(userId);
+
+    // Record activity
+    if (appData) {
+        telegramAppService.recordActivity(userId).catch(() => {});
+    }
+
+    res.json({
+        success: true,
+        app: appData
+    });
+}));
+
+/**
+ * PUT /api/telegram-app/settings
+ * Update app settings
+ */
+router.put('/settings', requireAuth, asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const { settings } = req.body;
+
+    if (!settings || typeof settings !== 'object') {
+        throw new ValidationError('Settings object is required');
+    }
+
+    const updatedSettings = await telegramAppService.updateSettings(userId, settings);
+
+    res.json({
+        success: true,
+        settings: updatedSettings
+    });
+}));
+
+/**
+ * GET /api/telegram-app/global-stats
+ * Get global stats (admin only in future)
+ */
+router.get('/global-stats', requireAuth, asyncHandler(async (req, res) => {
+    const stats = await telegramAppService.getGlobalStats();
+
+    res.json({
+        success: true,
+        stats
+    });
+}));
+
 // ============================================================================
 // ZERO-CONFIG SETUP ENDPOINTS
 // ============================================================================

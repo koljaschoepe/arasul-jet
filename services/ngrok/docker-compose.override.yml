@@ -1,0 +1,73 @@
+# ngrok Tunnel Service
+#
+# Schnelle Alternative zu Cloudflare für Entwicklung/Testing.
+#
+# Verwendung:
+#   docker compose -f docker-compose.yml -f services/ngrok/docker-compose.override.yml up -d ngrok
+#
+# Voraussetzungen:
+#   - ngrok Account (kostenlos): https://dashboard.ngrok.com
+#   - NGROK_AUTHTOKEN in .env
+#   - NGROK_DOMAIN (statische Domain) in .env
+#
+# Free Tier Limits:
+#   - 1 GB Bandbreite/Monat
+#   - 1 aktiver Endpunkt
+#   - Interstitial-Seite bei Browser-Zugriff
+#
+# Setup-Anleitung: docs/N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md
+
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    hostname: ngrok
+    restart: unless-stopped
+    networks:
+      - arasul-net
+
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+
+    # Statische Domain (empfohlen für OAuth)
+    command: http reverse-proxy:80 --domain=${NGROK_DOMAIN}
+
+    # Alternative: Dynamische URL (URL ändert sich bei Neustart!)
+    # command: http reverse-proxy:80
+
+    ports:
+      # ngrok Inspection UI (lokal verfügbar)
+      - "127.0.0.1:4040:4040"
+
+    depends_on:
+      reverse-proxy:
+        condition: service_healthy
+
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4040/api/tunnels"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    labels:
+      - "com.arasul.service=ngrok"
+      - "com.arasul.description=ngrok tunnel for OAuth and Webhooks"
+
+networks:
+  arasul-net:
+    external: true
