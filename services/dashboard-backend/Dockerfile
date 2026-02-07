@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:25-alpine
 
 LABEL maintainer="Arasul Platform"
 LABEL description="Dashboard Backend API"
