@@ -12,6 +12,8 @@ const db = require('../database');
 const logger = require('../utils/logger');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../utils/errors');
+const { encryptToken, decryptToken } = require('../utils/tokenCrypto');
+const telegramSetupPollingService = require('../services/telegramSetupPollingService');
 
 // Import orchestrator service (will be created next)
 let orchestratorService;
@@ -199,6 +201,11 @@ router.post('/zero-config/token', requireAuth, apiLimiter, asyncHandler(async (r
         );
     }
 
+    // Start polling Telegram getUpdates to detect /start command
+    telegramSetupPollingService.startPolling(setupToken).catch(err => {
+        logger.error(`Failed to start setup polling: ${err.message}`);
+    });
+
     // Generate deep link for the bot
     const deepLink = `https://t.me/${botInfo.username}?start=setup_${setupToken}`;
 
@@ -296,6 +303,48 @@ router.post('/zero-config/chat-detected', asyncHandler(async (req, res) => {
     res.json({
         success: true,
         message: 'Setup erfolgreich abgeschlossen',
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * POST /api/telegram-app/zero-config/cancel
+ * Cancel a setup session and stop polling
+ */
+router.post('/zero-config/cancel', requireAuth, asyncHandler(async (req, res) => {
+    const { setupToken } = req.body;
+    const userId = req.user.id;
+
+    if (!setupToken) {
+        throw new ValidationError('Setup-Token ist erforderlich');
+    }
+
+    // Verify ownership
+    const session = await db.query(`
+        SELECT id FROM telegram_setup_sessions
+        WHERE setup_token = $1 AND user_id = $2
+        AND status IN ('pending', 'waiting_start')
+    `, [setupToken, userId]);
+
+    if (session.rows.length === 0) {
+        throw new NotFoundError('Session nicht gefunden');
+    }
+
+    // Stop polling
+    telegramSetupPollingService.stopPolling(setupToken);
+
+    // Mark session as cancelled
+    await db.query(`
+        UPDATE telegram_setup_sessions
+        SET status = 'cancelled'
+        WHERE setup_token = $1
+    `, [setupToken]);
+
+    logger.info(`Telegram setup cancelled for token ${setupToken.slice(0, 8)}...`);
+
+    res.json({
+        success: true,
+        message: 'Setup abgebrochen',
         timestamp: new Date().toISOString()
     });
 }));
@@ -753,48 +802,5 @@ router.get('/history', requireAuth, asyncHandler(async (req, res) => {
         timestamp: new Date().toISOString()
     });
 }));
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Encrypt bot token for storage
- * Uses AES-256-GCM with a key derived from JWT_SECRET
- */
-function encryptToken(token) {
-    const key = crypto.scryptSync(process.env.JWT_SECRET || 'default-secret', 'salt', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-
-    let encrypted = cipher.update(token, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-
-    const authTag = cipher.getAuthTag();
-
-    // Return IV + AuthTag + Encrypted data as Buffer
-    return Buffer.concat([iv, authTag, Buffer.from(encrypted, 'hex')]);
-}
-
-/**
- * Decrypt bot token from storage
- */
-function decryptToken(encryptedBuffer) {
-    if (!encryptedBuffer) return null;
-
-    const key = crypto.scryptSync(process.env.JWT_SECRET || 'default-secret', 'salt', 32);
-
-    const iv = encryptedBuffer.slice(0, 16);
-    const authTag = encryptedBuffer.slice(16, 32);
-    const encrypted = encryptedBuffer.slice(32);
-
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(authTag);
-
-    let decrypted = decipher.update(encrypted, null, 'utf8');
-    decrypted += decipher.final('utf8');
-
-    return decrypted;
-}
 
 module.exports = router;

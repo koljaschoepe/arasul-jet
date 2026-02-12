@@ -92,6 +92,8 @@ code {
   --status-critical-border: rgba(239, 68, 68, 0.3);
   --status-warning: #F59E0B;        /* Orange - für Warnungen */
   --status-performance: #22C55E;    /* Grün - NUR für Performance-Indikatoren */
+  --status-performance-bg: rgba(34, 197, 94, 0.15);
+  --status-performance-border: rgba(34, 197, 94, 0.3);
 
   /* Background Colors */
   --bg-dark: #101923;

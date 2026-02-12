@@ -166,13 +166,13 @@
 }
 
 .bot-status-badge.active {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22C55E;
+  background: var(--status-performance-bg);
+  color: var(--status-performance);
 }
 
 .bot-status-badge.inactive {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94A3B8;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);
 }
 
 .status-dot {
@@ -258,13 +258,13 @@
 }
 
 .bot-action-btn.danger {
-  color: #EF4444;
-  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--danger-color);
+  border-color: var(--status-critical-border);
 }
 
 .bot-action-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: #EF4444;
+  background: var(--status-critical-bg);
+  border-color: var(--danger-color);
 }
 
 .bot-action-btn:disabled {
@@ -302,8 +302,8 @@
 }
 
 .wizard-step.completed {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22C55E;
+  background: var(--status-performance-bg);
+  color: var(--status-performance);
 }
 
 .wizard-step-number {
@@ -421,7 +421,7 @@
 }
 
 .form-error {
-  color: #EF4444;
+  color: var(--danger-color);
 }
 
 /* Token Input */
@@ -456,10 +456,10 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: var(--status-performance-bg);
+  border: 1px solid var(--status-performance-border);
   border-radius: 8px;
-  color: #22C55E;
+  color: var(--status-performance);
   font-size: 0.875rem;
 }
 
@@ -468,10 +468,10 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--status-critical-bg);
+  border: 1px solid var(--status-critical-border);
   border-radius: 8px;
-  color: #EF4444;
+  color: var(--danger-color);
   font-size: 0.875rem;
 }
 
@@ -534,8 +534,8 @@
 }
 
 .command-action-btn.delete:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #EF4444;
+  background: var(--status-critical-bg);
+  color: var(--danger-color);
 }
 
 .add-command-btn {
@@ -642,14 +642,14 @@
   justify-content: center;
   padding: 4rem 2rem;
   text-align: center;
-  background: rgba(239, 68, 68, 0.05);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--status-critical-bg);
+  border: 1px solid var(--status-critical-border);
   border-radius: 12px;
 }
 
 .bots-error-icon {
   font-size: 2.5rem;
-  color: #EF4444;
+  color: var(--danger-color);
   margin-bottom: 1rem;
 }
 
@@ -678,13 +678,13 @@
 }
 
 .bot-card-status.active {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22C55E;
+  background: var(--status-performance-bg);
+  color: var(--status-performance);
 }
 
 .bot-card-status.inactive {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94A3B8;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral);
 }
 
 .bot-card-stats {
@@ -737,8 +737,8 @@
 }
 
 .provider-badge.ollama {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22C55E;
+  background: var(--status-performance-bg);
+  color: var(--status-performance);
 }
 
 .provider-badge.claude {
@@ -756,11 +756,11 @@
 }
 
 .bot-action-btn.power.active {
-  color: #22C55E;
+  color: var(--status-performance);
 }
 
 .bot-action-btn.power:hover {
-  color: #22C55E;
+  color: var(--status-performance);
 }
 
 .bot-action-btn.edit:hover {
@@ -768,7 +768,7 @@
 }
 
 .bot-action-btn.delete:hover {
-  color: #EF4444;
+  color: var(--danger-color);
 }
 
 /* ============================================================================
@@ -806,7 +806,7 @@
 }
 
 .wizard-progress-step.completed:not(:last-child)::after {
-  background: #22C55E;
+  background: var(--status-performance);
 }
 
 .wizard-progress-number {
@@ -831,8 +831,8 @@
 }
 
 .wizard-progress-step.completed .wizard-progress-number {
-  background: #22C55E;
-  border-color: #22C55E;
+  background: var(--status-performance);
+  border-color: var(--status-performance);
   color: #fff;
 }
 
@@ -947,14 +947,14 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: var(--status-performance-bg);
+  border: 1px solid var(--status-performance-border);
   border-radius: 8px;
   margin-bottom: 1.25rem;
 }
 
 .wizard-success-icon {
-  color: #22C55E;
+  color: var(--status-performance);
   font-size: 1.25rem;
 }
 
@@ -1017,8 +1017,8 @@
 }
 
 .provider-option-badge.local {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22C55E;
+  background: var(--status-performance-bg);
+  color: var(--status-performance);
 }
 
 .provider-option-badge.cloud {
@@ -1066,10 +1066,10 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--status-critical-bg);
+  border: 1px solid var(--status-critical-border);
   border-radius: 8px;
-  color: #EF4444;
+  color: var(--danger-color);
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }
@@ -1246,15 +1246,15 @@
 }
 
 .bot-details-message.success {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  color: #22C55E;
+  background: var(--status-performance-bg);
+  border: 1px solid var(--status-performance-border);
+  color: var(--status-performance);
 }
 
 .bot-details-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #EF4444;
+  background: var(--status-critical-bg);
+  border: 1px solid var(--status-critical-border);
+  color: var(--danger-color);
 }
 
 .bot-details-form {
@@ -1478,8 +1478,8 @@
 }
 
 .chat-item-remove:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #EF4444;
+  background: var(--status-critical-bg);
+  color: var(--danger-color);
 }
 
 /* ============================================================================
@@ -1573,9 +1573,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--status-critical-bg);
   border-radius: 6px;
-  color: #EF4444;
+  color: var(--danger-color);
   font-size: 0.8125rem;
   margin-bottom: 1rem;
 }
@@ -1770,8 +1770,8 @@
 }
 
 .command-toggle-btn.enabled {
-  background: rgba(34, 197, 94, 0.2);
-  border-color: #22C55E;
+  background: var(--status-performance-bg);
+  border-color: var(--status-performance);
 }
 
 .command-toggle-slider {
@@ -1787,7 +1787,7 @@
 
 .command-toggle-btn.enabled .command-toggle-slider {
   left: 18px;
-  background: #22C55E;
+  background: var(--status-performance);
 }
 
 .commands-builtin-info {
