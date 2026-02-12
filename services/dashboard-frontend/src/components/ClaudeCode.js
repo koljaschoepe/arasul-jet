@@ -45,6 +45,7 @@ function WorkspaceManager({
   onWorkspaceDeleted,
   onSetDefault,
 }) {
+  const { confirm: showConfirm, ConfirmDialog: WorkspaceConfirmDialog } = useConfirm();
   const [newName, setNewName] = useState('');
   const [newPath, setNewPath] = useState('/home/arasul/');
   const [newDescription, setNewDescription] = useState('');
@@ -82,7 +83,7 @@ function WorkspaceManager({
   };
 
   const handleDelete = async workspace => {
-    if (!(await confirm({ message: `Workspace "${workspace.name}" wirklich löschen?` }))) {
+    if (!(await showConfirm({ message: `Workspace "${workspace.name}" wirklich löschen?` }))) {
       return;
     }
 
@@ -232,6 +233,7 @@ function WorkspaceManager({
           </p>
         </div>
       </div>
+      <WorkspaceConfirmDialog />
     </div>
   );
 }
@@ -526,7 +528,7 @@ function SetupWizard({
 function ClaudeCode() {
   const [appStatus, setAppStatus] = useState(null);
   const [config, setConfig] = useState({});
-  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirm: showConfirm, ConfirmDialog } = useConfirm();
   const [workspaces, setWorkspaces] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);

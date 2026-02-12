@@ -331,6 +331,7 @@ const ColumnMenu = memo(function ColumnMenu({
   onFieldUpdated,
   position,
 }) {
+  const { confirm: showConfirm, ConfirmDialog: ColumnConfirmDialog } = useConfirm();
   const [mode, setMode] = useState('menu');
   const [newName, setNewName] = useState(field.name);
   const [newType, setNewType] = useState(field.field_type);
@@ -397,7 +398,7 @@ const ColumnMenu = memo(function ColumnMenu({
   };
 
   const handleDelete = async () => {
-    if (!(await confirm({ message: `Spalte "${field.name}" wirklich löschen?` }))) return;
+    if (!(await showConfirm({ message: `Spalte "${field.name}" wirklich löschen?` }))) return;
 
     setLoading(true);
     try {
@@ -470,6 +471,7 @@ const ColumnMenu = memo(function ColumnMenu({
           </div>
         </div>
       )}
+      <ColumnConfirmDialog />
     </div>
   );
 });
@@ -692,7 +694,7 @@ const AIQueryPanel = memo(function AIQueryPanel({ tableSlug, onResultsApplied, o
  */
 function ExcelEditor({ tableSlug, tableName, onClose }) {
   const toast = useToast();
-  const { confirm, ConfirmDialog } = useConfirm();
+  const { confirm: showConfirm, ConfirmDialog } = useConfirm();
   // Table state
   const [table, setTable] = useState(null);
   const [fields, setFields] = useState([]);
@@ -1008,7 +1010,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
   // Delete selected rows
   const handleDeleteSelected = async () => {
     if (selectedRows.size === 0) return;
-    if (!(await confirm({ message: `${selectedRows.size} Zeile(n) löschen?` }))) return;
+    if (!(await showConfirm({ message: `${selectedRows.size} Zeile(n) löschen?` }))) return;
 
     try {
       setSaving(true);
