@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { FiPlus, FiChevronRight, FiEdit2, FiDownload, FiTrash2 } from 'react-icons/fi';
 
 /**
@@ -25,6 +25,40 @@ const ChatTabsBar = memo(function ChatTabsBar({
 }) {
   const [hoveredChatId, setHoveredChatId] = useState(null);
 
+  // WAI-ARIA tabs pattern: arrow key navigation between tabs
+  const handleTabKeyDown = useCallback(
+    (e, chatIndex) => {
+      let nextIndex;
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextIndex = (chatIndex + 1) % chats.length;
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        nextIndex = (chatIndex - 1 + chats.length) % chats.length;
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        nextIndex = 0;
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        nextIndex = chats.length - 1;
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onSelectChat(chats[chatIndex].id);
+        return;
+      } else {
+        return;
+      }
+      onSelectChat(chats[nextIndex].id);
+      // Focus the newly selected tab
+      const tabsEl = tabsContainerRef?.current;
+      if (tabsEl) {
+        const tabs = tabsEl.querySelectorAll('[role="tab"]');
+        tabs[nextIndex]?.focus();
+      }
+    },
+    [chats, onSelectChat, tabsContainerRef]
+  );
+
   return (
     <div className="chat-tabs-bar" role="tablist" aria-label="Chat-Unterhaltungen">
       <button
@@ -37,21 +71,17 @@ const ChatTabsBar = memo(function ChatTabsBar({
       </button>
 
       <div className="chat-tabs" ref={tabsContainerRef}>
-        {chats.map(chat => (
+        {chats.map((chat, chatIndex) => (
           <div
             key={chat.id}
             role="tab"
             tabIndex={currentChatId === chat.id ? 0 : -1}
             aria-selected={currentChatId === chat.id}
             aria-controls={`chat-panel-${chat.id}`}
+            aria-label={chat.title}
             className={`chat-tab ${currentChatId === chat.id ? 'active' : ''} ${activeJobIds[chat.id] ? 'has-active-job' : ''}`}
             onClick={() => onSelectChat(chat.id)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onSelectChat(chat.id);
-              }
-            }}
+            onKeyDown={e => handleTabKeyDown(e, chatIndex)}
             onMouseEnter={() => setHoveredChatId(chat.id)}
             onMouseLeave={() => setHoveredChatId(null)}
           >
@@ -93,6 +123,7 @@ const ChatTabsBar = memo(function ChatTabsBar({
                 onBlur={() => onSaveTitle(chat.id)}
                 autoFocus
                 className="tab-title-input"
+                aria-label="Chat-Titel bearbeiten"
                 onClick={e => e.stopPropagation()}
               />
             ) : (

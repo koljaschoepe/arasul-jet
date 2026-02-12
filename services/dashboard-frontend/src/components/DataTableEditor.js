@@ -1361,11 +1361,19 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
                     style={{ width: columnWidths[field.slug] || 'auto', minWidth: 80 }}
                   >
                     <div className="yaml-th-content">
-                      <span className="yaml-th-name" onClick={() => handleSort(field.slug)}>
+                      <button
+                        className="yaml-th-name"
+                        onClick={() => handleSort(field.slug)}
+                        aria-label={`Sortiere nach ${field.name}${sortField === field.slug ? (sortOrder === 'asc' ? ', aufsteigend' : ', absteigend') : ''}`}
+                      >
                         {field.name}
                         {sortField === field.slug &&
-                          (sortOrder === 'asc' ? <FiChevronUp /> : <FiChevronDown />)}
-                      </span>
+                          (sortOrder === 'asc' ? (
+                            <FiChevronUp aria-hidden="true" />
+                          ) : (
+                            <FiChevronDown aria-hidden="true" />
+                          ))}
+                      </button>
                       <button
                         className="yaml-th-menu-btn"
                         onClick={e => {

@@ -1077,7 +1077,9 @@ function ChatMulti() {
               <button
                 className={`input-toggle space-toggle ${selectedSpaces.length > 0 ? 'active' : ''}`}
                 onClick={() => setShowSpacesDropdown(!showSpacesDropdown)}
-                title={
+                aria-expanded={showSpacesDropdown}
+                aria-haspopup="listbox"
+                aria-label={
                   selectedSpaces.length > 0
                     ? `${selectedSpaces.length} Bereiche ausgewählt`
                     : 'Alle Bereiche (Auto-Routing)'
@@ -1090,7 +1092,7 @@ function ChatMulti() {
                 <FiChevronDown className={`dropdown-arrow ${showSpacesDropdown ? 'open' : ''}`} />
               </button>
               {showSpacesDropdown && (
-                <div className="space-dropdown">
+                <div className="space-dropdown" role="listbox" aria-label="Bereiche auswählen">
                   <div
                     className={`space-option auto-option ${selectedSpaces.length === 0 ? 'selected' : ''}`}
                     onClick={clearSpaceSelection}
@@ -1134,7 +1136,9 @@ function ChatMulti() {
               <button
                 className={`input-toggle model-toggle ${selectedModel ? 'active' : ''}`}
                 onClick={() => setShowModelDropdown(!showModelDropdown)}
-                title="Modell auswählen"
+                aria-expanded={showModelDropdown}
+                aria-haspopup="listbox"
+                aria-label="Modell auswählen"
               >
                 <FiBox />
                 <span className="model-name-short">
@@ -1146,7 +1150,7 @@ function ChatMulti() {
                 <FiChevronDown className={`dropdown-arrow ${showModelDropdown ? 'open' : ''}`} />
               </button>
               {showModelDropdown && (
-                <div className="model-dropdown">
+                <div className="model-dropdown" role="listbox" aria-label="Modell auswählen">
                   <div
                     className={`model-option ${!selectedModel ? 'selected' : ''}`}
                     onClick={() => {

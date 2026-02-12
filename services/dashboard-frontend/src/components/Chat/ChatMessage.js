@@ -31,11 +31,19 @@ const ChatMessage = memo(function ChatMessage({
         <div
           className={`thinking-block ${message.thinkingCollapsed ? 'collapsed' : ''} ${message.thinkingCollapsing ? 'collapsing' : ''}`}
         >
-          <div className="thinking-header" onClick={() => onToggleThinking(index)}>
-            <FiCpu className="thinking-icon" />
+          <button
+            className="thinking-header"
+            onClick={() => onToggleThinking(index)}
+            aria-expanded={!message.thinkingCollapsed}
+          >
+            <FiCpu className="thinking-icon" aria-hidden="true" />
             <span>Gedankengang</span>
-            {message.thinkingCollapsed ? <FiChevronDown /> : <FiChevronUp />}
-          </div>
+            {message.thinkingCollapsed ? (
+              <FiChevronDown aria-hidden="true" />
+            ) : (
+              <FiChevronUp aria-hidden="true" />
+            )}
+          </button>
           <div className="thinking-content">{message.thinking}</div>
         </div>
       )}
@@ -69,10 +77,10 @@ const ChatMessage = memo(function ChatMessage({
 
       {/* Loading indicator */}
       {message.role === 'assistant' && !message.content && !message.thinking && isLoading && (
-        <div className="message-loading">
-          <span></span>
-          <span></span>
-          <span></span>
+        <div className="message-loading" role="status" aria-label="AI antwortet...">
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
         </div>
       )}
 
@@ -105,11 +113,19 @@ const ChatMessage = memo(function ChatMessage({
       {/* Sources Block */}
       {message.sources && message.sources.length > 0 && (
         <div className={`sources-block ${message.sourcesCollapsed ? 'collapsed' : ''}`}>
-          <div className="sources-header" onClick={() => onToggleSources(index)}>
-            <FiBook className="sources-icon" />
+          <button
+            className="sources-header"
+            onClick={() => onToggleSources(index)}
+            aria-expanded={!message.sourcesCollapsed}
+          >
+            <FiBook className="sources-icon" aria-hidden="true" />
             <span>Quellen ({message.sources.length})</span>
-            {message.sourcesCollapsed ? <FiChevronDown /> : <FiChevronUp />}
-          </div>
+            {message.sourcesCollapsed ? (
+              <FiChevronDown aria-hidden="true" />
+            ) : (
+              <FiChevronUp aria-hidden="true" />
+            )}
+          </button>
           {!message.sourcesCollapsed && (
             <div className="sources-content">
               {message.sources.map((source, sourceIndex) => (

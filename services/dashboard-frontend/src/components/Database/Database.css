@@ -2002,3 +2002,17 @@ body.sidebar-collapsed .excel-fullscreen {
         border-top: 1px solid var(--border-color, #334155);
     }
 }
+
+/* Sort button reset for table headers */
+button.yaml-th-name {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
