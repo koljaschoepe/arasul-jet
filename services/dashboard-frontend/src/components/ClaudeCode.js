@@ -4,7 +4,8 @@
  * Features First-Time Setup Wizard and Dynamic Workspace Management
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import useConfirm from '../hooks/useConfirm';
 import {
@@ -526,6 +527,7 @@ function SetupWizard({
 }
 
 function ClaudeCode() {
+  const navigate = useNavigate();
   const [appStatus, setAppStatus] = useState(null);
   const [config, setConfig] = useState({});
   const { confirm: showConfirm, ConfirmDialog } = useConfirm();
@@ -534,6 +536,7 @@ function ClaudeCode() {
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showWorkspaceManager, setShowWorkspaceManager] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState('');
   const [error, setError] = useState(null);
@@ -541,6 +544,7 @@ function ClaudeCode() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [authStatus, setAuthStatus] = useState(null);
   const [authRefreshing, setAuthRefreshing] = useState(false);
+  const setupPollRef = useRef(null);
 
   // Load workspaces
   const loadWorkspaces = useCallback(async () => {
@@ -653,6 +657,13 @@ function ClaudeCode() {
     loadAppData();
     loadWorkspaces();
     loadAuthStatus();
+
+    // Cleanup setup polling on unmount
+    return () => {
+      if (setupPollRef.current) {
+        clearInterval(setupPollRef.current);
+      }
+    };
   }, [loadAppData, loadWorkspaces, loadAuthStatus]);
 
   // Poll auth status every 30 seconds when app is running
@@ -671,16 +682,31 @@ function ClaudeCode() {
     }
   }, [actionLoading, loadAppData]);
 
+  // Loading timeout - show message after 15s
+  useEffect(() => {
+    if (loading) {
+      const timeout = setTimeout(() => setLoadingTimeout(true), 15000);
+      return () => clearTimeout(timeout);
+    }
+    setLoadingTimeout(false);
+  }, [loading]);
+
   const handleSetupComplete = () => {
     setShowSetupWizard(false);
     setActionLoading(true);
 
+    // Clear any previous poll
+    if (setupPollRef.current) {
+      clearInterval(setupPollRef.current);
+    }
+
     // Poll for app to be running
-    const pollInterval = setInterval(async () => {
+    setupPollRef.current = setInterval(async () => {
       try {
         const res = await axios.get(`${API_BASE}/apps/claude-code`);
         if (res.data.status === 'running' || res.data.app?.status === 'running') {
-          clearInterval(pollInterval);
+          clearInterval(setupPollRef.current);
+          setupPollRef.current = null;
           setActionLoading(false);
           loadAppData();
         }
@@ -691,9 +717,13 @@ function ClaudeCode() {
 
     // Stop polling after 60 seconds
     setTimeout(() => {
-      clearInterval(pollInterval);
-      setActionLoading(false);
-      loadAppData();
+      if (setupPollRef.current) {
+        clearInterval(setupPollRef.current);
+        setupPollRef.current = null;
+        setActionLoading(false);
+        setError('Setup dauert länger als erwartet. Bitte prüfe den Status manuell.');
+        loadAppData();
+      }
     }, 60000);
   };
 
@@ -933,6 +963,29 @@ function ClaudeCode() {
         <div className="claude-loading">
           <div className="claude-loading-spinner"></div>
           <p>Lade Claude Code...</p>
+          {loadingTimeout && (
+            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+              <p style={{ color: 'var(--warning-color)', marginBottom: '1rem' }}>
+                <FiAlertTriangle style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Laden dauert länger als erwartet.
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                <button
+                  className="claude-btn claude-btn-primary"
+                  onClick={() => {
+                    setLoading(true);
+                    setLoadingTimeout(false);
+                    loadAppData();
+                  }}
+                >
+                  <FiRefreshCw /> Erneut versuchen
+                </button>
+                <button className="claude-btn claude-btn-secondary" onClick={() => navigate('/')}>
+                  Zurück zum Dashboard
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -945,9 +998,26 @@ function ClaudeCode() {
           <FiAlertCircle className="error-icon" />
           <h2>Claude Code nicht verfügbar</h2>
           <p>{error}</p>
-          <a href="/appstore" className="claude-btn claude-btn-primary">
-            Zum Store
-          </a>
+          <div
+            style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}
+          >
+            <button
+              className="claude-btn claude-btn-primary"
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                loadAppData();
+              }}
+            >
+              <FiRefreshCw /> Erneut versuchen
+            </button>
+            <button className="claude-btn claude-btn-secondary" onClick={() => navigate('/')}>
+              Zurück zum Dashboard
+            </button>
+            <button className="claude-btn claude-btn-secondary" onClick={() => navigate('/store')}>
+              Zum Store
+            </button>
+          </div>
         </div>
       </div>
     );

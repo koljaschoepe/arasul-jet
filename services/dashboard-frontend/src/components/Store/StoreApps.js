@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -26,6 +26,7 @@ import {
   FiX,
   FiTerminal,
   FiStar,
+  FiAlertTriangle,
 } from 'react-icons/fi';
 import AppDetailModal from '../AppDetailModal';
 import ConfirmIconButton from '../ConfirmIconButton';
@@ -92,10 +93,12 @@ const getAppUrl = app => {
 function StoreApps() {
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
+  const navigate = useNavigate();
 
   const toast = useToast();
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('recommended'); // 'recommended' or 'all'
   const [selectedApp, setSelectedApp] = useState(null);
@@ -129,6 +132,15 @@ function StoreApps() {
     const interval = setInterval(loadApps, 5000);
     return () => clearInterval(interval);
   }, [loadApps]);
+
+  // Loading timeout - show message after 15s
+  useEffect(() => {
+    if (loading) {
+      const timeout = setTimeout(() => setLoadingTimeout(true), 15000);
+      return () => clearTimeout(timeout);
+    }
+    setLoadingTimeout(false);
+  }, [loading]);
 
   // Highlight app from search
   useEffect(() => {
@@ -337,6 +349,29 @@ function StoreApps() {
       <div className="store-apps-loading">
         <FiRefreshCw className="spin" />
         <span>Apps werden geladen...</span>
+        {loadingTimeout && (
+          <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+            <p style={{ color: 'var(--warning-color)', marginBottom: '1rem' }}>
+              <FiAlertTriangle style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              Laden dauert länger als erwartet.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setLoading(true);
+                  setLoadingTimeout(false);
+                  loadApps();
+                }}
+              >
+                <FiRefreshCw /> Erneut versuchen
+              </button>
+              <button className="btn btn-secondary" onClick={() => navigate('/')}>
+                Zurück zum Dashboard
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

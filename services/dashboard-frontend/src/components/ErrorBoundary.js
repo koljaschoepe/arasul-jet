@@ -65,7 +65,7 @@ class ErrorBoundary extends React.Component {
           error: this.state.error,
           errorInfo: this.state.errorInfo,
           retry: this.handleRetry,
-          reload: this.handleReload
+          reload: this.handleReload,
         });
       }
 
@@ -132,7 +132,13 @@ class ErrorBoundary extends React.Component {
               </button>
               {!this.props.hideBackButton && (
                 <button
-                  onClick={() => window.history.back()}
+                  onClick={() => {
+                    if (window.history.length > 1) {
+                      window.history.back();
+                    } else {
+                      window.location.href = '/';
+                    }
+                  }}
                   className="btn-back"
                   aria-label="Zurück zur vorherigen Seite"
                 >
@@ -142,7 +148,8 @@ class ErrorBoundary extends React.Component {
             </div>
 
             <p className="error-hint">
-              {this.props.hint || 'Wenn das Problem weiterhin besteht, kontaktieren Sie bitte den Administrator.'}
+              {this.props.hint ||
+                'Wenn das Problem weiterhin besteht, kontaktieren Sie bitte den Administrator.'}
             </p>
           </div>
         </div>
@@ -173,10 +180,7 @@ export function RouteErrorBoundary({ children, routeName }) {
  */
 export function ComponentErrorBoundary({ children, componentName }) {
   return (
-    <ErrorBoundary
-      compact
-      message={`${componentName || 'Komponente'} konnte nicht geladen werden`}
-    >
+    <ErrorBoundary compact message={`${componentName || 'Komponente'} konnte nicht geladen werden`}>
       {children}
     </ErrorBoundary>
   );

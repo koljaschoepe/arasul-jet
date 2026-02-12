@@ -3,7 +3,14 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiMessageCircle, FiPlus, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import {
+  FiMessageCircle,
+  FiPlus,
+  FiAlertCircle,
+  FiRefreshCw,
+  FiAlertTriangle,
+} from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 import { useToast } from '../../contexts/ToastContext';
 import BotCard from './BotCard';
@@ -13,9 +20,11 @@ import Modal from '../Modal';
 import './TelegramBots.css';
 
 function TelegramBotsPage() {
+  const navigate = useNavigate();
   const toast = useToast();
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [error, setError] = useState(null);
   const [showWizard, setShowWizard] = useState(false);
   const [selectedBot, setSelectedBot] = useState(null);
@@ -56,6 +65,15 @@ function TelegramBotsPage() {
   useEffect(() => {
     fetchBots();
   }, [fetchBots]);
+
+  // Loading timeout - show message after 15s
+  useEffect(() => {
+    if (loading) {
+      const timeout = setTimeout(() => setLoadingTimeout(true), 15000);
+      return () => clearTimeout(timeout);
+    }
+    setLoadingTimeout(false);
+  }, [loading]);
 
   // Handle bot created
   const handleBotCreated = newBot => {
@@ -124,6 +142,33 @@ function TelegramBotsPage() {
         <div className="bots-loading">
           <div className="loading-spinner" />
           <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Lade Bots...</p>
+          {loadingTimeout && (
+            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+              <p style={{ color: 'var(--warning-color)', marginBottom: '1rem' }}>
+                <FiAlertTriangle style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Laden dauert länger als erwartet.
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                <button
+                  className="add-bot-btn"
+                  onClick={() => {
+                    setLoading(true);
+                    setLoadingTimeout(false);
+                    fetchBots();
+                  }}
+                >
+                  <FiRefreshCw /> Erneut versuchen
+                </button>
+                <button
+                  className="add-bot-btn"
+                  onClick={() => navigate('/')}
+                  style={{ background: 'var(--bg-card)' }}
+                >
+                  Zurück zum Dashboard
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

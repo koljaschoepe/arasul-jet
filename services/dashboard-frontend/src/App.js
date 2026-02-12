@@ -42,7 +42,7 @@ import {
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
 import Login from './components/Login';
-import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundary, { RouteErrorBoundary } from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 
 // PHASE 3: State Management - Contexts and Hooks
@@ -390,15 +390,71 @@ function AppContent() {
                     />
                   }
                 />
-                <Route path="/chat" element={<ChatMulti />} />
-                <Route path="/data" element={<DocumentManager />} />
+                <Route
+                  path="/chat"
+                  element={
+                    <RouteErrorBoundary routeName="AI Chat">
+                      <ChatMulti />
+                    </RouteErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/data"
+                  element={
+                    <RouteErrorBoundary routeName="Dokumente">
+                      <DocumentManager />
+                    </RouteErrorBoundary>
+                  }
+                />
                 <Route path="/documents" element={<Navigate to="/data" replace />} />
-                <Route path="/store/*" element={<Store />} />
-                <Route path="/claude-code" element={<ClaudeCode />} />
-                <Route path="/telegram-bot" element={<TelegramBotApp />} />
-                <Route path="/telegram-bots" element={<TelegramBotsPage />} />
-                <Route path="/database" element={<DatabaseOverview />} />
-                <Route path="/database/:slug" element={<DatabaseTable />} />
+                <Route
+                  path="/store/*"
+                  element={
+                    <RouteErrorBoundary routeName="Store">
+                      <Store />
+                    </RouteErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/claude-code"
+                  element={
+                    <RouteErrorBoundary routeName="Claude Code">
+                      <ClaudeCode />
+                    </RouteErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/telegram-bot"
+                  element={
+                    <RouteErrorBoundary routeName="Telegram Bot">
+                      <TelegramBotApp />
+                    </RouteErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/telegram-bots"
+                  element={
+                    <RouteErrorBoundary routeName="Telegram Bots">
+                      <TelegramBotsPage />
+                    </RouteErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/database"
+                  element={
+                    <RouteErrorBoundary routeName="Datenbank">
+                      <DatabaseOverview />
+                    </RouteErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/database/:slug"
+                  element={
+                    <RouteErrorBoundary routeName="Datentabelle">
+                      <DatabaseTable />
+                    </RouteErrorBoundary>
+                  }
+                />
                 <Route
                   path="*"
                   element={
