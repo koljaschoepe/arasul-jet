@@ -1,13 +1,13 @@
 /**
  * useConfirm - Promise-based confirmation dialog hook
  *
- * Wraps ConfirmModal with async API for easy window.confirm replacement.
+ * Replaces window.confirm with a styled ConfirmModal.
  *
  * Usage:
  *   const { confirm, ConfirmDialog } = useConfirm();
  *   const ok = await confirm({ message: 'Wirklich löschen?' });
  *   if (!ok) return;
- *   // ... in JSX: <ConfirmDialog />
+ *   // ... in JSX: {ConfirmDialog}
  */
 
 import { useState, useCallback, useRef } from 'react';

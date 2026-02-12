@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { useToast } from '../../contexts/ToastContext';
 import {
   FiPackage,
   FiDownload,
@@ -24,7 +25,7 @@ import {
   FiGitBranch,
   FiX,
   FiTerminal,
-  FiStar
+  FiStar,
 } from 'react-icons/fi';
 import AppDetailModal from '../AppDetailModal';
 import ConfirmIconButton from '../ConfirmIconButton';
@@ -37,7 +38,7 @@ const iconMap = {
   FiCode: FiCode,
   FiGitBranch: FiGitBranch,
   FiPackage: FiPackage,
-  FiTerminal: FiTerminal
+  FiTerminal: FiTerminal,
 };
 
 // Featured apps
@@ -50,7 +51,7 @@ const categoryLabels = {
   ai: 'KI & ML',
   storage: 'Speicher',
   monitoring: 'Monitoring',
-  networking: 'Netzwerk'
+  networking: 'Netzwerk',
 };
 
 // Status configuration
@@ -62,15 +63,15 @@ const statusConfig = {
   starting: { color: '#60a5fa', label: 'Startet...', icon: FiRefreshCw },
   stopping: { color: '#94a3b8', label: 'Stoppt...', icon: FiRefreshCw },
   uninstalling: { color: '#475569', label: 'Deinstalliert...', icon: FiRefreshCw },
-  error: { color: '#475569', label: 'Fehler', icon: FiAlertCircle }
+  error: { color: '#475569', label: 'Fehler', icon: FiAlertCircle },
 };
 
 // Get app URL
-const getAppUrl = (app) => {
+const getAppUrl = app => {
   if (app.hasCustomPage && app.customPageRoute) {
     return app.customPageRoute;
   }
-  const traefikPaths = { 'n8n': '/n8n' };
+  const traefikPaths = { n8n: '/n8n' };
   if (traefikPaths[app.id]) {
     return `${window.location.origin}${traefikPaths[app.id]}`;
   }
@@ -78,9 +79,9 @@ const getAppUrl = (app) => {
     return `http://${window.location.hostname}:${app.ports.external}`;
   }
   const knownPorts = {
-    'minio': 9001,
+    minio: 9001,
     'code-server': 8443,
-    'gitea': 3002
+    gitea: 3002,
   };
   if (knownPorts[app.id]) {
     return `http://${window.location.hostname}:${knownPorts[app.id]}`;
@@ -92,13 +93,18 @@ function StoreApps() {
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
 
+  const toast = useToast();
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('recommended'); // 'recommended' or 'all'
   const [selectedApp, setSelectedApp] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
-  const [uninstallDialog, setUninstallDialog] = useState({ open: false, appId: null, appName: null });
+  const [uninstallDialog, setUninstallDialog] = useState({
+    open: false,
+    appId: null,
+    appName: null,
+  });
 
   // Load apps
   const loadApps = useCallback(async () => {
@@ -145,9 +151,11 @@ function StoreApps() {
       console.error(`Error ${action} app ${appId}:`, err);
       const dependentApps = err.response?.data?.dependentApps;
       if (dependentApps && dependentApps.length > 0) {
-        alert(`Diese App kann nicht gestoppt werden.\n\nFolgende Apps haengen davon ab:\n- ${dependentApps.join('\n- ')}`);
+        toast.warning(
+          `Diese App kann nicht gestoppt werden. Folgende Apps haengen davon ab: ${dependentApps.join(', ')}`
+        );
       } else {
-        alert(err.response?.data?.message || `${action} fehlgeschlagen`);
+        toast.error(err.response?.data?.message || `${action} fehlgeschlagen`);
       }
     } finally {
       setActionLoading(prev => ({ ...prev, [appId]: null }));
@@ -159,7 +167,7 @@ function StoreApps() {
     setUninstallDialog({ open: true, appId, appName });
   };
 
-  const handleUninstall = async (removeVolumes) => {
+  const handleUninstall = async removeVolumes => {
     const { appId } = uninstallDialog;
     setUninstallDialog({ open: false, appId: null, appName: null });
     if (appId) {
@@ -168,13 +176,13 @@ function StoreApps() {
   };
 
   // Get icon component
-  const getIcon = (iconName) => {
+  const getIcon = iconName => {
     const IconComponent = iconMap[iconName] || FiPackage;
     return <IconComponent />;
   };
 
   // Get status config
-  const getStatusConfig = (status) => {
+  const getStatusConfig = status => {
     return statusConfig[status] || statusConfig.available;
   };
 
@@ -187,7 +195,7 @@ function StoreApps() {
   });
 
   // Render app card
-  const renderAppCard = (app) => {
+  const renderAppCard = app => {
     const status = getStatusConfig(app.status);
     const StatusIcon = status.icon;
     const isLoading = actionLoading[app.id];
@@ -201,16 +209,14 @@ function StoreApps() {
         onClick={() => setSelectedApp(app)}
       >
         <div className="app-card-header">
-          <div className="app-icon">
-            {getIcon(app.icon)}
-          </div>
+          <div className="app-icon">{getIcon(app.icon)}</div>
           <div className="app-badges">
             {isFeatured && (
-              <span className="badge badge-featured"><FiStar /> Empfohlen</span>
+              <span className="badge badge-featured">
+                <FiStar /> Empfohlen
+              </span>
             )}
-            {isSystem && (
-              <span className="badge badge-system">System</span>
-            )}
+            {isSystem && <span className="badge badge-system">System</span>}
             <span className={`badge badge-status badge-${app.status}`}>
               {isLoading ? <FiRefreshCw className="spin" /> : <StatusIcon />}
               {status.label}
@@ -223,12 +229,10 @@ function StoreApps() {
 
         <div className="app-meta">
           <span className="app-version">v{app.version}</span>
-          <span className="app-category">
-            {categoryLabels[app.category] || app.category}
-          </span>
+          <span className="app-category">{categoryLabels[app.category] || app.category}</span>
         </div>
 
-        <div className="app-actions" onClick={(e) => e.stopPropagation()}>
+        <div className="app-actions" onClick={e => e.stopPropagation()}>
           {app.status === 'available' && (
             <button
               className="btn btn-primary"
@@ -308,8 +312,10 @@ function StoreApps() {
             </>
           )}
 
-          {(app.status === 'installing' || app.status === 'starting' ||
-            app.status === 'stopping' || app.status === 'uninstalling') && (
+          {(app.status === 'installing' ||
+            app.status === 'starting' ||
+            app.status === 'stopping' ||
+            app.status === 'uninstalling') && (
             <button className="btn btn-disabled" disabled>
               <FiRefreshCw className="spin" /> {status.label}
             </button>
@@ -393,10 +399,15 @@ function StoreApps() {
 
       {/* Uninstall Dialog */}
       {uninstallDialog.open && (
-        <div className="modal-overlay" onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}>
-          <div className="modal-content uninstall-dialog" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
+        >
+          <div className="modal-content uninstall-dialog" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3><FiTrash2 /> App deinstallieren</h3>
+              <h3>
+                <FiTrash2 /> App deinstallieren
+              </h3>
               <button
                 className="modal-close"
                 onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
@@ -409,7 +420,8 @@ function StoreApps() {
                 Moechten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
               </p>
               <p className="uninstall-warning">
-                <FiAlertCircle /> Waehlen Sie, ob die App-Daten behalten oder geloescht werden sollen:
+                <FiAlertCircle /> Waehlen Sie, ob die App-Daten behalten oder geloescht werden
+                sollen:
               </p>
             </div>
             <div className="modal-footer uninstall-buttons">
@@ -419,16 +431,10 @@ function StoreApps() {
               >
                 Abbrechen
               </button>
-              <button
-                className="btn btn-warning"
-                onClick={() => handleUninstall(false)}
-              >
+              <button className="btn btn-warning" onClick={() => handleUninstall(false)}>
                 <FiTrash2 /> Nur App entfernen
               </button>
-              <button
-                className="btn btn-danger"
-                onClick={() => handleUninstall(true)}
-              >
+              <button className="btn btn-danger" onClick={() => handleUninstall(true)}>
                 <FiTrash2 /> App + Daten loeschen
               </button>
             </div>

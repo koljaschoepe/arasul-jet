@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiMessageCircle, FiPlus, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { useToast } from '../../contexts/ToastContext';
 import BotCard from './BotCard';
 import BotSetupWizard from './BotSetupWizard';
 import BotDetailsModal from './BotDetailsModal';
@@ -12,6 +13,7 @@ import Modal from '../Modal';
 import './TelegramBots.css';
 
 function TelegramBotsPage() {
+  const toast = useToast();
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -86,7 +88,7 @@ function TelegramBotsPage() {
       );
     } catch (err) {
       console.error('Error toggling bot:', err);
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -109,7 +111,7 @@ function TelegramBotsPage() {
       setDeleteBot(null);
     } catch (err) {
       console.error('Error deleting bot:', err);
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setDeleting(false);
     }

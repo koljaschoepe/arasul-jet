@@ -524,9 +524,9 @@ function SetupWizard({
 }
 
 function ClaudeCode() {
-  const { confirm, ConfirmDialog } = useConfirm();
   const [appStatus, setAppStatus] = useState(null);
   const [config, setConfig] = useState({});
+  const { confirm, ConfirmDialog } = useConfirm();
   const [workspaces, setWorkspaces] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);

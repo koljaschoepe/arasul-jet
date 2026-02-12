@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import useConfirm from '../hooks/useConfirm';
 import {
   FiUpload,
   FiFile,
@@ -36,6 +35,8 @@ import SimpleTableCreateDialog from './SimpleTableCreateDialog';
 import ExcelEditor from './Database/ExcelEditor';
 import SpaceModal from './SpaceModal';
 import { API_BASE } from '../config/api';
+import { useToast } from '../contexts/ToastContext';
+import useConfirm from '../hooks/useConfirm';
 import { formatDate, formatFileSize } from '../utils/formatting';
 import '../documents.css';
 import '../markdown-editor.css';
@@ -90,8 +91,9 @@ const SpaceBadge = ({ name, color }) => (
 );
 
 function DocumentManager() {
-  const { confirm, ConfirmDialog } = useConfirm();
   // State
+  const toast = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [documents, setDocuments] = useState([]);
   const [tables, setTables] = useState([]); // PostgreSQL Datentabellen
   const [categories, setCategories] = useState([]);

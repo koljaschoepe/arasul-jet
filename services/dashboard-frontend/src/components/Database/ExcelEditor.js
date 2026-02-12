@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react';
 import axios from 'axios';
-import useConfirm from '../../hooks/useConfirm';
 import {
   FiX,
   FiPlus,
@@ -35,6 +34,8 @@ import {
   FiFilter,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { useToast } from '../../contexts/ToastContext';
+import useConfirm from '../../hooks/useConfirm';
 import './Database.css';
 
 // Maximum undo history size
@@ -330,7 +331,6 @@ const ColumnMenu = memo(function ColumnMenu({
   onFieldUpdated,
   position,
 }) {
-  const { confirm, ConfirmDialog } = useConfirm();
   const [mode, setMode] = useState('menu');
   const [newName, setNewName] = useState(field.name);
   const [newType, setNewType] = useState(field.field_type);
@@ -470,7 +470,6 @@ const ColumnMenu = memo(function ColumnMenu({
           </div>
         </div>
       )}
-      {ConfirmDialog}
     </div>
   );
 });
@@ -692,7 +691,8 @@ const AIQueryPanel = memo(function AIQueryPanel({ tableSlug, onResultsApplied, o
  * ExcelEditor - Main fullscreen editor component
  */
 function ExcelEditor({ tableSlug, tableName, onClose }) {
-  const { confirm: confirmMain, ConfirmDialog: ConfirmDialogMain } = useConfirm();
+  const toast = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
   // Table state
   const [table, setTable] = useState(null);
   const [fields, setFields] = useState([]);
@@ -1008,7 +1008,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
   // Delete selected rows
   const handleDeleteSelected = async () => {
     if (selectedRows.size === 0) return;
-    if (!(await confirmMain({ message: `${selectedRows.size} Zeile(n) löschen?` }))) return;
+    if (!(await confirm({ message: `${selectedRows.size} Zeile(n) löschen?` }))) return;
 
     try {
       setSaving(true);
@@ -1524,7 +1524,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
         )}
       </div>
       {/* Close excel-container */}
-      {ConfirmDialogMain}
+      {ConfirmDialog}
     </div>
   );
 }

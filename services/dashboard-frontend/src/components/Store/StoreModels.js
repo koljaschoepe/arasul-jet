@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import useConfirm from '../../hooks/useConfirm';
+import { useToast } from '../../contexts/ToastContext';
 import {
   FiCpu,
   FiDownload,
@@ -49,6 +50,7 @@ const formatSize = bytes => {
 };
 
 function StoreModels() {
+  const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -207,7 +209,7 @@ function StoreModels() {
 
   // Delete model
   const handleDelete = async modelId => {
-    if (!(await confirm({ message: `Modell "${modelId}" wirklich löschen?` }))) return;
+    if (!(await confirm({ message: `Modell "${modelId}" wirklich loeschen?` }))) return;
 
     try {
       const response = await fetch(`${API_BASE}/models/${modelId}`, {

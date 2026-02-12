@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import axios from 'axios';
-import useConfirm from '../hooks/useConfirm';
 import {
   FiX,
   FiSave,
@@ -34,6 +33,8 @@ import {
   FiDatabase,
 } from 'react-icons/fi';
 import { API_BASE } from '../config/api';
+import { useToast } from '../contexts/ToastContext';
+import useConfirm from '../hooks/useConfirm';
 import Modal from './Modal';
 import './Database/Database.css';
 
@@ -264,7 +265,6 @@ const ColumnMenu = memo(function ColumnMenu({
   onFieldUpdated,
   position,
 }) {
-  const { confirm, ConfirmDialog } = useConfirm();
   const [mode, setMode] = useState('menu'); // 'menu' | 'rename' | 'type'
   const [newName, setNewName] = useState(field.name);
   const [newType, setNewType] = useState(field.field_type);
@@ -452,7 +452,6 @@ const ColumnMenu = memo(function ColumnMenu({
           </div>
         </div>
       )}
-      {ConfirmDialog}
     </div>
   );
 });
@@ -524,7 +523,8 @@ const CellContextMenu = memo(function CellContextMenu({
  * DataTableEditor - Main editor component
  */
 function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
-  const { confirm: confirmMain, ConfirmDialog: ConfirmDialogMain } = useConfirm();
+  const toast = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [table, setTable] = useState(null);
   const [fields, setFields] = useState([]);
   const [rows, setRows] = useState([]);
@@ -713,7 +713,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
           await loadTable();
           setSaveStatus('success');
           setError(null);
-          alert(`${importedCount} Zeilen importiert`);
+          toast.success(`${importedCount} Zeilen importiert`);
         } catch (err) {
           setError('Import fehlgeschlagen: ' + (err.response?.data?.error || err.message));
           setSaveStatus('error');
@@ -1020,8 +1020,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
   // Delete selected rows
   const handleDeleteSelected = async () => {
     if (selectedRows.size === 0) return;
-    if (!(await confirmMain({ message: `${selectedRows.size} Zeile(n) wirklich löschen?` })))
-      return;
+    if (!(await confirm({ message: `${selectedRows.size} Zeile(n) wirklich löschen?` }))) return;
 
     try {
       setSaving(true);
@@ -1621,8 +1620,8 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
             hasClipboard={!!clipboard?.value}
           />
         )}
-        {ConfirmDialogMain}
       </div>
+      {ConfirmDialog}
     </div>
   );
 }

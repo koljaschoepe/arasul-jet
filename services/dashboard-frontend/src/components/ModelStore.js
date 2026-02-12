@@ -216,7 +216,7 @@ function ModelStore() {
   const handleDelete = async modelId => {
     if (
       !(await confirm({
-        message: `Modell "${modelId}" wirklich löschen? Der Download-Fortschritt geht verloren.`,
+        message: `Modell "${modelId}" wirklich loeschen? Der Download-Fortschritt geht verloren.`,
       }))
     )
       return;

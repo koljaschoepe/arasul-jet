@@ -17,6 +17,7 @@ import {
   FiRefreshCw,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { useToast } from '../../contexts/ToastContext';
 import CommandsEditor from './CommandsEditor';
 
 const TABS = [
@@ -26,6 +27,7 @@ const TABS = [
 ];
 
 function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('settings');
   const [formData, setFormData] = useState({
     name: bot.name || '',
@@ -168,7 +170,7 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
       setChats(prev => prev.filter(c => c.id !== chatRowId));
     } catch (err) {
       console.error('Error removing chat:', err);
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 

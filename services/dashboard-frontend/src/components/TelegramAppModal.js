@@ -12,9 +12,10 @@ import {
   FiRefreshCw,
 } from 'react-icons/fi';
 import Modal from './Modal';
+import useConfirm from '../hooks/useConfirm';
+import { useToast } from '../contexts/ToastContext';
 import BotSetupWizard from './TelegramBots/BotSetupWizard';
 import BotDetailsModal from './TelegramBots/BotDetailsModal';
-import useConfirm from '../hooks/useConfirm';
 import './TelegramAppModal.css';
 
 /**
@@ -23,6 +24,7 @@ import './TelegramAppModal.css';
  */
 function TelegramAppModal({ isOpen, onClose }) {
   const { confirm, ConfirmDialog } = useConfirm();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('bots');
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +103,7 @@ function TelegramAppModal({ isOpen, onClose }) {
   const handleDeleteBot = async botId => {
     if (
       !(await confirm({
-        message: 'Bot wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+        message: 'Bot wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.',
       }))
     ) {
       return;
@@ -332,8 +334,8 @@ function TelegramAppModal({ isOpen, onClose }) {
             onUpdate={handleBotUpdated}
           />
         )}
+        {ConfirmDialog}
       </div>
-      {ConfirmDialog}
     </Modal>
   );
 }

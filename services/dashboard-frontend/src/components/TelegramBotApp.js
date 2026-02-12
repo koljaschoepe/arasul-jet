@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import useConfirm from '../hooks/useConfirm';
 import {
   FiSend,
   FiSettings,
@@ -21,6 +20,8 @@ import {
   FiChevronRight,
 } from 'react-icons/fi';
 import TelegramSetupWizard from './TelegramSetupWizard';
+import { useToast } from '../contexts/ToastContext';
+import useConfirm from '../hooks/useConfirm';
 import { API_BASE } from '../config/api';
 import '../telegram-bot-app.css';
 
@@ -33,6 +34,7 @@ import '../telegram-bot-app.css';
  * - Notification History
  */
 function TelegramBotApp() {
+  const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const [activeTab, setActiveTab] = useState('overview');
   const [config, setConfig] = useState(null);
@@ -123,19 +125,19 @@ function TelegramBotApp() {
       });
 
       if (res.ok) {
-        alert('Test-Nachricht gesendet!');
+        toast.success('Test-Nachricht gesendet!');
       } else {
         const data = await res.json();
-        alert(`Fehler: ${data.error || 'Unbekannter Fehler'}`);
+        toast.error(`Fehler: ${data.error || 'Unbekannter Fehler'}`);
       }
     } catch (err) {
-      alert(`Fehler: ${err.message}`);
+      toast.error(err.message);
     }
   };
 
   // Delete rule
   const deleteRule = async (ruleId, ruleName) => {
-    if (!(await confirm({ message: `Regel "${ruleName}" wirklich löschen?` }))) return;
+    if (!(await confirm({ message: `Regel "${ruleName}" wirklich loeschen?` }))) return;
 
     try {
       await fetch(`${API_BASE}/telegram-app/rules/${ruleId}`, {
@@ -328,9 +330,9 @@ function TelegramBotApp() {
                         method: 'POST',
                         credentials: 'include',
                       });
-                      if (res.ok) alert('Test-Nachricht gesendet!');
+                      if (res.ok) toast.success('Test-Nachricht gesendet!');
                     } catch (e) {
-                      alert('Fehler beim Senden');
+                      toast.error('Fehler beim Senden');
                     }
                   }}
                 >

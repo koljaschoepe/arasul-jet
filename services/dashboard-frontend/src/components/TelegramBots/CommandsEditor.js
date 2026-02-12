@@ -14,9 +14,11 @@ import {
   FiMenu,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 
 function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
+  const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const [editingCommand, setEditingCommand] = useState(null);
   const [newCommand, setNewCommand] = useState(null);
@@ -128,7 +130,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
 
   // Delete command
   const handleDelete = async cmdId => {
-    if (!(await confirm({ message: 'Command wirklich löschen?' }))) return;
+    if (!(await confirm({ message: 'Command wirklich loeschen?' }))) return;
 
     try {
       const response = await fetch(`${API_BASE}/telegram-bots/${botId}/commands/${cmdId}`, {
@@ -142,7 +144,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
 
       onChange(commands.filter(c => c.id !== cmdId));
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -164,7 +166,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       const data = await response.json();
       onChange(commands.map(c => (c.id === data.command.id ? data.command : c)));
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 

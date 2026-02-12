@@ -16,7 +16,7 @@ jest.mock('../components/MarkdownEditor', () => {
     return React.createElement('textarea', {
       'data-testid': 'markdown-editor',
       value: value || '',
-      onChange: (e) => onChange && onChange(e.target.value)
+      onChange: e => onChange && onChange(e.target.value),
     });
   };
 });
@@ -36,7 +36,10 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axios from 'axios';
+import { ToastProvider } from '../contexts/ToastContext';
 import DocumentManager from '../components/DocumentManager';
+
+const renderWithProviders = ui => render(<ToastProvider>{ui}</ToastProvider>);
 
 jest.mock('axios');
 
@@ -87,7 +90,7 @@ describe('DocumentManager Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    axios.get.mockImplementation((url) => {
+    axios.get.mockImplementation(url => {
       if (url.includes('/documents') && !url.includes('/categories') && !url.includes('/spaces')) {
         return Promise.resolve({ data: { documents: mockDocuments } });
       }
@@ -105,7 +108,7 @@ describe('DocumentManager Component', () => {
 
   describe('Rendering', () => {
     test('rendert DocumentManager korrekt', async () => {
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('Dokumente')).toBeInTheDocument();
@@ -113,32 +116,34 @@ describe('DocumentManager Component', () => {
     });
 
     test('zeigt Upload-Button', async () => {
-      const { container } = render(<DocumentManager />);
+      const { container } = renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
-        const uploadBtn = screen.queryByText(/upload/i) ||
-                         screen.queryByRole('button', { name: /upload/i }) ||
-                         container.querySelector('[class*="upload"]') ||
-                         container.querySelector('input[type="file"]');
+        const uploadBtn =
+          screen.queryByText(/upload/i) ||
+          screen.queryByRole('button', { name: /upload/i }) ||
+          container.querySelector('[class*="upload"]') ||
+          container.querySelector('input[type="file"]');
         expect(uploadBtn).toBeTruthy();
       });
     });
 
     // TODO: Fix selector for search field - component structure might differ
     test.skip('zeigt Suchfeld', async () => {
-      const { container } = render(<DocumentManager />);
+      const { container } = renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
-        const searchField = screen.queryByPlaceholderText(/such/i) ||
-                           screen.queryByRole('searchbox') ||
-                           container.querySelector('input[type="search"]') ||
-                           container.querySelector('[class*="search"] input');
+        const searchField =
+          screen.queryByPlaceholderText(/such/i) ||
+          screen.queryByRole('searchbox') ||
+          container.querySelector('input[type="search"]') ||
+          container.querySelector('[class*="search"] input');
         expect(searchField).toBeTruthy();
       });
     });
 
     test('zeigt Dokument-Liste', async () => {
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -150,30 +155,35 @@ describe('DocumentManager Component', () => {
   describe('Document Status Display', () => {
     // TODO: Fix status badge selector - component uses different pattern
     test.skip('zeigt "Indexiert" Badge für indexed Status', async () => {
-      const { container } = render(<DocumentManager />);
+      const { container } = renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
-        const indexedBadge = screen.queryByText(/indexiert/i) ||
-                            screen.queryByText(/indexed/i) ||
-                            container.querySelector('[class*="indexed"]') ||
-                            container.querySelector('[class*="success"]');
+        const indexedBadge =
+          screen.queryByText(/indexiert/i) ||
+          screen.queryByText(/indexed/i) ||
+          container.querySelector('[class*="indexed"]') ||
+          container.querySelector('[class*="success"]');
         expect(indexedBadge).toBeTruthy();
       });
     });
 
     test('zeigt "Verarbeitung" Badge für processing Status', async () => {
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
-        expect(screen.getByText(/verarbeitung/i) || screen.getByText(/processing/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/verarbeitung/i) || screen.getByText(/processing/i)
+        ).toBeInTheDocument();
       });
     });
 
     test('zeigt "Fehlgeschlagen" Badge für failed Status', async () => {
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
-        expect(screen.getByText(/fehlgeschlagen/i) || screen.getByText(/failed/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/fehlgeschlagen/i) || screen.getByText(/failed/i)
+        ).toBeInTheDocument();
       });
     });
   });
@@ -182,24 +192,26 @@ describe('DocumentManager Component', () => {
     // TODO: Fix filter tests - need to match actual component structure
     test.skip('Filter nach Status funktioniert', async () => {
       const user = userEvent.setup();
-      const { container } = render(<DocumentManager />);
+      const { container } = renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
       // Finde Filter-Buttons - using flexible selector
-      const filterButton = screen.queryByText(/filter/i) ||
-                          screen.queryByRole('button', { name: /filter/i }) ||
-                          container.querySelector('[class*="filter"]');
+      const filterButton =
+        screen.queryByText(/filter/i) ||
+        screen.queryByRole('button', { name: /filter/i }) ||
+        container.querySelector('[class*="filter"]');
 
       if (filterButton) {
         await user.click(filterButton);
 
         // Nach Status filtern - look for any status filter option
-        const indexedFilter = screen.queryByText(/indexiert/i) ||
-                             screen.queryByText(/indexed/i) ||
-                             container.querySelector('[class*="indexed"]');
+        const indexedFilter =
+          screen.queryByText(/indexiert/i) ||
+          screen.queryByText(/indexed/i) ||
+          container.querySelector('[class*="indexed"]');
         if (indexedFilter) {
           await user.click(indexedFilter);
 
@@ -216,16 +228,17 @@ describe('DocumentManager Component', () => {
     // TODO: Fix search tests - need to match actual component structure
     test.skip('Suche filtert Dokumente', async () => {
       const user = userEvent.setup();
-      const { container } = render(<DocumentManager />);
+      const { container } = renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
-      const searchInput = screen.queryByPlaceholderText(/such/i) ||
-                         screen.queryByRole('searchbox') ||
-                         container.querySelector('input[type="search"]') ||
-                         container.querySelector('input[type="text"]');
+      const searchInput =
+        screen.queryByPlaceholderText(/such/i) ||
+        screen.queryByRole('searchbox') ||
+        container.querySelector('input[type="search"]') ||
+        container.querySelector('input[type="text"]');
 
       if (searchInput) {
         await user.type(searchInput, 'manual');
@@ -241,7 +254,7 @@ describe('DocumentManager Component', () => {
 
   describe('Document Upload', () => {
     test('File Input akzeptiert Dateien', async () => {
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('Dokumente')).toBeInTheDocument();
@@ -274,7 +287,7 @@ describe('DocumentManager Component', () => {
       });
 
       const user = userEvent.setup();
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('Dokumente')).toBeInTheDocument();
@@ -287,15 +300,19 @@ describe('DocumentManager Component', () => {
         await user.upload(fileInput, file);
 
         // Progress or loading indicator should be shown - be flexible about exact representation
-        await waitFor(() => {
-          const hasProgress = screen.queryByText(/50%/) ||
-                            screen.queryByRole('progressbar') ||
-                            document.querySelector('[class*="progress"]') ||
-                            document.querySelector('[class*="uploading"]') ||
-                            screen.queryByText(/hochladen/i) ||
-                            screen.queryByText(/upload/i);
-          expect(hasProgress).toBeTruthy();
-        }, { timeout: 3000 });
+        await waitFor(
+          () => {
+            const hasProgress =
+              screen.queryByText(/50%/) ||
+              screen.queryByRole('progressbar') ||
+              document.querySelector('[class*="progress"]') ||
+              document.querySelector('[class*="uploading"]') ||
+              screen.queryByText(/hochladen/i) ||
+              screen.queryByText(/upload/i);
+            expect(hasProgress).toBeTruthy();
+          },
+          { timeout: 3000 }
+        );
       }
     });
 
@@ -306,7 +323,7 @@ describe('DocumentManager Component', () => {
       });
 
       const user = userEvent.setup();
-      const { container } = render(<DocumentManager />);
+      const { container } = renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('Dokumente')).toBeInTheDocument();
@@ -318,12 +335,16 @@ describe('DocumentManager Component', () => {
         const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' });
         await user.upload(fileInput, file);
 
-        await waitFor(() => {
-          const errorElement = screen.queryByText(/error/i) ||
-                              screen.queryByText(/fehler/i) ||
-                              container.querySelector('[class*="error"]');
-          expect(errorElement).toBeTruthy();
-        }, { timeout: 3000 });
+        await waitFor(
+          () => {
+            const errorElement =
+              screen.queryByText(/error/i) ||
+              screen.queryByText(/fehler/i) ||
+              container.querySelector('[class*="error"]');
+            expect(errorElement).toBeTruthy();
+          },
+          { timeout: 3000 }
+        );
       } else {
         // Test passes if file input doesn't exist (component structure different)
         expect(true).toBe(true);
@@ -335,14 +356,16 @@ describe('DocumentManager Component', () => {
     // TODO: Fix delete dialog test - component might use different pattern
     test.skip('Lösch-Dialog wird angezeigt', async () => {
       const user = userEvent.setup();
-      const { container } = render(<DocumentManager />);
+      const { container } = renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
       // Finde Delete-Button für erstes Dokument - use more flexible selectors
-      const deleteButtons = container.querySelectorAll('[class*="delete"], [title*="Delete"], [title*="Löschen"], [aria-label*="delete"], [aria-label*="löschen"]');
+      const deleteButtons = container.querySelectorAll(
+        '[class*="delete"], [title*="Delete"], [title*="Löschen"], [aria-label*="delete"], [aria-label*="löschen"]'
+      );
 
       if (deleteButtons.length > 0) {
         await user.click(deleteButtons[0]);
@@ -350,8 +373,8 @@ describe('DocumentManager Component', () => {
         await waitFor(() => {
           expect(
             screen.queryByText(/löschen/i) ||
-            screen.queryByText(/delete/i) ||
-            screen.queryByText(/bestätigen/i)
+              screen.queryByText(/delete/i) ||
+              screen.queryByText(/bestätigen/i)
           ).toBeInTheDocument();
         });
       }
@@ -359,14 +382,16 @@ describe('DocumentManager Component', () => {
 
     test('Dokument wird nach Bestätigung gelöscht', async () => {
       const user = userEvent.setup();
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
       // Simuliere Löschvorgang
-      const deleteButtons = document.querySelectorAll('[class*="delete"], [title*="Delete"], [aria-label*="Delete"]');
+      const deleteButtons = document.querySelectorAll(
+        '[class*="delete"], [title*="Delete"], [aria-label*="Delete"]'
+      );
 
       if (deleteButtons.length > 0) {
         await user.click(deleteButtons[0]);
@@ -386,7 +411,7 @@ describe('DocumentManager Component', () => {
 
   describe('Document Statistics', () => {
     test('zeigt Statistiken an', async () => {
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('Dokumente')).toBeInTheDocument();
@@ -394,14 +419,18 @@ describe('DocumentManager Component', () => {
 
       // Statistiken sollten irgendwo angezeigt werden
       // Die genaue Position hängt von der Implementation ab
-      await waitFor(() => {
-        // Check for statistics area or document count indicator
-        const hasStats = screen.queryByText(/3/) ||
-                        screen.queryByText(/gesamt/i) ||
-                        document.querySelector('.dm-stat-card') ||
-                        document.querySelector('[class*="stat"]');
-        expect(hasStats).toBeTruthy();
-      }, { timeout: 2000 });
+      await waitFor(
+        () => {
+          // Check for statistics area or document count indicator
+          const hasStats =
+            screen.queryByText(/3/) ||
+            screen.queryByText(/gesamt/i) ||
+            document.querySelector('.dm-stat-card') ||
+            document.querySelector('[class*="stat"]');
+          expect(hasStats).toBeTruthy();
+        },
+        { timeout: 2000 }
+      );
     });
   });
 
@@ -409,13 +438,13 @@ describe('DocumentManager Component', () => {
     test('zeigt Fehlermeldung bei API-Fehler', async () => {
       axios.get.mockRejectedValue(new Error('Network Error'));
 
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(
           screen.queryByText(/error/i) ||
-          screen.queryByText(/fehler/i) ||
-          screen.queryByText(/laden/i)
+            screen.queryByText(/fehler/i) ||
+            screen.queryByText(/laden/i)
         ).toBeInTheDocument();
       });
     });
@@ -431,15 +460,16 @@ describe('DocumentManager Component', () => {
       });
 
       const user = userEvent.setup();
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.queryByText(/error/i) || screen.queryByText(/fehler/i)).toBeInTheDocument();
       });
 
-      const retryButton = screen.queryByText(/retry/i) ||
-                         screen.queryByText(/erneut/i) ||
-                         screen.queryByRole('button', { name: /refresh/i });
+      const retryButton =
+        screen.queryByText(/retry/i) ||
+        screen.queryByText(/erneut/i) ||
+        screen.queryByRole('button', { name: /refresh/i });
 
       if (retryButton) {
         await user.click(retryButton);
@@ -453,7 +483,7 @@ describe('DocumentManager Component', () => {
 
   describe('Accessibility', () => {
     test('Dokument-Liste ist per Tastatur navigierbar', async () => {
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -468,7 +498,7 @@ describe('DocumentManager Component', () => {
     });
 
     test('File Upload hat accessible Label', async () => {
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('Dokumente')).toBeInTheDocument();
@@ -477,8 +507,9 @@ describe('DocumentManager Component', () => {
       // File input sollte ein Label haben
       const fileInput = document.querySelector('input[type="file"]');
       if (fileInput) {
-        const label = fileInput.getAttribute('aria-label') ||
-                     document.querySelector(`label[for="${fileInput.id}"]`);
+        const label =
+          fileInput.getAttribute('aria-label') ||
+          document.querySelector(`label[for="${fileInput.id}"]`);
         expect(label || fileInput.closest('label')).toBeTruthy();
       }
     });
@@ -488,12 +519,12 @@ describe('DocumentManager Component', () => {
     test('zeigt Loading während Dokumente geladen werden', async () => {
       axios.get.mockImplementation(() => new Promise(() => {})); // Never resolve
 
-      render(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       expect(
         screen.queryByText(/laden/i) ||
-        screen.queryByText(/loading/i) ||
-        document.querySelector('.loading-spinner')
+          screen.queryByText(/loading/i) ||
+          document.querySelector('.loading-spinner')
       ).toBeTruthy();
     });
   });
@@ -513,7 +544,7 @@ describe('DocumentManager Component', () => {
         icon: 'folder',
         document_count: 10,
         is_default: false,
-        is_system: false
+        is_system: false,
       },
       {
         id: 'space-2',
@@ -524,7 +555,7 @@ describe('DocumentManager Component', () => {
         icon: 'briefcase',
         document_count: 25,
         is_default: true,
-        is_system: false
+        is_system: false,
       },
       {
         id: 'space-3',
@@ -535,13 +566,17 @@ describe('DocumentManager Component', () => {
         icon: 'cog',
         document_count: 5,
         is_default: false,
-        is_system: true
-      }
+        is_system: true,
+      },
     ];
 
     beforeEach(() => {
-      axios.get.mockImplementation((url) => {
-        if (url.includes('/documents') && !url.includes('/categories') && !url.includes('/spaces')) {
+      axios.get.mockImplementation(url => {
+        if (
+          url.includes('/documents') &&
+          !url.includes('/categories') &&
+          !url.includes('/spaces')
+        ) {
           return Promise.resolve({ data: { documents: mockDocuments } });
         }
         if (url.includes('/documents/categories')) {
@@ -556,7 +591,7 @@ describe('DocumentManager Component', () => {
 
     describe('Space Tabs Display', () => {
       test('lädt und zeigt Space-Tabs an', async () => {
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
@@ -565,7 +600,7 @@ describe('DocumentManager Component', () => {
       });
 
       test('zeigt "Alle" Tab für alle Dokumente', async () => {
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText(/alle/i)).toBeInTheDocument();
@@ -573,7 +608,7 @@ describe('DocumentManager Component', () => {
       });
 
       test('zeigt Document Count für jeden Space', async () => {
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           // Should show document counts in space tabs
@@ -583,13 +618,14 @@ describe('DocumentManager Component', () => {
       });
 
       test('zeigt "Add Space" Button', async () => {
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
-          const addButton = screen.queryByText(/neuer/i) ||
-                           screen.queryByText(/hinzufügen/i) ||
-                           document.querySelector('.add-space') ||
-                           document.querySelector('[class*="add"]');
+          const addButton =
+            screen.queryByText(/neuer/i) ||
+            screen.queryByText(/hinzufügen/i) ||
+            document.querySelector('.add-space') ||
+            document.querySelector('[class*="add"]');
           expect(addButton).toBeTruthy();
         });
       });
@@ -598,7 +634,7 @@ describe('DocumentManager Component', () => {
     describe('Space Filtering', () => {
       test('klick auf Space-Tab filtert Dokumente', async () => {
         const user = userEvent.setup();
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
@@ -610,15 +646,13 @@ describe('DocumentManager Component', () => {
 
         // API should be called with space_id filter
         await waitFor(() => {
-          expect(axios.get).toHaveBeenCalledWith(
-            expect.stringContaining('space_id=space-1')
-          );
+          expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('space_id=space-1'));
         });
       });
 
       test('klick auf "Alle" zeigt alle Dokumente', async () => {
         const user = userEvent.setup();
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
@@ -641,15 +675,16 @@ describe('DocumentManager Component', () => {
 
       test('zeigt aktiven Space mit Highlight', async () => {
         const user = userEvent.setup();
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
         });
 
         // Click on a space tab
-        const spaceTab = screen.getByText('Technical Documentation').closest('.space-tab') ||
-                        screen.getByText('Technical Documentation').closest('button');
+        const spaceTab =
+          screen.getByText('Technical Documentation').closest('.space-tab') ||
+          screen.getByText('Technical Documentation').closest('button');
 
         await user.click(spaceTab || screen.getByText('Technical Documentation'));
 
@@ -664,7 +699,7 @@ describe('DocumentManager Component', () => {
     describe('Space Description Display', () => {
       test('zeigt Space-Beschreibung wenn Space ausgewählt', async () => {
         const user = userEvent.setup();
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
@@ -683,15 +718,15 @@ describe('DocumentManager Component', () => {
     describe('Space Modal', () => {
       test('öffnet Modal beim Klick auf "Add Space"', async () => {
         const user = userEvent.setup();
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
         });
 
         // Find add space button
-        const addButton = document.querySelector('.add-space') ||
-                         screen.queryByLabelText(/space hinzufügen/i);
+        const addButton =
+          document.querySelector('.add-space') || screen.queryByLabelText(/space hinzufügen/i);
 
         if (addButton) {
           await user.click(addButton);
@@ -700,15 +735,15 @@ describe('DocumentManager Component', () => {
           await waitFor(() => {
             expect(
               screen.queryByText(/wissensbereich/i) ||
-              screen.queryByText(/space erstellen/i) ||
-              document.querySelector('.modal')
+                screen.queryByText(/space erstellen/i) ||
+                document.querySelector('.modal')
             ).toBeTruthy();
           });
         }
       });
 
       test('Edit-Button nur für nicht-System Spaces', async () => {
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
@@ -723,7 +758,7 @@ describe('DocumentManager Component', () => {
 
       test('öffnet Edit-Modal beim Klick auf Edit-Button', async () => {
         const user = userEvent.setup();
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
@@ -738,8 +773,7 @@ describe('DocumentManager Component', () => {
           // Modal should open in edit mode
           await waitFor(() => {
             expect(
-              screen.queryByText(/bearbeiten/i) ||
-              document.querySelector('.modal')
+              screen.queryByText(/bearbeiten/i) || document.querySelector('.modal')
             ).toBeTruthy();
           });
         }
@@ -751,10 +785,10 @@ describe('DocumentManager Component', () => {
         const user = userEvent.setup();
 
         axios.post.mockResolvedValue({
-          data: { success: true, document: { id: 'new-doc' } }
+          data: { success: true, document: { id: 'new-doc' } },
         });
 
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
@@ -771,22 +805,25 @@ describe('DocumentManager Component', () => {
           await user.upload(fileInput, file);
 
           // Should include space_id in upload
-          await waitFor(() => {
-            const postCalls = axios.post.mock.calls;
-            const uploadCall = postCalls.find(call => call[0].includes('/upload'));
+          await waitFor(
+            () => {
+              const postCalls = axios.post.mock.calls;
+              const uploadCall = postCalls.find(call => call[0].includes('/upload'));
 
-            if (uploadCall) {
-              const formData = uploadCall[1];
-              // FormData should include space_id
-              expect(formData.has('space_id') || formData.get('space_id')).toBeTruthy();
-            }
-          }, { timeout: 3000 });
+              if (uploadCall) {
+                const formData = uploadCall[1];
+                // FormData should include space_id
+                expect(formData.has('space_id') || formData.get('space_id')).toBeTruthy();
+              }
+            },
+            { timeout: 3000 }
+          );
         }
       });
 
       test('zeigt Ziel-Space Hint im Upload-Bereich', async () => {
         const user = userEvent.setup();
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
@@ -799,7 +836,7 @@ describe('DocumentManager Component', () => {
         await waitFor(() => {
           expect(
             screen.queryByText(/Technical Documentation/i) ||
-            document.querySelector('.upload-space-hint')
+              document.querySelector('.upload-space-hint')
           ).toBeTruthy();
         });
       });
@@ -813,12 +850,16 @@ describe('DocumentManager Component', () => {
             ...mockDocuments[0],
             space_id: 'space-1',
             space_name: 'Technical Documentation',
-            space_color: '#3b82f6'
-          }
+            space_color: '#3b82f6',
+          },
         ];
 
-        axios.get.mockImplementation((url) => {
-          if (url.includes('/documents') && !url.includes('/categories') && !url.includes('/spaces')) {
+        axios.get.mockImplementation(url => {
+          if (
+            url.includes('/documents') &&
+            !url.includes('/categories') &&
+            !url.includes('/spaces')
+          ) {
             return Promise.resolve({ data: { documents: docsWithSpaces } });
           }
           if (url.includes('/spaces')) {
@@ -827,7 +868,7 @@ describe('DocumentManager Component', () => {
           return Promise.resolve({ data: {} });
         });
 
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           const spaceBadge = document.querySelector('.space-badge');
@@ -838,7 +879,7 @@ describe('DocumentManager Component', () => {
 
     describe('Space API Error Handling', () => {
       test('behandelt Spaces-API-Fehler graceful', async () => {
-        axios.get.mockImplementation((url) => {
+        axios.get.mockImplementation(url => {
           if (url.includes('/spaces')) {
             return Promise.reject(new Error('Space API Error'));
           }
@@ -849,7 +890,7 @@ describe('DocumentManager Component', () => {
         });
 
         // Should not crash
-        render(<DocumentManager />);
+        renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
           // Documents should still load
