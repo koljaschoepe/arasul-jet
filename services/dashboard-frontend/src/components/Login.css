@@ -23,7 +23,7 @@
   padding: clamp(2rem, 4vw, 3rem);
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 8px 32px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 8px 32px var(--primary-alpha-10);
 }
 
 /* Light Mode - Login box shadow */
@@ -80,7 +80,7 @@
 .form-group input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
+  box-shadow: 0 0 0 3px var(--primary-alpha-15);
 }
 
 .form-group input::placeholder {
@@ -122,7 +122,7 @@
 .login-button:hover:not(:disabled) {
   background: var(--primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-30);
 }
 
 /* Light Mode - Button styling */

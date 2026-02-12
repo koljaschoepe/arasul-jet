@@ -66,7 +66,7 @@ code {
   --primary-hover: #6EC4FF;
   --primary-active: #2D8FD9;
   --primary-light: #6EC4FF;
-  --primary-muted: rgba(69, 173, 255, 0.15);
+  --primary-muted: var(--primary-alpha-15);
   --text-on-primary: #000000;
   --danger-color: #ef4444;
   --danger-hover: #dc2626;
@@ -105,7 +105,7 @@ code {
   /* Border Colors */
   --border-color: #2a3544;
   --border-subtle: #1d2835;
-  --border-glow: rgba(69, 173, 255, 0.3);
+  --border-glow: var(--primary-alpha-30);
 
   /* Text Colors */
   --text-primary: #f8fafc;
@@ -115,38 +115,36 @@ code {
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(69, 173, 255, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(69, 173, 255, 0.2);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(69, 173, 255, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px var(--primary-alpha-10);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px var(--primary-alpha-20);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px var(--primary-alpha-30);
 
   /* Gradients - Design System (only blue) */
   --gradient-primary: linear-gradient(135deg, #45ADFF 0%, #2D8FD9 100%);
   --gradient-card: linear-gradient(135deg, #1A2330 0%, #1f2835 100%);
-  --gradient-mid: #3498db;
-  --gradient-end: #2980b9;
 
   /* Terminal Background */
   --bg-terminal: #1a1a2e;
 
   /* Additional Background Colors for Components */
   --bg-input: #101923;
-  --bg-table-header: rgba(69, 173, 255, 0.05);
+  --bg-table-header: var(--primary-alpha-5);
   --bg-table-row-hover: rgba(69, 173, 255, 0.03);
-  --bg-table-row-active: rgba(69, 173, 255, 0.08);
-  --bg-dropzone: rgba(69, 173, 255, 0.05);
-  --bg-dropzone-hover: rgba(69, 173, 255, 0.08);
-  --bg-dropzone-active: rgba(69, 173, 255, 0.15);
+  --bg-table-row-active: var(--primary-alpha-8);
+  --bg-dropzone: var(--primary-alpha-5);
+  --bg-dropzone-hover: var(--primary-alpha-8);
+  --bg-dropzone-active: var(--primary-alpha-15);
   --bg-code: rgba(69, 173, 255, 0.03);
   --bg-modal: #1a2330;
 
   /* Additional Border Colors */
-  --border-dropzone: rgba(69, 173, 255, 0.3);
-  --border-dropzone-hover: rgba(69, 173, 255, 0.5);
+  --border-dropzone: var(--primary-alpha-30);
+  --border-dropzone-hover: var(--primary-alpha-50);
   --border-dropzone-active: #45ADFF;
-  --border-input: rgba(69, 173, 255, 0.15);
-  --border-input-focus: rgba(69, 173, 255, 0.4);
-  --border-table: rgba(69, 173, 255, 0.1);
-  --border-modal: rgba(69, 173, 255, 0.2);
+  --border-input: var(--primary-alpha-15);
+  --border-input-focus: var(--primary-alpha-40);
+  --border-table: var(--primary-alpha-10);
+  --border-modal: var(--primary-alpha-20);
 
   /* Modal Backdrop */
   --backdrop-color: rgba(0, 0, 0, 0.7);
@@ -181,6 +179,43 @@ code {
   --translate-enter: 8px;      /* Slide-in offset */
   --translate-exit: 4px;       /* Slide-out offset */
   --scale-press: 0.97;         /* Button press scale */
+
+  /* ========================================
+     PRIMARY COLOR ALPHA SCALE
+     Use these instead of hardcoded rgba(69,173,255,...)
+     ======================================== */
+  --primary-alpha-5: rgba(69, 173, 255, 0.05);
+  --primary-alpha-8: rgba(69, 173, 255, 0.08);
+  --primary-alpha-10: rgba(69, 173, 255, 0.1);
+  --primary-alpha-12: rgba(69, 173, 255, 0.12);
+  --primary-alpha-15: rgba(69, 173, 255, 0.15);
+  --primary-alpha-20: rgba(69, 173, 255, 0.2);
+  --primary-alpha-25: rgba(69, 173, 255, 0.25);
+  --primary-alpha-30: rgba(69, 173, 255, 0.3);
+  --primary-alpha-40: rgba(69, 173, 255, 0.4);
+  --primary-alpha-50: rgba(69, 173, 255, 0.5);
+
+  /* ========================================
+     BORDER RADIUS SCALE
+     ======================================== */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  /* ========================================
+     FONT SIZE SCALE
+     ======================================== */
+  --font-xs: 0.75rem;      /* 12px */
+  --font-sm: 0.8125rem;    /* 13px */
+  --font-base: 0.875rem;   /* 14px */
+  --font-md: 0.9375rem;    /* 15px */
+  --font-lg: 1rem;          /* 16px */
+  --font-xl: 1.125rem;     /* 18px */
+  --font-2xl: 1.25rem;     /* 20px */
+  --font-3xl: 1.5rem;      /* 24px */
 }
 
 /* ========================================
@@ -220,8 +255,6 @@ code {
   /* Gradients - Light Mode */
   --gradient-primary: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
   --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
-  --gradient-mid: #1976D2;
-  --gradient-end: #1565C0;
 
   /* Terminal Background (light mode keeps dark terminal) */
   --bg-terminal: #1a1a2e;
@@ -258,6 +291,18 @@ code {
 
   /* Scrollbar */
   --scrollbar-thumb: #2196F3;
+
+  /* Primary Color Alpha Scale (Light Mode) */
+  --primary-alpha-5: rgba(33, 150, 243, 0.05);
+  --primary-alpha-8: rgba(33, 150, 243, 0.08);
+  --primary-alpha-10: rgba(33, 150, 243, 0.1);
+  --primary-alpha-12: rgba(33, 150, 243, 0.12);
+  --primary-alpha-15: rgba(33, 150, 243, 0.15);
+  --primary-alpha-20: rgba(33, 150, 243, 0.2);
+  --primary-alpha-25: rgba(33, 150, 243, 0.25);
+  --primary-alpha-30: rgba(33, 150, 243, 0.3);
+  --primary-alpha-40: rgba(33, 150, 243, 0.4);
+  --primary-alpha-50: rgba(33, 150, 243, 0.5);
 
   /* Status Colors - Semantic (Light Mode) */
   --status-neutral: #64748B;        /* Dunkleres Grau für besseren Kontrast */
@@ -595,10 +640,10 @@ code {
 
 @keyframes glow {
   0%, 100% {
-    box-shadow: 0 0 5px rgba(69, 173, 255, 0.2);
+    box-shadow: 0 0 5px var(--primary-alpha-20);
   }
   50% {
-    box-shadow: 0 0 20px rgba(69, 173, 255, 0.4);
+    box-shadow: 0 0 20px var(--primary-alpha-40);
   }
 }
 
@@ -621,6 +666,15 @@ code {
 }
 
 @keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin {
   from {
     transform: rotate(0deg);
   }
@@ -839,7 +893,7 @@ a:focus:not(:focus-visible),
   color: white;
   border-color: var(--primary-color);
   transform: scale(1.1);
-  box-shadow: 0 0 12px rgba(69, 173, 255, 0.4);
+  box-shadow: 0 0 12px var(--primary-alpha-40);
 }
 
 .sidebar-toggle svg {
@@ -1675,7 +1729,7 @@ a:focus:not(:focus-visible),
 }
 
 .nav-link:hover {
-  background: rgba(69, 173, 255, 0.08);
+  background: var(--primary-alpha-8);
   color: var(--text-primary);
   padding-left: 1.25rem;
 }
@@ -1685,7 +1739,7 @@ a:focus:not(:focus-visible),
 }
 
 .nav-link.active {
-  background: rgba(69, 173, 255, 0.12);
+  background: var(--primary-alpha-12);
   color: var(--primary-color);
   border-color: var(--border-glow);
   box-shadow: var(--shadow-sm);
@@ -1742,7 +1796,7 @@ a:focus:not(:focus-visible),
 .sidebar-downloads {
   padding: 0.75rem 1.25rem;
   border-top: 1px solid var(--border-color);
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
 }
 
 .sidebar-downloads-header {
@@ -1891,7 +1945,7 @@ a:focus:not(:focus-visible),
 }
 
 .btn-global-primary:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-30);
 }
 
 /* Global Form Elements */
@@ -1913,7 +1967,7 @@ a:focus:not(:focus-visible),
 .textarea-global:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .input-global::placeholder,
@@ -2665,7 +2719,7 @@ a:focus:not(:focus-visible),
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(69, 173, 255, 0.05), transparent);
+  background: linear-gradient(90deg, transparent, var(--primary-alpha-5), transparent);
   animation: shimmer 3s infinite;
 }
 
@@ -2679,7 +2733,7 @@ a:focus:not(:focus-visible),
   width: 64px;
   height: 64px;
   border-radius: 12px;
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2813,19 +2867,19 @@ a:focus:not(:focus-visible),
 }
 
 .chart-zoom-btn:hover {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   color: var(--text-primary);
 }
 
 .chart-zoom-btn.active {
   background: var(--primary-color);
   color: white;
-  box-shadow: 0 2px 4px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 2px 4px var(--primary-alpha-30);
 }
 
 /* Brush Styling */
 .recharts-brush-slide {
-  fill: rgba(69, 173, 255, 0.2);
+  fill: var(--primary-alpha-20);
   stroke: var(--primary-color);
 }
 
@@ -2936,7 +2990,7 @@ a:focus:not(:focus-visible),
 
 .circular-bg {
   fill: none;
-  stroke: rgba(69, 173, 255, 0.1);
+  stroke: var(--primary-alpha-10);
   stroke-width: 8;
 }
 
@@ -2987,14 +3041,14 @@ a:focus:not(:focus-visible),
   align-items: center;
   gap: 1rem;
   padding: 0.875rem;
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   transition: all 0.3s ease;
 }
 
 .service-item-modern:hover {
-  background: rgba(69, 173, 255, 0.08);
+  background: var(--primary-alpha-8);
   border-color: var(--border-glow);
   transform: translateX(4px);
 }
@@ -3122,7 +3176,7 @@ a:focus:not(:focus-visible),
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(69, 173, 255, 0.08), transparent);
+  background: linear-gradient(90deg, transparent, var(--primary-alpha-8), transparent);
   transition: left 0.5s ease;
 }
 
@@ -3140,7 +3194,7 @@ a:focus:not(:focus-visible),
   width: 56px;
   height: 56px;
   border-radius: 12px;
-  background: rgba(69, 173, 255, 0.12);
+  background: var(--primary-alpha-12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3149,7 +3203,7 @@ a:focus:not(:focus-visible),
 }
 
 .service-link-card:hover .service-link-icon-wrapper {
-  background: rgba(69, 173, 255, 0.2);
+  background: var(--primary-alpha-20);
   transform: scale(1.1) rotate(5deg);
 }
 
@@ -3160,7 +3214,7 @@ a:focus:not(:focus-visible),
 }
 
 .service-link-card:hover .service-link-icon {
-  filter: drop-shadow(0 0 8px rgba(69, 173, 255, 0.5));
+  filter: drop-shadow(0 0 8px var(--primary-alpha-50));
 }
 
 .service-link-content {
@@ -3399,7 +3453,7 @@ button.service-link-card.telegram-app-card:focus {
 .input-base:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .input-base::placeholder {
@@ -3526,9 +3580,9 @@ button.service-link-card.telegram-app-card:focus {
 }
 
 .badge-info {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   color: var(--primary-color);
-  border: 1px solid rgba(69, 173, 255, 0.3);
+  border: 1px solid var(--primary-alpha-30);
 }
 
 /* Empty State - Reusable */
@@ -3622,8 +3676,8 @@ button.service-link-card.telegram-app-card:focus {
 
 /* Glow Effect on Focus */
 .glow-focus:focus {
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15),
-              0 0 20px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-15),
+              0 0 20px var(--primary-alpha-10);
 }
 
 /* Skeleton Loading Animation */

@@ -47,9 +47,6 @@
   animation: spin 0.8s var(--ease-smooth, cubic-bezier(0.4, 0, 0.2, 1)) infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 
 /* -------------------- Smooth Loading Transition -------------------- */
 /* Simple fade-in when chat becomes ready - no loading indicator needed */
@@ -231,7 +228,7 @@
 }
 
 .chat-tab .tab-action-btn.export:hover {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   color: var(--primary-color);
 }
 
@@ -376,7 +373,7 @@
 }
 
 .message.user .message-body {
-  background: rgba(69, 173, 255, 0.08);
+  background: var(--primary-alpha-8);
   border-left: 3px solid var(--primary-color);
 }
 
@@ -443,7 +440,7 @@
 }
 
 .message-body table thead {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
 }
 
 .message-body table th,
@@ -469,7 +466,7 @@
 }
 
 .message-body table tbody tr:hover {
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
 }
 
 /* Light Mode - Tables */
@@ -651,8 +648,8 @@
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: rgba(69, 173, 255, 0.05);
-  border: 1px solid rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-5);
+  border: 1px solid var(--primary-alpha-15);
   border-radius: 8px;
   margin-top: 12px;
   font-size: 0.85rem;
@@ -693,7 +690,7 @@
 .matched-space-chip .space-score {
   margin-left: 6px;
   padding: 1px 5px;
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   border-radius: 4px;
   font-size: 0.7rem;
   color: var(--primary-color);
@@ -867,7 +864,7 @@
 
 .input-box:focus-within {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 2px var(--primary-alpha-10);
 }
 
 /* Toggle Buttons */
@@ -906,13 +903,13 @@
 
 /* RAG Toggle Active */
 .input-toggle.rag-toggle.active {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   color: var(--primary-color);
 }
 
 /* Think Toggle Active */
 .input-toggle.think-toggle.active {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   color: var(--primary-hover);
 }
 
@@ -947,7 +944,7 @@
 }
 
 .input-toggle.model-toggle.active {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   color: var(--primary-color);
 }
 
@@ -998,7 +995,7 @@
 }
 
 .model-option.selected {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
 }
 
 .model-option.selected .model-option-name {
@@ -1099,7 +1096,7 @@
 }
 
 .set-default-btn:hover {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   border-color: var(--primary-color);
   color: var(--primary-color);
 }
@@ -1140,7 +1137,7 @@
 }
 
 .input-toggle.space-toggle.active {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   color: var(--primary-color);
 }
 
@@ -1181,7 +1178,7 @@
 }
 
 .space-option.selected {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
 }
 
 .space-option .check-icon {
@@ -1221,7 +1218,7 @@
 .space-option-count {
   font-size: 0.75rem;
   color: var(--text-muted);
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   padding: 2px 6px;
   border-radius: 4px;
 }

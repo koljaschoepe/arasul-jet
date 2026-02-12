@@ -25,7 +25,7 @@
 
 .update-section {
   background: rgba(16, 25, 35, 0.4);
-  border: 1px solid rgba(69, 173, 255, 0.15);
+  border: 1px solid var(--primary-alpha-15);
   border-radius: 12px;
   padding: 2rem;
   margin-bottom: 1.5rem;
@@ -35,7 +35,7 @@
 }
 
 .update-section:hover {
-  border-color: rgba(69, 173, 255, 0.3);
+  border-color: var(--primary-alpha-30);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
@@ -64,8 +64,8 @@
   align-items: center;
   gap: 1rem;
   padding: 1.25rem 1.5rem;
-  background: rgba(69, 173, 255, 0.05);
-  border: 2px dashed rgba(69, 173, 255, 0.2);
+  background: var(--primary-alpha-5);
+  border: 2px dashed var(--primary-alpha-20);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -80,15 +80,15 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(69, 173, 255, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, var(--primary-alpha-10), transparent);
   transition: left 0.5s ease;
 }
 
 .file-label:hover {
-  background: rgba(69, 173, 255, 0.12);
-  border-color: rgba(69, 173, 255, 0.4);
+  background: var(--primary-alpha-12);
+  border-color: var(--primary-alpha-40);
   transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 8px 24px rgba(69, 173, 255, 0.15);
+  box-shadow: 0 8px 24px var(--primary-alpha-15);
 }
 
 .file-label:hover::before {
@@ -136,7 +136,7 @@
 
 .progress-bar {
   height: 8px;
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   border-radius: 4px;
   overflow: hidden;
   position: relative;
@@ -231,15 +231,15 @@
   display: flex;
   justify-content: space-between;
   padding: 0.875rem 1rem;
-  background: rgba(69, 173, 255, 0.05);
-  border: 1px solid rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-5);
+  border: 1px solid var(--primary-alpha-10);
   border-radius: 8px;
   transition: all 0.25s ease;
 }
 
 .detail-row:hover {
-  background: rgba(69, 173, 255, 0.08);
-  border-color: rgba(69, 173, 255, 0.25);
+  background: var(--primary-alpha-8);
+  border-color: var(--primary-alpha-25);
   transform: translateX(4px);
 }
 
@@ -258,8 +258,8 @@
 .components-list {
   margin: 1.25rem 0;
   padding: 1.25rem;
-  background: rgba(69, 173, 255, 0.05);
-  border: 1px solid rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-5);
+  border: 1px solid var(--primary-alpha-10);
   border-radius: 8px;
 }
 
@@ -311,7 +311,7 @@
 .current-step {
   margin: 1.25rem 0;
   padding: 1rem 1.25rem;
-  background: rgba(69, 173, 255, 0.08);
+  background: var(--primary-alpha-8);
   border-left: 3px solid var(--primary-color);
   border-radius: 6px;
 }
@@ -427,7 +427,7 @@
 .btn-primary {
   background: var(--gradient-primary);
   color: white;
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-30);
   position: relative;
   overflow: hidden;
 }
@@ -452,34 +452,34 @@
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 8px 24px rgba(69, 173, 255, 0.4);
+  box-shadow: 0 8px 24px var(--primary-alpha-40);
 }
 
 .btn-success {
   background: var(--primary-color);
   color: var(--text-on-primary);
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-30);
   position: relative;
   overflow: hidden;
 }
 
 .btn-success:hover:not(:disabled) {
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 8px 24px rgba(69, 173, 255, 0.4);
+  box-shadow: 0 8px 24px var(--primary-alpha-40);
 }
 
 .btn-secondary {
-  background: rgba(69, 173, 255, 0.05);
-  border: 2px solid rgba(69, 173, 255, 0.2);
+  background: var(--primary-alpha-5);
+  border: 2px solid var(--primary-alpha-20);
   color: var(--text-secondary);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: rgba(69, 173, 255, 0.1);
-  border-color: rgba(69, 173, 255, 0.4);
+  background: var(--primary-alpha-10);
+  border-color: var(--primary-alpha-40);
   transform: translateY(-3px) scale(1.02);
   color: var(--text-primary);
-  box-shadow: 0 8px 24px rgba(69, 173, 255, 0.2);
+  box-shadow: 0 8px 24px var(--primary-alpha-20);
 }
 
 /* Update History */
@@ -502,7 +502,7 @@
 }
 
 .history-table th {
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
   color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
@@ -544,7 +544,7 @@
 }
 
 .status-badge.status-info {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   color: var(--primary-color);
 }
 

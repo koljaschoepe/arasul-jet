@@ -104,7 +104,7 @@
 
 .bot-card:hover {
   border-color: var(--primary-color, #45ADFF);
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 4px 12px var(--primary-alpha-10);
 }
 
 .bot-card-header {
@@ -128,7 +128,7 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   border-radius: 10px;
   color: var(--primary-color, #45ADFF);
   font-size: 1.25rem;
@@ -297,7 +297,7 @@
 }
 
 .wizard-step.active {
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   color: var(--primary-color, #45ADFF);
 }
 
@@ -361,7 +361,7 @@
 
 .wizard-instructions code {
   padding: 0.125rem 0.375rem;
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   border-radius: 4px;
   font-family: monospace;
   color: var(--primary-color, #45ADFF);
@@ -394,7 +394,7 @@
 .form-input:focus {
   outline: none;
   border-color: var(--primary-color, #45ADFF);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .form-input::placeholder {
@@ -633,11 +633,6 @@
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* Error */
 .bots-error {
@@ -668,7 +663,7 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   border-radius: 10px;
   color: var(--primary-color, #45ADFF);
   font-size: 1.25rem;
@@ -899,7 +894,7 @@
 .wizard-form-group textarea:focus {
   outline: none;
   border-color: var(--primary-color, #45ADFF);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .wizard-form-group input::placeholder,
@@ -997,7 +992,7 @@
 
 .wizard-provider-option.selected {
   border-color: var(--primary-color, #45ADFF);
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
 }
 
 .provider-option-header {
@@ -1297,7 +1292,7 @@
 .bot-details-form-group textarea:focus {
   outline: none;
   border-color: var(--primary-color, #45ADFF);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .bot-details-form-group select {
@@ -1628,7 +1623,7 @@
 
 .command-form-group code {
   padding: 0.125rem 0.25rem;
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   border-radius: 3px;
   font-family: monospace;
   color: var(--primary-color, #45ADFF);
@@ -1900,7 +1895,7 @@
   justify-content: center;
   width: 80px;
   height: 80px;
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   border-radius: 50%;
   color: var(--primary-color, #45ADFF);
   margin-bottom: 1.5rem;
@@ -1955,7 +1950,7 @@
 .wizard-deeplink-btn:hover {
   background: var(--primary-hover, #6EC4FF);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-30);
 }
 
 .wizard-deeplink-hint {

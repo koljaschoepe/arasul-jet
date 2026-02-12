@@ -81,7 +81,7 @@
 
 .spinner-ring:nth-child(4) {
   animation-delay: -450ms;
-  border-top-color: var(--primary-muted, rgba(69, 173, 255, 0.5));
+  border-top-color: var(--primary-muted, var(--primary-alpha-50));
 }
 
 @keyframes spinner-rotate {

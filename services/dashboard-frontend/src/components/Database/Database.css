@@ -154,7 +154,7 @@
 .dt-search-input:focus {
     outline: none;
     border-color: var(--primary-color, #45ADFF);
-    box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
+    box-shadow: 0 0 0 3px var(--primary-alpha-15);
 }
 
 .dt-view-toggle {
@@ -185,7 +185,7 @@
 
 .dt-view-btn.active {
     color: var(--primary-color, #45ADFF);
-    background: rgba(69, 173, 255, 0.1);
+    background: var(--primary-alpha-10);
 }
 
 .dt-selection-actions {
@@ -311,7 +311,7 @@
 }
 
 .dt-th {
-    background: rgba(69, 173, 255, 0.05);
+    background: var(--primary-alpha-5);
     font-weight: 600;
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -350,7 +350,7 @@
 }
 
 .dt-row-selected {
-    background: rgba(69, 173, 255, 0.08) !important;
+    background: var(--primary-alpha-8) !important;
 }
 
 .dt-loading-row,
@@ -377,7 +377,7 @@
 }
 
 .dt-cell:hover {
-    background: rgba(69, 173, 255, 0.1);
+    background: var(--primary-alpha-10);
 }
 
 .dt-cell-value {
@@ -405,7 +405,7 @@
     color: var(--text-primary, #F8FAFC);
     font-size: 0.875rem;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
+    box-shadow: 0 0 0 3px var(--primary-alpha-15);
 }
 
 .dt-cell-editor-textarea {
@@ -566,7 +566,7 @@
 .dt-form-group select:focus {
     outline: none;
     border-color: var(--primary-color, #45ADFF);
-    box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
+    box-shadow: 0 0 0 3px var(--primary-alpha-15);
 }
 
 .dt-form-row {
@@ -623,7 +623,7 @@
 }
 
 .dt-icon-option.selected {
-    background: rgba(69, 173, 255, 0.15);
+    background: var(--primary-alpha-15);
     border-color: var(--primary-color, #45ADFF);
 }
 
@@ -802,10 +802,6 @@
    Animations
    ============================================ */
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
 
 /* ============================================
    Responsive
@@ -1231,7 +1227,7 @@ body.sidebar-collapsed .excel-fullscreen {
 
 .excel-add-column-btn:hover {
     color: var(--primary-color, #45ADFF);
-    background: rgba(69, 173, 255, 0.1);
+    background: var(--primary-alpha-10);
 }
 
 .excel-th-input,
@@ -1313,7 +1309,7 @@ body.sidebar-collapsed .excel-fullscreen {
 }
 
 .excel-row-selected .excel-td {
-    background: rgba(69, 173, 255, 0.08);
+    background: var(--primary-alpha-8);
 }
 
 .excel-row-ghost {
@@ -1453,7 +1449,7 @@ body.sidebar-collapsed .excel-fullscreen {
 }
 
 .excel-menu-item:hover {
-    background: rgba(69, 173, 255, 0.1);
+    background: var(--primary-alpha-10);
     color: var(--text-primary, #F8FAFC);
 }
 
@@ -1564,7 +1560,7 @@ body.sidebar-collapsed .excel-fullscreen {
 }
 
 .excel-context-menu button:hover:not(:disabled) {
-    background: rgba(69, 173, 255, 0.1);
+    background: var(--primary-alpha-10);
     color: var(--text-primary, #F8FAFC);
 }
 
@@ -1791,7 +1787,7 @@ body.sidebar-collapsed .excel-fullscreen {
 .excel-ai-input:focus {
     outline: none;
     border-color: var(--primary-color, #45ADFF);
-    box-shadow: 0 0 0 2px rgba(69, 173, 255, 0.2);
+    box-shadow: 0 0 0 2px var(--primary-alpha-20);
 }
 
 .excel-ai-input::placeholder {
@@ -1841,7 +1837,7 @@ body.sidebar-collapsed .excel-fullscreen {
 
 .excel-ai-explanation {
     padding: 0.75rem;
-    background: rgba(69, 173, 255, 0.1);
+    background: var(--primary-alpha-10);
     border-radius: 8px;
     margin-bottom: 1rem;
     font-size: 0.9rem;
@@ -1971,7 +1967,7 @@ body.sidebar-collapsed .excel-fullscreen {
 }
 
 .excel-ai-hints li:hover {
-    background: rgba(69, 173, 255, 0.1);
+    background: var(--primary-alpha-10);
     color: var(--primary-color, #45ADFF);
 }
 

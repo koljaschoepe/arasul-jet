@@ -185,7 +185,7 @@
 }
 
 .skeleton-chat-message.user .skeleton-message-content {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
 }
 
 /* Skeleton chat container */
@@ -267,6 +267,18 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .skeleton-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .skeleton-message-content {
+    min-width: 140px;
+    max-width: 85%;
+  }
 }
 
 /* Reduced motion preference */

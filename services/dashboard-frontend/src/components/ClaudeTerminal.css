@@ -23,7 +23,7 @@
 }
 
 .claude-terminal-refresh-btn:hover {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   border-color: var(--primary-color);
   color: var(--primary-color);
 }
@@ -40,7 +40,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   font-size: 0.85rem;
@@ -100,7 +100,7 @@
   outline: none;
   border-color: var(--primary-color);
   background: var(--bg-card);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .claude-terminal-input::placeholder {
@@ -195,7 +195,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -222,7 +222,7 @@
 }
 
 .claude-terminal-copy-btn:hover {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   border-color: var(--primary-color);
   color: var(--primary-color);
 }
@@ -323,7 +323,7 @@
 }
 
 .claude-terminal-history-header:hover {
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
 }
 
 .claude-terminal-history-actions {
@@ -378,7 +378,7 @@
 }
 
 .claude-terminal-history-item:hover {
-  background: rgba(69, 173, 255, 0.08);
+  background: var(--primary-alpha-8);
   border-color: var(--border-glow);
   transform: translateX(4px);
 }
@@ -428,8 +428,8 @@
 
 .claude-terminal-example-btn {
   padding: 0.625rem 1rem;
-  background: rgba(69, 173, 255, 0.05);
-  border: 1px solid rgba(69, 173, 255, 0.2);
+  background: var(--primary-alpha-5);
+  border: 1px solid var(--primary-alpha-20);
   border-radius: 20px;
   color: var(--text-secondary);
   font-size: 0.85rem;
@@ -438,7 +438,7 @@
 }
 
 .claude-terminal-example-btn:hover:not(:disabled) {
-  background: rgba(69, 173, 255, 0.12);
+  background: var(--primary-alpha-12);
   border-color: var(--primary-color);
   color: var(--primary-color);
   transform: translateY(-2px);
@@ -454,10 +454,6 @@
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 
 /* Responsive */
 @media (max-width: 768px) {

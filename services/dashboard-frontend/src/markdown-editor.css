@@ -456,11 +456,6 @@ body.sidebar-collapsed .markdown-editor-overlay {
     animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
 
 /* Responsive - Tablet: Sidebar wird schmaler */
 @media (max-width: 1279px) and (min-width: 1025px) {

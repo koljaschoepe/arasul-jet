@@ -80,9 +80,9 @@
 }
 
 .claude-status-badge.status-running {
-  background: rgba(69, 173, 255, 0.2);
+  background: var(--primary-alpha-20);
   color: var(--primary-color);
-  border: 1px solid rgba(69, 173, 255, 0.3);
+  border: 1px solid var(--primary-alpha-30);
 }
 
 .claude-status-badge.status-stopped {
@@ -92,9 +92,9 @@
 }
 
 .claude-status-badge.status-installed {
-  background: rgba(69, 173, 255, 0.2);
+  background: var(--primary-alpha-20);
   color: var(--primary-color);
-  border: 1px solid rgba(69, 173, 255, 0.3);
+  border: 1px solid var(--primary-alpha-30);
 }
 
 .claude-status-badge.status-installing {
@@ -160,7 +160,7 @@
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
   border-color: transparent;
   color: white;
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-30);
 }
 
 .claude-btn-secondary {
@@ -185,10 +185,6 @@
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 
 /* Error Banner */
 .claude-error-banner {
@@ -306,7 +302,7 @@
 .setting-select:focus {
   outline: none;
   border-color: var(--primary-color, var(--primary-color));
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .setting-input::placeholder {
@@ -339,8 +335,8 @@
 }
 
 .save-message.success {
-  background: rgba(69, 173, 255, 0.1);
-  border: 1px solid rgba(69, 173, 255, 0.3);
+  background: var(--primary-alpha-10);
+  border: 1px solid var(--primary-alpha-30);
   color: var(--primary-color);
 }
 
@@ -406,7 +402,7 @@
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(69, 173, 255, 0.1) 0%, rgba(69, 173, 255, 0.05) 100%);
+  background: linear-gradient(135deg, var(--primary-alpha-10) 0%, var(--primary-alpha-5) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -675,7 +671,7 @@
 }
 
 .setup-progress-step.current {
-  box-shadow: 0 0 0 4px rgba(69, 173, 255, 0.2);
+  box-shadow: 0 0 0 4px var(--primary-alpha-20);
 }
 
 .setup-progress-step svg {
@@ -702,7 +698,7 @@
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(69, 173, 255, 0.15) 0%, rgba(69, 173, 255, 0.05) 100%);
+  background: linear-gradient(135deg, var(--primary-alpha-15) 0%, var(--primary-alpha-5) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -715,7 +711,7 @@
 }
 
 .setup-icon.success {
-  background: linear-gradient(135deg, rgba(69, 173, 255, 0.15) 0%, rgba(69, 173, 255, 0.05) 100%);
+  background: linear-gradient(135deg, var(--primary-alpha-15) 0%, var(--primary-alpha-5) 100%);
 }
 
 .setup-icon.success svg {
@@ -775,7 +771,7 @@
 .setup-input:focus {
   outline: none;
   border-color: var(--primary-color, var(--primary-color));
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
+  box-shadow: 0 0 0 3px var(--primary-alpha-15);
 }
 
 .setup-input.error {
@@ -839,19 +835,19 @@
 
 .workspace-option:hover {
   border-color: var(--primary-color, var(--primary-color));
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
 }
 
 .workspace-option.selected {
   border-color: var(--primary-color, var(--primary-color));
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
 }
 
 .workspace-option-icon {
   width: 48px;
   height: 48px;
   border-radius: 10px;
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -885,7 +881,7 @@
 .workspace-option-content code {
   font-size: 0.75rem;
   color: var(--text-secondary);
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
 }
@@ -1256,12 +1252,12 @@
 }
 
 .workspace-item:hover {
-  border-color: rgba(69, 173, 255, 0.3);
+  border-color: var(--primary-alpha-30);
 }
 
 .workspace-item.default {
   border-color: var(--primary-color, var(--primary-color));
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
 }
 
 .workspace-item-info {
@@ -1301,7 +1297,7 @@
 .workspace-item-path code {
   font-size: 0.75rem;
   color: var(--text-secondary);
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   padding: 0.125rem 0.5rem;
   border-radius: 4px;
 }
@@ -1363,7 +1359,7 @@
 .workspace-add-btn:hover {
   border-color: var(--primary-color, var(--primary-color));
   color: var(--primary-color, var(--primary-color));
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
 }
 
 .workspace-create-form {
@@ -1405,7 +1401,7 @@
 .workspace-create-form .form-group input:focus {
   outline: none;
   border-color: var(--primary-color, var(--primary-color));
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .workspace-create-form .form-group input::placeholder {
@@ -1458,7 +1454,7 @@
 
 .workspace-create-form .btn-create:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-30);
 }
 
 .workspace-create-form .btn-create:disabled {
@@ -1537,7 +1533,7 @@
 .workspace-manage-link:hover {
   border-color: var(--primary-color, var(--primary-color));
   color: var(--primary-color, var(--primary-color));
-  background: rgba(69, 173, 255, 0.05);
+  background: var(--primary-alpha-5);
 }
 
 /* Default Indicator in Workspace Options */
@@ -1628,8 +1624,8 @@
 }
 
 .auth-badge.auth-valid {
-  background: rgba(69, 173, 255, 0.15);
-  border: 1px solid rgba(69, 173, 255, 0.3);
+  background: var(--primary-alpha-15);
+  border: 1px solid var(--primary-alpha-30);
   color: var(--primary-color);
 }
 

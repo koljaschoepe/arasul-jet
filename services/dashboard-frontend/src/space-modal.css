@@ -120,7 +120,7 @@
 
 .space-message.success {
   background: var(--primary-muted);
-  border: 1px solid rgba(69, 173, 255, 0.3);
+  border: 1px solid var(--primary-alpha-30);
   color: var(--primary-color);
 }
 
@@ -300,12 +300,12 @@
   background: var(--gradient-primary);
   border: none;
   color: white;
-  box-shadow: 0 4px 12px rgba(69, 173, 255, 0.2);
+  box-shadow: 0 4px 12px var(--primary-alpha-20);
 }
 
 .space-btn.primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 6px 16px var(--primary-alpha-30);
 }
 
 .space-btn.secondary {

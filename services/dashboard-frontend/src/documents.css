@@ -500,7 +500,7 @@
 }
 
 .type-badge.type-document {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   color: var(--primary-color);
 }
 
@@ -1054,10 +1054,6 @@
 }
 
 /* Animations */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 
 .spin {
   animation: spin 1s linear infinite;
@@ -1338,7 +1334,7 @@
 .dm-create-btn:hover {
   background: var(--primary-hover, #6EC4FF);
   transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px var(--primary-alpha-10);
 }
 
 .dm-create-btn:active {
@@ -1361,7 +1357,7 @@
 .dm-create-btn-secondary:hover {
   border-color: var(--primary-color, #45ADFF);
   color: var(--primary-color, #45ADFF);
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
   transform: translateY(-1px);
 }
 
@@ -1383,7 +1379,7 @@
   width: 56px;
   height: 56px;
   margin: 0 auto 0.5rem auto;
-  background: rgba(69, 173, 255, 0.15);
+  background: var(--primary-alpha-15);
   border-radius: 12px;
   color: var(--primary-color, #45ADFF);
   font-size: 1.5rem;
@@ -1432,7 +1428,7 @@
 .yaml-form-group textarea:focus {
   outline: none;
   border-color: var(--primary-color, #45ADFF);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
+  box-shadow: 0 0 0 3px var(--primary-alpha-15);
 }
 
 .yaml-form-group input:disabled,
