@@ -212,7 +212,9 @@ function TelegramBotsPage() {
         size="small"
       >
         <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-          <FiAlertCircle style={{ fontSize: '2.5rem', color: '#EF4444', marginBottom: '1rem' }} />
+          <FiAlertCircle
+            style={{ fontSize: '2.5rem', color: 'var(--danger-color)', marginBottom: '1rem' }}
+          />
           <p style={{ marginBottom: '0.5rem' }}>
             Möchtest du <strong>{deleteBot?.name}</strong> wirklich löschen?
           </p>

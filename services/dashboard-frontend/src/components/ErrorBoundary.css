@@ -3,15 +3,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0a0a;
+  background: var(--bg-dark);
   padding: 2rem;
 }
 
 .error-boundary-content {
   max-width: 600px;
   width: 100%;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 3rem 2rem;
   text-align: center;
@@ -23,13 +23,13 @@
 }
 
 .error-boundary-content h1 {
-  color: #ef4444;
+  color: var(--danger-color);
   margin-bottom: 1rem;
   font-size: 1.8rem;
 }
 
 .error-message {
-  color: #b0b0b0;
+  color: var(--text-secondary);
   margin-bottom: 2rem;
   line-height: 1.6;
 }
@@ -37,14 +37,14 @@
 .error-details {
   margin: 2rem 0;
   text-align: left;
-  background: #0a0a0a;
-  border: 1px solid #333;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
 }
 
 .error-details summary {
-  color: #45ADFF;
+  color: var(--primary-color);
   cursor: pointer;
   font-weight: 600;
   user-select: none;
@@ -56,15 +56,15 @@
 
 .error-stack {
   margin-top: 1rem;
-  color: #ef4444;
+  color: var(--danger-color);
   font-size: 0.85rem;
   overflow-x: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
-  background: #000;
+  background: var(--bg-terminal);
   padding: 1rem;
   border-radius: 4px;
-  border: 1px solid #222;
+  border: 1px solid var(--border-subtle);
 }
 
 .error-actions {
@@ -86,29 +86,29 @@
 }
 
 .btn-reload {
-  background: #45ADFF;
-  color: #000;
+  background: var(--primary-color);
+  color: var(--text-on-primary);
 }
 
 .btn-reload:hover {
-  background: #6EC4FF;
+  background: var(--primary-hover);
   transform: translateY(-2px);
 }
 
 .btn-back {
   background: transparent;
-  color: #b0b0b0;
-  border: 1px solid #333;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-back:hover {
-  background: #222;
-  border-color: #45ADFF;
-  color: #45ADFF;
+  background: var(--bg-elevated);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .error-hint {
-  color: #808080;
+  color: var(--text-disabled);
   font-size: 0.9rem;
   margin-top: 2rem;
 }
@@ -122,19 +122,19 @@
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 1rem;
-  background: #22C55E;
-  color: #000;
+  background: var(--success-color);
+  color: var(--text-on-primary);
 }
 
 .btn-retry:hover {
-  background: #4ADE80;
+  background: var(--success-light);
   transform: translateY(-2px);
 }
 
 /* Compact Error Boundary - Inline errors */
 .error-boundary-compact {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--status-critical-bg);
+  border: 1px solid var(--status-critical-border);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   margin: 0.5rem 0;
@@ -153,7 +153,7 @@
 
 .error-text {
   flex: 1;
-  color: #f87171;
+  color: var(--danger-light);
   font-size: 0.875rem;
 }
 
@@ -165,13 +165,13 @@
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.8125rem;
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--status-critical-bg);
+  color: var(--danger-light);
   flex-shrink: 0;
 }
 
 .btn-retry-small:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: var(--status-critical-border);
 }
 
 /* Responsive */

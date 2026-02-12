@@ -76,16 +76,16 @@ const getAppUrl = app => {
   return '#';
 };
 
-// Status configuration - Blue/Gray/White theme
+// Status configuration - uses CSS variables from Design System
 const statusConfig = {
-  running: { color: '#45ADFF', label: 'Aktiv', icon: FiCheck },
-  installed: { color: '#94a3b8', label: 'Gestoppt', icon: FiClock },
-  available: { color: '#64748b', label: 'Verfügbar', icon: FiDownload },
-  installing: { color: '#60a5fa', label: 'Installiert...', icon: FiRefreshCw },
-  starting: { color: '#60a5fa', label: 'Startet...', icon: FiRefreshCw },
-  stopping: { color: '#94a3b8', label: 'Stoppt...', icon: FiRefreshCw },
-  uninstalling: { color: '#475569', label: 'Deinstalliert...', icon: FiRefreshCw },
-  error: { color: '#475569', label: 'Fehler', icon: FiAlertCircle },
+  running: { color: 'var(--primary-color)', label: 'Aktiv', icon: FiCheck },
+  installed: { color: 'var(--status-neutral)', label: 'Gestoppt', icon: FiClock },
+  available: { color: 'var(--text-disabled)', label: 'Verfügbar', icon: FiDownload },
+  installing: { color: 'var(--primary-light)', label: 'Installiert...', icon: FiRefreshCw },
+  starting: { color: 'var(--primary-light)', label: 'Startet...', icon: FiRefreshCw },
+  stopping: { color: 'var(--status-neutral)', label: 'Stoppt...', icon: FiRefreshCw },
+  uninstalling: { color: 'var(--text-disabled)', label: 'Deinstalliert...', icon: FiRefreshCw },
+  error: { color: 'var(--text-disabled)', label: 'Fehler', icon: FiAlertCircle },
 };
 
 function AppStore() {

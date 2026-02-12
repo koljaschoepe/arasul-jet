@@ -163,19 +163,19 @@ function TelegramBotApp() {
 
   // Source labels and icons
   const sourceInfo = {
-    claude: { label: 'Claude Sessions', icon: FiTerminal, color: '#45ADFF' },
-    system: { label: 'System Events', icon: FiActivity, color: '#94A3B8' } /* Grau statt Grün */,
-    n8n: { label: 'Workflow Events', icon: FiZap, color: '#F59E0B' },
-    custom: { label: 'Benutzerdefiniert', icon: FiBell, color: '#94A3B8' },
+    claude: { label: 'Claude Sessions', icon: FiTerminal, color: 'var(--primary-color)' },
+    system: { label: 'System Events', icon: FiActivity, color: 'var(--status-neutral)' },
+    n8n: { label: 'Workflow Events', icon: FiZap, color: 'var(--warning-color)' },
+    custom: { label: 'Benutzerdefiniert', icon: FiBell, color: 'var(--status-neutral)' },
   };
 
   // Severity badges
   const severityBadge = severity => {
     const colors = {
-      info: '#45ADFF',
-      warning: '#F59E0B',
-      error: '#EF4444',
-      critical: '#DC2626',
+      info: 'var(--primary-color)',
+      warning: 'var(--warning-color)',
+      error: 'var(--danger-color)',
+      critical: 'var(--danger-hover)',
     };
     return (
       <span className="severity-badge" style={{ backgroundColor: colors[severity] || colors.info }}>

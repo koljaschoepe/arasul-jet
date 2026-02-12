@@ -3802,35 +3802,35 @@ button.service-link-card.telegram-app-card:focus {
 
 /* Toast types */
 .toast-success {
-  border-left: 3px solid #22C55E;
+  border-left: 3px solid var(--success-color);
 }
 
 .toast-success .toast-icon {
-  color: #22C55E;
+  color: var(--success-color);
 }
 
 .toast-error {
-  border-left: 3px solid #EF4444;
+  border-left: 3px solid var(--danger-color);
 }
 
 .toast-error .toast-icon {
-  color: #EF4444;
+  color: var(--danger-color);
 }
 
 .toast-warning {
-  border-left: 3px solid #F59E0B;
+  border-left: 3px solid var(--warning-color);
 }
 
 .toast-warning .toast-icon {
-  color: #F59E0B;
+  color: var(--warning-color);
 }
 
 .toast-info {
-  border-left: 3px solid #45ADFF;
+  border-left: 3px solid var(--primary-color);
 }
 
 .toast-info .toast-icon {
-  color: #45ADFF;
+  color: var(--primary-color);
 }
 
 /* Responsive toast */

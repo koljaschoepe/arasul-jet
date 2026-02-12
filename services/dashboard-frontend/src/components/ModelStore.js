@@ -27,12 +27,12 @@ import { useDownloads } from '../contexts/DownloadContext';
 import { API_BASE } from '../config/api';
 import '../modelstore.css';
 
-// Category configuration - neutral gray per Design System
+// Category configuration - neutral per Design System
 const categoryConfig = {
-  small: { label: 'Klein', color: '#2A3544', description: '7-12 GB RAM' },
-  medium: { label: 'Mittel', color: '#2A3544', description: '15-25 GB RAM' },
-  large: { label: 'Gross', color: '#2A3544', description: '30-40 GB RAM' },
-  xlarge: { label: 'Sehr Gross', color: '#2A3544', description: '45+ GB RAM' },
+  small: { label: 'Klein', color: 'var(--bg-elevated)', description: '7-12 GB RAM' },
+  medium: { label: 'Mittel', color: 'var(--bg-elevated)', description: '15-25 GB RAM' },
+  large: { label: 'Gross', color: 'var(--bg-elevated)', description: '30-40 GB RAM' },
+  xlarge: { label: 'Sehr Gross', color: 'var(--bg-elevated)', description: '45+ GB RAM' },
 };
 
 // Format bytes to human readable
@@ -442,8 +442,8 @@ function ModelStore() {
                       style={
                         isActivating
                           ? {
-                              background: `linear-gradient(90deg, #22C55E ${activatingPercent}%, #1A2330 ${activatingPercent}%)`,
-                              borderColor: '#22C55E',
+                              background: `linear-gradient(90deg, var(--success-color) ${activatingPercent}%, var(--bg-card) ${activatingPercent}%)`,
+                              borderColor: 'var(--success-color)',
                             }
                           : {}
                       }
