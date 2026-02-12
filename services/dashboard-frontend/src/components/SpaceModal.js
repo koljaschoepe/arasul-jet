@@ -1,6 +1,7 @@
 import React, { memo, useState, useEffect } from 'react';
 import { FiX, FiFolder, FiSave, FiAlertCircle, FiCheck, FiTrash2 } from 'react-icons/fi';
 import { API_BASE } from '../config/api';
+import useConfirm from '../hooks/useConfirm';
 import '../space-modal.css';
 
 // Available icons for spaces
@@ -14,7 +15,7 @@ const SPACE_ICONS = [
   { value: 'shopping-cart', label: 'Vertrieb' },
   { value: 'tool', label: 'Technik' },
   { value: 'book', label: 'Wissen' },
-  { value: 'archive', label: 'Archiv' }
+  { value: 'archive', label: 'Archiv' },
 ];
 
 // Available colors for spaces
@@ -28,7 +29,7 @@ const SPACE_COLORS = [
   '#14b8a6', // Teal
   '#3b82f6', // Blue
   '#06b6d4', // Cyan
-  '#64748b'  // Slate
+  '#64748b', // Slate
 ];
 
 const descriptionTemplate = `**Inhalt:** Beschreiben Sie, welche Dokumente dieser Bereich enthält.
@@ -40,7 +41,14 @@ const descriptionTemplate = `**Inhalt:** Beschreiben Sie, welche Dokumente diese
 - Frage 2
 - Frage 3`;
 
-const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = null, mode = 'create' }) {
+const SpaceModal = memo(function SpaceModal({
+  isOpen,
+  onClose,
+  onSave,
+  space = null,
+  mode = 'create',
+}) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [name, setName] = useState('');
   const [description, setDescription] = useState(descriptionTemplate);
   const [icon, setIcon] = useState('folder');
@@ -68,7 +76,7 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
     }
   }, [isOpen, space, mode]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -89,7 +97,7 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
         name: name.trim(),
         description: description.trim(),
         icon,
-        color
+        color,
       };
 
       let response;
@@ -98,14 +106,14 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
       } else {
         response = await fetch(`${API_BASE}/spaces`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
       }
 
@@ -121,7 +129,6 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
         onSave(data.space || data);
         onClose();
       }, 500);
-
     } catch (err) {
       setError(err.message);
     } finally {
@@ -132,7 +139,11 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
   const handleDelete = async () => {
     if (!space?.id) return;
 
-    if (!window.confirm(`Bereich "${space.name}" wirklich löschen? Dokumente werden in "Allgemein" verschoben.`)) {
+    if (
+      !(await confirm({
+        message: `Bereich "${space.name}" wirklich löschen? Dokumente werden in "Allgemein" verschoben.`,
+      }))
+    ) {
       return;
     }
 
@@ -142,7 +153,7 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
     try {
       const response = await fetch(`${API_BASE}/spaces/${space.id}`, {
         method: 'DELETE',
-        credentials: 'include'
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -155,7 +166,6 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
         onSave(null); // Signal deletion
         onClose();
       }, 500);
-
     } catch (err) {
       setError(err.message);
     } finally {
@@ -167,7 +177,7 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
 
   return (
     <div className="space-modal-overlay" onClick={onClose}>
-      <div className="space-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="space-modal" onClick={e => e.stopPropagation()}>
         <div className="space-modal-header">
           <h3>
             <FiFolder style={{ color }} />
@@ -201,7 +211,7 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
                 id="space-name"
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={e => setName(e.target.value)}
                 placeholder="z.B. Vertrieb, Technik, Recht..."
                 maxLength={100}
                 disabled={space?.is_default || space?.is_system}
@@ -252,7 +262,7 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
               <textarea
                 id="space-description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={e => setDescription(e.target.value)}
                 placeholder="Beschreiben Sie, was dieser Bereich enthält..."
                 rows={8}
               />
@@ -283,12 +293,10 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
               >
                 Abbrechen
               </button>
-              <button
-                type="submit"
-                className="space-btn primary"
-                disabled={saving}
-              >
-                {saving ? 'Speichern...' : (
+              <button type="submit" className="space-btn primary" disabled={saving}>
+                {saving ? (
+                  'Speichern...'
+                ) : (
                   <>
                     <FiSave />
                     {mode === 'edit' ? 'Speichern' : 'Erstellen'}
@@ -299,6 +307,7 @@ const SpaceModal = memo(function SpaceModal({ isOpen, onClose, onSave, space = n
           </div>
         </form>
       </div>
+      {ConfirmDialog}
     </div>
   );
 });

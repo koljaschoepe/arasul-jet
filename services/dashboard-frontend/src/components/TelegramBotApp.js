@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import useConfirm from '../hooks/useConfirm';
 import {
   FiSend,
   FiSettings,
@@ -17,7 +18,7 @@ import {
   FiTrash2,
   FiToggleLeft,
   FiToggleRight,
-  FiChevronRight
+  FiChevronRight,
 } from 'react-icons/fi';
 import TelegramSetupWizard from './TelegramSetupWizard';
 import { API_BASE } from '../config/api';
@@ -32,6 +33,7 @@ import '../telegram-bot-app.css';
  * - Notification History
  */
 function TelegramBotApp() {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [activeTab, setActiveTab] = useState('overview');
   const [config, setConfig] = useState(null);
   const [rules, setRules] = useState([]);
@@ -49,7 +51,7 @@ function TelegramBotApp() {
 
       // Load config
       const configRes = await fetch(`${API_BASE}/telegram-app/config`, {
-        credentials: 'include'
+        credentials: 'include',
       });
       if (configRes.ok) {
         const configData = await configRes.json();
@@ -63,7 +65,7 @@ function TelegramBotApp() {
 
       // Load rules
       const rulesRes = await fetch(`${API_BASE}/telegram-app/rules`, {
-        credentials: 'include'
+        credentials: 'include',
       });
       if (rulesRes.ok) {
         const rulesData = await rulesRes.json();
@@ -72,13 +74,12 @@ function TelegramBotApp() {
 
       // Load orchestrator status
       const orchestratorRes = await fetch(`${API_BASE}/telegram-app/orchestrator/status`, {
-        credentials: 'include'
+        credentials: 'include',
       });
       if (orchestratorRes.ok) {
         const orchestratorData = await orchestratorRes.json();
         setOrchestratorStatus(orchestratorData);
       }
-
     } catch (err) {
       console.error('Error loading Telegram App data:', err);
       setError(err.message);
@@ -104,23 +105,21 @@ function TelegramBotApp() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ isEnabled: !currentState })
+        body: JSON.stringify({ isEnabled: !currentState }),
       });
 
-      setRules(rules.map(r =>
-        r.id === ruleId ? { ...r, is_enabled: !currentState } : r
-      ));
+      setRules(rules.map(r => (r.id === ruleId ? { ...r, is_enabled: !currentState } : r)));
     } catch (err) {
       console.error('Error toggling rule:', err);
     }
   };
 
   // Test rule
-  const testRule = async (ruleId) => {
+  const testRule = async ruleId => {
     try {
       const res = await fetch(`${API_BASE}/telegram-app/rules/${ruleId}/test`, {
         method: 'POST',
-        credentials: 'include'
+        credentials: 'include',
       });
 
       if (res.ok) {
@@ -136,12 +135,12 @@ function TelegramBotApp() {
 
   // Delete rule
   const deleteRule = async (ruleId, ruleName) => {
-    if (!window.confirm(`Regel "${ruleName}" wirklich loeschen?`)) return;
+    if (!(await confirm({ message: `Regel "${ruleName}" wirklich löschen?` }))) return;
 
     try {
       await fetch(`${API_BASE}/telegram-app/rules/${ruleId}`, {
         method: 'DELETE',
-        credentials: 'include'
+        credentials: 'include',
       });
 
       setRules(rules.filter(r => r.id !== ruleId));
@@ -161,24 +160,21 @@ function TelegramBotApp() {
   // Source labels and icons
   const sourceInfo = {
     claude: { label: 'Claude Sessions', icon: FiTerminal, color: '#45ADFF' },
-    system: { label: 'System Events', icon: FiActivity, color: '#94A3B8' },  /* Grau statt Grün */
+    system: { label: 'System Events', icon: FiActivity, color: '#94A3B8' } /* Grau statt Grün */,
     n8n: { label: 'Workflow Events', icon: FiZap, color: '#F59E0B' },
-    custom: { label: 'Benutzerdefiniert', icon: FiBell, color: '#94A3B8' }
+    custom: { label: 'Benutzerdefiniert', icon: FiBell, color: '#94A3B8' },
   };
 
   // Severity badges
-  const severityBadge = (severity) => {
+  const severityBadge = severity => {
     const colors = {
       info: '#45ADFF',
       warning: '#F59E0B',
       error: '#EF4444',
-      critical: '#DC2626'
+      critical: '#DC2626',
     };
     return (
-      <span
-        className="severity-badge"
-        style={{ backgroundColor: colors[severity] || colors.info }}
-      >
+      <span className="severity-badge" style={{ backgroundColor: colors[severity] || colors.info }}>
         {severity}
       </span>
     );
@@ -213,7 +209,9 @@ function TelegramBotApp() {
             <h1>Telegram Bot</h1>
             <p className="telegram-app-subtitle">
               {config?.configured ? (
-                <>Verbunden mit <strong>@{config.config?.bot_username || 'Bot'}</strong></>
+                <>
+                  Verbunden mit <strong>@{config.config?.bot_username || 'Bot'}</strong>
+                </>
               ) : (
                 'Nicht konfiguriert'
               )}
@@ -221,10 +219,7 @@ function TelegramBotApp() {
           </div>
         </div>
         <div className="telegram-app-actions">
-          <button
-            className="btn btn-secondary"
-            onClick={() => setShowSetupWizard(true)}
-          >
+          <button className="btn btn-secondary" onClick={() => setShowSetupWizard(true)}>
             <FiSettings /> Neu einrichten
           </button>
         </div>
@@ -235,7 +230,9 @@ function TelegramBotApp() {
         <div className="telegram-error-banner">
           <FiAlertCircle />
           <span>{error}</span>
-          <button onClick={loadData}><FiRefreshCw /> Erneut laden</button>
+          <button onClick={loadData}>
+            <FiRefreshCw /> Erneut laden
+          </button>
         </div>
       )}
 
@@ -275,28 +272,38 @@ function TelegramBotApp() {
             {/* Stats Cards */}
             <div className="telegram-stats-grid">
               <div className="telegram-stat-card">
-                <div className="stat-icon"><FiBell /></div>
+                <div className="stat-icon">
+                  <FiBell />
+                </div>
                 <div className="stat-content">
                   <span className="stat-value">{rules.length}</span>
                   <span className="stat-label">Benachrichtigungsregeln</span>
                 </div>
               </div>
               <div className="telegram-stat-card">
-                <div className="stat-icon active"><FiCheck /></div>
+                <div className="stat-icon active">
+                  <FiCheck />
+                </div>
                 <div className="stat-content">
                   <span className="stat-value">{rules.filter(r => r.is_enabled).length}</span>
                   <span className="stat-label">Aktive Regeln</span>
                 </div>
               </div>
               <div className="telegram-stat-card">
-                <div className="stat-icon"><FiSend /></div>
+                <div className="stat-icon">
+                  <FiSend />
+                </div>
                 <div className="stat-content">
-                  <span className="stat-value">{rules.reduce((sum, r) => sum + (r.trigger_count || 0), 0)}</span>
+                  <span className="stat-value">
+                    {rules.reduce((sum, r) => sum + (r.trigger_count || 0), 0)}
+                  </span>
                   <span className="stat-label">Gesendete Nachrichten</span>
                 </div>
               </div>
               <div className="telegram-stat-card">
-                <div className="stat-icon"><FiZap /></div>
+                <div className="stat-icon">
+                  <FiZap />
+                </div>
                 <div className="stat-content">
                   <span className="stat-value">{orchestratorStatus?.agents?.length || 3}</span>
                   <span className="stat-label">Aktive Agents</span>
@@ -308,10 +315,7 @@ function TelegramBotApp() {
             <div className="telegram-section">
               <h2>Schnellaktionen</h2>
               <div className="telegram-quick-actions">
-                <button
-                  className="quick-action-btn"
-                  onClick={() => setActiveTab('rules')}
-                >
+                <button className="quick-action-btn" onClick={() => setActiveTab('rules')}>
                   <FiPlus />
                   <span>Neue Regel erstellen</span>
                   <FiChevronRight />
@@ -322,7 +326,7 @@ function TelegramBotApp() {
                     try {
                       const res = await fetch(`${API_BASE}/telegram-app/rules/1/test`, {
                         method: 'POST',
-                        credentials: 'include'
+                        credentials: 'include',
                       });
                       if (res.ok) alert('Test-Nachricht gesendet!');
                     } catch (e) {
@@ -334,10 +338,7 @@ function TelegramBotApp() {
                   <span>Test-Nachricht senden</span>
                   <FiChevronRight />
                 </button>
-                <button
-                  className="quick-action-btn"
-                  onClick={() => setActiveTab('orchestrator')}
-                >
+                <button className="quick-action-btn" onClick={() => setActiveTab('orchestrator')}>
                   <FiActivity />
                   <span>Agent-Logs anzeigen</span>
                   <FiChevronRight />
@@ -349,13 +350,19 @@ function TelegramBotApp() {
             <div className="telegram-section">
               <h2>Aktive Regeln</h2>
               <div className="telegram-rules-preview">
-                {rules.filter(r => r.is_enabled).slice(0, 5).map(rule => (
-                  <div key={rule.id} className="rule-preview-item">
-                    <span className="rule-source-dot" style={{ backgroundColor: sourceInfo[rule.event_source]?.color }} />
-                    <span className="rule-name">{rule.name}</span>
-                    {severityBadge(rule.severity)}
-                  </div>
-                ))}
+                {rules
+                  .filter(r => r.is_enabled)
+                  .slice(0, 5)
+                  .map(rule => (
+                    <div key={rule.id} className="rule-preview-item">
+                      <span
+                        className="rule-source-dot"
+                        style={{ backgroundColor: sourceInfo[rule.event_source]?.color }}
+                      />
+                      <span className="rule-name">{rule.name}</span>
+                      {severityBadge(rule.severity)}
+                    </div>
+                  ))}
                 {rules.filter(r => r.is_enabled).length === 0 && (
                   <p className="no-data">Keine aktiven Regeln</p>
                 )}
@@ -388,7 +395,10 @@ function TelegramBotApp() {
 
                   <div className="rules-list">
                     {sourceRules.map(rule => (
-                      <div key={rule.id} className={`rule-card ${!rule.is_enabled ? 'disabled' : ''}`}>
+                      <div
+                        key={rule.id}
+                        className={`rule-card ${!rule.is_enabled ? 'disabled' : ''}`}
+                      >
                         <div className="rule-header">
                           <div className="rule-info">
                             <span className="rule-name">{rule.name}</span>
@@ -405,9 +415,7 @@ function TelegramBotApp() {
                           </div>
                         </div>
 
-                        {rule.description && (
-                          <p className="rule-description">{rule.description}</p>
-                        )}
+                        {rule.description && <p className="rule-description">{rule.description}</p>}
 
                         <div className="rule-meta">
                           <span className="rule-event-type">{rule.event_type}</span>
@@ -471,13 +479,17 @@ function TelegramBotApp() {
                   </div>
                   <div className="config-item">
                     <span className="config-label">Thinking Mode</span>
-                    <span className={`config-value ${orchestratorStatus?.thinkingMode ? 'active' : ''}`}>
+                    <span
+                      className={`config-value ${orchestratorStatus?.thinkingMode ? 'active' : ''}`}
+                    >
                       {orchestratorStatus?.thinkingMode ? 'Aktiv' : 'Inaktiv'}
                     </span>
                   </div>
                   <div className="config-item">
                     <span className="config-label">Skip Permissions</span>
-                    <span className={`config-value ${orchestratorStatus?.skipPermissions ? 'active' : ''}`}>
+                    <span
+                      className={`config-value ${orchestratorStatus?.skipPermissions ? 'active' : ''}`}
+                    >
                       {orchestratorStatus?.skipPermissions ? 'Ja' : 'Nein'}
                     </span>
                   </div>
@@ -490,7 +502,9 @@ function TelegramBotApp() {
 
               <div className="agents-grid">
                 {['setup', 'notification', 'command'].map(agentType => {
-                  const agentState = orchestratorStatus?.state?.find(s => s.agent_type === agentType);
+                  const agentState = orchestratorStatus?.state?.find(
+                    s => s.agent_type === agentType
+                  );
 
                   return (
                     <div key={agentType} className="agent-card">
@@ -531,12 +545,12 @@ function TelegramBotApp() {
                 <div className="history-list">
                   {history.map(item => (
                     <div key={item.id} className="history-item">
-                      <div className="history-icon">
-                        {item.delivered ? <FiCheck /> : <FiX />}
-                      </div>
+                      <div className="history-icon">{item.delivered ? <FiCheck /> : <FiX />}</div>
                       <div className="history-content">
                         <span className="history-rule">{item.rule_name || 'System'}</span>
-                        <span className="history-message">{item.message_sent?.slice(0, 100)}...</span>
+                        <span className="history-message">
+                          {item.message_sent?.slice(0, 100)}...
+                        </span>
                       </div>
                       <div className="history-meta">
                         <span className="history-time">
@@ -557,6 +571,7 @@ function TelegramBotApp() {
           </div>
         )}
       </main>
+      {ConfirmDialog}
     </div>
   );
 }

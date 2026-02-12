@@ -14,8 +14,10 @@ import {
   FiMenu,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import useConfirm from '../../hooks/useConfirm';
 
 function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [editingCommand, setEditingCommand] = useState(null);
   const [newCommand, setNewCommand] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -126,7 +128,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
 
   // Delete command
   const handleDelete = async cmdId => {
-    if (!window.confirm('Command wirklich loeschen?')) return;
+    if (!(await confirm({ message: 'Command wirklich löschen?' }))) return;
 
     try {
       const response = await fetch(`${API_BASE}/telegram-bots/${botId}/commands/${cmdId}`, {
@@ -353,6 +355,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
           </div>
         </div>
       </div>
+      {ConfirmDialog}
     </div>
   );
 }

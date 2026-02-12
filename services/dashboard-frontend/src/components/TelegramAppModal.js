@@ -14,6 +14,7 @@ import {
 import Modal from './Modal';
 import BotSetupWizard from './TelegramBots/BotSetupWizard';
 import BotDetailsModal from './TelegramBots/BotDetailsModal';
+import useConfirm from '../hooks/useConfirm';
 import './TelegramAppModal.css';
 
 /**
@@ -21,6 +22,7 @@ import './TelegramAppModal.css';
  * Main interface for managing Telegram bots
  */
 function TelegramAppModal({ isOpen, onClose }) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [activeTab, setActiveTab] = useState('bots');
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -97,7 +99,11 @@ function TelegramAppModal({ isOpen, onClose }) {
   };
 
   const handleDeleteBot = async botId => {
-    if (!window.confirm('Bot wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.')) {
+    if (
+      !(await confirm({
+        message: 'Bot wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+      }))
+    ) {
       return;
     }
 
@@ -276,7 +282,9 @@ function TelegramAppModal({ isOpen, onClose }) {
                   Hier kannst du benutzerdefinierte Regeln erstellen, um Benachrichtigungen von
                   Claude, System-Events und n8n-Workflows zu erhalten.
                 </p>
-                <p className="text-muted">Diese Funktion wird in einem zukuenftigen Update verfuegbar sein.</p>
+                <p className="text-muted">
+                  Diese Funktion wird in einem zukuenftigen Update verfuegbar sein.
+                </p>
               </div>
             </div>
           )}
@@ -325,6 +333,7 @@ function TelegramAppModal({ isOpen, onClose }) {
           />
         )}
       </div>
+      {ConfirmDialog}
     </Modal>
   );
 }

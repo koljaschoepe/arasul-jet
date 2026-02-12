@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import useConfirm from '../../hooks/useConfirm';
 import {
   FiCpu,
   FiDownload,
@@ -20,7 +21,7 @@ import {
   FiX,
   FiInfo,
   FiEye,
-  FiType
+  FiType,
 } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
 import { API_BASE } from '../../config/api';
@@ -30,24 +31,25 @@ const sizeConfig = {
   small: { label: 'Klein', description: '7-12 GB RAM' },
   medium: { label: 'Mittel', description: '15-25 GB RAM' },
   large: { label: 'Gross', description: '30-40 GB RAM' },
-  xlarge: { label: 'Sehr Gross', description: '45+ GB RAM' }
+  xlarge: { label: 'Sehr Gross', description: '45+ GB RAM' },
 };
 
 // Model type configuration
 const typeConfig = {
   llm: { label: 'LLM', icon: FiCpu, description: 'Sprachmodelle' },
   ocr: { label: 'OCR', icon: FiType, description: 'Texterkennung' },
-  vision: { label: 'Vision', icon: FiEye, description: 'Bildanalyse' }
+  vision: { label: 'Vision', icon: FiEye, description: 'Bildanalyse' },
 };
 
 // Format bytes to human readable
-const formatSize = (bytes) => {
+const formatSize = bytes => {
   if (!bytes) return 'N/A';
   const gb = bytes / (1024 * 1024 * 1024);
   return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(gb * 1024).toFixed(0)} MB`;
 };
 
 function StoreModels() {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
 
@@ -73,8 +75,8 @@ function StoreModels() {
   const getAuthHeaders = () => {
     const token = localStorage.getItem('arasul_token');
     return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
     };
   };
 
@@ -86,7 +88,7 @@ function StoreModels() {
       const [catalogRes, statusRes, defaultRes] = await Promise.all([
         fetch(`${API_BASE}/models/catalog`, { headers }),
         fetch(`${API_BASE}/models/status`, { headers }),
-        fetch(`${API_BASE}/models/default`, { headers })
+        fetch(`${API_BASE}/models/default`, { headers }),
       ]);
 
       if (!catalogRes.ok) throw new Error('Fehler beim Laden des Katalogs');
@@ -136,7 +138,7 @@ function StoreModels() {
   };
 
   // Activate model with SSE streaming
-  const handleActivate = async (modelId) => {
+  const handleActivate = async modelId => {
     if (activatingRef.current) return;
     activatingRef.current = true;
 
@@ -149,9 +151,9 @@ function StoreModels() {
       const response = await fetch(`${API_BASE}/models/${modelId}/activate?stream=true`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
@@ -204,13 +206,13 @@ function StoreModels() {
   };
 
   // Delete model
-  const handleDelete = async (modelId) => {
-    if (!window.confirm(`Modell "${modelId}" wirklich loeschen?`)) return;
+  const handleDelete = async modelId => {
+    if (!(await confirm({ message: `Modell "${modelId}" wirklich löschen?` }))) return;
 
     try {
       const response = await fetch(`${API_BASE}/models/${modelId}`, {
         method: 'DELETE',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
       });
       if (!response.ok) {
         const result = await response.json();
@@ -224,12 +226,12 @@ function StoreModels() {
   };
 
   // Set as default
-  const handleSetDefault = async (modelId) => {
+  const handleSetDefault = async modelId => {
     try {
       const response = await fetch(`${API_BASE}/models/default`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ model_id: modelId })
+        body: JSON.stringify({ model_id: modelId }),
       });
       if (!response.ok) {
         const result = await response.json();
@@ -243,7 +245,7 @@ function StoreModels() {
   };
 
   // Get queue count for model
-  const getQueueCount = (modelId) => {
+  const getQueueCount = modelId => {
     const entry = queueByModel.find(q => q.model === modelId);
     return entry?.pending_count || 0;
   };
@@ -280,7 +282,9 @@ function StoreModels() {
           <div className="loaded-model-stats">
             <span className="ram-usage">
               <FiHardDrive />
-              {loadedModel.ram_usage_mb ? `${(loadedModel.ram_usage_mb / 1024).toFixed(1)} GB RAM` : 'RAM wird berechnet...'}
+              {loadedModel.ram_usage_mb
+                ? `${(loadedModel.ram_usage_mb / 1024).toFixed(1)} GB RAM`
+                : 'RAM wird berechnet...'}
             </span>
           </div>
         </div>
@@ -298,7 +302,9 @@ function StoreModels() {
         <div className="store-error">
           <FiAlertCircle />
           <span>{error}</span>
-          <button onClick={() => setError(null)}><FiX /></button>
+          <button onClick={() => setError(null)}>
+            <FiX />
+          </button>
         </div>
       )}
 
@@ -358,7 +364,9 @@ function StoreModels() {
       <div className="model-grid">
         {filteredCatalog.map(model => {
           const isInstalled = model.install_status === 'available';
-          const isLoaded = loadedModel?.model_id === model.id || loadedModel?.model_id === model.effective_ollama_name;
+          const isLoaded =
+            loadedModel?.model_id === model.id ||
+            loadedModel?.model_id === model.effective_ollama_name;
           const modelIsDownloading = isDownloading(model.id);
           const downloadState = getDownloadState(model.id);
           const isActivating = activating === model.id;
@@ -380,10 +388,14 @@ function StoreModels() {
                 </div>
                 <div className="model-badges">
                   {isDefault && (
-                    <span className="badge badge-default"><FiStar /> Standard</span>
+                    <span className="badge badge-default">
+                      <FiStar /> Standard
+                    </span>
                   )}
                   {isLoaded && (
-                    <span className="badge badge-loaded"><FiZap /> Aktiv</span>
+                    <span className="badge badge-loaded">
+                      <FiZap /> Aktiv
+                    </span>
                   )}
                   {pendingJobs > 0 && (
                     <span className="badge badge-queue">{pendingJobs} wartend</span>
@@ -414,14 +426,19 @@ function StoreModels() {
               {model.capabilities && model.capabilities.length > 0 && (
                 <div className="model-capabilities">
                   {model.capabilities.slice(0, 4).map(cap => (
-                    <span key={cap} className="capability-tag">{cap}</span>
+                    <span key={cap} className="capability-tag">
+                      {cap}
+                    </span>
                   ))}
                 </div>
               )}
 
               {/* Download Progress */}
               {modelIsDownloading && downloadState && (
-                <div className={`download-progress phase-${downloadState.phase}`} onClick={e => e.stopPropagation()}>
+                <div
+                  className={`download-progress phase-${downloadState.phase}`}
+                  onClick={e => e.stopPropagation()}
+                >
                   <div className="progress-header">
                     <span className="progress-phase-label">
                       {downloadState.phase === 'init' && 'Initialisiere'}
@@ -435,10 +452,14 @@ function StoreModels() {
                   <div className="progress-bar">
                     <div
                       className={`progress-fill ${downloadState.phase === 'verify' ? 'pulsing' : ''}`}
-                      style={{ width: `${downloadState.phase === 'verify' && downloadState.progress < 100 ? 100 : downloadState.progress}%` }}
+                      style={{
+                        width: `${downloadState.phase === 'verify' && downloadState.progress < 100 ? 100 : downloadState.progress}%`,
+                      }}
                     />
                   </div>
-                  <div className="progress-status">{downloadState.error || downloadState.status}</div>
+                  <div className="progress-status">
+                    {downloadState.error || downloadState.status}
+                  </div>
                 </div>
               )}
 
@@ -459,15 +480,23 @@ function StoreModels() {
                       className={`btn btn-success ${isActivating ? 'activating-btn' : ''}`}
                       onClick={() => handleActivate(model.id)}
                       disabled={isActivating}
-                      style={isActivating ? {
-                        background: `linear-gradient(90deg, #22C55E ${activatingPercent}%, #1A2330 ${activatingPercent}%)`,
-                        borderColor: '#22C55E'
-                      } : {}}
+                      style={
+                        isActivating
+                          ? {
+                              background: `linear-gradient(90deg, #22C55E ${activatingPercent}%, #1A2330 ${activatingPercent}%)`,
+                              borderColor: '#22C55E',
+                            }
+                          : {}
+                      }
                     >
                       {isActivating ? (
-                        <><FiRefreshCw className="spin" /> {activatingPercent}%</>
+                        <>
+                          <FiRefreshCw className="spin" /> {activatingPercent}%
+                        </>
                       ) : (
-                        <><FiPlay /> Aktivieren</>
+                        <>
+                          <FiPlay /> Aktivieren
+                        </>
                       )}
                     </button>
                     {!isDefault && (
@@ -523,7 +552,9 @@ function StoreModels() {
         <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
           <div className="modal-content model-detail-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2><FiCpu /> {selectedModel.name}</h2>
+              <h2>
+                <FiCpu /> {selectedModel.name}
+              </h2>
               <button className="modal-close" onClick={() => setSelectedModel(null)}>
                 <FiX />
               </button>
@@ -559,8 +590,11 @@ function StoreModels() {
                 <div className="detail-spec">
                   <span className="detail-label">Performance</span>
                   <span className="detail-value">
-                    {selectedModel.performance_tier === 1 ? 'Schnell' :
-                     selectedModel.performance_tier === 2 ? 'Mittel' : 'Langsam'}
+                    {selectedModel.performance_tier === 1
+                      ? 'Schnell'
+                      : selectedModel.performance_tier === 2
+                        ? 'Mittel'
+                        : 'Langsam'}
                   </span>
                 </div>
               </div>
@@ -570,7 +604,9 @@ function StoreModels() {
                   <h3>Faehigkeiten</h3>
                   <div className="model-capabilities">
                     {selectedModel.capabilities.map(cap => (
-                      <span key={cap} className="capability-tag">{cap}</span>
+                      <span key={cap} className="capability-tag">
+                        {cap}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -581,7 +617,9 @@ function StoreModels() {
                   <h3>Empfohlen fuer</h3>
                   <div className="model-capabilities">
                     {selectedModel.recommended_for.map(use => (
-                      <span key={use} className="capability-tag recommended">{use}</span>
+                      <span key={use} className="capability-tag recommended">
+                        {use}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -603,6 +641,7 @@ function StoreModels() {
           </div>
         </div>
       )}
+      {ConfirmDialog}
     </div>
   );
 }
