@@ -34,7 +34,7 @@ export function useWebSocketMetrics(isAuthenticated) {
   const httpPollingRef = useRef(null);
 
   // Calculate reconnection delay with exponential backoff and jitter
-  const calculateReconnectDelay = useCallback((attempt) => {
+  const calculateReconnectDelay = useCallback(attempt => {
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
     const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
     // Add jitter ±25%
@@ -46,14 +46,12 @@ export function useWebSocketMetrics(isAuthenticated) {
   const startHttpPolling = useCallback(() => {
     if (httpPollingRef.current) return; // Already polling
 
-    // [useWebSocketMetrics] Starting HTTP polling fallback...');
-
     httpPollingRef.current = setInterval(async () => {
       try {
         const response = await axios.get(`${API_BASE}/metrics/live`);
         setMetrics(response.data);
       } catch (err) {
-        // console.error('[useWebSocketMetrics] HTTP polling error:', err);
+        // Silently retry on next interval
       }
     }, 5000);
   }, []);
@@ -74,46 +72,37 @@ export function useWebSocketMetrics(isAuthenticated) {
       const ws = new WebSocket(`${WS_BASE}/metrics/live-stream`);
 
       ws.onopen = () => {
-        // [useWebSocketMetrics] WebSocket connected');
         reconnectAttemptsRef.current = 0;
         setWsConnected(true);
         setWsReconnecting(false);
         stopHttpPolling();
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = event => {
         try {
           const data = JSON.parse(event.data);
           // Only update if data doesn't contain an error
           if (!data.error) {
             setMetrics(data);
-          } else {
-            // console.warn('[useWebSocketMetrics] Metrics service error:', data.error);
           }
         } catch (err) {
-          // console.error('[useWebSocketMetrics] Message parse error:', err);
+          // Ignore malformed messages
         }
       };
 
-      ws.onerror = (error) => {
-        // console.error('[useWebSocketMetrics] WebSocket error:', error);
-      };
+      ws.onerror = () => {};
 
-      ws.onclose = (event) => {
+      ws.onclose = event => {
         setWsConnected(false);
         wsRef.current = null;
 
         // Don't reconnect if closed intentionally
         if (isIntentionallyClosedRef.current) {
-          // [useWebSocketMetrics] WebSocket closed intentionally');
           return;
         }
 
-        // [useWebSocketMetrics] WebSocket disconnected (code: ${event.code})
-
         // Check if we should retry
         if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          // console.error('[useWebSocketMetrics] Max reconnect attempts reached. Using HTTP polling.');
           setWsReconnecting(false);
           startHttpPolling();
           return;
@@ -122,19 +111,13 @@ export function useWebSocketMetrics(isAuthenticated) {
         reconnectAttemptsRef.current++;
         setWsReconnecting(true);
         const delay = calculateReconnectDelay(reconnectAttemptsRef.current - 1);
-
-        // [useWebSocketMetrics] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...
-
         reconnectTimerRef.current = setTimeout(() => {
           connectWebSocket();
         }, delay);
       };
 
       wsRef.current = ws;
-
     } catch (error) {
-      // console.error('[useWebSocketMetrics] Failed to create WebSocket:', error);
-
       // Retry connection
       if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttemptsRef.current++;
@@ -178,7 +161,7 @@ export function useWebSocketMetrics(isAuthenticated) {
   return {
     metrics,
     wsConnected,
-    wsReconnecting
+    wsReconnecting,
   };
 }
 

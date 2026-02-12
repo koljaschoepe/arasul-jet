@@ -17,19 +17,21 @@ import {
   FiRefreshCw,
   FiZap,
   FiPackage,
-  FiExternalLink
+  FiExternalLink,
 } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
+import { useToast } from '../../contexts/ToastContext';
 import { API_BASE } from '../../config/api';
 
 // Format bytes to human readable
-const formatSize = (bytes) => {
+const formatSize = bytes => {
   if (!bytes) return 'N/A';
   const gb = bytes / (1024 * 1024 * 1024);
   return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(gb * 1024).toFixed(0)} MB`;
 };
 
 function StoreHome({ systemInfo }) {
+  const toast = useToast();
   const [recommendations, setRecommendations] = useState({ models: [], apps: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,8 +44,8 @@ function StoreHome({ systemInfo }) {
   const getAuthHeaders = () => {
     const token = localStorage.getItem('arasul_token');
     return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
     };
   };
 
@@ -55,7 +57,7 @@ function StoreHome({ systemInfo }) {
       // Fetch recommendations and model status in parallel
       const [recsRes, statusRes] = await Promise.all([
         fetch(`${API_BASE}/store/recommendations`, { headers }),
-        fetch(`${API_BASE}/models/status`, { headers })
+        fetch(`${API_BASE}/models/status`, { headers }),
       ]);
 
       if (!recsRes.ok) throw new Error('Fehler beim Laden der Empfehlungen');
@@ -92,17 +94,18 @@ function StoreHome({ systemInfo }) {
   };
 
   // Handle model activation
-  const handleModelActivate = async (modelId) => {
+  const handleModelActivate = async modelId => {
     setActionLoading(prev => ({ ...prev, [modelId]: 'activating' }));
     try {
       const response = await fetch(`${API_BASE}/models/${modelId}/activate`, {
         method: 'POST',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
       });
       if (!response.ok) throw new Error('Aktivierung fehlgeschlagen');
       await loadRecommendations();
     } catch (err) {
       console.error('Activation error:', err);
+      toast.error('Aktivierung fehlgeschlagen');
     } finally {
       setActionLoading(prev => ({ ...prev, [modelId]: null }));
     }
@@ -114,23 +117,24 @@ function StoreHome({ systemInfo }) {
     try {
       const response = await fetch(`${API_BASE}/apps/${appId}/${action}`, {
         method: 'POST',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
       });
       if (!response.ok) throw new Error(`${action} fehlgeschlagen`);
       await loadRecommendations();
     } catch (err) {
       console.error(`App ${action} error:`, err);
+      toast.error(err.message);
     } finally {
       setActionLoading(prev => ({ ...prev, [appId]: null }));
     }
   };
 
   // Get app URL
-  const getAppUrl = (app) => {
+  const getAppUrl = app => {
     if (app.hasCustomPage && app.customPageRoute) {
       return app.customPageRoute;
     }
-    const traefikPaths = { 'n8n': '/n8n' };
+    const traefikPaths = { n8n: '/n8n' };
     if (traefikPaths[app.id]) {
       return `${window.location.origin}${traefikPaths[app.id]}`;
     }
@@ -163,7 +167,9 @@ function StoreHome({ systemInfo }) {
       {/* Models Section */}
       <section className="store-home-section">
         <div className="section-header">
-          <h2><FiCpu /> Empfohlene Modelle</h2>
+          <h2>
+            <FiCpu /> Empfohlene Modelle
+          </h2>
           <Link to="/store/models" className="section-link">
             Alle Modelle <FiArrowRight />
           </Link>
@@ -191,10 +197,14 @@ function StoreHome({ systemInfo }) {
                   </div>
                   <div className="card-badges">
                     {model.is_default && (
-                      <span className="badge badge-default"><FiStar /> Standard</span>
+                      <span className="badge badge-default">
+                        <FiStar /> Standard
+                      </span>
                     )}
                     {isLoaded && (
-                      <span className="badge badge-loaded"><FiZap /> Aktiv</span>
+                      <span className="badge badge-loaded">
+                        <FiZap /> Aktiv
+                      </span>
                     )}
                   </div>
                 </div>
@@ -210,7 +220,9 @@ function StoreHome({ systemInfo }) {
                 {model.capabilities && (
                   <div className="card-tags">
                     {model.capabilities.slice(0, 3).map(cap => (
-                      <span key={cap} className="tag">{cap}</span>
+                      <span key={cap} className="tag">
+                        {cap}
+                      </span>
                     ))}
                   </div>
                 )}
@@ -244,9 +256,13 @@ function StoreHome({ systemInfo }) {
                       disabled={isActivating}
                     >
                       {isActivating ? (
-                        <><FiRefreshCw className="spin" /> Aktiviere...</>
+                        <>
+                          <FiRefreshCw className="spin" /> Aktiviere...
+                        </>
                       ) : (
-                        <><FiPlay /> Aktivieren</>
+                        <>
+                          <FiPlay /> Aktivieren
+                        </>
                       )}
                     </button>
                   )}
@@ -265,14 +281,14 @@ function StoreHome({ systemInfo }) {
       {/* Apps Section */}
       <section className="store-home-section">
         <div className="section-header">
-          <h2><FiGrid /> Empfohlene Apps</h2>
+          <h2>
+            <FiGrid /> Empfohlene Apps
+          </h2>
           <Link to="/store/apps" className="section-link">
             Alle Apps <FiArrowRight />
           </Link>
         </div>
-        <p className="section-subtitle">
-          Erweitere dein Arasul-System
-        </p>
+        <p className="section-subtitle">Erweitere dein Arasul-System</p>
 
         <div className="store-home-grid">
           {recommendations.apps.slice(0, 3).map(app => {
@@ -281,20 +297,21 @@ function StoreHome({ systemInfo }) {
             const isLoading = actionLoading[app.id];
 
             return (
-              <div
-                key={app.id}
-                className={`store-home-card app-card ${isRunning ? 'active' : ''}`}
-              >
+              <div key={app.id} className={`store-home-card app-card ${isRunning ? 'active' : ''}`}>
                 <div className="card-header">
                   <div className="card-icon app-icon">
                     <FiPackage />
                   </div>
                   <div className="card-badges">
                     {app.featured && (
-                      <span className="badge badge-featured"><FiStar /> Empfohlen</span>
+                      <span className="badge badge-featured">
+                        <FiStar /> Empfohlen
+                      </span>
                     )}
                     {isRunning && (
-                      <span className="badge badge-running"><FiZap /> Aktiv</span>
+                      <span className="badge badge-running">
+                        <FiZap /> Aktiv
+                      </span>
                     )}
                   </div>
                 </div>
@@ -315,9 +332,13 @@ function StoreHome({ systemInfo }) {
                       disabled={isLoading}
                     >
                       {isLoading === 'install' ? (
-                        <><FiRefreshCw className="spin" /> Installiere...</>
+                        <>
+                          <FiRefreshCw className="spin" /> Installiere...
+                        </>
                       ) : (
-                        <><FiDownload /> Installieren</>
+                        <>
+                          <FiDownload /> Installieren
+                        </>
                       )}
                     </button>
                   )}
@@ -328,14 +349,18 @@ function StoreHome({ systemInfo }) {
                       disabled={isLoading}
                     >
                       {isLoading === 'start' ? (
-                        <><FiRefreshCw className="spin" /> Starte...</>
+                        <>
+                          <FiRefreshCw className="spin" /> Starte...
+                        </>
                       ) : (
-                        <><FiPlay /> Starten</>
+                        <>
+                          <FiPlay /> Starten
+                        </>
                       )}
                     </button>
                   )}
-                  {isRunning && (
-                    app.hasCustomPage ? (
+                  {isRunning &&
+                    (app.hasCustomPage ? (
                       <Link to={app.customPageRoute} className="btn btn-primary">
                         <FiExternalLink /> Oeffnen
                       </Link>
@@ -348,8 +373,7 @@ function StoreHome({ systemInfo }) {
                       >
                         <FiExternalLink /> Oeffnen
                       </a>
-                    )
-                  )}
+                    ))}
                 </div>
               </div>
             );

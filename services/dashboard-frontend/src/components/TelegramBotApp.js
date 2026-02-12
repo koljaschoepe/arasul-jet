@@ -113,6 +113,7 @@ function TelegramBotApp() {
       setRules(rules.map(r => (r.id === ruleId ? { ...r, is_enabled: !currentState } : r)));
     } catch (err) {
       console.error('Error toggling rule:', err);
+      toast.error('Fehler beim Umschalten der Regel');
     }
   };
 
@@ -148,6 +149,7 @@ function TelegramBotApp() {
       setRules(rules.filter(r => r.id !== ruleId));
     } catch (err) {
       console.error('Error deleting rule:', err);
+      toast.error('Fehler beim Loeschen der Regel');
     }
   };
 

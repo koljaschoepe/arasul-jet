@@ -93,7 +93,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
   }, []);
 
   // Connect to WebSocket for real-time chat detection
-  const connectWebSocket = useCallback((token) => {
+  const connectWebSocket = useCallback(token => {
     // Determine WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/telegram-app/ws`;
@@ -108,13 +108,15 @@ function BotSetupWizard({ onComplete, onCancel }) {
       setWsConnected(true);
 
       // Subscribe to the setup token
-      ws.send(JSON.stringify({
-        type: 'subscribe',
-        setupToken: token
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'subscribe',
+          setupToken: token,
+        })
+      );
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const data = JSON.parse(event.data);
         DEBUG && console.log('[Wizard] WebSocket message:', data);
@@ -127,7 +129,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
             chatId: data.chatId,
             username: data.chatUsername,
             firstName: data.chatFirstName,
-            type: data.chatType || 'private'
+            type: data.chatType || 'private',
           });
           setWaitingForChat(false);
 
@@ -146,7 +148,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
       }
     };
 
-    ws.onerror = (error) => {
+    ws.onerror = error => {
       console.error('[Wizard] WebSocket error:', error);
       setWsConnected(false);
       // Start polling as fallback
@@ -164,7 +166,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
   }, []);
 
   // Polling fallback for chat detection
-  const startPolling = useCallback((token) => {
+  const startPolling = useCallback(token => {
     if (pollingIntervalRef.current) return; // Already polling
 
     DEBUG && console.log('[Wizard] Starting polling fallback');
@@ -173,7 +175,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
       try {
         const authToken = localStorage.getItem('arasul_token');
         const response = await fetch(`${API_BASE}/telegram-app/zero-config/status/${token}`, {
-          headers: { Authorization: `Bearer ${authToken}` }
+          headers: { Authorization: `Bearer ${authToken}` },
         });
 
         if (response.ok) {
@@ -186,7 +188,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
               chatId: data.chatId,
               username: data.chatUsername,
               firstName: data.chatFirstName,
-              type: 'private'
+              type: 'private',
             });
             setWaitingForChat(false);
 
@@ -219,12 +221,20 @@ function BotSetupWizard({ onComplete, onCancel }) {
     }
 
     // Rate limiting
-    if (message.includes('429') || message.includes('rate limit') || message.includes('Too Many Requests')) {
+    if (
+      message.includes('429') ||
+      message.includes('rate limit') ||
+      message.includes('Too Many Requests')
+    ) {
       return 'Zu viele Anfragen. Bitte warte einen Moment und versuche es erneut.';
     }
 
     // Auth errors
-    if (message.includes('401') || message.includes('Unauthorized') || message.includes('nicht autorisiert')) {
+    if (
+      message.includes('401') ||
+      message.includes('Unauthorized') ||
+      message.includes('nicht autorisiert')
+    ) {
       return 'Sitzung abgelaufen. Bitte melde dich erneut an.';
     }
 
@@ -260,7 +270,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
 
       const headers = {
         Authorization: `Bearer ${authToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       };
 
       // Step 1: Create setup session with timeout
@@ -273,7 +283,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
         initResponse = await fetch(`${API_BASE}/telegram-app/zero-config/init`, {
           method: 'POST',
           headers,
-          signal: initController.signal
+          signal: initController.signal,
         });
       } finally {
         clearTimeout(initTimeout);
@@ -308,9 +318,9 @@ function BotSetupWizard({ onComplete, onCancel }) {
           headers,
           body: JSON.stringify({
             setupToken: token,
-            botToken: formData.token
+            botToken: formData.token,
           }),
-          signal: tokenController.signal
+          signal: tokenController.signal,
         });
       } finally {
         clearTimeout(tokenTimeout);
@@ -330,21 +340,27 @@ function BotSetupWizard({ onComplete, onCancel }) {
       DEBUG && console.log('[Wizard] Deep link generated:', tokenData.deepLink);
 
       // Set timeout for verification (5 minutes)
-      timeoutRef.current = setTimeout(() => {
-        if (!chatDetected) {
-          setError('Zeitüberschreitung: Keine Nachricht vom Bot empfangen. Bitte versuche es erneut.');
-          setWaitingForChat(false);
-        }
-      }, 5 * 60 * 1000);
+      timeoutRef.current = setTimeout(
+        () => {
+          if (!chatDetected) {
+            setError(
+              'Zeitüberschreitung: Keine Nachricht vom Bot empfangen. Bitte versuche es erneut.'
+            );
+            setWaitingForChat(false);
+          }
+        },
+        5 * 60 * 1000
+      );
 
       setVerificationTimeout(5 * 60); // 5 minutes in seconds
-
     } catch (err) {
       console.error('[Wizard] Chat verification error:', err);
 
       // Handle abort errors specifically
       if (err.name === 'AbortError') {
-        setError('Verbindungs-Timeout. Bitte pruefe deine Internetverbindung und versuche es erneut.');
+        setError(
+          'Verbindungs-Timeout. Bitte pruefe deine Internetverbindung und versuche es erneut.'
+        );
       } else {
         setError(parseErrorMessage(err, 'Chat-Verifizierung'));
       }
@@ -437,7 +453,9 @@ function BotSetupWizard({ onComplete, onCancel }) {
     // Basic token format validation (botId:secretPart)
     const tokenRegex = /^\d+:[A-Za-z0-9_-]+$/;
     if (!tokenRegex.test(tokenTrimmed)) {
-      setError('Ungueltiges Token-Format. Das Token sollte das Format "123456789:ABCdef..." haben.');
+      setError(
+        'Ungueltiges Token-Format. Das Token sollte das Format "123456789:ABCdef..." haben.'
+      );
       return;
     }
 
@@ -456,7 +474,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({ token: tokenTrimmed }),
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         clearTimeout(timeout);
@@ -478,7 +496,8 @@ function BotSetupWizard({ onComplete, onCancel }) {
           let errorMessage = data.error || 'Token ist ungueltig';
 
           if (errorMessage.includes('Unauthorized') || errorMessage.includes('401')) {
-            errorMessage = 'Token ist ungueltig oder wurde widerrufen. Bitte erstelle ein neues Token bei @BotFather.';
+            errorMessage =
+              'Token ist ungueltig oder wurde widerrufen. Bitte erstelle ein neues Token bei @BotFather.';
           } else if (errorMessage.includes('bot was blocked')) {
             errorMessage = 'Dieser Bot wurde blockiert. Bitte kontaktiere den Telegram-Support.';
           }
@@ -492,14 +511,17 @@ function BotSetupWizard({ onComplete, onCancel }) {
 
         // Don't retry on abort
         if (err.name === 'AbortError') {
-          setError('Zeitüberschreitung bei der Validierung. Bitte pruefe deine Internetverbindung.');
+          setError(
+            'Zeitüberschreitung bei der Validierung. Bitte pruefe deine Internetverbindung.'
+          );
           setValidating(false);
           return;
         }
 
         // Retry on network errors
         if (attempt < maxRetries) {
-          console.log(`[Wizard] Token validation attempt ${attempt + 1} failed, retrying...`);
+          DEBUG &&
+            console.log(`[Wizard] Token validation attempt ${attempt + 1} failed, retrying...`);
           await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
           continue;
         }
@@ -583,7 +605,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
           await fetch(`${API_BASE}/telegram-app/zero-config/complete`, {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ setupToken })
+            body: JSON.stringify({ setupToken }),
           });
         } catch (completeErr) {
           console.warn('[Wizard] Could not complete zero-config flow:', completeErr);
@@ -789,7 +811,9 @@ function BotSetupWizard({ onComplete, onCancel }) {
                     <strong>Chat verbunden!</strong>
                     <p className="wizard-chat-info">
                       {chatInfo.firstName && <span>{chatInfo.firstName}</span>}
-                      {chatInfo.username && <span className="wizard-chat-username">@{chatInfo.username}</span>}
+                      {chatInfo.username && (
+                        <span className="wizard-chat-username">@{chatInfo.username}</span>
+                      )}
                       <span className="wizard-chat-id">ID: {chatInfo.chatId}</span>
                     </p>
                   </div>
@@ -807,7 +831,9 @@ function BotSetupWizard({ onComplete, onCancel }) {
                   </div>
                   <div className="wizard-summary-item">
                     <span className="wizard-summary-label">Provider:</span>
-                    <span className="wizard-summary-value">{formData.llmProvider.toUpperCase()}</span>
+                    <span className="wizard-summary-value">
+                      {formData.llmProvider.toUpperCase()}
+                    </span>
                   </div>
                   <div className="wizard-summary-item">
                     <span className="wizard-summary-label">Modell:</span>
@@ -838,8 +864,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
                       rel="noopener noreferrer"
                       className="wizard-deeplink-btn"
                     >
-                      <FiExternalLink />
-                      @{botInfo?.username} oeffnen
+                      <FiExternalLink />@{botInfo?.username} oeffnen
                     </a>
                     <span className="wizard-deeplink-hint">
                       oder suche nach @{botInfo?.username} in Telegram
@@ -850,13 +875,12 @@ function BotSetupWizard({ onComplete, onCancel }) {
                 <div className="wizard-status-bar">
                   <div className="wizard-status-indicator">
                     <FiLoader className="spinning" />
-                    <span>
-                      {wsConnected ? 'WebSocket verbunden' : 'Verbinde...'}
-                    </span>
+                    <span>{wsConnected ? 'WebSocket verbunden' : 'Verbinde...'}</span>
                   </div>
                   {verificationTimeout !== null && verificationTimeout > 0 && (
                     <span className="wizard-timeout">
-                      {Math.floor(verificationTimeout / 60)}:{(verificationTimeout % 60).toString().padStart(2, '0')}
+                      {Math.floor(verificationTimeout / 60)}:
+                      {(verificationTimeout % 60).toString().padStart(2, '0')}
                     </span>
                   )}
                 </div>
@@ -876,15 +900,12 @@ function BotSetupWizard({ onComplete, onCancel }) {
                 <div className="wizard-info-box">
                   <h4>Chat-Verbindung herstellen</h4>
                   <p>
-                    Im naechsten Schritt wirst du gebeten, <strong>/start</strong> an deinen Bot zu senden.
-                    Dadurch wird der Bot mit deinem Chat verknuepft und kann dir Nachrichten senden.
+                    Im naechsten Schritt wirst du gebeten, <strong>/start</strong> an deinen Bot zu
+                    senden. Dadurch wird der Bot mit deinem Chat verknuepft und kann dir Nachrichten
+                    senden.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="wizard-btn primary"
-                  onClick={initChatVerification}
-                >
+                <button type="button" className="wizard-btn primary" onClick={initChatVerification}>
                   <FiSend />
                   Verbindung starten
                 </button>

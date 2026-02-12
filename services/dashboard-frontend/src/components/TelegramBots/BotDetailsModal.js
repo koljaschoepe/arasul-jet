@@ -90,7 +90,10 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
       fetch(`${API_BASE}/telegram-bots/${bot.id}/commands`, { headers: getAuthHeaders() })
         .then(res => res.json())
         .then(data => setCommands(data.commands || []))
-        .catch(err => console.error('Error fetching commands:', err))
+        .catch(err => {
+          console.error('Error fetching commands:', err);
+          toast.error('Fehler beim Laden der Commands');
+        })
         .finally(() => setLoadingCommands(false));
     }
   }, [activeTab, bot.id, getAuthHeaders]);
@@ -102,7 +105,10 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
       fetch(`${API_BASE}/telegram-bots/${bot.id}/chats`, { headers: getAuthHeaders() })
         .then(res => res.json())
         .then(data => setChats(data.chats || []))
-        .catch(err => console.error('Error fetching chats:', err))
+        .catch(err => {
+          console.error('Error fetching chats:', err);
+          toast.error('Fehler beim Laden der Chats');
+        })
         .finally(() => setLoadingChats(false));
     }
   }, [activeTab, bot.id, getAuthHeaders]);
