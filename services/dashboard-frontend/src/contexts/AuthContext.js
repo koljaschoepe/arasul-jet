@@ -24,8 +24,8 @@ export function AuthProvider({ children }) {
   // Setup 401 interceptor
   useEffect(() => {
     const interceptorId = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
+      response => response,
+      error => {
         // Don't trigger logout for auth/me endpoint (that's expected when not logged in)
         const isAuthMeRequest = error.config?.url?.includes('/auth/me');
 
@@ -39,10 +39,7 @@ export function AuthProvider({ children }) {
           setTimeout(() => {
             setIsAuthenticated(false);
             setUser(null);
-            // Only reload if we're not already on the login page
-            if (window.location.pathname !== '/') {
-              window.location.href = '/';
-            }
+            // React state update triggers login screen render in App.js
             isHandling401Ref.current = false;
           }, 100);
         }
@@ -111,7 +108,7 @@ export function AuthProvider({ children }) {
   }, [checkAuth]);
 
   // Handle login success
-  const login = useCallback((data) => {
+  const login = useCallback(data => {
     // Token is already stored by Login component
     // Sync user data and mark as authenticated
     setIsAuthenticated(true);
@@ -145,14 +142,10 @@ export function AuthProvider({ children }) {
     login,
     logout,
     checkAuth,
-    setLoadingComplete
+    setLoadingComplete,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 // Hook to use auth context

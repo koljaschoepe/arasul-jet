@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Link,
+  Navigate,
+  useLocation,
+} from 'react-router-dom';
 import axios from 'axios';
 import {
   LineChart,
@@ -385,13 +392,48 @@ function AppContent() {
                 />
                 <Route path="/chat" element={<ChatMulti />} />
                 <Route path="/data" element={<DocumentManager />} />
-                <Route path="/documents" element={<DocumentManager />} /> {/* Legacy redirect */}
+                <Route path="/documents" element={<Navigate to="/data" replace />} />
                 <Route path="/store/*" element={<Store />} />
                 <Route path="/claude-code" element={<ClaudeCode />} />
                 <Route path="/telegram-bot" element={<TelegramBotApp />} />
                 <Route path="/telegram-bots" element={<TelegramBotsPage />} />
                 <Route path="/database" element={<DatabaseOverview />} />
                 <Route path="/database/:slug" element={<DatabaseTable />} />
+                <Route
+                  path="*"
+                  element={
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '60vh',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      <h1 style={{ fontSize: '4rem', margin: 0, color: 'var(--text-primary)' }}>
+                        404
+                      </h1>
+                      <p style={{ fontSize: '1.2rem', marginTop: '0.5rem' }}>
+                        Seite nicht gefunden
+                      </p>
+                      <Link
+                        to="/"
+                        style={{
+                          marginTop: '1.5rem',
+                          padding: '0.6rem 1.5rem',
+                          background: 'var(--primary)',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        Zum Dashboard
+                      </Link>
+                    </div>
+                  }
+                />
               </Routes>
             </Suspense>
           </div>
@@ -432,9 +474,10 @@ const Sidebar = React.memo(function Sidebar({
 
   const isActive = path => {
     // For root path, use exact match; for others, use startsWith for nested routes
-    const isMatch = path === '/'
-      ? location.pathname === path
-      : location.pathname === path || location.pathname.startsWith(path + '/');
+    const isMatch =
+      path === '/'
+        ? location.pathname === path
+        : location.pathname === path || location.pathname.startsWith(path + '/');
     return isMatch ? 'nav-link active' : 'nav-link';
   };
 
@@ -499,9 +542,7 @@ const Sidebar = React.memo(function Sidebar({
               className={`${isActive('/store')} ${downloadCount > 0 ? 'has-downloads' : ''}`}
               role="menuitem"
               aria-current={isCurrent('/store') ? 'page' : undefined}
-              aria-label={
-                downloadCount > 0 ? `Store, ${downloadCount} Downloads aktiv` : 'Store'
-              }
+              aria-label={downloadCount > 0 ? `Store, ${downloadCount} Downloads aktiv` : 'Store'}
             >
               <FiPackage aria-hidden="true" />
               <span>Store</span>

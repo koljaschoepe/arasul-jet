@@ -19,16 +19,28 @@ import App from '../App';
 jest.mock('axios');
 
 // Mock components to avoid complex setup
-jest.mock('../components/ChatMulti', () => () => <div data-testid="chat-multi">Chat Component</div>);
-jest.mock('../components/DocumentManager', () => () => <div data-testid="document-manager">Documents Component</div>);
-jest.mock('../components/Settings', () => () => <div data-testid="settings">Settings Component</div>);
-jest.mock('../components/AppStore', () => () => <div data-testid="app-store">AppStore Component</div>);
-jest.mock('../components/ModelStore', () => () => <div data-testid="model-store">ModelStore Component</div>);
-jest.mock('../components/ClaudeCode', () => () => <div data-testid="claude-code">ClaudeCode Component</div>);
+jest.mock('../components/ChatMulti', () => () => (
+  <div data-testid="chat-multi">Chat Component</div>
+));
+jest.mock('../components/DocumentManager', () => () => (
+  <div data-testid="document-manager">Documents Component</div>
+));
+jest.mock('../components/Settings', () => () => (
+  <div data-testid="settings">Settings Component</div>
+));
+jest.mock('../components/AppStore', () => () => (
+  <div data-testid="app-store">AppStore Component</div>
+));
+jest.mock('../components/ModelStore', () => () => (
+  <div data-testid="model-store">ModelStore Component</div>
+));
+jest.mock('../components/ClaudeCode', () => () => (
+  <div data-testid="claude-code">ClaudeCode Component</div>
+));
 
 // Helper to create comprehensive axios mock
 const createAxiosMock = (mockUser, overrides = {}) => {
-  return (url) => {
+  return url => {
     if (url.includes('/auth/me')) {
       return Promise.resolve({ data: { user: mockUser } });
     }
@@ -176,7 +188,7 @@ describe('App Component', () => {
       await waitFor(() => {
         expect(screen.getByText('Dashboard')).toBeInTheDocument();
         expect(screen.getByText('AI Chat')).toBeInTheDocument();
-        expect(screen.getByText('Dokumente')).toBeInTheDocument();
+        expect(screen.getByText('Data')).toBeInTheDocument();
         expect(screen.getByText('Einstellungen')).toBeInTheDocument();
       });
     });
@@ -204,15 +216,15 @@ describe('App Component', () => {
       });
     });
 
-    test('Navigation zu Dokumente funktioniert', async () => {
+    test('Navigation zu Data funktioniert', async () => {
       const user = userEvent.setup();
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByText('Dokumente')).toBeInTheDocument();
+        expect(screen.getByText('Data')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText('Dokumente'));
+      await user.click(screen.getByText('Data'));
 
       await waitFor(() => {
         expect(screen.getByTestId('document-manager')).toBeInTheDocument();
@@ -242,7 +254,7 @@ describe('App Component', () => {
       localStorage.setItem('arasul_token', 'valid-token');
       localStorage.setItem('arasul_user', JSON.stringify(mockUser));
       axios.get.mockImplementation(createAxiosMock(mockUser));
-      axios.post.mockImplementation((url) => {
+      axios.post.mockImplementation(url => {
         if (url.includes('/auth/logout')) {
           return Promise.resolve({ data: { success: true } });
         }
@@ -300,7 +312,7 @@ describe('App Component', () => {
 
       // First call succeeds, subsequent fails
       let callCount = 0;
-      axios.get.mockImplementation((url) => {
+      axios.get.mockImplementation(url => {
         callCount++;
         if (callCount === 1 && url.includes('/auth/me')) {
           return Promise.resolve({ data: { user: mockUser } });
@@ -338,7 +350,7 @@ describe('App Component', () => {
     });
 
     test('zeigt Fehler bei Metriken-Ladefehler', async () => {
-      axios.get.mockImplementation((url) => {
+      axios.get.mockImplementation(url => {
         if (url.includes('/auth/me')) {
           return Promise.resolve({ data: { user: mockUser } });
         }
