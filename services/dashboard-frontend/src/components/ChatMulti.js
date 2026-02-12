@@ -1,16 +1,23 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import {
-  FiAlertCircle, FiChevronDown, FiChevronUp, FiPlus, FiX, FiArrowDown,
-  FiSearch, FiBook, FiCpu, FiTrash2, FiEdit2, FiChevronRight, FiArrowUp, FiBox,
-  FiFolder, FiCheck, FiDownload, FiStar
+  FiAlertCircle,
+  FiChevronDown,
+  FiX,
+  FiArrowDown,
+  FiSearch,
+  FiCpu,
+  FiArrowUp,
+  FiBox,
+  FiFolder,
+  FiCheck,
+  FiStar,
 } from 'react-icons/fi';
-import MermaidDiagram from './MermaidDiagram';
+import ChatMessage from './Chat/ChatMessage';
+import ChatTabsBar from './Chat/ChatTabsBar';
+import useTokenBatching from '../hooks/useTokenBatching';
 import { API_BASE } from '../config/api';
 import '../chatmulti.css';
-
 
 function ChatMulti() {
   // Chat list state
@@ -37,7 +44,9 @@ function ChatMulti() {
   const [favoriteModels, setFavoriteModels] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('arasul_favorite_models') || '[]');
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   });
 
   // Knowledge Spaces (RAG 2.0)
@@ -56,7 +65,6 @@ function ChatMulti() {
   // UI state
   const [editingChatId, setEditingChatId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [hoveredChatId, setHoveredChatId] = useState(null);
 
   // Scroll control state
   const [isUserScrolling, setIsUserScrolling] = useState(false);
@@ -71,80 +79,9 @@ function ChatMulti() {
   const abortControllersRef = useRef({}); // Track abort controllers per chat
   const generationRef = useRef(0); // RACE-001: Generation counter to detect chat switches during async operations
 
-  // RENDER-001: Token batching refs to reduce re-renders during streaming
-  // Instead of updating state on every single token (can be 100+ times/second),
-  // we batch tokens and update state at most every BATCH_INTERVAL_MS
-  const tokenBatchRef = useRef({ content: '', thinking: '', pendingContent: '', pendingThinking: '' });
-  const batchTimerRef = useRef(null);
-  const BATCH_INTERVAL_MS = 50; // Update state every 50ms instead of on every token
-
-  // Flush batched tokens to state - called periodically or when stream ends
-  // RC-001 FIX: Added index validation and warning for out-of-bounds access
-  const flushTokenBatch = useCallback((assistantMessageIndex, forceFlush = false) => {
-    const batch = tokenBatchRef.current;
-
-    // Only update if there are pending tokens
-    if (batch.pendingContent || batch.pendingThinking || forceFlush) {
-      // Accumulate pending tokens
-      if (batch.pendingContent) {
-        batch.content += batch.pendingContent;
-        batch.pendingContent = '';
-      }
-      if (batch.pendingThinking) {
-        batch.thinking += batch.pendingThinking;
-        batch.pendingThinking = '';
-      }
-
-      // Update state with accumulated content
-      setMessages(prevMessages => {
-        // RC-001: Validate index before update
-        if (assistantMessageIndex < 0 || assistantMessageIndex >= prevMessages.length) {
-          console.warn(`[ChatMulti] flushTokenBatch: Invalid index ${assistantMessageIndex}, messages length: ${prevMessages.length}`);
-          return prevMessages; // Don't modify state with invalid index
-        }
-
-        const updated = [...prevMessages];
-        if (updated[assistantMessageIndex]) {
-          updated[assistantMessageIndex] = {
-            ...updated[assistantMessageIndex],
-            content: batch.content,
-            thinking: batch.thinking,
-            hasThinking: batch.thinking.length > 0
-          };
-        }
-        return updated;
-      });
-    }
-  }, []);
-
-  // Schedule a batched flush if not already scheduled
-  const scheduleTokenFlush = useCallback((assistantMessageIndex) => {
-    if (!batchTimerRef.current) {
-      batchTimerRef.current = setTimeout(() => {
-        flushTokenBatch(assistantMessageIndex);
-        batchTimerRef.current = null;
-      }, BATCH_INTERVAL_MS);
-    }
-  }, [flushTokenBatch]);
-
-  // Add token to batch (instead of immediately updating state)
-  const addTokenToBatch = useCallback((type, token, assistantMessageIndex) => {
-    if (type === 'content') {
-      tokenBatchRef.current.pendingContent += token;
-    } else if (type === 'thinking') {
-      tokenBatchRef.current.pendingThinking += token;
-    }
-    scheduleTokenFlush(assistantMessageIndex);
-  }, [scheduleTokenFlush]);
-
-  // Reset batch state for new stream
-  const resetTokenBatch = useCallback(() => {
-    tokenBatchRef.current = { content: '', thinking: '', pendingContent: '', pendingThinking: '' };
-    if (batchTimerRef.current) {
-      clearTimeout(batchTimerRef.current);
-      batchTimerRef.current = null;
-    }
-  }, []);
+  // RENDER-001: Token batching to reduce re-renders during streaming
+  const { tokenBatchRef, flushTokenBatch, addTokenToBatch, resetTokenBatch } =
+    useTokenBatching(setMessages);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -179,7 +116,7 @@ function ChatMulti() {
 
   // Close model dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    const handleClickOutside = e => {
       if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
         setShowModelDropdown(false);
       }
@@ -197,7 +134,7 @@ function ChatMulti() {
       const [installedRes, defaultRes, loadedRes] = await Promise.all([
         axios.get(`${API_BASE}/models/installed`),
         axios.get(`${API_BASE}/models/default`),
-        axios.get(`${API_BASE}/models/loaded`).catch(() => ({ data: null }))
+        axios.get(`${API_BASE}/models/loaded`).catch(() => ({ data: null })),
       ]);
 
       const models = installedRes.data.models || [];
@@ -219,7 +156,7 @@ function ChatMulti() {
   };
 
   // Set a model as the new default
-  const setModelAsDefault = async (modelId) => {
+  const setModelAsDefault = async modelId => {
     try {
       await axios.post(`${API_BASE}/models/default`, { model_id: modelId });
       setDefaultModel(modelId);
@@ -245,7 +182,7 @@ function ChatMulti() {
   }, []);
 
   // Toggle space selection
-  const toggleSpaceSelection = (spaceId) => {
+  const toggleSpaceSelection = spaceId => {
     setSelectedSpaces(prev => {
       if (prev.includes(spaceId)) {
         return prev.filter(id => id !== spaceId);
@@ -272,13 +209,17 @@ function ChatMulti() {
   // Sequential chat initialization to fix race condition
   // RACE-001: Uses generation counter to prevent stale updates from previous chats
   // RC-002 FIX: setMessages is called AFTER generation check, not inside loadMessages
-  const initializeChat = async (chatId) => {
+  const initializeChat = async chatId => {
     // Increment generation counter - any ongoing async operations for previous chat will be ignored
     const currentGeneration = ++generationRef.current;
 
     // Abort any ongoing operations for the previous chat
     const previousChatId = currentChatIdRef.current;
-    if (previousChatId && previousChatId !== chatId && abortControllersRef.current[previousChatId]) {
+    if (
+      previousChatId &&
+      previousChatId !== chatId &&
+      abortControllersRef.current[previousChatId]
+    ) {
       abortControllersRef.current[previousChatId].abort();
       delete abortControllersRef.current[previousChatId];
     }
@@ -317,11 +258,11 @@ function ChatMulti() {
   };
 
   // Async version of checkActiveJobs that returns the active job
-  const checkActiveJobsAsync = async (chatId) => {
+  const checkActiveJobsAsync = async chatId => {
     try {
       const token = localStorage.getItem('arasul_token');
       const response = await axios.get(`${API_BASE}/chats/${chatId}/jobs`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       const jobs = response.data.jobs || [];
 
@@ -358,7 +299,7 @@ function ChatMulti() {
       try {
         const token = localStorage.getItem('arasul_token');
         const response = await axios.get(`${API_BASE}/llm/queue`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setGlobalQueue(response.data);
       } catch (err) {
@@ -378,14 +319,17 @@ function ChatMulti() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleScroll = useCallback((e) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.target;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    const isAtBottom = distanceFromBottom < 100;
+  const handleScroll = useCallback(
+    e => {
+      const { scrollTop, scrollHeight, clientHeight } = e.target;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      const isAtBottom = distanceFromBottom < 100;
 
-    setIsUserScrolling(!isAtBottom);
-    setShowScrollButton(!isAtBottom && messages.length > 0);
-  }, [messages.length]);
+      setIsUserScrolling(!isAtBottom);
+      setShowScrollButton(!isAtBottom && messages.length > 0);
+    },
+    [messages.length]
+  );
 
   const loadChats = async () => {
     try {
@@ -413,7 +357,7 @@ function ChatMulti() {
 
   // RC-002 FIX: loadMessages no longer calls setMessages directly
   // This allows the caller to check generation counter before updating state
-  const loadMessages = async (chatId) => {
+  const loadMessages = async chatId => {
     try {
       const response = await axios.get(`${API_BASE}/chats/${chatId}/messages`);
       const msgs = response.data.messages || [];
@@ -427,8 +371,8 @@ function ChatMulti() {
         sources: msg.sources || [],
         sourcesCollapsed: true,
         status: msg.status || 'completed',
-        jobId: msg.job_id,  // Important: track job_id for reconnection
-        jobStatus: msg.job_status  // Track job status for UI
+        jobId: msg.job_id, // Important: track job_id for reconnection
+        jobStatus: msg.job_status, // Track job status for UI
       }));
 
       // RC-002: Return messages without setting state - caller will set state after generation check
@@ -453,8 +397,8 @@ function ChatMulti() {
 
     try {
       const response = await fetch(`${API_BASE}/llm/jobs/${jobId}/stream`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        signal: abortController.signal
+        headers: { Authorization: `Bearer ${token}` },
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
@@ -484,15 +428,17 @@ function ChatMulti() {
                 setMessages(prevMessages => {
                   return prevMessages.map(msg => {
                     // Match by job_id OR by streaming status for assistant messages
-                    if (msg.jobId === jobId ||
-                        (msg.role === 'assistant' && msg.status === 'streaming' && !msg.jobId)) {
+                    if (
+                      msg.jobId === jobId ||
+                      (msg.role === 'assistant' && msg.status === 'streaming' && !msg.jobId)
+                    ) {
                       return {
                         ...msg,
                         content: data.content || msg.content || '',
                         thinking: data.thinking || msg.thinking || '',
                         hasThinking: !!(data.thinking || msg.thinking),
                         status: data.status || msg.status,
-                        jobId: jobId  // Ensure jobId is set
+                        jobId: jobId, // Ensure jobId is set
                       };
                     }
                     return msg;
@@ -564,7 +510,7 @@ function ChatMulti() {
       setLoadingChats(true);
 
       const response = await axios.post(`${API_BASE}/chats`, {
-        title: `New Chat`
+        title: `New Chat`,
       });
 
       const newChat = response.data.chat;
@@ -583,7 +529,7 @@ function ChatMulti() {
     }
   };
 
-  const selectChat = (chatId) => {
+  const selectChat = chatId => {
     setCurrentChatId(chatId);
   };
 
@@ -614,7 +560,7 @@ function ChatMulti() {
     setEditingTitle(chat.title);
   };
 
-  const saveTitle = async (chatId) => {
+  const saveTitle = async chatId => {
     if (!editingTitle.trim()) {
       cancelEditingTitle();
       return;
@@ -622,11 +568,11 @@ function ChatMulti() {
 
     try {
       await axios.patch(`${API_BASE}/chats/${chatId}`, {
-        title: editingTitle
+        title: editingTitle,
       });
 
       setChats(prevChats =>
-        prevChats.map(c => c.id === chatId ? { ...c, title: editingTitle } : c)
+        prevChats.map(c => (c.id === chatId ? { ...c, title: editingTitle } : c))
       );
 
       setEditingChatId(null);
@@ -655,7 +601,7 @@ function ChatMulti() {
     try {
       const token = localStorage.getItem('arasul_token');
       const response = await fetch(`${API_BASE}/chats/${chatId}/export?format=${format}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -693,7 +639,7 @@ function ChatMulti() {
       await axios.post(`${API_BASE}/chats/${chatId}/messages`, {
         role,
         content,
-        thinking
+        thinking,
       });
       loadChats();
     } catch (err) {
@@ -702,19 +648,19 @@ function ChatMulti() {
   };
 
   // MEDIUM-PRIORITY-FIX 3.5: Memoized toggle functions to prevent unnecessary re-renders
-  const toggleThinking = useCallback((index) => {
+  const toggleThinking = useCallback(index => {
     setMessages(prevMessages => {
       const updated = [...prevMessages];
       updated[index] = {
         ...updated[index],
-        thinkingCollapsed: !updated[index].thinkingCollapsed
+        thinkingCollapsed: !updated[index].thinkingCollapsed,
       };
       return updated;
     });
   }, []);
 
   // P4-003: Toggle favorite model
-  const toggleFavorite = useCallback((modelId) => {
+  const toggleFavorite = useCallback(modelId => {
     setFavoriteModels(prev => {
       const newFavorites = prev.includes(modelId)
         ? prev.filter(id => id !== modelId)
@@ -724,37 +670,33 @@ function ChatMulti() {
     });
   }, []);
 
-  const toggleSources = useCallback((index) => {
+  const toggleSources = useCallback(index => {
     setMessages(prevMessages => {
       const updated = [...prevMessages];
       updated[index] = {
         ...updated[index],
-        sourcesCollapsed: !updated[index].sourcesCollapsed
+        sourcesCollapsed: !updated[index].sourcesCollapsed,
       };
       return updated;
     });
   }, []);
 
-  const handleRAGSend = async () => {
-    // Validate required fields
+  // Unified send handler for both RAG and LLM modes
+  const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
-    // CRITICAL: Ensure currentChatId is valid before proceeding
-    if (!currentChatId || currentChatId === null || currentChatId === undefined) {
-      console.error('Cannot send RAG message: currentChatId is invalid:', currentChatId);
+    if (!currentChatId) {
       setError('Chat nicht bereit. Bitte warte einen Moment...');
       return;
     }
 
-    // Capture chat context at start - this won't change during streaming
+    const isRAG = useRAG;
     const targetChatId = currentChatId;
-    // [ChatMulti] handleRAGSend: targetChatId =', targetChatId, 'type:', typeof targetChatId);
     const userMessage = input.trim();
     setInput('');
     setError(null);
     setIsUserScrolling(false);
 
-    // Save user message first
     await saveMessage(targetChatId, 'user', userMessage);
 
     const newMessages = [...messages, { role: 'user', content: userMessage }];
@@ -762,56 +704,67 @@ function ChatMulti() {
     setIsLoading(true);
 
     const assistantMessageIndex = newMessages.length;
-    setMessages([...newMessages, {
-      role: 'assistant',
-      content: '',
-      thinking: '',
-      thinkingCollapsed: false,
-      hasThinking: false,
-      sources: [],
-      sourcesCollapsed: true,
-      status: 'streaming'
-    }]);
+    setMessages([
+      ...newMessages,
+      {
+        role: 'assistant',
+        content: '',
+        thinking: '',
+        thinkingCollapsed: false,
+        hasThinking: false,
+        ...(isRAG ? { sources: [], sourcesCollapsed: true } : {}),
+        status: 'streaming',
+      },
+    ]);
 
-    // Create AbortController for this stream
     const abortController = new AbortController();
     abortControllersRef.current[targetChatId] = abortController;
-
-    // RENDER-001: Reset token batch for new stream
     resetTokenBatch();
 
     try {
-      let ragSources = [];
       let streamError = false;
       let currentJobId = null;
+      let ragSources = [];
+      const authToken = localStorage.getItem('arasul_token');
 
-      const token = localStorage.getItem('arasul_token');
-
-      // RAG 2.0: Include space_ids for filtered search
-      const ragPayload = {
-        query: userMessage,
-        top_k: 5,
-        thinking: useThinking,
-        conversation_id: targetChatId,  // Required for job-based streaming
-        model: selectedModel || undefined  // Pass selected model for RAG queries
-      };
-
-      // If specific spaces are selected, include them; otherwise auto-routing is used
-      if (selectedSpaces.length > 0) {
-        ragPayload.space_ids = selectedSpaces;
-        ragPayload.auto_routing = false;
+      // Build request based on mode
+      let endpoint, payload;
+      if (isRAG) {
+        endpoint = `${API_BASE}/rag/query`;
+        payload = {
+          query: userMessage,
+          top_k: 5,
+          thinking: useThinking,
+          conversation_id: targetChatId,
+          model: selectedModel || undefined,
+        };
+        if (selectedSpaces.length > 0) {
+          payload.space_ids = selectedSpaces;
+          payload.auto_routing = false;
+        } else {
+          payload.auto_routing = true;
+        }
       } else {
-        ragPayload.auto_routing = true;
+        endpoint = `${API_BASE}/llm/chat`;
+        payload = {
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          temperature: 0.7,
+          max_tokens: 32768,
+          stream: true,
+          thinking: useThinking,
+          conversation_id: targetChatId,
+          model: selectedModel || undefined,
+        };
       }
 
-      const response = await fetch(`${API_BASE}/rag/query`, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify(ragPayload),
-        signal: abortController.signal
+        body: JSON.stringify(payload),
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
@@ -836,14 +789,13 @@ function ChatMulti() {
             if (data.type === 'job_started' && data.jobId) {
               currentJobId = data.jobId;
               setActiveJobIds(prev => ({ ...prev, [targetChatId]: currentJobId }));
-              // Update the assistant message with jobId for reconnection
               if (currentChatIdRef.current === targetChatId) {
                 setMessages(prevMessages => {
                   const updated = [...prevMessages];
                   if (updated[assistantMessageIndex]) {
                     updated[assistantMessageIndex] = {
                       ...updated[assistantMessageIndex],
-                      jobId: currentJobId
+                      jobId: currentJobId,
                     };
                   }
                   return updated;
@@ -853,32 +805,24 @@ function ChatMulti() {
 
             if (data.error) {
               streamError = true;
-              // Only show error if still on same chat
               if (currentChatIdRef.current === targetChatId) {
                 setError(data.error);
               }
-              // Refresh models list if model switch failed (model might have been removed from Ollama)
               if (data.errorCode === 'MODEL_SWITCH_FAILED') {
                 loadInstalledModels();
-                // Reset to default model if selected model is no longer available
-                if (selectedModel) {
-                  setSelectedModel('');
-                }
+                if (selectedModel) setSelectedModel('');
               }
               break;
             }
 
-            // Only update UI if still viewing the same chat
             const isCurrentChat = currentChatIdRef.current === targetChatId;
 
-            // RAG 2.0: Handle matched_spaces event
-            if (data.type === 'matched_spaces' && data.spaces) {
-              if (isCurrentChat) {
-                setMatchedSpaces(data.spaces);
-              }
+            // RAG-specific: matched spaces and sources
+            if (isRAG && data.type === 'matched_spaces' && data.spaces) {
+              if (isCurrentChat) setMatchedSpaces(data.spaces);
             }
 
-            if (data.type === 'sources' && data.sources) {
+            if (isRAG && data.type === 'sources' && data.sources) {
               ragSources = data.sources;
               if (isCurrentChat) {
                 setMessages(prevMessages => {
@@ -888,7 +832,7 @@ function ChatMulti() {
                       ...updated[assistantMessageIndex],
                       sources: ragSources,
                       sourcesCollapsed: ragSources.length > 0,
-                      matchedSpaces: matchedSpaces  // Include matched spaces in message
+                      matchedSpaces: matchedSpaces,
                     };
                   }
                   return updated;
@@ -896,267 +840,31 @@ function ChatMulti() {
               }
             }
 
-            // RENDER-001: Use batched token updates to reduce re-renders
-            if (data.type === 'thinking' && data.token) {
-              if (isCurrentChat) {
-                addTokenToBatch('thinking', data.token, assistantMessageIndex);
-              }
+            // RENDER-001: Batched token updates
+            if (data.type === 'thinking' && data.token && isCurrentChat) {
+              addTokenToBatch('thinking', data.token, assistantMessageIndex);
             }
 
-            if (data.type === 'thinking_end') {
-              if (isCurrentChat) {
-                // Flush pending thinking tokens before collapsing
-                flushTokenBatch(assistantMessageIndex, true);
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      thinkingCollapsed: true
-                    };
-                  }
-                  return updated;
-                });
-              }
+            if (data.type === 'thinking_end' && isCurrentChat) {
+              flushTokenBatch(assistantMessageIndex, true);
+              setMessages(prevMessages => {
+                const updated = [...prevMessages];
+                if (updated[assistantMessageIndex]) {
+                  updated[assistantMessageIndex] = {
+                    ...updated[assistantMessageIndex],
+                    thinkingCollapsed: true,
+                  };
+                }
+                return updated;
+              });
             }
 
-            if (data.type === 'response' && data.token) {
-              if (isCurrentChat) {
-                addTokenToBatch('content', data.token, assistantMessageIndex);
-              }
+            if (data.type === 'response' && data.token && isCurrentChat) {
+              addTokenToBatch('content', data.token, assistantMessageIndex);
             }
 
             if (data.type === 'done' || data.done) {
-              // RENDER-001: Flush any remaining tokens before marking done
-              if (isCurrentChat) {
-                flushTokenBatch(assistantMessageIndex, true);
-              }
-              // Clear active job
-              setActiveJobIds(prev => {
-                const newState = { ...prev };
-                delete newState[targetChatId];
-                return newState;
-              });
-              break;
-            }
-          } catch (parseError) {
-            console.error('Error parsing RAG SSE data:', parseError);
-          }
-        }
-
-        if (streamError) break;
-      }
-
-      // RENDER-001: Get accumulated content from batch for final check
-      const { content: fullResponse, thinking: fullThinking } = tokenBatchRef.current;
-
-      // Backend saves message automatically - just reload for UI sync
-      if (fullResponse || fullThinking) {
-        loadChats(); // Update message count
-        // If user switched back to this chat, reload messages to show final state
-        if (currentChatIdRef.current === targetChatId) {
-          // RC-002 FIX: Set messages after loading since loadMessages no longer calls setMessages
-          const finalMsgs = await loadMessages(targetChatId);
-          if (currentChatIdRef.current === targetChatId) {
-            setMessages(finalMsgs);
-          }
-        }
-      }
-
-      if (!streamError && !fullResponse && !fullThinking) {
-        throw new Error('Keine Antwort vom RAG-System erhalten');
-      }
-
-    } catch (err) {
-      // Ignore abort errors (user switched chat)
-      if (err.name === 'AbortError') {
-        // RAG stream aborted for chat ${targetChatId} - user switched chat`);
-        return;
-      }
-      console.error('RAG error:', err);
-      if (currentChatIdRef.current === targetChatId) {
-        setError(err.message || 'Fehler bei der RAG-Anfrage.');
-        setMessages(newMessages);
-      }
-      setActiveJobIds(prev => {
-        const newState = { ...prev };
-        delete newState[targetChatId];
-        return newState;
-      });
-    } finally {
-      // Only reset loading if still on same chat
-      if (currentChatIdRef.current === targetChatId) {
-        setIsLoading(false);
-      }
-      // Cleanup abort controller and batch timer
-      delete abortControllersRef.current[targetChatId];
-      resetTokenBatch();
-    }
-  };
-
-  const handleSend = async () => {
-    if (useRAG) {
-      return handleRAGSend();
-    }
-
-    // Validate required fields
-    if (!input.trim() || isLoading) return;
-
-    // CRITICAL: Ensure currentChatId is valid before proceeding
-    if (!currentChatId || currentChatId === null || currentChatId === undefined) {
-      console.error('Cannot send message: currentChatId is invalid:', currentChatId);
-      setError('Chat nicht bereit. Bitte warte einen Moment...');
-      return;
-    }
-
-    // Capture chat context at start - this won't change during streaming
-    const targetChatId = currentChatId;
-    // [ChatMulti] handleSend: targetChatId =', targetChatId, 'type:', typeof targetChatId);
-    const userMessage = input.trim();
-    setInput('');
-    setError(null);
-    setIsUserScrolling(false);
-
-    // Save user message first
-    await saveMessage(targetChatId, 'user', userMessage);
-
-    const newMessages = [...messages, { role: 'user', content: userMessage }];
-    setMessages(newMessages);
-    setIsLoading(true);
-
-    const assistantMessageIndex = newMessages.length;
-    setMessages([...newMessages, {
-      role: 'assistant',
-      content: '',
-      thinking: '',
-      thinkingCollapsed: false,
-      hasThinking: false,
-      status: 'streaming'
-    }]);
-
-    // Create AbortController for this stream
-    const abortController = new AbortController();
-    abortControllersRef.current[targetChatId] = abortController;
-
-    // RENDER-001: Reset token batch for new stream
-    resetTokenBatch();
-
-    try {
-      const token = localStorage.getItem('arasul_token');
-      let streamError = false;
-      let currentJobId = null;
-
-      const response = await fetch(`${API_BASE}/llm/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          temperature: 0.7,
-          max_tokens: 32768,
-          stream: true,
-          thinking: useThinking,
-          conversation_id: targetChatId,  // Required for job-based streaming
-          model: selectedModel || undefined  // Optional: explicit model selection
-        }),
-        signal: abortController.signal
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line.replace(/^data:\s*/, ''));
-
-            // Track job ID for background processing
-            if (data.type === 'job_started' && data.jobId) {
-              currentJobId = data.jobId;
-              setActiveJobIds(prev => ({ ...prev, [targetChatId]: currentJobId }));
-              // Update the assistant message with jobId for reconnection
-              if (currentChatIdRef.current === targetChatId) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      jobId: currentJobId
-                    };
-                  }
-                  return updated;
-                });
-              }
-            }
-
-            if (data.error) {
-              streamError = true;
-              // Only show error if still on same chat
-              if (currentChatIdRef.current === targetChatId) {
-                setError(data.error);
-              }
-              // Refresh models list if model switch failed (model might have been removed from Ollama)
-              if (data.errorCode === 'MODEL_SWITCH_FAILED') {
-                loadInstalledModels();
-                // Reset to default model if selected model is no longer available
-                if (selectedModel) {
-                  setSelectedModel('');
-                }
-              }
-              break;
-            }
-
-            // Only update UI if still viewing the same chat
-            const isCurrentChat = currentChatIdRef.current === targetChatId;
-
-            // RENDER-001: Use batched token updates to reduce re-renders
-            if (data.type === 'thinking' && data.token) {
-              if (isCurrentChat) {
-                addTokenToBatch('thinking', data.token, assistantMessageIndex);
-              }
-            }
-
-            if (data.type === 'thinking_end') {
-              if (isCurrentChat) {
-                // Flush pending thinking tokens before collapsing
-                flushTokenBatch(assistantMessageIndex, true);
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      thinkingCollapsed: true
-                    };
-                  }
-                  return updated;
-                });
-              }
-            }
-
-            if (data.type === 'response' && data.token) {
-              if (isCurrentChat) {
-                addTokenToBatch('content', data.token, assistantMessageIndex);
-              }
-            }
-
-            if (data.done) {
-              // RENDER-001: Flush any remaining tokens before marking done
-              if (isCurrentChat) {
-                flushTokenBatch(assistantMessageIndex, true);
-              }
-              // Clear active job
+              if (isCurrentChat) flushTokenBatch(assistantMessageIndex, true);
               setActiveJobIds(prev => {
                 const newState = { ...prev };
                 delete newState[targetChatId];
@@ -1172,15 +880,12 @@ function ChatMulti() {
         if (streamError) break;
       }
 
-      // RENDER-001: Get accumulated content from batch for final check
+      // RENDER-001: Final content check from batch
       const { content: fullResponse, thinking: fullThinking } = tokenBatchRef.current;
 
-      // Backend saves message automatically - just reload for UI sync
       if (fullResponse || fullThinking) {
-        loadChats(); // Update message count
-        // If user switched back to this chat, reload messages to show final state
+        loadChats();
         if (currentChatIdRef.current === targetChatId) {
-          // RC-002 FIX: Set messages after loading since loadMessages no longer calls setMessages
           const finalMsgs = await loadMessages(targetChatId);
           if (currentChatIdRef.current === targetChatId) {
             setMessages(finalMsgs);
@@ -1189,18 +894,18 @@ function ChatMulti() {
       }
 
       if (!streamError && !fullResponse && !fullThinking) {
-        throw new Error('Keine Antwort vom LLM erhalten');
+        throw new Error(
+          isRAG ? 'Keine Antwort vom RAG-System erhalten' : 'Keine Antwort vom LLM erhalten'
+        );
       }
-
     } catch (err) {
-      // Ignore abort errors (user switched chat)
-      if (err.name === 'AbortError') {
-        // Stream aborted for chat ${targetChatId} - user switched chat`);
-        return;
-      }
-      console.error('Chat error:', err);
+      if (err.name === 'AbortError') return;
+      console.error(`${isRAG ? 'RAG' : 'Chat'} error:`, err);
       if (currentChatIdRef.current === targetChatId) {
-        setError(err.message || 'Fehler beim Senden der Nachricht.');
+        setError(
+          err.message ||
+            (isRAG ? 'Fehler bei der RAG-Anfrage.' : 'Fehler beim Senden der Nachricht.')
+        );
         setMessages(newMessages);
       }
       setActiveJobIds(prev => {
@@ -1209,17 +914,15 @@ function ChatMulti() {
         return newState;
       });
     } finally {
-      // Only reset loading if still on same chat
       if (currentChatIdRef.current === targetChatId) {
         setIsLoading(false);
       }
-      // Cleanup abort controller and batch timer
       delete abortControllersRef.current[targetChatId];
       resetTokenBatch();
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = e => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -1228,7 +931,7 @@ function ChatMulti() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyboardShortcuts = (e) => {
+    const handleKeyboardShortcuts = e => {
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 't') {
           e.preventDefault();
@@ -1250,100 +953,23 @@ function ChatMulti() {
       aria-label="AI Chat"
       aria-busy={loadingChats}
     >
-      {/* Top Chat Tabs Bar */}
-      <div className="chat-tabs-bar" role="tablist" aria-label="Chat-Unterhaltungen">
-        {/* New Chat Button */}
-        <button
-          className="new-chat-tab-btn"
-          onClick={createNewChat}
-          title="Neuer Chat (Ctrl+T)"
-          aria-label="Neuen Chat erstellen"
-        >
-          <FiPlus aria-hidden="true" />
-        </button>
-
-        {/* Chat Tabs */}
-        <div className="chat-tabs" ref={tabsContainerRef}>
-          {chats.map(chat => (
-            <div
-              key={chat.id}
-              role="tab"
-              tabIndex={currentChatId === chat.id ? 0 : -1}
-              aria-selected={currentChatId === chat.id}
-              aria-controls={`chat-panel-${chat.id}`}
-              className={`chat-tab ${currentChatId === chat.id ? 'active' : ''} ${activeJobIds[chat.id] ? 'has-active-job' : ''}`}
-              onClick={() => selectChat(chat.id)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectChat(chat.id); }}}
-              onMouseEnter={() => setHoveredChatId(chat.id)}
-              onMouseLeave={() => setHoveredChatId(null)}
-            >
-              {/* Job indicator for streaming/queued chats */}
-              {activeJobIds[chat.id] ? (() => {
-                const jobId = activeJobIds[chat.id];
-                const isProcessing = globalQueue.processing?.id === jobId;
-                const queueJob = globalQueue.queue?.find(q => q.id === jobId);
-                const queuePosition = queueJob?.queue_position;
-
-                return (
-                  <span
-                    className="job-indicator"
-                    title={isProcessing ? "Wird verarbeitet..." : queuePosition > 1 ? `Position ${queuePosition} in der Warteschlange` : "Wartet..."}
-                  >
-                    <span className={`pulse-dot ${isProcessing ? 'active' : 'queued'}`}></span>
-                    {!isProcessing && queuePosition > 1 && (
-                      <span className="queue-position">#{queuePosition}</span>
-                    )}
-                  </span>
-                );
-              })() : (
-                <FiChevronRight className="tab-icon" />
-              )}
-              {editingChatId === chat.id ? (
-                <input
-                  type="text"
-                  value={editingTitle}
-                  onChange={(e) => setEditingTitle(e.target.value)}
-                  onKeyDown={(e) => handleTitleKeyDown(e, chat.id)}
-                  onBlur={() => saveTitle(chat.id)}
-                  autoFocus
-                  className="tab-title-input"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <span className="tab-title">{chat.title}</span>
-              )}
-              {/* Show actions on hover or if active */}
-              {(hoveredChatId === chat.id || currentChatId === chat.id) && editingChatId !== chat.id && (
-                <div className="tab-actions" role="group" aria-label={`Aktionen für ${chat.title}`}>
-                  <button
-                    className="tab-action-btn"
-                    onClick={(e) => startEditingTitle(e, chat)}
-                    aria-label={`Chat "${chat.title}" umbenennen`}
-                  >
-                    <FiEdit2 aria-hidden="true" />
-                  </button>
-                  <button
-                    className="tab-action-btn export"
-                    onClick={(e) => exportChat(e, chat.id, 'markdown')}
-                    aria-label={`Chat "${chat.title}" als Markdown exportieren`}
-                  >
-                    <FiDownload aria-hidden="true" />
-                  </button>
-                  {chats.length > 1 && (
-                    <button
-                      className="tab-action-btn delete"
-                      onClick={(e) => deleteChat(e, chat.id)}
-                      aria-label={`Chat "${chat.title}" löschen`}
-                    >
-                      <FiTrash2 aria-hidden="true" />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <ChatTabsBar
+        chats={chats}
+        currentChatId={currentChatId}
+        activeJobIds={activeJobIds}
+        globalQueue={globalQueue}
+        editingChatId={editingChatId}
+        editingTitle={editingTitle}
+        tabsContainerRef={tabsContainerRef}
+        onCreateNewChat={createNewChat}
+        onSelectChat={selectChat}
+        onStartEditingTitle={startEditingTitle}
+        onEditingTitleChange={setEditingTitle}
+        onTitleKeyDown={handleTitleKeyDown}
+        onSaveTitle={saveTitle}
+        onExportChat={exportChat}
+        onDeleteChat={deleteChat}
+      />
 
       {/* Messages Area */}
       {hasMessages && (
@@ -1358,122 +984,15 @@ function ChatMulti() {
         >
           <div className="messages-wrapper">
             {messages.map((message, index) => (
-              <article
+              <ChatMessage
                 key={message.id || message.jobId || `${currentChatId}-msg-${index}`}
-                className={`message ${message.role === 'user' ? 'user' : 'assistant'}`}
-                aria-label={message.role === 'user' ? 'Deine Nachricht' : 'AI Antwort'}
-              >
-                <div className="message-label" aria-hidden="true">
-                  {message.role === 'user' ? 'Du' : 'AI'}
-                </div>
-
-                {/* Thinking Block - P3-002: Always render for smooth CSS transitions */}
-                {message.hasThinking && message.thinking && (
-                  <div className={`thinking-block ${message.thinkingCollapsed ? 'collapsed' : ''} ${message.thinkingCollapsing ? 'collapsing' : ''}`}>
-                    <div
-                      className="thinking-header"
-                      onClick={() => toggleThinking(index)}
-                    >
-                      <FiCpu className="thinking-icon" />
-                      <span>Gedankengang</span>
-                      {message.thinkingCollapsed ? <FiChevronDown /> : <FiChevronUp />}
-                    </div>
-                    {/* P3-002: Always render content for smooth transitions */}
-                    <div className="thinking-content">
-                      {message.thinking}
-                    </div>
-                  </div>
-                )}
-
-                {/* Message Content */}
-                {message.content && (
-                  <div className="message-body">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        code({ node, inline, className, children, ...props }) {
-                          const match = /language-(\w+)/.exec(className || '');
-                          const language = match ? match[1] : '';
-
-                          // Handle mermaid code blocks
-                          if (!inline && language === 'mermaid') {
-                            return <MermaidDiagram content={String(children).replace(/\n$/, '')} />;
-                          }
-
-                          // Default code rendering
-                          return (
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          );
-                        }
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
-                )}
-
-                {/* Loading indicator */}
-                {message.role === 'assistant' && !message.content && !message.thinking && isLoading && (
-                  <div className="message-loading">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                )}
-
-                {/* P3-003: Matched Spaces Display - shows which knowledge spaces were searched */}
-                {message.matchedSpaces && message.matchedSpaces.length > 0 && (
-                  <div className="matched-spaces-block">
-                    <span className="matched-spaces-label">
-                      <FiFolder style={{ marginRight: '6px' }} />
-                      Durchsuchte Bereiche:
-                    </span>
-                    <div className="matched-spaces-chips">
-                      {message.matchedSpaces.map((space, i) => (
-                        <span
-                          key={space.id || i}
-                          className="matched-space-chip"
-                          style={{ borderLeftColor: space.color || '#45ADFF' }}
-                          title={`Relevanz: ${((space.score || 0) * 100).toFixed(0)}%`}
-                        >
-                          <FiFolder style={{ color: space.color || '#45ADFF', marginRight: '4px' }} />
-                          {space.name}
-                          <span className="space-score">{((space.score || 0) * 100).toFixed(0)}%</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Sources Block - at the bottom, collapsible like thinking */}
-                {message.sources && message.sources.length > 0 && (
-                  <div className={`sources-block ${message.sourcesCollapsed ? 'collapsed' : ''}`}>
-                    <div
-                      className="sources-header"
-                      onClick={() => toggleSources(index)}
-                    >
-                      <FiBook className="sources-icon" />
-                      <span>Quellen ({message.sources.length})</span>
-                      {message.sourcesCollapsed ? <FiChevronDown /> : <FiChevronUp />}
-                    </div>
-                    {!message.sourcesCollapsed && (
-                      <div className="sources-content">
-                        {message.sources.map((source, sourceIndex) => (
-                          <div key={sourceIndex} className="source-item">
-                            <div className="source-name">{source.document_name}</div>
-                            <div className="source-preview">{source.text_preview}</div>
-                            <div className="source-score">
-                              Relevanz: {(source.score * 100).toFixed(0)}%
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </article>
+                message={message}
+                index={index}
+                chatId={currentChatId}
+                isLoading={isLoading}
+                onToggleThinking={toggleThinking}
+                onToggleSources={toggleSources}
+              />
             ))}
             <div ref={messagesEndRef} />
           </div>
@@ -1497,11 +1016,7 @@ function ChatMulti() {
       {/* Centered Input Section */}
       <div className={`chat-input-section ${hasMessages ? 'bottom' : 'centered'}`}>
         {/* Welcome text - only when empty */}
-        {!hasMessages && (
-          <div className="welcome-text">
-            Wie kann ich dir heute helfen?
-          </div>
-        )}
+        {!hasMessages && <div className="welcome-text">Wie kann ich dir heute helfen?</div>}
 
         {/* Error Display */}
         {error && (
@@ -1520,20 +1035,20 @@ function ChatMulti() {
             ? installedModels.find(m => m.id === selectedModel)
             : installedModels.find(m => m.id === defaultModel);
 
-          const showThinkWarning = useThinking && currentModel && currentModel.supports_thinking === false;
+          const showThinkWarning =
+            useThinking && currentModel && currentModel.supports_thinking === false;
           const showRagWarning = useRAG && currentModel && currentModel.rag_optimized === false;
 
           if (showThinkWarning || showRagWarning) {
             return (
               <div className="capability-warning" role="status">
-                <FiAlertCircle style={{ color: '#F59E0B', flexShrink: 0 }} />
+                <FiAlertCircle style={{ color: 'var(--warning-color)', flexShrink: 0 }} />
                 <span>
                   {showThinkWarning && showRagWarning
                     ? `"${currentModel.name}" ist weder für Think-Mode noch RAG optimiert.`
                     : showThinkWarning
                       ? `"${currentModel.name}" unterstützt Think-Mode möglicherweise nicht optimal.`
-                      : `"${currentModel.name}" ist nicht für RAG optimiert. Empfohlen: Qwen3-Modelle.`
-                  }
+                      : `"${currentModel.name}" ist nicht für RAG optimiert. Empfohlen: Qwen3-Modelle.`}
                 </span>
               </div>
             );
@@ -1548,7 +1063,9 @@ function ChatMulti() {
             className={`input-toggle rag-toggle ${useRAG ? 'active' : ''}`}
             onClick={() => setUseRAG(!useRAG)}
             aria-pressed={useRAG}
-            aria-label={useRAG ? "RAG deaktivieren (Dokumentensuche)" : "RAG aktivieren (Dokumentensuche)"}
+            aria-label={
+              useRAG ? 'RAG deaktivieren (Dokumentensuche)' : 'RAG aktivieren (Dokumentensuche)'
+            }
           >
             <FiSearch aria-hidden="true" />
             {useRAG && <span>RAG</span>}
@@ -1560,7 +1077,11 @@ function ChatMulti() {
               <button
                 className={`input-toggle space-toggle ${selectedSpaces.length > 0 ? 'active' : ''}`}
                 onClick={() => setShowSpacesDropdown(!showSpacesDropdown)}
-                title={selectedSpaces.length > 0 ? `${selectedSpaces.length} Bereiche ausgewählt` : "Alle Bereiche (Auto-Routing)"}
+                title={
+                  selectedSpaces.length > 0
+                    ? `${selectedSpaces.length} Bereiche ausgewählt`
+                    : 'Alle Bereiche (Auto-Routing)'
+                }
               >
                 <FiFolder />
                 <span className="space-toggle-label">
@@ -1601,7 +1122,7 @@ function ChatMulti() {
             className={`input-toggle think-toggle ${useThinking ? 'active' : ''}`}
             onClick={() => setUseThinking(!useThinking)}
             aria-pressed={useThinking}
-            aria-label={useThinking ? "Thinking-Modus deaktivieren" : "Thinking-Modus aktivieren"}
+            aria-label={useThinking ? 'Thinking-Modus deaktivieren' : 'Thinking-Modus aktivieren'}
           >
             <FiCpu aria-hidden="true" />
             {useThinking && <span>Think</span>}
@@ -1618,7 +1139,8 @@ function ChatMulti() {
                 <FiBox />
                 <span className="model-name-short">
                   {selectedModel
-                    ? installedModels.find(m => m.id === selectedModel)?.name?.split(' ')[0] || selectedModel.split(':')[0]
+                    ? installedModels.find(m => m.id === selectedModel)?.name?.split(' ')[0] ||
+                      selectedModel.split(':')[0]
                     : 'Standard'}
                 </span>
                 <FiChevronDown className={`dropdown-arrow ${showModelDropdown ? 'open' : ''}`} />
@@ -1627,13 +1149,18 @@ function ChatMulti() {
                 <div className="model-dropdown">
                   <div
                     className={`model-option ${!selectedModel ? 'selected' : ''}`}
-                    onClick={() => { setSelectedModel(''); setShowModelDropdown(false); }}
+                    onClick={() => {
+                      setSelectedModel('');
+                      setShowModelDropdown(false);
+                    }}
                   >
                     <span className="model-option-name">
-                      <FiStar style={{ color: '#45ADFF', marginRight: '4px' }} />
+                      <FiStar style={{ color: 'var(--primary-color)', marginRight: '4px' }} />
                       Standard
                     </span>
-                    <span className="model-option-desc">{defaultModel ? defaultModel.split(':')[0] : 'Automatisch'}</span>
+                    <span className="model-option-desc">
+                      {defaultModel ? defaultModel.split(':')[0] : 'Automatisch'}
+                    </span>
                   </div>
                   {/* P4-003: Sort models - favorites first, then by category */}
                   {[...installedModels]
@@ -1644,65 +1171,109 @@ function ChatMulti() {
                       return (a.performance_tier || 1) - (b.performance_tier || 1);
                     })
                     .map(model => {
-                    const isAvailable = model.install_status === 'available' || model.status === 'available';
-                    const isDefault = model.id === defaultModel;
-                    const isFavorite = favoriteModels.includes(model.id);
-                    // Check if this model is currently loaded in RAM (compare by ollama_name or id)
-                    const isLoaded = loadedModel && (
-                      model.effective_ollama_name === loadedModel ||
-                      model.id === loadedModel ||
-                      loadedModel.startsWith(model.id.split(':')[0])
-                    );
-                    return (
-                      <div
-                        key={model.id}
-                        className={`model-option ${selectedModel === model.id ? 'selected' : ''} ${!isAvailable ? 'unavailable' : ''} ${isFavorite ? 'favorite' : ''}`}
-                        onClick={() => {
-                          if (isAvailable) {
-                            setSelectedModel(model.id);
-                            setShowModelDropdown(false);
+                      const isAvailable =
+                        model.install_status === 'available' || model.status === 'available';
+                      const isDefault = model.id === defaultModel;
+                      const isFavorite = favoriteModels.includes(model.id);
+                      // Check if this model is currently loaded in RAM (compare by ollama_name or id)
+                      const isLoaded =
+                        loadedModel &&
+                        (model.effective_ollama_name === loadedModel ||
+                          model.id === loadedModel ||
+                          loadedModel.startsWith(model.id.split(':')[0]));
+                      return (
+                        <div
+                          key={model.id}
+                          className={`model-option ${selectedModel === model.id ? 'selected' : ''} ${!isAvailable ? 'unavailable' : ''} ${isFavorite ? 'favorite' : ''}`}
+                          onClick={() => {
+                            if (isAvailable) {
+                              setSelectedModel(model.id);
+                              setShowModelDropdown(false);
+                            }
+                          }}
+                          title={
+                            !isAvailable ? model.install_error || 'Modell nicht verfügbar' : ''
                           }
-                        }}
-                        title={!isAvailable ? (model.install_error || 'Modell nicht verfügbar') : ''}
-                      >
-                        <span className="model-option-name">
-                          {/* P4-003: Favorite toggle button */}
-                          <button
-                            className={`favorite-btn ${isFavorite ? 'active' : ''}`}
-                            onClick={(e) => { e.stopPropagation(); toggleFavorite(model.id); }}
-                            title={isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
-                          >
-                            <FiStar style={{ color: isFavorite ? '#F59E0B' : '#4A5568' }} />
-                          </button>
-                          {model.name}
-                          {isLoaded && <FiCpu style={{ marginLeft: '6px', color: '#94A3B8' }} title="Im RAM geladen" />}
-                          {!isAvailable && <FiAlertCircle className="model-warning-icon" style={{ marginLeft: '6px', color: '#EF4444' }} />}
-                        </span>
-                        <span className="model-option-desc">
-                          {!isAvailable ? (model.install_error || 'Nicht verfügbar') : (
-                            <>
-                              {`${model.category} • ${model.ram_required_gb}GB RAM`}
-                              {model.supports_thinking && <span style={{ color: '#45ADFF', marginLeft: '6px' }} title="Unterstützt Think-Mode">💭</span>}
-                              {model.rag_optimized && <span style={{ color: '#22C55E', marginLeft: '4px' }} title="RAG-optimiert">📚</span>}
-                              {isLoaded && <span style={{ color: '#94A3B8', marginLeft: '8px' }}>• Aktiv</span>}
-                              {!isDefault && isAvailable && (
-                                <button
-                                  className="set-default-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setModelAsDefault(model.id);
-                                  }}
-                                  title="Als Standard setzen"
-                                >
-                                  <FiStar /> Standard
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
+                        >
+                          <span className="model-option-name">
+                            {/* P4-003: Favorite toggle button */}
+                            <button
+                              className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+                              onClick={e => {
+                                e.stopPropagation();
+                                toggleFavorite(model.id);
+                              }}
+                              title={
+                                isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'
+                              }
+                            >
+                              <FiStar
+                                style={{
+                                  color: isFavorite
+                                    ? 'var(--warning-color)'
+                                    : 'var(--text-disabled)',
+                                }}
+                              />
+                            </button>
+                            {model.name}
+                            {isLoaded && (
+                              <FiCpu
+                                style={{ marginLeft: '6px', color: 'var(--text-muted)' }}
+                                title="Im RAM geladen"
+                              />
+                            )}
+                            {!isAvailable && (
+                              <FiAlertCircle
+                                className="model-warning-icon"
+                                style={{ marginLeft: '6px', color: 'var(--danger-color)' }}
+                              />
+                            )}
+                          </span>
+                          <span className="model-option-desc">
+                            {!isAvailable ? (
+                              model.install_error || 'Nicht verfügbar'
+                            ) : (
+                              <>
+                                {`${model.category} • ${model.ram_required_gb}GB RAM`}
+                                {model.supports_thinking && (
+                                  <span
+                                    style={{ color: 'var(--primary-color)', marginLeft: '6px' }}
+                                    title="Unterstützt Think-Mode"
+                                  >
+                                    💭
+                                  </span>
+                                )}
+                                {model.rag_optimized && (
+                                  <span
+                                    style={{ color: 'var(--success-color)', marginLeft: '4px' }}
+                                    title="RAG-optimiert"
+                                  >
+                                    📚
+                                  </span>
+                                )}
+                                {isLoaded && (
+                                  <span style={{ color: 'var(--text-muted)', marginLeft: '8px' }}>
+                                    • Aktiv
+                                  </span>
+                                )}
+                                {!isDefault && isAvailable && (
+                                  <button
+                                    className="set-default-btn"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      setModelAsDefault(model.id);
+                                    }}
+                                    title="Als Standard setzen"
+                                  >
+                                    <FiStar /> Standard
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -1713,12 +1284,12 @@ function ChatMulti() {
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={useRAG ? "Frage zu Dokumenten stellen..." : "Nachricht eingeben..."}
+            placeholder={useRAG ? 'Frage zu Dokumenten stellen...' : 'Nachricht eingeben...'}
             disabled={isLoading || loadingChats || !currentChatId}
-            aria-label={useRAG ? "Frage zu Dokumenten eingeben" : "Chat-Nachricht eingeben"}
-            aria-describedby={isLoading ? "chat-loading-status" : undefined}
+            aria-label={useRAG ? 'Frage zu Dokumenten eingeben' : 'Chat-Nachricht eingeben'}
+            aria-describedby={isLoading ? 'chat-loading-status' : undefined}
           />
           {isLoading && (
             <span id="chat-loading-status" className="sr-only">
