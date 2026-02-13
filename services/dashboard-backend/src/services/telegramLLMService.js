@@ -369,12 +369,14 @@ async function executeCommand(botId, chatId, command, args) {
 
   const cmd = cmdResult.rows[0];
 
-  // Build the prompt with args substitution
+  // Build the prompt with args substitution (supports both {eingabe} and {{args}})
   let prompt = cmd.prompt;
   if (args) {
     prompt = prompt.replace(/\{\{args\}\}/g, args);
+    prompt = prompt.replace(/\{eingabe\}/g, args);
   } else {
     prompt = prompt.replace(/\{\{args\}\}/g, '');
+    prompt = prompt.replace(/\{eingabe\}/g, '');
   }
 
   // Update command usage

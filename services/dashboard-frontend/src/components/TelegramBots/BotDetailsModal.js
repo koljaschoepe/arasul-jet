@@ -1,5 +1,6 @@
 /**
  * BotDetailsModal - Modal for viewing and editing bot details
+ * Tabs: Allgemein | Befehle | Verbundene Chats | Erweitert
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -15,18 +16,21 @@ import {
   FiAlertCircle,
   FiCheck,
   FiRefreshCw,
+  FiSliders,
+  FiExternalLink,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 import { useToast } from '../../contexts/ToastContext';
 import CommandsEditor from './CommandsEditor';
 
 const TABS = [
-  { id: 'settings', label: 'Einstellungen', icon: FiSettings },
-  { id: 'commands', label: 'Commands', icon: FiCommand },
-  { id: 'chats', label: 'Chats', icon: FiUsers },
+  { id: 'settings', label: 'Allgemein', icon: FiSettings },
+  { id: 'commands', label: 'Befehle', icon: FiCommand },
+  { id: 'chats', label: 'Verbundene Chats', icon: FiUsers },
+  { id: 'advanced', label: 'Erweitert', icon: FiSliders },
 ];
 
-function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
+function BotDetailsModal({ bot, onClose, onUpdate }) {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState('settings');
   const [formData, setFormData] = useState({
@@ -47,6 +51,8 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
   const [chats, setChats] = useState([]);
   const [loadingCommands, setLoadingCommands] = useState(false);
   const [loadingChats, setLoadingChats] = useState(false);
+
+  const username = bot.username || bot.bot_username;
 
   // Auth headers
   const getAuthHeaders = useCallback(() => {
@@ -92,7 +98,7 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
         .then(data => setCommands(data.commands || []))
         .catch(err => {
           console.error('Error fetching commands:', err);
-          toast.error('Fehler beim Laden der Commands');
+          toast.error('Fehler beim Laden der Befehle');
         })
         .finally(() => setLoadingCommands(false));
     }
@@ -148,7 +154,7 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
       const data = await response.json();
       setMessage({ type: 'success', text: 'Einstellungen gespeichert' });
       setFormData(prev => ({ ...prev, claudeApiKey: '', token: '' }));
-      onSave(data.bot);
+      if (onUpdate) onUpdate(data.bot);
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     } finally {
@@ -180,7 +186,7 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
     }
   };
 
-  // Render settings tab
+  // Tab 1: Allgemein
   const renderSettings = () => (
     <div className="bot-details-settings">
       {message && (
@@ -198,31 +204,12 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
             value={formData.name}
             onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
           />
-        </div>
-
-        <div className="bot-details-form-group">
-          <label>Bot Token (nur bei Aenderung)</label>
-          <div className="bot-details-input-wrapper">
-            <input
-              type={showToken ? 'text' : 'password'}
-              value={formData.token}
-              onChange={e => setFormData(prev => ({ ...prev, token: e.target.value }))}
-              placeholder="Neues Token eingeben..."
-            />
-            <button
-              type="button"
-              className="bot-details-toggle-visibility"
-              onClick={() => setShowToken(!showToken)}
-            >
-              {showToken ? <FiEyeOff /> : <FiEye />}
-            </button>
-          </div>
-          <small>Leer lassen um aktuelles Token beizubehalten</small>
+          <small>Wie soll dein Bot heißen?</small>
         </div>
 
         <div className="bot-details-form-row">
           <div className="bot-details-form-group">
-            <label>LLM Provider</label>
+            <label>KI-Anbieter</label>
             <select
               value={formData.llmProvider}
               onChange={e => {
@@ -235,9 +222,14 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
                 }));
               }}
             >
-              <option value="ollama">Ollama (Lokal)</option>
-              <option value="claude">Claude (Cloud)</option>
+              <option value="ollama">Lokale KI (Ollama)</option>
+              <option value="claude">Cloud KI (Claude)</option>
             </select>
+            <small>
+              {formData.llmProvider === 'ollama'
+                ? 'Kostenlos, privat, läuft auf deinem Jetson'
+                : 'Leistungsstärker, benötigt API-Key'}
+            </small>
           </div>
 
           <div className="bot-details-form-group">
@@ -254,7 +246,7 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
                     </option>
                   ))
                 ) : (
-                  <option value="">Keine Modelle</option>
+                  <option value="">Keine Modelle verfügbar</option>
                 )
               ) : (
                 claudeModels.map(model => (
@@ -264,41 +256,22 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
                 ))
               )}
             </select>
+            <small>Welches KI-Modell soll antworten?</small>
           </div>
         </div>
 
-        {formData.llmProvider === 'claude' && (
-          <div className="bot-details-form-group">
-            <label>Claude API Key (nur bei Aenderung)</label>
-            <div className="bot-details-input-wrapper">
-              <input
-                type={showApiKey ? 'text' : 'password'}
-                value={formData.claudeApiKey}
-                onChange={e => setFormData(prev => ({ ...prev, claudeApiKey: e.target.value }))}
-                placeholder={
-                  bot.hasClaudeKey || bot.has_claude_key
-                    ? '(Key gespeichert)'
-                    : 'API Key eingeben...'
-                }
-              />
-              <button
-                type="button"
-                className="bot-details-toggle-visibility"
-                onClick={() => setShowApiKey(!showApiKey)}
-              >
-                {showApiKey ? <FiEyeOff /> : <FiEye />}
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="bot-details-form-group">
-          <label>System Prompt</label>
+          <label>Basis-Kontext</label>
           <textarea
             value={formData.systemPrompt}
             onChange={e => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
             rows={6}
+            placeholder="z.B. Du bist ein hilfreicher Assistent, der auf Deutsch antwortet..."
           />
+          <small>
+            Definiere wer dein Bot ist und was er kann. Dieser Text wird bei jeder Unterhaltung
+            geladen.
+          </small>
         </div>
 
         <div className="bot-details-actions">
@@ -320,13 +293,13 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
     </div>
   );
 
-  // Render commands tab
+  // Tab 2: Befehle
   const renderCommands = () => (
     <div className="bot-details-commands">
       {loadingCommands ? (
         <div className="bot-details-loading">
           <div className="loading-spinner" />
-          <span>Lade Commands...</span>
+          <span>Lade Befehle...</span>
         </div>
       ) : (
         <CommandsEditor
@@ -339,7 +312,7 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
     </div>
   );
 
-  // Render chats tab
+  // Tab 3: Verbundene Chats
   const renderChats = () => (
     <div className="bot-details-chats">
       {loadingChats ? (
@@ -350,8 +323,19 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
       ) : chats.length === 0 ? (
         <div className="bot-details-empty">
           <FiUsers className="bot-details-empty-icon" />
-          <p>Noch keine Chats</p>
-          <small>Chats werden hinzugefuegt wenn Nutzer mit dem Bot interagieren</small>
+          <p>Noch keine Chats verbunden</p>
+          <small>Öffne deinen Bot in Telegram und sende /start</small>
+          {username && (
+            <a
+              href={`https://t.me/${username}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bot-details-btn secondary"
+              style={{ marginTop: '1rem' }}
+            >
+              <FiExternalLink /> Bot in Telegram öffnen
+            </a>
+          )}
         </div>
       ) : (
         <div className="bot-details-chat-list">
@@ -388,6 +372,114 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
     </div>
   );
 
+  // Tab 4: Erweitert
+  const renderAdvanced = () => (
+    <div className="bot-details-advanced">
+      {message && activeTab === 'advanced' && (
+        <div className={`bot-details-message ${message.type}`}>
+          {message.type === 'success' ? <FiCheck /> : <FiAlertCircle />}
+          <span>{message.text}</span>
+        </div>
+      )}
+
+      <div className="bot-details-form">
+        <div className="bot-details-form-group">
+          <label>Bot-Token ändern</label>
+          <div className="bot-details-input-wrapper">
+            <input
+              type={showToken ? 'text' : 'password'}
+              value={formData.token}
+              onChange={e => setFormData(prev => ({ ...prev, token: e.target.value }))}
+              placeholder="Neues Token eingeben..."
+            />
+            <button
+              type="button"
+              className="bot-details-toggle-visibility"
+              onClick={() => setShowToken(!showToken)}
+            >
+              {showToken ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
+          <small>Leer lassen um das aktuelle Token beizubehalten</small>
+        </div>
+
+        {formData.llmProvider === 'claude' && (
+          <div className="bot-details-form-group">
+            <label>Claude API Key ändern</label>
+            <div className="bot-details-input-wrapper">
+              <input
+                type={showApiKey ? 'text' : 'password'}
+                value={formData.claudeApiKey}
+                onChange={e => setFormData(prev => ({ ...prev, claudeApiKey: e.target.value }))}
+                placeholder={
+                  bot.hasClaudeKey || bot.has_claude_key
+                    ? '(Key gespeichert)'
+                    : 'API Key eingeben...'
+                }
+              />
+              <button
+                type="button"
+                className="bot-details-toggle-visibility"
+                onClick={() => setShowApiKey(!showApiKey)}
+              >
+                {showApiKey ? <FiEyeOff /> : <FiEye />}
+              </button>
+            </div>
+            <small>Leer lassen um den aktuellen Key beizubehalten</small>
+          </div>
+        )}
+
+        <div className="bot-details-info-section">
+          <h4>Bot-Informationen</h4>
+          <div className="bot-details-info-grid">
+            <div className="bot-details-info-item">
+              <span className="info-label">Bot-ID</span>
+              <span className="info-value">{bot.id}</span>
+            </div>
+            <div className="bot-details-info-item">
+              <span className="info-label">Username</span>
+              <span className="info-value">@{username || '–'}</span>
+            </div>
+            <div className="bot-details-info-item">
+              <span className="info-label">Erstellt</span>
+              <span className="info-value">
+                {bot.createdAt || bot.created_at
+                  ? new Date(bot.createdAt || bot.created_at).toLocaleDateString('de-DE')
+                  : '–'}
+              </span>
+            </div>
+            <div className="bot-details-info-item">
+              <span className="info-label">Letzte Nachricht</span>
+              <span className="info-value">
+                {bot.lastMessageAt || bot.last_message_at
+                  ? new Date(bot.lastMessageAt || bot.last_message_at).toLocaleDateString('de-DE')
+                  : '–'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {(formData.token || formData.claudeApiKey) && (
+          <div className="bot-details-actions">
+            <button className="bot-details-btn primary" onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <>
+                  <FiRefreshCw className="spinning" />
+                  Speichern...
+                </>
+              ) : (
+                <>
+                  <FiSave />
+                  Änderungen speichern
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="bot-details-modal-overlay" onClick={onClose}>
       <div className="bot-details-modal" onClick={e => e.stopPropagation()}>
@@ -397,7 +489,7 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
             <FiMessageCircle className="bot-details-icon" />
             <div>
               <h2>{bot.name}</h2>
-              <span className="bot-details-username">@{bot.username || 'nicht verbunden'}</span>
+              <span className="bot-details-username">@{username || 'nicht verbunden'}</span>
             </div>
           </div>
           <button className="bot-details-close" onClick={onClose}>
@@ -427,6 +519,7 @@ function BotDetailsModal({ bot, onClose, onSave, onRefresh }) {
           {activeTab === 'settings' && renderSettings()}
           {activeTab === 'commands' && renderCommands()}
           {activeTab === 'chats' && renderChats()}
+          {activeTab === 'advanced' && renderAdvanced()}
         </div>
       </div>
     </div>

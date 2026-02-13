@@ -61,8 +61,6 @@ const ChatMulti = lazy(() => import('./components/ChatMulti'));
 const DocumentManager = lazy(() => import('./components/DocumentManager'));
 const Store = lazy(() => import('./components/Store'));
 const ClaudeCode = lazy(() => import('./components/ClaudeCode'));
-const TelegramBotApp = lazy(() => import('./components/TelegramBotApp'));
-const TelegramBotsPage = lazy(() => import('./components/TelegramBots/TelegramBotsPage'));
 const TelegramAppModal = lazy(() => import('./components/TelegramAppModal'));
 // Database components for Datentabellen feature
 const DatabaseOverview = lazy(() => import('./components/Database/DatabaseOverview'));
@@ -423,22 +421,8 @@ function AppContent() {
                     </RouteErrorBoundary>
                   }
                 />
-                <Route
-                  path="/telegram-bot"
-                  element={
-                    <RouteErrorBoundary routeName="Telegram Bot">
-                      <TelegramBotApp />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/telegram-bots"
-                  element={
-                    <RouteErrorBoundary routeName="Telegram Bots">
-                      <TelegramBotsPage />
-                    </RouteErrorBoundary>
-                  }
-                />
+                <Route path="/telegram-bot" element={<Navigate to="/" replace />} />
+                <Route path="/telegram-bots" element={<Navigate to="/" replace />} />
                 <Route
                   path="/database"
                   element={

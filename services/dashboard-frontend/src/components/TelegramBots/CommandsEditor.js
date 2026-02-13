@@ -130,7 +130,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
 
   // Delete command
   const handleDelete = async cmdId => {
-    if (!(await confirm({ message: 'Command wirklich loeschen?' }))) return;
+    if (!(await confirm({ message: 'Befehl wirklich löschen?' }))) return;
 
     try {
       const response = await fetch(`${API_BASE}/telegram-bots/${botId}/commands/${cmdId}`, {
@@ -139,7 +139,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       });
 
       if (!response.ok) {
-        throw new Error('Fehler beim Loeschen');
+        throw new Error('Fehler beim Löschen');
       }
 
       onChange(commands.filter(c => c.id !== cmdId));
@@ -182,7 +182,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
 
       <div className="command-form-row">
         <div className="command-form-group command-name-group">
-          <label>Command</label>
+          <label>Befehl</label>
           <div className="command-name-input">
             <span className="command-prefix">/</span>
             <input
@@ -221,7 +221,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       </div>
 
       <div className="command-form-group">
-        <label>Prompt Template</label>
+        <label>Prompt-Vorlage</label>
         <textarea
           value={data.prompt}
           onChange={e => {
@@ -231,11 +231,12 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
               setEditingCommand(prev => ({ ...prev, prompt: e.target.value }));
             }
           }}
-          placeholder="Du bist ein Wetter-Assistent. Der Nutzer fragt nach dem Wetter fuer: {args}. Gib eine hilfreiche Antwort."
+          placeholder="Du bist ein Wetter-Assistent. Der Nutzer fragt nach dem Wetter für: {eingabe}. Gib eine hilfreiche Antwort."
           rows={4}
         />
         <small>
-          Verwende <code>{'{args}'}</code> fuer Parameter nach dem Command (z.B. /wetter Berlin)
+          Verwende <code>{'{eingabe}'}</code> als Platzhalter für den Text nach dem Befehl
+          (z.B. /wetter Berlin → {'{eingabe}'} = &quot;Berlin&quot;)
         </small>
       </div>
 
@@ -261,13 +262,13 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       {/* Header */}
       <div className="commands-editor-header">
         <div className="commands-editor-info">
-          <h4>Custom Commands</h4>
-          <p>Definiere eigene Slash-Commands mit LLM-Prompts</p>
+          <h4>Eigene Befehle</h4>
+          <p>Definiere eigene Slash-Befehle mit KI-Prompts</p>
         </div>
         {!newCommand && !editingCommand && (
           <button className="commands-add-btn" onClick={handleAddNew}>
             <FiPlus />
-            Neuer Command
+            Neuer Befehl
           </button>
         )}
       </div>
@@ -280,8 +281,8 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
         {commands.length === 0 && !newCommand ? (
           <div className="commands-empty">
             <FiCommand className="commands-empty-icon" />
-            <p>Keine Commands definiert</p>
-            <small>Erstelle deinen ersten Custom Command</small>
+            <p>Keine Befehle definiert</p>
+            <small>Erstelle deinen ersten eigenen Befehl</small>
           </div>
         ) : (
           commands.map(cmd =>
@@ -324,7 +325,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
                   <button
                     className="command-action-btn delete"
                     onClick={() => handleDelete(cmd.id)}
-                    title="Loeschen"
+                    title="Löschen"
                   >
                     <FiTrash2 />
                   </button>
@@ -337,23 +338,23 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
 
       {/* Built-in Commands Info */}
       <div className="commands-builtin-info">
-        <h5>Eingebaute Commands</h5>
+        <h5>System-Befehle (nicht änderbar)</h5>
         <div className="commands-builtin-list">
           <div className="command-builtin-item">
             <span className="command-builtin-name">/start</span>
-            <span className="command-builtin-desc">Startet den Bot</span>
+            <span className="command-builtin-desc">Bot starten</span>
+          </div>
+          <div className="command-builtin-item">
+            <span className="command-builtin-name">/clear</span>
+            <span className="command-builtin-desc">Kontext leeren (neues Gespräch)</span>
           </div>
           <div className="command-builtin-item">
             <span className="command-builtin-name">/help</span>
-            <span className="command-builtin-desc">Zeigt Hilfe</span>
-          </div>
-          <div className="command-builtin-item">
-            <span className="command-builtin-name">/new</span>
-            <span className="command-builtin-desc">Neue Konversation</span>
+            <span className="command-builtin-desc">Hilfe anzeigen</span>
           </div>
           <div className="command-builtin-item">
             <span className="command-builtin-name">/commands</span>
-            <span className="command-builtin-desc">Listet alle Commands</span>
+            <span className="command-builtin-desc">Alle Befehle anzeigen</span>
           </div>
         </div>
       </div>

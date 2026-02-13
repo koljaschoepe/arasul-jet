@@ -247,7 +247,7 @@ function TelegramSetupWizard({ onComplete }) {
         <header className="setup-header">
           <FiSend className="setup-icon" />
           <h1>Telegram Bot einrichten</h1>
-          <p>Zero-Config Magic Setup - In weniger als 60 Sekunden fertig</p>
+          <p>Schnelle Einrichtung - In weniger als 60 Sekunden fertig</p>
         </header>
 
         <ProgressBar />
@@ -274,7 +274,7 @@ function TelegramSetupWizard({ onComplete }) {
               <div className="step-instructions">
                 <div className="instruction-item">
                   <span className="instruction-number">1</span>
-                  <span>Oeffne Telegram und suche nach <code>@BotFather</code></span>
+                  <span>Öffne Telegram und suche nach <code>@BotFather</code></span>
                 </div>
                 <div className="instruction-item">
                   <span className="instruction-number">2</span>
@@ -315,7 +315,7 @@ function TelegramSetupWizard({ onComplete }) {
                 <FiKey />
               </div>
               <h2>Bot-Token eingeben</h2>
-              <p>Fuege den Token von @BotFather ein</p>
+              <p>Füge das Token von @BotFather ein</p>
 
               <div className="token-input-container">
                 <input
@@ -348,7 +348,7 @@ function TelegramSetupWizard({ onComplete }) {
                 {loading ? (
                   <><FiRefreshCw className="spin" /> Validiere...</>
                 ) : (
-                  <>Token pruefen <FiChevronRight /></>
+                  <>Token prüfen <FiChevronRight /></>
                 )}
               </button>
             </div>
@@ -364,7 +364,7 @@ function TelegramSetupWizard({ onComplete }) {
               </div>
               <h2>Bot verbinden</h2>
               <p>
-                Oeffne <strong>@{botInfo?.username}</strong> und sende <code>/start</code>
+                Öffne <strong>@{botInfo?.username}</strong> und sende <code>/start</code>
               </p>
 
               <div className="connect-options">

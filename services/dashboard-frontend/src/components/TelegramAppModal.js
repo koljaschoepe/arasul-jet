@@ -3,8 +3,7 @@ import {
   FiX,
   FiPlus,
   FiSend,
-  FiSettings,
-  FiBell,
+  FiSliders,
   FiMessageCircle,
   FiPower,
   FiTrash2,
@@ -103,7 +102,7 @@ function TelegramAppModal({ isOpen, onClose }) {
   const handleDeleteBot = async botId => {
     if (
       !(await confirm({
-        message: 'Bot wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.',
+        message: 'Bot wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
       }))
     ) {
       return;
@@ -117,7 +116,7 @@ function TelegramAppModal({ isOpen, onClose }) {
       });
 
       if (!response.ok) {
-        throw new Error('Fehler beim Loeschen des Bots');
+        throw new Error('Fehler beim Löschen des Bots');
       }
 
       setBots(prev => prev.filter(bot => bot.id !== botId));
@@ -147,18 +146,11 @@ function TelegramAppModal({ isOpen, onClose }) {
             <FiMessageCircle /> Meine Bots
           </button>
           <button
-            className={`telegram-tab ${activeTab === 'notifications' ? 'active' : ''}`}
-            onClick={() => setActiveTab('notifications')}
+            className={`telegram-tab ${activeTab === 'advanced' ? 'active' : ''}`}
+            onClick={() => setActiveTab('advanced')}
             type="button"
           >
-            <FiBell /> Benachrichtigungen
-          </button>
-          <button
-            className={`telegram-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-            type="button"
-          >
-            <FiSettings /> Einstellungen
+            <FiSliders /> Erweitert
           </button>
         </div>
 
@@ -212,106 +204,112 @@ function TelegramAppModal({ isOpen, onClose }) {
                 </div>
               ) : (
                 <div className="telegram-bots-grid">
-                  {bots.map(bot => (
-                    <div key={bot.id} className="telegram-bot-card">
-                      <div className="bot-card-header">
-                        <div className="bot-info">
-                          <h4>{bot.name}</h4>
-                          <span className="bot-username">
-                            @{bot.bot_username || 'nicht verbunden'}
+                  {bots.map(bot => {
+                    const isActive = bot.isActive || bot.is_active;
+                    const provider = bot.llmProvider || bot.llm_provider || 'ollama';
+                    const model = bot.llmModel || bot.llm_model || '';
+                    const username = bot.username || bot.bot_username;
+                    const systemPrompt = bot.systemPrompt || bot.system_prompt || '';
+                    const chatCount = bot.chatCount || bot.chat_count || 0;
+                    const promptPreview =
+                      systemPrompt.length > 80 ? systemPrompt.substring(0, 80) + '…' : systemPrompt;
+
+                    return (
+                      <div key={bot.id} className="telegram-bot-card">
+                        <div className="bot-card-header">
+                          <div className="bot-info">
+                            <h4>{bot.name}</h4>
+                            <span className="bot-username">@{username || 'nicht verbunden'}</span>
+                          </div>
+                          <span className={`bot-status ${isActive ? 'active' : 'inactive'}`}>
+                            {isActive ? 'Aktiv' : 'Inaktiv'}
                           </span>
                         </div>
-                        <span className={`bot-status ${bot.is_active ? 'active' : 'inactive'}`}>
-                          {bot.is_active ? 'Aktiv' : 'Inaktiv'}
-                        </span>
-                      </div>
 
-                      <div className="bot-card-stats">
-                        <div className="bot-stat">
-                          <span className="stat-value">{bot.chat_count || 0}</span>
-                          <span className="stat-label">Chats</span>
-                        </div>
-                        <div className="bot-stat">
-                          <span className="stat-value">{bot.command_count || 0}</span>
-                          <span className="stat-label">Commands</span>
-                        </div>
-                        <div className="bot-stat">
-                          <span className="stat-value">{bot.llm_provider || 'ollama'}</span>
-                          <span className="stat-label">LLM</span>
-                        </div>
-                      </div>
+                        {promptPreview && <p className="bot-card-prompt">{promptPreview}</p>}
 
-                      <div className="bot-card-actions">
-                        <button
-                          className={`btn-icon ${bot.is_active ? 'btn-warning' : 'btn-success'}`}
-                          onClick={() => handleToggleBot(bot.id, bot.is_active)}
-                          title={bot.is_active ? 'Deaktivieren' : 'Aktivieren'}
-                          disabled={togglingBot === bot.id}
-                          type="button"
-                        >
-                          <FiPower className={togglingBot === bot.id ? 'spinning' : ''} />
-                        </button>
-                        <button
-                          className="btn-icon"
-                          onClick={() => setSelectedBot(bot)}
-                          title="Bearbeiten"
-                          type="button"
-                        >
-                          <FiEdit2 />
-                        </button>
-                        <button
-                          className="btn-icon btn-danger"
-                          onClick={() => handleDeleteBot(bot.id)}
-                          title="Loeschen"
-                          type="button"
-                        >
-                          <FiTrash2 />
-                        </button>
+                        <div className="bot-card-meta">
+                          <span className={`provider-badge ${provider}`}>
+                            {provider === 'ollama' ? 'Lokale KI' : 'Cloud KI'}
+                            {model && <span className="model-name"> ({model.split(':')[0]})</span>}
+                          </span>
+                          <span className="bot-card-chats">{chatCount} Chats</span>
+                        </div>
+
+                        <div className="bot-card-actions">
+                          <button
+                            className="btn-icon btn-edit"
+                            onClick={() => setSelectedBot(bot)}
+                            title="Bearbeiten"
+                            type="button"
+                          >
+                            <FiEdit2 /> <span>Bearbeiten</span>
+                          </button>
+                          <button
+                            className={`btn-icon ${isActive ? 'btn-warning' : 'btn-success'}`}
+                            onClick={() => handleToggleBot(bot.id, isActive)}
+                            title={isActive ? 'Deaktivieren' : 'Aktivieren'}
+                            disabled={togglingBot === bot.id}
+                            type="button"
+                          >
+                            <FiPower className={togglingBot === bot.id ? 'spinning' : ''} />
+                          </button>
+                          <button
+                            className="btn-icon btn-danger"
+                            onClick={() => handleDeleteBot(bot.id)}
+                            title="Löschen"
+                            type="button"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           )}
 
-          {activeTab === 'notifications' && (
-            <div className="telegram-notifications-tab">
-              <div className="telegram-coming-soon">
-                <FiBell size={48} />
-                <h4>Benachrichtigungs-Regeln</h4>
-                <p>
-                  Hier kannst du benutzerdefinierte Regeln erstellen, um Benachrichtigungen von
-                  Claude, System-Events und n8n-Workflows zu erhalten.
-                </p>
-                <p className="text-muted">
-                  Diese Funktion wird in einem zukuenftigen Update verfuegbar sein.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="telegram-settings-tab">
-              <div className="telegram-coming-soon">
-                <FiSettings size={48} />
-                <h4>App-Einstellungen</h4>
-                <p>Globale Einstellungen fuer die Telegram Bot App.</p>
-                {appStatus && (
-                  <div className="settings-info">
-                    <p>
-                      <strong>Status:</strong> {appStatus.isEnabled ? 'Aktiviert' : 'Deaktiviert'}
-                    </p>
-                    <p>
-                      <strong>Bots:</strong> {appStatus.botCount?.total || 0} total,{' '}
-                      {appStatus.botCount?.active || 0} aktiv
-                    </p>
-                    <p>
-                      <strong>Chats:</strong> {appStatus.stats?.totalChats || 0}
-                    </p>
+          {activeTab === 'advanced' && (
+            <div className="telegram-advanced-tab">
+              <h3>Übersicht</h3>
+              {appStatus ? (
+                <div className="advanced-status-grid">
+                  <div className="advanced-status-card">
+                    <span className="advanced-status-label">Status</span>
+                    <span
+                      className={`advanced-status-value ${appStatus.isEnabled ? 'active' : ''}`}
+                    >
+                      {appStatus.isEnabled ? 'Aktiviert' : 'Deaktiviert'}
+                    </span>
                   </div>
-                )}
-              </div>
+                  <div className="advanced-status-card">
+                    <span className="advanced-status-label">Bots gesamt</span>
+                    <span className="advanced-status-value">{appStatus.botCount?.total || 0}</span>
+                  </div>
+                  <div className="advanced-status-card">
+                    <span className="advanced-status-label">Bots aktiv</span>
+                    <span className="advanced-status-value">{appStatus.botCount?.active || 0}</span>
+                  </div>
+                  <div className="advanced-status-card">
+                    <span className="advanced-status-label">Chats</span>
+                    <span className="advanced-status-value">
+                      {appStatus.stats?.totalChats || 0}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="telegram-loading">
+                  <FiRefreshCw className="spinning" />
+                  <span>Lade Status...</span>
+                </div>
+              )}
+
+              <p className="text-muted" style={{ marginTop: '1.5rem' }}>
+                Weitere Einstellungen wie Benachrichtigungs-Regeln und Webhook-Konfiguration findest
+                du in den erweiterten Einstellungen der einzelnen Bots.
+              </p>
             </div>
           )}
         </div>

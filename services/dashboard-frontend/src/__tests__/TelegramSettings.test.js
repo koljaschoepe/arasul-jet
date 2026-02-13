@@ -21,7 +21,7 @@ describe('TelegramSettings Component', () => {
     chat_id: '123456789',
     enabled: false,
     configured: true,
-    token_masked: '****TOKEN****'
+    token_masked: '****TOKEN****',
   };
 
   let originalFetch;
@@ -34,7 +34,7 @@ describe('TelegramSettings Component', () => {
     global.fetch = jest.fn(() =>
       Promise.resolve({
         ok: true,
-        json: () => Promise.resolve(mockConfig)
+        json: () => Promise.resolve(mockConfig),
       })
     );
   });
@@ -58,9 +58,12 @@ describe('TelegramSettings Component', () => {
       render(<TelegramSettings />);
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith('/api/telegram/config', expect.objectContaining({
-          credentials: 'include'
-        }));
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/telegram/config',
+          expect.objectContaining({
+            credentials: 'include',
+          })
+        );
       });
     });
   });
@@ -81,7 +84,9 @@ describe('TelegramSettings Component', () => {
       render(<TelegramSettings />);
 
       await waitFor(() => {
-        expect(screen.getByText(/Konfigurieren Sie einen Telegram Bot für System-Benachrichtigungen/)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Richte einen Telegram Bot für System-Benachrichtigungen ein/)
+        ).toBeInTheDocument();
       });
     });
   });
@@ -111,7 +116,7 @@ describe('TelegramSettings Component', () => {
       global.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ ...mockConfig, enabled: true })
+          json: () => Promise.resolve({ ...mockConfig, enabled: true }),
         })
       );
 
@@ -287,12 +292,12 @@ describe('TelegramSettings Component', () => {
         if (options?.method === 'POST') {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ success: true, has_token: true })
+            json: () => Promise.resolve({ success: true, has_token: true }),
           });
         }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         });
       });
 
@@ -308,10 +313,13 @@ describe('TelegramSettings Component', () => {
       await user.click(screen.getByText('Speichern'));
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith('/api/telegram/config', expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('newtoken')
-        }));
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/telegram/config',
+          expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('newtoken'),
+          })
+        );
       });
     });
 
@@ -322,12 +330,12 @@ describe('TelegramSettings Component', () => {
         if (options?.method === 'POST') {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ success: true, has_token: true })
+            json: () => Promise.resolve({ success: true, has_token: true }),
           });
         }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         });
       });
 
@@ -341,12 +349,15 @@ describe('TelegramSettings Component', () => {
       await user.click(screen.getByText('Speichern'));
 
       // Wait for success message with extended timeout
-      await waitFor(() => {
-        expect(
-          screen.queryByText('Konfiguration erfolgreich gespeichert') ||
-          document.querySelector('.telegram-message.success')
-        ).toBeTruthy();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(
+            screen.queryByText('Konfiguration erfolgreich gespeichert') ||
+              document.querySelector('.telegram-message.success')
+          ).toBeTruthy();
+        },
+        { timeout: 3000 }
+      );
     });
   });
 
@@ -366,7 +377,7 @@ describe('TelegramSettings Component', () => {
       global.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ ...mockConfig, configured: false })
+          json: () => Promise.resolve({ ...mockConfig, configured: false }),
         })
       );
 
@@ -382,7 +393,7 @@ describe('TelegramSettings Component', () => {
       global.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ ...mockConfig, chat_id: '' })
+          json: () => Promise.resolve({ ...mockConfig, chat_id: '' }),
         })
       );
 
@@ -401,12 +412,12 @@ describe('TelegramSettings Component', () => {
         if (url.includes('/test')) {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ success: true })
+            json: () => Promise.resolve({ success: true }),
           });
         }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         });
       });
 
@@ -419,9 +430,12 @@ describe('TelegramSettings Component', () => {
       await user.click(screen.getByText('Test senden'));
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith('/api/telegram/test', expect.objectContaining({
-          method: 'POST'
-        }));
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/telegram/test',
+          expect.objectContaining({
+            method: 'POST',
+          })
+        );
       });
     });
 
@@ -432,12 +446,12 @@ describe('TelegramSettings Component', () => {
         if (url.includes('/test')) {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ success: true })
+            json: () => Promise.resolve({ success: true }),
           });
         }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         });
       });
 
@@ -450,12 +464,15 @@ describe('TelegramSettings Component', () => {
       await user.click(screen.getByText('Test senden'));
 
       // Wait for success message with extended timeout
-      await waitFor(() => {
-        expect(
-          screen.queryByText('Test-Nachricht erfolgreich gesendet!') ||
-          document.querySelector('.telegram-message.success')
-        ).toBeTruthy();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(
+            screen.queryByText('Test-Nachricht erfolgreich gesendet!') ||
+              document.querySelector('.telegram-message.success')
+          ).toBeTruthy();
+        },
+        { timeout: 3000 }
+      );
     });
   });
 
@@ -467,7 +484,7 @@ describe('TelegramSettings Component', () => {
       global.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ ...mockConfig, configured: false, enabled: false })
+          json: () => Promise.resolve({ ...mockConfig, configured: false, enabled: false }),
         })
       );
 
@@ -486,12 +503,12 @@ describe('TelegramSettings Component', () => {
         if (options?.method === 'POST') {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ success: true })
+            json: () => Promise.resolve({ success: true }),
           });
         }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         });
       });
 
@@ -519,7 +536,7 @@ describe('TelegramSettings Component', () => {
       render(<TelegramSettings />);
 
       await waitFor(() => {
-        expect(screen.getByText('Einrichtung Telegram Bot')).toBeInTheDocument();
+        expect(screen.getByText('Telegram Bot einrichten')).toBeInTheDocument();
       });
     });
 
@@ -566,7 +583,7 @@ describe('TelegramSettings Component', () => {
       global.fetch = jest.fn(() =>
         Promise.resolve({
           ok: false,
-          json: () => Promise.resolve({ error: 'Unauthorized' })
+          json: () => Promise.resolve({ error: 'Unauthorized' }),
         })
       );
 
@@ -587,12 +604,12 @@ describe('TelegramSettings Component', () => {
         if (options?.method === 'POST') {
           return Promise.resolve({
             ok: false,
-            json: () => Promise.resolve({ error: 'Invalid token format' })
+            json: () => Promise.resolve({ error: 'Invalid token format' }),
           });
         }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         });
       });
 
@@ -617,12 +634,12 @@ describe('TelegramSettings Component', () => {
         if (url.includes('/test')) {
           return Promise.resolve({
             ok: false,
-            json: () => Promise.resolve({ error: 'Bot not configured' })
+            json: () => Promise.resolve({ error: 'Bot not configured' }),
           });
         }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         });
       });
 
@@ -648,7 +665,7 @@ describe('TelegramSettings Component', () => {
         }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         });
       });
 
@@ -675,14 +692,14 @@ describe('TelegramSettings Component', () => {
       global.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ ...mockConfig, configured: false })
+          json: () => Promise.resolve({ ...mockConfig, configured: false }),
         })
       );
 
       render(<TelegramSettings />);
 
       await waitFor(() => {
-        expect(screen.getByText(/Konfigurieren Sie zuerst einen Bot-Token/)).toBeInTheDocument();
+        expect(screen.getByText(/Gib zuerst einen Bot-Token ein/)).toBeInTheDocument();
       });
     });
 
@@ -691,7 +708,10 @@ describe('TelegramSettings Component', () => {
 
       await waitFor(() => {
         const tokenInput = screen.getByLabelText('Bot Token');
-        expect(tokenInput).toHaveAttribute('placeholder', expect.stringContaining('Token gespeichert'));
+        expect(tokenInput).toHaveAttribute(
+          'placeholder',
+          expect.stringContaining('Token gespeichert')
+        );
       });
     });
   });

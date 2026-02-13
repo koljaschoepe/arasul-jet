@@ -264,7 +264,7 @@ function TelegramBotsPage() {
             Möchtest du <strong>{deleteBot?.name}</strong> wirklich löschen?
           </p>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Alle Commands und Chat-Verbindungen werden ebenfalls gelöscht.
+            Alle Befehle und Chat-Verbindungen werden ebenfalls gelöscht.
           </p>
         </div>
         <div className="modal-actions" style={{ marginTop: '1.5rem' }}>

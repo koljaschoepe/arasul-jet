@@ -216,7 +216,7 @@ function TelegramSettings() {
       <div className="settings-section-header">
         <h1 className="settings-section-title">Telegram Bot</h1>
         <p className="settings-section-description">
-          Konfigurieren Sie einen Telegram Bot für System-Benachrichtigungen
+          Richte einen Telegram Bot für System-Benachrichtigungen ein
         </p>
       </div>
 
@@ -229,7 +229,7 @@ function TelegramSettings() {
               Bot Status
             </h3>
             <p className="settings-card-description">
-              Aktivieren oder deaktivieren Sie den Telegram Bot
+              Aktiviere oder deaktiviere den Telegram Bot
             </p>
           </div>
           <div className="settings-card-body">
@@ -244,14 +244,14 @@ function TelegramSettings() {
                 className={`telegram-toggle-btn ${config.enabled ? 'active' : ''}`}
                 onClick={handleToggleEnabled}
                 disabled={saving || (!hasToken && !config.enabled)}
-                title={!hasToken ? 'Erst Bot-Token konfigurieren' : ''}
+                title={!hasToken ? 'Zuerst Bot-Token eingeben' : ''}
               >
                 <span className="telegram-toggle-slider" />
               </button>
             </div>
             {!hasToken && (
               <p className="telegram-hint">
-                Konfigurieren Sie zuerst einen Bot-Token, um den Bot zu aktivieren.
+                Gib zuerst einen Bot-Token ein, um den Bot zu aktivieren.
               </p>
             )}
           </div>
@@ -295,7 +295,7 @@ function TelegramSettings() {
                   </button>
                 </div>
                 <small>
-                  Erstellen Sie einen Bot bei <strong>@BotFather</strong> auf Telegram
+                  Erstelle einen Bot bei <strong>@BotFather</strong> auf Telegram
                 </small>
               </div>
 
@@ -310,7 +310,7 @@ function TelegramSettings() {
                   placeholder="z.B. 123456789 oder -100123456789"
                 />
                 <small>
-                  Ihre Chat-ID oder Gruppen-ID. Nutzen Sie <strong>@userinfobot</strong> um Ihre ID zu erfahren.
+                  Deine Chat-ID oder Gruppen-ID. Nutze <strong>@userinfobot</strong> um deine ID zu erfahren.
                 </small>
               </div>
 
@@ -357,8 +357,8 @@ function TelegramSettings() {
         {/* Info Card */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <h3 className="settings-card-title">Einrichtung Telegram Bot</h3>
-            <p className="settings-card-description">So richten Sie den Bot ein</p>
+            <h3 className="settings-card-title">Telegram Bot einrichten</h3>
+            <p className="settings-card-description">So richtest du den Bot ein</p>
           </div>
           <div className="settings-card-body">
             <div className="settings-about-features">
@@ -366,28 +366,28 @@ function TelegramSettings() {
                 <div className="settings-feature-icon">1</div>
                 <div className="settings-feature-text">
                   <strong>Bot erstellen</strong>
-                  <span>Schreiben Sie @BotFather auf Telegram und nutzen Sie /newbot</span>
+                  <span>Schreibe @BotFather auf Telegram und nutze /newbot</span>
                 </div>
               </div>
               <div className="settings-feature-item">
                 <div className="settings-feature-icon">2</div>
                 <div className="settings-feature-text">
                   <strong>Token kopieren</strong>
-                  <span>Kopieren Sie den API Token und fuegen Sie ihn oben ein</span>
+                  <span>Kopiere den API Token und füge ihn oben ein</span>
                 </div>
               </div>
               <div className="settings-feature-item">
                 <div className="settings-feature-icon">3</div>
                 <div className="settings-feature-text">
                   <strong>Chat-ID ermitteln</strong>
-                  <span>Schreiben Sie @userinfobot um Ihre Chat-ID zu erfahren</span>
+                  <span>Schreibe @userinfobot um deine Chat-ID zu erfahren</span>
                 </div>
               </div>
               <div className="settings-feature-item">
                 <div className="settings-feature-icon">4</div>
                 <div className="settings-feature-text">
                   <strong>Bot starten</strong>
-                  <span>Starten Sie einen Chat mit Ihrem Bot (/start) bevor Sie testen</span>
+                  <span>Starte einen Chat mit deinem Bot (/start) bevor du testest</span>
                 </div>
               </div>
             </div>

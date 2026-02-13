@@ -296,12 +296,12 @@ async function handleStartCommand(bot, token, message) {
     // Send welcome message
     const welcomeText = `🤖 <b>Willkommen bei ${bot.name}!</b>
 
-Ich bin dein persoenlicher Assistent. Schreib mir einfach eine Nachricht und ich antworte dir.
+Ich bin dein persönlicher Assistent. Schreib mir einfach eine Nachricht und ich antworte dir.
 
-<b>Verfuegbare Befehle:</b>
+<b>Verfügbare Befehle:</b>
 /help - Zeigt diese Hilfe
-/new - Startet eine neue Konversation
-/commands - Zeigt alle verfuegbaren Befehle
+/clear - Kontext leeren (neues Gespräch)
+/commands - Zeigt alle verfügbaren Befehle
 /tools - Zeigt System-Tools
 /status - Zeigt System-Status
 /apikey - API Key Management
@@ -341,11 +341,11 @@ async function handleHelpCommand(bot, token, message) {
 <b>Standard-Befehle:</b>
 /start - Bot starten
 /help - Diese Hilfe anzeigen
-/new - Neue Konversation starten
+/clear - Kontext leeren (neues Gespräch)
 /commands - Alle Befehle anzeigen
 
 <b>System-Tools:</b>
-/tools - Verfuegbare Tools anzeigen
+/tools - Verfügbare Tools anzeigen
 /status - System-Status anzeigen
 /services - Docker-Services anzeigen
 
@@ -355,7 +355,7 @@ async function handleHelpCommand(bot, token, message) {
 🎤 Sprachnachrichten werden automatisch transkribiert!`;
 
   if (enabledCommands.length > 0) {
-    helpText += '\n\n<b>Custom Commands:</b>';
+    helpText += '\n\n<b>Eigene Befehle:</b>';
     for (const cmd of enabledCommands) {
       helpText += `\n/${cmd.command} - ${cmd.description}`;
     }
@@ -377,7 +377,7 @@ async function handleNewCommand(bot, token, message) {
 
   await telegramLLMService.clearSession(bot.id, chatId);
 
-  await sendMessage(token, chatId, '🔄 <b>Neue Konversation gestartet!</b>\n\nDer Kontext wurde gelöscht. Wie kann ich dir helfen?');
+  await sendMessage(token, chatId, '🔄 <b>Kontext geleert!</b>\n\nNeues Gespräch gestartet. Wie kann ich dir helfen?');
 }
 
 /**
@@ -393,11 +393,11 @@ async function handleToolsCommand(bot, token, message) {
     const tools = await telegramLLMService.getAvailableTools();
 
     if (tools.length === 0) {
-      await sendMessage(token, chatId, '🔧 <b>Keine System-Tools verfuegbar.</b>');
+      await sendMessage(token, chatId, '🔧 <b>Keine System-Tools verfügbar.</b>');
       return;
     }
 
-    let text = '🛠️ <b>Verfuegbare System-Tools</b>\n\n';
+    let text = '🛠️ <b>Verfügbare System-Tools</b>\n\n';
     text += 'Du kannst mich nach folgenden System-Informationen fragen:\n\n';
 
     for (const tool of tools) {
@@ -469,11 +469,11 @@ async function handleCommandsCommand(bot, token, message) {
   const enabledCommands = commands.filter((c) => c.isEnabled);
 
   if (enabledCommands.length === 0) {
-    await sendMessage(token, chatId, '📋 <b>Keine Custom Commands konfiguriert.</b>\n\nSchreib mir einfach eine Nachricht!');
+    await sendMessage(token, chatId, '📋 <b>Keine eigenen Befehle konfiguriert.</b>\n\nSchreib mir einfach eine Nachricht!');
     return;
   }
 
-  let text = '📋 <b>Verfügbare Commands:</b>\n';
+  let text = '📋 <b>Verfügbare Befehle:</b>\n';
 
   for (const cmd of enabledCommands) {
     text += `\n<b>/${cmd.command}</b>\n  ${cmd.description}\n`;
@@ -576,9 +576,9 @@ async function handleApiKeyCommand(bot, token, message, args) {
 
 <b>Befehle:</b>
 <code>/apikey set claude &lt;key&gt;</code> - Claude API Key setzen
-<code>/apikey set openai &lt;key&gt;</code> - OpenAI API Key setzen (fuer Whisper)
-<code>/apikey delete claude</code> - Claude API Key loeschen
-<code>/apikey delete openai</code> - OpenAI API Key loeschen
+<code>/apikey set openai &lt;key&gt;</code> - OpenAI API Key setzen (für Whisper)
+<code>/apikey delete claude</code> - Claude API Key löschen
+<code>/apikey delete openai</code> - OpenAI API Key löschen
 <code>/apikey status</code> - Status der API Keys
 
 ⚠️ <b>Hinweis:</b> Nachrichten mit API Keys werden automatisch geloescht.`;
@@ -621,7 +621,7 @@ ${!has_openai ? '💡 Fuer Sprachnachrichten wird ein OpenAI API Key benoetigt.'
 
   if (action === 'set') {
     if (!provider || !['claude', 'openai'].includes(provider)) {
-      await sendMessage(token, chatId, '❌ Ungueltiger Provider. Nutze: <code>claude</code> oder <code>openai</code>');
+      await sendMessage(token, chatId, '❌ Ungültiger Provider. Nutze: <code>claude</code> oder <code>openai</code>');
       return;
     }
 
@@ -656,7 +656,7 @@ ${!has_openai ? '💡 Fuer Sprachnachrichten wird ein OpenAI API Key benoetigt.'
 
   if (action === 'delete') {
     if (!provider || !['claude', 'openai'].includes(provider)) {
-      await sendMessage(token, chatId, '❌ Ungueltiger Provider. Nutze: <code>claude</code> oder <code>openai</code>');
+      await sendMessage(token, chatId, '❌ Ungültiger Provider. Nutze: <code>claude</code> oder <code>openai</code>');
       return;
     }
 
@@ -677,12 +677,12 @@ ${!has_openai ? '💡 Fuer Sprachnachrichten wird ein OpenAI API Key benoetigt.'
       logger.info(`API key deleted for bot ${bot.id}: ${provider}`);
     } catch (error) {
       logger.error('Error deleting API key:', error);
-      await sendMessage(token, chatId, '❌ Fehler beim Loeschen des API Keys.');
+      await sendMessage(token, chatId, '❌ Fehler beim Löschen des API Keys.');
     }
     return;
   }
 
-  await sendMessage(token, chatId, '❌ Unbekannte Aktion. Nutze <code>/apikey help</code> fuer Hilfe.');
+  await sendMessage(token, chatId, '❌ Unbekannte Aktion. Nutze <code>/apikey help</code> für Hilfe.');
 }
 
 /**
@@ -848,7 +848,7 @@ async function processUpdate(botId, update) {
         await sendMessage(
           token,
           chatId,
-          `⚠️ Nachricht zu lang (${text.length}/${MAX_MESSAGE_LENGTH} Zeichen). Bitte kuerze deine Nachricht.`
+          `⚠️ Nachricht zu lang (${text.length}/${MAX_MESSAGE_LENGTH} Zeichen). Bitte kürze deine Nachricht.`
         );
         return false;
       }
@@ -868,6 +868,7 @@ async function processUpdate(botId, update) {
             await handleHelpCommand(bot, token, message);
             break;
           case 'new':
+          case 'clear':
             await handleNewCommand(bot, token, message);
             break;
           case 'commands':

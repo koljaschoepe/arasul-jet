@@ -15,6 +15,8 @@ import {
   FiSend,
   FiExternalLink,
   FiRefreshCw,
+  FiCpu,
+  FiCloud,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 
@@ -22,10 +24,37 @@ import { API_BASE } from '../../config/api';
 const DEBUG = process.env.NODE_ENV === 'development';
 
 const STEPS = [
-  { id: 1, title: 'Bot Token', description: 'Token von @BotFather eingeben' },
-  { id: 2, title: 'LLM Provider', description: 'KI-Anbieter auswaehlen' },
-  { id: 3, title: 'System Prompt', description: 'Bot-Persoenlichkeit definieren' },
-  { id: 4, title: 'Chat verbinden', description: 'Bot mit Chat verknuepfen' },
+  { id: 1, title: 'Bot-Token', description: 'Token von @BotFather eingeben' },
+  { id: 2, title: 'KI-Anbieter', description: 'KI-Anbieter auswählen' },
+  { id: 3, title: 'Persönlichkeit', description: 'Bot-Persönlichkeit definieren' },
+  { id: 4, title: 'Chat verbinden', description: 'Bot mit Chat verknüpfen' },
+];
+
+const PERSONALITY_TEMPLATES = [
+  {
+    id: 'assistant',
+    name: 'Freundlicher Assistent',
+    icon: FiCheck,
+    prompt: 'Du bist ein freundlicher und hilfreicher KI-Assistent. Du antwortest immer auf Deutsch, bist geduldig und erklärst Dinge verständlich. Du hilfst bei alltäglichen Fragen, Recherchen und Aufgaben.',
+  },
+  {
+    id: 'support',
+    name: 'Technischer Support',
+    icon: FiCpu,
+    prompt: 'Du bist ein technischer Support-Assistent. Du hilfst bei IT-Problemen, Software-Fragen und technischen Anleitungen. Du gibst klare Schritt-für-Schritt-Anweisungen und fragst bei Bedarf nach Details.',
+  },
+  {
+    id: 'creative',
+    name: 'Kreativ-Schreiber',
+    icon: FiSend,
+    prompt: 'Du bist ein kreativer Schreibassistent. Du hilfst beim Verfassen von Texten, E-Mails, Geschichten und anderen kreativen Inhalten. Du bist einfallsreich, achtest auf guten Stil und passt den Ton an den Kontext an.',
+  },
+  {
+    id: 'admin',
+    name: 'System-Administrator',
+    icon: FiCloud,
+    prompt: 'Du bist ein System-Administrator-Assistent für einen Jetson AGX Orin. Du hilfst bei Linux-Befehlen, Docker-Container-Verwaltung, Netzwerk-Konfiguration und System-Monitoring. Du gibst präzise technische Antworten.',
+  },
 ];
 
 function BotSetupWizard({ onComplete, onCancel }) {
@@ -38,6 +67,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
     systemPrompt: 'Du bist ein hilfreicher Assistent.',
     claudeApiKey: '',
   });
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showToken, setShowToken] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -217,7 +247,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
 
     // Network errors
     if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
-      return 'Netzwerkfehler: Bitte pruefe deine Internetverbindung.';
+      return 'Netzwerkfehler: Bitte prüfe deine Internetverbindung.';
     }
 
     // Rate limiting
@@ -240,7 +270,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
 
     // Token validation errors
     if (message.includes('Bot-Token ungültig') || message.includes('invalid token')) {
-      return 'Bot-Token ungueltig. Bitte ueberprüfe das Token von @BotFather.';
+      return 'Bot-Token ungültig. Bitte überprüfe das Token von @BotFather.';
     }
 
     // Session errors
@@ -359,7 +389,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
       // Handle abort errors specifically
       if (err.name === 'AbortError') {
         setError(
-          'Verbindungs-Timeout. Bitte pruefe deine Internetverbindung und versuche es erneut.'
+          'Verbindungs-Timeout. Bitte prüfe deine Internetverbindung und versuche es erneut.'
         );
       } else {
         setError(parseErrorMessage(err, 'Chat-Verifizierung'));
@@ -446,7 +476,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
     const tokenTrimmed = formData.token?.trim();
 
     if (!tokenTrimmed) {
-      setError('Bitte gib ein Token ein');
+      setError('Bitte gib ein Bot-Token ein');
       return;
     }
 
@@ -454,7 +484,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
     const tokenRegex = /^\d+:[A-Za-z0-9_-]+$/;
     if (!tokenRegex.test(tokenTrimmed)) {
       setError(
-        'Ungueltiges Token-Format. Das Token sollte das Format "123456789:ABCdef..." haben.'
+        'Ungültiges Token-Format. Das Token sollte das Format "123456789:ABCdef..." haben.'
       );
       return;
     }
@@ -493,11 +523,11 @@ function BotSetupWizard({ onComplete, onCancel }) {
           return; // Success!
         } else {
           // Specific error messages for common issues
-          let errorMessage = data.error || 'Token ist ungueltig';
+          let errorMessage = data.error || 'Token ist ungültig';
 
           if (errorMessage.includes('Unauthorized') || errorMessage.includes('401')) {
             errorMessage =
-              'Token ist ungueltig oder wurde widerrufen. Bitte erstelle ein neues Token bei @BotFather.';
+              'Token ist ungültig oder wurde widerrufen. Bitte erstelle ein neues Token bei @BotFather.';
           } else if (errorMessage.includes('bot was blocked')) {
             errorMessage = 'Dieser Bot wurde blockiert. Bitte kontaktiere den Telegram-Support.';
           }
@@ -512,7 +542,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
         // Don't retry on abort
         if (err.name === 'AbortError') {
           setError(
-            'Zeitüberschreitung bei der Validierung. Bitte pruefe deine Internetverbindung.'
+            'Zeitüberschreitung bei der Validierung. Bitte prüfe deine Internetverbindung.'
           );
           setValidating(false);
           return;
@@ -637,8 +667,17 @@ function BotSetupWizard({ onComplete, onCancel }) {
       case 1:
         return (
           <div className="wizard-step-content">
+            <div className="wizard-info-box">
+              <h4>Erstelle deinen Bot in Telegram</h4>
+              <ol className="wizard-numbered-steps">
+                <li>Öffne Telegram und suche nach <strong>@BotFather</strong></li>
+                <li>Sende <code>/newbot</code> und folge den Anweisungen</li>
+                <li>Kopiere das Token (sieht so aus: <code>123456789:ABCdef...</code>)</li>
+              </ol>
+            </div>
+
             <div className="wizard-form-group">
-              <label>Bot Token</label>
+              <label>Bot-Token</label>
               <div className="wizard-input-wrapper">
                 <input
                   type={showToken ? 'text' : 'password'}
@@ -655,13 +694,13 @@ function BotSetupWizard({ onComplete, onCancel }) {
                   type="button"
                   className="wizard-toggle-visibility"
                   onClick={() => setShowToken(!showToken)}
+                  aria-label={showToken ? 'Token verbergen' : 'Token anzeigen'}
                 >
                   {showToken ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
               <small>
-                Erstelle einen Bot bei <strong>@BotFather</strong> auf Telegram und kopiere das
-                Token
+                Das Token erhältst du von <strong>@BotFather</strong> nach dem Erstellen eines Bots
               </small>
             </div>
 
@@ -676,13 +715,14 @@ function BotSetupWizard({ onComplete, onCancel }) {
             )}
 
             <div className="wizard-form-group">
-              <label>Bot Name (anpassbar)</label>
+              <label>Bot Name</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Mein Assistent"
               />
+              <small>Wie soll dein Bot heißen? Kann später geändert werden.</small>
             </div>
           </div>
         );
@@ -691,7 +731,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
         return (
           <div className="wizard-step-content">
             <div className="wizard-form-group">
-              <label>LLM Provider</label>
+              <label>Wie soll dein Bot denken?</label>
               <div className="wizard-provider-options">
                 <button
                   type="button"
@@ -705,10 +745,16 @@ function BotSetupWizard({ onComplete, onCancel }) {
                   }}
                 >
                   <div className="provider-option-header">
-                    <span className="provider-option-name">Ollama</span>
-                    <span className="provider-option-badge local">Lokal</span>
+                    <FiCpu className="provider-option-icon" />
+                    <span className="provider-option-name">Lokale KI</span>
+                    <span className="provider-option-badge local">Empfohlen</span>
                   </div>
-                  <span className="provider-option-desc">Lokale KI-Modelle auf dem Jetson</span>
+                  <span className="provider-option-desc">Läuft direkt auf deinem Jetson (Ollama)</span>
+                  <ul className="provider-option-pros">
+                    <li>Kostenlos nutzbar</li>
+                    <li>Daten bleiben privat</li>
+                    <li>Funktioniert offline</li>
+                  </ul>
                 </button>
                 <button
                   type="button"
@@ -723,10 +769,16 @@ function BotSetupWizard({ onComplete, onCancel }) {
                   }}
                 >
                   <div className="provider-option-header">
-                    <span className="provider-option-name">Claude</span>
+                    <FiCloud className="provider-option-icon" />
+                    <span className="provider-option-name">Cloud KI</span>
                     <span className="provider-option-badge cloud">Cloud</span>
                   </div>
-                  <span className="provider-option-desc">Anthropic Claude API</span>
+                  <span className="provider-option-desc">Anthropic Claude über das Internet</span>
+                  <ul className="provider-option-pros">
+                    <li>Leistungsstärker</li>
+                    <li>Schnellere Antworten</li>
+                    <li className="provider-option-con">API-Key nötig</li>
+                  </ul>
                 </button>
               </div>
             </div>
@@ -745,7 +797,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
                       </option>
                     ))
                   ) : (
-                    <option value="">Keine Modelle verfuegbar</option>
+                    <option value="">Keine Modelle verfügbar</option>
                   )
                 ) : (
                   claudeModels.map(model => (
@@ -755,6 +807,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
                   ))
                 )}
               </select>
+              <small>Welches Modell soll die Antworten generieren?</small>
             </div>
 
             {formData.llmProvider === 'claude' && (
@@ -771,6 +824,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
                     type="button"
                     className="wizard-toggle-visibility"
                     onClick={() => setShowApiKey(!showApiKey)}
+                    aria-label={showApiKey ? 'API Key verbergen' : 'API Key anzeigen'}
                   >
                     {showApiKey ? <FiEyeOff /> : <FiEye />}
                   </button>
@@ -787,14 +841,45 @@ function BotSetupWizard({ onComplete, onCancel }) {
         return (
           <div className="wizard-step-content">
             <div className="wizard-form-group">
-              <label>System Prompt</label>
+              <label>Wähle eine Vorlage</label>
+              <div className="wizard-template-grid">
+                {PERSONALITY_TEMPLATES.map(template => {
+                  const Icon = template.icon;
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className={`wizard-template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
+                      onClick={() => {
+                        setSelectedTemplate(template.id);
+                        setFormData(prev => ({ ...prev, systemPrompt: template.prompt }));
+                      }}
+                    >
+                      <Icon className="wizard-template-icon" />
+                      <span className="wizard-template-name">{template.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="wizard-form-group">
+              <label>Basis-Kontext</label>
               <textarea
                 value={formData.systemPrompt}
-                onChange={e => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
-                placeholder="Du bist ein hilfreicher Assistent..."
-                rows={8}
+                onChange={e => {
+                  setFormData(prev => ({ ...prev, systemPrompt: e.target.value }));
+                  // Deselect template when user edits manually
+                  const matchingTemplate = PERSONALITY_TEMPLATES.find(t => t.prompt === e.target.value);
+                  setSelectedTemplate(matchingTemplate ? matchingTemplate.id : null);
+                }}
+                placeholder="Beschreibe wer dein Bot ist und wie er antworten soll..."
+                rows={6}
               />
-              <small>Definiert die Persoenlichkeit und das Verhalten des Bots</small>
+              <small>
+                Dieser Text wird bei jedem Gespräch geladen und definiert, wie dein Bot antwortet.
+                Du kannst die Vorlage oben anpassen oder deinen eigenen Text schreiben.
+              </small>
             </div>
           </div>
         );
@@ -830,9 +915,9 @@ function BotSetupWizard({ onComplete, onCancel }) {
                     <span className="wizard-summary-value">@{botInfo?.username}</span>
                   </div>
                   <div className="wizard-summary-item">
-                    <span className="wizard-summary-label">Provider:</span>
+                    <span className="wizard-summary-label">KI-Anbieter:</span>
                     <span className="wizard-summary-value">
-                      {formData.llmProvider.toUpperCase()}
+                      {formData.llmProvider === 'ollama' ? 'Lokale KI (Ollama)' : 'Cloud KI (Claude)'}
                     </span>
                   </div>
                   <div className="wizard-summary-item">
@@ -853,7 +938,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
                 </div>
                 <h4>Warte auf Verbindung...</h4>
                 <p>
-                  Oeffne Telegram und sende <strong>/start</strong> an deinen Bot:
+                  Öffne Telegram und sende <strong>/start</strong> an deinen Bot:
                 </p>
 
                 {deepLink && (
@@ -864,7 +949,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
                       rel="noopener noreferrer"
                       className="wizard-deeplink-btn"
                     >
-                      <FiExternalLink />@{botInfo?.username} oeffnen
+                      <FiExternalLink />@{botInfo?.username} öffnen
                     </a>
                     <span className="wizard-deeplink-hint">
                       oder suche nach @{botInfo?.username} in Telegram
@@ -900,8 +985,8 @@ function BotSetupWizard({ onComplete, onCancel }) {
                 <div className="wizard-info-box">
                   <h4>Chat-Verbindung herstellen</h4>
                   <p>
-                    Im naechsten Schritt wirst du gebeten, <strong>/start</strong> an deinen Bot zu
-                    senden. Dadurch wird der Bot mit deinem Chat verknuepft und kann dir Nachrichten
+                    Im nächsten Schritt wirst du gebeten, <strong>/start</strong> an deinen Bot zu
+                    senden. Dadurch wird der Bot mit deinem Chat verknüpft und kann dir Nachrichten
                     senden.
                   </p>
                 </div>
@@ -965,7 +1050,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
               disabled={waitingForChat}
             >
               <FiChevronLeft />
-              Zurueck
+              Zurück
             </button>
           )}
           {currentStep < STEPS.length ? (
@@ -981,7 +1066,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
                   Validiere...
                 </>
               ) : currentStep === 1 && !validated ? (
-                'Token pruefen'
+                'Token prüfen'
               ) : (
                 <>
                   Weiter
