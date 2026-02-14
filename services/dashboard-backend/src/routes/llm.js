@@ -24,7 +24,7 @@ const LLM_SERVICE_URL = services.llm.url;
  * Job is added to queue and processed sequentially
  * Supports model selection and workflow model sequences
  */
-router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
+router.post('/chat', requireAuth, llmLimiter, asyncHandler(async (req, res) => {
     const {
         messages,
         temperature,
@@ -39,17 +39,11 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
     const enableThinking = thinking !== false;
 
     if (!messages || !Array.isArray(messages)) {
-        return res.status(400).json({
-            error: 'Messages array is required',
-            timestamp: new Date().toISOString()
-        });
+        throw new ValidationError('Messages array is required');
     }
 
     if (!conversation_id) {
-        return res.status(400).json({
-            error: 'conversation_id is required for chat streaming',
-            timestamp: new Date().toISOString()
-        });
+        throw new ValidationError('conversation_id is required for chat streaming');
     }
 
     try {
@@ -132,19 +126,11 @@ router.post('/chat', requireAuth, llmLimiter, async (req, res) => {
         logger.error(`Error in /api/llm/chat: ${error.message}`);
 
         if (error.code === 'ECONNREFUSED') {
-            res.status(503).json({
-                error: 'LLM service is not available',
-                timestamp: new Date().toISOString()
-            });
-        } else {
-            res.status(500).json({
-                error: 'Failed to enqueue chat job',
-                details: error.message,
-                timestamp: new Date().toISOString()
-            });
+            throw new ServiceUnavailableError('LLM service is not available');
         }
+        throw error;
     }
-});
+}));
 
 /**
  * GET /api/llm/queue - Get global queue status

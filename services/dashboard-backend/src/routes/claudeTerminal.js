@@ -14,6 +14,7 @@ const { createUserRateLimiter } = require('../middleware/rateLimit');
 const contextService = require('../services/contextInjectionService');
 const modelService = require('../services/modelService');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
 const services = require('../config/services');
 
 // Configuration
@@ -147,35 +148,24 @@ async function updateQueryResponse(queryId, responseData) {
 /**
  * POST /api/claude-terminal/query - Execute a query with streaming response
  */
-router.post('/query', requireAuth, terminalRateLimiter, async (req, res) => {
+router.post('/query', requireAuth, terminalRateLimiter, asyncHandler(async (req, res) => {
     const startTime = Date.now();
     const { query, includeContext = true, timeout = DEFAULT_TIMEOUT } = req.body;
     const userId = req.user.id;
 
     // Validate query
     if (!query || typeof query !== 'string') {
-        return res.status(400).json({
-            error: 'Query is required',
-            timestamp: new Date().toISOString()
-        });
+        throw new ValidationError('Query is required');
     }
 
     if (query.length > MAX_QUERY_LENGTH) {
-        return res.status(400).json({
-            error: `Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`,
-            timestamp: new Date().toISOString()
-        });
+        throw new ValidationError(`Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`);
     }
 
     // Check LLM availability first
     const llmStatus = await checkLLMAvailability();
     if (!llmStatus.available) {
-        return res.status(503).json({
-            error: 'LLM service is currently unavailable',
-            details: llmStatus.error,
-            suggestion: 'Please try again in a few moments. The LLM service may be starting up.',
-            timestamp: new Date().toISOString()
-        });
+        throw new ServiceUnavailableError('LLM service is currently unavailable');
     }
 
     // Get model to use (dynamically from modelService)
@@ -183,12 +173,7 @@ router.post('/query', requireAuth, terminalRateLimiter, async (req, res) => {
     try {
         terminalModel = await getTerminalModel();
     } catch (modelError) {
-        return res.status(503).json({
-            error: 'Kein LLM-Model verfügbar',
-            details: modelError.message,
-            suggestion: 'Bitte laden Sie ein Model im Model Store herunter.',
-            timestamp: new Date().toISOString()
-        });
+        throw new ServiceUnavailableError('Kein LLM-Model verfügbar');
     }
 
     // Get or create session
@@ -430,7 +415,7 @@ Guidelines:
             });
         }
     }
-});
+}));
 
 /**
  * GET /api/claude-terminal/status - Check terminal service status

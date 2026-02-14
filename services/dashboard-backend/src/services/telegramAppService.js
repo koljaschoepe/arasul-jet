@@ -133,9 +133,19 @@ class TelegramAppService {
     try {
       const status = await this.getAppStatus(userId);
 
-      // Icon always visible after first bot (per user preference)
-      // If no status yet but user has bots, show icon
-      if (!status.iconVisible && status.botCount.total === 0) {
+      // Also check if the telegram-bot-app is installed via the App Store
+      let appInstalled = false;
+      try {
+        const installResult = await database.query(
+          `SELECT status FROM app_installations WHERE app_id = 'telegram-bot-app' AND status NOT IN ('available', 'uninstalling')`,
+        );
+        appInstalled = installResult.rows.length > 0;
+      } catch {
+        // Table might not exist, ignore
+      }
+
+      // Show card if: app is installed OR icon is visible OR user has bots
+      if (!appInstalled && !status.iconVisible && status.botCount.total === 0) {
         return null;
       }
 

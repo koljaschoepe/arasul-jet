@@ -108,8 +108,6 @@ Quick navigation to all Arasul Platform documentation.
 | Document | Description |
 |----------|-------------|
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | **Frontend Design Guidelines (MANDATORY)** |
-| [CLAUDE_CODE_OPTIMIZATION_PLAN.md](CLAUDE_CODE_OPTIMIZATION_PLAN.md) | **AI-Driven Development Optimization** |
-| [CONTEXT_ENGINEERING_PLAN.md](CONTEXT_ENGINEERING_PLAN.md) | Claude Code context optimization |
 | [TODO.md](TODO.md) | Implementation roadmap |
 | [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md) | Bug tracking & resolutions |
 
@@ -149,9 +147,7 @@ services/postgres/init/             # Database migrations
 | CLAUDE.md | **Refactored** - Compact quick start (~160 lines) | 2026-01-25 |
 | CLAUDE_ARCHITECTURE.md | **New** - Services, ports, file locations | 2026-01-25 |
 | CLAUDE_DEVELOPMENT.md | **New** - Workflows, debugging, autonomous mode | 2026-01-25 |
-| CLAUDE_CODE_OPTIMIZATION_PLAN.md | **New** - 6-Phase Optimization | 2026-01-25 |
 | DESIGN_SYSTEM.md | Complete | 2026-01 |
-| CONTEXT_ENGINEERING_PLAN.md | **New** | 2026-01-16 |
 | API_REFERENCE.md | ~75% coverage (149/203 endpoints) | 2026-01-22 |
 | API_GUIDE.md | Complete | 2024-11 |
 | ARCHITECTURE.md | Complete | 2024-12 |
@@ -162,4 +158,4 @@ services/postgres/init/             # Database migrations
 | MinIO Service | **New** - Buckets, Backup Integration | 2026-01-24 |
 | Backup System | **New** - Full Backup Documentation | 2026-01-24 |
 | LLM Service README | **Updated** - Jetson Platform | 2026-01-24 |
-| Service READMEs | 14/14 documented | 2026-01-24 |
+| Service READMEs | 15 services | 2026-02-14 |

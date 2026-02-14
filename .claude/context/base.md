@@ -4,7 +4,7 @@
 - **Name**: Arasul Platform
 - **Type**: Autonomous Edge AI appliance
 - **Hardware**: NVIDIA Jetson AGX Orin (12-Core ARM, 64GB DDR5)
-- **Architecture**: 13 Docker microservices
+- **Architecture**: 15 Docker microservices
 
 ## Tech Stack
 | Layer | Technology |
@@ -20,7 +20,7 @@
 | Notifications | Telegram Bot |
 | Workflows | n8n |
 
-## Services (13 Total)
+## Services (15 Total)
 
 | Service | Port | Entry Point |
 |---------|------|-------------|
@@ -37,6 +37,8 @@
 | telegram-bot | 8090 | bot.py |
 | n8n | 5678 | - |
 | reverse-proxy | 80/443 | routes.yml |
+| loki | 3100 | - |
+| promtail | 9080 | - |
 
 ## Automatic Service Restarts
 

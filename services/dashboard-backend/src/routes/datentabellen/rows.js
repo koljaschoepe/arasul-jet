@@ -9,7 +9,7 @@ const logger = require('../../utils/logger');
 const { requireAuth } = require('../../middleware/auth');
 const dataDb = require('../../dataDatabase');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
 
 /**
  * SQL Reserved Keywords - blocked from use in identifiers
@@ -362,13 +362,7 @@ router.patch('/:slug/rows/:rowId', requireAuth, asyncHandler(async (req, res) =>
 
         // Allow 1 second tolerance for timestamp comparison
         if (Math.abs(currentDate.getTime() - expectedDate.getTime()) > 1000) {
-            return res.status(409).json({
-                success: false,
-                error: 'Konflikt: Der Datensatz wurde von einem anderen Benutzer geändert',
-                code: 'CONFLICT',
-                currentData: existingResult.rows[0],
-                message: 'Bitte laden Sie die Daten neu und versuchen Sie es erneut'
-            });
+            throw new ConflictError('Konflikt: Der Datensatz wurde von einem anderen Benutzer geändert');
         }
     }
 

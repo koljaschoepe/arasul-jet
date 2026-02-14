@@ -15,6 +15,7 @@ import useConfirm from '../hooks/useConfirm';
 import { useToast } from '../contexts/ToastContext';
 import BotSetupWizard from './TelegramBots/BotSetupWizard';
 import BotDetailsModal from './TelegramBots/BotDetailsModal';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import './TelegramAppModal.css';
 
 /**
@@ -37,12 +38,11 @@ function TelegramAppModal({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('arasul_token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
 
       const [botsRes, statusRes] = await Promise.all([
-        fetch('/api/telegram-bots', { headers }),
-        fetch('/api/telegram-app/status', { headers }),
+        fetch(`${API_BASE}/telegram-bots`, { headers }),
+        fetch(`${API_BASE}/telegram-app/status`, { headers }),
       ]);
 
       if (!botsRes.ok) {
@@ -76,12 +76,11 @@ function TelegramAppModal({ isOpen, onClose }) {
   const handleToggleBot = async (botId, currentActive) => {
     setTogglingBot(botId);
     try {
-      const token = localStorage.getItem('arasul_token');
       const endpoint = currentActive ? 'deactivate' : 'activate';
 
-      const response = await fetch(`/api/telegram-bots/${botId}/${endpoint}`, {
+      const response = await fetch(`${API_BASE}/telegram-bots/${botId}/${endpoint}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -109,10 +108,9 @@ function TelegramAppModal({ isOpen, onClose }) {
     }
 
     try {
-      const token = localStorage.getItem('arasul_token');
-      const response = await fetch(`/api/telegram-bots/${botId}`, {
+      const response = await fetch(`${API_BASE}/telegram-bots/${botId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {

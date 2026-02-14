@@ -102,19 +102,19 @@ router.get('/loaded', requireAuth, asyncHandler(async (req, res) => {
 /**
  * POST /api/models/download
  * Download a model with SSE progress streaming
- * Note: Uses manual try-catch for SSE streaming (not asyncHandler)
+ * Note: Inner try-catch retained for SSE streaming error handling
  */
-router.post('/download', requireAuth, async (req, res) => {
+router.post('/download', requireAuth, asyncHandler(async (req, res) => {
     const { model_id } = req.body;
 
     if (!model_id) {
-        return res.status(400).json({ error: 'model_id ist erforderlich' });
+        throw new ValidationError('model_id ist erforderlich');
     }
 
     // Check if model exists in catalog
     const modelInfo = await modelService.getModelInfo(model_id);
     if (!modelInfo) {
-        return res.status(404).json({ error: `Modell ${model_id} nicht im Katalog gefunden` });
+        throw new NotFoundError(`Modell ${model_id} nicht im Katalog gefunden`);
     }
 
     // Set up SSE for progress
@@ -142,7 +142,7 @@ router.post('/download', requireAuth, async (req, res) => {
         res.write(`data: ${JSON.stringify({ error: error.message, done: true, model_id })}\n\n`);
         res.end();
     }
-});
+}));
 
 /**
  * DELETE /api/models/:modelId
@@ -167,7 +167,7 @@ router.delete('/:modelId', requireAuth, asyncHandler(async (req, res) => {
  * Load a model into RAM
  * Supports SSE streaming for progress updates via ?stream=true
  */
-router.post('/:modelId/activate', requireAuth, async (req, res) => {
+router.post('/:modelId/activate', requireAuth, asyncHandler(async (req, res) => {
     const { modelId } = req.params;
     const useStream = req.query.stream === 'true';
 
@@ -179,7 +179,7 @@ router.post('/:modelId/activate', requireAuth, async (req, res) => {
             res.write(`data: ${JSON.stringify({ error: `Modell ${modelId} ist nicht installiert`, done: true })}\n\n`);
             return res.end();
         }
-        return res.status(404).json({ error: `Modell ${modelId} ist nicht installiert` });
+        throw new NotFoundError(`Modell ${modelId} ist nicht installiert`);
     }
 
     // P3-001: SSE streaming for activation progress
@@ -249,24 +249,19 @@ router.post('/:modelId/activate', requireAuth, async (req, res) => {
         }
     } else {
         // Non-streaming (original behavior)
-        try {
-            const result = await modelService.activateModel(modelId, 'user');
+        const result = await modelService.activateModel(modelId, 'user');
 
-            // Invalidate status cache after activation
-            cacheService.invalidate(CACHE_KEYS.STATUS);
+        // Invalidate status cache after activation
+        cacheService.invalidate(CACHE_KEYS.STATUS);
 
-            res.json({
-                ...result,
-                message: result.alreadyLoaded
-                    ? `Modell ${modelId} ist bereits geladen`
-                    : `Modell ${modelId} wurde aktiviert`
-            });
-        } catch (err) {
-            logger.error(`Error activating model ${modelId}: ${err.message}`);
-            res.status(500).json({ error: err.message });
-        }
+        res.json({
+            ...result,
+            message: result.alreadyLoaded
+                ? `Modell ${modelId} ist bereits geladen`
+                : `Modell ${modelId} wurde aktiviert`
+        });
     }
-});
+}));
 
 /**
  * POST /api/models/:modelId/deactivate

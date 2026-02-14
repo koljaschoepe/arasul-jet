@@ -20,6 +20,8 @@ const { llmLimiter } = require('../middleware/rateLimit');
 const llmJobService = require('../services/llmJobService');
 const llmQueueService = require('../services/llmQueueService');
 const db = require('../database');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
 const services = require('../config/services');
 
 // Environment variables
@@ -385,32 +387,27 @@ async function hybridSearch(query, embedding, limit = 5, spaceIds = null) {
  * Perform RAG query with Queue support
  * RAG 2.0: Hierarchical context with Knowledge Spaces
  */
-router.post('/query', requireAuth, llmLimiter, async (req, res) => {
+router.post('/query', requireAuth, llmLimiter, asyncHandler(async (req, res) => {
+    const {
+        query,
+        top_k = 5,
+        thinking,
+        conversation_id,
+        space_ids = null,      // RAG 2.0: Optional pre-selected spaces
+        auto_routing = true,   // RAG 2.0: Enable automatic space routing
+        model = null           // Optional: explicit model selection
+    } = req.body;
+    const enableThinking = thinking !== false;
+
+    if (!query || typeof query !== 'string') {
+        throw new ValidationError('Query is required and must be a string');
+    }
+
+    if (!conversation_id) {
+        throw new ValidationError('conversation_id is required for RAG queries');
+    }
+
     try {
-        const {
-            query,
-            top_k = 5,
-            thinking,
-            conversation_id,
-            space_ids = null,      // RAG 2.0: Optional pre-selected spaces
-            auto_routing = true,   // RAG 2.0: Enable automatic space routing
-            model = null           // Optional: explicit model selection
-        } = req.body;
-        const enableThinking = thinking !== false;
-
-        if (!query || typeof query !== 'string') {
-            return res.status(400).json({
-                error: 'Query is required and must be a string',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        if (!conversation_id) {
-            return res.status(400).json({
-                error: 'conversation_id is required for RAG queries',
-                timestamp: new Date().toISOString()
-            });
-        }
 
         logger.info(`RAG query: "${query}" (top_k=${top_k}, thinking=${enableThinking}, hybrid=${HYBRID_SEARCH_ENABLED}, auto_routing=${auto_routing})`);
 
@@ -574,50 +571,42 @@ router.post('/query', requireAuth, llmLimiter, async (req, res) => {
         logger.error(`RAG query error: ${error.message}`);
 
         if (!res.headersSent) {
-            res.status(500).json({
-                error: 'Internal server error',
-                message: error.message,
-                timestamp: new Date().toISOString()
-            });
+            throw error;
         } else {
             res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
             res.end();
         }
     }
-});
+}));
 
 /**
  * GET /api/rag/status
  * Check if RAG system is operational
  */
-router.get('/status', requireAuth, async (req, res) => {
+router.get('/status', requireAuth, asyncHandler(async (req, res) => {
+    let qdrantResponse;
     try {
-        const qdrantResponse = await axios.get(
+        qdrantResponse = await axios.get(
             `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}`,
             { timeout: 5000 }
         );
-
-        const collection = qdrantResponse.data.result;
-
-        res.json({
-            status: 'operational',
-            qdrant: {
-                connected: true,
-                collection: QDRANT_COLLECTION,
-                points_count: collection.points_count || 0,
-                vectors_count: collection.vectors_count || 0
-            },
-            timestamp: new Date().toISOString()
-        });
-
     } catch (error) {
         logger.error(`RAG status check error: ${error.message}`);
-        res.status(503).json({
-            status: 'degraded',
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
+        throw new ServiceUnavailableError('RAG system is degraded');
     }
-});
+
+    const collection = qdrantResponse.data.result;
+
+    res.json({
+        status: 'operational',
+        qdrant: {
+            connected: true,
+            collection: QDRANT_COLLECTION,
+            points_count: collection.points_count || 0,
+            vectors_count: collection.vectors_count || 0
+        },
+        timestamp: new Date().toISOString()
+    });
+}));
 
 module.exports = router;

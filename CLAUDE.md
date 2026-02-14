@@ -15,7 +15,7 @@ Instructions for Claude Code working in the Arasul Platform repository.
 | API endpoints               | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)                                 |
 | Database schema             | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)                             |
 | Environment variables       | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                 |
-| Optimization Plan           | [docs/CLAUDE_CODE_OPTIMIZATION_PLAN.md](docs/CLAUDE_CODE_OPTIMIZATION_PLAN.md) |
+| Error Handling Pattern      | `asyncHandler()` + custom errors in `utils/errors.js`                          |
 
 ---
 
@@ -33,7 +33,7 @@ Instructions for Claude Code working in the Arasul Platform repository.
 | AI        | Ollama (LLM) + Sentence Transformers (Embeddings) |
 | Vector DB | Qdrant                                            |
 | Storage   | MinIO (S3-compatible)                             |
-| Services  | 16 Docker containers                              |
+| Services  | 15 Docker containers                              |
 
 ---
 
@@ -133,7 +133,7 @@ npm run lint:fix
 | ----------- | ----------------------------------------- | ------------------------- |
 | Backend API | `services/dashboard-backend/src/index.js` | `routes/auth.js`          |
 | Frontend    | `services/dashboard-frontend/src/App.js`  | `components/ChatMulti.js` |
-| Database    | `services/postgres/init/`                 | Next: `029_*.sql`         |
+| Database    | `services/postgres/init/`                 | Next: `036_*.sql`         |
 | AI Services | `services/llm-service/api_server.py`      | -                         |
 
 ---

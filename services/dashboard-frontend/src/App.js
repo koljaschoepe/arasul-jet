@@ -6,6 +6,7 @@ import {
   Link,
   Navigate,
   useLocation,
+  useNavigate,
 } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -95,6 +96,18 @@ function App() {
       </ToastProvider>
     </ErrorBoundary>
   );
+}
+
+/**
+ * TelegramRedirect - Navigates to home and opens Telegram modal
+ */
+function TelegramRedirect({ onOpen }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    onOpen();
+    navigate('/', { replace: true });
+  }, [onOpen, navigate]);
+  return null;
 }
 
 /**
@@ -421,8 +434,8 @@ function AppContent() {
                     </RouteErrorBoundary>
                   }
                 />
-                <Route path="/telegram-bot" element={<Navigate to="/" replace />} />
-                <Route path="/telegram-bots" element={<Navigate to="/" replace />} />
+                <Route path="/telegram-bot" element={<TelegramRedirect onOpen={() => setShowTelegramModal(true)} />} />
+                <Route path="/telegram-bots" element={<TelegramRedirect onOpen={() => setShowTelegramModal(true)} />} />
                 <Route
                   path="/database"
                   element={
