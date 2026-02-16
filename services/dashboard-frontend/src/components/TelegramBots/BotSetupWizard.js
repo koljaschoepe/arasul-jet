@@ -18,7 +18,8 @@ import {
   FiCpu,
   FiCloud,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders } from '../../config/api';
+import './TelegramBots.css';
 
 // Debug flag - set to false in production
 const DEBUG = process.env.NODE_ENV === 'development';
@@ -35,25 +36,29 @@ const PERSONALITY_TEMPLATES = [
     id: 'assistant',
     name: 'Freundlicher Assistent',
     icon: FiCheck,
-    prompt: 'Du bist ein freundlicher und hilfreicher KI-Assistent. Du antwortest immer auf Deutsch, bist geduldig und erklärst Dinge verständlich. Du hilfst bei alltäglichen Fragen, Recherchen und Aufgaben.',
+    prompt:
+      'Du bist ein freundlicher und hilfreicher KI-Assistent. Du antwortest immer auf Deutsch, bist geduldig und erklärst Dinge verständlich. Du hilfst bei alltäglichen Fragen, Recherchen und Aufgaben.',
   },
   {
     id: 'support',
     name: 'Technischer Support',
     icon: FiCpu,
-    prompt: 'Du bist ein technischer Support-Assistent. Du hilfst bei IT-Problemen, Software-Fragen und technischen Anleitungen. Du gibst klare Schritt-für-Schritt-Anweisungen und fragst bei Bedarf nach Details.',
+    prompt:
+      'Du bist ein technischer Support-Assistent. Du hilfst bei IT-Problemen, Software-Fragen und technischen Anleitungen. Du gibst klare Schritt-für-Schritt-Anweisungen und fragst bei Bedarf nach Details.',
   },
   {
     id: 'creative',
     name: 'Kreativ-Schreiber',
     icon: FiSend,
-    prompt: 'Du bist ein kreativer Schreibassistent. Du hilfst beim Verfassen von Texten, E-Mails, Geschichten und anderen kreativen Inhalten. Du bist einfallsreich, achtest auf guten Stil und passt den Ton an den Kontext an.',
+    prompt:
+      'Du bist ein kreativer Schreibassistent. Du hilfst beim Verfassen von Texten, E-Mails, Geschichten und anderen kreativen Inhalten. Du bist einfallsreich, achtest auf guten Stil und passt den Ton an den Kontext an.',
   },
   {
     id: 'admin',
     name: 'System-Administrator',
     icon: FiCloud,
-    prompt: 'Du bist ein System-Administrator-Assistent für einen Jetson AGX Orin. Du hilfst bei Linux-Befehlen, Docker-Container-Verwaltung, Netzwerk-Konfiguration und System-Monitoring. Du gibst präzise technische Antworten.',
+    prompt:
+      'Du bist ein System-Administrator-Assistent für einen Jetson AGX Orin. Du hilfst bei Linux-Befehlen, Docker-Container-Verwaltung, Netzwerk-Konfiguration und System-Monitoring. Du gibst präzise technische Antworten.',
   },
 ];
 
@@ -91,15 +96,6 @@ function BotSetupWizard({ onComplete, onCancel }) {
   const wsRef = useRef(null);
   const pollingIntervalRef = useRef(null);
   const timeoutRef = useRef(null);
-
-  // Auth headers
-  const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem('arasul_token');
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -469,7 +465,8 @@ function BotSetupWizard({ onComplete, onCancel }) {
     };
 
     fetchModels();
-  }, [getAuthHeaders, formData.llmModel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.llmModel]);
 
   // Validate bot token with retry logic
   const validateToken = async () => {
@@ -483,9 +480,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
     // Basic token format validation (botId:secretPart)
     const tokenRegex = /^\d+:[A-Za-z0-9_-]+$/;
     if (!tokenRegex.test(tokenTrimmed)) {
-      setError(
-        'Ungültiges Token-Format. Das Token sollte das Format "123456789:ABCdef..." haben.'
-      );
+      setError('Ungültiges Token-Format. Das Token sollte das Format "123456789:ABCdef..." haben.');
       return;
     }
 
@@ -541,9 +536,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
 
         // Don't retry on abort
         if (err.name === 'AbortError') {
-          setError(
-            'Zeitüberschreitung bei der Validierung. Bitte prüfe deine Internetverbindung.'
-          );
+          setError('Zeitüberschreitung bei der Validierung. Bitte prüfe deine Internetverbindung.');
           setValidating(false);
           return;
         }
@@ -670,9 +663,15 @@ function BotSetupWizard({ onComplete, onCancel }) {
             <div className="wizard-info-box">
               <h4>Erstelle deinen Bot in Telegram</h4>
               <ol className="wizard-numbered-steps">
-                <li>Öffne Telegram und suche nach <strong>@BotFather</strong></li>
-                <li>Sende <code>/newbot</code> und folge den Anweisungen</li>
-                <li>Kopiere das Token (sieht so aus: <code>123456789:ABCdef...</code>)</li>
+                <li>
+                  Öffne Telegram und suche nach <strong>@BotFather</strong>
+                </li>
+                <li>
+                  Sende <code>/newbot</code> und folge den Anweisungen
+                </li>
+                <li>
+                  Kopiere das Token (sieht so aus: <code>123456789:ABCdef...</code>)
+                </li>
               </ol>
             </div>
 
@@ -749,7 +748,9 @@ function BotSetupWizard({ onComplete, onCancel }) {
                     <span className="provider-option-name">Lokale KI</span>
                     <span className="provider-option-badge local">Empfohlen</span>
                   </div>
-                  <span className="provider-option-desc">Läuft direkt auf deinem Jetson (Ollama)</span>
+                  <span className="provider-option-desc">
+                    Läuft direkt auf deinem Jetson (Ollama)
+                  </span>
                   <ul className="provider-option-pros">
                     <li>Kostenlos nutzbar</li>
                     <li>Daten bleiben privat</li>
@@ -870,7 +871,9 @@ function BotSetupWizard({ onComplete, onCancel }) {
                 onChange={e => {
                   setFormData(prev => ({ ...prev, systemPrompt: e.target.value }));
                   // Deselect template when user edits manually
-                  const matchingTemplate = PERSONALITY_TEMPLATES.find(t => t.prompt === e.target.value);
+                  const matchingTemplate = PERSONALITY_TEMPLATES.find(
+                    t => t.prompt === e.target.value
+                  );
                   setSelectedTemplate(matchingTemplate ? matchingTemplate.id : null);
                 }}
                 placeholder="Beschreibe wer dein Bot ist und wie er antworten soll..."
@@ -917,7 +920,9 @@ function BotSetupWizard({ onComplete, onCancel }) {
                   <div className="wizard-summary-item">
                     <span className="wizard-summary-label">KI-Anbieter:</span>
                     <span className="wizard-summary-value">
-                      {formData.llmProvider === 'ollama' ? 'Lokale KI (Ollama)' : 'Cloud KI (Claude)'}
+                      {formData.llmProvider === 'ollama'
+                        ? 'Lokale KI (Ollama)'
+                        : 'Cloud KI (Claude)'}
                     </span>
                   </div>
                   <div className="wizard-summary-item">

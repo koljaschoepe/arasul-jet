@@ -9,6 +9,7 @@ import {
   FiTrash2,
   FiEdit2,
   FiRefreshCw,
+  FiLoader,
 } from 'react-icons/fi';
 import Modal from './Modal';
 import useConfirm from '../hooks/useConfirm';
@@ -33,6 +34,7 @@ function TelegramAppModal({ isOpen, onClose }) {
   const [selectedBot, setSelectedBot] = useState(null);
   const [appStatus, setAppStatus] = useState(null);
   const [togglingBot, setTogglingBot] = useState(null);
+  const [deletingBot, setDeletingBot] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -71,6 +73,7 @@ function TelegramAppModal({ isOpen, onClose }) {
   const handleBotCreated = newBot => {
     setBots(prev => [...prev, newBot]);
     setShowWizard(false);
+    toast.success('Bot erfolgreich erstellt');
   };
 
   const handleToggleBot = async (botId, currentActive) => {
@@ -90,9 +93,10 @@ function TelegramAppModal({ isOpen, onClose }) {
       setBots(prev =>
         prev.map(bot => (bot.id === botId ? { ...bot, is_active: !currentActive } : bot))
       );
+      toast.success(currentActive ? 'Bot deaktiviert' : 'Bot aktiviert');
     } catch (err) {
       console.error('Error toggling bot:', err);
-      setError(err.message);
+      toast.error(err.message);
     } finally {
       setTogglingBot(null);
     }
@@ -107,6 +111,7 @@ function TelegramAppModal({ isOpen, onClose }) {
       return;
     }
 
+    setDeletingBot(botId);
     try {
       const response = await fetch(`${API_BASE}/telegram-bots/${botId}`, {
         method: 'DELETE',
@@ -118,9 +123,12 @@ function TelegramAppModal({ isOpen, onClose }) {
       }
 
       setBots(prev => prev.filter(bot => bot.id !== botId));
+      toast.success('Bot gelöscht');
     } catch (err) {
       console.error('Error deleting bot:', err);
-      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setDeletingBot(null);
     }
   };
 
@@ -187,15 +195,39 @@ function TelegramAppModal({ isOpen, onClose }) {
               </div>
 
               {loading ? (
-                <div className="telegram-loading">
-                  <FiRefreshCw className="spinning" />
-                  <span>Lade Bots...</span>
+                <div className="telegram-bots-grid">
+                  {[1, 2].map(i => (
+                    <div key={i} className="telegram-bot-card skeleton-card">
+                      <div className="bot-card-header">
+                        <div className="bot-info">
+                          <div className="skeleton-line skeleton-title" />
+                          <div className="skeleton-line skeleton-subtitle" />
+                        </div>
+                        <div className="skeleton-badge" />
+                      </div>
+                      <div className="skeleton-line skeleton-prompt" />
+                      <div className="bot-card-meta">
+                        <div className="skeleton-line skeleton-meta" />
+                        <div className="skeleton-line skeleton-meta-short" />
+                      </div>
+                      <div className="bot-card-actions">
+                        <div className="skeleton-btn" />
+                        <div className="skeleton-btn-sm" />
+                        <div className="skeleton-btn-sm" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : bots.length === 0 ? (
                 <div className="telegram-empty">
-                  <FiSend size={48} />
+                  <div className="telegram-empty-icon">
+                    <FiSend size={32} />
+                  </div>
                   <h4>Noch keine Bots</h4>
-                  <p>Erstelle deinen ersten Telegram Bot, um loszulegen.</p>
+                  <p>
+                    Verbinde deinen ersten Telegram Bot mit einer KI und starte Gespräche direkt aus
+                    Telegram.
+                  </p>
                   <button className="btn-primary" onClick={() => setShowWizard(true)} type="button">
                     <FiPlus /> Bot erstellen
                   </button>
@@ -220,6 +252,7 @@ function TelegramAppModal({ isOpen, onClose }) {
                             <span className="bot-username">@{username || 'nicht verbunden'}</span>
                           </div>
                           <span className={`bot-status ${isActive ? 'active' : 'inactive'}`}>
+                            <span className="bot-status-dot" />
                             {isActive ? 'Aktiv' : 'Inaktiv'}
                           </span>
                         </div>
@@ -256,9 +289,14 @@ function TelegramAppModal({ isOpen, onClose }) {
                             className="btn-icon btn-danger"
                             onClick={() => handleDeleteBot(bot.id)}
                             title="Löschen"
+                            disabled={deletingBot === bot.id}
                             type="button"
                           >
-                            <FiTrash2 />
+                            {deletingBot === bot.id ? (
+                              <FiLoader className="spinning" />
+                            ) : (
+                              <FiTrash2 />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -314,11 +352,14 @@ function TelegramAppModal({ isOpen, onClose }) {
 
         {/* Wizard Modal */}
         {showWizard && (
-          <BotSetupWizard
+          <Modal
             isOpen={showWizard}
             onClose={() => setShowWizard(false)}
-            onBotCreated={handleBotCreated}
-          />
+            title="Neuen Bot erstellen"
+            size="large"
+          >
+            <BotSetupWizard onComplete={handleBotCreated} onCancel={() => setShowWizard(false)} />
+          </Modal>
         )}
 
         {/* Bot Details Modal */}
