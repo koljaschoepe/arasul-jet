@@ -62,13 +62,24 @@ async function getEmbedding(text) {
 
 /**
  * Get company context from database (RAG 2.0)
+ * Cached for 5 minutes to avoid repeated DB queries
  */
+let _companyContextCache = { value: null, expiresAt: 0 };
+const COMPANY_CONTEXT_TTL = 5 * 60 * 1000; // 5 minutes
+
 async function getCompanyContext() {
+    const now = Date.now();
+    if (_companyContextCache.expiresAt > now) {
+        return _companyContextCache.value;
+    }
+
     try {
         const result = await db.query(`
             SELECT content FROM company_context WHERE id = 1
         `);
-        return result.rows.length > 0 ? result.rows[0].content : null;
+        const value = result.rows.length > 0 ? result.rows[0].content : null;
+        _companyContextCache = { value, expiresAt: now + COMPANY_CONTEXT_TTL };
+        return value;
     } catch (error) {
         logger.warn(`Failed to get company context: ${error.message}`);
         return null;
@@ -207,18 +218,35 @@ async function searchVectorSimilar(embedding, limit = 10, spaceIds = null) {
         const searchBody = {
             vector: embedding,
             limit: limit,
-            with_payload: true
+            with_payload: true,
+            score_threshold: 0.3,
+            params: {
+                hnsw_ef: 128
+            }
         };
 
         // RAG 2.0: Add space filter if provided
+        // Also include unassigned documents (space_id is null or empty string from legacy data)
         if (spaceIds && spaceIds.length > 0) {
             searchBody.filter = {
-                should: spaceIds.map(spaceId => ({
-                    key: 'space_id',
-                    match: { value: spaceId }
-                }))
+                should: [
+                    // Match specific space IDs
+                    ...spaceIds.map(spaceId => ({
+                        key: 'space_id',
+                        match: { value: spaceId }
+                    })),
+                    // Match legacy data with empty string space_id
+                    {
+                        key: 'space_id',
+                        match: { value: '' }
+                    },
+                    // Match documents where space_id is null (not present in payload)
+                    {
+                        is_null: { key: 'space_id' }
+                    }
+                ]
             };
-            logger.debug(`Qdrant search with space filter: ${spaceIds.join(', ')}`);
+            logger.debug(`Qdrant search with space filter: ${spaceIds.join(', ')} (+ unassigned)`);
         }
 
         const response = await axios.post(
@@ -246,7 +274,7 @@ async function searchKeywordChunks(query, limit = 10, spaceIds = null) {
         const params = [query, limit];
 
         if (spaceIds && spaceIds.length > 0) {
-            spaceCondition = `AND d.space_id = ANY($3::uuid[])`;
+            spaceCondition = `AND (d.space_id = ANY($3::uuid[]) OR d.space_id IS NULL)`;
             params.push(spaceIds);
         }
 
@@ -436,8 +464,15 @@ router.post('/query', requireAuth, llmLimiter, asyncHandler(async (req, res) => 
             const routingResult = await routeToSpaces(queryEmbedding);
             targetSpaces = routingResult.spaces;
             routingMethod = routingResult.method;
-            targetSpaceIds = targetSpaces.map(s => s.id);
-            logger.debug(`Auto-routing: ${routingMethod}, ${targetSpaces.length} spaces`);
+
+            // If routing failed or returned all spaces, search without filter
+            // so unassigned documents are also found
+            if (routingMethod === 'error' || routingMethod === 'all') {
+                targetSpaceIds = null;
+            } else {
+                targetSpaceIds = targetSpaces.map(s => s.id);
+            }
+            logger.debug(`Auto-routing: ${routingMethod}, ${targetSpaces.length} spaces, filter: ${targetSpaceIds ? targetSpaceIds.length + ' spaces' : 'none'}`);
         }
 
         // Step 2: Hybrid search with space filter
@@ -605,6 +640,103 @@ router.get('/status', requireAuth, asyncHandler(async (req, res) => {
             points_count: collection.points_count || 0,
             vectors_count: collection.vectors_count || 0
         },
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * POST /api/rag/fix-space-ids
+ * One-time migration: fix Qdrant points with empty string space_id
+ * Reads correct space_id from PostgreSQL and updates Qdrant payloads
+ */
+router.post('/fix-space-ids', requireAuth, asyncHandler(async (req, res) => {
+    logger.info('[MIGRATION] Starting fix-space-ids migration...');
+
+    let fixed = 0;
+    let skipped = 0;
+    let errors = 0;
+    let offset = null;
+
+    // Scroll through all points with empty string space_id
+    while (true) {
+        const scrollBody = {
+            filter: {
+                must: [
+                    { key: 'space_id', match: { value: '' } }
+                ]
+            },
+            limit: 100,
+            with_payload: true
+        };
+        if (offset) {
+            scrollBody.offset = offset;
+        }
+
+        const scrollResponse = await axios.post(
+            `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/scroll`,
+            scrollBody,
+            { timeout: 30000 }
+        );
+
+        const points = scrollResponse.data.result.points || [];
+        offset = scrollResponse.data.result.next_page_offset;
+
+        if (points.length === 0) break;
+
+        // Group points by document_id
+        const docIds = [...new Set(points.map(p => p.payload.document_id).filter(Boolean))];
+
+        for (const docId of docIds) {
+            try {
+                // Get correct space info from PostgreSQL
+                const result = await db.query(`
+                    SELECT d.space_id, ks.name as space_name, ks.slug as space_slug
+                    FROM documents d
+                    LEFT JOIN knowledge_spaces ks ON d.space_id = ks.id
+                    WHERE d.id = $1
+                `, [docId]);
+
+                const row = result.rows[0];
+                const newSpaceId = row?.space_id ? String(row.space_id) : null;
+                const newSpaceName = row?.space_name || '';
+                const newSpaceSlug = row?.space_slug || '';
+
+                // Update Qdrant payloads for this document
+                await axios.post(
+                    `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/payload`,
+                    {
+                        payload: {
+                            space_id: newSpaceId,
+                            space_name: newSpaceName,
+                            space_slug: newSpaceSlug
+                        },
+                        filter: {
+                            must: [
+                                { key: 'document_id', match: { value: docId } }
+                            ]
+                        }
+                    },
+                    { timeout: 10000 }
+                );
+
+                fixed++;
+                logger.debug(`[MIGRATION] Fixed space_id for document ${docId}: ${newSpaceId || 'null'}`);
+            } catch (err) {
+                errors++;
+                logger.warn(`[MIGRATION] Failed to fix document ${docId}: ${err.message}`);
+            }
+        }
+
+        if (!offset) break;
+    }
+
+    logger.info(`[MIGRATION] fix-space-ids complete: ${fixed} fixed, ${skipped} skipped, ${errors} errors`);
+
+    res.json({
+        status: 'completed',
+        fixed,
+        skipped,
+        errors,
         timestamp: new Date().toISOString()
     });
 }));

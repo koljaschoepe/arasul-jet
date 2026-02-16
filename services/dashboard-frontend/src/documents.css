@@ -1047,6 +1047,86 @@
   opacity: 0.9;
 }
 
+/* Interactive Space Badge */
+.space-badge-interactive {
+  position: relative;
+  display: inline-block;
+}
+
+.space-badge-btn {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.space-badge-btn:hover {
+  opacity: 1;
+  filter: brightness(1.15);
+}
+
+.space-badge-arrow {
+  font-size: 0.65rem;
+  transition: transform 0.15s ease;
+  margin-left: 0.1rem;
+}
+
+.space-badge-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* Space Badge Dropdown */
+.space-badge-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-card, #1a2330);
+  border: 1px solid var(--border-input, #2A3544);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+  padding: 0.25rem;
+}
+
+.space-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #f8fafc);
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s ease;
+  text-align: left;
+}
+
+.space-dropdown-item:hover {
+  background: var(--primary-alpha-10, rgba(69, 173, 255, 0.1));
+}
+
+.space-dropdown-item.active {
+  background: var(--primary-alpha-15, rgba(69, 173, 255, 0.15));
+  color: var(--primary-color, #45ADFF);
+}
+
+.space-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.space-check {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--primary-color, #45ADFF);
+}
+
 /* Upload Space Hint */
 .upload-space-hint {
   color: var(--primary-color);
@@ -1285,6 +1365,25 @@
 
 .light-mode .status-failed {
   --status-color: 220, 38, 38;
+}
+
+/* Light Mode - Space Badge Dropdown */
+.light-mode .space-badge-dropdown {
+  background: var(--bg-card);
+  border-color: var(--border-input);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.light-mode .space-dropdown-item {
+  color: var(--text-primary);
+}
+
+.light-mode .space-dropdown-item:hover {
+  background: rgba(33, 150, 243, 0.08);
+}
+
+.light-mode .space-dropdown-item.active {
+  background: rgba(33, 150, 243, 0.12);
 }
 
 /* Light Mode - Space tabs */

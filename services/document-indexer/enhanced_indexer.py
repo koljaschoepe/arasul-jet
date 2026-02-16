@@ -290,7 +290,7 @@ class EnhancedDocumentIndexer:
                         }
         except Exception as e:
             logger.debug(f"Failed to get space info for {doc_id}: {e}")
-        return {'space_id': '', 'space_name': '', 'space_slug': ''}
+        return {'space_id': None, 'space_name': '', 'space_slug': ''}
 
     def index_document(self, doc_id: str, text: str, metadata: Dict[str, Any]) -> int:
         """
@@ -352,7 +352,7 @@ class EnhancedDocumentIndexer:
                             "language": metadata.get('language', 'de'),
                             "indexed_at": time.time(),
                             # RAG 2.0: Knowledge Space metadata
-                            "space_id": metadata.get('space_id', ''),
+                            "space_id": metadata.get('space_id') or None,
                             "space_name": metadata.get('space_name', ''),
                             "space_slug": metadata.get('space_slug', '')
                         }

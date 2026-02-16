@@ -82,13 +82,75 @@ const CategoryBadge = ({ name, color }) => (
   </span>
 );
 
-// Space badge component (RAG 2.0)
-const SpaceBadge = ({ name, color }) => (
-  <span className="space-badge" style={{ '--space-color': color || '#6366f1' }}>
-    <FiFolder aria-hidden="true" />
-    {name || 'Allgemein'}
-  </span>
-);
+// Space badge component (RAG 2.0) - interactive when docId+onMove provided
+const SpaceBadge = ({ name, color, docId, spaces, onMove }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Static badge (no move capability)
+  if (!docId || !onMove) {
+    return (
+      <span className="space-badge" style={{ '--space-color': color || '#6366f1' }}>
+        <FiFolder aria-hidden="true" />
+        {name || 'Allgemein'}
+      </span>
+    );
+  }
+
+  return (
+    <span className="space-badge-interactive" ref={ref}>
+      <button
+        className="space-badge space-badge-btn"
+        style={{ '--space-color': color || '#6366f1' }}
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        title="Bereich ändern"
+      >
+        <FiFolder aria-hidden="true" />
+        {name || 'Kein Bereich'}
+        <FiChevronDown className={`space-badge-arrow ${open ? 'open' : ''}`} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="space-badge-dropdown" role="listbox" aria-label="Bereich wählen">
+          <button
+            className={`space-dropdown-item ${!name ? 'active' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onMove(docId, null, null); setOpen(false); }}
+            role="option"
+            aria-selected={!name}
+          >
+            <span className="space-dot" style={{ background: 'var(--text-muted)' }} />
+            Kein Bereich
+            {!name && <FiCheck className="space-check" aria-hidden="true" />}
+          </button>
+          {(spaces || []).map(s => (
+            <button
+              key={s.id}
+              className={`space-dropdown-item ${s.name === name ? 'active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onMove(docId, s.id, s.name); setOpen(false); }}
+              role="option"
+              aria-selected={s.name === name}
+            >
+              <span className="space-dot" style={{ background: s.color || '#6366f1' }} />
+              {s.name}
+              {s.name === name && <FiCheck className="space-check" aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+};
 
 function DocumentManager() {
   // State
@@ -272,6 +334,18 @@ function DocumentManager() {
     e.stopPropagation();
     setEditingSpace(space);
     setShowSpaceModal(true);
+  };
+
+  // Move document to a different space
+  const handleMoveDocument = async (docId, newSpaceId, newSpaceName) => {
+    try {
+      await axios.put(`${API_BASE}/documents/${docId}/move`, { space_id: newSpaceId });
+      toast.success(`Dokument verschoben nach: ${newSpaceName || 'Kein Bereich'}`);
+      loadDocuments();
+      loadStatistics();
+    } catch (err) {
+      toast.error('Fehler beim Verschieben: ' + (err.response?.data?.error || err.message));
+    }
   };
 
   // ML-001 FIX: Use ref to track loadDocuments to prevent interval recreation
@@ -1044,8 +1118,14 @@ function DocumentManager() {
                     <td>
                       <span className="type-badge type-document">{getDocumentType(doc)}</span>
                     </td>
-                    <td>
-                      <SpaceBadge name={doc.space_name} color={doc.space_color} />
+                    <td onClick={e => e.stopPropagation()}>
+                      <SpaceBadge
+                        name={doc.space_name}
+                        color={doc.space_color}
+                        docId={doc.id}
+                        spaces={spaces}
+                        onMove={handleMoveDocument}
+                      />
                     </td>
                     <td>
                       <StatusBadge status={doc.status} />

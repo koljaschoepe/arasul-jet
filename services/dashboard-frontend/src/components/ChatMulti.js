@@ -30,7 +30,7 @@ function ChatMulti() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [useRAG, setUseRAG] = useState(false);
+  const [useRAG, setUseRAG] = useState(true);
   const [useThinking, setUseThinking] = useState(true);
 
   // Model selection

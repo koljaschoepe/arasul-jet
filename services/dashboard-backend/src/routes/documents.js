@@ -622,11 +622,51 @@ router.put('/:id/move', requireAuth, asyncHandler(async (req, res) => {
         }
     }
 
+    // Get new space details for Qdrant payload
+    let newSpaceName = '';
+    let newSpaceSlug = '';
+    if (newSpaceId) {
+        const spaceDetails = await pool.query(
+            'SELECT name, slug FROM knowledge_spaces WHERE id = $1',
+            [newSpaceId]
+        );
+        if (spaceDetails.rows.length > 0) {
+            newSpaceName = spaceDetails.rows[0].name;
+            newSpaceSlug = spaceDetails.rows[0].slug;
+        }
+    }
+
     // Update document's space
     await pool.query(
         `UPDATE documents SET space_id = $1, updated_at = NOW() WHERE id = $2`,
         [newSpaceId, id]
     );
+
+    // Update Qdrant payloads for all chunks of this document (non-critical)
+    try {
+        await axios.post(
+            `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/payload`,
+            {
+                payload: {
+                    space_id: newSpaceId || null,
+                    space_name: newSpaceName,
+                    space_slug: newSpaceSlug
+                },
+                filter: {
+                    must: [
+                        {
+                            key: 'document_id',
+                            match: { value: id }
+                        }
+                    ]
+                }
+            },
+            { timeout: 10000 }
+        );
+        logger.info(`Updated Qdrant payloads for document ${id} (space: ${newSpaceName || 'none'})`);
+    } catch (e) {
+        logger.warn(`Failed to update Qdrant payloads for document ${id}: ${e.message}`);
+    }
 
     // Update statistics for both old and new spaces (non-critical)
     if (oldSpaceId) {
