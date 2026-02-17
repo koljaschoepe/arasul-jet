@@ -16,8 +16,9 @@ COPY src/ ./src/
 # Copy OpenAPI spec for API docs
 COPY openapi.yaml ./
 
-# Copy test files and setup
+# Copy test files, mocks and setup
 COPY __tests__/ ./__tests__/
+COPY __mocks__/ ./__mocks__/
 COPY jest.setup.js ./
 
 EXPOSE 3001
