@@ -243,34 +243,40 @@
 
 ### 5.1 DATABASE_SCHEMA.md aktualisieren
 
-- [ ] Migrationen 029-036 dokumentieren (model_capabilities, performance_metrics, datentabellen, telegram_multi_bot, telegram_voice, telegram_app_status, model_types, rag_performance)
-- [ ] "Next migration: 029" auf "Next migration: 038" korrigieren (nach Phase 1 FK-Migration)
-- [ ] arasul_data_db Schema dokumentieren
+- [x] Migrationen 029-037 dokumentieren (model_capabilities, performance_metrics, datentabellen, telegram_multi_bot, telegram_voice, telegram_app_status, model_types, rag_performance, fix_foreign_keys)
+- [x] "Next migration" auf 038 korrigiert
+- [x] arasul_data_db Schema dokumentiert (init-data-db reference)
+- [x] Indexes Summary Tabelle um 029-037 Indexes erweitert
 
 ### 5.2 API_REFERENCE.md aktualisieren
 
-- [ ] `/api/store/*`-Endpoints hinzufuegen
-- [ ] `/api/telegram-app/*`-Endpoints verifizieren
-- [ ] Datentabellen-Sub-Routen-Struktur dokumentieren
-- [ ] Request/Response-Formate auf aktuelle Implementierung pruefen
+- [x] `/api/store/*`-Endpoints bereits dokumentiert (verifiziert)
+- [x] `/api/telegram-app/*` - 12 fehlende Endpoints hinzugefuegt (status, config, orchestrator, zero-config)
+- [x] `/api/telegram-bots/*` - Vollstaendige Multi-Bot-API dokumentiert
+- [x] Datentabellen: RAG-Indexierung (3 Endpoints), NL-Query (4 Endpoints), Bulk-Ops (2 Endpoints) hinzugefuegt
 
 ### 5.3 ENVIRONMENT_VARIABLES.md aktualisieren
 
-- [ ] 15+ fehlende Telegram-Bot-2.0-Variablen dokumentieren (LLM, Voice, Provider)
-- [ ] OLLAMA_MODELS Auto-Detection dokumentieren
-- [ ] RAM-Limits fuer alle Services tabellarisch auffuehren
+- [x] 32 fehlende Variablen dokumentiert (Telegram Advanced, LLM Management, DB Pool, RAG, System Paths)
+- [x] OLLAMA Model-Management Variablen dokumentiert (6 Variablen)
+- [x] RAM-Limits tabellarisch mit Device-Profilen dokumentiert
+- [x] Neue Sektionen: System Paths & Networking, Advanced Telegram Configuration
 
 ### 5.4 CLAUDE_ARCHITECTURE.md aktualisieren
 
-- [ ] Route-Count von 28 auf 31 korrigieren
-- [ ] Promtail in Service-Tabelle hinzufuegen
-- [ ] document-indexer-Details erweitern
+- [x] Route-Count von 28 auf 34 korrigiert (30 top-level + 4 datentabellen sub-routes)
+- [x] Service-Count auf 17 korrigiert (inkl. loki, promtail, cloudflared)
+- [x] document-indexer Port von 8080 auf 9102 korrigiert
+- [x] document-indexer Details erweitert (9 Python-Dateien, API-Endpoints, RAG 2.0)
+- [x] Migration-Count auf 37 aktualisiert, next: 038
+- [x] Startup-Order: document-indexer eingefuegt (nach embedding-service)
 
 ### 5.5 README.md fuer Kunden-Deployment
 
-- [ ] Kunden-README erstellen: Systemanforderungen, Quick-Start, Support-Kontakt
-- [ ] Interne Entwickler-Docs von Kunden-Docs trennen
-- [ ] Lizenz-/Copyright-Hinweise pruefen
+- [x] Kunden-README aktualisiert: 17 Services, Container-Tabelle, aktuelle Features
+- [x] Entwickler-Abschnitte aus README.md entfernt (Development, Roadmap)
+- [x] Dokumentations-Tabelle mit Links zu Detaildokumentation hinzugefuegt
+- [x] Changelog auf aktuellen Featurestand aktualisiert
 
 ---
 

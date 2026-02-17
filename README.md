@@ -8,14 +8,16 @@
 
 Die Arasul Platform ist eine vollständig autonome Edge-AI-Lösung, die auf NVIDIA Jetson AGX Orin Developer Kit (12-Core ARM, 64 GB DDR5) läuft. Das System ist für mehrjährigen wartungsfreien Betrieb konzipiert und bietet:
 
-- ✅ **Lokales LLM** (Ollama mit GPU-Beschleunigung)
-- ✅ **Embedding-Modell** (Text-Vektorisierung)
-- ✅ **Workflow-Engine** (n8n mit externen Integrationen)
-- ✅ **Objektspeicher** (MinIO)
-- ✅ **Self-Healing System** (automatische Fehlerbehebung)
-- ✅ **Single-Page Dashboard** (React)
-- ✅ **Telemetrie & Monitoring** (PostgreSQL mit 7-Tage-Retention)
-- ✅ **Offline-First** (Internet optional)
+- **Lokales LLM** - Ollama mit GPU-Beschleunigung (mehrere Modelle parallel)
+- **RAG-System** - Dokumentensuche mit Vektordatenbank (Qdrant)
+- **Embedding-Modell** - Text-Vektorisierung (Sentence Transformers)
+- **Workflow-Engine** - n8n mit externen Integrationen
+- **Dynamische Datenbanken** - Benutzerdefinierte Tabellen mit KI-Abfragen
+- **Telegram-Integration** - Multi-Bot-System mit LLM-Chat & Benachrichtigungen
+- **Self-Healing System** - Automatische Fehlerbehebung & Recovery
+- **Single-Page Dashboard** - React mit Live-Metriken via WebSocket
+- **Telemetrie & Monitoring** - PostgreSQL mit 7-Tage-Retention + Loki Logging
+- **Offline-First** - Internet optional, USB-Updates möglich
 
 ---
 
@@ -32,12 +34,14 @@ Die Arasul Platform ist eine vollständig autonome Edge-AI-Lösung, die auf NVID
 ### Installation
 
 1. **Repository klonen:**
+
    ```bash
    git clone <repository-url>
    cd arasul-platform
    ```
 
 2. **System initialisieren:**
+
    ```bash
    ./arasul bootstrap
    ```
@@ -52,11 +56,13 @@ Die Arasul Platform ist eine vollständig autonome Edge-AI-Lösung, die auf NVID
    - ✓ Smoke Tests ausführen
 
 3. **Dashboard öffnen:**
+
    ```
    http://localhost
    ```
 
    Oder per mDNS:
+
    ```
    http://arasul.local
    ```
@@ -87,22 +93,29 @@ Die Arasul Platform ist eine vollständig autonome Edge-AI-Lösung, die auf NVID
 └─────────────────────────────────────────────┘
 ```
 
-### Container-Übersicht
+### Container-Übersicht (17 Services)
 
-| Container               | Port(en)      | Beschreibung                                    |
-|-------------------------|---------------|-------------------------------------------------|
-| `reverse-proxy`         | 80, 8080      | Traefik - Routing & TLS                         |
-| `dashboard-frontend`    | -             | React SPA (served via Proxy)                    |
-| `dashboard-backend`     | -             | REST + WebSocket API                            |
-| `postgres-db`           | -             | PostgreSQL Telemetrie (7 Tage)                  |
-| `metrics-collector`     | -             | System-Metriken (CPU, RAM, GPU, Temp, Disk)     |
-| `llm-service`           | -             | Ollama LLM (GPU-beschleunigt)                   |
-| `embedding-service`     | -             | Text Embeddings (GPU-beschleunigt)              |
-| `n8n`                   | -             | Workflow Engine                                 |
-| `minio`                 | 9001          | Objektspeicher (Console via Port 9001)          |
-| `self-healing-agent`    | -             | Autonome Überwachung & Recovery                 |
+| Container            | Beschreibung                                |
+| -------------------- | ------------------------------------------- |
+| `reverse-proxy`      | Traefik - Routing, TLS & Security Headers   |
+| `dashboard-frontend` | React SPA (Web-Dashboard)                   |
+| `dashboard-backend`  | REST + WebSocket + SSE API                  |
+| `postgres-db`        | PostgreSQL 16 - Telemetrie & Konfiguration  |
+| `metrics-collector`  | System-Metriken (CPU, RAM, GPU, Temp, Disk) |
+| `llm-service`        | Ollama LLM (GPU-beschleunigt)               |
+| `embedding-service`  | Text-Vektorisierung (GPU-beschleunigt)      |
+| `document-indexer`   | RAG-Dokumentenverarbeitung & Indexierung    |
+| `qdrant`             | Vektordatenbank für RAG-Suche               |
+| `n8n`                | Workflow-Engine mit externen Integrationen  |
+| `minio`              | S3-kompatibler Objektspeicher               |
+| `self-healing-agent` | Autonome Überwachung & Recovery             |
+| `telegram-bot`       | Telegram-Benachrichtigungen & LLM-Chat      |
+| `backup-service`     | Automatisierte tägliche Backups             |
+| `loki`               | Log-Aggregation                             |
+| `promtail`           | Log-Collector für alle Services             |
+| `cloudflared`        | Cloudflare Tunnel für OAuth (optional)      |
 
-**Netzwerk:** Alle Container laufen im `arasul-net` (172.30.0.0/24) und sind nur über den Reverse Proxy extern erreichbar.
+**Netzwerk:** Alle Container laufen im isolierten `arasul-net` (172.30.0.0/24). Nur Port 80 ist extern erreichbar.
 
 ---
 
@@ -170,23 +183,27 @@ Das Self-Healing System überwacht alle Services und reagiert automatisch auf Fe
 ### Recovery-Kategorien
 
 **Kategorie A - Service Down:**
+
 - 1. Versuch: Container Restart
 - 2. Versuch: Stop + Start
 - 3. Versuch: Eskalation zu Kategorie C
 
 **Kategorie B - Überlast:**
+
 - CPU > 90% für 5 Min
 - RAM > 90% für 2 Min
 - GPU > 95% für 2 Min
 - Temperatur > 83°C für 1 Min
 
 **Kategorie C - Kritisch:**
+
 - Datenbankausfall
 - Disk > 95%
 - 3+ Service-Fehler in 10 Min
 - Maßnahmen: Cleanup, Vakuum, GPU-Reset
 
 **Kategorie D - Ultima Ratio:**
+
 - Disk > 97%
 - 3+ kritische Events in 30 Min
 - **System-Reboot**
@@ -303,6 +320,7 @@ docker-compose exec llm-service ollama pull llama3.1:8b
 ### Schema
 
 Haupttabellen:
+
 - `metrics_cpu`, `metrics_ram`, `metrics_gpu`, `metrics_temperature`, `metrics_disk`
 - `self_healing_events`
 - `workflow_activity`
@@ -343,6 +361,7 @@ docker-compose exec postgres-db psql -U arasul -d arasul_db -c "SELECT cleanup_o
 ### Secrets
 
 Alle Geheimnisse in `/arasul/config/.env`:
+
 - `ADMIN_HASH`
 - `JWT_SECRET`
 - `MINIO_ROOT_PASSWORD`
@@ -371,11 +390,13 @@ docker-compose ps
 ### Dashboard nicht erreichbar
 
 1. Prüfen Sie den Reverse Proxy:
+
    ```bash
    docker-compose logs reverse-proxy
    ```
 
 2. Prüfen Sie das Dashboard Backend:
+
    ```bash
    curl http://localhost/api/health
    ```
@@ -385,11 +406,13 @@ docker-compose ps
 ### LLM antwortet nicht
 
 1. GPU verfügbar?
+
    ```bash
    docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
    ```
 
 2. Modell geladen?
+
    ```bash
    docker-compose exec llm-service ollama list
    ```
@@ -444,76 +467,22 @@ METRICS_INTERVAL_PERSIST=30  # Persistierung (Sekunden)
 
 ---
 
-## Development
+## Dokumentation
 
-### Lokales Entwickeln
+| Dokument                                                  | Beschreibung                           |
+| --------------------------------------------------------- | -------------------------------------- |
+| [ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | Alle Umgebungsvariablen mit Defaults   |
+| [API_REFERENCE.md](docs/API_REFERENCE.md)                 | Vollständige API-Dokumentation         |
+| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)             | Datenbankschema (37 Migrationen)       |
+| [JETSON_COMPATIBILITY.md](docs/JETSON_COMPATIBILITY.md)   | Kompatibilitätsguide für Jetson-Geräte |
 
-```bash
-# Services einzeln starten
-docker-compose up -d postgres-db minio
+## Support
 
-# Backend entwickeln
-cd services/dashboard-backend
-npm install
-npm run dev
+**Fehlerberichte** sollten folgende Informationen enthalten:
 
-# Frontend entwickeln
-cd services/dashboard-frontend
-npm install
-npm start
-```
-
-### Logs & Debugging
-
-```bash
-# Alle Logs live
-docker-compose logs -f
-
-# Spezifischer Service
-docker-compose logs -f dashboard-backend
-
-# Letzten 100 Zeilen
-docker-compose logs --tail=100 llm-service
-```
-
-### Tests
-
-```bash
-# Smoke Tests
-./arasul bootstrap  # führt automatisch Tests aus
-
-# Manueller Health-Check
-curl http://localhost/api/health
-```
-
----
-
-## Roadmap
-
-### Version 1.1
-- [ ] Multi-User Support
-- [ ] HTTPS/TLS automatisch (Let's Encrypt)
-- [ ] Erweiterte n8n Templates
-- [ ] Model Hot-Swap (LLM wechseln ohne Neustart)
-
-### Version 2.0
-- [ ] Fleet Management (mehrere Geräte)
-- [ ] Cloud Sync (optional)
-- [ ] Vision Models
-- [ ] Mobile App
-
----
-
-## Support & Dokumentation
-
-- **Vollständige Spezifikation**: `prd.md`
-- **Entwickler-Guide**: `CLAUDE.md`
-- **API-Dokumentation**: `/api/` Endpoints
-
-**Issues & Bugs**: Bitte erstellen Sie ein GitHub Issue mit:
-- System-Info (`docker-compose ps`)
-- Logs (`./arasul logs`)
-- Fehler-Beschreibung
+- System-Info (`docker compose ps`)
+- Logs (`docker compose logs <service-name>`)
+- Fehler-Beschreibung mit Schritten zur Reproduktion
 
 ---
 
@@ -525,16 +494,19 @@ Proprietary - Arasul Platform
 
 ## Changelog
 
-### Version 1.0.0 (2025-01-XX)
-- ✅ Initiale MVP-Release
-- ✅ Vollständige Offline-Funktionalität
-- ✅ Self-Healing System
-- ✅ Dashboard mit Live-Metriken
-- ✅ LLM & Embedding Services
-- ✅ n8n Integration
-- ✅ Update-System (Dashboard + USB)
-- ✅ 7-Tage Telemetrie
-- ✅ PostgreSQL + MinIO
+### Version 1.0.0
+
+- Vollständige Offline-Funktionalität
+- Self-Healing System mit 4-stufiger Recovery
+- Dashboard mit Live-Metriken (WebSocket)
+- LLM & Embedding Services (GPU-beschleunigt)
+- RAG-System mit Dokumentensuche
+- Telegram Multi-Bot Integration
+- Dynamische Datenbanken (Datentabellen)
+- n8n Workflow-Integration
+- Update-System (Dashboard + USB)
+- Loki/Promtail Log-Aggregation
+- Automatische Backups
 
 ---
 

@@ -11,11 +11,13 @@ All endpoints except `/api/health` and `/api/auth/login` require JWT authenticat
 **Two authentication methods are supported:**
 
 1. **Authorization Header (traditional):**
+
    ```
    Authorization: Bearer <token>
    ```
 
 2. **HttpOnly Cookie (for LAN access):**
+
    ```
    Cookie: arasul_session=<token>
    ```
@@ -30,37 +32,38 @@ Tokens expire after 24 hours (configurable via `JWT_EXPIRY`).
 
 ### Public (No Auth)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Health check |
-| POST | `/api/auth/login` | Login |
+| Method | Endpoint          | Description  |
+| ------ | ----------------- | ------------ |
+| GET    | `/api/health`     | Health check |
+| POST   | `/api/auth/login` | Login        |
 
 ### Authentication
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| POST | `/api/auth/login` | Login with username/password (sets cookie) | - |
-| POST | `/api/auth/logout` | Logout (blacklists token, clears cookie) | - |
-| GET | `/api/auth/verify` | Verify token (for Traefik forward-auth) | - |
-| GET | `/api/auth/me` | Get current user info | - |
-| POST | `/api/auth/refresh` | Refresh token | - |
+| Method | Endpoint            | Description                                | Rate Limit |
+| ------ | ------------------- | ------------------------------------------ | ---------- |
+| POST   | `/api/auth/login`   | Login with username/password (sets cookie) | -          |
+| POST   | `/api/auth/logout`  | Logout (blacklists token, clears cookie)   | -          |
+| GET    | `/api/auth/verify`  | Verify token (for Traefik forward-auth)    | -          |
+| GET    | `/api/auth/me`      | Get current user info                      | -          |
+| POST   | `/api/auth/refresh` | Refresh token                              | -          |
 
 **GET /api/auth/verify:**
 
 Used by Traefik forward-auth middleware to protect routes like n8n and Claude Code terminal.
 Returns user info headers on success:
+
 - `X-User-Id`: User ID
 - `X-User-Name`: Username
 - `X-User-Email`: Email (if set)
 
 ### System
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/system/status` | System health (OK/WARNING/CRITICAL) |
-| GET | `/api/system/info` | Version, build hash, uptime |
-| GET | `/api/system/network` | IP addresses, mDNS, connectivity |
-| GET | `/api/system/thresholds` | Device-specific metric thresholds |
+| Method | Endpoint                 | Description                         |
+| ------ | ------------------------ | ----------------------------------- |
+| GET    | `/api/system/status`     | System health (OK/WARNING/CRITICAL) |
+| GET    | `/api/system/info`       | Version, build hash, uptime         |
+| GET    | `/api/system/network`    | IP addresses, mDNS, connectivity    |
+| GET    | `/api/system/thresholds` | Device-specific metric thresholds   |
 
 **GET /api/system/thresholds:**
 
@@ -90,37 +93,39 @@ Supported devices: Jetson AGX Orin, Orin Nano, Orin NX, Xavier, Nano, Generic Li
 
 ### Metrics
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| GET | `/api/metrics/live` | Current CPU, RAM, GPU, temp, disk | 20/s |
-| GET | `/api/metrics/history` | Historical metrics | 20/s |
-| WS | `/api/metrics/live-stream` | WebSocket stream (5s interval) | - |
+| Method | Endpoint                   | Description                       | Rate Limit |
+| ------ | -------------------------- | --------------------------------- | ---------- |
+| GET    | `/api/metrics/live`        | Current CPU, RAM, GPU, temp, disk | 20/s       |
+| GET    | `/api/metrics/history`     | Historical metrics                | 20/s       |
+| WS     | `/api/metrics/live-stream` | WebSocket stream (5s interval)    | -          |
 
 **Query Parameters (history):**
+
 - `range`: Time range (default: `24h`, options: `1h`, `6h`, `24h`, `7d`)
 
 ### Services
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/services` | Status of all services |
-| GET | `/api/services/ai` | AI services with GPU load |
+| Method | Endpoint           | Description               |
+| ------ | ------------------ | ------------------------- |
+| GET    | `/api/services`    | Status of all services    |
+| GET    | `/api/services/ai` | AI services with GPU load |
 
 ### AI Chat (LLM)
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| POST | `/api/llm/chat` | LLM inference (SSE streaming) | 10/s |
-| GET | `/api/llm/models` | List available models | - |
-| GET | `/api/llm/status` | LLM service status | - |
+| Method | Endpoint          | Description                   | Rate Limit |
+| ------ | ----------------- | ----------------------------- | ---------- |
+| POST   | `/api/llm/chat`   | LLM inference (SSE streaming) | 10/s       |
+| GET    | `/api/llm/models` | List available models         | -          |
+| GET    | `/api/llm/status` | LLM service status            | -          |
 
 **POST /api/llm/chat:**
+
 ```json
 {
   "message": "Your question here",
-  "conversation_id": "uuid",  // optional
-  "model": "qwen3:14b-q8",    // optional
-  "system_prompt": "..."      // optional
+  "conversation_id": "uuid", // optional
+  "model": "qwen3:14b-q8", // optional
+  "system_prompt": "..." // optional
 }
 ```
 
@@ -128,18 +133,19 @@ Response: Server-Sent Events (SSE) stream
 
 ### Chat Conversations
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/chats` | List all conversations |
-| POST | `/api/chats` | Create new conversation |
-| GET | `/api/chats/:id` | Get conversation details |
-| PATCH | `/api/chats/:id` | Update conversation title |
-| DELETE | `/api/chats/:id` | Soft delete conversation |
-| GET | `/api/chats/:id/messages` | Get messages |
-| POST | `/api/chats/:id/messages` | Add message |
-| GET | `/api/chats/:id/export` | Export chat (JSON/Markdown) |
+| Method | Endpoint                  | Description                 |
+| ------ | ------------------------- | --------------------------- |
+| GET    | `/api/chats`              | List all conversations      |
+| POST   | `/api/chats`              | Create new conversation     |
+| GET    | `/api/chats/:id`          | Get conversation details    |
+| PATCH  | `/api/chats/:id`          | Update conversation title   |
+| DELETE | `/api/chats/:id`          | Soft delete conversation    |
+| GET    | `/api/chats/:id/messages` | Get messages                |
+| POST   | `/api/chats/:id/messages` | Add message                 |
+| GET    | `/api/chats/:id/export`   | Export chat (JSON/Markdown) |
 
 **POST /api/chats:**
+
 ```json
 {
   "title": "Optional title"
@@ -147,6 +153,7 @@ Response: Server-Sent Events (SSE) stream
 ```
 
 **POST /api/chats/:id/messages:**
+
 ```json
 {
   "role": "user|assistant",
@@ -160,11 +167,13 @@ Response: Server-Sent Events (SSE) stream
 Exports a chat conversation to JSON or Markdown format.
 
 Query Parameters:
+
 - `format`: Export format (`json` or `markdown`/`md`). Default: `json`
 
 Response: File download with appropriate Content-Type and Content-Disposition headers.
 
 JSON Export Example:
+
 ```json
 {
   "chat": {
@@ -202,61 +211,63 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 
 ### RAG (Document Q&A)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/rag/query` | RAG query (SSE streaming) |
-| GET | `/api/rag/status` | Qdrant collection status |
+| Method | Endpoint          | Description               |
+| ------ | ----------------- | ------------------------- |
+| POST   | `/api/rag/query`  | RAG query (SSE streaming) |
+| GET    | `/api/rag/status` | Qdrant collection status  |
 
 **POST /api/rag/query:**
+
 ```json
 {
   "query": "Your question about documents",
-  "conversation_id": "uuid",  // optional
-  "top_k": 5                  // optional, default: 5
+  "conversation_id": "uuid", // optional
+  "top_k": 5 // optional, default: 5
 }
 ```
 
 ### Documents (Data Tab)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/documents` | List all documents |
-| POST | `/api/documents/upload` | Upload document (multipart) |
-| GET | `/api/documents/:id` | Get document details |
-| DELETE | `/api/documents/:id` | Delete document |
-| GET | `/api/documents/:id/status` | Indexing status |
-| GET | `/api/documents/:id/content` | Get file content (text files) |
-| PUT | `/api/documents/:id/content` | Update file content |
+| Method | Endpoint                     | Description                   |
+| ------ | ---------------------------- | ----------------------------- |
+| GET    | `/api/documents`             | List all documents            |
+| POST   | `/api/documents/upload`      | Upload document (multipart)   |
+| GET    | `/api/documents/:id`         | Get document details          |
+| DELETE | `/api/documents/:id`         | Delete document               |
+| GET    | `/api/documents/:id/status`  | Indexing status               |
+| GET    | `/api/documents/:id/content` | Get file content (text files) |
+| PUT    | `/api/documents/:id/content` | Update file content           |
 
 **POST /api/documents/upload:**
+
 - Content-Type: `multipart/form-data`
 - Field: `file` (PDF, TXT, DOCX, Markdown, or YAML)
 
 ### YAML Tables
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/yaml-tables/create` | Create new YAML table |
-| GET | `/api/yaml-tables/:docId` | Get parsed YAML data |
-| PUT | `/api/yaml-tables/:docId` | Update YAML content |
-| POST | `/api/yaml-tables/:docId/rows` | Add row to table |
-| DELETE | `/api/yaml-tables/:docId/rows/:rowId` | Delete row |
-| POST | `/api/yaml-tables/:docId/import` | Import from CSV |
-| GET | `/api/yaml-tables/:docId/export` | Export as CSV |
+| Method | Endpoint                              | Description           |
+| ------ | ------------------------------------- | --------------------- |
+| POST   | `/api/yaml-tables/create`             | Create new YAML table |
+| GET    | `/api/yaml-tables/:docId`             | Get parsed YAML data  |
+| PUT    | `/api/yaml-tables/:docId`             | Update YAML content   |
+| POST   | `/api/yaml-tables/:docId/rows`        | Add row to table      |
+| DELETE | `/api/yaml-tables/:docId/rows/:rowId` | Delete row            |
+| POST   | `/api/yaml-tables/:docId/import`      | Import from CSV       |
+| GET    | `/api/yaml-tables/:docId/export`      | Export as CSV         |
 
 **POST /api/yaml-tables/create:**
+
 ```json
 {
   "name": "My Table",
   "description": "Optional description",
-  "columns": [
-    { "slug": "name", "name": "Name", "type": "text", "required": false }
-  ],
+  "columns": [{ "slug": "name", "name": "Name", "type": "text", "required": false }],
   "space_id": "optional-space-uuid"
 }
 ```
 
 **PUT /api/yaml-tables/:docId:**
+
 ```json
 {
   "data": {
@@ -269,11 +280,12 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 
 ### Embeddings
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/embeddings` | Generate text embeddings |
+| Method | Endpoint          | Description              |
+| ------ | ----------------- | ------------------------ |
+| POST   | `/api/embeddings` | Generate text embeddings |
 
 **POST /api/embeddings:**
+
 ```json
 {
   "text": "Text to embed"
@@ -282,41 +294,43 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 
 ### Workflows (n8n)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/workflows/activity` | Workflow statistics |
+| Method | Endpoint                  | Description         |
+| ------ | ------------------------- | ------------------- |
+| GET    | `/api/workflows/activity` | Workflow statistics |
 
 ### Self-Healing
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/self-healing/events` | Event history |
-| GET | `/api/self-healing/status` | Current status |
+| Method | Endpoint                   | Description    |
+| ------ | -------------------------- | -------------- |
+| GET    | `/api/self-healing/events` | Event history  |
+| GET    | `/api/self-healing/status` | Current status |
 
 **Query Parameters (events):**
+
 - `limit`: Max results (default: 100)
 - `severity`: Filter by severity (INFO, WARNING, CRITICAL)
 
 ### Alerts
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/alerts/settings` | Get global alert settings |
-| PUT | `/api/alerts/settings` | Update global alert settings |
-| GET | `/api/alerts/thresholds` | Get all threshold configurations |
-| PUT | `/api/alerts/thresholds/:metricType` | Update threshold (cpu, ram, disk, temperature) |
-| GET | `/api/alerts/quiet-hours` | Get quiet hours for all days |
-| PUT | `/api/alerts/quiet-hours/:dayOfWeek` | Update quiet hours for single day (0-6) |
-| PUT | `/api/alerts/quiet-hours` | Bulk update quiet hours |
-| GET | `/api/alerts/history` | Get alert history |
-| POST | `/api/alerts/history/:id/acknowledge` | Acknowledge single alert |
-| POST | `/api/alerts/history/acknowledge-all` | Acknowledge all alerts |
-| GET | `/api/alerts/statistics` | Get alert statistics |
-| POST | `/api/alerts/test-webhook` | Test webhook configuration |
-| POST | `/api/alerts/trigger-check` | Manually trigger alert check |
-| GET | `/api/alerts/status` | Get alert engine status |
+| Method | Endpoint                              | Description                                    |
+| ------ | ------------------------------------- | ---------------------------------------------- |
+| GET    | `/api/alerts/settings`                | Get global alert settings                      |
+| PUT    | `/api/alerts/settings`                | Update global alert settings                   |
+| GET    | `/api/alerts/thresholds`              | Get all threshold configurations               |
+| PUT    | `/api/alerts/thresholds/:metricType`  | Update threshold (cpu, ram, disk, temperature) |
+| GET    | `/api/alerts/quiet-hours`             | Get quiet hours for all days                   |
+| PUT    | `/api/alerts/quiet-hours/:dayOfWeek`  | Update quiet hours for single day (0-6)        |
+| PUT    | `/api/alerts/quiet-hours`             | Bulk update quiet hours                        |
+| GET    | `/api/alerts/history`                 | Get alert history                              |
+| POST   | `/api/alerts/history/:id/acknowledge` | Acknowledge single alert                       |
+| POST   | `/api/alerts/history/acknowledge-all` | Acknowledge all alerts                         |
+| GET    | `/api/alerts/statistics`              | Get alert statistics                           |
+| POST   | `/api/alerts/test-webhook`            | Test webhook configuration                     |
+| POST   | `/api/alerts/trigger-check`           | Manually trigger alert check                   |
+| GET    | `/api/alerts/status`                  | Get alert engine status                        |
 
 **PUT /api/alerts/settings:**
+
 ```json
 {
   "alerts_enabled": true,
@@ -327,6 +341,7 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 ```
 
 **PUT /api/alerts/thresholds/:metricType:**
+
 ```json
 {
   "warning_threshold": 75,
@@ -336,6 +351,7 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 ```
 
 **PUT /api/alerts/quiet-hours/:dayOfWeek:**
+
 ```json
 {
   "enabled": true,
@@ -345,6 +361,7 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 ```
 
 **GET /api/alerts/history Query Parameters:**
+
 - `limit`: Max results (default: 100, max: 500)
 - `offset`: Pagination offset
 - `metric_type`: Filter by type (cpu, ram, disk, temperature)
@@ -352,6 +369,7 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 - `unacknowledged`: Boolean, show only unacknowledged
 
 **GET /api/alerts/status Response:**
+
 ```json
 {
   "enabled": true,
@@ -368,15 +386,16 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 
 ### Claude Terminal
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| POST | `/api/claude-terminal/query` | Execute query (SSE streaming) | 5/min |
-| GET | `/api/claude-terminal/status` | Terminal service status | - |
-| GET | `/api/claude-terminal/history` | User's query history | - |
-| GET | `/api/claude-terminal/context` | Current system context | - |
-| DELETE | `/api/claude-terminal/history` | Clear query history | - |
+| Method | Endpoint                       | Description                   | Rate Limit |
+| ------ | ------------------------------ | ----------------------------- | ---------- |
+| POST   | `/api/claude-terminal/query`   | Execute query (SSE streaming) | 5/min      |
+| GET    | `/api/claude-terminal/status`  | Terminal service status       | -          |
+| GET    | `/api/claude-terminal/history` | User's query history          | -          |
+| GET    | `/api/claude-terminal/context` | Current system context        | -          |
+| DELETE | `/api/claude-terminal/history` | Clear query history           | -          |
 
 **POST /api/claude-terminal/query:**
+
 ```json
 {
   "query": "What is the current system status?",
@@ -386,6 +405,7 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 ```
 
 Response: SSE stream with events:
+
 ```
 data: {"type": "start", "queryId": 123, "model": "qwen3:14b-q8"}
 data: {"type": "content", "content": "The system is..."}
@@ -394,6 +414,7 @@ data: {"done": true, "status": "completed"}
 ```
 
 **GET /api/claude-terminal/status:**
+
 ```json
 {
   "service": "claude-terminal",
@@ -414,6 +435,7 @@ data: {"done": true, "status": "completed"}
 ```
 
 **GET /api/claude-terminal/history:**
+
 ```json
 {
   "queries": [
@@ -437,6 +459,7 @@ data: {"done": true, "status": "completed"}
 ```
 
 **Notes:**
+
 - Context includes system metrics, service status, and recent logs
 - Sessions expire after 30 minutes of inactivity
 - Max query length: 5000 characters
@@ -444,28 +467,30 @@ data: {"done": true, "status": "completed"}
 
 ### Events (Notifications)
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/events` | Yes | Get recent notification events |
-| GET | `/api/events/stats` | Yes | Event and notification statistics |
-| GET | `/api/events/settings` | Yes | User notification settings |
-| PUT | `/api/events/settings` | Yes | Update notification settings |
-| POST | `/api/events/test` | Yes | Send test notification |
-| POST | `/api/events/webhook/n8n` | Secret | n8n workflow webhook |
-| POST | `/api/events/webhook/self-healing` | IP | Self-healing agent webhook |
-| POST | `/api/events/manual` | Yes | Create manual notification |
-| GET | `/api/events/service-status` | Yes | Service status cache |
-| GET | `/api/events/boot-history` | Yes | System boot history |
-| DELETE | `/api/events/:id` | Yes | Delete specific event |
-| POST | `/api/events/cleanup` | Yes | Cleanup old events |
-| GET | `/api/events/telegram/status` | Yes | Telegram connection status |
+| Method | Endpoint                           | Auth   | Description                       |
+| ------ | ---------------------------------- | ------ | --------------------------------- |
+| GET    | `/api/events`                      | Yes    | Get recent notification events    |
+| GET    | `/api/events/stats`                | Yes    | Event and notification statistics |
+| GET    | `/api/events/settings`             | Yes    | User notification settings        |
+| PUT    | `/api/events/settings`             | Yes    | Update notification settings      |
+| POST   | `/api/events/test`                 | Yes    | Send test notification            |
+| POST   | `/api/events/webhook/n8n`          | Secret | n8n workflow webhook              |
+| POST   | `/api/events/webhook/self-healing` | IP     | Self-healing agent webhook        |
+| POST   | `/api/events/manual`               | Yes    | Create manual notification        |
+| GET    | `/api/events/service-status`       | Yes    | Service status cache              |
+| GET    | `/api/events/boot-history`         | Yes    | System boot history               |
+| DELETE | `/api/events/:id`                  | Yes    | Delete specific event             |
+| POST   | `/api/events/cleanup`              | Yes    | Cleanup old events                |
+| GET    | `/api/events/telegram/status`      | Yes    | Telegram connection status        |
 
 **GET /api/events Query Parameters:**
+
 - `limit`: Max results (default: 50)
 - `event_type`: Filter by event type
 - `severity`: Filter by severity
 
 **PUT /api/events/settings:**
+
 ```json
 {
   "channel": "telegram",
@@ -510,6 +535,7 @@ Only accepts requests from localhost or Docker network IPs.
 ```
 
 **GET /api/events/telegram/status:**
+
 ```json
 {
   "connected": true,
@@ -532,17 +558,18 @@ Only accepts requests from localhost or Docker network IPs.
 
 ### Knowledge Spaces
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/spaces` | List all knowledge spaces |
-| GET | `/api/spaces/:id` | Get space details with documents |
-| POST | `/api/spaces` | Create knowledge space |
-| PUT | `/api/spaces/:id` | Update knowledge space |
-| DELETE | `/api/spaces/:id` | Delete space (moves docs to default) |
-| POST | `/api/spaces/:id/regenerate` | Trigger context regeneration |
-| POST | `/api/spaces/route` | Find relevant spaces for query |
+| Method | Endpoint                     | Description                          |
+| ------ | ---------------------------- | ------------------------------------ |
+| GET    | `/api/spaces`                | List all knowledge spaces            |
+| GET    | `/api/spaces/:id`            | Get space details with documents     |
+| POST   | `/api/spaces`                | Create knowledge space               |
+| PUT    | `/api/spaces/:id`            | Update knowledge space               |
+| DELETE | `/api/spaces/:id`            | Delete space (moves docs to default) |
+| POST   | `/api/spaces/:id/regenerate` | Trigger context regeneration         |
+| POST   | `/api/spaces/route`          | Find relevant spaces for query       |
 
 **GET /api/spaces:**
+
 ```json
 {
   "spaces": [
@@ -566,6 +593,7 @@ Only accepts requests from localhost or Docker network IPs.
 ```
 
 **POST /api/spaces:**
+
 ```json
 {
   "name": "Technische Dokumentation",
@@ -576,6 +604,7 @@ Only accepts requests from localhost or Docker network IPs.
 ```
 
 **PUT /api/spaces/:id:**
+
 ```json
 {
   "name": "Updated Name",
@@ -599,6 +628,7 @@ Find relevant spaces for a RAG query using embedding similarity.
 ```
 
 Response:
+
 ```json
 {
   "query": "How do I configure the API?",
@@ -618,20 +648,22 @@ Response:
 ```
 
 **Notes:**
+
 - System spaces cannot be deleted
 - Documents are moved to default space when deleting
 - Space descriptions are embedded for semantic routing
 
 ### Settings / Passwords
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| POST | `/api/settings/password/dashboard` | Change Dashboard password | 3/15min |
-| POST | `/api/settings/password/minio` | Change MinIO password | 3/15min |
-| POST | `/api/settings/password/n8n` | Change n8n password | 3/15min |
-| GET | `/api/settings/password-requirements` | Get password rules | - |
+| Method | Endpoint                              | Description               | Rate Limit |
+| ------ | ------------------------------------- | ------------------------- | ---------- |
+| POST   | `/api/settings/password/dashboard`    | Change Dashboard password | 3/15min    |
+| POST   | `/api/settings/password/minio`        | Change MinIO password     | 3/15min    |
+| POST   | `/api/settings/password/n8n`          | Change n8n password       | 3/15min    |
+| GET    | `/api/settings/password-requirements` | Get password rules        | -          |
 
-**POST /api/settings/password/*:**
+**POST /api/settings/password/\*:**
+
 ```json
 {
   "current_password": "current",
@@ -640,6 +672,7 @@ Response:
 ```
 
 **Password Requirements:**
+
 - Minimum 8 characters
 - At least 1 uppercase letter
 - At least 1 lowercase letter
@@ -648,20 +681,21 @@ Response:
 
 ### Telegram Bot
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| POST | `/api/telegram/config` | Save bot token and settings | 100/min |
-| GET | `/api/telegram/config` | Get configuration (token masked) | - |
-| GET | `/api/telegram/updates` | Get recent messages to discover chat IDs | 5/min |
-| GET | `/api/telegram/thresholds` | Get alert thresholds | - |
-| PUT | `/api/telegram/thresholds` | Update alert thresholds | 100/min |
-| POST | `/api/telegram/test` | Send test message | 5/min |
-| GET | `/api/telegram/audit-logs` | Get bot audit logs | - |
-| GET | `/api/telegram/audit-logs/stats` | Get audit statistics | - |
+| Method | Endpoint                         | Description                              | Rate Limit |
+| ------ | -------------------------------- | ---------------------------------------- | ---------- |
+| POST   | `/api/telegram/config`           | Save bot token and settings              | 100/min    |
+| GET    | `/api/telegram/config`           | Get configuration (token masked)         | -          |
+| GET    | `/api/telegram/updates`          | Get recent messages to discover chat IDs | 5/min      |
+| GET    | `/api/telegram/thresholds`       | Get alert thresholds                     | -          |
+| PUT    | `/api/telegram/thresholds`       | Update alert thresholds                  | 100/min    |
+| POST   | `/api/telegram/test`             | Send test message                        | 5/min      |
+| GET    | `/api/telegram/audit-logs`       | Get bot audit logs                       | -          |
+| GET    | `/api/telegram/audit-logs/stats` | Get audit statistics                     | -          |
 
 **POST /api/telegram/config:**
 
 Full configuration (with token):
+
 ```json
 {
   "bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
@@ -671,6 +705,7 @@ Full configuration (with token):
 ```
 
 Partial update (without token):
+
 ```json
 {
   "chat_id": "-1001234567890",
@@ -679,6 +714,7 @@ Partial update (without token):
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -692,6 +728,7 @@ Response:
 ```
 
 **GET /api/telegram/config:**
+
 ```json
 {
   "configured": true,
@@ -709,6 +746,7 @@ Response:
 Fetches recent messages sent to the bot to discover chat IDs. Useful when the user doesn't know their chat ID.
 
 Response:
+
 ```json
 {
   "success": true,
@@ -739,6 +777,7 @@ Response:
 ```
 
 **GET /api/telegram/thresholds:**
+
 ```json
 {
   "thresholds": {
@@ -763,6 +802,7 @@ Response:
 ```
 
 **PUT /api/telegram/thresholds:**
+
 ```json
 {
   "thresholds": {
@@ -774,6 +814,7 @@ Response:
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -784,6 +825,7 @@ Response:
 ```
 
 **POST /api/telegram/test:**
+
 ```json
 {
   "chat_id": "-1001234567890"
@@ -791,6 +833,7 @@ Response:
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -804,6 +847,7 @@ Response:
 **GET /api/telegram/audit-logs:**
 
 Query Parameters:
+
 - `limit`: Number of records (default: 50, max: 200)
 - `offset`: Pagination offset
 - `userId`: Filter by Telegram user ID
@@ -814,6 +858,7 @@ Query Parameters:
 - `endDate`: Filter to date (ISO string)
 
 Response:
+
 ```json
 {
   "logs": [
@@ -842,6 +887,7 @@ Response:
 ```
 
 **Notes:**
+
 - Bot token is encrypted using AES-256-GCM before storage
 - Token is never returned in plaintext, only masked (first 5, last 3 chars)
 - Chat ID can be a user ID, group ID, or channel ID
@@ -851,52 +897,55 @@ Response:
 
 ### Updates
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/update/upload` | Upload .araupdate file |
-| GET | `/api/update/status` | Current update status |
-| GET | `/api/update/history` | Update history |
+| Method | Endpoint              | Description            |
+| ------ | --------------------- | ---------------------- |
+| POST   | `/api/update/upload`  | Upload .araupdate file |
+| GET    | `/api/update/status`  | Current update status  |
+| GET    | `/api/update/history` | Update history         |
 
 **POST /api/update/upload:**
+
 - Content-Type: `multipart/form-data`
 - Field: `file` (.araupdate package)
 
 ### Logs
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/logs` | List available log files |
-| GET | `/api/logs/:filename` | Get log file content |
+| Method | Endpoint              | Description              |
+| ------ | --------------------- | ------------------------ |
+| GET    | `/api/logs`           | List available log files |
+| GET    | `/api/logs/:filename` | Get log file content     |
 
 ### Database
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/database/status` | Database connection status |
-| GET | `/api/database/metrics` | Database size & stats |
+| Method | Endpoint                | Description                |
+| ------ | ----------------------- | -------------------------- |
+| GET    | `/api/database/status`  | Database connection status |
+| GET    | `/api/database/metrics` | Database size & stats      |
 
 ### Store
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/apps` | List all apps (installed + available) |
-| GET | `/api/apps/categories` | List app categories |
-| GET | `/api/apps/:id` | Get single app details |
-| GET | `/api/apps/:id/logs` | Get container logs |
-| GET | `/api/apps/:id/events` | Get app event history |
-| POST | `/api/apps/:id/install` | Install an app |
-| POST | `/api/apps/:id/uninstall` | Uninstall an app |
-| POST | `/api/apps/:id/start` | Start an installed app |
-| POST | `/api/apps/:id/stop` | Stop a running app |
-| POST | `/api/apps/:id/restart` | Restart an app |
-| POST | `/api/apps/sync` | Sync system apps status |
+| Method | Endpoint                  | Description                           |
+| ------ | ------------------------- | ------------------------------------- |
+| GET    | `/api/apps`               | List all apps (installed + available) |
+| GET    | `/api/apps/categories`    | List app categories                   |
+| GET    | `/api/apps/:id`           | Get single app details                |
+| GET    | `/api/apps/:id/logs`      | Get container logs                    |
+| GET    | `/api/apps/:id/events`    | Get app event history                 |
+| POST   | `/api/apps/:id/install`   | Install an app                        |
+| POST   | `/api/apps/:id/uninstall` | Uninstall an app                      |
+| POST   | `/api/apps/:id/start`     | Start an installed app                |
+| POST   | `/api/apps/:id/stop`      | Stop a running app                    |
+| POST   | `/api/apps/:id/restart`   | Restart an app                        |
+| POST   | `/api/apps/sync`          | Sync system apps status               |
 
 **GET /api/apps Query Parameters:**
+
 - `category`: Filter by category (e.g., `development`, `productivity`)
 - `status`: Filter by status (e.g., `running`, `installed`, `available`)
 - `search`: Search in name and description
 
 **Response Example:**
+
 ```json
 {
   "apps": [
@@ -917,6 +966,7 @@ Response:
 ```
 
 **App Status Values:**
+
 - `available` - Not installed
 - `installing` - Currently installing
 - `installed` - Installed but stopped
@@ -926,18 +976,19 @@ Response:
 
 ### Workspaces (Claude Code)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/workspaces` | List all active workspaces |
-| GET | `/api/workspaces/:id` | Get single workspace (by ID or slug) |
-| POST | `/api/workspaces` | Create a new workspace |
-| PUT | `/api/workspaces/:id` | Update workspace name/description |
-| DELETE | `/api/workspaces/:id` | Soft-delete a workspace |
-| POST | `/api/workspaces/:id/default` | Set workspace as default |
-| POST | `/api/workspaces/:id/use` | Mark workspace as used (increment counter) |
-| GET | `/api/workspaces/volumes/list` | Get volume bindings for container config |
+| Method | Endpoint                       | Description                                |
+| ------ | ------------------------------ | ------------------------------------------ |
+| GET    | `/api/workspaces`              | List all active workspaces                 |
+| GET    | `/api/workspaces/:id`          | Get single workspace (by ID or slug)       |
+| POST   | `/api/workspaces`              | Create a new workspace                     |
+| PUT    | `/api/workspaces/:id`          | Update workspace name/description          |
+| DELETE | `/api/workspaces/:id`          | Soft-delete a workspace                    |
+| POST   | `/api/workspaces/:id/default`  | Set workspace as default                   |
+| POST   | `/api/workspaces/:id/use`      | Mark workspace as used (increment counter) |
+| GET    | `/api/workspaces/volumes/list` | Get volume bindings for container config   |
 
 **POST /api/workspaces Body:**
+
 ```json
 {
   "name": "Mein Projekt",
@@ -947,6 +998,7 @@ Response:
 ```
 
 **Response Example:**
+
 ```json
 {
   "workspaces": [
@@ -969,6 +1021,7 @@ Response:
 ```
 
 **Notes:**
+
 - Workspaces are dynamically mounted into the Claude Code container
 - New workspaces require container restart to be available
 - System workspaces cannot be deleted
@@ -976,20 +1029,21 @@ Response:
 
 ### Model Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/models/catalog` | List curated model catalog |
-| GET | `/api/models/installed` | List installed models |
-| GET | `/api/models/status` | Current loaded model + queue stats |
-| GET | `/api/models/loaded` | Get currently loaded model |
-| GET | `/api/models/default` | Get default model |
-| POST | `/api/models/default` | Set default model |
-| POST | `/api/models/download` | Download model (SSE progress) |
-| DELETE | `/api/models/:id` | Delete installed model |
-| POST | `/api/models/:id/activate` | Load model into RAM |
-| POST | `/api/models/:id/deactivate` | Unload model from RAM |
+| Method | Endpoint                     | Description                        |
+| ------ | ---------------------------- | ---------------------------------- |
+| GET    | `/api/models/catalog`        | List curated model catalog         |
+| GET    | `/api/models/installed`      | List installed models              |
+| GET    | `/api/models/status`         | Current loaded model + queue stats |
+| GET    | `/api/models/loaded`         | Get currently loaded model         |
+| GET    | `/api/models/default`        | Get default model                  |
+| POST   | `/api/models/default`        | Set default model                  |
+| POST   | `/api/models/download`       | Download model (SSE progress)      |
+| DELETE | `/api/models/:id`            | Delete installed model             |
+| POST   | `/api/models/:id/activate`   | Load model into RAM                |
+| POST   | `/api/models/:id/deactivate` | Unload model from RAM              |
 
 **GET /api/models/catalog:**
+
 ```json
 {
   "models": [
@@ -1013,6 +1067,7 @@ Response:
 ```
 
 **GET /api/models/status:**
+
 ```json
 {
   "loaded_model": "qwen3:14b-q8",
@@ -1027,12 +1082,15 @@ Response:
 ```
 
 **POST /api/models/download:**
+
 ```json
 {
   "model_id": "qwen3:7b-q8"
 }
 ```
+
 Response: SSE stream with progress events:
+
 ```
 data: {"type": "progress", "percent": 45, "downloaded_gb": 3.6, "total_gb": 8.0}
 data: {"type": "done", "model_id": "qwen3:7b-q8"}
@@ -1040,6 +1098,7 @@ data: {"type": "done", "model_id": "qwen3:7b-q8"}
 
 **POST /api/models/:id/activate:**
 Loads model into RAM. Only one model can be loaded at a time.
+
 ```json
 {
   "success": true,
@@ -1050,6 +1109,7 @@ Loads model into RAM. Only one model can be loaded at a time.
 ```
 
 **POST /api/llm/chat (with model selection):**
+
 ```json
 {
   "messages": [...],
@@ -1061,12 +1121,14 @@ Loads model into RAM. Only one model can be loaded at a time.
 ```
 
 **Model Categories:**
+
 - `small` - Under 10GB RAM (7B models)
 - `medium` - 10-25GB RAM (14B models)
 - `large` - 25-45GB RAM (32B models)
 - `xlarge` - Over 45GB RAM (70B+ models)
 
 **Model Types:**
+
 - `llm` - Language models (chat, reasoning, code)
 - `ocr` - Text recognition (Tesseract, PaddleOCR)
 - `vision` - Image analysis
@@ -1076,14 +1138,15 @@ Loads model into RAM. Only one model can be loaded at a time.
 
 The Store API provides a unified interface for browsing models and apps.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/store/recommendations` | Get recommended models + apps |
-| GET | `/api/store/search` | Search across models and apps |
-| GET | `/api/store/info` | Get system info (RAM, disk) |
+| Method | Endpoint                     | Description                   |
+| ------ | ---------------------------- | ----------------------------- |
+| GET    | `/api/store/recommendations` | Get recommended models + apps |
+| GET    | `/api/store/search`          | Search across models and apps |
+| GET    | `/api/store/info`            | Get system info (RAM, disk)   |
 
 **GET /api/store/recommendations:**
 Returns models recommended for the system's RAM capacity and featured apps.
+
 ```json
 {
   "models": [
@@ -1097,6 +1160,7 @@ Returns models recommended for the system's RAM capacity and featured apps.
 ```
 
 **GET /api/store/search?q=query:**
+
 ```json
 {
   "models": [...],
@@ -1106,6 +1170,7 @@ Returns models recommended for the system's RAM capacity and featured apps.
 ```
 
 **GET /api/store/info:**
+
 ```json
 {
   "availableRamGB": 64,
@@ -1116,15 +1181,16 @@ Returns models recommended for the system's RAM capacity and featured apps.
 
 ### Audit Logging
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/audit/logs` | Get audit logs with pagination and filtering |
-| GET | `/api/audit/stats/daily` | Get daily aggregated statistics |
-| GET | `/api/audit/stats/endpoints` | Get endpoint usage statistics |
+| Method | Endpoint                     | Description                                  |
+| ------ | ---------------------------- | -------------------------------------------- |
+| GET    | `/api/audit/logs`            | Get audit logs with pagination and filtering |
+| GET    | `/api/audit/stats/daily`     | Get daily aggregated statistics              |
+| GET    | `/api/audit/stats/endpoints` | Get endpoint usage statistics                |
 
 **GET /api/audit/logs:**
 
 Query Parameters:
+
 - `limit`: Number of records (default: 50, max: 500)
 - `offset`: Number of records to skip (default: 0)
 - `date_from`: Start date (ISO 8601)
@@ -1136,6 +1202,7 @@ Query Parameters:
 - `status_max`: Maximum response status code
 
 Response:
+
 ```json
 {
   "logs": [
@@ -1147,7 +1214,7 @@ Response:
       "action_type": "POST",
       "target_endpoint": "/api/chats",
       "request_method": "POST",
-      "request_payload": {"title": "New Chat"},
+      "request_payload": { "title": "New Chat" },
       "response_status": 201,
       "duration_ms": 45,
       "ip_address": "192.168.1.100",
@@ -1177,9 +1244,11 @@ Response:
 **GET /api/audit/stats/daily:**
 
 Query Parameters:
+
 - `days`: Number of days to include (default: 30, max: 90)
 
 Response:
+
 ```json
 {
   "stats": [
@@ -1202,10 +1271,12 @@ Response:
 **GET /api/audit/stats/endpoints:**
 
 Query Parameters:
+
 - `days`: Number of days to include (default: 7, max: 30)
 - `limit`: Number of endpoints to return (default: 20, max: 100)
 
 Response:
+
 ```json
 {
   "endpoints": [
@@ -1215,7 +1286,7 @@ Response:
       "request_count": 500,
       "unique_users": 3,
       "error_count": 5,
-      "avg_duration_ms": 35.50,
+      "avg_duration_ms": 35.5,
       "last_called": "2026-01-15T10:30:00.000Z"
     }
   ],
@@ -1225,6 +1296,7 @@ Response:
 ```
 
 **Notes:**
+
 - All `/api/*` requests are automatically logged (except `/api/health` and `/api/metrics/*`)
 - Sensitive data (passwords, tokens, API keys) is automatically masked as `***REDACTED***`
 - Audit logs are stored for 90 days by default
@@ -1240,24 +1312,24 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 
 ### LLM Chat
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/external/llm/chat` | API Key | LLM chat with queue support |
-| GET | `/api/v1/external/llm/job/:jobId` | API Key | Get job status |
-| GET | `/api/v1/external/llm/queue` | API Key | Get queue status |
-| GET | `/api/v1/external/models` | API Key | Get available models |
+| Method | Endpoint                          | Auth    | Description                 |
+| ------ | --------------------------------- | ------- | --------------------------- |
+| POST   | `/api/v1/external/llm/chat`       | API Key | LLM chat with queue support |
+| GET    | `/api/v1/external/llm/job/:jobId` | API Key | Get job status              |
+| GET    | `/api/v1/external/llm/queue`      | API Key | Get queue status            |
+| GET    | `/api/v1/external/models`         | API Key | Get available models        |
 
 **POST /api/v1/external/llm/chat:**
 
 ```json
 {
   "prompt": "Your question here",
-  "model": "qwen3:14b-q8",     // Optional
-  "temperature": 0.7,          // Optional
-  "max_tokens": 2048,          // Optional
-  "thinking": false,           // Optional
-  "wait_for_result": true,     // Optional (default: true)
-  "timeout_seconds": 300       // Optional (default: 300)
+  "model": "qwen3:14b-q8", // Optional
+  "temperature": 0.7, // Optional
+  "max_tokens": 2048, // Optional
+  "thinking": false, // Optional
+  "wait_for_result": true, // Optional (default: true)
+  "timeout_seconds": 300 // Optional (default: 300)
 }
 ```
 
@@ -1275,11 +1347,11 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 
 ### API Key Management
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/external/api-keys` | JWT | Create new API key |
-| GET | `/api/v1/external/api-keys` | JWT | List API keys |
-| DELETE | `/api/v1/external/api-keys/:keyId` | JWT | Revoke API key |
+| Method | Endpoint                           | Auth | Description        |
+| ------ | ---------------------------------- | ---- | ------------------ |
+| POST   | `/api/v1/external/api-keys`        | JWT  | Create new API key |
+| GET    | `/api/v1/external/api-keys`        | JWT  | List API keys      |
+| DELETE | `/api/v1/external/api-keys/:keyId` | JWT  | Revoke API key     |
 
 **POST /api/v1/external/api-keys:**
 
@@ -1298,7 +1370,7 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 ```json
 {
   "success": true,
-  "api_key": "aras_xxxx...",  // Only shown once!
+  "api_key": "aras_xxxx...", // Only shown once!
   "key_prefix": "aras_xxx",
   "key_id": 1,
   "message": "Store this API key securely - it will not be shown again!"
@@ -1317,13 +1389,13 @@ Advanced Telegram bot configuration with zero-config setup.
 
 Bot-Wizard mit automatischer Chat-Erkennung via WebSocket.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/zero-config/init` | Start setup session, returns setupToken |
-| POST | `/zero-config/token` | Validate bot token, returns deep link |
-| GET | `/zero-config/status/:token` | Poll setup status |
-| POST | `/zero-config/complete` | Finalize setup, send test message |
-| WS | `/ws` | WebSocket for real-time chat detection |
+| Method | Endpoint                     | Description                             |
+| ------ | ---------------------------- | --------------------------------------- |
+| POST   | `/zero-config/init`          | Start setup session, returns setupToken |
+| POST   | `/zero-config/token`         | Validate bot token, returns deep link   |
+| GET    | `/zero-config/status/:token` | Poll setup status                       |
+| POST   | `/zero-config/complete`      | Finalize setup, send test message       |
+| WS     | `/ws`                        | WebSocket for real-time chat detection  |
 
 **POST /zero-config/init:**
 
@@ -1333,7 +1405,7 @@ Startet eine neue Setup-Session (10 Min gültig).
 // Response
 {
   "success": true,
-  "setupToken": "a1b2c3d4e5f6...",  // 32-char hex
+  "setupToken": "a1b2c3d4e5f6...", // 32-char hex
   "expiresIn": 600
 }
 ```
@@ -1407,35 +1479,230 @@ Real-time Updates für Chat-Erkennung.
 { "type": "error", "error": "Session expired" }
 ```
 
+### Status Endpoints
+
+| Method | Endpoint                           | Description                                   |
+| ------ | ---------------------------------- | --------------------------------------------- |
+| GET    | `/api/telegram-app/status`         | Get current app status for authenticated user |
+| GET    | `/api/telegram-app/dashboard-data` | Get data for dashboard icon display           |
+| PUT    | `/api/telegram-app/settings`       | Update app settings                           |
+| GET    | `/api/telegram-app/global-stats`   | Get global statistics                         |
+
+**PUT /api/telegram-app/settings:**
+
+```json
+{
+  "settings": {
+    "key": "value"
+  }
+}
+```
+
+### Bot Configuration
+
+| Method | Endpoint                    | Description                   |
+| ------ | --------------------------- | ----------------------------- |
+| GET    | `/api/telegram-app/config`  | Get current bot configuration |
+| PUT    | `/api/telegram-app/config`  | Update bot configuration      |
+| GET    | `/api/telegram-app/history` | Get notification history      |
+
+**GET /api/telegram-app/config Response:**
+
+```json
+{
+  "configured": true,
+  "config": {
+    "chat_id": 987654321,
+    "bot_username": "my_bot",
+    "bot_first_name": "My Bot",
+    "notifications_enabled": true,
+    "quiet_hours_start": "22:00",
+    "quiet_hours_end": "07:00",
+    "min_severity": "warning",
+    "claude_notifications": true,
+    "system_notifications": true,
+    "n8n_notifications": true,
+    "is_active": true,
+    "last_message_at": "2026-01-15T10:00:00.000Z",
+    "created_at": "2026-01-10T08:00:00.000Z"
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**PUT /api/telegram-app/config:**
+
+```json
+{
+  "notificationsEnabled": true,
+  "quietHoursStart": "22:00",
+  "quietHoursEnd": "07:00",
+  "minSeverity": "warning",
+  "claudeNotifications": true,
+  "systemNotifications": true,
+  "n8nNotifications": false
+}
+```
+
+**GET /api/telegram-app/history Query Parameters:**
+
+- `limit`: Max results (default: 50)
+- `offset`: Pagination offset
+
+**GET /api/telegram-app/history Response:**
+
+```json
+{
+  "history": [
+    {
+      "id": 1,
+      "rule_name": "High CPU Alert",
+      "created_at": "2026-01-15T10:00:00.000Z"
+    }
+  ],
+  "total": 25,
+  "limit": 50,
+  "offset": 0,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
 ### Notification Rules
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/rules` | List notification rules |
-| POST | `/rules` | Create notification rule |
-| PUT | `/rules/:ruleId` | Update rule |
-| DELETE | `/rules/:ruleId` | Delete rule |
-| PATCH | `/rules/:ruleId/toggle` | Enable/disable rule |
+| Method | Endpoint                | Description                       |
+| ------ | ----------------------- | --------------------------------- |
+| GET    | `/rules`                | List notification rules           |
+| POST   | `/rules`                | Create notification rule          |
+| PUT    | `/rules/:ruleId`        | Update rule                       |
+| DELETE | `/rules/:ruleId`        | Delete rule                       |
+| PATCH  | `/rules/:ruleId/toggle` | Enable/disable rule               |
+| POST   | `/rules/:id/test`       | Send test notification for a rule |
 
 **POST /api/telegram-app/rules:**
 
 ```json
 {
   "name": "High CPU Alert",
+  "description": "Benachrichtigung bei hoher CPU-Auslastung",
   "eventSource": "system",
   "eventType": "cpu_critical",
-  "severityFilter": ["critical"],
-  "messageTemplate": "⚠️ CPU at {{value}}%!",
-  "enabled": true
+  "triggerCondition": {},
+  "severity": "critical",
+  "messageTemplate": "CPU bei {{event.value}}%! Zeitstempel: {{timestamp}}",
+  "cooldownSeconds": 60,
+  "isEnabled": true
+}
+```
+
+**POST /api/telegram-app/rules/:id/test:**
+
+Sendet eine Test-Benachrichtigung für eine Regel an den konfigurierten Telegram-Chat. Erfordert einen aktiv konfigurierten Bot.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Test-Nachricht gesendet",
+  "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
 
 ### Orchestrator
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/orchestrator/process` | Process event through rules |
-| GET | `/orchestrator/stats` | Get processing statistics |
+| Method | Endpoint                                             | Description                          |
+| ------ | ---------------------------------------------------- | ------------------------------------ |
+| POST   | `/orchestrator/process`                              | Process event through rules          |
+| GET    | `/orchestrator/stats`                                | Get processing statistics            |
+| GET    | `/api/telegram-app/orchestrator/status`              | Get orchestrator and agent status    |
+| GET    | `/api/telegram-app/orchestrator/thinking/:agentType` | Get thinking logs for specific agent |
+
+**GET /api/telegram-app/orchestrator/status Response:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_type": "setup",
+      "state": "idle",
+      "last_action": "2026-01-15T10:00:00.000Z",
+      "actions_count": 5,
+      "thinking_entries": 12
+    }
+  ],
+  "orchestratorMode": "master",
+  "thinkingMode": false,
+  "skipPermissions": false,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/telegram-app/orchestrator/thinking/:agentType Query Parameters:**
+
+- `limit`: Max log entries to return (default: 50)
+
+**GET /api/telegram-app/orchestrator/thinking/:agentType Response:**
+
+```json
+{
+  "agentType": "setup",
+  "thinkingLog": [
+    {
+      "timestamp": "2026-01-15T10:00:00.000Z",
+      "message": "Setup session initialized",
+      "context": { "userId": 1, "action": "create_session" }
+    }
+  ],
+  "totalEntries": 12,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+### Zero-Config (Additional Endpoints)
+
+| Method | Endpoint                                      | Description                                   |
+| ------ | --------------------------------------------- | --------------------------------------------- |
+| POST   | `/api/telegram-app/zero-config/chat-detected` | Called by bot when user sends /start (intern) |
+| POST   | `/api/telegram-app/zero-config/cancel`        | Cancel setup session and stop polling         |
+
+**POST /api/telegram-app/zero-config/chat-detected:**
+
+Interner Endpoint – wird vom Polling-Service aufgerufen, wenn der Bot ein `/start`-Kommando erkennt. Kein Auth-Token erforderlich.
+
+```json
+// Request
+{
+  "setupToken": "a1b2c3d4e5f6...",
+  "chatId": 987654321,
+  "username": "user123",
+  "firstName": "Max"
+}
+
+// Response
+{
+  "success": true,
+  "message": "Setup erfolgreich abgeschlossen",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/telegram-app/zero-config/cancel:**
+
+Bricht eine aktive Setup-Session ab und stoppt den Telegram-Polling-Service.
+
+```json
+// Request
+{
+  "setupToken": "a1b2c3d4e5f6..."
+}
+
+// Response
+{
+  "success": true,
+  "message": "Setup abgebrochen",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
 
 ---
 
@@ -1447,16 +1714,16 @@ CRUD-Operationen für Telegram-Bot-Verwaltung mit LLM-Integration.
 
 ### Bot Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | List all bots |
-| POST | `/` | Create new bot |
-| GET | `/:id` | Get bot details |
-| PUT | `/:id` | Update bot config |
-| DELETE | `/:id` | Delete bot |
-| POST | `/:id/activate` | Activate bot (set webhook) |
-| POST | `/:id/deactivate` | Deactivate bot |
-| POST | `/validate-token` | Validate Telegram bot token |
+| Method | Endpoint          | Description                 |
+| ------ | ----------------- | --------------------------- |
+| GET    | `/`               | List all bots               |
+| POST   | `/`               | Create new bot              |
+| GET    | `/:id`            | Get bot details             |
+| PUT    | `/:id`            | Update bot config           |
+| DELETE | `/:id`            | Delete bot                  |
+| POST   | `/:id/activate`   | Activate bot (set webhook)  |
+| POST   | `/:id/deactivate` | Deactivate bot              |
+| POST   | `/validate-token` | Validate Telegram bot token |
 
 **POST / (Create Bot):**
 
@@ -1464,7 +1731,7 @@ CRUD-Operationen für Telegram-Bot-Verwaltung mit LLM-Integration.
 {
   "name": "Mein Assistent",
   "botToken": "123456789:ABCdefGHI...",
-  "llmProvider": "ollama",           // "ollama" | "claude"
+  "llmProvider": "ollama", // "ollama" | "claude"
   "llmModel": "llama3.2",
   "systemPrompt": "Du bist ein hilfreicher Assistent...",
   "maxTokens": 2048,
@@ -1474,38 +1741,38 @@ CRUD-Operationen für Telegram-Bot-Verwaltung mit LLM-Integration.
 
 ### Bot Commands
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/:id/commands` | List custom commands |
-| POST | `/:id/commands` | Add custom command |
-| PUT | `/:id/commands/:cmdId` | Update command |
-| DELETE | `/:id/commands/:cmdId` | Delete command |
+| Method | Endpoint               | Description          |
+| ------ | ---------------------- | -------------------- |
+| GET    | `/:id/commands`        | List custom commands |
+| POST   | `/:id/commands`        | Add custom command   |
+| PUT    | `/:id/commands/:cmdId` | Update command       |
+| DELETE | `/:id/commands/:cmdId` | Delete command       |
 
 ### Chat Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/:id/chats` | List authorized chats |
-| DELETE | `/:id/chats/:chatRowId` | Remove chat access |
-| GET | `/:id/session/:chatId` | Get chat session |
-| DELETE | `/:id/session/:chatId` | Clear chat session |
+| Method | Endpoint                | Description           |
+| ------ | ----------------------- | --------------------- |
+| GET    | `/:id/chats`            | List authorized chats |
+| DELETE | `/:id/chats/:chatRowId` | Remove chat access    |
+| GET    | `/:id/session/:chatId`  | Get chat session      |
+| DELETE | `/:id/session/:chatId`  | Clear chat session    |
 
 ### Webhook Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/:id/webhook` | Get webhook status |
-| POST | `/:id/webhook` | Set webhook |
-| DELETE | `/:id/webhook` | Remove webhook |
-| POST | `/webhook/:botId/:secret` | Webhook receiver (Telegram) |
+| Method | Endpoint                  | Description                 |
+| ------ | ------------------------- | --------------------------- |
+| GET    | `/:id/webhook`            | Get webhook status          |
+| POST   | `/:id/webhook`            | Set webhook                 |
+| DELETE | `/:id/webhook`            | Remove webhook              |
+| POST   | `/webhook/:botId/:secret` | Webhook receiver (Telegram) |
 
 ### Testing & Models
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/:id/test-message` | Send test message |
-| GET | `/models/ollama` | List Ollama models |
-| GET | `/models/claude` | List Claude models |
+| Method | Endpoint            | Description        |
+| ------ | ------------------- | ------------------ |
+| POST   | `/:id/test-message` | Send test message  |
+| GET    | `/models/ollama`    | List Ollama models |
+| GET    | `/models/claude`    | List Claude models |
 
 ---
 
@@ -1513,11 +1780,11 @@ CRUD-Operationen für Telegram-Bot-Verwaltung mit LLM-Integration.
 
 **Base Path:** `/api/docs`
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/docs/` | OpenAPI documentation UI |
-| GET | `/api/docs/openapi.json` | OpenAPI spec (JSON) |
-| GET | `/api/docs/openapi.yaml` | OpenAPI spec (YAML) |
+| Method | Endpoint                 | Description              |
+| ------ | ------------------------ | ------------------------ |
+| GET    | `/api/docs/`             | OpenAPI documentation UI |
+| GET    | `/api/docs/openapi.json` | OpenAPI spec (JSON)      |
+| GET    | `/api/docs/openapi.yaml` | OpenAPI spec (YAML)      |
 
 ---
 
@@ -1529,35 +1796,37 @@ Dynamic database builder for creating custom tables and automated quote generati
 
 ### Tables
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/tables` | List all tables with stats |
-| POST | `/tables` | Create new table |
-| GET | `/tables/:slug` | Get table with fields |
-| PATCH | `/tables/:slug` | Update table metadata |
-| DELETE | `/tables/:slug` | Delete table and data |
-| POST | `/tables/:slug/fields` | Add field to table |
-| PATCH | `/tables/:slug/fields/:fieldSlug` | Update field |
-| DELETE | `/tables/:slug/fields/:fieldSlug` | Remove field |
+| Method | Endpoint                          | Description                |
+| ------ | --------------------------------- | -------------------------- |
+| GET    | `/tables`                         | List all tables with stats |
+| POST   | `/tables`                         | Create new table           |
+| GET    | `/tables/:slug`                   | Get table with fields      |
+| PATCH  | `/tables/:slug`                   | Update table metadata      |
+| DELETE | `/tables/:slug`                   | Delete table and data      |
+| POST   | `/tables/:slug/fields`            | Add field to table         |
+| PATCH  | `/tables/:slug/fields/:fieldSlug` | Update field               |
+| DELETE | `/tables/:slug/fields/:fieldSlug` | Remove field               |
 
 **Supported Field Types:**
+
 - `text`, `textarea`, `number`, `currency`, `date`, `datetime`
 - `select`, `multiselect`, `checkbox`, `relation`
 - `file`, `image`, `email`, `url`, `phone`, `formula`
 
 ### Rows (Data)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/tables/:slug/rows` | List rows (paginated) |
-| POST | `/tables/:slug/rows` | Create row |
-| GET | `/tables/:slug/rows/:rowId` | Get single row |
-| PATCH | `/tables/:slug/rows/:rowId` | Update row |
-| DELETE | `/tables/:slug/rows/:rowId` | Delete row |
-| POST | `/tables/:slug/rows/bulk` | Bulk import (max 1000) |
-| DELETE | `/tables/:slug/rows/bulk` | Bulk delete |
+| Method | Endpoint                    | Description            |
+| ------ | --------------------------- | ---------------------- |
+| GET    | `/tables/:slug/rows`        | List rows (paginated)  |
+| POST   | `/tables/:slug/rows`        | Create row             |
+| GET    | `/tables/:slug/rows/:rowId` | Get single row         |
+| PATCH  | `/tables/:slug/rows/:rowId` | Update row             |
+| DELETE | `/tables/:slug/rows/:rowId` | Delete row             |
+| POST   | `/tables/:slug/rows/bulk`   | Bulk import (max 1000) |
+| DELETE | `/tables/:slug/rows/bulk`   | Bulk delete            |
 
 **Query Parameters (GET /rows):**
+
 - `page`: Page number (default: 1)
 - `limit`: Items per page (default: 50, max: 100)
 - `sort`: Field to sort by (default: `_created_at`)
@@ -1566,32 +1835,236 @@ Dynamic database builder for creating custom tables and automated quote generati
 - `search`: Search in primary display field
 
 **Filter Format:**
+
 ```json
 [
-  {"field": "name", "operator": "like", "value": "Widget"},
-  {"field": "price", "operator": "gte", "value": 100}
+  { "field": "name", "operator": "like", "value": "Widget" },
+  { "field": "price", "operator": "gte", "value": 100 }
 ]
 ```
 
 **Operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `in`, `is_null`, `is_not_null`
 
+### Bulk Operations
+
+| Method | Endpoint                                       | Description                       |
+| ------ | ---------------------------------------------- | --------------------------------- |
+| POST   | `/api/v1/datentabellen/tables/:slug/rows/bulk` | Bulk-Import von Zeilen (max 1000) |
+| DELETE | `/api/v1/datentabellen/tables/:slug/rows/bulk` | Bulk-Löschen von Zeilen           |
+
+**POST /api/v1/datentabellen/tables/:slug/rows/bulk:**
+
+Importiert bis zu 1000 Zeilen in einem Vorgang. Einzelne fehlerhafte Zeilen werden übersprungen; der Rest wird trotzdem importiert.
+
+```json
+// Request
+{
+  "rows": [
+    { "name": "Artikel 1", "price": 9.99 },
+    { "name": "Artikel 2", "price": 19.99 }
+  ]
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "inserted": 2,
+    "errors": 0
+  },
+  "message": "2 Datensätze importiert",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**DELETE /api/v1/datentabellen/tables/:slug/rows/bulk:**
+
+Löscht bis zu 100 Zeilen gleichzeitig anhand ihrer UUIDs.
+
+```json
+// Request
+{
+  "ids": [
+    "550e8400-e29b-41d4-a716-446655440000",
+    "550e8400-e29b-41d4-a716-446655440001"
+  ]
+}
+
+// Response
+{
+  "success": true,
+  "data": { "deleted": 2 },
+  "message": "2 Datensätze gelöscht",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+### RAG / Indexierung
+
+| Method | Endpoint                                          | Description                                   |
+| ------ | ------------------------------------------------- | --------------------------------------------- |
+| POST   | `/api/v1/datentabellen/tables/:slug/index`        | Tabellendaten für RAG/LLM-Abfragen indexieren |
+| DELETE | `/api/v1/datentabellen/tables/:slug/index`        | Tabellendaten aus dem RAG-Index entfernen     |
+| GET    | `/api/v1/datentabellen/tables/:slug/index/status` | Indexierungsstatus abfragen                   |
+
+**POST /api/v1/datentabellen/tables/:slug/index:**
+
+Erstellt Embeddings für jede Zeile der Tabelle und speichert sie in Qdrant. Bestehende Vektoren der Tabelle werden zuerst gelöscht.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "42 Datensätze indexiert",
+  "indexed": 42,
+  "table": "Produkte",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**DELETE /api/v1/datentabellen/tables/:slug/index:**
+
+Entfernt alle Vektoren der Tabelle aus dem Qdrant-Index.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Index erfolgreich entfernt",
+  "table": "Produkte",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/v1/datentabellen/tables/:slug/index/status:**
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "table": "Produkte",
+    "indexed_rows": 42,
+    "total_rows": 42,
+    "is_indexed": true,
+    "is_complete": true
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+### Natural Language Query
+
+| Method | Endpoint                                  | Description                                   |
+| ------ | ----------------------------------------- | --------------------------------------------- |
+| POST   | `/api/v1/datentabellen/query/natural`     | KI-gestützte Abfrage in natürlicher Sprache   |
+| POST   | `/api/v1/datentabellen/query/sql`         | Validierte SQL-Abfrage ausführen (nur SELECT) |
+| GET    | `/api/v1/datentabellen/schema/:tableSlug` | Tabellenschema für KI/SQL-Zwecke abrufen      |
+| GET    | `/api/v1/datentabellen/schemas`           | Alle Tabellenschemata abrufen                 |
+
+**POST /api/v1/datentabellen/query/natural:**
+
+Übersetzt eine natürlichsprachliche Anfrage mit Hilfe des LLM in SQL und führt diese aus. Die Abfrage muss mindestens 5 Zeichen lang sein.
+
+```json
+// Request
+{
+  "query": "Zeige mir alle Produkte über 100 Euro",
+  "tableSlug": "produkte"  // optional, auto-detect wenn weggelassen
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "sql": "SELECT * FROM data_produkte WHERE preis > 100",
+    "results": [...],
+    "explanation": "Alle Produkte mit einem Preis über 100 Euro",
+    "rowCount": 15,
+    "table": "Produkte"
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/v1/datentabellen/query/sql:**
+
+Führt einen validierten SQL-SELECT-Befehl direkt aus. Nur SELECT-Statements sind erlaubt.
+
+```json
+// Request
+{
+  "sql": "SELECT name, preis FROM data_produkte WHERE preis > 100 ORDER BY preis DESC"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "results": [...],
+    "rowCount": 15
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/v1/datentabellen/schema/:tableSlug:**
+
+Gibt das Datenbankschema einer Tabelle zurück – für die KI-SQL-Generierung genutzt.
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "slug": "produkte",
+    "name": "Produkte",
+    "fields": [
+      { "slug": "name", "name": "Name", "field_type": "text", "is_required": true },
+      { "slug": "preis", "name": "Preis", "field_type": "currency", "is_required": false }
+    ]
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/v1/datentabellen/schemas:**
+
+Gibt die Schemata aller vorhandenen Tabellen zurück.
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": [...],
+  "count": 5,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
 ### Quotes
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/quotes` | List quotes (paginated) |
-| POST | `/quotes` | Create quote |
-| GET | `/quotes/:quoteId` | Get quote with positions |
-| PATCH | `/quotes/:quoteId` | Update draft quote |
-| POST | `/quotes/:quoteId/status` | Change quote status |
-| GET | `/quotes/:quoteId/pdf` | Download quote as PDF |
-| GET | `/quotes/templates` | List quote templates |
-| POST | `/quotes/templates` | Create template |
-| PATCH | `/quotes/templates/:templateId` | Update template |
+| Method | Endpoint                        | Description              |
+| ------ | ------------------------------- | ------------------------ |
+| GET    | `/quotes`                       | List quotes (paginated)  |
+| POST   | `/quotes`                       | Create quote             |
+| GET    | `/quotes/:quoteId`              | Get quote with positions |
+| PATCH  | `/quotes/:quoteId`              | Update draft quote       |
+| POST   | `/quotes/:quoteId/status`       | Change quote status      |
+| GET    | `/quotes/:quoteId/pdf`          | Download quote as PDF    |
+| GET    | `/quotes/templates`             | List quote templates     |
+| POST   | `/quotes/templates`             | Create template          |
+| PATCH  | `/quotes/templates/:templateId` | Update template          |
 
 **Quote Statuses:** `draft`, `sent`, `viewed`, `accepted`, `rejected`, `expired`, `cancelled`
 
 **Create Quote Example:**
+
 ```json
 {
   "customer_email": "kunde@example.com",
@@ -1611,10 +2084,10 @@ Dynamic database builder for creating custom tables and automated quote generati
 
 ### Stats & Health
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Data database health check |
-| GET | `/stats` | Overview statistics |
+| Method | Endpoint  | Description                |
+| ------ | --------- | -------------------------- |
+| GET    | `/health` | Data database health check |
+| GET    | `/stats`  | Overview statistics        |
 
 ---
 
@@ -1624,7 +2097,7 @@ All responses include:
 
 ```json
 {
-  "timestamp": "2024-01-15T10:30:00.000Z",
+  "timestamp": "2024-01-15T10:30:00.000Z"
   // ... endpoint-specific data
 }
 ```
@@ -1639,26 +2112,26 @@ All responses include:
 }
 ```
 
-| Status | Description |
-|--------|-------------|
-| 400 | Bad Request - Invalid input |
-| 401 | Unauthorized - Invalid/expired token |
-| 403 | Forbidden - Insufficient permissions |
-| 404 | Not Found - Resource doesn't exist |
-| 429 | Too Many Requests - Rate limit exceeded |
-| 500 | Internal Server Error |
-| 503 | Service Unavailable |
+| Status | Description                             |
+| ------ | --------------------------------------- |
+| 400    | Bad Request - Invalid input             |
+| 401    | Unauthorized - Invalid/expired token    |
+| 403    | Forbidden - Insufficient permissions    |
+| 404    | Not Found - Resource doesn't exist      |
+| 429    | Too Many Requests - Rate limit exceeded |
+| 500    | Internal Server Error                   |
+| 503    | Service Unavailable                     |
 
 ## Rate Limits
 
-| Category | Limit | Window |
-|----------|-------|--------|
-| General API | 100 req | 1 min |
-| LLM API | 10 req | 1 sec |
-| Metrics API | 20 req | 1 sec |
-| Password Changes | 3 req | 15 min |
-| n8n Webhooks | 100 req | 1 min |
-| Telegram Test | 5 req | 1 min |
+| Category         | Limit   | Window |
+| ---------------- | ------- | ------ |
+| General API      | 100 req | 1 min  |
+| LLM API          | 10 req  | 1 sec  |
+| Metrics API      | 20 req  | 1 sec  |
+| Password Changes | 3 req   | 15 min |
+| n8n Webhooks     | 100 req | 1 min  |
+| Telegram Test    | 5 req   | 1 min  |
 
 ---
 

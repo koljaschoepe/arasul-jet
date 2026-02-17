@@ -25,6 +25,7 @@ Thumbs.db
 # Build outputs
 dist/
 build/
+coverage/
 *.log
 
 # Node modules

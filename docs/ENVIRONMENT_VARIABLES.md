@@ -8,12 +8,13 @@ All variables are defined in `.env` file at repository root.
 
 ## System
 
-| Variable        | Default   | Description       |
-| --------------- | --------- | ----------------- |
-| SYSTEM_NAME     | arasul    | System identifier |
-| SYSTEM_VERSION  | 1.0.0     | Current version   |
-| BUILD_HASH      | dev-build | Git commit hash   |
-| JETPACK_VERSION | 6.0       | JetPack version   |
+| Variable        | Default    | Description         |
+| --------------- | ---------- | ------------------- |
+| SYSTEM_NAME     | arasul     | System identifier   |
+| SYSTEM_VERSION  | 1.0.0      | Current version     |
+| BUILD_HASH      | dev-build  | Git commit hash     |
+| JETPACK_VERSION | 6.0        | JetPack version     |
+| NODE_ENV        | production | Node.js environment |
 
 ---
 
@@ -32,29 +33,35 @@ All variables are defined in `.env` file at repository root.
 
 ## PostgreSQL
 
-| Variable                 | Default     | Description          |
-| ------------------------ | ----------- | -------------------- |
-| POSTGRES_HOST            | postgres-db | Database hostname    |
-| POSTGRES_PORT            | 5432        | Database port        |
-| POSTGRES_USER            | arasul      | Database username    |
-| POSTGRES_PASSWORD        | (required)  | Database password    |
-| POSTGRES_DB              | arasul_db   | Database name        |
-| POSTGRES_MAX_CONNECTIONS | 100         | Max connections      |
-| POSTGRES_POOL_MIN        | 2           | Min pool connections |
-| POSTGRES_POOL_MAX        | 20          | Max pool connections |
-| POSTGRES_IDLE_TIMEOUT    | 30000       | Idle timeout (ms)    |
+| Variable                    | Default     | Description                |
+| --------------------------- | ----------- | -------------------------- |
+| POSTGRES_HOST               | postgres-db | Database hostname          |
+| POSTGRES_PORT               | 5432        | Database port              |
+| POSTGRES_USER               | arasul      | Database username          |
+| POSTGRES_PASSWORD           | (required)  | Database password          |
+| POSTGRES_DB                 | arasul_db   | Database name              |
+| POSTGRES_MAX_CONNECTIONS    | 100         | Max connections            |
+| POSTGRES_POOL_MIN           | 2           | Min pool connections       |
+| POSTGRES_POOL_MAX           | 20          | Max pool connections       |
+| POSTGRES_IDLE_TIMEOUT       | 30000       | Idle timeout (ms)          |
+| POSTGRES_CONNECTION_TIMEOUT | 10000       | Connection timeout (ms)    |
+| POSTGRES_STATEMENT_TIMEOUT  | 30000       | SQL statement timeout (ms) |
 
 ---
 
 ## Datentabellen (Dynamic Database)
 
-| Variable                | Default             | Description        |
-| ----------------------- | ------------------- | ------------------ |
-| ARASUL_DATA_DB_HOST     | postgres-db         | Data DB hostname   |
-| ARASUL_DATA_DB_PORT     | 5432                | Data DB port       |
-| ARASUL_DATA_DB_NAME     | arasul_data_db      | Data database name |
-| ARASUL_DATA_DB_USER     | arasul_data         | Data DB username   |
-| ARASUL_DATA_DB_PASSWORD | (POSTGRES_PASSWORD) | Data DB password   |
+| Variable                   | Default             | Description                     |
+| -------------------------- | ------------------- | ------------------------------- |
+| ARASUL_DATA_DB_HOST        | postgres-db         | Data DB hostname                |
+| ARASUL_DATA_DB_PORT        | 5432                | Data DB port                    |
+| ARASUL_DATA_DB_NAME        | arasul_data_db      | Data database name              |
+| ARASUL_DATA_DB_USER        | arasul_data         | Data DB username                |
+| ARASUL_DATA_DB_PASSWORD    | (POSTGRES_PASSWORD) | Data DB password                |
+| DATA_DB_POOL_MAX           | 10                  | Data DB max pool connections    |
+| DATA_DB_POOL_MIN           | 1                   | Data DB min pool connections    |
+| DATA_DB_IDLE_TIMEOUT       | 30000               | Data DB idle timeout (ms)       |
+| DATA_DB_CONNECTION_TIMEOUT | 10000               | Data DB connection timeout (ms) |
 
 ---
 
@@ -92,13 +99,21 @@ All variables are defined in `.env` file at repository root.
 
 Dynamic LLM model management with smart batching for Jetson devices.
 
-| Variable                      | Default | Description                          |
-| ----------------------------- | ------- | ------------------------------------ |
-| MODEL_BATCHING_ENABLED        | true    | Enable smart model batching          |
-| MODEL_MAX_WAIT_SECONDS        | 120     | Max wait before forcing model switch |
-| MODEL_SWITCH_COOLDOWN_SECONDS | 5       | Cooldown between model switches      |
-| JETSON_TOTAL_RAM_GB           | 64      | Total Jetson RAM (GB)                |
-| JETSON_RESERVED_RAM_GB        | 10      | RAM reserved for system (GB)         |
+| Variable                      | Default | Description                                     |
+| ----------------------------- | ------- | ----------------------------------------------- |
+| MODEL_BATCHING_ENABLED        | true    | Enable smart model batching                     |
+| MODEL_MAX_WAIT_SECONDS        | 120     | Max wait before forcing model switch            |
+| MODEL_SWITCH_COOLDOWN_SECONDS | 5       | Cooldown between model switches                 |
+| JETSON_TOTAL_RAM_GB           | 64      | Total Jetson RAM (GB)                           |
+| JETSON_RESERVED_RAM_GB        | 10      | RAM reserved for system (GB)                    |
+| OLLAMA_READY_TIMEOUT          | 300000  | Ollama startup timeout (ms, 5 min)              |
+| OLLAMA_RETRY_INTERVAL         | 5000    | Retry interval for Ollama connection (ms)       |
+| MODEL_SYNC_INTERVAL           | 60000   | Sync models with DB interval (ms, 1 min)        |
+| MODEL_INACTIVITY_THRESHOLD    | 1800000 | Auto-unload model after inactivity (ms, 30 min) |
+| RAM_CRITICAL_THRESHOLD        | 95      | RAM threshold for auto model unload (%)         |
+| LONG_REQUEST_THRESHOLD        | 180000  | Long request threshold (ms, 3 min)              |
+| LLM_BURST_WINDOW_MS           | 1000    | Burst window for rate limiting (ms)             |
+| LLM_MAX_CONCURRENT_ENQUEUE    | 10      | Max parallel enqueue operations                 |
 
 ### Smart Batching
 
@@ -143,28 +158,35 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## Document Indexer
 
-| Variable                       | Default   | Description             |
-| ------------------------------ | --------- | ----------------------- |
-| DOCUMENT_INDEXER_INTERVAL      | 30        | Scan interval (seconds) |
-| DOCUMENT_INDEXER_CHUNK_SIZE    | 500       | Chunk size (chars)      |
-| DOCUMENT_INDEXER_CHUNK_OVERLAP | 50        | Chunk overlap (chars)   |
-| DOCUMENT_INDEXER_MINIO_BUCKET  | documents | Source bucket           |
-| DOCUMENT_MAX_SIZE_MB           | 100       | Maximum file size (MB)  |
+| Variable                       | Default   | Description                         |
+| ------------------------------ | --------- | ----------------------------------- |
+| DOCUMENT_INDEXER_INTERVAL      | 30        | Scan interval (seconds)             |
+| DOCUMENT_INDEXER_CHUNK_SIZE    | 500       | Chunk size (chars)                  |
+| DOCUMENT_INDEXER_CHUNK_OVERLAP | 50        | Chunk overlap (chars)               |
+| DOCUMENT_INDEXER_MINIO_BUCKET  | documents | Source bucket                       |
+| DOCUMENT_MAX_SIZE_MB           | 100       | Maximum file size (MB)              |
+| RAG_HYBRID_SEARCH              | true      | Enable hybrid keyword+vector search |
+| SPACE_ROUTING_THRESHOLD        | 0.4       | Space routing confidence threshold  |
+| SPACE_ROUTING_MAX_SPACES       | 3         | Max spaces to search in RAG         |
 
 ---
 
 ## n8n (Workflow)
 
-| Variable                | Default    | Description                          |
-| ----------------------- | ---------- | ------------------------------------ |
-| N8N_HOST                | n8n        | n8n hostname                         |
-| N8N_PORT                | 5678       | n8n port                             |
-| N8N_BASIC_AUTH_USER     | (required) | Basic auth username                  |
-| N8N_BASIC_AUTH_PASSWORD | (required) | Basic auth password                  |
-| N8N_ENCRYPTION_KEY      | (required) | Encryption key (32+ chars)           |
-| N8N_EXTERNAL_URL        | (optional) | Public HTTPS URL for OAuth callbacks |
-| N8N_PROTOCOL            | https      | Protocol (http/https)                |
-| N8N_SECURE_COOKIE       | true       | Secure cookies (true for HTTPS)      |
+| Variable                | Default                          | Description                          |
+| ----------------------- | -------------------------------- | ------------------------------------ |
+| N8N_HOST                | n8n                              | n8n hostname                         |
+| N8N_PORT                | 5678                             | n8n port                             |
+| N8N_BASIC_AUTH_USER     | (required)                       | Basic auth username                  |
+| N8N_BASIC_AUTH_PASSWORD | (required)                       | Basic auth password                  |
+| N8N_ENCRYPTION_KEY      | (required)                       | Encryption key (32+ chars)           |
+| N8N_EXTERNAL_URL        | (optional)                       | Public HTTPS URL for OAuth callbacks |
+| N8N_PROTOCOL            | https                            | Protocol (http/https)                |
+| N8N_SECURE_COOKIE       | true                             | Secure cookies (true for HTTPS)      |
+| N8N_URL                 | http://n8n:5678                  | n8n service URL                      |
+| N8N_API_KEY             | (none)                           | n8n API key                          |
+| N8N_WEBHOOK_SECRET      | (none)                           | n8n webhook verification secret      |
+| N8N_SSH_KEY_PATH        | /arasul/ssh-keys/n8n_private_key | SSH key for n8n access               |
 
 ---
 
@@ -196,22 +218,24 @@ See [N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md](./N8N_OAUTH_LAN_ACCESS_COMPLETE_GUI
 
 ## Metrics
 
-| Variable                 | Default           | Description              |
-| ------------------------ | ----------------- | ------------------------ |
-| METRICS_COLLECTOR_HOST   | metrics-collector | Collector hostname       |
-| METRICS_INTERVAL_LIVE    | 5                 | Live update interval (s) |
-| METRICS_INTERVAL_PERSIST | 30                | DB persist interval (s)  |
-| METRICS_RETENTION_DAYS   | 7                 | Data retention (days)    |
+| Variable                 | Default                       | Description              |
+| ------------------------ | ----------------------------- | ------------------------ |
+| METRICS_COLLECTOR_HOST   | metrics-collector             | Collector hostname       |
+| METRICS_INTERVAL_LIVE    | 5                             | Live update interval (s) |
+| METRICS_INTERVAL_PERSIST | 30                            | DB persist interval (s)  |
+| METRICS_RETENTION_DAYS   | 7                             | Data retention (days)    |
+| METRICS_URL              | http://metrics-collector:9100 | Metrics collector URL    |
 
 ---
 
 ## Self-Healing
 
-| Variable                    | Default | Description              |
-| --------------------------- | ------- | ------------------------ |
-| SELF_HEALING_INTERVAL       | 10      | Check interval (seconds) |
-| SELF_HEALING_ENABLED        | true    | Enable healing actions   |
-| SELF_HEALING_REBOOT_ENABLED | false   | Enable system reboot     |
+| Variable                    | Default | Description                 |
+| --------------------------- | ------- | --------------------------- |
+| SELF_HEALING_INTERVAL       | 10      | Check interval (seconds)    |
+| SELF_HEALING_ENABLED        | true    | Enable healing actions      |
+| SELF_HEALING_REBOOT_ENABLED | false   | Enable system reboot        |
+| SELF_HEALING_HEARTBEAT_PORT | 9200    | Self-healing heartbeat port |
 
 ### Thresholds
 
@@ -299,6 +323,21 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 | ----------------------- | ------------ | ------------------------------------- |
 | TELEGRAM_ENCRYPTION_KEY | (JWT_SECRET) | Encryption key for API keys (AES-256) |
 
+### Advanced Configuration
+
+| Variable                       | Default | Description                                 |
+| ------------------------------ | ------- | ------------------------------------------- |
+| TELEGRAM_MAX_RESPONSE_TOKENS   | 1024    | Max LLM response tokens per message         |
+| TELEGRAM_MAX_VOICE_DURATION    | 120     | Max voice message duration (seconds)        |
+| TELEGRAM_MAX_MESSAGE_LENGTH    | 4096    | Max Telegram message length (chars)         |
+| TELEGRAM_NOTIFICATIONS_ENABLED | true    | Enable Telegram notifications               |
+| TELEGRAM_RATE_LIMIT_PER_MINUTE | 10      | Max requests per minute per user            |
+| TELEGRAM_RATE_LIMIT_PER_HOUR   | 100     | Max requests per hour per user              |
+| THINKING_MODE                  | false   | Enable Claude extended thinking in Telegram |
+| SKIP_PERMISSIONS               | false   | Skip permission checks (dev only)           |
+| ORCHESTRATOR_MODE              | master  | Multi-bot orchestration mode                |
+| PUBLIC_URL                     | (none)  | Public URL for Telegram webhooks            |
+
 ### Setup Instructions
 
 1. Create bot via Telegram @BotFather (`/newbot`)
@@ -359,12 +398,14 @@ docker compose up -d backup-service
 
 ## Dashboard
 
-| Variable          | Default | Description            |
-| ----------------- | ------- | ---------------------- |
-| PORT              | 3001    | Backend port           |
-| ALLOWED_ORIGINS   | (empty) | CORS allowed origins   |
-| REACT_APP_API_URL | /api    | Frontend API URL       |
-| REACT_APP_WS_URL  | (auto)  | Frontend WebSocket URL |
+| Variable                | Default | Description                          |
+| ----------------------- | ------- | ------------------------------------ |
+| PORT                    | 3001    | Backend port                         |
+| ALLOWED_ORIGINS         | (empty) | CORS allowed origins                 |
+| REACT_APP_API_URL       | /api    | Frontend API URL                     |
+| REACT_APP_WS_URL        | (auto)  | Frontend WebSocket URL               |
+| CLAUDE_TERMINAL_TIMEOUT | 60000   | Claude terminal command timeout (ms) |
+| RATE_LIMIT_ENABLED      | true    | Enable API rate limiting             |
 
 ---
 
@@ -380,11 +421,26 @@ docker compose up -d backup-service
 
 ## Logging
 
-| Variable      | Default | Description                       |
-| ------------- | ------- | --------------------------------- |
-| LOG_LEVEL     | info    | Log level (debug/info/warn/error) |
-| LOG_MAX_SIZE  | 50m     | Max log file size                 |
-| LOG_MAX_FILES | 10      | Max log files                     |
+| Variable      | Default      | Description                       |
+| ------------- | ------------ | --------------------------------- |
+| LOG_LEVEL     | info         | Log level (debug/info/warn/error) |
+| LOG_MAX_SIZE  | 50m          | Max log file size                 |
+| LOG_MAX_FILES | 10           | Max log files                     |
+| LOG_DIR       | /arasul/logs | Log directory path                |
+
+---
+
+## System Paths & Networking
+
+| Variable               | Default                              | Description                        |
+| ---------------------- | ------------------------------------ | ---------------------------------- |
+| ENV_FILE_PATH          | /arasul/config/.env                  | Path to runtime .env file          |
+| APPSTORE_MANIFESTS_DIR | /arasul/appstore/manifests           | App store manifest directory       |
+| DOCKER_GATEWAY_IP      | 172.30.0.1                           | Docker bridge gateway IP           |
+| DOCKER_NETWORK         | arasul-jet_arasul-net                | Docker network name                |
+| SSH_PORT               | 22                                   | SSH port for app access            |
+| SSH_USER               | arasul                               | SSH username for app access        |
+| UPDATE_PUBLIC_KEY_PATH | /arasul/config/public_update_key.pem | Public key for update verification |
 
 ---
 

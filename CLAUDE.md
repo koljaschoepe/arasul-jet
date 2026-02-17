@@ -6,16 +6,16 @@ Instructions for Claude Code working in the Arasul Platform repository.
 
 ## Quick Navigation
 
-| Looking for...              | Go to...                                                                       |
-| --------------------------- | ------------------------------------------------------------------------------ |
-| All documentation           | [docs/INDEX.md](docs/INDEX.md)                                                 |
-| **Architecture & Services** | [docs/CLAUDE_ARCHITECTURE.md](docs/CLAUDE_ARCHITECTURE.md)                     |
-| **Development Workflows**   | [docs/CLAUDE_DEVELOPMENT.md](docs/CLAUDE_DEVELOPMENT.md)                       |
-| **Frontend Design System**  | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)                                 |
-| API endpoints               | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)                                 |
-| Database schema             | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)                             |
-| Environment variables       | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                 |
-| Error Handling Pattern      | `asyncHandler()` + custom errors in `utils/errors.js`                          |
+| Looking for...              | Go to...                                                       |
+| --------------------------- | -------------------------------------------------------------- |
+| All documentation           | [docs/INDEX.md](docs/INDEX.md)                                 |
+| **Architecture & Services** | [docs/CLAUDE_ARCHITECTURE.md](docs/CLAUDE_ARCHITECTURE.md)     |
+| **Development Workflows**   | [docs/CLAUDE_DEVELOPMENT.md](docs/CLAUDE_DEVELOPMENT.md)       |
+| **Frontend Design System**  | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)                 |
+| API endpoints               | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)                 |
+| Database schema             | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)             |
+| Environment variables       | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) |
+| Error Handling Pattern      | `asyncHandler()` + custom errors in `utils/errors.js`          |
 
 ---
 
@@ -33,7 +33,7 @@ Instructions for Claude Code working in the Arasul Platform repository.
 | AI        | Ollama (LLM) + Sentence Transformers (Embeddings) |
 | Vector DB | Qdrant                                            |
 | Storage   | MinIO (S3-compatible)                             |
-| Services  | 15 Docker containers                              |
+| Services  | 17 Docker containers                              |
 
 ---
 
@@ -133,7 +133,7 @@ npm run lint:fix
 | ----------- | ----------------------------------------- | ------------------------- |
 | Backend API | `services/dashboard-backend/src/index.js` | `routes/auth.js`          |
 | Frontend    | `services/dashboard-frontend/src/App.js`  | `components/ChatMulti.js` |
-| Database    | `services/postgres/init/`                 | Next: `036_*.sql`         |
+| Database    | `services/postgres/init/`                 | Next: `038_*.sql`         |
 | AI Services | `services/llm-service/api_server.py`      | -                         |
 
 ---
