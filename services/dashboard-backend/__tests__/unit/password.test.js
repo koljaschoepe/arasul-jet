@@ -48,8 +48,7 @@ describe('Password Utilities', () => {
   });
 
   describe('validatePasswordComplexity', () => {
-    // Note: PASSWORD_REQUIREMENTS is simplified for development
-    // minLength: 4, no uppercase/lowercase/numbers/special required
+    // Production requirements: minLength 12, uppercase + lowercase + numbers required
 
     test('should accept strong password', () => {
       const result = validatePasswordComplexity('StrongPass123!@#');
@@ -58,46 +57,44 @@ describe('Password Utilities', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    test('should accept password meeting minimum length', () => {
-      // Min length is 4 characters in dev mode
-      const result = validatePasswordComplexity('test');
+    test('should accept password meeting minimum length with all requirements', () => {
+      const result = validatePasswordComplexity('Abcdefghij1k');
 
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
     test('should reject password too short', () => {
-      // Min length is 4 characters in dev mode
-      const result = validatePasswordComplexity('abc');
+      const result = validatePasswordComplexity('Short1Aa');
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Password must be at least 4 characters long');
+      expect(result.errors).toContain('Password must be at least 12 characters long');
     });
 
-    test('should accept password without uppercase (dev mode)', () => {
-      // Uppercase not required in dev mode
-      const result = validatePasswordComplexity('lowercase123!');
+    test('should reject password without uppercase', () => {
+      const result = validatePasswordComplexity('lowercase12345');
 
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Password must contain at least one uppercase letter');
     });
 
-    test('should accept password without lowercase (dev mode)', () => {
-      // Lowercase not required in dev mode
-      const result = validatePasswordComplexity('UPPERCASE123!');
+    test('should reject password without lowercase', () => {
+      const result = validatePasswordComplexity('UPPERCASE12345');
 
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Password must contain at least one lowercase letter');
     });
 
-    test('should accept password without numbers (dev mode)', () => {
-      // Numbers not required in dev mode
-      const result = validatePasswordComplexity('NoNumbers!@#');
+    test('should reject password without numbers', () => {
+      const result = validatePasswordComplexity('NoNumbersHere!');
 
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Password must contain at least one number');
     });
 
-    test('should accept password without special characters (dev mode)', () => {
-      // Special chars not required in dev mode
-      const result = validatePasswordComplexity('NoSpecialChars123');
+    test('should accept password without special characters', () => {
+      // Special chars are not required
+      const result = validatePasswordComplexity('NoSpecialChars1');
 
       expect(result.valid).toBe(true);
     });

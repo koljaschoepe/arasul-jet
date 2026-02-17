@@ -136,48 +136,54 @@
 
 ### 3.1 Traefik-Konfiguration absichern
 
-- [ ] `config/traefik/dynamic/middlewares.yml` Lines 218, 231 - PLACEHOLDER-Credentials durch generierte Hashes ersetzen
-- [ ] Pre-Deployment-Check in `scripts/validate_config.sh` hinzufuegen der PLACEHOLDER-Werte erkennt
-- [ ] HTTP -> HTTPS Redirect erzwingen (falls nicht schon via Traefik-Entrypoint)
-- [ ] Rate-Limiting fuer `/api/auth/verify` (Forward-Auth) validieren und testen
+- [ ] `config/traefik/dynamic/middlewares.yml` Lines 218, 231 - PLACEHOLDER-Credentials durch generierte Hashes ersetzen (bei Deployment: `scripts/generate_htpasswd.sh`)
+- [x] Pre-Deployment-Check in `scripts/validate_config.sh` hinzufuegen der PLACEHOLDER-Werte erkennt
+- [ ] HTTP -> HTTPS Redirect erzwingen (Bewusst deaktiviert fuer LAN-HTTP-Zugriff auf Jetson, redirect-https Middleware definiert)
+- [x] Rate-Limiting fuer `/api/auth/verify` (Forward-Auth) validiert - 30 req/min konfiguriert
+- [x] CSP-Header, Referrer-Policy und Permissions-Policy in security-headers Middleware konfiguriert
 
 ### 3.2 Secrets-Management
 
-- [ ] `.env`-Datei: Permissions-Check beim Start (muss 0600 sein)
-- [ ] `scripts/validate_config.sh`: Passwort-Staerke-Anforderung von 4 auf mindestens 12 Zeichen erhoehen
-- [ ] JWT_SECRET: Mindestlaenge 32 Zeichen erzwingen
-- [ ] Alle Default-Credentials aus Code entfernen (kein Fallback auf leere Passwoerter)
-- [ ] Git-Hook oder CI-Check der verhindert dass .env-Dateien committed werden
+- [x] `.env`-Datei: Permissions-Check beim Start (validate_config.sh prueft auf 0600)
+- [x] `scripts/validate_config.sh`: Passwort-Staerke-Anforderung von 4 auf mindestens 12 Zeichen erhoeht + `arasul123` in Blocklist
+- [x] JWT_SECRET: Mindestlaenge 32 Zeichen erzwungen (validate_config.sh + jwt.js process.exit(1))
+- [x] Alle Default-Credentials aus Code entfernt: `tokenCrypto.js` (default-secret + statischer Salt), `telegramOrchestratorService.js` (verwendet jetzt tokenCrypto), `telegram.js` (leerer String), `telegramBots.js` (webhook secret Fallback)
+- [x] Git-Hook (.husky/pre-commit) verhindert .env, .pem, admin.hash, config/secrets/ Commits
+- [x] `password.js`: Minimum 12 Zeichen + Uppercase + Lowercase + Number Anforderungen
 
 ### 3.3 Swagger/API-Docs absichern
 
-- [ ] `routes/docs.js` Lines 61, 64, 69 - Auth-Middleware fuer Swagger-UI-Routen hinzufuegen
-- [ ] Swagger nur im Development-Modus zugaenglich machen ODER hinter Admin-Auth schützen
-- [ ] API-Schema nicht an unauthentifizierte User exposen
+- [x] `routes/docs.js` - requireAuth Middleware fuer alle Swagger-UI-Routen in Production
+- [x] Swagger nur im Development-Modus ohne Auth zugaenglich, in Production hinter Admin-Auth
+- [x] API-Schema (openapi.json/yaml) hinter gleicher Auth geschuetzt
 
 ### 3.4 Docker-Socket-Sicherheit
 
-- [ ] Docker Socket Proxy evaluieren (z.B. `tecnativa/docker-socket-proxy`)
-- [ ] Nur notwendige Docker-API-Calls erlauben (container list, logs, restart - KEIN exec, build, push)
-- [ ] Self-Healing-Agent: CAP_SYS_BOOT nur aktivieren wenn explizit konfiguriert
+- [ ] Docker Socket Proxy evaluieren (z.B. `tecnativa/docker-socket-proxy`) - Phase 8 (OS-Hardening)
+- [ ] Nur notwendige Docker-API-Calls erlauben (container list, logs, restart - KEIN exec, build, push) - benoetigt Socket Proxy
+- [x] Self-Healing-Agent: `cap_drop: ALL` + spezifische `cap_add` + `security_opt: no-new-privileges`
+- [x] Dashboard-Backend: `security_opt: no-new-privileges` hinzugefuegt
 
 ### 3.5 XSS-Praevention im Frontend
 
-- [ ] `MermaidDiagram.js` Line 97: DOMPurify-Konfiguration ueberpruefen (SVG-spezifische Sanitization)
-- [ ] ChatMessage: Markdown-Rendering auf XSS-Vektoren pruefen
-- [ ] Alle `dangerouslySetInnerHTML`-Verwendungen auflisten und einzeln validieren
-- [ ] CSP-Header in Traefik konfigurieren (Content-Security-Policy)
+- [x] `MermaidDiagram.js`: DOMPurify korrekt konfiguriert mit SVG-Profil + `securityLevel: 'strict'` (verifiziert)
+- [x] ChatMessage: react-markdown ohne rehype-raw - HTML wird automatisch gestripped (verifiziert, sicher)
+- [x] `dangerouslySetInnerHTML`: Nur 1 Vorkommen (MermaidDiagram.js), korrekt mit DOMPurify sanitized (verifiziert)
+- [x] CSP-Header in Traefik konfiguriert (Content-Security-Policy, Referrer-Policy, Permissions-Policy)
+- [x] URL-Sanitization (`sanitizeUrl()`) fuer API-gesourcte href-Attribute: AppDetailModal, ModelStore, StoreModels, BotSetupWizard
 
 ### 3.6 Token-Sicherheit
 
-- [ ] Refresh-Token-Strategie implementieren (kurze JWT-Lifetime + Refresh)
-- [ ] Token-Blacklist fuer Logout (Backend-seitig)
-- [ ] X-User-Id/X-User-Name/X-User-Email Headers in Traefik Forward-Auth ueberpruefen (Leak-Risiko)
+- [ ] Refresh-Token-Strategie implementieren (kurze JWT-Lifetime + Refresh) - komplexes Feature, separate Phase
+- [x] Token-Blacklist fuer Logout (Backend-seitig) - bereits implementiert via `token_blacklist` + `active_sessions` DB-Tabellen
+- [x] X-User-Id/X-User-Name/X-User-Email Headers in Traefik Forward-Auth: Risiko akzeptabel innerhalb Docker-Netzwerk-Isolation
+- [x] Bearer-Token-Parsing case-insensitive gemacht (auth.js Middleware Konsistenz)
+- [x] Default-Secret-Fallbacks in Token-Encryption entfernt (siehe 3.2)
 
 ### 3.7 Loki-Logging absichern
 
-- [ ] `config/loki/local-config.yaml` Line 4: `auth_enabled: true` setzen ODER
-- [ ] Sicherstellen dass Loki nur ueber Docker-Netzwerk erreichbar ist (kein externer Port)
+- [ ] `config/loki/local-config.yaml` Line 4: `auth_enabled: true` setzen (nicht noetig wenn Port nicht exponiert)
+- [x] Loki Port 3100 extern entfernt - nur noch ueber Docker-Netzwerk erreichbar
 
 ---
 

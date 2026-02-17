@@ -25,6 +25,7 @@ import {
 } from 'react-icons/fi';
 import { useDownloads } from '../contexts/DownloadContext';
 import { API_BASE, getAuthHeaders } from '../config/api';
+import { sanitizeUrl } from '../utils/sanitizeUrl';
 import '../modelstore.css';
 
 // Category configuration - neutral per Design System
@@ -562,7 +563,7 @@ function ModelStore() {
               {selectedModel.ollama_library_url && (
                 <div className="model-detail-section">
                   <a
-                    href={selectedModel.ollama_library_url}
+                    href={sanitizeUrl(selectedModel.ollama_library_url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary"

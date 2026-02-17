@@ -471,6 +471,8 @@ services:
       - ./data/backups:/arasul/backups:ro
       - ./data/appstore/manifests:/arasul/appstore/manifests:ro
       - ./data/ssh-keys:/arasul/ssh-keys:ro
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -666,10 +668,14 @@ services:
       - ./data/backups:/arasul/backups
     devices:
       - /dev/bus/usb:/dev/bus/usb
+    cap_drop:
+      - ALL
     cap_add:
       - SYS_ADMIN   # Required for system management operations
-      - SYS_BOOT    # Required for reboot capability
+      - SYS_BOOT    # Required for reboot capability (only if SELF_HEALING_REBOOT_ENABLED=true)
       - SYS_NICE    # Required for process priority management
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -819,8 +825,10 @@ services:
     restart: always
     networks:
       - arasul-net
-    ports:
-      - "3100:3100"
+    # SEC: Loki only accessible within Docker network (no external port exposure)
+    # Access via docker network hostname 'loki:3100' from other containers
+    # ports:
+    #   - "3100:3100"
     volumes:
       - ./config/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
       - arasul-loki:/loki

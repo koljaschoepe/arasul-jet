@@ -140,14 +140,14 @@ check_password_strength() {
 
     local length=${#password}
 
-    # Development mode: Only warn for very short passwords (< 4 chars)
-    if [ "$length" -lt 4 ]; then
-        log_warning "$var_name is too short (< 4 characters)"
-        WARNINGS=$((WARNINGS + 1))
+    # Production: Passwords must be at least 12 characters
+    if [ "$length" -lt 12 ]; then
+        log_error "$var_name is too short (< 12 characters) - SECURITY RISK"
+        ERRORS=$((ERRORS + 1))
     fi
 
-    # Check for default/weak passwords (excluding arasul123 for dev)
-    if [[ "$password" =~ ^(password|admin|123456|changeme|default)$ ]]; then
+    # Check for default/weak passwords
+    if [[ "$password" =~ ^(password|admin|123456|changeme|default|arasul123|arasul)$ ]]; then
         log_error "$var_name uses a common/weak password - SECURITY RISK"
         ERRORS=$((ERRORS + 1))
     fi
@@ -345,6 +345,48 @@ log_info "Validating Metrics Configuration..."
 
 validate_number "METRICS_INTERVAL_LIVE" 1 60
 validate_number "METRICS_INTERVAL_PERSIST" 10 300
+
+echo ""
+
+###############################################################################
+# FILE CHECKS
+###############################################################################
+
+log_info "Checking .env File Permissions..."
+
+# Check .env file permissions (should be 0600 for secrets protection)
+env_perms=$(stat -c '%a' "$ENV_FILE" 2>/dev/null)
+if [ -n "$env_perms" ]; then
+    if [ "$env_perms" != "600" ] && [ "$env_perms" != "400" ]; then
+        log_warning ".env file has permissions $env_perms (should be 600) - run: chmod 600 $ENV_FILE"
+        WARNINGS=$((WARNINGS + 1))
+    else
+        log_success ".env file permissions are secure ($env_perms)"
+    fi
+fi
+
+echo ""
+
+###############################################################################
+# PLACEHOLDER DETECTION (Traefik config)
+###############################################################################
+
+log_info "Checking for PLACEHOLDER credentials..."
+
+TRAEFIK_MW="config/traefik/dynamic/middlewares.yml"
+if [ -f "$TRAEFIK_MW" ]; then
+    if grep -q 'PLACEHOLDER' "$TRAEFIK_MW"; then
+        log_error "Traefik middlewares.yml contains PLACEHOLDER credentials - MUST be replaced before production!"
+        log_error "  Run: scripts/generate_htpasswd.sh admin <YOUR_PASSWORD>"
+        log_error "  Then update $TRAEFIK_MW with the generated hash"
+        ERRORS=$((ERRORS + 1))
+    else
+        log_success "No PLACEHOLDER credentials found in Traefik config"
+    fi
+else
+    log_warning "Traefik middlewares file not found at $TRAEFIK_MW"
+    WARNINGS=$((WARNINGS + 1))
+fi
 
 echo ""
 

@@ -52,10 +52,16 @@ http:
         stsIncludeSubdomains: true
         stsPreload: true
         stsSeconds: 31536000
-        customFrameOptionsValue: "SAMEORIGIN"
+        customFrameOptionsValue: 'SAMEORIGIN'
+        # Content-Security-Policy: restrict resource loading to same origin
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+        # Referrer-Policy: prevent leaking URLs to external services
+        referrerPolicy: 'strict-origin-when-cross-origin'
+        # Permissions-Policy: disable unnecessary browser features
+        permissionsPolicy: 'camera=(), microphone=(), geolocation=(), payment=()'
         customResponseHeaders:
-          X-Powered-By: "Arasul Platform"
-          Server: ""  # Hide server info
+          X-Powered-By: 'Arasul Platform'
+          Server: '' # Hide server info
 
     # CORS Headers
     # PHASE1-FIX: Restricted to local/private networks instead of wildcard "*"
@@ -68,75 +74,75 @@ http:
           - DELETE
           - OPTIONS
         accessControlAllowOriginList:
-          - "http://localhost"
-          - "http://localhost:3000"
-          - "http://127.0.0.1"
-          - "http://127.0.0.1:3000"
-          - "https://localhost"
-          - "https://127.0.0.1"
+          - 'http://localhost'
+          - 'http://localhost:3000'
+          - 'http://127.0.0.1'
+          - 'http://127.0.0.1:3000'
+          - 'https://localhost'
+          - 'https://127.0.0.1'
         accessControlAllowOriginListRegex:
           - "^https?://192\\.168\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
           - "^https?://10\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
           - "^https?://172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
         accessControlAllowHeaders:
-          - "Content-Type"
-          - "Authorization"
-          - "X-Requested-With"
+          - 'Content-Type'
+          - 'Authorization'
+          - 'X-Requested-With'
         accessControlExposeHeaders:
-          - "Content-Length"
-          - "Content-Type"
+          - 'Content-Length'
+          - 'Content-Type'
         accessControlMaxAge: 3600
         addVaryHeader: true
 
     # Forward Authentication (JWT validation via cookie or header)
     forward-auth:
       forwardAuth:
-        address: "http://dashboard-backend:3001/api/auth/verify"
+        address: 'http://dashboard-backend:3001/api/auth/verify'
         authRequestHeaders:
-          - "Authorization"
-          - "Cookie"
+          - 'Authorization'
+          - 'Cookie'
         authResponseHeaders:
-          - "X-User-Id"
-          - "X-User-Name"
-          - "X-User-Email"
+          - 'X-User-Id'
+          - 'X-User-Name'
+          - 'X-User-Email'
 
     # Strip path prefixes
     strip-minio-prefix:
       stripPrefix:
         prefixes:
-          - "/minio"
+          - '/minio'
         forceSlash: false
 
     # MinIO Headers for reverse proxy
     minio-headers:
       headers:
         customRequestHeaders:
-          X-Forwarded-Proto: "https"
-          X-Forwarded-For: ""
-          X-Real-IP: ""
+          X-Forwarded-Proto: 'https'
+          X-Forwarded-For: ''
+          X-Real-IP: ''
 
     strip-minio-api-prefix:
       stripPrefix:
         prefixes:
-          - "/minio-api"
+          - '/minio-api'
         forceSlash: false
 
     strip-models-prefix:
       stripPrefix:
         prefixes:
-          - "/models"
+          - '/models'
         forceSlash: false
 
     strip-embeddings-prefix:
       stripPrefix:
         prefixes:
-          - "/embeddings"
+          - '/embeddings'
         forceSlash: false
 
     strip-n8n-prefix:
       stripPrefix:
         prefixes:
-          - "/n8n"
+          - '/n8n'
         forceSlash: false
 
     # n8n Root Redirect: /n8n or /n8n/ → /n8n/signin
@@ -144,30 +150,30 @@ http:
     # FIX: Must redirect to /n8n/signin (not /signin) to stay within n8n context
     n8n-root-to-signin:
       redirectRegex:
-        regex: "^(https?://[^/]+)/n8n/?$"
-        replacement: "${1}/n8n/signin"
+        regex: '^(https?://[^/]+)/n8n/?$'
+        replacement: '${1}/n8n/signin'
         permanent: false
 
     # Strip terminal prefix for Claude Code (legacy)
     strip-terminal-prefix:
       stripPrefix:
         prefixes:
-          - "/terminal"
+          - '/terminal'
         forceSlash: false
 
     # Strip claude-terminal prefix for Claude Code
     strip-claude-terminal-prefix:
       stripPrefix:
         prefixes:
-          - "/claude-terminal"
+          - '/claude-terminal'
         forceSlash: false
 
     # Compression
     compress:
       compress:
         excludedContentTypes:
-          - "text/event-stream"
-          - "application/grpc"
+          - 'text/event-stream'
+          - 'application/grpc'
 
     # Retry middleware
     retry:
@@ -178,7 +184,7 @@ http:
     # Circuit breaker
     circuit-breaker:
       circuitBreaker:
-        expression: "NetworkErrorRatio() > 0.5 || ResponseCodeRatio(500, 600, 0, 600) > 0.25"
+        expression: 'NetworkErrorRatio() > 0.5 || ResponseCodeRatio(500, 600, 0, 600) > 0.25'
         checkPeriod: 10s
         fallbackDuration: 30s
         recoveryDuration: 60s
@@ -187,10 +193,10 @@ http:
     admin-whitelist:
       ipWhiteList:
         sourceRange:
-          - "127.0.0.1/32"
-          - "172.30.0.0/24"  # Docker network
-          - "192.168.0.0/16"  # Local network
-          - "10.0.0.0/8"      # Private network
+          - '127.0.0.1/32'
+          - '172.30.0.0/24' # Docker network
+          - '192.168.0.0/16' # Local network
+          - '10.0.0.0/8' # Private network
 
     # Redirect to HTTPS
     redirect-https:
@@ -201,8 +207,8 @@ http:
     # Add trailing slash
     add-trailing-slash:
       redirectRegex:
-        regex: "^(https?://[^/]+/[a-z0-9_]+)$"
-        replacement: "${1}/"
+        regex: '^(https?://[^/]+/[a-z0-9_]+)$'
+        replacement: '${1}/'
         permanent: true
 
     # Basic Auth for Traefik Dashboard
@@ -215,8 +221,8 @@ http:
       basicAuth:
         users:
           # PLACEHOLDER - Replace with output from: htpasswd -nb admin <YOUR_SECURE_PASSWORD>
-          - "admin:$apr1$PLACEHOLDER$REPLACE_WITH_GENERATED_HASH"
-        realm: "Traefik Dashboard"
+          - 'admin:$apr1$PLACEHOLDER$REPLACE_WITH_GENERATED_HASH'
+        realm: 'Traefik Dashboard'
         removeHeader: true
 
     # Basic Auth for n8n
@@ -228,6 +234,6 @@ http:
       basicAuth:
         users:
           # PLACEHOLDER - Replace with output from: scripts/generate_htpasswd.sh admin <YOUR_SECURE_PASSWORD>
-          - "admin:$$2y$$05$$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH"
-        realm: "n8n Workflow Engine"
+          - 'admin:$$2y$$05$$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH'
+        realm: 'n8n Workflow Engine'
         removeHeader: true

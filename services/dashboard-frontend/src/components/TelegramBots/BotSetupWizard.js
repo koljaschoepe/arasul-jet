@@ -19,6 +19,7 @@ import {
   FiCloud,
 } from 'react-icons/fi';
 import { API_BASE, getAuthHeaders } from '../../config/api';
+import { sanitizeUrl } from '../../utils/sanitizeUrl';
 import './TelegramBots.css';
 
 // Debug flag - set to false in production
@@ -943,7 +944,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
                 {deepLink && (
                   <div className="wizard-deeplink-box">
                     <a
-                      href={deepLink}
+                      href={sanitizeUrl(deepLink)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="wizard-deeplink-btn"

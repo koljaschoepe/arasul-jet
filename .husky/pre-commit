@@ -5,6 +5,19 @@
 
 echo "Running pre-commit checks..."
 
+# Check for accidentally staged .env files or secrets
+FORBIDDEN_PATTERNS='.env$|\.env\.local$|\.env\.[a-z]+\.local$|config/secrets/|\.pem$|admin\.hash$'
+STAGED_SECRETS=$(git diff --cached --name-only | grep -E "$FORBIDDEN_PATTERNS" || true)
+
+if [ -n "$STAGED_SECRETS" ]; then
+  echo ""
+  echo "ERROR: Attempting to commit files that may contain secrets:"
+  echo "$STAGED_SECRETS"
+  echo ""
+  echo "If this is intentional, use: git commit --no-verify"
+  exit 1
+fi
+
 # Run lint-staged (ESLint + Prettier on staged files)
 npx lint-staged
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { sanitizeUrl } from '../utils/sanitizeUrl';
 import {
   FiX,
   FiDownload,
@@ -19,21 +20,21 @@ import {
   FiHardDrive,
   FiZap,
   FiCopy,
-  FiServer
+  FiServer,
 } from 'react-icons/fi';
 import ConfirmIconButton from './ConfirmIconButton';
 import { API_BASE } from '../config/api';
 import { formatDate } from '../utils/formatting';
 
 // Get app URL based on port or traefik route
-const getAppUrl = (app) => {
+const getAppUrl = app => {
   // Apps with custom pages should link internally
   if (app.hasCustomPage && app.customPageRoute) {
     return app.customPageRoute;
   }
   // Apps routed through Traefik path (use same origin, no port)
   const traefikPaths = {
-    'n8n': '/n8n'
+    n8n: '/n8n',
   };
   if (traefikPaths[app.id]) {
     return `${window.location.origin}${traefikPaths[app.id]}`;
@@ -44,9 +45,9 @@ const getAppUrl = (app) => {
   }
   // Fallback to known ports for direct access
   const knownPorts = {
-    'minio': 9001,
+    minio: 9001,
     'code-server': 8443,
-    'gitea': 3002
+    gitea: 3002,
   };
   if (knownPorts[app.id]) {
     return `http://${window.location.hostname}:${knownPorts[app.id]}`;
@@ -54,7 +55,15 @@ const getAppUrl = (app) => {
   return '#';
 };
 
-function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, statusConfig, getIcon }) {
+function AppDetailModal({
+  app,
+  onClose,
+  onAction,
+  onUninstall,
+  actionLoading,
+  statusConfig,
+  getIcon,
+}) {
   const [activeTab, setActiveTab] = useState('info');
   const [logs, setLogs] = useState('');
   const [logsLoading, setLogsLoading] = useState(false);
@@ -71,7 +80,10 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
 
   // Load logs when tab is selected
   useEffect(() => {
-    if (activeTab === 'logs' && (app.status === 'running' || app.status === 'installed' || app.status === 'error')) {
+    if (
+      activeTab === 'logs' &&
+      (app.status === 'running' || app.status === 'installed' || app.status === 'error')
+    ) {
       loadLogs();
     }
   }, [activeTab, app.id, app.status]);
@@ -139,22 +151,17 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content app-detail-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content app-detail-modal" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="modal-header">
           <div className="modal-header-left">
-            <div className="app-icon-large">
-              {getIcon(app.icon)}
-            </div>
+            <div className="app-icon-large">{getIcon(app.icon)}</div>
             <div className="app-header-info">
               <h2>{app.name}</h2>
               <div className="app-header-meta">
                 <span className="version">v{app.version}</span>
                 {isSystem && <span className="badge badge-system">System-App</span>}
-                <span
-                  className="badge badge-status"
-                  style={{ backgroundColor: status.color }}
-                >
+                <span className="badge badge-status" style={{ backgroundColor: status.color }}>
                   <StatusIcon />
                   {status.label}
                 </span>
@@ -202,9 +209,7 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
         <div className="modal-body">
           {activeTab === 'info' && (
             <div className="tab-content tab-info">
-              <p className="app-long-description">
-                {app.longDescription || app.description}
-              </p>
+              <p className="app-long-description">{app.longDescription || app.description}</p>
 
               <div className="info-grid">
                 <div className="info-item">
@@ -231,7 +236,7 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                     <div>
                       <span className="label">Homepage</span>
                       <a
-                        href={app.homepage}
+                        href={sanitizeUrl(app.homepage)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="value link"
@@ -299,18 +304,12 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
             <div className="tab-content tab-logs">
               <div className="logs-header">
                 <span>Container Logs</span>
-                <button
-                  className="btn btn-small"
-                  onClick={loadLogs}
-                  disabled={logsLoading}
-                >
+                <button className="btn btn-small" onClick={loadLogs} disabled={logsLoading}>
                   <FiRefreshCw className={logsLoading ? 'spin' : ''} />
                   Aktualisieren
                 </button>
               </div>
-              <pre className="logs-content">
-                {logsLoading ? 'Logs werden geladen...' : logs}
-              </pre>
+              <pre className="logs-content">{logsLoading ? 'Logs werden geladen...' : logs}</pre>
             </div>
           )}
 
@@ -325,15 +324,11 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                 <div className="events-list">
                   {events.map((event, index) => (
                     <div key={index} className="event-item">
-                      <div className="event-time">
-                        {formatDate(event.created_at)}
-                      </div>
+                      <div className="event-time">{formatDate(event.created_at)}</div>
                       <div className={`event-type event-${event.event_type}`}>
                         {event.event_type}
                       </div>
-                      <div className="event-message">
-                        {event.event_message}
-                      </div>
+                      <div className="event-message">{event.event_message}</div>
                     </div>
                   ))}
                 </div>
@@ -353,10 +348,12 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
               ) : n8nCredentials ? (
                 <>
                   <div className="n8n-section">
-                    <h4><FiServer /> SSH Credentials für n8n</h4>
+                    <h4>
+                      <FiServer /> SSH Credentials für n8n
+                    </h4>
                     <p className="n8n-description">
-                      Verwende diese Credentials in n8n, um {app.name} per SSH zu triggern.
-                      Wähle in n8n "Private Key" als Authentifizierungsmethode.
+                      Verwende diese Credentials in n8n, um {app.name} per SSH zu triggern. Wähle in
+                      n8n "Private Key" als Authentifizierungsmethode.
                     </p>
 
                     <div className="credentials-grid">
@@ -380,7 +377,9 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                           <code>{n8nCredentials.ssh?.port}</code>
                           <button
                             className="copy-btn"
-                            onClick={() => copyToClipboard(String(n8nCredentials.ssh?.port), 'port')}
+                            onClick={() =>
+                              copyToClipboard(String(n8nCredentials.ssh?.port), 'port')
+                            }
                             title="Kopieren"
                           >
                             {copiedField === 'port' ? <FiCheck /> : <FiCopy />}
@@ -394,7 +393,9 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                           <code>{n8nCredentials.ssh?.username}</code>
                           <button
                             className="copy-btn"
-                            onClick={() => copyToClipboard(n8nCredentials.ssh?.username, 'username')}
+                            onClick={() =>
+                              copyToClipboard(n8nCredentials.ssh?.username, 'username')
+                            }
                             title="Kopieren"
                           >
                             {copiedField === 'username' ? <FiCheck /> : <FiCopy />}
@@ -413,7 +414,9 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
 
                   {n8nCredentials.ssh?.privateKey && (
                     <div className="n8n-section">
-                      <h4><FiTerminal /> Private Key</h4>
+                      <h4>
+                        <FiTerminal /> Private Key
+                      </h4>
                       <p className="n8n-description">
                         Kopiere diesen kompletten Key in das "Private Key" Feld in n8n:
                       </p>
@@ -421,20 +424,30 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                         <pre>{n8nCredentials.ssh.privateKey}</pre>
                         <button
                           className="copy-btn copy-btn-large"
-                          onClick={() => copyToClipboard(n8nCredentials.ssh.privateKey, 'privateKey')}
+                          onClick={() =>
+                            copyToClipboard(n8nCredentials.ssh.privateKey, 'privateKey')
+                          }
                           title="Private Key kopieren"
                         >
-                          {copiedField === 'privateKey' ? <><FiCheck /> Kopiert!</> : <><FiCopy /> Key kopieren</>}
+                          {copiedField === 'privateKey' ? (
+                            <>
+                              <FiCheck /> Kopiert!
+                            </>
+                          ) : (
+                            <>
+                              <FiCopy /> Key kopieren
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
                   )}
 
                   <div className="n8n-section">
-                    <h4><FiTerminal /> Beispiel-Command</h4>
-                    <p className="n8n-description">
-                      Verwende diesen Command im SSH-Node:
-                    </p>
+                    <h4>
+                      <FiTerminal /> Beispiel-Command
+                    </h4>
+                    <p className="n8n-description">Verwende diesen Command im SSH-Node:</p>
                     <div className="command-box">
                       <code>{n8nCredentials.exampleCommand}</code>
                       <button
@@ -448,7 +461,9 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                   </div>
 
                   <div className="n8n-section">
-                    <h4><FiInfo /> Anleitung</h4>
+                    <h4>
+                      <FiInfo /> Anleitung
+                    </h4>
                     <ol className="instructions-list">
                       {n8nCredentials.instructions?.map((instruction, index) => (
                         <li key={index}>{instruction}</li>
@@ -485,11 +500,7 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
               onClick={() => onAction(app.id, 'install')}
               disabled={isLoading}
             >
-              {isLoading === 'install' ? (
-                <FiRefreshCw className="spin" />
-              ) : (
-                <FiDownload />
-              )}
+              {isLoading === 'install' ? <FiRefreshCw className="spin" /> : <FiDownload />}
               Installieren
             </button>
           )}
@@ -501,16 +512,15 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
                 onClick={() => onAction(app.id, 'start')}
                 disabled={isLoading}
               >
-                {isLoading === 'start' ? (
-                  <FiRefreshCw className="spin" />
-                ) : (
-                  <FiPlay />
-                )}
+                {isLoading === 'start' ? <FiRefreshCw className="spin" /> : <FiPlay />}
                 Starten
               </button>
               <button
                 className="btn btn-danger"
-                onClick={() => { onClose(); onUninstall(app.id, app.name); }}
+                onClick={() => {
+                  onClose();
+                  onUninstall(app.id, app.name);
+                }}
                 disabled={isLoading}
               >
                 <FiTrash2 /> Deinstallieren
@@ -571,7 +581,10 @@ function AppDetailModal({ app, onClose, onAction, onUninstall, actionLoading, st
               </button>
               <button
                 className="btn btn-danger"
-                onClick={() => { onClose(); onUninstall(app.id, app.name); }}
+                onClick={() => {
+                  onClose();
+                  onUninstall(app.id, app.name);
+                }}
                 disabled={isLoading}
               >
                 <FiTrash2 /> Deinstallieren

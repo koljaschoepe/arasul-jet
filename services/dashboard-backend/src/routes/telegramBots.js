@@ -228,11 +228,14 @@ router.post(
     const botDetails = await telegramBotService.getBotById(parseInt(req.params.id), req.user.id);
 
     if (botDetails) {
-      const fullWebhookUrl = `${process.env.PUBLIC_URL || 'https://your-domain.com'}/api/telegram-bots/webhook/${bot.id}/${botDetails.webhookSecret || 'secret'}`;
+      if (!botDetails.webhookSecret) {
+        logger.warn(`Bot ${bot.id} has no webhookSecret - skipping webhook setup`);
+      }
+      const fullWebhookUrl = `${process.env.PUBLIC_URL}/api/telegram-bots/webhook/${bot.id}/${botDetails.webhookSecret}`;
 
       try {
-        // Only set webhook if PUBLIC_URL is configured
-        if (process.env.PUBLIC_URL) {
+        // Only set webhook if PUBLIC_URL and webhookSecret are configured
+        if (process.env.PUBLIC_URL && botDetails.webhookSecret) {
           await telegramWebhookService.setWebhook(bot.id, fullWebhookUrl);
         }
       } catch (webhookError) {
