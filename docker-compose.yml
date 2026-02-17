@@ -530,6 +530,7 @@ services:
       - ./data/ssh-keys:/arasul/ssh-keys:ro
     security_opt:
       - no-new-privileges:true
+      - apparmor:arasul-backend
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -751,6 +752,7 @@ services:
       - SYS_NICE    # Required for process priority management
     security_opt:
       - no-new-privileges:true
+      - apparmor:arasul-self-healing
     depends_on:
       postgres-db:
         condition: service_healthy

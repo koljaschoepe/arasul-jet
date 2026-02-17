@@ -87,9 +87,17 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
   const renderContent = () => {
     switch (activeSection) {
       case 'general':
-        return <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />;
+        return (
+          <ComponentErrorBoundary componentName="Allgemein">
+            <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />
+          </ComponentErrorBoundary>
+        );
       case 'company-context':
-        return <CompanyContextSettings />;
+        return (
+          <ComponentErrorBoundary componentName="Firmenkontext">
+            <CompanyContextSettings />
+          </ComponentErrorBoundary>
+        );
       case 'updates':
         return (
           <ComponentErrorBoundary componentName="Updates">
@@ -103,7 +111,11 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
           </ComponentErrorBoundary>
         );
       case 'services':
-        return <ServicesSettings />;
+        return (
+          <ComponentErrorBoundary componentName="Services">
+            <ServicesSettings />
+          </ComponentErrorBoundary>
+        );
       case 'telegram':
         return (
           <ComponentErrorBoundary componentName="Telegram">
@@ -136,7 +148,11 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
           </div>
         );
       default:
-        return <GeneralSettings />;
+        return (
+          <ComponentErrorBoundary componentName="Allgemein">
+            <GeneralSettings />
+          </ComponentErrorBoundary>
+        );
     }
   };
 

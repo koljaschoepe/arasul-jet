@@ -287,14 +287,18 @@ router.post(
  * GET /api/settings/password-requirements
  * Get password complexity requirements
  */
-router.get('/password-requirements', requireAuth, (req, res) => {
-  const { PASSWORD_REQUIREMENTS } = require('../utils/password');
+router.get(
+  '/password-requirements',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { PASSWORD_REQUIREMENTS } = require('../utils/password');
 
-  res.json({
-    requirements: PASSWORD_REQUIREMENTS,
-    timestamp: new Date().toISOString(),
-  });
-});
+    res.json({
+      requirements: PASSWORD_REQUIREMENTS,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
 
 // =============================================================================
 // COMPANY CONTEXT (RAG 2.0)

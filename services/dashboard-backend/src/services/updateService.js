@@ -146,12 +146,17 @@ class UpdateService {
       const fileHash = hashSum.digest('hex');
       logger.info(`Update file SHA256: ${fileHash}`);
 
-      // Verify signature using RSA-SHA256
-      const verify = crypto.createVerify('RSA-SHA256');
-      verify.update(updateData);
-      verify.end();
-
-      const isValid = verify.verify(publicKey, signature);
+      // Verify signature using RSA-PSS with SHA-256 (matches sign_update_package.py)
+      const isValid = crypto.verify(
+        'sha256',
+        updateData,
+        {
+          key: publicKey,
+          padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto.constants.RSA_PSS_SALTLEN_MAX_LEN,
+        },
+        signature
+      );
 
       if (isValid) {
         logger.info(`Signature verification successful for ${path.basename(updateFilePath)}`);

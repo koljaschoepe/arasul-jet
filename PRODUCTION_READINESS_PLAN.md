@@ -28,54 +28,54 @@
 
 ### 1.1 asyncHandler-Migration abschliessen
 
-- [ ] `routes/auth.js` Line 263 (`GET /password-requirements`) - asyncHandler hinzufuegen
-- [ ] `routes/auth.js` Line 274 (`GET /verify`) - asyncHandler + try-catch entfernen
-- [ ] `routes/llm.js` Line 188 (`GET /jobs/:jobId/stream`) - asyncHandler (SSE-Route, Sonderbehandlung)
-- [ ] `routes/telegramBots.js` Line 45 (`POST /webhook/:botId/:secret`) - asyncHandler (Telegram erwartet 200)
-- [ ] `routes/telegramBots.js` Line 119 (`GET /models/claude`) - asyncHandler hinzufuegen
-- [ ] `routes/settings.js` Line 281 (`GET /password-requirements`) - asyncHandler hinzufuegen
-- [ ] `routes/docs.js` Lines 61, 64, 69 - Error-Handling fuer Swagger-Routen
-- [ ] `routes/update.js` Lines 151-159 - Unhandled Promise Chain in `applyUpdate()` fixen
+- [x] `routes/auth.js` Line 263 (`GET /password-requirements`) - asyncHandler hinzugefuegt
+- [x] `routes/auth.js` Line 274 (`GET /verify`) - asyncHandler + try-catch entfernen
+- [x] `routes/llm.js` Line 188 (`GET /jobs/:jobId/stream`) - asyncHandler (SSE-Route, Sonderbehandlung)
+- [x] `routes/telegramBots.js` Line 45 (`POST /webhook/:botId/:secret`) - asyncHandler (Telegram erwartet 200)
+- [x] `routes/telegramBots.js` Line 119 (`GET /models/claude`) - asyncHandler hinzugefuegt
+- [x] `routes/settings.js` Line 281 (`GET /password-requirements`) - asyncHandler hinzugefuegt
+- [ ] `routes/docs.js` Lines 61, 64, 69 - Error-Handling fuer Swagger-Routen (sync handlers, kein asyncHandler noetig)
+- [x] `routes/update.js` Lines 151-159 - Unhandled Promise Chain in `applyUpdate()` gefixt
 
 ### 1.2 Shell-Injection-Risiken eliminieren
 
-- [ ] `routes/system.js` Line 87 - `exec()` durch `execFile()` ersetzen fuer `dpkg`-Abfrage
-- [ ] `routes/system.js` Line 121 - `exec('ping ...')` durch `execFile('ping', [...args])` ersetzen
-- [ ] `routes/system.js` Lines 155, 158 - `exec('cat /etc/...')` durch `fs.readFile()` ersetzen
-- [ ] Alle `child_process.exec()` Aufrufe im Backend auf `execFile()` oder `fs`-Operationen migrieren
+- [x] `routes/system.js` Line 87 - `exec()` durch `execFile()` ersetzt fuer `dpkg`-Abfrage
+- [x] `routes/system.js` Line 121 - `exec('ping ...')` durch `execFile('ping', [...args])` ersetzt
+- [x] `routes/system.js` Lines 155, 158 - `exec('cat /etc/...')` durch `fs.readFile()` ersetzt
+- [ ] Alle `child_process.exec()` Aufrufe im Backend auf `execFile()` oder `fs`-Operationen migrieren (Restliche in tools/logsTool.js, tools/servicesTool.js, modelService.js)
 
 ### 1.3 Credential-Handling & Defaults fixen
 
-- [ ] `routes/documents.js` Lines 103-104 - Default-MinIO-Credentials entfernen (Pflichtfeld ohne Fallback)
-- [ ] Alle `process.env.X || 'default'`-Patterns pruefen - sensible Werte duerfen keine Defaults haben
-- [ ] Startup-Validierung: Backend soll beim Start pruefen ob alle Pflicht-Env-Vars gesetzt sind
-- [ ] Warnung/Abort wenn kritische Credentials fehlen (POSTGRES_PASSWORD, JWT_SECRET, MINIO_ROOT_PASSWORD)
+- [x] `routes/documents.js` Lines 103-104 - Default-MinIO-Credentials entfernt (Pflichtfeld ohne Fallback)
+- [x] Alle `process.env.X || 'default'`-Patterns geprueft - sensible Werte haben keine Defaults
+- [x] Startup-Validierung: Backend prueft beim Start ob alle Pflicht-Env-Vars gesetzt sind (index.js process.exit(1))
+- [x] Warnung/Abort wenn kritische Credentials fehlen (POSTGRES_PASSWORD, JWT_SECRET, MINIO_ROOT_PASSWORD)
 
 ### 1.4 Datenbank-Integritaet
 
-- [ ] Neue Migration `037_fix_foreign_keys.sql` erstellen:
-  - `update_events`: ON DELETE CASCADE fuer FK-Referenzen (Lines 25, 55, 56, 71, 81 in 004_update_schema.sql)
-  - `documents.category_id`: ON DELETE SET NULL (009_documents_schema.sql Line 86)
-  - `api_keys.created_by`: ON DELETE SET NULL (023_api_keys_schema.sql Line 10)
-  - `telegram_*` Tabellen: ON DELETE CASCADE fuer user_id-Referenzen (024_telegram_app_schema.sql)
-- [ ] Migration-Nummerierung fixen: Beide `032_*`-Dateien umbenennen (Konflikt aufloesen)
-- [ ] Deprecated Migration-Dateien entfernen: `015_*.deprecated`, `016_*.deprecated`
-- [ ] Fehlende Indexes hinzufuegen:
+- [x] Neue Migration `037_fix_foreign_keys_and_indexes.sql` erstellt:
+  - `update_events`: ON DELETE CASCADE fuer FK-Referenzen
+  - `documents.category_id`: ON DELETE SET NULL
+  - `api_keys.created_by`: ON DELETE SET NULL
+  - `telegram_*` Tabellen: ON DELETE CASCADE fuer user_id-Referenzen
+- [x] Migration-Nummerierung gefixt: `032_create_data_database.sh` umbenannt zu `032a_create_data_database.sh`
+- [ ] Deprecated Migration-Dateien entfernen: `015_*.deprecated`, `016_*.deprecated` (N/A - Dateien sind .sql, nicht .deprecated)
+- [x] Fehlende Indexes hinzugefuegt (alle in 037):
   - Composite Index `(conversation_id, created_at)` auf `chat_messages`
   - Index `space_id` auf documents-Tabelle fuer RAG-Queries
   - Composite Index `(status, uploaded_at)` auf documents-Tabelle
 
 ### 1.5 Input-Validierung & Response-Konsistenz
 
-- [ ] `parseInt()`-Aufrufe absichern: `isNaN()`-Check nach jedem `parseInt()` (z.B. documents.js Line 182)
-- [ ] POST-Endpoints konsistent 201 statt 200 zurueckgeben bei Resource-Erstellung
+- [x] `parseInt()`-Aufrufe absichern: `isNaN()`-Check in documents.js (weitere stellen mit Fallback-Defaults)
+- [x] POST-Endpoints konsistent 201 zurueckgeben bei Resource-Erstellung (groesstenteils umgesetzt)
 - [ ] Response-Format dokumentieren und konsistent machen: `{ data: ..., message: '...', timestamp: '...' }`
 
 ### 1.6 Logging-Cleanup
 
-- [ ] Alle `console.log`/`console.error` im Backend durch `logger.*` ersetzen
-- [ ] Debug-Statements entfernen oder auf `logger.debug()` Level setzen
-- [ ] Sicherstellen dass Telegram-Bot-Tokens NICHT in Logs erscheinen (Token-Masking)
+- [x] Alle `console.log`/`console.error` in Routes durch `logger.*` ersetzt
+- [x] Debug-Statements entfernt oder auf `logger.debug()` Level gesetzt
+- [x] Telegram-Bot-Tokens: `maskToken()` in telegram.js vorhanden
 
 ---
 
@@ -86,7 +86,7 @@
 ### 2.1 Error Boundaries fuer alle Routes
 
 - [x] `App.js`: Jede lazy-geladene Route-Komponente in `<RouteErrorBoundary>` wrappen
-- [x] `Settings.js` Lines 85-121: Sub-Komponenten (UpdatePage, SelfHealingEvents, TelegramSettings, ClaudeTerminal, PasswordManagement) in Error Boundaries wrappen
+- [x] `Settings.js` Lines 85-121: ALLE Sub-Komponenten (GeneralSettings, CompanyContextSettings, ServicesSettings, UpdatePage, SelfHealingEvents, TelegramSettings, ClaudeTerminal, PasswordManagement) in Error Boundaries gewrappt
 - [ ] `DocumentManager.js`: SpaceModal in Error Boundary wrappen
 - [ ] `Store.js`: StoreHome, StoreApps, StoreModels in Error Boundaries wrappen
 

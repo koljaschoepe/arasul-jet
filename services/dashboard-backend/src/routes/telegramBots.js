@@ -128,10 +128,13 @@ router.get(
   })
 );
 
-router.get('/models/claude', (req, res) => {
-  const models = telegramLLMService.getClaudeModels();
-  res.json({ models });
-});
+router.get(
+  '/models/claude',
+  asyncHandler(async (req, res) => {
+    const models = telegramLLMService.getClaudeModels();
+    res.json({ models });
+  })
+);
 
 // ============================================================================
 // AUTHENTICATED ROUTES
