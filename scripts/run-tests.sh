@@ -53,10 +53,13 @@ run_backend_tests() {
     echo ""
     echo "-> Running Backend Tests (Jest)..."
 
+    # Jest flags: no coverage for speed/memory, limit workers to prevent OOM on Jetson
+    JEST_FLAGS="--passWithNoTests --maxWorkers=2"
+
     # Prefer Docker when container is running (has all dependencies)
     if docker compose ps dashboard-backend 2>/dev/null | grep -q "Up\|running"; then
-      echo "   Running in Docker container..."
-      if docker compose exec -T dashboard-backend npm test -- --passWithNoTests; then
+      echo "   Running in Docker container (maxWorkers=2, no coverage)..."
+      if docker compose exec -T dashboard-backend npx jest $JEST_FLAGS; then
         echo "   Backend tests: PASSED"
       else
         echo "   Backend tests: FAILED"
@@ -64,7 +67,7 @@ run_backend_tests() {
       fi
     elif check_npm; then
       cd services/dashboard-backend
-      if npm test -- --passWithNoTests; then
+      if npx jest $JEST_FLAGS; then
         echo "   Backend tests: PASSED"
       else
         echo "   Backend tests: FAILED"
