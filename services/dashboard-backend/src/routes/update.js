@@ -228,4 +228,97 @@ router.get(
   })
 );
 
+// GET /api/update/usb-devices - Scan for USB drives with update packages
+router.get(
+  '/usb-devices',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const devices = await updateService.scanUsbDevices();
+
+    res.json({
+      devices,
+      count: devices.length,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// POST /api/update/install-from-usb - Install update from USB device path
+router.post(
+  '/install-from-usb',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { file_path } = req.body;
+
+    if (!file_path) {
+      throw new ValidationError('File path is required');
+    }
+
+    // Security: Only allow files from /media/ or /mnt/
+    if (!file_path.startsWith('/media/') && !file_path.startsWith('/mnt/')) {
+      throw new ValidationError('Only files from USB devices (/media/ or /mnt/) are allowed');
+    }
+
+    if (!file_path.endsWith('.araupdate')) {
+      throw new ValidationError('Only .araupdate files are allowed');
+    }
+
+    // Verify file exists
+    try {
+      await fs.access(file_path);
+    } catch {
+      throw new NotFoundError('Update file not found on USB device');
+    }
+
+    // Copy to updates directory for processing
+    const fileName = `usb_update_${Date.now()}_${path.basename(file_path)}`;
+    const permanentPath = path.join('/arasul/updates', fileName);
+    await fs.mkdir('/arasul/updates', { recursive: true });
+    await fs.copyFile(file_path, permanentPath);
+
+    // Check for accompanying signature file
+    const sigPath = `${file_path}.sig`;
+    try {
+      await fs.access(sigPath);
+      await fs.copyFile(sigPath, `${permanentPath}.sig`);
+    } catch {
+      // Clean up and reject - signature required
+      await fs.unlink(permanentPath).catch(() => {});
+      throw new ValidationError(
+        'Signature file (.sig) not found alongside update package on USB device'
+      );
+    }
+
+    // Validate update
+    const validation = await updateService.validateUpdate(permanentPath);
+
+    if (!validation.valid) {
+      await fs.unlink(permanentPath).catch(() => {});
+      await fs.unlink(`${permanentPath}.sig`).catch(() => {});
+      throw new ValidationError(validation.error || 'Update validation failed');
+    }
+
+    const manifest = validation.manifest;
+
+    // Log update event
+    const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
+    await db.query(
+      `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
+         VALUES ($1, $2, $3, $4, $5)`,
+      [currentVersion, manifest.version, 'validated', 'usb', JSON.stringify(manifest.components)]
+    );
+
+    res.json({
+      status: 'validated',
+      version: manifest.version,
+      components: manifest.components,
+      requires_reboot: manifest.requires_reboot || false,
+      file_path: permanentPath,
+      source: 'usb',
+      message: 'USB update package validated. Use /api/update/apply to install.',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
 module.exports = router;

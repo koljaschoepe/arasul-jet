@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_BASE } from '../config/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import {
   FiPackage,
   FiLock,
@@ -8,6 +7,8 @@ import {
   FiXCircle,
   FiSettings,
   FiAlertCircle,
+  FiHardDrive,
+  FiRefreshCw,
 } from 'react-icons/fi';
 import { formatDate } from '../utils/formatting';
 import './UpdatePage.css';
@@ -21,37 +22,35 @@ const UpdatePage = () => {
   const [updateStatus, setUpdateStatus] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [updateHistory, setUpdateHistory] = useState([]);
-  const [pollingInterval, setPollingInterval] = useState(null);
+  const [usbDevices, setUsbDevices] = useState([]);
+  const [usbScanning, setUsbScanning] = useState(false);
 
   // Fetch update history on mount
   useEffect(() => {
     fetchUpdateHistory();
+    scanUsbDevices();
   }, []);
 
   // Poll update status when applying
   useEffect(() => {
-    if (uploadStatus === 'applying') {
-      const interval = setInterval(() => {
-        fetchUpdateStatus();
-      }, 2000); // Poll every 2 seconds
+    if (uploadStatus !== 'applying') return;
 
-      setPollingInterval(interval);
+    const interval = setInterval(() => {
+      fetchUpdateStatus();
+    }, 2000);
 
-      return () => {
-        if (interval) clearInterval(interval);
-      };
-    } else {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        setPollingInterval(null);
-      }
-    }
+    return () => clearInterval(interval);
   }, [uploadStatus]);
 
   const fetchUpdateHistory = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/update/history`);
-      setUpdateHistory(response.data.updates || []);
+      const response = await fetch(`${API_BASE}/update/history`, {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUpdateHistory(data.updates || []);
+      }
     } catch (error) {
       console.error('Failed to fetch update history:', error);
     }
@@ -59,20 +58,42 @@ const UpdatePage = () => {
 
   const fetchUpdateStatus = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/update/status`);
-      setUpdateStatus(response.data);
+      const response = await fetch(`${API_BASE}/update/status`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) return;
 
-      if (response.data.status === 'completed') {
+      const data = await response.json();
+      setUpdateStatus(data);
+
+      if (data.status === 'completed') {
         setUploadStatus('success');
         fetchUpdateHistory();
-      } else if (response.data.status === 'failed') {
+      } else if (data.status === 'failed') {
         setUploadStatus('error');
-        setErrorMessage(response.data.error || 'Update failed');
+        setErrorMessage(data.error || 'Update fehlgeschlagen');
       }
     } catch (error) {
       console.error('Failed to fetch update status:', error);
     }
   };
+
+  const scanUsbDevices = useCallback(async () => {
+    setUsbScanning(true);
+    try {
+      const response = await fetch(`${API_BASE}/update/usb-devices`, {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsbDevices(data.devices || []);
+      }
+    } catch (error) {
+      console.error('Failed to scan USB devices:', error);
+    } finally {
+      setUsbScanning(false);
+    }
+  }, []);
 
   const handleFileSelect = event => {
     const file = event.target.files[0];
@@ -82,7 +103,7 @@ const UpdatePage = () => {
       setValidationResult(null);
       setUploadStatus('idle');
     } else {
-      setErrorMessage('Please select a valid .araupdate file');
+      setErrorMessage('Bitte eine gueltige .araupdate Datei auswaehlen');
       setSelectedFile(null);
     }
   };
@@ -92,14 +113,19 @@ const UpdatePage = () => {
     if (file && file.name.endsWith('.sig')) {
       setSignatureFile(file);
     } else {
-      setErrorMessage('Please select a valid .sig signature file');
+      setErrorMessage('Bitte eine gueltige .sig Signaturdatei auswaehlen');
       setSignatureFile(null);
     }
   };
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setErrorMessage('Please select an update file');
+      setErrorMessage('Bitte eine Update-Datei auswaehlen');
+      return;
+    }
+
+    if (!signatureFile) {
+      setErrorMessage('Signaturdatei (.sig) ist erforderlich');
       return;
     }
 
@@ -109,34 +135,53 @@ const UpdatePage = () => {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    if (signatureFile) {
-      formData.append('signature', signatureFile);
-    }
+    formData.append('signature', signatureFile);
 
     try {
-      const response = await axios.post(`${API_BASE}/update/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: progressEvent => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percentCompleted);
-        },
-      });
+      const xhr = new XMLHttpRequest();
+      const token = localStorage.getItem('arasul_token');
 
-      setUploadStatus('validated');
-      setValidationResult(response.data);
-      setUploadProgress(100);
+      await new Promise((resolve, reject) => {
+        xhr.upload.addEventListener('progress', event => {
+          if (event.lengthComputable) {
+            setUploadProgress(Math.round((event.loaded * 100) / event.total));
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const data = JSON.parse(xhr.responseText);
+            setUploadStatus('validated');
+            setValidationResult(data);
+            setUploadProgress(100);
+            resolve();
+          } else {
+            let msg = 'Upload fehlgeschlagen';
+            try {
+              const errData = JSON.parse(xhr.responseText);
+              msg = errData.error || msg;
+            } catch {
+              // ignore parse error
+            }
+            reject(new Error(msg));
+          }
+        });
+
+        xhr.addEventListener('error', () => reject(new Error('Netzwerkfehler beim Upload')));
+        xhr.open('POST', `${API_BASE}/update/upload`);
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(formData);
+      });
     } catch (error) {
       setUploadStatus('error');
-      setErrorMessage(error.response?.data?.error || 'Upload failed. Please try again.');
+      setErrorMessage(error.message || 'Upload fehlgeschlagen. Bitte erneut versuchen.');
       setUploadProgress(0);
     }
   };
 
   const handleApplyUpdate = async () => {
     if (!validationResult || !validationResult.file_path) {
-      setErrorMessage('No validated update available');
+      setErrorMessage('Kein validiertes Update verfuegbar');
       return;
     }
 
@@ -144,17 +189,52 @@ const UpdatePage = () => {
     setErrorMessage('');
 
     try {
-      const response = await axios.post(`${API_BASE}/update/apply`, {
-        file_path: validationResult.file_path,
+      const response = await fetch(`${API_BASE}/update/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ file_path: validationResult.file_path }),
       });
 
-      if (response.data.status === 'started') {
-        // Start polling for status
-        fetchUpdateStatus();
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'started') {
+          fetchUpdateStatus();
+        }
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Update konnte nicht gestartet werden');
       }
     } catch (error) {
       setUploadStatus('error');
-      setErrorMessage(error.response?.data?.error || 'Failed to start update process');
+      setErrorMessage(error.message || 'Update-Prozess konnte nicht gestartet werden');
+    }
+  };
+
+  const handleUsbInstall = async usbFile => {
+    setUploadStatus('uploading');
+    setUploadProgress(50);
+    setErrorMessage('');
+
+    try {
+      const response = await fetch(`${API_BASE}/update/install-from-usb`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ file_path: usbFile.path }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUploadStatus('validated');
+        setValidationResult(data);
+        setUploadProgress(100);
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'USB-Update Validierung fehlgeschlagen');
+      }
+    } catch (error) {
+      setUploadStatus('error');
+      setErrorMessage(error.message || 'USB-Update konnte nicht geladen werden');
+      setUploadProgress(0);
     }
   };
 
@@ -177,34 +257,98 @@ const UpdatePage = () => {
       rolled_back: 'warning',
     };
 
+    const statusLabels = {
+      completed: 'Abgeschlossen',
+      failed: 'Fehlgeschlagen',
+      in_progress: 'In Bearbeitung',
+      validated: 'Validiert',
+      rolled_back: 'Zurueckgesetzt',
+      signature_verified: 'Signatur OK',
+    };
+
     return (
-      <span className={`status-badge status-${statusColors[status] || 'default'}`}>{status}</span>
+      <span className={`status-badge status-${statusColors[status] || 'default'}`}>
+        {statusLabels[status] || status}
+      </span>
     );
   };
 
   const getCurrentStepDescription = step => {
     const steps = {
-      backup: 'Creating backup...',
-      loading_images: 'Loading Docker images...',
-      migrations: 'Running database migrations...',
-      updating_services: 'Updating services...',
-      healthchecks: 'Running health checks...',
-      done: 'Update completed!',
+      backup: 'Backup wird erstellt...',
+      loading_images: 'Docker-Images werden geladen...',
+      migrations: 'Datenbank-Migrationen werden ausgefuehrt...',
+      updating_services: 'Services werden aktualisiert...',
+      healthchecks: 'Gesundheitspruefungen laufen...',
+      done: 'Update abgeschlossen!',
     };
 
-    return steps[step] || `Processing: ${step}`;
+    return steps[step] || `Verarbeitung: ${step}`;
+  };
+
+  const formatFileSize = bytes => {
+    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+    if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+    return `${(bytes / 1024).toFixed(1)} KB`;
   };
 
   return (
     <div className="update-page">
       <div className="update-header">
-        <h2>System Updates</h2>
-        <p>Upload and apply system updates securely</p>
+        <h2>System-Updates</h2>
+        <p>Updates sicher hochladen und installieren</p>
       </div>
+
+      {/* USB Device Detection */}
+      {uploadStatus === 'idle' && (
+        <div className="update-section">
+          <div className="section-header-row">
+            <h3>
+              <FiHardDrive style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              USB-Update erkennen
+            </h3>
+            <button
+              onClick={scanUsbDevices}
+              disabled={usbScanning}
+              className="btn-icon"
+              title="Erneut scannen"
+            >
+              <FiRefreshCw className={usbScanning ? 'spinning' : ''} />
+            </button>
+          </div>
+
+          {usbDevices.length > 0 ? (
+            <div className="usb-devices-list">
+              {usbDevices.map((device, idx) => (
+                <div key={idx} className="usb-device-card">
+                  <div className="usb-device-info">
+                    <span className="usb-device-name">{device.name}</span>
+                    <span className="usb-device-meta">
+                      {device.device} &middot; {formatFileSize(device.size)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleUsbInstall(device)}
+                    className="btn btn-primary btn-sm"
+                  >
+                    Installieren
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="no-data">
+              {usbScanning
+                ? 'USB-Geraete werden gesucht...'
+                : 'Kein USB-Geraet mit Update-Paket gefunden. Bitte USB-Stick einstecken und erneut scannen.'}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Upload Section */}
       <div className="update-section">
-        <h3>Upload Update Package</h3>
+        <h3>Update-Paket hochladen</h3>
 
         {uploadStatus === 'idle' && (
           <div className="upload-area">
@@ -212,7 +356,7 @@ const UpdatePage = () => {
               <label htmlFor="update-file" className="file-label">
                 <FiPackage className="file-icon" />
                 <span className="file-text">
-                  {selectedFile ? selectedFile.name : 'Select .araupdate file'}
+                  {selectedFile ? selectedFile.name : '.araupdate Datei auswaehlen'}
                 </span>
               </label>
               <input
@@ -228,7 +372,9 @@ const UpdatePage = () => {
               <label htmlFor="signature-file" className="file-label secondary">
                 <FiLock className="file-icon" />
                 <span className="file-text">
-                  {signatureFile ? signatureFile.name : 'Select .sig file (optional)'}
+                  {signatureFile
+                    ? signatureFile.name
+                    : '.sig Signaturdatei auswaehlen (erforderlich)'}
                 </span>
               </label>
               <input
@@ -240,15 +386,19 @@ const UpdatePage = () => {
               />
             </div>
 
-            <button onClick={handleUpload} disabled={!selectedFile} className="btn btn-primary">
-              Upload & Validate
+            <button
+              onClick={handleUpload}
+              disabled={!selectedFile || !signatureFile}
+              className="btn btn-primary"
+            >
+              Hochladen & Validieren
             </button>
           </div>
         )}
 
         {uploadStatus === 'uploading' && (
           <div className="upload-progress">
-            <p>Uploading update package...</p>
+            <p>Update-Paket wird hochgeladen...</p>
             <div className="progress-bar">
               <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
             </div>
@@ -260,7 +410,7 @@ const UpdatePage = () => {
           <div className="validation-result">
             <div className="result-header">
               <FiCheckCircle className="result-icon success" />
-              <h4>Update Package Validated</h4>
+              <h4>Update-Paket validiert</h4>
             </div>
 
             <div className="result-details">
@@ -268,31 +418,37 @@ const UpdatePage = () => {
                 <span className="detail-label">Version:</span>
                 <span className="detail-value">{validationResult.version}</span>
               </div>
+              {validationResult.size && (
+                <div className="detail-row">
+                  <span className="detail-label">Groesse:</span>
+                  <span className="detail-value">{formatFileSize(validationResult.size)}</span>
+                </div>
+              )}
               <div className="detail-row">
-                <span className="detail-label">Size:</span>
-                <span className="detail-value">
-                  {(validationResult.size / 1024 / 1024).toFixed(2)} MB
-                </span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Components:</span>
+                <span className="detail-label">Komponenten:</span>
                 <span className="detail-value">{validationResult.components?.length || 0}</span>
               </div>
               <div className="detail-row">
-                <span className="detail-label">Requires Reboot:</span>
+                <span className="detail-label">Neustart erforderlich:</span>
                 <span className="detail-value">
-                  {validationResult.requires_reboot ? 'Yes' : 'No'}
+                  {validationResult.requires_reboot ? 'Ja' : 'Nein'}
                 </span>
               </div>
+              {validationResult.source === 'usb' && (
+                <div className="detail-row">
+                  <span className="detail-label">Quelle:</span>
+                  <span className="detail-value">USB-Geraet</span>
+                </div>
+              )}
             </div>
 
             {validationResult.components && validationResult.components.length > 0 && (
               <div className="components-list">
-                <h5>Updated Components:</h5>
+                <h5>Aktualisierte Komponenten:</h5>
                 <ul>
                   {validationResult.components.map((comp, idx) => (
                     <li key={idx}>
-                      {comp.name} {comp.version_to && `(v${comp.version_to})`}
+                      {comp.name || comp} {comp.version_to && `(v${comp.version_to})`}
                     </li>
                   ))}
                 </ul>
@@ -301,10 +457,10 @@ const UpdatePage = () => {
 
             <div className="action-buttons">
               <button onClick={handleApplyUpdate} className="btn btn-success">
-                Apply Update
+                Update installieren
               </button>
               <button onClick={handleReset} className="btn btn-secondary">
-                Cancel
+                Abbrechen
               </button>
             </div>
           </div>
@@ -314,7 +470,7 @@ const UpdatePage = () => {
           <div className="update-progress">
             <div className="progress-header">
               <FiSettings className="progress-icon" />
-              <h4>Applying Update...</h4>
+              <h4>Update wird installiert...</h4>
             </div>
 
             <div className="current-step">
@@ -325,10 +481,12 @@ const UpdatePage = () => {
               <div className="progress-fill"></div>
             </div>
 
-            <p className="progress-note">Please do not close this page or power off the device.</p>
+            <p className="progress-note">
+              Bitte diese Seite nicht schliessen und das Geraet nicht ausschalten.
+            </p>
 
             {updateStatus.startTime && (
-              <p className="progress-time">Started: {formatDate(updateStatus.startTime)}</p>
+              <p className="progress-time">Gestartet: {formatDate(updateStatus.startTime)}</p>
             )}
           </div>
         )}
@@ -336,16 +494,16 @@ const UpdatePage = () => {
         {uploadStatus === 'success' && (
           <div className="update-result success">
             <FiCheckCircle className="result-icon" />
-            <h4>Update Applied Successfully!</h4>
-            <p>System has been updated to version {validationResult?.version}</p>
+            <h4>Update erfolgreich installiert!</h4>
+            <p>Das System wurde auf Version {validationResult?.version} aktualisiert.</p>
             {validationResult?.requires_reboot && (
               <p className="reboot-warning">
                 <FiAlertCircle style={{ display: 'inline', marginRight: '0.5rem' }} />
-                System reboot required. Please restart the system.
+                Systemneustart erforderlich. Bitte starten Sie das System neu.
               </p>
             )}
             <button onClick={handleReset} className="btn btn-primary">
-              Upload Another Update
+              Weiteres Update hochladen
             </button>
           </div>
         )}
@@ -353,10 +511,10 @@ const UpdatePage = () => {
         {uploadStatus === 'error' && errorMessage && (
           <div className="update-result error">
             <FiXCircle className="result-icon" />
-            <h4>Update Failed</h4>
+            <h4>Update fehlgeschlagen</h4>
             <p className="error-message">{errorMessage}</p>
             <button onClick={handleReset} className="btn btn-primary">
-              Try Again
+              Erneut versuchen
             </button>
           </div>
         )}
@@ -364,35 +522,41 @@ const UpdatePage = () => {
 
       {/* Update History */}
       <div className="update-section">
-        <h3>Update History</h3>
+        <h3>Update-Verlauf</h3>
 
         {updateHistory.length === 0 ? (
-          <p className="no-data">No update history available</p>
+          <p className="no-data">Kein Update-Verlauf vorhanden</p>
         ) : (
           <div className="history-table">
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>From Version</th>
-                  <th>To Version</th>
-                  <th>Source</th>
+                  <th>Datum</th>
+                  <th>Von Version</th>
+                  <th>Auf Version</th>
+                  <th>Quelle</th>
                   <th>Status</th>
-                  <th>Duration</th>
+                  <th>Dauer</th>
                 </tr>
               </thead>
               <tbody>
                 {updateHistory.map(update => (
                   <tr key={update.id}>
-                    <td>{formatDate(update.started_at)}</td>
-                    <td>{update.version_from}</td>
-                    <td>{update.version_to}</td>
-                    <td>{update.source}</td>
-                    <td>{getStatusBadge(update.status)}</td>
-                    <td>
+                    <td data-label="Datum">{formatDate(update.started_at || update.timestamp)}</td>
+                    <td data-label="Von">{update.version_from}</td>
+                    <td data-label="Auf">{update.version_to}</td>
+                    <td data-label="Quelle">
+                      {update.source === 'usb'
+                        ? 'USB'
+                        : update.source === 'dashboard'
+                          ? 'Dashboard'
+                          : update.source}
+                    </td>
+                    <td data-label="Status">{getStatusBadge(update.status)}</td>
+                    <td data-label="Dauer">
                       {update.duration_seconds
                         ? `${Math.round(update.duration_seconds / 60)}m`
-                        : 'N/A'}
+                        : '-'}
                     </td>
                   </tr>
                 ))}

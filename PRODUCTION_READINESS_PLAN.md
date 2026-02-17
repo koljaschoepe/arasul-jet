@@ -332,51 +332,55 @@
 
 ### 7.1 Update-Paket-Format definieren
 
-- [ ] Paket-Struktur: `arasul-update-v{VERSION}.tar.gz`
-  - `manifest.json`: Version, Checksums, Abhaengigkeiten, Kompatibilitaet
-  - `images/`: Docker-Images als tar-Dateien
-  - `migrations/`: SQL-Migrations seit letzter Version
-  - `config/`: Konfigurationsaenderungen
-  - `scripts/`: Pre-/Post-Update-Scripts
-  - `signature`: GPG-Signatur des Pakets
+- [x] Paket-Struktur: `arasul-update-v{VERSION}.tar.gz`
+  - `manifest.json`: Version, Checksums, Abhaengigkeiten, Kompatibilitaet (mit Komponenten-Objekten: name, type, service, file)
+  - `payload/images/`: Docker-Images als tar-Dateien
+  - `payload/migrations/`: SQL-Migrations seit letzter Version
+  - `payload/config/`: Konfigurationsaenderungen
+  - `payload/scripts/`: Pre-/Post-Update-Scripts
+  - RSA-PSS-SHA256 Signatur via `sign_update_package.py`
 
 ### 7.2 Update-Build-Pipeline
 
-- [ ] `scripts/build-update-package.sh` erstellen:
-  - Docker-Images exportieren (`docker save`)
-  - SQL-Diff seit letzter Version sammeln
-  - Konfigurationsaenderungen sammeln
-  - Paket zusammenpacken und signieren
+- [x] `scripts/create_update_package.sh` ueberarbeitet:
+  - Manifest erzeugt Komponenten-Objekte (type, name, service, file) statt flache Strings
+  - `--from-version`, `--min-version`, `--release-notes` CLI-Flags
+  - `all` Shortcut fuer alle Komponenten
+  - VERSION-Datei wird automatisch gelesen
+  - Docker-Images exportieren (`docker save | gzip`)
+  - SQL-Migrations sammeln
   - Pruefsummen generieren (SHA256)
+  - Paket signieren via `sign_update_package.py` (RSA-PSS-SHA256)
 
 ### 7.3 Update-Upload via UI
 
-- [ ] Frontend: Update-Seite in Settings erweitern
-  - USB-Stick erkennen oder manueller File-Upload
-  - Signatur-Verifikation vor Installation
-  - Fortschrittsanzeige mit Schritten
-  - Rollback-Option bei Fehler
-- [ ] Backend: `POST /api/update/upload` erweitern
-  - Signatur-Verifikation
-  - Kompatibilitaets-Check (Version, Hardware)
-  - Backup vor Update (automatisch)
-  - Schrittweise Installation mit Rollback
+- [x] Frontend: UpdatePage.js komplett auf Deutsch uebersetzt
+  - USB-Stick-Erkennung via `GET /api/update/usb-devices` mit Scan-Button
+  - Manueller File-Upload mit Signatur (.sig) als Pflichtfeld
+  - Fortschrittsanzeige mit deutschen Schritten
+  - Rollback bei Fehler (automatisch via updateService)
+  - Von axios auf fetch + getAuthHeaders() migriert (Projekt-Standard)
+- [x] Backend: Neue Endpoints hinzugefuegt
+  - `GET /api/update/usb-devices` - Scannt /media/ und /mnt/ nach .araupdate-Dateien
+  - `POST /api/update/install-from-usb` - Validiert und kopiert USB-Update-Paket
+  - Bestehende Endpoints: upload, apply, status, history (bereits vollstaendig)
 
 ### 7.4 Update-Anwende-Logik
 
-- [ ] Pre-Update: Automatisches Backup aller Daten
-- [ ] Docker-Images laden: `docker load < image.tar`
-- [ ] Migrations ausfuehren: Sequenziell mit Rollback-Support
-- [ ] Konfiguration aktualisieren: Merge mit bestehender Config
-- [ ] Services neustarten: `docker compose up -d`
-- [ ] Post-Update-Verifikation: Health-Checks aller Services
-- [ ] Rollback-Trigger: Wenn Health-Checks fehlschlagen, automatisch zurueckrollen
+- [x] Pre-Update: Automatisches Backup (DB pg_dump, docker-compose.yml, .env, Container-Versionen)
+- [x] Docker-Images laden: `docker load -i image.tar` via execFile (kein Shell-Injection)
+- [x] Migrations ausfuehren: Sequenziell via spawnFromFile (stdin-Pipe)
+- [x] Services neustarten: docker-compose up -d mit Abhaengigkeitsreihenfolge
+- [x] Post-Update-Verifikation: Health-Checks aller kritischen Services (60s Timeout)
+- [x] Rollback-Trigger: Automatisch bei fehlgeschlagenen Health-Checks
+- [x] **Security-Fix**: Alle exec() durch execFile()/spawn() ersetzt (Shell-Injection eliminiert)
+- [x] **Security-Fix**: cp durch fs.copyFile() ersetzt
 
 ### 7.5 Versionsverwaltung
 
-- [ ] `VERSION`-Datei im Root-Verzeichnis pflegen
-- [ ] Changelog: `CHANGELOG.md` mit kundenlesbaren Aenderungen
-- [ ] Migrations-Tracker: Welche Migrationen auf welchem System gelaufen sind
+- [x] `VERSION`-Datei im Root-Verzeichnis (aktuell: 1.0.0)
+- [x] `CHANGELOG.md` mit kundenlesbaren Aenderungen (Keep-a-Changelog-Format)
+- [x] Migrations-Tracker: update_events DB-Tabelle mit version_from/version_to + components_updated
 
 ---
 

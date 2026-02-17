@@ -47,6 +47,91 @@
   font-weight: 600;
 }
 
+/* Section Header Row (with action button) */
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.section-header-row h3 {
+  margin: 0;
+}
+
+.btn-icon {
+  background: var(--primary-alpha-10);
+  border: 1px solid var(--primary-alpha-20);
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--primary-alpha-20);
+  color: var(--primary-color);
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: rotate 1s linear infinite;
+}
+
+/* USB Device Detection */
+.usb-devices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.usb-device-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: var(--primary-alpha-5);
+  border: 1px solid var(--primary-alpha-15);
+  border-radius: 10px;
+  transition: all 0.25s ease;
+}
+
+.usb-device-card:hover {
+  background: var(--primary-alpha-10);
+  border-color: var(--primary-alpha-30);
+}
+
+.usb-device-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.usb-device-name {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.usb-device-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.btn-sm {
+  padding: 0.5rem 1.25rem !important;
+  font-size: 0.85rem !important;
+  flex: none !important;
+}
+
 /* Upload Area */
 .upload-area {
   display: flex;

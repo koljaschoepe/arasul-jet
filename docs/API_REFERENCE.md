@@ -951,16 +951,83 @@ Response:
 
 ### Updates
 
-| Method | Endpoint              | Description            |
-| ------ | --------------------- | ---------------------- |
-| POST   | `/api/update/upload`  | Upload .araupdate file |
-| GET    | `/api/update/status`  | Current update status  |
-| GET    | `/api/update/history` | Update history         |
+| Method | Endpoint                       | Description                       |
+| ------ | ------------------------------ | --------------------------------- |
+| POST   | `/api/update/upload`           | Upload .araupdate file            |
+| GET    | `/api/update/status`           | Current update status             |
+| GET    | `/api/update/history`          | Update history                    |
+| GET    | `/api/update/usb-devices`      | Scan for USB devices with updates |
+| POST   | `/api/update/install-from-usb` | Install update from USB device    |
 
 **POST /api/update/upload:**
 
 - Content-Type: `multipart/form-data`
 - Field: `file` (.araupdate package)
+
+**GET /api/update/usb-devices:**
+
+Auth: Required
+
+Scans `/media/` and `/mnt/` directories for `.araupdate` files with accompanying `.sig` signature files.
+
+Response:
+
+```json
+{
+  "devices": [
+    {
+      "path": "/media/usb/update.araupdate",
+      "name": "update.araupdate",
+      "size": 1073741824,
+      "mountPoint": "/media/usb",
+      "device": "/dev/sda1",
+      "modified": "2026-01-15T10:00:00.000Z"
+    }
+  ],
+  "count": 1,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/update/install-from-usb:**
+
+Auth: Required
+
+Installs an update package from a USB device. Security restriction: only paths under `/media/` or `/mnt/` are allowed. Requires corresponding `.sig` signature file alongside the `.araupdate` file.
+
+Request Body:
+
+```json
+{
+  "file_path": "/media/usb/update.araupdate"
+}
+```
+
+Response (same as POST /upload):
+
+```json
+{
+  "file_path": "/media/usb/update.araupdate",
+  "version": "2.1.0",
+  "components": [
+    {
+      "name": "frontend",
+      "version": "2.1.0"
+    },
+    {
+      "name": "backend",
+      "version": "2.1.0"
+    }
+  ],
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**Notes:**
+
+- USB device paths must be under `/media/` or `/mnt/` (security restriction)
+- Each `.araupdate` file must have a matching `.sig` signature file
+- Signature verification is performed before installation
 
 ### Logs
 
