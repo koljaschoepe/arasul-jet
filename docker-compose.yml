@@ -1027,6 +1027,10 @@ services:
           echo "Starting Cloudflare Tunnel..."
           exec cloudflared tunnel --no-autoupdate run --token "$$TUNNEL_TOKEN"
         fi
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       reverse-proxy:
         condition: service_healthy

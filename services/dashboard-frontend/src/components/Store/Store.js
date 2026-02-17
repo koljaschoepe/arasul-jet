@@ -12,9 +12,12 @@ import StoreHome from './StoreHome';
 import StoreModels from './StoreModels';
 import StoreApps from './StoreApps';
 import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useToast } from '../../contexts/ToastContext';
+import { ComponentErrorBoundary } from '../ErrorBoundary';
 import './Store.css';
 
 function Store() {
+  const toast = useToast();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState({ models: [], apps: [] });
@@ -33,7 +36,7 @@ function Store() {
           setSystemInfo(data);
         }
       } catch (err) {
-        console.error('Failed to load system info:', err);
+        toast.error('Systeminfo konnte nicht geladen werden');
       }
     };
     loadSystemInfo();
@@ -59,7 +62,7 @@ function Store() {
           setSearchResults(data);
         }
       } catch (err) {
-        console.error('Search error:', err);
+        toast.error('Suche fehlgeschlagen');
       } finally {
         setIsSearching(false);
       }
@@ -209,9 +212,30 @@ function Store() {
       {/* Content */}
       <div className="store-content">
         <Routes>
-          <Route index element={<StoreHome systemInfo={systemInfo} />} />
-          <Route path="models" element={<StoreModels />} />
-          <Route path="apps" element={<StoreApps />} />
+          <Route
+            index
+            element={
+              <ComponentErrorBoundary componentName="Store-Start">
+                <StoreHome systemInfo={systemInfo} />
+              </ComponentErrorBoundary>
+            }
+          />
+          <Route
+            path="models"
+            element={
+              <ComponentErrorBoundary componentName="Store-Modelle">
+                <StoreModels />
+              </ComponentErrorBoundary>
+            }
+          />
+          <Route
+            path="apps"
+            element={
+              <ComponentErrorBoundary componentName="Store-Apps">
+                <StoreApps />
+              </ComponentErrorBoundary>
+            }
+          />
           <Route path="*" element={<Navigate to="/store" replace />} />
         </Routes>
       </div>

@@ -44,7 +44,7 @@ export const StatusBadge = ({ status }) => {
 
 // Category badge component
 export const CategoryBadge = ({ name, color }) => (
-  <span className="category-badge" style={{ '--cat-color': color || '#6b7280' }}>
+  <span className="category-badge" style={{ '--cat-color': color || 'var(--text-muted)' }}>
     <FiFolder aria-hidden="true" />
     {name || 'Unkategorisiert'}
   </span>
@@ -68,7 +68,7 @@ export const SpaceBadge = ({ name, color, docId, spaces, onMove }) => {
   // Static badge (no move capability)
   if (!docId || !onMove) {
     return (
-      <span className="space-badge" style={{ '--space-color': color || '#6366f1' }}>
+      <span className="space-badge" style={{ '--space-color': color || 'var(--primary-color)' }}>
         <FiFolder aria-hidden="true" />
         {name || 'Allgemein'}
       </span>
@@ -79,7 +79,7 @@ export const SpaceBadge = ({ name, color, docId, spaces, onMove }) => {
     <span className="space-badge-interactive" ref={ref}>
       <button
         className="space-badge space-badge-btn"
-        style={{ '--space-color': color || '#6366f1' }}
+        style={{ '--space-color': color || 'var(--primary-color)' }}
         onClick={e => {
           e.stopPropagation();
           setOpen(!open);
@@ -120,7 +120,10 @@ export const SpaceBadge = ({ name, color, docId, spaces, onMove }) => {
               role="option"
               aria-selected={s.name === name}
             >
-              <span className="space-dot" style={{ background: s.color || '#6366f1' }} />
+              <span
+                className="space-dot"
+                style={{ background: s.color || 'var(--primary-color)' }}
+              />
               {s.name}
               {s.name === name && <FiCheck className="space-check" aria-hidden="true" />}
             </button>

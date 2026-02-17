@@ -87,15 +87,15 @@
 
 - [x] `App.js`: Jede lazy-geladene Route-Komponente in `<RouteErrorBoundary>` wrappen
 - [x] `Settings.js` Lines 85-121: ALLE Sub-Komponenten (GeneralSettings, CompanyContextSettings, ServicesSettings, UpdatePage, SelfHealingEvents, TelegramSettings, ClaudeTerminal, PasswordManagement) in Error Boundaries gewrappt
-- [ ] `DocumentManager.js`: SpaceModal in Error Boundary wrappen
-- [ ] `Store.js`: StoreHome, StoreApps, StoreModels in Error Boundaries wrappen
+- [x] `DocumentManager.js`: SpaceModal in ComponentErrorBoundary gewrappt
+- [x] `Store.js`: StoreHome, StoreApps, StoreModels in ComponentErrorBoundary gewrappt
 
 ### 2.2 API-Konsistenz herstellen
 
 - [x] `ClaudeTerminal.js` Lines 48, 60, 74 - Hardcoded `/api/claude-terminal/*` durch `${API_BASE}/...` ersetzen
 - [x] `TelegramBots/BotDetailsModal.js` Lines 58-64 - `getAuthHeaders()` aus `config/api.js` verwenden statt lokaler Definition
 - [x] Alle Komponenten pruefen: `fetch()` vs. Projekt-Standard sicherstellen (fetch + API_BASE + getAuthHeaders)
-- [ ] Sicherstellen dass JEDER fetch-Aufruf Error-Handling hat (try-catch + Toast bei Fehler)
+- [x] Sicherstellen dass JEDER fetch-Aufruf Error-Handling hat (try-catch + Toast bei Fehler) - ClaudeTerminal.js + Store.js gefixt
 
 ### 2.3 Hardcoded Farben durch CSS-Variablen ersetzen
 
@@ -442,8 +442,8 @@
 ### 8.6 Filesystem-Hardening
 
 - [x] `docker-compose.yml` gehaertet:
-  - `security_opt: no-new-privileges` auf ALLEN 15 Containern
-  - `cap_drop: ALL` auf stateless Containern (metrics, document-indexer, traefik, frontend, loki, promtail)
+  - `security_opt: no-new-privileges` auf ALLEN 16 Containern (inkl. cloudflared)
+  - `cap_drop: ALL` auf stateless Containern (metrics, document-indexer, traefik, frontend, loki, promtail, cloudflared)
   - `cap_add: NET_BIND_SERVICE` nur fuer traefik + frontend
   - `read_only: true` mit `tmpfs` auf: frontend, traefik, loki, promtail
   - tmpfs mit noexec,nosuid Flags

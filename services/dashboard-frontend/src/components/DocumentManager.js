@@ -38,6 +38,7 @@ import { getValidToken } from '../utils/token';
 import { useToast } from '../contexts/ToastContext';
 import useConfirm from '../hooks/useConfirm';
 import { formatDate, formatFileSize } from '../utils/formatting';
+import { ComponentErrorBoundary } from './ErrorBoundary';
 import '../documents.css';
 import '../markdown-editor.css';
 
@@ -533,7 +534,7 @@ function DocumentManager() {
 
   const getTableSpaceColor = table => {
     const space = spaces.find(s => s.id === table.space_id);
-    return space?.color || '#6366f1';
+    return space?.color || 'var(--primary-color)';
   };
 
   // Combine documents and tables into a unified list for display
@@ -934,7 +935,7 @@ function DocumentManager() {
                     <td>
                       <span
                         className="status-badge status-indexed"
-                        style={{ '--status-color': '#94A3B8' }}
+                        style={{ '--status-color': 'var(--text-muted)' }}
                       >
                         <FiCheck aria-hidden="true" />
                         Bereit
@@ -1299,16 +1300,18 @@ function DocumentManager() {
       )}
 
       {/* Space Modal (RAG 2.0) */}
-      <SpaceModal
-        isOpen={showSpaceModal}
-        onClose={() => {
-          setShowSpaceModal(false);
-          setEditingSpace(null);
-        }}
-        onSave={handleSpaceSave}
-        space={editingSpace}
-        mode={editingSpace ? 'edit' : 'create'}
-      />
+      <ComponentErrorBoundary componentName="Space-Modal">
+        <SpaceModal
+          isOpen={showSpaceModal}
+          onClose={() => {
+            setShowSpaceModal(false);
+            setEditingSpace(null);
+          }}
+          onSave={handleSpaceSave}
+          space={editingSpace}
+          mode={editingSpace ? 'edit' : 'create'}
+        />
+      </ComponentErrorBoundary>
 
       {/* Create New Markdown Document Dialog */}
       {showMarkdownCreate && (

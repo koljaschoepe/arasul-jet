@@ -15,9 +15,11 @@ import {
 } from 'react-icons/fi';
 import { formatDate } from '../utils/formatting';
 import { API_BASE, getAuthHeaders } from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './ClaudeTerminal.css';
 
 function ClaudeTerminal() {
+  const toast = useToast();
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -66,7 +68,7 @@ function ClaudeTerminal() {
         setHistory(data.queries || []);
       }
     } catch (err) {
-      console.error('Failed to load history:', err);
+      toast.error('Verlauf konnte nicht geladen werden');
     }
   };
 
@@ -80,7 +82,7 @@ function ClaudeTerminal() {
         setHistory([]);
       }
     } catch (err) {
-      console.error('Failed to clear history:', err);
+      toast.error('Verlauf konnte nicht gelöscht werden');
     }
   };
 
