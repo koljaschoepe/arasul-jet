@@ -19,6 +19,7 @@
     "typecheck": "./scripts/run-typecheck.sh"
   },
   "devDependencies": {
+    "eslint": "^8.56.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.0",
     "prettier": "^3.2.4"

@@ -3,6 +3,26 @@
  */
 
 require('dotenv').config();
+
+// Validate required environment variables at startup
+const REQUIRED_ENV_VARS = [
+  'POSTGRES_PASSWORD',
+  'JWT_SECRET',
+  'MINIO_ROOT_USER',
+  'MINIO_ROOT_PASSWORD',
+];
+const missingVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
+if (missingVars.length > 0) {
+  // Use stderr directly since logger may not be initialized yet
+  process.stderr.write(
+    `FATAL: Missing required environment variables: ${missingVars.join(', ')}\n`
+  );
+  process.stderr.write('Set these in your .env file or environment before starting the backend.\n');
+  if (process.env.NODE_ENV !== 'test') {
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -25,23 +45,21 @@ const corsOptions = {
       : [];
 
     // Check if origin is from a local/private network (RFC 1918) or mDNS
-    const isLocalNetwork = origin && (
-      origin.includes('://192.168.') ||
-      origin.includes('://10.') ||
-      /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./.test(origin) ||
-      origin.includes('://localhost') ||
-      origin.includes('://127.0.0.1') ||
-      origin.includes('://dashboard-frontend') ||
-      /\.local(:\d+)?$/.test(origin) ||
-      origin.includes('.local/')
-    );
+    const isLocalNetwork =
+      origin &&
+      (origin.includes('://192.168.') ||
+        origin.includes('://10.') ||
+        /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./.test(origin) ||
+        origin.includes('://localhost') ||
+        origin.includes('://127.0.0.1') ||
+        origin.includes('://dashboard-frontend') ||
+        /\.local(:\d+)?$/.test(origin) ||
+        origin.includes('.local/'));
 
     // Allow if: no origin (same-origin/curl), explicitly allowed, or local network
     if (!origin || allowedOrigins.includes(origin) || isLocalNetwork) {
       callback(null, true);
     } else {
-      // PHASE3-FIX: Migrated from console.warn to logger
-      // Note: logger imported later in file, use require inline
       require('./utils/logger').warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
@@ -49,14 +67,13 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400 // 24 hours
+  maxAge: 86400, // 24 hours
 };
 
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 
-// PHASE3-FIX: Migrated from console.log to logger (inline require for module order)
 app.use((req, res, next) => {
   require('./utils/logger').debug(`${req.method} ${req.path}`);
   next();
@@ -124,8 +141,8 @@ app.use('/api/telegram-bots', telegramBotsRouter);
 app.use('/api/claude-terminal', claudeTerminalRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/audit', auditRouter);
-app.use('/api/v1/external', externalApiRouter);  // External API for n8n, automations
-app.use('/api/v1/datentabellen', datentabellenRouter);  // Dynamic database builder
+app.use('/api/v1/external', externalApiRouter); // External API for n8n, automations
+app.use('/api/v1/datentabellen', datentabellenRouter); // Dynamic database builder
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
@@ -133,7 +150,7 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     service: 'dashboard-backend',
-    version: process.env.SYSTEM_VERSION || '1.0.0'
+    version: process.env.SYSTEM_VERSION || '1.0.0',
   });
 });
 
@@ -149,7 +166,7 @@ app.use(errorHandler);
 // HIGH-001 FIX: WebSocket server for live metrics streaming
 const wss = new WebSocket.Server({
   server,
-  path: '/api/metrics/live-stream'
+  path: '/api/metrics/live-stream',
 });
 
 const axios = require('axios');
@@ -163,7 +180,7 @@ const ollamaReadiness = require('./services/ollamaReadiness');
 const dataDatabase = require('./dataDatabase');
 const telegramWebSocketService = require('./services/telegramWebSocketService');
 
-wss.on('connection', (ws) => {
+wss.on('connection', ws => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
 
   let intervalId = null;
@@ -174,20 +191,24 @@ wss.on('connection', (ws) => {
       const response = await axios.get(services.metrics.metricsEndpoint, { timeout: 2000 });
 
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          ...response.data,
-          timestamp: new Date().toISOString()
-        }));
+        ws.send(
+          JSON.stringify({
+            ...response.data,
+            timestamp: new Date().toISOString(),
+          })
+        );
       }
     } catch (error) {
       logger.error(`Error sending metrics via WebSocket: ${error.message}`);
 
       // Fallback: send error state
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          error: 'Metrics temporarily unavailable',
-          timestamp: new Date().toISOString()
-        }));
+        ws.send(
+          JSON.stringify({
+            error: 'Metrics temporarily unavailable',
+            timestamp: new Date().toISOString(),
+          })
+        );
       }
     }
   };
@@ -205,7 +226,7 @@ wss.on('connection', (ws) => {
     }
   });
 
-  ws.on('error', (error) => {
+  ws.on('error', error => {
     logger.error(`WebSocket error: ${error.message}`);
     if (intervalId) {
       clearInterval(intervalId);
@@ -219,7 +240,6 @@ module.exports = { app, server, wss };
 // Only start server if not in test mode
 if (require.main === module) {
   server.listen(PORT, '0.0.0.0', async () => {
-    // PHASE3-FIX: Migrated from console.log to logger
     logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
     logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);
 
@@ -260,19 +280,22 @@ if (require.main === module) {
     }
 
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
-    setInterval(async () => {
-      try {
-        await llmJobService.cleanupOldJobs();
-      } catch (err) {
-        logger.error(`Failed to cleanup old LLM jobs: ${err.message}`);
-      }
-    }, 30 * 60 * 1000); // 30 minutes
+    setInterval(
+      async () => {
+        try {
+          await llmJobService.cleanupOldJobs();
+        } catch (err) {
+          logger.error(`Failed to cleanup old LLM jobs: ${err.message}`);
+        }
+      },
+      30 * 60 * 1000
+    ); // 30 minutes
 
     // Initialize Alert Engine with WebSocket broadcast support
     try {
       // Create broadcast function for alert notifications
-      const broadcastAlert = (data) => {
-        wss.clients.forEach((client) => {
+      const broadcastAlert = data => {
+        wss.clients.forEach(client => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(data));
           }
@@ -281,7 +304,7 @@ if (require.main === module) {
 
       await alertEngine.initialize({
         broadcast: broadcastAlert,
-        checkIntervalMs: 30000  // Check every 30 seconds
+        checkIntervalMs: 30000, // Check every 30 seconds
       });
       logger.info('Alert Engine initialized successfully');
     } catch (err) {

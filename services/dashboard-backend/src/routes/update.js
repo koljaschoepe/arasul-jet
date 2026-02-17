@@ -17,46 +17,50 @@ const { ValidationError, NotFoundError, ConflictError } = require('../utils/erro
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-    destination: async (req, file, cb) => {
-        const uploadDir = '/tmp/updates';
-        try {
-            await fs.mkdir(uploadDir, { recursive: true });
-            cb(null, uploadDir);
-        } catch (error) {
-            cb(error);
-        }
-    },
-    filename: (req, file, cb) => {
-        const timestamp = Date.now();
-        cb(null, `update_${timestamp}_${file.originalname}`);
+  destination: async (req, file, cb) => {
+    const uploadDir = '/tmp/updates';
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (error) {
+      cb(error);
     }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `update_${timestamp}_${file.originalname}`);
+  },
 });
 
 const upload = multer({
-    storage: storage,
-    limits: {
-        fileSize: 10 * 1024 * 1024 * 1024 // 10 GB max
-    },
-    fileFilter: (req, file, cb) => {
-        // BUG-002 FIX: Allow both .araupdate files and .sig files
-        const ext = path.extname(file.originalname);
-        if (ext === '.araupdate' || ext === '.sig') {
-            cb(null, true);
-        } else {
-            cb(new Error('Only .araupdate and .sig files are allowed'));
-        }
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 * 1024, // 10 GB max
+  },
+  fileFilter: (req, file, cb) => {
+    // BUG-002 FIX: Allow both .araupdate files and .sig files
+    const ext = path.extname(file.originalname);
+    if (ext === '.araupdate' || ext === '.sig') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .araupdate and .sig files are allowed'));
     }
+  },
 });
 
 // BUG-002 FIX: Use multer.fields() to accept both file and signature
 // POST /api/update/upload
-router.post('/upload', requireAuth, upload.fields([
+router.post(
+  '/upload',
+  requireAuth,
+  upload.fields([
     { name: 'file', maxCount: 1 },
-    { name: 'signature', maxCount: 1 }
-]), asyncHandler(async (req, res) => {
+    { name: 'signature', maxCount: 1 },
+  ]),
+  asyncHandler(async (req, res) => {
     // BUG-002 FIX: Check req.files.file instead of req.file
     if (!req.files || !req.files.file || !req.files.file[0]) {
-        throw new ValidationError('No update file uploaded');
+      throw new ValidationError('No update file uploaded');
     }
 
     const uploadedFile = req.files.file[0];
@@ -67,10 +71,10 @@ router.post('/upload', requireAuth, upload.fields([
 
     // Check for signature file
     if (!req.files.signature || !req.files.signature[0]) {
-        // Signature is required for security
-        logger.warn('Signature file not uploaded');
-        await fs.unlink(filePath).catch(() => { });
-        throw new ValidationError('Signature file is required for update validation');
+      // Signature is required for security
+      logger.warn('Signature file not uploaded');
+      await fs.unlink(filePath).catch(() => {});
+      throw new ValidationError('Signature file is required for update validation');
     }
 
     const signatureFile = req.files.signature[0];
@@ -88,10 +92,10 @@ router.post('/upload', requireAuth, upload.fields([
     const validation = await updateService.validateUpdate(permanentPath);
 
     if (!validation.valid) {
-        // Clean up file
-        await fs.unlink(permanentPath).catch(() => { });
-        await fs.unlink(`${permanentPath}.sig`).catch(() => { });
-        throw new ValidationError(validation.error || 'Update validation failed');
+      // Clean up file
+      await fs.unlink(permanentPath).catch(() => {});
+      await fs.unlink(`${permanentPath}.sig`).catch(() => {});
+      throw new ValidationError(validation.error || 'Update validation failed');
     }
 
     const manifest = validation.manifest;
@@ -99,42 +103,52 @@ router.post('/upload', requireAuth, upload.fields([
     // Log update event
     const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
     await db.query(
-        `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
+      `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
          VALUES ($1, $2, $3, $4, $5)`,
-        [currentVersion, manifest.version, 'validated', 'dashboard', JSON.stringify(manifest.components)]
+      [
+        currentVersion,
+        manifest.version,
+        'validated',
+        'dashboard',
+        JSON.stringify(manifest.components),
+      ]
     );
 
     res.json({
-        status: 'validated',
-        version: manifest.version,
-        size: uploadedFile.size,
-        components: manifest.components,
-        requires_reboot: manifest.requires_reboot || false,
-        timestamp: new Date().toISOString(),
-        message: 'Update package validated successfully. Use /api/update/apply to install.',
-        file_path: permanentPath
+      status: 'validated',
+      version: manifest.version,
+      size: uploadedFile.size,
+      components: manifest.components,
+      requires_reboot: manifest.requires_reboot || false,
+      timestamp: new Date().toISOString(),
+      message: 'Update package validated successfully. Use /api/update/apply to install.',
+      file_path: permanentPath,
     });
-}));
+  })
+);
 
 // POST /api/update/apply
-router.post('/apply', requireAuth, asyncHandler(async (req, res) => {
+router.post(
+  '/apply',
+  requireAuth,
+  asyncHandler(async (req, res) => {
     const { file_path } = req.body;
 
     if (!file_path) {
-        throw new ValidationError('Update file path is required');
+      throw new ValidationError('Update file path is required');
     }
 
     // Check if update is already in progress
     const currentState = await updateService.getUpdateState();
     if (currentState && currentState.status === 'in_progress') {
-        throw new ConflictError('Update already in progress');
+      throw new ConflictError('Update already in progress');
     }
 
     // Verify file exists
     try {
-        await fs.access(file_path);
+      await fs.access(file_path);
     } catch {
-        throw new NotFoundError('Update file not found');
+      throw new NotFoundError('Update file not found');
     }
 
     // Start update process asynchronously
@@ -142,67 +156,76 @@ router.post('/apply', requireAuth, asyncHandler(async (req, res) => {
 
     // Return immediately and process update in background
     res.json({
-        status: 'started',
-        message: 'Update process started. Use /api/update/status to monitor progress.',
-        timestamp: new Date().toISOString()
+      status: 'started',
+      message: 'Update process started. Use /api/update/status to monitor progress.',
+      timestamp: new Date().toISOString(),
     });
 
-    // Apply update asynchronously
-    updateService.applyUpdate(file_path).then(result => {
+    // Apply update asynchronously - errors are logged and tracked in DB
+    updateService
+      .applyUpdate(file_path)
+      .then(async result => {
         if (result.success) {
-            logger.info(`Update completed successfully: ${result.version}`);
+          logger.info(`Update completed successfully: ${result.version}`);
         } else {
-            logger.error(`Update failed: ${result.error}`);
+          logger.error(`Update failed: ${result.error}`);
+          // Record failure in DB for status endpoint
+          await db
+            .query(
+              `UPDATE update_events SET status = 'failed', error_message = $1
+                 WHERE status = 'in_progress' ORDER BY timestamp DESC LIMIT 1`,
+              [result.error]
+            )
+            .catch(dbErr => logger.error(`Failed to record update failure: ${dbErr.message}`));
         }
-    }).catch(error => {
+      })
+      .catch(async error => {
         logger.error(`Update process error: ${error.message}`);
-    });
-}));
+        await db
+          .query(
+            `UPDATE update_events SET status = 'failed', error_message = $1
+             WHERE status = 'in_progress' ORDER BY timestamp DESC LIMIT 1`,
+            [error.message]
+          )
+          .catch(dbErr => logger.error(`Failed to record update failure: ${dbErr.message}`));
+      });
+  })
+);
 
 // GET /api/update/status
-router.get('/status', requireAuth, asyncHandler(async (req, res) => {
+router.get(
+  '/status',
+  requireAuth,
+  asyncHandler(async (req, res) => {
     const state = await updateService.getUpdateState();
 
     if (!state) {
-        return res.json({
-            status: 'idle',
-            message: 'No update in progress',
-            timestamp: new Date().toISOString()
-        });
+      return res.json({
+        status: 'idle',
+        message: 'No update in progress',
+        timestamp: new Date().toISOString(),
+      });
     }
 
     res.json({
-        ...state,
-        timestamp: new Date().toISOString()
+      ...state,
+      timestamp: new Date().toISOString(),
     });
-}));
+  })
+);
 
 // GET /api/update/history
-router.get('/history', requireAuth, asyncHandler(async (req, res) => {
-    const result = await db.query(
-        'SELECT * FROM update_events ORDER BY timestamp DESC LIMIT 10'
-    );
+router.get(
+  '/history',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const result = await db.query('SELECT * FROM update_events ORDER BY timestamp DESC LIMIT 10');
 
     res.json({
-        updates: result.rows,
-        timestamp: new Date().toISOString()
+      updates: result.rows,
+      timestamp: new Date().toISOString(),
     });
-}));
-
-// Helper function to compare semantic versions
-function compareVersions(v1, v2) {
-    const parts1 = v1.split('.').map(Number);
-    const parts2 = v2.split('.').map(Number);
-
-    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-        const part1 = parts1[i] || 0;
-        const part2 = parts2[i] || 0;
-
-        if (part1 > part2) return 1;
-        if (part1 < part2) return -1;
-    }
-
-    return 0;
-}
+  })
+);
 
 module.exports = router;

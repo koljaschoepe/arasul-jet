@@ -60,7 +60,7 @@ class N8nLogger {
       const result = await db.query(query, values);
       return result.rows[0];
     } catch (err) {
-      console.error('Failed to log workflow execution:', err);
+      require('../utils/logger').error('Failed to log workflow execution:', err);
       throw err;
     }
   }
@@ -113,7 +113,7 @@ class N8nLogger {
       const result = await db.query(query, values);
       return result.rows;
     } catch (err) {
-      console.error('Failed to get execution history:', err);
+      require('../utils/logger').error('Failed to get execution history:', err);
       throw err;
     }
   }
@@ -135,7 +135,9 @@ class N8nLogger {
     // SEC-001 FIX: Whitelist validation to prevent SQL injection
     const interval = timeRangeMap[timeRange];
     if (!interval) {
-      throw new Error(`Invalid time range. Must be one of: ${Object.keys(timeRangeMap).join(', ')}`);
+      throw new Error(
+        `Invalid time range. Must be one of: ${Object.keys(timeRangeMap).join(', ')}`
+      );
     }
 
     let query = `
@@ -168,15 +170,16 @@ class N8nLogger {
         total_executions: parseInt(stats.total_executions || 0),
         successful_executions: parseInt(stats.successful_executions || 0),
         failed_executions: parseInt(stats.failed_executions || 0),
-        success_rate: stats.total_executions > 0
-          ? ((stats.successful_executions / stats.total_executions) * 100).toFixed(2)
-          : 0,
+        success_rate:
+          stats.total_executions > 0
+            ? ((stats.successful_executions / stats.total_executions) * 100).toFixed(2)
+            : 0,
         avg_duration_ms: stats.avg_duration_ms ? Math.round(stats.avg_duration_ms) : null,
         min_duration_ms: stats.min_duration_ms ? Math.round(stats.min_duration_ms) : null,
         max_duration_ms: stats.max_duration_ms ? Math.round(stats.max_duration_ms) : null,
       };
     } catch (err) {
-      console.error('Failed to get workflow stats:', err);
+      require('../utils/logger').error('Failed to get workflow stats:', err);
       throw err;
     }
   }
@@ -209,13 +212,12 @@ class N8nLogger {
         last_execution: row.last_execution,
         successful: parseInt(row.successful || 0),
         failed: parseInt(row.failed || 0),
-        success_rate: row.execution_count > 0
-          ? ((row.successful / row.execution_count) * 100).toFixed(2)
-          : 0,
+        success_rate:
+          row.execution_count > 0 ? ((row.successful / row.execution_count) * 100).toFixed(2) : 0,
         avg_duration_ms: row.avg_duration_ms ? Math.round(row.avg_duration_ms) : null,
       }));
     } catch (err) {
-      console.error('Failed to get active workflows:', err);
+      require('../utils/logger').error('Failed to get active workflows:', err);
       throw err;
     }
   }
@@ -242,10 +244,12 @@ class N8nLogger {
       // BUG-004 FIX: Use centralized db.query()
       const result = await db.query(query);
       const deletedCount = result.rowCount;
-      console.log(`Cleaned up ${deletedCount} old workflow execution records (older than ${days} days)`);
+      require('../utils/logger').info(
+        `Cleaned up ${deletedCount} old workflow execution records (older than ${days} days)`
+      );
       return deletedCount;
     } catch (err) {
-      console.error('Failed to cleanup old records:', err);
+      require('../utils/logger').error('Failed to cleanup old records:', err);
       throw err;
     }
   }
