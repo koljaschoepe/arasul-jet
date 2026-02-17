@@ -67,24 +67,6 @@ scrape_configs:
                 source: timestamp
                 format: RFC3339
 
-  # Scrape system logs
-  - job_name: system
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: system
-          __path__: /var/log/syslog
-    pipeline_stages:
-      - regex:
-          expression: '^(?P<timestamp>\w+\s+\d+\s+\d+:\d+:\d+)\s+(?P<host>\S+)\s+(?P<service>[^\[]+)(?:\[(?P<pid>\d+)\])?: (?P<message>.*)$'
-      - labels:
-          host:
-          service:
-      - timestamp:
-          source: timestamp
-          format: Jan _2 15:04:05
-
   # Service-specific scrape configs
   - job_name: dashboard-backend
     static_configs:
