@@ -11,9 +11,10 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiCopy,
-  FiCheck
+  FiCheck,
 } from 'react-icons/fi';
 import { formatDate } from '../utils/formatting';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import './ClaudeTerminal.css';
 
 function ClaudeTerminal() {
@@ -45,8 +46,8 @@ function ClaudeTerminal() {
 
   const checkStatus = async () => {
     try {
-      const res = await fetch('/api/claude-terminal/status', {
-        credentials: 'include'
+      const res = await fetch(`${API_BASE}/claude-terminal/status`, {
+        headers: getAuthHeaders(),
       });
       const data = await res.json();
       setStatus(data);
@@ -57,8 +58,8 @@ function ClaudeTerminal() {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch('/api/claude-terminal/history?limit=10', {
-        credentials: 'include'
+      const res = await fetch(`${API_BASE}/claude-terminal/history?limit=10`, {
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
@@ -71,9 +72,9 @@ function ClaudeTerminal() {
 
   const clearHistory = async () => {
     try {
-      const res = await fetch('/api/claude-terminal/history', {
+      const res = await fetch(`${API_BASE}/claude-terminal/history`, {
         method: 'DELETE',
-        credentials: 'include'
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         setHistory([]);
@@ -83,15 +84,18 @@ function ClaudeTerminal() {
     }
   };
 
-  const copyResponse = useCallback(() => {
-    if (response) {
-      navigator.clipboard.writeText(response);
+  const copyResponse = useCallback(async () => {
+    if (!response) return;
+    try {
+      await navigator.clipboard.writeText(response);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable (insecure context) - silently fail
     }
   }, [response]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     if (!query.trim() || isLoading) return;
 
@@ -101,14 +105,13 @@ function ClaudeTerminal() {
     setStats(null);
 
     try {
-      const res = await fetch('/api/claude-terminal/query', {
+      const res = await fetch(`${API_BASE}/claude-terminal/query`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           query: query.trim(),
-          includeContext
-        })
+          includeContext,
+        }),
       });
 
       if (!res.ok) {
@@ -141,7 +144,7 @@ function ClaudeTerminal() {
               } else if (data.type === 'complete') {
                 setStats({
                   tokens: data.totalTokens,
-                  time: data.responseTimeMs
+                  time: data.responseTimeMs,
                 });
               } else if (data.type === 'error') {
                 setError(data.message || data.error);
@@ -162,14 +165,14 @@ function ClaudeTerminal() {
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = e => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
   };
 
-  const formatTime = (ms) => {
+  const formatTime = ms => {
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
   };
@@ -246,7 +249,7 @@ function ClaudeTerminal() {
                   ref={inputRef}
                   className="claude-terminal-input"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={e => setQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="z.B. 'Wie ist der aktuelle Systemstatus?' oder 'Zeige mir die letzten Fehler in den Logs'"
                   disabled={isLoading || !isAvailable}
@@ -265,7 +268,7 @@ function ClaudeTerminal() {
                   <input
                     type="checkbox"
                     checked={includeContext}
-                    onChange={(e) => setIncludeContext(e.target.checked)}
+                    onChange={e => setIncludeContext(e.target.checked)}
                   />
                   <span>System-Kontext einbeziehen (Metriken, Logs, Services)</span>
                 </label>
@@ -319,11 +322,11 @@ function ClaudeTerminal() {
                 <FiAlertCircle />
                 <div>
                   <strong>LLM Service nicht verfügbar</strong>
-                  <p>Der LLM Service startet möglicherweise gerade. Bitte versuchen Sie es in einigen Momenten erneut.</p>
-                  <button
-                    className="claude-terminal-retry-btn"
-                    onClick={checkStatus}
-                  >
+                  <p>
+                    Der LLM Service startet möglicherweise gerade. Bitte versuchen Sie es in einigen
+                    Momenten erneut.
+                  </p>
+                  <button className="claude-terminal-retry-btn" onClick={checkStatus}>
                     <FiRefreshCw />
                     Status erneut prüfen
                   </button>
@@ -349,7 +352,7 @@ function ClaudeTerminal() {
               {history.length > 0 && (
                 <button
                   className="claude-terminal-clear-btn"
-                  onClick={(e) => {
+                  onClick={e => {
                     e.stopPropagation();
                     clearHistory();
                   }}
@@ -367,7 +370,7 @@ function ClaudeTerminal() {
                 <p className="claude-terminal-empty-history">Noch keine Anfragen gestellt</p>
               ) : (
                 <div className="claude-terminal-history-list">
-                  {history.map((item) => (
+                  {history.map(item => (
                     <div
                       key={item.id}
                       className={`claude-terminal-history-item ${item.status}`}
@@ -387,9 +390,7 @@ function ClaudeTerminal() {
                           {item.status}
                         </span>
                         <span>{formatDate(item.created_at)}</span>
-                        {item.response_time_ms && (
-                          <span>{formatTime(item.response_time_ms)}</span>
-                        )}
+                        {item.response_time_ms && <span>{formatTime(item.response_time_ms)}</span>}
                       </div>
                     </div>
                   ))}
@@ -411,7 +412,7 @@ function ClaudeTerminal() {
                 'Wie ist der aktuelle Systemstatus?',
                 'Gibt es kritische Fehler in den Logs?',
                 'Welche Services sind offline?',
-                'Analysiere die CPU- und RAM-Auslastung'
+                'Analysiere die CPU- und RAM-Auslastung',
               ].map((example, index) => (
                 <button
                   key={index}

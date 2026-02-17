@@ -6,19 +6,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
-import {
-  FiPackage,
-  FiSearch,
-  FiX,
-  FiCpu,
-  FiGrid,
-  FiHome
-} from 'react-icons/fi';
+import { FiPackage, FiSearch, FiX, FiCpu, FiGrid, FiHome } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
 import StoreHome from './StoreHome';
 import StoreModels from './StoreModels';
 import StoreApps from './StoreApps';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders } from '../../config/api';
 import './Store.css';
 
 function Store() {
@@ -28,21 +21,12 @@ function Store() {
   const [isSearching, setIsSearching] = useState(false);
   const [systemInfo, setSystemInfo] = useState({ availableRamGB: 64, availableDiskGB: 100 });
 
-  // Get auth headers
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('arasul_token');
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-  };
-
   // Load system info for RAM-based recommendations
   useEffect(() => {
     const loadSystemInfo = async () => {
       try {
         const response = await fetch(`${API_BASE}/store/info`, {
-          headers: getAuthHeaders()
+          headers: getAuthHeaders(),
         });
         if (response.ok) {
           const data = await response.json();
@@ -116,7 +100,7 @@ function Store() {
               type="text"
               placeholder="Modelle und Apps durchsuchen..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               aria-label="Store durchsuchen"
             />
             {searchQuery && (
@@ -176,7 +160,9 @@ function Store() {
             <>
               {searchResults.models.length > 0 && (
                 <div className="search-section">
-                  <h3><FiCpu /> Modelle ({searchResults.models.length})</h3>
+                  <h3>
+                    <FiCpu /> Modelle ({searchResults.models.length})
+                  </h3>
                   <div className="search-items">
                     {searchResults.models.slice(0, 5).map(model => (
                       <NavLink
@@ -194,7 +180,9 @@ function Store() {
               )}
               {searchResults.apps.length > 0 && (
                 <div className="search-section">
-                  <h3><FiGrid /> Apps ({searchResults.apps.length})</h3>
+                  <h3>
+                    <FiGrid /> Apps ({searchResults.apps.length})
+                  </h3>
                   <div className="search-items">
                     {searchResults.apps.slice(0, 5).map(app => (
                       <NavLink
@@ -211,9 +199,7 @@ function Store() {
                 </div>
               )}
               {searchResults.models.length === 0 && searchResults.apps.length === 0 && (
-                <div className="search-empty">
-                  Keine Ergebnisse für "{searchQuery}"
-                </div>
+                <div className="search-empty">Keine Ergebnisse für "{searchQuery}"</div>
               )}
             </>
           )}

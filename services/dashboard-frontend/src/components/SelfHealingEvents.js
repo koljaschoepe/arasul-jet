@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config/api';
 import {
   FiRefreshCw,
   FiInfo,
@@ -10,7 +11,7 @@ import {
   FiCpu,
   FiHardDrive,
   FiThermometer,
-  FiPower
+  FiPower,
 } from 'react-icons/fi';
 import { formatRelativeDate } from '../utils/formatting';
 import './SelfHealingEvents.css';
@@ -49,7 +50,7 @@ const SelfHealingEvents = () => {
     setError('');
 
     try {
-      const response = await axios.get('/api/self-healing/events?limit=50');
+      const response = await axios.get(`${API_BASE}/self-healing/events?limit=50`);
       setEvents(response.data.events || []);
     } catch (err) {
       setError('Failed to load self-healing events');
@@ -59,7 +60,7 @@ const SelfHealingEvents = () => {
     }
   };
 
-  const getSeverityBadge = (severity) => {
+  const getSeverityBadge = severity => {
     const severityMap = {
       INFO: { color: 'info', Icon: FiInfo },
       WARNING: { color: 'warning', Icon: FiAlertTriangle },
@@ -77,7 +78,7 @@ const SelfHealingEvents = () => {
     );
   };
 
-  const getEventTypeIcon = (eventType) => {
+  const getEventTypeIcon = eventType => {
     const icons = {
       service_restart: FiRefreshCw,
       service_down: FiAlertCircle,
@@ -95,7 +96,7 @@ const SelfHealingEvents = () => {
 
   // Using formatRelativeDate from utils/formatting
 
-  const filteredEvents = events.filter((event) => {
+  const filteredEvents = events.filter(event => {
     if (filter === 'all') return true;
     return event.severity === filter;
   });
@@ -108,7 +109,7 @@ const SelfHealingEvents = () => {
       CRITICAL: 0,
     };
 
-    events.forEach((event) => {
+    events.forEach(event => {
       if (event.severity in stats) {
         stats[event.severity]++;
       }
@@ -143,7 +144,7 @@ const SelfHealingEvents = () => {
             <input
               type="checkbox"
               checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
+              onChange={e => setAutoRefresh(e.target.checked)}
             />
             <span>Auto-refresh (10s)</span>
           </label>
@@ -216,29 +217,20 @@ const SelfHealingEvents = () => {
           <FiCheckCircle className="no-events-icon" />
           <p>No events found</p>
           <p className="no-events-subtext">
-            {filter === 'all'
-              ? 'The system is running smoothly'
-              : `No ${filter} events recorded`}
+            {filter === 'all' ? 'The system is running smoothly' : `No ${filter} events recorded`}
           </p>
         </div>
       ) : (
         <div className="events-list">
-          {filteredEvents.map((event) => (
-            <div
-              key={event.id}
-              className={`event-card severity-${event.severity?.toLowerCase()}`}
-            >
+          {filteredEvents.map(event => (
+            <div key={event.id} className={`event-card severity-${event.severity?.toLowerCase()}`}>
               <div className="event-header">
-                <div className="event-icon">
-                  {getEventTypeIcon(event.event_type)}
-                </div>
+                <div className="event-icon">{getEventTypeIcon(event.event_type)}</div>
                 <div className="event-title">
                   <h4>{event.event_type?.replace(/_/g, ' ').toUpperCase()}</h4>
                   <span className="event-time">{formatRelativeDate(event.timestamp)}</span>
                 </div>
-                <div className="event-severity">
-                  {getSeverityBadge(event.severity)}
-                </div>
+                <div className="event-severity">{getSeverityBadge(event.severity)}</div>
               </div>
 
               <div className="event-body">

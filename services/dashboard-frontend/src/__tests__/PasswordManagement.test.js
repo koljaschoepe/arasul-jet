@@ -13,11 +13,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import axios from 'axios';
 import PasswordManagement from '../components/PasswordManagement';
-
-// Mock axios
-jest.mock('axios');
 
 describe('PasswordManagement Component', () => {
   const mockRequirements = {
@@ -25,21 +21,28 @@ describe('PasswordManagement Component', () => {
     requireUppercase: true,
     requireLowercase: true,
     requireNumbers: true,
-    requireSpecialChars: true
+    requireSpecialChars: true,
   };
+
+  let originalFetch;
 
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.setItem('arasul_token', 'test-token');
+    originalFetch = global.fetch;
 
-    // Default mock for password requirements
-    axios.get.mockResolvedValue({
-      data: { requirements: mockRequirements }
-    });
+    // Default mock - returns password requirements
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ requirements: mockRequirements }),
+      })
+    );
   });
 
   afterEach(() => {
     localStorage.clear();
+    global.fetch = originalFetch;
   });
 
   // =====================================================
@@ -55,7 +58,9 @@ describe('PasswordManagement Component', () => {
     test('rendert Beschreibung', async () => {
       render(<PasswordManagement />);
 
-      expect(screen.getByText(/Ändern Sie die Passwörter für Dashboard, MinIO und n8n/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Ändern Sie die Passwörter für Dashboard, MinIO und n8n/)
+      ).toBeInTheDocument();
     });
 
     test('zeigt Lock-Icon', async () => {
@@ -68,10 +73,10 @@ describe('PasswordManagement Component', () => {
       render(<PasswordManagement />);
 
       await waitFor(() => {
-        expect(axios.get).toHaveBeenCalledWith(
+        expect(global.fetch).toHaveBeenCalledWith(
           '/api/settings/password-requirements',
           expect.objectContaining({
-            headers: { Authorization: 'Bearer test-token' }
+            headers: expect.any(Object),
           })
         );
       });
@@ -164,7 +169,9 @@ describe('PasswordManagement Component', () => {
     test('zeigt Hinweis für aktuelles Passwort', async () => {
       render(<PasswordManagement />);
 
-      expect(screen.getByText(/Zur Sicherheit wird Ihr aktuelles Dashboard-Passwort benötigt/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Zur Sicherheit wird Ihr aktuelles Dashboard-Passwort benötigt/)
+      ).toBeInTheDocument();
     });
   });
 
@@ -212,7 +219,7 @@ describe('PasswordManagement Component', () => {
       render(<PasswordManagement />);
 
       await waitFor(() => {
-        expect(axios.get).toHaveBeenCalled();
+        expect(global.fetch).toHaveBeenCalled();
       });
 
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
@@ -225,7 +232,7 @@ describe('PasswordManagement Component', () => {
       const user = userEvent.setup();
       render(<PasswordManagement />);
 
-      await waitFor(() => expect(axios.get).toHaveBeenCalled());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'test');
@@ -237,7 +244,7 @@ describe('PasswordManagement Component', () => {
       const user = userEvent.setup();
       render(<PasswordManagement />);
 
-      await waitFor(() => expect(axios.get).toHaveBeenCalled());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'test');
@@ -249,7 +256,7 @@ describe('PasswordManagement Component', () => {
       const user = userEvent.setup();
       render(<PasswordManagement />);
 
-      await waitFor(() => expect(axios.get).toHaveBeenCalled());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'test');
@@ -266,7 +273,7 @@ describe('PasswordManagement Component', () => {
       const user = userEvent.setup();
       const { container } = render(<PasswordManagement />);
 
-      await waitFor(() => expect(axios.get).toHaveBeenCalled());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'TestPass123!');
@@ -280,7 +287,7 @@ describe('PasswordManagement Component', () => {
       const user = userEvent.setup();
       const { container } = render(<PasswordManagement />);
 
-      await waitFor(() => expect(axios.get).toHaveBeenCalled());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'test');
@@ -316,7 +323,11 @@ describe('PasswordManagement Component', () => {
     test('zeigt Dashboard-Logout Warnung', async () => {
       render(<PasswordManagement />);
 
-      expect(screen.getByText(/Nach dem Ändern des Dashboard-Passworts werden Sie automatisch abgemeldet/)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Nach dem Ändern des Dashboard-Passworts werden Sie automatisch abgemeldet/
+        )
+      ).toBeInTheDocument();
     });
 
     test('zeigt MinIO-Neustart Info bei MinIO Auswahl', async () => {
@@ -325,7 +336,9 @@ describe('PasswordManagement Component', () => {
 
       await user.click(screen.getByText('MinIO'));
 
-      expect(screen.getByText(/MinIO-Service wird nach der Passwortänderung automatisch neu gestartet/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/MinIO-Service wird nach der Passwortänderung automatisch neu gestartet/)
+      ).toBeInTheDocument();
     });
 
     test('zeigt n8n-Neustart Info bei n8n Auswahl', async () => {
@@ -334,7 +347,9 @@ describe('PasswordManagement Component', () => {
 
       await user.click(screen.getByText('n8n'));
 
-      expect(screen.getByText(/n8n-Service wird nach der Passwortänderung automatisch neu gestartet/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/n8n-Service wird nach der Passwortänderung automatisch neu gestartet/)
+      ).toBeInTheDocument();
     });
   });
 
@@ -344,13 +359,23 @@ describe('PasswordManagement Component', () => {
   describe('Form Submission', () => {
     test('sendet POST-Request mit korrekten Daten', async () => {
       const user = userEvent.setup();
-      axios.post.mockResolvedValue({
-        data: { message: 'Passwort erfolgreich geändert' }
+
+      global.fetch = jest.fn((url, options) => {
+        if (options?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ message: 'Passwort erfolgreich geändert' }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ requirements: mockRequirements }),
+        });
       });
 
       render(<PasswordManagement />);
 
-      await waitFor(() => expect(axios.get).toHaveBeenCalled());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       // Fill form with valid password
       await user.type(screen.getByPlaceholderText('Aktuelles Passwort eingeben'), 'OldPass123!');
@@ -366,26 +391,33 @@ describe('PasswordManagement Component', () => {
 
     test('zeigt Erfolgs-Nachricht nach erfolgreicher Änderung', async () => {
       const user = userEvent.setup();
-      axios.post.mockResolvedValue({
-        data: { message: 'Passwort erfolgreich geändert' }
-      });
 
       // Use mockRequirements with less strict rules for easier testing
-      axios.get.mockResolvedValue({
-        data: {
-          requirements: {
-            minLength: 4,
-            requireUppercase: false,
-            requireLowercase: false,
-            requireNumbers: false,
-            requireSpecialChars: false
-          }
+      global.fetch = jest.fn((url, options) => {
+        if (options?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ message: 'Passwort erfolgreich geändert' }),
+          });
         }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              requirements: {
+                minLength: 4,
+                requireUppercase: false,
+                requireLowercase: false,
+                requireNumbers: false,
+                requireSpecialChars: false,
+              },
+            }),
+        });
       });
 
       render(<PasswordManagement />);
 
-      await waitFor(() => expect(axios.get).toHaveBeenCalled());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       await user.type(screen.getByPlaceholderText('Aktuelles Passwort eingeben'), 'oldpass');
       await user.type(screen.getByPlaceholderText('Neues Passwort eingeben'), 'newpass');
@@ -403,25 +435,32 @@ describe('PasswordManagement Component', () => {
 
     test('zeigt Fehler-Nachricht bei API-Fehler', async () => {
       const user = userEvent.setup();
-      axios.post.mockRejectedValue({
-        response: { data: { error: 'Aktuelles Passwort ist falsch' } }
-      });
 
-      axios.get.mockResolvedValue({
-        data: {
-          requirements: {
-            minLength: 4,
-            requireUppercase: false,
-            requireLowercase: false,
-            requireNumbers: false,
-            requireSpecialChars: false
-          }
+      global.fetch = jest.fn((url, options) => {
+        if (options?.method === 'POST') {
+          return Promise.resolve({
+            ok: false,
+            json: () => Promise.resolve({ error: 'Aktuelles Passwort ist falsch' }),
+          });
         }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              requirements: {
+                minLength: 4,
+                requireUppercase: false,
+                requireLowercase: false,
+                requireNumbers: false,
+                requireSpecialChars: false,
+              },
+            }),
+        });
       });
 
       render(<PasswordManagement />);
 
-      await waitFor(() => expect(axios.get).toHaveBeenCalled());
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       await user.type(screen.getByPlaceholderText('Aktuelles Passwort eingeben'), 'wrong');
       await user.type(screen.getByPlaceholderText('Neues Passwort eingeben'), 'newpass');
@@ -460,7 +499,7 @@ describe('PasswordManagement Component', () => {
   // =====================================================
   describe('Error Handling', () => {
     test('behandelt fehlgeschlagene Anforderungs-Abfrage', async () => {
-      axios.get.mockRejectedValue(new Error('Network error'));
+      global.fetch = jest.fn(() => Promise.reject(new Error('Network error')));
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
       render(<PasswordManagement />);

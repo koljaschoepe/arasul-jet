@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FiPackage, FiLock, FiCheckCircle, FiXCircle, FiSettings, FiAlertCircle } from 'react-icons/fi';
+import { API_BASE } from '../config/api';
+import {
+  FiPackage,
+  FiLock,
+  FiCheckCircle,
+  FiXCircle,
+  FiSettings,
+  FiAlertCircle,
+} from 'react-icons/fi';
 import { formatDate } from '../utils/formatting';
 import './UpdatePage.css';
 
@@ -42,7 +50,7 @@ const UpdatePage = () => {
 
   const fetchUpdateHistory = async () => {
     try {
-      const response = await axios.get('/api/update/history');
+      const response = await axios.get(`${API_BASE}/update/history`);
       setUpdateHistory(response.data.updates || []);
     } catch (error) {
       console.error('Failed to fetch update history:', error);
@@ -51,7 +59,7 @@ const UpdatePage = () => {
 
   const fetchUpdateStatus = async () => {
     try {
-      const response = await axios.get('/api/update/status');
+      const response = await axios.get(`${API_BASE}/update/status`);
       setUpdateStatus(response.data);
 
       if (response.data.status === 'completed') {
@@ -66,7 +74,7 @@ const UpdatePage = () => {
     }
   };
 
-  const handleFileSelect = (event) => {
+  const handleFileSelect = event => {
     const file = event.target.files[0];
     if (file && file.name.endsWith('.araupdate')) {
       setSelectedFile(file);
@@ -79,7 +87,7 @@ const UpdatePage = () => {
     }
   };
 
-  const handleSignatureSelect = (event) => {
+  const handleSignatureSelect = event => {
     const file = event.target.files[0];
     if (file && file.name.endsWith('.sig')) {
       setSignatureFile(file);
@@ -106,14 +114,12 @@ const UpdatePage = () => {
     }
 
     try {
-      const response = await axios.post('/api/update/upload', formData, {
+      const response = await axios.post(`${API_BASE}/update/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
+        onUploadProgress: progressEvent => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(percentCompleted);
         },
       });
@@ -123,9 +129,7 @@ const UpdatePage = () => {
       setUploadProgress(100);
     } catch (error) {
       setUploadStatus('error');
-      setErrorMessage(
-        error.response?.data?.error || 'Upload failed. Please try again.'
-      );
+      setErrorMessage(error.response?.data?.error || 'Upload failed. Please try again.');
       setUploadProgress(0);
     }
   };
@@ -140,7 +144,7 @@ const UpdatePage = () => {
     setErrorMessage('');
 
     try {
-      const response = await axios.post('/api/update/apply', {
+      const response = await axios.post(`${API_BASE}/update/apply`, {
         file_path: validationResult.file_path,
       });
 
@@ -150,9 +154,7 @@ const UpdatePage = () => {
       }
     } catch (error) {
       setUploadStatus('error');
-      setErrorMessage(
-        error.response?.data?.error || 'Failed to start update process'
-      );
+      setErrorMessage(error.response?.data?.error || 'Failed to start update process');
     }
   };
 
@@ -166,7 +168,7 @@ const UpdatePage = () => {
     setErrorMessage('');
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = status => {
     const statusColors = {
       completed: 'success',
       failed: 'error',
@@ -176,13 +178,11 @@ const UpdatePage = () => {
     };
 
     return (
-      <span className={`status-badge status-${statusColors[status] || 'default'}`}>
-        {status}
-      </span>
+      <span className={`status-badge status-${statusColors[status] || 'default'}`}>{status}</span>
     );
   };
 
-  const getCurrentStepDescription = (step) => {
+  const getCurrentStepDescription = step => {
     const steps = {
       backup: 'Creating backup...',
       loading_images: 'Loading Docker images...',
@@ -240,11 +240,7 @@ const UpdatePage = () => {
               />
             </div>
 
-            <button
-              onClick={handleUpload}
-              disabled={!selectedFile}
-              className="btn btn-primary"
-            >
+            <button onClick={handleUpload} disabled={!selectedFile} className="btn btn-primary">
               Upload & Validate
             </button>
           </div>
@@ -254,10 +250,7 @@ const UpdatePage = () => {
           <div className="upload-progress">
             <p>Uploading update package...</p>
             <div className="progress-bar">
-              <div
-                className="progress-fill"
-                style={{ width: `${uploadProgress}%` }}
-              ></div>
+              <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
             </div>
             <p className="progress-text">{uploadProgress}%</p>
           </div>
@@ -283,9 +276,7 @@ const UpdatePage = () => {
               </div>
               <div className="detail-row">
                 <span className="detail-label">Components:</span>
-                <span className="detail-value">
-                  {validationResult.components?.length || 0}
-                </span>
+                <span className="detail-value">{validationResult.components?.length || 0}</span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Requires Reboot:</span>
@@ -334,14 +325,10 @@ const UpdatePage = () => {
               <div className="progress-fill"></div>
             </div>
 
-            <p className="progress-note">
-              Please do not close this page or power off the device.
-            </p>
+            <p className="progress-note">Please do not close this page or power off the device.</p>
 
             {updateStatus.startTime && (
-              <p className="progress-time">
-                Started: {formatDate(updateStatus.startTime)}
-              </p>
+              <p className="progress-time">Started: {formatDate(updateStatus.startTime)}</p>
             )}
           </div>
         )}
@@ -395,7 +382,7 @@ const UpdatePage = () => {
                 </tr>
               </thead>
               <tbody>
-                {updateHistory.map((update) => (
+                {updateHistory.map(update => (
                   <tr key={update.id}>
                     <td>{formatDate(update.started_at)}</td>
                     <td>{update.version_from}</td>

@@ -19,7 +19,7 @@ import {
   FiSliders,
   FiExternalLink,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders as getAuthHeadersBase } from '../../config/api';
 import { useToast } from '../../contexts/ToastContext';
 import CommandsEditor from './CommandsEditor';
 
@@ -54,14 +54,14 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
 
   const username = bot.username || bot.bot_username;
 
-  // Auth headers
-  const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem('arasul_token');
-    return {
-      Authorization: `Bearer ${token}`,
+  // Auth headers - includes Content-Type for JSON requests
+  const getAuthHeaders = useCallback(
+    () => ({
+      ...getAuthHeadersBase(),
       'Content-Type': 'application/json',
-    };
-  }, []);
+    }),
+    []
+  );
 
   // Fetch models
   useEffect(() => {

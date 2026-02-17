@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { FiLock, FiEye, FiEyeOff, FiCheck, FiX, FiAlertCircle } from 'react-icons/fi';
-import axios from 'axios';
+import { API_BASE, getAuthHeaders } from '../config/api';
 
 function PasswordManagement() {
   const [activeService, setActiveService] = useState('dashboard');
   const [passwords, setPasswords] = useState({
     dashboard: { current: '', new: '', confirm: '' },
     minio: { current: '', new: '', confirm: '' },
-    n8n: { current: '', new: '', confirm: '' }
+    n8n: { current: '', new: '', confirm: '' },
   });
   const [showPasswords, setShowPasswords] = useState({
     dashboard: { current: false, new: false, confirm: false },
     minio: { current: false, new: false, confirm: false },
-    n8n: { current: false, new: false, confirm: false }
+    n8n: { current: false, new: false, confirm: false },
   });
   const [requirements, setRequirements] = useState(null);
   const [validations, setValidations] = useState({
@@ -21,7 +21,7 @@ function PasswordManagement() {
     lowercase: false,
     number: false,
     special: false,
-    match: false
+    match: false,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -36,11 +36,13 @@ function PasswordManagement() {
 
   const fetchPasswordRequirements = async () => {
     try {
-      const token = localStorage.getItem('arasul_token');
-      const response = await axios.get('/api/settings/password-requirements', {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`${API_BASE}/settings/password-requirements`, {
+        headers: getAuthHeaders(),
       });
-      setRequirements(response.data.requirements);
+      if (response.ok) {
+        const data = await response.json();
+        setRequirements(data.requirements);
+      }
     } catch (error) {
       console.error('Failed to fetch password requirements:', error);
     }
@@ -57,8 +59,10 @@ function PasswordManagement() {
       uppercase: requirements.requireUppercase ? /[A-Z]/.test(newPass) : true,
       lowercase: requirements.requireLowercase ? /[a-z]/.test(newPass) : true,
       number: requirements.requireNumbers ? /[0-9]/.test(newPass) : true,
-      special: requirements.requireSpecialChars ? /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPass) : true,
-      match: newPass.length > 0 && newPass === confirmPass
+      special: requirements.requireSpecialChars
+        ? /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPass)
+        : true,
+      match: newPass.length > 0 && newPass === confirmPass,
     });
   };
 
@@ -67,8 +71,8 @@ function PasswordManagement() {
       ...prev,
       [service]: {
         ...prev[service],
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
     setMessage(null);
   };
@@ -78,8 +82,8 @@ function PasswordManagement() {
       ...prev,
       [service]: {
         ...prev[service],
-        [field]: !prev[service][field]
-      }
+        [field]: !prev[service][field],
+      },
     }));
   };
 
@@ -93,13 +97,13 @@ function PasswordManagement() {
     );
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
 
     if (!isFormValid()) {
       setMessage({
         type: 'error',
-        text: 'Bitte überprüfen Sie alle Felder und Anforderungen'
+        text: 'Bitte überprüfen Sie alle Felder und Anforderungen',
       });
       return;
     }
@@ -108,29 +112,30 @@ function PasswordManagement() {
     setMessage(null);
 
     try {
-      const token = localStorage.getItem('arasul_token');
-      const endpoint = `/api/settings/password/${activeService}`;
-
-      const response = await axios.post(
-        endpoint,
-        {
+      const response = await fetch(`${API_BASE}/settings/password/${activeService}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
           currentPassword: passwords[activeService].current,
-          newPassword: passwords[activeService].new
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+          newPassword: passwords[activeService].new,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Fehler beim Ändern des Passworts');
+      }
 
       setMessage({
         type: 'success',
-        text: response.data.message || 'Passwort erfolgreich geändert'
+        text: data.message || 'Passwort erfolgreich geändert',
       });
 
       // Reset form
       setPasswords(prev => ({
         ...prev,
-        [activeService]: { current: '', new: '', confirm: '' }
+        [activeService]: { current: '', new: '', confirm: '' },
       }));
 
       // If dashboard password was changed, user needs to re-login
@@ -141,12 +146,10 @@ function PasswordManagement() {
           window.location.href = '/';
         }, 2000);
       }
-
     } catch (error) {
-      console.error('Password change error:', error);
       setMessage({
         type: 'error',
-        text: error.response?.data?.error || 'Fehler beim Ändern des Passworts'
+        text: error.message || 'Fehler beim Ändern des Passworts',
       });
     } finally {
       setLoading(false);
@@ -156,7 +159,7 @@ function PasswordManagement() {
   const services = [
     { id: 'dashboard', label: 'Dashboard', icon: '🖥️' },
     { id: 'minio', label: 'MinIO', icon: '📦' },
-    { id: 'n8n', label: 'n8n', icon: '🔄' }
+    { id: 'n8n', label: 'n8n', icon: '🔄' },
   ];
 
   return (
@@ -195,7 +198,7 @@ function PasswordManagement() {
             <input
               type={showPasswords[activeService].current ? 'text' : 'password'}
               value={passwords[activeService].current}
-              onChange={(e) => handleInputChange(activeService, 'current', e.target.value)}
+              onChange={e => handleInputChange(activeService, 'current', e.target.value)}
               placeholder="Aktuelles Passwort eingeben"
               required
             />
@@ -217,7 +220,7 @@ function PasswordManagement() {
             <input
               type={showPasswords[activeService].new ? 'text' : 'password'}
               value={passwords[activeService].new}
-              onChange={(e) => handleInputChange(activeService, 'new', e.target.value)}
+              onChange={e => handleInputChange(activeService, 'new', e.target.value)}
               placeholder="Neues Passwort eingeben"
               required
             />
@@ -238,7 +241,7 @@ function PasswordManagement() {
             <input
               type={showPasswords[activeService].confirm ? 'text' : 'password'}
               value={passwords[activeService].confirm}
-              onChange={(e) => handleInputChange(activeService, 'confirm', e.target.value)}
+              onChange={e => handleInputChange(activeService, 'confirm', e.target.value)}
               placeholder="Neues Passwort bestätigen"
               required
             />
@@ -302,11 +305,7 @@ function PasswordManagement() {
         )}
 
         {/* Submit Button */}
-        <button
-          type="submit"
-          className="submit-button"
-          disabled={!isFormValid() || loading}
-        >
+        <button type="submit" className="submit-button" disabled={!isFormValid() || loading}>
           {loading ? 'Wird geändert...' : 'Passwort ändern'}
         </button>
 
@@ -318,7 +317,8 @@ function PasswordManagement() {
 
         {(activeService === 'minio' || activeService === 'n8n') && (
           <p className="info-text">
-            ℹ️ Der {activeService === 'minio' ? 'MinIO' : 'n8n'}-Service wird nach der Passwortänderung automatisch neu gestartet.
+            ℹ️ Der {activeService === 'minio' ? 'MinIO' : 'n8n'}-Service wird nach der
+            Passwortänderung automatisch neu gestartet.
           </p>
         )}
       </form>

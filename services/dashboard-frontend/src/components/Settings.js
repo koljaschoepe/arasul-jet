@@ -18,7 +18,7 @@ import {
   FiTerminal,
   FiLogOut,
   FiSun,
-  FiMoon
+  FiMoon,
 } from 'react-icons/fi';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
@@ -26,6 +26,8 @@ import PasswordManagement from './PasswordManagement';
 import TelegramSettings from './TelegramSettings';
 import ClaudeTerminal from './ClaudeTerminal';
 import { formatDate } from '../utils/formatting';
+import { ComponentErrorBoundary } from './ErrorBoundary';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import '../settings.css';
 
 function Settings({ handleLogout, theme, onToggleTheme }) {
@@ -36,49 +38,49 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
       id: 'general',
       label: 'General',
       icon: <FiInfo />,
-      description: 'System information and configuration'
+      description: 'System information and configuration',
     },
     {
       id: 'company-context',
       label: 'Unternehmenskontext',
       icon: <FiFileText />,
-      description: 'Globaler Kontext für RAG-Anfragen'
+      description: 'Globaler Kontext für RAG-Anfragen',
     },
     {
       id: 'updates',
       label: 'Updates',
       icon: <FiUpload />,
-      description: 'Manage system updates'
+      description: 'Manage system updates',
     },
     {
       id: 'selfhealing',
       label: 'Self-Healing',
       icon: <FiTool />,
-      description: 'View system recovery events'
+      description: 'View system recovery events',
     },
     {
       id: 'services',
       label: 'Services',
       icon: <FiServer />,
-      description: 'Dienste verwalten und neustarten'
+      description: 'Dienste verwalten und neustarten',
     },
     {
       id: 'telegram',
       label: 'Telegram',
       icon: <FiSend />,
-      description: 'Bot-Benachrichtigungen konfigurieren'
+      description: 'Bot-Benachrichtigungen konfigurieren',
     },
     {
       id: 'claude-terminal',
       label: 'Claude Terminal',
       icon: <FiTerminal />,
-      description: 'Freie Textanfragen an das LLM'
+      description: 'Freie Textanfragen an das LLM',
     },
     {
       id: 'security',
       label: 'Security',
       icon: <FiLock />,
-      description: 'Password and access management'
+      description: 'Password and access management',
     },
   ];
 
@@ -89,28 +91,45 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
       case 'company-context':
         return <CompanyContextSettings />;
       case 'updates':
-        return <UpdatePage />;
+        return (
+          <ComponentErrorBoundary componentName="Updates">
+            <UpdatePage />
+          </ComponentErrorBoundary>
+        );
       case 'selfhealing':
-        return <SelfHealingEvents />;
+        return (
+          <ComponentErrorBoundary componentName="Self-Healing">
+            <SelfHealingEvents />
+          </ComponentErrorBoundary>
+        );
       case 'services':
         return <ServicesSettings />;
       case 'telegram':
-        return <TelegramSettings />;
+        return (
+          <ComponentErrorBoundary componentName="Telegram">
+            <TelegramSettings />
+          </ComponentErrorBoundary>
+        );
       case 'claude-terminal':
-        return <ClaudeTerminal />;
+        return (
+          <ComponentErrorBoundary componentName="Claude Terminal">
+            <ClaudeTerminal />
+          </ComponentErrorBoundary>
+        );
       case 'security':
         return (
           <div className="settings-section">
-            <PasswordManagement />
+            <ComponentErrorBoundary componentName="Passwortverwaltung">
+              <PasswordManagement />
+            </ComponentErrorBoundary>
 
             {/* Logout-Bereich */}
             <div className="security-logout-section">
-              <h3><FiLogOut /> Abmelden</h3>
+              <h3>
+                <FiLogOut /> Abmelden
+              </h3>
               <p>Beendet Ihre aktuelle Sitzung und leitet Sie zur Login-Seite weiter.</p>
-              <button
-                onClick={handleLogout}
-                className="logout-button-settings"
-              >
+              <button onClick={handleLogout} className="logout-button-settings">
                 <FiLogOut /> Abmelden
               </button>
             </div>
@@ -134,7 +153,7 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
         </div>
 
         <nav className="settings-nav">
-          {sections.map((section) => (
+          {sections.map(section => (
             <button
               key={section.id}
               className={`settings-nav-item ${activeSection === section.id ? 'active' : ''}`}
@@ -155,9 +174,7 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
 
       {/* Main Content Area */}
       <div className="settings-content-area">
-        <div className="settings-content-wrapper">
-          {renderContent()}
-        </div>
+        <div className="settings-content-wrapper">{renderContent()}</div>
       </div>
     </div>
   );
@@ -196,8 +213,8 @@ function CompanyContextSettings() {
 
   const fetchContent = useCallback(async () => {
     try {
-      const response = await fetch('/api/settings/company-context', {
-        credentials: 'include'
+      const response = await fetch(`${API_BASE}/settings/company-context`, {
+        headers: getAuthHeaders(),
       });
       if (response.ok) {
         const data = await response.json();
@@ -223,11 +240,10 @@ function CompanyContextSettings() {
     setMessage(null);
 
     try {
-      const response = await fetch('/api/settings/company-context', {
+      const response = await fetch(`${API_BASE}/settings/company-context`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ content })
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ content }),
       });
 
       if (response.ok) {
@@ -276,8 +292,8 @@ function CompanyContextSettings() {
               Unternehmensprofil
             </h3>
             <p className="settings-card-description">
-              Beschreiben Sie Ihr Unternehmen, Ihre Produkte und Ihre Zielgruppen.
-              Diese Informationen helfen der KI, Ihre Fragen besser zu verstehen.
+              Beschreiben Sie Ihr Unternehmen, Ihre Produkte und Ihre Zielgruppen. Diese
+              Informationen helfen der KI, Ihre Fragen besser zu verstehen.
             </p>
           </div>
           <div className="settings-card-body">
@@ -291,7 +307,7 @@ function CompanyContextSettings() {
             <textarea
               className="company-context-textarea"
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={e => setContent(e.target.value)}
               placeholder="Beschreiben Sie Ihr Unternehmen..."
               spellCheck="false"
             />
@@ -329,7 +345,9 @@ function CompanyContextSettings() {
         <div className="settings-card">
           <div className="settings-card-header">
             <h3 className="settings-card-title">Tipps für guten Kontext</h3>
-            <p className="settings-card-description">So nutzen Sie den Unternehmenskontext optimal</p>
+            <p className="settings-card-description">
+              So nutzen Sie den Unternehmenskontext optimal
+            </p>
           </div>
           <div className="settings-card-body">
             <div className="settings-about-features">
@@ -369,7 +387,7 @@ function GeneralSettings({ theme, onToggleTheme }) {
     hostname: 'arasul-edge',
     jetpack_version: '6.0',
     docker_version: '24.0.7',
-    compose_version: '2.21.0'
+    compose_version: '2.21.0',
   });
 
   return (
@@ -384,10 +402,16 @@ function GeneralSettings({ theme, onToggleTheme }) {
         <div className="settings-card">
           <div className="settings-card-header">
             <h3 className="settings-card-title">
-              {theme === 'dark' ? <FiMoon style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} /> : <FiSun style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />}
+              {theme === 'dark' ? (
+                <FiMoon style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              ) : (
+                <FiSun style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              )}
               Erscheinungsbild
             </h3>
-            <p className="settings-card-description">Wählen Sie zwischen hellem und dunklem Design</p>
+            <p className="settings-card-description">
+              Wählen Sie zwischen hellem und dunklem Design
+            </p>
           </div>
           <div className="settings-card-body">
             <div className="theme-toggle-row">
@@ -457,9 +481,9 @@ function GeneralSettings({ theme, onToggleTheme }) {
           </div>
           <div className="settings-card-body">
             <p className="settings-about-text">
-              Arasul ist eine autonome Edge-AI-Plattform, die auf NVIDIA Jetson AGX Orin läuft.
-              Die Plattform bietet lokale KI-Funktionen, Multi-Jahres-Betrieb ohne Wartung und
-              ein einheitliches Dashboard-Interface.
+              Arasul ist eine autonome Edge-AI-Plattform, die auf NVIDIA Jetson AGX Orin läuft. Die
+              Plattform bietet lokale KI-Funktionen, Multi-Jahres-Betrieb ohne Wartung und ein
+              einheitliches Dashboard-Interface.
             </p>
             <div className="settings-about-features">
               <div className="settings-feature-item">
@@ -501,8 +525,8 @@ function ServicesSettings() {
 
   const fetchServices = useCallback(async () => {
     try {
-      const response = await fetch('/api/services/all', {
-        credentials: 'include'
+      const response = await fetch(`${API_BASE}/services/all`, {
+        headers: getAuthHeaders(),
       });
       if (response.ok) {
         const data = await response.json();
@@ -522,7 +546,7 @@ function ServicesSettings() {
     return () => clearInterval(interval);
   }, [fetchServices]);
 
-  const handleRestartClick = (service) => {
+  const handleRestartClick = service => {
     setConfirmRestart(service);
     setMessage(null);
   };
@@ -536,9 +560,9 @@ function ServicesSettings() {
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/services/restart/${serviceName}`, {
+      const response = await fetch(`${API_BASE}/services/restart/${serviceName}`, {
         method: 'POST',
-        credentials: 'include'
+        headers: getAuthHeaders(),
       });
 
       const data = await response.json();
@@ -546,32 +570,32 @@ function ServicesSettings() {
       if (response.ok && data.success) {
         setMessage({
           type: 'success',
-          text: `Service "${serviceName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`
+          text: `Service "${serviceName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`,
         });
         // Refresh services list
         setTimeout(fetchServices, 2000);
       } else if (response.status === 429) {
         setMessage({
           type: 'error',
-          text: data.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten'
+          text: data.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
         });
       } else {
         setMessage({
           type: 'error',
-          text: data.message || 'Fehler beim Neustart des Service'
+          text: data.message || 'Fehler beim Neustart des Service',
         });
       }
     } catch (error) {
       setMessage({
         type: 'error',
-        text: 'Netzwerkfehler beim Neustart des Service'
+        text: 'Netzwerkfehler beim Neustart des Service',
       });
     } finally {
       setRestartingService(null);
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = status => {
     switch (status) {
       case 'healthy':
         return 'service-status-healthy';
@@ -587,7 +611,7 @@ function ServicesSettings() {
     }
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusLabel = status => {
     switch (status) {
       case 'healthy':
         return 'Aktiv';
@@ -621,7 +645,8 @@ function ServicesSettings() {
       <div className="settings-section-header">
         <h1 className="settings-section-title">Services</h1>
         <p className="settings-section-description">
-          Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und Dienste bei Bedarf neustarten.
+          Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und Dienste
+          bei Bedarf neustarten.
         </p>
       </div>
 
@@ -642,13 +667,11 @@ function ServicesSettings() {
               <FiServer style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
               Platform Dienste
             </h3>
-            <p className="settings-card-description">
-              Alle aktiven Dienste der Arasul Platform
-            </p>
+            <p className="settings-card-description">Alle aktiven Dienste der Arasul Platform</p>
           </div>
           <div className="settings-card-body">
             <div className="services-list-settings">
-              {services.map((service) => (
+              {services.map(service => (
                 <div key={service.id} className="service-item-settings">
                   <div className="service-info-settings">
                     <div className={`service-status-dot ${getStatusColor(service.status)}`} />
@@ -667,8 +690,12 @@ function ServicesSettings() {
                         disabled={restartingService === service.name}
                         title={`${service.name} neustarten`}
                       >
-                        <FiRefreshCw className={restartingService === service.name ? 'spinning' : ''} />
-                        <span>{restartingService === service.name ? 'Neustart...' : 'Neustart'}</span>
+                        <FiRefreshCw
+                          className={restartingService === service.name ? 'spinning' : ''}
+                        />
+                        <span>
+                          {restartingService === service.name ? 'Neustart...' : 'Neustart'}
+                        </span>
                       </button>
                     )}
                   </div>
@@ -682,28 +709,58 @@ function ServicesSettings() {
         <div className="settings-card">
           <div className="settings-card-header">
             <h3 className="settings-card-title">
-              <FiAlertTriangle style={{ marginRight: '0.5rem', verticalAlign: 'middle', color: 'var(--warning-color)' }} />
+              <FiAlertTriangle
+                style={{
+                  marginRight: '0.5rem',
+                  verticalAlign: 'middle',
+                  color: 'var(--warning-color)',
+                }}
+              />
               Hinweise
             </h3>
           </div>
           <div className="settings-card-body">
             <div className="settings-about-features">
               <div className="settings-feature-item">
-                <div className="settings-feature-icon" style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--warning-color)' }}>!</div>
+                <div
+                  className="settings-feature-icon"
+                  style={{
+                    background: 'color-mix(in srgb, var(--warning-color) 20%, transparent)',
+                    color: 'var(--warning-color)',
+                  }}
+                >
+                  !
+                </div>
                 <div className="settings-feature-text">
                   <strong>Downtime beachten</strong>
                   <span>Während des Neustarts ist der Dienst kurzzeitig nicht verfügbar</span>
                 </div>
               </div>
               <div className="settings-feature-item">
-                <div className="settings-feature-icon" style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--warning-color)' }}>!</div>
+                <div
+                  className="settings-feature-icon"
+                  style={{
+                    background: 'color-mix(in srgb, var(--warning-color) 20%, transparent)',
+                    color: 'var(--warning-color)',
+                  }}
+                >
+                  !
+                </div>
                 <div className="settings-feature-text">
                   <strong>Rate Limit</strong>
                   <span>Jeder Dienst kann maximal einmal pro Minute neugestartet werden</span>
                 </div>
               </div>
               <div className="settings-feature-item">
-                <div className="settings-feature-icon" style={{ background: 'rgba(69, 173, 255, 0.2)', color: 'var(--primary-color)' }}>i</div>
+                <div
+                  className="settings-feature-icon"
+                  style={{
+                    background: 'color-mix(in srgb, var(--primary-color) 20%, transparent)',
+                    color: 'var(--primary-color)',
+                  }}
+                >
+                  i
+                </div>
                 <div className="settings-feature-text">
                   <strong>Audit-Log</strong>
                   <span>Alle Neustarts werden im Self-Healing Event-Log protokolliert</span>
@@ -717,7 +774,7 @@ function ServicesSettings() {
       {/* Confirmation Modal */}
       {confirmRestart && (
         <div className="modal-overlay" onClick={() => setConfirmRestart(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <FiAlertTriangle className="modal-warning-icon" />
               <h3>Service neustarten?</h3>
@@ -731,7 +788,10 @@ function ServicesSettings() {
               </p>
             </div>
             <div className="modal-actions">
-              <button className="modal-btn modal-btn-cancel" onClick={() => setConfirmRestart(null)}>
+              <button
+                className="modal-btn modal-btn-cancel"
+                onClick={() => setConfirmRestart(null)}
+              >
                 Abbrechen
               </button>
               <button className="modal-btn modal-btn-confirm" onClick={handleConfirmRestart}>

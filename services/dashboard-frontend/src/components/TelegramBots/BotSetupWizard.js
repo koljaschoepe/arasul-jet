@@ -199,9 +199,8 @@ function BotSetupWizard({ onComplete, onCancel }) {
 
     const poll = async () => {
       try {
-        const authToken = localStorage.getItem('arasul_token');
         const response = await fetch(`${API_BASE}/telegram-app/zero-config/status/${token}`, {
-          headers: { Authorization: `Bearer ${authToken}` },
+          headers: getAuthHeaders(),
         });
 
         if (response.ok) {
@@ -289,13 +288,8 @@ function BotSetupWizard({ onComplete, onCancel }) {
     setError(null);
 
     try {
-      const authToken = localStorage.getItem('arasul_token');
-      if (!authToken) {
-        throw new Error('Sitzung abgelaufen. Bitte melde dich erneut an.');
-      }
-
       const headers = {
-        Authorization: `Bearer ${authToken}`,
+        ...getAuthHeaders(),
         'Content-Type': 'application/json',
       };
 

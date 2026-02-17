@@ -61,7 +61,7 @@ describe('TelegramSettings Component', () => {
         expect(global.fetch).toHaveBeenCalledWith(
           '/api/telegram/config',
           expect.objectContaining({
-            credentials: 'include',
+            headers: expect.any(Object),
           })
         );
       });

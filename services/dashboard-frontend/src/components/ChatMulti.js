@@ -16,7 +16,7 @@ import {
 import ChatMessage from './Chat/ChatMessage';
 import ChatTabsBar from './Chat/ChatTabsBar';
 import useTokenBatching from '../hooks/useTokenBatching';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import '../chatmulti.css';
 
 function ChatMulti() {
@@ -260,9 +260,8 @@ function ChatMulti() {
   // Async version of checkActiveJobs that returns the active job
   const checkActiveJobsAsync = async chatId => {
     try {
-      const token = localStorage.getItem('arasul_token');
       const response = await axios.get(`${API_BASE}/chats/${chatId}/jobs`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(),
       });
       const jobs = response.data.jobs || [];
 
@@ -297,9 +296,8 @@ function ChatMulti() {
 
     const pollQueue = async () => {
       try {
-        const token = localStorage.getItem('arasul_token');
         const response = await axios.get(`${API_BASE}/llm/queue`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: getAuthHeaders(),
         });
         setGlobalQueue(response.data);
       } catch (err) {
@@ -389,15 +387,13 @@ function ChatMulti() {
   // Reconnect to an active job's stream
   // Uses job_id based message updates instead of index-based
   const reconnectToJob = async (jobId, targetChatId) => {
-    const token = localStorage.getItem('arasul_token');
-
     // Create AbortController for this reconnection
     const abortController = new AbortController();
     abortControllersRef.current[targetChatId] = abortController;
 
     try {
       const response = await fetch(`${API_BASE}/llm/jobs/${jobId}/stream`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(),
         signal: abortController.signal,
       });
 
@@ -599,9 +595,8 @@ function ChatMulti() {
   const exportChat = async (e, chatId, format = 'json') => {
     e.stopPropagation();
     try {
-      const token = localStorage.getItem('arasul_token');
       const response = await fetch(`${API_BASE}/chats/${chatId}/export?format=${format}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -725,8 +720,6 @@ function ChatMulti() {
       let streamError = false;
       let currentJobId = null;
       let ragSources = [];
-      const authToken = localStorage.getItem('arasul_token');
-
       // Build request based on mode
       let endpoint, payload;
       if (isRAG) {
@@ -761,7 +754,7 @@ function ChatMulti() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(payload),
         signal: abortController.signal,

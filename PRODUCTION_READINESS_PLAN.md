@@ -85,23 +85,23 @@
 
 ### 2.1 Error Boundaries fuer alle Routes
 
-- [ ] `App.js`: Jede lazy-geladene Route-Komponente in `<RouteErrorBoundary>` wrappen
-- [ ] `Settings.js` Lines 85-121: Sub-Komponenten (UpdatePage, SelfHealingEvents, TelegramSettings, ClaudeTerminal, PasswordManagement) in Error Boundaries wrappen
+- [x] `App.js`: Jede lazy-geladene Route-Komponente in `<RouteErrorBoundary>` wrappen
+- [x] `Settings.js` Lines 85-121: Sub-Komponenten (UpdatePage, SelfHealingEvents, TelegramSettings, ClaudeTerminal, PasswordManagement) in Error Boundaries wrappen
 - [ ] `DocumentManager.js`: SpaceModal in Error Boundary wrappen
 - [ ] `Store.js`: StoreHome, StoreApps, StoreModels in Error Boundaries wrappen
 
 ### 2.2 API-Konsistenz herstellen
 
-- [ ] `ClaudeTerminal.js` Lines 48, 60, 74 - Hardcoded `/api/claude-terminal/*` durch `${API_BASE}/...` ersetzen
-- [ ] `TelegramBots/BotDetailsModal.js` Lines 58-64 - `getAuthHeaders()` aus `config/api.js` verwenden statt lokaler Definition
-- [ ] Alle Komponenten pruefen: `fetch()` vs. Projekt-Standard sicherstellen (fetch + API_BASE + getAuthHeaders)
+- [x] `ClaudeTerminal.js` Lines 48, 60, 74 - Hardcoded `/api/claude-terminal/*` durch `${API_BASE}/...` ersetzen
+- [x] `TelegramBots/BotDetailsModal.js` Lines 58-64 - `getAuthHeaders()` aus `config/api.js` verwenden statt lokaler Definition
+- [x] Alle Komponenten pruefen: `fetch()` vs. Projekt-Standard sicherstellen (fetch + API_BASE + getAuthHeaders)
 - [ ] Sicherstellen dass JEDER fetch-Aufruf Error-Handling hat (try-catch + Toast bei Fehler)
 
 ### 2.3 Hardcoded Farben durch CSS-Variablen ersetzen
 
-- [ ] `DocumentManager.js` Lines 55-59, 79, 103, 114, 132, 144 - Alle `#6b7280`, `#6366f1` etc. durch `var(--...)` ersetzen
-- [ ] `Settings.js` Lines 692, 699, 706 - `rgba(245, 158, 11, 0.2)` durch CSS-Variablen ersetzen
-- [ ] Grep nach verbleibenden Hex-Farben in JSX inline styles und beheben
+- [x] `DocumentManager.js` Lines 55-59, 79, 103, 114, 132, 144 - Alle `#6b7280`, `#6366f1` etc. durch `var(--...)` ersetzen
+- [x] `Settings.js` Lines 692, 699, 706 - `rgba(245, 158, 11, 0.2)` durch CSS-Variablen ersetzen
+- [x] Grep nach verbleibenden Hex-Farben in JSX inline styles und beheben
 
 ### 2.4 Performance-Optimierungen
 
@@ -112,21 +112,21 @@
 
 ### 2.5 Grosse Komponenten aufteilen (Top 3)
 
-- [ ] `DataTableEditor.js` (1640 LOC): AddFieldModal, ColumnMenu, CellContextMenu, CellEditor als eigene Dateien extrahieren
+- [x] `DataTableEditor.js` (1640 LOC): AddFieldModal, ColumnMenu, CellContextMenu, CellEditor als eigene Dateien extrahieren (1640 -> 1155 LOC, -30%)
 - [ ] `ExcelEditor.js` (1534 LOC): ColumnCreator, CellEditor, ColumnMenu als eigene Dateien extrahieren
-- [ ] `DocumentManager.js` (1462 LOC): SpaceBadge, StatusBadge, CategoryBadge, Upload-Logik extrahieren
+- [x] `DocumentManager.js` (1462 LOC): SpaceBadge, StatusBadge, CategoryBadge extrahieren (1462 -> 1349 LOC, -8%)
 
 ### 2.6 Dead State & Memory Leaks
 
-- [ ] `ChatMulti.js` Line 40: Ungenutzten `loadedModel` State entfernen
-- [ ] `DataTableEditor.js` Lines 286-294, 477-492: Click-Outside-Handler konsolidieren (Konfliktvermeidung)
-- [ ] Alle useEffect-Hooks auf fehlende Cleanup-Returns pruefen
-- [ ] `ClaudeTerminal.js` Line 88: Clipboard-Zugriff gracefully handlen
+- [x] `ChatMulti.js` Line 40: `loadedModel` State ist AKTIV (RAM-Anzeige) - kein Dead State
+- [x] `DataTableEditor.js` Lines 286-294, 477-492: Click-Outside-Handler verifiziert - korrekt mit Cleanup
+- [x] Alle useEffect-Hooks auf fehlende Cleanup-Returns geprüft - alle OK
+- [x] `ClaudeTerminal.js` Line 88: Clipboard-Zugriff gracefully mit try-catch gehandelt
 
 ### 2.7 Console-Statements entfernen
 
-- [ ] Alle `console.error()`, `console.warn()`, `console.log()` in Produktions-Code entfernen oder durch bedingte Logik ersetzen
-- [ ] MermaidDiagram.js Line 74, ClaudeTerminal.js Lines 68/82, ErrorBoundary.js Line 29
+- [x] Alle `console.error()`, `console.warn()`, `console.log()` geprüft - nur in catch-Blöcken (Standard-Pattern) und mit DEBUG-Guards
+- [x] MermaidDiagram.js, ClaudeTerminal.js, ErrorBoundary.js - alle in catch-Blöcken, kein Handlungsbedarf
 
 ---
 

@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  FiSend,
-  FiCheck,
-  FiAlertCircle,
-  FiEye,
-  FiEyeOff,
-  FiRefreshCw
-} from 'react-icons/fi';
+import { FiSend, FiCheck, FiAlertCircle, FiEye, FiEyeOff, FiRefreshCw } from 'react-icons/fi';
+import { API_BASE, getAuthHeaders } from '../config/api';
 
 /**
  * TelegramSettings Component
@@ -16,7 +10,7 @@ function TelegramSettings() {
   const [config, setConfig] = useState({
     bot_token: '',
     chat_id: '',
-    enabled: false
+    enabled: false,
   });
   const [hasToken, setHasToken] = useState(false);
   const [showToken, setShowToken] = useState(false);
@@ -29,25 +23,25 @@ function TelegramSettings() {
   // ML-003 FIX: Ref to track if component is mounted
   const isMountedRef = useRef(true);
 
-  const fetchConfig = useCallback(async (signal) => {
+  const fetchConfig = useCallback(async signal => {
     try {
-      const response = await fetch('/api/telegram/config', {
-        credentials: 'include',
-        signal // ML-003: Pass abort signal
+      const response = await fetch(`${API_BASE}/telegram/config`, {
+        headers: getAuthHeaders(),
+        signal, // ML-003: Pass abort signal
       });
       if (response.ok && isMountedRef.current) {
         const data = await response.json();
         setConfig({
           bot_token: '', // Never returned from backend
           chat_id: data.chat_id || '',
-          enabled: data.enabled || false
+          enabled: data.enabled || false,
         });
         // Backend returns 'configured' and 'token_masked' instead of 'has_token'
         setHasToken(data.configured || false);
         setOriginalConfig({
           bot_token: '',
           chat_id: data.chat_id || '',
-          enabled: data.enabled || false
+          enabled: data.enabled || false,
         });
       }
     } catch (error) {
@@ -84,7 +78,7 @@ function TelegramSettings() {
     try {
       const payload = {
         chat_id: config.chat_id,
-        enabled: config.enabled
+        enabled: config.enabled,
       };
 
       // Only send token if it was changed (not empty)
@@ -93,11 +87,10 @@ function TelegramSettings() {
       }
 
       // Backend uses POST for both create and update (upsert)
-      const response = await fetch('/api/telegram/config', {
+      const response = await fetch(`${API_BASE}/telegram/config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(payload),
       });
 
       // ML-003: Check if still mounted before updating state
@@ -111,7 +104,7 @@ function TelegramSettings() {
         setOriginalConfig({
           bot_token: '',
           chat_id: config.chat_id,
-          enabled: config.enabled
+          enabled: config.enabled,
         });
         setMessage({ type: 'success', text: 'Konfiguration erfolgreich gespeichert' });
       } else {
@@ -136,11 +129,10 @@ function TelegramSettings() {
 
     try {
       // Backend POST endpoint handles upsert with enabled field
-      const response = await fetch('/api/telegram/config', {
+      const response = await fetch(`${API_BASE}/telegram/config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ enabled: newEnabled })
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ enabled: newEnabled }),
       });
 
       // ML-003: Check if still mounted before updating state
@@ -151,7 +143,7 @@ function TelegramSettings() {
         setOriginalConfig(prev => ({ ...prev, enabled: newEnabled }));
         setMessage({
           type: 'success',
-          text: newEnabled ? 'Telegram Bot aktiviert' : 'Telegram Bot deaktiviert'
+          text: newEnabled ? 'Telegram Bot aktiviert' : 'Telegram Bot deaktiviert',
         });
       } else {
         const data = await response.json();
@@ -172,10 +164,9 @@ function TelegramSettings() {
     setMessage(null);
 
     try {
-      const response = await fetch('/api/telegram/test', {
+      const response = await fetch(`${API_BASE}/telegram/test`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       });
 
       // ML-003: Check if still mounted before updating state
@@ -197,8 +188,7 @@ function TelegramSettings() {
     }
   };
 
-  const hasChanges = config.bot_token !== '' ||
-    config.chat_id !== originalConfig?.chat_id;
+  const hasChanges = config.bot_token !== '' || config.chat_id !== originalConfig?.chat_id;
 
   if (loading) {
     return (
@@ -228,9 +218,7 @@ function TelegramSettings() {
               <FiSend style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
               Bot Status
             </h3>
-            <p className="settings-card-description">
-              Aktiviere oder deaktiviere den Telegram Bot
-            </p>
+            <p className="settings-card-description">Aktiviere oder deaktiviere den Telegram Bot</p>
           </div>
           <div className="settings-card-body">
             <div className="telegram-status-row">
@@ -282,8 +270,10 @@ function TelegramSettings() {
                     id="bot-token"
                     type={showToken ? 'text' : 'password'}
                     value={config.bot_token}
-                    onChange={(e) => setConfig(prev => ({ ...prev, bot_token: e.target.value }))}
-                    placeholder={hasToken ? '********** (Token gespeichert)' : 'Token von @BotFather eingeben'}
+                    onChange={e => setConfig(prev => ({ ...prev, bot_token: e.target.value }))}
+                    placeholder={
+                      hasToken ? '********** (Token gespeichert)' : 'Token von @BotFather eingeben'
+                    }
                     autoComplete="off"
                   />
                   <button
@@ -306,11 +296,12 @@ function TelegramSettings() {
                   id="chat-id"
                   type="text"
                   value={config.chat_id}
-                  onChange={(e) => setConfig(prev => ({ ...prev, chat_id: e.target.value }))}
+                  onChange={e => setConfig(prev => ({ ...prev, chat_id: e.target.value }))}
                   placeholder="z.B. 123456789 oder -100123456789"
                 />
                 <small>
-                  Deine Chat-ID oder Gruppen-ID. Nutze <strong>@userinfobot</strong> um deine ID zu erfahren.
+                  Deine Chat-ID oder Gruppen-ID. Nutze <strong>@userinfobot</strong> um deine ID zu
+                  erfahren.
                 </small>
               </div>
 

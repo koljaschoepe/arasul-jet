@@ -13,8 +13,6 @@ import {
   FiAlertCircle,
   FiClock,
   FiFolder,
-  FiChevronDown,
-  FiChevronUp,
   FiStar,
   FiTag,
   FiFileText,
@@ -29,128 +27,19 @@ import {
   FiTable,
   FiGrid,
 } from 'react-icons/fi';
+import { TableBadge, StatusBadge, CategoryBadge, SpaceBadge } from './DocumentManager/Badges';
 import MarkdownEditor from './MarkdownEditor';
 import MarkdownCreateDialog from './MarkdownCreateDialog';
 import SimpleTableCreateDialog from './SimpleTableCreateDialog';
 import ExcelEditor from './Database/ExcelEditor';
 import SpaceModal from './SpaceModal';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
+import { getValidToken } from '../utils/token';
 import { useToast } from '../contexts/ToastContext';
 import useConfirm from '../hooks/useConfirm';
 import { formatDate, formatFileSize } from '../utils/formatting';
 import '../documents.css';
 import '../markdown-editor.css';
-
-// Table badge component for data tables
-const TableBadge = () => (
-  <span className="type-badge type-table">
-    <FiGrid aria-hidden="true" />
-    Tabelle
-  </span>
-);
-
-// Status badge component
-const StatusBadge = ({ status }) => {
-  const statusConfig = {
-    pending: { icon: FiClock, color: '#f59e0b', label: 'Wartend' },
-    processing: { icon: FiRefreshCw, color: '#3b82f6', label: 'Verarbeitung' },
-    indexed: { icon: FiCheck, color: '#94A3B8', label: 'Indexiert' } /* Grau statt Grün */,
-    failed: { icon: FiAlertCircle, color: '#ef4444', label: 'Fehlgeschlagen' },
-  };
-
-  const config = statusConfig[status] || statusConfig.pending;
-  const Icon = config.icon;
-
-  return (
-    <span
-      className={`status-badge status-${status}`}
-      style={{ '--status-color': config.color }}
-      role="status"
-      aria-label={`Status: ${config.label}`}
-    >
-      <Icon className={status === 'processing' ? 'spin' : ''} aria-hidden="true" />
-      {config.label}
-    </span>
-  );
-};
-
-// Category badge component
-const CategoryBadge = ({ name, color }) => (
-  <span className="category-badge" style={{ '--cat-color': color || '#6b7280' }}>
-    <FiFolder aria-hidden="true" />
-    {name || 'Unkategorisiert'}
-  </span>
-);
-
-// Space badge component (RAG 2.0) - interactive when docId+onMove provided
-const SpaceBadge = ({ name, color, docId, spaces, onMove }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  // Static badge (no move capability)
-  if (!docId || !onMove) {
-    return (
-      <span className="space-badge" style={{ '--space-color': color || '#6366f1' }}>
-        <FiFolder aria-hidden="true" />
-        {name || 'Allgemein'}
-      </span>
-    );
-  }
-
-  return (
-    <span className="space-badge-interactive" ref={ref}>
-      <button
-        className="space-badge space-badge-btn"
-        style={{ '--space-color': color || '#6366f1' }}
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        title="Bereich ändern"
-      >
-        <FiFolder aria-hidden="true" />
-        {name || 'Kein Bereich'}
-        <FiChevronDown className={`space-badge-arrow ${open ? 'open' : ''}`} aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="space-badge-dropdown" role="listbox" aria-label="Bereich wählen">
-          <button
-            className={`space-dropdown-item ${!name ? 'active' : ''}`}
-            onClick={(e) => { e.stopPropagation(); onMove(docId, null, null); setOpen(false); }}
-            role="option"
-            aria-selected={!name}
-          >
-            <span className="space-dot" style={{ background: 'var(--text-muted)' }} />
-            Kein Bereich
-            {!name && <FiCheck className="space-check" aria-hidden="true" />}
-          </button>
-          {(spaces || []).map(s => (
-            <button
-              key={s.id}
-              className={`space-dropdown-item ${s.name === name ? 'active' : ''}`}
-              onClick={(e) => { e.stopPropagation(); onMove(docId, s.id, s.name); setOpen(false); }}
-              role="option"
-              aria-selected={s.name === name}
-            >
-              <span className="space-dot" style={{ background: s.color || '#6366f1' }} />
-              {s.name}
-              {s.name === name && <FiCheck className="space-check" aria-hidden="true" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </span>
-  );
-};
 
 function DocumentManager() {
   // State
@@ -213,10 +102,8 @@ function DocumentManager() {
   // Refs
   const fileInputRef = useRef(null);
 
-  // Get auth token from localStorage
-  const getAuthToken = () => {
-    return localStorage.getItem('arasul_token');
-  };
+  // Get auth token via validated token utility
+  const getAuthToken = () => getValidToken();
 
   // Check if file is editable (markdown or text)
   const isEditable = doc => {

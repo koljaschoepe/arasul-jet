@@ -21,7 +21,7 @@ import {
 } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
 import { useToast } from '../../contexts/ToastContext';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders } from '../../config/api';
 
 // Format bytes to human readable
 const formatSize = bytes => {
@@ -39,15 +39,6 @@ function StoreHome({ systemInfo }) {
   const [actionLoading, setActionLoading] = useState({});
 
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
-
-  // Get auth headers
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('arasul_token');
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
 
   // Load recommendations
   const loadRecommendations = useCallback(async () => {

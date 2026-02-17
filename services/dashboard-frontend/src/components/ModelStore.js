@@ -24,7 +24,7 @@ import {
   FiInfo,
 } from 'react-icons/fi';
 import { useDownloads } from '../contexts/DownloadContext';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import '../modelstore.css';
 
 // Category configuration - neutral per Design System
@@ -57,15 +57,6 @@ function ModelStore() {
 
   // Global download state from context
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
-
-  // Get auth token
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('arasul_token');
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
 
   // Load catalog and status
   const loadData = useCallback(async () => {
@@ -147,13 +138,9 @@ function ModelStore() {
 
     try {
       // P3-001: Use SSE streaming for real-time progress
-      const token = localStorage.getItem('arasul_token');
       const response = await fetch(`${API_BASE}/models/${modelId}/activate?stream=true`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -242,7 +229,7 @@ function ModelStore() {
     try {
       const response = await fetch(`${API_BASE}/models/default`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ model_id: modelId }),
       });
       const result = await response.json();

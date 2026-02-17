@@ -18,6 +18,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MermaidDiagram from './MermaidDiagram';
 import useConfirm from '../hooks/useConfirm';
+import { API_BASE } from '../config/api';
 import '../markdown-editor.css';
 
 const MarkdownEditor = memo(function MarkdownEditor({
@@ -44,7 +45,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/documents/${documentId}/content`, {
+        const response = await fetch(`${API_BASE}/documents/${documentId}/content`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -81,7 +82,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
       setSaving(true);
       setError(null);
 
-      const response = await fetch(`/api/documents/${documentId}/content`, {
+      const response = await fetch(`${API_BASE}/documents/${documentId}/content`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,

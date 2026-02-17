@@ -43,7 +43,10 @@ import {
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
 import Login from './components/Login';
-import ErrorBoundary, { RouteErrorBoundary } from './components/ErrorBoundary';
+import ErrorBoundary, {
+  RouteErrorBoundary,
+  ComponentErrorBoundary,
+} from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 
 // PHASE 3: State Management - Contexts and Hooks
@@ -373,32 +376,36 @@ function AppContent() {
                 <Route
                   path="/"
                   element={
-                    <DashboardHome
-                      metrics={metrics}
-                      metricsHistory={metricsHistory}
-                      services={services}
-                      workflows={workflows}
-                      systemInfo={systemInfo}
-                      networkInfo={networkInfo}
-                      runningApps={runningApps}
-                      formatChartData={formatChartData}
-                      formatUptime={formatUptime}
-                      getStatusColor={getStatusColor}
-                      thresholds={thresholds}
-                      deviceInfo={deviceInfo}
-                      telegramAppData={telegramAppData}
-                      onTelegramClick={() => setShowTelegramModal(true)}
-                    />
+                    <RouteErrorBoundary routeName="Dashboard">
+                      <DashboardHome
+                        metrics={metrics}
+                        metricsHistory={metricsHistory}
+                        services={services}
+                        workflows={workflows}
+                        systemInfo={systemInfo}
+                        networkInfo={networkInfo}
+                        runningApps={runningApps}
+                        formatChartData={formatChartData}
+                        formatUptime={formatUptime}
+                        getStatusColor={getStatusColor}
+                        thresholds={thresholds}
+                        deviceInfo={deviceInfo}
+                        telegramAppData={telegramAppData}
+                        onTelegramClick={() => setShowTelegramModal(true)}
+                      />
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route
                   path="/settings"
                   element={
-                    <Settings
-                      handleLogout={handleLogout}
-                      theme={theme}
-                      onToggleTheme={toggleTheme}
-                    />
+                    <RouteErrorBoundary routeName="Einstellungen">
+                      <Settings
+                        handleLogout={handleLogout}
+                        theme={theme}
+                        onToggleTheme={toggleTheme}
+                      />
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route
@@ -434,8 +441,14 @@ function AppContent() {
                     </RouteErrorBoundary>
                   }
                 />
-                <Route path="/telegram-bot" element={<TelegramRedirect onOpen={() => setShowTelegramModal(true)} />} />
-                <Route path="/telegram-bots" element={<TelegramRedirect onOpen={() => setShowTelegramModal(true)} />} />
+                <Route
+                  path="/telegram-bot"
+                  element={<TelegramRedirect onOpen={() => setShowTelegramModal(true)} />}
+                />
+                <Route
+                  path="/telegram-bots"
+                  element={<TelegramRedirect onOpen={() => setShowTelegramModal(true)} />}
+                />
                 <Route
                   path="/database"
                   element={
@@ -477,7 +490,7 @@ function AppContent() {
                           marginTop: '1.5rem',
                           padding: '0.6rem 1.5rem',
                           background: 'var(--primary)',
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                           borderRadius: '8px',
                           textDecoration: 'none',
                         }}
@@ -496,10 +509,12 @@ function AppContent() {
       {/* Telegram App Modal */}
       {showTelegramModal && (
         <Suspense fallback={null}>
-          <TelegramAppModal
-            isOpen={showTelegramModal}
-            onClose={() => setShowTelegramModal(false)}
-          />
+          <ComponentErrorBoundary componentName="Telegram App">
+            <TelegramAppModal
+              isOpen={showTelegramModal}
+              onClose={() => setShowTelegramModal(false)}
+            />
+          </ComponentErrorBoundary>
         </Suspense>
       )}
     </DownloadProvider>
@@ -773,9 +788,9 @@ const DashboardHome = React.memo(function DashboardHome({
   // Dynamic progress color based on thresholds
   const getProgressColor = (value, metric = 'cpu') => {
     const threshold = t[metric] || { warning: 70, critical: 90 };
-    if (value >= threshold.critical) return '#ef4444';
-    if (value >= threshold.warning) return '#f59e0b';
-    return '#45ADFF';
+    if (value >= threshold.critical) return 'var(--danger-color)';
+    if (value >= threshold.warning) return 'var(--warning-color)';
+    return 'var(--primary-color)';
   };
 
   const formatBytes = bytes => {
@@ -866,9 +881,8 @@ const DashboardHome = React.memo(function DashboardHome({
       </div>
 
       {/* Installed Apps - Dynamic */}
-      {((runningApps && runningApps.length > 0) || telegramAppData) && (
+      {runningApps && runningApps.length > 0 && (
         <div className="service-links-modern">
-          {/* Running Apps */}
           {runningApps
             ?.filter(app => app.status === 'running')
             .map(app =>
@@ -898,27 +912,6 @@ const DashboardHome = React.memo(function DashboardHome({
                 </a>
               )
             )}
-
-          {/* Telegram Bot App Icon */}
-          {telegramAppData && (
-            <button
-              key="telegram-bot-app"
-              className="service-link-card telegram-app-card"
-              onClick={onTelegramClick}
-              type="button"
-            >
-              <div className="service-link-icon-wrapper telegram-icon">
-                <FiSend className="service-link-icon" />
-              </div>
-              <div className="service-link-content">
-                <div className="service-link-name">{telegramAppData.name}</div>
-                <div className="service-link-description">{telegramAppData.description}</div>
-              </div>
-              {telegramAppData.badge && (
-                <span className="service-link-badge">{telegramAppData.badge}</span>
-              )}
-            </button>
-          )}
         </div>
       )}
 
