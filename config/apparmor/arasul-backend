@@ -1,0 +1,67 @@
+#include <tunables/global>
+
+# AppArmor profile for ARASUL Dashboard Backend
+# Container: dashboard-backend (Node.js/Express)
+#
+# Install: sudo apparmor_parser -r -W /path/to/this/file
+# Load:    Add to docker-compose.yml security_opt: apparmor:arasul-backend
+
+profile arasul-backend flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Network access (HTTP/HTTPS to other services)
+  network inet tcp,
+  network inet udp,
+  network inet6 tcp,
+  network inet6 udp,
+
+  # Node.js runtime
+  /usr/local/bin/node ix,
+  /usr/local/lib/node_modules/** r,
+  /app/** r,
+  /app/node_modules/** r,
+  /app/src/** r,
+
+  # Temporary files
+  /tmp/** rw,
+  /tmp/ r,
+
+  # Docker socket (needed for service management)
+  /var/run/docker.sock rw,
+
+  # Configuration (read-only)
+  /config/** r,
+  /arasul/config/.env r,
+  /arasul/ssh-keys/** r,
+  /arasul/appstore/manifests/** r,
+
+  # Updates directory (read-write)
+  /arasul/updates/** rw,
+  /arasul/updates/ r,
+
+  # Backups (read-only)
+  /arasul/backups/** r,
+  /arasul/backups/ r,
+
+  # Process info
+  /proc/sys/kernel/random/uuid r,
+  /proc/*/status r,
+  /proc/*/cgroup r,
+
+  # Deny access to sensitive system files
+  deny /etc/shadow r,
+  deny /etc/gshadow r,
+  deny /root/** rw,
+  deny /home/** rw,
+
+  # Deny network tools
+  deny /usr/bin/wget x,
+  deny /usr/bin/curl x,
+  deny /usr/bin/nc x,
+  deny /usr/bin/ncat x,
+
+  # Deny package management
+  deny /usr/bin/apt* x,
+  deny /usr/bin/dpkg x,
+  deny /usr/bin/pip* x,
+}

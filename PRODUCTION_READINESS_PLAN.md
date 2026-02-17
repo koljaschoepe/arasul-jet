@@ -390,61 +390,84 @@
 
 ### 8.1 SSH-Hardening
 
-- [ ] SSH-Key-Only-Auth (Passwort-Login deaktivieren)
-- [ ] SSH auf nicht-Standard-Port (z.B. 2222)
-- [ ] `PermitRootLogin no`
-- [ ] `MaxAuthTries 3`
-- [ ] Fail2ban installieren und konfigurieren
-- [ ] SSH-Banner mit Warnung
+- [x] `scripts/harden-ssh.sh` erstellt:
+  - SSH-Key-Only-Auth (PasswordAuthentication no)
+  - SSH auf Port 2222 (konfigurierbar via `--port`)
+  - `PermitRootLogin no`, `MaxAuthTries 3`, `MaxSessions 5`
+  - X11Forwarding, TcpForwarding, AgentForwarding deaktiviert
+  - `AllowUsers arasul` (nur Service-Account)
+  - Fail2ban: 3 Versuche, 1h Ban, Docker-Netzwerk in Ignoreip
+  - SSH-Banner mit Zugangswarnung (/etc/ssh/arasul_banner)
+  - Config-Validierung vor Neustart, automatisches Backup
 
 ### 8.2 Firewall-Konfiguration
 
-- [ ] UFW oder iptables konfigurieren:
-  - Nur Ports 80 (HTTP), 443 (HTTPS), 2222 (SSH) offen
-  - Alle anderen Ports nur intern (Docker-Netzwerk)
-  - Rate-Limiting auf Netzwerk-Ebene
-- [ ] Docker-Netzwerk-Isolation pruefen (kein direkter Zugriff auf interne Ports)
+- [x] `scripts/setup-firewall.sh` erstellt:
+  - UFW mit deny-incoming/allow-outgoing Default-Policy
+  - Ports 80 (HTTP), 443 (HTTPS), 2222 (SSH rate-limited)
+  - Docker-Netzwerke 172.30.0.0/24 erlaubt
+  - UFW Application Profiles fuer Arasul
+- [x] Docker-Netzwerk-Isolation: Externe Ports entfernt fuer MinIO (9001), Qdrant (6333/6334), n8n (5678)
 
 ### 8.3 User-Isolation
 
-- [ ] Dedizierter `arasul`-User fuer alle Services (kein root)
-- [ ] Docker-Gruppe nur fuer Service-Account
-- [ ] Keine interaktive Shell fuer Service-Account
-- [ ] Home-Verzeichnis-Permissions: 0750
+- [x] `scripts/setup-service-user.sh` erstellt:
+  - Dedizierter `arasul`-User mit Docker-Gruppe
+  - Home-Verzeichnis 0750, App-Verzeichnisse /arasul/\* mit 0750
+  - .env: 0600 (owner-only), SSH-Keys: 0700/0600, Secrets: 0700/0600
+  - Sudoers: docker/docker-compose ohne Passwort
+  - TLS-Keys: 0600
 
 ### 8.4 Auto-Updates deaktivieren
 
-- [ ] `unattended-upgrades` deaktivieren (Kunden-System soll stabil bleiben)
-- [ ] NVIDIA JetPack-Updates nur manuell ueber Update-Paket
-- [ ] Kernel-Updates deaktivieren
+- [x] `scripts/disable-auto-updates.sh` erstellt:
+  - unattended-upgrades: gestoppt + maskiert
+  - apt-daily.timer + apt-daily-upgrade.timer: maskiert
+  - APT periodic updates auf 0 gesetzt
+  - Package-Pinning: linux-_, nvidia-_, cuda-_, docker-_ auf Priority -1
+  - NVIDIA apt sources auskommentiert
 
 ### 8.5 AppArmor-Profile
 
-- [ ] AppArmor fuer Docker-Container aktivieren
-- [ ] Custom-Profile fuer Self-Healing-Agent (eingeschraenkte Capabilities)
-- [ ] Custom-Profile fuer Backend (kein Dateisystem-Zugriff ausserhalb Volumes)
+- [x] `config/apparmor/arasul-backend` erstellt:
+  - Node.js-Runtime + App-Dateien: read-only
+  - Docker-Socket: rw (fuer Service-Management)
+  - Deny: /etc/shadow, /root, wget/curl/nc, apt/dpkg/pip
+- [x] `config/apparmor/arasul-self-healing` erstellt:
+  - Python-Runtime + App-Dateien: read-only
+  - System-Monitoring (/host/sys, /host/proc): read-only
+  - USB/Media: read-only, Logs/Updates/Backups: read-write
+  - Deny: /etc/shadow, nc/ssh/scp, apt/dpkg
 
 ### 8.6 Filesystem-Hardening
 
-- [ ] `/tmp` mit noexec mounten
-- [ ] Docker-Volumes mit noexec wo moeglich
-- [ ] Read-only Filesystem fuer Container wo moeglich
-- [ ] Audit-Logging: `auditd` fuer kritische Pfade
+- [x] `docker-compose.yml` gehaertet:
+  - `security_opt: no-new-privileges` auf ALLEN 15 Containern
+  - `cap_drop: ALL` auf stateless Containern (metrics, document-indexer, traefik, frontend, loki, promtail)
+  - `cap_add: NET_BIND_SERVICE` nur fuer traefik + frontend
+  - `read_only: true` mit `tmpfs` auf: frontend, traefik, loki, promtail
+  - tmpfs mit noexec,nosuid Flags
 
 ### 8.7 Netzwerk-Segmentierung
 
-- [ ] Docker-Netzwerke aufteilen:
-  - `arasul-frontend`: Nur Traefik + Frontend
-  - `arasul-backend`: Backend + DB + AI-Services
-  - `arasul-monitoring`: Loki + Promtail + Metrics
-- [ ] Inter-Netzwerk-Kommunikation nur ueber definierte Pfade
+- [x] Docker-Netzwerke aufgeteilt (3 isolierte Netze):
+  - `arasul-frontend` (172.30.0.0/26): Traefik, Frontend, Backend, Cloudflared
+  - `arasul-backend` (172.30.0.64/26): Backend, Postgres, MinIO, Qdrant, LLM, Embedding, Document-Indexer, n8n, Metrics, Self-Healing, Backup
+  - `arasul-monitoring` (172.30.0.128/26): Loki, Promtail, Metrics, Self-Healing, Backup, Backend
+- [x] Multi-Netzwerk-Services: Backend (3 Netze), Traefik (2), Metrics (2), Self-Healing (2), Backup (2)
+- [x] Traefik Docker-Provider auf arasul-backend umgestellt
+- [x] appService.js Netzwerk-Referenz aktualisiert
+- [x] Override-Files (ngrok, cloudflared) auf arasul-frontend migriert
 
 ### 8.8 Security-Scanning
 
-- [ ] Trivy-Scan aller Docker-Images (Vulnerability-Report)
-- [ ] OWASP ZAP Basis-Scan gegen die Applikation
-- [ ] Dependency-Audit: `npm audit` + `pip audit`
-- [ ] Ergebnisse dokumentieren und kritische Findings fixen
+- [x] `scripts/security-scan.sh` erstellt:
+  - Trivy: Docker-Image-Scanning (7 Base-Images)
+  - npm audit: Backend + Frontend Dependency-Check
+  - pip audit: 5 Python-Services
+  - Summary-Report mit Findings-Zaehlung
+  - Exit-Code 1 bei Critical Findings
+- [x] `scripts/harden-os.sh` Orchestrator erstellt (ruft alle Scripts sequenziell)
 
 ---
 

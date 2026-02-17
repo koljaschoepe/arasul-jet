@@ -72,13 +72,13 @@ check_prerequisites() {
         touch "$ENV_FILE"
     fi
 
-    # arasul-net Netzwerk
-    if docker network ls | grep -q "arasul-net"; then
-        log_success "Docker Netzwerk 'arasul-net' existiert"
+    # arasul-frontend Netzwerk (fuer externe Tunnel-Dienste)
+    if docker network ls | grep -q "arasul-frontend"; then
+        log_success "Docker Netzwerk 'arasul-frontend' existiert"
     else
-        log_warning "Docker Netzwerk 'arasul-net' nicht gefunden"
+        log_warning "Docker Netzwerk 'arasul-frontend' nicht gefunden"
         log_info "Erstelle Netzwerk..."
-        docker network create arasul-net || true
+        docker network create arasul-frontend || true
     fi
 
     if [ $errors -gt 0 ]; then

@@ -24,7 +24,7 @@ services:
     hostname: ngrok
     restart: unless-stopped
     networks:
-      - arasul-net
+      - arasul-frontend
 
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
@@ -37,7 +37,7 @@ services:
 
     ports:
       # ngrok Inspection UI (lokal verfügbar)
-      - "127.0.0.1:4040:4040"
+      - '127.0.0.1:4040:4040'
 
     depends_on:
       reverse-proxy:
@@ -52,22 +52,22 @@ services:
           memory: 64M
 
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4040/api/tunnels"]
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:4040/api/tunnels']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
 
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
     labels:
-      - "com.arasul.service=ngrok"
-      - "com.arasul.description=ngrok tunnel for OAuth and Webhooks"
+      - 'com.arasul.service=ngrok'
+      - 'com.arasul.description=ngrok tunnel for OAuth and Webhooks'
 
 networks:
-  arasul-net:
+  arasul-frontend:
     external: true

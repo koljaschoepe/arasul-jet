@@ -1,0 +1,71 @@
+#include <tunables/global>
+
+# AppArmor profile for ARASUL Self-Healing Agent
+# Container: self-healing-agent (Python)
+#
+# This container has elevated privileges (SYS_ADMIN, SYS_BOOT, SYS_NICE)
+# and Docker socket access. AppArmor restricts what it can do beyond those caps.
+#
+# Install: sudo apparmor_parser -r -W /path/to/this/file
+# Load:    Add to docker-compose.yml security_opt: apparmor:arasul-self-healing
+
+profile arasul-self-healing flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  #include <abstractions/python>
+
+  # Network access
+  network inet tcp,
+  network inet udp,
+
+  # Python runtime
+  /usr/bin/python3* ix,
+  /usr/local/bin/python3* ix,
+  /usr/lib/python3/** r,
+  /usr/local/lib/python3*/** r,
+
+  # Application code
+  /app/** r,
+
+  # Docker socket (needed for container management)
+  /var/run/docker.sock rw,
+
+  # System monitoring (read-only)
+  /host/sys/** r,
+  /host/proc/** r,
+  /proc/*/status r,
+  /proc/*/cgroup r,
+  /sys/** r,
+
+  # USB device monitoring (read-only)
+  /media/** r,
+  /mnt/** r,
+  /dev/bus/usb/** r,
+
+  # Logs (read-write)
+  /arasul/logs/** rw,
+  /arasul/logs/ r,
+
+  # Updates and backups
+  /arasul/updates/** rw,
+  /arasul/updates/ r,
+  /arasul/backups/** rw,
+  /arasul/backups/ r,
+
+  # Temporary files
+  /tmp/** rw,
+  /tmp/ r,
+
+  # Deny access to sensitive files
+  deny /etc/shadow r,
+  deny /etc/gshadow r,
+
+  # Deny package management
+  deny /usr/bin/apt* x,
+  deny /usr/bin/dpkg x,
+
+  # Deny outbound tools (prevent data exfiltration)
+  deny /usr/bin/nc x,
+  deny /usr/bin/ncat x,
+  deny /usr/bin/ssh x,
+  deny /usr/bin/scp x,
+}

@@ -21,12 +21,27 @@
 # Healthchecks are robust (see HIGH-010 fix) and properly handle timeouts.
 # ==============================================================================
 
+# SEC: Network segmentation - 3 isolated networks
+# arasul-frontend: External-facing services (Traefik, Frontend, Backend)
+# arasul-backend:  Internal services (Backend, DB, AI, Storage, n8n)
+# arasul-monitoring: Monitoring stack (Loki, Promtail, Metrics, Self-Healing, Backup)
+# Services on multiple networks can communicate across boundaries.
 networks:
-  arasul-net:
+  arasul-frontend:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.30.0.0/24
+        - subnet: 172.30.0.0/26
+  arasul-backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.64/26
+  arasul-monitoring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.128/26
 
 volumes:
   arasul-postgres:
@@ -54,7 +69,7 @@ services:
     hostname: postgres-db
     restart: always
     networks:
-      - arasul-net
+      - arasul-backend
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -74,6 +89,9 @@ services:
       interval: 10s
       timeout: 2s
       retries: 3
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -91,9 +109,11 @@ services:
     hostname: minio
     restart: always
     networks:
-      - arasul-net
-    ports:
-      - "9001:9001"  # MinIO Console - Direct access
+      - arasul-backend
+    # SEC: MinIO Console only accessible via Docker network (no external port exposure)
+    # Access via Traefik reverse proxy or: docker exec -it minio mc admin info local
+    # ports:
+    #   - "9001:9001"
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -111,6 +131,9 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
     # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
@@ -124,10 +147,11 @@ services:
     hostname: qdrant
     restart: always
     networks:
-      - arasul-net
-    ports:
-      - "6333:6333"  # HTTP API
-      - "6334:6334"  # gRPC API
+      - arasul-backend
+    # SEC: Qdrant only accessible within Docker network (no external port exposure)
+    # ports:
+    #   - "6333:6333"
+    #   - "6334:6334"
     volumes:
       - arasul-qdrant:/qdrant/storage
     environment:
@@ -144,6 +168,9 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
     # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
@@ -159,7 +186,8 @@ services:
     hostname: metrics-collector
     restart: always
     networks:
-      - arasul-net
+      - arasul-backend
+      - arasul-monitoring
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
@@ -181,6 +209,11 @@ services:
       interval: 10s
       timeout: 1s
       retries: 3
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
@@ -201,7 +234,7 @@ services:
     hostname: llm-service
     restart: always
     networks:
-      - arasul-net
+      - arasul-backend
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
       # OLLAMA_MODELS removed - Ollama uses default /root/.ollama where volume is mounted
@@ -215,6 +248,9 @@ services:
       - ./services/llm-service/healthcheck.sh:/healthcheck.sh:ro
       - ./data/models:/host-models:ro
     runtime: nvidia
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -249,7 +285,7 @@ services:
     hostname: embedding-service
     restart: always
     networks:
-      - arasul-net
+      - arasul-backend
     environment:
       MODEL_NAME: ${EMBEDDING_MODEL}
       SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
@@ -263,6 +299,9 @@ services:
       - arasul-embeddings-models:/models
       - ./services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
     runtime: nvidia
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -297,7 +336,7 @@ services:
     hostname: document-indexer
     restart: always
     networks:
-      - arasul-net
+      - arasul-backend
     environment:
       # MinIO Configuration
       MINIO_HOST: ${MINIO_HOST}
@@ -357,6 +396,11 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
@@ -370,7 +414,8 @@ services:
     hostname: reverse-proxy
     restart: always
     networks:
-      - arasul-net
+      - arasul-frontend
+      - arasul-backend
     command:
       - "--configFile=/etc/traefik/traefik.yml"
     ports:
@@ -404,6 +449,16 @@ services:
       options:
         max-size: "50m"
         max-file: "10"
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # Bind to ports 80/443
     # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
@@ -419,7 +474,9 @@ services:
     hostname: dashboard-backend
     restart: always
     networks:
-      - arasul-net
+      - arasul-frontend
+      - arasul-backend
+      - arasul-monitoring
     # Add docker group (994) to allow access to docker.sock for service status monitoring
     group_add:
       - "994"
@@ -518,7 +575,7 @@ services:
     hostname: dashboard-frontend
     restart: always
     networks:
-      - arasul-net
+      - arasul-frontend
     # Note: React ENV vars are embedded at BUILD time, not runtime
     # Frontend uses dynamic detection from window.location
     depends_on:
@@ -529,6 +586,18 @@ services:
       interval: 10s
       timeout: 1s
       retries: 3
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=32M
+      - /var/cache/nginx:size=32M
+      - /run:size=8M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # Nginx binds to port 80
     # FIX: Routing komplett über File Provider (config/traefik/dynamic/routes.yml)
     # Docker-Labels deaktiviert, da sie nur websecure (HTTPS) unterstützten
     # und HTTP-Zugriff (localhost, LAN) blockierten
@@ -554,9 +623,11 @@ services:
     hostname: n8n
     restart: always
     networks:
-      - arasul-net
-    ports:
-      - "5678:5678"
+      - arasul-backend
+    # SEC: n8n accessible via Traefik reverse proxy (no direct port exposure)
+    # For direct access during development: uncomment the port below
+    # ports:
+    #   - "5678:5678"
     environment:
       N8N_HOST: ${N8N_HOST}
       N8N_PORT: ${N8N_PORT}
@@ -615,6 +686,9 @@ services:
       interval: 15s
       timeout: 2s
       retries: 3
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -638,7 +712,8 @@ services:
     hostname: self-healing-agent
     restart: always
     networks:
-      - arasul-net
+      - arasul-backend
+      - arasul-monitoring
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
@@ -715,7 +790,8 @@ services:
     hostname: backup-service
     restart: unless-stopped
     networks:
-      - arasul-net
+      - arasul-backend
+      - arasul-monitoring
     environment:
       POSTGRES_HOST: postgres-db
       POSTGRES_USER: ${POSTGRES_USER}
@@ -811,6 +887,9 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
     # Jetson-flexible: Memory limit configurable via environment
     deploy:
       resources:
@@ -824,7 +903,7 @@ services:
     hostname: loki
     restart: always
     networks:
-      - arasul-net
+      - arasul-monitoring
     # SEC: Loki only accessible within Docker network (no external port exposure)
     # Access via docker network hostname 'loki:3100' from other containers
     # ports:
@@ -844,6 +923,14 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     deploy:
       resources:
         limits:
@@ -856,7 +943,7 @@ services:
     hostname: promtail
     restart: always
     networks:
-      - arasul-net
+      - arasul-monitoring
     volumes:
       - ./config/promtail/config.yaml:/etc/promtail/config.yaml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
@@ -877,6 +964,15 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=32M
+      - /run:size=8M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     deploy:
       resources:
         limits:
@@ -903,7 +999,7 @@ services:
     # unless-stopped: won't auto-restart on boot if manually stopped (e.g., no token)
     restart: unless-stopped
     networks:
-      - arasul-net
+      - arasul-frontend
     environment:
       # Pass token as env var for better security (not visible in process list)
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}

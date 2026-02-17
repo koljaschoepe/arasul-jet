@@ -9,7 +9,7 @@ global:
 # API and Dashboard
 api:
   dashboard: true
-  insecure: false  # Dashboard only via authenticated route
+  insecure: false # Dashboard only via authenticated route
 
 # Ping endpoint for health checks
 ping:
@@ -18,23 +18,23 @@ ping:
 # Entrypoints
 entryPoints:
   web:
-    address: ":80"
+    address: ':80'
     # HTTP access enabled for external network access (no redirect)
     # Users can access services via http://<jetson-ip>
 
   websecure:
-    address: ":443"
+    address: ':443'
     http:
       tls:
         certResolver: letsencrypt
         domains:
-          - main: "arasul.local"
+          - main: 'arasul.local'
             sans:
-              - "*.arasul.local"
+              - '*.arasul.local'
 
   # Traefik dashboard
   traefik:
-    address: ":8080"
+    address: ':8080'
 
 # Certificate resolvers
 certificatesResolvers:
@@ -45,14 +45,14 @@ certificatesResolvers:
       # Use staging for testing
       # caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
       # httpChallenge: # Disabled for self-signed cert
-        # entryPoint: web # Disabled for self-signed cert
+      # entryPoint: web # Disabled for self-signed cert
 
 # Providers
 providers:
   docker:
-    endpoint: "unix:///var/run/docker.sock"
-    exposedByDefault: false  # Only expose services with labels
-    network: arasul-net
+    endpoint: 'unix:///var/run/docker.sock'
+    exposedByDefault: false # Only expose services with labels
+    network: arasul-backend
     watch: true
   file:
     directory: /etc/traefik/dynamic
@@ -71,9 +71,9 @@ accessLog:
   bufferingSize: 100
   filters:
     statusCodes:
-      - "400-599"  # Only log errors
+      - '400-599' # Only log errors
     retryAttempts: true
-    minDuration: "100ms"  # Only log slow requests
+    minDuration: '100ms' # Only log slow requests
 
 # Metrics
 metrics:
