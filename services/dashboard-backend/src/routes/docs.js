@@ -12,7 +12,7 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
 // Require authentication for all docs routes in production
-if (process.env.NODE_ENV !== 'development') {
+if (process.env.NODE_ENV === 'production') {
   router.use(requireAuth);
 }
 

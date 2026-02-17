@@ -61,11 +61,18 @@ def mock_ollama_ps():
 @pytest.fixture
 def app_client():
     """Create Flask test client with mocked dependencies"""
+    import requests as real_requests
+    import subprocess as real_subprocess
     with patch('api_server.requests') as mock_requests:
         with patch('api_server.subprocess') as mock_subprocess:
             with patch('api_server.psutil') as mock_psutil:
                 # Mock CPU thread
                 with patch('api_server._cpu_percent', 25.5):
+                    # Preserve real exception classes so except clauses work
+                    mock_requests.exceptions = real_requests.exceptions
+                    mock_subprocess.CalledProcessError = real_subprocess.CalledProcessError
+                    mock_subprocess.TimeoutExpired = real_subprocess.TimeoutExpired
+
                     # Mock Ollama tags endpoint
                     mock_tags_response = Mock()
                     mock_tags_response.status_code = 200

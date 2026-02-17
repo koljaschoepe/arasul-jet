@@ -473,35 +473,43 @@ class TestDocumentIndexer:
 
     def test_parse_document_pdf(self, mock_indexer):
         """Test: parse_document selects PDF parser"""
-        with patch('indexer.parse_pdf', return_value='PDF content') as mock_parse:
-            result = mock_indexer.parse_document('test.pdf', b'data')
+        mock_parse = Mock(return_value='PDF content')
+        mock_indexer.parsers['.pdf'] = mock_parse
 
-            mock_parse.assert_called_once()
-            assert result == 'PDF content'
+        result = mock_indexer.parse_document('test.pdf', b'data')
+
+        mock_parse.assert_called_once()
+        assert result == 'PDF content'
 
     def test_parse_document_docx(self, mock_indexer):
         """Test: parse_document selects DOCX parser"""
-        with patch('indexer.parse_docx', return_value='DOCX content') as mock_parse:
-            result = mock_indexer.parse_document('test.docx', b'data')
+        mock_parse = Mock(return_value='DOCX content')
+        mock_indexer.parsers['.docx'] = mock_parse
 
-            mock_parse.assert_called_once()
-            assert result == 'DOCX content'
+        result = mock_indexer.parse_document('test.docx', b'data')
+
+        mock_parse.assert_called_once()
+        assert result == 'DOCX content'
 
     def test_parse_document_txt(self, mock_indexer):
         """Test: parse_document selects TXT parser"""
-        with patch('indexer.parse_txt', return_value='TXT content') as mock_parse:
-            result = mock_indexer.parse_document('test.txt', b'data')
+        mock_parse = Mock(return_value='TXT content')
+        mock_indexer.parsers['.txt'] = mock_parse
 
-            mock_parse.assert_called_once()
-            assert result == 'TXT content'
+        result = mock_indexer.parse_document('test.txt', b'data')
+
+        mock_parse.assert_called_once()
+        assert result == 'TXT content'
 
     def test_parse_document_markdown(self, mock_indexer):
         """Test: parse_document selects Markdown parser"""
-        with patch('indexer.parse_markdown', return_value='MD content') as mock_parse:
-            result = mock_indexer.parse_document('test.md', b'data')
+        mock_parse = Mock(return_value='MD content')
+        mock_indexer.parsers['.md'] = mock_parse
 
-            mock_parse.assert_called_once()
-            assert result == 'MD content'
+        result = mock_indexer.parse_document('test.md', b'data')
+
+        mock_parse.assert_called_once()
+        assert result == 'MD content'
 
     def test_parse_document_unsupported_type(self, mock_indexer):
         """Test: parse_document returns None for unsupported types"""
@@ -511,10 +519,12 @@ class TestDocumentIndexer:
 
     def test_parse_document_case_insensitive(self, mock_indexer):
         """Test: parse_document handles uppercase extensions"""
-        with patch('indexer.parse_pdf', return_value='content') as mock_parse:
-            result = mock_indexer.parse_document('TEST.PDF', b'data')
+        mock_parse = Mock(return_value='content')
+        mock_indexer.parsers['.pdf'] = mock_parse
 
-            mock_parse.assert_called_once()
+        result = mock_indexer.parse_document('TEST.PDF', b'data')
+
+        mock_parse.assert_called_once()
 
     @patch('indexer.requests.post')
     def test_get_embedding_success(self, mock_post, mock_indexer):

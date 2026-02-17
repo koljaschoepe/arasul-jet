@@ -30,10 +30,7 @@ const ConditionalErrorComponent = () => {
   }
 
   return (
-    <button
-      data-testid="trigger-error"
-      onClick={() => setShouldError(true)}
-    >
+    <button data-testid="trigger-error" onClick={() => setShouldError(true)}>
       Trigger Error
     </button>
   );
@@ -57,8 +54,9 @@ describe('ErrorBoundary Component', () => {
     // Mock window.location.reload
     delete window.location;
     window.location = { reload: jest.fn() };
-    // Mock window.history.back
+    // Mock window.history.back and length (length > 1 to trigger back())
     window.history.back = jest.fn();
+    Object.defineProperty(window.history, 'length', { value: 2, writable: true });
   });
 
   // =====================================================
@@ -328,16 +326,15 @@ describe('ErrorBoundary Component', () => {
       );
 
       // Find and click details/summary element
-      const summary = container.querySelector('summary') ||
-                     screen.queryByText(/fehlerdetails/i);
+      const summary = container.querySelector('summary') || screen.queryByText(/fehlerdetails/i);
 
       if (summary) {
         fireEvent.click(summary);
       }
 
       // Pre element with error stack should exist (or error-details)
-      const preElement = document.querySelector('.error-stack') ||
-                        container.querySelector('.error-details');
+      const preElement =
+        document.querySelector('.error-stack') || container.querySelector('.error-details');
       expect(preElement).toBeTruthy();
     });
   });
@@ -460,22 +457,14 @@ describe('ErrorBoundary Component', () => {
     });
 
     test('behandelt null children', () => {
-      render(
-        <ErrorBoundary>
-          {null}
-        </ErrorBoundary>
-      );
+      render(<ErrorBoundary>{null}</ErrorBoundary>);
 
       // Should not crash, and should not show error UI
       expect(screen.queryByText('Etwas ist schiefgelaufen')).not.toBeInTheDocument();
     });
 
     test('behandelt undefined children', () => {
-      render(
-        <ErrorBoundary>
-          {undefined}
-        </ErrorBoundary>
-      );
+      render(<ErrorBoundary>{undefined}</ErrorBoundary>);
 
       expect(screen.queryByText('Etwas ist schiefgelaufen')).not.toBeInTheDocument();
     });

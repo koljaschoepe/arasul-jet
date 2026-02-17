@@ -511,8 +511,8 @@ describe('RAG Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(503);
-      expect(response.body).toHaveProperty('status', 'degraded');
       expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toContain('degraded');
       expect(response.body).toHaveProperty('timestamp');
     });
 
@@ -529,7 +529,7 @@ describe('RAG Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(503);
-      expect(response.body.status).toBe('degraded');
+      expect(response.body).toHaveProperty('error');
     });
   });
 

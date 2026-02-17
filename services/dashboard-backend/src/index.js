@@ -109,6 +109,7 @@ const telegramAppRouter = require('./routes/telegramApp');
 const telegramBotsRouter = require('./routes/telegramBots');
 const claudeTerminalRouter = require('./routes/claudeTerminal');
 const alertsRouter = require('./routes/alerts');
+const eventsRouter = require('./routes/events');
 const auditRouter = require('./routes/audit');
 const externalApiRouter = require('./routes/externalApi');
 const datentabellenRouter = require('./routes/datentabellen');
@@ -140,6 +141,7 @@ app.use('/api/telegram-app', telegramAppRouter);
 app.use('/api/telegram-bots', telegramBotsRouter);
 app.use('/api/claude-terminal', claudeTerminalRouter);
 app.use('/api/alerts', alertsRouter);
+app.use('/api/events', eventsRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/v1/external', externalApiRouter); // External API for n8n, automations
 app.use('/api/v1/datentabellen', datentabellenRouter); // Dynamic database builder

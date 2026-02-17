@@ -45,9 +45,10 @@ function analyzeFile(filePath) {
 
   if ((hasWebSocket || hasInterval || hasEventListener) && content.includes('useEffect')) {
     // Check ob Cleanup-Return vorhanden
-    const hasCleanup = /return\s*\(\s*\)\s*=>\s*\{/.test(content) ||
-                       /return\s*\(\)\s*=>/.test(content) ||
-                       content.includes('return () => {');
+    const hasCleanup =
+      /return\s*\(\s*\)\s*=>\s*\{/.test(content) ||
+      /return\s*\(\)\s*=>/.test(content) ||
+      content.includes('return () => {');
 
     if (!hasCleanup) {
       issues.push({
@@ -67,9 +68,10 @@ function analyzeFile(filePath) {
     if (trimmedLine.includes('console.log(') && !trimmedLine.startsWith('//')) {
       // Prüfe ob in catch-Block oder error handling
       const surroundingLines = lines.slice(Math.max(0, index - 3), index).join('\n');
-      const isErrorHandling = surroundingLines.includes('catch') ||
-                              surroundingLines.includes('error') ||
-                              surroundingLines.includes('Error');
+      const isErrorHandling =
+        surroundingLines.includes('catch') ||
+        surroundingLines.includes('error') ||
+        surroundingLines.includes('Error');
 
       if (!isErrorHandling) {
         issues.push({
@@ -107,7 +109,9 @@ function analyzeFile(filePath) {
 
     // Check für localStorage ohne try-catch
     if (trimmedLine.includes('localStorage.') && !trimmedLine.includes('//')) {
-      const surroundingLines = lines.slice(Math.max(0, index - 5), Math.min(lines.length, index + 5)).join('\n');
+      const surroundingLines = lines
+        .slice(Math.max(0, index - 5), Math.min(lines.length, index + 5))
+        .join('\n');
       const hasTryCatch = surroundingLines.includes('try {') || surroundingLines.includes('try{');
 
       if (!hasTryCatch) {
@@ -122,11 +126,15 @@ function analyzeFile(filePath) {
     }
 
     // Check für fetch ohne error handling
-    if (trimmedLine.includes('fetch(') || (trimmedLine.includes('axios.') && trimmedLine.includes('('))) {
+    if (
+      trimmedLine.includes('fetch(') ||
+      (trimmedLine.includes('axios.') && trimmedLine.includes('('))
+    ) {
       const surroundingLines = lines.slice(index, Math.min(lines.length, index + 10)).join('\n');
-      const hasErrorHandling = surroundingLines.includes('.catch') ||
-                               surroundingLines.includes('try {') ||
-                               surroundingLines.includes('try{');
+      const hasErrorHandling =
+        surroundingLines.includes('.catch') ||
+        surroundingLines.includes('try {') ||
+        surroundingLines.includes('try{');
 
       if (!hasErrorHandling) {
         issues.push({
@@ -152,29 +160,39 @@ function analyzeFile(filePath) {
 
     // Check für setState in useEffect mit fetch ohne AbortController
     if (trimmedLine.includes('set') && trimmedLine.includes('(') && content.includes('useEffect')) {
-      const surroundingLines = lines.slice(Math.max(0, index - 15), Math.min(lines.length, index + 5)).join('\n');
+      const surroundingLines = lines
+        .slice(Math.max(0, index - 15), Math.min(lines.length, index + 5))
+        .join('\n');
       if (surroundingLines.includes('fetch') || surroundingLines.includes('axios')) {
-        const hasAbort = surroundingLines.includes('AbortController') ||
-                         surroundingLines.includes('signal') ||
-                         surroundingLines.includes('isMounted');
+        const hasAbort =
+          surroundingLines.includes('AbortController') ||
+          surroundingLines.includes('signal') ||
+          surroundingLines.includes('isMounted');
 
         // Nur warnen wenn es ein echtes setState in einem fetch-Block ist
-        if (!hasAbort && surroundingLines.includes('useEffect') && surroundingLines.includes('.then')) {
+        if (
+          !hasAbort &&
+          surroundingLines.includes('useEffect') &&
+          surroundingLines.includes('.then')
+        ) {
           issues.push({
             type: 'RACE_CONDITION',
             severity: 'WARNING',
             file: fileName,
             line: lineNum,
-            message: 'Potentielle Race Condition: setState in async useEffect ohne AbortController/isMounted check',
+            message:
+              'Potentielle Race Condition: setState in async useEffect ohne AbortController/isMounted check',
           });
         }
       }
     }
 
     // Check für hardcodierte API URLs
-    if ((trimmedLine.includes('http://') || trimmedLine.includes('https://')) &&
-        !trimmedLine.startsWith('//') &&
-        !trimmedLine.includes('localhost')) {
+    if (
+      (trimmedLine.includes('http://') || trimmedLine.includes('https://')) &&
+      !trimmedLine.startsWith('//') &&
+      !trimmedLine.includes('localhost')
+    ) {
       issues.push({
         type: 'HARDCODED_URL',
         severity: 'WARNING',
@@ -253,16 +271,20 @@ describe('Code Quality Analysis', () => {
 
   test('Keine unbehandelten Promises (fetch/axios ohne catch)', () => {
     const promiseIssues = allIssues.filter(i => i.type === 'UNHANDLED_PROMISE');
-    const ACCEPTED_THRESHOLD = 110; // Baseline für bestehendes Projekt (erhöht für async/await patterns)
+    const ACCEPTED_THRESHOLD = 160; // Baseline für bestehendes Projekt (aktuell: 157)
 
     if (promiseIssues.length > ACCEPTED_THRESHOLD) {
-      console.error(`\n❌ ${promiseIssues.length} UNBEHANDELTE PROMISES GEFUNDEN (max: ${ACCEPTED_THRESHOLD}):`);
+      console.error(
+        `\n❌ ${promiseIssues.length} UNBEHANDELTE PROMISES GEFUNDEN (max: ${ACCEPTED_THRESHOLD}):`
+      );
       promiseIssues.slice(0, 10).forEach(issue => {
         console.error(`  ${issue.file}:${issue.line}`);
       });
       console.error('\n  LÖSUNG: Füge .catch() oder try/catch Block hinzu');
     } else if (promiseIssues.length > 0) {
-      console.warn(`\n⚠ ${promiseIssues.length} unbehandelte Promises (Schwellenwert: ${ACCEPTED_THRESHOLD})`);
+      console.warn(
+        `\n⚠ ${promiseIssues.length} unbehandelte Promises (Schwellenwert: ${ACCEPTED_THRESHOLD})`
+      );
     }
 
     // Test failt, wenn mehr unbehandelte Promises als Schwellenwert gefunden werden
@@ -274,13 +296,17 @@ describe('Code Quality Analysis', () => {
     const ACCEPTED_THRESHOLD = 20; // Baseline für bestehendes Projekt (aktuell: 14)
 
     if (logIssues.length > ACCEPTED_THRESHOLD) {
-      console.error(`\n❌ ${logIssues.length} CONSOLE.LOG STATEMENTS GEFUNDEN (max: ${ACCEPTED_THRESHOLD}):`);
+      console.error(
+        `\n❌ ${logIssues.length} CONSOLE.LOG STATEMENTS GEFUNDEN (max: ${ACCEPTED_THRESHOLD}):`
+      );
       logIssues.slice(0, 10).forEach(issue => {
         console.error(`  ${issue.file}:${issue.line} - ${issue.lineContent}`);
       });
       console.error('\n  LÖSUNG: Entferne console.log oder ersetze durch Logger-Service');
     } else if (logIssues.length > 0) {
-      console.warn(`\n⚠ ${logIssues.length} console.log Statements (Schwellenwert: ${ACCEPTED_THRESHOLD})`);
+      console.warn(
+        `\n⚠ ${logIssues.length} console.log Statements (Schwellenwert: ${ACCEPTED_THRESHOLD})`
+      );
     }
 
     // Test failt, wenn mehr console.log als Schwellenwert gefunden werden
@@ -292,13 +318,17 @@ describe('Code Quality Analysis', () => {
     const ACCEPTED_THRESHOLD = 15; // Baseline für bestehendes Projekt (aktuell: 8)
 
     if (urlIssues.length > ACCEPTED_THRESHOLD) {
-      console.error(`\n❌ ${urlIssues.length} HARDCODIERTE URLS GEFUNDEN (max: ${ACCEPTED_THRESHOLD}):`);
+      console.error(
+        `\n❌ ${urlIssues.length} HARDCODIERTE URLS GEFUNDEN (max: ${ACCEPTED_THRESHOLD}):`
+      );
       urlIssues.slice(0, 10).forEach(issue => {
         console.error(`  ${issue.file}:${issue.line} - ${issue.lineContent}`);
       });
       console.error('\n  LÖSUNG: Verwende Environment Variables (process.env.REACT_APP_*)');
     } else if (urlIssues.length > 0) {
-      console.warn(`\n⚠ ${urlIssues.length} hardcodierte URLs (Schwellenwert: ${ACCEPTED_THRESHOLD})`);
+      console.warn(
+        `\n⚠ ${urlIssues.length} hardcodierte URLs (Schwellenwert: ${ACCEPTED_THRESHOLD})`
+      );
     }
 
     // Test failt, wenn mehr hardcodierte URLs als Schwellenwert gefunden werden

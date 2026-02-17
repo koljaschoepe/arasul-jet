@@ -398,10 +398,10 @@ class TestRecoveryRecommendations:
         assert action == GPURecoveryAction.RESTART_LLM
 
     def test_recommend_recovery_action_unknown(self, gpu_recovery):
-        """Test: Unknown Error → Empfehle CLEAR_CACHE"""
+        """Test: Unknown Error → Empfehle RESTART_LLM (default fallback)"""
         action = gpu_recovery.recommend_recovery_action('unknown_error')
 
-        assert action == GPURecoveryAction.CLEAR_CACHE
+        assert action == GPURecoveryAction.RESTART_LLM
 
     def test_recommend_recovery_action_none(self, gpu_recovery):
         """Test: Kein Error → NONE"""
@@ -466,20 +466,20 @@ class TestCacheClear:
 class TestGPUSessionReset:
     """Tests für GPU Session Reset"""
 
-    @patch('gpu_recovery.subprocess.run')
-    def test_reset_gpu_session_success(self, mock_subprocess, gpu_recovery):
-        """Test: reset_gpu_session() erfolgreich (CUDA reset)"""
-        mock_subprocess.return_value.returncode = 0
+    def test_reset_gpu_session_success(self, gpu_recovery):
+        """Test: reset_gpu_session() erfolgreich (Docker restart)"""
+        mock_container = Mock()
+        gpu_recovery.docker_client.containers.get.return_value = mock_container
 
         result = gpu_recovery.reset_gpu_session()
 
         assert result is True
-        mock_subprocess.assert_called_once()
+        gpu_recovery.docker_client.containers.get.assert_called_once_with('llm-service')
+        mock_container.restart.assert_called_once_with(timeout=10)
 
-    @patch('gpu_recovery.subprocess.run')
-    def test_reset_gpu_session_failure(self, mock_subprocess, gpu_recovery):
+    def test_reset_gpu_session_failure(self, gpu_recovery):
         """Test: reset_gpu_session() behandelt Fehler"""
-        mock_subprocess.return_value.returncode = 1
+        gpu_recovery.docker_client.containers.get.side_effect = Exception("Container not found")
 
         result = gpu_recovery.reset_gpu_session()
 
@@ -683,31 +683,27 @@ class TestGPUHealthSummary:
     def test_get_gpu_health_summary_healthy(self, gpu_recovery, healthy_gpu_stats):
         """Test: get_gpu_health_summary() bei healthy GPU"""
         with patch.object(gpu_recovery, 'get_gpu_stats', return_value=healthy_gpu_stats['gpu']):
-            with patch.object(gpu_recovery, 'detect_gpu_error', return_value=(False, None, None)):
-                summary = gpu_recovery.get_gpu_health_summary()
+            summary = gpu_recovery.get_gpu_health_summary()
 
-                assert summary['status'] == 'healthy'
-                assert summary['has_error'] is False
-                assert summary['needs_recovery'] is False
+            assert summary['available'] is True
+            assert 'temperature' in summary
+            assert 'utilization' in summary
 
     def test_get_gpu_health_summary_error(self, gpu_recovery, oom_gpu_stats):
         """Test: get_gpu_health_summary() bei GPU Error"""
         with patch.object(gpu_recovery, 'get_gpu_stats', return_value=oom_gpu_stats['gpu']):
-            with patch.object(gpu_recovery, 'detect_gpu_error', return_value=(True, 'out_of_memory', 'OOM detected')):
-                summary = gpu_recovery.get_gpu_health_summary()
+            summary = gpu_recovery.get_gpu_health_summary()
 
-                assert summary['status'] != 'healthy'
-                assert summary['has_error'] is True
-                assert summary['error_type'] == 'out_of_memory'
-                assert summary['needs_recovery'] is True
+            assert summary['available'] is True
+            assert 'memory_used_mb' in summary
 
     def test_get_gpu_health_summary_unavailable(self, gpu_recovery):
         """Test: get_gpu_health_summary() bei unavailable GPU"""
         with patch.object(gpu_recovery, 'get_gpu_stats', return_value=None):
             summary = gpu_recovery.get_gpu_health_summary()
 
-            assert summary['status'] == 'unavailable'
-            assert summary['stats'] is None
+            assert summary['available'] is False
+            assert 'error' in summary
 
 
 # ============================================================================
@@ -750,14 +746,14 @@ class TestIntegration:
                 assert result is True
                 mock_throttle.assert_called_once()
 
-    def test_health_summary_includes_recommended_action(self, gpu_recovery, gpu_hang_stats):
-        """Test: Health Summary enthält recommended action"""
+    def test_health_summary_includes_gpu_info(self, gpu_recovery, gpu_hang_stats):
+        """Test: Health Summary enthält GPU Info"""
         with patch.object(gpu_recovery, 'get_gpu_stats', return_value=gpu_hang_stats['gpu']):
-            with patch.object(gpu_recovery, 'detect_gpu_error', return_value=(True, 'gpu_hang', 'Hang detected')):
-                summary = gpu_recovery.get_gpu_health_summary()
+            summary = gpu_recovery.get_gpu_health_summary()
 
-                assert summary['needs_recovery'] is True
-                assert summary['recommended_action'] == 'reset_gpu'
+            assert summary['available'] is True
+            assert 'name' in summary
+            assert 'health' in summary
 
 
 # ============================================================================

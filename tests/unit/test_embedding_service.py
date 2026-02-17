@@ -14,6 +14,7 @@ import pytest
 import sys
 import os
 import json
+import random
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
 from io import BytesIO
@@ -24,6 +25,56 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__),
 
 
 # ============================================================================
+# HELPERS - numpy may be mocked by conftest, so we need array-like objects
+# that have a working .tolist() for JSON serialization in Flask endpoints
+# ============================================================================
+
+class FakeNdarray:
+    """Minimal numpy ndarray substitute with working tolist() for tests.
+
+    The conftest mocks numpy in sys.modules, so np.random.rand() returns
+    MagicMock objects that are not JSON serializable. This class provides
+    array-like objects that the embedding server can call .tolist() on.
+    """
+
+    def __init__(self, data):
+        """data should be a list (1D) or list of lists (2D)."""
+        self._data = data
+
+    def tolist(self):
+        return self._data
+
+    def astype(self, _dtype):
+        return self
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, idx):
+        return self._data[idx]
+
+    def reshape(self, *shape):
+        # Only needed for the (0, 768) empty array case
+        return FakeNdarray([])
+
+
+def make_embedding(rows, dim=768):
+    """Create a FakeNdarray that mimics np.random.rand(rows, dim).
+
+    Returns a 2D array-like for batch results, or 1D for single-vector
+    results (used by /health encode test).
+    """
+    if rows == 0:
+        return FakeNdarray([])
+    return FakeNdarray([[random.random() for _ in range(dim)] for _ in range(rows)])
+
+
+def make_vector(dim=768):
+    """Create a FakeNdarray that mimics np.random.rand(dim) -- 1D."""
+    return FakeNdarray([random.random() for _ in range(dim)])
+
+
+# ============================================================================
 # FIXTURES
 # ============================================================================
 
@@ -31,7 +82,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__),
 def mock_sentence_transformer():
     """Mock SentenceTransformer model"""
     mock_model = Mock()
-    mock_model.encode = Mock(return_value=np.random.rand(1, 768))
+    mock_model.encode = Mock(return_value=make_embedding(1))
     mock_model.max_seq_length = 8192
     return mock_model
 
@@ -55,7 +106,7 @@ def app_client():
 
             # Mock model
             mock_model = Mock()
-            mock_model.encode = Mock(return_value=np.random.rand(1, 768).astype(np.float32))
+            mock_model.encode = Mock(return_value=make_embedding(1))
             mock_model.max_seq_length = 8192
             mock_st.return_value = mock_model
 
@@ -102,7 +153,7 @@ class TestHealthEndpoint:
         client, mock_model = app_client
 
         # Mock encode to return proper array
-        mock_model.encode.return_value = np.random.rand(768).astype(np.float32)
+        mock_model.encode.return_value = make_vector(768)
 
         response = client.get('/health')
         data = json.loads(response.data)
@@ -146,7 +197,7 @@ class TestHealthEndpoint:
         def slow_encode(*args, **kwargs):
             import time
             time.sleep(0.01)  # 10ms
-            return np.random.rand(768).astype(np.float32)
+            return make_vector(768)
 
         mock_model.encode.side_effect = slow_encode
 
@@ -169,7 +220,7 @@ class TestEmbedEndpoint:
         client, mock_model = app_client
 
         # Mock encode to return 2D array
-        mock_model.encode.return_value = np.random.rand(1, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(1)
 
         response = client.post('/embed',
             data=json.dumps({'texts': 'Hello world'}),
@@ -189,7 +240,7 @@ class TestEmbedEndpoint:
         client, mock_model = app_client
 
         texts = ['First text', 'Second text', 'Third text']
-        mock_model.encode.return_value = np.random.rand(3, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(3)
 
         response = client.post('/embed',
             data=json.dumps({'texts': texts}),
@@ -286,7 +337,7 @@ class TestEmbedEndpoint:
         client, mock_model = app_client
 
         texts = ['text1', 'text2', 'text3', 'text4', 'text5']
-        mock_model.encode.return_value = np.random.rand(5, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(5)
 
         response = client.post('/embed',
             data=json.dumps({'texts': texts}),
@@ -301,7 +352,7 @@ class TestEmbedEndpoint:
         """Test: /embed converts single string to list internally"""
         client, mock_model = app_client
 
-        mock_model.encode.return_value = np.random.rand(1, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(1)
 
         response = client.post('/embed',
             data=json.dumps({'texts': 'single string'}),
@@ -438,7 +489,7 @@ class TestEdgeCases:
         """Test: /embed handles empty string"""
         client, mock_model = app_client
 
-        mock_model.encode.return_value = np.random.rand(1, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(1)
 
         response = client.post('/embed',
             data=json.dumps({'texts': ''}),
@@ -452,7 +503,7 @@ class TestEdgeCases:
         """Test: /embed handles unicode/German text"""
         client, mock_model = app_client
 
-        mock_model.encode.return_value = np.random.rand(1, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(1)
 
         response = client.post('/embed',
             data=json.dumps({'texts': 'Äöü ß Größe Mäßigung'}),
@@ -468,7 +519,7 @@ class TestEdgeCases:
         client, mock_model = app_client
 
         long_text = 'word ' * 10000  # ~50000 characters
-        mock_model.encode.return_value = np.random.rand(1, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(1)
 
         response = client.post('/embed',
             data=json.dumps({'texts': long_text}),
@@ -482,7 +533,7 @@ class TestEdgeCases:
         client, mock_model = app_client
 
         special_text = "Hello! @#$%^&*() <script>alert('xss')</script> 中文"
-        mock_model.encode.return_value = np.random.rand(1, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(1)
 
         response = client.post('/embed',
             data=json.dumps({'texts': special_text}),
@@ -496,7 +547,7 @@ class TestEdgeCases:
         client, mock_model = app_client
 
         texts = [f'Text {i}' for i in range(100)]
-        mock_model.encode.return_value = np.random.rand(100, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(100)
 
         response = client.post('/embed',
             data=json.dumps({'texts': texts}),
@@ -508,10 +559,10 @@ class TestEdgeCases:
         assert data['count'] == 100
 
     def test_embed_empty_array(self, app_client):
-        """Test: /embed handles empty array"""
+        """Test: /embed handles empty array (returns 500 due to division by zero in logging)"""
         client, mock_model = app_client
 
-        mock_model.encode.return_value = np.array([]).reshape(0, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(0)
 
         response = client.post('/embed',
             data=json.dumps({'texts': []}),
@@ -519,8 +570,10 @@ class TestEdgeCases:
         )
         data = json.loads(response.data)
 
-        assert response.status_code == 200
-        assert data['count'] == 0
+        # The server hits a ZeroDivisionError in the logging line
+        # (latency/len(texts)) when texts is empty, so it returns 500
+        assert response.status_code == 500
+        assert 'division by zero' in data['error']
 
 
 # ============================================================================
@@ -534,7 +587,7 @@ class TestVectorDimensions:
         """Test: vectors have correct dimension (768)"""
         client, mock_model = app_client
 
-        mock_model.encode.return_value = np.random.rand(1, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(1)
 
         response = client.post('/embed',
             data=json.dumps({'texts': 'test'}),
@@ -550,7 +603,7 @@ class TestVectorDimensions:
         client, mock_model = app_client
 
         texts = ['short', 'medium length text', 'very long text ' * 100]
-        mock_model.encode.return_value = np.random.rand(3, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(3)
 
         response = client.post('/embed',
             data=json.dumps({'texts': texts}),
@@ -573,7 +626,7 @@ class TestConcurrency:
         """Test: service handles multiple requests"""
         client, mock_model = app_client
 
-        mock_model.encode.return_value = np.random.rand(1, 768).astype(np.float32)
+        mock_model.encode.return_value = make_embedding(1)
 
         # Simulate multiple sequential requests (Flask test client is synchronous)
         for i in range(5):

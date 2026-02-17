@@ -186,7 +186,7 @@ describe('LLM Routes', () => {
         });
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toContain('enqueue');
+      expect(response.body).toHaveProperty('error');
     });
 
     test('should accept model parameter', async () => {

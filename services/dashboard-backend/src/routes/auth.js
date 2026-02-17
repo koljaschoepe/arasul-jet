@@ -339,7 +339,13 @@ router.get(
     }
 
     // Verify token
-    const decoded = await verifyToken(token);
+    let decoded;
+    try {
+      decoded = await verifyToken(token);
+    } catch {
+      logger.debug('Forward auth: Token verification failed');
+      return res.status(401).send('Invalid token');
+    }
 
     if (!decoded) {
       logger.debug('Forward auth: Token verification failed');

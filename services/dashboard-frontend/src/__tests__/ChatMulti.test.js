@@ -40,7 +40,7 @@ import ChatMulti from '../components/ChatMulti';
 jest.mock('axios');
 
 // Mock fetch für SSE streaming (ChatMulti uses fetch with ReadableStream, not EventSource)
-const createMockStreamResponse = (events) => {
+const createMockStreamResponse = events => {
   let eventIndex = 0;
   let readerClosed = false;
 
@@ -138,7 +138,7 @@ describe('ChatMulti Component', () => {
     jest.clearAllMocks();
     global.EventSource.mockClear();
 
-    axios.get.mockImplementation((url) => {
+    axios.get.mockImplementation(url => {
       if (url.includes('/chats') && url.includes('/jobs')) {
         return Promise.resolve({ data: { jobs: [] } });
       }
@@ -171,14 +171,16 @@ describe('ChatMulti Component', () => {
     axios.delete.mockResolvedValue({ data: { success: true } });
 
     // Mock fetch for streaming responses
-    global.fetch = jest.fn().mockImplementation((url) => {
+    global.fetch = jest.fn().mockImplementation(url => {
       if (url.includes('/llm/chat') || url.includes('/rag/query')) {
-        return Promise.resolve(createMockStreamResponse([
-          { type: 'job_started', jobId: 'test-job-1' },
-          { type: 'response', token: 'Hello' },
-          { type: 'response', token: ' World' },
-          { done: true },
-        ]));
+        return Promise.resolve(
+          createMockStreamResponse([
+            { type: 'job_started', jobId: 'test-job-1' },
+            { type: 'response', token: 'Hello' },
+            { type: 'response', token: ' World' },
+            { done: true },
+          ])
+        );
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
@@ -216,9 +218,10 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        const newChatBtn = document.querySelector('[class*="new-chat"]') ||
-                          screen.queryByTitle(/neu/i) ||
-                          screen.queryByRole('button', { name: /\+/ });
+        const newChatBtn =
+          document.querySelector('[class*="new-chat"]') ||
+          screen.queryByTitle(/neu/i) ||
+          screen.queryByRole('button', { name: /\+/ });
         expect(newChatBtn).toBeInTheDocument();
       });
     });
@@ -237,8 +240,9 @@ describe('ChatMulti Component', () => {
         expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
-      const newChatBtn = document.querySelector('[class*="new-chat"]') ||
-                        screen.queryByRole('button', { name: /\+/ });
+      const newChatBtn =
+        document.querySelector('[class*="new-chat"]') ||
+        screen.queryByRole('button', { name: /\+/ });
 
       if (newChatBtn) {
         await user.click(newChatBtn);
@@ -276,7 +280,9 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        expect(screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i)
+        ).toBeInTheDocument();
       });
 
       const input = screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i);
@@ -289,20 +295,24 @@ describe('ChatMulti Component', () => {
       const user = userEvent.setup();
       render(<ChatMulti />);
 
+      // Wait for full chat initialization (messages loaded = currentChatId is set)
       await waitFor(() => {
-        expect(screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i)).toBeInTheDocument();
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
-      const input = screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i);
+      const input = screen.getByRole('textbox');
       await user.type(input, 'Test message{enter}');
 
-      await waitFor(() => {
-        // Streaming uses fetch API, not EventSource
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/llm/chat'),
-          expect.any(Object)
-        );
-      }, { timeout: 2000 });
+      // RAG is on by default (useState(true)), so endpoint is /rag/query
+      await waitFor(
+        () => {
+          expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringMatching(/\/(llm\/chat|rag\/query)/),
+            expect.any(Object)
+          );
+        },
+        { timeout: 3000 }
+      );
     });
 
     test('Send-Button sendet Nachricht', async () => {
@@ -310,26 +320,29 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        expect(screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i)).toBeInTheDocument();
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
-      const input = screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i);
+      const input = screen.getByRole('textbox');
       await user.type(input, 'Test message');
 
-      const sendButton = screen.getByRole('button', { name: /send/i }) ||
-                        document.querySelector('[class*="send"]') ||
-                        document.querySelector('button[type="submit"]');
+      const sendButton =
+        screen.getByRole('button', { name: /send/i }) ||
+        document.querySelector('[class*="send"]') ||
+        document.querySelector('button[type="submit"]');
 
       if (sendButton) {
         await user.click(sendButton);
 
-        await waitFor(() => {
-          // Streaming uses fetch API, not EventSource
-          expect(global.fetch).toHaveBeenCalledWith(
-            expect.stringContaining('/llm/chat'),
-            expect.any(Object)
-          );
-        }, { timeout: 2000 });
+        await waitFor(
+          () => {
+            expect(global.fetch).toHaveBeenCalledWith(
+              expect.stringMatching(/\/(llm\/chat|rag\/query)/),
+              expect.any(Object)
+            );
+          },
+          { timeout: 3000 }
+        );
       }
     });
 
@@ -338,11 +351,13 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        expect(screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i)
+        ).toBeInTheDocument();
       });
 
-      const sendButton = screen.getByRole('button', { name: /send/i }) ||
-                        document.querySelector('[class*="send"]');
+      const sendButton =
+        screen.getByRole('button', { name: /send/i }) || document.querySelector('[class*="send"]');
 
       if (sendButton) {
         expect(sendButton).toBeDisabled();
@@ -355,29 +370,49 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        const ragToggle = screen.queryByText(/rag/i) ||
-                         document.querySelector('[class*="rag"]');
+        const ragToggle = screen.queryByText(/rag/i) || document.querySelector('[class*="rag"]');
         expect(ragToggle).toBeInTheDocument();
       });
     });
 
-    test('RAG kann aktiviert werden', async () => {
+    test('RAG kann getoggelt werden', async () => {
       const user = userEvent.setup();
       render(<ChatMulti />);
 
+      // Wait for full initialization
       await waitFor(() => {
-        expect(document.querySelector('[class*="rag"]')).toBeInTheDocument();
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
-      const ragToggle = document.querySelector('[class*="rag-toggle"]') ||
-                       screen.queryByText(/rag/i)?.closest('button');
+      const ragToggle =
+        document.querySelector('[class*="rag-toggle"]') ||
+        screen.queryByText(/rag/i)?.closest('button');
 
       if (ragToggle) {
+        // RAG is active by default (useState(true))
+        expect(
+          ragToggle.classList.contains('active') ||
+            ragToggle.getAttribute('aria-pressed') === 'true'
+        ).toBe(true);
+
+        // Click to deactivate
         await user.click(ragToggle);
 
-        // Toggle sollte aktiv werden
         await waitFor(() => {
-          expect(ragToggle.classList.contains('active') || ragToggle.getAttribute('aria-pressed') === 'true').toBe(true);
+          expect(
+            ragToggle.classList.contains('active') ||
+              ragToggle.getAttribute('aria-pressed') === 'true'
+          ).toBe(false);
+        });
+
+        // Click again to reactivate
+        await user.click(ragToggle);
+
+        await waitFor(() => {
+          expect(
+            ragToggle.classList.contains('active') ||
+              ragToggle.getAttribute('aria-pressed') === 'true'
+          ).toBe(true);
         });
       }
     });
@@ -388,8 +423,8 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        const thinkToggle = screen.queryByText(/think/i) ||
-                           document.querySelector('[class*="think"]');
+        const thinkToggle =
+          screen.queryByText(/think/i) || document.querySelector('[class*="think"]');
         expect(thinkToggle).toBeInTheDocument();
       });
     });
@@ -410,8 +445,8 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        const modelSelector = screen.queryByText(/qwen3/i) ||
-                             document.querySelector('[class*="model"]');
+        const modelSelector =
+          screen.queryByText(/qwen3/i) || document.querySelector('[class*="model"]');
         expect(modelSelector).toBeInTheDocument();
       });
     });
@@ -424,8 +459,9 @@ describe('ChatMulti Component', () => {
         expect(document.querySelector('[class*="model"]')).toBeInTheDocument();
       });
 
-      const modelDropdown = document.querySelector('[class*="model-toggle"]') ||
-                           screen.queryByText(/qwen3/i)?.closest('button');
+      const modelDropdown =
+        document.querySelector('[class*="model-toggle"]') ||
+        screen.queryByText(/qwen3/i)?.closest('button');
 
       if (modelDropdown) {
         await user.click(modelDropdown);
@@ -500,15 +536,15 @@ describe('ChatMulti Component', () => {
       // Should show skeleton indicator while waiting (ContentTransition pattern)
       expect(
         screen.queryByText(/laden/i) ||
-        document.querySelector('[class*="loading"]') ||
-        document.querySelector('[class*="skeleton"]') ||
-        document.querySelector('[aria-busy="true"]')
+          document.querySelector('[class*="loading"]') ||
+          document.querySelector('[class*="skeleton"]') ||
+          document.querySelector('[aria-busy="true"]')
       ).toBeTruthy();
     });
 
     test('zeigt Fehler bei Streaming-Fehler', async () => {
       // Mock fetch to fail during streaming
-      global.fetch = jest.fn().mockImplementation((url) => {
+      global.fetch = jest.fn().mockImplementation(url => {
         if (url.includes('/llm/chat')) {
           return Promise.reject(new Error('Network Error'));
         }
@@ -526,10 +562,13 @@ describe('ChatMulti Component', () => {
       await user.type(input, 'Test{enter}');
 
       // Error should be displayed or handled gracefully
-      await waitFor(() => {
-        // Component should handle the error without crashing
-        expect(screen.getByRole('textbox')).toBeInTheDocument();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          // Component should handle the error without crashing
+          expect(screen.getByRole('textbox')).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
     });
   });
 
@@ -542,9 +581,9 @@ describe('ChatMulti Component', () => {
       // ContentTransition shows skeleton during loading
       expect(
         screen.queryByText(/laden/i) ||
-        document.querySelector('[class*="loading"]') ||
-        document.querySelector('[class*="skeleton"]') ||
-        document.querySelector('[aria-busy="true"]')
+          document.querySelector('[class*="loading"]') ||
+          document.querySelector('[class*="skeleton"]') ||
+          document.querySelector('[aria-busy="true"]')
       ).toBeTruthy();
     });
 
@@ -553,7 +592,7 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        expect(screen.getByRole('textbox')).toBeInTheDocument();
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
       const input = screen.getByRole('textbox');
@@ -562,13 +601,16 @@ describe('ChatMulti Component', () => {
       // Send the message
       await user.keyboard('{Enter}');
 
-      // Fetch should be called to send the message
-      await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/llm/chat'),
-          expect.any(Object)
-        );
-      }, { timeout: 2000 });
+      // Fetch should be called to send the message (RAG on by default -> /rag/query)
+      await waitFor(
+        () => {
+          expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringMatching(/\/(llm\/chat|rag\/query)/),
+            expect.any(Object)
+          );
+        },
+        { timeout: 3000 }
+      );
     });
   });
 
@@ -609,9 +651,7 @@ describe('ChatMulti Component', () => {
         const buttons = screen.getAllByRole('button');
         buttons.forEach(btn => {
           expect(
-            btn.textContent.trim() ||
-            btn.getAttribute('aria-label') ||
-            btn.getAttribute('title')
+            btn.textContent.trim() || btn.getAttribute('aria-label') || btn.getAttribute('title')
           ).toBeTruthy();
         });
       });
@@ -627,21 +667,25 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        expect(screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i)).toBeInTheDocument();
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
-      const input = screen.getByRole('textbox') || screen.getByPlaceholderText(/fragen/i);
+      const input = screen.getByRole('textbox');
       await user.type(input, 'Test message{enter}');
 
-      await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/llm/chat'),
-          expect.objectContaining({
-            method: 'POST',
-            headers: expect.any(Object),
-          })
-        );
-      }, { timeout: 3000 });
+      // RAG is on by default -> /rag/query
+      await waitFor(
+        () => {
+          expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringMatching(/\/(llm\/chat|rag\/query)/),
+            expect.objectContaining({
+              method: 'POST',
+              headers: expect.any(Object),
+            })
+          );
+        },
+        { timeout: 3000 }
+      );
     });
 
     test('Streaming-Response aktualisiert UI', async () => {
@@ -649,31 +693,37 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        expect(screen.getByRole('textbox')).toBeInTheDocument();
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
       const input = screen.getByRole('textbox');
       await user.type(input, 'Hello{enter}');
 
-      // Wait for fetch to be called
-      await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/llm/chat'),
-          expect.any(Object)
-        );
-      }, { timeout: 3000 });
+      // Wait for fetch to be called (RAG on by default -> /rag/query)
+      await waitFor(
+        () => {
+          expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringMatching(/\/(llm\/chat|rag\/query)/),
+            expect.any(Object)
+          );
+        },
+        { timeout: 3000 }
+      );
 
       // Stream is processed, input should be re-enabled after completion
       // Give extra time for stream processing and state updates
-      await waitFor(() => {
-        const textbox = screen.getByRole('textbox');
-        expect(textbox).not.toBeDisabled();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          const textbox = screen.getByRole('textbox');
+          expect(textbox).not.toBeDisabled();
+        },
+        { timeout: 5000 }
+      );
     });
 
     test('Fehler bei Streaming wird behandelt', async () => {
       // Mock a failed fetch
-      global.fetch = jest.fn().mockImplementation((url) => {
+      global.fetch = jest.fn().mockImplementation(url => {
         if (url.includes('/llm/chat')) {
           return Promise.reject(new Error('Connection lost'));
         }
@@ -692,14 +742,18 @@ describe('ChatMulti Component', () => {
 
       // Error should be handled gracefully - component shouldn't crash
       // and input should be re-enabled
-      await waitFor(() => {
-        const textbox = screen.getByRole('textbox');
-        const errorVisible = screen.queryByText(/fehler/i) ||
-                            screen.queryByText(/error/i) ||
-                            document.querySelector('[class*="error"]');
-        // Either error is shown OR input is re-enabled (error handled)
-        expect(errorVisible || !textbox.disabled).toBeTruthy();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          const textbox = screen.getByRole('textbox');
+          const errorVisible =
+            screen.queryByText(/fehler/i) ||
+            screen.queryByText(/error/i) ||
+            document.querySelector('[class*="error"]');
+          // Either error is shown OR input is re-enabled (error handled)
+          expect(errorVisible || !textbox.disabled).toBeTruthy();
+        },
+        { timeout: 3000 }
+      );
     });
 
     test('Stream-Completion setzt isLoading zurück', async () => {
@@ -713,16 +767,22 @@ describe('ChatMulti Component', () => {
       const input = screen.getByRole('textbox');
       await user.type(input, 'Hello{enter}');
 
-      await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalled();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(global.fetch).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
 
       // Input should be re-enabled after stream completion
       // Give extra time for stream processing
-      await waitFor(() => {
-        const textbox = screen.getByRole('textbox');
-        expect(textbox).not.toBeDisabled();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          const textbox = screen.getByRole('textbox');
+          expect(textbox).not.toBeDisabled();
+        },
+        { timeout: 5000 }
+      );
     });
 
     test('Thinking-Toggle aktiviert Thinking-Modus', async () => {
@@ -748,24 +808,22 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        expect(screen.getByRole('textbox')).toBeInTheDocument();
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
-      // Enable RAG mode first
-      const ragToggle = document.querySelector('[class*="rag-toggle"]');
-      if (ragToggle) {
-        await user.click(ragToggle);
-      }
-
+      // RAG is ON by default (useState(true)) - no toggle needed
       const input = screen.getByRole('textbox');
       await user.type(input, 'Hello{enter}');
 
-      await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/rag/query'),
-          expect.any(Object)
-        );
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/rag/query'),
+            expect.any(Object)
+          );
+        },
+        { timeout: 3000 }
+      );
     });
   });
 
@@ -775,14 +833,14 @@ describe('ChatMulti Component', () => {
   describe('Queue Tracking', () => {
     test('Queue-Position wird angezeigt wenn Job in Queue ist', async () => {
       // Mock queue API response with pending job
-      axios.get.mockImplementation((url) => {
+      axios.get.mockImplementation(url => {
         if (url.includes('/llm/queue')) {
           return Promise.resolve({
             data: {
               pending_count: 3,
               processing: null,
-              queue: [{ id: 'job-123', queue_position: 2 }]
-            }
+              queue: [{ id: 'job-123', queue_position: 2 }],
+            },
           });
         }
         if (url.includes('/chats') && url.includes('/jobs')) {
@@ -842,16 +900,18 @@ describe('ChatMulti Component', () => {
   describe('Job Reconnection', () => {
     test('kann zu laufendem Job reconnecten', async () => {
       // Setup: mock that there's an active job
-      axios.get.mockImplementation((url) => {
+      axios.get.mockImplementation(url => {
         if (url.includes('/chats') && url.includes('/jobs')) {
           return Promise.resolve({
             data: {
-              jobs: [{
-                id: 'job-active',
-                status: 'streaming',
-                content: 'Partial response...'
-              }]
-            }
+              jobs: [
+                {
+                  id: 'job-active',
+                  status: 'streaming',
+                  content: 'Partial response...',
+                },
+              ],
+            },
           });
         }
         if (url.includes('/chats') && !url.includes('/messages') && !url.includes('/jobs')) {
@@ -882,12 +942,13 @@ describe('ChatMulti Component', () => {
       });
 
       // Component should attempt to reconnect to active job
-      await waitFor(() => {
-        const reconnectCalls = axios.get.mock.calls.filter(call =>
-          call[0].includes('/jobs')
-        );
-        expect(reconnectCalls.length).toBeGreaterThan(0);
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          const reconnectCalls = axios.get.mock.calls.filter(call => call[0].includes('/jobs'));
+          expect(reconnectCalls.length).toBeGreaterThan(0);
+        },
+        { timeout: 3000 }
+      );
     });
 
     test('Abbruch der Verbindung bei Unmount', async () => {
@@ -922,7 +983,7 @@ describe('ChatMulti Component', () => {
       render(<ChatMulti />);
 
       await waitFor(() => {
-        expect(screen.getByRole('textbox')).toBeInTheDocument();
+        expect(screen.getByText('Test Chat 1')).toBeInTheDocument();
       });
 
       const input = screen.getByRole('textbox');
@@ -931,18 +992,21 @@ describe('ChatMulti Component', () => {
       // Press Enter (without shift) - should send
       await user.keyboard('{Enter}');
 
-      // Fetch should be called (message sent)
-      await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/llm/chat'),
-          expect.any(Object)
-        );
-      }, { timeout: 2000 });
+      // Fetch should be called (message sent) - RAG on by default -> /rag/query
+      await waitFor(
+        () => {
+          expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringMatching(/\/(llm\/chat|rag\/query)/),
+            expect.any(Object)
+          );
+        },
+        { timeout: 3000 }
+      );
     });
 
     test('Ctrl+T erstellt neuen Chat', async () => {
       axios.post.mockResolvedValueOnce({
-        data: { chat: { id: 99, title: 'Neuer Chat' } }
+        data: { chat: { id: 99, title: 'Neuer Chat' } },
       });
 
       const user = userEvent.setup();
@@ -955,12 +1019,15 @@ describe('ChatMulti Component', () => {
       // Simulate Ctrl+T
       await user.keyboard('{Control>}t{/Control}');
 
-      await waitFor(() => {
-        expect(axios.post).toHaveBeenCalledWith(
-          expect.stringContaining('/chats'),
-          expect.any(Object)
-        );
-      }, { timeout: 2000 });
+      await waitFor(
+        () => {
+          expect(axios.post).toHaveBeenCalledWith(
+            expect.stringContaining('/chats'),
+            expect.any(Object)
+          );
+        },
+        { timeout: 2000 }
+      );
     });
   });
 });
