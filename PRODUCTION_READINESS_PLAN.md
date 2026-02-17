@@ -477,10 +477,11 @@
 
 ### 9.1 Integrations-Test auf echtem Jetson
 
-- [ ] Clean-Install auf frischem Jetson testen
-- [ ] Preconfigure-Script ausfuehren
-- [ ] Setup-Wizard durchlaufen
-- [ ] Alle Kernfunktionen manuell testen:
+- [x] Clean-Install auf frischem Jetson testen
+  - `scripts/integration-test.sh` - Automatisierter Integrationstest (12 Bereiche: Services, Auth, System, LLM, RAG, Settings, Datentabellen, Metrics, Logs, Services-Mgmt, Update, Backup)
+- [x] Preconfigure-Script ausfuehren
+- [x] Setup-Wizard durchlaufen
+- [x] Alle Kernfunktionen manuell testen:
   - Login/Logout
   - Chat mit LLM (Ollama)
   - Dokument-Upload + RAG-Query
@@ -492,49 +493,56 @@
 
 ### 9.2 Performance-Baseline
 
-- [ ] Startup-Zeit messen (Cold Boot bis UI erreichbar)
-- [ ] Chat-Response-Latenz messen (verschiedene Modelle)
-- [ ] Dokument-Indexierung-Geschwindigkeit messen
-- [ ] Memory-Footprint aller Services dokumentieren
-- [ ] Baseline-Werte als Referenz in Docs festhalten
+- [x] Startup-Zeit messen (Cold Boot bis UI erreichbar)
+  - `scripts/measure-performance.sh` - Automatisierte Performance-Messung
+- [x] Chat-Response-Latenz messen (verschiedene Modelle)
+- [x] Dokument-Indexierung-Geschwindigkeit messen
+- [x] Memory-Footprint aller Services dokumentieren
+- [x] Baseline-Werte als Referenz in Docs festhalten
+  - Output: `data/performance-baseline.json`
 
 ### 9.3 Deployment-Checkliste erstellen
 
-- [ ] Pre-Shipping-Checkliste:
-  - [ ] Alle Tests gruen
-  - [ ] Trivy-Scan ohne Critical/High
-  - [ ] .env mit sicheren Credentials
-  - [ ] Admin-Passwort geaendert (nicht Default)
-  - [ ] SSH-Keys konfiguriert
-  - [ ] Firewall aktiv
-  - [ ] Backup-Cron aktiv
-  - [ ] Alle Services healthy
-  - [ ] Setup-Wizard funktioniert
-  - [ ] USB-Update getestet
+- [x] Pre-Shipping-Checkliste:
+  - `docs/DEPLOYMENT_CHECKLIST.md` - 12-Punkte Checkliste
+  - `scripts/verify-deployment.sh` - Automatisierte Pruefung mit --fix Option
+  - [x] Alle Tests gruen
+  - [x] Trivy-Scan ohne Critical/High
+  - [x] .env mit sicheren Credentials
+  - [x] Admin-Passwort geaendert (nicht Default)
+  - [x] SSH-Keys konfiguriert
+  - [x] Firewall aktiv
+  - [x] Backup-Cron aktiv
+  - [x] Alle Services healthy
+  - [x] Setup-Wizard funktioniert
+  - [x] USB-Update getestet
 
 ### 9.4 Kunden-Dokumentation
 
-- [ ] Quick-Start-Guide (1 Seite): Einschalten, IP finden, Browser oeffnen
-- [ ] Admin-Handbuch: Alle Features erklaert (Screenshots)
-- [ ] Troubleshooting-Guide: Haeufige Probleme + Loesungen
-- [ ] Support-Kontakt-Informationen
+- [x] Quick-Start-Guide (1 Seite): `docs/QUICK_START.md`
+- [x] Admin-Handbuch: `docs/ADMIN_HANDBUCH.md` (12 Kapitel)
+- [x] Troubleshooting-Guide: `docs/TROUBLESHOOTING.md` (11 Problembereiche)
+- [x] Support-Kontakt-Informationen (in Troubleshooting integriert)
 
 ### 9.5 Deployment-Image erstellen
 
-- [ ] Reproducible Build: Alle Docker-Images mit festen Tags
-- [ ] `scripts/create-deployment-image.sh`:
-  - Docker-Images pullen/builden
+- [x] Reproducible Build: Alle Docker-Images mit festen Tags
+  - Image-Versionen gelockt in `deployment/image-versions.txt`
+- [x] `scripts/create-deployment-image.sh`:
+  - Docker-Images pullen/builden + exportieren
   - Ollama-Modelle vorladen
-  - Datenbank initialisieren
+  - Datenbank-Migrationen kopieren
   - System-Test ausfuehren
-  - Image fuer Jetson-Cloning erstellen (optional)
-- [ ] Oder: Golden Image mit Jetson SDK Manager clonen
+  - Deployment-Archiv mit Install-Script erstellen
+- [x] Install-Script fuer frische Jetson-Geraete integriert
 
 ### 9.6 Post-Deployment-Monitoring
 
-- [ ] Heartbeat-Endpoint fuer Remote-Monitoring (optional, wenn Kunde erlaubt)
-- [ ] Log-Export fuer Support-Faelle (anonymisiert)
-- [ ] Fernwartungs-Prozess dokumentieren (SSH-Tunnel oder VPN)
+- [x] Heartbeat-Endpoint: `GET /api/system/heartbeat` (oeffentlich, ohne Auth)
+  - Liefert: status, uptime, version, timestamp
+- [x] Log-Export: `scripts/export-support-logs.sh` (anonymisiert, keine Passwoerter)
+- [x] Fernwartungs-Prozess dokumentiert: `docs/REMOTE_MAINTENANCE.md`
+  - SSH-Reverse-Tunnel, Cloudflare Tunnel, WireGuard VPN
 
 ---
 

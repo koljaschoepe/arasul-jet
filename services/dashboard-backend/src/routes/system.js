@@ -19,6 +19,20 @@ const { ValidationError } = require('../utils/errors');
 
 const execFileAsync = promisify(execFile);
 
+// GET /api/system/heartbeat
+// Public endpoint (no auth) for remote monitoring and health checks
+router.get(
+  '/heartbeat',
+  asyncHandler(async (req, res) => {
+    res.json({
+      status: 'ok',
+      uptime: Math.floor(os.uptime()),
+      version: process.env.SYSTEM_VERSION || '1.0.0',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
 // GET /api/system/status
 router.get(
   '/status',
