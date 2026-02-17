@@ -286,37 +286,43 @@
 
 ### 6.1 First-Run-Erkennung
 
-- [ ] Backend: Endpoint `GET /api/system/setup-status` - prueft ob Ersteinrichtung abgeschlossen
-- [ ] Frontend: Bei erstem Login auf Setup-Wizard umleiten statt Dashboard
-- [ ] Status in DB speichern: `system_settings` Tabelle mit `setup_completed: boolean`
+- [x] Backend: Endpoint `GET /api/system/setup-status` (no auth) + `POST /api/system/setup-complete` (auth)
+- [x] Frontend: Nach Login pruefen ob Setup abgeschlossen, sonst Wizard anzeigen statt Dashboard
+- [x] DB Migration 038: `system_settings` Tabelle (singleton, setup_completed, company_name, hostname, selected_model)
+- [x] `PUT /api/system/setup-step` fuer Wizard-Fortschritt persistieren
+- [x] `POST /api/system/setup-skip` fuer erfahrene Admins
 
 ### 6.2 Setup-Wizard Frontend
 
-- [ ] Neuer Wizard-Komponent mit Steps:
-  1. **Willkommen** - Sprachauswahl (Deutsch default), Firmename/Logo-Upload
-  2. **Admin-Passwort** - Initiales Passwort aendern (Pflicht)
-  3. **Netzwerk** - Hostname, IP-Konfiguration pruefen/bestaetigen
+- [x] `SetupWizard.js` Komponente mit 5 Steps:
+  1. **Willkommen** - Firmenname eingeben, Uebersicht der Einrichtung
+  2. **Admin-Passwort** - Initiales Passwort aendern (Pflicht, mit Re-Login)
+  3. **Netzwerk** - IP-Adressen, mDNS, Internet-Status pruefen (mit Refresh)
   4. **KI-Modelle** - Verfuegbare Ollama-Modelle anzeigen, Standard-Modell waehlen
   5. **Zusammenfassung** - Alle Einstellungen anzeigen, bestaetigen
-- [ ] Wizard-State persistent halten (bei Abbruch/Neustart fortsetzen)
-- [ ] Skip-Option fuer erfahrene Admins
+- [x] `SetupWizard.css` mit Design-System-Variablen, responsive Layout
+- [x] Wizard-State persistent via `PUT /api/system/setup-step` (bei Abbruch fortsetzen)
+- [x] Skip-Button fuer erfahrene Admins (ruft `POST /api/system/setup-skip`)
+- [x] Integration in App.js: Setup-Status-Check nach Auth, Wizard vor Dashboard
 
 ### 6.3 Vorkonfigurations-Script
 
-- [ ] `scripts/preconfigure.sh` erstellen:
-  - SSH-Keys generieren
-  - Admin-Hash generieren
-  - .env mit sicheren Zufallswerten befuellen
-  - SSL-Zertifikate generieren
-  - Docker-Images vorziehen
-  - Ollama-Modelle vorladen
-- [ ] Idempotent machen (mehrfach ausfuehrbar)
+- [x] `scripts/preconfigure.sh` erstellt (8 Schritte, idempotent):
+  1. Hardware-Erkennung via detect-jetson.sh
+  2. .env mit sicheren Zufalls-Credentials generieren
+  3. Verzeichnisstruktur erstellen (10 Verzeichnisse)
+  4. Ed25519 SSH-Key generieren
+  5. Self-signed TLS-Zertifikat (10 Jahre)
+  6. Docker-Images bauen
+  7. PostgreSQL initialisieren
+  8. Ollama-Modell vorladen
+- [x] CLI-Flags: `--skip-pull`, `--skip-model`
 
 ### 6.4 Health-Check Dashboard
 
-- [ ] System-Status-Seite fuer Kunden: alle 15 Services auf einen Blick
-- [ ] Farbcodiert: Gruen (OK), Gelb (Warnung), Rot (Fehler)
-- [ ] Auto-Refresh alle 30 Sekunden
+- [x] Bereits im DashboardHome integriert: AI Services Status (LLM, Embeddings, Internet)
+- [x] Farbcodiert ueber `getStatusInfo()` mit device-spezifischen Schwellwerten
+- [x] Auto-Refresh: WebSocket fuer Metriken (5s), Polling fuer Services (30s)
 
 ---
 

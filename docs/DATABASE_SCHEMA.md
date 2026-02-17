@@ -1131,6 +1131,43 @@ Fixes foreign key constraints with explicit ON DELETE actions for tables from mi
 
 ---
 
+### 038_system_settings.sql - System Setup Wizard
+
+Introduces the `system_settings` singleton table that persists the state of the first-boot Setup Wizard (Phase 6).
+
+#### system_settings
+
+| Column             | Type         | Description                                 |
+| ------------------ | ------------ | ------------------------------------------- |
+| id                 | integer      | Primary key (always 1, singleton)           |
+| setup_completed    | boolean      | Whether the Setup Wizard has been completed |
+| setup_completed_at | timestamptz  | Timestamp when setup was marked complete    |
+| setup_completed_by | integer      | FK to admin_users (who completed the setup) |
+| company_name       | varchar(255) | Company name entered during setup           |
+| hostname           | varchar(255) | Device hostname configured during setup     |
+| selected_model     | varchar(255) | LLM model selected during setup             |
+| setup_step         | integer      | Last saved wizard step (for resume support) |
+| created_at         | timestamptz  | Row creation time                           |
+| updated_at         | timestamptz  | Last update (auto-updated via trigger)      |
+
+**Constraints:**
+
+- `CHECK (id = 1)` - Single-row enforced (singleton pattern)
+- `setup_completed_by` FK references `admin_users(id)` ON DELETE SET NULL
+
+**Default Row:** Inserted on migration with `setup_completed = false`, `setup_step = 1`.
+
+**Functions:**
+
+- `is_setup_completed()` - Returns boolean; queries `system_settings` to check whether setup is done. Used by the public `GET /api/system/setup-status` endpoint without requiring a DB join.
+- `update_system_settings_timestamp()` - Trigger function that sets `updated_at = NOW()` on every UPDATE.
+
+**Triggers:**
+
+- `trg_system_settings_updated` - BEFORE UPDATE trigger on `system_settings`; calls `update_system_settings_timestamp()` to keep `updated_at` current.
+
+---
+
 ## Indexes Summary
 
 | Table                     | Index                                  | Columns                                     |

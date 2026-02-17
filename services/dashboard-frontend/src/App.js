@@ -48,6 +48,7 @@ import ErrorBoundary, {
   ComponentErrorBoundary,
 } from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
+import SetupWizard from './components/SetupWizard';
 
 // PHASE 3: State Management - Contexts and Hooks
 import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
@@ -119,6 +120,10 @@ function TelegramRedirect({ onOpen }) {
  */
 function AppContent() {
   const { isAuthenticated, loading: authLoading, login, logout } = useAuth();
+
+  // Setup wizard state
+  const [setupComplete, setSetupComplete] = useState(null); // null = loading, true/false = known
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
 
   // Dashboard state
   const [systemStatus, setSystemStatus] = useState(null);
@@ -263,6 +268,27 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [fetchData, isAuthenticated]);
 
+  // Check setup wizard status after login
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkSetupStatus = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/system/setup-status`);
+        const isComplete = response.data.setupComplete;
+        setSetupComplete(isComplete);
+        if (!isComplete) {
+          setShowSetupWizard(true);
+        }
+      } catch {
+        // If endpoint doesn't exist (old backend), assume setup is complete
+        setSetupComplete(true);
+      }
+    };
+
+    checkSetupStatus();
+  }, [isAuthenticated]);
+
   // Fetch Telegram App data for dashboard icon
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -334,8 +360,24 @@ function AppContent() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  if (dataLoading) {
+  if (dataLoading && !showSetupWizard) {
     return <LoadingSpinner message="Lade Dashboard..." fullscreen={true} />;
+  }
+
+  // Show setup wizard if setup is not complete
+  if (showSetupWizard) {
+    return (
+      <SetupWizard
+        onComplete={() => {
+          setShowSetupWizard(false);
+          setSetupComplete(true);
+        }}
+        onSkip={() => {
+          setShowSetupWizard(false);
+          setSetupComplete(true);
+        }}
+      />
+    );
   }
 
   if (error) {

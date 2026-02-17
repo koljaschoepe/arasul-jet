@@ -66,6 +66,14 @@ const createAxiosMock = (mockUser, overrides = {}) => {
         },
       });
     }
+    if (url.includes('/system/setup-status')) {
+      return Promise.resolve({
+        data: {
+          setupComplete: true,
+          setupStep: 5,
+        },
+      });
+    }
     if (url.includes('/system/status')) {
       return Promise.resolve({
         data: {
@@ -124,6 +132,13 @@ const createAxiosMock = (mockUser, overrides = {}) => {
       return Promise.resolve({
         data: {
           apps: [],
+        },
+      });
+    }
+    if (url.includes('/telegram-app/dashboard-data')) {
+      return Promise.resolve({
+        data: {
+          app: null,
         },
       });
     }
@@ -329,6 +344,12 @@ describe('App Component', () => {
         if (url.includes('/workflows')) {
           return Promise.resolve({ data: { workflows: [] } });
         }
+        if (url.includes('/system/setup-status')) {
+          return Promise.resolve({ data: { setupComplete: true, setupStep: 5 } });
+        }
+        if (url.includes('/telegram-app/dashboard-data')) {
+          return Promise.resolve({ data: { app: null } });
+        }
         return Promise.reject({ response: { status: 401 } });
       });
 
@@ -364,11 +385,17 @@ describe('App Component', () => {
         if (url.includes('/workflows')) {
           return Promise.resolve({ data: { workflows: [] } });
         }
+        if (url.includes('/system/setup-status')) {
+          return Promise.resolve({ data: { setupComplete: true, setupStep: 5 } });
+        }
         if (url.includes('/system')) {
           return Promise.resolve({ data: {} });
         }
         if (url.includes('/services')) {
           return Promise.resolve({ data: {} });
+        }
+        if (url.includes('/telegram-app/dashboard-data')) {
+          return Promise.resolve({ data: { app: null } });
         }
         return Promise.resolve({ data: {} });
       });

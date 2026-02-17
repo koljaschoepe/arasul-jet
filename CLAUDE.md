@@ -133,7 +133,7 @@ npm run lint:fix
 | ----------- | ----------------------------------------- | ------------------------- |
 | Backend API | `services/dashboard-backend/src/index.js` | `routes/auth.js`          |
 | Frontend    | `services/dashboard-frontend/src/App.js`  | `components/ChatMulti.js` |
-| Database    | `services/postgres/init/`                 | Next: `038_*.sql`         |
+| Database    | `services/postgres/init/`                 | Next: `039_*.sql`         |
 | AI Services | `services/llm-service/api_server.py`      | -                         |
 
 ---

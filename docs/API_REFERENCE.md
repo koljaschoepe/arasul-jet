@@ -91,6 +91,60 @@ Returns device-specific thresholds for metrics based on auto-detected hardware.
 
 Supported devices: Jetson AGX Orin, Orin Nano, Orin NX, Xavier, Nano, Generic Linux
 
+### System Setup
+
+| Method | Endpoint                     | Auth     | Description                            |
+| ------ | ---------------------------- | -------- | -------------------------------------- |
+| GET    | `/api/system/setup-status`   | None     | Check if initial setup is complete     |
+| POST   | `/api/system/setup-complete` | Required | Mark setup as complete with settings   |
+| PUT    | `/api/system/setup-step`     | Required | Update current setup step and settings |
+| POST   | `/api/system/setup-skip`     | Required | Mark setup as skipped                  |
+
+**GET /api/system/setup-status:**
+
+No authentication required. Used by the frontend to determine whether to show the Setup Wizard on first boot.
+
+```json
+{
+  "setupComplete": false,
+  "setupStep": 1,
+  "companyName": null
+}
+```
+
+**POST /api/system/setup-complete:**
+
+Marks the setup wizard as completed and persists the provided settings.
+
+```json
+{
+  "companyName": "Muster GmbH",
+  "hostname": "arasul-device",
+  "selectedModel": "qwen3:14b-q8"
+}
+```
+
+**PUT /api/system/setup-step:**
+
+Saves progress at a specific step without completing the wizard. Allows resuming the wizard at the last saved step.
+
+```json
+{
+  "step": 3,
+  "companyName": "Muster GmbH",
+  "hostname": "arasul-device",
+  "selectedModel": "qwen3:7b-q8"
+}
+```
+
+**POST /api/system/setup-skip:**
+
+Marks the setup wizard as skipped. The wizard will not be shown again, but settings can still be configured later via the Settings page.
+
+```json
+{}
+```
+
 ### Metrics
 
 | Method | Endpoint                   | Description                       | Rate Limit |

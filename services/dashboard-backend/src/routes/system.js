@@ -14,6 +14,8 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs').promises;
 const { asyncHandler } = require('../middleware/errorHandler');
+const { requireAuth } = require('../middleware/auth');
+const { ValidationError } = require('../utils/errors');
 
 const execFileAsync = promisify(execFile);
 
@@ -49,20 +51,39 @@ router.get(
 
     // Check services
     Object.entries(services).forEach(([name, svc]) => {
-      if (svc.status === 'restarting') {warnings.push(`${name} is restarting`);}
-      if (svc.status === 'failed' || svc.status === 'exited') {criticals.push(`${name} is down`);}
+      if (svc.status === 'restarting') {
+        warnings.push(`${name} is restarting`);
+      }
+      if (svc.status === 'failed' || svc.status === 'exited') {
+        criticals.push(`${name} is down`);
+      }
     });
 
     // Check metrics
-    if (metrics.cpu > 80) {warnings.push('CPU usage high');}
-    if (metrics.ram > 80) {warnings.push('RAM usage high');}
-    if (metrics.temperature > 80) {warnings.push('Temperature high');}
-    if (metrics.disk_percent > 80) {warnings.push('Disk usage high');}
-    if (metrics.temperature > 85) {criticals.push('Temperature critical');}
-    if (metrics.disk_percent > 95) {criticals.push('Disk usage critical');}
+    if (metrics.cpu > 80) {
+      warnings.push('CPU usage high');
+    }
+    if (metrics.ram > 80) {
+      warnings.push('RAM usage high');
+    }
+    if (metrics.temperature > 80) {
+      warnings.push('Temperature high');
+    }
+    if (metrics.disk_percent > 80) {
+      warnings.push('Disk usage high');
+    }
+    if (metrics.temperature > 85) {
+      criticals.push('Temperature critical');
+    }
+    if (metrics.disk_percent > 95) {
+      criticals.push('Disk usage critical');
+    }
 
-    if (criticals.length > 0) {status = 'CRITICAL';}
-    else if (warnings.length > 0) {status = 'WARNING';}
+    if (criticals.length > 0) {
+      status = 'CRITICAL';
+    } else if (warnings.length > 0) {
+      status = 'WARNING';
+    }
 
     res.json({
       status,
@@ -98,7 +119,9 @@ router.get(
         '${Version}',
         'nvidia-jetpack',
       ]);
-      if (stdout && stdout.trim()) {jetpackVersion = stdout.trim();}
+      if (stdout && stdout.trim()) {
+        jetpackVersion = stdout.trim();
+      }
     } catch {
       // JetPack version not available
     }
@@ -267,26 +290,36 @@ router.get(
     const thresholds = deviceThresholds[deviceType] || deviceThresholds.generic;
 
     // Override with environment variables if set
-    if (process.env.CPU_WARNING_PERCENT)
-      {thresholds.cpu.warning = parseInt(process.env.CPU_WARNING_PERCENT);}
-    if (process.env.CPU_CRITICAL_PERCENT)
-      {thresholds.cpu.critical = parseInt(process.env.CPU_CRITICAL_PERCENT);}
-    if (process.env.RAM_WARNING_PERCENT)
-      {thresholds.ram.warning = parseInt(process.env.RAM_WARNING_PERCENT);}
-    if (process.env.RAM_CRITICAL_PERCENT)
-      {thresholds.ram.critical = parseInt(process.env.RAM_CRITICAL_PERCENT);}
-    if (process.env.GPU_WARNING_PERCENT)
-      {thresholds.gpu.warning = parseInt(process.env.GPU_WARNING_PERCENT);}
-    if (process.env.GPU_CRITICAL_PERCENT)
-      {thresholds.gpu.critical = parseInt(process.env.GPU_CRITICAL_PERCENT);}
-    if (process.env.DISK_WARNING_PERCENT)
-      {thresholds.storage.warning = parseInt(process.env.DISK_WARNING_PERCENT);}
-    if (process.env.DISK_CRITICAL_PERCENT)
-      {thresholds.storage.critical = parseInt(process.env.DISK_CRITICAL_PERCENT);}
-    if (process.env.TEMP_WARNING_CELSIUS)
-      {thresholds.temperature.warning = parseInt(process.env.TEMP_WARNING_CELSIUS);}
-    if (process.env.TEMP_CRITICAL_CELSIUS)
-      {thresholds.temperature.critical = parseInt(process.env.TEMP_CRITICAL_CELSIUS);}
+    if (process.env.CPU_WARNING_PERCENT) {
+      thresholds.cpu.warning = parseInt(process.env.CPU_WARNING_PERCENT);
+    }
+    if (process.env.CPU_CRITICAL_PERCENT) {
+      thresholds.cpu.critical = parseInt(process.env.CPU_CRITICAL_PERCENT);
+    }
+    if (process.env.RAM_WARNING_PERCENT) {
+      thresholds.ram.warning = parseInt(process.env.RAM_WARNING_PERCENT);
+    }
+    if (process.env.RAM_CRITICAL_PERCENT) {
+      thresholds.ram.critical = parseInt(process.env.RAM_CRITICAL_PERCENT);
+    }
+    if (process.env.GPU_WARNING_PERCENT) {
+      thresholds.gpu.warning = parseInt(process.env.GPU_WARNING_PERCENT);
+    }
+    if (process.env.GPU_CRITICAL_PERCENT) {
+      thresholds.gpu.critical = parseInt(process.env.GPU_CRITICAL_PERCENT);
+    }
+    if (process.env.DISK_WARNING_PERCENT) {
+      thresholds.storage.warning = parseInt(process.env.DISK_WARNING_PERCENT);
+    }
+    if (process.env.DISK_CRITICAL_PERCENT) {
+      thresholds.storage.critical = parseInt(process.env.DISK_CRITICAL_PERCENT);
+    }
+    if (process.env.TEMP_WARNING_CELSIUS) {
+      thresholds.temperature.warning = parseInt(process.env.TEMP_WARNING_CELSIUS);
+    }
+    if (process.env.TEMP_CRITICAL_CELSIUS) {
+      thresholds.temperature.critical = parseInt(process.env.TEMP_CRITICAL_CELSIUS);
+    }
 
     res.json({
       device: {
@@ -332,6 +365,136 @@ router.post(
       message: 'Configuration reload completed',
       reloaded: ['rate_limits', 'logging_config'],
       note: 'Some changes require a restart (database credentials, ports, etc.)',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// =============================================================================
+// SETUP WIZARD ENDPOINTS
+// =============================================================================
+
+/**
+ * GET /api/system/setup-status
+ * Check if initial setup has been completed.
+ * No auth required - frontend needs this before login to decide routing.
+ */
+router.get(
+  '/setup-status',
+  asyncHandler(async (req, res) => {
+    const result = await db.query(
+      'SELECT setup_completed, setup_step, company_name FROM system_settings WHERE id = 1'
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({
+        setupComplete: false,
+        setupStep: 0,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const settings = result.rows[0];
+    res.json({
+      setupComplete: settings.setup_completed,
+      setupStep: settings.setup_step || 0,
+      companyName: settings.company_name || null,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/system/setup-complete
+ * Mark the initial setup as completed.
+ * Requires auth - only admin can complete setup.
+ */
+router.post(
+  '/setup-complete',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { companyName, hostname, selectedModel } = req.body;
+
+    await db.query(
+      `UPDATE system_settings SET
+        setup_completed = TRUE,
+        setup_completed_at = NOW(),
+        setup_completed_by = $1,
+        company_name = COALESCE($2, company_name),
+        hostname = COALESCE($3, hostname),
+        selected_model = COALESCE($4, selected_model),
+        setup_step = 5
+      WHERE id = 1`,
+      [req.user.id, companyName || null, hostname || null, selectedModel || null]
+    );
+
+    logger.info(`Setup wizard completed by user ${req.user.username}`);
+
+    res.json({
+      success: true,
+      message: 'Setup completed successfully',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/system/setup-step
+ * Save current wizard step progress (for resume on refresh/restart).
+ * Requires auth.
+ */
+router.put(
+  '/setup-step',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { step, companyName, hostname, selectedModel } = req.body;
+
+    if (step === undefined || typeof step !== 'number' || step < 0 || step > 5) {
+      throw new ValidationError('Step must be a number between 0 and 5');
+    }
+
+    await db.query(
+      `UPDATE system_settings SET
+        setup_step = $1,
+        company_name = COALESCE($2, company_name),
+        hostname = COALESCE($3, hostname),
+        selected_model = COALESCE($4, selected_model)
+      WHERE id = 1`,
+      [step, companyName || null, hostname || null, selectedModel || null]
+    );
+
+    res.json({
+      success: true,
+      step,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/system/setup-skip
+ * Skip setup wizard (for experienced admins).
+ * Requires auth.
+ */
+router.post(
+  '/setup-skip',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.query(
+      `UPDATE system_settings SET
+        setup_completed = TRUE,
+        setup_completed_at = NOW(),
+        setup_completed_by = $1,
+        setup_step = 5
+      WHERE id = 1`,
+      [req.user.id]
+    );
+
+    logger.info(`Setup wizard skipped by user ${req.user.username}`);
+
+    res.json({
+      success: true,
+      message: 'Setup skipped',
       timestamp: new Date().toISOString(),
     });
   })
