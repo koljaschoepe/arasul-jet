@@ -439,6 +439,11 @@
   background: var(--bg-table-row-active) !important;
 }
 
+.dm-table tr.clickable-row:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
 .doc-info {
   display: flex;
   align-items: center;
@@ -477,14 +482,18 @@
   border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 500;
-  background: rgba(var(--status-color), 0.1);
-  color: var(--status-color);
 }
 
-.status-pending { --status-color: 245, 158, 11; }
-.status-processing { --status-color: 69, 173, 255; }
-.status-indexed { --status-color: 69, 173, 255; }
-.status-failed { --status-color: 239, 68, 68; }
+/* Document statuses */
+.status-pending   { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
+.status-processing { background: rgba(69, 173, 255, 0.1); color: var(--primary-color); }
+.status-indexed   { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
+.status-failed    { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
+
+/* Table statuses */
+.status-active    { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
+.status-draft     { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
+.status-archived  { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); }
 
 /* Type Badge */
 .type-badge {
@@ -506,7 +515,7 @@
 
 .type-badge.type-table {
   background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  color: var(--purple-color, #8b5cf6);
 }
 
 .type-badge.type-table svg {
@@ -523,7 +532,7 @@
 }
 
 .table-icon {
-  color: #a78bfa !important;
+  color: var(--purple-color, #8b5cf6) !important;
 }
 
 .table-icon-placeholder {
@@ -532,7 +541,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  color: #a78bfa;
+  color: var(--purple-color, #8b5cf6);
   opacity: 0.6;
 }
 
@@ -552,7 +561,6 @@
   background: rgba(107, 114, 128, 0.1);
   color: var(--cat-color);
   border: 1px solid currentColor;
-  opacity: 0.8;
 }
 
 /* Actions */
@@ -1354,18 +1362,13 @@
 }
 
 /* Light Mode - Status badges */
-.light-mode .status-pending {
-  --status-color: 217, 119, 6;
-}
-
-.light-mode .status-processing,
-.light-mode .status-indexed {
-  --status-color: 33, 150, 243;
-}
-
-.light-mode .status-failed {
-  --status-color: 220, 38, 38;
-}
+.light-mode .status-pending { background: rgba(217, 119, 6, 0.1); color: var(--warning-color); }
+.light-mode .status-processing { background: rgba(33, 150, 243, 0.1); color: var(--primary-color); }
+.light-mode .status-indexed { background: rgba(33, 150, 243, 0.1); color: var(--primary-color); }
+.light-mode .status-failed { background: rgba(220, 38, 38, 0.1); color: var(--danger-color); }
+.light-mode .status-active { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
+.light-mode .status-draft { background: rgba(217, 119, 6, 0.1); color: var(--warning-color); }
+.light-mode .status-archived { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); }
 
 /* Light Mode - Space Badge Dropdown */
 .light-mode .space-badge-dropdown {

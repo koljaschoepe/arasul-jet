@@ -18,7 +18,6 @@ import {
   FiFileText,
   FiDatabase,
   FiCpu,
-  FiLayers,
   FiEye,
   FiLink,
   FiEdit2,
@@ -27,7 +26,13 @@ import {
   FiTable,
   FiGrid,
 } from 'react-icons/fi';
-import { TableBadge, StatusBadge, CategoryBadge, SpaceBadge } from './DocumentManager/Badges';
+import {
+  TableBadge,
+  StatusBadge,
+  TableStatusBadge,
+  CategoryBadge,
+  SpaceBadge,
+} from './DocumentManager/Badges';
 import MarkdownEditor from './MarkdownEditor';
 import MarkdownCreateDialog from './MarkdownCreateDialog';
 import SimpleTableCreateDialog from './SimpleTableCreateDialog';
@@ -164,15 +169,20 @@ function DocumentManager() {
     }
   };
 
-  // Load statistics - wrapped in useCallback for stable reference
+  // Load statistics - filter-aware for dynamic KPIs
   const loadStatistics = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_BASE}/documents/statistics`);
+      const params = new URLSearchParams();
+      if (activeSpaceId) params.append('space_id', activeSpaceId);
+      if (statusFilter) params.append('status', statusFilter);
+      if (categoryFilter) params.append('category_id', categoryFilter);
+
+      const response = await axios.get(`${API_BASE}/documents/statistics?${params}`);
       setStatistics(response.data);
     } catch (err) {
       console.error('Error loading statistics:', err);
     }
-  }, []);
+  }, [activeSpaceId, statusFilter, categoryFilter]);
 
   // Load Knowledge Spaces (RAG 2.0)
   const loadSpaces = async () => {
@@ -184,28 +194,41 @@ function DocumentManager() {
     }
   };
 
-  // Load Datentabellen (PostgreSQL tables)
+  // Total tables count (from server)
+  const [totalTables, setTotalTables] = useState(0);
+
+  // Load Datentabellen (PostgreSQL tables) - server-side filtering
   const loadTables = useCallback(async () => {
     try {
       setLoadingTables(true);
-      const response = await axios.get(`${API_BASE}/datentabellen/tables`);
-      const allTables = response.data.tables || [];
-      // Filter by active space if one is selected
-      const filteredTables = activeSpaceId
-        ? allTables.filter(t => t.space_id === activeSpaceId)
-        : allTables;
-      setTables(filteredTables);
+      const params = new URLSearchParams();
+
+      if (activeSpaceId) params.append('space_id', activeSpaceId);
+      if (statusFilter) {
+        // Map document status to table status
+        const statusMap = { indexed: 'active', pending: 'draft', failed: 'archived' };
+        params.append('status', statusMap[statusFilter] || statusFilter);
+      }
+      if (searchQuery) params.append('search', searchQuery);
+
+      const response = await axios.get(`${API_BASE}/v1/datentabellen/tables?${params}`);
+      const allTables = response.data.tables || response.data.data || [];
+      setTables(allTables);
+      setTotalTables(response.data.total || allTables.length);
     } catch (err) {
       console.error('Error loading tables:', err);
     } finally {
       setLoadingTables(false);
     }
-  }, [activeSpaceId]);
+  }, [activeSpaceId, statusFilter, searchQuery]);
 
-  // Handle space change (for tabs)
+  // Handle space change (for tabs) - reset all filters
   const handleSpaceChange = spaceId => {
     setActiveSpaceId(spaceId);
     setCurrentPage(1);
+    setStatusFilter('');
+    setCategoryFilter('');
+    setSearchQuery('');
     // Also set as default upload space
     setUploadSpaceId(spaceId);
   };
@@ -273,10 +296,12 @@ function DocumentManager() {
     return () => clearInterval(interval);
   }, []); // Empty array - only run on mount
 
-  // Reload tables when space changes
+  // Reload all data when filters change
   useEffect(() => {
+    loadDocumentsRef.current();
+    loadStatisticsRef.current();
     loadTablesRef.current();
-  }, [activeSpaceId]);
+  }, [activeSpaceId, statusFilter, categoryFilter, searchQuery]);
 
   // File upload handler
   const handleFileUpload = async files => {
@@ -515,11 +540,11 @@ function DocumentManager() {
   };
 
   // Delete table
-  const handleDeleteTable = async (tableId, tableName) => {
-    if (!(await confirm({ message: `Tabelle "${tableName}" wirklich löschen?` }))) return;
+  const handleDeleteTable = async table => {
+    if (!(await confirm({ message: `Tabelle "${table.name}" wirklich löschen?` }))) return;
 
     try {
-      await axios.delete(`${API_BASE}/datentabellen/tables/${tableId}`);
+      await axios.delete(`${API_BASE}/v1/datentabellen/tables/${table.slug}`);
       loadTables();
     } catch (err) {
       setError('Fehler beim Löschen der Tabelle');
@@ -545,14 +570,10 @@ function DocumentManager() {
     ...documents.map(d => ({ ...d, _type: 'document' })),
   ];
 
-  // Filter combined items by search query
-  const filteredItems = combinedItems.filter(item => {
-    if (!searchQuery) return true;
-    const name = item._type === 'table' ? item.name : item.title || item.filename;
-    return name?.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  // Server already filters - no client-side filtering needed
+  const filteredItems = combinedItems;
 
-  const totalPages = Math.ceil(totalDocuments / itemsPerPage);
+  const totalPages = Math.ceil((totalDocuments + totalTables) / itemsPerPage);
 
   return (
     <main className="document-manager" role="main" aria-label="Dokumentenverwaltung">
@@ -561,12 +582,16 @@ function DocumentManager() {
         <div className="dm-stats-row" role="group" aria-label="Übersicht">
           <div
             className="dm-stat-card"
-            aria-label={`${statistics?.total_documents || 0} Dokumente insgesamt`}
+            aria-label={`${(statistics?.total_documents || 0) + (statistics?.table_count || 0)} Einträge insgesamt`}
           >
             <FiDatabase className="dm-stat-icon" aria-hidden="true" />
             <div className="dm-stat-content">
-              <span className="dm-stat-value">{statistics?.total_documents || 0}</span>
-              <span className="dm-stat-label">Dokumente</span>
+              <span className="dm-stat-value">
+                {(statistics?.total_documents || 0) + (statistics?.table_count || 0)}
+              </span>
+              <span className="dm-stat-label">
+                Gesamt{activeSpaceId || statusFilter || categoryFilter ? ' (gefiltert)' : ''}
+              </span>
             </div>
           </div>
           <div
@@ -589,11 +614,11 @@ function DocumentManager() {
               <span className="dm-stat-label">Wartend</span>
             </div>
           </div>
-          <div className="dm-stat-card" aria-label={`${statistics?.total_chunks || 0} Text-Chunks`}>
-            <FiLayers className="dm-stat-icon" aria-hidden="true" />
+          <div className="dm-stat-card" aria-label={`${statistics?.table_count || 0} Tabellen`}>
+            <FiTable className="dm-stat-icon" aria-hidden="true" />
             <div className="dm-stat-content">
-              <span className="dm-stat-value">{statistics?.total_chunks || 0}</span>
-              <span className="dm-stat-label">Chunks</span>
+              <span className="dm-stat-value">{statistics?.table_count || 0}</span>
+              <span className="dm-stat-label">Tabellen</span>
             </div>
           </div>
         </div>
@@ -850,7 +875,7 @@ function DocumentManager() {
         </button>
 
         <button
-          className="dm-create-btn"
+          className="dm-create-btn dm-create-btn-secondary"
           onClick={() => setShowSimpleTableCreate(true)}
           aria-label="Neue Tabelle erstellen"
         >
@@ -933,16 +958,10 @@ function DocumentManager() {
                       />
                     </td>
                     <td>
-                      <span
-                        className="status-badge status-indexed"
-                        style={{ '--status-color': 'var(--text-muted)' }}
-                      >
-                        <FiCheck aria-hidden="true" />
-                        Bereit
-                      </span>
+                      <TableStatusBadge status={table.status || 'active'} />
                     </td>
                     <td>
-                      <span className="table-info">{table.column_count || 0} Spalten</span>
+                      <span className="table-info">{table.field_count || 0} Spalten</span>
                     </td>
                     <td className="actions-cell" onClick={e => e.stopPropagation()}>
                       <button
@@ -954,7 +973,7 @@ function DocumentManager() {
                       </button>
                       <button
                         className="action-btn delete"
-                        onClick={() => handleDeleteTable(table.id, table.name)}
+                        onClick={() => handleDeleteTable(table)}
                         aria-label={`${table.name} löschen`}
                       >
                         <FiTrash2 aria-hidden="true" />

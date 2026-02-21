@@ -256,8 +256,52 @@ router.get(
   '/statistics',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await pool.query('SELECT * FROM get_document_statistics()');
-    const stats = result.rows[0];
+    const { space_id, status, category_id } = req.query;
+
+    // Use filter-aware function if any filter is provided, otherwise use original
+    const hasFilters = space_id || status || category_id;
+    let stats;
+
+    if (hasFilters) {
+      const result = await pool.query(
+        'SELECT * FROM get_filtered_document_statistics($1, $2, $3)',
+        [space_id || null, status || null, category_id ? parseInt(category_id, 10) : null]
+      );
+      stats = result.rows[0];
+    } else {
+      const result = await pool.query('SELECT * FROM get_document_statistics()');
+      stats = result.rows[0];
+    }
+
+    // Get table count from data-db (cross-db) with matching filters
+    let tableCount = 0;
+    try {
+      const dataDb = require('../dataDatabase');
+      const tableConditions = [];
+      const tableParams = [];
+      let tParamIndex = 1;
+
+      if (space_id) {
+        tableConditions.push(`space_id = $${tParamIndex++}`);
+        tableParams.push(space_id);
+      }
+      if (status) {
+        // Map document status to table status
+        const statusMap = { indexed: 'active', pending: 'draft', failed: 'archived' };
+        const tableStatus = statusMap[status] || status;
+        tableConditions.push(`status = $${tParamIndex++}`);
+        tableParams.push(tableStatus);
+      }
+
+      const tableWhere = tableConditions.length > 0 ? `WHERE ${tableConditions.join(' AND ')}` : '';
+      const tcResult = await dataDb.query(
+        `SELECT COUNT(*)::int as count FROM dt_tables ${tableWhere}`,
+        tableParams
+      );
+      tableCount = tcResult.rows[0].count;
+    } catch (e) {
+      logger.warn(`Failed to get table count from data-db: ${e.message}`);
+    }
 
     // Get indexer status (non-critical, use fallback on error)
     let indexerStatus = { status: 'unknown' };
@@ -273,6 +317,7 @@ router.get(
 
     res.json({
       ...stats,
+      table_count: tableCount,
       indexer: indexerStatus,
       timestamp: new Date().toISOString(),
     });
@@ -826,7 +871,9 @@ router.post(
           score: result.score,
         });
 
-        if (results.length >= top_k) {break;}
+        if (results.length >= top_k) {
+          break;
+        }
       }
     }
 

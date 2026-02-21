@@ -7,6 +7,7 @@ import {
   FiRefreshCw,
   FiAlertCircle,
   FiChevronDown,
+  FiArchive,
 } from 'react-icons/fi';
 
 // Table badge component for data tables
@@ -17,13 +18,13 @@ export const TableBadge = () => (
   </span>
 );
 
-// Status badge component
+// Status badge component (for documents)
 export const StatusBadge = ({ status }) => {
   const statusConfig = {
-    pending: { icon: FiClock, color: 'var(--warning-color)', label: 'Wartend' },
-    processing: { icon: FiRefreshCw, color: 'var(--primary-color)', label: 'Verarbeitung' },
-    indexed: { icon: FiCheck, color: 'var(--text-muted)', label: 'Indexiert' },
-    failed: { icon: FiAlertCircle, color: 'var(--danger-color)', label: 'Fehlgeschlagen' },
+    pending: { icon: FiClock, label: 'Wartend' },
+    processing: { icon: FiRefreshCw, label: 'Verarbeitung' },
+    indexed: { icon: FiCheck, label: 'Indexiert' },
+    failed: { icon: FiAlertCircle, label: 'Fehlgeschlagen' },
   };
 
   const config = statusConfig[status] || statusConfig.pending;
@@ -32,11 +33,33 @@ export const StatusBadge = ({ status }) => {
   return (
     <span
       className={`status-badge status-${status}`}
-      style={{ '--status-color': config.color }}
       role="status"
       aria-label={`Status: ${config.label}`}
     >
       <Icon className={status === 'processing' ? 'spin' : ''} aria-hidden="true" />
+      {config.label}
+    </span>
+  );
+};
+
+// Table status badge component
+export const TableStatusBadge = ({ status }) => {
+  const statusConfig = {
+    active: { icon: FiCheck, label: 'Aktiv' },
+    draft: { icon: FiClock, label: 'Entwurf' },
+    archived: { icon: FiArchive, label: 'Archiviert' },
+  };
+
+  const config = statusConfig[status] || statusConfig.active;
+  const Icon = config.icon;
+
+  return (
+    <span
+      className={`status-badge status-${status}`}
+      role="status"
+      aria-label={`Status: ${config.label}`}
+    >
+      <Icon aria-hidden="true" />
       {config.label}
     </span>
   );
