@@ -4,6 +4,8 @@ Supports PDF, DOCX, TXT, Markdown, and YAML tables
 
 MEDIUM-PRIORITY-FIX 3.3: Added streaming PDF parser for memory-efficient processing
 OCR-INTEGRATION: Added automatic OCR fallback for scanned PDFs
+PDF-UPGRADE: Replaced PyPDF2 with PyMuPDF (fitz) for better text extraction
+              and pdfplumber for table extraction
 """
 
 import gc
@@ -11,7 +13,8 @@ import logging
 from io import BytesIO
 from typing import IO, Generator, Optional, Tuple
 
-import PyPDF2
+import fitz  # PyMuPDF - superior text extraction with layout preservation
+import pdfplumber  # table extraction from PDFs
 from docx import Document
 import markdown
 import yaml
@@ -31,9 +34,57 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _extract_tables_from_page(pdf_path_or_bytes, page_num: int) -> str:
+    """
+    Extract tables from a specific PDF page using pdfplumber.
+
+    Args:
+        pdf_path_or_bytes: PDF file bytes for pdfplumber
+        page_num: Zero-based page index
+
+    Returns:
+        Pipe-delimited text representation of all tables found on the page,
+        or empty string if no tables found
+    """
+    try:
+        with pdfplumber.open(BytesIO(pdf_path_or_bytes)) as pdf:
+            if page_num >= len(pdf.pages):
+                return ""
+
+            page = pdf.pages[page_num]
+            tables = page.extract_tables()
+
+            if not tables:
+                return ""
+
+            table_texts = []
+            for table_idx, table in enumerate(tables):
+                if not table:
+                    continue
+
+                rows_text = []
+                for row in table:
+                    # Replace None values with empty string
+                    cleaned_row = [
+                        str(cell).strip() if cell is not None else ""
+                        for cell in row
+                    ]
+                    rows_text.append(" | ".join(cleaned_row))
+
+                if rows_text:
+                    table_texts.append("\n".join(rows_text))
+
+            return "\n\n".join(table_texts)
+
+    except Exception as e:
+        logger.debug(f"Table extraction failed for page {page_num}: {e}")
+        return ""
+
+
 def parse_pdf(file_obj: IO[bytes], use_ocr: bool = True) -> str:
     """
-    Parse PDF file and extract text.
+    Parse PDF file and extract text using PyMuPDF (fitz) for high-quality
+    text extraction with layout preservation, plus pdfplumber for table extraction.
     Automatically falls back to OCR for scanned documents if OCR is available.
 
     Args:
@@ -51,16 +102,37 @@ def parse_pdf(file_obj: IO[bytes], use_ocr: bool = True) -> str:
                 logger.info("PDF parsed using OCR")
             return text
 
-        # Standard extraction without OCR
+        # Standard extraction using PyMuPDF + pdfplumber
         file_obj.seek(0)
-        pdf_reader = PyPDF2.PdfReader(file_obj)
+        pdf_bytes = file_obj.read()
+
+        # Open with fitz for text extraction
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         text_parts = []
 
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
-            text = page.extract_text()
-            if text:
-                text_parts.append(text)
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+
+            # Extract text with layout preservation
+            # Using "text" sort mode for natural reading order
+            text = page.get_text("text")
+
+            page_content = ""
+            if text and text.strip():
+                page_content = text.strip()
+
+            # Extract tables using pdfplumber and append to page text
+            table_text = _extract_tables_from_page(pdf_bytes, page_num)
+            if table_text:
+                if page_content:
+                    page_content += "\n\n[Table]\n" + table_text
+                else:
+                    page_content = "[Table]\n" + table_text
+
+            if page_content:
+                text_parts.append(page_content)
+
+        doc.close()
 
         full_text = "\n\n".join(text_parts)
         return full_text.strip()
@@ -109,6 +181,8 @@ def parse_pdf_streaming(file_obj: IO[bytes], gc_interval: int = 10) -> Generator
     MEDIUM-PRIORITY-FIX 3.3: Memory-efficient streaming PDF parser
 
     Parse PDF file page by page using a generator to reduce memory usage.
+    Uses PyMuPDF (fitz) for high-quality text extraction and pdfplumber
+    for table extraction.
     Useful for large PDFs (100+ pages) where loading all text at once
     would cause memory spikes.
 
@@ -127,20 +201,32 @@ def parse_pdf_streaming(file_obj: IO[bytes], gc_interval: int = 10) -> Generator
                 process_chunk(chunk)
     """
     try:
-        pdf_reader = PyPDF2.PdfReader(file_obj)
-        total_pages = len(pdf_reader.pages)
+        file_obj.seek(0)
+        pdf_bytes = file_obj.read()
+
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        total_pages = len(doc)
         logger.info(f"Starting streaming PDF parse: {total_pages} pages")
 
         for page_num in range(total_pages):
             try:
-                page = pdf_reader.pages[page_num]
-                text = page.extract_text()
+                page = doc[page_num]
+                text = page.get_text("text")
 
+                page_content = ""
                 if text and text.strip():
-                    yield text.strip()
+                    page_content = text.strip()
 
-                # Explicit cleanup to free page memory
-                del page
+                # Extract tables using pdfplumber
+                table_text = _extract_tables_from_page(pdf_bytes, page_num)
+                if table_text:
+                    if page_content:
+                        page_content += "\n\n[Table]\n" + table_text
+                    else:
+                        page_content = "[Table]\n" + table_text
+
+                if page_content:
+                    yield page_content
 
                 # Periodic garbage collection for very large PDFs
                 if gc_interval > 0 and (page_num + 1) % gc_interval == 0:
@@ -152,6 +238,7 @@ def parse_pdf_streaming(file_obj: IO[bytes], gc_interval: int = 10) -> Generator
                 # Continue with next page instead of failing entire document
                 continue
 
+        doc.close()
         logger.info(f"Completed streaming PDF parse: {total_pages} pages processed")
 
     except Exception as e:
@@ -172,8 +259,10 @@ def get_pdf_page_count(file_obj: IO[bytes]) -> int:
     """
     try:
         file_obj.seek(0)
-        pdf_reader = PyPDF2.PdfReader(file_obj)
-        count = len(pdf_reader.pages)
+        pdf_bytes = file_obj.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        count = len(doc)
+        doc.close()
         file_obj.seek(0)  # Reset for subsequent reads
         return count
     except Exception as e:

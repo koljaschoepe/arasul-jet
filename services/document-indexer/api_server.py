@@ -17,6 +17,8 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from enhanced_indexer import get_indexer, EnhancedDocumentIndexer
+from decompound_service import decompound_text, CHARSPLIT_AVAILABLE
+from bm25_index import get_bm25_index
 
 # Configure logging
 logging.basicConfig(
@@ -321,6 +323,117 @@ def semantic_search():
 
     except Exception as e:
         logger.error(f"Search error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/decompound', methods=['POST'])
+def decompound():
+    """
+    Decompound German compound words in text.
+    Request body: { "text": "Krankenversicherungsbeitrag berechnen" }
+    Response: { "original": "...", "decompounded": "...", "available": true }
+    """
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+
+        if not text:
+            return jsonify({'error': 'text is required'}), 400
+
+        decompounded = decompound_text(text)
+
+        return jsonify({
+            'original': text,
+            'decompounded': decompounded,
+            'available': CHARSPLIT_AVAILABLE
+        })
+
+    except Exception as e:
+        logger.error(f"Decompound error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/bm25/search', methods=['POST'])
+def bm25_search():
+    """
+    Search using BM25 index with German stemming.
+    Request body: { "query": "search text", "top_k": 20 }
+    Response: { "results": [{"chunk_id": "...", "score": 0.85}], "index_size": 1000 }
+    """
+    try:
+        data = request.get_json()
+        query = data.get('query', '')
+        top_k = data.get('top_k', 20)
+
+        if not query:
+            return jsonify({'error': 'query is required'}), 400
+
+        bm25 = get_bm25_index()
+        results = bm25.search(query, top_k=top_k)
+
+        return jsonify({
+            'results': [
+                {'chunk_id': chunk_id, 'score': score}
+                for chunk_id, score in results
+            ],
+            'index_size': bm25.size,
+            'is_ready': bm25.is_ready
+        })
+
+    except Exception as e:
+        logger.error(f"BM25 search error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/bm25/rebuild', methods=['POST'])
+def bm25_rebuild():
+    """
+    Rebuild the complete BM25 index from all document chunks in the database.
+    This is a potentially long-running operation.
+    """
+    global indexer
+    if indexer is None:
+        return jsonify({'error': 'Indexer not initialized'}), 503
+
+    try:
+        # Fetch all chunks from database
+        with indexer.db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT dc.id, dc.chunk_text
+                    FROM document_chunks dc
+                    JOIN documents d ON dc.document_id = d.id
+                    WHERE d.deleted_at IS NULL AND d.status = 'indexed'
+                    ORDER BY dc.document_id, dc.chunk_index
+                """)
+                rows = cur.fetchall()
+
+        chunks = [{'id': str(row[0]), 'text': row[1]} for row in rows]
+
+        bm25 = get_bm25_index()
+        count = bm25.build_full_index(chunks)
+
+        return jsonify({
+            'status': 'rebuilt',
+            'chunks_indexed': count,
+            'message': f'BM25 index rebuilt with {count} chunks'
+        })
+
+    except Exception as e:
+        logger.error(f"BM25 rebuild error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/bm25/status', methods=['GET'])
+def bm25_status():
+    """Get BM25 index status"""
+    try:
+        bm25 = get_bm25_index()
+        return jsonify({
+            'is_ready': bm25.is_ready,
+            'index_size': bm25.size
+        })
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 

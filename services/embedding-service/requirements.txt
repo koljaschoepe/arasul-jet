@@ -1,7 +1,10 @@
 # torch==2.1.2  # REMOVED - Use PyTorch 2.5 with CUDA from dustynv/pytorch:2.5-r36.2.0 base image
 # PyPI torch has NO CUDA support for ARM64 - installing it would break GPU acceleration
-sentence-transformers==2.3.1
+sentence-transformers==3.0.1
 flask==3.0.0
 numpy==1.26.3
-transformers==4.36.2
+transformers==4.44.2
 einops==0.7.0
+protobuf>=3.20
+# Reranking support
+flashrank==0.2.5

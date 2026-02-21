@@ -28,7 +28,8 @@ from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, Fi
 import requests
 
 from document_parsers import parse_pdf, parse_docx, parse_txt, parse_markdown, parse_yaml_table, parse_image
-from text_chunker import chunk_text
+from text_chunker import chunk_text, chunk_text_hierarchical
+from bm25_index import get_bm25_index
 from metadata_extractor import extract_metadata, extract_key_topics
 from database import DatabaseManager
 from ai_services import AIServices, DocumentAnalyzer
@@ -58,6 +59,9 @@ EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM
 
 CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHUNK_SIZE', '500'))
 CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
+PARENT_CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_PARENT_CHUNK_SIZE', '2000'))
+CHILD_CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHILD_CHUNK_SIZE', '400'))
+CHILD_CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP', '50'))
 INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '30'))
 
 # CRITICAL-FIX: Maximum file size limit to prevent OOM (default: 100MB)
@@ -163,7 +167,9 @@ class EnhancedDocumentIndexer:
                     raise
 
     def _init_qdrant(self) -> QdrantClient:
-        """Initialize Qdrant client and collection"""
+        """Initialize Qdrant client and collection with Binary Quantization and HNSW tuning"""
+        from qdrant_client.models import BinaryQuantization, BinaryQuantizationConfig, HnswConfigDiff
+
         max_retries = 5
         for attempt in range(max_retries):
             try:
@@ -178,10 +184,21 @@ class EnhancedDocumentIndexer:
                         collection_name=QDRANT_COLLECTION,
                         vectors_config=VectorParams(
                             size=EMBEDDING_VECTOR_SIZE,
-                            distance=Distance.COSINE
+                            distance=Distance.COSINE,
+                            on_disk=True
+                        ),
+                        hnsw_config=HnswConfigDiff(m=16, ef_construct=100),
+                        quantization_config=BinaryQuantization(
+                            binary=BinaryQuantizationConfig(always_ram=True)
                         )
                     )
                     logger.info(f"Created Qdrant collection: {QDRANT_COLLECTION}")
+
+                    # Create payload indices for efficient filtering
+                    client.create_payload_index(QDRANT_COLLECTION, "space_id", "keyword")
+                    client.create_payload_index(QDRANT_COLLECTION, "document_id", "keyword")
+                    client.create_payload_index(QDRANT_COLLECTION, "category", "keyword")
+                    logger.info(f"Created payload indices for collection: {QDRANT_COLLECTION}")
                 else:
                     logger.info(f"Qdrant collection '{QDRANT_COLLECTION}' ready")
 
@@ -294,7 +311,12 @@ class EnhancedDocumentIndexer:
 
     def index_document(self, doc_id: str, text: str, metadata: Dict[str, Any]) -> int:
         """
-        Index document text into Qdrant
+        Index document text into Qdrant using hierarchical chunking.
+
+        Uses the Parent-Document Retriever pattern:
+        - Parent chunks (large) are stored in PostgreSQL for rich LLM context
+        - Child chunks (small) are embedded and stored in Qdrant for precise retrieval
+        - Each child chunk references its parent for context expansion at query time
 
         Args:
             doc_id: Document UUID
@@ -302,70 +324,107 @@ class EnhancedDocumentIndexer:
             metadata: Document metadata
 
         Returns:
-            Number of chunks indexed
+            Number of child chunks indexed
         """
         # Update status
         self.db.update_document_status(doc_id, 'processing')
 
         try:
-            # Chunk text
-            chunks = chunk_text(text, CHUNK_SIZE, CHUNK_OVERLAP)
-            if not chunks:
+            # Hierarchical chunking: parent chunks for context, child chunks for retrieval
+            parent_chunks = chunk_text_hierarchical(
+                text, PARENT_CHUNK_SIZE, CHILD_CHUNK_SIZE, CHILD_CHUNK_OVERLAP
+            )
+            if not parent_chunks:
                 logger.warning(f"No chunks generated for document {doc_id}")
                 return 0
 
-            logger.info(f"Document {doc_id}: {len(chunks)} chunks to index")
+            total_children = sum(len(p.children) for p in parent_chunks)
+            logger.info(
+                f"Document {doc_id}: {len(parent_chunks)} parent chunks, "
+                f"{total_children} child chunks to index"
+            )
 
-            # Generate embeddings in batches
+            # Save parent chunks to PostgreSQL and get their DB IDs
+            # save_parent_chunks expects objects with .parent_index, .text, etc. attributes
+            parent_id_map = self.db.save_parent_chunks(doc_id, parent_chunks)
+
+            # Generate embeddings and Qdrant points for child chunks
             batch_size = 10
             all_points = []
             chunk_records = []
+            bm25_records = []
 
-            for i in range(0, len(chunks), batch_size):
-                batch_chunks = chunks[i:i + batch_size]
-                embeddings = self.get_batch_embeddings(batch_chunks)
+            for parent in parent_chunks:
+                parent_db_id = parent_id_map.get(parent.parent_index)
 
-                for j, (chunk_text_content, embedding) in enumerate(zip(batch_chunks, embeddings)):
-                    if embedding is None:
-                        logger.warning(f"Failed to get embedding for chunk {i + j}")
-                        continue
+                # Collect child texts for batch embedding
+                child_texts = [child.text for child in parent.children]
 
-                    chunk_index = i + j
-                    # Generate deterministic UUID for chunk
-                    chunk_id = str(uuid.UUID(
-                        hashlib.md5(f"{doc_id}:{chunk_index}".encode()).hexdigest()
-                    ))
+                for i in range(0, len(child_texts), batch_size):
+                    batch_texts = child_texts[i:i + batch_size]
+                    batch_children = parent.children[i:i + batch_size]
+                    embeddings = self.get_batch_embeddings(batch_texts)
 
-                    # Create Qdrant point (RAG 2.0: includes space metadata)
-                    point = PointStruct(
-                        id=chunk_id,
-                        vector=embedding,
-                        payload={
-                            "document_id": doc_id,
-                            "document_name": metadata.get('filename', ''),
-                            "document_hash": metadata.get('content_hash', ''),
-                            "chunk_index": chunk_index,
-                            "total_chunks": len(chunks),
-                            "text": chunk_text_content,
-                            "title": metadata.get('title', ''),
-                            "category": metadata.get('category_name', 'Allgemein'),
-                            "language": metadata.get('language', 'de'),
-                            "indexed_at": time.time(),
-                            # RAG 2.0: Knowledge Space metadata
-                            "space_id": metadata.get('space_id') or None,
-                            "space_name": metadata.get('space_name', ''),
-                            "space_slug": metadata.get('space_slug', '')
-                        }
-                    )
-                    all_points.append(point)
+                    for child, child_text_content, embedding in zip(
+                        batch_children, batch_texts, embeddings
+                    ):
+                        if embedding is None:
+                            logger.warning(
+                                f"Failed to get embedding for child chunk "
+                                f"{child.global_index} (parent {parent.parent_index})"
+                            )
+                            continue
 
-                    # Record for database
-                    chunk_records.append({
-                        'id': chunk_id,
-                        'chunk_index': chunk_index,
-                        'text': chunk_text_content,
-                        'word_count': len(chunk_text_content.split())
-                    })
+                        # Generate deterministic UUID for child chunk
+                        chunk_id = str(uuid.UUID(
+                            hashlib.md5(
+                                f"{doc_id}:{child.global_index}".encode()
+                            ).hexdigest()
+                        ))
+
+                        # Create Qdrant point with parent reference
+                        point = PointStruct(
+                            id=chunk_id,
+                            vector=embedding,
+                            payload={
+                                "document_id": doc_id,
+                                "document_name": metadata.get('filename', ''),
+                                "document_hash": metadata.get('content_hash', ''),
+                                "chunk_index": child.global_index,
+                                "child_index": child.child_index,
+                                "parent_chunk_id": parent_db_id,
+                                "parent_index": parent.parent_index,
+                                "total_chunks": total_children,
+                                "text": child_text_content,
+                                "title": metadata.get('title', ''),
+                                "category": metadata.get('category_name', 'Allgemein'),
+                                "language": metadata.get('language', 'de'),
+                                "indexed_at": time.time(),
+                                # RAG 2.0: Knowledge Space metadata
+                                "space_id": metadata.get('space_id') or None,
+                                "space_name": metadata.get('space_name', ''),
+                                "space_slug": metadata.get('space_slug', ''),
+                            }
+                        )
+                        all_points.append(point)
+
+                        # Record for database (child chunk with parent reference)
+                        chunk_records.append({
+                            'id': chunk_id,
+                            'chunk_index': child.global_index,
+                            'child_index': child.child_index,
+                            'parent_chunk_id': parent_db_id,
+                            'text': child_text_content,
+                            'char_start': child.char_start,
+                            'char_end': child.char_end,
+                            'word_count': child.word_count,
+                        })
+
+                        # Record for BM25 index
+                        bm25_records.append({
+                            'id': chunk_id,
+                            'text': child_text_content,
+                        })
 
             # Upsert to Qdrant
             if all_points:
@@ -373,10 +432,18 @@ class EnhancedDocumentIndexer:
                     collection_name=QDRANT_COLLECTION,
                     points=all_points
                 )
-                logger.info(f"Indexed {len(all_points)} chunks for document {doc_id}")
+                logger.info(f"Indexed {len(all_points)} child chunks for document {doc_id}")
 
-            # Save chunk records to PostgreSQL
+            # Save child chunk records to PostgreSQL (with parent_chunk_id reference)
             self.db.save_chunks(doc_id, chunk_records)
+
+            # Update BM25 index with new chunks
+            if bm25_records:
+                try:
+                    bm25 = get_bm25_index()
+                    bm25.add_document_chunks(bm25_records)
+                except Exception as e:
+                    logger.warning(f"BM25 index update failed (non-critical): {e}")
 
             return len(all_points)
 

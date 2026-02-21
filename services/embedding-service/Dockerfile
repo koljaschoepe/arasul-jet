@@ -18,17 +18,17 @@ COPY requirements.txt ./
 # Install Python dependencies WITHOUT torch (already in base image with CUDA)
 # CRITICAL: sentence-transformers depends on torch, so install it without dependencies first
 # Then install other packages normally
-RUN pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-installed blinker --no-deps sentence-transformers==2.3.1 && \
-    pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-installed blinker flask==3.0.0 numpy==1.26.3 transformers==4.36.2 einops==0.7.0 tqdm scikit-learn scipy nltk sentencepiece huggingface-hub Pillow
+RUN pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-installed blinker --no-deps sentence-transformers==3.0.1 && \
+    pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-installed blinker \
+    flask==3.0.0 numpy==1.26.3 transformers==4.44.2 einops==0.7.0 "protobuf>=3.20" \
+    tqdm scikit-learn scipy nltk sentencepiece huggingface-hub Pillow safetensors \
+    flashrank==0.2.5
 
 # Copy application code
 COPY . .
 
 # Create models directory
 RUN mkdir -p /models
-
-# Download default model (placeholder - would be done at runtime or via volume)
-# RUN python download_model.py
 
 # Expose service port
 EXPOSE 11435

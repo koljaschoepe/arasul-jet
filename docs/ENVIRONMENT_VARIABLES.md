@@ -135,13 +135,16 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## Embedding Service
 
-| Variable                   | Default                        | Description       |
-| -------------------------- | ------------------------------ | ----------------- |
-| EMBEDDING_SERVICE_HOST     | embedding-service              | Service hostname  |
-| EMBEDDING_SERVICE_PORT     | 11435                          | Service port      |
-| EMBEDDING_MODEL            | nomic-ai/nomic-embed-text-v1.5 | HuggingFace model |
-| EMBEDDING_VECTOR_SIZE      | 768                            | Vector dimensions |
-| EMBEDDING_MAX_INPUT_TOKENS | 4096                           | Max input tokens  |
+| Variable                   | Default                        | Description                          |
+| -------------------------- | ------------------------------ | ------------------------------------ |
+| EMBEDDING_SERVICE_HOST     | embedding-service              | Service hostname                     |
+| EMBEDDING_SERVICE_PORT     | 11435                          | Service port                         |
+| EMBEDDING_MODEL            | nomic-ai/nomic-embed-text-v1.5 | HuggingFace model                    |
+| EMBEDDING_VECTOR_SIZE      | 1024                           | Vector dimension for embedding model |
+| EMBEDDING_MAX_INPUT_TOKENS | 8192                           | Max input token length               |
+| ENABLE_RERANKING           | true                           | Enable 2-stage reranking             |
+| FLASHRANK_MODEL            | ms-marco-MiniLM-L-12-v2        | CPU reranker model                   |
+| BGE_RERANKER_MODEL         | BAAI/bge-reranker-v2-m3        | GPU reranker model                   |
 
 ---
 
@@ -158,16 +161,25 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## Document Indexer
 
-| Variable                       | Default   | Description                         |
-| ------------------------------ | --------- | ----------------------------------- |
-| DOCUMENT_INDEXER_INTERVAL      | 30        | Scan interval (seconds)             |
-| DOCUMENT_INDEXER_CHUNK_SIZE    | 500       | Chunk size (chars)                  |
-| DOCUMENT_INDEXER_CHUNK_OVERLAP | 50        | Chunk overlap (chars)               |
-| DOCUMENT_INDEXER_MINIO_BUCKET  | documents | Source bucket                       |
-| DOCUMENT_MAX_SIZE_MB           | 100       | Maximum file size (MB)              |
-| RAG_HYBRID_SEARCH              | true      | Enable hybrid keyword+vector search |
-| SPACE_ROUTING_THRESHOLD        | 0.4       | Space routing confidence threshold  |
-| SPACE_ROUTING_MAX_SPACES       | 3         | Max spaces to search in RAG         |
+| Variable                             | Default          | Description                                    |
+| ------------------------------------ | ---------------- | ---------------------------------------------- |
+| DOCUMENT_INDEXER_INTERVAL            | 30               | Scan interval (seconds)                        |
+| DOCUMENT_INDEXER_CHUNK_SIZE          | 500              | Chunk size (chars)                             |
+| DOCUMENT_INDEXER_CHUNK_OVERLAP       | 50               | Chunk overlap (chars)                          |
+| DOCUMENT_INDEXER_PARENT_CHUNK_SIZE   | 2000             | Parent chunk size in tokens                    |
+| DOCUMENT_INDEXER_CHILD_CHUNK_SIZE    | 400              | Child chunk size in tokens                     |
+| DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP | 50               | Child chunk overlap in tokens                  |
+| DOCUMENT_INDEXER_MINIO_BUCKET        | documents        | Source bucket                                  |
+| DOCUMENT_MAX_SIZE_MB                 | 100              | Maximum file size (MB)                         |
+| BM25_INDEX_PATH                      | /data/bm25_index | Path for BM25 index persistence                |
+| RAG_HYBRID_SEARCH                    | true             | Enable hybrid keyword+vector search            |
+| RAG_ENABLE_MULTI_QUERY               | true             | Enable multi-query generation                  |
+| RAG_ENABLE_HYDE                      | true             | Enable HyDE query expansion                    |
+| RAG_ENABLE_DECOMPOUND                | true             | Enable German word decompounding               |
+| RAG_ENABLE_RERANKING                 | true             | Enable 2-stage reranking in RAG pipeline       |
+| RAG_QUERY_OPTIMIZER_MODEL            | ""               | Model for query optimization (empty = default) |
+| SPACE_ROUTING_THRESHOLD              | 0.4              | Space routing confidence threshold             |
+| SPACE_ROUTING_MAX_SPACES             | 3                | Max spaces to search in RAG                    |
 
 ---
 

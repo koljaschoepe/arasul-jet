@@ -10,7 +10,7 @@ from io import BytesIO
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-import PyPDF2
+import fitz  # PyMuPDF
 from docx import Document
 
 logger = logging.getLogger(__name__)
@@ -73,41 +73,42 @@ def extract_metadata(file_data: bytes, filename: str, file_extension: str) -> Di
 
 
 def extract_pdf_metadata(file_data: bytes, metadata: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract metadata from PDF file"""
+    """Extract metadata from PDF file using PyMuPDF"""
     try:
-        file_obj = BytesIO(file_data)
-        pdf_reader = PyPDF2.PdfReader(file_obj)
+        doc = fitz.open(stream=file_data, filetype="pdf")
 
         # Page count
-        metadata['page_count'] = len(pdf_reader.pages)
+        metadata['page_count'] = len(doc)
 
         # PDF metadata
-        if pdf_reader.metadata:
-            info = pdf_reader.metadata
-            metadata['title'] = info.get('/Title') or info.get('Title')
-            metadata['author'] = info.get('/Author') or info.get('Author')
-            metadata['subject'] = info.get('/Subject') or info.get('Subject')
+        pdf_meta = doc.metadata
+        if pdf_meta:
+            metadata['title'] = pdf_meta.get('title') or None
+            metadata['author'] = pdf_meta.get('author') or None
+            metadata['subject'] = pdf_meta.get('subject') or None
 
             # Extract keywords
-            keywords = info.get('/Keywords') or info.get('Keywords')
+            keywords = pdf_meta.get('keywords', '')
             if keywords:
                 metadata['keywords'] = [k.strip() for k in keywords.split(',')]
 
             # Dates
-            creation = info.get('/CreationDate') or info.get('CreationDate')
+            creation = pdf_meta.get('creationDate', '')
             if creation:
                 metadata['creation_date'] = parse_pdf_date(creation)
 
-            modification = info.get('/ModDate') or info.get('ModDate')
+            modification = pdf_meta.get('modDate', '')
             if modification:
                 metadata['modification_date'] = parse_pdf_date(modification)
 
         # Extract text for word/char count and preview
         full_text = []
-        for page in pdf_reader.pages[:10]:  # Only first 10 pages for preview
-            text = page.extract_text()
+        for page_num in range(min(10, len(doc))):
+            text = doc[page_num].get_text()
             if text:
                 full_text.append(text)
+
+        doc.close()
 
         combined_text = '\n'.join(full_text)
         metadata['char_count'] = len(combined_text)

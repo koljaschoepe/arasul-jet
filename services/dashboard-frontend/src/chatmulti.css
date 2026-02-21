@@ -734,9 +734,122 @@
   margin-bottom: 8px;
 }
 
-.source-score {
+.source-scores {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.source-score-main {
   font-size: 0.8rem;
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.source-score-secondary {
+  font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.source-index {
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-right: 6px;
+}
+
+.source-space-badge {
+  font-size: 0.75rem;
+  background: color-mix(in srgb, var(--primary-color) 15%, transparent);
+  color: var(--primary-color);
+  padding: 1px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
+/* Query Optimization Details */
+.query-opt-block {
+  margin-top: 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.query-opt-block.collapsed .query-opt-content {
+  display: none;
+}
+
+.query-opt-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.query-opt-header:hover {
+  color: var(--text-primary);
+}
+
+.query-opt-icon {
+  flex-shrink: 0;
+}
+
+.query-opt-content {
+  padding: 10px 16px 14px;
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.query-opt-item {
+  margin-bottom: 8px;
+}
+
+.query-opt-item:last-child {
+  margin-bottom: 0;
+}
+
+.query-opt-label {
+  color: var(--text-muted);
+  margin-right: 6px;
+  font-size: 0.8rem;
+}
+
+.query-opt-value {
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.query-opt-variants {
+  list-style: none;
+  padding: 4px 0 0 0;
+  margin: 0;
+}
+
+.query-opt-variants li {
+  padding: 2px 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.query-opt-variants li::before {
+  content: "\2022";
+  color: var(--primary-color);
+  margin-right: 6px;
+}
+
+.query-opt-badge {
+  font-size: 0.75rem;
+  background: color-mix(in srgb, var(--success-color) 15%, transparent);
+  color: var(--success-color);
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 /* -------------------- Scroll Button -------------------- */

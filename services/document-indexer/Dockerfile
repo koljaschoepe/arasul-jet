@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     libmagic1 \
     libpq-dev \
     gcc \
+    libmupdf-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -19,6 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY *.py ./
+
+# Create directories for BM25 index persistence
+RUN mkdir -p /data/bm25_index
 
 # Expose API port
 EXPOSE 9102

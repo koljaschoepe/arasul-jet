@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { FiChevronDown, FiChevronUp, FiCpu, FiBook, FiFolder } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiCpu, FiBook, FiFolder, FiSearch } from 'react-icons/fi';
 import MermaidDiagram from '../MermaidDiagram';
 
 /**
@@ -15,6 +15,7 @@ const ChatMessage = memo(function ChatMessage({
   isLoading,
   onToggleThinking,
   onToggleSources,
+  onToggleQueryOpt,
 }) {
   return (
     <article
@@ -110,6 +111,53 @@ const ChatMessage = memo(function ChatMessage({
         </div>
       )}
 
+      {/* Query Optimization Details (collapsible) */}
+      {message.queryOptimization && (
+        <div className={`query-opt-block ${message.queryOptCollapsed ? 'collapsed' : ''}`}>
+          <button
+            className="query-opt-header"
+            onClick={() => onToggleQueryOpt(index)}
+            aria-expanded={!message.queryOptCollapsed}
+          >
+            <FiSearch className="query-opt-icon" aria-hidden="true" />
+            <span>Suchdetails ({message.queryOptimization.duration}ms)</span>
+            {message.queryOptCollapsed ? (
+              <FiChevronDown aria-hidden="true" />
+            ) : (
+              <FiChevronUp aria-hidden="true" />
+            )}
+          </button>
+          {!message.queryOptCollapsed && (
+            <div className="query-opt-content">
+              {message.queryOptimization.decompoundResult && (
+                <div className="query-opt-item">
+                  <span className="query-opt-label">Worttrennung:</span>
+                  <span className="query-opt-value">
+                    {message.queryOptimization.decompoundResult}
+                  </span>
+                </div>
+              )}
+              {message.queryOptimization.multiQueryVariants &&
+                message.queryOptimization.multiQueryVariants.length > 0 && (
+                  <div className="query-opt-item">
+                    <span className="query-opt-label">Suchvarianten:</span>
+                    <ul className="query-opt-variants">
+                      {message.queryOptimization.multiQueryVariants.map((variant, i) => (
+                        <li key={i}>{variant}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              {message.queryOptimization.hydeGenerated && (
+                <div className="query-opt-item">
+                  <span className="query-opt-badge">HyDE aktiv</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Sources Block */}
       {message.sources && message.sources.length > 0 && (
         <div className={`sources-block ${message.sourcesCollapsed ? 'collapsed' : ''}`}>
@@ -130,9 +178,30 @@ const ChatMessage = memo(function ChatMessage({
             <div className="sources-content">
               {message.sources.map((source, sourceIndex) => (
                 <div key={sourceIndex} className="source-item">
-                  <div className="source-name">{source.document_name}</div>
+                  <div className="source-name">
+                    <span className="source-index">[{sourceIndex + 1}]</span>
+                    {source.document_name}
+                    {source.space_name && (
+                      <span className="source-space-badge">{source.space_name}</span>
+                    )}
+                  </div>
                   <div className="source-preview">{source.text_preview}</div>
-                  <div className="source-score">Relevanz: {(source.score * 100).toFixed(0)}%</div>
+                  <div className="source-scores">
+                    {source.rerank_score != null ? (
+                      <>
+                        <span className="source-score-main">
+                          Rerank: {(source.rerank_score * 100).toFixed(0)}%
+                        </span>
+                        <span className="source-score-secondary">
+                          Vektor: {(source.score * 100).toFixed(0)}%
+                        </span>
+                      </>
+                    ) : (
+                      <span className="source-score-main">
+                        Relevanz: {(source.score * 100).toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

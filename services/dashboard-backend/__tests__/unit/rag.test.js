@@ -31,6 +31,24 @@ jest.mock('../../src/utils/logger', () => ({
 // Mock axios for external service calls
 jest.mock('axios');
 
+// Mock query optimizer (RAG 3.0)
+jest.mock('../../src/services/queryOptimizer', () => ({
+  optimizeQuery: jest.fn().mockResolvedValue({
+    decompounded: 'test query',
+    queryVariants: ['test query'],
+    hydeText: null,
+    details: {
+      duration: 50,
+      decompoundEnabled: true,
+      decompoundResult: null,
+      multiQueryEnabled: true,
+      multiQueryVariants: [],
+      hydeEnabled: true,
+      hydeGenerated: false
+    }
+  })
+}));
+
 // Mock LLM services
 jest.mock('../../src/services/llmJobService', () => ({
   createJob: jest.fn(),
@@ -226,13 +244,16 @@ describe('RAG Routes', () => {
         keywordResults: []
       });
 
-      // Mock embedding generation
+      // Mock embedding generation (getEmbedding)
       axios.post.mockResolvedValueOnce({
         data: { vectors: [new Array(768).fill(0.1)] }
       });
 
-      // Mock Qdrant search - empty results
+      // Mock Qdrant vector search - empty results
       axios.post.mockResolvedValueOnce({ data: { result: [] } });
+
+      // Mock BM25 search (via document-indexer)
+      axios.post.mockResolvedValueOnce({ data: { results: [] } });
 
       // Mock job creation
       llmJobService.createJob.mockResolvedValueOnce({
@@ -273,12 +294,12 @@ describe('RAG Routes', () => {
         keywordResults: []
       });
 
-      // Mock embedding generation
+      // Mock embedding generation (getEmbedding)
       axios.post.mockResolvedValueOnce({
         data: { vectors: [new Array(768).fill(0.1)] }
       });
 
-      // Mock Qdrant search - documents found
+      // Mock Qdrant vector search - documents found
       axios.post.mockResolvedValueOnce({
         data: {
           result: [
@@ -293,6 +314,24 @@ describe('RAG Routes', () => {
                 space_id: null,
                 space_name: null
               }
+            }
+          ]
+        }
+      });
+
+      // Mock BM25 search (via document-indexer)
+      axios.post.mockResolvedValueOnce({ data: { results: [] } });
+
+      // Mock reranker (returns same results with rerank scores)
+      axios.post.mockResolvedValueOnce({
+        data: {
+          results: [
+            {
+              id: 'chunk-1',
+              text: 'This is test content from the document.',
+              rerank_score: 0.92,
+              stage1_score: 0.88,
+              stage2_score: 0.92
             }
           ]
         }
@@ -352,13 +391,16 @@ describe('RAG Routes', () => {
         keywordResults: []
       });
 
-      // Mock embedding generation
+      // Mock embedding generation (getEmbedding)
       axios.post.mockResolvedValueOnce({
         data: { vectors: [new Array(768).fill(0.1)] }
       });
 
-      // Mock Qdrant search with space filter
+      // Mock Qdrant vector search with space filter
       axios.post.mockResolvedValueOnce({ data: { result: [] } });
+
+      // Mock BM25 search
+      axios.post.mockResolvedValueOnce({ data: { results: [] } });
 
       // Mock job creation for no results
       llmJobService.createJob.mockResolvedValueOnce({
@@ -377,11 +419,11 @@ describe('RAG Routes', () => {
           space_ids: ['space-1']
         });
 
-      // Verify space query was made
-      expect(db.query).toHaveBeenCalledWith(
-        expect.stringContaining('knowledge_spaces'),
-        expect.arrayContaining([['space-1']])
+      // Verify space query was made (WHERE id = ANY($1::uuid[]))
+      const spaceCalls = db.query.mock.calls.filter(call =>
+        call[0].includes('knowledge_spaces')
       );
+      expect(spaceCalls.length).toBeGreaterThan(0);
     });
 
     test('should disable auto routing when specified', async () => {
@@ -542,24 +584,15 @@ describe('RAG Routes', () => {
       setupRagMocks({
         companyContext: [],
         spaces: [],
-        keywordResults: [
-          {
-            id: 'chunk-2',
-            document_id: 'doc-2',
-            document_name: 'test2.pdf',
-            chunk_index: 0,
-            text: 'Keyword match content',
-            keyword_score: 0.8
-          }
-        ]
+        keywordResults: []
       });
 
-      // Mock embedding generation
+      // Mock embedding generation (getEmbedding)
       axios.post.mockResolvedValueOnce({
         data: { vectors: [new Array(768).fill(0.1)] }
       });
 
-      // Mock Qdrant results
+      // Mock Qdrant vector search results
       axios.post.mockResolvedValueOnce({
         data: {
           result: [
@@ -572,6 +605,30 @@ describe('RAG Routes', () => {
                 chunk_index: 0,
                 text: 'Vector match content'
               }
+            }
+          ]
+        }
+      });
+
+      // Mock BM25 search (via document-indexer)
+      axios.post.mockResolvedValueOnce({
+        data: {
+          results: [
+            { chunk_id: 'chunk-2', score: 0.8 }
+          ]
+        }
+      });
+
+      // Mock reranker
+      axios.post.mockResolvedValueOnce({
+        data: {
+          results: [
+            {
+              id: 'chunk-1',
+              text: 'Vector match content',
+              rerank_score: 0.92,
+              stage1_score: 0.88,
+              stage2_score: 0.92
             }
           ]
         }

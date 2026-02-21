@@ -172,7 +172,9 @@ class DatabaseManager:
         'status', 'title', 'author', 'language', 'page_count',
         'word_count', 'char_count', 'chunk_count', 'processing_error',
         'processing_started_at', 'processing_completed_at', 'indexed_at',
-        'summary', 'keywords', 'category_id', 'space_id', 'metadata'
+        'summary', 'keywords', 'category_id', 'space_id', 'metadata',
+        'key_topics', 'category_confidence', 'embedding_model', 'retry_count',
+        'parent_chunk_id', 'child_index'
     })
 
     def update_document(self, doc_id: str, updates: Dict[str, Any]) -> bool:
@@ -360,7 +362,11 @@ class DatabaseManager:
     # ==================== Chunk Operations ====================
 
     def save_chunks(self, doc_id: str, chunks: List[Dict[str, Any]]) -> int:
-        """Save document chunks to database"""
+        """Save document chunks to database
+
+        Each chunk dict must have: id, chunk_index, text
+        Optional fields: char_start, char_end, word_count, parent_chunk_id, child_index
+        """
         if not chunks:
             return 0
 
@@ -371,7 +377,7 @@ class DatabaseManager:
                     DELETE FROM document_chunks WHERE document_id = %s
                 """, (doc_id,))
 
-                # Insert new chunks
+                # Insert new chunks (with optional parent_chunk_id and child_index)
                 chunk_data = [
                     (
                         chunk['id'],
@@ -380,18 +386,98 @@ class DatabaseManager:
                         chunk['text'],
                         chunk.get('char_start'),
                         chunk.get('char_end'),
-                        chunk.get('word_count', len(chunk['text'].split()))
+                        chunk.get('word_count', len(chunk['text'].split())),
+                        chunk.get('parent_chunk_id'),
+                        chunk.get('child_index')
                     )
                     for chunk in chunks
                 ]
 
                 execute_values(cur, """
                     INSERT INTO document_chunks
-                    (id, document_id, chunk_index, chunk_text, char_start, char_end, word_count)
+                    (id, document_id, chunk_index, chunk_text, char_start, char_end,
+                     word_count, parent_chunk_id, child_index)
                     VALUES %s
                 """, chunk_data)
 
         return len(chunks)
+
+    # ==================== Parent Chunk Operations ====================
+
+    def save_parent_chunks(self, doc_id: str, parent_chunks) -> Dict[int, str]:
+        """
+        Save parent chunks to database
+
+        Args:
+            doc_id: Document UUID
+            parent_chunks: List of ParentChunk objects (from text_chunker)
+                Each has: text, parent_index, char_start, char_end, word_count, token_count
+
+        Returns:
+            Dict mapping parent_index -> parent_chunk_id (UUID string)
+        """
+        if not parent_chunks:
+            return {}
+
+        index_to_id = {}
+
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Delete existing parent chunks for this document
+                cur.execute("""
+                    DELETE FROM document_parent_chunks WHERE document_id = %s
+                """, (doc_id,))
+
+                # Prepare data for bulk insert
+                parent_data = [
+                    (
+                        doc_id,
+                        pc.parent_index,
+                        pc.text,
+                        pc.char_start,
+                        pc.char_end,
+                        pc.word_count,
+                        pc.token_count
+                    )
+                    for pc in parent_chunks
+                ]
+
+                # Insert and retrieve generated IDs
+                result = execute_values(cur, """
+                    INSERT INTO document_parent_chunks
+                    (document_id, parent_index, chunk_text, char_start, char_end,
+                     word_count, token_count)
+                    VALUES %s
+                    RETURNING parent_index, id
+                """, parent_data, fetch=True)
+
+                for row in result:
+                    index_to_id[row['parent_index']] = str(row['id'])
+
+        logger.info(f"Saved {len(parent_chunks)} parent chunks for document {doc_id}")
+        return index_to_id
+
+    def get_parent_chunks_by_ids(self, parent_chunk_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Batch lookup of parent chunks by their IDs
+
+        Args:
+            parent_chunk_ids: List of parent chunk UUID strings
+
+        Returns:
+            List of dicts with id, document_id, parent_index, chunk_text, word_count
+        """
+        if not parent_chunk_ids:
+            return []
+
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, document_id, parent_index, chunk_text, word_count
+                    FROM document_parent_chunks
+                    WHERE id = ANY(%s)
+                """, (parent_chunk_ids,))
+                return [dict(row) for row in cur.fetchall()]
 
     # ==================== Similarity Operations ====================
 

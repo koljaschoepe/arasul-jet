@@ -676,6 +676,17 @@ function ChatMulti() {
     });
   }, []);
 
+  const toggleQueryOpt = useCallback(index => {
+    setMessages(prevMessages => {
+      const updated = [...prevMessages];
+      updated[index] = {
+        ...updated[index],
+        queryOptCollapsed: !updated[index].queryOptCollapsed,
+      };
+      return updated;
+    });
+  }, []);
+
   // Unified send handler for both RAG and LLM modes
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -810,9 +821,34 @@ function ChatMulti() {
 
             const isCurrentChat = currentChatIdRef.current === targetChatId;
 
-            // RAG-specific: matched spaces and sources
+            // RAG-specific: matched spaces, query optimization, and sources
             if (isRAG && data.type === 'matched_spaces' && data.spaces) {
               if (isCurrentChat) setMatchedSpaces(data.spaces);
+            }
+
+            // RAG 3.0: Query optimization details (decompounding, multi-query, HyDE)
+            if (isRAG && data.type === 'query_optimization') {
+              if (isCurrentChat) {
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages];
+                  if (updated[assistantMessageIndex]) {
+                    updated[assistantMessageIndex] = {
+                      ...updated[assistantMessageIndex],
+                      queryOptimization: {
+                        duration: data.duration,
+                        decompoundEnabled: data.decompoundEnabled,
+                        decompoundResult: data.decompoundResult,
+                        multiQueryEnabled: data.multiQueryEnabled,
+                        multiQueryVariants: data.multiQueryVariants || [],
+                        hydeEnabled: data.hydeEnabled,
+                        hydeGenerated: data.hydeGenerated,
+                      },
+                      queryOptCollapsed: true,
+                    };
+                  }
+                  return updated;
+                });
+              }
             }
 
             if (isRAG && data.type === 'sources' && data.sources) {
@@ -985,6 +1021,7 @@ function ChatMulti() {
                 isLoading={isLoading}
                 onToggleThinking={toggleThinking}
                 onToggleSources={toggleSources}
+                onToggleQueryOpt={toggleQueryOpt}
               />
             ))}
             <div ref={messagesEndRef} />

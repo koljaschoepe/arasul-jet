@@ -55,6 +55,7 @@ volumes:
   arasul-logs:
   arasul-letsencrypt:
   arasul-loki:
+  arasul-bm25-index:
 
 services:
   # 1. PostgreSQL - Telemetry and Audit Database
@@ -170,7 +171,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${RAM_LIMIT_QDRANT:-4G}
+          memory: ${RAM_LIMIT_QDRANT:-6G}
 
   # 3. Metrics Collector
   metrics-collector:
@@ -287,6 +288,12 @@ services:
       SERVICE_URL: http://localhost:${EMBEDDING_SERVICE_PORT}
       VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE}
       MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS}
+      EMBEDDING_VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE:-1024}
+      EMBEDDING_MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS:-8192}
+      # RAG 3.0: Reranking support
+      ENABLE_RERANKING: "true"
+      FLASHRANK_MODEL: ms-marco-MiniLM-L-12-v2
+      BGE_RERANKER_MODEL: BAAI/bge-reranker-v2-m3
       # Jetson GPU activation (TORCH_CUDA_ARCH_LIST: 8.7=Orin, 7.2=Xavier, 5.3=Nano)
       CUDA_VISIBLE_DEVICES: 0
       TORCH_CUDA_ARCH_LIST: "${TORCH_CUDA_ARCH_LIST:-8.7}"
@@ -301,7 +308,7 @@ services:
       resources:
         limits:
           cpus: '${CPU_LIMIT_EMBEDDING}'
-          memory: ${RAM_LIMIT_EMBEDDING}
+          memory: ${RAM_LIMIT_EMBEDDING:-12G}
         reservations:
           devices:
             - driver: nvidia
@@ -369,6 +376,14 @@ services:
       DOCUMENT_INDEXER_SIMILARITY_THRESHOLD: ${DOCUMENT_INDEXER_SIMILARITY_THRESHOLD:-0.8}
       # CRITICAL-FIX: Maximum file size to prevent OOM (default 100MB)
       DOCUMENT_MAX_SIZE_MB: ${DOCUMENT_MAX_SIZE_MB:-100}
+      # RAG 3.0: Hierarchical chunking (parent/child) for better retrieval
+      DOCUMENT_INDEXER_PARENT_CHUNK_SIZE: ${DOCUMENT_INDEXER_PARENT_CHUNK_SIZE:-2000}
+      DOCUMENT_INDEXER_CHILD_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHILD_CHUNK_SIZE:-400}
+      DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP:-50}
+      # RAG 3.0: BM25 sparse index for hybrid search
+      BM25_INDEX_PATH: /data/bm25_index
+    volumes:
+      - arasul-bm25-index:/data/bm25_index
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -511,6 +526,12 @@ services:
       SYSTEM_VERSION: ${SYSTEM_VERSION}
       BUILD_HASH: ${BUILD_HASH}
       LOG_LEVEL: ${LOG_LEVEL}
+      # RAG 3.0: Advanced retrieval pipeline configuration
+      RAG_ENABLE_MULTI_QUERY: "true"
+      RAG_ENABLE_HYDE: "true"
+      RAG_ENABLE_DECOMPOUND: "true"
+      RAG_ENABLE_RERANKING: "true"
+      RAG_QUERY_OPTIMIZER_MODEL: ""
       ENV_FILE_PATH: /arasul/config/.env
       COMPOSE_PROJECT_DIR: /home/arasul/arasul/arasul-jet
     volumes:

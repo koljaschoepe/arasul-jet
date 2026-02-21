@@ -1,7 +1,7 @@
 """
 German compound word decomposition service.
-Uses CharSplit for splitting compound nouns like:
-  "Krankenversicherungsbeitrag" -> "Kranken versicherungs beitrag"
+Uses compound-split (CharSplit) for splitting compound nouns like:
+  "Krankenversicherungsbeitrag" -> "Krankenversicherungs Beitrag"
 
 Only processes words longer than 10 characters to avoid false positives.
 """
@@ -11,12 +11,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from charsplit import Splitter
-    _splitter = Splitter()
+    from compound_split import char_split
     CHARSPLIT_AVAILABLE = True
     logger.info("CharSplit loaded for German decompounding")
 except ImportError:
-    _splitter = None
+    char_split = None
     CHARSPLIT_AVAILABLE = False
     logger.warning("CharSplit not available - decompounding disabled")
 
@@ -31,21 +30,21 @@ def decompound_word(word: str) -> str:
     Returns:
         Space-separated components if compound, or original word
     """
-    if not CHARSPLIT_AVAILABLE or not _splitter:
+    if not CHARSPLIT_AVAILABLE or char_split is None:
         return word
 
     if len(word) <= 10:
         return word
 
     try:
-        # CharSplit returns list of (score, split) tuples
-        splits = _splitter.split_compound(word)
+        # char_split.split_compound returns list of (score, part1, part2) tuples
+        splits = char_split.split_compound(word)
         if splits:
             # Take the best split (highest score)
-            best_score, best_split = splits[0]
+            best_score, part1, part2 = splits[0]
             # Only use split if score is positive (confident split)
             if best_score > 0:
-                return best_split
+                return f"{part1} {part2}"
         return word
     except Exception:
         return word

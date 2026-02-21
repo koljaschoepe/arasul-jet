@@ -5,10 +5,11 @@
 minio==7.2.5
 
 # Vector Database
-qdrant-client==1.7.3
+qdrant-client>=1.11.0
 
 # Document Parsing
-PyPDF2==3.0.1
+PyMuPDF==1.24.0
+pdfplumber==0.11.0
 python-docx==1.1.0
 markdown==3.5.2
 PyYAML==6.0.1
@@ -29,3 +30,10 @@ flask-cors==4.0.0
 
 # Utilities
 python-magic==0.4.27
+
+# BM25 Search with German stemming
+bm25s==0.2.0
+PyStemmer==2.2.0.1
+
+# German decompounding
+compound-split>=1.0.1
