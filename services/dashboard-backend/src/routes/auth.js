@@ -301,19 +301,6 @@ router.get(
   })
 );
 
-// GET /api/auth/password-requirements
-router.get(
-  '/password-requirements',
-  asyncHandler(async (req, res) => {
-    const { PASSWORD_REQUIREMENTS } = require('../utils/password');
-
-    res.json({
-      requirements: PASSWORD_REQUIREMENTS,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
 // GET /api/auth/verify - Forward Auth endpoint for Traefik
 // Used to protect routes like n8n and Claude Code terminal
 // Note: This endpoint intentionally returns 401 (not thrown errors) because
