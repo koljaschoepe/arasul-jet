@@ -88,7 +88,7 @@ function ModelStore() {
     } catch (err) {
       if (signal?.aborted) return;
       console.error('[ModelStore] Error loading model data:', err);
-      setError(`Fehler beim Laden: ${err.message}`);
+      setError('Fehler beim Laden der Modell-Daten');
     } finally {
       setLoading(false);
     }
@@ -189,7 +189,7 @@ function ModelStore() {
       }
     } catch (err) {
       console.error('Activation error:', err);
-      setError(`Aktivierung fehlgeschlagen: ${err.message}`);
+      setError('Aktivierung fehlgeschlagen. Bitte versuche es erneut.');
     } finally {
       setActivating(null);
       setActivatingProgress('');
@@ -219,7 +219,7 @@ function ModelStore() {
       await loadData();
     } catch (err) {
       console.error('Delete error:', err);
-      setError(err.message);
+      setError('Fehler beim Löschen des Modells');
     }
   };
 
@@ -238,7 +238,7 @@ function ModelStore() {
       setDefaultModel(modelId);
     } catch (err) {
       console.error('Set default error:', err);
-      setError(err.message);
+      setError('Fehler beim Setzen des Standard-Modells');
     }
   };
 

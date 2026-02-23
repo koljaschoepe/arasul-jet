@@ -83,7 +83,8 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       toast.success('Befehl erstellt');
       setNewCommand(null);
     } catch (err) {
-      setError(err.message);
+      console.error('Befehl erstellen fehlgeschlagen:', err);
+      setError('Fehler beim Erstellen des Befehls');
     } finally {
       setSaving(false);
     }
@@ -124,7 +125,8 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       toast.success('Befehl gespeichert');
       setEditingCommand(null);
     } catch (err) {
-      setError(err.message);
+      console.error('Befehl speichern fehlgeschlagen:', err);
+      setError('Fehler beim Speichern des Befehls');
     } finally {
       setSaving(false);
     }
@@ -147,7 +149,8 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       onChange(commands.filter(c => c.id !== cmdId));
       toast.success('Befehl gelöscht');
     } catch (err) {
-      toast.error(err.message);
+      console.error('Befehl löschen fehlgeschlagen:', err);
+      toast.error('Fehler beim Löschen des Befehls');
     }
   };
 
@@ -169,7 +172,8 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       const data = await response.json();
       onChange(commands.map(c => (c.id === data.command.id ? data.command : c)));
     } catch (err) {
-      toast.error(err.message);
+      console.error('Befehl aktualisieren fehlgeschlagen:', err);
+      toast.error('Fehler beim Aktualisieren des Befehls');
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import EmptyState from './EmptyState';
+import { SkeletonDocumentList } from './Skeleton';
 import axios from 'axios';
 import {
   FiUpload,
@@ -920,10 +921,7 @@ function DocumentManager() {
       {/* Documents and Tables List */}
       <section className="dm-documents" aria-label="Datenliste">
         {(loading || loadingTables) && filteredItems.length === 0 ? (
-          <div className="dm-loading" role="status" aria-live="polite">
-            <FiRefreshCw className="spin" aria-hidden="true" />
-            <p>Daten werden geladen...</p>
-          </div>
+          <SkeletonDocumentList count={6} />
         ) : filteredItems.length === 0 ? (
           <EmptyState
             icon={<FiDatabase />}

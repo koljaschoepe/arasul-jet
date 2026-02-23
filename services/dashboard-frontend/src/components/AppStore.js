@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import EmptyState from './EmptyState';
+import { SkeletonCard } from './Skeleton';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -355,9 +356,12 @@ function AppStore() {
   if (loading) {
     return (
       <div className="appstore">
-        <div className="appstore-loading">
-          <FiRefreshCw className="spin" />
-          <span>Apps werden geladen...</span>
+        <div className="appstore-grid" role="status" aria-label="Apps werden geladen...">
+          {Array(6)
+            .fill(0)
+            .map((_, i) => (
+              <SkeletonCard key={i} hasAvatar={false} lines={3} />
+            ))}
         </div>
       </div>
     );

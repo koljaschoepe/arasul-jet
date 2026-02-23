@@ -61,7 +61,7 @@ function StoreHome({ systemInfo }) {
       setError(null);
     } catch (err) {
       console.error('Failed to load recommendations:', err);
-      setError(err.message);
+      setError('Fehler beim Laden der Empfehlungen');
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,7 @@ function StoreHome({ systemInfo }) {
       await loadRecommendations();
     } catch (err) {
       console.error(`App ${action} error:`, err);
-      toast.error(err.message);
+      toast.error('Aktion fehlgeschlagen. Bitte versuche es erneut.');
     } finally {
       setActionLoading(prev => ({ ...prev, [appId]: null }));
     }

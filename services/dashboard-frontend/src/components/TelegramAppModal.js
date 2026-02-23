@@ -57,8 +57,8 @@ function TelegramAppModal({ isOpen, onClose }) {
       setBots(botsData.bots || []);
       setAppStatus(statusData);
     } catch (err) {
-      setError(err.message);
       console.error('Error fetching telegram data:', err);
+      setError('Fehler beim Laden der Telegram-Daten');
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ function TelegramAppModal({ isOpen, onClose }) {
       toast.success(currentActive ? 'Bot deaktiviert' : 'Bot aktiviert');
     } catch (err) {
       console.error('Error toggling bot:', err);
-      toast.error(err.message);
+      toast.error('Fehler beim Umschalten des Bots');
     } finally {
       setTogglingBot(null);
     }
@@ -126,7 +126,7 @@ function TelegramAppModal({ isOpen, onClose }) {
       toast.success('Bot gelöscht');
     } catch (err) {
       console.error('Error deleting bot:', err);
-      toast.error(err.message);
+      toast.error('Fehler beim Löschen des Bots');
     } finally {
       setDeletingBot(null);
     }

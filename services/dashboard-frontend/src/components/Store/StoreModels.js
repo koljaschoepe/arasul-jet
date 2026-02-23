@@ -100,7 +100,7 @@ function StoreModels() {
     } catch (err) {
       if (signal?.aborted) return;
       console.error('[StoreModels] Error loading data:', err);
-      setError(`Fehler beim Laden: ${err.message}`);
+      setError('Fehler beim Laden der Modell-Daten');
     } finally {
       setLoading(false);
     }
@@ -192,7 +192,7 @@ function StoreModels() {
       }
     } catch (err) {
       console.error('Activation error:', err);
-      setError(`Aktivierung fehlgeschlagen: ${err.message}`);
+      setError('Aktivierung fehlgeschlagen. Bitte versuche es erneut.');
     } finally {
       setActivating(null);
       setActivatingProgress('');
@@ -217,7 +217,7 @@ function StoreModels() {
       await loadData();
     } catch (err) {
       console.error('Delete error:', err);
-      setError(err.message);
+      setError('Fehler beim Löschen des Modells');
     }
   };
 
@@ -236,7 +236,7 @@ function StoreModels() {
       setDefaultModel(modelId);
     } catch (err) {
       console.error('Set default error:', err);
-      setError(err.message);
+      setError('Fehler beim Setzen des Standard-Modells');
     }
   };
 

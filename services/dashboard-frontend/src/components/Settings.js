@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { SkeletonCard } from './Skeleton';
 import {
   FiSettings,
   FiUpload,
@@ -289,8 +290,8 @@ function CompanyContextSettings() {
       <div className="settings-section">
         <div className="settings-section-header">
           <h1 className="settings-section-title">Unternehmenskontext</h1>
-          <p className="settings-section-description">Lade...</p>
         </div>
+        <SkeletonCard hasAvatar={false} lines={4} />
       </div>
     );
   }
@@ -660,8 +661,9 @@ function ServicesSettings() {
       <div className="settings-section">
         <div className="settings-section-header">
           <h1 className="settings-section-title">Services</h1>
-          <p className="settings-section-description">Lade Dienste...</p>
         </div>
+        <SkeletonCard hasAvatar={false} lines={3} />
+        <SkeletonCard hasAvatar={false} lines={3} />
       </div>
     );
   }

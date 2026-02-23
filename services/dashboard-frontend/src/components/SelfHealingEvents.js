@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_BASE } from '../config/api';
+import { SkeletonList } from './Skeleton';
 import {
   FiRefreshCw,
   FiInfo,
@@ -127,10 +128,7 @@ const SelfHealingEvents = () => {
   if (loading) {
     return (
       <div className="self-healing-events">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>Loading events...</p>
-        </div>
+        <SkeletonList count={5} hasAvatar={false} />
       </div>
     );
   }

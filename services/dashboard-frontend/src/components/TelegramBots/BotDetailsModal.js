@@ -157,7 +157,8 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
       setFormData(prev => ({ ...prev, claudeApiKey: '', token: '' }));
       if (onUpdate) onUpdate(data.bot);
     } catch (err) {
-      setMessage({ type: 'error', text: err.message });
+      console.error('Bot-Einstellungen speichern fehlgeschlagen:', err);
+      setMessage({ type: 'error', text: 'Fehler beim Speichern der Einstellungen' });
     } finally {
       setSaving(false);
     }
@@ -183,7 +184,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
       setChats(prev => prev.filter(c => c.id !== chatRowId));
     } catch (err) {
       console.error('Error removing chat:', err);
-      toast.error(err.message);
+      toast.error('Fehler beim Entfernen des Chats');
     }
   };
 
