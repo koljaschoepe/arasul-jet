@@ -473,15 +473,17 @@
   white-space: nowrap;
 }
 
-/* Status Badge */
+/* Status Badge - matches type-badge style */
 .status-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.3rem 0.6rem;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 /* Document statuses */
@@ -514,25 +516,21 @@
 }
 
 .type-badge.type-table {
-  background: rgba(139, 92, 246, 0.15);
-  color: var(--purple-color, #8b5cf6);
+  background: var(--primary-alpha-10);
+  color: var(--primary-color);
 }
 
 .type-badge.type-table svg {
   font-size: 0.85em;
 }
 
-/* Table Row Styles */
+/* Table Row Styles - same as document rows */
 .table-row {
-  background: rgba(139, 92, 246, 0.03);
-}
-
-.table-row:hover {
-  background: rgba(139, 92, 246, 0.08) !important;
+  background: transparent;
 }
 
 .table-icon {
-  color: var(--purple-color, #8b5cf6) !important;
+  color: var(--primary-color) !important;
 }
 
 .table-icon-placeholder {
@@ -541,7 +539,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  color: var(--purple-color, #8b5cf6);
+  color: var(--primary-color);
   opacity: 0.6;
 }
 
