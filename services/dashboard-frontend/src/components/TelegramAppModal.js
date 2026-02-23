@@ -91,7 +91,7 @@ function TelegramAppModal({ isOpen, onClose }) {
       }
 
       setBots(prev =>
-        prev.map(bot => (bot.id === botId ? { ...bot, is_active: !currentActive } : bot))
+        prev.map(bot => (bot.id === botId ? { ...bot, isActive: !currentActive } : bot))
       );
       toast.success(currentActive ? 'Bot deaktiviert' : 'Bot aktiviert');
     } catch (err) {
@@ -235,12 +235,12 @@ function TelegramAppModal({ isOpen, onClose }) {
               ) : (
                 <div className="telegram-bots-grid">
                   {bots.map(bot => {
-                    const isActive = bot.isActive || bot.is_active;
-                    const provider = bot.llmProvider || bot.llm_provider || 'ollama';
-                    const model = bot.llmModel || bot.llm_model || '';
-                    const username = bot.username || bot.bot_username;
-                    const systemPrompt = bot.systemPrompt || bot.system_prompt || '';
-                    const chatCount = bot.chatCount || bot.chat_count || 0;
+                    const isActive = bot.isActive;
+                    const provider = bot.llmProvider || 'ollama';
+                    const model = bot.llmModel || '';
+                    const username = bot.username;
+                    const systemPrompt = bot.systemPrompt || '';
+                    const chatCount = bot.chatCount || 0;
                     const promptPreview =
                       systemPrompt.length > 80 ? systemPrompt.substring(0, 80) + '…' : systemPrompt;
 

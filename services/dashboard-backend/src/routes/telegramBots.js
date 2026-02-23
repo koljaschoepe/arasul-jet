@@ -37,6 +37,7 @@ const { ValidationError, NotFoundError } = require('../utils/errors');
 const telegramBotService = require('../services/telegramBotService');
 const telegramLLMService = require('../services/telegramLLMService');
 const telegramWebhookService = require('../services/telegramWebhookService');
+const telegramPollingManager = require('../services/telegramPollingManager');
 
 // ============================================================================
 // WEBHOOK ENDPOINT (No auth - called by Telegram)
@@ -231,18 +232,19 @@ router.post(
     const botDetails = await telegramBotService.getBotById(parseInt(req.params.id), req.user.id);
 
     if (botDetails) {
-      if (!botDetails.webhookSecret) {
-        logger.warn(`Bot ${bot.id} has no webhookSecret - skipping webhook setup`);
-      }
-      const fullWebhookUrl = `${process.env.PUBLIC_URL}/api/telegram-bots/webhook/${bot.id}/${botDetails.webhookSecret}`;
-
-      try {
-        // Only set webhook if PUBLIC_URL and webhookSecret are configured
-        if (process.env.PUBLIC_URL && botDetails.webhookSecret) {
+      if (process.env.PUBLIC_URL && botDetails.webhookSecret) {
+        // Use webhooks when PUBLIC_URL is available
+        const fullWebhookUrl = `${process.env.PUBLIC_URL}/api/telegram-bots/webhook/${bot.id}/${botDetails.webhookSecret}`;
+        try {
           await telegramWebhookService.setWebhook(bot.id, fullWebhookUrl);
+          logger.info(`Webhook set for bot ${bot.id}`);
+        } catch (webhookError) {
+          logger.warn('Could not set webhook, falling back to polling:', webhookError.message);
+          await telegramPollingManager.startPolling(bot.id);
         }
-      } catch (webhookError) {
-        logger.warn('Could not set webhook, bot will work without it:', webhookError.message);
+      } else {
+        // No PUBLIC_URL: use getUpdates polling
+        await telegramPollingManager.startPolling(bot.id);
       }
     }
 
@@ -256,7 +258,10 @@ router.post(
   asyncHandler(async (req, res) => {
     const bot = await telegramBotService.deactivateBot(parseInt(req.params.id), req.user.id);
 
-    // Delete webhook
+    // Stop polling if active
+    await telegramPollingManager.stopPolling(bot.id);
+
+    // Delete webhook if set
     try {
       await telegramWebhookService.deleteWebhook(bot.id);
     } catch (webhookError) {

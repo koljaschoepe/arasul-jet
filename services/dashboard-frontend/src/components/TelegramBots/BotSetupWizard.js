@@ -617,6 +617,19 @@ function BotSetupWizard({ onComplete, onCancel }) {
 
       const data = await response.json();
 
+      // Auto-activate the bot so it starts receiving messages
+      try {
+        const activateRes = await fetch(`${API_BASE}/telegram-bots/${data.bot.id}/activate`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+        });
+        if (activateRes.ok) {
+          data.bot.isActive = true;
+        }
+      } catch (activateErr) {
+        console.warn('[Wizard] Could not auto-activate bot:', activateErr);
+      }
+
       // Complete zero-config flow if we have a setup token
       if (setupToken && chatInfo) {
         try {

@@ -181,6 +181,7 @@ const alertEngine = require('./services/alertEngine');
 const ollamaReadiness = require('./services/ollamaReadiness');
 const dataDatabase = require('./dataDatabase');
 const telegramWebSocketService = require('./services/telegramWebSocketService');
+const telegramPollingManager = require('./services/telegramPollingManager');
 
 wss.on('connection', ws => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
@@ -263,6 +264,13 @@ if (require.main === module) {
       }
     } catch (err) {
       logger.warn(`Data Database initialization failed (non-critical): ${err.message}`);
+    }
+
+    // Initialize Telegram Polling Manager (getUpdates for bots when no PUBLIC_URL)
+    try {
+      await telegramPollingManager.initialize();
+    } catch (err) {
+      logger.error(`Failed to initialize Telegram Polling Manager: ${err.message}`);
     }
 
     // Initialize Ollama Readiness Service (handles waiting for Ollama + periodic sync)
