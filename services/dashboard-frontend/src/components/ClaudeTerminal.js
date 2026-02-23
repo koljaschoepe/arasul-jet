@@ -22,7 +22,7 @@ function ClaudeTerminal() {
   const toast = useToast();
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
   const [history, setHistory] = useState([]);
@@ -80,6 +80,7 @@ function ClaudeTerminal() {
       });
       if (res.ok) {
         setHistory([]);
+        toast.success('Verlauf gelöscht');
       }
     } catch (err) {
       toast.error('Verlauf konnte nicht gelöscht werden');
@@ -99,9 +100,9 @@ function ClaudeTerminal() {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!query.trim() || isLoading) return;
+    if (!query.trim() || actionLoading) return;
 
-    setIsLoading(true);
+    setActionLoading(true);
     setResponse('');
     setError(null);
     setStats(null);
@@ -119,7 +120,7 @@ function ClaudeTerminal() {
       if (!res.ok) {
         const errorData = await res.json();
         setError(errorData.error || 'Request failed');
-        setIsLoading(false);
+        setActionLoading(false);
         return;
       }
 
@@ -151,7 +152,7 @@ function ClaudeTerminal() {
               } else if (data.type === 'error') {
                 setError(data.message || data.error);
               } else if (data.done) {
-                setIsLoading(false);
+                setActionLoading(false);
                 loadHistory();
               }
             } catch (parseErr) {
@@ -163,7 +164,7 @@ function ClaudeTerminal() {
     } catch (err) {
       setError(err.message || 'Network error');
     } finally {
-      setIsLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -254,15 +255,15 @@ function ClaudeTerminal() {
                   onChange={e => setQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="z.B. 'Wie ist der aktuelle Systemstatus?' oder 'Zeige mir die letzten Fehler in den Logs'"
-                  disabled={isLoading || !isAvailable}
+                  disabled={actionLoading || !isAvailable}
                   rows={2}
                 />
                 <button
                   type="submit"
                   className="claude-terminal-send-btn"
-                  disabled={!query.trim() || isLoading || !isAvailable}
+                  disabled={!query.trim() || actionLoading || !isAvailable}
                 >
-                  {isLoading ? <FiRefreshCw className="spinning" /> : <FiSend />}
+                  {actionLoading ? <FiRefreshCw className="spinning" /> : <FiSend />}
                 </button>
               </div>
               <div className="claude-terminal-options">
@@ -286,13 +287,13 @@ function ClaudeTerminal() {
             )}
 
             {/* Response Display */}
-            {(response || isLoading) && (
+            {(response || actionLoading) && (
               <div className="claude-terminal-response-container">
                 <div className="claude-terminal-response-header">
                   <span className="claude-terminal-response-label">
-                    {isLoading ? 'Generiere Antwort...' : 'Antwort'}
+                    {actionLoading ? 'Generiere Antwort...' : 'Antwort'}
                   </span>
-                  {response && !isLoading && (
+                  {response && !actionLoading && (
                     <button
                       className="claude-terminal-copy-btn"
                       onClick={copyResponse}
@@ -304,9 +305,9 @@ function ClaudeTerminal() {
                 </div>
                 <div
                   ref={responseRef}
-                  className={`claude-terminal-response ${isLoading ? 'loading' : ''}`}
+                  className={`claude-terminal-response ${actionLoading ? 'loading' : ''}`}
                 >
-                  {response || (isLoading && <span className="claude-terminal-cursor">▊</span>)}
+                  {response || (actionLoading && <span className="claude-terminal-cursor">▊</span>)}
                 </div>
                 {stats && (
                   <div className="claude-terminal-stats">
@@ -423,7 +424,7 @@ function ClaudeTerminal() {
                     setQuery(example);
                     inputRef.current?.focus();
                   }}
-                  disabled={isLoading}
+                  disabled={actionLoading}
                 >
                   {example}
                 </button>

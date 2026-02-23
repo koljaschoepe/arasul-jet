@@ -8,7 +8,7 @@
     padding: clamp(1rem, 2vw, 1.5rem);
     max-width: 1600px;
     margin: 0 auto;
-    animation: fadeIn 0.4s ease;
+    animation: fadeIn var(--duration-slow) ease;
 }
 
 @keyframes fadeIn {
@@ -70,7 +70,7 @@
     justify-content: space-between;
     background: var(--primary-muted);
     border: 1px solid var(--primary-color);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 1rem 1.5rem;
     margin-bottom: 1.5rem;
     flex-wrap: wrap;
@@ -114,7 +114,7 @@
     gap: 0.5rem;
     background: var(--bg-card);
     padding: 0.5rem 0.75rem;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     color: var(--text-secondary);
     font-size: 0.875rem;
 }
@@ -125,7 +125,7 @@
     gap: 0.75rem;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 1rem 1.5rem;
     margin-bottom: 1.5rem;
     color: var(--text-muted);
@@ -143,7 +143,7 @@
     gap: 0.75rem;
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     padding: 0.875rem 1rem;
     margin-bottom: 1.5rem;
     color: var(--danger-light);
@@ -166,8 +166,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    transition: background 0.2s;
+    border-radius: var(--radius-xs);
+    transition: background var(--duration-normal);
 }
 
 .model-store-error button:hover {
@@ -185,10 +185,10 @@
 .model-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
     padding: 1.25rem;
     cursor: pointer;
-    transition: all 0.25s ease;
+    transition: all var(--duration-medium) ease;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -197,7 +197,7 @@
 .model-card:hover {
     border-color: var(--bg-elevated);
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-lg);
 }
 
 .model-card.active {
@@ -221,7 +221,7 @@
     width: 48px;
     height: 48px;
     background: var(--bg-elevated);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -248,7 +248,7 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.25rem 0.5rem;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-size: 0.75rem;
     font-weight: 500;
     white-space: nowrap;
@@ -334,7 +334,7 @@
     background: var(--bg-elevated);
     color: var(--text-secondary);
     padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     font-size: 0.75rem;
 }
 
@@ -346,7 +346,7 @@
 /* Download Progress - Improved */
 .download-progress {
     background: var(--bg-elevated);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     padding: 0.875rem;
     border: 1px solid var(--border-color);
 }
@@ -378,7 +378,7 @@
 .progress-bar {
     height: 8px;
     background: var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     overflow: hidden;
     margin-bottom: 0.5rem;
 }
@@ -386,8 +386,8 @@
 .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
-    border-radius: 4px;
-    transition: width 0.3s ease;
+    border-radius: var(--radius-xs);
+    transition: width var(--duration-medium) ease;
 }
 
 .progress-fill.pulsing {
@@ -442,12 +442,12 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 0.625rem 1rem;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     font-size: 0.875rem;
     font-weight: 500;
     border: none;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--duration-normal) ease;
 }
 
 .model-actions .btn-icon {
@@ -517,20 +517,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: var(--z-modal-backdrop);
     padding: 1rem;
-    animation: fadeIn 0.2s ease;
+    animation: fadeIn var(--duration-normal) ease;
 }
 
 .modal-content {
     background: var(--bg-modal);
     border: 1px solid var(--border-modal);
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
     max-width: 600px;
     width: 100%;
     max-height: 80vh;
     overflow-y: auto;
-    animation: slideIn 0.3s ease;
+    animation: slideIn var(--duration-medium) ease;
 }
 
 @keyframes slideIn {
@@ -567,8 +567,8 @@
     cursor: pointer;
     padding: 0.5rem;
     display: flex;
-    border-radius: 8px;
-    transition: all 0.2s;
+    border-radius: var(--radius-md);
+    transition: all var(--duration-normal);
 }
 
 .modal-close:hover {
@@ -621,7 +621,7 @@ code.detail-value {
     font-family: 'SF Mono', Monaco, monospace;
     background: var(--bg-elevated);
     padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     font-size: 0.875rem;
 }
 
@@ -712,7 +712,7 @@ code.detail-value {
 
 /* Light Mode - Loaded Model Banner */
 .light-mode .loaded-model-banner {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
   border-color: var(--primary-color);
 }
 
@@ -764,17 +764,17 @@ code.detail-value {
 .light-mode .model-card {
   background: var(--bg-card);
   border-color: var(--border-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .light-mode .model-card:hover {
   border-color: var(--border-input);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .light-mode .model-card.active {
   border-color: var(--primary-color);
-  background: rgba(33, 150, 243, 0.05);
+  background: rgba(69, 173, 255, 0.05);
 }
 
 .light-mode .model-card.installed {
@@ -830,7 +830,7 @@ code.detail-value {
 }
 
 .light-mode .capability-tag.recommended {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
   color: var(--primary-color);
 }
 
@@ -903,7 +903,7 @@ code.detail-value {
 }
 
 .light-mode .model-actions .btn-active {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
   color: var(--primary-color);
 }
 
@@ -915,7 +915,7 @@ code.detail-value {
 .light-mode .modal-content {
   background: var(--bg-card);
   border-color: var(--border-color);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-xl);
 }
 
 .light-mode .modal-header {

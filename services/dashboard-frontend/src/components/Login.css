@@ -19,16 +19,16 @@
 .login-box {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: clamp(2rem, 4vw, 3rem);
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 8px 32px var(--primary-alpha-10);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Light Mode - Login box shadow */
 .light-mode .login-box {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(33, 150, 243, 0.1);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(69, 173, 255, 0.1);
 }
 
 .login-header {
@@ -71,7 +71,7 @@
   padding: 0.875rem 1rem;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 1rem;
   transition: all 0.2s ease;
@@ -92,7 +92,7 @@
   border: 1px solid var(--danger-color, #EF4444);
   color: var(--danger-color, #EF4444);
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
   font-size: 0.9rem;
 }
@@ -100,8 +100,8 @@
 /* Light Mode - Better contrast for error */
 .light-mode .login-error {
   background: rgba(220, 38, 38, 0.08);
-  border-color: #DC2626;
-  color: #DC2626;
+  border-color: var(--status-critical);
+  color: var(--status-critical);
 }
 
 .login-button {
@@ -110,7 +110,7 @@
   background: var(--primary-color);
   color: var(--text-on-primary, #FFFFFF);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 1rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -122,16 +122,16 @@
 .login-button:hover:not(:disabled) {
   background: var(--primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--primary-alpha-30);
+  box-shadow: var(--shadow-md);
 }
 
 /* Light Mode - Button styling */
 .light-mode .login-button {
-  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.25);
+  box-shadow: var(--shadow-sm);
 }
 
 .light-mode .login-button:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.35);
+  box-shadow: var(--shadow-md);
 }
 
 .login-button:active:not(:disabled) {
@@ -245,7 +245,7 @@
   .login-box {
     padding: 2rem;
     max-width: 100%;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 
   .login-header {
@@ -277,7 +277,7 @@
   .form-group input {
     padding: 0.75rem 0.875rem;
     min-height: 48px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-size: 1rem;
   }
 
@@ -291,7 +291,7 @@
     padding: 0.875rem;
     min-height: 48px;
     font-size: 0.95rem;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
   }
 
   .login-footer {

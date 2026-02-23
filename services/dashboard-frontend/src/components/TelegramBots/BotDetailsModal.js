@@ -21,6 +21,7 @@ import {
 } from 'react-icons/fi';
 import { API_BASE, getAuthHeaders as getAuthHeadersBase } from '../../config/api';
 import { useToast } from '../../contexts/ToastContext';
+import Modal from '../Modal';
 import CommandsEditor from './CommandsEditor';
 
 const TABS = [
@@ -481,48 +482,46 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
   );
 
   return (
-    <div className="bot-details-modal-overlay" onClick={onClose}>
-      <div className="bot-details-modal" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="bot-details-header">
-          <div className="bot-details-title">
-            <FiMessageCircle className="bot-details-icon" />
-            <div>
-              <h2>{bot.name}</h2>
-              <span className="bot-details-username">@{username || 'nicht verbunden'}</span>
-            </div>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={
+        <div className="bot-details-title">
+          <FiMessageCircle className="bot-details-icon" />
+          <div>
+            <span>{bot.name}</span>
+            <span className="bot-details-username">@{username || 'nicht verbunden'}</span>
           </div>
-          <button className="bot-details-close" onClick={onClose}>
-            <FiX />
-          </button>
         </div>
-
-        {/* Tabs */}
-        <div className="bot-details-tabs">
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                className={`bot-details-tab ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <Icon />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Content */}
-        <div className="bot-details-content">
-          {activeTab === 'settings' && renderSettings()}
-          {activeTab === 'commands' && renderCommands()}
-          {activeTab === 'chats' && renderChats()}
-          {activeTab === 'advanced' && renderAdvanced()}
-        </div>
+      }
+      size="large"
+      className="bot-details-modal-wrapper"
+    >
+      {/* Tabs */}
+      <div className="bot-details-tabs">
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              className={`bot-details-tab ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <Icon />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
-    </div>
+
+      {/* Content */}
+      <div className="bot-details-content">
+        {activeTab === 'settings' && renderSettings()}
+        {activeTab === 'commands' && renderCommands()}
+        {activeTab === 'chats' && renderChats()}
+        {activeTab === 'advanced' && renderAdvanced()}
+      </div>
+    </Modal>
   );
 }
 

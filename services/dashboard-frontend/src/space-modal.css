@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 1rem;
   animation: fadeIn 0.2s ease;
 }
@@ -22,14 +22,14 @@
 .space-modal {
   background: var(--bg-modal);
   border: 1px solid var(--border-modal);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 550px;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-xl);
   animation: slideUp 0.3s ease;
 }
 
@@ -75,7 +75,7 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 0.5rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -100,7 +100,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 1rem;
@@ -153,7 +153,7 @@
   width: 100%;
   background: var(--bg-input);
   border: 2px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 0.95rem;
   padding: 0.75rem 1rem;
@@ -216,7 +216,7 @@
   height: 36px;
   background: var(--bg-input);
   border: 2px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
@@ -284,7 +284,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -300,12 +300,12 @@
   background: var(--gradient-primary);
   border: none;
   color: white;
-  box-shadow: 0 4px 12px var(--primary-alpha-20);
+  box-shadow: var(--shadow-md);
 }
 
 .space-btn.primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px var(--primary-alpha-30);
+  box-shadow: var(--shadow-lg);
 }
 
 .space-btn.secondary {

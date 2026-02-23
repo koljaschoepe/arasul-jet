@@ -58,7 +58,7 @@
 .chat-container.is-ready {
   opacity: 1;
   pointer-events: auto;
-  animation: chat-fade-in 0.2s var(--ease-enter, ease-out);
+  animation: chat-fade-in var(--duration-normal) var(--ease-enter, ease-out);
 }
 
 @keyframes chat-fade-in {
@@ -98,13 +98,13 @@
   min-width: 42px;
   background: transparent;
   border: 1px dashed var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   flex-shrink: 0;
 }
 
@@ -142,11 +142,11 @@
   padding: 10px 16px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   white-space: nowrap;
   flex-shrink: 0;
   max-width: 200px;
@@ -187,7 +187,7 @@
 .chat-tab .tab-title-input {
   background: var(--bg-dark);
   border: 1px solid var(--primary-color);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 2px 6px;
   font-size: 0.85rem;
   color: var(--text-primary);
@@ -207,13 +207,13 @@
   height: 24px;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.1s ease;
+  transition: all var(--duration-instant) ease;
   padding: 0;
 }
 
@@ -369,7 +369,7 @@
   line-height: 1.8;
   padding: 20px 24px;
   background: var(--bg-card);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 .message.user .message-body {
@@ -384,7 +384,7 @@
 .message-body code {
   background: var(--bg-dark);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.85em;
   color: var(--text-secondary);
@@ -393,7 +393,7 @@
 .message-body pre {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 14px 16px;
   margin: 12px 0;
   overflow-x: auto;
@@ -475,7 +475,7 @@
 }
 
 .light-mode .message-body table thead {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
 }
 
 .light-mode .message-body table tbody tr:nth-child(even) {
@@ -483,14 +483,14 @@
 }
 
 .light-mode .message-body table tbody tr:hover {
-  background: rgba(33, 150, 243, 0.05);
+  background: rgba(69, 173, 255, 0.05);
 }
 
 /* -------------------- Mermaid Diagrams -------------------- */
 .mermaid-container {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 16px;
   margin: 12px 0;
   overflow-x: auto;
@@ -505,7 +505,7 @@
   padding: 12px;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--error-color);
   font-size: 0.9rem;
 }
@@ -515,7 +515,7 @@
   margin-top: 8px;
   padding: 8px;
   background: var(--bg-dark);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.85rem;
   white-space: pre-wrap;
   color: var(--text-muted);
@@ -562,7 +562,7 @@
 
 /* -------------------- Thinking Block -------------------- */
 .thinking-block {
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -598,7 +598,7 @@
 
 /* Sources Block - displayed at the bottom of message */
 .sources-block {
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -614,7 +614,7 @@
   cursor: pointer;
   user-select: none;
   color: var(--text-muted);
-  transition: background 0.15s ease;
+  transition: background var(--duration-fast) ease;
   font-size: 0.9rem;
   /* Button reset for semantic HTML */
   width: 100%;
@@ -650,7 +650,7 @@
   padding: 10px 14px;
   background: var(--primary-alpha-5);
   border: 1px solid var(--primary-alpha-15);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin-top: 12px;
   font-size: 0.85rem;
 }
@@ -676,10 +676,10 @@
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-left-width: 3px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.8rem;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .matched-space-chip:hover {
@@ -691,7 +691,7 @@
   margin-left: 6px;
   padding: 1px 5px;
   background: var(--primary-alpha-15);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.7rem;
   color: var(--primary-color);
 }
@@ -713,7 +713,7 @@
 .source-item {
   padding: 14px 16px;
   background: var(--bg-card);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin-bottom: 10px;
   border-left: 3px solid var(--primary-color);
 }
@@ -762,14 +762,14 @@
   background: color-mix(in srgb, var(--primary-color) 15%, transparent);
   color: var(--primary-color);
   padding: 1px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin-left: 8px;
 }
 
 /* Query Optimization Details */
 .query-opt-block {
   margin-top: 10px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--bg-card) 70%, transparent);
   border: 1px solid var(--border-subtle);
   overflow: hidden;
@@ -790,7 +790,7 @@
   color: var(--text-muted);
   font-size: 0.85rem;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color var(--duration-fast);
 }
 
 .query-opt-header:hover {
@@ -849,7 +849,7 @@
   background: color-mix(in srgb, var(--success-color) 15%, transparent);
   color: var(--success-color);
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 /* -------------------- Scroll Button -------------------- */
@@ -867,8 +867,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all var(--duration-normal) ease;
+  box-shadow: var(--shadow-md);
 }
 
 .scroll-bottom-btn:hover {
@@ -914,7 +914,7 @@
   padding: 12px 16px;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.25);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 0.85rem;
   margin-bottom: 16px;
@@ -935,7 +935,7 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   display: flex;
 }
 
@@ -953,7 +953,7 @@
   padding: 10px 14px;
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 0.8rem;
 }
@@ -970,9 +970,9 @@
   gap: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: 14px 18px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color var(--duration-normal) ease, box-shadow var(--duration-normal) ease;
 }
 
 .input-box:focus-within {
@@ -989,12 +989,12 @@
   padding: 0 14px;
   background: var(--bg-dark);
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   flex-shrink: 0;
 }
 
@@ -1049,7 +1049,7 @@
 .input-toggle.model-toggle .dropdown-arrow {
   width: 14px;
   height: 14px;
-  transition: transform 0.2s ease;
+  transition: transform var(--duration-normal) ease;
 }
 
 .input-toggle.model-toggle .dropdown-arrow.open {
@@ -1070,11 +1070,11 @@
   max-width: 280px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
   z-index: 100;
-  animation: dropdownFadeIn 0.15s ease;
+  animation: dropdownFadeIn var(--duration-fast) ease;
 }
 
 @keyframes dropdownFadeIn {
@@ -1094,7 +1094,7 @@
   gap: 2px;
   padding: 10px 14px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--duration-fast) ease;
   border-bottom: 1px solid var(--border-color);
   position: relative; /* P4-003: For favorite indicator */
 }
@@ -1144,7 +1144,7 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: #F59E0B;
+  background: var(--warning-color, #F59E0B);
 }
 
 .favorite-btn {
@@ -1156,8 +1156,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s ease;
+  border-radius: var(--radius-xs);
+  transition: all var(--duration-fast) ease;
 }
 
 .favorite-btn:hover {
@@ -1166,7 +1166,7 @@
 }
 
 .favorite-btn.active svg {
-  fill: #F59E0B;
+  fill: var(--warning-color, #F59E0B);
 }
 
 .model-warning-icon {
@@ -1200,10 +1200,10 @@
   font-size: 0.65rem;
   background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   margin-left: 8px;
   flex-shrink: 0;
 }
@@ -1242,7 +1242,7 @@
 .input-toggle.space-toggle .dropdown-arrow {
   width: 14px;
   height: 14px;
-  transition: transform 0.2s ease;
+  transition: transform var(--duration-normal) ease;
 }
 
 .input-toggle.space-toggle .dropdown-arrow.open {
@@ -1265,10 +1265,10 @@
   overflow-y: auto;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   z-index: 100;
-  animation: dropdownFadeIn 0.15s ease;
+  animation: dropdownFadeIn var(--duration-fast) ease;
 }
 
 .space-dropdown-divider {
@@ -1283,7 +1283,7 @@
   gap: 8px;
   padding: 10px 14px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--duration-fast) ease;
 }
 
 .space-option:hover {
@@ -1333,7 +1333,7 @@
   color: var(--text-muted);
   background: var(--primary-alpha-10);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .space-option.auto-option {
@@ -1384,7 +1384,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   flex-shrink: 0;
 }
 
@@ -1593,7 +1593,7 @@
   .input-box {
     padding: 10px 14px;
     gap: 10px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 
   /* Touch-friendly toggle buttons - larger on mobile */
@@ -1601,7 +1601,7 @@
     height: 44px;
     min-height: 44px;
     padding: 0 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
   }
 
   .input-toggle svg {
@@ -1708,7 +1708,7 @@
   .message-body {
     padding: 12px 14px;
     font-size: 0.95rem;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 
   .welcome-text {
@@ -1852,7 +1852,7 @@
   .input-box {
     padding: 6px 10px;
     gap: 6px;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
   }
 
   .input-toggle {
@@ -1910,18 +1910,18 @@
 
 /* Light Mode - Messages */
 .light-mode .message.user .message-body {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
   border-left-color: var(--primary-color);
 }
 
 .light-mode .message-body {
   background: var(--bg-card);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Light Mode - Code blocks */
 .light-mode .message-body code {
-  background: rgba(33, 150, 243, 0.06);
+  background: rgba(69, 173, 255, 0.06);
   color: var(--text-secondary);
 }
 
@@ -1933,11 +1933,11 @@
 /* Light Mode - Input box */
 .light-mode .input-box {
   background: var(--bg-card);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
 }
 
 .light-mode .input-box:focus-within {
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.15);
+  box-shadow: 0 0 0 2px rgba(69, 173, 255, 0.15);
 }
 
 /* Light Mode - Toggle buttons */
@@ -1953,7 +1953,7 @@
 .light-mode .input-toggle.think-toggle.active,
 .light-mode .input-toggle.model-toggle.active,
 .light-mode .input-toggle.space-toggle.active {
-  background: rgba(33, 150, 243, 0.12);
+  background: rgba(69, 173, 255, 0.12);
   color: var(--primary-color);
 }
 
@@ -2000,7 +2000,7 @@
 }
 
 .light-mode .chat-tab .tab-action-btn.export:hover {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
   color: var(--primary-color);
 }
 
@@ -2008,7 +2008,7 @@
 .light-mode .model-dropdown,
 .light-mode .space-dropdown {
   background: var(--bg-card);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
 }
 
 .light-mode .model-option:hover,
@@ -2018,7 +2018,7 @@
 
 .light-mode .model-option.selected,
 .light-mode .space-option.selected {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
 }
 
 .light-mode .model-option.selected .model-option-name,
@@ -2083,7 +2083,7 @@
 /* Light Mode - Scroll button */
 .light-mode .scroll-bottom-btn {
   background: var(--bg-card);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .light-mode .scroll-bottom-btn:hover {

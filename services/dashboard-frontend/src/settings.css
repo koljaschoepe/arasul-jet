@@ -8,7 +8,7 @@
   grid-template-columns: 280px 1fr;
   gap: 0;
   height: calc(100vh - 4rem);
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn var(--duration-slow) ease;
 }
 
 /* ===================================
@@ -21,7 +21,7 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  animation: slideInLeft 0.3s ease;
+  animation: slideInLeft var(--duration-medium) ease;
 }
 
 .settings-sidebar-header {
@@ -69,10 +69,10 @@
   padding: 0.875rem 1rem;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
   position: relative;
   overflow: hidden;
@@ -88,7 +88,7 @@
   height: 60%;
   background: var(--gradient-primary);
   border-radius: 0 4px 4px 0;
-  transition: width 0.25s ease;
+  transition: width var(--duration-medium) ease;
 }
 
 .settings-nav-item:hover {
@@ -122,7 +122,7 @@
 .settings-nav-item-icon {
   font-size: 1.25rem;
   flex-shrink: 0;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .settings-nav-item:hover .settings-nav-item-icon,
@@ -148,7 +148,7 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.3;
-  transition: color 0.25s ease;
+  transition: color var(--duration-medium) ease;
 }
 
 .settings-nav-item:hover .settings-nav-item-description,
@@ -160,7 +160,7 @@
   font-size: 1rem;
   color: var(--text-muted);
   flex-shrink: 0;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
   opacity: 0;
 }
 
@@ -178,7 +178,7 @@
 .settings-content-area {
   background: var(--bg-app);
   overflow-y: auto;
-  animation: fadeIn 0.4s ease 0.1s both;
+  animation: fadeIn var(--duration-slow) ease 0.1s both;
 }
 
 .settings-content-wrapper {
@@ -191,7 +191,7 @@
    =================================== */
 
 .settings-section {
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn var(--duration-medium) ease;
 }
 
 .settings-section-header {
@@ -228,11 +228,11 @@
 .settings-card {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn var(--duration-slow) ease;
 }
 
 .settings-card:hover {
@@ -283,8 +283,8 @@
   padding: 1rem;
   background: var(--primary-alpha-5);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  transition: all 0.25s ease;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-medium) ease;
 }
 
 .settings-info-item:hover {
@@ -332,8 +332,8 @@
   padding: 1rem;
   background: var(--primary-alpha-5);
   border: 1px solid var(--primary-alpha-15);
-  border-radius: 8px;
-  transition: all 0.25s ease;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-medium) ease;
 }
 
 .settings-feature-item:hover {
@@ -378,7 +378,7 @@
    =================================== */
 
 .password-management {
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn var(--duration-medium) ease;
   background: transparent;
   border: none;
   padding: 0;
@@ -420,12 +420,12 @@
   padding: 1rem 1.5rem;
   background: var(--gradient-card);
   border: 2px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .service-button:hover {
@@ -484,11 +484,11 @@
   padding: 0.875rem 3rem 0.875rem 1rem;
   background: var(--bg-elevated);
   border: 2px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 0.95rem;
   font-family: monospace;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
   width: 100%;
 }
 
@@ -510,7 +510,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .toggle-password:hover {
@@ -525,7 +525,7 @@
 .password-requirements {
   background: var(--bg-elevated);
   border: 2px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1.25rem;
   margin-bottom: 1.5rem;
 }
@@ -549,7 +549,7 @@
   gap: 0.75rem;
   padding: 0.5rem 0;
   font-size: 0.875rem;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .password-requirements li svg {
@@ -571,11 +571,11 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 1.5rem;
-  animation: slideInDown 0.3s ease;
+  animation: slideInDown var(--duration-medium) ease;
 }
 
 .password-message svg {
@@ -601,12 +601,12 @@
   padding: 1rem 2rem;
   background: var(--gradient-primary);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-md);
 }
 
@@ -626,7 +626,7 @@
   padding: 0.875rem 1rem;
   background: rgba(245, 158, 11, 0.1);
   border: 2px solid rgba(245, 158, 11, 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   color: var(--warning-color);
   text-align: center;
@@ -638,7 +638,7 @@
   padding: 0.875rem 1rem;
   background: var(--primary-alpha-10);
   border: 2px solid var(--primary-alpha-30);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   color: var(--primary-color);
   text-align: center;
@@ -684,9 +684,9 @@
   padding: 0.625rem 1rem;
   background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
   flex-shrink: 0;
 }
 
@@ -708,10 +708,10 @@
   height: 24px;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   position: relative;
   flex-shrink: 0;
-  transition: all 0.3s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .theme-toggle-switch-settings .theme-toggle-track::after {
@@ -723,8 +723,8 @@
   background: var(--primary-color);
   top: 1px;
   left: 2px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Light mode: Knob nach rechts */
@@ -751,8 +751,8 @@
 }
 
 .light-mode .theme-toggle-switch-settings:hover {
-  background: rgba(33, 150, 243, 0.06);
-  border-color: rgba(33, 150, 243, 0.3);
+  background: rgba(69, 173, 255, 0.06);
+  border-color: rgba(69, 173, 255, 0.3);
 }
 
 .light-mode .theme-toggle-switch-settings .theme-toggle-label {
@@ -810,21 +810,21 @@
   border: 1px solid var(--danger-color);
   color: var(--danger-color);
   padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 1rem;
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .logout-button-settings:hover {
   background: var(--danger-color);
   color: white;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .logout-button-settings:active {
@@ -868,13 +868,13 @@
   padding: 1.25rem;
   background: var(--bg-elevated);
   border: 2px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.9rem;
   line-height: 1.7;
   resize: vertical;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .company-context-textarea:focus {
@@ -921,12 +921,12 @@
   padding: 0.75rem 1.5rem;
   background: var(--bg-elevated);
   border: 2px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: not-allowed;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .company-context-save-btn.has-changes {
@@ -952,11 +952,11 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 1rem;
-  animation: slideInDown 0.3s ease;
+  animation: slideInDown var(--duration-medium) ease;
 }
 
 .company-context-message svg {
@@ -991,7 +991,7 @@
   padding: 1rem;
   background: var(--primary-alpha-5);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .telegram-status-info {
@@ -1030,7 +1030,7 @@
   border: 2px solid var(--border-subtle);
   border-radius: 14px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--duration-medium) ease;
   padding: 0;
 }
 
@@ -1056,7 +1056,7 @@
   height: 20px;
   background: var(--text-muted);
   border-radius: 50%;
-  transition: all 0.3s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .telegram-toggle-btn.active .telegram-toggle-slider {
@@ -1094,11 +1094,11 @@
   padding: 0.875rem 1rem;
   background: var(--bg-elevated);
   border: 2px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 0.95rem;
   font-family: 'JetBrains Mono', monospace;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .telegram-form-group input:focus {
@@ -1145,7 +1145,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .telegram-toggle-visibility:hover {
@@ -1170,12 +1170,12 @@
   padding: 0.75rem 1.5rem;
   background: var(--bg-elevated);
   border: 2px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: not-allowed;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .telegram-save-btn.has-changes {
@@ -1203,12 +1203,12 @@
   padding: 0.75rem 1.5rem;
   background: transparent;
   border: 2px solid var(--primary-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--primary-color);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .telegram-test-btn:hover:not(:disabled) {
@@ -1232,11 +1232,11 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 1rem;
-  animation: slideInDown 0.3s ease;
+  animation: slideInDown var(--duration-medium) ease;
 }
 
 .telegram-message svg {
@@ -1678,7 +1678,7 @@
   }
 
   .settings-card {
-    border-radius: 10px;
+    border-radius: var(--radius-md);
   }
 
   .settings-card-header {
@@ -1747,7 +1747,7 @@
 
   .password-requirements {
     padding: 0.875rem;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
   }
 
   .password-requirements h4 {
@@ -1880,7 +1880,7 @@
 
 .light-mode .settings-sidebar-header {
   border-bottom-color: var(--border-color);
-  background: linear-gradient(180deg, rgba(33, 150, 243, 0.03) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(69, 173, 255, 0.03) 0%, transparent 100%);
 }
 
 /* Light Mode - Sidebar Icon: BLACK instead of blue */
@@ -1902,13 +1902,13 @@
 }
 
 .light-mode .settings-nav-item:hover {
-  background: rgba(33, 150, 243, 0.05);
-  border-color: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.05);
+  border-color: rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .settings-nav-item.active {
-  background: rgba(33, 150, 243, 0.08);
-  border-color: rgba(33, 150, 243, 0.2);
+  background: rgba(69, 173, 255, 0.08);
+  border-color: rgba(69, 173, 255, 0.2);
   color: var(--primary-color);
 }
 
@@ -1957,12 +1957,12 @@
 .light-mode .settings-card {
   background: var(--bg-card);
   border-color: var(--border-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .light-mode .settings-card:hover {
-  border-color: rgba(33, 150, 243, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: rgba(69, 173, 255, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .light-mode .settings-card-header {
@@ -1985,8 +1985,8 @@
 }
 
 .light-mode .settings-info-item:hover {
-  background: rgba(33, 150, 243, 0.05);
-  border-color: rgba(33, 150, 243, 0.2);
+  background: rgba(69, 173, 255, 0.05);
+  border-color: rgba(69, 173, 255, 0.2);
 }
 
 .light-mode .settings-info-label {
@@ -2008,12 +2008,12 @@
 }
 
 .light-mode .settings-feature-item:hover {
-  background: rgba(33, 150, 243, 0.05);
-  border-color: rgba(33, 150, 243, 0.2);
+  background: rgba(69, 173, 255, 0.05);
+  border-color: rgba(69, 173, 255, 0.2);
 }
 
 .light-mode .settings-feature-icon {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
   color: var(--primary-color);
 }
 
@@ -2043,7 +2043,7 @@
 
 .light-mode .service-button:hover {
   background: var(--bg-subtle);
-  border-color: rgba(33, 150, 243, 0.3);
+  border-color: rgba(69, 173, 255, 0.3);
   color: var(--text-primary);
 }
 
@@ -2071,7 +2071,7 @@
 .light-mode .password-input-wrapper input:focus {
   border-color: var(--primary-color);
   background: var(--bg-card);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .toggle-password {
@@ -2136,8 +2136,8 @@
 }
 
 .light-mode .info-text {
-  background: rgba(33, 150, 243, 0.08);
-  border-color: rgba(33, 150, 243, 0.3);
+  background: rgba(69, 173, 255, 0.08);
+  border-color: rgba(69, 173, 255, 0.3);
   color: var(--primary-color);
 }
 
@@ -2151,7 +2151,7 @@
 .light-mode .company-context-textarea:focus {
   border-color: var(--primary-color);
   background: var(--bg-card);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .company-context-textarea::placeholder {
@@ -2218,7 +2218,7 @@
 }
 
 .light-mode .telegram-toggle-btn:hover:not(:disabled) {
-  border-color: rgba(33, 150, 243, 0.3);
+  border-color: rgba(69, 173, 255, 0.3);
 }
 
 .light-mode .telegram-toggle-btn.active {
@@ -2252,7 +2252,7 @@
 .light-mode .telegram-form-group input:focus {
   border-color: var(--primary-color);
   background: var(--bg-card);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .telegram-form-group input::placeholder {
@@ -2294,7 +2294,7 @@
 }
 
 .light-mode .telegram-test-btn:hover:not(:disabled) {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
 }
 
 /* Light Mode - Telegram Message */

@@ -13,7 +13,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: var(--z-modal-backdrop);
     padding: 32px;
     padding-left: 48px;  /* Großzügiger Abstand zur Sidebar */
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);  /* Smooth transition */
@@ -34,14 +34,14 @@ body.sidebar-collapsed .markdown-editor-overlay {
 /* Container */
 .markdown-editor-container {
     background: var(--bg-terminal);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     width: 100%;
     max-width: min(1400px, calc(100% - 32px));  /* Immer mindestens 16px Abstand auf jeder Seite */
     height: 90vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-xl);
 }
 
 .fullscreen .markdown-editor-container {
@@ -92,7 +92,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
     gap: 4px;
     padding: 4px 8px;
     background: var(--bg-dark);
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
 }
 
 .toolbar-btn {
@@ -104,7 +104,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
     border: none;
     color: var(--text-muted);
     font-size: 13px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -281,7 +281,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 .preview-content code {
     background: var(--border-color);
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
     font-size: 0.9em;
     color: var(--warning-color);
@@ -290,7 +290,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 .preview-content pre {
     background: var(--bg-dark);
     padding: 16px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     overflow-x: auto;
     margin: 1em 0;
 }
@@ -327,7 +327,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 
 .preview-content img {
     max-width: 100%;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
 }
 
 .preview-content strong {
@@ -387,7 +387,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 .preview-content .mermaid-container {
     background: var(--bg-dark);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     padding: 16px;
     margin: 1em 0;
     overflow-x: auto;
@@ -402,7 +402,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
     padding: 12px;
     background: rgba(243, 139, 168, 0.15);
     border: 1px solid rgba(243, 139, 168, 0.3);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     color: var(--error-color);
     font-size: 0.9rem;
 }
@@ -412,7 +412,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
     margin-top: 8px;
     padding: 8px;
     background: var(--bg-dark);
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     font-size: 0.85rem;
     white-space: pre-wrap;
     color: var(--text-muted);
@@ -532,7 +532,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 /* Light Mode - Container */
 .light-mode .markdown-editor-container {
     background: var(--bg-card);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-xl);
 }
 
 /* Light Mode - Header */

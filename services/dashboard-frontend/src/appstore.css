@@ -7,7 +7,7 @@
   padding: clamp(1rem, 2vw, 1.5rem);
   max-width: 1600px;
   margin: 0 auto;
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn var(--duration-slow) ease;
 }
 
 /* Header */
@@ -45,13 +45,13 @@
   gap: 0.75rem;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.75rem 1rem;
   flex: 1;
   max-width: 400px;
   min-width: 200px;
   color: var(--text-muted);
-  transition: border-color 0.2s ease;
+  transition: border-color var(--duration-normal) ease;
 }
 
 .appstore-search:focus-within {
@@ -85,7 +85,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s ease;
+  transition: color var(--duration-normal) ease;
 }
 
 .search-clear:hover {
@@ -103,12 +103,12 @@
 .category-btn {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   padding: 0.5rem 1rem;
   color: var(--text-secondary);
   font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .category-btn:hover {
@@ -130,7 +130,7 @@
   gap: 0.75rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1rem;
   margin-bottom: 1.5rem;
   color: var(--text-secondary);
@@ -144,11 +144,11 @@
   margin-left: auto;
   background: var(--bg-elevated);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 0.5rem 1rem;
   color: var(--text-primary);
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background var(--duration-normal) ease;
 }
 
 .appstore-error button:hover {
@@ -199,13 +199,13 @@
 .app-card {
   background: var(--gradient-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--duration-medium) ease;
 }
 
 .app-card:hover {
@@ -224,7 +224,7 @@
   width: 48px;
   height: 48px;
   background: var(--primary-muted);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -243,10 +243,11 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.7rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .badge-system {
@@ -311,7 +312,7 @@
 .app-version {
   background: var(--bg-elevated);
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-secondary);
 }
 
@@ -335,7 +336,7 @@
   color: var(--text-secondary);
   background: var(--bg-elevated);
   padding: 0.5rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin-top: 0.5rem;
 }
 
@@ -350,12 +351,12 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
   text-decoration: none;
 }
 
@@ -428,9 +429,9 @@
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
   font-size: 0.9rem;
 }
 
@@ -477,9 +478,9 @@
   gap: 0.5rem;
   padding: 0.4rem 0.5rem;
   background: var(--bg-elevated);
-  border-radius: 6px;
-  animation: popupAppear 0.15s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+  animation: popupAppear var(--duration-fast) ease;
+  box-shadow: var(--shadow-md);
   white-space: nowrap;
 }
 
@@ -518,10 +519,10 @@
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   font-size: 0.85rem;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
 }
 
 .confirm-yes {
@@ -579,21 +580,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 1rem;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn var(--duration-normal) ease;
 }
 
 .modal-content {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 700px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.3s ease;
+  animation: slideUp var(--duration-medium) ease;
 }
 
 @keyframes slideUp {
@@ -629,7 +630,7 @@
   width: 64px;
   height: 64px;
   background: var(--primary-muted);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -656,7 +657,7 @@
   color: var(--text-muted);
   background: var(--bg-elevated);
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .modal-close {
@@ -669,7 +670,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s ease;
+  transition: color var(--duration-normal) ease;
 }
 
 .modal-close:hover {
@@ -696,7 +697,7 @@
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .tab:hover {
@@ -716,7 +717,7 @@
 }
 
 .tab-content {
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn var(--duration-medium) ease;
 }
 
 /* Info Tab */
@@ -738,7 +739,7 @@
   gap: 0.75rem;
   padding: 0.75rem;
   background: var(--bg-elevated);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .info-item svg {
@@ -778,7 +779,7 @@
   padding: 1rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin-top: 1.5rem;
   color: var(--text-secondary);
 }
@@ -821,7 +822,7 @@
 .logs-content {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 1rem;
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 0.75rem;
@@ -846,7 +847,7 @@
   gap: 1rem;
   padding: 0.75rem;
   background: var(--bg-elevated);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.85rem;
 }
 
@@ -860,7 +861,7 @@
   text-transform: uppercase;
   font-size: 0.7rem;
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   text-align: center;
 }
 
@@ -1054,7 +1055,7 @@
 
 .n8n-section {
   background: var(--bg-elevated);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1.25rem;
 }
 
@@ -1094,7 +1095,7 @@
 .credential-item {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.875rem;
 }
 
@@ -1140,14 +1141,14 @@
 .copy-btn {
   background: var(--border-color);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 0.4rem;
   color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
   flex-shrink: 0;
 }
 
@@ -1167,7 +1168,7 @@
   gap: 0.75rem;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 1rem;
 }
 
@@ -1206,7 +1207,7 @@
 .private-key-box {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 1rem;
   position: relative;
 }
@@ -1281,7 +1282,7 @@
   padding: 0.75rem;
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--warning-color) !important;
   font-size: 0.9rem;
 }
@@ -1363,7 +1364,7 @@
 
 .light-mode .appstore-search:focus-within {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .appstore-search svg {
@@ -1401,12 +1402,12 @@
 .light-mode .app-card {
   background: var(--bg-card);
   border-color: var(--border-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .light-mode .app-card:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 /* Light Mode - App Icon: Subtler in light mode */
@@ -1526,7 +1527,7 @@
 .light-mode .confirm-popup {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
 }
 
 .light-mode .confirm-popup-danger {
@@ -1559,7 +1560,7 @@
 .light-mode .modal-content {
   background: var(--bg-card);
   border-color: var(--border-color);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-xl);
 }
 
 .light-mode .modal-header {
@@ -1670,7 +1671,7 @@
 .light-mode .event-install_start,
 .light-mode .event-install_complete,
 .light-mode .event-start {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
   color: var(--primary-color);
 }
 

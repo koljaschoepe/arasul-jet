@@ -24,7 +24,7 @@
 .dm-stat-card {
   background: var(--gradient-card);
   border: 1px solid var(--border-input);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1rem 1.25rem;
   display: flex;
   align-items: center;
@@ -62,11 +62,11 @@
 .dm-upload-zone {
   background: var(--bg-dropzone);
   border: 2px dashed var(--border-dropzone);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 2rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
   margin-bottom: 1.5rem;
 }
 
@@ -116,7 +116,7 @@
   border-radius: 3px;
   width: 0%;
   max-width: 200px;
-  transition: width 0.3s ease;
+  transition: width var(--duration-medium) ease;
 }
 
 .upload-progress span {
@@ -128,7 +128,7 @@
 .dm-error {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
@@ -163,7 +163,7 @@
   align-items: center;
   background: var(--gradient-card);
   border: 1px solid var(--border-input);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.5rem 1rem;
   gap: 0.75rem;
 }
@@ -193,7 +193,7 @@
 .search-btn {
   background: var(--gradient-primary);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: white;
   padding: 0.5rem 1rem;
   cursor: pointer;
@@ -201,12 +201,12 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.9rem;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .search-btn:hover:not(:disabled) {
   transform: scale(1.02);
-  box-shadow: 0 4px 12px var(--border-glow);
+  box-shadow: var(--shadow-md);
 }
 
 .search-btn:disabled {
@@ -218,7 +218,7 @@
 .search-results {
   background: var(--gradient-card);
   border: 1px solid var(--border-input);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin-top: 1rem;
   overflow: hidden;
 }
@@ -274,7 +274,7 @@
   background: var(--primary-muted);
   color: var(--primary-color);
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.8rem;
 }
 
@@ -306,7 +306,7 @@
   align-items: center;
   background: var(--gradient-card);
   border: 1px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.5rem 0.75rem;
   gap: 0.5rem;
   flex: 1;
@@ -344,11 +344,11 @@
 .refresh-btn {
   background: var(--gradient-card);
   border: 1px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--primary-color);
   padding: 0.5rem 0.75rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .refresh-btn:hover {
@@ -359,7 +359,7 @@
 .dm-documents {
   background: var(--gradient-card);
   border: 1px solid var(--border-input);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -405,7 +405,7 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 0.25rem;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .favorite-btn:hover,
@@ -420,7 +420,7 @@
 /* Clickable row styles */
 .dm-table tr.clickable-row {
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
 }
 
 .dm-table tr.clickable-row:hover {
@@ -473,17 +473,17 @@
   white-space: nowrap;
 }
 
-/* Status Badge - matches type-badge style */
+/* Status Badge - compact variant for table rows */
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.05em;
 }
 
 /* Document statuses */
@@ -503,7 +503,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.3rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -554,7 +554,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.3rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.8rem;
   background: rgba(107, 114, 128, 0.1);
   color: var(--cat-color);
@@ -572,8 +572,8 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 0.35rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-xs);
+  transition: all var(--duration-normal) ease;
   margin-right: 0.25rem;
 }
 
@@ -619,20 +619,50 @@
 /* Pagination */
 .dm-pagination {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   gap: 1rem;
   margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.dm-pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dm-pagination-size label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.dm-pagination-size select {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 0.375rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.dm-pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .dm-pagination button {
   background: var(--gradient-card);
   border: 1px solid var(--border-input);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--primary-color);
   padding: 0.5rem 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  transition: all var(--duration-normal) ease;
 }
 
 .dm-pagination button:hover:not(:disabled) {
@@ -647,6 +677,14 @@
 .dm-pagination span {
   color: var(--text-muted);
   font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .dm-pagination {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
 }
 
 /* Modal */
@@ -660,14 +698,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 1rem;
 }
 
 .dm-modal {
   background: var(--gradient-card);
   border: 1px solid var(--border-modal);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
@@ -756,7 +794,7 @@
   margin: 0;
   background: var(--bg-code);
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border-left: 3px solid var(--primary-color);
 }
 
@@ -770,7 +808,7 @@
   background: var(--primary-muted);
   color: var(--primary-color);
   padding: 0.3rem 0.6rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.85rem;
 }
 
@@ -797,7 +835,7 @@
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
   background: var(--bg-code);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .similar-item svg {
@@ -816,7 +854,7 @@
   background: var(--primary-muted);
   color: var(--primary-color);
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.8rem;
 }
 
@@ -835,7 +873,7 @@
 .error-section {
   background: rgba(239, 68, 68, 0.05);
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
@@ -853,10 +891,10 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   color: var(--danger-light);
   padding: 0.5rem 1rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.9rem;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .retry-btn:hover {
@@ -876,10 +914,10 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .modal-btn.secondary {
@@ -952,12 +990,12 @@
   padding: 0.6rem 1rem;
   background: var(--gradient-card);
   border: 1px solid var(--border-input);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
   white-space: nowrap;
   flex-shrink: 0;
   position: relative;
@@ -990,7 +1028,7 @@
   background: var(--primary-muted);
   color: var(--primary-color);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -1003,8 +1041,8 @@
   cursor: pointer;
   padding: 0.2rem;
   margin-left: 0.25rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-xs);
+  transition: all var(--duration-normal) ease;
 }
 
 .space-tab:hover .space-edit-btn {
@@ -1020,7 +1058,7 @@
 .dm-space-info {
   background: var(--bg-elevated);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
 }
@@ -1045,7 +1083,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.3rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.8rem;
   background: var(--primary-muted);
   color: var(--space-color, var(--primary-color));
@@ -1061,7 +1099,7 @@
 
 .space-badge-btn {
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
 }
 
 .space-badge-btn:hover {
@@ -1071,7 +1109,7 @@
 
 .space-badge-arrow {
   font-size: 0.65rem;
-  transition: transform 0.15s ease;
+  transition: transform var(--duration-fast) ease;
   margin-left: 0.1rem;
 }
 
@@ -1089,8 +1127,8 @@
   overflow-y: auto;
   background: var(--bg-card, #1a2330);
   border: 1px solid var(--border-input, #2A3544);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
   z-index: 50;
   padding: 0.25rem;
 }
@@ -1106,8 +1144,8 @@
   color: var(--text-primary, #f8fafc);
   font-size: 0.8rem;
   cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.1s ease;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-instant) ease;
   text-align: left;
 }
 
@@ -1276,22 +1314,22 @@
 .light-mode .filter-group,
 .light-mode .semantic-search-input {
   background: var(--bg-card);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Light Mode - Upload zone */
 .light-mode .dm-upload-zone {
-  background: rgba(33, 150, 243, 0.03);
-  border-color: rgba(33, 150, 243, 0.25);
+  background: rgba(69, 173, 255, 0.03);
+  border-color: rgba(69, 173, 255, 0.25);
 }
 
 .light-mode .dm-upload-zone:hover {
-  background: rgba(33, 150, 243, 0.06);
-  border-color: rgba(33, 150, 243, 0.4);
+  background: rgba(69, 173, 255, 0.06);
+  border-color: rgba(69, 173, 255, 0.4);
 }
 
 .light-mode .dm-upload-zone.drag-active {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
   border-color: var(--primary-color);
 }
 
@@ -1327,11 +1365,11 @@
 
 /* Light Mode - Table */
 .light-mode .dm-table th {
-  background: rgba(33, 150, 243, 0.04);
+  background: rgba(69, 173, 255, 0.04);
 }
 
 .light-mode .dm-table tr:hover {
-  background: rgba(33, 150, 243, 0.03);
+  background: rgba(69, 173, 255, 0.03);
 }
 
 .light-mode .dm-table tr.favorite {
@@ -1340,7 +1378,7 @@
 
 /* Light Mode - Action buttons */
 .light-mode .action-btn:hover {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .action-btn.delete:hover {
@@ -1361,8 +1399,8 @@
 
 /* Light Mode - Status badges */
 .light-mode .status-pending { background: rgba(217, 119, 6, 0.1); color: var(--warning-color); }
-.light-mode .status-processing { background: rgba(33, 150, 243, 0.1); color: var(--primary-color); }
-.light-mode .status-indexed { background: rgba(33, 150, 243, 0.1); color: var(--primary-color); }
+.light-mode .status-processing { background: rgba(69, 173, 255, 0.1); color: var(--primary-color); }
+.light-mode .status-indexed { background: rgba(69, 173, 255, 0.1); color: var(--primary-color); }
 .light-mode .status-failed { background: rgba(220, 38, 38, 0.1); color: var(--danger-color); }
 .light-mode .status-active { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
 .light-mode .status-draft { background: rgba(217, 119, 6, 0.1); color: var(--warning-color); }
@@ -1372,7 +1410,7 @@
 .light-mode .space-badge-dropdown {
   background: var(--bg-card);
   border-color: var(--border-input);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
 }
 
 .light-mode .space-dropdown-item {
@@ -1380,11 +1418,11 @@
 }
 
 .light-mode .space-dropdown-item:hover {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
 }
 
 .light-mode .space-dropdown-item.active {
-  background: rgba(33, 150, 243, 0.12);
+  background: rgba(69, 173, 255, 0.12);
 }
 
 /* Light Mode - Space tabs */
@@ -1397,18 +1435,18 @@
 }
 
 .light-mode .space-tab.active {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
 }
 
 /* Light Mode - Summary text */
 .light-mode .summary-text {
-  background: rgba(33, 150, 243, 0.04);
+  background: rgba(69, 173, 255, 0.04);
   border-left-color: var(--primary-color);
 }
 
 /* Light Mode - Similar items */
 .light-mode .similar-item {
-  background: rgba(33, 150, 243, 0.04);
+  background: rgba(69, 173, 255, 0.04);
 }
 
 /* ============================================
@@ -1422,19 +1460,19 @@
   gap: 0.5rem;
   padding: 0.625rem 1rem;
   background: var(--primary-color, #45ADFF);
-  color: #000;
+  color: var(--text-on-primary);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .dm-create-btn:hover {
   background: var(--primary-hover, #6EC4FF);
   transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px var(--primary-alpha-10);
+  box-shadow: var(--shadow-md);
 }
 
 .dm-create-btn:active {
@@ -1480,7 +1518,7 @@
   height: 56px;
   margin: 0 auto 0.5rem auto;
   background: var(--primary-alpha-15);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   color: var(--primary-color, #45ADFF);
   font-size: 1.5rem;
 }
@@ -1508,8 +1546,8 @@
   color: var(--text-primary, #F8FAFC);
   background: var(--bg-dark, #101923);
   border: 1px solid var(--border-color, #2A3544);
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-normal) ease;
 }
 
 .yaml-form-group input::placeholder,
@@ -1560,7 +1598,7 @@
   padding: 0.75rem 1rem;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: #EF4444;
   font-size: 0.875rem;
 }
@@ -1576,7 +1614,7 @@
 
 /* Light Mode adjustments */
 .light-mode .dm-create-btn {
-  color: #000;
+  color: var(--text-on-primary);
 }
 
 .light-mode .dm-create-btn-secondary {

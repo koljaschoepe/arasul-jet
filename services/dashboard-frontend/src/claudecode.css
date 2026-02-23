@@ -12,7 +12,7 @@
   max-width: 1600px;
   margin: 0 auto;
   background: var(--bg-dark);
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn var(--duration-slow) ease;
 }
 
 .claude-code-page.fullscreen {
@@ -22,7 +22,7 @@
   right: 0;
   bottom: 0;
   height: 100vh;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 0;
 }
 
@@ -72,7 +72,7 @@
 /* Status Badge */
 .claude-status-badge {
   padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-full, 9999px);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -123,14 +123,14 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 500;
   border: 1px solid var(--border-color);
   background: var(--bg-card);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .claude-btn:hover:not(:disabled) {
@@ -160,7 +160,7 @@
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
   border-color: transparent;
   color: white;
-  box-shadow: 0 4px 12px var(--primary-alpha-30);
+  box-shadow: var(--shadow-md);
 }
 
 .claude-btn-secondary {
@@ -194,7 +194,7 @@
   padding: 0.75rem 1rem;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--danger-color);
   margin-bottom: 1rem;
   flex-shrink: 0;
@@ -217,8 +217,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: background 0.2s;
+  border-radius: var(--radius-xs);
+  transition: background var(--duration-normal);
 }
 
 .claude-error-banner button:hover {
@@ -229,11 +229,11 @@
 .claude-code-settings {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   margin-bottom: 1rem;
   flex-shrink: 0;
-  animation: slideDown 0.3s ease;
+  animation: slideDown var(--duration-medium) ease;
 }
 
 @keyframes slideDown {
@@ -292,10 +292,10 @@
   padding: 0.75rem 1rem;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 0.875rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
 }
 
 .setting-input:focus,
@@ -329,7 +329,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }
@@ -368,7 +368,7 @@
   flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   min-height: 400px;
 }
@@ -613,8 +613,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
-  animation: fadeIn 0.2s ease;
+  z-index: var(--z-notification);
+  animation: fadeIn var(--duration-normal) ease;
   padding: 1rem;
 }
 
@@ -624,11 +624,11 @@
   max-height: 90vh;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-xl);
 }
 
 .workspace-manager-header {
@@ -659,11 +659,11 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 0.5rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all var(--duration-normal);
 }
 
 .workspace-manager-header .close-btn:hover {
@@ -690,7 +690,7 @@
   cursor: pointer;
   padding: 0.25rem;
   display: flex;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .workspace-error button:hover {
@@ -713,8 +713,8 @@
   padding: 1rem;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  transition: all 0.2s;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-normal);
 }
 
 .workspace-item:hover {
@@ -751,7 +751,7 @@
   padding: 0.125rem 0.5rem;
   background: rgba(148, 163, 184, 0.2);
   color: var(--text-muted);
-  border-radius: 9999px;
+  border-radius: var(--radius-full, 9999px);
   font-weight: 500;
   text-transform: uppercase;
 }
@@ -765,7 +765,7 @@
   color: var(--text-secondary);
   background: var(--primary-alpha-10);
   padding: 0.125rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .workspace-item-desc {
@@ -786,11 +786,11 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 0.5rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all var(--duration-normal);
 }
 
 .ws-action-btn:hover {
@@ -815,11 +815,11 @@
   width: calc(100% - 3rem);
   background: transparent;
   border: 2px dashed var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: 0.9rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-normal);
 }
 
 .workspace-add-btn:hover {
@@ -831,7 +831,7 @@
 .workspace-create-form {
   padding: 1rem 1.5rem 1.5rem;
   border-top: 1px solid var(--border-color);
-  animation: slideDown 0.2s ease;
+  animation: slideDown var(--duration-normal) ease;
 }
 
 .workspace-create-form h3 {
@@ -858,10 +858,10 @@
   padding: 0.75rem 1rem;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 0.875rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
 }
 
 .workspace-create-form .form-group input:focus {
@@ -894,11 +894,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-normal);
 }
 
 .workspace-create-form .btn-cancel {
@@ -920,7 +920,7 @@
 
 .workspace-create-form .btn-create:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
-  box-shadow: 0 4px 12px var(--primary-alpha-30);
+  box-shadow: var(--shadow-md);
 }
 
 .workspace-create-form .btn-create:disabled {
@@ -965,11 +965,11 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all var(--duration-normal);
 }
 
 .workspace-manage-btn:hover {
@@ -989,11 +989,11 @@
   margin-top: 0.5rem;
   background: transparent;
   border: 1px dashed var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-normal);
 }
 
 .workspace-manage-link:hover {
@@ -1019,7 +1019,7 @@
 @media (max-width: 640px) {
   .workspace-manager-modal {
     max-height: 95vh;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 
   .workspace-manager-header {
@@ -1079,7 +1079,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.85rem;
   font-weight: 500;
 }
@@ -1107,7 +1107,7 @@
   gap: 0.25rem;
   padding: 0.2rem 0.5rem;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.75rem;
   margin-left: 0.25rem;
 }
@@ -1127,10 +1127,10 @@
   margin-left: 0.5rem;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .auth-refresh-btn:hover:not(:disabled) {
@@ -1153,7 +1153,7 @@
   margin-bottom: 1.5rem;
   padding: 1rem;
   background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
 }
 
@@ -1270,20 +1270,20 @@
 
 .light-mode .claude-btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
-  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.35);
+  box-shadow: var(--shadow-md);
 }
 
 .light-mode .claude-btn-active {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
   border-color: var(--primary-color);
   color: var(--primary-color);
 }
 
 /* Light Mode - Status badges */
 .light-mode .claude-status-badge.status-running {
-  background: rgba(33, 150, 243, 0.12);
+  background: rgba(69, 173, 255, 0.12);
   color: var(--primary-color);
-  border-color: rgba(33, 150, 243, 0.25);
+  border-color: rgba(69, 173, 255, 0.25);
 }
 
 .light-mode .claude-status-badge.status-stopped {
@@ -1293,9 +1293,9 @@
 }
 
 .light-mode .claude-status-badge.status-installed {
-  background: rgba(33, 150, 243, 0.12);
+  background: rgba(69, 173, 255, 0.12);
   color: var(--primary-color);
-  border-color: rgba(33, 150, 243, 0.25);
+  border-color: rgba(69, 173, 255, 0.25);
 }
 
 .light-mode .claude-status-badge.status-installing {
@@ -1334,7 +1334,7 @@
 .light-mode .setting-input:focus,
 .light-mode .setting-select:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .setting-select option {
@@ -1347,8 +1347,8 @@
 
 /* Light Mode - Save message */
 .light-mode .save-message.success {
-  background: rgba(33, 150, 243, 0.08);
-  border-color: rgba(33, 150, 243, 0.2);
+  background: rgba(69, 173, 255, 0.08);
+  border-color: rgba(69, 173, 255, 0.2);
   color: var(--primary-color);
 }
 
@@ -1380,7 +1380,7 @@
 
 /* Light Mode - Placeholder state */
 .light-mode .terminal-placeholder .placeholder-icon {
-  background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(69, 173, 255, 0.1) 0%, rgba(69, 173, 255, 0.05) 100%);
 }
 
 .light-mode .terminal-placeholder .placeholder-icon svg {
@@ -1397,7 +1397,7 @@
 .light-mode .setup-wizard-container {
   background: var(--bg-card);
   border-color: var(--border-color);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-xl);
 }
 
 .light-mode .setup-progress {
@@ -1419,11 +1419,11 @@
 }
 
 .light-mode .setup-progress-step.current {
-  box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
+  box-shadow: 0 0 0 4px rgba(69, 173, 255, 0.2);
 }
 
 .light-mode .setup-icon {
-  background: linear-gradient(135deg, rgba(33, 150, 243, 0.12) 0%, rgba(33, 150, 243, 0.04) 100%);
+  background: linear-gradient(135deg, rgba(69, 173, 255, 0.12) 0%, rgba(69, 173, 255, 0.04) 100%);
 }
 
 .light-mode .setup-icon svg {
@@ -1437,7 +1437,7 @@
 
 .light-mode .setup-input:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.12);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.12);
 }
 
 .light-mode .setup-input.error {
@@ -1464,16 +1464,16 @@
 
 .light-mode .workspace-option:hover {
   border-color: var(--primary-color);
-  background: rgba(33, 150, 243, 0.04);
+  background: rgba(69, 173, 255, 0.04);
 }
 
 .light-mode .workspace-option.selected {
   border-color: var(--primary-color);
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
 }
 
 .light-mode .workspace-option-icon {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .workspace-option-icon svg {
@@ -1481,7 +1481,7 @@
 }
 
 .light-mode .workspace-option-content code {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
 }
 
 .light-mode .workspace-check {
@@ -1523,7 +1523,7 @@
 
 .light-mode .setup-btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
-  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.35);
+  box-shadow: var(--shadow-md);
 }
 
 .light-mode .setup-btn-secondary {
@@ -1544,7 +1544,7 @@
 .light-mode .workspace-manager-modal {
   background: var(--bg-card);
   border-color: var(--border-color);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-xl);
 }
 
 .light-mode .workspace-manager-header {
@@ -1575,12 +1575,12 @@
 }
 
 .light-mode .workspace-item:hover {
-  border-color: rgba(33, 150, 243, 0.3);
+  border-color: rgba(69, 173, 255, 0.3);
 }
 
 .light-mode .workspace-item.default {
   border-color: var(--primary-color);
-  background: rgba(33, 150, 243, 0.04);
+  background: rgba(69, 173, 255, 0.04);
 }
 
 .light-mode .workspace-item-name .default-star {
@@ -1588,7 +1588,7 @@
 }
 
 .light-mode .workspace-item-path code {
-  background: rgba(33, 150, 243, 0.08);
+  background: rgba(69, 173, 255, 0.08);
 }
 
 .light-mode .ws-action-btn {
@@ -1613,7 +1613,7 @@
 .light-mode .workspace-add-btn:hover {
   border-color: var(--primary-color);
   color: var(--primary-color);
-  background: rgba(33, 150, 243, 0.04);
+  background: rgba(69, 173, 255, 0.04);
 }
 
 .light-mode .workspace-create-form {
@@ -1627,7 +1627,7 @@
 
 .light-mode .workspace-create-form .form-group input:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
 }
 
 .light-mode .workspace-create-form .btn-cancel {
@@ -1644,7 +1644,7 @@
 
 .light-mode .workspace-create-form .btn-create:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
-  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .light-mode .workspace-manager-footer {
@@ -1674,7 +1674,7 @@
 .light-mode .workspace-manage-link:hover {
   border-color: var(--primary-color);
   color: var(--primary-color);
-  background: rgba(33, 150, 243, 0.04);
+  background: rgba(69, 173, 255, 0.04);
 }
 
 .light-mode .default-indicator {
@@ -1683,8 +1683,8 @@
 
 /* Light Mode - Auth badges */
 .light-mode .auth-badge.auth-valid {
-  background: rgba(33, 150, 243, 0.1);
-  border-color: rgba(33, 150, 243, 0.25);
+  background: rgba(69, 173, 255, 0.1);
+  border-color: rgba(69, 173, 255, 0.25);
   color: var(--primary-color);
 }
 

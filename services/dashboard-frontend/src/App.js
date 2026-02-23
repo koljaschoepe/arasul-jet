@@ -126,18 +126,15 @@ function AppContent() {
   const [showSetupWizard, setShowSetupWizard] = useState(false);
 
   // Dashboard state
-  const [systemStatus, setSystemStatus] = useState(null);
   const [metricsHistory, setMetricsHistory] = useState(null);
   const [services, setServices] = useState(null);
-  const [workflows, setWorkflows] = useState(null);
   const [systemInfo, setSystemInfo] = useState(null);
   const [networkInfo, setNetworkInfo] = useState(null);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [runningApps, setRunningApps] = useState([]);
   const [thresholds, setThresholds] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState(null);
-  const [telegramAppData, setTelegramAppData] = useState(null);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
 
   // PHASE 3: Use WebSocket hook for real-time metrics
@@ -209,114 +206,100 @@ function AppContent() {
   }, [toggleSidebar]);
 
   // Fetch initial dashboard data
-  const fetchData = useCallback(async () => {
-    if (!isAuthenticated) return;
+  const fetchData = useCallback(
+    async signal => {
+      if (!isAuthenticated) return;
 
-    try {
-      const [
-        statusRes,
-        metricsRes,
-        historyRes,
-        servicesRes,
-        workflowsRes,
-        infoRes,
-        networkRes,
-        appsRes,
-        thresholdsRes,
-      ] = await Promise.all([
-        axios.get(`${API_BASE}/system/status`),
-        axios.get(`${API_BASE}/metrics/live`),
-        axios.get(`${API_BASE}/metrics/history?range=24h`),
-        axios.get(`${API_BASE}/services`),
-        axios.get(`${API_BASE}/workflows/activity`),
-        axios.get(`${API_BASE}/system/info`),
-        axios.get(`${API_BASE}/system/network`),
-        axios.get(`${API_BASE}/apps?status=running,installed`),
-        axios.get(`${API_BASE}/system/thresholds`),
-      ]);
+      try {
+        const results = await Promise.allSettled([
+          axios.get(`${API_BASE}/metrics/live`, { signal }),
+          axios.get(`${API_BASE}/metrics/history?range=24h`, { signal }),
+          axios.get(`${API_BASE}/services`, { signal }),
+          axios.get(`${API_BASE}/system/info`, { signal }),
+          axios.get(`${API_BASE}/system/network`, { signal }),
+          axios.get(`${API_BASE}/apps?status=running,installed`, { signal }),
+          axios.get(`${API_BASE}/system/thresholds`, { signal }),
+        ]);
 
-      setSystemStatus(statusRes.data);
-      setMetrics(metricsRes.data);
-      setMetricsHistory(historyRes.data);
-      setServices(servicesRes.data);
-      setWorkflows(workflowsRes.data);
-      setSystemInfo(infoRes.data);
-      setNetworkInfo(networkRes.data);
-      setRunningApps(appsRes.data.apps || []);
-      setThresholds(thresholdsRes.data.thresholds);
-      setDeviceInfo(thresholdsRes.data.device);
-      setDataLoading(false);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err.message);
-      setDataLoading(false);
-    }
-  }, [isAuthenticated]);
+        const val = i => (results[i].status === 'fulfilled' ? results[i].value.data : null);
+
+        if (val(0)) setMetrics(val(0));
+        if (val(1)) setMetricsHistory(val(1));
+        if (val(2)) setServices(val(2));
+        if (val(3)) setSystemInfo(val(3));
+        if (val(4)) setNetworkInfo(val(4));
+        if (val(5)) setRunningApps(val(5).apps || []);
+        if (val(6)) {
+          setThresholds(val(6).thresholds);
+          setDeviceInfo(val(6).device);
+        }
+
+        const failedCount = results.filter(r => r.status === 'rejected').length;
+        if (failedCount > 0) {
+          console.warn(`${failedCount} of ${results.length} dashboard requests failed`);
+        }
+        // Only show error if ALL requests failed
+        if (failedCount === results.length) {
+          setError('Alle Dashboard-Daten konnten nicht geladen werden');
+        } else {
+          setError(null);
+        }
+        setLoading(false);
+      } catch (err) {
+        if (signal?.aborted) return;
+        console.error('Error fetching data:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    },
+    [isAuthenticated]
+  );
 
   // Fetch data on auth change and setup refresh interval
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
 
     // Refresh non-metric data every 30 seconds
     const interval = setInterval(() => {
-      fetchData();
+      fetchData(controller.signal);
     }, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchData, isAuthenticated]);
 
   // Check setup wizard status after login
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    const controller = new AbortController();
     const checkSetupStatus = async () => {
       try {
-        const response = await axios.get(`${API_BASE}/system/setup-status`);
+        const response = await axios.get(`${API_BASE}/system/setup-status`, {
+          signal: controller.signal,
+        });
         const isComplete = response.data.setupComplete;
         setSetupComplete(isComplete);
         if (!isComplete) {
           setShowSetupWizard(true);
         }
-      } catch {
+      } catch (err) {
+        if (controller.signal.aborted) return;
         // If endpoint doesn't exist (old backend), assume setup is complete
         setSetupComplete(true);
       }
     };
 
     checkSetupStatus();
-  }, [isAuthenticated]);
-
-  // Fetch Telegram App data for dashboard icon
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchTelegramData = async () => {
-      try {
-        const response = await axios.get(`${API_BASE}/telegram-app/dashboard-data`);
-        setTelegramAppData(response.data.app);
-      } catch (err) {
-        // Silently ignore - telegram app might not be configured
-        console.debug('Telegram app data not available:', err.message);
-      }
-    };
-
-    fetchTelegramData();
-
-    // Refresh telegram data every 60 seconds
-    const interval = setInterval(fetchTelegramData, 60000);
-    return () => clearInterval(interval);
+    return () => controller.abort();
   }, [isAuthenticated]);
 
   // PHASE 2: Memoize utility functions with useCallback
-  const getStatusColor = useCallback(status => {
-    if (status === 'OK') return 'status-ok';
-    if (status === 'WARNING') return 'status-warning';
-    return 'status-critical';
-  }, []);
-
   const formatUptime = useCallback(seconds => {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
@@ -325,16 +308,16 @@ function AppContent() {
   }, []);
 
   const formatChartData = useCallback(() => {
-    if (!metricsHistory) return [];
+    if (!metricsHistory?.timestamps || !Array.isArray(metricsHistory.timestamps)) return [];
 
     return metricsHistory.timestamps.map((timestamp, index) => ({
       timestamp: new Date(timestamp).getTime(),
       time: new Date(timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
       hour: new Date(timestamp).getHours(),
-      CPU: metricsHistory.cpu[index],
-      RAM: metricsHistory.ram[index],
-      GPU: metricsHistory.gpu[index],
-      Temp: metricsHistory.temperature[index],
+      CPU: metricsHistory.cpu?.[index] ?? null,
+      RAM: metricsHistory.ram?.[index] ?? null,
+      GPU: metricsHistory.gpu?.[index] ?? null,
+      Temp: metricsHistory.temperature?.[index] ?? null,
     }));
   }, [metricsHistory]);
 
@@ -342,7 +325,7 @@ function AppContent() {
   const handleLoginSuccess = useCallback(
     data => {
       login(data);
-      setDataLoading(true);
+      setLoading(true);
     },
     [login]
   );
@@ -360,7 +343,7 @@ function AppContent() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  if (dataLoading && !showSetupWizard) {
+  if (loading && !showSetupWizard) {
     return <LoadingSpinner message="Lade Dashboard..." fullscreen={true} />;
   }
 
@@ -387,7 +370,14 @@ function AppContent() {
           <div className="error-icon">⚠️</div>
           <h2>Fehler beim Laden</h2>
           <p className="error-text">{error}</p>
-          <button onClick={() => window.location.reload()} className="btn-retry">
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              fetchData();
+            }}
+            className="btn-retry"
+          >
             Erneut versuchen
           </button>
         </div>
@@ -404,14 +394,17 @@ function AppContent() {
             Zum Hauptinhalt springen
           </a>
 
-          <SidebarWithDownloads
-            systemStatus={systemStatus}
-            getStatusColor={getStatusColor}
-            collapsed={sidebarCollapsed}
-            onToggle={toggleSidebar}
-          />
+          <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
-          <div className="container" id="main-content" role="main" tabIndex={-1}>
+          <div
+            className="container"
+            id="main-content"
+            role="main"
+            tabIndex={-1}
+            ref={el => {
+              if (el && window.location.hash === '#main-content') el.focus();
+            }}
+          >
             {/* PHASE 2: Suspense wrapper for lazy-loaded route components */}
             <Suspense fallback={<LoadingSpinner message="Lade..." />}>
               <Routes>
@@ -423,17 +416,13 @@ function AppContent() {
                         metrics={metrics}
                         metricsHistory={metricsHistory}
                         services={services}
-                        workflows={workflows}
                         systemInfo={systemInfo}
                         networkInfo={networkInfo}
                         runningApps={runningApps}
                         formatChartData={formatChartData}
                         formatUptime={formatUptime}
-                        getStatusColor={getStatusColor}
                         thresholds={thresholds}
                         deviceInfo={deviceInfo}
-                        telegramAppData={telegramAppData}
-                        onTelegramClick={() => setShowTelegramModal(true)}
                       />
                     </RouteErrorBoundary>
                   }
@@ -573,8 +562,6 @@ function SidebarWithDownloads(props) {
 
 // PHASE 2 & 5: Memoize Sidebar with ARIA accessibility
 const Sidebar = React.memo(function Sidebar({
-  systemStatus,
-  getStatusColor,
   collapsed,
   onToggle,
   downloadCount = 0,
@@ -716,17 +703,13 @@ const DashboardHome = React.memo(function DashboardHome({
   metrics,
   metricsHistory,
   services,
-  workflows,
   systemInfo,
   networkInfo,
   runningApps,
   formatChartData,
   formatUptime,
-  getStatusColor,
   thresholds,
   deviceInfo,
-  telegramAppData,
-  onTelegramClick,
 }) {
   // Default thresholds if not loaded yet
   const defaultThresholds = {
@@ -765,8 +748,16 @@ const DashboardHome = React.memo(function DashboardHome({
     return { status: 'Normal', className: 'stat-change-positive' };
   };
 
-  // Chart zoom state
-  const [chartTimeRange, setChartTimeRange] = useState(24); // hours
+  // Chart zoom state - persisted to localStorage
+  const [chartTimeRange, setChartTimeRange] = useState(() => {
+    const saved = localStorage.getItem('arasul_chart_time_range');
+    return saved ? Number(saved) : 24;
+  }); // hours
+
+  // Persist chartTimeRange changes
+  useEffect(() => {
+    localStorage.setItem('arasul_chart_time_range', String(chartTimeRange));
+  }, [chartTimeRange]);
   const timeRangeOptions = [1, 6, 12, 24];
 
   // Memoized chart data - only recalculate when data or timeRange changes
@@ -927,20 +918,36 @@ const DashboardHome = React.memo(function DashboardHome({
         <div className="service-links-modern">
           {runningApps
             ?.filter(app => app.status === 'running' && app.id !== 'minio')
-            .map(app =>
-              isInternalLink(app) ? (
-                <Link key={app.id} to={getAppUrl(app)} className="service-link-card">
-                  <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
-                  <div className="service-link-content">
-                    <div className="service-link-name">{app.name}</div>
-                    <div className="service-link-description">{app.description}</div>
+            .map(app => {
+              const url = getAppUrl(app);
+              if (isInternalLink(app)) {
+                return (
+                  <Link key={app.id} to={url} className="service-link-card">
+                    <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
+                    <div className="service-link-content">
+                      <div className="service-link-name">{app.name}</div>
+                      <div className="service-link-description">{app.description}</div>
+                    </div>
+                    <FiExternalLink className="service-link-arrow" />
+                  </Link>
+                );
+              }
+              if (url === '#') {
+                return (
+                  <div key={app.id} className="service-link-card service-link-unavailable">
+                    <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
+                    <div className="service-link-content">
+                      <div className="service-link-name">{app.name}</div>
+                      <div className="service-link-description">{app.description}</div>
+                    </div>
+                    <span className="service-link-badge-unavailable">Nicht verfügbar</span>
                   </div>
-                  <FiExternalLink className="service-link-arrow" />
-                </Link>
-              ) : (
+                );
+              }
+              return (
                 <a
                   key={app.id}
-                  href={getAppUrl(app)}
+                  href={url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="service-link-card"
@@ -952,8 +959,8 @@ const DashboardHome = React.memo(function DashboardHome({
                   </div>
                   <FiExternalLink className="service-link-arrow" />
                 </a>
-              )
-            )}
+              );
+            })}
         </div>
       )}
 
@@ -976,7 +983,11 @@ const DashboardHome = React.memo(function DashboardHome({
             </div>
           </div>
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={chartData}>
+            <LineChart
+              data={chartData}
+              role="img"
+              aria-label={`Performance-Diagramm der letzten ${chartTimeRange} Stunden: CPU, RAM, GPU und Temperatur`}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(69, 173, 255, 0.1)" />
               <XAxis
                 dataKey="time"
@@ -1043,41 +1054,77 @@ const DashboardHome = React.memo(function DashboardHome({
               />
             </LineChart>
           </ResponsiveContainer>
+          {/* Screen-reader summary for chart data */}
+          <div className="sr-only" role="status">
+            {metrics && (
+              <>
+                CPU: {metrics.cpu?.toFixed(1)}%, RAM: {metrics.ram?.toFixed(1)}%, GPU:{' '}
+                {metrics.gpu?.toFixed(1)}%, Temp: {metrics.temp?.toFixed(1)}°C
+              </>
+            )}
+          </div>
         </div>
 
         {/* AI Services Status */}
         <div className="dashboard-card">
           <h3 className="dashboard-card-title">AI Services</h3>
           <div className="services-list">
-            <div className="service-item-modern">
-              <div
-                className={`service-indicator ${services?.llm?.status === 'healthy' ? 'service-healthy' : 'service-error'}`}
-              />
-              <div className="service-info">
-                <div className="service-name">LLM Service</div>
-                <div className="service-status">{services?.llm?.status || 'unknown'}</div>
-              </div>
-            </div>
-            <div className="service-item-modern">
-              <div
-                className={`service-indicator ${services?.embeddings?.status === 'healthy' ? 'service-healthy' : 'service-error'}`}
-              />
-              <div className="service-info">
-                <div className="service-name">Embeddings</div>
-                <div className="service-status">{services?.embeddings?.status || 'unknown'}</div>
-              </div>
-            </div>
-            <div className="service-item-modern">
-              <div
-                className={`service-indicator ${networkInfo?.internet_reachable ? 'service-healthy' : 'service-error'}`}
-              />
-              <div className="service-info">
-                <div className="service-name">Internet</div>
-                <div className="service-status">
-                  {networkInfo?.internet_reachable ? 'Connected' : 'Offline'}
+            {!services ? (
+              <>
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="service-item-modern">
+                    <div
+                      className="skeleton"
+                      style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0 }}
+                    />
+                    <div className="service-info">
+                      <div
+                        className="skeleton"
+                        style={{ width: '60%', height: '0.85rem', borderRadius: 4 }}
+                      />
+                      <div
+                        className="skeleton"
+                        style={{ width: '40%', height: '0.75rem', borderRadius: 4, marginTop: 4 }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="service-item-modern">
+                  <div
+                    className={`service-indicator ${services?.llm?.status === 'healthy' ? 'service-healthy' : 'service-error'}`}
+                  />
+                  <div className="service-info">
+                    <div className="service-name">LLM Service</div>
+                    <div className="service-status">{services?.llm?.status || 'unknown'}</div>
+                  </div>
                 </div>
-              </div>
-            </div>
+                <div className="service-item-modern">
+                  <div
+                    className={`service-indicator ${services?.embeddings?.status === 'healthy' ? 'service-healthy' : 'service-error'}`}
+                  />
+                  <div className="service-info">
+                    <div className="service-name">Embeddings</div>
+                    <div className="service-status">
+                      {services?.embeddings?.status || 'unknown'}
+                    </div>
+                  </div>
+                </div>
+                <div className="service-item-modern">
+                  <div
+                    className={`service-indicator ${networkInfo?.internet_reachable ? 'service-healthy' : 'service-error'}`}
+                  />
+                  <div className="service-info">
+                    <div className="service-name">Internet</div>
+                    <div className="service-status">
+                      {networkInfo?.internet_reachable ? 'Connected' : 'Offline'}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

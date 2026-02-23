@@ -36,6 +36,8 @@ import {
   FiClock,
 } from 'react-icons/fi';
 import { API_BASE } from '../config/api';
+import { useToast } from '../contexts/ToastContext';
+import Modal from './Modal';
 import '../claudecode.css';
 
 // Workspace Manager Modal Component
@@ -46,6 +48,7 @@ function WorkspaceManager({
   onWorkspaceDeleted,
   onSetDefault,
 }) {
+  const toast = useToast();
   const { confirm: showConfirm, ConfirmDialog: WorkspaceConfirmDialog } = useConfirm();
   const [newName, setNewName] = useState('');
   const [newPath, setNewPath] = useState('/home/arasul/');
@@ -72,6 +75,7 @@ function WorkspaceManager({
       });
 
       onWorkspaceCreated(response.data.workspace);
+      toast.success('Workspace erstellt');
       setNewName('');
       setNewPath('/home/arasul/');
       setNewDescription('');
@@ -91,6 +95,7 @@ function WorkspaceManager({
     try {
       await axios.delete(`${API_BASE}/workspaces/${workspace.id}`);
       onWorkspaceDeleted(workspace.id);
+      toast.success('Workspace gelöscht');
     } catch (err) {
       setError(err.response?.data?.error || 'Fehler beim Löschen');
     }
@@ -100,142 +105,142 @@ function WorkspaceManager({
     try {
       await axios.post(`${API_BASE}/workspaces/${workspace.id}/default`);
       onSetDefault(workspace.id);
+      toast.success('Standard-Workspace geändert');
     } catch (err) {
       setError(err.response?.data?.error || 'Fehler beim Setzen des Standards');
     }
   };
 
   return (
-    <div className="workspace-manager-overlay" onClick={onClose}>
-      <div className="workspace-manager-modal" onClick={e => e.stopPropagation()}>
-        <div className="workspace-manager-header">
-          <h2>
-            <FiFolder /> Workspace-Verwaltung
-          </h2>
-          <button className="close-btn" onClick={onClose}>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={
+        <>
+          <FiFolder /> Workspace-Verwaltung
+        </>
+      }
+      size="medium"
+      className="workspace-manager-wrapper"
+    >
+      {error && (
+        <div className="workspace-error">
+          <FiAlertCircle /> {error}
+          <button onClick={() => setError(null)}>
             <FiX />
           </button>
         </div>
+      )}
 
-        {error && (
-          <div className="workspace-error">
-            <FiAlertCircle /> {error}
-            <button onClick={() => setError(null)}>
-              <FiX />
+      <div className="workspace-list">
+        {workspaces.map(ws => (
+          <div key={ws.id} className={`workspace-item ${ws.is_default ? 'default' : ''}`}>
+            <div className="workspace-item-info">
+              <div className="workspace-item-name">
+                {ws.is_default && <FiStar className="default-star" title="Standard-Workspace" />}
+                {ws.name}
+                {ws.is_system && <span className="system-badge">System</span>}
+              </div>
+              <div className="workspace-item-path">
+                <code>{ws.host_path}</code>
+              </div>
+              {ws.description && <div className="workspace-item-desc">{ws.description}</div>}
+            </div>
+            <div className="workspace-item-actions">
+              {!ws.is_default && (
+                <button
+                  className="ws-action-btn"
+                  onClick={() => handleSetDefault(ws)}
+                  title="Als Standard setzen"
+                >
+                  <FiStar />
+                </button>
+              )}
+              {!ws.is_system && !ws.is_default && (
+                <button
+                  className="ws-action-btn delete"
+                  onClick={() => handleDelete(ws)}
+                  title="Löschen"
+                >
+                  <FiTrash2 />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {!showCreateForm ? (
+        <button className="workspace-add-btn" onClick={() => setShowCreateForm(true)}>
+          <FiPlus /> Neuen Workspace erstellen
+        </button>
+      ) : (
+        <form className="workspace-create-form" onSubmit={handleCreate}>
+          <h3>Neuen Workspace erstellen</h3>
+
+          <div className="form-group">
+            <label>Name *</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="Mein Projekt"
+              required
+              autoFocus
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Host-Pfad *</label>
+            <input
+              type="text"
+              value={newPath}
+              onChange={e => setNewPath(e.target.value)}
+              placeholder="/home/arasul/mein-projekt"
+              required
+            />
+            <span className="form-hint">
+              Absoluter Pfad auf dem Jetson (wird erstellt falls nicht vorhanden)
+            </span>
+          </div>
+
+          <div className="form-group">
+            <label>Beschreibung</label>
+            <input
+              type="text"
+              value={newDescription}
+              onChange={e => setNewDescription(e.target.value)}
+              placeholder="Kurze Beschreibung des Projekts"
+            />
+          </div>
+
+          <div className="form-actions">
+            <button type="button" className="btn-cancel" onClick={() => setShowCreateForm(false)}>
+              Abbrechen
+            </button>
+            <button type="submit" className="btn-create" disabled={creating}>
+              {creating ? (
+                <>
+                  <FiRefreshCw className="spinning" /> Erstellen...
+                </>
+              ) : (
+                <>
+                  <FiPlus /> Erstellen
+                </>
+              )}
             </button>
           </div>
-        )}
+        </form>
+      )}
 
-        <div className="workspace-list">
-          {workspaces.map(ws => (
-            <div key={ws.id} className={`workspace-item ${ws.is_default ? 'default' : ''}`}>
-              <div className="workspace-item-info">
-                <div className="workspace-item-name">
-                  {ws.is_default && <FiStar className="default-star" title="Standard-Workspace" />}
-                  {ws.name}
-                  {ws.is_system && <span className="system-badge">System</span>}
-                </div>
-                <div className="workspace-item-path">
-                  <code>{ws.host_path}</code>
-                </div>
-                {ws.description && <div className="workspace-item-desc">{ws.description}</div>}
-              </div>
-              <div className="workspace-item-actions">
-                {!ws.is_default && (
-                  <button
-                    className="ws-action-btn"
-                    onClick={() => handleSetDefault(ws)}
-                    title="Als Standard setzen"
-                  >
-                    <FiStar />
-                  </button>
-                )}
-                {!ws.is_system && !ws.is_default && (
-                  <button
-                    className="ws-action-btn delete"
-                    onClick={() => handleDelete(ws)}
-                    title="Löschen"
-                  >
-                    <FiTrash2 />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {!showCreateForm ? (
-          <button className="workspace-add-btn" onClick={() => setShowCreateForm(true)}>
-            <FiPlus /> Neuen Workspace erstellen
-          </button>
-        ) : (
-          <form className="workspace-create-form" onSubmit={handleCreate}>
-            <h3>Neuen Workspace erstellen</h3>
-
-            <div className="form-group">
-              <label>Name *</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                placeholder="Mein Projekt"
-                required
-                autoFocus
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Host-Pfad *</label>
-              <input
-                type="text"
-                value={newPath}
-                onChange={e => setNewPath(e.target.value)}
-                placeholder="/home/arasul/mein-projekt"
-                required
-              />
-              <span className="form-hint">
-                Absoluter Pfad auf dem Jetson (wird erstellt falls nicht vorhanden)
-              </span>
-            </div>
-
-            <div className="form-group">
-              <label>Beschreibung</label>
-              <input
-                type="text"
-                value={newDescription}
-                onChange={e => setNewDescription(e.target.value)}
-                placeholder="Kurze Beschreibung des Projekts"
-              />
-            </div>
-
-            <div className="form-actions">
-              <button type="button" className="btn-cancel" onClick={() => setShowCreateForm(false)}>
-                Abbrechen
-              </button>
-              <button type="submit" className="btn-create" disabled={creating}>
-                {creating ? (
-                  <>
-                    <FiRefreshCw className="spinning" /> Erstellen...
-                  </>
-                ) : (
-                  <>
-                    <FiPlus /> Erstellen
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="workspace-manager-footer">
-          <p>
-            <FiAlertTriangle /> Nach dem Erstellen eines neuen Workspace muss Claude Code neu
-            gestartet werden, damit der Workspace verfügbar ist.
-          </p>
-        </div>
+      <div className="workspace-manager-footer">
+        <p>
+          <FiAlertTriangle /> Nach dem Erstellen eines neuen Workspace muss Claude Code neu
+          gestartet werden, damit der Workspace verfügbar ist.
+        </p>
       </div>
       <WorkspaceConfirmDialog />
-    </div>
+    </Modal>
   );
 }
 
@@ -547,11 +552,12 @@ function ClaudeCode() {
   const setupPollRef = useRef(null);
 
   // Load workspaces
-  const loadWorkspaces = useCallback(async () => {
+  const loadWorkspaces = useCallback(async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/workspaces`);
+      const response = await axios.get(`${API_BASE}/workspaces`, { signal });
       setWorkspaces(response.data.workspaces || []);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('Error loading workspaces:', err);
       // Fallback to default workspaces if API fails
       setWorkspaces([
@@ -580,11 +586,12 @@ function ClaudeCode() {
   }, []);
 
   // Load auth status
-  const loadAuthStatus = useCallback(async () => {
+  const loadAuthStatus = useCallback(async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/apps/claude-code/auth-status`);
+      const response = await axios.get(`${API_BASE}/apps/claude-code/auth-status`, { signal });
       setAuthStatus(response.data);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('Error loading auth status:', err);
       setAuthStatus(null);
     }
@@ -615,12 +622,12 @@ function ClaudeCode() {
   };
 
   // Load app status and config
-  const loadAppData = useCallback(async () => {
+  const loadAppData = useCallback(async signal => {
     try {
       setError(null);
       const [statusRes, configRes] = await Promise.all([
-        axios.get(`${API_BASE}/apps/claude-code`),
-        axios.get(`${API_BASE}/apps/claude-code/config`),
+        axios.get(`${API_BASE}/apps/claude-code`, { signal }),
+        axios.get(`${API_BASE}/apps/claude-code/config`, { signal }),
       ]);
 
       const app = statusRes.data.app || statusRes.data;
@@ -642,6 +649,7 @@ function ClaudeCode() {
         setTerminalUrl('');
       }
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('Error loading Claude Code:', err);
       if (err.response?.status === 404) {
         setError('Claude Code ist nicht installiert. Bitte installiere es zuerst im Store.');
@@ -654,12 +662,14 @@ function ClaudeCode() {
   }, []);
 
   useEffect(() => {
-    loadAppData();
-    loadWorkspaces();
-    loadAuthStatus();
+    const controller = new AbortController();
+    loadAppData(controller.signal);
+    loadWorkspaces(controller.signal);
+    loadAuthStatus(controller.signal);
 
     // Cleanup setup polling on unmount
     return () => {
+      controller.abort();
       if (setupPollRef.current) {
         clearInterval(setupPollRef.current);
       }
@@ -669,16 +679,24 @@ function ClaudeCode() {
   // Poll auth status every 30 seconds when app is running
   useEffect(() => {
     if (appStatus?.status === 'running') {
-      const interval = setInterval(loadAuthStatus, 30000);
-      return () => clearInterval(interval);
+      const controller = new AbortController();
+      const interval = setInterval(() => loadAuthStatus(controller.signal), 30000);
+      return () => {
+        controller.abort();
+        clearInterval(interval);
+      };
     }
   }, [appStatus?.status, loadAuthStatus]);
 
   // Poll for status updates when action is in progress
   useEffect(() => {
     if (actionLoading) {
-      const interval = setInterval(loadAppData, 2000);
-      return () => clearInterval(interval);
+      const controller = new AbortController();
+      const interval = setInterval(() => loadAppData(controller.signal), 2000);
+      return () => {
+        controller.abort();
+        clearInterval(interval);
+      };
     }
   }, [actionLoading, loadAppData]);
 

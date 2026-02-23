@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import EmptyState from './EmptyState';
 import axios from 'axios';
 import {
   FiUpload,
@@ -38,6 +39,7 @@ import MarkdownCreateDialog from './MarkdownCreateDialog';
 import SimpleTableCreateDialog from './SimpleTableCreateDialog';
 import ExcelEditor from './Database/ExcelEditor';
 import SpaceModal from './SpaceModal';
+import Modal from './Modal';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { getValidToken } from '../utils/token';
 import { useToast } from '../contexts/ToastContext';
@@ -72,7 +74,7 @@ function DocumentManager() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalDocuments, setTotalDocuments] = useState(0);
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Upload state
   const [uploading, setUploading] = useState(false);
@@ -134,62 +136,72 @@ function DocumentManager() {
   };
 
   // Load documents
-  const loadDocuments = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        limit: itemsPerPage,
-        offset: (currentPage - 1) * itemsPerPage,
-      });
+  const loadDocuments = useCallback(
+    async signal => {
+      try {
+        setLoading(true);
+        const params = new URLSearchParams({
+          limit: itemsPerPage,
+          offset: (currentPage - 1) * itemsPerPage,
+        });
 
-      if (statusFilter) params.append('status', statusFilter);
-      if (categoryFilter) params.append('category_id', categoryFilter);
-      if (searchQuery) params.append('search', searchQuery);
-      if (activeSpaceId) params.append('space_id', activeSpaceId);
+        if (statusFilter) params.append('status', statusFilter);
+        if (categoryFilter) params.append('category_id', categoryFilter);
+        if (searchQuery) params.append('search', searchQuery);
+        if (activeSpaceId) params.append('space_id', activeSpaceId);
 
-      const response = await axios.get(`${API_BASE}/documents?${params}`);
-      setDocuments(response.data.documents || []);
-      setTotalDocuments(response.data.total || 0);
-      setError(null);
-    } catch (err) {
-      console.error('Error loading documents:', err);
-      setError('Fehler beim Laden der Dokumente');
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, statusFilter, categoryFilter, searchQuery, itemsPerPage, activeSpaceId]);
+        const response = await axios.get(`${API_BASE}/documents?${params}`, { signal });
+        setDocuments(response.data.documents || []);
+        setTotalDocuments(response.data.total || 0);
+        setError(null);
+      } catch (err) {
+        if (signal?.aborted) return;
+        console.error('Error loading documents:', err);
+        setError('Fehler beim Laden der Dokumente');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentPage, statusFilter, categoryFilter, searchQuery, itemsPerPage, activeSpaceId]
+  );
 
   // Load categories
-  const loadCategories = async () => {
+  const loadCategories = async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/documents/categories`);
+      const response = await axios.get(`${API_BASE}/documents/categories`, { signal });
       setCategories(response.data.categories || []);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('Error loading categories:', err);
     }
   };
 
   // Load statistics - filter-aware for dynamic KPIs
-  const loadStatistics = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (activeSpaceId) params.append('space_id', activeSpaceId);
-      if (statusFilter) params.append('status', statusFilter);
-      if (categoryFilter) params.append('category_id', categoryFilter);
+  const loadStatistics = useCallback(
+    async signal => {
+      try {
+        const params = new URLSearchParams();
+        if (activeSpaceId) params.append('space_id', activeSpaceId);
+        if (statusFilter) params.append('status', statusFilter);
+        if (categoryFilter) params.append('category_id', categoryFilter);
 
-      const response = await axios.get(`${API_BASE}/documents/statistics?${params}`);
-      setStatistics(response.data);
-    } catch (err) {
-      console.error('Error loading statistics:', err);
-    }
-  }, [activeSpaceId, statusFilter, categoryFilter]);
+        const response = await axios.get(`${API_BASE}/documents/statistics?${params}`, { signal });
+        setStatistics(response.data);
+      } catch (err) {
+        if (signal?.aborted) return;
+        console.error('Error loading statistics:', err);
+      }
+    },
+    [activeSpaceId, statusFilter, categoryFilter]
+  );
 
   // Load Knowledge Spaces (RAG 2.0)
-  const loadSpaces = async () => {
+  const loadSpaces = async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/spaces`);
+      const response = await axios.get(`${API_BASE}/spaces`, { signal });
       setSpaces(response.data.spaces || []);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('Error loading spaces:', err);
     }
   };
@@ -198,29 +210,35 @@ function DocumentManager() {
   const [totalTables, setTotalTables] = useState(0);
 
   // Load Datentabellen (PostgreSQL tables) - server-side filtering
-  const loadTables = useCallback(async () => {
-    try {
-      setLoadingTables(true);
-      const params = new URLSearchParams();
+  const loadTables = useCallback(
+    async signal => {
+      try {
+        setLoadingTables(true);
+        const params = new URLSearchParams();
 
-      if (activeSpaceId) params.append('space_id', activeSpaceId);
-      if (statusFilter) {
-        // Map document status to table status
-        const statusMap = { indexed: 'active', pending: 'draft', failed: 'archived' };
-        params.append('status', statusMap[statusFilter] || statusFilter);
+        if (activeSpaceId) params.append('space_id', activeSpaceId);
+        if (statusFilter) {
+          // Map document status to table status
+          const statusMap = { indexed: 'active', pending: 'draft', failed: 'archived' };
+          params.append('status', statusMap[statusFilter] || statusFilter);
+        }
+        if (searchQuery) params.append('search', searchQuery);
+
+        const response = await axios.get(`${API_BASE}/v1/datentabellen/tables?${params}`, {
+          signal,
+        });
+        const allTables = response.data.tables || response.data.data || [];
+        setTables(allTables);
+        setTotalTables(response.data.total || allTables.length);
+      } catch (err) {
+        if (signal?.aborted) return;
+        console.error('Error loading tables:', err);
+      } finally {
+        setLoadingTables(false);
       }
-      if (searchQuery) params.append('search', searchQuery);
-
-      const response = await axios.get(`${API_BASE}/v1/datentabellen/tables?${params}`);
-      const allTables = response.data.tables || response.data.data || [];
-      setTables(allTables);
-      setTotalTables(response.data.total || allTables.length);
-    } catch (err) {
-      console.error('Error loading tables:', err);
-    } finally {
-      setLoadingTables(false);
-    }
-  }, [activeSpaceId, statusFilter, searchQuery]);
+    },
+    [activeSpaceId, statusFilter, searchQuery]
+  );
 
   // Handle space change (for tabs) - reset all filters
   const handleSpaceChange = spaceId => {
@@ -280,27 +298,33 @@ function DocumentManager() {
 
   // Initial load - empty dependency array for mount-only
   useEffect(() => {
-    loadDocumentsRef.current();
-    loadCategories();
-    loadStatisticsRef.current();
-    loadSpaces();
-    loadTablesRef.current();
+    const controller = new AbortController();
+    loadDocumentsRef.current(controller.signal);
+    loadCategories(controller.signal);
+    loadStatisticsRef.current(controller.signal);
+    loadSpaces(controller.signal);
+    loadTablesRef.current(controller.signal);
 
     // Refresh every 30 seconds - uses refs so interval is only created once
     const interval = setInterval(() => {
-      loadDocumentsRef.current();
-      loadStatisticsRef.current();
-      loadTablesRef.current();
+      loadDocumentsRef.current(controller.signal);
+      loadStatisticsRef.current(controller.signal);
+      loadTablesRef.current(controller.signal);
     }, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, []); // Empty array - only run on mount
 
   // Reload all data when filters change
   useEffect(() => {
-    loadDocumentsRef.current();
-    loadStatisticsRef.current();
-    loadTablesRef.current();
+    const controller = new AbortController();
+    loadDocumentsRef.current(controller.signal);
+    loadStatisticsRef.current(controller.signal);
+    loadTablesRef.current(controller.signal);
+    return () => controller.abort();
   }, [activeSpaceId, statusFilter, categoryFilter, searchQuery]);
 
   // File upload handler
@@ -901,11 +925,11 @@ function DocumentManager() {
             <p>Daten werden geladen...</p>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="dm-empty" role="status">
-            <FiDatabase aria-hidden="true" />
-            <p>Keine Einträge gefunden</p>
-            <span>Laden Sie Dateien hoch oder erstellen Sie eine neue Tabelle</span>
-          </div>
+          <EmptyState
+            icon={<FiDatabase />}
+            title="Keine Einträge gefunden"
+            description="Laden Sie Dateien hoch oder erstellen Sie eine neue Tabelle"
+          />
         ) : (
           <table className="dm-table" aria-label={`${filteredItems.length} Einträge`}>
             <thead>
@@ -1087,191 +1111,69 @@ function DocumentManager() {
       </section>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {totalPages > 0 && (
         <nav className="dm-pagination" role="navigation" aria-label="Seitennavigation">
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(p => p - 1)}
-            aria-label="Vorherige Seite"
-          >
-            Zurück
-          </button>
-          <span aria-live="polite" aria-atomic="true">
-            Seite {currentPage} von {totalPages}
-          </span>
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(p => p + 1)}
-            aria-label="Nächste Seite"
-          >
-            Weiter
-          </button>
+          <div className="dm-pagination-size">
+            <label htmlFor="dm-page-size">Pro Seite:</label>
+            <select
+              id="dm-page-size"
+              value={itemsPerPage}
+              onChange={e => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+          <div className="dm-pagination-nav">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+              aria-label="Erste Seite"
+            >
+              ⟨⟨
+            </button>
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => p - 1)}
+              aria-label="Vorherige Seite"
+            >
+              Zurück
+            </button>
+            <span aria-live="polite" aria-atomic="true">
+              Seite {currentPage} von {totalPages}
+            </span>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}
+              aria-label="Nächste Seite"
+            >
+              Weiter
+            </button>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              aria-label="Letzte Seite"
+            >
+              ⟩⟩
+            </button>
+          </div>
         </nav>
       )}
 
       {/* Document Details Modal */}
       {showDetails && selectedDocument && (
-        <div className="dm-modal-overlay" onClick={() => setShowDetails(false)} role="presentation">
-          <div
-            className="dm-modal"
-            onClick={e => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="doc-modal-title"
-          >
-            <div className="modal-header">
-              <h3 id="doc-modal-title">{selectedDocument.title || selectedDocument.filename}</h3>
-              <button onClick={() => setShowDetails(false)} aria-label="Dialog schließen">
-                <FiX aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              {/* Basic Info */}
-              <div className="detail-section">
-                <h4>Informationen</h4>
-                <div className="detail-grid">
-                  <div className="detail-item">
-                    <span className="label">Dateiname</span>
-                    <span className="value">{selectedDocument.filename}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Größe</span>
-                    <span className="value">{formatFileSize(selectedDocument.file_size)}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Typ</span>
-                    <span className="value">{selectedDocument.file_extension}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Status</span>
-                    <StatusBadge status={selectedDocument.status} />
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Seiten</span>
-                    <span className="value">{selectedDocument.page_count || '-'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Wörter</span>
-                    <span className="value">
-                      {selectedDocument.word_count?.toLocaleString() || '-'}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Chunks</span>
-                    <span className="value">{selectedDocument.chunk_count || '-'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Sprache</span>
-                    <span className="value">
-                      {selectedDocument.language === 'de' ? 'Deutsch' : 'Englisch'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Summary */}
-              {selectedDocument.summary && (
-                <div className="detail-section">
-                  <h4>
-                    <FiCpu aria-hidden="true" /> KI-Zusammenfassung
-                  </h4>
-                  <p className="summary-text">{selectedDocument.summary}</p>
-                </div>
-              )}
-
-              {/* Topics */}
-              {selectedDocument.key_topics && selectedDocument.key_topics.length > 0 && (
-                <div className="detail-section">
-                  <h4>
-                    <FiTag aria-hidden="true" /> Themen
-                  </h4>
-                  <ul className="topics-list" aria-label="Dokumenten-Themen">
-                    {selectedDocument.key_topics.map((topic, idx) => (
-                      <li key={idx} className="topic-tag">
-                        {topic}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Category with confidence */}
-              {selectedDocument.category_name && (
-                <div className="detail-section">
-                  <h4>
-                    <FiFolder aria-hidden="true" /> Kategorie
-                  </h4>
-                  <div className="category-info">
-                    <CategoryBadge
-                      name={selectedDocument.category_name}
-                      color={selectedDocument.category_color}
-                    />
-                    {selectedDocument.category_confidence && (
-                      <span
-                        className="confidence"
-                        aria-label={`Konfidenz: ${(selectedDocument.category_confidence * 100).toFixed(0)} Prozent`}
-                      >
-                        ({(selectedDocument.category_confidence * 100).toFixed(0)}% Konfidenz)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Similar Documents */}
-              {selectedDocument.status === 'indexed' && (
-                <div className="detail-section">
-                  <h4>
-                    <FiLink aria-hidden="true" /> Ähnliche Dokumente
-                  </h4>
-                  {loadingSimilar ? (
-                    <div className="loading-similar" role="status" aria-live="polite">
-                      <FiRefreshCw className="spin" aria-hidden="true" />
-                      <span>Suche ähnliche Dokumente...</span>
-                    </div>
-                  ) : similarDocuments.length === 0 ? (
-                    <p className="no-similar">Keine ähnlichen Dokumente gefunden</p>
-                  ) : (
-                    <ul className="similar-list" aria-label="Ähnliche Dokumente">
-                      {similarDocuments.map((sim, idx) => (
-                        <li key={idx} className="similar-item">
-                          <FiFile aria-hidden="true" />
-                          <span className="sim-name">{sim.title || sim.filename}</span>
-                          <span
-                            className="sim-score"
-                            aria-label={`Ähnlichkeit: ${(sim.similarity_score * 100).toFixed(0)} Prozent`}
-                          >
-                            {(sim.similarity_score * 100).toFixed(0)}%
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-
-              {/* Error message if failed */}
-              {selectedDocument.status === 'failed' && selectedDocument.processing_error && (
-                <div className="detail-section error-section" role="alert">
-                  <h4>
-                    <FiAlertCircle aria-hidden="true" /> Fehler
-                  </h4>
-                  <p className="error-text">{selectedDocument.processing_error}</p>
-                  <button
-                    className="retry-btn"
-                    onClick={() => {
-                      handleReindex(selectedDocument.id);
-                      setShowDetails(false);
-                    }}
-                    aria-label="Indexierung erneut versuchen"
-                  >
-                    <FiRefreshCw aria-hidden="true" /> Erneut versuchen
-                  </button>
-                </div>
-              )}
-            </div>
-
+        <Modal
+          isOpen={true}
+          onClose={() => setShowDetails(false)}
+          title={selectedDocument.title || selectedDocument.filename}
+          size="medium"
+          className="dm-modal-wrapper"
+          footer={
             <div className="modal-footer" role="group" aria-label="Aktionen">
               {isEditable(selectedDocument) && (
                 <button
@@ -1303,8 +1205,152 @@ function DocumentManager() {
                 <FiTrash2 aria-hidden="true" /> Löschen
               </button>
             </div>
+          }
+        >
+          {/* Basic Info */}
+          <div className="detail-section">
+            <h4>Informationen</h4>
+            <div className="detail-grid">
+              <div className="detail-item">
+                <span className="label">Dateiname</span>
+                <span className="value">{selectedDocument.filename}</span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Größe</span>
+                <span className="value">{formatFileSize(selectedDocument.file_size)}</span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Typ</span>
+                <span className="value">{selectedDocument.file_extension}</span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Status</span>
+                <StatusBadge status={selectedDocument.status} />
+              </div>
+              <div className="detail-item">
+                <span className="label">Seiten</span>
+                <span className="value">{selectedDocument.page_count || '-'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Wörter</span>
+                <span className="value">
+                  {selectedDocument.word_count?.toLocaleString() || '-'}
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Chunks</span>
+                <span className="value">{selectedDocument.chunk_count || '-'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Sprache</span>
+                <span className="value">
+                  {selectedDocument.language === 'de' ? 'Deutsch' : 'Englisch'}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* AI Summary */}
+          {selectedDocument.summary && (
+            <div className="detail-section">
+              <h4>
+                <FiCpu aria-hidden="true" /> KI-Zusammenfassung
+              </h4>
+              <p className="summary-text">{selectedDocument.summary}</p>
+            </div>
+          )}
+
+          {/* Topics */}
+          {selectedDocument.key_topics && selectedDocument.key_topics.length > 0 && (
+            <div className="detail-section">
+              <h4>
+                <FiTag aria-hidden="true" /> Themen
+              </h4>
+              <ul className="topics-list" aria-label="Dokumenten-Themen">
+                {selectedDocument.key_topics.map((topic, idx) => (
+                  <li key={idx} className="topic-tag">
+                    {topic}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Category with confidence */}
+          {selectedDocument.category_name && (
+            <div className="detail-section">
+              <h4>
+                <FiFolder aria-hidden="true" /> Kategorie
+              </h4>
+              <div className="category-info">
+                <CategoryBadge
+                  name={selectedDocument.category_name}
+                  color={selectedDocument.category_color}
+                />
+                {selectedDocument.category_confidence && (
+                  <span
+                    className="confidence"
+                    aria-label={`Konfidenz: ${(selectedDocument.category_confidence * 100).toFixed(0)} Prozent`}
+                  >
+                    ({(selectedDocument.category_confidence * 100).toFixed(0)}% Konfidenz)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Similar Documents */}
+          {selectedDocument.status === 'indexed' && (
+            <div className="detail-section">
+              <h4>
+                <FiLink aria-hidden="true" /> Ähnliche Dokumente
+              </h4>
+              {loadingSimilar ? (
+                <div className="loading-similar" role="status" aria-live="polite">
+                  <FiRefreshCw className="spin" aria-hidden="true" />
+                  <span>Suche ähnliche Dokumente...</span>
+                </div>
+              ) : similarDocuments.length === 0 ? (
+                <p className="no-similar">Keine ähnlichen Dokumente gefunden</p>
+              ) : (
+                <ul className="similar-list" aria-label="Ähnliche Dokumente">
+                  {similarDocuments.map((sim, idx) => (
+                    <li key={idx} className="similar-item">
+                      <FiFile aria-hidden="true" />
+                      <span className="sim-name">{sim.title || sim.filename}</span>
+                      <span
+                        className="sim-score"
+                        aria-label={`Ähnlichkeit: ${(sim.similarity_score * 100).toFixed(0)} Prozent`}
+                      >
+                        {(sim.similarity_score * 100).toFixed(0)}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Error message if failed */}
+          {selectedDocument.status === 'failed' && selectedDocument.processing_error && (
+            <div className="detail-section error-section" role="alert">
+              <h4>
+                <FiAlertCircle aria-hidden="true" /> Fehler
+              </h4>
+              <p className="error-text">{selectedDocument.processing_error}</p>
+              <button
+                className="retry-btn"
+                onClick={() => {
+                  handleReindex(selectedDocument.id);
+                  setShowDetails(false);
+                }}
+                aria-label="Indexierung erneut versuchen"
+              >
+                <FiRefreshCw aria-hidden="true" /> Erneut versuchen
+              </button>
+            </div>
+          )}
+        </Modal>
       )}
 
       {/* Markdown Editor */}

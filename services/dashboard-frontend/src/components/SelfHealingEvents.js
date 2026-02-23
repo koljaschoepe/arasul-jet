@@ -25,16 +25,18 @@ const SelfHealingEvents = () => {
   const [refreshInterval, setRefreshInterval] = useState(null);
 
   useEffect(() => {
-    fetchEvents();
+    const controller = new AbortController();
+    fetchEvents(false, controller.signal);
 
     if (autoRefresh) {
       const interval = setInterval(() => {
-        fetchEvents(true); // Silent refresh
-      }, 10000); // Refresh every 10 seconds
+        fetchEvents(true, controller.signal); // Silent refresh
+      }, 15000); // Refresh every 15 seconds
 
       setRefreshInterval(interval);
 
       return () => {
+        controller.abort();
         if (interval) clearInterval(interval);
       };
     } else {
@@ -42,17 +44,19 @@ const SelfHealingEvents = () => {
         clearInterval(refreshInterval);
         setRefreshInterval(null);
       }
+      return () => controller.abort();
     }
   }, [autoRefresh]);
 
-  const fetchEvents = async (silent = false) => {
+  const fetchEvents = async (silent = false, signal) => {
     if (!silent) setLoading(true);
     setError('');
 
     try {
-      const response = await axios.get(`${API_BASE}/self-healing/events?limit=50`);
+      const response = await axios.get(`${API_BASE}/self-healing/events?limit=50`, { signal });
       setEvents(response.data.events || []);
     } catch (err) {
+      if (signal?.aborted) return;
       setError('Failed to load self-healing events');
       console.error('Failed to fetch events:', err);
     } finally {

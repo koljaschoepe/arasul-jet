@@ -7,14 +7,14 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-modal-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
-  animation: modal-overlay-fade-in 0.2s ease-out;
+  animation: modal-overlay-fade-in var(--duration-normal) ease-out;
 }
 
 @keyframes modal-overlay-fade-in {
@@ -34,9 +34,9 @@
   max-height: calc(100vh - 2rem);
   background: var(--bg-card, #1A2330);
   border: 1px solid var(--border-color, #2A3544);
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-  animation: modal-slide-in 0.2s ease-out;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  animation: modal-slide-in var(--duration-normal) ease-out;
   outline: none;
 }
 
@@ -71,7 +71,7 @@
   width: calc(100vw - 2rem);
   height: calc(100vh - 2rem);
   max-width: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 /* Modal header */
@@ -99,11 +99,11 @@
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted, #94A3B8);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .modal-close-btn:hover {
@@ -167,26 +167,26 @@
 }
 
 .alert-success .modal-message {
-  color: #22C55E;
+  color: var(--success-color, #22C55E);
 }
 
 .alert-warning .modal-message {
-  color: #F59E0B;
+  color: var(--warning-color, #F59E0B);
 }
 
 .alert-error .modal-message {
-  color: #EF4444;
+  color: var(--danger-color, #EF4444);
 }
 
 /* Button styles for modal */
 .modal .btn {
   padding: 0.625rem 1.25rem;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .modal .btn:disabled {
@@ -196,7 +196,7 @@
 
 .modal .btn-primary {
   background: var(--primary-color, #45ADFF);
-  color: #000;
+  color: var(--text-on-primary, #000);
 }
 
 .modal .btn-primary:hover:not(:disabled) {
@@ -216,12 +216,12 @@
 }
 
 .modal .btn-danger {
-  background: #EF4444;
-  color: #fff;
+  background: var(--danger-color, #EF4444);
+  color: var(--text-primary, #fff);
 }
 
 .modal .btn-danger:hover:not(:disabled) {
-  background: #DC2626;
+  background: var(--danger-color-hover, #DC2626);
 }
 
 /* Focus visible for all modal buttons */
@@ -240,7 +240,7 @@
   .modal {
     max-height: 90vh;
     border-radius: 12px 12px 0 0;
-    animation: modal-slide-up 0.2s ease-out;
+    animation: modal-slide-up var(--duration-normal) ease-out;
   }
 
   @keyframes modal-slide-up {

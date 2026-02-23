@@ -80,6 +80,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
 
       const data = await response.json();
       onChange([...commands, data.command]);
+      toast.success('Befehl erstellt');
       setNewCommand(null);
     } catch (err) {
       setError(err.message);
@@ -120,6 +121,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
 
       const data = await response.json();
       onChange(commands.map(c => (c.id === data.command.id ? data.command : c)));
+      toast.success('Befehl gespeichert');
       setEditingCommand(null);
     } catch (err) {
       setError(err.message);
@@ -143,6 +145,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       }
 
       onChange(commands.filter(c => c.id !== cmdId));
+      toast.success('Befehl gelöscht');
     } catch (err) {
       toast.error(err.message);
     }
@@ -235,8 +238,8 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
           rows={4}
         />
         <small>
-          Verwende <code>{'{eingabe}'}</code> als Platzhalter für den Text nach dem Befehl
-          (z.B. /wetter Berlin → {'{eingabe}'} = &quot;Berlin&quot;)
+          Verwende <code>{'{eingabe}'}</code> als Platzhalter für den Text nach dem Befehl (z.B.
+          /wetter Berlin → {'{eingabe}'} = &quot;Berlin&quot;)
         </small>
       </div>
 

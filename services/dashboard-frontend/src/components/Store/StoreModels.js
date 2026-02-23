@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import useConfirm from '../../hooks/useConfirm';
+import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import {
   FiCpu,
@@ -75,14 +76,14 @@ function StoreModels() {
   const activatingRef = useRef(false);
 
   // Load catalog and status
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async signal => {
     try {
       const headers = getAuthHeaders();
 
       const [catalogRes, statusRes, defaultRes] = await Promise.all([
-        fetch(`${API_BASE}/models/catalog`, { headers }),
-        fetch(`${API_BASE}/models/status`, { headers }),
-        fetch(`${API_BASE}/models/default`, { headers }),
+        fetch(`${API_BASE}/models/catalog`, { headers, signal }),
+        fetch(`${API_BASE}/models/status`, { headers, signal }),
+        fetch(`${API_BASE}/models/default`, { headers, signal }),
       ]);
 
       if (!catalogRes.ok) throw new Error('Fehler beim Laden des Katalogs');
@@ -97,6 +98,7 @@ function StoreModels() {
       setDefaultModel(defaultData.default_model);
       setError(null);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('[StoreModels] Error loading data:', err);
       setError(`Fehler beim Laden: ${err.message}`);
     } finally {
@@ -105,9 +107,13 @@ function StoreModels() {
   }, []);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    loadData(controller.signal);
+    const interval = setInterval(() => loadData(controller.signal), 15000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [loadData]);
 
   // Reload when download completes
@@ -531,10 +537,7 @@ function StoreModels() {
       </div>
 
       {filteredCatalog.length === 0 && (
-        <div className="store-empty">
-          <FiCpu />
-          <p>Keine Modelle gefunden</p>
-        </div>
+        <EmptyState icon={<FiCpu />} title="Keine Modelle gefunden" />
       )}
 
       {/* Model Detail Modal */}

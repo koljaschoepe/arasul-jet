@@ -41,7 +41,7 @@
 .skeleton-text-line {
   height: 1rem;
   min-height: 1rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .skeleton-text-line.short { width: 40%; }
@@ -66,7 +66,7 @@
 .skeleton-card {
   background: var(--bg-card, #1A2330);
   border: 1px solid var(--border-color, #2A3544);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1rem;
   /* CLS: Define minimum card height */
   min-height: 120px;
@@ -119,14 +119,14 @@
 .skeleton-table-cell {
   height: 1rem;
   min-height: 1rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 /* Skeleton stat card - CLS Prevention */
 .skeleton-stat-card {
   background: var(--bg-card, #1A2330);
   border: 1px solid var(--border-color, #2A3544);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
   display: flex;
   align-items: flex-start;
@@ -146,14 +146,14 @@
   height: 2rem;
   min-height: 2rem;
   width: 60%;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .skeleton-stat-label {
   height: 1rem;
   min-height: 1rem;
   width: 80%;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 /* Skeleton chat message - CLS Prevention */
@@ -177,7 +177,7 @@
 .skeleton-message-content {
   max-width: 70%;
   background: var(--bg-card, #1A2330);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1rem;
   /* CLS: Minimum content height */
   min-height: 60px;
@@ -204,7 +204,7 @@
   padding: 0.75rem 1rem;
   background: var(--bg-card, #1A2330);
   border: 1px solid var(--border-color, #2A3544);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   /* CLS: Minimum document item height */
   min-height: 64px;
 }
@@ -214,7 +214,7 @@
   height: 40px;
   min-width: 40px;
   min-height: 40px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .skeleton-document-info {
@@ -228,14 +228,14 @@
   height: 1rem;
   min-height: 1rem;
   width: 60%;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .skeleton-document-meta {
   height: 0.75rem;
   min-height: 0.75rem;
   width: 40%;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 /* Skeleton document list */

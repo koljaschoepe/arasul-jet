@@ -59,12 +59,12 @@ const categoryLabels = {
 const statusConfig = {
   running: { color: 'var(--primary-color)', label: 'Aktiv', icon: FiCheck },
   installed: { color: 'var(--status-neutral)', label: 'Gestoppt', icon: FiClock },
-  available: { color: 'var(--text-disabled)', label: 'Verfuegbar', icon: FiDownload },
+  available: { color: 'var(--text-disabled)', label: 'Verfügbar', icon: FiDownload },
   installing: { color: 'var(--primary-light)', label: 'Installiert...', icon: FiRefreshCw },
   starting: { color: 'var(--primary-light)', label: 'Startet...', icon: FiRefreshCw },
   stopping: { color: 'var(--status-neutral)', label: 'Stoppt...', icon: FiRefreshCw },
   uninstalling: { color: 'var(--text-disabled)', label: 'Deinstalliert...', icon: FiRefreshCw },
-  error: { color: 'var(--text-disabled)', label: 'Fehler', icon: FiAlertCircle },
+  error: { color: 'var(--danger-color)', label: 'Fehler', icon: FiAlertCircle },
 };
 
 // Get app URL
@@ -110,12 +110,13 @@ function StoreApps() {
   });
 
   // Load apps
-  const loadApps = useCallback(async () => {
+  const loadApps = useCallback(async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/apps`);
+      const response = await axios.get(`${API_BASE}/apps`, { signal });
       setApps(response.data.apps || []);
       setError(null);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('Error loading apps:', err);
       setError(err.response?.data?.message || err.message);
     } finally {
@@ -124,13 +125,19 @@ function StoreApps() {
   }, []);
 
   useEffect(() => {
-    loadApps();
+    const controller = new AbortController();
+    loadApps(controller.signal);
+    return () => controller.abort();
   }, [loadApps]);
 
-  // Refresh every 5 seconds
+  // Refresh every 15 seconds
   useEffect(() => {
-    const interval = setInterval(loadApps, 5000);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    const interval = setInterval(() => loadApps(controller.signal), 15000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [loadApps]);
 
   // Loading timeout - show message after 15s

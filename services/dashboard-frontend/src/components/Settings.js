@@ -227,10 +227,11 @@ function CompanyContextSettings() {
 ---
 *Diese Informationen werden bei jeder RAG-Anfrage als Hintergrundkontext bereitgestellt.*`;
 
-  const fetchContent = useCallback(async () => {
+  const fetchContent = useCallback(async signal => {
     try {
       const response = await fetch(`${API_BASE}/settings/company-context`, {
         headers: getAuthHeaders(),
+        signal,
       });
       if (response.ok) {
         const data = await response.json();
@@ -239,6 +240,7 @@ function CompanyContextSettings() {
         setLastUpdated(data.updated_at);
       }
     } catch (error) {
+      if (signal?.aborted) return;
       console.error('Error fetching company context:', error);
       setContent(defaultTemplate);
       setOriginalContent(defaultTemplate);
@@ -248,7 +250,9 @@ function CompanyContextSettings() {
   }, []);
 
   useEffect(() => {
-    fetchContent();
+    const controller = new AbortController();
+    fetchContent(controller.signal);
+    return () => controller.abort();
   }, [fetchContent]);
 
   const handleSave = async () => {
@@ -539,16 +543,18 @@ function ServicesSettings() {
   const [confirmRestart, setConfirmRestart] = useState(null);
   const [message, setMessage] = useState(null);
 
-  const fetchServices = useCallback(async () => {
+  const fetchServices = useCallback(async signal => {
     try {
       const response = await fetch(`${API_BASE}/services/all`, {
         headers: getAuthHeaders(),
+        signal,
       });
       if (response.ok) {
         const data = await response.json();
         setServices(data.services || []);
       }
     } catch (error) {
+      if (signal?.aborted) return;
       console.error('Error fetching services:', error);
     } finally {
       setLoading(false);
@@ -556,10 +562,14 @@ function ServicesSettings() {
   }, []);
 
   useEffect(() => {
-    fetchServices();
-    // Refresh services every 10 seconds
-    const interval = setInterval(fetchServices, 10000);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    fetchServices(controller.signal);
+    // Refresh services every 15 seconds
+    const interval = setInterval(() => fetchServices(controller.signal), 15000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchServices]);
 
   const handleRestartClick = service => {

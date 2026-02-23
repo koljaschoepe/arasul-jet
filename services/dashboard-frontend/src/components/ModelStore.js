@@ -60,16 +60,13 @@ function ModelStore() {
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
 
   // Load catalog and status
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async signal => {
     try {
       const headers = getAuthHeaders();
 
-      // Debug: Log API base URL
-      // [ModelStore] Loading data from:', API_BASE, 'Host:', window.location.host);
-
       // Fetch with explicit error checking
       const fetchWithCheck = async (url, name) => {
-        const response = await fetch(url, { headers });
+        const response = await fetch(url, { headers, signal });
         if (!response.ok) {
           console.error(`[ModelStore] ${name} failed:`, response.status, response.statusText);
           throw new Error(`${name}: ${response.status} ${response.statusText}`);
@@ -83,16 +80,13 @@ function ModelStore() {
         fetchWithCheck(`${API_BASE}/models/default`, 'Default'),
       ]);
 
-      // Debug: Log responses
-      // [ModelStore] Catalog:', catalogRes.total, 'models');
-      // [ModelStore] Status:', statusRes.loaded_model ? statusRes.loaded_model.model_id : 'no model loaded');
-
       setCatalog(catalogRes.models || []);
       setLoadedModel(statusRes.loaded_model);
       setQueueByModel(statusRes.queue_by_model || []);
       setDefaultModel(defaultRes.default_model);
       setError(null);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('[ModelStore] Error loading model data:', err);
       setError(`Fehler beim Laden: ${err.message}`);
     } finally {
@@ -101,9 +95,13 @@ function ModelStore() {
   }, []);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    loadData(controller.signal);
+    const interval = setInterval(() => loadData(controller.signal), 15000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [loadData]);
 
   // Reload data when a download completes

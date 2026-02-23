@@ -1,7 +1,7 @@
 /* Self-Healing Events - Dark Theme, Low Contrast */
 
 .self-healing-events {
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn var(--duration-medium) ease;
 }
 
 /* Header */
@@ -42,9 +42,9 @@
   padding: 0.75rem 1.25rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all var(--duration-medium) ease;
   font-weight: 500;
   font-size: 0.875rem;
   color: var(--text-secondary);
@@ -68,11 +68,11 @@
   background: var(--gradient-primary);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -99,17 +99,17 @@
 .stat-card {
   background: rgba(16, 25, 35, 0.4);
   padding: 1.75rem;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--primary-alpha-15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   border-left: 3px solid rgba(148, 163, 184, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   border-color: var(--primary-alpha-30);
 }
 
@@ -153,11 +153,11 @@
   padding: 0.75rem 1.5rem;
   border: 1px solid var(--primary-alpha-20);
   background: var(--primary-alpha-5);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-slow) cubic-bezier(0.4, 0, 0.2, 1);
   color: var(--text-secondary);
   position: relative;
   overflow: hidden;
@@ -171,7 +171,7 @@
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, var(--primary-alpha-10), transparent);
-  transition: left 0.5s ease;
+  transition: left var(--duration-slow) ease;
 }
 
 .filter-btn:hover::before {
@@ -183,14 +183,14 @@
   background: var(--primary-alpha-12);
   color: var(--text-primary);
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 4px 12px var(--primary-alpha-20);
+  box-shadow: var(--shadow-md);
 }
 
 .filter-btn.active {
   background: var(--gradient-primary);
   border-color: transparent;
   color: white;
-  box-shadow: 0 6px 20px var(--primary-alpha-40);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
@@ -203,7 +203,7 @@
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   color: var(--error-color);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
   border-left: 3px solid var(--danger-color);
   font-size: 0.9rem;
@@ -220,8 +220,8 @@
   padding: 4rem 1.5rem;
   background: rgba(16, 25, 35, 0.4);
   border: 1px solid var(--primary-alpha-15);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(10px);
 }
 
@@ -255,18 +255,18 @@
 /* Event Card */
 .event-card {
   background: rgba(16, 25, 35, 0.4);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   border: 1px solid var(--primary-alpha-15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   border-left: 3px solid rgba(148, 163, 184, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
 }
 
 .event-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   border-color: var(--primary-alpha-30);
 }
 
@@ -298,7 +298,7 @@
   align-items: center;
   justify-content: center;
   background: var(--primary-alpha-10);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
   color: var(--primary-color);
 }
@@ -329,9 +329,9 @@
 .severity-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 16px;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
   font-weight: 600;
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -384,8 +384,8 @@
   padding: 0.875rem 1rem;
   background: var(--primary-alpha-5);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  transition: all 0.25s ease;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-medium) ease;
 }
 
 .event-action {
@@ -420,7 +420,7 @@
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
   border-left: 3px solid var(--danger-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .error-label {
@@ -448,8 +448,8 @@
   padding: 5rem 1.5rem;
   background: rgba(16, 25, 35, 0.4);
   border: 1px solid var(--primary-alpha-15);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(10px);
 }
 

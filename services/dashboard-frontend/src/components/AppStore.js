@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import EmptyState from './EmptyState';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -105,47 +106,58 @@ function AppStore() {
   });
 
   // Load apps
-  const loadApps = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (selectedCategory && selectedCategory !== 'all') {
-        params.append('category', selectedCategory);
-      }
-      if (searchQuery) {
-        params.append('search', searchQuery);
-      }
+  const loadApps = useCallback(
+    async signal => {
+      try {
+        const params = new URLSearchParams();
+        if (selectedCategory && selectedCategory !== 'all') {
+          params.append('category', selectedCategory);
+        }
+        if (searchQuery) {
+          params.append('search', searchQuery);
+        }
 
-      const response = await axios.get(`${API_BASE}/apps?${params.toString()}`);
-      setApps(response.data.apps || []);
-      setError(null);
-    } catch (err) {
-      console.error('Error loading apps:', err);
-      setError(err.response?.data?.message || err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedCategory, searchQuery]);
+        const response = await axios.get(`${API_BASE}/apps?${params.toString()}`, { signal });
+        setApps(response.data.apps || []);
+        setError(null);
+      } catch (err) {
+        if (signal?.aborted) return;
+        console.error('Error loading apps:', err);
+        setError(err.response?.data?.message || err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedCategory, searchQuery]
+  );
 
   // Load categories
-  const loadCategories = async () => {
+  const loadCategories = async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/apps/categories`);
+      const response = await axios.get(`${API_BASE}/apps/categories`, { signal });
       setCategories(response.data.categories || []);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('Error loading categories:', err);
     }
   };
 
   // Initial load
   useEffect(() => {
-    loadApps();
-    loadCategories();
+    const controller = new AbortController();
+    loadApps(controller.signal);
+    loadCategories(controller.signal);
+    return () => controller.abort();
   }, [loadApps]);
 
-  // Refresh every 5 seconds
+  // Refresh every 15 seconds
   useEffect(() => {
-    const interval = setInterval(loadApps, 5000);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    const interval = setInterval(() => loadApps(controller.signal), 15000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [loadApps]);
 
   // Handle app actions
@@ -409,10 +421,7 @@ function AppStore() {
         {filteredApps.length > 0 ? (
           filteredApps.map(renderAppCard)
         ) : (
-          <div className="appstore-empty">
-            <FiPackage />
-            <p>Keine Apps gefunden</p>
-          </div>
+          <EmptyState icon={<FiPackage />} title="Keine Apps gefunden" />
         )}
       </div>
 

@@ -7,6 +7,7 @@ import axios from 'axios';
 import { FiEdit2, FiType, FiTrash2 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 import useConfirm from '../../hooks/useConfirm';
+import { useToast } from '../../contexts/ToastContext';
 import { FIELD_TYPES } from './constants';
 
 const ColumnMenu = memo(function ColumnMenu({
@@ -16,6 +17,7 @@ const ColumnMenu = memo(function ColumnMenu({
   onFieldUpdated,
   position,
 }) {
+  const toast = useToast();
   const { confirm: showConfirm, ConfirmDialog: ColumnConfirmDialog } = useConfirm();
   const [mode, setMode] = useState('menu'); // 'menu' | 'rename' | 'type'
   const [newName, setNewName] = useState(field.name);
@@ -58,6 +60,7 @@ const ColumnMenu = memo(function ColumnMenu({
       await axios.patch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
         name: newName.trim(),
       });
+      toast.success('Spalte umbenannt');
       onFieldUpdated();
       onClose();
     } catch (err) {
@@ -81,6 +84,7 @@ const ColumnMenu = memo(function ColumnMenu({
       await axios.patch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
         field_type: newType,
       });
+      toast.success('Spaltentyp geändert');
       onFieldUpdated();
       onClose();
     } catch (err) {
@@ -105,6 +109,7 @@ const ColumnMenu = memo(function ColumnMenu({
 
     try {
       await axios.delete(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`);
+      toast.success('Spalte gelöscht');
       onFieldUpdated();
       onClose();
     } catch (err) {

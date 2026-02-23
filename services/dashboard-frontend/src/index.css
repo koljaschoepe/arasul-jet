@@ -48,12 +48,32 @@ code {
   --touch-target-min: 44px;
 
   /* Spacing scale */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  --space-2xl: 3rem;
+  --space-2xs: 0.125rem;   /* 2px */
+  --space-xs: 0.25rem;     /* 4px */
+  --space-sm: 0.5rem;      /* 8px */
+  --space-md: 1rem;        /* 16px */
+  --space-lg: 1.5rem;      /* 24px */
+  --space-xl: 2rem;        /* 32px */
+  --space-2xl: 3rem;       /* 48px */
+  --space-3xl: 4rem;       /* 64px */
+
+  /* Half-step spacing (for common in-between values) */
+  --space-xs-sm: 0.375rem;  /* 6px */
+  --space-sm-md: 0.75rem;   /* 12px */
+  --space-md-lg: 1.25rem;   /* 20px */
+  --space-lg-xl: 1.75rem;   /* 28px */
+
+  /* Font-size scale */
+  --text-2xs: 0.65rem;      /* 10.4px */
+  --text-xs: 0.75rem;       /* 12px */
+  --text-sm: 0.8125rem;     /* 13px */
+  --text-base: 0.875rem;    /* 14px */
+  --text-md: 0.9375rem;     /* 15px */
+  --text-lg: 1rem;          /* 16px */
+  --text-xl: 1.125rem;      /* 18px */
+  --text-2xl: 1.25rem;      /* 20px */
+  --text-3xl: 1.5rem;       /* 24px */
+  --text-4xl: 2rem;         /* 32px */
 
   /* Responsive spacing (uses clamp for fluid sizing) */
   --space-responsive-sm: clamp(8px, 1vw, 12px);
@@ -219,6 +239,22 @@ code {
   --font-xl: 1.125rem;     /* 18px */
   --font-2xl: 1.25rem;     /* 20px */
   --font-3xl: 1.5rem;      /* 24px */
+
+  /* ========================================
+     Z-INDEX SCALE
+     Centralized z-index management to prevent conflicts
+     ======================================== */
+  --z-content: 1;
+  --z-sticky: 10;
+  --z-sidebar-toggle: 20;
+  --z-dropdown: 100;
+  --z-sticky-header: 200;
+  --z-tooltip: 500;
+  --z-modal-backdrop: 1000;
+  --z-modal: 1001;
+  --z-popover: 1100;
+  --z-notification: 1500;
+  --z-skip-nav: 2000;
 }
 
 /* ========================================
@@ -247,7 +283,7 @@ code {
   /* Borders - Dezent */
   --border-color: #E2E8F0;
   --border-subtle: #F1F5F9;
-  --border-glow: rgba(33, 150, 243, 0.3);
+  --border-glow: rgba(69, 173, 255, 0.3);
 
   /* Shadows - Weicher für Light Mode */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -255,57 +291,57 @@ code {
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
 
-  /* Gradients - Light Mode */
-  --gradient-primary: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  /* Gradients - Light Mode (aligned with dark mode #45ADFF) */
+  --gradient-primary: linear-gradient(135deg, #45ADFF 0%, #2D8FD9 100%);
   --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
 
   /* Terminal Background (light mode keeps dark terminal) */
   --bg-terminal: #1a1a2e;
 
-  /* Primary Blau - leicht angepasst für besseren Kontrast */
-  --primary-color: #2196F3;
-  --primary-hover: #42A5F5;
-  --primary-active: #1976D2;
-  --primary-light: #42A5F5;
-  --primary-muted: rgba(33, 150, 243, 0.12);
-  --text-on-primary: #FFFFFF;
+  /* Primary Blau - aligned with dark mode */
+  --primary-color: #45ADFF;
+  --primary-hover: #6EC4FF;
+  --primary-active: #2D8FD9;
+  --primary-light: #6EC4FF;
+  --primary-muted: rgba(69, 173, 255, 0.12);
+  --text-on-primary: #000000;
 
   /* Additional Background Colors for Components */
-  --bg-table-header: rgba(33, 150, 243, 0.05);
-  --bg-table-row-hover: rgba(33, 150, 243, 0.03);
-  --bg-table-row-active: rgba(33, 150, 243, 0.08);
-  --bg-dropzone: rgba(33, 150, 243, 0.05);
-  --bg-dropzone-hover: rgba(33, 150, 243, 0.08);
-  --bg-dropzone-active: rgba(33, 150, 243, 0.15);
-  --bg-code: rgba(33, 150, 243, 0.05);
+  --bg-table-header: rgba(69, 173, 255, 0.05);
+  --bg-table-row-hover: rgba(69, 173, 255, 0.03);
+  --bg-table-row-active: rgba(69, 173, 255, 0.08);
+  --bg-dropzone: rgba(69, 173, 255, 0.05);
+  --bg-dropzone-hover: rgba(69, 173, 255, 0.08);
+  --bg-dropzone-active: rgba(69, 173, 255, 0.15);
+  --bg-code: rgba(69, 173, 255, 0.05);
   --bg-option: #FFFFFF;
 
   /* Additional Border Colors */
-  --border-dropzone: rgba(33, 150, 243, 0.3);
-  --border-dropzone-hover: rgba(33, 150, 243, 0.5);
-  --border-dropzone-active: #2196F3;
-  --border-input: rgba(33, 150, 243, 0.2);
-  --border-input-focus: rgba(33, 150, 243, 0.4);
-  --border-table: rgba(33, 150, 243, 0.1);
-  --border-modal: rgba(33, 150, 243, 0.2);
+  --border-dropzone: rgba(69, 173, 255, 0.3);
+  --border-dropzone-hover: rgba(69, 173, 255, 0.5);
+  --border-dropzone-active: #45ADFF;
+  --border-input: rgba(69, 173, 255, 0.2);
+  --border-input-focus: rgba(69, 173, 255, 0.4);
+  --border-table: rgba(69, 173, 255, 0.1);
+  --border-modal: rgba(69, 173, 255, 0.2);
 
   /* Modal Backdrop */
   --backdrop-color: rgba(0, 0, 0, 0.5);
 
   /* Scrollbar */
-  --scrollbar-thumb: #2196F3;
+  --scrollbar-thumb: #45ADFF;
 
-  /* Primary Color Alpha Scale (Light Mode) */
-  --primary-alpha-5: rgba(33, 150, 243, 0.05);
-  --primary-alpha-8: rgba(33, 150, 243, 0.08);
-  --primary-alpha-10: rgba(33, 150, 243, 0.1);
-  --primary-alpha-12: rgba(33, 150, 243, 0.12);
-  --primary-alpha-15: rgba(33, 150, 243, 0.15);
-  --primary-alpha-20: rgba(33, 150, 243, 0.2);
-  --primary-alpha-25: rgba(33, 150, 243, 0.25);
-  --primary-alpha-30: rgba(33, 150, 243, 0.3);
-  --primary-alpha-40: rgba(33, 150, 243, 0.4);
-  --primary-alpha-50: rgba(33, 150, 243, 0.5);
+  /* Primary Color Alpha Scale (Light Mode - aligned with dark mode) */
+  --primary-alpha-5: rgba(69, 173, 255, 0.05);
+  --primary-alpha-8: rgba(69, 173, 255, 0.08);
+  --primary-alpha-10: rgba(69, 173, 255, 0.1);
+  --primary-alpha-12: rgba(69, 173, 255, 0.12);
+  --primary-alpha-15: rgba(69, 173, 255, 0.15);
+  --primary-alpha-20: rgba(69, 173, 255, 0.2);
+  --primary-alpha-25: rgba(69, 173, 255, 0.25);
+  --primary-alpha-30: rgba(69, 173, 255, 0.3);
+  --primary-alpha-40: rgba(69, 173, 255, 0.4);
+  --primary-alpha-50: rgba(69, 173, 255, 0.5);
 
   /* Status Colors - Semantic (Light Mode) */
   --status-neutral: #64748B;        /* Dunkleres Grau für besseren Kontrast */
@@ -333,22 +369,22 @@ code {
 
 .light-mode .status-warning {
   background: rgba(217, 119, 6, 0.12);
-  color: #D97706;
+  color: var(--status-warning);
   border: 1px solid rgba(217, 119, 6, 0.25);
 }
 
 .light-mode .status-warning::before {
-  background: #D97706;
+  background: var(--status-warning);
 }
 
 .light-mode .status-critical {
   background: rgba(220, 38, 38, 0.12);
-  color: #DC2626;
+  color: var(--status-critical);
   border: 1px solid rgba(220, 38, 38, 0.25);
 }
 
 .light-mode .status-critical::before {
-  background: #DC2626;
+  background: var(--status-critical);
 }
 
 /* Light Mode - Status dots */
@@ -358,7 +394,7 @@ code {
 }
 
 .light-mode .status-dot-error {
-  background: #DC2626;
+  background: var(--danger-color-hover);
   box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
 }
 
@@ -371,13 +407,13 @@ code {
 
 .light-mode .stat-change-negative {
   background: rgba(220, 38, 38, 0.1);
-  color: #DC2626;
+  color: var(--status-critical);
   border: 1px solid rgba(220, 38, 38, 0.2);
 }
 
 .light-mode .stat-change-warning {
   background: rgba(217, 119, 6, 0.1);
-  color: #D97706;
+  color: var(--status-warning);
   border: 1px solid rgba(217, 119, 6, 0.2);
 }
 
@@ -388,7 +424,7 @@ code {
 }
 
 .light-mode .service-error {
-  background: #DC2626;
+  background: var(--status-critical);
   box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
 }
 
@@ -416,12 +452,12 @@ code {
 }
 
 .light-mode .status-indicator.warning {
-  background: #D97706;
+  background: var(--status-warning);
   box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
 }
 
 .light-mode .status-indicator.error {
-  background: #DC2626;
+  background: var(--status-critical);
   box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
 }
 
@@ -451,8 +487,8 @@ code {
 }
 
 .light-mode .theme-toggle-switch:hover {
-  background: rgba(33, 150, 243, 0.06);
-  border-color: rgba(33, 150, 243, 0.3);
+  background: rgba(69, 173, 255, 0.06);
+  border-color: rgba(69, 173, 255, 0.3);
 }
 
 .light-mode .theme-toggle-track {
@@ -466,22 +502,22 @@ code {
 
 /* Light Mode - Navigation hover state */
 .light-mode .nav-link:hover {
-  background: rgba(33, 150, 243, 0.06);
+  background: rgba(69, 173, 255, 0.06);
 }
 
 .light-mode .nav-link.active {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(69, 173, 255, 0.1);
 }
 
 /* Light Mode - Shimmer animation */
 .light-mode .stat-card-large::before,
 .light-mode .header::before {
-  background: linear-gradient(90deg, transparent, rgba(33, 150, 243, 0.05), transparent);
+  background: linear-gradient(90deg, transparent, rgba(69, 173, 255, 0.05), transparent);
 }
 
 /* Light Mode - Circular progress styling */
 .light-mode .circular-bg {
-  stroke: rgba(33, 150, 243, 0.1);
+  stroke: rgba(69, 173, 255, 0.1);
 }
 
 /* Light Mode - Print override */
@@ -529,7 +565,7 @@ code {
 .light-mode .stat-card:hover,
 .light-mode .metric-card:hover,
 .light-mode .info-card:hover {
-  border-color: rgba(33, 150, 243, 0.3);
+  border-color: rgba(69, 173, 255, 0.3);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -567,7 +603,7 @@ code {
 }
 
 .light-mode .metric-trend.negative {
-  color: #DC2626;
+  color: var(--status-critical);
 }
 
 /* Light Mode - Ensure tables are readable */
@@ -595,7 +631,7 @@ code {
 .light-mode select:focus,
 .light-mode textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
 }
 
 /* Keyframe Animations */
@@ -695,7 +731,7 @@ code {
   top: -100px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10000;
+  z-index: var(--z-skip-nav);
   padding: 0.875rem 1.5rem;
   background: var(--primary-color);
   color: var(--text-on-primary);
@@ -967,7 +1003,7 @@ a:focus:not(:focus-visible),
 
 .status-badge {
   padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -999,22 +1035,22 @@ a:focus:not(:focus-visible),
 
 .status-warning {
   background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  color: var(--warning-color);
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .status-warning::before {
-  background: #f59e0b;
+  background: var(--warning-color);
 }
 
 .status-critical {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger-color);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .status-critical::before {
-  background: #ef4444;
+  background: var(--danger-color);
 }
 
 .logout-button {
@@ -1022,7 +1058,7 @@ a:focus:not(:focus-visible),
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   padding: 0.5rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1059,7 +1095,7 @@ a:focus:not(:focus-visible),
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1105,7 +1141,7 @@ a:focus:not(:focus-visible),
   padding: 0.625rem 0.875rem;
   background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   width: 100%;
   transition: all 0.2s ease;
@@ -1117,7 +1153,7 @@ a:focus:not(:focus-visible),
   height: 24px;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   position: relative;
   flex-shrink: 0;
   transition: all 0.3s ease;
@@ -1192,7 +1228,7 @@ a:focus:not(:focus-visible),
 .metric-card-minimal {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
@@ -1265,8 +1301,8 @@ a:focus:not(:focus-visible),
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
   animation: pulse 2s ease-in-out infinite;
@@ -1274,12 +1310,12 @@ a:focus:not(:focus-visible),
 
 .status-dot-ok {
   background: var(--status-neutral);
-  box-shadow: 0 0 8px rgba(148, 163, 184, 0.5);
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.4);
 }
 
 .status-dot-error {
-  background: #ef4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  background: var(--danger-color);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
 }
 
 .system-info-minimal {
@@ -1324,7 +1360,7 @@ a:focus:not(:focus-visible),
 .card {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 1.75rem;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
@@ -1444,7 +1480,7 @@ a:focus:not(:focus-visible),
   width: 100%;
   height: 8px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   margin-top: 0.5rem;
 }
@@ -1452,7 +1488,7 @@ a:focus:not(:focus-visible),
 .progress-bar {
   height: 100%;
   background: var(--gradient-primary);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -1473,7 +1509,7 @@ a:focus:not(:focus-visible),
 .chart-section {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 2rem;
   margin-bottom: 2rem;
   box-shadow: var(--shadow-md);
@@ -1524,7 +1560,7 @@ a:focus:not(:focus-visible),
   justify-content: center;
   background: var(--gradient-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   text-decoration: none;
   color: var(--text-primary);
@@ -1573,7 +1609,7 @@ a:focus:not(:focus-visible),
 .footer {
   background: var(--gradient-card);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 1.75rem 2rem;
   display: flex;
   justify-content: space-between;
@@ -1627,7 +1663,7 @@ a:focus:not(:focus-visible),
   text-align: center;
   background: var(--gradient-card);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
   animation: fadeIn 0.5s ease;
 }
@@ -1655,7 +1691,7 @@ a:focus:not(:focus-visible),
   background: var(--gradient-primary);
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1702,7 +1738,7 @@ a:focus:not(:focus-visible),
   align-items: center;
   gap: 0.875rem;
   padding: 0.875rem 1rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   text-decoration: none;
   color: var(--text-secondary);
   font-weight: 500;
@@ -1864,11 +1900,11 @@ a:focus:not(:focus-visible),
   align-items: center;
   gap: 0.25rem;
   background: var(--primary-color);
-  color: #000;
+  color: var(--text-on-primary);
   font-size: 0.65rem;
   font-weight: 600;
   padding: 0.15rem 0.4rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin-left: auto;
 }
 
@@ -1920,7 +1956,7 @@ a:focus:not(:focus-visible),
   gap: 0.5rem;
   min-height: 40px;
   padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -1957,7 +1993,7 @@ a:focus:not(:focus-visible),
 .textarea-global {
   min-height: 40px;
   padding: 0.5rem 0.875rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
@@ -1990,7 +2026,7 @@ a:focus:not(:focus-visible),
   left: 50%;
   transform: translateX(-50%);
   padding: 0.375rem 0.625rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 500;
   white-space: nowrap;
@@ -2002,7 +2038,7 @@ a:focus:not(:focus-visible),
   visibility: hidden;
   pointer-events: none;
   transition: opacity 0.2s ease, visibility 0.2s ease;
-  z-index: 1000;
+  z-index: var(--z-tooltip);
 }
 
 [data-tooltip]:hover::after {
@@ -2019,14 +2055,14 @@ a:focus:not(:focus-visible),
   align-items: center;
   justify-content: center;
   padding: clamp(1rem, 3vw, 2rem);
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   animation: fadeIn 0.2s ease;
 }
 
 .modal-global {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow-xl);
@@ -2144,7 +2180,7 @@ a:focus:not(:focus-visible),
 
   .stat-card-large {
     padding: 1rem;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     gap: 1rem;
   }
 
@@ -2181,7 +2217,7 @@ a:focus:not(:focus-visible),
   /* Cards */
   .glass-card {
     padding: 1rem;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
   }
 
   .glass-card h3 {
@@ -2413,6 +2449,23 @@ a:focus:not(:focus-visible),
   }
 }
 
+/* Mobile Touch Targets - Ensure minimum 44px for all interactive elements */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a,
+  select,
+  input[type="checkbox"],
+  input[type="radio"],
+  .filter-btn,
+  .nav-link,
+  .chart-zoom-btn,
+  .dm-pagination button {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+  }
+}
+
 /* Mobile Large (≤576px) - Compact everything */
 @media (max-width: 576px) {
   .container {
@@ -2421,7 +2474,7 @@ a:focus:not(:focus-visible),
 
   .header {
     padding: 0.75rem;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     margin-bottom: 1rem;
   }
 
@@ -2436,13 +2489,13 @@ a:focus:not(:focus-visible),
 
   .stat-card-large {
     padding: 0.875rem;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 
   .stat-icon-wrapper {
     width: 44px;
     height: 44px;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
   }
 
   .stat-icon-wrapper .stat-icon {
@@ -2469,7 +2522,7 @@ a:focus:not(:focus-visible),
   /* Dashboard cards compact */
   .dashboard-card {
     padding: 1rem;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 
   .dashboard-card-title {
@@ -2480,7 +2533,7 @@ a:focus:not(:focus-visible),
   /* Service links compact */
   .service-link-card {
     padding: 1rem;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     gap: 1rem;
   }
 
@@ -2704,7 +2757,7 @@ a:focus:not(:focus-visible),
 .stat-card-large {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 1.75rem;
   display: flex;
   align-items: center;
@@ -2735,7 +2788,7 @@ a:focus:not(:focus-visible),
 .stat-icon-wrapper {
   width: 64px;
   height: 64px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--primary-alpha-10);
   display: flex;
   align-items: center;
@@ -2796,7 +2849,7 @@ a:focus:not(:focus-visible),
   align-items: center;
   gap: 0.25rem;
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   margin-top: 0.25rem;
   width: fit-content;
   text-transform: uppercase;
@@ -2854,7 +2907,7 @@ a:focus:not(:focus-visible),
   gap: 0.25rem;
   background: rgba(255, 255, 255, 0.05);
   padding: 0.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .chart-zoom-btn {
@@ -2865,7 +2918,7 @@ a:focus:not(:focus-visible),
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   transition: all 0.2s ease;
 }
 
@@ -2912,7 +2965,7 @@ a:focus:not(:focus-visible),
 .dashboard-card {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 1.75rem;
   box-shadow: var(--shadow-md);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3046,7 +3099,7 @@ a:focus:not(:focus-visible),
   padding: 0.875rem;
   background: var(--primary-alpha-5);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   transition: all 0.3s ease;
 }
 
@@ -3149,7 +3202,7 @@ a:focus:not(:focus-visible),
   padding: 1.5rem;
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   text-decoration: none;
   color: inherit;
@@ -3182,7 +3235,7 @@ a:focus:not(:focus-visible),
 .service-link-icon-wrapper {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--primary-alpha-12);
   display: flex;
   align-items: center;
@@ -3261,9 +3314,26 @@ button.service-link-card.telegram-app-card:focus {
   font-size: 0.7rem;
   font-weight: 600;
   padding: 0.2rem 0.5rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   min-width: 1.5rem;
   text-align: center;
+}
+
+/* Unavailable app card */
+.service-link-card.service-link-unavailable {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.service-link-badge-unavailable {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(100, 116, 139, 0.2);
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* ========================================
@@ -3271,6 +3341,63 @@ button.service-link-card.telegram-app-card:focus {
    Use these for new features to ensure
    consistent responsive behavior
    ======================================== */
+
+/* Card Base - Unified card styling */
+.card-base {
+  background: var(--gradient-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  transition: all 0.25s ease;
+}
+
+.card-base:hover {
+  border-color: var(--primary-alpha-30);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Input Base - Unified input styling */
+.input-base,
+.input-base input,
+.input-base select,
+.input-base textarea {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-base:focus,
+.input-base input:focus,
+.input-base select:focus,
+.input-base textarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-alpha-10);
+  outline: none;
+}
+
+/* Button Size Scale */
+.btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+}
+
+.btn-md {
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  border-radius: var(--radius-md);
+}
+
+.btn-lg {
+  padding: 0.875rem 1.75rem;
+  font-size: 1rem;
+  border-radius: var(--radius-md);
+}
 
 /* Grid Systems - Use for any grid layout */
 .grid-responsive {
@@ -3357,7 +3484,7 @@ button.service-link-card.telegram-app-card:focus {
 .card-base {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: var(--space-lg);
   box-shadow: var(--shadow-sm);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3372,7 +3499,7 @@ button.service-link-card.telegram-app-card:focus {
 @media (max-width: 768px) {
   .card-base {
     padding: var(--space-md);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 }
 
@@ -3389,7 +3516,7 @@ button.service-link-card.telegram-app-card:focus {
   justify-content: center;
   gap: var(--space-sm);
   padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
@@ -3432,7 +3559,7 @@ button.service-link-card.telegram-app-card:focus {
   padding: 0.875rem 1rem;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 1rem;
   transition: all 0.2s ease;
@@ -3515,17 +3642,17 @@ button.service-link-card.telegram-app-card:focus {
 /* Kritischer Status - Rot */
 .status-indicator.critical {
   background: var(--status-critical);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
 }
 
 .status-indicator.warning {
   background: var(--warning-color);
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
 }
 
 .status-indicator.error {
   background: var(--danger-color);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
 }
 
 /* Badge - Reusable */
@@ -3534,7 +3661,7 @@ button.service-link-card.telegram-app-card:focus {
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-full, 9999px);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -3619,6 +3746,106 @@ button.service-link-card.telegram-app-card:focus {
   .safe-area-top {
     padding-top: max(var(--space-md), env(safe-area-inset-top));
   }
+}
+
+/* Table Base - Reusable table styling */
+.table-base {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-base thead th {
+  background: var(--bg-card);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table-base tbody td {
+  padding: 0.75rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.table-base tbody tr {
+  transition: background var(--duration-fast) ease;
+}
+
+.table-base tbody tr:hover {
+  background: rgba(69, 173, 255, 0.03);
+}
+
+/* Container Base - Reusable page container */
+.container-page {
+  padding: clamp(1rem, 2vw, 2rem);
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.container-narrow {
+  padding: clamp(1rem, 2vw, 2rem);
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Form Label - Reusable label styling */
+.form-label {
+  display: block;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Form Message - Reusable error/success/info display */
+.form-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  border: 1px solid transparent;
+  margin-bottom: 1rem;
+}
+
+.form-message.error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--danger-color);
+  border-left: 3px solid var(--danger-color);
+}
+
+.form-message.success {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: var(--success-color);
+  border-left: 3px solid var(--success-color);
+}
+
+.form-message.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--warning-color);
+  border-left: 3px solid var(--warning-color);
+}
+
+.form-message.info {
+  background: rgba(69, 173, 255, 0.1);
+  border-color: rgba(69, 173, 255, 0.3);
+  color: var(--primary-color);
+  border-left: 3px solid var(--primary-color);
 }
 
 /* ========================================
@@ -3802,7 +4029,7 @@ button.service-link-card.telegram-app-card:focus {
   position: fixed;
   top: 1rem;
   right: 1rem;
-  z-index: 10000;
+  z-index: var(--z-notification);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -3817,7 +4044,7 @@ button.service-link-card.telegram-app-card:focus {
   padding: 0.875rem 1rem;
   background: var(--bg-card, #1A2330);
   border: 1px solid var(--border-color, #2A3544);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   animation: toast-slide-in 0.3s ease-out;
   pointer-events: auto;
@@ -3856,7 +4083,7 @@ button.service-link-card.telegram-app-card:focus {
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted, #94A3B8);
   cursor: pointer;
