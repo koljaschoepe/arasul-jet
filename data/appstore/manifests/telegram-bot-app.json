@@ -1,0 +1,74 @@
+{
+  "id": "telegram-bot-app",
+  "name": "Telegram Bot",
+  "version": "2.0.0",
+  "description": "System-Benachrichtigungen & Befehle via Telegram mit Zero-Config Setup",
+  "longDescription": "Erhalte Echtzeit-Benachrichtigungen über dein Arasul-System direkt in Telegram. Steuere Services, überwache Ressourcen und definiere eigene Benachrichtigungsregeln. Das Zero-Config Setup dauert weniger als 60 Sekunden - einfach Bot-Token eingeben, QR-Code scannen, fertig!\n\nFeatures:\n• Zero-Config Magic Setup mit QR-Code\n• Benutzerdefinierte Benachrichtigungsregeln\n• Claude Session Notifications (Task-Start, -Ende, Blocker)\n• System-Warnungen (CPU, RAM, Disk)\n• n8n Workflow-Events\n• Orchestrator Pattern mit Thinking Mode",
+  "category": "productivity",
+  "icon": "FiSend",
+  "author": "Arasul",
+  "homepage": "https://arasul.io",
+  "appType": "official",
+  "builtin": true,
+  "hasCustomPage": true,
+  "customPageRoute": "/telegram-bot",
+  "features": {
+    "zeroConfig": {
+      "enabled": true,
+      "qrCodeSetup": true,
+      "autoDetectChatId": true,
+      "setupTimeoutSeconds": 600
+    },
+    "orchestrator": {
+      "enabled": true,
+      "thinkingMode": true,
+      "skipPermissions": true,
+      "subAgents": ["setup", "notification", "command"]
+    },
+    "notifications": {
+      "customRules": true,
+      "defaultRules": ["claude_task", "system_warning", "n8n_workflow"],
+      "quietHours": true,
+      "severityFilter": true
+    }
+  },
+  "dependencies": [
+    {
+      "container": "postgres-db",
+      "required": true,
+      "description": "Datenbank für Konfiguration und Rules"
+    },
+    {
+      "container": "dashboard-backend",
+      "required": true,
+      "description": "Backend API für Events und WebSocket"
+    }
+  ],
+  "requirements": {
+    "minRam": "0",
+    "minDisk": "0"
+  },
+  "screenshots": [
+    {
+      "url": "/assets/telegram-bot-setup.png",
+      "caption": "Zero-Config Setup Wizard"
+    },
+    {
+      "url": "/assets/telegram-bot-rules.png",
+      "caption": "Benutzerdefinierte Benachrichtigungsregeln"
+    }
+  ],
+  "changelog": [
+    {
+      "version": "2.0.0",
+      "date": "2026-01-16",
+      "changes": [
+        "Zero-Config Magic Setup mit QR-Code",
+        "Orchestrator Pattern mit Sub-Agents",
+        "Thinking Mode für transparente Entscheidungen",
+        "Benutzerdefinierte Notification Rules",
+        "WebSocket Realtime Chat-Erkennung"
+      ]
+    }
+  ]
+}

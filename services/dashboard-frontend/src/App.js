@@ -926,7 +926,7 @@ const DashboardHome = React.memo(function DashboardHome({
       {runningApps && runningApps.length > 0 && (
         <div className="service-links-modern">
           {runningApps
-            ?.filter(app => app.status === 'running')
+            ?.filter(app => app.status === 'running' && app.id !== 'minio')
             .map(app =>
               isInternalLink(app) ? (
                 <Link key={app.id} to={getAppUrl(app)} className="service-link-card">

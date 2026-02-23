@@ -99,7 +99,12 @@ class AppService {
 
       // Check real container status if installed
       let realStatus = installation?.status || 'available';
-      if (installation && installation.status !== 'available') {
+      if (manifest.builtin) {
+        // Built-in apps are always running when dashboard-backend is running
+        if (installation && installation.status !== 'available') {
+          realStatus = 'running';
+        }
+      } else if (installation && installation.status !== 'available') {
         try {
           const containerStatus = await this.getContainerStatus(id);
           if (containerStatus) {
@@ -169,10 +174,18 @@ class AppService {
 
     // Sort: running first, then by name
     apps.sort((a, b) => {
-      if (a.status === 'running' && b.status !== 'running') {return -1;}
-      if (a.status !== 'running' && b.status === 'running') {return 1;}
-      if (a.appType === 'system' && b.appType !== 'system') {return -1;}
-      if (a.appType !== 'system' && b.appType === 'system') {return 1;}
+      if (a.status === 'running' && b.status !== 'running') {
+        return -1;
+      }
+      if (a.status !== 'running' && b.status === 'running') {
+        return 1;
+      }
+      if (a.appType === 'system' && b.appType !== 'system') {
+        return -1;
+      }
+      if (a.appType !== 'system' && b.appType === 'system') {
+        return 1;
+      }
       return a.name.localeCompare(b.name);
     });
 
@@ -248,6 +261,21 @@ class AppService {
           throw new Error(`Abhängigkeit ${dep.container} ist nicht aktiv`);
         }
       }
+    }
+
+    // Built-in apps run inside dashboard-backend, no container needed
+    if (manifest.builtin) {
+      await db.query(
+        `
+        INSERT INTO app_installations (app_id, status, version, container_name, app_type)
+        VALUES ($1, 'running', $2, $3, $4)
+        ON CONFLICT (app_id) DO UPDATE SET
+          status = 'running', version = $2, started_at = NOW(), last_error = NULL, updated_at = NOW()
+      `,
+        [appId, manifest.version, appId, manifest.appType || 'official']
+      );
+      await this.logEvent(appId, 'install_complete', 'Built-in App aktiviert');
+      return { success: true, appId, message: 'App erfolgreich aktiviert' };
     }
 
     // Update status to installing
@@ -383,6 +411,16 @@ class AppService {
       return { success: true, message: 'App läuft bereits' };
     }
 
+    // Built-in apps run inside dashboard-backend
+    const manifests = await this.loadManifests();
+    if (manifests[appId]?.builtin) {
+      await db.query(
+        `UPDATE app_installations SET status = 'running', started_at = NOW(), last_error = NULL WHERE app_id = $1`,
+        [appId]
+      );
+      return { success: true, message: 'App aktiviert' };
+    }
+
     await db.query('UPDATE app_installations SET status = $1 WHERE app_id = $2', [
       'starting',
       appId,
@@ -480,6 +518,16 @@ class AppService {
     // Check if other running apps depend on this app
     await this.checkDependencies(appId);
 
+    // Built-in apps run inside dashboard-backend
+    const manifests = await this.loadManifests();
+    if (manifests[appId]?.builtin) {
+      await db.query(
+        `UPDATE app_installations SET status = 'installed', stopped_at = NOW() WHERE app_id = $1`,
+        [appId]
+      );
+      return { success: true, message: 'App deaktiviert' };
+    }
+
     // Check actual container state, not just DB status
     // This handles cases where DB and container state are out of sync
     const containerName = installation.container_name || appId;
@@ -563,6 +611,12 @@ class AppService {
 
     const installation = result.rows[0];
 
+    // Built-in apps run inside dashboard-backend
+    const manifests = await this.loadManifests();
+    if (manifests[appId]?.builtin) {
+      return { success: true, message: 'Built-in App ist immer aktiv' };
+    }
+
     try {
       // If applyConfig is true, we need to recreate the container with new env vars
       if (applyConfig) {
@@ -616,6 +670,11 @@ class AppService {
 
     if (!manifest) {
       throw new Error(`App ${appId} not found in manifests`);
+    }
+
+    // Built-in apps don't have containers to recreate
+    if (manifest.builtin) {
+      return { success: true, message: 'Built-in App ist immer aktiv' };
     }
 
     // Get saved configuration from database
@@ -742,6 +801,16 @@ class AppService {
     // Check if other running apps depend on this app
     await this.checkDependencies(appId);
 
+    // Built-in apps: just remove DB records
+    const manifests = await this.loadManifests();
+    if (manifests[appId]?.builtin) {
+      await db.query('DELETE FROM app_configurations WHERE app_id = $1', [appId]);
+      await db.query('DELETE FROM app_dependencies WHERE app_id = $1', [appId]);
+      await db.query('DELETE FROM app_installations WHERE app_id = $1', [appId]);
+      await this.logEvent(appId, 'uninstall_complete', 'Built-in App deaktiviert');
+      return { success: true, message: 'App deinstalliert' };
+    }
+
     await db.query('UPDATE app_installations SET status = $1 WHERE app_id = $2', [
       'uninstalling',
       appId,
@@ -808,6 +877,15 @@ class AppService {
 
     if (result.rows.length === 0) {
       throw new Error(`App ${appId} ist nicht installiert`);
+    }
+
+    // Built-in apps share dashboard-backend logs
+    const manifests = await this.loadManifests();
+    if (manifests[appId]?.builtin) {
+      return (
+        'Built-in App: Logs sind in den dashboard-backend Logs verfügbar.\n' +
+        'Nutze: docker compose logs -f dashboard-backend'
+      );
     }
 
     try {
@@ -994,12 +1072,16 @@ class AppService {
   async pullImage(image) {
     return new Promise((resolve, reject) => {
       docker.pull(image, (err, stream) => {
-        if (err) {return reject(err);}
+        if (err) {
+          return reject(err);
+        }
 
         docker.modem.followProgress(
           stream,
           (err, output) => {
-            if (err) {return reject(err);}
+            if (err) {
+              return reject(err);
+            }
             logger.debug(`Image pull complete: ${image}`);
             resolve(output);
           },
@@ -1066,9 +1148,13 @@ class AppService {
    * Parse memory string (e.g., "2G", "512M") to bytes
    */
   parseMemory(mem) {
-    if (!mem) {return undefined;}
+    if (!mem) {
+      return undefined;
+    }
     const match = mem.toString().match(/^(\d+)([GMKgmk])?$/);
-    if (!match) {return undefined;}
+    if (!match) {
+      return undefined;
+    }
 
     const value = parseInt(match[1]);
     const unit = (match[2] || 'M').toUpperCase();
@@ -1086,7 +1172,9 @@ class AppService {
    * Parse CPU string (e.g., "2", "0.5") to nanoseconds
    */
   parseCpus(cpus) {
-    if (!cpus) {return undefined;}
+    if (!cpus) {
+      return undefined;
+    }
     return Math.floor(parseFloat(cpus) * 1e9);
   }
 
@@ -1094,9 +1182,13 @@ class AppService {
    * Parse interval string (e.g., "30s", "1m") to nanoseconds
    */
   parseInterval(interval) {
-    if (!interval) {return undefined;}
+    if (!interval) {
+      return undefined;
+    }
     const match = interval.toString().match(/^(\d+)(s|m|h)?$/);
-    if (!match) {return undefined;}
+    if (!match) {
+      return undefined;
+    }
 
     const value = parseInt(match[1]);
     const unit = match[2] || 's';
