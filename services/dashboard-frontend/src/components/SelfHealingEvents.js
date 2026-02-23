@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import { SkeletonList } from './Skeleton';
 import {
   FiRefreshCw,
@@ -54,8 +53,12 @@ const SelfHealingEvents = () => {
     setError('');
 
     try {
-      const response = await axios.get(`${API_BASE}/self-healing/events?limit=50`, { signal });
-      setEvents(response.data.events || []);
+      const response = await fetch(`${API_BASE}/self-healing/events?limit=50`, {
+        headers: getAuthHeaders(),
+        signal,
+      });
+      const data = await response.json();
+      setEvents(data.events || []);
     } catch (err) {
       if (signal?.aborted) return;
       setError('Failed to load self-healing events');

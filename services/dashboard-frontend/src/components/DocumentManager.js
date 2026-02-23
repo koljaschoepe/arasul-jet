@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import EmptyState from './EmptyState';
 import { SkeletonDocumentList } from './Skeleton';
-import axios from 'axios';
 import {
   FiUpload,
   FiFile,
@@ -151,9 +150,13 @@ function DocumentManager() {
         if (searchQuery) params.append('search', searchQuery);
         if (activeSpaceId) params.append('space_id', activeSpaceId);
 
-        const response = await axios.get(`${API_BASE}/documents?${params}`, { signal });
-        setDocuments(response.data.documents || []);
-        setTotalDocuments(response.data.total || 0);
+        const response = await fetch(`${API_BASE}/documents?${params}`, {
+          headers: getAuthHeaders(),
+          signal,
+        });
+        const data = await response.json();
+        setDocuments(data.documents || []);
+        setTotalDocuments(data.total || 0);
         setError(null);
       } catch (err) {
         if (signal?.aborted) return;
@@ -169,8 +172,12 @@ function DocumentManager() {
   // Load categories
   const loadCategories = async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/documents/categories`, { signal });
-      setCategories(response.data.categories || []);
+      const response = await fetch(`${API_BASE}/documents/categories`, {
+        headers: getAuthHeaders(),
+        signal,
+      });
+      const data = await response.json();
+      setCategories(data.categories || []);
     } catch (err) {
       if (signal?.aborted) return;
       console.error('Error loading categories:', err);
@@ -186,8 +193,12 @@ function DocumentManager() {
         if (statusFilter) params.append('status', statusFilter);
         if (categoryFilter) params.append('category_id', categoryFilter);
 
-        const response = await axios.get(`${API_BASE}/documents/statistics?${params}`, { signal });
-        setStatistics(response.data);
+        const response = await fetch(`${API_BASE}/documents/statistics?${params}`, {
+          headers: getAuthHeaders(),
+          signal,
+        });
+        const data = await response.json();
+        setStatistics(data);
       } catch (err) {
         if (signal?.aborted) return;
         console.error('Error loading statistics:', err);
@@ -199,8 +210,9 @@ function DocumentManager() {
   // Load Knowledge Spaces (RAG 2.0)
   const loadSpaces = async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/spaces`, { signal });
-      setSpaces(response.data.spaces || []);
+      const response = await fetch(`${API_BASE}/spaces`, { headers: getAuthHeaders(), signal });
+      const data = await response.json();
+      setSpaces(data.spaces || []);
     } catch (err) {
       if (signal?.aborted) return;
       console.error('Error loading spaces:', err);
@@ -225,12 +237,14 @@ function DocumentManager() {
         }
         if (searchQuery) params.append('search', searchQuery);
 
-        const response = await axios.get(`${API_BASE}/v1/datentabellen/tables?${params}`, {
+        const response = await fetch(`${API_BASE}/v1/datentabellen/tables?${params}`, {
+          headers: getAuthHeaders(),
           signal,
         });
-        const allTables = response.data.tables || response.data.data || [];
+        const data = await response.json();
+        const allTables = data.tables || data.data || [];
         setTables(allTables);
-        setTotalTables(response.data.total || allTables.length);
+        setTotalTables(data.total || allTables.length);
       } catch (err) {
         if (signal?.aborted) return;
         console.error('Error loading tables:', err);
@@ -269,12 +283,16 @@ function DocumentManager() {
   // Move document to a different space
   const handleMoveDocument = async (docId, newSpaceId, newSpaceName) => {
     try {
-      await axios.put(`${API_BASE}/documents/${docId}/move`, { space_id: newSpaceId });
+      await fetch(`${API_BASE}/documents/${docId}/move`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ space_id: newSpaceId }),
+      });
       toast.success(`Dokument verschoben nach: ${newSpaceName || 'Kein Bereich'}`);
       loadDocuments();
       loadStatistics();
     } catch (err) {
-      toast.error('Fehler beim Verschieben: ' + (err.response?.data?.error || err.message));
+      toast.error('Fehler beim Verschieben: ' + err.message);
     }
   };
 
@@ -350,24 +368,17 @@ function DocumentManager() {
           formData.append('space_id', targetSpaceId);
         }
 
-        await axios.post(`${API_BASE}/documents/upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          onUploadProgress: progressEvent => {
-            const fileProgress = (progressEvent.loaded / progressEvent.total) * 100;
-            const totalProgress = (completedFiles * 100 + fileProgress) / totalFiles;
-            setUploadProgress(Math.round(totalProgress));
-          },
+        await fetch(`${API_BASE}/documents/upload`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: formData,
         });
 
         completedFiles++;
         setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
       } catch (err) {
         console.error(`Error uploading ${file.name}:`, err);
-        if (err.response?.status === 409) {
-          setError(`"${file.name}" existiert bereits`);
-        } else {
-          setError(`Fehler beim Hochladen von "${file.name}"`);
-        }
+        setError(`Fehler beim Hochladen von "${file.name}"`);
       }
     }
 
@@ -407,7 +418,10 @@ function DocumentManager() {
     if (!(await confirm({ message: `"${filename}" wirklich löschen?` }))) return;
 
     try {
-      await axios.delete(`${API_BASE}/documents/${docId}`);
+      await fetch(`${API_BASE}/documents/${docId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       loadDocuments();
       loadStatistics();
     } catch (err) {
@@ -418,11 +432,12 @@ function DocumentManager() {
   // Download document
   const handleDownload = async (docId, filename) => {
     try {
-      const response = await axios.get(`${API_BASE}/documents/${docId}/download`, {
-        responseType: 'blob',
+      const response = await fetch(`${API_BASE}/documents/${docId}/download`, {
+        headers: getAuthHeaders(),
       });
+      const blob = await response.blob();
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', filename);
@@ -437,7 +452,10 @@ function DocumentManager() {
   // Reindex document
   const handleReindex = async docId => {
     try {
-      await axios.post(`${API_BASE}/documents/${docId}/reindex`);
+      await fetch(`${API_BASE}/documents/${docId}/reindex`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
       loadDocuments();
     } catch (err) {
       setError('Fehler beim Neuindexieren');
@@ -454,8 +472,11 @@ function DocumentManager() {
     if (doc.status === 'indexed') {
       setLoadingSimilar(true);
       try {
-        const response = await axios.get(`${API_BASE}/documents/${doc.id}/similar`);
-        setSimilarDocuments(response.data.similar_documents || []);
+        const response = await fetch(`${API_BASE}/documents/${doc.id}/similar`, {
+          headers: getAuthHeaders(),
+        });
+        const data = await response.json();
+        setSimilarDocuments(data.similar_documents || []);
       } catch (err) {
         console.error('Error loading similar documents:', err);
       } finally {
@@ -473,14 +494,16 @@ function DocumentManager() {
     setSearching(true);
 
     try {
-      const response = await axios.post(`${API_BASE}/documents/search`, {
-        query: semanticSearch,
-        top_k: 10,
+      const response = await fetch(`${API_BASE}/documents/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ query: semanticSearch, top_k: 10 }),
       });
+      const data = await response.json();
 
       // RC-003: Only update state if this is still the most recent search
       if (searchRequestIdRef.current === currentRequestId) {
-        setSearchResults(response.data);
+        setSearchResults(data);
       }
     } catch (err) {
       // Only show error if this is still the most recent search
@@ -498,8 +521,10 @@ function DocumentManager() {
   // Toggle favorite
   const toggleFavorite = async doc => {
     try {
-      await axios.patch(`${API_BASE}/documents/${doc.id}`, {
-        is_favorite: !doc.is_favorite,
+      await fetch(`${API_BASE}/documents/${doc.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ is_favorite: !doc.is_favorite }),
       });
       loadDocuments();
     } catch (err) {
@@ -569,7 +594,10 @@ function DocumentManager() {
     if (!(await confirm({ message: `Tabelle "${table.name}" wirklich löschen?` }))) return;
 
     try {
-      await axios.delete(`${API_BASE}/v1/datentabellen/tables/${table.slug}`);
+      await fetch(`${API_BASE}/v1/datentabellen/tables/${table.slug}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       loadTables();
     } catch (err) {
       setError('Fehler beim Löschen der Tabelle');

@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import {
   FiPlus,
   FiSearch,
@@ -15,7 +14,7 @@ import {
   FiFileText,
   FiRefreshCw,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders } from '../../config/api';
 import { SkeletonCard } from '../Skeleton';
 import Modal from '../Modal';
 import './Database.css';
@@ -51,11 +50,15 @@ const CreateTableModal = memo(function CreateTableModal({ isOpen, onClose, onCre
     setError(null);
 
     try {
-      await axios.post(`${API_BASE}/v1/datentabellen/tables`, {
-        name: name.trim(),
-        description: description.trim() || null,
-        icon,
-        color,
+      await fetch(`${API_BASE}/v1/datentabellen/tables`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim() || null,
+          icon,
+          color,
+        }),
       });
 
       setName('');
@@ -216,10 +219,12 @@ const DatabaseOverview = memo(function DatabaseOverview() {
 
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}/v1/datentabellen/tables`, {
+      const response = await fetch(`${API_BASE}/v1/datentabellen/tables`, {
+        headers: getAuthHeaders(),
         signal: fetchAbortRef.current.signal,
       });
-      setTables(response.data.data || []);
+      const data = await response.json();
+      setTables(data.data || []);
       setError(null);
     } catch (err) {
       // Ignore abort errors

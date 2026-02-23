@@ -5,9 +5,8 @@
  */
 
 import React, { useState, useEffect, memo } from 'react';
-import axios from 'axios';
 import { FiTable } from 'react-icons/fi';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import Modal from './Modal';
 
 const SimpleTableCreateDialog = memo(function SimpleTableCreateDialog({
@@ -44,13 +43,22 @@ const SimpleTableCreateDialog = memo(function SimpleTableCreateDialog({
     setError(null);
 
     try {
-      const response = await axios.post(`${API_BASE}/v1/datentabellen/tables`, {
-        name: name.trim(),
-        createDefaultField: true, // Creates default "Name" column
-        space_id: selectedSpaceId || null,
+      const response = await fetch(`${API_BASE}/v1/datentabellen/tables`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: name.trim(),
+          createDefaultField: true,
+          space_id: selectedSpaceId || null,
+        }),
       });
+      const responseData = await response.json();
 
-      const newTable = response.data.data;
+      if (!response.ok) {
+        throw { response: { status: response.status, data: responseData } };
+      }
+
+      const newTable = responseData.data;
 
       // Reset form
       setName('');

@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
 import {
   FiX,
   FiPlus,
@@ -26,7 +25,7 @@ import {
   FiUpload,
   FiDatabase,
 } from 'react-icons/fi';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import useConfirm from '../hooks/useConfirm';
 import './Database/Database.css';
@@ -93,21 +92,29 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
   const loadTable = useCallback(async () => {
     try {
       setLoading(true);
-      const [tableRes, rowsRes] = await Promise.all([
-        axios.get(`${API_BASE}/v1/datentabellen/tables/${tableSlug}`),
-        axios.get(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-          params: { page, limit: pageSize, sort: sortField, order: sortOrder },
-        }),
+      const params = new URLSearchParams({
+        page,
+        limit: pageSize,
+        sort: sortField,
+        order: sortOrder,
+      });
+      const [tableData, rowsData] = await Promise.all([
+        fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}`, {
+          headers: getAuthHeaders(),
+        }).then(r => r.json()),
+        fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows?${params}`, {
+          headers: getAuthHeaders(),
+        }).then(r => r.json()),
       ]);
 
-      setTable(tableRes.data.data);
-      setFields(tableRes.data.data.fields || []);
-      setRows(rowsRes.data.data || []);
-      setTotalPages(rowsRes.data.meta?.pages || 1);
-      setTotalRows(rowsRes.data.meta?.total || 0);
+      setTable(tableData.data);
+      setFields(tableData.data.fields || []);
+      setRows(rowsData.data || []);
+      setTotalPages(rowsData.meta?.pages || 1);
+      setTotalRows(rowsData.meta?.total || 0);
       setError(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Laden');
+      setError(err.message || 'Fehler beim Laden');
     } finally {
       setLoading(false);
     }
@@ -127,10 +134,18 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
     try {
       setSaving(true);
       // Fetch all rows for export
-      const response = await axios.get(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-        params: { page: 1, limit: 10000, sort: sortField, order: sortOrder },
+      const exportParams = new URLSearchParams({
+        page: 1,
+        limit: 10000,
+        sort: sortField,
+        order: sortOrder,
       });
-      const allRows = response.data.data || [];
+      const response = await fetch(
+        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows?${exportParams}`,
+        { headers: getAuthHeaders() }
+      );
+      const data = await response.json();
+      const allRows = data.data || [];
 
       // Build CSV with semicolon separator (German Excel compatible)
       const headers = fields.map(f => `"${f.name.replace(/"/g, '""')}"`).join(';');
@@ -222,7 +237,11 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
             });
 
             if (Object.keys(rowData).length > 0) {
-              await axios.post(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, rowData);
+              await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify(rowData),
+              });
               importedCount++;
             }
           }
@@ -232,7 +251,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
           setError(null);
           toast.success(`${importedCount} Zeilen importiert`);
         } catch (err) {
-          setError('Import fehlgeschlagen: ' + (err.response?.data?.error || err.message));
+          setError('Import fehlgeschlagen: ' + err.message);
           setSaveStatus('error');
         } finally {
           setSaving(false);
@@ -253,10 +272,12 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
   useEffect(() => {
     const checkIndexStatus = async () => {
       try {
-        const response = await axios.get(
-          `${API_BASE}/v1/datentabellen/tables/${tableSlug}/index/status`
+        const response = await fetch(
+          `${API_BASE}/v1/datentabellen/tables/${tableSlug}/index/status`,
+          { headers: getAuthHeaders() }
         );
-        setIndexStatus(response.data.data);
+        const data = await response.json();
+        setIndexStatus(data.data);
       } catch {
         // Ignore errors
       }
@@ -268,9 +289,13 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
     try {
       setIndexing(true);
       setSaving(true);
-      const response = await axios.post(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/index`);
+      const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/index`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      });
+      const data = await response.json();
       setIndexStatus({
-        indexed_rows: response.data.indexed,
+        indexed_rows: data.indexed,
         total_rows: totalRows,
         is_indexed: true,
         is_complete: true,
@@ -278,7 +303,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 2000);
     } catch (err) {
-      setError('Indexierung fehlgeschlagen: ' + (err.response?.data?.error || err.message));
+      setError('Indexierung fehlgeschlagen: ' + err.message);
       setSaveStatus('error');
     } finally {
       setIndexing(false);
@@ -290,13 +315,17 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
   const handleAddRow = async () => {
     try {
       setSaving(true);
-      await axios.post(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {});
+      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({}),
+      });
       await loadTable();
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 2000);
     } catch (err) {
       setSaveStatus('error');
-      setError(err.response?.data?.error || 'Fehler beim Hinzufügen');
+      setError(err.message || 'Fehler beim Hinzufügen');
     } finally {
       setSaving(false);
     }
@@ -321,16 +350,36 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
 
     try {
       setSaving(true);
-      const response = await axios.patch(
+      const response = await fetch(
         `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/${rowId}`,
         {
-          [fieldSlug]: value,
-          _expected_updated_at: expectedUpdatedAt,
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            [fieldSlug]: value,
+            _expected_updated_at: expectedUpdatedAt,
+          }),
         }
       );
+      const responseData = await response.json();
+
+      // Handle conflict error (409)
+      if (!response.ok) {
+        if (response.status === 409) {
+          setError(
+            'Konflikt: Ein anderer Benutzer hat diesen Datensatz geändert. Daten werden neu geladen.'
+          );
+          setSaveStatus('error');
+          setUndoStack([]);
+          setRedoStack([]);
+          await loadTable();
+          return;
+        }
+        throw new Error(responseData.error || 'Fehler beim Speichern');
+      }
 
       // Update local state with new _updated_at from server
-      const updatedRow = response.data.data;
+      const updatedRow = responseData.data;
       setRows(prev => prev.map(row => (row._id === rowId ? { ...row, ...updatedRow } : row)));
 
       // Add to undo stack (unless this is an undo/redo operation)
@@ -355,18 +404,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
         moveToCell(direction);
       }
     } catch (err) {
-      // Handle conflict error (409)
-      if (err.response?.status === 409) {
-        setError(
-          'Konflikt: Ein anderer Benutzer hat diesen Datensatz geändert. Daten werden neu geladen.'
-        );
-        setSaveStatus('error');
-        // Clear undo stack since data is stale
-        setUndoStack([]);
-        setRedoStack([]);
-      } else {
-        setSaveStatus('error');
-      }
+      setSaveStatus('error');
       await loadTable(); // Reload on error
     } finally {
       setSaving(false);
@@ -476,13 +514,17 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
   const handleInsertRow = async position => {
     try {
       setSaving(true);
-      await axios.post(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {});
+      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({}),
+      });
       await loadTable();
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 2000);
     } catch (err) {
       setSaveStatus('error');
-      setError(err.response?.data?.error || 'Fehler beim Hinzufügen');
+      setError(err.message || 'Fehler beim Hinzufügen');
     } finally {
       setSaving(false);
     }
@@ -542,15 +584,17 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
 
     try {
       setSaving(true);
-      await axios.delete(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/bulk`, {
-        data: { ids: Array.from(selectedRows) },
+      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/bulk`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ ids: Array.from(selectedRows) }),
       });
       setSelectedRows(new Set());
       await loadTable();
       setSaveStatus('success');
     } catch (err) {
       setSaveStatus('error');
-      setError(err.response?.data?.error || 'Fehler beim Löschen');
+      setError(err.message || 'Fehler beim Löschen');
     } finally {
       setSaving(false);
     }

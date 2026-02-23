@@ -3,8 +3,7 @@
  */
 
 import React, { useState, memo } from 'react';
-import axios from 'axios';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders } from '../../config/api';
 import Modal from '../Modal';
 import { FIELD_TYPES } from './constants';
 
@@ -22,11 +21,15 @@ const AddFieldModal = memo(function AddFieldModal({ isOpen, onClose, tableSlug, 
     setError(null);
 
     try {
-      await axios.post(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields`, {
-        name: name.trim(),
-        field_type: fieldType,
-        is_required: false,
-        is_unique: false,
+      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: name.trim(),
+          field_type: fieldType,
+          is_required: false,
+          is_unique: false,
+        }),
       });
 
       setName('');

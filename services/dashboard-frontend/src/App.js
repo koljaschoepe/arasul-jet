@@ -8,7 +8,6 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom';
-import axios from 'axios';
 import {
   LineChart,
   Line,
@@ -56,7 +55,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { useWebSocketMetrics } from './hooks/useWebSocketMetrics';
 
-import { API_BASE } from './config/api';
+import { API_BASE, getAuthHeaders } from './config/api';
 import './index.css';
 
 // PHASE 2: Code-Splitting - Lazy imports for route components
@@ -70,21 +69,6 @@ const TelegramAppModal = lazy(() => import('./components/TelegramAppModal'));
 // Database components for Datentabellen feature
 const DatabaseOverview = lazy(() => import('./components/Database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./components/Database/DatabaseTable'));
-
-// Enable sending cookies with all requests (for LAN access support)
-axios.defaults.withCredentials = true;
-
-// Axios interceptor for authentication (request interceptor - adds token)
-axios.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('arasul_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  error => Promise.reject(error)
-);
 
 /**
  * Main App Component
@@ -212,16 +196,30 @@ function AppContent() {
 
       try {
         const results = await Promise.allSettled([
-          axios.get(`${API_BASE}/metrics/live`, { signal }),
-          axios.get(`${API_BASE}/metrics/history?range=24h`, { signal }),
-          axios.get(`${API_BASE}/services`, { signal }),
-          axios.get(`${API_BASE}/system/info`, { signal }),
-          axios.get(`${API_BASE}/system/network`, { signal }),
-          axios.get(`${API_BASE}/apps?status=running,installed`, { signal }),
-          axios.get(`${API_BASE}/system/thresholds`, { signal }),
+          fetch(`${API_BASE}/metrics/live`, { headers: getAuthHeaders(), signal }).then(r =>
+            r.json()
+          ),
+          fetch(`${API_BASE}/metrics/history?range=24h`, {
+            headers: getAuthHeaders(),
+            signal,
+          }).then(r => r.json()),
+          fetch(`${API_BASE}/services`, { headers: getAuthHeaders(), signal }).then(r => r.json()),
+          fetch(`${API_BASE}/system/info`, { headers: getAuthHeaders(), signal }).then(r =>
+            r.json()
+          ),
+          fetch(`${API_BASE}/system/network`, { headers: getAuthHeaders(), signal }).then(r =>
+            r.json()
+          ),
+          fetch(`${API_BASE}/apps?status=running,installed`, {
+            headers: getAuthHeaders(),
+            signal,
+          }).then(r => r.json()),
+          fetch(`${API_BASE}/system/thresholds`, { headers: getAuthHeaders(), signal }).then(r =>
+            r.json()
+          ),
         ]);
 
-        const val = i => (results[i].status === 'fulfilled' ? results[i].value.data : null);
+        const val = i => (results[i].status === 'fulfilled' ? results[i].value : null);
 
         if (val(0)) setMetrics(val(0));
         if (val(1)) setMetricsHistory(val(1));
@@ -280,10 +278,12 @@ function AppContent() {
     const controller = new AbortController();
     const checkSetupStatus = async () => {
       try {
-        const response = await axios.get(`${API_BASE}/system/setup-status`, {
+        const response = await fetch(`${API_BASE}/system/setup-status`, {
+          headers: getAuthHeaders(),
           signal: controller.signal,
         });
-        const isComplete = response.data.setupComplete;
+        const data = await response.json();
+        const isComplete = data.setupComplete;
         setSetupComplete(isComplete);
         if (!isComplete) {
           setShowSetupWizard(true);

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { API_BASE } from '../config/api';
 import './Login.css';
 
@@ -15,22 +14,27 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_BASE}/auth/login`, {
-        username,
-        password,
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
       });
 
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed. Please check your credentials and try again.');
+      }
+
       // Store token in localStorage
-      localStorage.setItem('arasul_token', response.data.token);
-      localStorage.setItem('arasul_user', JSON.stringify(response.data.user));
+      localStorage.setItem('arasul_token', data.token);
+      localStorage.setItem('arasul_user', JSON.stringify(data.user));
 
       // Call success callback
-      onLoginSuccess(response.data);
+      onLoginSuccess(data);
     } catch (err) {
       console.error('Login error:', err);
-      setError(
-        err.response?.data?.error || 'Login failed. Please check your credentials and try again.'
-      );
+      setError(err.message || 'Login failed. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }

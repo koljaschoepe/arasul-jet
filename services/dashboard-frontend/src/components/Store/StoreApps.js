@@ -6,7 +6,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { useToast } from '../../contexts/ToastContext';
 import {
   FiPackage,
@@ -30,7 +29,7 @@ import {
 } from 'react-icons/fi';
 import AppDetailModal from '../AppDetailModal';
 import ConfirmIconButton from '../ConfirmIconButton';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders } from '../../config/api';
 
 // Icon mapping
 const iconMap = {
@@ -112,13 +111,14 @@ function StoreApps() {
   // Load apps
   const loadApps = useCallback(async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/apps`, { signal });
-      setApps(response.data.apps || []);
+      const response = await fetch(`${API_BASE}/apps`, { headers: getAuthHeaders(), signal });
+      const data = await response.json();
+      setApps(data.apps || []);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
       console.error('Error loading apps:', err);
-      setError(err.response?.data?.message || err.message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -164,18 +164,15 @@ function StoreApps() {
     setActionLoading(prev => ({ ...prev, [appId]: action }));
 
     try {
-      await axios.post(`${API_BASE}/apps/${appId}/${action}`, options);
+      await fetch(`${API_BASE}/apps/${appId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(options),
+      });
       await loadApps();
     } catch (err) {
       console.error(`Error ${action} app ${appId}:`, err);
-      const dependentApps = err.response?.data?.dependentApps;
-      if (dependentApps && dependentApps.length > 0) {
-        toast.warning(
-          `Diese App kann nicht gestoppt werden. Folgende Apps haengen davon ab: ${dependentApps.join(', ')}`
-        );
-      } else {
-        toast.error(err.response?.data?.message || `${action} fehlgeschlagen`);
-      }
+      toast.error('Aktion fehlgeschlagen');
     } finally {
       setActionLoading(prev => ({ ...prev, [appId]: null }));
     }

@@ -3,9 +3,8 @@
  */
 
 import React, { useState, useEffect, useRef, memo } from 'react';
-import axios from 'axios';
 import { FiEdit2, FiType, FiTrash2 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders } from '../../config/api';
 import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
 import { FIELD_TYPES } from './constants';
@@ -57,8 +56,10 @@ const ColumnMenu = memo(function ColumnMenu({
     setError(null);
 
     try {
-      await axios.patch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
-        name: newName.trim(),
+      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ name: newName.trim() }),
       });
       toast.success('Spalte umbenannt');
       onFieldUpdated();
@@ -81,8 +82,10 @@ const ColumnMenu = memo(function ColumnMenu({
     setError(null);
 
     try {
-      await axios.patch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
-        field_type: newType,
+      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ field_type: newType }),
       });
       toast.success('Spaltentyp geändert');
       onFieldUpdated();
@@ -108,7 +111,10 @@ const ColumnMenu = memo(function ColumnMenu({
     setError(null);
 
     try {
-      await axios.delete(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`);
+      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       toast.success('Spalte gelöscht');
       onFieldUpdated();
       onClose();

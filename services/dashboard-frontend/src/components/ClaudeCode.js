@@ -6,7 +6,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import useConfirm from '../hooks/useConfirm';
 import {
   FiTerminal,
@@ -35,7 +34,7 @@ import {
   FiLogIn,
   FiClock,
 } from 'react-icons/fi';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import Modal from './Modal';
 import '../claudecode.css';
@@ -68,20 +67,25 @@ function WorkspaceManager({
     setError(null);
 
     try {
-      const response = await axios.post(`${API_BASE}/workspaces`, {
-        name: newName.trim(),
-        hostPath: newPath.trim(),
-        description: newDescription.trim(),
+      const response = await fetch(`${API_BASE}/workspaces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: newName.trim(),
+          hostPath: newPath.trim(),
+          description: newDescription.trim(),
+        }),
       });
+      const data = await response.json();
 
-      onWorkspaceCreated(response.data.workspace);
+      onWorkspaceCreated(data.workspace);
       toast.success('Workspace erstellt');
       setNewName('');
       setNewPath('/home/arasul/');
       setNewDescription('');
       setShowCreateForm(false);
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Fehler beim Erstellen');
+      setError(err.message || 'Fehler beim Erstellen');
     } finally {
       setCreating(false);
     }
@@ -93,21 +97,27 @@ function WorkspaceManager({
     }
 
     try {
-      await axios.delete(`${API_BASE}/workspaces/${workspace.id}`);
+      await fetch(`${API_BASE}/workspaces/${workspace.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       onWorkspaceDeleted(workspace.id);
       toast.success('Workspace gelöscht');
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Löschen');
+      setError(err.message || 'Fehler beim Löschen');
     }
   };
 
   const handleSetDefault = async workspace => {
     try {
-      await axios.post(`${API_BASE}/workspaces/${workspace.id}/default`);
+      await fetch(`${API_BASE}/workspaces/${workspace.id}/default`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
       onSetDefault(workspace.id);
       toast.success('Standard-Workspace geändert');
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Setzen des Standards');
+      setError(err.message || 'Fehler beim Setzen des Standards');
     }
   };
 
@@ -310,16 +320,26 @@ function SetupWizard({
         CLAUDE_WORKSPACE: workspace,
       };
 
-      await axios.post(`${API_BASE}/apps/claude-code/config`, { config: newConfig });
+      await fetch(`${API_BASE}/apps/claude-code/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ config: newConfig }),
+      });
 
       // Start the app
-      await axios.post(`${API_BASE}/apps/claude-code/start`);
+      await fetch(`${API_BASE}/apps/claude-code/start`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
 
       // Mark workspace as used
       const selectedWs = workspaces.find(ws => ws.container_path === workspace);
       if (selectedWs) {
         try {
-          await axios.post(`${API_BASE}/workspaces/${selectedWs.id}/use`);
+          await fetch(`${API_BASE}/workspaces/${selectedWs.id}/use`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+          });
         } catch (e) {
           // Non-critical
         }
@@ -329,9 +349,7 @@ function SetupWizard({
       onComplete();
     } catch (err) {
       console.error('Setup error:', err);
-      setError(
-        err.response?.data?.message || 'Fehler bei der Einrichtung. Bitte versuche es erneut.'
-      );
+      setError(err.message || 'Fehler bei der Einrichtung. Bitte versuche es erneut.');
       setSaving(false);
     }
   };
@@ -554,8 +572,9 @@ function ClaudeCode() {
   // Load workspaces
   const loadWorkspaces = useCallback(async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/workspaces`, { signal });
-      setWorkspaces(response.data.workspaces || []);
+      const response = await fetch(`${API_BASE}/workspaces`, { headers: getAuthHeaders(), signal });
+      const data = await response.json();
+      setWorkspaces(data.workspaces || []);
     } catch (err) {
       if (signal?.aborted) return;
       console.error('Error loading workspaces:', err);
@@ -588,8 +607,12 @@ function ClaudeCode() {
   // Load auth status
   const loadAuthStatus = useCallback(async signal => {
     try {
-      const response = await axios.get(`${API_BASE}/apps/claude-code/auth-status`, { signal });
-      setAuthStatus(response.data);
+      const response = await fetch(`${API_BASE}/apps/claude-code/auth-status`, {
+        headers: getAuthHeaders(),
+        signal,
+      });
+      const data = await response.json();
+      setAuthStatus(data);
     } catch (err) {
       if (signal?.aborted) return;
       console.error('Error loading auth status:', err);
@@ -601,18 +624,22 @@ function ClaudeCode() {
   const handleAuthRefresh = async () => {
     setAuthRefreshing(true);
     try {
-      const response = await axios.post(`${API_BASE}/apps/claude-code/auth-refresh`);
-      setAuthStatus(response.data.status);
-      if (response.data.success) {
-        setSaveMessage({ type: 'success', text: response.data.message });
+      const response = await fetch(`${API_BASE}/apps/claude-code/auth-refresh`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      setAuthStatus(data.status);
+      if (data.success) {
+        setSaveMessage({ type: 'success', text: data.message });
       } else {
-        setSaveMessage({ type: 'error', text: response.data.message });
+        setSaveMessage({ type: 'error', text: data.message });
       }
     } catch (err) {
       console.error('Error refreshing auth:', err);
       setSaveMessage({
         type: 'error',
-        text: err.response?.data?.message || 'Token-Refresh fehlgeschlagen',
+        text: err.message || 'Token-Refresh fehlgeschlagen',
       });
     } finally {
       setAuthRefreshing(false);
@@ -626,13 +653,17 @@ function ClaudeCode() {
     try {
       setError(null);
       const [statusRes, configRes] = await Promise.all([
-        axios.get(`${API_BASE}/apps/claude-code`, { signal }),
-        axios.get(`${API_BASE}/apps/claude-code/config`, { signal }),
+        fetch(`${API_BASE}/apps/claude-code`, { headers: getAuthHeaders(), signal }).then(r =>
+          r.json()
+        ),
+        fetch(`${API_BASE}/apps/claude-code/config`, { headers: getAuthHeaders(), signal }).then(
+          r => r.json()
+        ),
       ]);
 
-      const app = statusRes.data.app || statusRes.data;
+      const app = statusRes.app || statusRes;
       setAppStatus(app);
-      const loadedConfig = configRes.data.config || {};
+      const loadedConfig = configRes.config || {};
       setConfig(loadedConfig);
 
       // Show setup wizard if no API key is set and app is not running
@@ -651,11 +682,7 @@ function ClaudeCode() {
     } catch (err) {
       if (signal?.aborted) return;
       console.error('Error loading Claude Code:', err);
-      if (err.response?.status === 404) {
-        setError('Claude Code ist nicht installiert. Bitte installiere es zuerst im Store.');
-      } else {
-        setError('Fehler beim Laden der App-Daten.');
-      }
+      setError('Fehler beim Laden der App-Daten.');
     } finally {
       setLoading(false);
     }
@@ -721,8 +748,10 @@ function ClaudeCode() {
     // Poll for app to be running
     setupPollRef.current = setInterval(async () => {
       try {
-        const res = await axios.get(`${API_BASE}/apps/claude-code`);
-        if (res.data.status === 'running' || res.data.app?.status === 'running') {
+        const res = await fetch(`${API_BASE}/apps/claude-code`, { headers: getAuthHeaders() }).then(
+          r => r.json()
+        );
+        if (res.status === 'running' || res.app?.status === 'running') {
           clearInterval(setupPollRef.current);
           setupPollRef.current = null;
           setActionLoading(false);
@@ -773,11 +802,14 @@ function ClaudeCode() {
 
       // Step 1: Save configuration
       try {
-        await axios.post(`${API_BASE}/apps/claude-code/config`, { config });
+        await fetch(`${API_BASE}/apps/claude-code/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ config }),
+        });
       } catch (configErr) {
         console.error('Config save error:', configErr);
-        const errorMsg =
-          configErr.response?.data?.message || configErr.message || 'Unbekannter Fehler';
+        const errorMsg = configErr.message || 'Unbekannter Fehler';
         setSaveMessage({ type: 'error', text: `Fehler beim Speichern: ${errorMsg}` });
         return;
       }
@@ -786,7 +818,10 @@ function ClaudeCode() {
       const selectedWs = workspaces.find(ws => ws.container_path === config.CLAUDE_WORKSPACE);
       if (selectedWs) {
         try {
-          await axios.post(`${API_BASE}/workspaces/${selectedWs.id}/use`);
+          await fetch(`${API_BASE}/workspaces/${selectedWs.id}/use`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+          });
         } catch (e) {
           // Non-critical
         }
@@ -799,11 +834,14 @@ function ClaudeCode() {
           text: 'Konfiguration gespeichert. Container wird neu erstellt...',
         });
         try {
-          const restartRes = await axios.post(`${API_BASE}/apps/claude-code/restart`, {
-            applyConfig: true,
+          const restartResponse = await fetch(`${API_BASE}/apps/claude-code/restart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ applyConfig: true }),
           });
+          const restartRes = await restartResponse.json();
 
-          if (restartRes.data.async) {
+          if (restartRes.async) {
             // Async mode - poll for completion
             setSaveMessage({
               type: 'success',
@@ -816,8 +854,10 @@ function ClaudeCode() {
             const pollInterval = setInterval(async () => {
               attempts++;
               try {
-                const statusRes = await axios.get(`${API_BASE}/apps/claude-code`);
-                if (statusRes.data.status === 'running') {
+                const statusRes = await fetch(`${API_BASE}/apps/claude-code`, {
+                  headers: getAuthHeaders(),
+                }).then(r => r.json());
+                if (statusRes.status === 'running') {
                   clearInterval(pollInterval);
                   setSaveMessage({
                     type: 'success',
@@ -828,11 +868,11 @@ function ClaudeCode() {
                     setSaveMessage(null);
                     setShowSettings(false);
                   }, 2000);
-                } else if (statusRes.data.status === 'error') {
+                } else if (statusRes.status === 'error') {
                   clearInterval(pollInterval);
                   setSaveMessage({
                     type: 'error',
-                    text: `Fehler: ${statusRes.data.last_error || 'Unbekannter Fehler'}`,
+                    text: `Fehler: ${statusRes.last_error || 'Unbekannter Fehler'}`,
                   });
                 }
               } catch (pollErr) {
@@ -860,8 +900,7 @@ function ClaudeCode() {
           }
         } catch (restartErr) {
           console.error('Restart error:', restartErr);
-          const restartErrorMsg =
-            restartErr.response?.data?.message || restartErr.message || 'Unbekannter Fehler';
+          const restartErrorMsg = restartErr.message || 'Unbekannter Fehler';
           setSaveMessage({
             type: 'warning',
             text: `Konfiguration gespeichert, aber Neustart fehlgeschlagen: ${restartErrorMsg}`,
@@ -887,7 +926,7 @@ function ClaudeCode() {
       }, 2000);
     } catch (err) {
       console.error('Error saving config:', err);
-      const errorMsg = err.response?.data?.message || err.message || 'Unbekannter Fehler';
+      const errorMsg = err.message || 'Unbekannter Fehler';
       setSaveMessage({
         type: 'error',
         text: `Fehler beim Speichern der Konfiguration: ${errorMsg}`,
@@ -901,7 +940,10 @@ function ClaudeCode() {
     try {
       setActionLoading(true);
       setError(null);
-      await axios.post(`${API_BASE}/apps/claude-code/start`);
+      await fetch(`${API_BASE}/apps/claude-code/start`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
 
       // Wait a moment for container to start
       setTimeout(() => {
@@ -919,7 +961,10 @@ function ClaudeCode() {
     try {
       setActionLoading(true);
       setError(null);
-      await axios.post(`${API_BASE}/apps/claude-code/stop`);
+      await fetch(`${API_BASE}/apps/claude-code/stop`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
 
       setTimeout(() => {
         loadAppData();
@@ -936,7 +981,10 @@ function ClaudeCode() {
     try {
       setActionLoading(true);
       setError(null);
-      await axios.post(`${API_BASE}/apps/claude-code/restart`);
+      await fetch(`${API_BASE}/apps/claude-code/restart`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
 
       setTimeout(() => {
         loadAppData();

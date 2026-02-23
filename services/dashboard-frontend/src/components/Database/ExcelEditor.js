@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react';
-import axios from 'axios';
 import {
   FiX,
   FiPlus,
@@ -33,7 +32,7 @@ import {
   FiCode,
   FiFilter,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { API_BASE, getAuthHeaders } from '../../config/api';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import './Database.css';
@@ -103,17 +102,25 @@ const InlineColumnCreator = memo(function InlineColumnCreator({
     setError(null);
 
     try {
-      await axios.post(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields`, {
-        name: name.trim(),
-        field_type: type,
-        is_required: false,
-        is_unique: false,
+      const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: name.trim(),
+          field_type: type,
+          is_required: false,
+          is_unique: false,
+        }),
       });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Fehler');
+      }
       onColumnAdded();
       setName('');
       setMode('button');
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler');
+      setError(err.message);
       setMode('name');
     } finally {
       setLoading(false);
@@ -365,13 +372,22 @@ const ColumnMenu = memo(function ColumnMenu({
 
     setLoading(true);
     try {
-      await axios.patch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
-        name: newName.trim(),
-      });
+      const response = await fetch(
+        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ name: newName.trim() }),
+        }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Fehler');
+      }
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -385,13 +401,22 @@ const ColumnMenu = memo(function ColumnMenu({
 
     setLoading(true);
     try {
-      await axios.patch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
-        field_type: newType,
-      });
+      const response = await fetch(
+        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ field_type: newType }),
+        }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Fehler');
+      }
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -402,11 +427,21 @@ const ColumnMenu = memo(function ColumnMenu({
 
     setLoading(true);
     try {
-      await axios.delete(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`);
+      const response = await fetch(
+        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
+        {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Fehler');
+      }
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -549,14 +584,20 @@ const AIQueryPanel = memo(function AIQueryPanel({ tableSlug, onResultsApplied, o
     setResult(null);
 
     try {
-      const response = await axios.post(`${API_BASE}/v1/datentabellen/query/natural`, {
-        query: query.trim(),
-        tableSlug,
+      const response = await fetch(`${API_BASE}/v1/datentabellen/query/natural`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ query: query.trim(), tableSlug }),
       });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Abfrage fehlgeschlagen');
+      }
+      const data = await response.json();
 
-      setResult(response.data.data);
+      setResult(data.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Abfrage fehlgeschlagen');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -743,21 +784,35 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
   const loadTable = useCallback(async () => {
     try {
       setLoading(true);
-      const [tableRes, rowsRes] = await Promise.all([
-        axios.get(`${API_BASE}/v1/datentabellen/tables/${tableSlug}`),
-        axios.get(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-          params: { page, limit: pageSize, sort: sortField, order: sortOrder },
+      const rowsParams = new URLSearchParams({
+        page,
+        limit: pageSize,
+        sort: sortField,
+        order: sortOrder,
+      });
+      const [tableData, rowsData] = await Promise.all([
+        fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}`, {
+          headers: getAuthHeaders(),
+        }).then(r => {
+          if (!r.ok) throw new Error('Fehler beim Laden');
+          return r.json();
+        }),
+        fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows?${rowsParams}`, {
+          headers: getAuthHeaders(),
+        }).then(r => {
+          if (!r.ok) throw new Error('Fehler beim Laden');
+          return r.json();
         }),
       ]);
 
-      setTable(tableRes.data.data);
-      setFields(tableRes.data.data.fields || []);
-      setRows(rowsRes.data.data || []);
-      setTotalPages(rowsRes.data.meta?.pages || 1);
-      setTotalRows(rowsRes.data.meta?.total || 0);
+      setTable(tableData.data);
+      setFields(tableData.data.fields || []);
+      setRows(rowsData.data || []);
+      setTotalPages(rowsData.meta?.pages || 1);
+      setTotalRows(rowsData.meta?.total || 0);
       setError(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Laden');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -813,19 +868,26 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
 
       try {
         setSaving(true);
-        const response = await axios.post(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-          [fieldSlug]: value,
+        const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ [fieldSlug]: value }),
         });
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Fehler beim Erstellen');
+        }
+        const data = await response.json();
 
         // Add new row to state
-        const newRow = response.data.data;
+        const newRow = data.data;
         setRows(prev => [...prev, newRow]);
         setTotalRows(prev => prev + 1);
 
         setSaveStatus('success');
         setTimeout(() => setSaveStatus(null), 2000);
       } catch (err) {
-        setError(err.response?.data?.error || 'Fehler beim Erstellen');
+        setError(err.message);
         setSaveStatus('error');
       } finally {
         setSaving(false);
@@ -838,16 +900,22 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
   const handleAddRow = async () => {
     try {
       setSaving(true);
-      const response = await axios.post(
-        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`,
-        {}
-      );
-      setRows(prev => [...prev, response.data.data]);
+      const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Fehler');
+      }
+      const data = await response.json();
+      setRows(prev => [...prev, data.data]);
       setTotalRows(prev => prev + 1);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 2000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler');
+      setError(err.message);
       setSaveStatus('error');
     } finally {
       setSaving(false);
@@ -875,17 +943,32 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
 
       try {
         setSaving(true);
-        const response = await axios.patch(
+        const response = await fetch(
           `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/${rowId}`,
           {
-            [fieldSlug]: value,
-            _expected_updated_at: oldRow?._updated_at,
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({
+              [fieldSlug]: value,
+              _expected_updated_at: oldRow?._updated_at,
+            }),
           }
         );
 
-        setRows(prev =>
-          prev.map(row => (row._id === rowId ? { ...row, ...response.data.data } : row))
-        );
+        if (!response.ok) {
+          if (response.status === 409) {
+            setError('Konflikt: Daten wurden geändert. Neu laden.');
+            setUndoStack([]);
+            setRedoStack([]);
+            throw new Error('Konflikt');
+          }
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Fehler');
+        }
+
+        const data = await response.json();
+
+        setRows(prev => prev.map(row => (row._id === rowId ? { ...row, ...data.data } : row)));
 
         if (!skipUndo) {
           setUndoStack(prev => [
@@ -900,11 +983,6 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
 
         if (direction) moveToCell(direction);
       } catch (err) {
-        if (err.response?.status === 409) {
-          setError('Konflikt: Daten wurden geändert. Neu laden.');
-          setUndoStack([]);
-          setRedoStack([]);
-        }
         await loadTable();
         setSaveStatus('error');
       } finally {
@@ -973,10 +1051,21 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
   const handleExportCSV = useCallback(async () => {
     try {
       setSaving(true);
-      const response = await axios.get(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-        params: { page: 1, limit: 10000, sort: sortField, order: sortOrder },
+      const exportParams = new URLSearchParams({
+        page: 1,
+        limit: 10000,
+        sort: sortField,
+        order: sortOrder,
       });
-      const allRows = response.data.data || [];
+      const response = await fetch(
+        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows?${exportParams}`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
+      if (!response.ok) throw new Error('Export fehlgeschlagen');
+      const data = await response.json();
+      const allRows = data.data || [];
 
       const headers = fields.map(f => `"${f.name.replace(/"/g, '""')}"`).join(';');
       const csvRows = allRows.map(row =>
@@ -1014,14 +1103,20 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
 
     try {
       setSaving(true);
-      await axios.delete(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/bulk`, {
-        data: { ids: Array.from(selectedRows) },
+      const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/bulk`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ ids: Array.from(selectedRows) }),
       });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Fehler');
+      }
       setSelectedRows(new Set());
       await loadTable();
       setSaveStatus('success');
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler');
+      setError(err.message);
       setSaveStatus('error');
     } finally {
       setSaving(false);

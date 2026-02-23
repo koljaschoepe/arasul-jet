@@ -7,8 +7,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 
 // WebSocket URL: use wss:// if page is https://, otherwise ws://
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -48,8 +47,9 @@ export function useWebSocketMetrics(isAuthenticated) {
 
     httpPollingRef.current = setInterval(async () => {
       try {
-        const response = await axios.get(`${API_BASE}/metrics/live`);
-        setMetrics(response.data);
+        const response = await fetch(`${API_BASE}/metrics/live`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        setMetrics(data);
       } catch (err) {
         // Silently retry on next interval
       }

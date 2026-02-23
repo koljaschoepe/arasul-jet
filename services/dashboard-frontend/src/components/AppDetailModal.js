@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import { sanitizeUrl } from '../utils/sanitizeUrl';
 import {
   FiDownload,
@@ -23,7 +22,7 @@ import {
 } from 'react-icons/fi';
 import ConfirmIconButton from './ConfirmIconButton';
 import Modal from './Modal';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 import { formatDate } from '../utils/formatting';
 
 // Get app URL based on port or traefik route
@@ -105,10 +104,13 @@ function AppDetailModal({
   const loadLogs = async () => {
     setLogsLoading(true);
     try {
-      const response = await axios.get(`${API_BASE}/apps/${app.id}/logs?tail=100`);
-      setLogs(response.data.logs || 'Keine Logs verfügbar');
+      const response = await fetch(`${API_BASE}/apps/${app.id}/logs?tail=100`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      setLogs(data.logs || 'Keine Logs verfügbar');
     } catch (err) {
-      setLogs(`Fehler beim Laden der Logs: ${err.response?.data?.message || err.message}`);
+      setLogs(`Fehler beim Laden der Logs: ${err.message}`);
     } finally {
       setLogsLoading(false);
     }
@@ -117,8 +119,11 @@ function AppDetailModal({
   const loadEvents = async () => {
     setEventsLoading(true);
     try {
-      const response = await axios.get(`${API_BASE}/apps/${app.id}/events?limit=20`);
-      setEvents(response.data.events || []);
+      const response = await fetch(`${API_BASE}/apps/${app.id}/events?limit=20`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      setEvents(data.events || []);
     } catch (err) {
       console.error('Error loading events:', err);
     } finally {
@@ -129,8 +134,11 @@ function AppDetailModal({
   const loadN8nCredentials = async () => {
     setN8nLoading(true);
     try {
-      const response = await axios.get(`${API_BASE}/apps/${app.id}/n8n-credentials`);
-      setN8nCredentials(response.data.credentials);
+      const response = await fetch(`${API_BASE}/apps/${app.id}/n8n-credentials`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      setN8nCredentials(data.credentials);
     } catch (err) {
       console.error('Error loading n8n credentials:', err);
       setN8nCredentials(null);

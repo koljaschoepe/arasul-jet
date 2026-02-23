@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
 import {
   FiAlertCircle,
   FiChevronDown,
@@ -131,23 +130,26 @@ function ChatMulti() {
   // Load installed models from API
   const loadInstalledModels = async () => {
     try {
+      const headers = getAuthHeaders();
       const [installedRes, defaultRes, loadedRes] = await Promise.all([
-        axios.get(`${API_BASE}/models/installed`),
-        axios.get(`${API_BASE}/models/default`),
-        axios.get(`${API_BASE}/models/loaded`).catch(() => ({ data: null })),
+        fetch(`${API_BASE}/models/installed`, { headers }).then(r => r.json()),
+        fetch(`${API_BASE}/models/default`, { headers }).then(r => r.json()),
+        fetch(`${API_BASE}/models/loaded`, { headers })
+          .then(r => r.json())
+          .catch(() => null),
       ]);
 
-      const models = installedRes.data.models || [];
+      const models = installedRes.models || [];
       setInstalledModels(models);
 
       // API returns { default_model: "model-id" }
-      if (defaultRes.data.default_model) {
-        setDefaultModel(defaultRes.data.default_model);
+      if (defaultRes.default_model) {
+        setDefaultModel(defaultRes.default_model);
       }
 
       // Track currently loaded model in RAM
-      if (loadedRes.data?.model_id) {
-        setLoadedModel(loadedRes.data.model_id);
+      if (loadedRes?.model_id) {
+        setLoadedModel(loadedRes.model_id);
       }
     } catch (err) {
       console.error('Error loading models:', err);
@@ -158,7 +160,11 @@ function ChatMulti() {
   // Set a model as the new default
   const setModelAsDefault = async modelId => {
     try {
-      await axios.post(`${API_BASE}/models/default`, { model_id: modelId });
+      await fetch(`${API_BASE}/models/default`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ model_id: modelId }),
+      });
       setDefaultModel(modelId);
       // If "Standard" was selected, keep it as default but update the actual default model
     } catch (err) {
@@ -169,8 +175,9 @@ function ChatMulti() {
   // Load Knowledge Spaces for RAG 2.0
   const loadSpaces = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/spaces`);
-      setSpaces(response.data.spaces || []);
+      const response = await fetch(`${API_BASE}/spaces`, { headers: getAuthHeaders() });
+      const data = await response.json();
+      setSpaces(data.spaces || []);
     } catch (err) {
       console.error('Error loading spaces:', err);
     }
@@ -260,10 +267,11 @@ function ChatMulti() {
   // Async version of checkActiveJobs that returns the active job
   const checkActiveJobsAsync = async chatId => {
     try {
-      const response = await axios.get(`${API_BASE}/chats/${chatId}/jobs`, {
+      const response = await fetch(`${API_BASE}/chats/${chatId}/jobs`, {
         headers: getAuthHeaders(),
       });
-      const jobs = response.data.jobs || [];
+      const data = await response.json();
+      const jobs = data.jobs || [];
 
       // Find first active job (streaming or pending)
       const activeJob = jobs.find(j => j.status === 'streaming' || j.status === 'pending');
@@ -296,10 +304,11 @@ function ChatMulti() {
 
     const pollQueue = async () => {
       try {
-        const response = await axios.get(`${API_BASE}/llm/queue`, {
+        const response = await fetch(`${API_BASE}/llm/queue`, {
           headers: getAuthHeaders(),
         });
-        setGlobalQueue(response.data);
+        const queueData = await response.json();
+        setGlobalQueue(queueData);
       } catch (err) {
         console.error('Error polling queue:', err);
       }
@@ -332,8 +341,9 @@ function ChatMulti() {
   const loadChats = async () => {
     try {
       setLoadingChats(true);
-      const response = await axios.get(`${API_BASE}/chats`);
-      const chatList = response.data.chats || [];
+      const response = await fetch(`${API_BASE}/chats`, { headers: getAuthHeaders() });
+      const data = await response.json();
+      const chatList = data.chats || [];
       // [ChatMulti] loadChats: loaded', chatList.length, 'chats');
       setChats(chatList);
 
@@ -357,8 +367,11 @@ function ChatMulti() {
   // This allows the caller to check generation counter before updating state
   const loadMessages = async chatId => {
     try {
-      const response = await axios.get(`${API_BASE}/chats/${chatId}/messages`);
-      const msgs = response.data.messages || [];
+      const response = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      const msgs = data.messages || [];
 
       const formattedMessages = msgs.map(msg => ({
         role: msg.role,
@@ -505,11 +518,14 @@ function ChatMulti() {
       // Block input while creating new chat
       setLoadingChats(true);
 
-      const response = await axios.post(`${API_BASE}/chats`, {
-        title: `New Chat`,
+      const response = await fetch(`${API_BASE}/chats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ title: 'New Chat' }),
       });
+      const responseData = await response.json();
 
-      const newChat = response.data.chat;
+      const newChat = responseData.chat;
       // [ChatMulti] Created new chat:', newChat.id);
 
       setChats(prevChats => [...prevChats, newChat]);
@@ -537,7 +553,10 @@ function ChatMulti() {
     }
 
     try {
-      await axios.delete(`${API_BASE}/chats/${chatId}`);
+      await fetch(`${API_BASE}/chats/${chatId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
 
       const updatedChats = chats.filter(c => c.id !== chatId);
       setChats(updatedChats);
@@ -563,8 +582,10 @@ function ChatMulti() {
     }
 
     try {
-      await axios.patch(`${API_BASE}/chats/${chatId}`, {
-        title: editingTitle,
+      await fetch(`${API_BASE}/chats/${chatId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ title: editingTitle }),
       });
 
       setChats(prevChats =>
@@ -631,10 +652,10 @@ function ChatMulti() {
 
   const saveMessage = async (chatId, role, content, thinking = null) => {
     try {
-      await axios.post(`${API_BASE}/chats/${chatId}/messages`, {
-        role,
-        content,
-        thinking,
+      await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ role, content, thinking }),
       });
       loadChats();
     } catch (err) {
