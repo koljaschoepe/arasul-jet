@@ -16,10 +16,22 @@ import {
   FiWifiOff,
   FiCpu,
   FiHardDrive,
-  FiThermometer,
   FiServer,
   FiShield,
   FiSkipForward,
+  FiCode,
+  FiShoppingCart,
+  FiSettings,
+  FiBriefcase,
+  FiHeart,
+  FiEdit3,
+  FiUser,
+  FiUsers,
+  FiGrid,
+  FiMessageCircle,
+  FiFileText,
+  FiZap,
+  FiCoffee,
 } from 'react-icons/fi';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import './SetupWizard.css';
@@ -34,25 +46,46 @@ const STEPS = [
 ];
 
 const INDUSTRIES = [
-  'IT & Software',
-  'Handel & E-Commerce',
-  'Produktion & Fertigung',
-  'Beratung & Dienstleistungen',
-  'Gesundheit & Medizin',
+  { label: 'IT & Software', value: 'IT & Software', icon: FiCode },
+  { label: 'Handel & E-Commerce', value: 'Handel & E-Commerce', icon: FiShoppingCart },
+  { label: 'Produktion & Fertigung', value: 'Produktion & Fertigung', icon: FiSettings },
+  { label: 'Beratung & Dienstleistung', value: 'Beratung & Dienstleistungen', icon: FiBriefcase },
+  { label: 'Gesundheit & Medizin', value: 'Gesundheit & Medizin', icon: FiHeart },
+  { label: 'Andere Branche', value: 'custom', icon: FiEdit3 },
 ];
 
 const TEAM_SIZES = [
-  { label: '1-5 Mitarbeiter', value: '5' },
-  { label: '6-20 Mitarbeiter', value: '20' },
-  { label: '21-100 Mitarbeiter', value: '100' },
-  { label: '100+ Mitarbeiter', value: '100+' },
+  { label: '1-5', sublabel: 'Kleinteam', value: '5', icon: FiUser },
+  { label: '6-20', sublabel: 'Mittelgroß', value: '20', icon: FiUsers },
+  { label: '21-100', sublabel: 'Unternehmen', value: '100', icon: FiGrid },
+  { label: '100+', sublabel: 'Konzern', value: '100+', icon: FiBriefcase },
 ];
 
 const ANSWER_STYLES = [
-  { label: 'Kurz & prägnant', value: 'kurz' },
-  { label: 'Ausführlich & detailliert', value: 'ausfuehrlich' },
-  { label: 'Professionell-formell', value: 'formell' },
-  { label: 'Locker & direkt', value: 'locker' },
+  {
+    label: 'Kurz & prägnant',
+    desc: 'Kompakte Antworten, direkt zum Punkt',
+    value: 'kurz',
+    icon: FiZap,
+  },
+  {
+    label: 'Ausführlich',
+    desc: 'Detaillierte Erklärungen mit Kontext',
+    value: 'ausfuehrlich',
+    icon: FiFileText,
+  },
+  {
+    label: 'Professionell',
+    desc: 'Formeller Ton, geschäftliche Sprache',
+    value: 'formell',
+    icon: FiMessageCircle,
+  },
+  {
+    label: 'Locker & direkt',
+    desc: 'Ungezwungen, wie ein Kollege',
+    value: 'locker',
+    icon: FiCoffee,
+  },
 ];
 
 function SetupWizard({ onComplete, onSkip }) {
@@ -400,114 +433,120 @@ function SetupWizard({ onComplete, onSkip }) {
 
           {/* Step 2: KI-Profil */}
           {currentStep === 2 && (
-            <div className="setup-step-content">
+            <div className="setup-step-content profile-step">
               <div className="step-icon-large">
                 <FiCpu />
               </div>
               <h2>KI-Profil einrichten</h2>
               <p className="step-description">
-                Damit der KI-Assistent Sie besser unterstützen kann, erzählen Sie uns etwas über Ihr
-                Unternehmen.
+                Damit die KI Sie optimal unterstützt, erzählen Sie kurz etwas über Ihr Unternehmen.
               </p>
 
-              <div className="form-group">
-                <label>In welcher Branche sind Sie tätig?</label>
-                <div className="radio-group">
-                  {INDUSTRIES.map(ind => (
-                    <label
-                      key={ind}
-                      className={`radio-option ${industry === ind ? 'selected' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="industry"
-                        value={ind}
-                        checked={industry === ind}
-                        onChange={() => {
-                          setIndustry(ind);
-                          setCustomIndustry('');
+              {/* Industry */}
+              <div className="profile-section">
+                <h3 className="profile-section-title">Branche</h3>
+                <div className="card-grid cols-3">
+                  {INDUSTRIES.map(ind => {
+                    const Icon = ind.icon;
+                    const isSelected = industry === ind.value;
+                    return (
+                      <button
+                        key={ind.value}
+                        type="button"
+                        className={`select-card ${isSelected ? 'selected' : ''}`}
+                        onClick={() => {
+                          setIndustry(ind.value);
+                          if (ind.value !== 'custom') setCustomIndustry('');
                         }}
-                      />
-                      <span>{ind}</span>
-                    </label>
-                  ))}
-                  <label className={`radio-option ${industry === 'custom' ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="industry"
-                      value="custom"
-                      checked={industry === 'custom'}
-                      onChange={() => setIndustry('custom')}
-                    />
-                    <span>Andere</span>
-                  </label>
+                      >
+                        <Icon className="select-card-icon" />
+                        <span className="select-card-label">{ind.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
                 {industry === 'custom' && (
                   <input
                     type="text"
                     value={customIndustry}
                     onChange={e => setCustomIndustry(e.target.value)}
-                    placeholder="Branche eingeben..."
-                    className="setup-input"
-                    style={{ marginTop: '8px' }}
+                    placeholder="Ihre Branche eingeben..."
+                    className="setup-input custom-industry-input"
+                    autoFocus
                   />
                 )}
               </div>
 
-              <div className="form-group">
-                <label>Wie groß ist Ihr Team?</label>
-                <div className="radio-group">
-                  {TEAM_SIZES.map(ts => (
-                    <label
-                      key={ts.value}
-                      className={`radio-option ${teamSize === ts.value ? 'selected' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="teamSize"
-                        value={ts.value}
-                        checked={teamSize === ts.value}
-                        onChange={() => setTeamSize(ts.value)}
-                      />
-                      <span>{ts.label}</span>
-                    </label>
-                  ))}
+              {/* Team Size */}
+              <div className="profile-section">
+                <h3 className="profile-section-title">Teamgröße</h3>
+                <div className="card-grid cols-4">
+                  {TEAM_SIZES.map(ts => {
+                    const Icon = ts.icon;
+                    const isSelected = teamSize === ts.value;
+                    return (
+                      <button
+                        key={ts.value}
+                        type="button"
+                        className={`select-card compact ${isSelected ? 'selected' : ''}`}
+                        onClick={() => setTeamSize(ts.value)}
+                      >
+                        <Icon className="select-card-icon" />
+                        <span className="select-card-label">{ts.label}</span>
+                        <span className="select-card-sub">{ts.sublabel}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="products">Hauptprodukte / Services (optional)</label>
+              {/* Products */}
+              <div className="profile-section">
+                <h3 className="profile-section-title">
+                  Produkte & Services <span className="optional-badge">optional</span>
+                </h3>
                 <input
-                  id="products"
                   type="text"
                   value={products}
                   onChange={e => setProducts(e.target.value)}
-                  placeholder="z.B. Webentwicklung, Cloud-Hosting"
+                  placeholder="z.B. Webentwicklung, Cloud-Hosting, Beratung"
                   className="setup-input"
                 />
-                <span className="form-hint">Komma-getrennt</span>
+                <span className="form-hint">Komma-getrennt eingeben</span>
               </div>
 
-              <div className="form-group">
-                <label>Wie soll der KI-Assistent antworten?</label>
-                <div className="radio-group">
-                  {ANSWER_STYLES.map(style => (
-                    <label
-                      key={style.value}
-                      className={`radio-option ${answerStyle === style.value ? 'selected' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="answerStyle"
-                        value={style.value}
-                        checked={answerStyle === style.value}
-                        onChange={() => setAnswerStyle(style.value)}
-                      />
-                      <span>{style.label}</span>
-                    </label>
-                  ))}
+              {/* Answer Style */}
+              <div className="profile-section">
+                <h3 className="profile-section-title">Antwort-Stil</h3>
+                <div className="card-grid cols-2">
+                  {ANSWER_STYLES.map(style => {
+                    const Icon = style.icon;
+                    const isSelected = answerStyle === style.value;
+                    return (
+                      <button
+                        key={style.value}
+                        type="button"
+                        className={`select-card horizontal ${isSelected ? 'selected' : ''}`}
+                        onClick={() => setAnswerStyle(style.value)}
+                      >
+                        <div className="select-card-icon-wrap">
+                          <Icon className="select-card-icon" />
+                        </div>
+                        <div className="select-card-text">
+                          <span className="select-card-label">{style.label}</span>
+                          <span className="select-card-desc">{style.desc}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {profileSaved && (
+                <div className="profile-saved-hint">
+                  <FiCheck /> Profil gespeichert
+                </div>
+              )}
             </div>
           )}
 
