@@ -178,6 +178,7 @@ function AppDetailModal({
     <>
       {app.status === 'available' && (
         <button
+          type="button"
           className="btn btn-primary btn-large"
           onClick={() => onAction(app.id, 'install')}
           disabled={isLoading}
@@ -190,6 +191,7 @@ function AppDetailModal({
       {app.status === 'installed' && (
         <>
           <button
+            type="button"
             className="btn btn-success btn-large"
             onClick={() => onAction(app.id, 'start')}
             disabled={isLoading}
@@ -198,6 +200,7 @@ function AppDetailModal({
             Starten
           </button>
           <button
+            type="button"
             className="btn btn-danger"
             onClick={() => {
               onClose();
@@ -229,6 +232,7 @@ function AppDetailModal({
             </a>
           )}
           <button
+            type="button"
             className="btn btn-warning"
             onClick={() => onAction(app.id, 'restart')}
             disabled={isLoading}
@@ -250,6 +254,7 @@ function AppDetailModal({
       {app.status === 'error' && (
         <>
           <button
+            type="button"
             className="btn btn-primary btn-large"
             onClick={() => onAction(app.id, 'start')}
             disabled={isLoading}
@@ -258,6 +263,7 @@ function AppDetailModal({
             Erneut starten
           </button>
           <button
+            type="button"
             className="btn btn-danger"
             onClick={() => {
               onClose();
@@ -284,6 +290,7 @@ function AppDetailModal({
       {/* Tabs */}
       <div className="modal-tabs">
         <button
+          type="button"
           className={`tab ${activeTab === 'info' ? 'active' : ''}`}
           onClick={() => setActiveTab('info')}
         >
@@ -291,6 +298,7 @@ function AppDetailModal({
         </button>
         {(app.status === 'running' || app.status === 'installed' || app.status === 'error') && (
           <button
+            type="button"
             className={`tab ${activeTab === 'logs' ? 'active' : ''}`}
             onClick={() => setActiveTab('logs')}
           >
@@ -298,6 +306,7 @@ function AppDetailModal({
           </button>
         )}
         <button
+          type="button"
           className={`tab ${activeTab === 'events' ? 'active' : ''}`}
           onClick={() => setActiveTab('events')}
         >
@@ -305,6 +314,7 @@ function AppDetailModal({
         </button>
         {app.hasN8nIntegration && (
           <button
+            type="button"
             className={`tab ${activeTab === 'n8n' ? 'active' : ''}`}
             onClick={() => setActiveTab('n8n')}
           >
@@ -412,7 +422,12 @@ function AppDetailModal({
           <div className="tab-content tab-logs">
             <div className="logs-header">
               <span>Container Logs</span>
-              <button className="btn btn-small" onClick={loadLogs} disabled={logsLoading}>
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={loadLogs}
+                disabled={logsLoading}
+              >
                 <FiRefreshCw className={logsLoading ? 'spin' : ''} />
                 Aktualisieren
               </button>
@@ -468,6 +483,7 @@ function AppDetailModal({
                       <div className="credential-value">
                         <code>{n8nCredentials.ssh?.host}</code>
                         <button
+                          type="button"
                           className="copy-btn"
                           onClick={() => copyToClipboard(n8nCredentials.ssh?.host, 'host')}
                           title="Kopieren"
@@ -482,6 +498,7 @@ function AppDetailModal({
                       <div className="credential-value">
                         <code>{n8nCredentials.ssh?.port}</code>
                         <button
+                          type="button"
                           className="copy-btn"
                           onClick={() => copyToClipboard(String(n8nCredentials.ssh?.port), 'port')}
                           title="Kopieren"
@@ -496,6 +513,7 @@ function AppDetailModal({
                       <div className="credential-value">
                         <code>{n8nCredentials.ssh?.username}</code>
                         <button
+                          type="button"
                           className="copy-btn"
                           onClick={() => copyToClipboard(n8nCredentials.ssh?.username, 'username')}
                           title="Kopieren"
@@ -525,6 +543,7 @@ function AppDetailModal({
                     <div className="private-key-box">
                       <pre>{n8nCredentials.ssh.privateKey}</pre>
                       <button
+                        type="button"
                         className="copy-btn copy-btn-large"
                         onClick={() => copyToClipboard(n8nCredentials.ssh.privateKey, 'privateKey')}
                         title="Private Key kopieren"
@@ -551,6 +570,7 @@ function AppDetailModal({
                   <div className="command-box">
                     <code>{n8nCredentials.exampleCommand}</code>
                     <button
+                      type="button"
                       className="copy-btn"
                       onClick={() => copyToClipboard(n8nCredentials.exampleCommand, 'command')}
                       title="Command kopieren"

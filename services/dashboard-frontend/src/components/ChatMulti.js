@@ -1051,6 +1051,7 @@ function ChatMulti() {
           {/* Scroll to bottom button */}
           {showScrollButton && (
             <button
+              type="button"
               className="scroll-bottom-btn"
               onClick={() => {
                 setIsUserScrolling(false);
@@ -1074,7 +1075,11 @@ function ChatMulti() {
           <div className="error-banner" role="alert">
             <FiAlertCircle aria-hidden="true" />
             <span>{error}</span>
-            <button onClick={() => setError(null)} aria-label="Fehlermeldung schließen">
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              aria-label="Fehlermeldung schließen"
+            >
               <FiX aria-hidden="true" />
             </button>
           </div>
@@ -1111,6 +1116,7 @@ function ChatMulti() {
         <div className="input-box" role="toolbar" aria-label="Chat-Eingabe Optionen">
           {/* RAG Toggle Button */}
           <button
+            type="button"
             className={`input-toggle rag-toggle ${useRAG ? 'active' : ''}`}
             onClick={() => setUseRAG(!useRAG)}
             aria-pressed={useRAG}
@@ -1126,6 +1132,7 @@ function ChatMulti() {
           {useRAG && spaces.length > 0 && (
             <div className="space-selector" ref={spacesDropdownRef}>
               <button
+                type="button"
                 className={`input-toggle space-toggle ${selectedSpaces.length > 0 ? 'active' : ''}`}
                 onClick={() => setShowSpacesDropdown(!showSpacesDropdown)}
                 aria-expanded={showSpacesDropdown}
@@ -1172,6 +1179,7 @@ function ChatMulti() {
 
           {/* Thinking Toggle Button */}
           <button
+            type="button"
             className={`input-toggle think-toggle ${useThinking ? 'active' : ''}`}
             onClick={() => setUseThinking(!useThinking)}
             aria-pressed={useThinking}
@@ -1185,6 +1193,7 @@ function ChatMulti() {
           {installedModels.length > 0 && (
             <div className="model-selector" ref={modelDropdownRef}>
               <button
+                type="button"
                 className={`input-toggle model-toggle ${selectedModel ? 'active' : ''}`}
                 onClick={() => setShowModelDropdown(!showModelDropdown)}
                 aria-expanded={showModelDropdown}
@@ -1253,6 +1262,7 @@ function ChatMulti() {
                           <span className="model-option-name">
                             {/* P4-003: Favorite toggle button */}
                             <button
+                              type="button"
                               className={`favorite-btn ${isFavorite ? 'active' : ''}`}
                               onClick={e => {
                                 e.stopPropagation();
@@ -1313,6 +1323,7 @@ function ChatMulti() {
                                 )}
                                 {!isDefault && isAvailable && (
                                   <button
+                                    type="button"
                                     className="set-default-btn"
                                     onClick={e => {
                                       e.stopPropagation();
@@ -1354,6 +1365,7 @@ function ChatMulti() {
 
           {/* Send Button */}
           <button
+            type="button"
             className="send-btn"
             onClick={handleSend}
             disabled={!input.trim() || isLoading || loadingChats || !currentChatId}

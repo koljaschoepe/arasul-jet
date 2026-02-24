@@ -16,7 +16,7 @@ const TOAST_ICONS = {
   success: FiCheckCircle,
   error: FiAlertCircle,
   warning: FiAlertTriangle,
-  info: FiInfo
+  info: FiInfo,
 };
 
 // Default durations by type (ms)
@@ -24,7 +24,7 @@ const DEFAULT_DURATIONS = {
   success: 4000,
   error: 6000,
   warning: 5000,
-  info: 4000
+  info: 4000,
 };
 
 /**
@@ -47,6 +47,7 @@ function ToastContainer({ toasts, onRemove }) {
             <Icon className="toast-icon" aria-hidden="true" />
             <span className="toast-message">{toast.message}</span>
             <button
+              type="button"
               onClick={() => onRemove(toast.id)}
               className="toast-close"
               aria-label="Benachrichtigung schließen"
@@ -84,7 +85,7 @@ export function ToastProvider({ children }) {
   }, []);
 
   // Remove a specific toast
-  const removeToast = useCallback((id) => {
+  const removeToast = useCallback(id => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
@@ -100,7 +101,7 @@ export function ToastProvider({ children }) {
     warning: (msg, duration) => addToast(msg, 'warning', duration),
     info: (msg, duration) => addToast(msg, 'info', duration),
     remove: removeToast,
-    clear: clearToasts
+    clear: clearToasts,
   };
 
   const value = {
@@ -108,7 +109,7 @@ export function ToastProvider({ children }) {
     toast,
     addToast,
     removeToast,
-    clearToasts
+    clearToasts,
   };
 
   return (

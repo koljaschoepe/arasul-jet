@@ -277,7 +277,12 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
         </div>
 
         <div className="bot-details-actions">
-          <button className="bot-details-btn primary" onClick={handleSave} disabled={saving}>
+          <button
+            type="button"
+            className="bot-details-btn primary"
+            onClick={handleSave}
+            disabled={saving}
+          >
             {saving ? (
               <>
                 <FiRefreshCw className="spinning" />
@@ -361,6 +366,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
                 </span>
               </div>
               <button
+                type="button"
                 className="chat-item-remove"
                 onClick={() => handleRemoveChat(chat.id)}
                 title="Chat entfernen"
@@ -463,7 +469,12 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
 
         {(formData.token || formData.claudeApiKey) && (
           <div className="bot-details-actions">
-            <button className="bot-details-btn primary" onClick={handleSave} disabled={saving}>
+            <button
+              type="button"
+              className="bot-details-btn primary"
+              onClick={handleSave}
+              disabled={saving}
+            >
               {saving ? (
                 <>
                   <FiRefreshCw className="spinning" />
@@ -504,6 +515,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
           const Icon = tab.icon;
           return (
             <button
+              type="button"
               key={tab.id}
               className={`bot-details-tab ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => setActiveTab(tab.id)}

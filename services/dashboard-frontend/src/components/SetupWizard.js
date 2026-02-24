@@ -395,7 +395,8 @@ function SetupWizard({ onComplete, onSkip }) {
                   </div>
 
                   <button
-                    className="setup-btn setup-btn-primary"
+                    type="button"
+                    className="btn btn-primary"
                     onClick={handlePasswordChange}
                     disabled={loading || !currentPassword || !newPassword || !confirmPassword}
                   >
@@ -480,7 +481,8 @@ function SetupWizard({ onComplete, onSkip }) {
                   )}
 
                   <button
-                    className="setup-btn setup-btn-secondary"
+                    type="button"
+                    className="btn btn-secondary"
                     onClick={fetchNetworkInfo}
                     disabled={networkLoading}
                   >
@@ -647,7 +649,7 @@ function SetupWizard({ onComplete, onSkip }) {
         <div className="setup-footer">
           <div className="setup-footer-left">
             {currentStep > 1 && (
-              <button className="setup-btn setup-btn-ghost" onClick={goBack}>
+              <button type="button" className="btn btn-ghost" onClick={goBack}>
                 <FiChevronLeft /> Zurück
               </button>
             )}
@@ -655,7 +657,8 @@ function SetupWizard({ onComplete, onSkip }) {
 
           <div className="setup-footer-right">
             <button
-              className="setup-btn setup-btn-ghost skip-btn"
+              type="button"
+              className="btn btn-ghost skip-btn"
               onClick={handleSkip}
               disabled={loading}
               title="Einrichtung überspringen (für erfahrene Admins)"
@@ -665,7 +668,8 @@ function SetupWizard({ onComplete, onSkip }) {
 
             {currentStep < 5 ? (
               <button
-                className="setup-btn setup-btn-primary"
+                type="button"
+                className="btn btn-primary"
                 onClick={goNext}
                 disabled={!canAdvance()}
               >
@@ -673,7 +677,8 @@ function SetupWizard({ onComplete, onSkip }) {
               </button>
             ) : (
               <button
-                className="setup-btn setup-btn-primary"
+                type="button"
+                className="btn btn-primary"
                 onClick={handleComplete}
                 disabled={loading}
               >

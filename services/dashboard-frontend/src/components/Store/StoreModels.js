@@ -298,7 +298,7 @@ function StoreModels() {
         <div className="store-error">
           <FiAlertCircle />
           <span>{error}</span>
-          <button onClick={() => setError(null)}>
+          <button type="button" onClick={() => setError(null)}>
             <FiX />
           </button>
         </div>
@@ -310,6 +310,7 @@ function StoreModels() {
           <span className="filter-label">Groesse:</span>
           <div className="filter-chips">
             <button
+              type="button"
               className={`filter-chip ${sizeFilter === 'all' ? 'active' : ''}`}
               onClick={() => setSizeFilter('all')}
             >
@@ -317,6 +318,7 @@ function StoreModels() {
             </button>
             {Object.entries(sizeConfig).map(([key, config]) => (
               <button
+                type="button"
                 key={key}
                 className={`filter-chip ${sizeFilter === key ? 'active' : ''}`}
                 onClick={() => setSizeFilter(key)}
@@ -333,6 +335,7 @@ function StoreModels() {
             <span className="filter-label">Typ:</span>
             <div className="filter-chips">
               <button
+                type="button"
                 className={`filter-chip ${typeFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setTypeFilter('all')}
               >
@@ -343,6 +346,7 @@ function StoreModels() {
                 const Icon = config.icon;
                 return (
                   <button
+                    type="button"
                     key={type}
                     className={`filter-chip ${typeFilter === type ? 'active' : ''}`}
                     onClick={() => setTypeFilter(type)}
@@ -463,6 +467,7 @@ function StoreModels() {
               <div className="model-actions" onClick={e => e.stopPropagation()}>
                 {!isInstalled && !modelIsDownloading && (
                   <button
+                    type="button"
                     className="btn btn-primary"
                     onClick={() => handleDownload(model.id, model.name)}
                   >
@@ -473,6 +478,7 @@ function StoreModels() {
                 {isInstalled && !isLoaded && (
                   <>
                     <button
+                      type="button"
                       className={`btn btn-success ${isActivating ? 'activating-btn' : ''}`}
                       onClick={() => handleActivate(model.id)}
                       disabled={isActivating}
@@ -497,6 +503,7 @@ function StoreModels() {
                     </button>
                     {!isDefault && (
                       <button
+                        type="button"
                         className="btn btn-secondary btn-icon"
                         onClick={() => handleSetDefault(model.id)}
                         title="Als Standard setzen"
@@ -505,6 +512,7 @@ function StoreModels() {
                       </button>
                     )}
                     <button
+                      type="button"
                       className="btn btn-danger btn-icon"
                       onClick={() => handleDelete(model.id)}
                       title="Loeschen"
@@ -516,11 +524,12 @@ function StoreModels() {
 
                 {isLoaded && (
                   <>
-                    <button className="btn btn-active" disabled>
+                    <button type="button" className="btn btn-active" disabled>
                       <FiCheck /> Aktiv
                     </button>
                     {!isDefault && (
                       <button
+                        type="button"
                         className="btn btn-secondary btn-icon"
                         onClick={() => handleSetDefault(model.id)}
                         title="Als Standard setzen"
@@ -548,7 +557,7 @@ function StoreModels() {
               <h2>
                 <FiCpu /> {selectedModel.name}
               </h2>
-              <button className="modal-close" onClick={() => setSelectedModel(null)}>
+              <button type="button" className="modal-close" onClick={() => setSelectedModel(null)}>
                 <FiX />
               </button>
             </div>

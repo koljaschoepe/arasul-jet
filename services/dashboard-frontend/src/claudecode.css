@@ -86,9 +86,9 @@
 }
 
 .claude-status-badge.status-stopped {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-alpha-20);
   color: var(--danger-color);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid var(--danger-alpha-30);
 }
 
 .claude-status-badge.status-installed {
@@ -98,16 +98,16 @@
 }
 
 .claude-status-badge.status-installing {
-  background: rgba(245, 158, 11, 0.2);
+  background: var(--warning-alpha-20);
   color: var(--warning-color);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid var(--warning-alpha-30);
 }
 
 .claude-status-badge.status-error,
 .claude-status-badge.status-unknown {
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--neutral-alpha-20);
   color: var(--text-muted);
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  border: 1px solid var(--neutral-alpha-30);
 }
 
 /* Actions */
@@ -118,7 +118,7 @@
 }
 
 /* Buttons */
-.claude-btn {
+.btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -133,48 +133,48 @@
   transition: all var(--duration-normal) ease;
 }
 
-.claude-btn:hover:not(:disabled) {
+.btn:hover:not(:disabled) {
   background: var(--bg-card-hover);
   border-color: var(--primary-color);
   color: var(--text-primary);
 }
 
-.claude-btn:disabled {
+.btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.claude-btn-icon {
+.btn-icon {
   padding: 0.625rem;
   min-width: 40px;
   justify-content: center;
 }
 
-.claude-btn-primary {
+.btn-primary {
   background: var(--gradient-primary);
   border-color: transparent;
   color: white;
 }
 
-.claude-btn-primary:hover:not(:disabled) {
+.btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
   border-color: transparent;
   color: white;
   box-shadow: var(--shadow-md);
 }
 
-.claude-btn-secondary {
+.btn-secondary {
   background: transparent;
   border-color: var(--border-color);
   color: var(--text-muted);
 }
 
-.claude-btn-secondary:hover:not(:disabled) {
+.btn-secondary:hover:not(:disabled) {
   background: var(--bg-card);
   color: var(--text-primary);
 }
 
-.claude-btn-active {
+.btn-active {
   background: var(--bg-card-hover);
   border-color: var(--primary-color);
   color: var(--primary-color);
@@ -192,8 +192,8 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 1px solid var(--danger-alpha-30);
   border-radius: var(--radius-md);
   color: var(--danger-color);
   margin-bottom: 1rem;
@@ -222,7 +222,7 @@
 }
 
 .claude-error-banner button:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-alpha-20);
 }
 
 /* Settings Panel */
@@ -341,14 +341,14 @@
 }
 
 .save-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 1px solid var(--danger-alpha-30);
   color: var(--danger-color);
 }
 
 .save-message.warning {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: var(--warning-alpha-10);
+  border: 1px solid var(--warning-alpha-30);
   color: var(--warning-color);
 }
 
@@ -542,7 +542,7 @@
     padding: 0.625rem 0.875rem;
   }
 
-  .claude-btn {
+  .btn {
     padding: 0.5rem 0.875rem;
     font-size: 0.8rem;
   }
@@ -574,7 +574,7 @@
     flex-direction: column;
   }
 
-  .settings-actions .claude-btn {
+  .settings-actions .btn {
     width: 100%;
     justify-content: center;
   }
@@ -676,8 +676,8 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1.5rem;
-  background: rgba(239, 68, 68, 0.1);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border-bottom: 1px solid var(--danger-alpha-30);
   color: var(--danger-color);
   font-size: 0.875rem;
 }
@@ -694,7 +694,7 @@
 }
 
 .workspace-error button:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-alpha-20);
 }
 
 .workspace-list {
@@ -749,7 +749,7 @@
 .workspace-item-name .system-badge {
   font-size: 0.65rem;
   padding: 0.125rem 0.5rem;
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--neutral-alpha-20);
   color: var(--text-muted);
   border-radius: var(--radius-full, 9999px);
   font-weight: 500;
@@ -931,7 +931,7 @@
 .workspace-manager-footer {
   padding: 1rem 1.5rem;
   background: rgba(245, 158, 11, 0.05);
-  border-top: 1px solid rgba(245, 158, 11, 0.2);
+  border-top: 1px solid var(--warning-alpha-20);
 }
 
 .workspace-manager-footer p {
@@ -1096,8 +1096,8 @@
 }
 
 .auth-badge.auth-expired {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: var(--warning-alpha-15);
+  border: 1px solid var(--warning-alpha-30);
   color: var(--warning-color);
 }
 
@@ -1251,29 +1251,29 @@
 }
 
 /* Light Mode - Buttons */
-.light-mode .claude-btn {
+.light-mode .btn {
   background: var(--bg-card);
   border-color: var(--border-color);
   color: var(--text-secondary);
 }
 
-.light-mode .claude-btn:hover:not(:disabled) {
+.light-mode .btn:hover:not(:disabled) {
   background: var(--bg-elevated);
   border-color: var(--primary-color);
   color: var(--text-primary);
 }
 
-.light-mode .claude-btn-primary {
+.light-mode .btn-primary {
   background: var(--gradient-primary);
   color: white;
 }
 
-.light-mode .claude-btn-primary:hover:not(:disabled) {
+.light-mode .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--gradient-mid) 0%, var(--gradient-end) 100%);
   box-shadow: var(--shadow-md);
 }
 
-.light-mode .claude-btn-active {
+.light-mode .btn-active {
   background: rgba(69, 173, 255, 0.1);
   border-color: var(--primary-color);
   color: var(--primary-color);

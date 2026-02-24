@@ -85,7 +85,7 @@ function Login({ onLoginSuccess }) {
 
           <button
             type="submit"
-            className="login-button"
+            className="btn btn-primary btn-login"
             disabled={loading || !username || !password}
           >
             {loading ? 'Logging in...' : 'Login'}

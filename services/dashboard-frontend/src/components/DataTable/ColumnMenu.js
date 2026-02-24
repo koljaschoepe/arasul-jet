@@ -146,6 +146,7 @@ const ColumnMenu = memo(function ColumnMenu({
       {mode === 'menu' && (
         <>
           <button
+            type="button"
             className="dt-column-menu-item"
             onClick={() => setMode('rename')}
             disabled={loading}
@@ -153,6 +154,7 @@ const ColumnMenu = memo(function ColumnMenu({
             <FiEdit2 /> Umbenennen
           </button>
           <button
+            type="button"
             className="dt-column-menu-item"
             onClick={() => setMode('type')}
             disabled={loading}
@@ -161,6 +163,7 @@ const ColumnMenu = memo(function ColumnMenu({
           </button>
           <div className="dt-column-menu-divider" />
           <button
+            type="button"
             className="dt-column-menu-item dt-column-menu-danger"
             onClick={handleDelete}
             disabled={loading}
@@ -181,10 +184,11 @@ const ColumnMenu = memo(function ColumnMenu({
             placeholder="Spaltenname"
           />
           <div className="dt-column-menu-actions">
-            <button className="btn-secondary btn-sm" onClick={() => setMode('menu')}>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setMode('menu')}>
               Zurück
             </button>
             <button
+              type="button"
               className="btn-primary btn-sm"
               onClick={handleRename}
               disabled={loading || !newName.trim()}
@@ -206,10 +210,15 @@ const ColumnMenu = memo(function ColumnMenu({
             ))}
           </select>
           <div className="dt-column-menu-actions">
-            <button className="btn-secondary btn-sm" onClick={() => setMode('menu')}>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setMode('menu')}>
               Zurück
             </button>
-            <button className="btn-primary btn-sm" onClick={handleTypeChange} disabled={loading}>
+            <button
+              type="button"
+              className="btn-primary btn-sm"
+              onClick={handleTypeChange}
+              disabled={loading}
+            >
               {loading ? '...' : 'Ändern'}
             </button>
           </div>

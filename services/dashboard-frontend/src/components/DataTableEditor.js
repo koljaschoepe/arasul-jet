@@ -808,7 +808,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
               )}
             </div>
 
-            <button className="yaml-btn yaml-btn-secondary" onClick={handleClose}>
+            <button type="button" className="yaml-btn yaml-btn-secondary" onClick={handleClose}>
               <FiX /> Schließen
             </button>
           </div>
@@ -818,7 +818,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
         {error && (
           <div className="yaml-error">
             <FiAlertCircle /> {error}
-            <button onClick={() => setError(null)}>
+            <button type="button" onClick={() => setError(null)}>
               <FiX />
             </button>
           </div>
@@ -826,16 +826,20 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
 
         {/* Toolbar */}
         <div className="yaml-toolbar">
-          <button className="yaml-btn yaml-btn-primary" onClick={handleAddRow}>
+          <button type="button" className="yaml-btn yaml-btn-primary" onClick={handleAddRow}>
             <FiPlus /> Neue Zeile
           </button>
 
-          <button className="yaml-btn" onClick={() => setShowAddField(true)}>
+          <button type="button" className="yaml-btn" onClick={() => setShowAddField(true)}>
             <FiColumns /> Spalte hinzufügen
           </button>
 
           {selectedRows.size > 0 && (
-            <button className="yaml-btn yaml-btn-danger" onClick={handleDeleteSelected}>
+            <button
+              type="button"
+              className="yaml-btn yaml-btn-danger"
+              onClick={handleDeleteSelected}
+            >
               <FiTrash2 /> {selectedRows.size} löschen
             </button>
           )}
@@ -843,6 +847,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
           <div className="yaml-toolbar-divider" />
 
           <button
+            type="button"
             className="yaml-btn yaml-btn-icon"
             onClick={handleUndo}
             disabled={undoStack.length === 0}
@@ -852,6 +857,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
           </button>
 
           <button
+            type="button"
             className="yaml-btn yaml-btn-icon"
             onClick={handleRedo}
             disabled={redoStack.length === 0}
@@ -863,6 +869,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
           <div className="yaml-toolbar-divider" />
 
           <button
+            type="button"
             className="yaml-btn"
             onClick={handleExportCSV}
             disabled={saving || rows.length === 0}
@@ -884,6 +891,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
           <div className="yaml-toolbar-divider" />
 
           <button
+            type="button"
             className={`yaml-btn ${indexStatus?.is_indexed ? 'yaml-btn-indexed' : ''}`}
             onClick={handleIndexForRAG}
             disabled={indexing || rows.length === 0}
@@ -924,6 +932,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
                   >
                     <div className="yaml-th-content">
                       <button
+                        type="button"
                         className="yaml-th-name"
                         onClick={() => handleSort(field.slug)}
                         aria-label={`Sortiere nach ${field.name}${sortField === field.slug ? (sortOrder === 'asc' ? ', aufsteigend' : ', absteigend') : ''}`}
@@ -937,6 +946,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
                           ))}
                       </button>
                       <button
+                        type="button"
                         className="yaml-th-menu-btn"
                         onClick={e => {
                           e.stopPropagation();
@@ -1041,6 +1051,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
 
           <div className="yaml-pagination-controls">
             <button
+              type="button"
               className="yaml-pagination-btn"
               disabled={page === 1}
               onClick={() => {
@@ -1052,6 +1063,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
               <FiChevronsLeft />
             </button>
             <button
+              type="button"
               className="yaml-pagination-btn"
               disabled={page === 1}
               onClick={() => {
@@ -1093,6 +1105,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
             </div>
 
             <button
+              type="button"
               className="yaml-pagination-btn"
               disabled={page === totalPages || totalPages === 0}
               onClick={() => {
@@ -1104,6 +1117,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
               <FiChevronRight />
             </button>
             <button
+              type="button"
               className="yaml-pagination-btn"
               disabled={page === totalPages || totalPages === 0}
               onClick={() => {

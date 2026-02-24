@@ -88,7 +88,7 @@
 }
 
 .login-error {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-alpha-10);
   border: 1px solid var(--danger-color, #EF4444);
   color: var(--danger-color, #EF4444);
   padding: 1rem;
@@ -104,7 +104,7 @@
   color: var(--status-critical);
 }
 
-.login-button {
+.btn-login {
   width: 100%;
   padding: 1rem;
   background: var(--primary-color);
@@ -119,26 +119,26 @@
   transition: all 0.2s ease;
 }
 
-.login-button:hover:not(:disabled) {
+.btn-login:hover:not(:disabled) {
   background: var(--primary-hover);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
 /* Light Mode - Button styling */
-.light-mode .login-button {
+.light-mode .btn-login {
   box-shadow: var(--shadow-sm);
 }
 
-.light-mode .login-button:hover:not(:disabled) {
+.light-mode .btn-login:hover:not(:disabled) {
   box-shadow: var(--shadow-md);
 }
 
-.login-button:active:not(:disabled) {
+.btn-login:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.login-button:disabled {
+.btn-login:disabled {
   background: var(--border-color);
   color: var(--text-muted);
   cursor: not-allowed;
@@ -196,7 +196,7 @@
     padding: 0.75rem 0.875rem;
   }
 
-  .login-button {
+  .btn-login {
     padding: 0.875rem;
   }
 }
@@ -229,7 +229,7 @@
     font-size: 1rem;
   }
 
-  .login-button {
+  .btn-login {
     min-height: 48px;
     font-size: 0.95rem;
   }
@@ -287,7 +287,7 @@
     margin-bottom: 1.25rem;
   }
 
-  .login-button {
+  .btn-login {
     padding: 0.875rem;
     min-height: 48px;
     font-size: 0.95rem;
@@ -336,7 +336,7 @@
     font-size: 0.95rem;
   }
 
-  .login-button {
+  .btn-login {
     min-height: 44px;
     font-size: 0.9rem;
   }

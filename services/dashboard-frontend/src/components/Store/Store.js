@@ -108,6 +108,7 @@ function Store() {
             />
             {searchQuery && (
               <button
+                type="button"
                 className="search-clear"
                 onClick={() => setSearchQuery('')}
                 aria-label="Suche leeren"

@@ -136,7 +136,7 @@ function WorkspaceManager({
       {error && (
         <div className="workspace-error">
           <FiAlertCircle /> {error}
-          <button onClick={() => setError(null)}>
+          <button type="button" onClick={() => setError(null)}>
             <FiX />
           </button>
         </div>
@@ -159,6 +159,7 @@ function WorkspaceManager({
             <div className="workspace-item-actions">
               {!ws.is_default && (
                 <button
+                  type="button"
                   className="ws-action-btn"
                   onClick={() => handleSetDefault(ws)}
                   title="Als Standard setzen"
@@ -168,6 +169,7 @@ function WorkspaceManager({
               )}
               {!ws.is_system && !ws.is_default && (
                 <button
+                  type="button"
                   className="ws-action-btn delete"
                   onClick={() => handleDelete(ws)}
                   title="Löschen"
@@ -181,7 +183,7 @@ function WorkspaceManager({
       </div>
 
       {!showCreateForm ? (
-        <button className="workspace-add-btn" onClick={() => setShowCreateForm(true)}>
+        <button type="button" className="workspace-add-btn" onClick={() => setShowCreateForm(true)}>
           <FiPlus /> Neuen Workspace erstellen
         </button>
       ) : (
@@ -189,8 +191,9 @@ function WorkspaceManager({
           <h3>Neuen Workspace erstellen</h3>
 
           <div className="form-group">
-            <label>Name *</label>
+            <label htmlFor="ws-name">Name *</label>
             <input
+              id="ws-name"
               type="text"
               value={newName}
               onChange={e => setNewName(e.target.value)}
@@ -201,8 +204,9 @@ function WorkspaceManager({
           </div>
 
           <div className="form-group">
-            <label>Host-Pfad *</label>
+            <label htmlFor="ws-path">Host-Pfad *</label>
             <input
+              id="ws-path"
               type="text"
               value={newPath}
               onChange={e => setNewPath(e.target.value)}
@@ -215,8 +219,9 @@ function WorkspaceManager({
           </div>
 
           <div className="form-group">
-            <label>Beschreibung</label>
+            <label htmlFor="ws-desc">Beschreibung</label>
             <input
+              id="ws-desc"
               type="text"
               value={newDescription}
               onChange={e => setNewDescription(e.target.value)}
@@ -391,10 +396,11 @@ function SetupWizard({
               </p>
 
               <div className="setup-form">
-                <label className="setup-label">
+                <label htmlFor="setup-api-key" className="setup-label">
                   <FiKey /> Anthropic API Key
                 </label>
                 <input
+                  id="setup-api-key"
                   type="password"
                   value={apiKey}
                   onChange={handleApiKeyChange}
@@ -509,25 +515,31 @@ function SetupWizard({
         {/* Navigation Buttons */}
         <div className="setup-actions">
           {step > 1 && (
-            <button className="setup-btn setup-btn-secondary" onClick={prevStep} disabled={saving}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={prevStep}
+              disabled={saving}
+            >
               <FiChevronLeft /> Zurück
             </button>
           )}
 
           <div className="setup-actions-right">
             {step === 1 && (
-              <button className="setup-btn setup-btn-text" onClick={onSkip}>
+              <button type="button" className="btn btn-text" onClick={onSkip}>
                 Später einrichten
               </button>
             )}
 
             {step < totalSteps ? (
-              <button className="setup-btn setup-btn-primary" onClick={nextStep}>
+              <button type="button" className="btn btn-primary" onClick={nextStep}>
                 Weiter <FiChevronRight />
               </button>
             ) : (
               <button
-                className="setup-btn setup-btn-primary setup-btn-finish"
+                type="button"
+                className="btn btn-primary btn-finish"
                 onClick={completeSetup}
                 disabled={saving}
               >
@@ -1037,7 +1049,8 @@ function ClaudeCode() {
               </p>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
                 <button
-                  className="claude-btn claude-btn-primary"
+                  type="button"
+                  className="btn btn-primary"
                   onClick={() => {
                     setLoading(true);
                     setLoadingTimeout(false);
@@ -1046,7 +1059,7 @@ function ClaudeCode() {
                 >
                   <FiRefreshCw /> Erneut versuchen
                 </button>
-                <button className="claude-btn claude-btn-secondary" onClick={() => navigate('/')}>
+                <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>
                   Zurück zum Dashboard
                 </button>
               </div>
@@ -1068,7 +1081,8 @@ function ClaudeCode() {
             style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}
           >
             <button
-              className="claude-btn claude-btn-primary"
+              type="button"
+              className="btn btn-primary"
               onClick={() => {
                 setError(null);
                 setLoading(true);
@@ -1077,10 +1091,10 @@ function ClaudeCode() {
             >
               <FiRefreshCw /> Erneut versuchen
             </button>
-            <button className="claude-btn claude-btn-secondary" onClick={() => navigate('/')}>
+            <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>
               Zurück zum Dashboard
             </button>
-            <button className="claude-btn claude-btn-secondary" onClick={() => navigate('/store')}>
+            <button type="button" className="btn btn-secondary" onClick={() => navigate('/store')}>
               Zum Store
             </button>
           </div>
@@ -1150,6 +1164,7 @@ function ClaudeCode() {
                 <FiAlertTriangle />
                 <span>Session abgelaufen</span>
                 <button
+                  type="button"
                   className="auth-refresh-btn"
                   onClick={handleAuthRefresh}
                   disabled={authRefreshing}
@@ -1166,7 +1181,8 @@ function ClaudeCode() {
           {appStatus?.status === 'running' && (
             <>
               <button
-                className="claude-btn claude-btn-icon"
+                type="button"
+                className="btn btn-icon"
                 onClick={restartApp}
                 disabled={actionLoading}
                 title="Neustarten"
@@ -1174,7 +1190,8 @@ function ClaudeCode() {
                 <FiRefreshCw className={actionLoading ? 'spinning' : ''} />
               </button>
               <button
-                className="claude-btn claude-btn-icon"
+                type="button"
+                className="btn btn-icon"
                 onClick={stopApp}
                 disabled={actionLoading}
                 title="Stoppen"
@@ -1182,7 +1199,8 @@ function ClaudeCode() {
                 <FiSquare />
               </button>
               <button
-                className="claude-btn claude-btn-icon"
+                type="button"
+                className="btn btn-icon"
                 onClick={toggleFullscreen}
                 title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
               >
@@ -1191,7 +1209,8 @@ function ClaudeCode() {
             </>
           )}
           <button
-            className={`claude-btn ${showSettings ? 'claude-btn-active' : ''}`}
+            type="button"
+            className={`btn ${showSettings ? 'btn-active' : ''}`}
             onClick={() => setShowSettings(!showSettings)}
           >
             <FiSettings /> Einstellungen
@@ -1204,7 +1223,7 @@ function ClaudeCode() {
         <div className="claude-error-banner">
           <FiAlertCircle />
           <span>{error}</span>
-          <button onClick={() => setError(null)}>
+          <button type="button" onClick={() => setError(null)}>
             <FiX />
           </button>
         </div>
@@ -1217,11 +1236,12 @@ function ClaudeCode() {
 
           <div className="settings-grid">
             <div className="setting-item">
-              <label>
+              <label htmlFor="cc-api-key">
                 <FiKey /> Anthropic API Key
                 <span className="setting-required">*</span>
               </label>
               <input
+                id="cc-api-key"
                 type="password"
                 value={
                   config.ANTHROPIC_API_KEY?.startsWith('****') ? '' : config.ANTHROPIC_API_KEY || ''
@@ -1242,11 +1262,12 @@ function ClaudeCode() {
             </div>
 
             <div className="setting-item">
-              <label>
+              <label htmlFor="cc-workspace">
                 <FiFolder /> Workspace
               </label>
               <div className="workspace-select-row">
                 <select
+                  id="cc-workspace"
                   value={config.CLAUDE_WORKSPACE || '/workspace/arasul'}
                   onChange={e => setConfig({ ...config, CLAUDE_WORKSPACE: e.target.value })}
                   className="setting-select"
@@ -1298,13 +1319,15 @@ function ClaudeCode() {
 
           <div className="settings-actions">
             <button
-              className="claude-btn claude-btn-secondary"
+              type="button"
+              className="btn btn-secondary"
               onClick={() => setShowSettings(false)}
             >
               Abbrechen
             </button>
             <button
-              className="claude-btn claude-btn-primary"
+              type="button"
+              className="btn btn-primary"
               onClick={saveConfig}
               disabled={actionLoading}
             >
@@ -1346,13 +1369,15 @@ function ClaudeCode() {
             </p>
             <div className="placeholder-actions">
               <button
-                className="claude-btn claude-btn-primary"
+                type="button"
+                className="btn btn-primary"
                 onClick={() => setShowSetupWizard(true)}
               >
                 <FiZap /> Einrichtung starten
               </button>
               <button
-                className="claude-btn claude-btn-secondary"
+                type="button"
+                className="btn btn-secondary"
                 onClick={() => setShowSettings(true)}
               >
                 <FiSettings /> Einstellungen öffnen
@@ -1367,7 +1392,8 @@ function ClaudeCode() {
             <h3>Claude Code ist nicht gestartet</h3>
             <p>Klicke auf Starten, um das Terminal zu öffnen.</p>
             <button
-              className="claude-btn claude-btn-primary"
+              type="button"
+              className="btn btn-primary"
               onClick={startApp}
               disabled={actionLoading}
             >

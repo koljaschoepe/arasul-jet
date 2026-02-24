@@ -279,7 +279,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
         <div className="dt-error">
           <h3>Fehler beim Laden</h3>
           <p>{error}</p>
-          <button onClick={fetchTables} className="btn-primary">
+          <button type="button" onClick={fetchTables} className="btn-primary">
             Erneut versuchen
           </button>
         </div>
@@ -298,7 +298,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
           </div>
         </div>
         <div className="dt-header-actions">
-          <button className="btn-primary" onClick={handleCreateTable}>
+          <button type="button" className="btn-primary" onClick={handleCreateTable}>
             <FiPlus /> Neue Tabelle
           </button>
         </div>
@@ -317,6 +317,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
         </div>
         <div className="dt-view-toggle">
           <button
+            type="button"
             className={`dt-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
             onClick={() => setViewMode('grid')}
             title="Kachelansicht"
@@ -324,6 +325,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
             <FiGrid />
           </button>
           <button
+            type="button"
             className={`dt-view-btn ${viewMode === 'list' ? 'active' : ''}`}
             onClick={() => setViewMode('list')}
             title="Listenansicht"
@@ -346,7 +348,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
               <FiDatabase className="dt-empty-icon" />
               <h3>Noch keine Tabellen</h3>
               <p>Erstellen Sie Ihre erste Tabelle, um Daten zu verwalten.</p>
-              <button className="btn-primary" onClick={handleCreateTable}>
+              <button type="button" className="btn-primary" onClick={handleCreateTable}>
                 <FiPlus /> Erste Tabelle erstellen
               </button>
             </>

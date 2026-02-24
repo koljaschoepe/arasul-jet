@@ -142,7 +142,7 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
                 <FiLogOut /> Abmelden
               </h3>
               <p>Beendet Ihre aktuelle Sitzung und leitet Sie zur Login-Seite weiter.</p>
-              <button onClick={handleLogout} className="logout-button-settings">
+              <button type="button" onClick={handleLogout} className="logout-button-settings">
                 <FiLogOut /> Abmelden
               </button>
             </div>
@@ -173,6 +173,7 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
           {sections.map(section => (
             <button
               key={section.id}
+              type="button"
               className={`settings-nav-item ${activeSection === section.id ? 'active' : ''}`}
               onClick={() => setActiveSection(section.id)}
             >
@@ -345,6 +346,7 @@ function CompanyContextSettings() {
                 )}
               </div>
               <button
+                type="button"
                 className={`company-context-save-btn ${hasChanges ? 'has-changes' : ''}`}
                 onClick={handleSave}
                 disabled={saving || !hasChanges}
@@ -447,6 +449,7 @@ function GeneralSettings({ theme, onToggleTheme }) {
                 </span>
               </div>
               <button
+                type="button"
                 onClick={onToggleTheme}
                 className="theme-toggle-switch-settings"
                 title={theme === 'dark' ? 'Zu Light Mode wechseln' : 'Zu Dark Mode wechseln'}
@@ -682,7 +685,7 @@ function ServicesSettings() {
         <div className={`services-message ${message.type}`}>
           {message.type === 'success' ? <FiCheck /> : <FiAlertCircle />}
           <span>{message.text}</span>
-          <button className="services-message-close" onClick={() => setMessage(null)}>
+          <button type="button" className="services-message-close" onClick={() => setMessage(null)}>
             <FiX />
           </button>
         </div>
@@ -713,6 +716,7 @@ function ServicesSettings() {
                   <div className="service-actions-settings">
                     {service.canRestart && (
                       <button
+                        type="button"
                         className={`service-restart-btn ${restartingService === service.name ? 'restarting' : ''}`}
                         onClick={() => handleRestartClick(service)}
                         disabled={restartingService === service.name}
@@ -817,12 +821,17 @@ function ServicesSettings() {
             </div>
             <div className="modal-actions">
               <button
+                type="button"
                 className="modal-btn modal-btn-cancel"
                 onClick={() => setConfirmRestart(null)}
               >
                 Abbrechen
               </button>
-              <button className="modal-btn modal-btn-confirm" onClick={handleConfirmRestart}>
+              <button
+                type="button"
+                className="modal-btn modal-btn-confirm"
+                onClick={handleConfirmRestart}
+              >
                 <FiRefreshCw />
                 Neustarten
               </button>

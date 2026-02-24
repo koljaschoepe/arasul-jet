@@ -75,11 +75,11 @@ const SelfHealingEvents = () => {
       CRITICAL: { color: 'critical', Icon: FiAlertCircle },
     };
 
-    const config = severityMap[severity] || { color: 'default', Icon: FiActivity };
+    const config = severityMap[severity] || { color: 'neutral', Icon: FiActivity };
     const IconComponent = config.Icon;
 
     return (
-      <span className={`severity-badge severity-${config.color}`}>
+      <span className={`badge badge-${config.color}`}>
         <IconComponent className="severity-icon" />
         {severity}
       </span>
@@ -154,7 +154,7 @@ const SelfHealingEvents = () => {
             <span>Auto-refresh (10s)</span>
           </label>
 
-          <button onClick={() => fetchEvents()} className="btn-refresh">
+          <button type="button" onClick={() => fetchEvents()} className="btn-refresh">
             <FiRefreshCw /> Refresh
           </button>
         </div>
@@ -183,24 +183,28 @@ const SelfHealingEvents = () => {
       {/* Filters */}
       <div className="events-filters">
         <button
+          type="button"
           className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
           onClick={() => setFilter('all')}
         >
           All Events
         </button>
         <button
+          type="button"
           className={`filter-btn ${filter === 'INFO' ? 'active' : ''}`}
           onClick={() => setFilter('INFO')}
         >
           Info
         </button>
         <button
+          type="button"
           className={`filter-btn ${filter === 'WARNING' ? 'active' : ''}`}
           onClick={() => setFilter('WARNING')}
         >
           Warnings
         </button>
         <button
+          type="button"
           className={`filter-btn ${filter === 'CRITICAL' ? 'active' : ''}`}
           onClick={() => setFilter('CRITICAL')}
         >

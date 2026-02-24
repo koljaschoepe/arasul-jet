@@ -33,6 +33,7 @@ const ChatMessage = memo(function ChatMessage({
           className={`thinking-block ${message.thinkingCollapsed ? 'collapsed' : ''} ${message.thinkingCollapsing ? 'collapsing' : ''}`}
         >
           <button
+            type="button"
             className="thinking-header"
             onClick={() => onToggleThinking(index)}
             aria-expanded={!message.thinkingCollapsed}
@@ -115,6 +116,7 @@ const ChatMessage = memo(function ChatMessage({
       {message.queryOptimization && (
         <div className={`query-opt-block ${message.queryOptCollapsed ? 'collapsed' : ''}`}>
           <button
+            type="button"
             className="query-opt-header"
             onClick={() => onToggleQueryOpt(index)}
             aria-expanded={!message.queryOptCollapsed}
@@ -162,6 +164,7 @@ const ChatMessage = memo(function ChatMessage({
       {message.sources && message.sources.length > 0 && (
         <div className={`sources-block ${message.sourcesCollapsed ? 'collapsed' : ''}`}>
           <button
+            type="button"
             className="sources-header"
             onClick={() => onToggleSources(index)}
             aria-expanded={!message.sourcesCollapsed}

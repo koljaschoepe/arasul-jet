@@ -17,7 +17,7 @@
 
 .dm-stats-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: clamp(0.75rem, 1.5vw, 1rem);
 }
 
@@ -126,8 +126,8 @@
 
 /* Error Message */
 .dm-error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 1px solid var(--danger-alpha-30);
   border-radius: var(--radius-md);
   padding: 0.75rem 1rem;
   display: flex;
@@ -473,29 +473,7 @@
   white-space: nowrap;
 }
 
-/* Status Badge - compact variant for table rows */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* Document statuses */
-.status-pending   { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
-.status-processing { background: rgba(69, 173, 255, 0.1); color: var(--primary-color); }
-.status-indexed   { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
-.status-failed    { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
-
-/* Table statuses */
-.status-active    { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
-.status-draft     { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
-.status-archived  { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); }
+/* Status badges - now use global .badge system from index.css */
 
 /* Type Badge */
 .type-badge {
@@ -584,7 +562,7 @@
 
 .action-btn.delete:hover {
   color: var(--danger-color);
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-alpha-10);
 }
 
 .action-btn.edit:hover {
@@ -874,7 +852,7 @@
   background: rgba(239, 68, 68, 0.05);
   padding: 1rem;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--danger-alpha-20);
 }
 
 .error-text {
@@ -887,8 +865,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 1px solid var(--danger-alpha-30);
   color: var(--danger-light);
   padding: 0.5rem 1rem;
   border-radius: var(--radius-sm);
@@ -898,7 +876,7 @@
 }
 
 .retry-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-alpha-20);
 }
 
 .modal-footer {
@@ -943,13 +921,13 @@
 }
 
 .modal-btn.danger {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 1px solid var(--danger-alpha-30);
   color: var(--danger-color);
 }
 
 .modal-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-alpha-20);
 }
 
 /* ============================================
@@ -1219,7 +1197,6 @@
   }
 
   .dm-stats-row {
-    grid-template-columns: repeat(4, 1fr);
     gap: 0.75rem;
   }
 
@@ -1259,12 +1236,7 @@
   }
 }
 
-/* Tablet/Smaller screens (< 1280px) */
-@media (max-width: 1279px) and (min-width: 769px) {
-  .dm-stats-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
+/* Tablet/Smaller screens (< 1280px) - auto-fit handles column count */
 
 /* Responsive - Tablet and Mobile */
 @media (max-width: 768px) {
@@ -1402,9 +1374,9 @@
 .light-mode .status-processing { background: rgba(69, 173, 255, 0.1); color: var(--primary-color); }
 .light-mode .status-indexed { background: rgba(69, 173, 255, 0.1); color: var(--primary-color); }
 .light-mode .status-failed { background: rgba(220, 38, 38, 0.1); color: var(--danger-color); }
-.light-mode .status-active { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
+.light-mode .status-active { background: var(--success-alpha-10); color: var(--success-color); }
 .light-mode .status-draft { background: rgba(217, 119, 6, 0.1); color: var(--warning-color); }
-.light-mode .status-archived { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); }
+.light-mode .status-archived { background: var(--neutral-alpha-10); color: var(--text-muted); }
 
 /* Light Mode - Space Badge Dropdown */
 .light-mode .space-badge-dropdown {
@@ -1596,8 +1568,8 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 1px solid var(--danger-alpha-30);
   border-radius: var(--radius-md);
   color: #EF4444;
   font-size: 0.875rem;

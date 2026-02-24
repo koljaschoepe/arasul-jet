@@ -83,6 +83,7 @@ class ErrorBoundary extends React.Component {
                 {this.props.message || 'Komponente konnte nicht geladen werden'}
               </span>
               <button
+                type="button"
                 onClick={this.handleRetry}
                 className="btn-retry-small"
                 aria-label="Erneut versuchen"
@@ -117,6 +118,7 @@ class ErrorBoundary extends React.Component {
 
             <div className="error-actions">
               <button
+                type="button"
                 onClick={this.handleRetry}
                 className="btn-retry"
                 aria-label="Erneut versuchen ohne Neuladen"
@@ -124,6 +126,7 @@ class ErrorBoundary extends React.Component {
                 Erneut versuchen
               </button>
               <button
+                type="button"
                 onClick={this.handleReload}
                 className="btn-reload"
                 aria-label="Seite neu laden"
@@ -132,6 +135,7 @@ class ErrorBoundary extends React.Component {
               </button>
               {!this.props.hideBackButton && (
                 <button
+                  type="button"
                   onClick={() => {
                     if (window.history.length > 1) {
                       window.history.back();

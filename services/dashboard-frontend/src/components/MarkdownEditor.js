@@ -4,7 +4,7 @@
  * Uses ReactMarkdown with remarkGfm for full GFM support (tables, strikethrough, etc.)
  */
 
-import React, { memo, useState, useEffect, useCallback } from 'react';
+import React, { memo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   FiX,
   FiSave,
@@ -29,6 +29,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
   token,
 }) {
   const { confirm, ConfirmDialog } = useConfirm();
+  const containerRef = useRef(null);
   const [content, setContent] = useState('');
   const [originalContent, setOriginalContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,14 @@ const MarkdownEditor = memo(function MarkdownEditor({
   const [viewMode, setViewMode] = useState('split'); // 'edit', 'preview', 'split'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Prevent body scroll while editor is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   // Load document content
   useEffect(() => {
@@ -109,28 +118,8 @@ const MarkdownEditor = memo(function MarkdownEditor({
     }
   }, [documentId, content, token, onSave]);
 
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = e => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        if (hasChanges && !saving) {
-          handleSave();
-        }
-      }
-      if (e.key === 'Escape') {
-        if (isFullscreen) {
-          setIsFullscreen(false);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasChanges, saving, handleSave, isFullscreen]);
-
   // Handle close with unsaved changes warning
-  const handleClose = async () => {
+  const handleClose = useCallback(async () => {
     if (hasChanges) {
       if (
         await confirm({
@@ -144,7 +133,46 @@ const MarkdownEditor = memo(function MarkdownEditor({
     } else {
       onClose();
     }
-  };
+  }, [hasChanges, confirm, onClose]);
+
+  // Handle keyboard shortcuts + focus trap
+  useEffect(() => {
+    const handleKeyDown = e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (hasChanges && !saving) {
+          handleSave();
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else {
+          handleClose();
+        }
+      }
+      // Focus trap: cycle Tab within the editor
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusable = containerRef.current.querySelectorAll(
+          'button:not([disabled]), textarea, input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasChanges, saving, handleSave, handleClose, isFullscreen]);
 
   // Insert text helper
   const insertText = (before, after = '') => {
@@ -171,8 +199,16 @@ const MarkdownEditor = memo(function MarkdownEditor({
 
   if (loading) {
     return (
-      <div className={`markdown-editor-overlay ${isFullscreen ? 'fullscreen' : ''}`}>
-        <div className="markdown-editor-container">
+      <div
+        className={`markdown-editor-overlay ${isFullscreen ? 'fullscreen' : ''}`}
+        role="presentation"
+      >
+        <div
+          className="markdown-editor-container"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Markdown Editor: ${filename}`}
+        >
           <div className="markdown-editor-loading">
             <div className="spinner"></div>
             <p>Dokument wird geladen...</p>
@@ -183,8 +219,17 @@ const MarkdownEditor = memo(function MarkdownEditor({
   }
 
   return (
-    <div className={`markdown-editor-overlay ${isFullscreen ? 'fullscreen' : ''}`}>
-      <div className="markdown-editor-container">
+    <div
+      className={`markdown-editor-overlay ${isFullscreen ? 'fullscreen' : ''}`}
+      role="presentation"
+    >
+      <div
+        ref={containerRef}
+        className="markdown-editor-container"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Markdown Editor: ${filename}`}
+      >
         {/* Header */}
         <div className="markdown-editor-header">
           <div className="markdown-editor-title">
@@ -197,6 +242,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
             {/* Format buttons */}
             <div className="toolbar-group">
               <button
+                type="button"
                 className="toolbar-btn"
                 onClick={() => insertText('**', '**')}
                 title="Fett (Ctrl+B)"
@@ -204,26 +250,43 @@ const MarkdownEditor = memo(function MarkdownEditor({
                 <strong>B</strong>
               </button>
               <button
+                type="button"
                 className="toolbar-btn"
                 onClick={() => insertText('*', '*')}
                 title="Kursiv (Ctrl+I)"
               >
                 <em>I</em>
               </button>
-              <button className="toolbar-btn" onClick={() => insertText('# ')} title="Überschrift">
+              <button
+                type="button"
+                className="toolbar-btn"
+                onClick={() => insertText('# ')}
+                title="Überschrift"
+              >
                 H
               </button>
-              <button className="toolbar-btn" onClick={() => insertText('`', '`')} title="Code">
+              <button
+                type="button"
+                className="toolbar-btn"
+                onClick={() => insertText('`', '`')}
+                title="Code"
+              >
                 {'</>'}
               </button>
               <button
+                type="button"
                 className="toolbar-btn"
                 onClick={() => insertText('[', '](url)')}
                 title="Link"
               >
                 Link
               </button>
-              <button className="toolbar-btn" onClick={() => insertText('- ')} title="Liste">
+              <button
+                type="button"
+                className="toolbar-btn"
+                onClick={() => insertText('- ')}
+                title="Liste"
+              >
                 List
               </button>
             </div>
@@ -231,6 +294,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
             {/* View mode buttons */}
             <div className="toolbar-group">
               <button
+                type="button"
                 className={`toolbar-btn ${viewMode === 'edit' ? 'active' : ''}`}
                 onClick={() => setViewMode('edit')}
                 title="Nur Editor"
@@ -238,6 +302,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
                 <FiEdit2 />
               </button>
               <button
+                type="button"
                 className={`toolbar-btn ${viewMode === 'split' ? 'active' : ''}`}
                 onClick={() => setViewMode('split')}
                 title="Geteilte Ansicht"
@@ -246,6 +311,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
                 <FiEye />
               </button>
               <button
+                type="button"
                 className={`toolbar-btn ${viewMode === 'preview' ? 'active' : ''}`}
                 onClick={() => setViewMode('preview')}
                 title="Nur Vorschau"
@@ -257,6 +323,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
             {/* Action buttons */}
             <div className="toolbar-group">
               <button
+                type="button"
                 className="toolbar-btn"
                 onClick={() => setIsFullscreen(!isFullscreen)}
                 title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
@@ -264,6 +331,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
                 {isFullscreen ? <FiMinimize2 /> : <FiMaximize2 />}
               </button>
               <button
+                type="button"
                 className={`toolbar-btn save-btn ${hasChanges ? 'has-changes' : ''}`}
                 onClick={handleSave}
                 disabled={!hasChanges || saving}
@@ -272,7 +340,12 @@ const MarkdownEditor = memo(function MarkdownEditor({
                 <FiSave />
                 {saving ? 'Speichert...' : 'Speichern'}
               </button>
-              <button className="toolbar-btn close-btn" onClick={handleClose} title="Schließen">
+              <button
+                type="button"
+                className="toolbar-btn close-btn"
+                onClick={handleClose}
+                title="Schließen"
+              >
                 <FiX />
               </button>
             </div>
@@ -284,7 +357,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
           <div className="markdown-editor-error">
             <FiAlertCircle />
             <span>{error}</span>
-            <button onClick={() => setError(null)}>
+            <button type="button" onClick={() => setError(null)}>
               <FiX />
             </button>
           </div>

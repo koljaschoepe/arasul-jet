@@ -229,6 +229,7 @@ function TelegramSettings() {
                 </span>
               </div>
               <button
+                type="button"
                 className={`telegram-toggle-btn ${config.enabled ? 'active' : ''}`}
                 onClick={handleToggleEnabled}
                 disabled={saving || (!hasToken && !config.enabled)}
@@ -308,6 +309,7 @@ function TelegramSettings() {
               {/* Actions */}
               <div className="telegram-actions">
                 <button
+                  type="button"
                   className={`telegram-save-btn ${hasChanges ? 'has-changes' : ''}`}
                   onClick={handleSave}
                   disabled={saving || !hasChanges}
@@ -323,6 +325,7 @@ function TelegramSettings() {
                 </button>
 
                 <button
+                  type="button"
                   className="telegram-test-btn"
                   onClick={handleTest}
                   disabled={testing || !hasToken || !config.chat_id}

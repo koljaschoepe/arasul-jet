@@ -350,14 +350,15 @@
 
 /* Home Cards */
 .store-home-card {
-  background: var(--bg-card);
+  background: var(--gradient-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
-  padding: 1.25rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   transition: all var(--duration-medium) ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .store-home-card:hover {
@@ -529,15 +530,16 @@
    ============================================ */
 
 .model-card {
-  background: var(--bg-card);
+  background: var(--gradient-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
-  padding: 1.25rem;
+  padding: 1.5rem;
   cursor: pointer;
   transition: all var(--duration-medium) ease;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .model-card:hover {
@@ -654,15 +656,16 @@
    ============================================ */
 
 .app-card {
-  background: var(--bg-card);
+  background: var(--gradient-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
-  padding: 1.25rem;
+  padding: 1.5rem;
   cursor: pointer;
   transition: all var(--duration-medium) ease;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .app-card:hover {
@@ -749,7 +752,7 @@
   gap: 0.5rem;
   font-size: 0.75rem;
   color: var(--danger-light);
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-alpha-10);
   padding: 0.5rem;
   border-radius: var(--radius-sm);
   margin-top: 0.5rem;
@@ -824,7 +827,7 @@
 }
 
 .badge-error {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-alpha-10);
   color: var(--danger-light);
 }
 
@@ -912,8 +915,8 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 1px solid var(--danger-alpha-30);
   border-radius: var(--radius-md);
   padding: 0.875rem 1rem;
   margin-bottom: 1.5rem;
@@ -940,7 +943,7 @@
 }
 
 .store-error button:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-alpha-20);
 }
 
 .store-empty {
@@ -972,7 +975,7 @@
 
 .download-progress.phase-complete {
   border-color: var(--success-color);
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--success-alpha-10);
 }
 
 .progress-header {
@@ -1108,21 +1111,21 @@
 }
 
 .btn-danger {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-alpha-20);
   color: var(--danger-light);
 }
 
 .btn-danger:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-30);
 }
 
 .btn-warning {
-  background: rgba(245, 158, 11, 0.2);
+  background: var(--warning-alpha-20);
   color: var(--warning-light);
 }
 
 .btn-warning:hover {
-  background: rgba(245, 158, 11, 0.3);
+  background: var(--warning-alpha-30);
 }
 
 .btn-active {
@@ -1406,7 +1409,7 @@ code.detail-value {
 .light-mode .model-card,
 .light-mode .app-card,
 .light-mode .store-home-card {
-  background: var(--bg-card);
+  background: var(--gradient-card);
   box-shadow: var(--shadow-sm);
 }
 

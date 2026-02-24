@@ -201,6 +201,7 @@ function ClaudeTerminal() {
                 Service Status
               </h3>
               <button
+                type="button"
                 className="claude-terminal-refresh-btn"
                 onClick={checkStatus}
                 title="Status aktualisieren"
@@ -295,6 +296,7 @@ function ClaudeTerminal() {
                   </span>
                   {response && !actionLoading && (
                     <button
+                      type="button"
                       className="claude-terminal-copy-btn"
                       onClick={copyResponse}
                       title="Antwort kopieren"
@@ -329,7 +331,7 @@ function ClaudeTerminal() {
                     Der LLM Service startet möglicherweise gerade. Bitte versuchen Sie es in einigen
                     Momenten erneut.
                   </p>
-                  <button className="claude-terminal-retry-btn" onClick={checkStatus}>
+                  <button type="button" className="claude-terminal-retry-btn" onClick={checkStatus}>
                     <FiRefreshCw />
                     Status erneut prüfen
                   </button>
@@ -419,6 +421,7 @@ function ClaudeTerminal() {
               ].map((example, index) => (
                 <button
                   key={index}
+                  type="button"
                   className="claude-terminal-example-btn"
                   onClick={() => {
                     setQuery(example);

@@ -267,7 +267,7 @@ const UpdatePage = () => {
     };
 
     return (
-      <span className={`status-badge status-${statusColors[status] || 'default'}`}>
+      <span className={`badge badge-${statusColors[status] || 'neutral'}`}>
         {statusLabels[status] || status}
       </span>
     );
@@ -308,6 +308,7 @@ const UpdatePage = () => {
               USB-Update erkennen
             </h3>
             <button
+              type="button"
               onClick={scanUsbDevices}
               disabled={usbScanning}
               className="btn-icon"
@@ -328,6 +329,7 @@ const UpdatePage = () => {
                     </span>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleUsbInstall(device)}
                     className="btn btn-primary btn-sm"
                   >
@@ -387,6 +389,7 @@ const UpdatePage = () => {
             </div>
 
             <button
+              type="button"
               onClick={handleUpload}
               disabled={!selectedFile || !signatureFile}
               className="btn btn-primary"
@@ -456,10 +459,10 @@ const UpdatePage = () => {
             )}
 
             <div className="action-buttons">
-              <button onClick={handleApplyUpdate} className="btn btn-success">
+              <button type="button" onClick={handleApplyUpdate} className="btn btn-success">
                 Update installieren
               </button>
-              <button onClick={handleReset} className="btn btn-secondary">
+              <button type="button" onClick={handleReset} className="btn btn-secondary">
                 Abbrechen
               </button>
             </div>
@@ -502,7 +505,7 @@ const UpdatePage = () => {
                 Systemneustart erforderlich. Bitte starten Sie das System neu.
               </p>
             )}
-            <button onClick={handleReset} className="btn btn-primary">
+            <button type="button" onClick={handleReset} className="btn btn-primary">
               Weiteres Update hochladen
             </button>
           </div>
@@ -513,7 +516,7 @@ const UpdatePage = () => {
             <FiXCircle className="result-icon" />
             <h4>Update fehlgeschlagen</h4>
             <p className="error-message">{errorMessage}</p>
-            <button onClick={handleReset} className="btn btn-primary">
+            <button type="button" onClick={handleReset} className="btn btn-primary">
               Erneut versuchen
             </button>
           </div>

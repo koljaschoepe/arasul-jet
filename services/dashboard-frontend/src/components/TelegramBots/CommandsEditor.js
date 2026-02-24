@@ -248,11 +248,17 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
       </div>
 
       <div className="command-form-actions">
-        <button className="command-btn secondary" onClick={handleCancel} disabled={saving}>
+        <button
+          type="button"
+          className="command-btn secondary"
+          onClick={handleCancel}
+          disabled={saving}
+        >
           <FiX />
           Abbrechen
         </button>
         <button
+          type="button"
           className="command-btn primary"
           onClick={isNew ? handleSaveNew : handleSaveEdit}
           disabled={saving}
@@ -273,7 +279,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
           <p>Definiere eigene Slash-Befehle mit KI-Prompts</p>
         </div>
         {!newCommand && !editingCommand && (
-          <button className="commands-add-btn" onClick={handleAddNew}>
+          <button type="button" className="commands-add-btn" onClick={handleAddNew}>
             <FiPlus />
             Neuer Befehl
           </button>
@@ -314,6 +320,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
                 </div>
                 <div className="command-item-actions">
                   <button
+                    type="button"
                     className={`command-toggle-btn ${(cmd.isEnabled ?? cmd.is_enabled ?? true) ? 'enabled' : ''}`}
                     onClick={() => handleToggleEnabled(cmd)}
                     title={
@@ -323,6 +330,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
                     <span className="command-toggle-slider" />
                   </button>
                   <button
+                    type="button"
                     className="command-action-btn edit"
                     onClick={() => handleEdit(cmd)}
                     title="Bearbeiten"
@@ -330,6 +338,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
                     <FiEdit2 />
                   </button>
                   <button
+                    type="button"
                     className="command-action-btn delete"
                     onClick={() => handleDelete(cmd.id)}
                     title="Löschen"

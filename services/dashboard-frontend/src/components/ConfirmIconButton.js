@@ -26,7 +26,7 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
   onConfirm,
   variant = 'danger',
   disabled = false,
-  loading = false
+  loading = false,
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const wrapperRef = useRef(null);
@@ -35,13 +35,13 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
   useEffect(() => {
     if (!showConfirm) return;
 
-    const handleClickOutside = (e) => {
+    const handleClickOutside = e => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setShowConfirm(false);
       }
     };
 
-    const handleEscape = (e) => {
+    const handleEscape = e => {
       if (e.key === 'Escape') {
         setShowConfirm(false);
       }
@@ -56,18 +56,18 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
     };
   }, [showConfirm]);
 
-  const handleConfirm = (e) => {
+  const handleConfirm = e => {
     e.stopPropagation();
     setShowConfirm(false);
     onConfirm();
   };
 
-  const handleCancel = (e) => {
+  const handleCancel = e => {
     e.stopPropagation();
     setShowConfirm(false);
   };
 
-  const handleButtonClick = (e) => {
+  const handleButtonClick = e => {
     e.stopPropagation();
     if (!disabled && !loading) {
       setShowConfirm(true);
@@ -78,6 +78,7 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
     <div className="confirm-btn-wrapper" ref={wrapperRef}>
       {!showConfirm ? (
         <button
+          type="button"
           className={`btn-icon-square btn-icon-${variant}`}
           onClick={handleButtonClick}
           disabled={disabled || loading}
@@ -90,6 +91,7 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
         <div className={`confirm-popup confirm-popup-${variant}`}>
           <span className="confirm-text">{confirmText}</span>
           <button
+            type="button"
             className="confirm-yes"
             onClick={handleConfirm}
             title="Bestätigen"
@@ -98,6 +100,7 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
             <FiCheck />
           </button>
           <button
+            type="button"
             className="confirm-no"
             onClick={handleCancel}
             title="Abbrechen"

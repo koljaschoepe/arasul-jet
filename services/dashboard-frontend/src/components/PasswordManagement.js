@@ -177,6 +177,7 @@ function PasswordManagement() {
         {services.map(service => (
           <button
             key={service.id}
+            type="button"
             className={`service-button ${activeService === service.id ? 'active' : ''}`}
             onClick={() => {
               setActiveService(service.id);
@@ -305,7 +306,11 @@ function PasswordManagement() {
         )}
 
         {/* Submit Button */}
-        <button type="submit" className="submit-button" disabled={!isFormValid() || loading}>
+        <button
+          type="submit"
+          className="btn btn-primary btn-submit"
+          disabled={!isFormValid() || loading}
+        >
           {loading ? 'Wird geändert...' : 'Passwort ändern'}
         </button>
 

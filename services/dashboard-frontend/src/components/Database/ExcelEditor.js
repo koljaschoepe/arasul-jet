@@ -145,6 +145,7 @@ const InlineColumnCreator = memo(function InlineColumnCreator({
     return (
       <th className="excel-th excel-th-add">
         <button
+          type="button"
           className="excel-add-column-btn"
           onClick={() => setMode('name')}
           title="Neue Spalte hinzufügen"
@@ -457,14 +458,18 @@ const ColumnMenu = memo(function ColumnMenu({
 
       {mode === 'menu' && (
         <>
-          <button className="excel-menu-item" onClick={() => setMode('rename')}>
+          <button type="button" className="excel-menu-item" onClick={() => setMode('rename')}>
             <FiEdit2 /> Umbenennen
           </button>
-          <button className="excel-menu-item" onClick={() => setMode('type')}>
+          <button type="button" className="excel-menu-item" onClick={() => setMode('type')}>
             <FiType /> Typ ändern
           </button>
           <div className="excel-menu-divider" />
-          <button className="excel-menu-item excel-menu-danger" onClick={handleDelete}>
+          <button
+            type="button"
+            className="excel-menu-item excel-menu-danger"
+            onClick={handleDelete}
+          >
             <FiTrash2 /> Löschen
           </button>
         </>
@@ -481,8 +486,10 @@ const ColumnMenu = memo(function ColumnMenu({
             placeholder="Neuer Name"
           />
           <div className="excel-menu-actions">
-            <button onClick={() => setMode('menu')}>Zurück</button>
-            <button className="primary" onClick={handleRename} disabled={loading}>
+            <button type="button" onClick={() => setMode('menu')}>
+              Zurück
+            </button>
+            <button type="button" className="primary" onClick={handleRename} disabled={loading}>
               {loading ? '...' : 'Speichern'}
             </button>
           </div>
@@ -499,8 +506,10 @@ const ColumnMenu = memo(function ColumnMenu({
             ))}
           </select>
           <div className="excel-menu-actions">
-            <button onClick={() => setMode('menu')}>Zurück</button>
-            <button className="primary" onClick={handleTypeChange} disabled={loading}>
+            <button type="button" onClick={() => setMode('menu')}>
+              Zurück
+            </button>
+            <button type="button" className="primary" onClick={handleTypeChange} disabled={loading}>
               {loading ? '...' : 'Ändern'}
             </button>
           </div>
@@ -542,17 +551,17 @@ const CellContextMenu = memo(function CellContextMenu({
 
   return (
     <div className="excel-context-menu" ref={menuRef} style={{ top: position.y, left: position.x }}>
-      <button onClick={onCopy}>
+      <button type="button" onClick={onCopy}>
         <FiCopy /> Kopieren <span>Strg+C</span>
       </button>
-      <button onClick={onCut}>
+      <button type="button" onClick={onCut}>
         <FiScissors /> Ausschneiden <span>Strg+X</span>
       </button>
-      <button onClick={onPaste} disabled={!hasClipboard}>
+      <button type="button" onClick={onPaste} disabled={!hasClipboard}>
         <FiClipboard /> Einfügen <span>Strg+V</span>
       </button>
       <div className="excel-menu-divider" />
-      <button onClick={onDelete}>
+      <button type="button" onClick={onDelete}>
         <FiTrash2 /> Löschen <span>Entf</span>
       </button>
     </div>
@@ -625,7 +634,7 @@ const AIQueryPanel = memo(function AIQueryPanel({ tableSlug, onResultsApplied, o
         <div className="excel-ai-title">
           <FiMessageSquare /> KI-Abfrage
         </div>
-        <button className="excel-ai-close" onClick={onClose}>
+        <button type="button" className="excel-ai-close" onClick={onClose}>
           <FiX />
         </button>
       </div>
@@ -672,7 +681,7 @@ const AIQueryPanel = memo(function AIQueryPanel({ tableSlug, onResultsApplied, o
               {result.rowCount} Ergebnis{result.rowCount !== 1 ? 'se' : ''}
             </span>
             {result.rowCount > 0 && (
-              <button className="excel-ai-apply" onClick={handleApplyResults}>
+              <button type="button" className="excel-ai-apply" onClick={handleApplyResults}>
                 <FiFilter /> Als Filter anwenden
               </button>
             )}
@@ -1304,7 +1313,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
         {/* Header */}
         <header className="excel-header">
           <div className="excel-header-left">
-            <button className="excel-back-btn" onClick={onClose} title="Zurück">
+            <button type="button" className="excel-back-btn" onClick={onClose} title="Zurück">
               <FiArrowLeft />
             </button>
             <div className="excel-title">
@@ -1344,7 +1353,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
         {error && (
           <div className="excel-error-bar">
             <FiAlertCircle /> {error}
-            <button onClick={() => setError(null)}>
+            <button type="button" onClick={() => setError(null)}>
               <FiX />
             </button>
           </div>
@@ -1352,12 +1361,16 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
 
         {/* Toolbar */}
         <div className="excel-toolbar">
-          <button className="excel-btn excel-btn-primary" onClick={handleAddRow}>
+          <button type="button" className="excel-btn excel-btn-primary" onClick={handleAddRow}>
             <FiPlus /> Neue Zeile
           </button>
 
           {selectedRows.size > 0 && (
-            <button className="excel-btn excel-btn-danger" onClick={handleDeleteSelected}>
+            <button
+              type="button"
+              className="excel-btn excel-btn-danger"
+              onClick={handleDeleteSelected}
+            >
               <FiTrash2 /> {selectedRows.size} löschen
             </button>
           )}
@@ -1365,6 +1378,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
           <div className="excel-toolbar-divider" />
 
           <button
+            type="button"
             className="excel-btn excel-btn-icon"
             onClick={handleUndo}
             disabled={undoStack.length === 0}
@@ -1373,6 +1387,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
             <FiCornerUpLeft />
           </button>
           <button
+            type="button"
             className="excel-btn excel-btn-icon"
             onClick={handleRedo}
             disabled={redoStack.length === 0}
@@ -1384,6 +1399,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
           <div className="excel-toolbar-divider" />
 
           <button
+            type="button"
             className="excel-btn"
             onClick={handleExportCSV}
             disabled={saving || rows.length === 0}
@@ -1394,6 +1410,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
           <div className="excel-toolbar-divider" />
 
           <button
+            type="button"
             className={`excel-btn ${showAIPanel ? 'excel-btn-active' : ''}`}
             onClick={() => setShowAIPanel(!showAIPanel)}
             title="KI-Abfrage"
@@ -1402,14 +1419,14 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
           </button>
 
           {filteredResults && (
-            <button className="excel-btn excel-btn-warning" onClick={clearAIFilter}>
+            <button type="button" className="excel-btn excel-btn-warning" onClick={clearAIFilter}>
               <FiX /> Filter entfernen ({filteredResults.length})
             </button>
           )}
 
           <div className="excel-toolbar-spacer" />
 
-          <button className="excel-btn" onClick={loadTable} disabled={loading}>
+          <button type="button" className="excel-btn" onClick={loadTable} disabled={loading}>
             <FiRefreshCw className={loading ? 'spin' : ''} /> Aktualisieren
           </button>
         </div>
@@ -1442,6 +1459,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
                           (sortOrder === 'asc' ? <FiChevronUp /> : <FiChevronDown />)}
                       </span>
                       <button
+                        type="button"
                         className="excel-th-menu-btn"
                         onClick={e => {
                           e.stopPropagation();
@@ -1538,19 +1556,19 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
           </div>
 
           <div className="excel-pagination-controls">
-            <button disabled={page === 1} onClick={() => setPage(1)}>
+            <button type="button" disabled={page === 1} onClick={() => setPage(1)}>
               <FiChevronsLeft />
             </button>
-            <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+            <button type="button" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
               <FiChevronLeft />
             </button>
             <span>
               Seite {page} von {totalPages}
             </span>
-            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+            <button type="button" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
               <FiChevronRight />
             </button>
-            <button disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
+            <button type="button" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
               <FiChevronsRight />
             </button>
           </div>

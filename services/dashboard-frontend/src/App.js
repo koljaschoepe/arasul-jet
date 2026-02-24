@@ -371,6 +371,7 @@ function AppContent() {
           <h2>Fehler beim Laden</h2>
           <p className="error-text">{error}</p>
           <button
+            type="button"
             onClick={() => {
               setError(null);
               setLoading(true);
@@ -590,6 +591,7 @@ const Sidebar = React.memo(function Sidebar({
         <h1 className="sidebar-title">{collapsed ? 'A' : 'Arasul'}</h1>
         <p className="sidebar-subtitle">Edge AI Platform</p>
         <button
+          type="button"
           className="sidebar-toggle"
           onClick={onToggle}
           aria-expanded={!collapsed}
@@ -974,6 +976,7 @@ const DashboardHome = React.memo(function DashboardHome({
               {timeRangeOptions.map(hours => (
                 <button
                   key={hours}
+                  type="button"
                   className={`chart-zoom-btn ${chartTimeRange === hours ? 'active' : ''}`}
                   onClick={() => setChartTimeRange(hours)}
                 >

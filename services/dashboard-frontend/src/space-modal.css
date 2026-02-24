@@ -1,91 +1,9 @@
 /* ============================================
    Space Modal Styles
    Knowledge Spaces - RAG 2.0
-   Uses global CSS variables from index.css (Dark mode only)
+   Uses Modal component for overlay/header/footer.
+   Only form-specific styles remain here.
    ============================================ */
-
-.space-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--backdrop-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal-backdrop);
-  padding: 1rem;
-  animation: fadeIn 0.2s ease;
-}
-
-.space-modal {
-  background: var(--bg-modal);
-  border: 1px solid var(--border-modal);
-  border-radius: var(--radius-xl);
-  width: 100%;
-  max-width: 550px;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-xl);
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Header */
-.space-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--primary-muted);
-}
-
-.space-modal-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.15rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.space-modal-header .close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.space-modal-header .close-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--error-color);
-}
 
 /* Body */
 .space-modal-body {
@@ -113,8 +31,8 @@
 }
 
 .space-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 1px solid var(--danger-alpha-30);
   color: var(--danger-light);
 }
 
@@ -262,14 +180,12 @@
   transform: scale(1.1);
 }
 
-/* Footer */
+/* Footer - layout inside Modal's .modal-footer */
 .space-modal-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-card);
+  width: 100%;
 }
 
 .footer-actions {
@@ -278,75 +194,10 @@
   margin-left: auto;
 }
 
-/* Buttons */
-.space-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.space-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.space-btn.primary {
-  background: var(--gradient-primary);
-  border: none;
-  color: white;
-  box-shadow: var(--shadow-md);
-}
-
-.space-btn.primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
-}
-
-.space-btn.secondary {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-}
-
-.space-btn.secondary:hover:not(:disabled) {
-  border-color: var(--primary-color);
-  color: var(--text-primary);
-  background: var(--primary-muted);
-}
-
-.space-btn.danger {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: var(--danger-light);
-}
-
-.space-btn.danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.5);
-}
+/* Buttons use global .btn system from Modal.css */
 
 /* Responsive */
 @media (max-width: 576px) {
-  .space-modal {
-    max-width: 100%;
-    margin: 0.5rem;
-    max-height: 95vh;
-  }
-
-  .space-modal-header {
-    padding: 1rem 1.25rem;
-  }
-
-  .space-modal-header h3 {
-    font-size: 1.05rem;
-  }
-
   .space-modal-body {
     padding: 1.25rem;
   }
@@ -369,12 +220,12 @@
     margin-left: 0;
   }
 
-  .space-btn {
+  .space-modal-footer .btn {
     flex: 1;
     justify-content: center;
   }
 
-  .space-btn.danger {
+  .space-modal-footer .btn-danger {
     width: 100%;
     justify-content: center;
   }

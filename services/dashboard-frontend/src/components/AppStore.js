@@ -255,6 +255,7 @@ function AppStore() {
         <div className="app-actions" onClick={e => e.stopPropagation()}>
           {app.status === 'available' && (
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => handleAction(app.id, 'install')}
               disabled={isLoading}
@@ -267,6 +268,7 @@ function AppStore() {
           {app.status === 'installed' && (
             <>
               <button
+                type="button"
                 className="btn btn-success"
                 onClick={() => handleAction(app.id, 'start')}
                 disabled={isLoading}
@@ -275,6 +277,7 @@ function AppStore() {
                 Starten
               </button>
               <button
+                type="button"
                 className="btn btn-danger btn-icon"
                 onClick={() => openUninstallDialog(app.id, app.name)}
                 disabled={isLoading}
@@ -317,6 +320,7 @@ function AppStore() {
           {app.status === 'error' && (
             <>
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => handleAction(app.id, 'start')}
                 disabled={isLoading}
@@ -325,6 +329,7 @@ function AppStore() {
                 Erneut starten
               </button>
               <button
+                type="button"
                 className="btn btn-danger btn-icon"
                 onClick={() => openUninstallDialog(app.id, app.name)}
                 disabled={isLoading}
@@ -339,7 +344,7 @@ function AppStore() {
             app.status === 'starting' ||
             app.status === 'stopping' ||
             app.status === 'uninstalling') && (
-            <button className="btn btn-disabled" disabled>
+            <button type="button" className="btn btn-disabled" disabled>
               <FiRefreshCw className="spin" />
               {status.label}
             </button>
@@ -386,9 +391,10 @@ function AppStore() {
             placeholder="Apps suchen..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            aria-label="Apps suchen"
           />
           {searchQuery && (
-            <button className="search-clear" onClick={() => setSearchQuery('')}>
+            <button type="button" className="search-clear" onClick={() => setSearchQuery('')}>
               <FiX />
             </button>
           )}
@@ -398,6 +404,7 @@ function AppStore() {
       {/* Category filter */}
       <div className="appstore-categories">
         <button
+          type="button"
           className={`category-btn ${selectedCategory === 'all' ? 'active' : ''}`}
           onClick={() => setSelectedCategory('all')}
         >
@@ -405,6 +412,7 @@ function AppStore() {
         </button>
         {categories.map(cat => (
           <button
+            type="button"
             key={cat.id}
             className={`category-btn ${selectedCategory === cat.id ? 'active' : ''}`}
             onClick={() => setSelectedCategory(cat.id)}
@@ -419,7 +427,9 @@ function AppStore() {
         <div className="appstore-error">
           <FiAlertCircle />
           <span>{error}</span>
-          <button onClick={loadApps}>Erneut versuchen</button>
+          <button type="button" onClick={loadApps}>
+            Erneut versuchen
+          </button>
         </div>
       )}
 
@@ -457,6 +467,7 @@ function AppStore() {
                 <FiTrash2 /> App deinstallieren
               </h3>
               <button
+                type="button"
                 className="modal-close"
                 onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
               >
@@ -473,15 +484,24 @@ function AppStore() {
             </div>
             <div className="modal-footer uninstall-buttons">
               <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
               >
                 Abbrechen
               </button>
-              <button className="btn btn-warning" onClick={() => handleUninstall(false)}>
+              <button
+                type="button"
+                className="btn btn-warning"
+                onClick={() => handleUninstall(false)}
+              >
                 <FiTrash2 /> Nur App entfernen
               </button>
-              <button className="btn btn-danger" onClick={() => handleUninstall(true)}>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => handleUninstall(true)}
+              >
                 <FiTrash2 /> App + Daten löschen
               </button>
             </div>

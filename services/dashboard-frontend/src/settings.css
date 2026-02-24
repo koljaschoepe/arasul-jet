@@ -228,7 +228,7 @@
 .settings-card {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   transition: all var(--duration-medium) cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
@@ -237,7 +237,7 @@
 
 .settings-card:hover {
   border-color: var(--border-glow);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
 
@@ -590,13 +590,13 @@
 }
 
 .password-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 2px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 2px solid var(--danger-alpha-30);
   color: var(--error-color);
 }
 
 /* Submit Button */
-.submit-button {
+.btn-submit {
   width: 100%;
   padding: 1rem 2rem;
   background: var(--gradient-primary);
@@ -610,12 +610,12 @@
   box-shadow: var(--shadow-md);
 }
 
-.submit-button:hover:not(:disabled) {
+.btn-submit:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
 
-.submit-button:disabled {
+.btn-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -624,8 +624,8 @@
 .warning-text {
   margin-top: 1rem;
   padding: 0.875rem 1rem;
-  background: rgba(245, 158, 11, 0.1);
-  border: 2px solid rgba(245, 158, 11, 0.3);
+  background: var(--warning-alpha-10);
+  border: 2px solid var(--warning-alpha-30);
   border-radius: var(--radius-md);
   font-size: 0.875rem;
   color: var(--warning-color);
@@ -971,8 +971,8 @@
 }
 
 .company-context-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 2px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 2px solid var(--danger-alpha-30);
   color: var(--error-color);
 }
 
@@ -1251,8 +1251,8 @@
 }
 
 .telegram-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 2px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-alpha-10);
+  border: 2px solid var(--danger-alpha-30);
   color: var(--error-color);
 }
 
@@ -1592,7 +1592,7 @@
     padding: 0.375rem 0;
   }
 
-  .submit-button {
+  .btn-submit {
     padding: 0.875rem 1.5rem;
     min-height: 48px;
   }
@@ -1765,7 +1765,7 @@
     font-size: 0.85rem;
   }
 
-  .submit-button {
+  .btn-submit {
     font-size: 0.95rem;
   }
 
@@ -1856,7 +1856,7 @@
     font-size: 0.875rem;
   }
 
-  .submit-button {
+  .btn-submit {
     min-height: 44px;
     font-size: 0.9rem;
   }
@@ -2114,16 +2114,16 @@
 }
 
 /* Light Mode - Submit Button */
-.light-mode .submit-button {
+.light-mode .btn-submit {
   background: var(--primary-color);
   color: var(--text-on-primary);
 }
 
-.light-mode .submit-button:hover:not(:disabled) {
+.light-mode .btn-submit:hover:not(:disabled) {
   background: var(--primary-active);
 }
 
-.light-mode .submit-button:disabled {
+.light-mode .btn-submit:disabled {
   background: var(--border-color);
   color: var(--text-disabled);
 }

@@ -148,7 +148,9 @@ function StoreHome({ systemInfo }) {
     return (
       <div className="store-home-error">
         <p>{error}</p>
-        <button onClick={loadRecommendations}>Erneut versuchen</button>
+        <button type="button" onClick={loadRecommendations}>
+          Erneut versuchen
+        </button>
       </div>
     );
   }
@@ -234,6 +236,7 @@ function StoreHome({ systemInfo }) {
                 <div className="card-actions">
                   {!isInstalled && !modelIsDownloading && (
                     <button
+                      type="button"
                       className="btn btn-primary"
                       onClick={() => handleModelDownload(model.id, model.name)}
                     >
@@ -242,6 +245,7 @@ function StoreHome({ systemInfo }) {
                   )}
                   {isInstalled && !isLoaded && (
                     <button
+                      type="button"
                       className="btn btn-primary"
                       onClick={() => handleModelActivate(model.id)}
                       disabled={isActivating}
@@ -258,7 +262,7 @@ function StoreHome({ systemInfo }) {
                     </button>
                   )}
                   {isLoaded && (
-                    <button className="btn btn-active" disabled>
+                    <button type="button" className="btn btn-active" disabled>
                       <FiCheck /> Aktiv
                     </button>
                   )}
@@ -318,6 +322,7 @@ function StoreHome({ systemInfo }) {
                 <div className="card-actions">
                   {app.status === 'available' && (
                     <button
+                      type="button"
                       className="btn btn-primary"
                       onClick={() => handleAppAction(app.id, 'install')}
                       disabled={isLoading}
@@ -335,6 +340,7 @@ function StoreHome({ systemInfo }) {
                   )}
                   {isInstalled && (
                     <button
+                      type="button"
                       className="btn btn-primary"
                       onClick={() => handleAppAction(app.id, 'start')}
                       disabled={isLoading}

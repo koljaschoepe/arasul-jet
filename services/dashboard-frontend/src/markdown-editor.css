@@ -354,7 +354,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 }
 
 .preview-content table thead {
-    background: rgba(137, 180, 250, 0.15);
+    background: var(--bg-table-header);
 }
 
 .preview-content table th,

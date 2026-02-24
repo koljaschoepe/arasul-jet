@@ -37,28 +37,33 @@ const CellContextMenu = memo(function CellContextMenu({
 
   return (
     <div className="dt-context-menu" ref={menuRef} style={{ top: position.y, left: position.x }}>
-      <button className="dt-context-menu-item" onClick={onCopy}>
+      <button type="button" className="dt-context-menu-item" onClick={onCopy}>
         <FiCopy /> Kopieren
         <span className="dt-context-shortcut">Strg+C</span>
       </button>
-      <button className="dt-context-menu-item" onClick={onCut}>
+      <button type="button" className="dt-context-menu-item" onClick={onCut}>
         <FiScissors /> Ausschneiden
         <span className="dt-context-shortcut">Strg+X</span>
       </button>
-      <button className="dt-context-menu-item" onClick={onPaste} disabled={!hasClipboard}>
+      <button
+        type="button"
+        className="dt-context-menu-item"
+        onClick={onPaste}
+        disabled={!hasClipboard}
+      >
         <FiClipboard /> Einfügen
         <span className="dt-context-shortcut">Strg+V</span>
       </button>
       <div className="dt-context-menu-divider" />
-      <button className="dt-context-menu-item" onClick={onDelete}>
+      <button type="button" className="dt-context-menu-item" onClick={onDelete}>
         <FiTrash2 /> Löschen
         <span className="dt-context-shortcut">Entf</span>
       </button>
       <div className="dt-context-menu-divider" />
-      <button className="dt-context-menu-item" onClick={onInsertRowAbove}>
+      <button type="button" className="dt-context-menu-item" onClick={onInsertRowAbove}>
         <FiPlus /> Zeile oberhalb
       </button>
-      <button className="dt-context-menu-item" onClick={onInsertRowBelow}>
+      <button type="button" className="dt-context-menu-item" onClick={onInsertRowBelow}>
         <FiPlus /> Zeile unterhalb
       </button>
     </div>

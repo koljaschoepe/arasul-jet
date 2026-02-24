@@ -681,6 +681,7 @@ function DocumentManager() {
       <nav className="dm-spaces-tabs" aria-label="Wissensbereiche">
         <div className="spaces-tabs-list" role="tablist" aria-label="Dokumenten-Bereiche">
           <button
+            type="button"
             role="tab"
             aria-selected={activeSpaceId === null}
             className={`space-tab ${activeSpaceId === null ? 'active' : ''}`}
@@ -697,6 +698,7 @@ function DocumentManager() {
           </button>
           {spaces.map(space => (
             <button
+              type="button"
               key={space.id}
               role="tab"
               aria-selected={activeSpaceId === space.id}
@@ -711,6 +713,7 @@ function DocumentManager() {
               </span>
               {!space.is_default && !space.is_system && (
                 <button
+                  type="button"
                   className="space-edit-btn"
                   onClick={e => handleEditSpace(space, e)}
                   aria-label={`${space.name} bearbeiten`}
@@ -721,6 +724,7 @@ function DocumentManager() {
             </button>
           ))}
           <button
+            type="button"
             className="space-tab add-space"
             onClick={() => {
               setEditingSpace(null);
@@ -800,7 +804,7 @@ function DocumentManager() {
         <div className="dm-error" role="alert" aria-live="assertive">
           <FiAlertCircle aria-hidden="true" />
           <span>{error}</span>
-          <button onClick={() => setError(null)} aria-label="Fehlermeldung schließen">
+          <button type="button" onClick={() => setError(null)} aria-label="Fehlermeldung schließen">
             <FiX aria-hidden="true" />
           </button>
         </div>
@@ -819,6 +823,7 @@ function DocumentManager() {
             aria-label="Semantische Suche in Dokumenten"
           />
           <button
+            type="button"
             className="search-btn"
             onClick={handleSemanticSearch}
             disabled={searching || !semanticSearch.trim()}
@@ -842,7 +847,11 @@ function DocumentManager() {
           >
             <div className="search-results-header">
               <h4 id="search-results-title">Suchergebnisse für "{searchResults.query}"</h4>
-              <button onClick={() => setSearchResults(null)} aria-label="Suchergebnisse schließen">
+              <button
+                type="button"
+                onClick={() => setSearchResults(null)}
+                aria-label="Suchergebnisse schließen"
+              >
                 <FiX aria-hidden="true" />
               </button>
             </div>
@@ -923,11 +932,17 @@ function DocumentManager() {
           </select>
         </div>
 
-        <button className="refresh-btn" onClick={loadDocuments} aria-label="Aktualisieren">
+        <button
+          type="button"
+          className="refresh-btn"
+          onClick={loadDocuments}
+          aria-label="Aktualisieren"
+        >
           <FiRefreshCw className={loading ? 'spin' : ''} aria-hidden="true" />
         </button>
 
         <button
+          type="button"
           className="dm-create-btn dm-create-btn-secondary"
           onClick={() => setShowSimpleTableCreate(true)}
           aria-label="Neue Tabelle erstellen"
@@ -937,6 +952,7 @@ function DocumentManager() {
         </button>
 
         <button
+          type="button"
           className="dm-create-btn dm-create-btn-secondary"
           onClick={() => setShowMarkdownCreate(true)}
           aria-label="Neues Dokument erstellen"
@@ -1015,6 +1031,7 @@ function DocumentManager() {
                     </td>
                     <td className="actions-cell" onClick={e => e.stopPropagation()}>
                       <button
+                        type="button"
                         className="action-btn edit"
                         onClick={() => handleTableEdit(table)}
                         aria-label={`${table.name} bearbeiten`}
@@ -1022,6 +1039,7 @@ function DocumentManager() {
                         <FiEdit2 aria-hidden="true" />
                       </button>
                       <button
+                        type="button"
                         className="action-btn delete"
                         onClick={() => handleDeleteTable(table)}
                         aria-label={`${table.name} löschen`}
@@ -1045,6 +1063,7 @@ function DocumentManager() {
                   >
                     <td>
                       <button
+                        type="button"
                         className={`favorite-btn ${doc.is_favorite ? 'active' : ''}`}
                         onClick={e => {
                           e.stopPropagation();
@@ -1090,6 +1109,7 @@ function DocumentManager() {
                     <td>{formatFileSize(doc.file_size)}</td>
                     <td className="actions-cell" onClick={e => e.stopPropagation()}>
                       <button
+                        type="button"
                         className="action-btn"
                         onClick={() => viewDocumentDetails(doc)}
                         aria-label={`Details für ${doc.title || doc.filename} anzeigen`}
@@ -1098,6 +1118,7 @@ function DocumentManager() {
                       </button>
                       {canEdit(doc) && (
                         <button
+                          type="button"
                           className="action-btn edit"
                           onClick={() => handleEdit(doc)}
                           aria-label={`${doc.title || doc.filename} bearbeiten`}
@@ -1106,6 +1127,7 @@ function DocumentManager() {
                         </button>
                       )}
                       <button
+                        type="button"
                         className="action-btn"
                         onClick={() => handleDownload(doc.id, doc.filename)}
                         aria-label={`${doc.filename} herunterladen`}
@@ -1114,6 +1136,7 @@ function DocumentManager() {
                       </button>
                       {doc.status === 'failed' && (
                         <button
+                          type="button"
                           className="action-btn"
                           onClick={() => handleReindex(doc.id)}
                           aria-label={`${doc.title || doc.filename} neu indexieren`}
@@ -1122,6 +1145,7 @@ function DocumentManager() {
                         </button>
                       )}
                       <button
+                        type="button"
                         className="action-btn delete"
                         onClick={() => handleDelete(doc.id, doc.filename)}
                         aria-label={`${doc.title || doc.filename} löschen`}
@@ -1157,6 +1181,7 @@ function DocumentManager() {
           </div>
           <div className="dm-pagination-nav">
             <button
+              type="button"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(1)}
               aria-label="Erste Seite"
@@ -1164,6 +1189,7 @@ function DocumentManager() {
               ⟨⟨
             </button>
             <button
+              type="button"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(p => p - 1)}
               aria-label="Vorherige Seite"
@@ -1174,6 +1200,7 @@ function DocumentManager() {
               Seite {currentPage} von {totalPages}
             </span>
             <button
+              type="button"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(p => p + 1)}
               aria-label="Nächste Seite"
@@ -1181,6 +1208,7 @@ function DocumentManager() {
               Weiter
             </button>
             <button
+              type="button"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(totalPages)}
               aria-label="Letzte Seite"
@@ -1203,6 +1231,7 @@ function DocumentManager() {
             <div className="modal-footer" role="group" aria-label="Aktionen">
               {isEditable(selectedDocument) && (
                 <button
+                  type="button"
                   className="modal-btn primary"
                   onClick={() => {
                     setShowDetails(false);
@@ -1214,6 +1243,7 @@ function DocumentManager() {
                 </button>
               )}
               <button
+                type="button"
                 className="modal-btn secondary"
                 onClick={() => handleDownload(selectedDocument.id, selectedDocument.filename)}
                 aria-label="Dokument herunterladen"
@@ -1221,6 +1251,7 @@ function DocumentManager() {
                 <FiDownload aria-hidden="true" /> Download
               </button>
               <button
+                type="button"
                 className="modal-btn danger"
                 onClick={() => {
                   handleDelete(selectedDocument.id, selectedDocument.filename);
@@ -1365,6 +1396,7 @@ function DocumentManager() {
               </h4>
               <p className="error-text">{selectedDocument.processing_error}</p>
               <button
+                type="button"
                 className="retry-btn"
                 onClick={() => {
                   handleReindex(selectedDocument.id);

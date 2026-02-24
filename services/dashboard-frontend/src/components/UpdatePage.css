@@ -435,7 +435,7 @@
 
 .update-result.error {
   background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--danger-alpha-20);
 }
 
 .update-result .result-icon {
@@ -452,7 +452,7 @@
 
 .update-result.error .result-icon {
   color: var(--error-color);
-  background: rgba(239, 68, 68, 0.15);
+  background: var(--danger-alpha-15);
 }
 
 .update-result h4 {
@@ -477,8 +477,8 @@
 .reboot-warning {
   margin-top: 1.5rem;
   padding: 1rem 1.25rem;
-  background: rgba(245, 158, 11, 0.1);
-  border: 2px solid rgba(245, 158, 11, 0.3);
+  background: var(--warning-alpha-10);
+  border: 2px solid var(--warning-alpha-30);
   border-radius: var(--radius-md);
   color: var(--warning-color);
   font-weight: 500;
@@ -587,7 +587,7 @@
 }
 
 .history-table th {
-  background: var(--primary-alpha-5);
+  background: var(--bg-table-header);
   color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
@@ -603,41 +603,7 @@
   background: rgba(69, 173, 255, 0.03);
 }
 
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius-full, 9999px);
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  display: inline-flex;
-  align-items: center;
-}
-
-.status-badge.status-success {
-  background: var(--status-neutral-bg);
-  color: var(--status-neutral);  /* Grau statt Grün */
-}
-
-.status-badge.status-error {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--error-color);
-}
-
-.status-badge.status-warning {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning-color);
-}
-
-.status-badge.status-info {
-  background: var(--primary-alpha-15);
-  color: var(--primary-color);
-}
-
-.status-badge.status-default {
-  background: rgba(148, 163, 184, 0.15);
-  color: var(--text-muted);
-}
+/* Status badges - now use global .badge system from index.css */
 
 .no-data {
   text-align: center;

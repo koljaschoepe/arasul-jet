@@ -223,7 +223,7 @@
 }
 
 .chat-tab .tab-action-btn.delete:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: var(--danger-alpha-15);
   color: var(--error-color);
 }
 
@@ -440,7 +440,7 @@
 }
 
 .message-body table thead {
-  background: var(--primary-alpha-10);
+  background: var(--bg-table-header);
 }
 
 .message-body table th,
@@ -503,7 +503,7 @@
 
 .mermaid-error {
   padding: 12px;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-alpha-10);
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: var(--radius-md);
   color: var(--error-color);
@@ -912,7 +912,7 @@
   gap: 12px;
   width: 100%;
   padding: 12px 16px;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-alpha-10);
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
@@ -940,7 +940,7 @@
 }
 
 .error-banner button:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-alpha-20);
   color: var(--error-color);
 }
 
@@ -951,7 +951,7 @@
   gap: 10px;
   width: 100%;
   padding: 10px 14px;
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--warning-alpha-10);
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
@@ -1161,7 +1161,7 @@
 }
 
 .favorite-btn:hover {
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--warning-alpha-15);
   transform: scale(1.1);
 }
 

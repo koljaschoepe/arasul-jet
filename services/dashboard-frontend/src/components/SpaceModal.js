@@ -192,7 +192,7 @@ const SpaceModal = memo(function SpaceModal({
           {mode === 'edit' && space && !space.is_default && !space.is_system && (
             <button
               type="button"
-              className="space-btn danger"
+              className="btn btn-danger"
               onClick={handleDelete}
               disabled={saving}
             >
@@ -201,17 +201,12 @@ const SpaceModal = memo(function SpaceModal({
             </button>
           )}
           <div className="footer-actions">
-            <button
-              type="button"
-              className="space-btn secondary"
-              onClick={onClose}
-              disabled={saving}
-            >
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
               Abbrechen
             </button>
             <button
               type="button"
-              className="space-btn primary"
+              className="btn btn-primary"
               disabled={saving}
               onClick={handleSubmit}
             >

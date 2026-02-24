@@ -251,6 +251,7 @@ function StoreApps() {
         <div className="app-actions" onClick={e => e.stopPropagation()}>
           {app.status === 'available' && (
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => handleAction(app.id, 'install')}
               disabled={isLoading}
@@ -263,6 +264,7 @@ function StoreApps() {
           {app.status === 'installed' && (
             <>
               <button
+                type="button"
                 className="btn btn-success"
                 onClick={() => handleAction(app.id, 'start')}
                 disabled={isLoading}
@@ -271,6 +273,7 @@ function StoreApps() {
                 Starten
               </button>
               <button
+                type="button"
                 className="btn btn-danger btn-icon"
                 onClick={() => openUninstallDialog(app.id, app.name)}
                 disabled={isLoading}
@@ -311,6 +314,7 @@ function StoreApps() {
           {app.status === 'error' && (
             <>
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => handleAction(app.id, 'start')}
                 disabled={isLoading}
@@ -318,6 +322,7 @@ function StoreApps() {
                 <FiRefreshCw /> Erneut starten
               </button>
               <button
+                type="button"
                 className="btn btn-danger btn-icon"
                 onClick={() => openUninstallDialog(app.id, app.name)}
                 disabled={isLoading}
@@ -332,7 +337,7 @@ function StoreApps() {
             app.status === 'starting' ||
             app.status === 'stopping' ||
             app.status === 'uninstalling') && (
-            <button className="btn btn-disabled" disabled>
+            <button type="button" className="btn btn-disabled" disabled>
               <FiRefreshCw className="spin" /> {status.label}
             </button>
           )}
@@ -361,6 +366,7 @@ function StoreApps() {
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => {
                   setLoading(true);
@@ -370,7 +376,7 @@ function StoreApps() {
               >
                 <FiRefreshCw /> Erneut versuchen
               </button>
-              <button className="btn btn-secondary" onClick={() => navigate('/')}>
+              <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>
                 Zurück zum Dashboard
               </button>
             </div>
@@ -387,7 +393,9 @@ function StoreApps() {
         <div className="store-error">
           <FiAlertCircle />
           <span>{error}</span>
-          <button onClick={loadApps}>Erneut versuchen</button>
+          <button type="button" onClick={loadApps}>
+            Erneut versuchen
+          </button>
         </div>
       )}
 
@@ -396,12 +404,14 @@ function StoreApps() {
         <div className="filter-group">
           <div className="filter-chips">
             <button
+              type="button"
               className={`filter-chip ${filter === 'recommended' ? 'active' : ''}`}
               onClick={() => setFilter('recommended')}
             >
               <FiStar /> Empfohlen
             </button>
             <button
+              type="button"
               className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
               onClick={() => setFilter('all')}
             >
@@ -448,6 +458,7 @@ function StoreApps() {
                 <FiTrash2 /> App deinstallieren
               </h3>
               <button
+                type="button"
                 className="modal-close"
                 onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
               >
@@ -465,15 +476,24 @@ function StoreApps() {
             </div>
             <div className="modal-footer uninstall-buttons">
               <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
               >
                 Abbrechen
               </button>
-              <button className="btn btn-warning" onClick={() => handleUninstall(false)}>
+              <button
+                type="button"
+                className="btn btn-warning"
+                onClick={() => handleUninstall(false)}
+              >
                 <FiTrash2 /> Nur App entfernen
               </button>
-              <button className="btn btn-danger" onClick={() => handleUninstall(true)}>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => handleUninstall(true)}
+              >
                 <FiTrash2 /> App + Daten loeschen
               </button>
             </div>

@@ -62,6 +62,7 @@ const ChatTabsBar = memo(function ChatTabsBar({
   return (
     <div className="chat-tabs-bar" role="tablist" aria-label="Chat-Unterhaltungen">
       <button
+        type="button"
         className="new-chat-tab-btn"
         onClick={onCreateNewChat}
         title="Neuer Chat (Ctrl+T)"
@@ -134,6 +135,7 @@ const ChatTabsBar = memo(function ChatTabsBar({
               editingChatId !== chat.id && (
                 <div className="tab-actions" role="group" aria-label={`Aktionen für ${chat.title}`}>
                   <button
+                    type="button"
                     className="tab-action-btn"
                     onClick={e => onStartEditingTitle(e, chat)}
                     aria-label={`Chat "${chat.title}" umbenennen`}
@@ -141,6 +143,7 @@ const ChatTabsBar = memo(function ChatTabsBar({
                     <FiEdit2 aria-hidden="true" />
                   </button>
                   <button
+                    type="button"
                     className="tab-action-btn export"
                     onClick={e => onExportChat(e, chat.id, 'markdown')}
                     aria-label={`Chat "${chat.title}" als Markdown exportieren`}
@@ -149,6 +152,7 @@ const ChatTabsBar = memo(function ChatTabsBar({
                   </button>
                   {chats.length > 1 && (
                     <button
+                      type="button"
                       className="tab-action-btn delete"
                       onClick={e => onDeleteChat(e, chat.id)}
                       aria-label={`Chat "${chat.title}" löschen`}
