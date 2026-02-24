@@ -17,11 +17,11 @@ import PasswordManagement from '../components/PasswordManagement';
 
 describe('PasswordManagement Component', () => {
   const mockRequirements = {
-    minLength: 8,
-    requireUppercase: true,
-    requireLowercase: true,
-    requireNumbers: true,
-    requireSpecialChars: true,
+    minLength: 4,
+    requireUppercase: false,
+    requireLowercase: false,
+    requireNumbers: false,
+    requireSpecialChars: false,
   };
 
   let originalFetch;
@@ -237,19 +237,7 @@ describe('PasswordManagement Component', () => {
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'test');
 
-      expect(screen.getByText(/Mindestens 8 Zeichen/)).toBeInTheDocument();
-    });
-
-    test('zeigt Großbuchstaben-Anforderung', async () => {
-      const user = userEvent.setup();
-      render(<PasswordManagement />);
-
-      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-
-      const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
-      await user.type(newField, 'test');
-
-      expect(screen.getByText(/Mindestens ein Großbuchstabe/)).toBeInTheDocument();
+      expect(screen.getByText(/Mindestens 4 Zeichen/)).toBeInTheDocument();
     });
 
     test('zeigt Übereinstimmungs-Anforderung', async () => {
@@ -290,9 +278,9 @@ describe('PasswordManagement Component', () => {
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
-      await user.type(newField, 'test');
+      await user.type(newField, 'ab');
 
-      // Weak password should have invalid items
+      // Password too short should have invalid minLength item
       const invalidItems = container.querySelectorAll('.password-requirements li.invalid');
       expect(invalidItems.length).toBeGreaterThan(0);
     });

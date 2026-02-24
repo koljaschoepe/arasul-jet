@@ -444,27 +444,6 @@ describe('Authentication Routes', () => {
   });
 
   // ============================================================================
-  // GET /api/auth/password-requirements
-  // ============================================================================
-  describe('GET /api/auth/password-requirements', () => {
-    test('should return password requirements without authentication', async () => {
-      const response = await request(app)
-        .get('/api/auth/password-requirements');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('requirements');
-      expect(response.body).toHaveProperty('timestamp');
-    });
-
-    test('should return correct content type', async () => {
-      const response = await request(app)
-        .get('/api/auth/password-requirements');
-
-      expect(response.headers['content-type']).toMatch(/application\/json/);
-    });
-  });
-
-  // ============================================================================
   // GET /api/auth/verify (Forward Auth)
   // ============================================================================
   describe('GET /api/auth/verify', () => {

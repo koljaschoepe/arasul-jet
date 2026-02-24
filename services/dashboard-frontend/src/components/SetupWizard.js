@@ -111,8 +111,8 @@ function SetupWizard({ onComplete, onSkip }) {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setPasswordError('Passwort muss mindestens 8 Zeichen lang sein');
+    if (newPassword.length < 4) {
+      setPasswordError('Passwort muss mindestens 4 Zeichen lang sein');
       return;
     }
 
@@ -376,7 +376,7 @@ function SetupWizard({ onComplete, onSkip }) {
                       type="password"
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
-                      placeholder="Mindestens 8 Zeichen"
+                      placeholder="Mindestens 4 Zeichen"
                       className="setup-input"
                       autoComplete="new-password"
                     />

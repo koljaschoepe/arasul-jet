@@ -162,10 +162,10 @@ describe('Settings Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('requirements');
       expect(res.body.requirements).toMatchObject({
-        minLength: 12,
-        requireUppercase: true,
-        requireLowercase: true,
-        requireNumbers: true,
+        minLength: 4,
+        requireUppercase: false,
+        requireLowercase: false,
+        requireNumbers: false,
         requireSpecialChars: false
       });
       expect(res.body).toHaveProperty('timestamp');
@@ -200,37 +200,13 @@ describe('Settings Routes', () => {
       expect(res.body).toHaveProperty('error');
     });
 
-    test('returns 400 when new password is too short (< 12 chars)', async () => {
+    test('returns 400 when new password is too short (< 4 chars)', async () => {
       setupMocksWithAuth();
 
       const res = await request(app)
         .post('/api/settings/password/dashboard')
         .set('Authorization', `Bearer ${token}`)
-        .send({ currentPassword: 'OldPass123!', newPassword: 'Short1' });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty('error');
-    });
-
-    test('returns 400 when new password has no uppercase letter', async () => {
-      setupMocksWithAuth();
-
-      const res = await request(app)
-        .post('/api/settings/password/dashboard')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ currentPassword: 'OldPass123!', newPassword: 'alllowercase123' });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty('error');
-    });
-
-    test('returns 400 when new password has no number', async () => {
-      setupMocksWithAuth();
-
-      const res = await request(app)
-        .post('/api/settings/password/dashboard')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ currentPassword: 'OldPass123!', newPassword: 'NoNumbersHereABC' });
+        .send({ currentPassword: 'OldPass123!', newPassword: 'abc' });
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
@@ -259,7 +235,7 @@ describe('Settings Routes', () => {
       const res = await request(app)
         .post('/api/settings/password/minio')
         .set('Authorization', `Bearer ${token}`)
-        .send({ currentPassword: 'OldPass123!', newPassword: 'weak' });
+        .send({ currentPassword: 'OldPass123!', newPassword: 'abc' });
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');
@@ -288,7 +264,7 @@ describe('Settings Routes', () => {
       const res = await request(app)
         .post('/api/settings/password/n8n')
         .set('Authorization', `Bearer ${token}`)
-        .send({ currentPassword: 'OldPass123!', newPassword: 'tooshort' });
+        .send({ currentPassword: 'OldPass123!', newPassword: 'abc' });
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('error');

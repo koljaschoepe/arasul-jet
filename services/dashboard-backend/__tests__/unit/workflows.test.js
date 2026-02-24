@@ -37,13 +37,49 @@ jest.mock('../../src/services/n8nLogger', () => ({
   cleanupOldRecords: jest.fn()
 }));
 
+// Mock services with side effects
+jest.mock('../../src/services/eventListenerService', () => ({
+  getStatus: jest.fn(),
+  getRecentEvents: jest.fn().mockResolvedValue([]),
+  sendTestNotification: jest.fn()
+}));
+
+jest.mock('../../src/services/telegramNotificationService', () => ({
+  sendNotification: jest.fn().mockResolvedValue(true),
+  sendAlert: jest.fn().mockResolvedValue(true)
+}));
+
+jest.mock('../../src/middleware/rateLimit', () => ({
+  apiLimiter: (req, res, next) => next(),
+  metricsLimiter: (req, res, next) => next(),
+  loginLimiter: (req, res, next) => next(),
+  llmLimiter: (req, res, next) => next(),
+  webhookLimiter: (req, res, next) => next(),
+  createUserRateLimiter: () => (req, res, next) => next()
+}));
+
+jest.mock('../../src/config/services', () => ({
+  metrics: { url: 'http://localhost:9100', host: 'localhost', port: 9100 },
+  llm: { url: 'http://localhost:11434', host: 'localhost', port: 11434 },
+  embedding: { url: 'http://localhost:11435', host: 'localhost', port: 11435 },
+  qdrant: { url: 'http://localhost:6333', host: 'localhost', port: 6333 },
+  minio: { host: 'localhost', port: 9000, consolePort: 9001, endpoint: 'localhost:9000' },
+  documentIndexer: { url: 'http://localhost:9102', host: 'localhost', port: 9102 },
+  selfHealing: { url: 'http://localhost:9200', host: 'localhost', port: 9200 },
+  n8n: { url: 'http://localhost:5678', host: 'localhost', port: 5678 }
+}));
+
 const db = require('../../src/database');
 const n8nLogger = require('../../src/services/n8nLogger');
 const { app } = require('../../src/server');
+const { generateTestToken, setupAuthMocks } = require('../helpers/authMock');
+
+const token = generateTestToken();
 
 describe('Workflows Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setupAuthMocks(db);
   });
 
   // ============================================================================
@@ -51,17 +87,28 @@ describe('Workflows Routes', () => {
   // ============================================================================
   describe('GET /api/workflows/activity', () => {
     test('should return workflow activity summary', async () => {
-      db.query.mockResolvedValue({
-        rows: [{
-          active: '2',
-          executed_today: '15',
-          last_error: 'Connection timeout',
-          last_success: new Date().toISOString()
-        }]
+      db.query.mockImplementation((query) => {
+        // Auth queries
+        if (query.includes('token_blacklist')) return Promise.resolve({ rows: [] });
+        if (query.includes('active_sessions') && query.includes('SELECT')) {
+          return Promise.resolve({ rows: [{ id: 1, user_id: 1, token_jti: 'test-jti-12345', expires_at: new Date(Date.now() + 86400000).toISOString() }] });
+        }
+        if (query.includes('update_session_activity')) return Promise.resolve({ rows: [] });
+        if (query.includes('admin_users')) return Promise.resolve({ rows: [{ id: 1, username: 'admin', email: 'admin@arasul.local', is_active: true }] });
+        // Workflow activity query
+        return Promise.resolve({
+          rows: [{
+            active: '2',
+            executed_today: '15',
+            last_error: 'Connection timeout',
+            last_success: new Date().toISOString()
+          }]
+        });
       });
 
       const response = await request(app)
-        .get('/api/workflows/activity');
+        .get('/api/workflows/activity')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('active');
@@ -71,17 +118,26 @@ describe('Workflows Routes', () => {
     });
 
     test('should return zeros when no activity', async () => {
-      db.query.mockResolvedValue({
-        rows: [{
-          active: null,
-          executed_today: null,
-          last_error: null,
-          last_success: null
-        }]
+      db.query.mockImplementation((query) => {
+        if (query.includes('token_blacklist')) return Promise.resolve({ rows: [] });
+        if (query.includes('active_sessions') && query.includes('SELECT')) {
+          return Promise.resolve({ rows: [{ id: 1, user_id: 1, token_jti: 'test-jti-12345', expires_at: new Date(Date.now() + 86400000).toISOString() }] });
+        }
+        if (query.includes('update_session_activity')) return Promise.resolve({ rows: [] });
+        if (query.includes('admin_users')) return Promise.resolve({ rows: [{ id: 1, username: 'admin', email: 'admin@arasul.local', is_active: true }] });
+        return Promise.resolve({
+          rows: [{
+            active: null,
+            executed_today: null,
+            last_error: null,
+            last_success: null
+          }]
+        });
       });
 
       const response = await request(app)
-        .get('/api/workflows/activity');
+        .get('/api/workflows/activity')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body.active).toBe(0);
@@ -96,7 +152,8 @@ describe('Workflows Routes', () => {
   describe('GET /api/workflows/list', () => {
     test('should return empty workflows list with message', async () => {
       const response = await request(app)
-        .get('/api/workflows/list');
+        .get('/api/workflows/list')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('workflows');
@@ -121,6 +178,7 @@ describe('Workflows Routes', () => {
 
       const response = await request(app)
         .post('/api/workflows/execution')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           workflow_name: 'test-workflow',
           execution_id: 'exec-123',
@@ -137,6 +195,7 @@ describe('Workflows Routes', () => {
     test('should return 400 if workflow_name is missing', async () => {
       const response = await request(app)
         .post('/api/workflows/execution')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           status: 'success'
         });
@@ -148,6 +207,7 @@ describe('Workflows Routes', () => {
     test('should return 400 for invalid status', async () => {
       const response = await request(app)
         .post('/api/workflows/execution')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           workflow_name: 'test-workflow',
           status: 'invalid'
@@ -165,6 +225,7 @@ describe('Workflows Routes', () => {
 
         const response = await request(app)
           .post('/api/workflows/execution')
+          .set('Authorization', `Bearer ${token}`)
           .send({
             workflow_name: 'test-workflow',
             status
@@ -187,7 +248,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getExecutionHistory.mockResolvedValue(mockHistory);
 
       const response = await request(app)
-        .get('/api/workflows/history');
+        .get('/api/workflows/history')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
@@ -200,7 +262,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getExecutionHistory.mockResolvedValue([]);
 
       const response = await request(app)
-        .get('/api/workflows/history?workflow_name=test-workflow');
+        .get('/api/workflows/history?workflow_name=test-workflow')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(n8nLogger.getExecutionHistory).toHaveBeenCalledWith(
@@ -212,7 +275,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getExecutionHistory.mockResolvedValue([]);
 
       const response = await request(app)
-        .get('/api/workflows/history?status=error');
+        .get('/api/workflows/history?status=error')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(n8nLogger.getExecutionHistory).toHaveBeenCalledWith(
@@ -224,7 +288,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getExecutionHistory.mockResolvedValue([]);
 
       const response = await request(app)
-        .get('/api/workflows/history?limit=50&offset=10');
+        .get('/api/workflows/history?limit=50&offset=10')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('limit', 50);
@@ -235,7 +300,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getExecutionHistory.mockResolvedValue([]);
 
       const response = await request(app)
-        .get('/api/workflows/history?limit=5000');
+        .get('/api/workflows/history?limit=5000')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(n8nLogger.getExecutionHistory).toHaveBeenCalledWith(
@@ -257,7 +323,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getWorkflowStats.mockResolvedValue(mockStats);
 
       const response = await request(app)
-        .get('/api/workflows/stats');
+        .get('/api/workflows/stats')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
@@ -269,7 +336,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getWorkflowStats.mockResolvedValue({});
 
       const response = await request(app)
-        .get('/api/workflows/stats?workflow_name=test-workflow');
+        .get('/api/workflows/stats?workflow_name=test-workflow')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(n8nLogger.getWorkflowStats).toHaveBeenCalledWith('test-workflow', '24h');
@@ -280,7 +348,8 @@ describe('Workflows Routes', () => {
 
       for (const range of ['1h', '24h', '7d', '30d']) {
         const response = await request(app)
-          .get(`/api/workflows/stats?range=${range}`);
+          .get(`/api/workflows/stats?range=${range}`)
+          .set('Authorization', `Bearer ${token}`);
 
         expect(response.status).toBe(200);
         expect(n8nLogger.getWorkflowStats).toHaveBeenCalledWith(null, range);
@@ -289,7 +358,8 @@ describe('Workflows Routes', () => {
 
     test('should return 400 for invalid range', async () => {
       const response = await request(app)
-        .get('/api/workflows/stats?range=invalid');
+        .get('/api/workflows/stats?range=invalid')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('range');
@@ -308,7 +378,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getActiveWorkflows.mockResolvedValue(mockWorkflows);
 
       const response = await request(app)
-        .get('/api/workflows/active');
+        .get('/api/workflows/active')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
@@ -321,7 +392,8 @@ describe('Workflows Routes', () => {
       n8nLogger.getActiveWorkflows.mockResolvedValue([]);
 
       const response = await request(app)
-        .get('/api/workflows/active');
+        .get('/api/workflows/active')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body.workflows).toEqual([]);
@@ -337,7 +409,8 @@ describe('Workflows Routes', () => {
       n8nLogger.cleanupOldRecords.mockResolvedValue(50);
 
       const response = await request(app)
-        .delete('/api/workflows/cleanup');
+        .delete('/api/workflows/cleanup')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
@@ -350,7 +423,8 @@ describe('Workflows Routes', () => {
       n8nLogger.cleanupOldRecords.mockResolvedValue(100);
 
       const response = await request(app)
-        .delete('/api/workflows/cleanup?days=30');
+        .delete('/api/workflows/cleanup?days=30')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body.days_kept).toBe(30);
@@ -361,7 +435,8 @@ describe('Workflows Routes', () => {
       n8nLogger.cleanupOldRecords.mockResolvedValue(0);
 
       const response = await request(app)
-        .delete('/api/workflows/cleanup?days=1000');
+        .delete('/api/workflows/cleanup?days=1000')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body.days_kept).toBe(365);
@@ -372,7 +447,8 @@ describe('Workflows Routes', () => {
       n8nLogger.cleanupOldRecords.mockResolvedValue(0);
 
       const response = await request(app)
-        .delete('/api/workflows/cleanup?days=0');
+        .delete('/api/workflows/cleanup?days=0')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body.days_kept).toBe(7);

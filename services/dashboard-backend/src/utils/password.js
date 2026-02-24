@@ -8,12 +8,12 @@ const logger = require('./logger');
 const SALT_ROUNDS = 12;
 
 // Password complexity requirements for production deployment
-const PASSWORD_MIN_LENGTH = 12;
+const PASSWORD_MIN_LENGTH = 4;
 const PASSWORD_REQUIREMENTS = {
   minLength: PASSWORD_MIN_LENGTH,
-  requireUppercase: true,
-  requireLowercase: true,
-  requireNumbers: true,
+  requireUppercase: false,
+  requireLowercase: false,
+  requireNumbers: false,
   requireSpecialChars: false,
 };
 
