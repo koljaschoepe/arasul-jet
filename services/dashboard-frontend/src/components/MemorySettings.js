@@ -20,7 +20,7 @@ import {
 } from 'react-icons/fi';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { useToast } from '../contexts/ToastContext';
-import { useConfirm } from '../hooks/useConfirm';
+import useConfirm from '../hooks/useConfirm';
 import './MemorySettings.css';
 
 const TYPE_LABELS = {
