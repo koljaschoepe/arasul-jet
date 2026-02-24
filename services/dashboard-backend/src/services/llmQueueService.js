@@ -155,7 +155,9 @@ function createLLMQueueService(deps = {}) {
      * Called on backend startup
      */
     async initialize() {
-      if (this.initialized) {return;}
+      if (this.initialized) {
+        return;
+      }
 
       logger.info('LLM Queue Service: Initializing...');
 
@@ -550,9 +552,37 @@ function createLLMQueueService(deps = {}) {
         systemPrompt = `## Unternehmenskontext\n\n${companyContext}\n\nBitte beziehe diesen Kontext in deine Antworten ein, wenn relevant.`;
       }
 
-      // Build prompt
+      // Context Management: Build optimized prompt within token budget
+      const contextBudgetManager = require('./contextBudgetManager');
+      const optimized = await contextBudgetManager.buildOptimizedPrompt({
+        messages,
+        systemPrompt,
+        model: requested_model,
+        conversationId: job.conversation_id,
+        userId: null,
+      });
+
+      logger.info(`[JOB ${jobId}] Context budget: ${JSON.stringify(optimized.tokenBreakdown)}`);
+
+      // Send context debug info to frontend
+      this.notifySubscribers(jobId, {
+        type: 'context_info',
+        tokenBreakdown: optimized.tokenBreakdown,
+      });
+
+      // Notify frontend about compaction if it happened
+      if (optimized.compactionResult) {
+        this.notifySubscribers(jobId, {
+          type: 'compaction',
+          tokensBefore: optimized.compactionResult.tokensBefore,
+          tokensAfter: optimized.compactionResult.tokensAfter,
+          messagesCompacted: optimized.tokenBreakdown.messagesDropped,
+        });
+      }
+
+      // Build prompt with thinking prefix
       const thinkingPrefix = enableThinking ? '' : '/no_think\n';
-      const prompt = thinkingPrefix + messages.map(m => `${m.role}: ${m.content}`).join('\n');
+      const prompt = thinkingPrefix + optimized.prompt;
 
       await this.streamFromOllama(
         jobId,
@@ -561,7 +591,8 @@ function createLLMQueueService(deps = {}) {
         temperature,
         max_tokens,
         requested_model,
-        systemPrompt
+        optimized.systemPrompt,
+        optimized.numCtx
       );
     }
 
@@ -575,7 +606,7 @@ function createLLMQueueService(deps = {}) {
 
       // German system prompt with citation rules
       const thinkingInstruction = enableThinking ? '' : '/no_think\n';
-      const systemPrompt = `${thinkingInstruction}Du bist ein professioneller Wissensassistent fuer ein Unternehmen.
+      const ragSystemPrompt = `${thinkingInstruction}Du bist ein professioneller Wissensassistent fuer ein Unternehmen.
 
 Regeln:
 1. Antworte AUSSCHLIESSLICH auf Basis der bereitgestellten Dokumente.
@@ -583,18 +614,44 @@ Regeln:
 3. Zitiere deine Quellen mit [1], [2] etc. - die Nummern entsprechen den Dokumenten unten.
 4. Verwende Fachbegriffe aus den Dokumenten.
 5. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
-6. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.
+6. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
 
-${context}`;
+      // Context Management: Build optimized prompt with RAG context
+      const contextBudgetManager = require('./contextBudgetManager');
+      const optimized = await contextBudgetManager.buildOptimizedPrompt({
+        messages: [{ role: 'user', content: query }],
+        systemPrompt: ragSystemPrompt,
+        model: requested_model,
+        conversationId: job.conversation_id,
+        ragContext: context,
+        userId: null,
+      });
 
-      const prompt = `${systemPrompt}\n\nFrage: ${query}`;
+      logger.info(`[JOB ${jobId}] RAG context budget: ${JSON.stringify(optimized.tokenBreakdown)}`);
+
+      // Send context debug info to frontend
+      this.notifySubscribers(jobId, {
+        type: 'context_info',
+        tokenBreakdown: optimized.tokenBreakdown,
+      });
+
+      const prompt = `${ragSystemPrompt}\n\n${context}\n\nFrage: ${query}`;
 
       // Store sources in job (don't notify - rag.js already sent sources event)
       if (sources) {
         await llmJobService.updateJobContent(jobId, null, null, sources);
       }
 
-      await this.streamFromOllama(jobId, prompt, enableThinking, 0.7, 32768, requested_model);
+      await this.streamFromOllama(
+        jobId,
+        prompt,
+        enableThinking,
+        0.7,
+        32768,
+        requested_model,
+        '',
+        optimized.numCtx
+      );
     }
 
     /**
@@ -606,6 +663,7 @@ ${context}`;
      * @param {number} maxTokens - Max tokens to generate
      * @param {string|null} model - Model to use (null = default)
      * @param {string} systemPrompt - Optional system prompt (e.g., company context)
+     * @param {number|null} numCtx - Context window size (from budget manager)
      */
     async streamFromOllama(
       jobId,
@@ -614,7 +672,8 @@ ${context}`;
       temperature,
       maxTokens,
       model = null,
-      systemPrompt = ''
+      systemPrompt = '',
+      numCtx = null
     ) {
       // Use specified model or resolve default (model should already be validated in enqueue)
       const catalogModelId = model || (await modelService.getDefaultModel());
@@ -710,15 +769,22 @@ ${context}`;
         );
 
         // Build Ollama payload
+        const ollamaOptions = {
+          temperature: temperature || 0.7,
+          num_predict: maxTokens || 32768,
+        };
+
+        // Context Management: Set num_ctx from budget manager
+        if (numCtx) {
+          ollamaOptions.num_ctx = numCtx;
+        }
+
         const ollamaPayload = {
           model: ollamaName,
           prompt: prompt,
           stream: true,
           keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),
-          options: {
-            temperature: temperature || 0.7,
-            num_predict: maxTokens || 32768,
-          },
+          options: ollamaOptions,
         };
 
         // Add system prompt if provided (for company context injection)
@@ -744,7 +810,9 @@ ${context}`;
         let inactivityTimer = null;
 
         const resetInactivityTimer = () => {
-          if (inactivityTimer) {clearTimeout(inactivityTimer);}
+          if (inactivityTimer) {
+            clearTimeout(inactivityTimer);
+          }
           inactivityTimer = setTimeout(async () => {
             logger.warn(
               `[QUEUE] Job ${jobId} stream timed out due to inactivity (${INACTIVITY_TIMEOUT_MS / 1000}s)`
@@ -779,7 +847,9 @@ ${context}`;
           buffer = lines.pop();
 
           for (const line of lines) {
-            if (!line.trim()) {continue;}
+            if (!line.trim()) {
+              continue;
+            }
 
             try {
               const data = JSON.parse(line);
@@ -813,7 +883,9 @@ ${context}`;
                     }
                     continue;
                   }
-                  if (inThinkBlock) {continue;}
+                  if (inThinkBlock) {
+                    continue;
+                  }
 
                   contentBuffer += token;
                   this.notifySubscribers(jobId, { type: 'response', token });
@@ -860,12 +932,31 @@ ${context}`;
                 const tokensPerSecond =
                   totalDuration > 0 ? ((tokenCount * 1000) / totalDuration).toFixed(2) : 0;
 
+                // Context Management: Capture Ollama token metadata
+                const promptTokens = data.prompt_eval_count || null;
+                const completionTokens = data.eval_count || null;
+
                 logger.info(
-                  `[QUEUE] Job ${jobId} stream complete - ${tokenCount} tokens in ${totalDuration}ms (${tokensPerSecond} tok/s)`
+                  `[QUEUE] Job ${jobId} stream complete - ${tokenCount} tokens in ${totalDuration}ms (${tokensPerSecond} tok/s)` +
+                    (promptTokens
+                      ? ` [prompt: ${promptTokens}, completion: ${completionTokens}]`
+                      : '')
                 );
                 clearInactivityTimer(); // Clear timeout on completion
                 await flushToDatabase(true);
                 await llmJobService.completeJob(jobId);
+
+                // Context Management: Store token counts and context window in llm_jobs
+                if (promptTokens || completionTokens || numCtx) {
+                  try {
+                    await database.query(
+                      `UPDATE llm_jobs SET prompt_tokens = $1, completion_tokens = $2, context_window_used = $3 WHERE id = $4`,
+                      [promptTokens, completionTokens, numCtx, jobId]
+                    );
+                  } catch (tokenErr) {
+                    logger.debug(`[QUEUE] Failed to store token counts: ${tokenErr.message}`);
+                  }
+                }
 
                 // P4-002: Record performance metrics
                 try {
@@ -906,6 +997,8 @@ ${context}`;
                     duration_ms: totalDuration,
                     tokens_per_second: parseFloat(tokensPerSecond),
                     ttft_ms: ttft,
+                    prompt_tokens: promptTokens,
+                    completion_tokens: completionTokens,
                   },
                 });
 
@@ -1087,7 +1180,9 @@ ${context}`;
      */
     async cancelJob(jobId) {
       const job = await llmJobService.getJob(jobId);
-      if (!job) {return false;}
+      if (!job) {
+        return false;
+      }
 
       await llmJobService.cancelJob(jobId);
 

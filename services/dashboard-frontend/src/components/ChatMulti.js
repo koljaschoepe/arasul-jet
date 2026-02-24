@@ -711,6 +711,17 @@ function ChatMulti() {
     });
   }, []);
 
+  const toggleContext = useCallback(index => {
+    setMessages(prevMessages => {
+      const updated = [...prevMessages];
+      updated[index] = {
+        ...updated[index],
+        contextCollapsed: !updated[index].contextCollapsed,
+      };
+      return updated;
+    });
+  }, []);
+
   // Unified send handler for both RAG and LLM modes
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -893,6 +904,41 @@ function ChatMulti() {
               }
             }
 
+            // Context Management: Token budget debug info
+            if (data.type === 'context_info' && isCurrentChat) {
+              setMessages(prevMessages => {
+                const updated = [...prevMessages];
+                if (updated[assistantMessageIndex]) {
+                  updated[assistantMessageIndex] = {
+                    ...updated[assistantMessageIndex],
+                    tokenBreakdown: data.tokenBreakdown,
+                    contextCollapsed: true,
+                  };
+                }
+                return updated;
+              });
+            }
+
+            // Context Management: Compaction notification
+            if (data.type === 'compaction' && isCurrentChat) {
+              setMessages(prevMessages => {
+                const updated = [...prevMessages];
+                // Insert compaction banner before the current assistant message
+                const bannerMsg = {
+                  role: 'system',
+                  type: 'compaction',
+                  content: '',
+                  tokensBefore: data.tokensBefore,
+                  tokensAfter: data.tokensAfter,
+                  messagesCompacted: data.messagesCompacted,
+                };
+                updated.splice(assistantMessageIndex, 0, bannerMsg);
+                return updated;
+              });
+              // Shift assistant index since we inserted before it
+              assistantMessageIndex++;
+            }
+
             // RENDER-001: Batched token updates
             if (data.type === 'thinking' && data.token && isCurrentChat) {
               addTokenToBatch('thinking', data.token, assistantMessageIndex);
@@ -1046,6 +1092,7 @@ function ChatMulti() {
                 onToggleThinking={toggleThinking}
                 onToggleSources={toggleSources}
                 onToggleQueryOpt={toggleQueryOpt}
+                onToggleContext={toggleContext}
               />
             ))}
             <div ref={messagesEndRef} />

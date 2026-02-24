@@ -69,6 +69,7 @@ const TelegramAppModal = lazy(() => import('./components/TelegramAppModal'));
 // Database components for Datentabellen feature
 const DatabaseOverview = lazy(() => import('./components/Database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./components/Database/DatabaseTable'));
+const MemorySettings = lazy(() => import('./components/MemorySettings'));
 
 /**
  * Main App Component
@@ -441,6 +442,14 @@ function AppContent() {
                   }
                 />
                 <Route
+                  path="/settings/memory"
+                  element={
+                    <RouteErrorBoundary routeName="KI-Gedächtnis">
+                      <MemorySettings onBack={() => window.history.back()} />
+                    </RouteErrorBoundary>
+                  }
+                />
+                <Route
                   path="/chat"
                   element={
                     <RouteErrorBoundary routeName="AI Chat">
@@ -653,7 +662,16 @@ const Sidebar = React.memo(function Sidebar({
               )}
             </Link>
           </li>
-          {/* Telegram Bots - Removed from sidebar, now accessible via Dashboard icon */}
+          <li role="none">
+            <Link
+              to="/settings/memory"
+              className={isActive('/settings/memory')}
+              role="menuitem"
+              aria-current={isCurrent('/settings/memory') ? 'page' : undefined}
+            >
+              <FiGrid aria-hidden="true" /> <span>KI-Gedächtnis</span>
+            </Link>
+          </li>
         </ul>
       </nav>
 

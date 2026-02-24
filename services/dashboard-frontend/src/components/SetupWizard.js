@@ -26,10 +26,33 @@ import './SetupWizard.css';
 
 const STEPS = [
   { id: 1, title: 'Willkommen', description: 'System einrichten' },
-  { id: 2, title: 'Passwort', description: 'Admin-Passwort ändern' },
-  { id: 3, title: 'Netzwerk', description: 'Konnektivität prüfen' },
-  { id: 4, title: 'KI-Modelle', description: 'Modell auswählen' },
-  { id: 5, title: 'Zusammenfassung', description: 'Einrichtung abschließen' },
+  { id: 2, title: 'KI-Profil', description: 'Ihr Unternehmen' },
+  { id: 3, title: 'Passwort', description: 'Admin-Passwort ändern' },
+  { id: 4, title: 'Netzwerk', description: 'Konnektivität prüfen' },
+  { id: 5, title: 'KI-Modelle', description: 'Modell auswählen' },
+  { id: 6, title: 'Zusammenfassung', description: 'Einrichtung abschließen' },
+];
+
+const INDUSTRIES = [
+  'IT & Software',
+  'Handel & E-Commerce',
+  'Produktion & Fertigung',
+  'Beratung & Dienstleistungen',
+  'Gesundheit & Medizin',
+];
+
+const TEAM_SIZES = [
+  { label: '1-5 Mitarbeiter', value: '5' },
+  { label: '6-20 Mitarbeiter', value: '20' },
+  { label: '21-100 Mitarbeiter', value: '100' },
+  { label: '100+ Mitarbeiter', value: '100+' },
+];
+
+const ANSWER_STYLES = [
+  { label: 'Kurz & prägnant', value: 'kurz' },
+  { label: 'Ausführlich & detailliert', value: 'ausfuehrlich' },
+  { label: 'Professionell-formell', value: 'formell' },
+  { label: 'Locker & direkt', value: 'locker' },
 ];
 
 function SetupWizard({ onComplete, onSkip }) {
@@ -40,7 +63,15 @@ function SetupWizard({ onComplete, onSkip }) {
   // Step 1: Welcome
   const [companyName, setCompanyName] = useState('');
 
-  // Step 2: Password
+  // Step 2: KI-Profil
+  const [industry, setIndustry] = useState('');
+  const [customIndustry, setCustomIndustry] = useState('');
+  const [teamSize, setTeamSize] = useState('');
+  const [products, setProducts] = useState('');
+  const [answerStyle, setAnswerStyle] = useState('');
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  // Step 3: Password
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -80,15 +111,50 @@ function SetupWizard({ onComplete, onSkip }) {
     [companyName, selectedModel]
   );
 
+  // Save KI-Profil
+  const saveProfile = async () => {
+    try {
+      const selectedIndustry = customIndustry || industry;
+      const productList = products
+        ? products
+            .split(',')
+            .map(p => p.trim())
+            .filter(Boolean)
+        : [];
+
+      await fetch(`${API_BASE}/memory/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          companyName: companyName || 'Mein Unternehmen',
+          industry: selectedIndustry,
+          teamSize: teamSize,
+          products: productList,
+          preferences: {
+            antwortlaenge: answerStyle || 'mittel',
+            formalitaet: answerStyle === 'formell' ? 'formell' : 'locker',
+          },
+        }),
+      });
+      setProfileSaved(true);
+    } catch {
+      // Non-critical
+    }
+  };
+
   // Step navigation
   const goNext = useCallback(() => {
-    if (currentStep < 5) {
+    if (currentStep < 6) {
+      // Auto-save profile when leaving step 2
+      if (currentStep === 2 && !profileSaved) {
+        saveProfile();
+      }
       const nextStep = currentStep + 1;
       setCurrentStep(nextStep);
       setError('');
       saveStepProgress(nextStep);
     }
-  }, [currentStep, saveStepProgress]);
+  }, [currentStep, saveStepProgress, profileSaved]);
 
   const goBack = useCallback(() => {
     if (currentStep > 1) {
@@ -210,9 +276,9 @@ function SetupWizard({ onComplete, onSkip }) {
 
   // Load data when step changes
   useEffect(() => {
-    if (currentStep === 3) fetchNetworkInfo();
-    if (currentStep === 4) fetchModels();
-    if (currentStep === 5) fetchSystemInfo();
+    if (currentStep === 4) fetchNetworkInfo();
+    if (currentStep === 5) fetchModels();
+    if (currentStep === 6) fetchSystemInfo();
   }, [currentStep, fetchNetworkInfo, fetchModels, fetchSystemInfo]);
 
   // Complete setup
@@ -262,7 +328,7 @@ function SetupWizard({ onComplete, onSkip }) {
 
   // Can advance to next step?
   const canAdvance = () => {
-    if (currentStep === 2 && !passwordChanged) return false;
+    if (currentStep === 3 && !passwordChanged) return false;
     return true;
   };
 
@@ -332,8 +398,121 @@ function SetupWizard({ onComplete, onSkip }) {
             </div>
           )}
 
-          {/* Step 2: Password Change */}
+          {/* Step 2: KI-Profil */}
           {currentStep === 2 && (
+            <div className="setup-step-content">
+              <div className="step-icon-large">
+                <FiCpu />
+              </div>
+              <h2>KI-Profil einrichten</h2>
+              <p className="step-description">
+                Damit der KI-Assistent Sie besser unterstützen kann, erzählen Sie uns etwas über Ihr
+                Unternehmen.
+              </p>
+
+              <div className="form-group">
+                <label>In welcher Branche sind Sie tätig?</label>
+                <div className="radio-group">
+                  {INDUSTRIES.map(ind => (
+                    <label
+                      key={ind}
+                      className={`radio-option ${industry === ind ? 'selected' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="industry"
+                        value={ind}
+                        checked={industry === ind}
+                        onChange={() => {
+                          setIndustry(ind);
+                          setCustomIndustry('');
+                        }}
+                      />
+                      <span>{ind}</span>
+                    </label>
+                  ))}
+                  <label className={`radio-option ${industry === 'custom' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="industry"
+                      value="custom"
+                      checked={industry === 'custom'}
+                      onChange={() => setIndustry('custom')}
+                    />
+                    <span>Andere</span>
+                  </label>
+                </div>
+                {industry === 'custom' && (
+                  <input
+                    type="text"
+                    value={customIndustry}
+                    onChange={e => setCustomIndustry(e.target.value)}
+                    placeholder="Branche eingeben..."
+                    className="setup-input"
+                    style={{ marginTop: '8px' }}
+                  />
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Wie groß ist Ihr Team?</label>
+                <div className="radio-group">
+                  {TEAM_SIZES.map(ts => (
+                    <label
+                      key={ts.value}
+                      className={`radio-option ${teamSize === ts.value ? 'selected' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="teamSize"
+                        value={ts.value}
+                        checked={teamSize === ts.value}
+                        onChange={() => setTeamSize(ts.value)}
+                      />
+                      <span>{ts.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="products">Hauptprodukte / Services (optional)</label>
+                <input
+                  id="products"
+                  type="text"
+                  value={products}
+                  onChange={e => setProducts(e.target.value)}
+                  placeholder="z.B. Webentwicklung, Cloud-Hosting"
+                  className="setup-input"
+                />
+                <span className="form-hint">Komma-getrennt</span>
+              </div>
+
+              <div className="form-group">
+                <label>Wie soll der KI-Assistent antworten?</label>
+                <div className="radio-group">
+                  {ANSWER_STYLES.map(style => (
+                    <label
+                      key={style.value}
+                      className={`radio-option ${answerStyle === style.value ? 'selected' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="answerStyle"
+                        value={style.value}
+                        checked={answerStyle === style.value}
+                        onChange={() => setAnswerStyle(style.value)}
+                      />
+                      <span>{style.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Password Change */}
+          {currentStep === 3 && (
             <div className="setup-step-content">
               <div className="step-icon-large">
                 <FiShield />
@@ -414,8 +593,8 @@ function SetupWizard({ onComplete, onSkip }) {
             </div>
           )}
 
-          {/* Step 3: Network Check */}
-          {currentStep === 3 && (
+          {/* Step 4: Network Check */}
+          {currentStep === 4 && (
             <div className="setup-step-content">
               <div className="step-icon-large">
                 {networkInfo?.internet_reachable ? <FiWifi /> : <FiWifiOff />}
@@ -494,8 +673,8 @@ function SetupWizard({ onComplete, onSkip }) {
             </div>
           )}
 
-          {/* Step 4: AI Models */}
-          {currentStep === 4 && (
+          {/* Step 5: AI Models */}
+          {currentStep === 5 && (
             <div className="setup-step-content">
               <div className="step-icon-large">
                 <FiCpu />
@@ -561,8 +740,8 @@ function SetupWizard({ onComplete, onSkip }) {
             </div>
           )}
 
-          {/* Step 5: Summary */}
-          {currentStep === 5 && (
+          {/* Step 6: Summary */}
+          {currentStep === 6 && (
             <div className="setup-step-content">
               <div className="step-icon-large completed">
                 <FiCheck />
@@ -667,7 +846,7 @@ function SetupWizard({ onComplete, onSkip }) {
               <FiSkipForward /> Überspringen
             </button>
 
-            {currentStep < 5 ? (
+            {currentStep < 6 ? (
               <button
                 type="button"
                 className="btn btn-primary"

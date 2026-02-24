@@ -115,6 +115,7 @@ const auditRouter = require('./routes/audit');
 const externalApiRouter = require('./routes/externalApi');
 const datentabellenRouter = require('./routes/datentabellen');
 const storeRouter = require('./routes/store');
+const memoryRouter = require('./routes/memory');
 
 app.use('/api/auth', authRouter);
 app.use('/api/system', systemRouter);
@@ -146,6 +147,7 @@ app.use('/api/events', eventsRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/v1/external', externalApiRouter); // External API for n8n, automations
 app.use('/api/v1/datentabellen', datentabellenRouter); // Dynamic database builder
+app.use('/api/memory', memoryRouter); // AI memory management
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
@@ -282,7 +284,9 @@ process.on('unhandledRejection', reason => {
 // ROBUST-002: Graceful shutdown handler
 let shuttingDown = false;
 async function gracefulShutdown(signal) {
-  if (shuttingDown) {return;}
+  if (shuttingDown) {
+    return;
+  }
   shuttingDown = true;
   logger.info(`${signal} received - starting graceful shutdown...`);
 

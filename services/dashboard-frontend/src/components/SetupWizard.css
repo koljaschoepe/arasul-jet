@@ -423,6 +423,50 @@
   font-size: 0.7rem;
 }
 
+/* KI-Profil Radio Group */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.radio-option:hover {
+  border-color: var(--primary-color);
+}
+
+.radio-option.selected {
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+}
+
+.radio-option input[type="radio"] {
+  accent-color: var(--primary-color);
+  margin: 0;
+}
+
+.form-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
 /* Summary */
 .summary-list {
   width: 100%;
