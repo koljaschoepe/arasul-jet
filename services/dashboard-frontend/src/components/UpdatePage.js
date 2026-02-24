@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import {
   FiPackage,
@@ -15,6 +15,8 @@ import EmptyState from './EmptyState';
 import './UpdatePage.css';
 
 const UpdatePage = () => {
+  // RC-003: AbortController for polling cleanup
+  const pollingAbortRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [signatureFile, setSignatureFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -28,39 +30,51 @@ const UpdatePage = () => {
 
   // Fetch update history on mount
   useEffect(() => {
-    fetchUpdateHistory();
+    const controller = new AbortController();
+    fetchUpdateHistory(controller.signal);
     scanUsbDevices();
+    return () => controller.abort();
   }, []);
 
-  // Poll update status when applying
+  // Poll update status when applying (RC-003: AbortController prevents post-unmount updates)
   useEffect(() => {
     if (uploadStatus !== 'applying') return;
 
+    const controller = new AbortController();
+    pollingAbortRef.current = controller;
+
     const interval = setInterval(() => {
-      fetchUpdateStatus();
+      fetchUpdateStatus(controller.signal);
     }, 2000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      controller.abort();
+      pollingAbortRef.current = null;
+    };
   }, [uploadStatus]);
 
-  const fetchUpdateHistory = async () => {
+  const fetchUpdateHistory = async signal => {
     try {
       const response = await fetch(`${API_BASE}/update/history`, {
         headers: getAuthHeaders(),
+        signal,
       });
       if (response.ok) {
         const data = await response.json();
         setUpdateHistory(data.updates || []);
       }
     } catch (error) {
+      if (error.name === 'AbortError') return;
       console.error('Failed to fetch update history:', error);
     }
   };
 
-  const fetchUpdateStatus = async () => {
+  const fetchUpdateStatus = async signal => {
     try {
       const response = await fetch(`${API_BASE}/update/status`, {
         headers: getAuthHeaders(),
+        signal,
       });
       if (!response.ok) return;
 
@@ -75,6 +89,7 @@ const UpdatePage = () => {
         setErrorMessage(data.error || 'Update fehlgeschlagen');
       }
     } catch (error) {
+      if (error.name === 'AbortError') return;
       console.error('Failed to fetch update status:', error);
     }
   };

@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { API_BASE } from '../config/api';
+import { API_BASE, getAuthHeaders } from '../config/api';
 
 // Context
 const DownloadContext = createContext(null);
@@ -55,12 +55,8 @@ export function DownloadProvider({ children }) {
     const controller = new AbortController();
     const checkExistingDownloads = async () => {
       try {
-        const token = localStorage.getItem('arasul_token');
         const response = await fetch(`${API_BASE}/models/catalog`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
           signal: controller.signal,
         });
 
@@ -101,12 +97,8 @@ export function DownloadProvider({ children }) {
       if (currentDownloads.length === 0) return;
 
       try {
-        const token = localStorage.getItem('arasul_token');
         const response = await fetch(`${API_BASE}/models/catalog`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
           signal: controller.signal,
         });
 
@@ -165,10 +157,12 @@ export function DownloadProvider({ children }) {
   }, []); // RC-004 FIX: Empty dependency array - only run on mount
 
   // Start a download
+  // DL-FE-001: Use ref instead of state in dependency array to prevent
+  // callback re-creation on every activeDownloads change
   const startDownload = useCallback(
     async (modelId, modelName) => {
-      // Don't start if already downloading
-      if (activeDownloads[modelId]) {
+      // Don't start if already downloading (use ref for current state)
+      if (activeDownloadsRef.current[modelId]) {
         return;
       }
 
@@ -188,12 +182,11 @@ export function DownloadProvider({ children }) {
       abortControllersRef.current[modelId] = abortController;
 
       try {
-        const token = localStorage.getItem('arasul_token');
         const response = await fetch(`${API_BASE}/models/download`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            ...getAuthHeaders(),
           },
           body: JSON.stringify({ model_id: modelId }),
           signal: abortController.signal,
@@ -203,74 +196,128 @@ export function DownloadProvider({ children }) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        // DL-FE-003: Handle "already downloading" response from backend
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('text/event-stream')) {
+          const data = await response.json();
+          if (data.status === 'already_downloading') {
+            setActiveDownloads(prev => ({
+              ...prev,
+              [modelId]: {
+                ...prev[modelId],
+                progress: data.progress || 0,
+                status: 'Download läuft bereits...',
+                phase: 'download',
+              },
+            }));
+            return;
+          }
+        }
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        // DL-FE-002: Inactivity timeout - abort if no data for 60 seconds
+        let lastDataTime = Date.now();
+        const INACTIVITY_TIMEOUT_MS = 60000;
+        const inactivityCheck = setInterval(() => {
+          if (Date.now() - lastDataTime > INACTIVITY_TIMEOUT_MS) {
+            clearInterval(inactivityCheck);
+            abortController.abort();
+          }
+        }, 5000);
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.substring(6));
+            // Reset inactivity timer on any data (including heartbeats)
+            lastDataTime = Date.now();
 
-                setActiveDownloads(prev => {
-                  if (!prev[modelId]) return prev;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
 
-                  const update = { ...prev[modelId] };
+            for (const line of lines) {
+              // Skip heartbeat comments from server
+              if (line.startsWith(':')) continue;
 
-                  if (data.progress !== undefined) {
-                    update.progress = data.progress;
-                  }
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.substring(6));
 
-                  if (data.status) {
-                    const interpreted = interpretDownloadStatus(data.status);
-                    update.phase = interpreted.phase;
-                    update.status = interpreted.label;
-                  }
+                  setActiveDownloads(prev => {
+                    if (!prev[modelId]) return prev;
 
+                    const update = { ...prev[modelId] };
+
+                    if (data.progress !== undefined) {
+                      update.progress = data.progress;
+                    }
+
+                    if (data.status) {
+                      const interpreted = interpretDownloadStatus(data.status);
+                      update.phase = interpreted.phase;
+                      update.status = interpreted.label;
+                    }
+
+                    if (data.done) {
+                      if (data.success) {
+                        update.phase = 'complete';
+                        update.status = 'Abgeschlossen!';
+                        update.progress = 100;
+                      }
+                      if (data.error) {
+                        update.phase = 'error';
+                        update.error = data.error;
+                      }
+                    }
+
+                    return { ...prev, [modelId]: update };
+                  });
+
+                  // Handle completion
                   if (data.done) {
-                    if (data.success) {
-                      update.phase = 'complete';
-                      update.status = 'Abgeschlossen!';
-                      update.progress = 100;
-                    }
-                    if (data.error) {
-                      update.phase = 'error';
-                      update.error = data.error;
-                    }
+                    setTimeout(() => {
+                      setActiveDownloads(prev => {
+                        const updated = { ...prev };
+                        delete updated[modelId];
+                        return updated;
+                      });
+                      // Notify callbacks
+                      onCompleteCallbacksRef.current.forEach(cb => cb(modelId, data.success));
+                    }, 2000);
                   }
-
-                  return { ...prev, [modelId]: update };
-                });
-
-                // Handle completion
-                if (data.done) {
-                  setTimeout(() => {
-                    setActiveDownloads(prev => {
-                      const updated = { ...prev };
-                      delete updated[modelId];
-                      return updated;
-                    });
-                    // Notify callbacks
-                    onCompleteCallbacksRef.current.forEach(cb => cb(modelId, data.success));
-                  }, 2000);
+                } catch (e) {
+                  console.debug('[DownloadContext] SSE parse error:', e.message);
                 }
-              } catch (e) {
-                console.debug('[DownloadContext] SSE parse error:', e.message);
               }
             }
           }
+        } finally {
+          clearInterval(inactivityCheck);
         }
       } catch (err) {
         if (err.name === 'AbortError') {
-          // Download was intentionally aborted
+          // Check if this was an inactivity timeout vs intentional cancel
+          const downloadState = activeDownloadsRef.current[modelId];
+          if (
+            downloadState &&
+            downloadState.phase !== 'complete' &&
+            downloadState.phase !== 'error'
+          ) {
+            setActiveDownloads(prev => ({
+              ...prev,
+              [modelId]: {
+                ...prev[modelId],
+                phase: 'error',
+                error:
+                  'Verbindung zum Server verloren. Der Download läuft möglicherweise im Hintergrund weiter.',
+              },
+            }));
+          }
         } else {
           console.error(`[DownloadContext] Download error for ${modelId}:`, err);
           setActiveDownloads(prev => ({
@@ -286,7 +333,7 @@ export function DownloadProvider({ children }) {
         delete abortControllersRef.current[modelId];
       }
     },
-    [activeDownloads]
+    [] // DL-FE-001: Empty deps - uses ref for current state checks
   );
 
   // Cancel a download

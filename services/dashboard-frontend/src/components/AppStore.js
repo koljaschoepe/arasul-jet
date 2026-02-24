@@ -121,6 +121,9 @@ function AppStore() {
           headers: getAuthHeaders(),
           signal,
         });
+        if (!response.ok) {
+          throw new Error(`Fehler beim Laden der Apps (${response.status})`);
+        }
         const data = await response.json();
         setApps(data.apps || []);
         setError(null);
@@ -142,6 +145,9 @@ function AppStore() {
         headers: getAuthHeaders(),
         signal,
       });
+      if (!response.ok) {
+        throw new Error(`Fehler beim Laden der Kategorien (${response.status})`);
+      }
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (err) {
@@ -173,11 +179,15 @@ function AppStore() {
     setActionLoading(prev => ({ ...prev, [appId]: action }));
 
     try {
-      await fetch(`${API_BASE}/apps/${appId}/${action}`, {
+      const response = await fetch(`${API_BASE}/apps/${appId}/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(options),
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `${action} fehlgeschlagen (${response.status})`);
+      }
       await loadApps();
     } catch (err) {
       console.error(`Error ${action} app ${appId}:`, err);

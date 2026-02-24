@@ -72,7 +72,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.use((req, res, next) => {
   require('./utils/logger').debug(`${req.method} ${req.path}`);
@@ -182,11 +183,20 @@ const ollamaReadiness = require('./services/ollamaReadiness');
 const dataDatabase = require('./dataDatabase');
 const telegramWebSocketService = require('./services/telegramWebSocketService');
 const telegramPollingManager = require('./services/telegramPollingManager');
+const eventListenerService = require('./services/eventListenerService');
+const { cacheService } = require('./services/cacheService');
+const pool = require('./database');
 
 wss.on('connection', ws => {
   logger.info('WebSocket client connected to /api/metrics/live-stream');
 
   let intervalId = null;
+
+  // WS-001: Heartbeat to detect dead connections
+  ws.isAlive = true;
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
 
   const sendMetrics = async () => {
     try {
@@ -237,8 +247,97 @@ wss.on('connection', ws => {
   });
 });
 
+// WS-001: Heartbeat interval to detect and clean up dead metrics WS connections
+const metricsHeartbeat = setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.isAlive === false) {
+      logger.debug('Terminating dead metrics WebSocket connection');
+      return ws.terminate();
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
+wss.on('close', () => {
+  clearInterval(metricsHeartbeat);
+});
+
 // Export app and server for testing
 module.exports = { app, server, wss };
+
+// ROBUST-001: Uncaught exception and unhandled rejection handlers
+process.on('uncaughtException', error => {
+  logger.error(`Uncaught exception: ${error.message}`, { stack: error.stack });
+  // Give time for log to flush, then exit
+  setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', reason => {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : undefined;
+  logger.error(`Unhandled rejection: ${message}`, { stack });
+});
+
+// ROBUST-002: Graceful shutdown handler
+let shuttingDown = false;
+async function gracefulShutdown(signal) {
+  if (shuttingDown) {return;}
+  shuttingDown = true;
+  logger.info(`${signal} received - starting graceful shutdown...`);
+
+  // 1. Stop accepting new connections
+  server.close(() => {
+    logger.info('HTTP server closed');
+  });
+
+  // 2. Close WebSocket connections
+  try {
+    wss.clients.forEach(client => {
+      client.close(1001, 'Server shutting down');
+    });
+    wss.close();
+    logger.info('WebSocket server closed');
+  } catch (err) {
+    logger.warn(`WebSocket cleanup error: ${err.message}`);
+  }
+
+  // 3. Stop services
+  try {
+    eventListenerService.stop();
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    ollamaReadiness.shutdown();
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    telegramPollingManager.shutdown();
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    cacheService.shutdown();
+  } catch (e) {
+    /* ignore */
+  }
+
+  // 4. Close database pool
+  try {
+    await pool.close();
+    logger.info('Database pool closed');
+  } catch (err) {
+    logger.warn(`Database pool close error: ${err.message}`);
+  }
+
+  logger.info('Graceful shutdown complete');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Only start server if not in test mode
 if (require.main === module) {

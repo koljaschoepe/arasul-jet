@@ -4,13 +4,13 @@ REST API + WebSocket + SSE backend for the Arasul Platform dashboard.
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Port | 3001 (internal), 80/api (via Traefik) |
-| Framework | Express.js 4.18 |
-| Runtime | Node.js >= 18.0.0 |
-| Database | PostgreSQL 16 (pg 8.11) |
-| Auth | JWT (24h expiry) + API Keys |
+| Property  | Value                                 |
+| --------- | ------------------------------------- |
+| Port      | 3001 (internal), 80/api (via Traefik) |
+| Framework | Express.js 4.18                       |
+| Runtime   | Node.js >= 18.0.0                     |
+| Database  | PostgreSQL 16 (pg 8.11)               |
+| Auth      | JWT (24h expiry) + API Keys           |
 
 ## Directory Structure
 
@@ -64,7 +64,6 @@ src/
 │   ├── alertEngine.js    # Threshold monitoring & webhooks
 │   ├── appService.js     # App marketplace operations
 │   ├── updateService.js  # Update package handling
-│   ├── metricsStream.js  # WebSocket metrics streaming
 │   ├── eventListenerService.js  # Event notification system
 │   ├── telegramNotificationService.js # Telegram messages
 │   ├── telegramOrchestratorService.js # Telegram commands
@@ -89,222 +88,222 @@ src/
 
 ### Authentication (No Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/login` | Login with username/password |
-| POST | `/api/auth/logout` | Logout (blacklists token) |
-| GET | `/api/auth/me` | Get current user info |
-| GET | `/api/health` | Health check |
+| Method | Path               | Description                  |
+| ------ | ------------------ | ---------------------------- |
+| POST   | `/api/auth/login`  | Login with username/password |
+| POST   | `/api/auth/logout` | Logout (blacklists token)    |
+| GET    | `/api/auth/me`     | Get current user info        |
+| GET    | `/api/health`      | Health check                 |
 
 ### System & Metrics (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/system/status` | System health (OK/WARNING/CRITICAL) |
-| GET | `/api/system/info` | Version, build hash, uptime |
-| GET | `/api/system/network` | IP addresses, mDNS, connectivity |
-| GET | `/api/system/thresholds` | Resource thresholds |
-| GET | `/api/metrics/live` | Current CPU, RAM, GPU, temp, disk |
-| GET | `/api/metrics/history` | Historical metrics (?range=24h) |
-| WS | `/api/metrics/live-stream` | WebSocket stream (5s interval) |
+| Method | Path                       | Description                         |
+| ------ | -------------------------- | ----------------------------------- |
+| GET    | `/api/system/status`       | System health (OK/WARNING/CRITICAL) |
+| GET    | `/api/system/info`         | Version, build hash, uptime         |
+| GET    | `/api/system/network`      | IP addresses, mDNS, connectivity    |
+| GET    | `/api/system/thresholds`   | Resource thresholds                 |
+| GET    | `/api/metrics/live`        | Current CPU, RAM, GPU, temp, disk   |
+| GET    | `/api/metrics/history`     | Historical metrics (?range=24h)     |
+| WS     | `/api/metrics/live-stream` | WebSocket stream (5s interval)      |
 
 ### AI & Chat (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/llm/chat` | LLM inference (SSE streaming) |
-| GET | `/api/llm/queue` | Queue status |
-| GET | `/api/llm/jobs` | Job history |
-| GET | `/api/llm/models` | List available models |
-| GET | `/api/llm/models/default` | Get default model |
-| POST | `/api/embeddings` | Generate text embeddings |
-| GET | `/api/chats` | List all conversations |
-| POST | `/api/chats` | Create new conversation |
-| GET | `/api/chats/:id` | Get conversation details |
-| GET | `/api/chats/:id/messages` | Get messages for chat |
-| POST | `/api/chats/:id/messages` | Add message to chat |
-| PATCH | `/api/chats/:id` | Update chat title |
-| DELETE | `/api/chats/:id` | Soft delete chat |
-| POST | `/api/rag/query` | RAG query (SSE streaming) |
-| GET | `/api/rag/status` | Qdrant collection info |
+| Method | Path                      | Description                   |
+| ------ | ------------------------- | ----------------------------- |
+| POST   | `/api/llm/chat`           | LLM inference (SSE streaming) |
+| GET    | `/api/llm/queue`          | Queue status                  |
+| GET    | `/api/llm/jobs`           | Job history                   |
+| GET    | `/api/llm/models`         | List available models         |
+| GET    | `/api/llm/models/default` | Get default model             |
+| POST   | `/api/embeddings`         | Generate text embeddings      |
+| GET    | `/api/chats`              | List all conversations        |
+| POST   | `/api/chats`              | Create new conversation       |
+| GET    | `/api/chats/:id`          | Get conversation details      |
+| GET    | `/api/chats/:id/messages` | Get messages for chat         |
+| POST   | `/api/chats/:id/messages` | Add message to chat           |
+| PATCH  | `/api/chats/:id`          | Update chat title             |
+| DELETE | `/api/chats/:id`          | Soft delete chat              |
+| POST   | `/api/rag/query`          | RAG query (SSE streaming)     |
+| GET    | `/api/rag/status`         | Qdrant collection info        |
 
 ### Models (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/models/catalog` | Curated model catalog |
-| GET | `/api/models/installed` | Installed models list |
-| GET | `/api/models/status` | Current status (loaded, queue) |
-| GET | `/api/models/loaded` | Currently loaded model |
-| POST | `/api/models/download` | Download model (SSE progress) |
-| DELETE | `/api/models/:modelId` | Delete a model |
-| POST | `/api/models/:modelId/activate` | Load model into VRAM |
-| POST | `/api/models/:modelId/deactivate` | Unload from VRAM |
-| POST | `/api/models/default` | Set default model |
-| GET | `/api/models/default` | Get default model |
-| POST | `/api/models/sync` | Sync with Ollama |
+| Method | Path                              | Description                    |
+| ------ | --------------------------------- | ------------------------------ |
+| GET    | `/api/models/catalog`             | Curated model catalog          |
+| GET    | `/api/models/installed`           | Installed models list          |
+| GET    | `/api/models/status`              | Current status (loaded, queue) |
+| GET    | `/api/models/loaded`              | Currently loaded model         |
+| POST   | `/api/models/download`            | Download model (SSE progress)  |
+| DELETE | `/api/models/:modelId`            | Delete a model                 |
+| POST   | `/api/models/:modelId/activate`   | Load model into VRAM           |
+| POST   | `/api/models/:modelId/deactivate` | Unload from VRAM               |
+| POST   | `/api/models/default`             | Set default model              |
+| GET    | `/api/models/default`             | Get default model              |
+| POST   | `/api/models/sync`                | Sync with Ollama               |
 
 ### Knowledge Spaces (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/spaces` | List all spaces with stats |
-| POST | `/api/spaces` | Create new space |
-| GET | `/api/spaces/:id` | Get space details |
-| PUT | `/api/spaces/:id` | Update space |
-| DELETE | `/api/spaces/:id` | Delete space |
-| POST | `/api/spaces/:id/route` | Route query to space |
-| GET | `/api/spaces/:id/documents` | Documents in space |
+| Method | Path                        | Description                |
+| ------ | --------------------------- | -------------------------- |
+| GET    | `/api/spaces`               | List all spaces with stats |
+| POST   | `/api/spaces`               | Create new space           |
+| GET    | `/api/spaces/:id`           | Get space details          |
+| PUT    | `/api/spaces/:id`           | Update space               |
+| DELETE | `/api/spaces/:id`           | Delete space               |
+| POST   | `/api/spaces/:id/route`     | Route query to space       |
+| GET    | `/api/spaces/:id/documents` | Documents in space         |
 
 ### Documents (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/documents` | List all documents |
-| POST | `/api/documents/upload` | Upload document (multipart) |
-| DELETE | `/api/documents/:id` | Delete document |
-| GET | `/api/documents/:id/status` | Indexing status |
-| POST | `/api/documents/:id/reindex` | Force reindex |
+| Method | Path                         | Description                 |
+| ------ | ---------------------------- | --------------------------- |
+| GET    | `/api/documents`             | List all documents          |
+| POST   | `/api/documents/upload`      | Upload document (multipart) |
+| DELETE | `/api/documents/:id`         | Delete document             |
+| GET    | `/api/documents/:id/status`  | Indexing status             |
+| POST   | `/api/documents/:id/reindex` | Force reindex               |
 
 ### Alerts (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/alerts/settings` | Global alert settings |
-| PUT | `/api/alerts/settings` | Update settings |
-| GET | `/api/alerts/thresholds` | All threshold configs |
-| PUT | `/api/alerts/thresholds/:type` | Update threshold (cpu/ram/disk/temp) |
-| GET | `/api/alerts/quiet-hours` | Quiet hours config |
-| PUT | `/api/alerts/quiet-hours` | Update quiet hours |
-| GET | `/api/alerts/history` | Alert history |
-| GET | `/api/alerts/webhooks` | Webhook configurations |
-| POST | `/api/alerts/webhooks` | Add webhook |
-| DELETE | `/api/alerts/webhooks/:id` | Remove webhook |
+| Method | Path                           | Description                          |
+| ------ | ------------------------------ | ------------------------------------ |
+| GET    | `/api/alerts/settings`         | Global alert settings                |
+| PUT    | `/api/alerts/settings`         | Update settings                      |
+| GET    | `/api/alerts/thresholds`       | All threshold configs                |
+| PUT    | `/api/alerts/thresholds/:type` | Update threshold (cpu/ram/disk/temp) |
+| GET    | `/api/alerts/quiet-hours`      | Quiet hours config                   |
+| PUT    | `/api/alerts/quiet-hours`      | Update quiet hours                   |
+| GET    | `/api/alerts/history`          | Alert history                        |
+| GET    | `/api/alerts/webhooks`         | Webhook configurations               |
+| POST   | `/api/alerts/webhooks`         | Add webhook                          |
+| DELETE | `/api/alerts/webhooks/:id`     | Remove webhook                       |
 
 ### Telegram (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/telegram/config` | Get Telegram config |
-| PUT | `/api/telegram/config` | Update config |
-| POST | `/api/telegram/test` | Send test message |
-| GET | `/api/telegram/audit-logs` | Bot audit logs |
+| Method | Path                       | Description         |
+| ------ | -------------------------- | ------------------- |
+| GET    | `/api/telegram/config`     | Get Telegram config |
+| PUT    | `/api/telegram/config`     | Update config       |
+| POST   | `/api/telegram/test`       | Send test message   |
+| GET    | `/api/telegram/audit-logs` | Bot audit logs      |
 
 ### Telegram App (Auth Required, 15 Endpoints)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/telegram-app/zero-config/init` | Start setup session |
-| POST | `/api/telegram-app/zero-config/token` | Validate bot token |
-| POST | `/api/telegram-app/zero-config/detect` | Detect chat ID |
-| POST | `/api/telegram-app/zero-config/complete` | Complete setup |
-| GET | `/api/telegram-app/rules` | Notification rules |
-| POST | `/api/telegram-app/rules` | Create rule |
-| PUT | `/api/telegram-app/rules/:id` | Update rule |
-| DELETE | `/api/telegram-app/rules/:id` | Delete rule |
-| GET | `/api/telegram-app/commands` | Available commands |
-| POST | `/api/telegram-app/commands/:cmd` | Execute command |
-| GET | `/api/telegram-app/orchestrator/thinking` | AI thinking log |
-| POST | `/api/telegram-app/orchestrator/config` | Update orchestrator |
-| GET | `/api/telegram-app/stats` | Usage statistics |
-| POST | `/api/telegram-app/send` | Send message |
-| GET | `/api/telegram-app/status` | Bot status |
+| Method | Path                                      | Description         |
+| ------ | ----------------------------------------- | ------------------- |
+| POST   | `/api/telegram-app/zero-config/init`      | Start setup session |
+| POST   | `/api/telegram-app/zero-config/token`     | Validate bot token  |
+| POST   | `/api/telegram-app/zero-config/detect`    | Detect chat ID      |
+| POST   | `/api/telegram-app/zero-config/complete`  | Complete setup      |
+| GET    | `/api/telegram-app/rules`                 | Notification rules  |
+| POST   | `/api/telegram-app/rules`                 | Create rule         |
+| PUT    | `/api/telegram-app/rules/:id`             | Update rule         |
+| DELETE | `/api/telegram-app/rules/:id`             | Delete rule         |
+| GET    | `/api/telegram-app/commands`              | Available commands  |
+| POST   | `/api/telegram-app/commands/:cmd`         | Execute command     |
+| GET    | `/api/telegram-app/orchestrator/thinking` | AI thinking log     |
+| POST   | `/api/telegram-app/orchestrator/config`   | Update orchestrator |
+| GET    | `/api/telegram-app/stats`                 | Usage statistics    |
+| POST   | `/api/telegram-app/send`                  | Send message        |
+| GET    | `/api/telegram-app/status`                | Bot status          |
 
 ### App Store (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/apps` | List all apps |
-| GET | `/api/apps/categories` | App categories |
-| GET | `/api/apps/:id` | App details |
-| POST | `/api/apps/:id/install` | Install app |
-| POST | `/api/apps/:id/uninstall` | Uninstall app |
-| POST | `/api/apps/:id/start` | Start app |
-| POST | `/api/apps/:id/stop` | Stop app |
-| GET | `/api/apps/:id/config` | App configuration |
-| PUT | `/api/apps/:id/config` | Update app config |
+| Method | Path                      | Description       |
+| ------ | ------------------------- | ----------------- |
+| GET    | `/api/apps`               | List all apps     |
+| GET    | `/api/apps/categories`    | App categories    |
+| GET    | `/api/apps/:id`           | App details       |
+| POST   | `/api/apps/:id/install`   | Install app       |
+| POST   | `/api/apps/:id/uninstall` | Uninstall app     |
+| POST   | `/api/apps/:id/start`     | Start app         |
+| POST   | `/api/apps/:id/stop`      | Stop app          |
+| GET    | `/api/apps/:id/config`    | App configuration |
+| PUT    | `/api/apps/:id/config`    | Update app config |
 
 ### Audit (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/audit/logs` | Audit log history |
-| GET | `/api/audit/stats/daily` | Daily statistics |
-| GET | `/api/audit/stats/users` | Per-user statistics |
-| GET | `/api/audit/stats/endpoints` | Per-endpoint statistics |
+| Method | Path                         | Description             |
+| ------ | ---------------------------- | ----------------------- |
+| GET    | `/api/audit/logs`            | Audit log history       |
+| GET    | `/api/audit/stats/daily`     | Daily statistics        |
+| GET    | `/api/audit/stats/users`     | Per-user statistics     |
+| GET    | `/api/audit/stats/endpoints` | Per-endpoint statistics |
 
 ### Events (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/events` | List events |
-| POST | `/api/events/webhook/:type` | Trigger webhook |
-| GET | `/api/events/subscriptions` | Event subscriptions |
-| POST | `/api/events/subscriptions` | Subscribe to events |
+| Method | Path                        | Description         |
+| ------ | --------------------------- | ------------------- |
+| GET    | `/api/events`               | List events         |
+| POST   | `/api/events/webhook/:type` | Trigger webhook     |
+| GET    | `/api/events/subscriptions` | Event subscriptions |
+| POST   | `/api/events/subscriptions` | Subscribe to events |
 
 ### Claude Terminal (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/terminal/query` | Execute query |
-| GET | `/api/terminal/history` | Query history |
+| Method | Path                    | Description   |
+| ------ | ----------------------- | ------------- |
+| POST   | `/api/terminal/query`   | Execute query |
+| GET    | `/api/terminal/history` | Query history |
 | DELETE | `/api/terminal/history` | Clear history |
 
 ### Workspaces (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/workspaces` | List workspaces |
-| POST | `/api/workspaces` | Create workspace |
-| GET | `/api/workspaces/:id` | Get workspace |
-| PUT | `/api/workspaces/:id` | Update workspace |
+| Method | Path                  | Description      |
+| ------ | --------------------- | ---------------- |
+| GET    | `/api/workspaces`     | List workspaces  |
+| POST   | `/api/workspaces`     | Create workspace |
+| GET    | `/api/workspaces/:id` | Get workspace    |
+| PUT    | `/api/workspaces/:id` | Update workspace |
 | DELETE | `/api/workspaces/:id` | Delete workspace |
 
 ### External API (API Key Auth)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/external/llm/chat` | LLM chat (for n8n) |
-| POST | `/api/external/embeddings` | Generate embeddings |
-| GET | `/api/external/models` | Available models |
-| GET | `/api/api-keys` | List API keys |
-| POST | `/api/api-keys` | Create API key |
-| DELETE | `/api/api-keys/:id` | Revoke API key |
+| Method | Path                       | Description         |
+| ------ | -------------------------- | ------------------- |
+| POST   | `/api/external/llm/chat`   | LLM chat (for n8n)  |
+| POST   | `/api/external/embeddings` | Generate embeddings |
+| GET    | `/api/external/models`     | Available models    |
+| GET    | `/api/api-keys`            | List API keys       |
+| POST   | `/api/api-keys`            | Create API key      |
+| DELETE | `/api/api-keys/:id`        | Revoke API key      |
 
 ### Services & Operations (Auth Required)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/services` | Status of all containers |
-| GET | `/api/services/ai` | AI services with GPU load |
-| POST | `/api/services/:name/restart` | Restart container |
-| GET | `/api/workflows/activity` | n8n workflow stats |
-| GET | `/api/workflows/stats` | Detailed statistics |
-| GET | `/api/selfhealing/events` | Self-healing history |
-| GET | `/api/selfhealing/status` | Current status |
-| POST | `/api/update/upload` | Upload .araupdate file |
-| GET | `/api/update/history` | Update history |
-| GET | `/api/logs/list` | Available log files |
-| GET | `/api/logs/:service` | Stream service logs |
-| GET | `/api/database/health` | Database health |
-| GET | `/api/database/pool` | Pool statistics |
+| Method | Path                          | Description               |
+| ------ | ----------------------------- | ------------------------- |
+| GET    | `/api/services`               | Status of all containers  |
+| GET    | `/api/services/ai`            | AI services with GPU load |
+| POST   | `/api/services/:name/restart` | Restart container         |
+| GET    | `/api/workflows/activity`     | n8n workflow stats        |
+| GET    | `/api/workflows/stats`        | Detailed statistics       |
+| GET    | `/api/selfhealing/events`     | Self-healing history      |
+| GET    | `/api/selfhealing/status`     | Current status            |
+| POST   | `/api/update/upload`          | Upload .araupdate file    |
+| GET    | `/api/update/history`         | Update history            |
+| GET    | `/api/logs/list`              | Available log files       |
+| GET    | `/api/logs/:service`          | Stream service logs       |
+| GET    | `/api/database/health`        | Database health           |
+| GET    | `/api/database/pool`          | Pool statistics           |
 
 ### Settings (Auth Required, Rate Limited)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/settings/password/dashboard` | Change Dashboard password |
-| POST | `/api/settings/password/minio` | Change MinIO password |
-| POST | `/api/settings/password/n8n` | Change n8n password |
-| GET | `/api/settings/password-requirements` | Password rules |
+| Method | Path                                  | Description               |
+| ------ | ------------------------------------- | ------------------------- |
+| POST   | `/api/settings/password/dashboard`    | Change Dashboard password |
+| POST   | `/api/settings/password/minio`        | Change MinIO password     |
+| POST   | `/api/settings/password/n8n`          | Change n8n password       |
+| GET    | `/api/settings/password-requirements` | Password rules            |
 
 ### Documentation
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/docs` | Swagger UI |
-| GET | `/api/docs/openapi.json` | OpenAPI JSON spec |
-| GET | `/api/docs/openapi.yaml` | OpenAPI YAML spec |
+| Method | Path                     | Description       |
+| ------ | ------------------------ | ----------------- |
+| GET    | `/api/docs`              | Swagger UI        |
+| GET    | `/api/docs/openapi.json` | OpenAPI JSON spec |
+| GET    | `/api/docs/openapi.yaml` | OpenAPI YAML spec |
 
 ## Key Features
 
@@ -353,13 +352,13 @@ src/
 
 ### Rate Limiting
 
-| Endpoint Category | Limit |
-|-------------------|-------|
-| Password changes | 3 per 15 minutes |
-| LLM API | 10 requests/second |
-| Metrics API | 20 requests/second |
-| Auth API | 30 per minute |
-| General API | 100 requests/second |
+| Endpoint Category | Limit               |
+| ----------------- | ------------------- |
+| Password changes  | 3 per 15 minutes    |
+| LLM API           | 10 requests/second  |
+| Metrics API       | 20 requests/second  |
+| Auth API          | 30 per minute       |
+| General API       | 100 requests/second |
 
 ### Database Connection Pool
 
@@ -408,29 +407,29 @@ src/
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| PORT | 3001 | Server port |
-| POSTGRES_HOST | postgres-db | Database host |
-| POSTGRES_PORT | 5432 | Database port |
-| POSTGRES_USER | arasul | Database user |
-| POSTGRES_PASSWORD | (required) | Database password |
-| POSTGRES_DB | arasul_db | Database name |
-| JWT_SECRET | (required) | JWT signing key (32+ chars) |
-| JWT_EXPIRY | 24h | Token expiration |
-| LLM_HOST | llm-service | LLM service host |
-| LLM_PORT | 11434 | LLM service port |
-| LLM_MANAGEMENT_PORT | 11436 | LLM management API port |
-| EMBEDDING_SERVICE_HOST | embedding-service | Embedding host |
-| EMBEDDING_SERVICE_PORT | 11435 | Embedding port |
-| QDRANT_HOST | qdrant | Vector DB host |
-| QDRANT_PORT | 6333 | Vector DB port |
-| MINIO_HOST | minio | Object storage host |
-| MINIO_PORT | 9000 | Object storage port |
-| MINIO_ROOT_USER | (required) | MinIO access key |
-| MINIO_ROOT_PASSWORD | (required) | MinIO secret key |
-| ALLOWED_ORIGINS | (empty) | CORS allowed origins |
-| LOG_LEVEL | info | Winston log level |
+| Variable               | Default           | Description                 |
+| ---------------------- | ----------------- | --------------------------- |
+| PORT                   | 3001              | Server port                 |
+| POSTGRES_HOST          | postgres-db       | Database host               |
+| POSTGRES_PORT          | 5432              | Database port               |
+| POSTGRES_USER          | arasul            | Database user               |
+| POSTGRES_PASSWORD      | (required)        | Database password           |
+| POSTGRES_DB            | arasul_db         | Database name               |
+| JWT_SECRET             | (required)        | JWT signing key (32+ chars) |
+| JWT_EXPIRY             | 24h               | Token expiration            |
+| LLM_HOST               | llm-service       | LLM service host            |
+| LLM_PORT               | 11434             | LLM service port            |
+| LLM_MANAGEMENT_PORT    | 11436             | LLM management API port     |
+| EMBEDDING_SERVICE_HOST | embedding-service | Embedding host              |
+| EMBEDDING_SERVICE_PORT | 11435             | Embedding port              |
+| QDRANT_HOST            | qdrant            | Vector DB host              |
+| QDRANT_PORT            | 6333              | Vector DB port              |
+| MINIO_HOST             | minio             | Object storage host         |
+| MINIO_PORT             | 9000              | Object storage port         |
+| MINIO_ROOT_USER        | (required)        | MinIO access key            |
+| MINIO_ROOT_PASSWORD    | (required)        | MinIO secret key            |
+| ALLOWED_ORIGINS        | (empty)           | CORS allowed origins        |
+| LOG_LEVEL              | info              | Winston log level           |
 
 ## Development
 
@@ -466,18 +465,18 @@ npm run test:integration
 
 ### Test Categories
 
-| Category | Files | Focus |
-|----------|-------|-------|
-| Unit | 14 | Individual functions |
-| Integration | 4 | API endpoints |
-| Security | 1 | Auth, rate limiting |
+| Category    | Files | Focus                |
+| ----------- | ----- | -------------------- |
+| Unit        | 14    | Individual functions |
+| Integration | 4     | API endpoints        |
+| Security    | 1     | Auth, rate limiting  |
 
 ### Telegram Tests
 
-| File | Tests | Coverage |
-|------|-------|----------|
-| `unit/telegramWebSocket.test.js` | 28 | WebSocket service methods |
-| `integration/telegramZeroConfig.test.js` | 14 | Zero-Config API flow |
+| File                                     | Tests | Coverage                  |
+| ---------------------------------------- | ----- | ------------------------- |
+| `unit/telegramWebSocket.test.js`         | 28    | WebSocket service methods |
+| `integration/telegramZeroConfig.test.js` | 14    | Zero-Config API flow      |
 
 ## Error Handling
 
@@ -496,15 +495,15 @@ const { ValidationError, NotFoundError, ForbiddenError } = require('../utils/err
 
 ### Error Codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| VALIDATION_ERROR | 400 | Invalid input data |
-| UNAUTHORIZED | 401 | Missing/invalid token |
-| FORBIDDEN | 403 | Insufficient permissions |
-| NOT_FOUND | 404 | Resource not found |
-| CONFLICT | 409 | Resource conflict |
-| RATE_LIMITED | 429 | Too many requests |
-| INTERNAL_ERROR | 500 | Server error |
+| Code             | HTTP Status | Description              |
+| ---------------- | ----------- | ------------------------ |
+| VALIDATION_ERROR | 400         | Invalid input data       |
+| UNAUTHORIZED     | 401         | Missing/invalid token    |
+| FORBIDDEN        | 403         | Insufficient permissions |
+| NOT_FOUND        | 404         | Resource not found       |
+| CONFLICT         | 409         | Resource conflict        |
+| RATE_LIMITED     | 429         | Too many requests        |
+| INTERNAL_ERROR   | 500         | Server error             |
 
 ## Dependencies
 

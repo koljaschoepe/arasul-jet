@@ -82,9 +82,20 @@ function ChatMulti() {
   const { tokenBatchRef, flushTokenBatch, addTokenToBatch, resetTokenBatch } =
     useTokenBatching(setMessages);
 
-  // Keep ref in sync with state
+  // Keep ref in sync with state + abort previous chat's streams (RC-003)
   useEffect(() => {
+    const previousChatId = currentChatIdRef.current;
     currentChatIdRef.current = currentChatId;
+
+    // RC-003: Abort previous chat's active stream to prevent resource leaks
+    if (
+      previousChatId &&
+      previousChatId !== currentChatId &&
+      abortControllersRef.current[previousChatId]
+    ) {
+      abortControllersRef.current[previousChatId].abort();
+      delete abortControllersRef.current[previousChatId];
+    }
   }, [currentChatId]);
 
   // CLEANUP-001: Cleanup all abort controllers and timers on unmount
@@ -220,16 +231,8 @@ function ChatMulti() {
     // Increment generation counter - any ongoing async operations for previous chat will be ignored
     const currentGeneration = ++generationRef.current;
 
-    // Abort any ongoing operations for the previous chat
-    const previousChatId = currentChatIdRef.current;
-    if (
-      previousChatId &&
-      previousChatId !== chatId &&
-      abortControllersRef.current[previousChatId]
-    ) {
-      abortControllersRef.current[previousChatId].abort();
-      delete abortControllersRef.current[previousChatId];
-    }
+    // RC-003: Abort of previous chat's stream is handled by the ref-syncing effect,
+    // which fires before this effect and captures previousChatId before updating the ref.
 
     // Reset UI state
     setIsLoading(false);

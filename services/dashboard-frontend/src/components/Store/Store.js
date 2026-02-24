@@ -42,7 +42,7 @@ function Store() {
     loadSystemInfo();
   }, []);
 
-  // Debounced search
+  // Debounced search with AbortController for race condition prevention (STORE-003)
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults({ models: [], apps: [] });
@@ -51,24 +51,32 @@ function Store() {
     }
 
     setIsSearching(true);
+    const controller = new AbortController();
     const timeoutId = setTimeout(async () => {
       try {
         const response = await fetch(
           `${API_BASE}/store/search?q=${encodeURIComponent(searchQuery)}`,
-          { headers: getAuthHeaders() }
+          { headers: getAuthHeaders(), signal: controller.signal }
         );
         if (response.ok) {
           const data = await response.json();
           setSearchResults(data);
+        } else {
+          toast.error('Suche fehlgeschlagen');
         }
       } catch (err) {
-        toast.error('Suche fehlgeschlagen');
+        if (err.name !== 'AbortError') {
+          toast.error('Suche fehlgeschlagen');
+        }
       } finally {
         setIsSearching(false);
       }
     }, 300);
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [searchQuery]);
 
   // Determine active tab from URL

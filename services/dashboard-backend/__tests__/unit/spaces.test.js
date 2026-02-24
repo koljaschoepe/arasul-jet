@@ -16,6 +16,12 @@ const request = require('supertest');
 // Mock database module
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
+  // DB-003: transaction mock - passes a client-like object that delegates to query mock
+  transaction: jest.fn(async (callback) => {
+    const db = require('../../src/database');
+    const client = { query: db.query };
+    return callback(client);
+  }),
   initialize: jest.fn().mockResolvedValue(true),
   getPoolStats: jest.fn().mockReturnValue({ total: 10, idle: 5, waiting: 0 })
 }));

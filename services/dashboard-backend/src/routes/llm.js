@@ -104,12 +104,16 @@ router.post(
         res.on('error', error => {
           logger.debug(`[JOB ${jobId}] Response error: ${error.message}`);
           clientConnected = false;
-          if (unsubscribe) {unsubscribe();}
+          if (unsubscribe) {
+            unsubscribe();
+          }
         });
 
         // Subscribe to job updates and forward to client
         unsubscribe = llmQueueService.subscribeToJob(jobId, event => {
-          if (!clientConnected) {return;}
+          if (!clientConnected) {
+            return;
+          }
 
           try {
             res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -300,7 +304,9 @@ router.get(
         pollInterval = null;
       }
       clientConnected = false;
-      if (unsubscribe) {unsubscribe();}
+      if (unsubscribe) {
+        unsubscribe();
+      }
     });
 
     // Subscribe to job updates
@@ -313,6 +319,15 @@ router.get(
         res.write(`data: ${JSON.stringify(event)}\n\n`);
 
         if (event.done) {
+          // WS-002: Clean up subscription and poll before ending response
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          clientConnected = false;
+          if (unsubscribe) {
+            unsubscribe();
+          }
           res.end();
         }
       } catch (err) {
@@ -339,6 +354,11 @@ router.get(
               `data: ${JSON.stringify({ done: true, status: 'error', error: 'Job not found' })}\n\n`
             );
             clearInterval(pollInterval);
+            pollInterval = null;
+            clientConnected = false;
+            if (unsubscribe) {
+              unsubscribe();
+            }
             res.end();
             return;
           }
@@ -354,6 +374,11 @@ router.get(
               })}\n\n`
             );
             clearInterval(pollInterval);
+            pollInterval = null;
+            clientConnected = false;
+            if (unsubscribe) {
+              unsubscribe();
+            }
             res.end();
             return;
           }
@@ -367,6 +392,11 @@ router.get(
               })}\n\n`
             );
             clearInterval(pollInterval);
+            pollInterval = null;
+            clientConnected = false;
+            if (unsubscribe) {
+              unsubscribe();
+            }
             res.end();
             return;
           }

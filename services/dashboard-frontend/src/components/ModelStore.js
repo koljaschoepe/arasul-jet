@@ -113,6 +113,15 @@ function ModelStore() {
     return unsubscribe;
   }, [onDownloadComplete, loadData]);
 
+  // RC-003: Cleanup activation stream on unmount
+  useEffect(() => {
+    return () => {
+      if (activateAbortRef.current) {
+        activateAbortRef.current.abort();
+      }
+    };
+  }, []);
+
   // Download model using global download context
   // Downloads persist even when navigating away from this page
   const handleDownload = (modelId, modelName) => {
@@ -121,6 +130,8 @@ function ModelStore() {
 
   // ML-002 FIX: Ref to prevent double-click race condition
   const activatingRef = useRef(false);
+  // RC-003: AbortController for activation SSE stream (cleanup on unmount)
+  const activateAbortRef = useRef(null);
 
   // Activate model - improved with progress feedback and double-click protection
   const handleActivate = async modelId => {
@@ -131,6 +142,10 @@ function ModelStore() {
     }
     activatingRef.current = true;
 
+    // RC-003: Create AbortController for activation SSE stream
+    const abortController = new AbortController();
+    activateAbortRef.current = abortController;
+
     setActivating(modelId);
     setActivatingProgress('Initialisiere...');
     setActivatingPercent(0);
@@ -140,6 +155,7 @@ function ModelStore() {
       const response = await fetch(`${API_BASE}/models/${modelId}/activate?stream=true`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
@@ -188,6 +204,7 @@ function ModelStore() {
         }
       }
     } catch (err) {
+      if (err.name === 'AbortError') return; // RC-003: Unmount or intentional cancel
       console.error('Activation error:', err);
       setError('Aktivierung fehlgeschlagen. Bitte versuche es erneut.');
     } finally {
@@ -195,6 +212,7 @@ function ModelStore() {
       setActivatingProgress('');
       setActivatingPercent(0);
       activatingRef.current = false; // ML-002: Reset guard
+      activateAbortRef.current = null; // RC-003: Clear abort ref
     }
   };
 

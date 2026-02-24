@@ -171,7 +171,8 @@ function SetupWizard({ onComplete, onSkip }) {
   const fetchModels = useCallback(async () => {
     setModelsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/models`, {
+      // SETUP-001 FIX: Use correct endpoint (GET /api/models returns 404)
+      const response = await fetch(`${API_BASE}/models/installed`, {
         headers: getAuthHeaders(),
       });
       if (response.ok) {

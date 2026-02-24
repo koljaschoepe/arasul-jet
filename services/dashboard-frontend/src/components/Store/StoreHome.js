@@ -84,19 +84,43 @@ function StoreHome({ systemInfo }) {
     startDownload(modelId, modelName);
   };
 
-  // Handle model activation
+  // Handle model activation with SSE streaming for progress feedback
   const handleModelActivate = async modelId => {
     setActionLoading(prev => ({ ...prev, [modelId]: 'activating' }));
     try {
-      const response = await fetch(`${API_BASE}/models/${modelId}/activate`, {
+      // STORE-002 FIX: Add Content-Type header and ?stream=true for progress feedback
+      const response = await fetch(`${API_BASE}/models/${modelId}/activate?stream=true`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       });
       if (!response.ok) throw new Error('Aktivierung fehlgeschlagen');
+
+      // Consume SSE stream (just wait for completion, StoreHome doesn't show detailed progress)
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              if (data.error) throw new Error(data.error);
+            } catch (e) {
+              if (e.message && e.message !== 'Unexpected end of JSON input') throw e;
+            }
+          }
+        }
+      }
+
       await loadRecommendations();
     } catch (err) {
       console.error('Activation error:', err);
-      toast.error('Aktivierung fehlgeschlagen');
+      toast.error(err.message || 'Aktivierung fehlgeschlagen');
     } finally {
       setActionLoading(prev => ({ ...prev, [modelId]: null }));
     }
@@ -108,7 +132,7 @@ function StoreHome({ systemInfo }) {
     try {
       const response = await fetch(`${API_BASE}/apps/${appId}/${action}`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       });
       if (!response.ok) throw new Error(`${action} fehlgeschlagen`);
       await loadRecommendations();
