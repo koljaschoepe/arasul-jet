@@ -351,16 +351,18 @@ function AppContent() {
   // Show setup wizard if setup is not complete
   if (showSetupWizard) {
     return (
-      <SetupWizard
-        onComplete={() => {
-          setShowSetupWizard(false);
-          setSetupComplete(true);
-        }}
-        onSkip={() => {
-          setShowSetupWizard(false);
-          setSetupComplete(true);
-        }}
-      />
+      <DownloadProvider>
+        <SetupWizard
+          onComplete={() => {
+            setShowSetupWizard(false);
+            setSetupComplete(true);
+          }}
+          onSkip={() => {
+            setShowSetupWizard(false);
+            setSetupComplete(true);
+          }}
+        />
+      </DownloadProvider>
     );
   }
 

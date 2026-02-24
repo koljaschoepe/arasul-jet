@@ -32,7 +32,11 @@ import {
   FiFileText,
   FiZap,
   FiCoffee,
+  FiStar,
+  FiDownload,
+  FiInfo,
 } from 'react-icons/fi';
+import { useDownloads } from '../contexts/DownloadContext';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import './SetupWizard.css';
 
@@ -88,6 +92,21 @@ const ANSWER_STYLES = [
   },
 ];
 
+const MODEL_CATEGORIES = {
+  small: { title: 'Schnell & Kompakt', desc: '7-12 GB RAM' },
+  medium: { title: 'Ausgewogen', desc: '15-25 GB RAM' },
+  large: { title: 'Leistungsstark', desc: '30-40 GB RAM' },
+  xlarge: { title: 'Maximum', desc: '45+ GB RAM' },
+};
+
+const RECOMMENDED_MODEL = 'qwen3:14b-q8';
+
+const formatModelSize = bytes => {
+  if (!bytes) return 'N/A';
+  const gb = bytes / (1024 * 1024 * 1024);
+  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(gb * 1024).toFixed(0)} MB`;
+};
+
 function SetupWizard({ onComplete, onSkip }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -123,6 +142,9 @@ function SetupWizard({ onComplete, onSkip }) {
   // Step 5: System info
   const [systemInfo, setSystemInfo] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState(null);
+
+  // Downloads (DownloadContext)
+  const { startDownload, getDownloadState } = useDownloads();
 
   // Save step progress
   const saveStepProgress = useCallback(
@@ -178,16 +200,22 @@ function SetupWizard({ onComplete, onSkip }) {
   // Step navigation
   const goNext = useCallback(() => {
     if (currentStep < 6) {
-      // Auto-save profile when leaving step 2
       if (currentStep === 2 && !profileSaved) {
         saveProfile();
+      }
+      // Trigger model download when leaving step 5
+      if (currentStep === 5 && selectedModel) {
+        const model = models.find(m => m.id === selectedModel);
+        if (model && model.install_status !== 'available') {
+          startDownload(selectedModel, model.name);
+        }
       }
       const nextStep = currentStep + 1;
       setCurrentStep(nextStep);
       setError('');
       saveStepProgress(nextStep);
     }
-  }, [currentStep, saveStepProgress, profileSaved]);
+  }, [currentStep, saveStepProgress, profileSaved, selectedModel, models, startDownload]);
 
   const goBack = useCallback(() => {
     if (currentStep > 1) {
@@ -266,20 +294,19 @@ function SetupWizard({ onComplete, onSkip }) {
     }
   }, []);
 
-  // Step 4: Fetch available models
+  // Step 4: Fetch model catalog
   const fetchModels = useCallback(async () => {
     setModelsLoading(true);
     try {
-      // SETUP-001 FIX: Use correct endpoint (GET /api/models returns 404)
-      const response = await fetch(`${API_BASE}/models/installed`, {
+      const response = await fetch(`${API_BASE}/models/catalog`, {
         headers: getAuthHeaders(),
       });
       if (response.ok) {
         const data = await response.json();
-        setModels(data.models || []);
-        // Auto-select first model if none selected
-        if (!selectedModel && data.models?.length > 0) {
-          setSelectedModel(data.models[0].id || data.models[0].name);
+        const llmModels = (data.models || []).filter(m => (m.model_type || 'llm') === 'llm');
+        setModels(llmModels);
+        if (!selectedModel) {
+          setSelectedModel(RECOMMENDED_MODEL);
         }
       }
     } catch {
@@ -320,6 +347,18 @@ function SetupWizard({ onComplete, onSkip }) {
     setError('');
 
     try {
+      // Set default model if already installed
+      if (selectedModel) {
+        const model = models.find(m => m.id === selectedModel);
+        if (model?.install_status === 'available') {
+          await fetch(`${API_BASE}/models/default`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ model_id: selectedModel }),
+          }).catch(() => {});
+        }
+      }
+
       const response = await fetch(`${API_BASE}/system/setup-complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -714,64 +753,108 @@ function SetupWizard({ onComplete, onSkip }) {
 
           {/* Step 5: AI Models */}
           {currentStep === 5 && (
-            <div className="setup-step-content">
+            <div className="setup-step-content model-step">
               <div className="step-icon-large">
                 <FiCpu />
               </div>
               <h2>KI-Modell auswählen</h2>
               <p className="step-description">
-                Wählen Sie das Standard-Sprachmodell für den KI-Chat.
+                Wählen Sie ein Startmodell für Ihren KI-Assistenten. Es wird im Hintergrund
+                heruntergeladen.
               </p>
 
               {modelsLoading ? (
                 <div className="setup-loading">
                   <FiLoader className="spin" />
-                  <p>Modelle werden geladen...</p>
+                  <p>Modell-Katalog wird geladen...</p>
                 </div>
               ) : models.length > 0 ? (
-                <div className="model-selection">
-                  {models.map(model => {
-                    const modelId = model.id || model.name;
+                <>
+                  {['small', 'medium', 'large', 'xlarge'].map(cat => {
+                    const catModels = models.filter(m => m.category === cat);
+                    if (catModels.length === 0) return null;
+                    const catInfo = MODEL_CATEGORIES[cat];
                     return (
-                      <label
-                        key={modelId}
-                        className={`model-option ${selectedModel === modelId ? 'selected' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name="model"
-                          value={modelId}
-                          checked={selectedModel === modelId}
-                          onChange={() => setSelectedModel(modelId)}
-                        />
-                        <div className="model-info">
-                          <strong>{model.name || modelId}</strong>
-                          {model.size && (
-                            <span className="model-size">
-                              <FiHardDrive /> {(model.size / 1e9).toFixed(1)} GB
-                            </span>
-                          )}
-                          {model.parameter_size && (
-                            <span className="model-params">{model.parameter_size}</span>
-                          )}
+                      <div key={cat} className="model-category">
+                        <div className="model-category-header">
+                          <span className="model-category-title">{catInfo.title}</span>
+                          <span className="model-category-desc">{catInfo.desc}</span>
                         </div>
-                        <div
-                          className={`model-radio ${selectedModel === modelId ? 'checked' : ''}`}
-                        >
-                          {selectedModel === modelId && <FiCheck />}
-                        </div>
-                      </label>
+                        {catModels.map(model => {
+                          const isSelected = selectedModel === model.id;
+                          const isRecommended = model.id === RECOMMENDED_MODEL;
+                          const isInstalled = model.install_status === 'available';
+                          const dlState = getDownloadState(model.id);
+                          return (
+                            <button
+                              key={model.id}
+                              type="button"
+                              className={`model-catalog-card ${isSelected ? 'selected' : ''}`}
+                              onClick={() => setSelectedModel(model.id)}
+                            >
+                              <div className="model-catalog-top">
+                                <span className="model-catalog-name">{model.name}</span>
+                                <div className="model-catalog-badges">
+                                  {isRecommended && (
+                                    <span className="badge-recommended">
+                                      <FiStar /> Empfohlen
+                                    </span>
+                                  )}
+                                  {isInstalled && (
+                                    <span className="badge-installed">
+                                      <FiCheck /> Installiert
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="model-catalog-desc">{model.description}</span>
+                              <div className="model-catalog-meta">
+                                <span>
+                                  <FiDownload /> {formatModelSize(model.size_bytes)}
+                                </span>
+                                <span>
+                                  <FiHardDrive /> {model.ram_required_gb} GB RAM
+                                </span>
+                              </div>
+                              {dlState && (
+                                <div className="model-download-inline">
+                                  <div className="model-download-bar">
+                                    <div
+                                      className="model-download-fill"
+                                      style={{ width: `${dlState.progress}%` }}
+                                    />
+                                  </div>
+                                  <span className="model-download-text">
+                                    {dlState.status} ({dlState.progress}%)
+                                  </span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     );
                   })}
-                </div>
+
+                  <div className="setup-info-box">
+                    <FiInfo className="info-icon" />
+                    <div>
+                      <p>
+                        Das Standardmodell kann später jederzeit unter{' '}
+                        <strong>Store &rarr; Modelle</strong> geändert werden. Weitere Modelle
+                        können dort ebenfalls heruntergeladen werden.
+                      </p>
+                    </div>
+                  </div>
+                </>
               ) : (
                 <div className="setup-info-box">
                   <FiAlertCircle className="info-icon" />
                   <div>
-                    <strong>Keine Modelle gefunden</strong>
+                    <strong>Keine Modelle verfügbar</strong>
                     <p>
-                      Der LLM-Service ist möglicherweise noch nicht bereit. Modelle können später im
-                      Store heruntergeladen werden.
+                      Der Modell-Katalog konnte nicht geladen werden. Modelle können später im Store
+                      heruntergeladen werden.
                     </p>
                   </div>
                 </div>
@@ -837,7 +920,36 @@ function SetupWizard({ onComplete, onSkip }) {
 
                 <div className="summary-item">
                   <span className="summary-label">KI-Modell</span>
-                  <span className="summary-value">{selectedModel || 'Keins ausgewählt'}</span>
+                  <span className="summary-value">
+                    {selectedModel ? (
+                      <>
+                        {models.find(m => m.id === selectedModel)?.name || selectedModel}
+                        {(() => {
+                          const dlState = getDownloadState(selectedModel);
+                          if (!dlState) return null;
+                          if (dlState.phase === 'complete')
+                            return (
+                              <span className="summary-ok" style={{ marginLeft: '0.5rem' }}>
+                                <FiCheck /> Fertig
+                              </span>
+                            );
+                          if (dlState.phase === 'error')
+                            return (
+                              <span className="summary-warn" style={{ marginLeft: '0.5rem' }}>
+                                <FiAlertCircle /> Fehler
+                              </span>
+                            );
+                          return (
+                            <span className="summary-info" style={{ marginLeft: '0.5rem' }}>
+                              <FiLoader className="spin" /> {dlState.progress}%
+                            </span>
+                          );
+                        })()}
+                      </>
+                    ) : (
+                      'Keins ausgewählt'
+                    )}
+                  </span>
                 </div>
 
                 {deviceInfo && (
