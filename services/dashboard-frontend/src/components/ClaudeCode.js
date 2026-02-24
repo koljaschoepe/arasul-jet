@@ -37,6 +37,7 @@ import {
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import Modal from './Modal';
+import LoadingSpinner from './LoadingSpinner';
 import '../claudecode.css';
 
 // Workspace Manager Modal Component
@@ -1038,34 +1039,31 @@ function ClaudeCode() {
   if (loading) {
     return (
       <div className="claude-code-page">
-        <div className="claude-loading">
-          <div className="claude-loading-spinner"></div>
-          <p>Lade Claude Code...</p>
-          {loadingTimeout && (
-            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-              <p style={{ color: 'var(--warning-color)', marginBottom: '1rem' }}>
-                <FiAlertTriangle style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Laden dauert länger als erwartet.
-              </p>
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    setLoading(true);
-                    setLoadingTimeout(false);
-                    loadAppData();
-                  }}
-                >
-                  <FiRefreshCw /> Erneut versuchen
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>
-                  Zurück zum Dashboard
-                </button>
-              </div>
+        <LoadingSpinner message="Claude Code wird geladen..." />
+        {loadingTimeout && (
+          <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+            <p style={{ color: 'var(--warning-color)', marginBottom: '1rem' }}>
+              <FiAlertTriangle style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              Laden dauert länger als erwartet.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setLoading(true);
+                  setLoadingTimeout(false);
+                  loadAppData();
+                }}
+              >
+                <FiRefreshCw /> Erneut versuchen
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>
+                Zurück zum Dashboard
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }

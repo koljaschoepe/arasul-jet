@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { SkeletonList } from './Skeleton';
+import EmptyState from './EmptyState';
 import {
   FiRefreshCw,
   FiInfo,
@@ -222,13 +223,13 @@ const SelfHealingEvents = () => {
 
       {/* Events List */}
       {filteredEvents.length === 0 ? (
-        <div className="no-events">
-          <FiCheckCircle className="no-events-icon" />
-          <p>No events found</p>
-          <p className="no-events-subtext">
-            {filter === 'all' ? 'The system is running smoothly' : `No ${filter} events recorded`}
-          </p>
-        </div>
+        <EmptyState
+          icon={<FiCheckCircle />}
+          title="No events found"
+          description={
+            filter === 'all' ? 'The system is running smoothly' : `No ${filter} events recorded`
+          }
+        />
       ) : (
         <div className="events-list">
           {filteredEvents.map(event => (

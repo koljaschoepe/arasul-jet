@@ -22,6 +22,7 @@ import {
 import { API_BASE, getAuthHeaders as getAuthHeadersBase } from '../../config/api';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../Modal';
+import LoadingSpinner from '../LoadingSpinner';
 import CommandsEditor from './CommandsEditor';
 
 const TABS = [
@@ -305,7 +306,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
     <div className="bot-details-commands">
       {loadingCommands ? (
         <div className="bot-details-loading">
-          <div className="loading-spinner" />
+          <LoadingSpinner size="small" message="" />
           <span>Lade Befehle...</span>
         </div>
       ) : (
@@ -324,7 +325,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
     <div className="bot-details-chats">
       {loadingChats ? (
         <div className="bot-details-loading">
-          <div className="loading-spinner" />
+          <LoadingSpinner size="small" message="" />
           <span>Lade Chats...</span>
         </div>
       ) : chats.length === 0 ? (

@@ -35,6 +35,7 @@ import {
 import { API_BASE, getAuthHeaders } from '../../config/api';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
+import LoadingSpinner from '../LoadingSpinner';
 import './Database.css';
 
 // Maximum undo history size
@@ -1298,10 +1299,7 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
     return (
       <div className="excel-fullscreen">
         <div className="excel-container">
-          <div className="excel-loading">
-            <FiRefreshCw className="spin" />
-            <p>Lade Tabelle...</p>
-          </div>
+          <LoadingSpinner message="Tabelle wird geladen..." />
         </div>
       </div>
     );

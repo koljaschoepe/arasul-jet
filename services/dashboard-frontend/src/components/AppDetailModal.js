@@ -22,6 +22,7 @@ import {
 } from 'react-icons/fi';
 import ConfirmIconButton from './ConfirmIconButton';
 import Modal from './Modal';
+import EmptyState from './EmptyState';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { formatDate } from '../utils/formatting';
 
@@ -454,7 +455,7 @@ function AppDetailModal({
                 ))}
               </div>
             ) : (
-              <div className="empty">Keine Events vorhanden</div>
+              <EmptyState icon={<FiInfo />} title="Keine Events vorhanden" />
             )}
           </div>
         )}

@@ -11,6 +11,7 @@ import {
   FiRefreshCw,
 } from 'react-icons/fi';
 import { formatDate } from '../utils/formatting';
+import EmptyState from './EmptyState';
 import './UpdatePage.css';
 
 const UpdatePage = () => {
@@ -339,11 +340,13 @@ const UpdatePage = () => {
               ))}
             </div>
           ) : (
-            <p className="no-data">
-              {usbScanning
-                ? 'USB-Geraete werden gesucht...'
-                : 'Kein USB-Geraet mit Update-Paket gefunden. Bitte USB-Stick einstecken und erneut scannen.'}
-            </p>
+            <EmptyState
+              icon={<FiHardDrive />}
+              title={usbScanning ? 'USB-Geraete werden gesucht...' : 'Kein USB-Geraet gefunden'}
+              description={
+                usbScanning ? undefined : 'Bitte USB-Stick einstecken und erneut scannen.'
+              }
+            />
           )}
         </div>
       )}
@@ -528,7 +531,7 @@ const UpdatePage = () => {
         <h3>Update-Verlauf</h3>
 
         {updateHistory.length === 0 ? (
-          <p className="no-data">Kein Update-Verlauf vorhanden</p>
+          <EmptyState icon={<FiPackage />} title="Kein Update-Verlauf vorhanden" />
         ) : (
           <div className="history-table">
             <table>
