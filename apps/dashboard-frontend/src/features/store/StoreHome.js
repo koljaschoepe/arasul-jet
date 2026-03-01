@@ -21,10 +21,11 @@ import {
 } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
 import { useToast } from '../../contexts/ToastContext';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { formatModelSize as formatSize } from '../../utils/formatting';
 
 function StoreHome({ systemInfo }) {
+  const api = useApi();
   const toast = useToast();
   const [recommendations, setRecommendations] = useState({ models: [], apps: [] });
   const [loading, setLoading] = useState(true);
@@ -37,18 +38,11 @@ function StoreHome({ systemInfo }) {
   // Load recommendations
   const loadRecommendations = useCallback(async () => {
     try {
-      const headers = getAuthHeaders();
-
-      // Fetch recommendations and model status in parallel
-      const [recsRes, statusRes] = await Promise.all([
-        fetch(`${API_BASE}/store/recommendations`, { headers }),
-        fetch(`${API_BASE}/models/status`, { headers }),
+      const opts = { showError: false };
+      const [recsData, statusData] = await Promise.all([
+        api.get('/store/recommendations', opts),
+        api.get('/models/status', opts).catch(() => ({})),
       ]);
-
-      if (!recsRes.ok) throw new Error('Fehler beim Laden der Empfehlungen');
-
-      const recsData = await recsRes.json();
-      const statusData = statusRes.ok ? await statusRes.json() : {};
 
       setRecommendations(recsData);
       setLoadedModel(statusData.loaded_model);
@@ -59,7 +53,7 @@ function StoreHome({ systemInfo }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     loadRecommendations();
@@ -82,12 +76,10 @@ function StoreHome({ systemInfo }) {
   const handleModelActivate = async modelId => {
     setActionLoading(prev => ({ ...prev, [modelId]: 'activating' }));
     try {
-      // STORE-002 FIX: Add Content-Type header and ?stream=true for progress feedback
-      const response = await fetch(`${API_BASE}/models/${modelId}/activate?stream=true`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      const response = await api.post(`/models/${modelId}/activate?stream=true`, null, {
+        raw: true,
+        showError: false,
       });
-      if (!response.ok) throw new Error('Aktivierung fehlgeschlagen');
 
       // Consume SSE stream (just wait for completion, StoreHome doesn't show detailed progress)
       const reader = response.body.getReader();
@@ -124,11 +116,7 @@ function StoreHome({ systemInfo }) {
   const handleAppAction = async (appId, action) => {
     setActionLoading(prev => ({ ...prev, [appId]: action }));
     try {
-      const response = await fetch(`${API_BASE}/apps/${appId}/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      });
-      if (!response.ok) throw new Error(`${action} fehlgeschlagen`);
+      await api.post(`/apps/${appId}/${action}`, null, { showError: false });
       await loadRecommendations();
     } catch (err) {
       console.error(`App ${action} error:`, err);

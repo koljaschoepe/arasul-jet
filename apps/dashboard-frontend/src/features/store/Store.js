@@ -11,12 +11,13 @@ import { useDownloads } from '../../contexts/DownloadContext';
 import StoreHome from './StoreHome';
 import StoreModels from './StoreModels';
 import StoreApps from './StoreApps';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import './Store.css';
 
 function Store() {
+  const api = useApi();
   const toast = useToast();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,13 +29,8 @@ function Store() {
   useEffect(() => {
     const loadSystemInfo = async () => {
       try {
-        const response = await fetch(`${API_BASE}/store/info`, {
-          headers: getAuthHeaders(),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setSystemInfo(data);
-        }
+        const data = await api.get('/store/info', { showError: false });
+        setSystemInfo(data);
       } catch (err) {
         toast.error('Systeminfo konnte nicht geladen werden');
       }
@@ -54,16 +50,11 @@ function Store() {
     const controller = new AbortController();
     const timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(
-          `${API_BASE}/store/search?q=${encodeURIComponent(searchQuery)}`,
-          { headers: getAuthHeaders(), signal: controller.signal }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setSearchResults(data);
-        } else {
-          toast.error('Suche fehlgeschlagen');
-        }
+        const data = await api.get(`/store/search?q=${encodeURIComponent(searchQuery)}`, {
+          signal: controller.signal,
+          showError: false,
+        });
+        setSearchResults(data);
       } catch (err) {
         if (err.name !== 'AbortError') {
           toast.error('Suche fehlgeschlagen');

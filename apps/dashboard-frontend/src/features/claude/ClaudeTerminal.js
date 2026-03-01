@@ -14,11 +14,12 @@ import {
   FiCheck,
 } from 'react-icons/fi';
 import { formatDate } from '../../utils/formatting';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import './ClaudeTerminal.css';
 
 function ClaudeTerminal() {
+  const api = useApi();
   const toast = useToast();
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState('');
@@ -48,10 +49,7 @@ function ClaudeTerminal() {
 
   const checkStatus = async () => {
     try {
-      const res = await fetch(`${API_BASE}/claude-terminal/status`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
+      const data = await api.get('/claude-terminal/status', { showError: false });
       setStatus(data);
     } catch (err) {
       setStatus({ available: false, error: 'Could not check service status' });
@@ -60,13 +58,8 @@ function ClaudeTerminal() {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/claude-terminal/history?limit=10`, {
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setHistory(data.queries || []);
-      }
+      const data = await api.get('/claude-terminal/history?limit=10', { showError: false });
+      setHistory(data.queries || []);
     } catch (err) {
       toast.error('Verlauf konnte nicht geladen werden');
     }
@@ -74,14 +67,9 @@ function ClaudeTerminal() {
 
   const clearHistory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/claude-terminal/history`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        setHistory([]);
-        toast.success('Verlauf gelöscht');
-      }
+      await api.del('/claude-terminal/history', { showError: false });
+      setHistory([]);
+      toast.success('Verlauf gelöscht');
     } catch (err) {
       toast.error('Verlauf konnte nicht gelöscht werden');
     }
@@ -108,21 +96,14 @@ function ClaudeTerminal() {
     setStats(null);
 
     try {
-      const res = await fetch(`${API_BASE}/claude-terminal/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      const res = await api.post(
+        '/claude-terminal/query',
+        {
           query: query.trim(),
           includeContext,
-        }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        setError(errorData.error || 'Request failed');
-        setActionLoading(false);
-        return;
-      }
+        },
+        { raw: true, showError: false }
+      );
 
       // Handle SSE stream
       const reader = res.body.getReader();
@@ -162,7 +143,7 @@ function ClaudeTerminal() {
         }
       }
     } catch (err) {
-      setError(err.message || 'Network error');
+      setError(err.data?.error || err.message || 'Network error');
     } finally {
       setActionLoading(false);
     }

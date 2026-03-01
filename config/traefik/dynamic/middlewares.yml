@@ -215,7 +215,7 @@ http:
     # PHASE1-FIX (SEC-NEW-003): CRITICAL SECURITY WARNING
     # These credentials are PLACEHOLDERS - you MUST regenerate before production!
     # Generate new hash: htpasswd -nb <username> <password>
-    # Or use: scripts/generate_htpasswd.sh <username> <password>
+    # Or use: scripts/security/generate_htpasswd.sh <username> <password>
     # Then replace the hash below with the generated output
     basicAuth-traefik:
       basicAuth:
@@ -228,12 +228,12 @@ http:
     # Basic Auth for n8n
     # PHASE1-FIX (SEC-NEW-003): CRITICAL SECURITY WARNING
     # These credentials are PLACEHOLDERS - you MUST regenerate before production!
-    # Generate new hash: scripts/generate_htpasswd.sh <username> <password>
+    # Generate new hash: scripts/security/generate_htpasswd.sh <username> <password>
     # Then replace the hash below with the generated output
     basicAuth-n8n:
       basicAuth:
         users:
-          # PLACEHOLDER - Replace with output from: scripts/generate_htpasswd.sh admin <YOUR_SECURE_PASSWORD>
+          # PLACEHOLDER - Replace with output from: scripts/security/generate_htpasswd.sh admin <YOUR_SECURE_PASSWORD>
           - 'admin:$$2y$$05$$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH'
         realm: 'n8n Workflow Engine'
         removeHeader: true

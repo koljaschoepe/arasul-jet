@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect } from 'react';
 import { FiFolder, FiSave, FiAlertCircle, FiCheck, FiTrash2 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import useConfirm from '../../hooks/useConfirm';
 import Modal from '../../components/ui/Modal';
 import './space-modal.css';
@@ -49,6 +49,7 @@ const SpaceModal = memo(function SpaceModal({
   space = null,
   mode = 'create',
 }) {
+  const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
   const [name, setName] = useState('');
   const [description, setDescription] = useState(descriptionTemplate);
@@ -101,29 +102,13 @@ const SpaceModal = memo(function SpaceModal({
         color,
       };
 
-      let response;
+      let data;
       if (mode === 'edit' && space?.id) {
-        response = await fetch(`${API_BASE}/spaces/${space.id}`, {
-          method: 'PUT',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload),
-        });
+        data = await api.put(`/spaces/${space.id}`, payload, { showError: false });
       } else {
-        response = await fetch(`${API_BASE}/spaces`, {
-          method: 'POST',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload),
-        });
+        data = await api.post('/spaces', payload, { showError: false });
       }
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Fehler beim Speichern');
-      }
-
-      const data = await response.json();
       setSuccess(mode === 'edit' ? 'Bereich aktualisiert' : 'Bereich erstellt');
 
       setTimeout(() => {
@@ -131,7 +116,7 @@ const SpaceModal = memo(function SpaceModal({
         onClose();
       }, 500);
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
     } finally {
       setSaving(false);
     }
@@ -152,16 +137,7 @@ const SpaceModal = memo(function SpaceModal({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/spaces/${space.id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Fehler beim Löschen');
-      }
+      await api.del(`/spaces/${space.id}`, { showError: false });
 
       setSuccess('Bereich gelöscht');
       setTimeout(() => {
@@ -169,7 +145,7 @@ const SpaceModal = memo(function SpaceModal({
         onClose();
       }, 500);
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
     } finally {
       setSaving(false);
     }

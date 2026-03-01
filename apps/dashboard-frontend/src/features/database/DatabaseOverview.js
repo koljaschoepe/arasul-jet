@@ -14,7 +14,7 @@ import {
   FiFileText,
   FiRefreshCw,
 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import './Database.css';
@@ -23,6 +23,7 @@ import './Database.css';
  * CreateTableModal - Modal for creating a new table
  */
 const CreateTableModal = memo(function CreateTableModal({ isOpen, onClose, onCreated }) {
+  const api = useApi();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('📦');
@@ -50,16 +51,16 @@ const CreateTableModal = memo(function CreateTableModal({ isOpen, onClose, onCre
     setError(null);
 
     try {
-      await fetch(`${API_BASE}/v1/datentabellen/tables`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      await api.post(
+        '/v1/datentabellen/tables',
+        {
           name: name.trim(),
           description: description.trim() || null,
           icon,
           color,
-        }),
-      });
+        },
+        { showError: false }
+      );
 
       setName('');
       setDescription('');
@@ -68,7 +69,7 @@ const CreateTableModal = memo(function CreateTableModal({ isOpen, onClose, onCre
       onCreated();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Erstellen der Tabelle');
+      setError(err.data?.error || err.message || 'Fehler beim Erstellen der Tabelle');
     } finally {
       setLoading(false);
     }
@@ -200,6 +201,7 @@ const TableCard = memo(function TableCard({ table }) {
  * DatabaseOverview - Main component
  */
 const DatabaseOverview = memo(function DatabaseOverview() {
+  const api = useApi();
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -219,24 +221,27 @@ const DatabaseOverview = memo(function DatabaseOverview() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/v1/datentabellen/tables`, {
-        headers: getAuthHeaders(),
+      const data = await api.get('/v1/datentabellen/tables', {
         signal: fetchAbortRef.current.signal,
+        showError: false,
       });
-      const data = await response.json();
       setTables(data.data || []);
       setError(null);
     } catch (err) {
       // Ignore abort errors
-      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+      if (
+        err.name === 'AbortError' ||
+        err.name === 'CanceledError' ||
+        err.code === 'ERR_CANCELED'
+      ) {
         return;
       }
       console.error('[Database] Fetch error:', err);
-      setError(err.response?.data?.error || 'Fehler beim Laden der Tabellen');
+      setError(err.data?.error || err.message || 'Fehler beim Laden der Tabellen');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     fetchTables();

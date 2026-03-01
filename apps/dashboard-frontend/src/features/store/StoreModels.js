@@ -26,7 +26,7 @@ import {
   FiType,
 } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { sanitizeUrl } from '../../utils/sanitizeUrl';
 import { formatModelSize as formatSize } from '../../utils/formatting';
 
@@ -46,6 +46,7 @@ const typeConfig = {
 };
 
 function StoreModels() {
+  const api = useApi();
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const [searchParams] = useSearchParams();
@@ -70,35 +71,31 @@ function StoreModels() {
   const activatingRef = useRef(false);
 
   // Load catalog and status
-  const loadData = useCallback(async signal => {
-    try {
-      const headers = getAuthHeaders();
+  const loadData = useCallback(
+    async signal => {
+      try {
+        const opts = { signal, showError: false };
+        const [catalogData, statusData, defaultData] = await Promise.all([
+          api.get('/models/catalog', opts),
+          api.get('/models/status', opts).catch(() => ({})),
+          api.get('/models/default', opts).catch(() => ({})),
+        ]);
 
-      const [catalogRes, statusRes, defaultRes] = await Promise.all([
-        fetch(`${API_BASE}/models/catalog`, { headers, signal }),
-        fetch(`${API_BASE}/models/status`, { headers, signal }),
-        fetch(`${API_BASE}/models/default`, { headers, signal }),
-      ]);
-
-      if (!catalogRes.ok) throw new Error('Fehler beim Laden des Katalogs');
-
-      const catalogData = await catalogRes.json();
-      const statusData = statusRes.ok ? await statusRes.json() : {};
-      const defaultData = defaultRes.ok ? await defaultRes.json() : {};
-
-      setCatalog(catalogData.models || []);
-      setLoadedModel(statusData.loaded_model);
-      setQueueByModel(statusData.queue_by_model || []);
-      setDefaultModel(defaultData.default_model);
-      setError(null);
-    } catch (err) {
-      if (signal?.aborted) return;
-      console.error('[StoreModels] Error loading data:', err);
-      setError('Fehler beim Laden der Modell-Daten');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        setCatalog(catalogData.models || []);
+        setLoadedModel(statusData.loaded_model);
+        setQueueByModel(statusData.queue_by_model || []);
+        setDefaultModel(defaultData.default_model);
+        setError(null);
+      } catch (err) {
+        if (signal?.aborted) return;
+        console.error('[StoreModels] Error loading data:', err);
+        setError('Fehler beim Laden der Modell-Daten');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [api]
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -141,15 +138,10 @@ function StoreModels() {
     setActivatingPercent(0);
 
     try {
-      const response = await fetch(`${API_BASE}/models/${modelId}/activate?stream=true`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
+      const response = await api.post(`/models/${modelId}/activate?stream=true`, null, {
+        raw: true,
+        showError: false,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Aktivierung fehlgeschlagen');
-      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -200,14 +192,7 @@ function StoreModels() {
     if (!(await confirm({ message: `Modell "${modelId}" wirklich loeschen?` }))) return;
 
     try {
-      const response = await fetch(`${API_BASE}/models/${modelId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || 'Loeschen fehlgeschlagen');
-      }
+      await api.del(`/models/${modelId}`, { showError: false });
       await loadData();
     } catch (err) {
       console.error('Delete error:', err);
@@ -218,15 +203,7 @@ function StoreModels() {
   // Set as default
   const handleSetDefault = async modelId => {
     try {
-      const response = await fetch(`${API_BASE}/models/default`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ model_id: modelId }),
-      });
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || 'Setzen fehlgeschlagen');
-      }
+      await api.post('/models/default', { model_id: modelId }, { showError: false });
       setDefaultModel(modelId);
     } catch (err) {
       console.error('Set default error:', err);

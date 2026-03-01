@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, memo } from 'react';
 import { FiTable } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import Modal from '../ui/Modal';
 
 const SimpleTableCreateDialog = memo(function SimpleTableCreateDialog({
@@ -16,6 +16,7 @@ const SimpleTableCreateDialog = memo(function SimpleTableCreateDialog({
   spaceId = null,
   spaces = [],
 }) {
+  const api = useApi();
   const [name, setName] = useState('');
   const [selectedSpaceId, setSelectedSpaceId] = useState(spaceId || '');
   const [loading, setLoading] = useState(false);
@@ -43,20 +44,15 @@ const SimpleTableCreateDialog = memo(function SimpleTableCreateDialog({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/v1/datentabellen/tables`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      const responseData = await api.post(
+        '/v1/datentabellen/tables',
+        {
           name: name.trim(),
           createDefaultField: true,
           space_id: selectedSpaceId || null,
-        }),
-      });
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        throw { response: { status: response.status, data: responseData } };
-      }
+        },
+        { showError: false }
+      );
 
       const newTable = responseData.data;
 
@@ -71,10 +67,10 @@ const SimpleTableCreateDialog = memo(function SimpleTableCreateDialog({
       });
     } catch (err) {
       console.error('Error creating table:', err);
-      if (err.response?.status === 409) {
+      if (err.status === 409) {
         setError('Eine Tabelle mit diesem Namen existiert bereits');
       } else {
-        setError(err.response?.data?.error || 'Fehler beim Erstellen der Tabelle');
+        setError(err.data?.error || err.message || 'Fehler beim Erstellen der Tabelle');
       }
     } finally {
       setLoading(false);

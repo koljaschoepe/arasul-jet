@@ -28,7 +28,7 @@ import TelegramSettings from '../telegram/TelegramSettings';
 import ClaudeTerminal from '../claude/ClaudeTerminal';
 import { formatDate } from '../../utils/formatting';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import './settings.css';
 
 function Settings({ handleLogout, theme, onToggleTheme }) {
@@ -200,6 +200,7 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
 
 // Company Context Settings Component (RAG 2.0)
 function CompanyContextSettings() {
+  const api = useApi();
   const [content, setContent] = useState('');
   const [originalContent, setOriginalContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -229,27 +230,24 @@ function CompanyContextSettings() {
 ---
 *Diese Informationen werden bei jeder RAG-Anfrage als Hintergrundkontext bereitgestellt.*`;
 
-  const fetchContent = useCallback(async signal => {
-    try {
-      const response = await fetch(`${API_BASE}/settings/company-context`, {
-        headers: getAuthHeaders(),
-        signal,
-      });
-      if (response.ok) {
-        const data = await response.json();
+  const fetchContent = useCallback(
+    async signal => {
+      try {
+        const data = await api.get('/settings/company-context', { signal, showError: false });
         setContent(data.content || defaultTemplate);
         setOriginalContent(data.content || defaultTemplate);
         setLastUpdated(data.updated_at);
+      } catch (error) {
+        if (signal?.aborted) return;
+        console.error('Error fetching company context:', error);
+        setContent(defaultTemplate);
+        setOriginalContent(defaultTemplate);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      if (signal?.aborted) return;
-      console.error('Error fetching company context:', error);
-      setContent(defaultTemplate);
-      setOriginalContent(defaultTemplate);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [api]
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -262,23 +260,15 @@ function CompanyContextSettings() {
     setMessage(null);
 
     try {
-      const response = await fetch(`${API_BASE}/settings/company-context`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ content }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOriginalContent(content);
-        setLastUpdated(data.updated_at);
-        setMessage({ type: 'success', text: 'Unternehmenskontext erfolgreich gespeichert' });
-      } else {
-        const data = await response.json();
-        setMessage({ type: 'error', text: data.error || 'Fehler beim Speichern' });
-      }
+      const data = await api.put('/settings/company-context', { content }, { showError: false });
+      setOriginalContent(content);
+      setLastUpdated(data.updated_at);
+      setMessage({ type: 'success', text: 'Unternehmenskontext erfolgreich gespeichert' });
     } catch (error) {
-      setMessage({ type: 'error', text: 'Netzwerkfehler beim Speichern' });
+      setMessage({
+        type: 'error',
+        text: error.data?.error || error.message || 'Fehler beim Speichern',
+      });
     } finally {
       setSaving(false);
     }
@@ -541,29 +531,27 @@ function GeneralSettings({ theme, onToggleTheme }) {
 
 // Services Settings Component
 function ServicesSettings() {
+  const api = useApi();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [restartingService, setRestartingService] = useState(null);
   const [confirmRestart, setConfirmRestart] = useState(null);
   const [message, setMessage] = useState(null);
 
-  const fetchServices = useCallback(async signal => {
-    try {
-      const response = await fetch(`${API_BASE}/services/all`, {
-        headers: getAuthHeaders(),
-        signal,
-      });
-      if (response.ok) {
-        const data = await response.json();
+  const fetchServices = useCallback(
+    async signal => {
+      try {
+        const data = await api.get('/services/all', { signal, showError: false });
         setServices(data.services || []);
+      } catch (error) {
+        if (signal?.aborted) return;
+        console.error('Error fetching services:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      if (signal?.aborted) return;
-      console.error('Error fetching services:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [api]
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -590,25 +578,14 @@ function ServicesSettings() {
     setMessage(null);
 
     try {
-      const response = await fetch(`${API_BASE}/services/restart/${serviceName}`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      const data = await api.post(`/services/restart/${serviceName}`, null, { showError: false });
+      if (data.success) {
         setMessage({
           type: 'success',
           text: `Service "${serviceName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`,
         });
         // Refresh services list
         setTimeout(fetchServices, 2000);
-      } else if (response.status === 429) {
-        setMessage({
-          type: 'error',
-          text: data.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
-        });
       } else {
         setMessage({
           type: 'error',
@@ -616,10 +593,18 @@ function ServicesSettings() {
         });
       }
     } catch (error) {
-      setMessage({
-        type: 'error',
-        text: 'Netzwerkfehler beim Neustart des Service',
-      });
+      if (error.status === 429) {
+        setMessage({
+          type: 'error',
+          text:
+            error.data?.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          text: error.data?.message || error.message || 'Netzwerkfehler beim Neustart des Service',
+        });
+      }
     } finally {
       setRestartingService(null);
     }

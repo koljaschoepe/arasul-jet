@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { FiEdit2, FiType, FiTrash2 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
 import { FIELD_TYPES } from './constants';
@@ -16,6 +16,7 @@ const ColumnMenu = memo(function ColumnMenu({
   onFieldUpdated,
   position,
 }) {
+  const api = useApi();
   const toast = useToast();
   const { confirm: showConfirm, ConfirmDialog: ColumnConfirmDialog } = useConfirm();
   const [mode, setMode] = useState('menu'); // 'menu' | 'rename' | 'type'
@@ -56,16 +57,16 @@ const ColumnMenu = memo(function ColumnMenu({
     setError(null);
 
     try {
-      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ name: newName.trim() }),
-      });
+      await api.patch(
+        `/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
+        { name: newName.trim() },
+        { showError: false }
+      );
       toast.success('Spalte umbenannt');
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Umbenennen');
+      setError(err.data?.error || 'Fehler beim Umbenennen');
     } finally {
       setLoading(false);
     }
@@ -82,16 +83,16 @@ const ColumnMenu = memo(function ColumnMenu({
     setError(null);
 
     try {
-      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ field_type: newType }),
-      });
+      await api.patch(
+        `/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
+        { field_type: newType },
+        { showError: false }
+      );
       toast.success('Spaltentyp geändert');
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Ändern des Typs');
+      setError(err.data?.error || 'Fehler beim Ändern des Typs');
     } finally {
       setLoading(false);
     }
@@ -111,15 +112,14 @@ const ColumnMenu = memo(function ColumnMenu({
     setError(null);
 
     try {
-      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
+      await api.del(`/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
+        showError: false,
       });
       toast.success('Spalte gelöscht');
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Löschen');
+      setError(err.data?.error || 'Fehler beim Löschen');
     } finally {
       setLoading(false);
     }

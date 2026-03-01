@@ -16,6 +16,18 @@ from psycopg2.extras import RealDictCursor, execute_values
 
 logger = logging.getLogger(__name__)
 
+
+# Resolve Docker secrets (_FILE env vars → regular env vars)
+def _resolve_secrets(*var_names):
+    for var in var_names:
+        file_path = os.environ.get(f'{var}_FILE')
+        if file_path and os.path.isfile(file_path):
+            with open(file_path) as f:
+                os.environ[var] = f.read().strip()
+
+_resolve_secrets('POSTGRES_PASSWORD')
+
+
 # Database configuration from environment
 DB_CONFIG = {
     'host': os.getenv('POSTGRES_HOST', 'postgres-db'),

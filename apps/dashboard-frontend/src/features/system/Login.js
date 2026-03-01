@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { API_BASE } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import './Login.css';
 
 function Login({ onLoginSuccess }) {
+  const api = useApi();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,17 +15,7 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed. Please check your credentials and try again.');
-      }
+      const data = await api.post('/auth/login', { username, password }, { showError: false });
 
       // Store token in localStorage
       localStorage.setItem('arasul_token', data.token);
@@ -34,7 +25,11 @@ function Login({ onLoginSuccess }) {
       onLoginSuccess(data);
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'Login failed. Please check your credentials and try again.');
+      setError(
+        err.data?.error ||
+          err.message ||
+          'Login failed. Please check your credentials and try again.'
+      );
     } finally {
       setLoading(false);
     }

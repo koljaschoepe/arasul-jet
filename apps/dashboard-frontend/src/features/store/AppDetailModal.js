@@ -23,7 +23,7 @@ import {
 import ConfirmIconButton from '../../components/ui/ConfirmIconButton';
 import Modal from '../../components/ui/Modal';
 import EmptyState from '../../components/ui/EmptyState';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { formatDate } from '../../utils/formatting';
 
 // Get app URL based on port or traefik route
@@ -64,6 +64,7 @@ function AppDetailModal({
   statusConfig,
   getIcon,
 }) {
+  const api = useApi();
   const [activeTab, setActiveTab] = useState('info');
   const [logs, setLogs] = useState('');
   const [logsLoading, setLogsLoading] = useState(false);
@@ -105,10 +106,7 @@ function AppDetailModal({
   const loadLogs = async () => {
     setLogsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/apps/${app.id}/logs?tail=100`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await response.json();
+      const data = await api.get(`/apps/${app.id}/logs?tail=100`, { showError: false });
       setLogs(data.logs || 'Keine Logs verfügbar');
     } catch (err) {
       setLogs(`Fehler beim Laden der Logs: ${err.message}`);
@@ -120,10 +118,7 @@ function AppDetailModal({
   const loadEvents = async () => {
     setEventsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/apps/${app.id}/events?limit=20`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await response.json();
+      const data = await api.get(`/apps/${app.id}/events?limit=20`, { showError: false });
       setEvents(data.events || []);
     } catch (err) {
       console.error('Error loading events:', err);
@@ -135,10 +130,7 @@ function AppDetailModal({
   const loadN8nCredentials = async () => {
     setN8nLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/apps/${app.id}/n8n-credentials`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await response.json();
+      const data = await api.get(`/apps/${app.id}/n8n-credentials`, { showError: false });
       setN8nCredentials(data.credentials);
     } catch (err) {
       console.error('Error loading n8n credentials:', err);

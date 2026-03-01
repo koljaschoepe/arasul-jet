@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import {
@@ -18,6 +18,7 @@ import { formatRelativeDate } from '../../utils/formatting';
 import './SelfHealingEvents.css';
 
 const SelfHealingEvents = () => {
+  const api = useApi();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -54,11 +55,7 @@ const SelfHealingEvents = () => {
     setError('');
 
     try {
-      const response = await fetch(`${API_BASE}/self-healing/events?limit=50`, {
-        headers: getAuthHeaders(),
-        signal,
-      });
-      const data = await response.json();
+      const data = await api.get('/self-healing/events?limit=50', { signal, showError: false });
       setEvents(data.events || []);
     } catch (err) {
       if (signal?.aborted) return;

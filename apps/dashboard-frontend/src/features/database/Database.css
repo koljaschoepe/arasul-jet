@@ -1340,6 +1340,10 @@ body.sidebar-collapsed .excel-fullscreen {
     font-variant-numeric: tabular-nums;
 }
 
+.excel-cell-editor-wrapper {
+    position: relative;
+}
+
 .excel-cell-editor {
     width: 100%;
     height: 100%;

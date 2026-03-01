@@ -14,11 +14,14 @@ import {
 } from 'react-icons/fi';
 import ChatMessage from './ChatMessage';
 import ChatTabsBar from './ChatTabsBar';
-import useTokenBatching from '../../hooks/useTokenBatching';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import useChatActions from './useChatActions';
+import useChatStreaming from './useChatStreaming';
+import { useApi } from '../../hooks/useApi';
 import './chatmulti.css';
 
 function ChatMulti() {
+  const api = useApi();
+
   // Chat list state
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
@@ -78,10 +81,6 @@ function ChatMulti() {
   const abortControllersRef = useRef({}); // Track abort controllers per chat
   const generationRef = useRef(0); // RACE-001: Generation counter to detect chat switches during async operations
 
-  // RENDER-001: Token batching to reduce re-renders during streaming
-  const { tokenBatchRef, flushTokenBatch, addTokenToBatch, resetTokenBatch } =
-    useTokenBatching(setMessages);
-
   // Keep ref in sync with state + abort previous chat's streams (RC-003)
   useEffect(() => {
     const previousChatId = currentChatIdRef.current;
@@ -98,18 +97,60 @@ function ChatMulti() {
     }
   }, [currentChatId]);
 
+  // Chat actions hook
+  const {
+    createNewChat,
+    selectChat,
+    deleteChat,
+    startEditingTitle,
+    saveTitle,
+    cancelEditingTitle,
+    handleTitleKeyDown,
+    exportChat,
+  } = useChatActions({
+    chats,
+    setChats,
+    currentChatId,
+    setCurrentChatId,
+    setMessages,
+    setInput,
+    setError,
+    setLoadingChats,
+    editingTitle,
+    setEditingChatId,
+    setEditingTitle,
+  });
+
+  // Streaming deps ref - updated each render to break circular dependency
+  const streamingDepsRef = useRef({});
+
+  // Streaming hook (also provides resetTokenBatch for cleanup)
+  const {
+    reconnectToJob,
+    handleSend: streamSend,
+    resetTokenBatch,
+  } = useChatStreaming({
+    depsRef: streamingDepsRef,
+    currentChatIdRef,
+    abortControllersRef,
+    setMessages,
+    setIsLoading,
+    setError,
+    setActiveJobIds,
+    setMatchedSpaces,
+    selectedModel,
+    setSelectedModel,
+  });
+
   // CLEANUP-001: Cleanup all abort controllers and timers on unmount
   useEffect(() => {
     return () => {
-      // Abort all ongoing fetch operations
       Object.values(abortControllersRef.current).forEach(controller => {
         if (controller && typeof controller.abort === 'function') {
           controller.abort();
         }
       });
       abortControllersRef.current = {};
-
-      // Clear batch timer if exists
       resetTokenBatch();
     };
   }, [resetTokenBatch]);
@@ -141,13 +182,10 @@ function ChatMulti() {
   // Load installed models from API
   const loadInstalledModels = async () => {
     try {
-      const headers = getAuthHeaders();
       const [installedRes, defaultRes, loadedRes] = await Promise.all([
-        fetch(`${API_BASE}/models/installed`, { headers }).then(r => r.json()),
-        fetch(`${API_BASE}/models/default`, { headers }).then(r => r.json()),
-        fetch(`${API_BASE}/models/loaded`, { headers })
-          .then(r => r.json())
-          .catch(() => null),
+        api.get('/models/installed', { showError: false }),
+        api.get('/models/default', { showError: false }),
+        api.get('/models/loaded', { showError: false }).catch(() => null),
       ]);
 
       const models = installedRes.models || [];
@@ -171,11 +209,7 @@ function ChatMulti() {
   // Set a model as the new default
   const setModelAsDefault = async modelId => {
     try {
-      await fetch(`${API_BASE}/models/default`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ model_id: modelId }),
-      });
+      await api.post('/models/default', { model_id: modelId }, { showError: false });
       setDefaultModel(modelId);
       // If "Standard" was selected, keep it as default but update the actual default model
     } catch (err) {
@@ -186,8 +220,7 @@ function ChatMulti() {
   // Load Knowledge Spaces for RAG 2.0
   const loadSpaces = async () => {
     try {
-      const response = await fetch(`${API_BASE}/spaces`, { headers: getAuthHeaders() });
-      const data = await response.json();
+      const data = await api.get('/spaces', { showError: false });
       setSpaces(data.spaces || []);
     } catch (err) {
       console.error('Error loading spaces:', err);
@@ -270,10 +303,7 @@ function ChatMulti() {
   // Async version of checkActiveJobs that returns the active job
   const checkActiveJobsAsync = async chatId => {
     try {
-      const response = await fetch(`${API_BASE}/chats/${chatId}/jobs`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await response.json();
+      const data = await api.get(`/chats/${chatId}/jobs`, { showError: false });
       const jobs = data.jobs || [];
 
       // Find first active job (streaming or pending)
@@ -307,10 +337,7 @@ function ChatMulti() {
 
     const pollQueue = async () => {
       try {
-        const response = await fetch(`${API_BASE}/llm/queue`, {
-          headers: getAuthHeaders(),
-        });
-        const queueData = await response.json();
+        const queueData = await api.get('/llm/queue', { showError: false });
         setGlobalQueue(queueData);
       } catch (err) {
         console.error('Error polling queue:', err);
@@ -344,8 +371,7 @@ function ChatMulti() {
   const loadChats = async () => {
     try {
       setLoadingChats(true);
-      const response = await fetch(`${API_BASE}/chats`, { headers: getAuthHeaders() });
-      const data = await response.json();
+      const data = await api.get('/chats', { showError: false });
       const chatList = data.chats || [];
       // [ChatMulti] loadChats: loaded', chatList.length, 'chats');
       setChats(chatList);
@@ -370,10 +396,7 @@ function ChatMulti() {
   // This allows the caller to check generation counter before updating state
   const loadMessages = async chatId => {
     try {
-      const response = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await response.json();
+      const data = await api.get(`/chats/${chatId}/messages`, { showError: false });
       const msgs = data.messages || [];
 
       const formattedMessages = msgs.map(msg => ({
@@ -397,269 +420,13 @@ function ChatMulti() {
     }
   };
 
-  // Note: checkActiveJobs is replaced by checkActiveJobsAsync above
-  // which is called sequentially in initializeChat
-
-  // Reconnect to an active job's stream
-  // Uses job_id based message updates instead of index-based
-  const reconnectToJob = async (jobId, targetChatId) => {
-    // Create AbortController for this reconnection
-    const abortController = new AbortController();
-    abortControllersRef.current[targetChatId] = abortController;
-
-    try {
-      const response = await fetch(`${API_BASE}/llm/jobs/${jobId}/stream`, {
-        headers: getAuthHeaders(),
-        signal: abortController.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line.replace(/^data:\s*/, ''));
-
-            // Only update UI if still viewing the same chat
-            const isCurrentChat = currentChatIdRef.current === targetChatId;
-
-            if (data.type === 'reconnect' || data.type === 'update') {
-              // Update message by job_id instead of index
-              if (isCurrentChat) {
-                setMessages(prevMessages => {
-                  return prevMessages.map(msg => {
-                    // Match by job_id OR by streaming status for assistant messages
-                    if (
-                      msg.jobId === jobId ||
-                      (msg.role === 'assistant' && msg.status === 'streaming' && !msg.jobId)
-                    ) {
-                      return {
-                        ...msg,
-                        content: data.content || msg.content || '',
-                        thinking: data.thinking || msg.thinking || '',
-                        hasThinking: !!(data.thinking || msg.thinking),
-                        status: data.status || msg.status,
-                        jobId: jobId, // Ensure jobId is set
-                      };
-                    }
-                    return msg;
-                  });
-                });
-              }
-            }
-
-            if (data.done) {
-              if (isCurrentChat) {
-                setIsLoading(false);
-              }
-              setActiveJobIds(prev => {
-                const newState = { ...prev };
-                delete newState[targetChatId];
-                return newState;
-              });
-              // Reload messages to get final state (only if still viewing this chat)
-              if (isCurrentChat) {
-                // RC-002 FIX: Set messages after loading since loadMessages no longer calls setMessages
-                const finalMsgs = await loadMessages(targetChatId);
-                if (currentChatIdRef.current === targetChatId) {
-                  setMessages(finalMsgs);
-                }
-              }
-              loadChats(); // Update message count
-            }
-
-            if (data.error) {
-              if (isCurrentChat) {
-                setError(data.error);
-                setIsLoading(false);
-              }
-              setActiveJobIds(prev => {
-                const newState = { ...prev };
-                delete newState[targetChatId];
-                return newState;
-              });
-            }
-          } catch (parseError) {
-            console.error('Error parsing reconnect SSE data:', parseError);
-          }
-        }
-      }
-    } catch (err) {
-      // Ignore abort errors
-      if (err.name === 'AbortError') {
-        // Stream aborted for chat ${targetChatId}`);
-        return;
-      }
-      console.error('Reconnect error:', err);
-      if (currentChatIdRef.current === targetChatId) {
-        setIsLoading(false);
-      }
-      setActiveJobIds(prev => {
-        const newState = { ...prev };
-        delete newState[targetChatId];
-        return newState;
-      });
-    } finally {
-      // Cleanup abort controller
-      delete abortControllersRef.current[targetChatId];
-    }
-  };
-
-  const createNewChat = async () => {
-    try {
-      // Block input while creating new chat
-      setLoadingChats(true);
-
-      const response = await fetch(`${API_BASE}/chats`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ title: 'New Chat' }),
-      });
-      const responseData = await response.json();
-
-      const newChat = responseData.chat;
-      // [ChatMulti] Created new chat:', newChat.id);
-
-      setChats(prevChats => [...prevChats, newChat]);
-      setCurrentChatId(newChat.id);
-      setMessages([]);
-      setInput('');
-      setError(null);
-    } catch (err) {
-      console.error('Error creating chat:', err);
-      setError('Fehler beim Erstellen des Chats');
-    } finally {
-      setLoadingChats(false);
-    }
-  };
-
-  const selectChat = chatId => {
-    setCurrentChatId(chatId);
-  };
-
-  const deleteChat = async (e, chatId) => {
-    e.stopPropagation();
-
-    if (chats.length <= 1) {
-      return;
-    }
-
-    try {
-      await fetch(`${API_BASE}/chats/${chatId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-
-      const updatedChats = chats.filter(c => c.id !== chatId);
-      setChats(updatedChats);
-
-      if (currentChatId === chatId) {
-        setCurrentChatId(updatedChats[0]?.id || null);
-      }
-    } catch (err) {
-      console.error('Error deleting chat:', err);
-    }
-  };
-
-  const startEditingTitle = (e, chat) => {
-    e.stopPropagation();
-    setEditingChatId(chat.id);
-    setEditingTitle(chat.title);
-  };
-
-  const saveTitle = async chatId => {
-    if (!editingTitle.trim()) {
-      cancelEditingTitle();
-      return;
-    }
-
-    try {
-      await fetch(`${API_BASE}/chats/${chatId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ title: editingTitle }),
-      });
-
-      setChats(prevChats =>
-        prevChats.map(c => (c.id === chatId ? { ...c, title: editingTitle } : c))
-      );
-
-      setEditingChatId(null);
-      setEditingTitle('');
-    } catch (err) {
-      console.error('Error updating title:', err);
-    }
-  };
-
-  const cancelEditingTitle = () => {
-    setEditingChatId(null);
-    setEditingTitle('');
-  };
-
-  const handleTitleKeyDown = (e, chatId) => {
-    if (e.key === 'Enter') {
-      saveTitle(chatId);
-    } else if (e.key === 'Escape') {
-      cancelEditingTitle();
-    }
-  };
-
-  // Export chat to JSON or Markdown
-  const exportChat = async (e, chatId, format = 'json') => {
-    e.stopPropagation();
-    try {
-      const response = await fetch(`${API_BASE}/chats/${chatId}/export?format=${format}`, {
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Export failed: ${response.statusText}`);
-      }
-
-      // Get filename from Content-Disposition header or generate one
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `chat-${chatId}.${format === 'json' ? 'json' : 'md'}`;
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
-        }
-      }
-
-      // Create blob and download
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Error exporting chat:', err);
-      setError('Export fehlgeschlagen');
-    }
-  };
-
   const saveMessage = async (chatId, role, content, thinking = null) => {
     try {
-      await fetch(`${API_BASE}/chats/${chatId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ role, content, thinking }),
-      });
+      await api.post(
+        `/chats/${chatId}/messages`,
+        { role, content, thinking },
+        { showError: false }
+      );
       loadChats();
     } catch (err) {
       console.error('Error saving message:', err);
@@ -722,303 +489,28 @@ function ChatMulti() {
     });
   }, []);
 
-  // Unified send handler for both RAG and LLM modes
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  // Update streaming deps ref each render
+  streamingDepsRef.current = { loadMessages, loadChats, loadInstalledModels, saveMessage };
 
+  // Wrapper: captures current state for streamSend
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return;
     if (!currentChatId) {
       setError('Chat nicht bereit. Bitte warte einen Moment...');
       return;
     }
-
-    const isRAG = useRAG;
-    const targetChatId = currentChatId;
-    const userMessage = input.trim();
     setInput('');
     setError(null);
     setIsUserScrolling(false);
-
-    await saveMessage(targetChatId, 'user', userMessage);
-
-    const newMessages = [...messages, { role: 'user', content: userMessage }];
-    setMessages(newMessages);
-    setIsLoading(true);
-
-    const assistantMessageIndex = newMessages.length;
-    setMessages([
-      ...newMessages,
-      {
-        role: 'assistant',
-        content: '',
-        thinking: '',
-        thinkingCollapsed: false,
-        hasThinking: false,
-        ...(isRAG ? { sources: [], sourcesCollapsed: true } : {}),
-        status: 'streaming',
-      },
-    ]);
-
-    const abortController = new AbortController();
-    abortControllersRef.current[targetChatId] = abortController;
-    resetTokenBatch();
-
-    try {
-      let streamError = false;
-      let currentJobId = null;
-      let ragSources = [];
-      // Build request based on mode
-      let endpoint, payload;
-      if (isRAG) {
-        endpoint = `${API_BASE}/rag/query`;
-        payload = {
-          query: userMessage,
-          top_k: 5,
-          thinking: useThinking,
-          conversation_id: targetChatId,
-          model: selectedModel || undefined,
-        };
-        if (selectedSpaces.length > 0) {
-          payload.space_ids = selectedSpaces;
-          payload.auto_routing = false;
-        } else {
-          payload.auto_routing = true;
-        }
-      } else {
-        endpoint = `${API_BASE}/llm/chat`;
-        payload = {
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          temperature: 0.7,
-          max_tokens: 32768,
-          stream: true,
-          thinking: useThinking,
-          conversation_id: targetChatId,
-          model: selectedModel || undefined,
-        };
-      }
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify(payload),
-        signal: abortController.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line.replace(/^data:\s*/, ''));
-
-            // Track job ID for background processing
-            if (data.type === 'job_started' && data.jobId) {
-              currentJobId = data.jobId;
-              setActiveJobIds(prev => ({ ...prev, [targetChatId]: currentJobId }));
-              if (currentChatIdRef.current === targetChatId) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      jobId: currentJobId,
-                    };
-                  }
-                  return updated;
-                });
-              }
-            }
-
-            if (data.error) {
-              streamError = true;
-              if (currentChatIdRef.current === targetChatId) {
-                setError(data.error);
-              }
-              if (data.errorCode === 'MODEL_SWITCH_FAILED') {
-                loadInstalledModels();
-                if (selectedModel) setSelectedModel('');
-              }
-              break;
-            }
-
-            const isCurrentChat = currentChatIdRef.current === targetChatId;
-
-            // RAG-specific: matched spaces, query optimization, and sources
-            if (isRAG && data.type === 'matched_spaces' && data.spaces) {
-              if (isCurrentChat) setMatchedSpaces(data.spaces);
-            }
-
-            // RAG 3.0: Query optimization details (decompounding, multi-query, HyDE)
-            if (isRAG && data.type === 'query_optimization') {
-              if (isCurrentChat) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      queryOptimization: {
-                        duration: data.duration,
-                        decompoundEnabled: data.decompoundEnabled,
-                        decompoundResult: data.decompoundResult,
-                        multiQueryEnabled: data.multiQueryEnabled,
-                        multiQueryVariants: data.multiQueryVariants || [],
-                        hydeEnabled: data.hydeEnabled,
-                        hydeGenerated: data.hydeGenerated,
-                      },
-                      queryOptCollapsed: true,
-                    };
-                  }
-                  return updated;
-                });
-              }
-            }
-
-            if (isRAG && data.type === 'sources' && data.sources) {
-              ragSources = data.sources;
-              if (isCurrentChat) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      sources: ragSources,
-                      sourcesCollapsed: ragSources.length > 0,
-                      matchedSpaces: matchedSpaces,
-                    };
-                  }
-                  return updated;
-                });
-              }
-            }
-
-            // Context Management: Token budget debug info
-            if (data.type === 'context_info' && isCurrentChat) {
-              setMessages(prevMessages => {
-                const updated = [...prevMessages];
-                if (updated[assistantMessageIndex]) {
-                  updated[assistantMessageIndex] = {
-                    ...updated[assistantMessageIndex],
-                    tokenBreakdown: data.tokenBreakdown,
-                    contextCollapsed: true,
-                  };
-                }
-                return updated;
-              });
-            }
-
-            // Context Management: Compaction notification
-            if (data.type === 'compaction' && isCurrentChat) {
-              setMessages(prevMessages => {
-                const updated = [...prevMessages];
-                // Insert compaction banner before the current assistant message
-                const bannerMsg = {
-                  role: 'system',
-                  type: 'compaction',
-                  content: '',
-                  tokensBefore: data.tokensBefore,
-                  tokensAfter: data.tokensAfter,
-                  messagesCompacted: data.messagesCompacted,
-                };
-                updated.splice(assistantMessageIndex, 0, bannerMsg);
-                return updated;
-              });
-              // Shift assistant index since we inserted before it
-              assistantMessageIndex++;
-            }
-
-            // RENDER-001: Batched token updates
-            if (data.type === 'thinking' && data.token && isCurrentChat) {
-              addTokenToBatch('thinking', data.token, assistantMessageIndex);
-            }
-
-            if (data.type === 'thinking_end' && isCurrentChat) {
-              flushTokenBatch(assistantMessageIndex, true);
-              setMessages(prevMessages => {
-                const updated = [...prevMessages];
-                if (updated[assistantMessageIndex]) {
-                  updated[assistantMessageIndex] = {
-                    ...updated[assistantMessageIndex],
-                    thinkingCollapsed: true,
-                  };
-                }
-                return updated;
-              });
-            }
-
-            if (data.type === 'response' && data.token && isCurrentChat) {
-              addTokenToBatch('content', data.token, assistantMessageIndex);
-            }
-
-            if (data.type === 'done' || data.done) {
-              if (isCurrentChat) flushTokenBatch(assistantMessageIndex, true);
-              setActiveJobIds(prev => {
-                const newState = { ...prev };
-                delete newState[targetChatId];
-                return newState;
-              });
-              break;
-            }
-          } catch (parseError) {
-            console.error('Error parsing SSE data:', parseError);
-          }
-        }
-
-        if (streamError) break;
-      }
-
-      // RENDER-001: Final content check from batch
-      const { content: fullResponse, thinking: fullThinking } = tokenBatchRef.current;
-
-      if (fullResponse || fullThinking) {
-        loadChats();
-        if (currentChatIdRef.current === targetChatId) {
-          const finalMsgs = await loadMessages(targetChatId);
-          if (currentChatIdRef.current === targetChatId) {
-            setMessages(finalMsgs);
-          }
-        }
-      }
-
-      if (!streamError && !fullResponse && !fullThinking) {
-        throw new Error(
-          isRAG ? 'Keine Antwort vom RAG-System erhalten' : 'Keine Antwort vom LLM erhalten'
-        );
-      }
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-      console.error(`${isRAG ? 'RAG' : 'Chat'} error:`, err);
-      if (currentChatIdRef.current === targetChatId) {
-        setError(
-          err.message ||
-            (isRAG ? 'Fehler bei der RAG-Anfrage.' : 'Fehler beim Senden der Nachricht.')
-        );
-        setMessages(newMessages);
-      }
-      setActiveJobIds(prev => {
-        const newState = { ...prev };
-        delete newState[targetChatId];
-        return newState;
-      });
-    } finally {
-      if (currentChatIdRef.current === targetChatId) {
-        setIsLoading(false);
-      }
-      delete abortControllersRef.current[targetChatId];
-      resetTokenBatch();
-    }
+    streamSend({
+      input,
+      messages,
+      currentChatId,
+      useRAG,
+      useThinking,
+      selectedSpaces,
+      matchedSpaces,
+    });
   };
 
   const handleKeyDown = e => {

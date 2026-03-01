@@ -25,7 +25,7 @@ import {
   FiUpload,
   FiDatabase,
 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import '../database/Database.css';
@@ -39,6 +39,7 @@ import CellContextMenu from './CellContextMenu';
  * DataTableEditor - Main editor component
  */
 function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
+  const api = useApi();
   const toast = useToast();
   const { confirm: showConfirm, ConfirmDialog } = useConfirm();
   const [table, setTable] = useState(null);
@@ -99,12 +100,8 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
         order: sortOrder,
       });
       const [tableData, rowsData] = await Promise.all([
-        fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}`, {
-          headers: getAuthHeaders(),
-        }).then(r => r.json()),
-        fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows?${params}`, {
-          headers: getAuthHeaders(),
-        }).then(r => r.json()),
+        api.get(`/v1/datentabellen/tables/${tableSlug}`, { showError: false }),
+        api.get(`/v1/datentabellen/tables/${tableSlug}/rows?${params}`, { showError: false }),
       ]);
 
       setTable(tableData.data);
@@ -140,11 +137,9 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
         sort: sortField,
         order: sortOrder,
       });
-      const response = await fetch(
-        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows?${exportParams}`,
-        { headers: getAuthHeaders() }
-      );
-      const data = await response.json();
+      const data = await api.get(`/v1/datentabellen/tables/${tableSlug}/rows?${exportParams}`, {
+        showError: false,
+      });
       const allRows = data.data || [];
 
       // Build CSV with semicolon separator (German Excel compatible)
@@ -237,10 +232,8 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
             });
 
             if (Object.keys(rowData).length > 0) {
-              await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-                body: JSON.stringify(rowData),
+              await api.post(`/v1/datentabellen/tables/${tableSlug}/rows`, rowData, {
+                showError: false,
               });
               importedCount++;
             }
@@ -272,11 +265,9 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
   useEffect(() => {
     const checkIndexStatus = async () => {
       try {
-        const response = await fetch(
-          `${API_BASE}/v1/datentabellen/tables/${tableSlug}/index/status`,
-          { headers: getAuthHeaders() }
-        );
-        const data = await response.json();
+        const data = await api.get(`/v1/datentabellen/tables/${tableSlug}/index/status`, {
+          showError: false,
+        });
         setIndexStatus(data.data);
       } catch {
         // Ignore errors
@@ -289,11 +280,11 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
     try {
       setIndexing(true);
       setSaving(true);
-      const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/index`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      });
-      const data = await response.json();
+      const data = await api.post(
+        `/v1/datentabellen/tables/${tableSlug}/index`,
+        {},
+        { showError: false }
+      );
       setIndexStatus({
         indexed_rows: data.indexed,
         total_rows: totalRows,
@@ -315,11 +306,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
   const handleAddRow = async () => {
     try {
       setSaving(true);
-      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({}),
-      });
+      await api.post(`/v1/datentabellen/tables/${tableSlug}/rows`, {}, { showError: false });
       await loadTable();
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 2000);
@@ -350,33 +337,30 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
 
     try {
       setSaving(true);
-      const response = await fetch(
-        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/${rowId}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({
+      const responseData = await api
+        .patch(
+          `/v1/datentabellen/tables/${tableSlug}/rows/${rowId}`,
+          {
             [fieldSlug]: value,
             _expected_updated_at: expectedUpdatedAt,
-          }),
-        }
-      );
-      const responseData = await response.json();
+          },
+          { showError: false }
+        )
+        .catch(err => {
+          if (err.status === 409) {
+            setError(
+              'Konflikt: Ein anderer Benutzer hat diesen Datensatz geändert. Daten werden neu geladen.'
+            );
+            setSaveStatus('error');
+            setUndoStack([]);
+            setRedoStack([]);
+            loadTable();
+            return null;
+          }
+          throw err;
+        });
 
-      // Handle conflict error (409)
-      if (!response.ok) {
-        if (response.status === 409) {
-          setError(
-            'Konflikt: Ein anderer Benutzer hat diesen Datensatz geändert. Daten werden neu geladen.'
-          );
-          setSaveStatus('error');
-          setUndoStack([]);
-          setRedoStack([]);
-          await loadTable();
-          return;
-        }
-        throw new Error(responseData.error || 'Fehler beim Speichern');
-      }
+      if (!responseData) return;
 
       // Update local state with new _updated_at from server
       const updatedRow = responseData.data;
@@ -514,11 +498,7 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
   const handleInsertRow = async position => {
     try {
       setSaving(true);
-      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({}),
-      });
+      await api.post(`/v1/datentabellen/tables/${tableSlug}/rows`, {}, { showError: false });
       await loadTable();
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 2000);
@@ -584,10 +564,10 @@ function DataTableEditor({ tableSlug, tableName, onClose, onSave }) {
 
     try {
       setSaving(true);
-      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/bulk`, {
+      await api.request(`/v1/datentabellen/tables/${tableSlug}/rows/bulk`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ ids: Array.from(selectedRows) }),
+        body: { ids: Array.from(selectedRows) },
+        showError: false,
       });
       setSelectedRows(new Set());
       await loadTable();

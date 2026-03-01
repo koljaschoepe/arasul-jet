@@ -37,7 +37,7 @@ import {
   FiInfo,
 } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import './SetupWizard.css';
 
 const STEPS = [
@@ -108,6 +108,7 @@ const formatModelSize = bytes => {
 };
 
 function SetupWizard({ onComplete, onSkip }) {
+  const api = useApi();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -150,20 +151,20 @@ function SetupWizard({ onComplete, onSkip }) {
   const saveStepProgress = useCallback(
     async step => {
       try {
-        await fetch(`${API_BASE}/system/setup-step`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({
+        await api.put(
+          '/system/setup-step',
+          {
             step,
             companyName: companyName || undefined,
             selectedModel: selectedModel || undefined,
-          }),
-        });
+          },
+          { showError: false }
+        );
       } catch {
         // Non-critical, silently ignore
       }
     },
-    [companyName, selectedModel]
+    [api, companyName, selectedModel]
   );
 
   // Save KI-Profil
@@ -177,10 +178,9 @@ function SetupWizard({ onComplete, onSkip }) {
             .filter(Boolean)
         : [];
 
-      await fetch(`${API_BASE}/memory/profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      await api.post(
+        '/memory/profile',
+        {
           companyName: companyName || 'Mein Unternehmen',
           industry: selectedIndustry,
           teamSize: teamSize,
@@ -189,8 +189,9 @@ function SetupWizard({ onComplete, onSkip }) {
             antwortlaenge: answerStyle || 'mittel',
             formalitaet: answerStyle === 'formell' ? 'formell' : 'locker',
           },
-        }),
-      });
+        },
+        { showError: false }
+      );
       setProfileSaved(true);
     } catch {
       // Non-critical
@@ -245,33 +246,27 @@ function SetupWizard({ onComplete, onSkip }) {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/auth/change-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || 'Passwort-Änderung fehlgeschlagen');
-      }
+      await api.post(
+        '/auth/change-password',
+        { currentPassword, newPassword },
+        { showError: false }
+      );
 
       setPasswordChanged(true);
       // Re-login with new password
-      const loginResponse = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'admin', password: newPassword }),
-      });
-
-      if (loginResponse.ok) {
-        const loginData = await loginResponse.json();
+      try {
+        const loginData = await api.post(
+          '/auth/login',
+          { username: 'admin', password: newPassword },
+          { showError: false }
+        );
         localStorage.setItem('arasul_token', loginData.token);
         localStorage.setItem('arasul_user', JSON.stringify(loginData.user));
+      } catch {
+        // Re-login failure is non-critical
       }
     } catch (err) {
-      setPasswordError(err.message);
+      setPasswordError(err.data?.error || err.data?.message || err.message);
     } finally {
       setLoading(false);
     }
@@ -281,58 +276,46 @@ function SetupWizard({ onComplete, onSkip }) {
   const fetchNetworkInfo = useCallback(async () => {
     setNetworkLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/system/network`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        setNetworkInfo(await response.json());
-      }
+      const data = await api.get('/system/network', { showError: false });
+      setNetworkInfo(data);
     } catch {
       setNetworkInfo({ ip_addresses: [], internet_reachable: false, error: true });
     } finally {
       setNetworkLoading(false);
     }
-  }, []);
+  }, [api]);
 
   // Step 4: Fetch model catalog
   const fetchModels = useCallback(async () => {
     setModelsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/models/catalog`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const llmModels = (data.models || []).filter(m => (m.model_type || 'llm') === 'llm');
-        setModels(llmModels);
-        if (!selectedModel) {
-          setSelectedModel(RECOMMENDED_MODEL);
-        }
+      const data = await api.get('/models/catalog', { showError: false });
+      const llmModels = (data.models || []).filter(m => (m.model_type || 'llm') === 'llm');
+      setModels(llmModels);
+      if (!selectedModel) {
+        setSelectedModel(RECOMMENDED_MODEL);
       }
     } catch {
       setModels([]);
     } finally {
       setModelsLoading(false);
     }
-  }, [selectedModel]);
+  }, [api, selectedModel]);
 
   // Step 5: Fetch system info
   const fetchSystemInfo = useCallback(async () => {
     try {
-      const [infoRes, thresholdRes] = await Promise.all([
-        fetch(`${API_BASE}/system/info`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/system/thresholds`, { headers: getAuthHeaders() }),
+      const [infoData, thresholdData] = await Promise.all([
+        api.get('/system/info', { showError: false }).catch(() => null),
+        api.get('/system/thresholds', { showError: false }).catch(() => null),
       ]);
 
-      if (infoRes.ok) setSystemInfo(await infoRes.json());
-      if (thresholdRes.ok) {
-        const data = await thresholdRes.json();
-        setDeviceInfo(data.device);
-      }
+      if (infoData) setSystemInfo(infoData);
+      if (thresholdData) setDeviceInfo(thresholdData.device);
     } catch {
       // Non-critical
     }
-  }, []);
+  }, [api]);
 
   // Load data when step changes
   useEffect(() => {
@@ -351,32 +334,25 @@ function SetupWizard({ onComplete, onSkip }) {
       if (selectedModel) {
         const model = models.find(m => m.id === selectedModel);
         if (model?.install_status === 'available') {
-          await fetch(`${API_BASE}/models/default`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ model_id: selectedModel }),
-          }).catch(() => {});
+          await api
+            .post('/models/default', { model_id: selectedModel }, { showError: false })
+            .catch(() => {});
         }
       }
 
-      const response = await fetch(`${API_BASE}/system/setup-complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      await api.post(
+        '/system/setup-complete',
+        {
           companyName: companyName || undefined,
           selectedModel: selectedModel || undefined,
           hostname: networkInfo?.mdns || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Setup konnte nicht abgeschlossen werden');
-      }
+        },
+        { showError: false }
+      );
 
       onComplete();
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
     } finally {
       setLoading(false);
     }
@@ -386,10 +362,7 @@ function SetupWizard({ onComplete, onSkip }) {
   const handleSkip = async () => {
     setLoading(true);
     try {
-      await fetch(`${API_BASE}/system/setup-skip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      });
+      await api.post('/system/setup-skip', {}, { showError: false });
       onSkip();
     } catch {
       onSkip();

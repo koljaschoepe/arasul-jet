@@ -3,7 +3,7 @@
  * Tabs: Allgemein | Befehle | Verbundene Chats | Erweitert
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FiX,
   FiSave,
@@ -19,7 +19,7 @@ import {
   FiSliders,
   FiExternalLink,
 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders as getAuthHeadersBase } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/ui/Modal';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -33,6 +33,7 @@ const TABS = [
 ];
 
 function BotDetailsModal({ bot, onClose, onUpdate }) {
+  const api = useApi();
   const toast = useToast();
   const [activeTab, setActiveTab] = useState('settings');
   const [formData, setFormData] = useState({
@@ -56,32 +57,21 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
 
   const username = bot.username || bot.bot_username;
 
-  // Auth headers - includes Content-Type for JSON requests
-  const getAuthHeaders = useCallback(
-    () => ({
-      ...getAuthHeadersBase(),
-      'Content-Type': 'application/json',
-    }),
-    []
-  );
-
   // Fetch models
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const [ollamaRes, claudeRes] = await Promise.all([
-          fetch(`${API_BASE}/telegram-bots/models/ollama`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE}/telegram-bots/models/claude`, { headers: getAuthHeaders() }),
+        const [ollamaData, claudeData] = await Promise.allSettled([
+          api.get('/telegram-bots/models/ollama', { showError: false }),
+          api.get('/telegram-bots/models/claude', { showError: false }),
         ]);
 
-        if (ollamaRes.ok) {
-          const data = await ollamaRes.json();
-          setOllamaModels(data.models || []);
+        if (ollamaData.status === 'fulfilled') {
+          setOllamaModels(ollamaData.value.models || []);
         }
 
-        if (claudeRes.ok) {
-          const data = await claudeRes.json();
-          setClaudeModels(data.models || []);
+        if (claudeData.status === 'fulfilled') {
+          setClaudeModels(claudeData.value.models || []);
         }
       } catch (err) {
         console.error('Error fetching models:', err);
@@ -89,14 +79,14 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
     };
 
     fetchModels();
-  }, [getAuthHeaders]);
+  }, [api]);
 
   // Fetch commands
   useEffect(() => {
     if (activeTab === 'commands') {
       setLoadingCommands(true);
-      fetch(`${API_BASE}/telegram-bots/${bot.id}/commands`, { headers: getAuthHeaders() })
-        .then(res => res.json())
+      api
+        .get(`/telegram-bots/${bot.id}/commands`, { showError: false })
         .then(data => setCommands(data.commands || []))
         .catch(err => {
           console.error('Error fetching commands:', err);
@@ -104,14 +94,14 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
         })
         .finally(() => setLoadingCommands(false));
     }
-  }, [activeTab, bot.id, getAuthHeaders]);
+  }, [activeTab, bot.id, api]);
 
   // Fetch chats
   useEffect(() => {
     if (activeTab === 'chats') {
       setLoadingChats(true);
-      fetch(`${API_BASE}/telegram-bots/${bot.id}/chats`, { headers: getAuthHeaders() })
-        .then(res => res.json())
+      api
+        .get(`/telegram-bots/${bot.id}/chats`, { showError: false })
         .then(data => setChats(data.chats || []))
         .catch(err => {
           console.error('Error fetching chats:', err);
@@ -119,7 +109,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
         })
         .finally(() => setLoadingChats(false));
     }
-  }, [activeTab, bot.id, getAuthHeaders]);
+  }, [activeTab, bot.id, api]);
 
   // Save settings
   const handleSave = async () => {
@@ -142,24 +132,17 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
         payload.token = formData.token;
       }
 
-      const response = await fetch(`${API_BASE}/telegram-bots/${bot.id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload),
-      });
+      const data = await api.put(`/telegram-bots/${bot.id}`, payload, { showError: false });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Fehler beim Speichern');
-      }
-
-      const data = await response.json();
       setMessage({ type: 'success', text: 'Einstellungen gespeichert' });
       setFormData(prev => ({ ...prev, claudeApiKey: '', token: '' }));
       if (onUpdate) onUpdate(data.bot);
     } catch (err) {
       console.error('Bot-Einstellungen speichern fehlgeschlagen:', err);
-      setMessage({ type: 'error', text: 'Fehler beim Speichern der Einstellungen' });
+      setMessage({
+        type: 'error',
+        text: err.data?.error || 'Fehler beim Speichern der Einstellungen',
+      });
     } finally {
       setSaving(false);
     }
@@ -173,14 +156,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
   // Remove chat
   const handleRemoveChat = async chatRowId => {
     try {
-      const response = await fetch(`${API_BASE}/telegram-bots/${bot.id}/chats/${chatRowId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error('Fehler beim Entfernen');
-      }
+      await api.del(`/telegram-bots/${bot.id}/chats/${chatRowId}`, { showError: false });
 
       setChats(prev => prev.filter(c => c.id !== chatRowId));
     } catch (err) {
@@ -310,12 +286,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
           <span>Lade Befehle...</span>
         </div>
       ) : (
-        <CommandsEditor
-          botId={bot.id}
-          commands={commands}
-          onChange={handleCommandsChange}
-          getAuthHeaders={getAuthHeaders}
-        />
+        <CommandsEditor botId={bot.id} commands={commands} onChange={handleCommandsChange} />
       )}
     </div>
   );

@@ -16,7 +16,7 @@ import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
 import BotSetupWizard from './BotSetupWizard';
 import BotDetailsModal from './BotDetailsModal';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import './TelegramAppModal.css';
 
 /**
@@ -26,6 +26,7 @@ import './TelegramAppModal.css';
 function TelegramAppModal({ isOpen, onClose }) {
   const { confirm, ConfirmDialog } = useConfirm();
   const toast = useToast();
+  const api = useApi();
   const [activeTab, setActiveTab] = useState('bots');
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,19 +41,10 @@ function TelegramAppModal({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const headers = getAuthHeaders();
-
-      const [botsRes, statusRes] = await Promise.all([
-        fetch(`${API_BASE}/telegram-bots`, { headers }),
-        fetch(`${API_BASE}/telegram-app/status`, { headers }),
+      const [botsData, statusData] = await Promise.all([
+        api.get('/telegram-bots', { showError: false }),
+        api.get('/telegram-app/status', { showError: false }),
       ]);
-
-      if (!botsRes.ok) {
-        throw new Error('Fehler beim Laden der Bots');
-      }
-
-      const botsData = await botsRes.json();
-      const statusData = await statusRes.json();
 
       setBots(botsData.bots || []);
       setAppStatus(statusData);
@@ -62,7 +54,7 @@ function TelegramAppModal({ isOpen, onClose }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     if (isOpen) {
@@ -81,14 +73,7 @@ function TelegramAppModal({ isOpen, onClose }) {
     try {
       const endpoint = currentActive ? 'deactivate' : 'activate';
 
-      const response = await fetch(`${API_BASE}/telegram-bots/${botId}/${endpoint}`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error('Fehler beim Umschalten des Bots');
-      }
+      await api.post(`/telegram-bots/${botId}/${endpoint}`, undefined, { showError: false });
 
       setBots(prev =>
         prev.map(bot => (bot.id === botId ? { ...bot, isActive: !currentActive } : bot))
@@ -113,14 +98,7 @@ function TelegramAppModal({ isOpen, onClose }) {
 
     setDeletingBot(botId);
     try {
-      const response = await fetch(`${API_BASE}/telegram-bots/${botId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error('Fehler beim Löschen des Bots');
-      }
+      await api.del(`/telegram-bots/${botId}`, { showError: false });
 
       setBots(prev => prev.filter(bot => bot.id !== botId));
       toast.success('Bot gelöscht');

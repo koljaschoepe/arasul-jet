@@ -34,17 +34,20 @@ import SimpleTableCreateDialog from '../../components/editor/SimpleTableCreateDi
 import ExcelEditor from '../datentabellen/ExcelEditor';
 import SpaceModal from './SpaceModal';
 import Modal from '../../components/ui/Modal';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { getValidToken } from '../../utils/token';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import { formatDate, formatFileSize } from '../../utils/formatting';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
+import useDocumentUpload from './useDocumentUpload';
+import useDocumentActions from './useDocumentActions';
 import './documents.css';
 import '../../components/editor/markdown-editor.css';
 
 function DocumentManager() {
   // State
+  const api = useApi();
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const [documents, setDocuments] = useState([]);
@@ -70,24 +73,9 @@ function DocumentManager() {
   const [totalDocuments, setTotalDocuments] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
-  // Upload state
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [dragActive, setDragActive] = useState(false);
+  // Upload state - provided by useDocumentUpload hook below
 
-  // Modal state
-  const [selectedDocument, setSelectedDocument] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [similarDocuments, setSimilarDocuments] = useState([]);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
-
-  // Semantic search
-  const [semanticSearch, setSemanticSearch] = useState('');
-  const [searchResults, setSearchResults] = useState(null);
-  const [searching, setSearching] = useState(false);
-
-  // RC-003 FIX: Request ID counter for race condition protection in semantic search
-  const searchRequestIdRef = useRef(0);
+  // Modal/search state - provided by useDocumentActions hook below
 
   // Editor state
   const [showEditor, setShowEditor] = useState(false);
@@ -144,11 +132,7 @@ function DocumentManager() {
         if (searchQuery) params.append('search', searchQuery);
         if (activeSpaceId) params.append('space_id', activeSpaceId);
 
-        const response = await fetch(`${API_BASE}/documents?${params}`, {
-          headers: getAuthHeaders(),
-          signal,
-        });
-        const data = await response.json();
+        const data = await api.get(`/documents?${params}`, { signal, showError: false });
         setDocuments(data.documents || []);
         setTotalDocuments(data.total || 0);
         setError(null);
@@ -160,17 +144,13 @@ function DocumentManager() {
         setLoading(false);
       }
     },
-    [currentPage, statusFilter, categoryFilter, searchQuery, itemsPerPage, activeSpaceId]
+    [api, currentPage, statusFilter, categoryFilter, searchQuery, itemsPerPage, activeSpaceId]
   );
 
   // Load categories
   const loadCategories = async signal => {
     try {
-      const response = await fetch(`${API_BASE}/documents/categories`, {
-        headers: getAuthHeaders(),
-        signal,
-      });
-      const data = await response.json();
+      const data = await api.get('/documents/categories', { signal, showError: false });
       setCategories(data.categories || []);
     } catch (err) {
       if (signal?.aborted) return;
@@ -187,25 +167,20 @@ function DocumentManager() {
         if (statusFilter) params.append('status', statusFilter);
         if (categoryFilter) params.append('category_id', categoryFilter);
 
-        const response = await fetch(`${API_BASE}/documents/statistics?${params}`, {
-          headers: getAuthHeaders(),
-          signal,
-        });
-        const data = await response.json();
+        const data = await api.get(`/documents/statistics?${params}`, { signal, showError: false });
         setStatistics(data);
       } catch (err) {
         if (signal?.aborted) return;
         console.error('Error loading statistics:', err);
       }
     },
-    [activeSpaceId, statusFilter, categoryFilter]
+    [api, activeSpaceId, statusFilter, categoryFilter]
   );
 
   // Load Knowledge Spaces (RAG 2.0)
   const loadSpaces = async signal => {
     try {
-      const response = await fetch(`${API_BASE}/spaces`, { headers: getAuthHeaders(), signal });
-      const data = await response.json();
+      const data = await api.get('/spaces', { signal, showError: false });
       setSpaces(data.spaces || []);
     } catch (err) {
       if (signal?.aborted) return;
@@ -231,11 +206,10 @@ function DocumentManager() {
         }
         if (searchQuery) params.append('search', searchQuery);
 
-        const response = await fetch(`${API_BASE}/v1/datentabellen/tables?${params}`, {
-          headers: getAuthHeaders(),
+        const data = await api.get(`/v1/datentabellen/tables?${params}`, {
           signal,
+          showError: false,
         });
-        const data = await response.json();
         const allTables = data.tables || data.data || [];
         setTables(allTables);
         setTotalTables(data.total || allTables.length);
@@ -246,7 +220,7 @@ function DocumentManager() {
         setLoadingTables(false);
       }
     },
-    [activeSpaceId, statusFilter, searchQuery]
+    [api, activeSpaceId, statusFilter, searchQuery]
   );
 
   // Handle space change (for tabs) - reset all filters
@@ -277,11 +251,7 @@ function DocumentManager() {
   // Move document to a different space
   const handleMoveDocument = async (docId, newSpaceId, newSpaceName) => {
     try {
-      await fetch(`${API_BASE}/documents/${docId}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ space_id: newSpaceId }),
-      });
+      await api.put(`/documents/${docId}/move`, { space_id: newSpaceId }, { showError: false });
       toast.success(`Dokument verschoben nach: ${newSpaceName || 'Kein Bereich'}`);
       loadDocuments();
       loadStatistics();
@@ -340,191 +310,52 @@ function DocumentManager() {
     return () => controller.abort();
   }, [activeSpaceId, statusFilter, categoryFilter, searchQuery]);
 
-  // File upload handler
-  const handleFileUpload = async files => {
-    if (!files || files.length === 0) return;
+  // Upload hook
+  const {
+    uploading,
+    uploadProgress,
+    dragActive,
+    handleFileUpload,
+    handleDrag,
+    handleDragEnter,
+    handleDragLeave,
+    handleDrop,
+  } = useDocumentUpload({
+    activeSpaceId,
+    uploadSpaceId,
+    setError,
+    loadDocuments,
+    loadStatistics,
+    loadSpaces,
+  });
 
-    setUploading(true);
-    setUploadProgress(0);
+  // Document actions hook
+  const {
+    selectedDocument,
+    setSelectedDocument,
+    showDetails,
+    setShowDetails,
+    similarDocuments,
+    loadingSimilar,
+    semanticSearch,
+    setSemanticSearch,
+    searchResults,
+    setSearchResults,
+    searching,
+    handleDelete,
+    handleDownload,
+    handleReindex,
+    viewDocumentDetails,
+    handleSemanticSearch,
+    toggleFavorite,
+  } = useDocumentActions({
+    confirm,
+    setError,
+    loadDocuments,
+    loadStatistics,
+  });
 
-    const totalFiles = files.length;
-    let completedFiles = 0;
-
-    // Use active space or upload space selection
-    const targetSpaceId = uploadSpaceId || activeSpaceId;
-
-    for (const file of files) {
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        // RAG 2.0: Include space_id for document organization
-        if (targetSpaceId) {
-          formData.append('space_id', targetSpaceId);
-        }
-
-        await fetch(`${API_BASE}/documents/upload`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: formData,
-        });
-
-        completedFiles++;
-        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
-      } catch (err) {
-        console.error(`Error uploading ${file.name}:`, err);
-        setError(`Fehler beim Hochladen von "${file.name}"`);
-      }
-    }
-
-    setUploading(false);
-    setUploadProgress(0);
-
-    // Refresh documents list and spaces (for updated counts)
-    loadDocuments();
-    loadStatistics();
-    loadSpaces();
-  };
-
-  // Drag and drop handlers
-  const handleDrag = e => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDragEnter = e => {
-    handleDrag(e);
-    setDragActive(true);
-  };
-
-  const handleDragLeave = e => {
-    handleDrag(e);
-    setDragActive(false);
-  };
-
-  const handleDrop = e => {
-    handleDrag(e);
-    setDragActive(false);
-    handleFileUpload(e.dataTransfer.files);
-  };
-
-  // Delete document
-  const handleDelete = async (docId, filename) => {
-    if (!(await confirm({ message: `"${filename}" wirklich löschen?` }))) return;
-
-    try {
-      await fetch(`${API_BASE}/documents/${docId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      loadDocuments();
-      loadStatistics();
-    } catch (err) {
-      setError('Fehler beim Löschen');
-    }
-  };
-
-  // Download document
-  const handleDownload = async (docId, filename) => {
-    try {
-      const response = await fetch(`${API_BASE}/documents/${docId}/download`, {
-        headers: getAuthHeaders(),
-      });
-      const blob = await response.blob();
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      setError('Fehler beim Download');
-    }
-  };
-
-  // Reindex document
-  const handleReindex = async docId => {
-    try {
-      await fetch(`${API_BASE}/documents/${docId}/reindex`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-      loadDocuments();
-    } catch (err) {
-      setError('Fehler beim Neuindexieren');
-    }
-  };
-
-  // View document details
-  const viewDocumentDetails = async doc => {
-    setSelectedDocument(doc);
-    setShowDetails(true);
-    setSimilarDocuments([]);
-
-    // Load similar documents
-    if (doc.status === 'indexed') {
-      setLoadingSimilar(true);
-      try {
-        const response = await fetch(`${API_BASE}/documents/${doc.id}/similar`, {
-          headers: getAuthHeaders(),
-        });
-        const data = await response.json();
-        setSimilarDocuments(data.similar_documents || []);
-      } catch (err) {
-        console.error('Error loading similar documents:', err);
-      } finally {
-        setLoadingSimilar(false);
-      }
-    }
-  };
-
-  // Semantic search - RC-003 FIX: Race condition protection
-  const handleSemanticSearch = async () => {
-    if (!semanticSearch.trim()) return;
-
-    // Increment request ID to track this specific search
-    const currentRequestId = ++searchRequestIdRef.current;
-    setSearching(true);
-
-    try {
-      const response = await fetch(`${API_BASE}/documents/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ query: semanticSearch, top_k: 10 }),
-      });
-      const data = await response.json();
-
-      // RC-003: Only update state if this is still the most recent search
-      if (searchRequestIdRef.current === currentRequestId) {
-        setSearchResults(data);
-      }
-    } catch (err) {
-      // Only show error if this is still the most recent search
-      if (searchRequestIdRef.current === currentRequestId) {
-        setError('Fehler bei der Suche');
-      }
-    } finally {
-      // Only reset loading if this is still the most recent search
-      if (searchRequestIdRef.current === currentRequestId) {
-        setSearching(false);
-      }
-    }
-  };
-
-  // Toggle favorite
-  const toggleFavorite = async doc => {
-    try {
-      await fetch(`${API_BASE}/documents/${doc.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ is_favorite: !doc.is_favorite }),
-      });
-      loadDocuments();
-    } catch (err) {
-      setError('Fehler beim Aktualisieren');
-    }
-  };
+  // --- Inline handlers that remain in component (editor, table-related) ---
 
   // Open editor for a document
   const handleEdit = doc => {
@@ -588,10 +419,7 @@ function DocumentManager() {
     if (!(await confirm({ message: `Tabelle "${table.name}" wirklich löschen?` }))) return;
 
     try {
-      await fetch(`${API_BASE}/v1/datentabellen/tables/${table.slug}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
+      await api.del(`/v1/datentabellen/tables/${table.slug}`, { showError: false });
       loadTables();
     } catch (err) {
       setError('Fehler beim Löschen der Tabelle');

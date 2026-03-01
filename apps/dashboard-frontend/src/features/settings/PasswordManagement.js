@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { FiLock, FiEye, FiEyeOff, FiCheck, FiX, FiAlertCircle } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 
 function PasswordManagement() {
+  const api = useApi();
   const [activeService, setActiveService] = useState('dashboard');
   const [passwords, setPasswords] = useState({
     dashboard: { current: '', new: '', confirm: '' },
@@ -36,13 +37,8 @@ function PasswordManagement() {
 
   const fetchPasswordRequirements = async () => {
     try {
-      const response = await fetch(`${API_BASE}/settings/password-requirements`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRequirements(data.requirements);
-      }
+      const data = await api.get('/settings/password-requirements', { showError: false });
+      setRequirements(data.requirements);
     } catch (error) {
       console.error('Failed to fetch password requirements:', error);
     }
@@ -112,20 +108,14 @@ function PasswordManagement() {
     setMessage(null);
 
     try {
-      const response = await fetch(`${API_BASE}/settings/password/${activeService}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      const data = await api.post(
+        `/settings/password/${activeService}`,
+        {
           currentPassword: passwords[activeService].current,
           newPassword: passwords[activeService].new,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || 'Fehler beim Ändern des Passworts');
-      }
+        },
+        { showError: false }
+      );
 
       setMessage({
         type: 'success',
@@ -149,7 +139,11 @@ function PasswordManagement() {
     } catch (error) {
       setMessage({
         type: 'error',
-        text: error.message || 'Fehler beim Ändern des Passworts',
+        text:
+          error.data?.error ||
+          error.data?.message ||
+          error.message ||
+          'Fehler beim Ändern des Passworts',
       });
     } finally {
       setLoading(false);

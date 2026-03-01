@@ -4,7 +4,7 @@
 
 import React, { useState, memo } from 'react';
 import { FiFileText } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import Modal from '../ui/Modal';
 
 const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
@@ -14,6 +14,7 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
   spaceId,
   spaces = [],
 }) {
+  const api = useApi();
   const [filename, setFilename] = useState('');
   const [description, setDescription] = useState('');
   const [selectedSpaceId, setSelectedSpaceId] = useState(spaceId || '');
@@ -43,20 +44,15 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/documents/create-markdown`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      const data = await api.post(
+        '/documents/create-markdown',
+        {
           filename: filename.trim(),
           description: description.trim(),
           space_id: selectedSpaceId || null,
-        }),
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Erstellen des Dokuments');
-      }
+        },
+        { showError: false }
+      );
 
       // Reset form
       setFilename('');
@@ -66,7 +62,7 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
       onCreated(data.document);
     } catch (err) {
       console.error('Error creating markdown document:', err);
-      setError(err.message || 'Fehler beim Erstellen des Dokuments');
+      setError(err.data?.error || err.message || 'Fehler beim Erstellen des Dokuments');
     } finally {
       setLoading(false);
     }

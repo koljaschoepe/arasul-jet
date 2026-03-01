@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { API_BASE } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import {
   FiPackage,
   FiLock,
@@ -15,6 +16,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import './UpdatePage.css';
 
 const UpdatePage = () => {
+  const api = useApi();
   // RC-003: AbortController for polling cleanup
   const pollingAbortRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -56,14 +58,8 @@ const UpdatePage = () => {
 
   const fetchUpdateHistory = async signal => {
     try {
-      const response = await fetch(`${API_BASE}/update/history`, {
-        headers: getAuthHeaders(),
-        signal,
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUpdateHistory(data.updates || []);
-      }
+      const data = await api.get('/update/history', { signal, showError: false });
+      setUpdateHistory(data.updates || []);
     } catch (error) {
       if (error.name === 'AbortError') return;
       console.error('Failed to fetch update history:', error);
@@ -72,13 +68,7 @@ const UpdatePage = () => {
 
   const fetchUpdateStatus = async signal => {
     try {
-      const response = await fetch(`${API_BASE}/update/status`, {
-        headers: getAuthHeaders(),
-        signal,
-      });
-      if (!response.ok) return;
-
-      const data = await response.json();
+      const data = await api.get('/update/status', { signal, showError: false });
       setUpdateStatus(data);
 
       if (data.status === 'completed') {
@@ -97,19 +87,14 @@ const UpdatePage = () => {
   const scanUsbDevices = useCallback(async () => {
     setUsbScanning(true);
     try {
-      const response = await fetch(`${API_BASE}/update/usb-devices`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUsbDevices(data.devices || []);
-      }
+      const data = await api.get('/update/usb-devices', { showError: false });
+      setUsbDevices(data.devices || []);
     } catch (error) {
       console.error('Failed to scan USB devices:', error);
     } finally {
       setUsbScanning(false);
     }
-  }, []);
+  }, [api]);
 
   const handleFileSelect = event => {
     const file = event.target.files[0];
@@ -205,24 +190,19 @@ const UpdatePage = () => {
     setErrorMessage('');
 
     try {
-      const response = await fetch(`${API_BASE}/update/apply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ file_path: validationResult.file_path }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.status === 'started') {
-          fetchUpdateStatus();
-        }
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Update konnte nicht gestartet werden');
+      const data = await api.post(
+        '/update/apply',
+        { file_path: validationResult.file_path },
+        { showError: false }
+      );
+      if (data.status === 'started') {
+        fetchUpdateStatus();
       }
     } catch (error) {
       setUploadStatus('error');
-      setErrorMessage(error.message || 'Update-Prozess konnte nicht gestartet werden');
+      setErrorMessage(
+        error.data?.error || error.message || 'Update-Prozess konnte nicht gestartet werden'
+      );
     }
   };
 
@@ -232,24 +212,19 @@ const UpdatePage = () => {
     setErrorMessage('');
 
     try {
-      const response = await fetch(`${API_BASE}/update/install-from-usb`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ file_path: usbFile.path }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUploadStatus('validated');
-        setValidationResult(data);
-        setUploadProgress(100);
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'USB-Update Validierung fehlgeschlagen');
-      }
+      const data = await api.post(
+        '/update/install-from-usb',
+        { file_path: usbFile.path },
+        { showError: false }
+      );
+      setUploadStatus('validated');
+      setValidationResult(data);
+      setUploadProgress(100);
     } catch (error) {
       setUploadStatus('error');
-      setErrorMessage(error.message || 'USB-Update konnte nicht geladen werden');
+      setErrorMessage(
+        error.data?.error || error.message || 'USB-Update konnte nicht geladen werden'
+      );
       setUploadProgress(0);
     }
   };

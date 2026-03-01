@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FiSend, FiCheck, FiAlertCircle, FiEye, FiEyeOff, FiRefreshCw } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 
 /**
  * TelegramSettings Component
  * Manages Telegram Bot configuration for system notifications
  */
 function TelegramSettings() {
+  const api = useApi();
   const [config, setConfig] = useState({
     bot_token: '',
     chat_id: '',
@@ -23,40 +24,39 @@ function TelegramSettings() {
   // ML-003 FIX: Ref to track if component is mounted
   const isMountedRef = useRef(true);
 
-  const fetchConfig = useCallback(async signal => {
-    try {
-      const response = await fetch(`${API_BASE}/telegram/config`, {
-        headers: getAuthHeaders(),
-        signal, // ML-003: Pass abort signal
-      });
-      if (response.ok && isMountedRef.current) {
-        const data = await response.json();
-        setConfig({
-          bot_token: '', // Never returned from backend
-          chat_id: data.chat_id || '',
-          enabled: data.enabled || false,
-        });
-        // Backend returns 'configured' and 'token_masked' instead of 'has_token'
-        setHasToken(data.configured || false);
-        setOriginalConfig({
-          bot_token: '',
-          chat_id: data.chat_id || '',
-          enabled: data.enabled || false,
-        });
+  const fetchConfig = useCallback(
+    async signal => {
+      try {
+        const data = await api.get('/telegram/config', { showError: false, signal });
+        if (isMountedRef.current) {
+          setConfig({
+            bot_token: '', // Never returned from backend
+            chat_id: data.chat_id || '',
+            enabled: data.enabled || false,
+          });
+          // Backend returns 'configured' and 'token_masked' instead of 'has_token'
+          setHasToken(data.configured || false);
+          setOriginalConfig({
+            bot_token: '',
+            chat_id: data.chat_id || '',
+            enabled: data.enabled || false,
+          });
+        }
+      } catch (error) {
+        // ML-003: Ignore abort errors
+        if (error.name === 'AbortError') return;
+        console.error('Error fetching Telegram config:', error);
+        if (isMountedRef.current) {
+          setMessage({ type: 'error', text: 'Fehler beim Laden der Konfiguration' });
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      // ML-003: Ignore abort errors
-      if (error.name === 'AbortError') return;
-      console.error('Error fetching Telegram config:', error);
-      if (isMountedRef.current) {
-        setMessage({ type: 'error', text: 'Fehler beim Laden der Konfiguration' });
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }, []);
+    },
+    [api]
+  );
 
   // ML-003 FIX: Use AbortController and track mounted state
   useEffect(() => {
@@ -87,33 +87,23 @@ function TelegramSettings() {
       }
 
       // Backend uses POST for both create and update (upsert)
-      const response = await fetch(`${API_BASE}/telegram/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify(payload),
-      });
+      const data = await api.post('/telegram/config', payload, { showError: false });
 
       // ML-003: Check if still mounted before updating state
       if (!isMountedRef.current) return;
 
-      if (response.ok) {
-        const data = await response.json();
-        // Backend returns has_token: true when token is configured
-        setHasToken(data.has_token || data.success || false);
-        setConfig(prev => ({ ...prev, bot_token: '' }));
-        setOriginalConfig({
-          bot_token: '',
-          chat_id: config.chat_id,
-          enabled: config.enabled,
-        });
-        setMessage({ type: 'success', text: 'Konfiguration erfolgreich gespeichert' });
-      } else {
-        const data = await response.json();
-        setMessage({ type: 'error', text: data.error || 'Fehler beim Speichern' });
-      }
+      // Backend returns has_token: true when token is configured
+      setHasToken(data.has_token || data.success || false);
+      setConfig(prev => ({ ...prev, bot_token: '' }));
+      setOriginalConfig({
+        bot_token: '',
+        chat_id: config.chat_id,
+        enabled: config.enabled,
+      });
+      setMessage({ type: 'success', text: 'Konfiguration erfolgreich gespeichert' });
     } catch (error) {
       if (!isMountedRef.current) return;
-      setMessage({ type: 'error', text: 'Netzwerkfehler beim Speichern' });
+      setMessage({ type: 'error', text: error.data?.error || 'Netzwerkfehler beim Speichern' });
     } finally {
       if (isMountedRef.current) {
         setSaving(false);
@@ -129,29 +119,20 @@ function TelegramSettings() {
 
     try {
       // Backend POST endpoint handles upsert with enabled field
-      const response = await fetch(`${API_BASE}/telegram/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
+      await api.post('/telegram/config', { enabled: newEnabled }, { showError: false });
 
       // ML-003: Check if still mounted before updating state
       if (!isMountedRef.current) return;
 
-      if (response.ok) {
-        setConfig(prev => ({ ...prev, enabled: newEnabled }));
-        setOriginalConfig(prev => ({ ...prev, enabled: newEnabled }));
-        setMessage({
-          type: 'success',
-          text: newEnabled ? 'Telegram Bot aktiviert' : 'Telegram Bot deaktiviert',
-        });
-      } else {
-        const data = await response.json();
-        setMessage({ type: 'error', text: data.error || 'Fehler beim Umschalten' });
-      }
+      setConfig(prev => ({ ...prev, enabled: newEnabled }));
+      setOriginalConfig(prev => ({ ...prev, enabled: newEnabled }));
+      setMessage({
+        type: 'success',
+        text: newEnabled ? 'Telegram Bot aktiviert' : 'Telegram Bot deaktiviert',
+      });
     } catch (error) {
       if (!isMountedRef.current) return;
-      setMessage({ type: 'error', text: 'Netzwerkfehler' });
+      setMessage({ type: 'error', text: error.data?.error || 'Netzwerkfehler' });
     } finally {
       if (isMountedRef.current) {
         setSaving(false);
@@ -164,23 +145,15 @@ function TelegramSettings() {
     setMessage(null);
 
     try {
-      const response = await fetch(`${API_BASE}/telegram/test`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      });
+      await api.post('/telegram/test', undefined, { showError: false });
 
       // ML-003: Check if still mounted before updating state
       if (!isMountedRef.current) return;
 
-      if (response.ok) {
-        setMessage({ type: 'success', text: 'Test-Nachricht erfolgreich gesendet!' });
-      } else {
-        const data = await response.json();
-        setMessage({ type: 'error', text: data.error || 'Test fehlgeschlagen' });
-      }
+      setMessage({ type: 'success', text: 'Test-Nachricht erfolgreich gesendet!' });
     } catch (error) {
       if (!isMountedRef.current) return;
-      setMessage({ type: 'error', text: 'Netzwerkfehler beim Test' });
+      setMessage({ type: 'error', text: error.data?.error || 'Netzwerkfehler beim Test' });
     } finally {
       if (isMountedRef.current) {
         setTesting(false);

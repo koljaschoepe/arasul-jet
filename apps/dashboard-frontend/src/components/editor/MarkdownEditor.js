@@ -18,7 +18,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MermaidDiagram from './MermaidDiagram';
 import useConfirm from '../../hooks/useConfirm';
-import { API_BASE } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import './markdown-editor.css';
 
 const MarkdownEditor = memo(function MarkdownEditor({
@@ -28,6 +28,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
   onSave,
   token,
 }) {
+  const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
   const containerRef = useRef(null);
   const [content, setContent] = useState('');
@@ -54,18 +55,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`${API_BASE}/documents/${documentId}/content`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Fehler beim Laden');
-        }
-
-        const data = await response.json();
+        const data = await api.get(`/documents/${documentId}/content`, { showError: false });
         setContent(data.content);
         setOriginalContent(data.content);
       } catch (err) {
@@ -78,7 +68,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
     if (documentId && token) {
       loadContent();
     }
-  }, [documentId, token]);
+  }, [documentId, token, api]);
 
   // Track changes
   useEffect(() => {
@@ -91,19 +81,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
       setSaving(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE}/documents/${documentId}/content`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Fehler beim Speichern');
-      }
+      await api.put(`/documents/${documentId}/content`, { content }, { showError: false });
 
       setOriginalContent(content);
       setHasChanges(false);
@@ -116,7 +94,7 @@ const MarkdownEditor = memo(function MarkdownEditor({
     } finally {
       setSaving(false);
     }
-  }, [documentId, content, token, onSave]);
+  }, [documentId, content, onSave, api]);
 
   // Handle close with unsaved changes warning
   const handleClose = useCallback(async () => {

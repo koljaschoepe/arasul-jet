@@ -30,6 +30,7 @@ export function useApi() {
         showError = true,
         headers: extraHeaders,
         raw = false,
+        signal,
       } = options;
 
       const headers = {
@@ -47,6 +48,7 @@ export function useApi() {
         method,
         headers,
         body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+        signal,
       });
 
       if (!res.ok) {

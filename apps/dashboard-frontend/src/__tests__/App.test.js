@@ -28,12 +28,6 @@ jest.mock('../features/documents/DocumentManager', () => () => (
 jest.mock('../features/settings/Settings', () => () => (
   <div data-testid="settings">Settings Component</div>
 ));
-jest.mock('../components/AppStore', () => () => (
-  <div data-testid="app-store">AppStore Component</div>
-));
-jest.mock('../components/ModelStore', () => () => (
-  <div data-testid="model-store">ModelStore Component</div>
-));
 jest.mock('../features/claude/ClaudeCode', () => () => (
   <div data-testid="claude-code">ClaudeCode Component</div>
 ));

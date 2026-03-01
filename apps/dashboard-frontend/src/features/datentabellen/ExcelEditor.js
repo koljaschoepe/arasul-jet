@@ -32,14 +32,15 @@ import {
   FiCode,
   FiFilter,
 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import GridCellEditor from '../../components/editor/GridEditor/CellEditor';
+import useExcelClipboard from './useExcelClipboard';
+import useExcelHistory from './useExcelHistory';
+import useExcelKeyboard from './useExcelKeyboard';
 import '../database/Database.css';
-
-// Maximum undo history size
-const MAX_UNDO_HISTORY = 50;
 
 // Page size options
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
@@ -67,6 +68,7 @@ const InlineColumnCreator = memo(function InlineColumnCreator({
   onColumnAdded,
   existingSlugs,
 }) {
+  const api = useApi();
   const [mode, setMode] = useState('button'); // 'button' | 'name' | 'type'
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -103,25 +105,21 @@ const InlineColumnCreator = memo(function InlineColumnCreator({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      await api.post(
+        `/v1/datentabellen/tables/${tableSlug}/fields`,
+        {
           name: name.trim(),
           field_type: type,
           is_required: false,
           is_unique: false,
-        }),
-      });
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Fehler');
-      }
+        },
+        { showError: false }
+      );
       onColumnAdded();
       setName('');
       setMode('button');
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
       setMode('name');
     } finally {
       setLoading(false);
@@ -210,127 +208,6 @@ const InlineColumnCreator = memo(function InlineColumnCreator({
 });
 
 /**
- * CellEditor - Inline editor for a single cell
- */
-const CellEditor = memo(function CellEditor({ value, field, onSave, onCancel }) {
-  const [editValue, setEditValue] = useState(value ?? '');
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select?.();
-    }
-  }, []);
-
-  const handleKeyDown = e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSave(editValue);
-    } else if (e.key === 'Escape') {
-      onCancel();
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      onSave(editValue, e.shiftKey ? 'prev' : 'next');
-    }
-  };
-
-  const handleBlur = () => {
-    onSave(editValue);
-  };
-
-  switch (field.field_type) {
-    case 'textarea':
-      return (
-        <textarea
-          ref={inputRef}
-          value={editValue}
-          onChange={e => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          className="excel-cell-editor"
-          rows={3}
-        />
-      );
-    case 'number':
-    case 'currency':
-      return (
-        <input
-          ref={inputRef}
-          type="number"
-          step={field.field_type === 'currency' ? '0.01' : 'any'}
-          value={editValue}
-          onChange={e => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          className="excel-cell-editor"
-        />
-      );
-    case 'date':
-      return (
-        <input
-          ref={inputRef}
-          type="date"
-          value={editValue ? editValue.split('T')[0] : ''}
-          onChange={e => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          className="excel-cell-editor"
-        />
-      );
-    case 'checkbox':
-      return (
-        <input
-          ref={inputRef}
-          type="checkbox"
-          checked={editValue === true || editValue === 'true'}
-          onChange={e => {
-            setEditValue(e.target.checked);
-            onSave(e.target.checked);
-          }}
-          className="excel-cell-editor-checkbox"
-        />
-      );
-    case 'select':
-      const options = field.options?.choices || [];
-      return (
-        <select
-          ref={inputRef}
-          value={editValue}
-          onChange={e => {
-            setEditValue(e.target.value);
-            onSave(e.target.value);
-          }}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          className="excel-cell-editor"
-        >
-          <option value="">-- Auswählen --</option>
-          {options.map(opt => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      );
-    default:
-      return (
-        <input
-          ref={inputRef}
-          type={
-            field.field_type === 'email' ? 'email' : field.field_type === 'url' ? 'url' : 'text'
-          }
-          value={editValue}
-          onChange={e => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          className="excel-cell-editor"
-        />
-      );
-  }
-});
-
-/**
  * ColumnMenu - Dropdown menu for column actions
  */
 const ColumnMenu = memo(function ColumnMenu({
@@ -340,6 +217,7 @@ const ColumnMenu = memo(function ColumnMenu({
   onFieldUpdated,
   position,
 }) {
+  const api = useApi();
   const { confirm: showConfirm, ConfirmDialog: ColumnConfirmDialog } = useConfirm();
   const [mode, setMode] = useState('menu');
   const [newName, setNewName] = useState(field.name);
@@ -374,22 +252,15 @@ const ColumnMenu = memo(function ColumnMenu({
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({ name: newName.trim() }),
-        }
+      await api.patch(
+        `/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
+        { name: newName.trim() },
+        { showError: false }
       );
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Fehler');
-      }
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
     } finally {
       setLoading(false);
     }
@@ -403,22 +274,15 @@ const ColumnMenu = memo(function ColumnMenu({
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({ field_type: newType }),
-        }
+      await api.patch(
+        `/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
+        { field_type: newType },
+        { showError: false }
       );
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Fehler');
-      }
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
     } finally {
       setLoading(false);
     }
@@ -429,21 +293,13 @@ const ColumnMenu = memo(function ColumnMenu({
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
-        {
-          method: 'DELETE',
-          headers: getAuthHeaders(),
-        }
-      );
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Fehler');
-      }
+      await api.del(`/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, {
+        showError: false,
+      });
       onFieldUpdated();
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
     } finally {
       setLoading(false);
     }
@@ -573,6 +429,7 @@ const CellContextMenu = memo(function CellContextMenu({
  * AIQueryPanel - Natural language query interface
  */
 const AIQueryPanel = memo(function AIQueryPanel({ tableSlug, onResultsApplied, onClose }) {
+  const api = useApi();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -594,20 +451,18 @@ const AIQueryPanel = memo(function AIQueryPanel({ tableSlug, onResultsApplied, o
     setResult(null);
 
     try {
-      const response = await fetch(`${API_BASE}/v1/datentabellen/query/natural`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ query: query.trim(), tableSlug }),
-      });
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Abfrage fehlgeschlagen');
-      }
-      const data = await response.json();
+      const data = await api.post(
+        `/v1/datentabellen/query/natural`,
+        {
+          query: query.trim(),
+          tableSlug,
+        },
+        { showError: false }
+      );
 
       setResult(data.data);
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
     } finally {
       setLoading(false);
     }
@@ -744,6 +599,7 @@ const AIQueryPanel = memo(function AIQueryPanel({ tableSlug, onResultsApplied, o
  * ExcelEditor - Main fullscreen editor component
  */
 function ExcelEditor({ tableSlug, tableName, onClose }) {
+  const api = useApi();
   const toast = useToast();
   const { confirm: showConfirm, ConfirmDialog } = useConfirm();
   // Table state
@@ -778,17 +634,17 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
   const [columnMenu, setColumnMenu] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
 
-  // Clipboard & Undo/Redo
-  const [clipboard, setClipboard] = useState(null);
-  const [undoStack, setUndoStack] = useState([]);
-  const [redoStack, setRedoStack] = useState([]);
-
   // Column widths
   const [columnWidths, setColumnWidths] = useState({});
   const [resizingColumn, setResizingColumn] = useState(null);
 
   // Refs
   const tableRef = useRef(null);
+  const handleCellSaveRef = useRef(null);
+
+  // History (undo/redo) - uses ref to break circular dep with handleCellSave
+  const { undoStack, redoStack, pushUndo, clearStacks, handleUndo, handleRedo } =
+    useExcelHistory(handleCellSaveRef);
 
   // Load table data
   const loadTable = useCallback(async () => {
@@ -801,18 +657,8 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
         order: sortOrder,
       });
       const [tableData, rowsData] = await Promise.all([
-        fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}`, {
-          headers: getAuthHeaders(),
-        }).then(r => {
-          if (!r.ok) throw new Error('Fehler beim Laden');
-          return r.json();
-        }),
-        fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows?${rowsParams}`, {
-          headers: getAuthHeaders(),
-        }).then(r => {
-          if (!r.ok) throw new Error('Fehler beim Laden');
-          return r.json();
-        }),
+        api.get(`/v1/datentabellen/tables/${tableSlug}`, { showError: false }),
+        api.get(`/v1/datentabellen/tables/${tableSlug}/rows?${rowsParams}`, { showError: false }),
       ]);
 
       setTable(tableData.data);
@@ -878,16 +724,11 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
 
       try {
         setSaving(true);
-        const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({ [fieldSlug]: value }),
-        });
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || 'Fehler beim Erstellen');
-        }
-        const data = await response.json();
+        const data = await api.post(
+          `/v1/datentabellen/tables/${tableSlug}/rows`,
+          { [fieldSlug]: value },
+          { showError: false }
+        );
 
         // Add new row to state
         const newRow = data.data;
@@ -910,16 +751,11 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
   const handleAddRow = async () => {
     try {
       setSaving(true);
-      const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({}),
-      });
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Fehler');
-      }
-      const data = await response.json();
+      const data = await api.post(
+        `/v1/datentabellen/tables/${tableSlug}/rows`,
+        {},
+        { showError: false }
+      );
       setRows(prev => [...prev, data.data]);
       setTotalRows(prev => prev + 1);
       setSaveStatus('success');
@@ -953,39 +789,27 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
 
       try {
         setSaving(true);
-        const response = await fetch(
-          `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/${rowId}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({
+        const data = await api
+          .patch(
+            `/v1/datentabellen/tables/${tableSlug}/rows/${rowId}`,
+            {
               [fieldSlug]: value,
               _expected_updated_at: oldRow?._updated_at,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          if (response.status === 409) {
-            setError('Konflikt: Daten wurden geändert. Neu laden.');
-            setUndoStack([]);
-            setRedoStack([]);
-            throw new Error('Konflikt');
-          }
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || 'Fehler');
-        }
-
-        const data = await response.json();
+            },
+            { showError: false }
+          )
+          .catch(err => {
+            if (err.status === 409) {
+              setError('Konflikt: Daten wurden geändert. Neu laden.');
+              clearStacks();
+            }
+            throw err;
+          });
 
         setRows(prev => prev.map(row => (row._id === rowId ? { ...row, ...data.data } : row)));
 
         if (!skipUndo) {
-          setUndoStack(prev => [
-            ...prev.slice(-MAX_UNDO_HISTORY + 1),
-            { rowId, fieldSlug, oldValue, newValue: value },
-          ]);
-          setRedoStack([]);
+          pushUndo({ rowId, fieldSlug, oldValue, newValue: value });
         }
 
         setSaveStatus('success');
@@ -999,63 +823,20 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
         setSaving(false);
       }
     },
-    [rows, tableSlug, loadTable, handleGhostRowEdit, moveToCell]
+    [rows, tableSlug, loadTable, handleGhostRowEdit, moveToCell, pushUndo, clearStacks]
   );
 
-  // Clipboard operations
-  const handleCopy = useCallback(() => {
-    const { row, col } = activeCell;
-    if (displayRows[row] && fields[col]) {
-      const value = displayRows[row][fields[col].slug];
-      setClipboard({ value, fieldType: fields[col].field_type });
-      navigator.clipboard?.writeText(String(value ?? ''));
-      setSaveStatus('success');
-      setTimeout(() => setSaveStatus(null), 1000);
-    }
-  }, [activeCell, displayRows, fields]);
+  // Keep ref in sync for history hook
+  handleCellSaveRef.current = handleCellSave;
 
-  const handleCut = useCallback(() => {
-    const { row, col } = activeCell;
-    if (displayRows[row] && fields[col] && displayRows[row]._id !== '__ghost__') {
-      const value = displayRows[row][fields[col].slug];
-      setClipboard({ value, fieldType: fields[col].field_type, isCut: true });
-      navigator.clipboard?.writeText(String(value ?? ''));
-      handleCellSave(displayRows[row]._id, fields[col].slug, null);
-    }
-  }, [activeCell, displayRows, fields, handleCellSave]);
-
-  const handlePaste = useCallback(async () => {
-    const { row, col } = activeCell;
-    if (!displayRows[row] || !fields[col]) return;
-
-    let value = clipboard?.value;
-    if (value === undefined) {
-      try {
-        value = await navigator.clipboard?.readText();
-      } catch {}
-    }
-
-    if (value !== undefined) {
-      handleCellSave(displayRows[row]._id, fields[col].slug, value);
-    }
-  }, [activeCell, displayRows, fields, clipboard, handleCellSave]);
-
-  // Undo/Redo
-  const handleUndo = useCallback(async () => {
-    if (undoStack.length === 0) return;
-    const last = undoStack[undoStack.length - 1];
-    setUndoStack(prev => prev.slice(0, -1));
-    setRedoStack(prev => [...prev, last]);
-    await handleCellSave(last.rowId, last.fieldSlug, last.oldValue, null, true);
-  }, [undoStack, handleCellSave]);
-
-  const handleRedo = useCallback(async () => {
-    if (redoStack.length === 0) return;
-    const last = redoStack[redoStack.length - 1];
-    setRedoStack(prev => prev.slice(0, -1));
-    setUndoStack(prev => [...prev, last]);
-    await handleCellSave(last.rowId, last.fieldSlug, last.newValue, null, true);
-  }, [redoStack, handleCellSave]);
+  // Clipboard
+  const { clipboard, handleCopy, handleCut, handlePaste } = useExcelClipboard({
+    activeCell,
+    displayRows,
+    fields,
+    handleCellSave,
+    setSaveStatus,
+  });
 
   // Export CSV
   const handleExportCSV = useCallback(async () => {
@@ -1067,14 +848,9 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
         sort: sortField,
         order: sortOrder,
       });
-      const response = await fetch(
-        `${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows?${exportParams}`,
-        {
-          headers: getAuthHeaders(),
-        }
-      );
-      if (!response.ok) throw new Error('Export fehlgeschlagen');
-      const data = await response.json();
+      const data = await api.get(`/v1/datentabellen/tables/${tableSlug}/rows?${exportParams}`, {
+        showError: false,
+      });
       const allRows = data.data || [];
 
       const headers = fields.map(f => `"${f.name.replace(/"/g, '""')}"`).join(';');
@@ -1113,20 +889,16 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
 
     try {
       setSaving(true);
-      const response = await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/rows/bulk`, {
+      await api.request(`/v1/datentabellen/tables/${tableSlug}/rows/bulk`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ ids: Array.from(selectedRows) }),
+        body: { ids: Array.from(selectedRows) },
+        showError: false,
       });
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Fehler');
-      }
       setSelectedRows(new Set());
       await loadTable();
       setSaveStatus('success');
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
       setSaveStatus('error');
     } finally {
       setSaving(false);
@@ -1134,106 +906,22 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
   };
 
   // Keyboard navigation
-  const handleKeyDown = useCallback(
-    e => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key.toLowerCase()) {
-          case 'c':
-            if (!editingCell) {
-              e.preventDefault();
-              handleCopy();
-            }
-            return;
-          case 'x':
-            if (!editingCell) {
-              e.preventDefault();
-              handleCut();
-            }
-            return;
-          case 'v':
-            if (!editingCell) {
-              e.preventDefault();
-              handlePaste();
-            }
-            return;
-          case 'z':
-            e.preventDefault();
-            e.shiftKey ? handleRedo() : handleUndo();
-            return;
-          case 'y':
-            e.preventDefault();
-            handleRedo();
-            return;
-          default:
-            break;
-        }
-      }
-
-      if (editingCell) return;
-
-      const { row, col } = activeCell;
-      const numRows = displayRows.length;
-      const numCols = fields.length;
-
-      switch (e.key) {
-        case 'ArrowUp':
-          e.preventDefault();
-          if (row > 0) setActiveCell({ row: row - 1, col });
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          if (row < numRows - 1) setActiveCell({ row: row + 1, col });
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          if (col > 0) setActiveCell({ row, col: col - 1 });
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          if (col < numCols - 1) setActiveCell({ row, col: col + 1 });
-          break;
-        case 'Tab':
-          e.preventDefault();
-          moveToCell(e.shiftKey ? 'prev' : 'next');
-          break;
-        case 'Enter':
-        case 'F2':
-          e.preventDefault();
-          if (displayRows[row] && fields[col]) {
-            setEditingCell({ rowId: displayRows[row]._id, fieldSlug: fields[col].slug });
-          }
-          break;
-        case 'Delete':
-          if (displayRows[row] && fields[col] && displayRows[row]._id !== '__ghost__') {
-            handleCellSave(displayRows[row]._id, fields[col].slug, null);
-          }
-          break;
-        default:
-          break;
-      }
-    },
-    [
-      activeCell,
-      editingCell,
-      displayRows,
-      fields,
-      handleCopy,
-      handleCut,
-      handlePaste,
-      handleUndo,
-      handleRedo,
-      moveToCell,
-      handleCellSave,
-    ]
-  );
-
-  useEffect(() => {
-    const el = tableRef.current;
-    if (el) {
-      el.addEventListener('keydown', handleKeyDown);
-      return () => el.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [handleKeyDown]);
+  useExcelKeyboard({
+    tableRef,
+    activeCell,
+    setActiveCell,
+    editingCell,
+    setEditingCell,
+    displayRows,
+    fields,
+    moveToCell,
+    handleCopy,
+    handleCut,
+    handlePaste,
+    handleUndo,
+    handleRedo,
+    handleCellSave,
+  });
 
   // Column resize
   const handleResizeStart = useCallback((e, fieldSlug, currentWidth) => {
@@ -1524,11 +1212,13 @@ function ExcelEditor({ tableSlug, tableName, onClose }) {
                         onContextMenu={e => !row._isGhost && handleContextMenu(e, rowIdx, colIdx)}
                       >
                         {isEditing ? (
-                          <CellEditor
+                          <GridCellEditor
                             value={row[field.slug]}
                             field={field}
                             onSave={(val, dir) => handleCellSave(row._id, field.slug, val, dir)}
                             onCancel={() => setEditingCell(null)}
+                            classPrefix="excel"
+                            validate={false}
                           />
                         ) : (
                           <span className={`excel-cell-value excel-cell-${field.field_type}`}>

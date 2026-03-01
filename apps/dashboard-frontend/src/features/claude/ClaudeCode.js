@@ -34,7 +34,7 @@ import {
   FiLogIn,
   FiClock,
 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/ui/Modal';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -48,6 +48,7 @@ function WorkspaceManager({
   onWorkspaceDeleted,
   onSetDefault,
 }) {
+  const api = useApi();
   const toast = useToast();
   const { confirm: showConfirm, ConfirmDialog: WorkspaceConfirmDialog } = useConfirm();
   const [newName, setNewName] = useState('');
@@ -68,16 +69,15 @@ function WorkspaceManager({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/workspaces`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      const data = await api.post(
+        '/workspaces',
+        {
           name: newName.trim(),
           hostPath: newPath.trim(),
           description: newDescription.trim(),
-        }),
-      });
-      const data = await response.json();
+        },
+        { showError: false }
+      );
 
       onWorkspaceCreated(data.workspace);
       toast.success('Workspace erstellt');
@@ -86,7 +86,7 @@ function WorkspaceManager({
       setNewDescription('');
       setShowCreateForm(false);
     } catch (err) {
-      setError(err.message || 'Fehler beim Erstellen');
+      setError(err.data?.error || err.message || 'Fehler beim Erstellen');
     } finally {
       setCreating(false);
     }
@@ -98,27 +98,21 @@ function WorkspaceManager({
     }
 
     try {
-      await fetch(`${API_BASE}/workspaces/${workspace.id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
+      await api.del(`/workspaces/${workspace.id}`, { showError: false });
       onWorkspaceDeleted(workspace.id);
       toast.success('Workspace gelöscht');
     } catch (err) {
-      setError(err.message || 'Fehler beim Löschen');
+      setError(err.data?.error || err.message || 'Fehler beim Löschen');
     }
   };
 
   const handleSetDefault = async workspace => {
     try {
-      await fetch(`${API_BASE}/workspaces/${workspace.id}/default`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
+      await api.post(`/workspaces/${workspace.id}/default`, {}, { showError: false });
       onSetDefault(workspace.id);
       toast.success('Standard-Workspace geändert');
     } catch (err) {
-      setError(err.message || 'Fehler beim Setzen des Standards');
+      setError(err.data?.error || err.message || 'Fehler beim Setzen des Standards');
     }
   };
 
@@ -269,6 +263,7 @@ function SetupWizard({
   workspaces,
   onOpenWorkspaceManager,
 }) {
+  const api = useApi();
   const [step, setStep] = useState(1);
   const [apiKey, setApiKey] = useState('');
   const [workspace, setWorkspace] = useState('');
@@ -326,26 +321,16 @@ function SetupWizard({
         CLAUDE_WORKSPACE: workspace,
       };
 
-      await fetch(`${API_BASE}/apps/claude-code/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ config: newConfig }),
-      });
+      await api.post('/apps/claude-code/config', { config: newConfig }, { showError: false });
 
       // Start the app
-      await fetch(`${API_BASE}/apps/claude-code/start`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
+      await api.post('/apps/claude-code/start', {}, { showError: false });
 
       // Mark workspace as used
       const selectedWs = workspaces.find(ws => ws.container_path === workspace);
       if (selectedWs) {
         try {
-          await fetch(`${API_BASE}/workspaces/${selectedWs.id}/use`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-          });
+          await api.post(`/workspaces/${selectedWs.id}/use`, {}, { showError: false });
         } catch (e) {
           // Non-critical
         }
@@ -355,7 +340,9 @@ function SetupWizard({
       onComplete();
     } catch (err) {
       console.error('Setup error:', err);
-      setError(err.message || 'Fehler bei der Einrichtung. Bitte versuche es erneut.');
+      setError(
+        err.data?.error || err.message || 'Fehler bei der Einrichtung. Bitte versuche es erneut.'
+      );
       setSaving(false);
     }
   };
@@ -563,6 +550,7 @@ function SetupWizard({
 }
 
 function ClaudeCode() {
+  const api = useApi();
   const navigate = useNavigate();
   const [appStatus, setAppStatus] = useState(null);
   const [config, setConfig] = useState({});
@@ -583,65 +571,62 @@ function ClaudeCode() {
   const setupPollRef = useRef(null);
 
   // Load workspaces
-  const loadWorkspaces = useCallback(async signal => {
-    try {
-      const response = await fetch(`${API_BASE}/workspaces`, { headers: getAuthHeaders(), signal });
-      const data = await response.json();
-      setWorkspaces(data.workspaces || []);
-    } catch (err) {
-      if (signal?.aborted) return;
-      console.error('Error loading workspaces:', err);
-      // Fallback to default workspaces if API fails
-      setWorkspaces([
-        {
-          id: 1,
-          name: 'Arasul Projekt',
-          slug: 'arasul',
-          description: 'Das Hauptprojekt dieser Plattform',
-          host_path: '/home/arasul/arasul/arasul-jet',
-          container_path: '/workspace/arasul',
-          is_default: true,
-          is_system: true,
-        },
-        {
-          id: 2,
-          name: 'Eigener Workspace',
-          slug: 'custom',
-          description: 'Dein persönliches Verzeichnis',
-          host_path: '/home/arasul/workspace',
-          container_path: '/workspace/custom',
-          is_default: false,
-          is_system: false,
-        },
-      ]);
-    }
-  }, []);
+  const loadWorkspaces = useCallback(
+    async signal => {
+      try {
+        const data = await api.get('/workspaces', { signal, showError: false });
+        setWorkspaces(data.workspaces || []);
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Error loading workspaces:', err);
+        // Fallback to default workspaces if API fails
+        setWorkspaces([
+          {
+            id: 1,
+            name: 'Arasul Projekt',
+            slug: 'arasul',
+            description: 'Das Hauptprojekt dieser Plattform',
+            host_path: '/home/arasul/arasul/arasul-jet',
+            container_path: '/workspace/arasul',
+            is_default: true,
+            is_system: true,
+          },
+          {
+            id: 2,
+            name: 'Eigener Workspace',
+            slug: 'custom',
+            description: 'Dein persönliches Verzeichnis',
+            host_path: '/home/arasul/workspace',
+            container_path: '/workspace/custom',
+            is_default: false,
+            is_system: false,
+          },
+        ]);
+      }
+    },
+    [api]
+  );
 
   // Load auth status
-  const loadAuthStatus = useCallback(async signal => {
-    try {
-      const response = await fetch(`${API_BASE}/apps/claude-code/auth-status`, {
-        headers: getAuthHeaders(),
-        signal,
-      });
-      const data = await response.json();
-      setAuthStatus(data);
-    } catch (err) {
-      if (signal?.aborted) return;
-      console.error('Error loading auth status:', err);
-      setAuthStatus(null);
-    }
-  }, []);
+  const loadAuthStatus = useCallback(
+    async signal => {
+      try {
+        const data = await api.get('/apps/claude-code/auth-status', { signal, showError: false });
+        setAuthStatus(data);
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Error loading auth status:', err);
+        setAuthStatus(null);
+      }
+    },
+    [api]
+  );
 
   // Refresh OAuth token
   const handleAuthRefresh = async () => {
     setAuthRefreshing(true);
     try {
-      const response = await fetch(`${API_BASE}/apps/claude-code/auth-refresh`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-      const data = await response.json();
+      const data = await api.post('/apps/claude-code/auth-refresh', {}, { showError: false });
       setAuthStatus(data.status);
       if (data.success) {
         setSaveMessage({ type: 'success', text: data.message });
@@ -652,7 +637,7 @@ function ClaudeCode() {
       console.error('Error refreshing auth:', err);
       setSaveMessage({
         type: 'error',
-        text: err.message || 'Token-Refresh fehlgeschlagen',
+        text: err.data?.message || err.message || 'Token-Refresh fehlgeschlagen',
       });
     } finally {
       setAuthRefreshing(false);
@@ -662,44 +647,43 @@ function ClaudeCode() {
   };
 
   // Load app status and config
-  const loadAppData = useCallback(async signal => {
-    try {
-      setError(null);
-      const [statusRes, configRes] = await Promise.all([
-        fetch(`${API_BASE}/apps/claude-code`, { headers: getAuthHeaders(), signal }).then(r =>
-          r.json()
-        ),
-        fetch(`${API_BASE}/apps/claude-code/config`, { headers: getAuthHeaders(), signal }).then(
-          r => r.json()
-        ),
-      ]);
+  const loadAppData = useCallback(
+    async signal => {
+      try {
+        setError(null);
+        const [statusRes, configRes] = await Promise.all([
+          api.get('/apps/claude-code', { signal, showError: false }),
+          api.get('/apps/claude-code/config', { signal, showError: false }),
+        ]);
 
-      const app = statusRes.app || statusRes;
-      setAppStatus(app);
-      const loadedConfig = configRes.config || {};
-      setConfig(loadedConfig);
+        const app = statusRes.app || statusRes;
+        setAppStatus(app);
+        const loadedConfig = configRes.config || {};
+        setConfig(loadedConfig);
 
-      // Show setup wizard if no API key is set and app is not running
-      if (!loadedConfig.ANTHROPIC_API_KEY_set && app.status !== 'running') {
-        setShowSetupWizard(true);
+        // Show setup wizard if no API key is set and app is not running
+        if (!loadedConfig.ANTHROPIC_API_KEY_set && app.status !== 'running') {
+          setShowSetupWizard(true);
+        }
+
+        // Set terminal URL if app is running
+        if (app.status === 'running') {
+          // Use Traefik route instead of direct port for LAN access support
+          const protocol = window.location.protocol;
+          setTerminalUrl(`${protocol}//${window.location.host}/claude-terminal/`);
+        } else {
+          setTerminalUrl('');
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Error loading Claude Code:', err);
+        setError('Fehler beim Laden der App-Daten.');
+      } finally {
+        setLoading(false);
       }
-
-      // Set terminal URL if app is running
-      if (app.status === 'running') {
-        // Use Traefik route instead of direct port for LAN access support
-        const protocol = window.location.protocol;
-        setTerminalUrl(`${protocol}//${window.location.host}/claude-terminal/`);
-      } else {
-        setTerminalUrl('');
-      }
-    } catch (err) {
-      if (signal?.aborted) return;
-      console.error('Error loading Claude Code:', err);
-      setError('Fehler beim Laden der App-Daten.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [api]
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -761,9 +745,7 @@ function ClaudeCode() {
     // Poll for app to be running
     setupPollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/apps/claude-code`, { headers: getAuthHeaders() }).then(
-          r => r.json()
-        );
+        const res = await api.get('/apps/claude-code', { showError: false });
         if (res.status === 'running' || res.app?.status === 'running') {
           clearInterval(setupPollRef.current);
           setupPollRef.current = null;
@@ -815,14 +797,10 @@ function ClaudeCode() {
 
       // Step 1: Save configuration
       try {
-        await fetch(`${API_BASE}/apps/claude-code/config`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({ config }),
-        });
+        await api.post('/apps/claude-code/config', { config }, { showError: false });
       } catch (configErr) {
         console.error('Config save error:', configErr);
-        const errorMsg = configErr.message || 'Unbekannter Fehler';
+        const errorMsg = configErr.data?.error || configErr.message || 'Unbekannter Fehler';
         setSaveMessage({ type: 'error', text: `Fehler beim Speichern: ${errorMsg}` });
         return;
       }
@@ -831,10 +809,7 @@ function ClaudeCode() {
       const selectedWs = workspaces.find(ws => ws.container_path === config.CLAUDE_WORKSPACE);
       if (selectedWs) {
         try {
-          await fetch(`${API_BASE}/workspaces/${selectedWs.id}/use`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-          });
+          await api.post(`/workspaces/${selectedWs.id}/use`, {}, { showError: false });
         } catch (e) {
           // Non-critical
         }
@@ -847,12 +822,11 @@ function ClaudeCode() {
           text: 'Konfiguration gespeichert. Container wird neu erstellt...',
         });
         try {
-          const restartResponse = await fetch(`${API_BASE}/apps/claude-code/restart`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ applyConfig: true }),
-          });
-          const restartRes = await restartResponse.json();
+          const restartRes = await api.post(
+            '/apps/claude-code/restart',
+            { applyConfig: true },
+            { showError: false }
+          );
 
           if (restartRes.async) {
             // Async mode - poll for completion
@@ -867,9 +841,7 @@ function ClaudeCode() {
             const pollInterval = setInterval(async () => {
               attempts++;
               try {
-                const statusRes = await fetch(`${API_BASE}/apps/claude-code`, {
-                  headers: getAuthHeaders(),
-                }).then(r => r.json());
+                const statusRes = await api.get('/apps/claude-code', { showError: false });
                 if (statusRes.status === 'running') {
                   clearInterval(pollInterval);
                   setSaveMessage({
@@ -953,10 +925,7 @@ function ClaudeCode() {
     try {
       setActionLoading(true);
       setError(null);
-      await fetch(`${API_BASE}/apps/claude-code/start`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
+      await api.post('/apps/claude-code/start', {}, { showError: false });
 
       // Wait a moment for container to start
       setTimeout(() => {
@@ -974,10 +943,7 @@ function ClaudeCode() {
     try {
       setActionLoading(true);
       setError(null);
-      await fetch(`${API_BASE}/apps/claude-code/stop`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
+      await api.post('/apps/claude-code/stop', {}, { showError: false });
 
       setTimeout(() => {
         loadAppData();
@@ -994,10 +960,7 @@ function ClaudeCode() {
     try {
       setActionLoading(true);
       setError(null);
-      await fetch(`${API_BASE}/apps/claude-code/restart`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
+      await api.post('/apps/claude-code/restart', {}, { showError: false });
 
       setTimeout(() => {
         loadAppData();

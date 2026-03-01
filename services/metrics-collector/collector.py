@@ -32,6 +32,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger('metrics-collector')
 
+
+# Resolve Docker secrets (_FILE env vars → regular env vars)
+def _resolve_secrets(*var_names):
+    for var in var_names:
+        file_path = os.environ.get(f'{var}_FILE')
+        if file_path and os.path.isfile(file_path):
+            with open(file_path) as f:
+                os.environ[var] = f.read().strip()
+
+_resolve_secrets('POSTGRES_PASSWORD')
+
+
 # Configuration
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'postgres-db')
 POSTGRES_PORT = int(os.getenv('POSTGRES_PORT', '5432'))

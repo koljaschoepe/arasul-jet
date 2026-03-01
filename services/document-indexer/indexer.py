@@ -34,6 +34,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+# Resolve Docker secrets (_FILE env vars → regular env vars)
+def _resolve_secrets(*var_names):
+    for var in var_names:
+        file_path = os.environ.get(f'{var}_FILE')
+        if file_path and os.path.isfile(file_path):
+            with open(file_path) as f:
+                os.environ[var] = f.read().strip()
+
+_resolve_secrets('POSTGRES_PASSWORD', 'MINIO_ROOT_PASSWORD')
+
+
 # Environment variables
 MINIO_HOST = os.getenv('MINIO_HOST', 'minio')
 MINIO_PORT = os.getenv('MINIO_PORT', '9000')

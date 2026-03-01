@@ -18,7 +18,7 @@ import {
   FiAlertCircle,
   FiActivity,
 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import './MemorySettings.css';
@@ -36,6 +36,7 @@ const TYPE_COLORS = {
 };
 
 function MemorySettings({ onBack }) {
+  const api = useApi();
   const { addToast } = useToast();
   const confirm = useConfirm();
 
@@ -74,19 +75,14 @@ function MemorySettings({ onBack }) {
   const loadProfile = useCallback(async () => {
     setProfileLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/memory/profile`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data.profile || '');
-      }
+      const data = await api.get('/memory/profile', { showError: false });
+      setProfile(data.profile || '');
     } catch {
       // No profile yet
     } finally {
       setProfileLoading(false);
     }
-  }, []);
+  }, [api]);
 
   // Load memories
   const loadMemories = useCallback(async () => {
@@ -95,48 +91,33 @@ function MemorySettings({ onBack }) {
       const params = new URLSearchParams({ limit: LIMIT, offset: memoriesOffset });
       if (filterType) params.set('type', filterType);
 
-      const response = await fetch(`${API_BASE}/memory/list?${params}`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setMemories(data.memories || []);
-        setMemoriesTotal(data.total || 0);
-      }
+      const data = await api.get(`/memory/list?${params}`, { showError: false });
+      setMemories(data.memories || []);
+      setMemoriesTotal(data.total || 0);
     } catch {
       setMemories([]);
     } finally {
       setMemoriesLoading(false);
     }
-  }, [memoriesOffset, filterType]);
+  }, [memoriesOffset, filterType, api]);
 
   // Load stats
   const loadStats = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/memory/stats`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        setStats(await response.json());
-      }
+      setStats(await api.get('/memory/stats', { showError: false }));
     } catch {
       // Non-critical
     }
-  }, []);
+  }, [api]);
 
   // Load context management stats
   const loadContextStats = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/memory/context-stats`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        setContextStats(await response.json());
-      }
+      setContextStats(await api.get('/memory/context-stats', { showError: false }));
     } catch {
       // Non-critical
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     loadProfile();
@@ -148,18 +129,13 @@ function MemorySettings({ onBack }) {
   // Save profile
   const handleSaveProfile = async () => {
     try {
-      const response = await fetch(`${API_BASE}/memory/profile`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ profile: profileDraft }),
-      });
-      if (!response.ok) throw new Error('Speichern fehlgeschlagen');
+      await api.put('/memory/profile', { profile: profileDraft }, { showError: false });
       setProfile(profileDraft);
       setProfileEditing(false);
       addToast('Profil gespeichert', 'success');
       loadStats();
     } catch (err) {
-      addToast(err.message, 'error');
+      addToast(err.message || 'Speichern fehlgeschlagen', 'error');
     }
   };
 
@@ -171,14 +147,10 @@ function MemorySettings({ onBack }) {
     }
     setSearchLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE}/memory/search?q=${encodeURIComponent(searchQuery)}&limit=10`,
-        { headers: getAuthHeaders() }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setSearchResults(data.memories || []);
-      }
+      const data = await api.get(`/memory/search?q=${encodeURIComponent(searchQuery)}&limit=10`, {
+        showError: false,
+      });
+      setSearchResults(data.memories || []);
     } catch {
       setSearchResults([]);
     } finally {
@@ -195,10 +167,7 @@ function MemorySettings({ onBack }) {
     if (!ok) return;
 
     try {
-      await fetch(`${API_BASE}/memory/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
+      await api.del(`/memory/${id}`, { showError: false });
       addToast('Erinnerung gelöscht', 'success');
       loadMemories();
       loadStats();
@@ -210,12 +179,7 @@ function MemorySettings({ onBack }) {
   // Save edit
   const handleSaveEdit = async id => {
     try {
-      const response = await fetch(`${API_BASE}/memory/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ content: editContent }),
-      });
-      if (!response.ok) throw new Error();
+      await api.put(`/memory/${id}`, { content: editContent }, { showError: false });
       setEditingId(null);
       addToast('Erinnerung aktualisiert', 'success');
       loadMemories();
@@ -234,10 +198,10 @@ function MemorySettings({ onBack }) {
 
     setActionLoading(true);
     try {
-      await fetch(`${API_BASE}/memory/all`, {
+      await api.request('/memory/all', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ confirm: true }),
+        body: { confirm: true },
+        showError: false,
       });
       addToast('Alle Erinnerungen gelöscht', 'success');
       loadMemories();
@@ -253,14 +217,8 @@ function MemorySettings({ onBack }) {
   const handleReindex = async () => {
     setActionLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/memory/reindex`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        addToast(`${data.indexed} Erinnerungen neu indiziert`, 'success');
-      }
+      const data = await api.post('/memory/reindex', null, { showError: false });
+      addToast(`${data.indexed} Erinnerungen neu indiziert`, 'success');
     } catch {
       addToast('Neuindizierung fehlgeschlagen', 'error');
     } finally {
@@ -271,21 +229,15 @@ function MemorySettings({ onBack }) {
   // Export
   const handleExport = async () => {
     try {
-      const response = await fetch(`${API_BASE}/memory/export`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `arasul-memories-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        addToast('Export heruntergeladen', 'success');
-      }
+      const data = await api.post('/memory/export', null, { showError: false });
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `arasul-memories-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Export heruntergeladen', 'success');
     } catch {
       addToast('Export fehlgeschlagen', 'error');
     }

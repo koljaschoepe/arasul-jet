@@ -55,7 +55,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { useWebSocketMetrics } from './hooks/useWebSocketMetrics';
 
-import { API_BASE, getAuthHeaders } from './config/api';
+import { useApi } from './hooks/useApi';
 import './index.css';
 
 // PHASE 2: Code-Splitting - Lazy imports for route components
@@ -104,6 +104,7 @@ function TelegramRedirect({ onOpen }) {
  * PHASE 3: Separated from App to use hooks inside AuthProvider
  */
 function AppContent() {
+  const api = useApi();
   const { isAuthenticated, loading: authLoading, login, logout } = useAuth();
 
   // Setup wizard state
@@ -196,28 +197,15 @@ function AppContent() {
       if (!isAuthenticated) return;
 
       try {
+        const opts = { signal, showError: false };
         const results = await Promise.allSettled([
-          fetch(`${API_BASE}/metrics/live`, { headers: getAuthHeaders(), signal }).then(r =>
-            r.json()
-          ),
-          fetch(`${API_BASE}/metrics/history?range=24h`, {
-            headers: getAuthHeaders(),
-            signal,
-          }).then(r => r.json()),
-          fetch(`${API_BASE}/services`, { headers: getAuthHeaders(), signal }).then(r => r.json()),
-          fetch(`${API_BASE}/system/info`, { headers: getAuthHeaders(), signal }).then(r =>
-            r.json()
-          ),
-          fetch(`${API_BASE}/system/network`, { headers: getAuthHeaders(), signal }).then(r =>
-            r.json()
-          ),
-          fetch(`${API_BASE}/apps?status=running,installed`, {
-            headers: getAuthHeaders(),
-            signal,
-          }).then(r => r.json()),
-          fetch(`${API_BASE}/system/thresholds`, { headers: getAuthHeaders(), signal }).then(r =>
-            r.json()
-          ),
+          api.get('/metrics/live', opts),
+          api.get('/metrics/history?range=24h', opts),
+          api.get('/services', opts),
+          api.get('/system/info', opts),
+          api.get('/system/network', opts),
+          api.get('/apps?status=running,installed', opts),
+          api.get('/system/thresholds', opts),
         ]);
 
         const val = i => (results[i].status === 'fulfilled' ? results[i].value : null);
@@ -251,7 +239,7 @@ function AppContent() {
         setLoading(false);
       }
     },
-    [isAuthenticated]
+    [isAuthenticated, api]
   );
 
   // Fetch data on auth change and setup refresh interval
@@ -279,11 +267,10 @@ function AppContent() {
     const controller = new AbortController();
     const checkSetupStatus = async () => {
       try {
-        const response = await fetch(`${API_BASE}/system/setup-status`, {
-          headers: getAuthHeaders(),
+        const data = await api.get('/system/setup-status', {
           signal: controller.signal,
+          showError: false,
         });
-        const data = await response.json();
         const isComplete = data.setupComplete;
         setSetupComplete(isComplete);
         if (!isComplete) {
@@ -298,7 +285,7 @@ function AppContent() {
 
     checkSetupStatus();
     return () => controller.abort();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, api]);
 
   // PHASE 2: Memoize utility functions with useCallback
   const formatUptime = useCallback(seconds => {

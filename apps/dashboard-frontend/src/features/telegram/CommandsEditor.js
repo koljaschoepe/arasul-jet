@@ -13,11 +13,12 @@ import {
   FiAlertCircle,
   FiMenu,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 
-function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
+function CommandsEditor({ botId, commands, onChange }) {
+  const api = useApi();
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const [editingCommand, setEditingCommand] = useState(null);
@@ -63,28 +64,22 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/telegram-bots/${botId}/commands`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
+      const data = await api.post(
+        `/telegram-bots/${botId}/commands`,
+        {
           command: newCommand.command.replace(/^\//, ''),
           description: newCommand.description,
           prompt: newCommand.prompt,
-        }),
-      });
+        },
+        { showError: false }
+      );
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Fehler beim Speichern');
-      }
-
-      const data = await response.json();
       onChange([...commands, data.command]);
       toast.success('Befehl erstellt');
       setNewCommand(null);
     } catch (err) {
       console.error('Befehl erstellen fehlgeschlagen:', err);
-      setError('Fehler beim Erstellen des Befehls');
+      setError(err.data?.error || 'Fehler beim Erstellen des Befehls');
     } finally {
       setSaving(false);
     }
@@ -101,32 +96,23 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
     setError(null);
 
     try {
-      const response = await fetch(
-        `${API_BASE}/telegram-bots/${botId}/commands/${editingCommand.id}`,
+      const data = await api.put(
+        `/telegram-bots/${botId}/commands/${editingCommand.id}`,
         {
-          method: 'PUT',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            command: editingCommand.command.replace(/^\//, ''),
-            description: editingCommand.description,
-            prompt: editingCommand.prompt,
-            isEnabled: editingCommand.isEnabled,
-          }),
-        }
+          command: editingCommand.command.replace(/^\//, ''),
+          description: editingCommand.description,
+          prompt: editingCommand.prompt,
+          isEnabled: editingCommand.isEnabled,
+        },
+        { showError: false }
       );
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Fehler beim Speichern');
-      }
-
-      const data = await response.json();
       onChange(commands.map(c => (c.id === data.command.id ? data.command : c)));
       toast.success('Befehl gespeichert');
       setEditingCommand(null);
     } catch (err) {
       console.error('Befehl speichern fehlgeschlagen:', err);
-      setError('Fehler beim Speichern des Befehls');
+      setError(err.data?.error || 'Fehler beim Speichern des Befehls');
     } finally {
       setSaving(false);
     }
@@ -137,14 +123,7 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
     if (!(await confirm({ message: 'Befehl wirklich löschen?' }))) return;
 
     try {
-      const response = await fetch(`${API_BASE}/telegram-bots/${botId}/commands/${cmdId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error('Fehler beim Löschen');
-      }
+      await api.del(`/telegram-bots/${botId}/commands/${cmdId}`, { showError: false });
 
       onChange(commands.filter(c => c.id !== cmdId));
       toast.success('Befehl gelöscht');
@@ -157,19 +136,14 @@ function CommandsEditor({ botId, commands, onChange, getAuthHeaders }) {
   // Toggle command enabled/disabled
   const handleToggleEnabled = async cmd => {
     try {
-      const response = await fetch(`${API_BASE}/telegram-bots/${botId}/commands/${cmd.id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
+      const data = await api.put(
+        `/telegram-bots/${botId}/commands/${cmd.id}`,
+        {
           isEnabled: !(cmd.isEnabled ?? cmd.is_enabled ?? true),
-        }),
-      });
+        },
+        { showError: false }
+      );
 
-      if (!response.ok) {
-        throw new Error('Fehler beim Aktualisieren');
-      }
-
-      const data = await response.json();
       onChange(commands.map(c => (c.id === data.command.id ? data.command : c)));
     } catch (err) {
       console.error('Befehl aktualisieren fehlgeschlagen:', err);

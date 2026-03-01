@@ -612,6 +612,60 @@ Validates:
 
 ---
 
+## Docker Secrets (Production)
+
+In production, sensitive values can be provided as Docker secrets instead of plain environment variables. This keeps secrets out of `.env` files, `docker inspect` output, and process listings.
+
+### How It Works
+
+1. Place each secret in a file under `config/secrets/` (one value per file, no trailing newline)
+2. Start with the secrets override: `docker compose -f docker-compose.yml -f docker-compose.secrets.yml up -d`
+3. Docker mounts the file at `/run/secrets/<name>` inside the container
+4. Each service resolves `VAR_FILE` → `VAR` at startup before any other code runs
+
+All existing code continues to read `process.env.VAR` / `os.getenv('VAR')` unchanged.
+
+### Setup
+
+```bash
+# Create the secrets directory
+mkdir -p config/secrets
+chmod 700 config/secrets
+
+# Create secret files (example)
+echo -n 'YourDBPassword123!' > config/secrets/postgres_password
+echo -n 'YourJWTSecret32chars!' > config/secrets/jwt_secret
+echo -n 'minioadmin' > config/secrets/minio_root_user
+echo -n 'YourMinioPassword123!' > config/secrets/minio_root_password
+echo -n 'YourN8nEncryptionKey32chars!' > config/secrets/n8n_encryption_key
+
+# Restrict permissions
+chmod 600 config/secrets/*
+```
+
+### Supported Secrets
+
+| Secret File           | Services                                                                                                | Resolves To           |
+| --------------------- | ------------------------------------------------------------------------------------------------------- | --------------------- |
+| `postgres_password`   | postgres-db, dashboard-backend, metrics-collector, self-healing-agent, document-indexer, backup-service | `POSTGRES_PASSWORD`   |
+| `jwt_secret`          | dashboard-backend                                                                                       | `JWT_SECRET`          |
+| `minio_root_user`     | minio, dashboard-backend, backup-service                                                                | `MINIO_ROOT_USER`     |
+| `minio_root_password` | minio, dashboard-backend, document-indexer, backup-service                                              | `MINIO_ROOT_PASSWORD` |
+| `n8n_encryption_key`  | n8n                                                                                                     | `N8N_ENCRYPTION_KEY`  |
+
+### Additional Backend Secrets
+
+The dashboard-backend resolver also supports these `_FILE` variables (add them to `docker-compose.secrets.yml` as needed):
+
+- `ARASUL_DATA_DB_PASSWORD_FILE` → `ARASUL_DATA_DB_PASSWORD`
+- `TELEGRAM_ENCRYPTION_KEY_FILE` → `TELEGRAM_ENCRYPTION_KEY`
+
+### Precedence
+
+If both `VAR` and `VAR_FILE` are set, the file-based value wins (overwrites the env var). Remove the plain env var from `.env` when switching to secrets.
+
+---
+
 ## Related Documentation
 
 - [INSTALLATION.md](../INSTALLATION.md) - Setup guide

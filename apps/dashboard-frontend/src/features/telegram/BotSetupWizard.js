@@ -18,7 +18,7 @@ import {
   FiCpu,
   FiCloud,
 } from 'react-icons/fi';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import { sanitizeUrl } from '../../utils/sanitizeUrl';
 import './TelegramBots.css';
 
@@ -64,6 +64,7 @@ const PERSONALITY_TEMPLATES = [
 ];
 
 function BotSetupWizard({ onComplete, onCancel }) {
+  const api = useApi();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
@@ -193,19 +194,17 @@ function BotSetupWizard({ onComplete, onCancel }) {
   }, []);
 
   // Polling fallback for chat detection
-  const startPolling = useCallback(token => {
-    if (pollingIntervalRef.current) return; // Already polling
+  const startPolling = useCallback(
+    token => {
+      if (pollingIntervalRef.current) return; // Already polling
 
-    DEBUG && console.log('[Wizard] Starting polling fallback');
+      DEBUG && console.log('[Wizard] Starting polling fallback');
 
-    const poll = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/telegram-app/zero-config/status/${token}`, {
-          headers: getAuthHeaders(),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
+      const poll = async () => {
+        try {
+          const data = await api.get(`/telegram-app/zero-config/status/${token}`, {
+            showError: false,
+          });
           DEBUG && console.log('[Wizard] Poll status:', data.status);
 
           if (data.status === 'completed' && data.chatId) {
@@ -224,18 +223,19 @@ function BotSetupWizard({ onComplete, onCancel }) {
               pollingIntervalRef.current = null;
             }
           }
+        } catch (err) {
+          console.error('[Wizard] Polling error:', err);
         }
-      } catch (err) {
-        console.error('[Wizard] Polling error:', err);
-      }
-    };
+      };
 
-    // Poll every 2 seconds
-    pollingIntervalRef.current = setInterval(poll, 2000);
+      // Poll every 2 seconds
+      pollingIntervalRef.current = setInterval(poll, 2000);
 
-    // Initial poll
-    poll();
-  }, []);
+      // Initial poll
+      poll();
+    },
+    [api]
+  );
 
   // Parse error response with user-friendly messages
   const parseErrorMessage = useCallback((error, context = '') => {
@@ -289,33 +289,21 @@ function BotSetupWizard({ onComplete, onCancel }) {
     setError(null);
 
     try {
-      const headers = {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      };
-
       // Step 1: Create setup session with timeout
       DEBUG && console.log('[Wizard] Creating setup session...');
       const initController = new AbortController();
       const initTimeout = setTimeout(() => initController.abort(), 15000);
 
-      let initResponse;
+      let initData;
       try {
-        initResponse = await fetch(`${API_BASE}/telegram-app/zero-config/init`, {
-          method: 'POST',
-          headers,
+        initData = await api.post('/telegram-app/zero-config/init', undefined, {
+          showError: false,
           signal: initController.signal,
         });
       } finally {
         clearTimeout(initTimeout);
       }
 
-      if (!initResponse.ok) {
-        const errorData = await initResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server-Fehler (${initResponse.status})`);
-      }
-
-      const initData = await initResponse.json();
       const token = initData.setupToken;
       if (!token) {
         throw new Error('Setup-Token wurde nicht generiert');
@@ -332,27 +320,23 @@ function BotSetupWizard({ onComplete, onCancel }) {
       const tokenController = new AbortController();
       const tokenTimeout = setTimeout(() => tokenController.abort(), 20000);
 
-      let tokenResponse;
+      let tokenData;
       try {
-        tokenResponse = await fetch(`${API_BASE}/telegram-app/zero-config/token`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
+        tokenData = await api.post(
+          '/telegram-app/zero-config/token',
+          {
             setupToken: token,
             botToken: formData.token,
-          }),
-          signal: tokenController.signal,
-        });
+          },
+          {
+            showError: false,
+            signal: tokenController.signal,
+          }
+        );
       } finally {
         clearTimeout(tokenTimeout);
       }
 
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || `Validierung fehlgeschlagen (${tokenResponse.status})`);
-      }
-
-      const tokenData = await tokenResponse.json();
       if (!tokenData.deepLink) {
         throw new Error('Deep-Link konnte nicht generiert werden');
       }
@@ -383,11 +367,11 @@ function BotSetupWizard({ onComplete, onCancel }) {
           'Verbindungs-Timeout. Bitte prüfe deine Internetverbindung und versuche es erneut.'
         );
       } else {
-        setError(parseErrorMessage(err, 'Chat-Verifizierung'));
+        setError(err.data?.error || parseErrorMessage(err, 'Chat-Verifizierung'));
       }
       setWaitingForChat(false);
     }
-  }, [formData.token, connectWebSocket, chatDetected, parseErrorMessage]);
+  }, [api, formData.token, connectWebSocket, chatDetected, parseErrorMessage]);
 
   // Countdown timer for timeout display
   useEffect(() => {
@@ -437,22 +421,21 @@ function BotSetupWizard({ onComplete, onCancel }) {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const [ollamaRes, claudeRes] = await Promise.all([
-          fetch(`${API_BASE}/telegram-bots/models/ollama`, { headers: getAuthHeaders() }),
-          fetch(`${API_BASE}/telegram-bots/models/claude`, { headers: getAuthHeaders() }),
+        const [ollamaResult, claudeResult] = await Promise.allSettled([
+          api.get('/telegram-bots/models/ollama', { showError: false }),
+          api.get('/telegram-bots/models/claude', { showError: false }),
         ]);
 
-        if (ollamaRes.ok) {
-          const data = await ollamaRes.json();
+        if (ollamaResult.status === 'fulfilled') {
+          const data = ollamaResult.value;
           setOllamaModels(data.models || []);
           if (data.models?.length > 0 && !formData.llmModel) {
             setFormData(prev => ({ ...prev, llmModel: data.models[0].name || data.models[0] }));
           }
         }
 
-        if (claudeRes.ok) {
-          const data = await claudeRes.json();
-          setClaudeModels(data.models || []);
+        if (claudeResult.status === 'fulfilled') {
+          setClaudeModels(claudeResult.value.models || []);
         }
       } catch (err) {
         console.error('Error fetching models:', err);
@@ -490,16 +473,19 @@ function BotSetupWizard({ onComplete, onCancel }) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
 
-        const response = await fetch(`${API_BASE}/telegram-bots/validate-token`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ token: tokenTrimmed }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeout);
-
-        const data = await response.json();
+        let data;
+        try {
+          data = await api.post(
+            '/telegram-bots/validate-token',
+            { token: tokenTrimmed },
+            {
+              showError: false,
+              signal: controller.signal,
+            }
+          );
+        } finally {
+          clearTimeout(timeout);
+        }
 
         if (data.valid) {
           setValidated(true);
@@ -604,28 +590,12 @@ function BotSetupWizard({ onComplete, onCancel }) {
         payload.setupToken = setupToken;
       }
 
-      const response = await fetch(`${API_BASE}/telegram-bots`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Fehler beim Erstellen');
-      }
-
-      const data = await response.json();
+      const data = await api.post('/telegram-bots', payload, { showError: false });
 
       // Auto-activate the bot so it starts receiving messages
       try {
-        const activateRes = await fetch(`${API_BASE}/telegram-bots/${data.bot.id}/activate`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-        });
-        if (activateRes.ok) {
-          data.bot.isActive = true;
-        }
+        await api.post(`/telegram-bots/${data.bot.id}/activate`, undefined, { showError: false });
+        data.bot.isActive = true;
       } catch (activateErr) {
         console.warn('[Wizard] Could not auto-activate bot:', activateErr);
       }
@@ -633,11 +603,11 @@ function BotSetupWizard({ onComplete, onCancel }) {
       // Complete zero-config flow if we have a setup token
       if (setupToken && chatInfo) {
         try {
-          await fetch(`${API_BASE}/telegram-app/zero-config/complete`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ setupToken }),
-          });
+          await api.post(
+            '/telegram-app/zero-config/complete',
+            { setupToken },
+            { showError: false }
+          );
         } catch (completeErr) {
           console.warn('[Wizard] Could not complete zero-config flow:', completeErr);
         }
@@ -656,7 +626,7 @@ function BotSetupWizard({ onComplete, onCancel }) {
 
       onComplete(data.bot);
     } catch (err) {
-      setError(err.message);
+      setError(err.data?.error || err.message);
     } finally {
       setCreating(false);
     }

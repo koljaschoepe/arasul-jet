@@ -3,11 +3,12 @@
  */
 
 import React, { useState, memo } from 'react';
-import { API_BASE, getAuthHeaders } from '../../config/api';
+import { useApi } from '../../hooks/useApi';
 import Modal from '../../components/ui/Modal';
 import { FIELD_TYPES } from './constants';
 
 const AddFieldModal = memo(function AddFieldModal({ isOpen, onClose, tableSlug, onFieldAdded }) {
+  const api = useApi();
   const [name, setName] = useState('');
   const [fieldType, setFieldType] = useState('text');
   const [loading, setLoading] = useState(false);
@@ -21,23 +22,23 @@ const AddFieldModal = memo(function AddFieldModal({ isOpen, onClose, tableSlug, 
     setError(null);
 
     try {
-      await fetch(`${API_BASE}/v1/datentabellen/tables/${tableSlug}/fields`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
+      await api.post(
+        `/v1/datentabellen/tables/${tableSlug}/fields`,
+        {
           name: name.trim(),
           field_type: fieldType,
           is_required: false,
           is_unique: false,
-        }),
-      });
+        },
+        { showError: false }
+      );
 
       setName('');
       setFieldType('text');
       onFieldAdded();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Fehler beim Hinzufügen');
+      setError(err.data?.error || err.message || 'Fehler beim Hinzufügen');
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@
  */
 
 require('dotenv').config();
+require('./utils/resolveSecrets')();
 
 // Validate required environment variables at startup
 const REQUIRED_ENV_VARS = [
