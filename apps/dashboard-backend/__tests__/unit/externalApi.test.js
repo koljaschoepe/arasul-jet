@@ -29,18 +29,18 @@ jest.mock('../../src/utils/logger', () => ({
 }));
 
 // Mock llmQueueService
-jest.mock('../../src/services/llmQueueService', () => ({
+jest.mock('../../src/services/llm/llmQueueService', () => ({
   enqueue: jest.fn(),
   getQueueStatus: jest.fn()
 }));
 
 // Mock llmJobService
-jest.mock('../../src/services/llmJobService', () => ({
+jest.mock('../../src/services/llm/llmJobService', () => ({
   getJob: jest.fn()
 }));
 
 // Mock modelService
-jest.mock('../../src/services/modelService', () => ({
+jest.mock('../../src/services/llm/modelService', () => ({
   getInstalledModels: jest.fn(),
   getDefaultModel: jest.fn(),
   getLoadedModel: jest.fn()
@@ -67,9 +67,9 @@ jest.mock('../../src/middleware/apiKeyAuth', () => ({
 }));
 
 const db = require('../../src/database');
-const llmQueueService = require('../../src/services/llmQueueService');
-const llmJobService = require('../../src/services/llmJobService');
-const modelService = require('../../src/services/modelService');
+const llmQueueService = require('../../src/services/llm/llmQueueService');
+const llmJobService = require('../../src/services/llm/llmJobService');
+const modelService = require('../../src/services/llm/modelService');
 const { generateApiKey } = require('../../src/middleware/apiKeyAuth');
 const { app } = require('../../src/server');
 const { generateTestToken } = require('../helpers/authMock');

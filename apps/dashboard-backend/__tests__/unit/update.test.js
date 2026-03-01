@@ -12,7 +12,7 @@ jest.mock('../../src/utils/logger', () => ({
     error: jest.fn()
 }));
 
-jest.mock('../../src/services/updateService', () => ({
+jest.mock('../../src/services/app/updateService', () => ({
     validateUpdate: jest.fn(),
     getUpdateState: jest.fn(),
     applyUpdate: jest.fn()
@@ -45,8 +45,8 @@ jest.mock('fs', () => ({
 }));
 
 // Import dependencies after mocking
-const updateRouter = require('../../src/routes/update');
-const updateService = require('../../src/services/updateService');
+const updateRouter = require('../../src/routes/admin/update');
+const updateService = require('../../src/services/app/updateService');
 const { errorHandler } = require('../../src/middleware/errorHandler');
 
 const app = express();

@@ -8,7 +8,7 @@ const router = express.Router();
 const db = require('../database');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
-const llmJobService = require('../services/llmJobService');
+const llmJobService = require('../services/llm/llmJobService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../utils/errors');
 

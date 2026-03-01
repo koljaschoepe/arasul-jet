@@ -45,7 +45,7 @@ jest.mock('axios', () => ({
 }));
 
 // Mock cache service
-jest.mock('../../src/services/cacheService', () => ({
+jest.mock('../../src/services/core/cacheService', () => ({
   cacheService: {
     get: jest.fn(),
     set: jest.fn(),

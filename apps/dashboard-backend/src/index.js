@@ -84,70 +84,8 @@ app.use((req, res, next) => {
 const { createAuditMiddleware } = require('./middleware/audit');
 app.use(createAuditMiddleware());
 
-// Register all API routes
-const authRouter = require('./routes/auth');
-const systemRouter = require('./routes/system');
-const metricsRouter = require('./routes/metrics');
-const servicesRouter = require('./routes/services');
-const databaseRouter = require('./routes/database');
-const selfhealingRouter = require('./routes/selfhealing');
-const logsRouter = require('./routes/logs');
-const workflowsRouter = require('./routes/workflows');
-const llmRouter = require('./routes/llm');
-const embeddingsRouter = require('./routes/embeddings');
-const updateRouter = require('./routes/update');
-const docsRouter = require('./routes/docs');
-const chatsRouter = require('./routes/chats');
-const ragRouter = require('./routes/rag');
-const settingsRouter = require('./routes/settings');
-const documentsRouter = require('./routes/documents');
-const appstoreRouter = require('./routes/appstore');
-const modelsRouter = require('./routes/models');
-const workspacesRouter = require('./routes/workspaces');
-const spacesRouter = require('./routes/spaces');
-const telegramRouter = require('./routes/telegram');
-const telegramAppRouter = require('./routes/telegramApp');
-const telegramBotsRouter = require('./routes/telegramBots');
-const claudeTerminalRouter = require('./routes/claudeTerminal');
-const alertsRouter = require('./routes/alerts');
-const eventsRouter = require('./routes/events');
-const auditRouter = require('./routes/audit');
-const externalApiRouter = require('./routes/externalApi');
-const datentabellenRouter = require('./routes/datentabellen');
-const storeRouter = require('./routes/store');
-const memoryRouter = require('./routes/memory');
-
-app.use('/api/auth', authRouter);
-app.use('/api/system', systemRouter);
-app.use('/api/metrics', metricsRouter);
-app.use('/api/services', servicesRouter);
-app.use('/api/database', databaseRouter);
-app.use('/api/self-healing', selfhealingRouter);
-app.use('/api/logs', logsRouter);
-app.use('/api/workflows', workflowsRouter);
-app.use('/api/llm', llmRouter);
-app.use('/api/embeddings', embeddingsRouter);
-app.use('/api/update', updateRouter);
-app.use('/api/docs', docsRouter);
-app.use('/api/chats', chatsRouter);
-app.use('/api/rag', ragRouter);
-app.use('/api/settings', settingsRouter);
-app.use('/api/documents', documentsRouter);
-app.use('/api/apps', appstoreRouter);
-app.use('/api/models', modelsRouter);
-app.use('/api/store', storeRouter);
-app.use('/api/workspaces', workspacesRouter);
-app.use('/api/spaces', spacesRouter);
-app.use('/api/telegram', telegramRouter);
-app.use('/api/telegram-app', telegramAppRouter);
-app.use('/api/telegram-bots', telegramBotsRouter);
-app.use('/api/claude-terminal', claudeTerminalRouter);
-app.use('/api/alerts', alertsRouter);
-app.use('/api/events', eventsRouter);
-app.use('/api/audit', auditRouter);
-app.use('/api/v1/external', externalApiRouter); // External API for n8n, automations
-app.use('/api/v1/datentabellen', datentabellenRouter); // Dynamic database builder
-app.use('/api/memory', memoryRouter); // AI memory management
+// Register all API routes (centralized in routes/index.js)
+app.use('/api', require('./routes'));
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
@@ -177,16 +115,16 @@ const wss = new WebSocket.Server({
 const axios = require('axios');
 const logger = require('./utils/logger');
 const services = require('./config/services');
-const llmJobService = require('./services/llmJobService');
-const llmQueueService = require('./services/llmQueueService');
-const modelService = require('./services/modelService');
+const llmJobService = require('./services/llm/llmJobService');
+const llmQueueService = require('./services/llm/llmQueueService');
+const modelService = require('./services/llm/modelService');
 const alertEngine = require('./services/alertEngine');
-const ollamaReadiness = require('./services/ollamaReadiness');
+const ollamaReadiness = require('./services/llm/ollamaReadiness');
 const dataDatabase = require('./dataDatabase');
-const telegramWebSocketService = require('./services/telegramWebSocketService');
-const telegramPollingManager = require('./services/telegramPollingManager');
-const eventListenerService = require('./services/eventListenerService');
-const { cacheService } = require('./services/cacheService');
+const telegramWebSocketService = require('./services/telegram/telegramWebSocketService');
+const telegramPollingManager = require('./services/telegram/telegramPollingManager');
+const eventListenerService = require('./services/core/eventListenerService');
+const { cacheService } = require('./services/core/cacheService');
 const pool = require('./database');
 
 wss.on('connection', ws => {

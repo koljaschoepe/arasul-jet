@@ -15,7 +15,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
 const logger = require('../../utils/logger');
 const services = require('../../config/services');
-const llmDataAccess = require('../../services/llmDataAccessService');
+const llmDataAccess = require('../../services/context/llmDataAccessService');
 
 // RAG/Embedding configuration
 const QDRANT_HOST = services.qdrant?.host || 'qdrant';

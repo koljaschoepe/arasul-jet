@@ -38,13 +38,13 @@ jest.mock('../../src/services/n8nLogger', () => ({
 }));
 
 // Mock services with side effects
-jest.mock('../../src/services/eventListenerService', () => ({
+jest.mock('../../src/services/core/eventListenerService', () => ({
   getStatus: jest.fn(),
   getRecentEvents: jest.fn().mockResolvedValue([]),
   sendTestNotification: jest.fn()
 }));
 
-jest.mock('../../src/services/telegramNotificationService', () => ({
+jest.mock('../../src/services/telegram/telegramNotificationService', () => ({
   sendNotification: jest.fn().mockResolvedValue(true),
   sendAlert: jest.fn().mockResolvedValue(true)
 }));

@@ -1,39 +1,70 @@
 /**
  * Main router - combines all API routes
+ *
+ * Central route registry for the entire backend.
+ * Routes are organized into subdirectories by domain:
+ *   telegram/  - Bot management, setup, orchestration
+ *   system/    - Services, metrics, logs, database
+ *   admin/     - Settings, audit, updates, self-healing
+ *   ai/        - Models, embeddings, memory, spaces
+ *   store/     - App store, unified store, workflows, workspaces
+ *   external/  - External API, Claude terminal, events, alerts
+ *   datentabellen/ - Dynamic database builder
+ *
+ * Core routes (auth, chats, documents, llm, rag) stay at the top level.
  */
 
 const express = require('express');
 const router = express.Router();
 
-// Import routes
-const authRoutes = require('./auth');
-const systemRoutes = require('./system');
-const metricsRoutes = require('./metrics');
-const servicesRoutes = require('./services');
-const workflowsRoutes = require('./workflows');
-const updateRoutes = require('./update');
-const llmRoutes = require('./llm');
-const embeddingsRoutes = require('./embeddings');
-const logsRoutes = require('./logs');
-const selfhealingRoutes = require('./selfhealing');
-const databaseRoutes = require('./database');
-const docsRoutes = require('./docs');
+// Rate limiters
+const { metricsLimiter, llmLimiter } = require('../middleware/rateLimit');
 
-// Import rate limiters
-const { metricsLimiter, llmLimiter, webhookLimiter } = require('../middleware/rateLimit');
+// --- Core (top-level) ---
+router.use('/auth', require('./auth'));
+router.use('/chats', require('./chats'));
+router.use('/documents', require('./documents'));
+router.use('/llm', llmLimiter, require('./llm'));
+router.use('/rag', require('./rag'));
+router.use('/docs', require('./docs'));
 
-// Mount routes
-router.use('/auth', authRoutes); // Authentication routes (no rate limit - handled internally)
-router.use('/system', systemRoutes);
-router.use('/metrics', metricsLimiter, metricsRoutes);
-router.use('/services', servicesRoutes);
-router.use('/workflows', workflowsRoutes);
-router.use('/update', updateRoutes); // Protected by requireAuth in individual routes
-router.use('/llm', llmLimiter, llmRoutes);
-router.use('/embeddings', llmLimiter, embeddingsRoutes); // Use same limit as LLM
-router.use('/logs', logsRoutes); // Protected by requireAuth in individual routes
-router.use('/self-healing', selfhealingRoutes); // Protected by requireAuth in individual routes
-router.use('/database', databaseRoutes); // Database connection pool monitoring
-router.use('/docs', docsRoutes); // API documentation (Swagger UI)
+// --- Telegram ---
+router.use('/telegram', require('./telegram/settings'));
+router.use('/telegram-app', require('./telegram/app'));
+router.use('/telegram-bots', require('./telegram/bots'));
+
+// --- System ---
+router.use('/system', require('./system/system'));
+router.use('/services', require('./system/services'));
+router.use('/metrics', metricsLimiter, require('./system/metrics'));
+router.use('/logs', require('./system/logs'));
+router.use('/database', require('./system/database'));
+
+// --- Admin ---
+router.use('/settings', require('./admin/settings'));
+router.use('/audit', require('./admin/audit'));
+router.use('/update', require('./admin/update'));
+router.use('/self-healing', require('./admin/selfhealing'));
+
+// --- AI ---
+router.use('/models', require('./ai/models'));
+router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
+router.use('/memory', require('./ai/memory'));
+router.use('/spaces', require('./ai/spaces'));
+
+// --- Store ---
+router.use('/apps', require('./store/appstore'));
+router.use('/store', require('./store/store'));
+router.use('/workflows', require('./store/workflows'));
+router.use('/workspaces', require('./store/workspaces'));
+
+// --- External ---
+router.use('/v1/external', require('./external/externalApi'));
+router.use('/claude-terminal', require('./external/claudeTerminal'));
+router.use('/events', require('./external/events'));
+router.use('/alerts', require('./external/alerts'));
+
+// --- Datentabellen (versioned) ---
+router.use('/v1/datentabellen', require('./datentabellen'));
 
 module.exports = router;

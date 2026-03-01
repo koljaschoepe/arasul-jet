@@ -10,7 +10,7 @@ const { requireAuth } = require('../../middleware/auth');
 const dataDb = require('../../dataDatabase');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
-const pdfService = require('../../services/pdfService');
+const pdfService = require('../../services/app/pdfService');
 
 /**
  * GET /api/v1/datentabellen/quotes

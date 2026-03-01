@@ -17,13 +17,13 @@ const axios = require('axios');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const { llmLimiter } = require('../middleware/rateLimit');
-const llmJobService = require('../services/llmJobService');
-const llmQueueService = require('../services/llmQueueService');
+const llmJobService = require('../services/llm/llmJobService');
+const llmQueueService = require('../services/llm/llmQueueService');
 const db = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
 const services = require('../config/services');
-const { optimizeQuery } = require('../services/queryOptimizer');
+const { optimizeQuery } = require('../services/context/queryOptimizer');
 
 // Environment variables
 const QDRANT_HOST = services.qdrant.host;

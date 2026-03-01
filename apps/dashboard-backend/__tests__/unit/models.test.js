@@ -32,7 +32,7 @@ jest.mock('../../src/utils/logger', () => ({
 }));
 
 // Mock modelService
-jest.mock('../../src/services/modelService', () => ({
+jest.mock('../../src/services/llm/modelService', () => ({
   getCatalog: jest.fn(),
   getInstalledModels: jest.fn(),
   getStatus: jest.fn(),
@@ -49,7 +49,7 @@ jest.mock('../../src/services/modelService', () => ({
 }));
 
 // Mock cacheService
-jest.mock('../../src/services/cacheService', () => ({
+jest.mock('../../src/services/core/cacheService', () => ({
   cacheService: {
     invalidate: jest.fn(),
     invalidatePattern: jest.fn(),
@@ -60,7 +60,7 @@ jest.mock('../../src/services/cacheService', () => ({
 }));
 
 const db = require('../../src/database');
-const modelService = require('../../src/services/modelService');
+const modelService = require('../../src/services/llm/modelService');
 const { app } = require('../../src/server');
 
 const { setupAuthMocks, generateTestToken } = require('../helpers/authMock');

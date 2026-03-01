@@ -33,20 +33,20 @@ jest.mock('axios', () => ({
 }));
 
 // Mock contextInjectionService
-jest.mock('../../src/services/contextInjectionService', () => ({
+jest.mock('../../src/services/context/contextInjectionService', () => ({
   buildContext: jest.fn(),
   formatContextForPrompt: jest.fn()
 }));
 
 // Mock modelService
-jest.mock('../../src/services/modelService', () => ({
+jest.mock('../../src/services/llm/modelService', () => ({
   getDefaultModel: jest.fn()
 }));
 
 const db = require('../../src/database');
 const axios = require('axios');
-const contextService = require('../../src/services/contextInjectionService');
-const modelService = require('../../src/services/modelService');
+const contextService = require('../../src/services/context/contextInjectionService');
+const modelService = require('../../src/services/llm/modelService');
 const { app } = require('../../src/server');
 
 // Import auth mock helpers

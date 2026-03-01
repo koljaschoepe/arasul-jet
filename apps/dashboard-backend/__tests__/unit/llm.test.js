@@ -33,13 +33,13 @@ jest.mock('../../src/utils/logger', () => ({
 jest.mock('axios');
 
 // Mock LLM services
-jest.mock('../../src/services/llmJobService', () => ({
+jest.mock('../../src/services/llm/llmJobService', () => ({
   getJob: jest.fn(),
   getActiveJobsForConversation: jest.fn(),
   getAllActiveJobs: jest.fn()
 }));
 
-jest.mock('../../src/services/llmQueueService', () => ({
+jest.mock('../../src/services/llm/llmQueueService', () => ({
   enqueue: jest.fn(),
   getQueueStatus: jest.fn(),
   prioritizeJob: jest.fn(),
@@ -49,8 +49,8 @@ jest.mock('../../src/services/llmQueueService', () => ({
 
 const db = require('../../src/database');
 const axios = require('axios');
-const llmJobService = require('../../src/services/llmJobService');
-const llmQueueService = require('../../src/services/llmQueueService');
+const llmJobService = require('../../src/services/llm/llmJobService');
+const llmQueueService = require('../../src/services/llm/llmQueueService');
 const { app } = require('../../src/server');
 
 // Import auth mock helpers

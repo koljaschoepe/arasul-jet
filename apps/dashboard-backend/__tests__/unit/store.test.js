@@ -10,7 +10,7 @@ jest.mock('../../src/utils/logger', () => ({
   info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn()
 }));
 
-jest.mock('../../src/services/modelService', () => ({
+jest.mock('../../src/services/llm/modelService', () => ({
   getCatalog: jest.fn(),
   getDiskSpace: jest.fn(),
   getInstalledModels: jest.fn(),
@@ -27,11 +27,11 @@ jest.mock('../../src/services/modelService', () => ({
   syncWithOllama: jest.fn()
 }));
 
-jest.mock('../../src/services/appService', () => ({
+jest.mock('../../src/services/app/appService', () => ({
   getAllApps: jest.fn()
 }));
 
-jest.mock('../../src/services/cacheService', () => ({
+jest.mock('../../src/services/core/cacheService', () => ({
   cacheService: {
     invalidate: jest.fn(),
     invalidatePattern: jest.fn(),
@@ -42,8 +42,8 @@ jest.mock('../../src/services/cacheService', () => ({
 }));
 
 const db = require('../../src/database');
-const modelService = require('../../src/services/modelService');
-const appService = require('../../src/services/appService');
+const modelService = require('../../src/services/llm/modelService');
+const appService = require('../../src/services/app/appService');
 const { app } = require('../../src/server');
 
 const { setupAuthMocks, generateTestToken } = require('../helpers/authMock');

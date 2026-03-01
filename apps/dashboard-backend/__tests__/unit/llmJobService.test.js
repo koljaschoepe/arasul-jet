@@ -3,7 +3,7 @@
  * Uses Factory Pattern with Dependency Injection for true unit test isolation
  */
 
-const { createLLMJobService } = require('../../src/services/llmJobService');
+const { createLLMJobService } = require('../../src/services/llm/llmJobService');
 
 describe('LLMJobService (DI)', () => {
     let service;

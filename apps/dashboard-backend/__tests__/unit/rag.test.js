@@ -32,7 +32,7 @@ jest.mock('../../src/utils/logger', () => ({
 jest.mock('axios');
 
 // Mock query optimizer (RAG 3.0)
-jest.mock('../../src/services/queryOptimizer', () => ({
+jest.mock('../../src/services/context/queryOptimizer', () => ({
   optimizeQuery: jest.fn().mockResolvedValue({
     decompounded: 'test query',
     queryVariants: ['test query'],
@@ -50,21 +50,21 @@ jest.mock('../../src/services/queryOptimizer', () => ({
 }));
 
 // Mock LLM services
-jest.mock('../../src/services/llmJobService', () => ({
+jest.mock('../../src/services/llm/llmJobService', () => ({
   createJob: jest.fn(),
   updateJobContent: jest.fn(),
   completeJob: jest.fn()
 }));
 
-jest.mock('../../src/services/llmQueueService', () => ({
+jest.mock('../../src/services/llm/llmQueueService', () => ({
   enqueue: jest.fn(),
   subscribeToJob: jest.fn()
 }));
 
 const db = require('../../src/database');
 const axios = require('axios');
-const llmJobService = require('../../src/services/llmJobService');
-const llmQueueService = require('../../src/services/llmQueueService');
+const llmJobService = require('../../src/services/llm/llmJobService');
+const llmQueueService = require('../../src/services/llm/llmQueueService');
 const { app } = require('../../src/server');
 
 // Import auth mock helpers

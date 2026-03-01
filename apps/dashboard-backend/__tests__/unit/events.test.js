@@ -73,21 +73,21 @@ jest.mock('../../src/middleware/auth', () => {
 });
 
 // Mock service dependencies
-jest.mock('../../src/services/eventListenerService', () => ({
+jest.mock('../../src/services/core/eventListenerService', () => ({
   getStats: jest.fn(),
   handleWorkflowEvent: jest.fn(),
   handleSelfHealingEvent: jest.fn()
 }));
 
-jest.mock('../../src/services/telegramNotificationService', () => ({
+jest.mock('../../src/services/telegram/telegramNotificationService', () => ({
   testConnection: jest.fn(),
   queueNotification: jest.fn(),
   getStats: jest.fn()
 }));
 
 const db = require('../../src/database');
-const eventListenerService = require('../../src/services/eventListenerService');
-const telegramService = require('../../src/services/telegramNotificationService');
+const eventListenerService = require('../../src/services/core/eventListenerService');
+const telegramService = require('../../src/services/telegram/telegramNotificationService');
 const { app } = require('../../src/server');
 
 const { generateTestToken } = require('../helpers/authMock');

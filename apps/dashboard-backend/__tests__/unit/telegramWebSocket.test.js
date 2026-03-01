@@ -81,7 +81,7 @@ describe('TelegramWebSocketService', () => {
     };
 
     // Get fresh service instance
-    service = require('../../src/services/telegramWebSocketService');
+    service = require('../../src/services/telegram/telegramWebSocketService');
 
     // Reset service state
     service.wss = null;

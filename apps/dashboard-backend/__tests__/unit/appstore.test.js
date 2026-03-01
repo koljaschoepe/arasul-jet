@@ -38,7 +38,7 @@ jest.mock('../../src/utils/logger', () => ({
 }));
 
 // Mock appService
-jest.mock('../../src/services/appService', () => ({
+jest.mock('../../src/services/app/appService', () => ({
   getAllApps: jest.fn(),
   getCategories: jest.fn(),
   getApp: jest.fn(),
@@ -59,7 +59,7 @@ jest.mock('../../src/services/appService', () => ({
 }));
 
 const db = require('../../src/database');
-const appService = require('../../src/services/appService');
+const appService = require('../../src/services/app/appService');
 const { app } = require('../../src/server');
 
 // Import auth mock helpers

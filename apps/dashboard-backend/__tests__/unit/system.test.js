@@ -39,7 +39,7 @@ jest.mock('../../src/utils/logger', () => ({
 }));
 
 // Mock dockerService
-jest.mock('../../src/services/docker', () => ({
+jest.mock('../../src/services/core/docker', () => ({
   getAllServicesStatus: jest.fn()
 }));
 
@@ -77,7 +77,7 @@ jest.mock('fs', () => {
 });
 
 const db = require('../../src/database');
-const dockerService = require('../../src/services/docker');
+const dockerService = require('../../src/services/core/docker');
 const axios = require('axios');
 const childProcess = require('child_process');
 const fs = require('fs');

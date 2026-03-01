@@ -5,9 +5,9 @@
  * Uses Factory Pattern with Dependency Injection for proper test isolation
  */
 
-const { createLLMJobService } = require('../../src/services/llmJobService');
-const { createLLMQueueService } = require('../../src/services/llmQueueService');
-const { createModelService } = require('../../src/services/modelService');
+const { createLLMJobService } = require('../../src/services/llm/llmJobService');
+const { createLLMQueueService } = require('../../src/services/llm/llmQueueService');
+const { createModelService } = require('../../src/services/llm/modelService');
 
 // Shared mock factories
 function createMockDatabase() {
