@@ -1,128 +1,81 @@
 # ARASUL PLATFORM - Makefile
-# Alternative CLI-Interface für Docker Compose Operationen
+# CLI-Interface für Docker Compose Operationen
 
-.PHONY: help bootstrap start stop restart status logs clean build pull update
+.PHONY: help start start-all stop restart logs build test db ps stats
 
-# Default target
 .DEFAULT_GOAL := help
 
-help: ## Show this help message
+help: ## Diese Hilfe anzeigen
 	@echo "Arasul Platform - Make Targets"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-bootstrap: ## Initialize and start the platform (first-time setup)
-	./arasul bootstrap
+# === Core ===
 
-start: ## Start all services
-	docker-compose up -d
-	@echo "Platform started. Dashboard: http://localhost"
+start: ## Starte alle Kern-Services
+	docker compose up -d
+	@echo "Platform gestartet. Dashboard: http://localhost"
 
-stop: ## Stop all services
-	docker-compose down
+start-all: ## Starte alle Services inkl. Monitoring
+	docker compose --profile monitoring --profile tunnel up -d
 
-restart: ## Restart all services
-	docker-compose restart
+stop: ## Stoppe alle Services
+	docker compose down
 
-status: ## Show status of all services
-	docker-compose ps
+restart: ## Neustart aller Services
+	docker compose restart
 
-logs: ## Show logs from all services (Ctrl+C to exit)
-	docker-compose logs -f
+logs: ## Zeige Logs (usage: make logs s=backend)
+	docker compose logs -f $(s)
 
-build: ## Build all custom Docker images
-	docker-compose build
+build: ## Rebuild (usage: make build s=backend)
+	docker compose up -d --build $(s)
 
-pull: ## Pull latest base images
-	docker-compose pull
+ps: ## Zeige alle laufenden Container
+	docker compose ps
 
-clean: ## Stop and remove all containers, networks, and volumes
-	docker-compose down -v
-	@echo "WARNING: All data has been removed!"
-
-update: ## Update to latest version
-	./arasul update
-
-# Individual service targets
-start-%: ## Start a specific service (e.g., make start-llm-service)
-	docker-compose up -d $*
-
-stop-%: ## Stop a specific service (e.g., make stop-llm-service)
-	docker-compose stop $*
-
-restart-%: ## Restart a specific service (e.g., make restart-dashboard-backend)
-	docker-compose restart $*
-
-logs-%: ## Show logs for a specific service (e.g., make logs-metrics-collector)
-	docker-compose logs -f $*
-
-# Maintenance targets
-backup-db: ## Backup PostgreSQL database
-	@mkdir -p backups
-	docker-compose exec -T postgres-db pg_dump -U arasul arasul_db > backups/backup_$$(date +%Y%m%d_%H%M%S).sql
-	@echo "Database backup created in backups/"
-
-restore-db: ## Restore PostgreSQL database (specify file with FILE=backup.sql)
-	@if [ -z "$(FILE)" ]; then echo "Usage: make restore-db FILE=backup.sql"; exit 1; fi
-	cat $(FILE) | docker-compose exec -T postgres-db psql -U arasul arasul_db
-	@echo "Database restored from $(FILE)"
-
-cleanup-logs: ## Delete old log files (older than 7 days)
-	find logs/ -name "*.log.*" -mtime +7 -delete
-	@echo "Old logs cleaned up"
-
-cleanup-docker: ## Clean up Docker system (images, containers, volumes)
-	docker system prune -af
-	@echo "Docker system cleaned up"
-
-# Development targets
-dev-backend: ## Start backend in development mode
-	cd services/dashboard-backend && npm install && npm run dev
-
-dev-frontend: ## Start frontend in development mode
-	cd services/dashboard-frontend && npm install && npm start
-
-# Testing targets
-test: ## Run all smoke tests
-	@echo "Testing API health..."
-	@curl -f http://localhost/api/health || echo "API health check failed"
-	@echo ""
-	@echo "Testing services..."
-	@curl -f http://localhost/api/services || echo "Services check failed"
-	@echo ""
-	@echo "Testing metrics..."
-	@curl -f http://localhost/api/metrics/live || echo "Metrics check failed"
-
-# Monitoring targets
-stats: ## Show Docker stats for all containers
+stats: ## Docker Ressourcen-Statistiken
 	docker stats --no-stream
 
-top: ## Show running processes in containers
-	docker-compose top
+# === Entwicklung ===
 
-inspect-%: ## Inspect a specific service (e.g., make inspect-llm-service)
-	docker-compose exec $* sh || docker-compose exec $* bash
+dev-backend: ## Backend lokal starten (npm run dev)
+	cd apps/dashboard-backend && npm install && npm run dev
 
-# Database targets
-db-shell: ## Open PostgreSQL shell
-	docker-compose exec postgres-db psql -U arasul -d arasul_db
+dev-frontend: ## Frontend lokal starten (npm start)
+	cd apps/dashboard-frontend && npm install && npm start
 
-db-vacuum: ## Run database vacuum
-	docker-compose exec postgres-db psql -U arasul -d arasul_db -c "VACUUM ANALYZE;"
+test: ## Alle Tests ausführen
+	./scripts/test/run-tests.sh --all
 
-db-cleanup: ## Clean up old metrics from database
-	docker-compose exec postgres-db psql -U arasul -d arasul_db -c "SELECT cleanup_old_metrics();"
+test-backend: ## Backend-Tests ausführen
+	cd apps/dashboard-backend && npx jest --no-coverage
 
-# Info targets
-version: ## Show version information
-	@echo "Arasul Platform v1.0.0"
-	@echo ""
-	@docker --version
-	@docker-compose version
+test-frontend: ## Frontend-Tests ausführen
+	cd apps/dashboard-frontend && npx react-scripts test --watchAll=false --ci
 
-env: ## Show current environment variables (excluding secrets)
-	@grep -v -E "(PASSWORD|SECRET|KEY|HASH)" .env 2>/dev/null || echo ".env file not found"
+# === Datenbank ===
 
-ps: ## Show all running containers
-	docker-compose ps
+db: ## PostgreSQL Shell öffnen
+	docker exec -it postgres-db psql -U arasul -d arasul_db
+
+backup-db: ## Datenbank-Backup erstellen
+	@mkdir -p backups
+	docker compose exec -T postgres-db pg_dump -U arasul arasul_db > backups/backup_$$(date +%Y%m%d_%H%M%S).sql
+	@echo "Backup erstellt in backups/"
+
+# === Einzelne Services ===
+
+start-%: ## Einzelnen Service starten (z.B. make start-llm-service)
+	docker compose up -d $*
+
+stop-%: ## Einzelnen Service stoppen
+	docker compose stop $*
+
+restart-%: ## Einzelnen Service neustarten
+	docker compose restart $*
+
+logs-%: ## Logs eines Services (z.B. make logs-backend)
+	docker compose logs -f $*

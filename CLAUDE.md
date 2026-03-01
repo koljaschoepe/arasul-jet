@@ -129,12 +129,12 @@ npm run lint:fix
 
 ## Key Entry Points
 
-| Domain      | Entry Point                           | Pattern Reference            |
-| ----------- | ------------------------------------- | ---------------------------- |
-| Backend API | `apps/dashboard-backend/src/index.js` | `routes/auth.js`             |
-| Frontend    | `apps/dashboard-frontend/src/App.js`  | `features/chat/ChatMulti.js` |
-| Database    | `services/postgres/init/`             | Next: `042_*.sql`            |
-| AI Services | `services/llm-service/api_server.py`  | -                            |
+| Domain      | Entry Point                           | Pattern Reference                  |
+| ----------- | ------------------------------------- | ---------------------------------- |
+| Backend API | `apps/dashboard-backend/src/index.js` | `routes/index.js` (central router) |
+| Frontend    | `apps/dashboard-frontend/src/App.js`  | `features/chat/ChatMulti.js`       |
+| Database    | `services/postgres/init/`             | Next: `042_*.sql`                  |
+| AI Services | `services/llm-service/api_server.py`  | -                                  |
 
 ---
 
