@@ -1,0 +1,525 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import EmptyState from './ui/EmptyState';
+import { SkeletonCard } from './ui/Skeleton';
+import { Link } from 'react-router-dom';
+import {
+  FiSearch,
+  FiPackage,
+  FiDownload,
+  FiPlay,
+  FiSquare,
+  FiRefreshCw,
+  FiExternalLink,
+  FiTrash2,
+  FiAlertCircle,
+  FiCheck,
+  FiClock,
+  FiZap,
+  FiDatabase,
+  FiCode,
+  FiGitBranch,
+  FiX,
+  FiTerminal,
+} from 'react-icons/fi';
+import AppDetailModal from '../features/store/AppDetailModal';
+import ConfirmIconButton from './ui/ConfirmIconButton';
+import { useToast } from '../contexts/ToastContext';
+import { API_BASE, getAuthHeaders } from '../config/api';
+import '../appstore.css';
+
+// Icon mapping
+const iconMap = {
+  FiZap: FiZap,
+  FiDatabase: FiDatabase,
+  FiCode: FiCode,
+  FiGitBranch: FiGitBranch,
+  FiPackage: FiPackage,
+  FiTerminal: FiTerminal,
+};
+
+// Category labels
+const categoryLabels = {
+  all: 'Alle',
+  development: 'Entwicklung',
+  productivity: 'Produktivität',
+  ai: 'KI & ML',
+  storage: 'Speicher',
+  monitoring: 'Monitoring',
+  networking: 'Netzwerk',
+};
+
+// Get app URL based on port or traefik route
+const getAppUrl = app => {
+  // Apps with custom pages should link internally
+  if (app.hasCustomPage && app.customPageRoute) {
+    return app.customPageRoute;
+  }
+  // Apps routed through Traefik path (use same origin, no port)
+  const traefikPaths = {
+    n8n: '/n8n',
+  };
+  if (traefikPaths[app.id]) {
+    return `${window.location.origin}${traefikPaths[app.id]}`;
+  }
+  // Use external port if available
+  if (app.ports?.external) {
+    return `http://${window.location.hostname}:${app.ports.external}`;
+  }
+  // Fallback to known ports for direct access
+  const knownPorts = {
+    minio: 9001,
+    'code-server': 8443,
+    gitea: 3002,
+  };
+  if (knownPorts[app.id]) {
+    return `http://${window.location.hostname}:${knownPorts[app.id]}`;
+  }
+  return '#';
+};
+
+// Status configuration - uses CSS variables from Design System
+const statusConfig = {
+  running: { color: 'var(--primary-color)', label: 'Aktiv', icon: FiCheck },
+  installed: { color: 'var(--status-neutral)', label: 'Gestoppt', icon: FiClock },
+  available: { color: 'var(--text-disabled)', label: 'Verfügbar', icon: FiDownload },
+  installing: { color: 'var(--primary-light)', label: 'Installiert...', icon: FiRefreshCw },
+  starting: { color: 'var(--primary-light)', label: 'Startet...', icon: FiRefreshCw },
+  stopping: { color: 'var(--status-neutral)', label: 'Stoppt...', icon: FiRefreshCw },
+  uninstalling: { color: 'var(--text-disabled)', label: 'Deinstalliert...', icon: FiRefreshCw },
+  error: { color: 'var(--text-disabled)', label: 'Fehler', icon: FiAlertCircle },
+};
+
+function AppStore() {
+  const toast = useToast();
+  const [apps, setApps] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedApp, setSelectedApp] = useState(null);
+  const [actionLoading, setActionLoading] = useState({});
+  const [uninstallDialog, setUninstallDialog] = useState({
+    open: false,
+    appId: null,
+    appName: null,
+  });
+
+  // Load apps
+  const loadApps = useCallback(
+    async signal => {
+      try {
+        const params = new URLSearchParams();
+        if (selectedCategory && selectedCategory !== 'all') {
+          params.append('category', selectedCategory);
+        }
+        if (searchQuery) {
+          params.append('search', searchQuery);
+        }
+
+        const response = await fetch(`${API_BASE}/apps?${params.toString()}`, {
+          headers: getAuthHeaders(),
+          signal,
+        });
+        if (!response.ok) {
+          throw new Error(`Fehler beim Laden der Apps (${response.status})`);
+        }
+        const data = await response.json();
+        setApps(data.apps || []);
+        setError(null);
+      } catch (err) {
+        if (signal?.aborted) return;
+        console.error('Error loading apps:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedCategory, searchQuery]
+  );
+
+  // Load categories
+  const loadCategories = async signal => {
+    try {
+      const response = await fetch(`${API_BASE}/apps/categories`, {
+        headers: getAuthHeaders(),
+        signal,
+      });
+      if (!response.ok) {
+        throw new Error(`Fehler beim Laden der Kategorien (${response.status})`);
+      }
+      const data = await response.json();
+      setCategories(data.categories || []);
+    } catch (err) {
+      if (signal?.aborted) return;
+      console.error('Error loading categories:', err);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    const controller = new AbortController();
+    loadApps(controller.signal);
+    loadCategories(controller.signal);
+    return () => controller.abort();
+  }, [loadApps]);
+
+  // Refresh every 15 seconds
+  useEffect(() => {
+    const controller = new AbortController();
+    const interval = setInterval(() => loadApps(controller.signal), 15000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [loadApps]);
+
+  // Handle app actions
+  const handleAction = async (appId, action, options = {}) => {
+    setActionLoading(prev => ({ ...prev, [appId]: action }));
+
+    try {
+      const response = await fetch(`${API_BASE}/apps/${appId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(options),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `${action} fehlgeschlagen (${response.status})`);
+      }
+      await loadApps();
+    } catch (err) {
+      console.error(`Error ${action} app ${appId}:`, err);
+      toast.error('Aktion fehlgeschlagen');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [appId]: null }));
+    }
+  };
+
+  // Open uninstall dialog
+  const openUninstallDialog = (appId, appName) => {
+    setUninstallDialog({ open: true, appId, appName });
+  };
+
+  // Handle uninstall with volume option
+  const handleUninstall = async removeVolumes => {
+    const { appId } = uninstallDialog;
+    setUninstallDialog({ open: false, appId: null, appName: null });
+
+    if (appId) {
+      await handleAction(appId, 'uninstall', { removeVolumes });
+    }
+  };
+
+  // Get icon component
+  const getIcon = iconName => {
+    const IconComponent = iconMap[iconName] || FiPackage;
+    return <IconComponent />;
+  };
+
+  // Get status config
+  const getStatusConfig = status => {
+    return statusConfig[status] || statusConfig.available;
+  };
+
+  // Filter apps client-side for instant search
+  const filteredApps = apps.filter(app => {
+    if (searchQuery) {
+      const search = searchQuery.toLowerCase();
+      return (
+        app.name.toLowerCase().includes(search) || app.description.toLowerCase().includes(search)
+      );
+    }
+    return true;
+  });
+
+  // Render app card
+  const renderAppCard = app => {
+    const status = getStatusConfig(app.status);
+    const StatusIcon = status.icon;
+    const isLoading = actionLoading[app.id];
+    const isSystem = app.appType === 'system';
+
+    return (
+      <div key={app.id} className="app-card" onClick={() => setSelectedApp(app)}>
+        <div className="app-card-header">
+          <div className="app-icon">{getIcon(app.icon)}</div>
+          <div className="app-badges">
+            {isSystem && <span className="badge badge-system">System</span>}
+            <span className={`badge badge-status badge-${app.status}`}>
+              {isLoading ? <FiRefreshCw className="spin" /> : <StatusIcon />}
+              {status.label}
+            </span>
+          </div>
+        </div>
+
+        <h3 className="app-name">{app.name}</h3>
+        <p className="app-description">{app.description}</p>
+
+        <div className="app-meta">
+          <span className="app-version">v{app.version}</span>
+          <span className="app-category">{categoryLabels[app.category] || app.category}</span>
+        </div>
+
+        <div className="app-actions" onClick={e => e.stopPropagation()}>
+          {app.status === 'available' && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => handleAction(app.id, 'install')}
+              disabled={isLoading}
+            >
+              {isLoading === 'install' ? <FiRefreshCw className="spin" /> : <FiDownload />}
+              Installieren
+            </button>
+          )}
+
+          {app.status === 'installed' && (
+            <>
+              <button
+                type="button"
+                className="btn btn-success"
+                onClick={() => handleAction(app.id, 'start')}
+                disabled={isLoading}
+              >
+                {isLoading === 'start' ? <FiRefreshCw className="spin" /> : <FiPlay />}
+                Starten
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger btn-icon"
+                onClick={() => openUninstallDialog(app.id, app.name)}
+                disabled={isLoading}
+                title="Deinstallieren"
+              >
+                <FiTrash2 />
+              </button>
+            </>
+          )}
+
+          {app.status === 'running' && (
+            <>
+              {app.hasCustomPage && app.customPageRoute ? (
+                <Link to={app.customPageRoute} className="btn btn-primary">
+                  <FiExternalLink />
+                  Öffnen
+                </Link>
+              ) : (
+                <a
+                  href={getAppUrl(app)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                >
+                  <FiExternalLink />
+                  Öffnen
+                </a>
+              )}
+              <ConfirmIconButton
+                icon={<FiSquare />}
+                label="Stoppen"
+                confirmText="Stoppen?"
+                onConfirm={() => handleAction(app.id, 'stop')}
+                variant="warning"
+                disabled={isLoading}
+              />
+            </>
+          )}
+
+          {app.status === 'error' && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => handleAction(app.id, 'start')}
+                disabled={isLoading}
+              >
+                <FiRefreshCw />
+                Erneut starten
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger btn-icon"
+                onClick={() => openUninstallDialog(app.id, app.name)}
+                disabled={isLoading}
+                title="Deinstallieren"
+              >
+                <FiTrash2 />
+              </button>
+            </>
+          )}
+
+          {(app.status === 'installing' ||
+            app.status === 'starting' ||
+            app.status === 'stopping' ||
+            app.status === 'uninstalling') && (
+            <button type="button" className="btn btn-disabled" disabled>
+              <FiRefreshCw className="spin" />
+              {status.label}
+            </button>
+          )}
+        </div>
+
+        {app.lastError && (
+          <div className="app-error">
+            <FiAlertCircle />
+            {app.lastError}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="appstore">
+        <div className="appstore-grid" role="status" aria-label="Apps werden geladen...">
+          {Array(6)
+            .fill(0)
+            .map((_, i) => (
+              <SkeletonCard key={i} hasAvatar={false} lines={3} />
+            ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="appstore">
+      {/* Header */}
+      <div className="appstore-header">
+        <div className="appstore-title">
+          <FiPackage />
+          <h1>Store</h1>
+        </div>
+
+        <div className="appstore-search">
+          <FiSearch />
+          <input
+            type="text"
+            placeholder="Apps suchen..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            aria-label="Apps suchen"
+          />
+          {searchQuery && (
+            <button type="button" className="search-clear" onClick={() => setSearchQuery('')}>
+              <FiX />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Category filter */}
+      <div className="appstore-categories">
+        <button
+          type="button"
+          className={`category-btn ${selectedCategory === 'all' ? 'active' : ''}`}
+          onClick={() => setSelectedCategory('all')}
+        >
+          Alle
+        </button>
+        {categories.map(cat => (
+          <button
+            type="button"
+            key={cat.id}
+            className={`category-btn ${selectedCategory === cat.id ? 'active' : ''}`}
+            onClick={() => setSelectedCategory(cat.id)}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="appstore-error">
+          <FiAlertCircle />
+          <span>{error}</span>
+          <button type="button" onClick={loadApps}>
+            Erneut versuchen
+          </button>
+        </div>
+      )}
+
+      {/* Apps grid */}
+      <div className="appstore-grid">
+        {filteredApps.length > 0 ? (
+          filteredApps.map(renderAppCard)
+        ) : (
+          <EmptyState icon={<FiPackage />} title="Keine Apps gefunden" />
+        )}
+      </div>
+
+      {/* App detail modal */}
+      {selectedApp && (
+        <AppDetailModal
+          app={selectedApp}
+          onClose={() => setSelectedApp(null)}
+          onAction={handleAction}
+          onUninstall={openUninstallDialog}
+          actionLoading={actionLoading}
+          statusConfig={statusConfig}
+          getIcon={getIcon}
+        />
+      )}
+
+      {/* Uninstall confirmation dialog */}
+      {uninstallDialog.open && (
+        <div
+          className="modal-overlay"
+          onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
+        >
+          <div className="modal-content uninstall-dialog" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                <FiTrash2 /> App deinstallieren
+              </h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
+              >
+                <FiX />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Möchten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
+              </p>
+              <p className="uninstall-warning">
+                <FiAlertCircle /> Wählen Sie, ob die App-Daten behalten oder gelöscht werden sollen:
+              </p>
+            </div>
+            <div className="modal-footer uninstall-buttons">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setUninstallDialog({ open: false, appId: null, appName: null })}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                className="btn btn-warning"
+                onClick={() => handleUninstall(false)}
+              >
+                <FiTrash2 /> Nur App entfernen
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => handleUninstall(true)}
+              >
+                <FiTrash2 /> App + Daten löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default AppStore;

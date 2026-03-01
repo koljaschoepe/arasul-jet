@@ -139,7 +139,7 @@ Token-Counting + dynamische Model-Context-Erkennung einbauen.
 
 ### 1.1 Neuer Service: `tokenService.js`
 
-**Datei:** `services/dashboard-backend/src/services/tokenService.js`
+**Datei:** `apps/dashboard-backend/src/services/tokenService.js`
 
 ```javascript
 // Tiered Token-Counting:
@@ -163,7 +163,7 @@ module.exports = {
 
 ### 1.2 Neuer Service: `modelContextService.js`
 
-**Datei:** `services/dashboard-backend/src/services/modelContextService.js`
+**Datei:** `apps/dashboard-backend/src/services/modelContextService.js`
 
 ```javascript
 // Dynamische Context-Window-Erkennung pro Modell
@@ -217,12 +217,12 @@ module.exports = {
 
 ### Dateien
 
-| Aktion  | Datei                                                            |
-| ------- | ---------------------------------------------------------------- |
-| NEU     | `services/dashboard-backend/src/services/tokenService.js`        |
-| NEU     | `services/dashboard-backend/src/services/modelContextService.js` |
-| AENDERN | `services/dashboard-backend/src/services/llmQueueService.js`     |
-| AENDERN | `docker-compose.yml`                                             |
+| Aktion  | Datei                                                        |
+| ------- | ------------------------------------------------------------ |
+| NEU     | `apps/dashboard-backend/src/services/tokenService.js`        |
+| NEU     | `apps/dashboard-backend/src/services/modelContextService.js` |
+| AENDERN | `apps/dashboard-backend/src/services/llmQueueService.js`     |
+| AENDERN | `docker-compose.yml`                                         |
 
 ---
 
@@ -234,7 +234,7 @@ Vor jedem LLM-Call: Token-Budget berechnen, History trimmen, Compaction triggern
 
 ### 2.1 Neuer Service: `contextBudgetManager.js`
 
-**Datei:** `services/dashboard-backend/src/services/contextBudgetManager.js`
+**Datei:** `apps/dashboard-backend/src/services/contextBudgetManager.js`
 
 Dies ist das **Herzs des Systems**. Der Budget Manager wird vor jedem
 LLM-Aufruf in `llmQueueService.js` aufgerufen.
@@ -335,10 +335,10 @@ const systemPrompt = optimized.systemPrompt;
 
 ### Dateien
 
-| Aktion  | Datei                                                             |
-| ------- | ----------------------------------------------------------------- |
-| NEU     | `services/dashboard-backend/src/services/contextBudgetManager.js` |
-| AENDERN | `services/dashboard-backend/src/services/llmQueueService.js`      |
+| Aktion  | Datei                                                         |
+| ------- | ------------------------------------------------------------- |
+| NEU     | `apps/dashboard-backend/src/services/contextBudgetManager.js` |
+| AENDERN | `apps/dashboard-backend/src/services/llmQueueService.js`      |
 
 ---
 
@@ -350,7 +350,7 @@ Aeltere Nachrichten automatisch zusammenfassen wenn der Context voll wird.
 
 ### 3.1 Neuer Service: `compactionService.js`
 
-**Datei:** `services/dashboard-backend/src/services/compactionService.js`
+**Datei:** `apps/dashboard-backend/src/services/compactionService.js`
 
 ```javascript
 module.exports = {
@@ -442,14 +442,14 @@ In `ChatMulti.js` bzw. `ChatMessage.js`:
 
 ### Dateien
 
-| Aktion    | Datei                                                             |
-| --------- | ----------------------------------------------------------------- |
-| NEU       | `services/dashboard-backend/src/services/compactionService.js`    |
-| AENDERN   | `services/dashboard-backend/src/services/llmQueueService.js`      |
-| AENDERN   | `services/dashboard-backend/src/services/contextBudgetManager.js` |
-| AENDERN   | `services/dashboard-frontend/src/components/ChatMulti.js`         |
-| AENDERN   | `services/dashboard-frontend/src/components/Chat/ChatMessage.js`  |
-| MIGRATION | `services/postgres/init/040_context_management_schema.sql`        |
+| Aktion    | Datei                                                         |
+| --------- | ------------------------------------------------------------- |
+| NEU       | `apps/dashboard-backend/src/services/compactionService.js`    |
+| AENDERN   | `apps/dashboard-backend/src/services/llmQueueService.js`      |
+| AENDERN   | `apps/dashboard-backend/src/services/contextBudgetManager.js` |
+| AENDERN   | `apps/dashboard-frontend/src/components/ChatMulti.js`         |
+| AENDERN   | `apps/dashboard-frontend/src/components/Chat/ChatMessage.js`  |
+| MIGRATION | `services/postgres/init/040_context_management_schema.sql`    |
 
 ---
 
@@ -514,10 +514,10 @@ Bei 20 tok/s dauert das ~5-15 Sekunden. Akzeptabel, da Compaction selten passier
 
 ### Dateien
 
-| Aktion  | Datei                                                                      |
-| ------- | -------------------------------------------------------------------------- |
-| AENDERN | `services/dashboard-backend/src/services/compactionService.js`             |
-| NEU     | `services/dashboard-backend/src/services/memoryService.js` (siehe Phase 5) |
+| Aktion  | Datei                                                                  |
+| ------- | ---------------------------------------------------------------------- |
+| AENDERN | `apps/dashboard-backend/src/services/compactionService.js`             |
+| NEU     | `apps/dashboard-backend/src/services/memoryService.js` (siehe Phase 5) |
 
 ---
 
@@ -622,7 +622,7 @@ Relevante Erinnerungen aus frueheren Gespraechen:
 
 ### 5.4 Neuer Service: `memoryService.js`
 
-**Datei:** `services/dashboard-backend/src/services/memoryService.js`
+**Datei:** `apps/dashboard-backend/src/services/memoryService.js`
 
 ```javascript
 const minioClient = require('../config/minio');
@@ -697,11 +697,11 @@ Harte Limits um Context-Overflow zu verhindern:
 
 ### Dateien
 
-| Aktion    | Datei                                                             |
-| --------- | ----------------------------------------------------------------- |
-| NEU       | `services/dashboard-backend/src/services/memoryService.js`        |
-| AENDERN   | `services/dashboard-backend/src/services/contextBudgetManager.js` |
-| MIGRATION | `services/postgres/init/040_context_management_schema.sql`        |
+| Aktion    | Datei                                                         |
+| --------- | ------------------------------------------------------------- |
+| NEU       | `apps/dashboard-backend/src/services/memoryService.js`        |
+| AENDERN   | `apps/dashboard-backend/src/services/contextBudgetManager.js` |
+| MIGRATION | `services/postgres/init/040_context_management_schema.sql`    |
 
 ---
 
@@ -760,9 +760,9 @@ function pruneMessages(messages, budgetRemaining) {
 
 ### Dateien
 
-| Aktion  | Datei                                                             |
-| ------- | ----------------------------------------------------------------- |
-| AENDERN | `services/dashboard-backend/src/services/contextBudgetManager.js` |
+| Aktion  | Datei                                                         |
+| ------- | ------------------------------------------------------------- |
+| AENDERN | `apps/dashboard-backend/src/services/contextBudgetManager.js` |
 
 ---
 
@@ -904,12 +904,12 @@ router.post(
 
 ### Dateien
 
-| Aktion  | Datei                                                        |
-| ------- | ------------------------------------------------------------ |
-| AENDERN | `services/dashboard-frontend/src/components/SetupWizard.js`  |
-| AENDERN | `services/dashboard-frontend/src/components/SetupWizard.css` |
-| AENDERN | `services/dashboard-backend/src/routes/system.js`            |
-| NEU     | `services/dashboard-backend/src/routes/memory.js`            |
+| Aktion  | Datei                                                    |
+| ------- | -------------------------------------------------------- |
+| AENDERN | `apps/dashboard-frontend/src/components/SetupWizard.js`  |
+| AENDERN | `apps/dashboard-frontend/src/components/SetupWizard.css` |
+| AENDERN | `apps/dashboard-backend/src/routes/system.js`            |
+| NEU     | `apps/dashboard-backend/src/routes/memory.js`            |
 
 ---
 
@@ -921,7 +921,7 @@ Eigene Settings-Seite: "KI-Gedaechtnis" mit allen Memories, Suche, Edit/Delete.
 
 ### 8.1 Neue Route: `/settings/memory`
 
-**Datei:** `services/dashboard-frontend/src/components/MemorySettings.js`
+**Datei:** `apps/dashboard-frontend/src/components/MemorySettings.js`
 
 ### 8.2 UI-Bereiche
 
@@ -992,13 +992,13 @@ Eigene Settings-Seite: "KI-Gedaechtnis" mit allen Memories, Suche, Edit/Delete.
 
 ### Dateien
 
-| Aktion  | Datei                                                           |
-| ------- | --------------------------------------------------------------- |
-| NEU     | `services/dashboard-frontend/src/components/MemorySettings.js`  |
-| NEU     | `services/dashboard-frontend/src/components/MemorySettings.css` |
-| NEU     | `services/dashboard-backend/src/routes/memory.js`               |
-| AENDERN | `services/dashboard-backend/src/index.js` (Route registrieren)  |
-| AENDERN | `services/dashboard-frontend/src/App.js` (Route + Nav)          |
+| Aktion  | Datei                                                       |
+| ------- | ----------------------------------------------------------- |
+| NEU     | `apps/dashboard-frontend/src/components/MemorySettings.js`  |
+| NEU     | `apps/dashboard-frontend/src/components/MemorySettings.css` |
+| NEU     | `apps/dashboard-backend/src/routes/memory.js`               |
+| AENDERN | `apps/dashboard-backend/src/index.js` (Route registrieren)  |
+| AENDERN | `apps/dashboard-frontend/src/App.js` (Route + Nav)          |
 
 ---
 

@@ -17,8 +17,8 @@ Für Feature/Task: $ARGUMENTS
 3. **Testing**
    - Tests parallel zur Implementierung schreiben/aktualisieren
    - Nach jeder logischen Einheit: Tests ausführen
-     - Backend: `cd services/dashboard-backend && npm test`
-     - Frontend: `cd services/dashboard-frontend && CI=true npm test`
+     - Backend: `cd apps/dashboard-backend && npm test`
+     - Frontend: `cd apps/dashboard-frontend && CI=true npm test`
      - Python: `pytest tests/unit -v`
 
 4. **Commit**
@@ -33,5 +33,5 @@ Für Feature/Task: $ARGUMENTS
 ## Bei Problemen
 
 - Blocker in `docs/blockers.md` dokumentieren
-- Notification: `./scripts/telegram-notify.sh "BLOCKER: [Beschreibung]"`
+- Notification: `./scripts/util/telegram-notify.sh "BLOCKER: [Beschreibung]"`
 - Nicht raten - bei Unklarheit stoppen

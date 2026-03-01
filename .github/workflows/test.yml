@@ -2,9 +2,9 @@ name: Test Suite
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   # Dashboard Backend Tests (JavaScript/Node.js)
@@ -36,18 +36,18 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: services/dashboard-backend/package-lock.json
+          cache-dependency-path: apps/dashboard-backend/package-lock.json
 
       - name: Install dependencies
-        working-directory: services/dashboard-backend
+        working-directory: apps/dashboard-backend
         run: npm ci
 
       - name: Run linter
-        working-directory: services/dashboard-backend
+        working-directory: apps/dashboard-backend
         run: npm run lint
 
       - name: Run unit tests
-        working-directory: services/dashboard-backend
+        working-directory: apps/dashboard-backend
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
@@ -59,7 +59,7 @@ jobs:
         run: npm run test:unit
 
       - name: Run integration tests
-        working-directory: services/dashboard-backend
+        working-directory: apps/dashboard-backend
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
@@ -73,7 +73,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          files: ./services/dashboard-backend/coverage/lcov.info
+          files: ./apps/dashboard-backend/coverage/lcov.info
           flags: backend
           name: backend-coverage
 
@@ -200,18 +200,18 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: services/dashboard-frontend/package-lock.json
+          cache-dependency-path: apps/dashboard-frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: services/dashboard-frontend
+        working-directory: apps/dashboard-frontend
         run: npm ci
 
       - name: Run linter
-        working-directory: services/dashboard-frontend
+        working-directory: apps/dashboard-frontend
         run: npm run lint
 
       - name: Run tests with coverage
-        working-directory: services/dashboard-frontend
+        working-directory: apps/dashboard-frontend
         run: npm run test:ci
         env:
           CI: true
@@ -219,7 +219,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          files: ./services/dashboard-frontend/coverage/lcov.info
+          files: ./apps/dashboard-frontend/coverage/lcov.info
           flags: frontend
           name: frontend-coverage
 
@@ -408,12 +408,12 @@ jobs:
             (echo "docker compose config failed"; docker compose -f docker-compose.yml config --verbose || true; exit 1)
 
           # Ensure dependency script is executable and run with tracing
-          if [ -f scripts/validate_dependencies.sh ]; then
-            chmod +x scripts/validate_dependencies.sh
+          if [ -f scripts/validate/validate_dependencies.sh ]; then
+            chmod +x scripts/validate/validate_dependencies.sh
             echo "Running dependency validation script..."
-            bash -x scripts/validate_dependencies.sh
+            bash -x scripts/validate/validate_dependencies.sh
           else
-            echo "ERROR: scripts/validate_dependencies.sh not found"
+            echo "ERROR: scripts/validate/validate_dependencies.sh not found"
             ls -la scripts || true
             exit 1
           fi
@@ -443,7 +443,17 @@ jobs:
   # Overall Test Summary
   test-summary:
     name: Test Summary
-    needs: [backend-tests, frontend-tests, metrics-collector-tests, self-healing-tests, api-tests, docker-build-tests, dependency-validation, security-scan]
+    needs:
+      [
+        backend-tests,
+        frontend-tests,
+        metrics-collector-tests,
+        self-healing-tests,
+        api-tests,
+        docker-build-tests,
+        dependency-validation,
+        security-scan,
+      ]
     runs-on: ubuntu-latest
     if: always()
 

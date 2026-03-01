@@ -18,8 +18,8 @@ Für Komponente/Feature: $ARGUMENTS
 3. **Test-Implementierung**
    - Tests mit beschreibenden Namen schreiben
    - Test-Locations:
-     - Backend: `services/dashboard-backend/__tests__/unit/`
-     - Frontend: `services/dashboard-frontend/src/__tests__/`
+     - Backend: `apps/dashboard-backend/__tests__/unit/`
+     - Frontend: `apps/dashboard-frontend/src/__tests__/`
      - Python: `tests/unit/`
    - Existierende Test-Patterns folgen
 
@@ -36,13 +36,13 @@ Für Komponente/Feature: $ARGUMENTS
 
 ```bash
 # Backend (Jest)
-cd services/dashboard-backend
+cd apps/dashboard-backend
 npm test                    # Alle Tests mit Coverage
 npm run test:unit          # Nur Unit-Tests
 npm run test:watch         # Watch-Modus
 
 # Frontend (React Testing Library)
-cd services/dashboard-frontend
+cd apps/dashboard-frontend
 CI=true npm test            # Non-interactive
 
 # Python (pytest)

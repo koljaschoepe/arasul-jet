@@ -2260,4 +2260,4 @@ All responses include:
 
 - [API Guide](API_GUIDE.md) - Detailed usage examples
 - [API Errors](API_ERRORS.md) - Complete error code reference
-- [Dashboard Backend](../services/dashboard-backend/README.md) - Backend implementation details
+- [Dashboard Backend](../apps/dashboard-backend/README.md) - Backend implementation details

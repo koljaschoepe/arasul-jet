@@ -81,17 +81,21 @@ application.add_handler(CommandHandler("example", example_command))
 ### Backend API Call
 
 ```javascript
-// services/dashboard-backend/src/routes/telegram.js
-router.post('/send', auth, asyncHandler(async (req, res) => {
-  const { message, chatId } = req.body;
+// apps/dashboard-backend/src/routes/telegram.js
+router.post(
+  '/send',
+  auth,
+  asyncHandler(async (req, res) => {
+    const { message, chatId } = req.body;
 
-  await axios.post(`${TELEGRAM_BOT_URL}/send`, {
-    chat_id: chatId || process.env.TELEGRAM_ALLOWED_CHAT_IDS.split(',')[0],
-    message: message
-  });
+    await axios.post(`${TELEGRAM_BOT_URL}/send`, {
+      chat_id: chatId || process.env.TELEGRAM_ALLOWED_CHAT_IDS.split(',')[0],
+      message: message,
+    });
 
-  res.json({ success: true, timestamp: new Date().toISOString() });
-}));
+    res.json({ success: true, timestamp: new Date().toISOString() });
+  })
+);
 ```
 
 ### Direct Telegram API

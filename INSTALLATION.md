@@ -42,13 +42,13 @@
 
 ### Minimum vs Recommended Specs
 
-| Component | Minimum | Recommended | Production |
-|-----------|---------|-------------|------------|
-| RAM | 32GB | 64GB | 64GB |
-| Storage | 256GB NVMe | 512GB NVMe | 1TB NVMe |
-| Network | 100 Mbps | 1 Gbps | 1 Gbps + Backup |
-| Power | 90W Adapter | 90W + UPS | Redundant UPS |
-| Cooling | Passive | Active Fan | Industrial Cooling |
+| Component | Minimum     | Recommended | Production         |
+| --------- | ----------- | ----------- | ------------------ |
+| RAM       | 32GB        | 64GB        | 64GB               |
+| Storage   | 256GB NVMe  | 512GB NVMe  | 1TB NVMe           |
+| Network   | 100 Mbps    | 1 Gbps      | 1 Gbps + Backup    |
+| Power     | 90W Adapter | 90W + UPS   | Redundant UPS      |
+| Cooling   | Passive     | Active Fan  | Industrial Cooling |
 
 ---
 
@@ -95,6 +95,7 @@
 **Wenn JetPack bereits installiert ist → Skip zu Step 3**
 
 JetPack ist NVIDIA's Software Stack für Jetson Geräte. Es enthält:
+
 - Ubuntu Betriebssystem
 - NVIDIA GPU Treiber
 - CUDA Toolkit
@@ -161,6 +162,7 @@ nvidia-smi
 - Oder: Applications → Terminal
 
 Terminal sollte anzeigen:
+
 ```
 jetson@jetson-desktop:~$
 ```
@@ -183,6 +185,7 @@ ls -la
 ```
 
 **Wenn git clone fehlschlägt**:
+
 - Internet-Verbindung prüfen (`ping google.com`)
 - Oder: Download als ZIP und extrahieren
 
@@ -204,6 +207,7 @@ sudo chmod +x arasul
 ```
 
 **Was passiert jetzt?**
+
 - ✅ System Requirements werden geprüft
 - ✅ Docker + Dependencies werden installiert
 - ✅ Arasul Verzeichnisse werden erstellt (`/arasul/`)
@@ -214,6 +218,7 @@ sudo chmod +x arasul
 - ✅ Admin-Passwort wird generiert
 
 **Progress anzeigen**:
+
 ```
 🔍 Checking system requirements...
    ✅ JetPack 6.0 detected
@@ -257,6 +262,7 @@ Services using these credentials:
 ```
 
 **HINWEIS (Entwicklungsmodus)**:
+
 - 🔧 Alle Services verwenden das gleiche Passwort: `arasul123`
 - 📋 Credentials können in `.env` angepasst werden
 - ⚠️ Für Produktion: Sichere Passwörter setzen!
@@ -268,14 +274,17 @@ Services using these credentials:
 #### 4.1 Dashboard öffnen
 
 **Option A: Direkt auf Jetson**
+
 1. Browser öffnen (Firefox oder Chrome)
 2. Adresse eingeben: `http://arasul.local`
 3. Enter drücken
 
 **Option B: Von anderem Computer im gleichen Netzwerk**
+
 1. Browser öffnen
 2. Adresse eingeben: `http://arasul.local`
 3. Wenn nicht erreichbar: IP-Adresse verwenden
+
    ```bash
    # Auf Jetson:
    hostname -I
@@ -301,6 +310,7 @@ Du siehst Login-Screen:
 ```
 
 Eingeben:
+
 - **Username**: `admin`
 - **Password**: <dein generiertes Passwort>
 
@@ -309,11 +319,13 @@ Eingeben:
 Nach Login siehst du das Arasul Dashboard:
 
 **Oben**: System Status Karte
+
 - Status: ✅ OK (grün)
 - Uptime: 0h 5m
 - Version: 1.0.0
 
 **Links**: Services Liste
+
 - ✅ Dashboard Backend: Healthy
 - ✅ Dashboard Frontend: Healthy
 - ✅ LLM Service: Healthy
@@ -325,6 +337,7 @@ Nach Login siehst du das Arasul Dashboard:
 - ✅ Self-Healing Agent: Healthy
 
 **Rechts**: Live Metrics
+
 - CPU: 15%
 - RAM: 8.2 / 64 GB
 - GPU: 0% (idle)
@@ -355,16 +368,19 @@ Das Standard-Entwicklungspasswort `arasul123` kann geändert werden:
 HTTP ist unverschlüsselt. Für Zugriffe von außerhalb des lokalen Netzwerks solltest du HTTPS aktivieren:
 
 **Mit Internet (Let's Encrypt - kostenlos):**
+
 ```bash
 ./arasul enable-https --domain arasul.local
 ```
 
 **Ohne Internet (Self-Signed Certificate):**
+
 ```bash
 ./arasul enable-https --self-signed
 ```
 
 Nach Aktivierung:
+
 - Dashboard ist erreichbar unter: `https://arasul.local`
 - Browser zeigt Sicherheitswarnung bei Self-Signed Cert (normal)
 - Klicke "Advanced" → "Proceed to arasul.local"
@@ -372,12 +388,14 @@ Nach Aktivierung:
 ### Zugriff von anderen Geräten
 
 **Im gleichen Netzwerk (LAN)**:
+
 - Laptop/Smartphone mit gleichem WLAN/Ethernet verbinden
 - Browser öffnen
 - `http://arasul.local` oder `http://<jetson-ip>` eingeben
 - Login mit Admin-Credentials
 
 **Von außerhalb des Netzwerks**:
+
 - **Option 1: Port Forwarding** (weniger sicher)
   - Router-Admin-Panel öffnen
   - Port 80/443 an Jetson IP weiterleiten
@@ -403,12 +421,14 @@ cp /arasul/backups/backup-*.tar.gz /media/usb/
 ```
 
 **Backup enthält**:
+
 - Konfigurationsdateien
 - Datenbank (PostgreSQL)
 - n8n Workflows
 - MinIO Objekte
 
 **Backup wiederherstellen**:
+
 ```bash
 ./arasul restore /path/to/backup-2025-11-13.tar.gz
 ```
@@ -425,15 +445,15 @@ Nach Installation solltest du diese Checks durchführen:
 
 **Dashboard öffnen** → System Status prüfen:
 
-| Indicator | Expected | Bedeutung |
-|-----------|----------|-----------|
+| Indicator         | Expected     | Bedeutung            |
+| ----------------- | ------------ | -------------------- |
 | **System Status** | ✅ OK (grün) | Alle Services laufen |
-| **Services** | 9/9 healthy | Keine Ausfälle |
-| **CPU** | 0-30% | Normal bei idle |
-| **RAM** | <50% | Ausreichend Speicher |
-| **GPU** | 0-10% | Normal ohne Last |
-| **Temperature** | <60°C | Kühlung funktioniert |
-| **Disk** | <80% | Genug Speicherplatz |
+| **Services**      | 9/9 healthy  | Keine Ausfälle       |
+| **CPU**           | 0-30%        | Normal bei idle      |
+| **RAM**           | <50%         | Ausreichend Speicher |
+| **GPU**           | 0-10%        | Normal ohne Last     |
+| **Temperature**   | <60°C        | Kühlung funktioniert |
+| **Disk**          | <80%         | Genug Speicherplatz  |
 
 #### Check 2: Service Health
 
@@ -556,6 +576,7 @@ hostname -I  # zeigt IP
 ```
 
 **Wenn immer noch nicht erreichbar**:
+
 ```bash
 # Nuclear Option: Alles neu starten
 docker-compose down
@@ -681,6 +702,7 @@ docker-compose up -d
 ```
 
 **Wenn nichts hilft**:
+
 ```bash
 # Complete System Restart
 sudo reboot
@@ -711,7 +733,7 @@ docker exec dashboard-backend cat /arasul/config/public_update_key.pem
 # → Public Key fehlt, muss deployt werden
 
 # 2. Test Package Signature (auf Dev-Machine)
-python3 scripts/sign_update_package.py --verify \
+python3 scripts/deploy/sign_update_package.py --verify \
     your-update.araupdate \
     ~/.arasul/update_public_key.pem
 
@@ -807,6 +829,7 @@ Updates sind signiert und verifiziert. Sicher für Produktion.
 **Dauer**: 1-5 Minuten (je nach Update-Größe)
 
 **Safety**:
+
 - ✅ Automatisches Rollback bei Fehlern
 - ✅ Backup vor Update
 - ✅ Self-Healing überwacht Update
@@ -818,6 +841,7 @@ Für Offline-Systeme oder Bulk-Rollouts.
 **Prozess**:
 
 1. **Update Package auf USB kopieren**
+
    ```
    USB-Stick/
    └── updates/
@@ -969,6 +993,7 @@ A: Nicht empfohlen. Änderungen gehen bei Updates verloren. Nutze Update-Package
 ### Best Practices
 
 ✅ **DO**:
+
 - Admin-Passwort nach Installation sofort ändern
 - HTTPS aktivieren für externe Zugriffe
 - System aktuell halten (Updates installieren)
@@ -979,6 +1004,7 @@ A: Nicht empfohlen. Änderungen gehen bei Updates verloren. Nutze Update-Package
 - n8n Workflows auf Sicherheit prüfen (keine Hardcoded Secrets)
 
 ❌ **DON'T**:
+
 - Admin-Passwort teilen oder in Klartext speichern
 - System direkt im Internet exponieren ohne VPN/Firewall
 - Docker Container manuell ändern
@@ -991,10 +1017,12 @@ A: Nicht empfohlen. Änderungen gehen bei Updates verloren. Nutze Update-Package
 ### Security Checklist
 
 **Für Entwicklung** (Standard-Credentials `arasul123` sind OK):
+
 - [ ] System funktioniert und ist erreichbar
 - [ ] Alle Services sind healthy
 
 **Für Produktion** (vor Deployment):
+
 - [ ] Sichere Passwörter in `.env` gesetzt (nicht `arasul123`!)
 - [ ] HTTPS aktiviert (falls externes Network)
 - [ ] Firewall konfiguriert (`sudo ufw enable`)
@@ -1008,12 +1036,14 @@ A: Nicht empfohlen. Änderungen gehen bei Updates verloren. Nutze Update-Package
 **Verdacht auf Kompromittierung**:
 
 1. **System sofort offline nehmen**
+
    ```bash
    sudo systemctl stop docker
    sudo ip link set eth0 down
    ```
 
 2. **Logs sichern**
+
    ```bash
    ./arasul collect-logs
    cp /tmp/arasul-logs-*.tar.gz /media/usb/
@@ -1065,6 +1095,7 @@ Teste den lokalen LLM Service:
 - **Modell wechseln**: Dropdown → Verschiedene Models verfügbar
 
 **Performance**:
+
 - Kleine Models (<7B): <2s Response
 - Mittel Models (13B): 3-5s Response
 - Große Models (70B): 10-15s Response
@@ -1081,11 +1112,13 @@ Das Dashboard zeigt live Metriken:
 - **Self-Healing Events**: Automatische Recoveries
 
 **Alerts**:
+
 - 🟢 Grün: Alles OK
 - 🟡 Gelb: Warning (>80% Resource Usage)
 - 🔴 Rot: Critical (>95% Resource Usage)
 
 **Self-Healing in Action**:
+
 - Überlasteter Service wird automatisch neugestartet
 - Disk-Cleanup bei >90% Usage
 - GPU Reset bei Hang
@@ -1102,12 +1135,14 @@ Du kannst eigene GGUF Models verwenden:
 - **Model aktivieren** → Dropdown in LLM Chat
 
 **Empfohlene Models**:
+
 - **Llama 2 7B**: Gute Balance (Speed/Quality)
 - **Mistral 7B**: Sehr schnell, hohe Qualität
 - **CodeLlama 13B**: Für Code Generation
 - **Llama 2 70B**: Beste Qualität (benötigt 64GB RAM)
 
 **Model Quellen**:
+
 - Hugging Face: https://huggingface.co/models?library=gguf
 - TheBloke: https://huggingface.co/TheBloke
 

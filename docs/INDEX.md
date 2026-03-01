@@ -41,10 +41,10 @@ Quick navigation to all Arasul Platform documentation.
 
 ### Application Services
 
-| Service            | README                                             | Description                |
-| ------------------ | -------------------------------------------------- | -------------------------- |
-| Dashboard Backend  | [README](../services/dashboard-backend/README.md)  | REST API + WebSocket + SSE |
-| Dashboard Frontend | [README](../services/dashboard-frontend/README.md) | React SPA                  |
+| Service            | README                                         | Description                |
+| ------------------ | ---------------------------------------------- | -------------------------- |
+| Dashboard Backend  | [README](../apps/dashboard-backend/README.md)  | REST API + WebSocket + SSE |
+| Dashboard Frontend | [README](../apps/dashboard-frontend/README.md) | React SPA                  |
 
 ### AI Services
 
@@ -133,7 +133,7 @@ Quick navigation to all Arasul Platform documentation.
 
 ### Common Tasks
 
-- **Add new API endpoint**: [Context Template](../.claude/context/api-endpoint.md) | [Backend README](../services/dashboard-backend/README.md)
+- **Add new API endpoint**: [Context Template](../.claude/context/api-endpoint.md) | [Backend README](../apps/dashboard-backend/README.md)
 - **Add React component**: [Context Template](../.claude/context/component.md) | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
 - **Add database migration**: [Context Template](../.claude/context/migration.md) | [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)
 - **Configure environment**: [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
@@ -149,8 +149,8 @@ docs/CLAUDE_DEVELOPMENT.md          # Workflows & debugging
 .claude/context/                    # Task-specific context templates
 docker-compose.yml                  # All service definitions
 .env                               # Environment configuration
-services/dashboard-backend/src/     # Backend source code
-services/dashboard-frontend/src/    # Frontend source code
+apps/dashboard-backend/src/     # Backend source code
+apps/dashboard-frontend/src/    # Frontend source code
 services/postgres/init/             # Database migrations
 ```
 

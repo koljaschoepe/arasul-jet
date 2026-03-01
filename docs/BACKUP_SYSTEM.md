@@ -4,13 +4,13 @@ Automated backup service for PostgreSQL, MinIO, Qdrant, and n8n workflows.
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Image | alpine:3.19 |
-| Container | backup-service |
-| Schedule | 02:00 UTC daily (configurable) |
-| Retention | 30 days (configurable) |
-| Storage | `/data/backups/` |
+| Property  | Value                          |
+| --------- | ------------------------------ |
+| Image     | alpine:3.19                    |
+| Container | backup-service                 |
+| Schedule  | 02:00 UTC daily (configurable) |
+| Retention | 30 days (configurable)         |
+| Storage   | `/data/backups/`               |
 
 ## Architecture
 
@@ -46,10 +46,12 @@ pg_dump -h postgres-db -U arasul -d arasul_db \
 ```
 
 **Output:**
+
 - File: `/backups/postgres/arasul_db_YYYYMMDD_HHMMSS.sql.gz`
 - Latest: `/backups/postgres/arasul_db_latest.sql.gz` (symlink)
 
 **Verification:**
+
 ```bash
 gzip -t /backups/postgres/arasul_db_latest.sql.gz
 ```
@@ -65,6 +67,7 @@ tar -czf /backups/minio/documents_$(date +%Y%m%d_%H%M%S).tar.gz \
 ```
 
 **Output:**
+
 - File: `/backups/minio/documents_YYYYMMDD_HHMMSS.tar.gz`
 - Latest: `/backups/minio/documents_latest.tar.gz` (symlink)
 
@@ -82,6 +85,7 @@ tar -czf /backups/qdrant/qdrant_$(date +%Y%m%d_%H%M%S).tar.gz \
 ```
 
 **Output:**
+
 - File: `/backups/qdrant/qdrant_YYYYMMDD_HHMMSS.tar.gz`
 - Latest: `/backups/qdrant/qdrant_latest.tar.gz` (symlink)
 
@@ -95,6 +99,7 @@ n8n export:workflow --all \
 ```
 
 **Output:**
+
 - File: `/backups/n8n/workflows_YYYYMMDD_HHMMSS.json`
 - Latest: `/backups/n8n/workflows_latest.json` (symlink)
 
@@ -133,19 +138,19 @@ n8n export:workflow --all \
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| BACKUP_SCHEDULE | `0 2 * * *` | Cron schedule (02:00 UTC daily) |
-| BACKUP_RETENTION_DAYS | 30 | Days to keep daily backups |
-| BACKUP_RETENTION_WEEKLY | 12 | Weeks to keep weekly snapshots |
-| POSTGRES_HOST | postgres-db | PostgreSQL host |
-| POSTGRES_USER | arasul | PostgreSQL user |
-| POSTGRES_PASSWORD | (required) | PostgreSQL password |
-| POSTGRES_DB | arasul_db | Database name |
-| MINIO_HOST | minio | MinIO host |
-| MINIO_ROOT_USER | (required) | MinIO access key |
-| MINIO_ROOT_PASSWORD | (required) | MinIO secret key |
-| TZ | Europe/Berlin | Timezone |
+| Variable                | Default       | Description                     |
+| ----------------------- | ------------- | ------------------------------- |
+| BACKUP_SCHEDULE         | `0 2 * * *`   | Cron schedule (02:00 UTC daily) |
+| BACKUP_RETENTION_DAYS   | 30            | Days to keep daily backups      |
+| BACKUP_RETENTION_WEEKLY | 12            | Weeks to keep weekly snapshots  |
+| POSTGRES_HOST           | postgres-db   | PostgreSQL host                 |
+| POSTGRES_USER           | arasul        | PostgreSQL user                 |
+| POSTGRES_PASSWORD       | (required)    | PostgreSQL password             |
+| POSTGRES_DB             | arasul_db     | Database name                   |
+| MINIO_HOST              | minio         | MinIO host                      |
+| MINIO_ROOT_USER         | (required)    | MinIO access key                |
+| MINIO_ROOT_PASSWORD     | (required)    | MinIO secret key                |
+| TZ                      | Europe/Berlin | Timezone                        |
 
 ### Cron Schedule Examples
 
@@ -184,34 +189,34 @@ BACKUP_SCHEDULE="0 0,12 * * *"
 
 ```bash
 # Run full backup immediately
-./scripts/backup.sh
+./scripts/backup/backup.sh
 
 # With explicit type
-./scripts/backup.sh --type full
+./scripts/backup/backup.sh --type full
 ```
 
 ### Incremental Backup
 
 ```bash
 # Only backup changed files (MinIO)
-./scripts/backup.sh --type incremental
+./scripts/backup/backup.sh --type incremental
 ```
 
 ### Weekly Snapshot
 
 ```bash
 # Force weekly snapshot
-./scripts/backup.sh --weekly
+./scripts/backup/backup.sh --weekly
 ```
 
 ### Single Component
 
 ```bash
 # Backup only PostgreSQL
-./scripts/backup.sh --component postgres
+./scripts/backup/backup.sh --component postgres
 
 # Backup only MinIO
-./scripts/backup.sh --component minio
+./scripts/backup/backup.sh --component minio
 ```
 
 ## Restore Procedures

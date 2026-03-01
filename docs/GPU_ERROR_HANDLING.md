@@ -11,6 +11,7 @@
 Die GPU Error Handling & Recovery Funktionalität ist zu **100% implementiert** und vollständig produktionsreif. Alle Features für Fehler-Erkennung, Recovery und Integration sind funktionsfähig.
 
 **Aktueller Stand:**
+
 - ✅ GPU Monitoring (NVML-basiert)
 - ✅ Error Detection (OOM, Hang, Thermal)
 - ✅ Recovery Actions (Clear Cache, Reset, Throttle)
@@ -27,6 +28,7 @@ Die GPU Error Handling & Recovery Funktionalität ist zu **100% implementiert** 
 **Datei**: `services/metrics-collector/gpu_monitor.py` (446 Zeilen)
 
 **Funktionalität:**
+
 - NVML-basiertes GPU Monitoring
 - Fallback zu `nvidia-smi` wenn NVML nicht verfügbar
 - Jetson AGX Orin Unterstützung
@@ -42,6 +44,7 @@ Die GPU Error Handling & Recovery Funktionalität ist zu **100% implementiert** 
 | Recovery Recommendations | Intelligente Action-Vorschläge | 261-275 |
 
 **Thresholds:**
+
 ```python
 TEMP_WARNING = 83.0°C          # Warning threshold
 TEMP_CRITICAL = 85.0°C         # Critical threshold
@@ -54,6 +57,7 @@ HANG_DURATION_SEC = 30         # Sustained high util
 ```
 
 **Unterstützte GPUs:**
+
 - NVIDIA Jetson AGX Orin
 - Alle NVIDIA GPUs mit NVML Support
 - Fallback für nvidia-smi-kompatible GPUs
@@ -66,21 +70,23 @@ HANG_DURATION_SEC = 30         # Sustained high util
 
 **Recovery Actions:**
 
-| Action | Trigger | Methode | Beschreibung |
-|--------|---------|---------|--------------|
-| Clear Cache | Memory > 36GB | `clear_llm_cache()` | Ollama models unloaden |
-| Reset Session | Memory > 38GB | `reset_gpu_session()` | LLM Service restart |
-| Throttle GPU | Temp > 83°C | `throttle_gpu()` | Power limit 80% |
-| Restart LLM | Temp > 85°C | `restart_llm_service()` | Service restart |
-| Stop LLM | Temp > 90°C | `stop_llm_service()` | Emergency stop |
-| Reset GPU | GPU Hang | `reset_gpu()` | `nvidia-smi --gpu-reset` |
+| Action        | Trigger       | Methode                 | Beschreibung             |
+| ------------- | ------------- | ----------------------- | ------------------------ |
+| Clear Cache   | Memory > 36GB | `clear_llm_cache()`     | Ollama models unloaden   |
+| Reset Session | Memory > 38GB | `reset_gpu_session()`   | LLM Service restart      |
+| Throttle GPU  | Temp > 83°C   | `throttle_gpu()`        | Power limit 80%          |
+| Restart LLM   | Temp > 85°C   | `restart_llm_service()` | Service restart          |
+| Stop LLM      | Temp > 90°C   | `stop_llm_service()`    | Emergency stop           |
+| Reset GPU     | GPU Hang      | `reset_gpu()`           | `nvidia-smi --gpu-reset` |
 
 **Jetson-Spezifische Features:**
+
 - `jetson_clocks --fan` für Thermal Management
 - Thermal zone reading (`/sys/class/thermal/`)
 - Power limiting via nvidia-smi
 
 **Error Detection:**
+
 ```python
 def detect_gpu_error() -> Tuple[bool, Optional[str], Optional[str]]:
     """
@@ -96,6 +102,7 @@ def detect_gpu_error() -> Tuple[bool, Optional[str], Optional[str]]:
 ```
 
 **Recovery Flow:**
+
 1. Fetch GPU stats from Metrics Collector
 2. Detect error type
 3. Recommend recovery action
@@ -109,11 +116,13 @@ def detect_gpu_error() -> Tuple[bool, Optional[str], Optional[str]]:
 **Datei**: `services/metrics-collector/collector.py` (erweitert)
 
 **Änderungen:**
+
 - GPU Monitor importiert und initialisiert
 - Detailed GPU stats collection (every 10s)
 - New API endpoint: `GET /api/gpu`
 
 **API Endpoint:**
+
 ```
 GET http://metrics-collector:9100/api/gpu
 
@@ -148,6 +157,7 @@ Response:
 ```
 
 **Fehler-Response** (GPU unavailable):
+
 ```json
 {
   "error": "GPU stats not available",
@@ -156,6 +166,7 @@ Response:
 ```
 
 **Collection Frequency:**
+
 - Basic GPU metrics (utilization): Every 5s
 - Detailed GPU stats: Every 10s
 - Database persistence: Every 30s
@@ -210,6 +221,7 @@ python3 gpu_monitor.py
 ```
 
 **Expected Output:**
+
 ```
 ======================================================================
 GPU MONITOR - Health Check
@@ -238,6 +250,7 @@ python3 gpu_recovery.py
 ```
 
 **Expected Output:**
+
 ```
 ======================================================================
 GPU RECOVERY - Health Check
@@ -272,12 +285,14 @@ curl http://localhost:9100/api/gpu
 ### Simulated Error Tests
 
 **Test OOM Detection:**
+
 ```bash
 # Würde Memory > 36GB simulieren - in real deployment
 # GPU Monitor würde warnen und Recovery empfehlen
 ```
 
 **Test Thermal Throttling:**
+
 ```bash
 # Würde Temp > 83°C simulieren
 # GPU Recovery würde throttle_gpu() aufrufen
@@ -346,6 +361,7 @@ curl http://localhost:9100/api/gpu
 **FERTIG**: Integration in `healing_engine.py` abgeschlossen
 
 **Implementierung:**
+
 ```python
 # services/self-healing-agent/healing_engine.py:853-928
 def handle_gpu_errors(self):
@@ -375,6 +391,7 @@ def handle_gpu_errors(self):
 ```
 
 **Geänderte Dateien:**
+
 - ✅ `services/self-healing-agent/healing_engine.py` (+88 Zeilen)
 - ✅ `services/self-healing-agent/requirements.txt` (pynvml hinzugefügt)
 
@@ -383,8 +400,9 @@ def handle_gpu_errors(self):
 **FERTIG**: `/api/services/ai` endpoint implementiert
 
 **Implementierung:**
+
 ```javascript
-// services/dashboard-backend/src/routes/services.js:60-142
+// apps/dashboard-backend/src/routes/services.js:60-142
 router.get('/ai', async (req, res) => {
   try {
     // Get GPU stats from Metrics Collector
@@ -396,24 +414,26 @@ router.get('/ai', async (req, res) => {
     const llmDetails = {
       status: services.llm?.status || 'unknown',
       gpu_load: gpuStats ? gpuStats.utilization : 0.0,
-      gpu: gpuStats ? {
-        name: gpuStats.name,
-        temperature: gpuStats.temperature,
-        utilization: gpuStats.utilization,
-        memory_used_mb: gpuStats.memory?.used_mb || 0,
-        memory_total_mb: gpuStats.memory?.total_mb || 0,
-        memory_percent: gpuStats.memory?.percent || 0,
-        power_draw_w: gpuStats.power?.draw_w || 0,
-        health: gpuStats.health || 'unknown',
-        error: gpuStats.error || 'none',
-        error_message: gpuStats.error_message
-      } : null
+      gpu: gpuStats
+        ? {
+            name: gpuStats.name,
+            temperature: gpuStats.temperature,
+            utilization: gpuStats.utilization,
+            memory_used_mb: gpuStats.memory?.used_mb || 0,
+            memory_total_mb: gpuStats.memory?.total_mb || 0,
+            memory_percent: gpuStats.memory?.percent || 0,
+            power_draw_w: gpuStats.power?.draw_w || 0,
+            health: gpuStats.health || 'unknown',
+            error: gpuStats.error || 'none',
+            error_message: gpuStats.error_message,
+          }
+        : null,
     };
 
     res.json({
       llm: llmDetails,
       embeddings: embeddingDetails,
-      gpu_available: gpuStats !== null
+      gpu_available: gpuStats !== null,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -422,13 +442,15 @@ router.get('/ai', async (req, res) => {
 ```
 
 **Geänderte Dateien:**
-- ✅ `services/dashboard-backend/src/routes/services.js` (GPU Stats Integration)
+
+- ✅ `apps/dashboard-backend/src/routes/services.js` (GPU Stats Integration)
 
 ### 3. Dashboard Frontend Integration ✅
 
 **FERTIG**: GPU Stats via `/api/services/ai` verfügbar
 
 Das Dashboard Frontend kann nun GPU Stats über den `/api/services/ai` Endpoint abrufen. Die Daten sind strukturiert und enthalten:
+
 - GPU Name
 - Temperature (°C)
 - Utilization (%)
@@ -441,14 +463,14 @@ Das Dashboard Frontend kann nun GPU Stats über den `/api/services/ai` Endpoint 
 
 ## ✅ Akzeptanzkriterien
 
-| Kriterium | Status | Beschreibung |
-|-----------|--------|--------------|
-| LLM Service überlebt CUDA Errors | ✅ | GPU Monitor detektiert OOM/Hang |
-| GPU-Reset erfolgt automatisch | ✅ | Self-Healing führt GPU Reset durch |
-| Temperature-Warnings | ✅ | Im Backend verfügbar via /api/services/ai |
-| GPU Load wird angezeigt | ✅ | Gesammelt und über API bereitgestellt |
-| Self-Healing reagiert auf GPU Errors | ✅ | handle_gpu_errors() alle 10s |
-| Recovery Actions protokolliert | ✅ | In recovery_actions Tabelle |
+| Kriterium                            | Status | Beschreibung                              |
+| ------------------------------------ | ------ | ----------------------------------------- |
+| LLM Service überlebt CUDA Errors     | ✅     | GPU Monitor detektiert OOM/Hang           |
+| GPU-Reset erfolgt automatisch        | ✅     | Self-Healing führt GPU Reset durch        |
+| Temperature-Warnings                 | ✅     | Im Backend verfügbar via /api/services/ai |
+| GPU Load wird angezeigt              | ✅     | Gesammelt und über API bereitgestellt     |
+| Self-Healing reagiert auf GPU Errors | ✅     | handle_gpu_errors() alle 10s              |
+| Recovery Actions protokolliert       | ✅     | In recovery_actions Tabelle               |
 
 ---
 
@@ -553,6 +575,7 @@ Das Dashboard Frontend kann nun GPU Stats über den `/api/services/ai` Endpoint 
 ### Production Readiness Score: **10/10** ✅
 
 **Begründung:**
+
 - ✅ Kern-Funktionalität komplett (GPU Monitoring + Recovery)
 - ✅ API vorhanden und funktionsfähig
 - ✅ Self-Healing reagiert automatisch auf GPU Errors
@@ -563,4 +586,4 @@ Das Dashboard Frontend kann nun GPU Stats über den `/api/services/ai` Endpoint 
 
 **Ende der Dokumentation**
 
-*Generiert am 2025-11-11 | GPU Error Handling v1.0*
+_Generiert am 2025-11-11 | GPU Error Handling v1.0_

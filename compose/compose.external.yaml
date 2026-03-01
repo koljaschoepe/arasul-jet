@@ -1,0 +1,62 @@
+# Arasul Platform - External Access
+# Cloudflare Tunnel (optional, profile-basiert)
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    hostname: cloudflared
+    restart: unless-stopped
+    networks:
+      - arasul-frontend
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        if [ -z "$$TUNNEL_TOKEN" ]; then
+          echo "CLOUDFLARE_TUNNEL_TOKEN not set - tunnel inactive"
+          echo "To enable: set CLOUDFLARE_TUNNEL_TOKEN in .env"
+          sleep infinity
+        else
+          echo "Starting Cloudflare Tunnel..."
+          exec cloudflared tunnel --no-autoupdate run --token "$$TUNNEL_TOKEN"
+        fi
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      reverse-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'pgrep -x cloudflared || [ -z "$$TUNNEL_TOKEN" ]']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: ${RAM_LIMIT_CLOUDFLARED:-128M}
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+    labels:
+      - 'com.arasul.service=cloudflared'
+      - 'com.arasul.description=Cloudflare Tunnel for OAuth and Webhooks'
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    profiles:
+      - tunnel
+
+networks:
+  arasul-frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/26

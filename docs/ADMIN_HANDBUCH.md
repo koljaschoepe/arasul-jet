@@ -240,20 +240,20 @@ Das System erstellt automatisch taegliche Backups um 02:00 Uhr:
 
 ```bash
 ssh -p 2222 arasul@<jetson-ip>
-./scripts/backup.sh
+./scripts/backup/backup.sh
 ```
 
 ### Backup wiederherstellen
 
 ```bash
 # Letztes Backup wiederherstellen:
-./scripts/restore.sh --latest --all
+./scripts/backup/restore.sh --latest --all
 
 # Bestimmtes Datum:
-./scripts/restore.sh --all --date 20260217
+./scripts/backup/restore.sh --all --date 20260217
 
 # Nur Datenbank:
-./scripts/restore.sh --postgres --latest
+./scripts/backup/restore.sh --postgres --latest
 ```
 
 ### Aufbewahrung

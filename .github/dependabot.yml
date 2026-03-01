@@ -5,218 +5,218 @@
 version: 2
 updates:
   # Root npm packages (husky, lint-staged, prettier)
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     open-pull-requests-limit: 5
     labels:
-      - "dependencies"
-      - "npm"
+      - 'dependencies'
+      - 'npm'
     commit-message:
-      prefix: "chore(deps)"
+      prefix: 'chore(deps)'
 
   # Dashboard Backend (Node.js)
-  - package-ecosystem: "npm"
-    directory: "/services/dashboard-backend"
+  - package-ecosystem: 'npm'
+    directory: '/apps/dashboard-backend'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     open-pull-requests-limit: 5
     labels:
-      - "dependencies"
-      - "npm"
-      - "backend"
+      - 'dependencies'
+      - 'npm'
+      - 'backend'
     commit-message:
-      prefix: "chore(deps-backend)"
+      prefix: 'chore(deps-backend)'
     groups:
       express:
         patterns:
-          - "express*"
-          - "body-parser"
-          - "cors"
+          - 'express*'
+          - 'body-parser'
+          - 'cors'
       security:
         patterns:
-          - "jsonwebtoken"
-          - "bcrypt*"
-          - "helmet"
+          - 'jsonwebtoken'
+          - 'bcrypt*'
+          - 'helmet'
       testing:
         patterns:
-          - "jest*"
-          - "supertest"
+          - 'jest*'
+          - 'supertest'
 
   # Dashboard Frontend (React)
-  - package-ecosystem: "npm"
-    directory: "/services/dashboard-frontend"
+  - package-ecosystem: 'npm'
+    directory: '/apps/dashboard-frontend'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     open-pull-requests-limit: 5
     labels:
-      - "dependencies"
-      - "npm"
-      - "frontend"
+      - 'dependencies'
+      - 'npm'
+      - 'frontend'
     commit-message:
-      prefix: "chore(deps-frontend)"
+      prefix: 'chore(deps-frontend)'
     groups:
       react:
         patterns:
-          - "react*"
-          - "@testing-library/*"
+          - 'react*'
+          - '@testing-library/*'
       visualization:
         patterns:
-          - "recharts"
-          - "mermaid"
+          - 'recharts'
+          - 'mermaid'
 
   # n8n Custom Nodes
-  - package-ecosystem: "npm"
-    directory: "/services/n8n/custom-nodes/n8n-nodes-arasul-llm"
+  - package-ecosystem: 'npm'
+    directory: '/services/n8n/custom-nodes/n8n-nodes-arasul-llm'
     schedule:
-      interval: "monthly"
+      interval: 'monthly'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "npm"
-      - "n8n"
+      - 'dependencies'
+      - 'npm'
+      - 'n8n'
     commit-message:
-      prefix: "chore(deps-n8n)"
+      prefix: 'chore(deps-n8n)'
 
-  - package-ecosystem: "npm"
-    directory: "/services/n8n/custom-nodes/n8n-nodes-arasul-embeddings"
+  - package-ecosystem: 'npm'
+    directory: '/services/n8n/custom-nodes/n8n-nodes-arasul-embeddings'
     schedule:
-      interval: "monthly"
+      interval: 'monthly'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "npm"
-      - "n8n"
+      - 'dependencies'
+      - 'npm'
+      - 'n8n'
     commit-message:
-      prefix: "chore(deps-n8n)"
+      prefix: 'chore(deps-n8n)'
 
   # Python services (pip)
-  - package-ecosystem: "pip"
-    directory: "/services/metrics-collector"
+  - package-ecosystem: 'pip'
+    directory: '/services/metrics-collector'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
+      interval: 'weekly'
+      day: 'tuesday'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "python"
+      - 'dependencies'
+      - 'python'
     commit-message:
-      prefix: "chore(deps-python)"
+      prefix: 'chore(deps-python)'
 
-  - package-ecosystem: "pip"
-    directory: "/services/self-healing-agent"
+  - package-ecosystem: 'pip'
+    directory: '/services/self-healing-agent'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
+      interval: 'weekly'
+      day: 'tuesday'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "python"
+      - 'dependencies'
+      - 'python'
     commit-message:
-      prefix: "chore(deps-python)"
+      prefix: 'chore(deps-python)'
 
-  - package-ecosystem: "pip"
-    directory: "/services/telegram-bot"
+  - package-ecosystem: 'pip'
+    directory: '/services/telegram-bot'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
+      interval: 'weekly'
+      day: 'tuesday'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "python"
+      - 'dependencies'
+      - 'python'
     commit-message:
-      prefix: "chore(deps-python)"
+      prefix: 'chore(deps-python)'
 
-  - package-ecosystem: "pip"
-    directory: "/services/llm-service"
+  - package-ecosystem: 'pip'
+    directory: '/services/llm-service'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
+      interval: 'weekly'
+      day: 'tuesday'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "python"
+      - 'dependencies'
+      - 'python'
     commit-message:
-      prefix: "chore(deps-python)"
+      prefix: 'chore(deps-python)'
 
-  - package-ecosystem: "pip"
-    directory: "/services/embedding-service"
+  - package-ecosystem: 'pip'
+    directory: '/services/embedding-service'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
+      interval: 'weekly'
+      day: 'tuesday'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "python"
+      - 'dependencies'
+      - 'python'
     commit-message:
-      prefix: "chore(deps-python)"
+      prefix: 'chore(deps-python)'
 
-  - package-ecosystem: "pip"
-    directory: "/services/document-indexer"
+  - package-ecosystem: 'pip'
+    directory: '/services/document-indexer'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
+      interval: 'weekly'
+      day: 'tuesday'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "python"
+      - 'dependencies'
+      - 'python'
     commit-message:
-      prefix: "chore(deps-python)"
+      prefix: 'chore(deps-python)'
 
   # GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "wednesday"
+      interval: 'weekly'
+      day: 'wednesday'
     open-pull-requests-limit: 3
     labels:
-      - "dependencies"
-      - "github-actions"
+      - 'dependencies'
+      - 'github-actions'
     commit-message:
-      prefix: "chore(deps-actions)"
+      prefix: 'chore(deps-actions)'
 
   # Docker (Dockerfile base images)
-  - package-ecosystem: "docker"
-    directory: "/services/dashboard-backend"
+  - package-ecosystem: 'docker'
+    directory: '/apps/dashboard-backend'
     schedule:
-      interval: "monthly"
+      interval: 'monthly'
     labels:
-      - "dependencies"
-      - "docker"
+      - 'dependencies'
+      - 'docker'
     commit-message:
-      prefix: "chore(deps-docker)"
+      prefix: 'chore(deps-docker)'
 
-  - package-ecosystem: "docker"
-    directory: "/services/dashboard-frontend"
+  - package-ecosystem: 'docker'
+    directory: '/apps/dashboard-frontend'
     schedule:
-      interval: "monthly"
+      interval: 'monthly'
     labels:
-      - "dependencies"
-      - "docker"
+      - 'dependencies'
+      - 'docker'
     commit-message:
-      prefix: "chore(deps-docker)"
+      prefix: 'chore(deps-docker)'
 
-  - package-ecosystem: "docker"
-    directory: "/services/metrics-collector"
+  - package-ecosystem: 'docker'
+    directory: '/services/metrics-collector'
     schedule:
-      interval: "monthly"
+      interval: 'monthly'
     labels:
-      - "dependencies"
-      - "docker"
+      - 'dependencies'
+      - 'docker'
     commit-message:
-      prefix: "chore(deps-docker)"
+      prefix: 'chore(deps-docker)'
 
-  - package-ecosystem: "docker"
-    directory: "/services/self-healing-agent"
+  - package-ecosystem: 'docker'
+    directory: '/services/self-healing-agent'
     schedule:
-      interval: "monthly"
+      interval: 'monthly'
     labels:
-      - "dependencies"
-      - "docker"
+      - 'dependencies'
+      - 'docker'
     commit-message:
-      prefix: "chore(deps-docker)"
+      prefix: 'chore(deps-docker)'

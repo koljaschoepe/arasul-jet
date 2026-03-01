@@ -49,11 +49,9 @@ updates/
 **/*.pyd
 .Python
 
-# Test files
+# Test directories (not __tests__/ which backend uses)
 **/test/
 **/tests/
-**/*.test.js
-**/*.spec.js
 
 # Temporary files
 *.tmp

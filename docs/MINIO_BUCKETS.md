@@ -6,14 +6,14 @@ This document describes the MinIO S3-compatible object storage bucket structure 
 
 The platform uses 6 buckets for different purposes:
 
-| Bucket | Policy | Versioning | Lifecycle | Description |
-|--------|--------|------------|-----------|-------------|
-| `documents` | Private | Enabled | No expiry | User document uploads and file storage |
-| `workflow-data` | Private | Enabled | 30 days | n8n workflow execution data and artifacts |
-| `llm-cache` | Private | Disabled | 7 days | LLM model response caching |
-| `embeddings-cache` | Private | Disabled | 7 days | Embedding model vector caching |
-| `backups` | Private | Enabled | 90 days | System backups (database, config) |
-| `updates` | Private | Enabled | No expiry | System update packages (.araupdate files) |
+| Bucket             | Policy  | Versioning | Lifecycle | Description                               |
+| ------------------ | ------- | ---------- | --------- | ----------------------------------------- |
+| `documents`        | Private | Enabled    | No expiry | User document uploads and file storage    |
+| `workflow-data`    | Private | Enabled    | 30 days   | n8n workflow execution data and artifacts |
+| `llm-cache`        | Private | Disabled   | 7 days    | LLM model response caching                |
+| `embeddings-cache` | Private | Disabled   | 7 days    | Embedding model vector caching            |
+| `backups`          | Private | Enabled    | 90 days   | System backups (database, config)         |
+| `updates`          | Private | Enabled    | No expiry | System update packages (.araupdate files) |
 
 ## Bucket Details
 
@@ -28,12 +28,14 @@ The platform uses 6 buckets for different purposes:
 **Lifecycle**: No automatic expiry
 
 **Typical Contents**:
+
 - User-uploaded PDF documents
 - Images
 - Text files
 - Any user data requiring persistent storage
 
 **Usage Example**:
+
 ```bash
 # Upload a document
 mc cp mydocument.pdf local/documents/
@@ -58,12 +60,14 @@ mc cp local/documents/mydocument.pdf ./
 **Lifecycle**: 30 days retention - Automatic cleanup of old workflow artifacts
 
 **Typical Contents**:
+
 - Workflow execution logs
 - Intermediate processing files
 - Temporary workflow data
 - n8n webhook payloads
 
 **Usage Example**:
+
 ```bash
 # Store workflow output
 mc cp workflow-result.json local/workflow-data/executions/
@@ -85,11 +89,13 @@ mc ls local/workflow-data/ --recursive
 **Lifecycle**: 7 days retention - Automatic cleanup of old cache entries
 
 **Typical Contents**:
+
 - Cached LLM responses
 - Model inference results
 - Prompt-response pairs (for frequently used prompts)
 
 **Usage Example**:
+
 ```bash
 # Check cache size
 mc du local/llm-cache/
@@ -113,11 +119,13 @@ mc rm --recursive --force local/llm-cache/
 **Lifecycle**: 7 days retention - Automatic cleanup
 
 **Typical Contents**:
+
 - Cached embedding vectors
 - Text-to-vector mappings
 - Frequently used embeddings
 
 **Usage Example**:
+
 ```bash
 # Check cache size
 mc du local/embeddings-cache/
@@ -141,12 +149,14 @@ mc ls local/embeddings-cache/
 **Lifecycle**: 90 days retention - Automatic cleanup of old backups
 
 **Typical Contents**:
+
 - PostgreSQL database dumps
 - Configuration backups
 - System state snapshots
 - Recovery points
 
 **Usage Example**:
+
 ```bash
 # Upload backup
 mc cp postgres_backup_20250112.sql local/backups/database/
@@ -159,6 +169,7 @@ mc cp local/backups/database/postgres_backup_20250112.sql ./
 ```
 
 **Backup Naming Convention**:
+
 - Database: `postgres_backup_YYYYMMDD.sql`
 - Config: `config_backup_YYYYMMDD.tar.gz`
 - Full system: `system_backup_YYYYMMDD.tar.gz`
@@ -176,12 +187,14 @@ mc cp local/backups/database/postgres_backup_20250112.sql ./
 **Lifecycle**: No expiry - All updates retained for rollback
 
 **Typical Contents**:
+
 - .araupdate package files
 - Update manifests
 - Docker image tarballs (within packages)
 - Migration scripts (within packages)
 
 **Usage Example**:
+
 ```bash
 # Upload update package
 mc cp arasul-v2.0.1.araupdate local/updates/
@@ -194,6 +207,7 @@ mc cp local/updates/arasul-v2.0.1.araupdate ./
 ```
 
 **Update Package Structure** (inside .araupdate):
+
 ```
 arasul-v2.0.1.araupdate/
 ├── manifest.json
@@ -219,7 +233,7 @@ Buckets are automatically created and configured during bootstrap:
 Or manually initialize buckets:
 
 ```bash
-./scripts/init_minio_buckets.sh
+./scripts/util/init_minio_buckets.sh
 ```
 
 ### Manual Bucket Operations
@@ -295,6 +309,7 @@ mc tag list local/my-bucket
 n8n workflows can access MinIO buckets using the S3-compatible credentials:
 
 **Credentials Configuration**:
+
 - Endpoint: `http://minio:9000`
 - Access Key: `${MINIO_ROOT_USER}`
 - Secret Key: `${MINIO_ROOT_PASSWORD}`

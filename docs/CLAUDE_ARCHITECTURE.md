@@ -54,7 +54,7 @@ Detailed service architecture for the Arasul Platform.
 ### Backend (Node.js/Express)
 
 ```
-services/dashboard-backend/
+apps/dashboard-backend/
 ├── src/index.js              # Entry point, Express app setup
 ├── src/database.js           # PostgreSQL connection pool
 ├── src/routes/               # 34 route files
@@ -110,7 +110,7 @@ services/dashboard-backend/
 ### Frontend (React 18)
 
 ```
-services/dashboard-frontend/
+apps/dashboard-frontend/
 ├── src/App.js                # Routes, WebSocket, Auth context
 ├── src/components/
 │   ├── ChatMulti.js          # AI Chat with RAG toggle

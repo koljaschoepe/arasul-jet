@@ -2,7 +2,7 @@
 
 ## Quick Reference
 
-**Location:** `services/dashboard-frontend/src/components/`
+**Location:** `apps/dashboard-frontend/src/components/`
 **Pattern:** `ChatMulti.js` (complex), `Modal.js` (simple)
 **Design System:** `docs/DESIGN_SYSTEM.md` (MANDATORY)
 
@@ -12,26 +12,26 @@
 
 ```css
 /* Primary Blue */
---primary: #45ADFF;
---primary-hover: #6EC4FF;
---primary-active: #2D8FD9;
+--primary: #45adff;
+--primary-hover: #6ec4ff;
+--primary-active: #2d8fd9;
 --primary-muted: rgba(69, 173, 255, 0.15);
 
 /* Backgrounds */
 --bg-dark: #101923;
---bg-card: #1A2330;
---bg-hover: #222D3D;
+--bg-card: #1a2330;
+--bg-hover: #222d3d;
 
 /* Borders & Text */
---border: #2A3544;
---text-primary: #F8FAFC;
---text-secondary: #CBD5E1;
---text-muted: #94A3B8;
+--border: #2a3544;
+--text-primary: #f8fafc;
+--text-secondary: #cbd5e1;
+--text-muted: #94a3b8;
 
 /* Status (ONLY when semantic) */
---success: #22C55E;
---warning: #F59E0B;
---error: #EF4444;
+--success: #22c55e;
+--warning: #f59e0b;
+--error: #ef4444;
 ```
 
 ---
@@ -58,7 +58,7 @@ function ExampleComponent({ onAction, initialValue }) {
     try {
       setLoading(true);
       const response = await fetch('/api/example', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch');
       const result = await response.json();
@@ -76,9 +76,7 @@ function ExampleComponent({ onAction, initialValue }) {
   return (
     <div className="example-component">
       <h2 className="example-title">Example</h2>
-      <div className="example-content">
-        {data && <p>{data.name}</p>}
-      </div>
+      <div className="example-content">{data && <p>{data.name}</p>}</div>
       <button className="btn-primary" onClick={onAction}>
         Action
       </button>
@@ -97,26 +95,26 @@ export default ExampleComponent;
 /* src/components/ExampleComponent.css */
 
 .example-component {
-  background: #1A2330;
-  border: 1px solid #2A3544;
+  background: #1a2330;
+  border: 1px solid #2a3544;
   border-radius: 12px;
   padding: 1.25rem;
 }
 
 .example-title {
-  color: #F8FAFC;
+  color: #f8fafc;
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 1rem;
 }
 
 .example-content {
-  color: #CBD5E1;
+  color: #cbd5e1;
 }
 
 /* Primary Button */
 .btn-primary {
-  background: #45ADFF;
+  background: #45adff;
   color: #000;
   border: none;
   border-radius: 6px;
@@ -127,7 +125,7 @@ export default ExampleComponent;
 }
 
 .btn-primary:hover {
-  background: #6EC4FF;
+  background: #6ec4ff;
   transform: translateY(-2px);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
 }
@@ -135,8 +133,8 @@ export default ExampleComponent;
 /* Secondary Button */
 .btn-secondary {
   background: transparent;
-  color: #CBD5E1;
-  border: 1px solid #2A3544;
+  color: #cbd5e1;
+  border: 1px solid #2a3544;
   border-radius: 6px;
   padding: 0.625rem 1rem;
   cursor: pointer;
@@ -144,37 +142,37 @@ export default ExampleComponent;
 }
 
 .btn-secondary:hover {
-  background: #222D3D;
-  border-color: #45ADFF;
+  background: #222d3d;
+  border-color: #45adff;
 }
 
 /* Input */
 .input {
   background: #101923;
-  border: 1px solid #2A3544;
+  border: 1px solid #2a3544;
   border-radius: 8px;
   padding: 0.75rem 1rem;
-  color: #F8FAFC;
+  color: #f8fafc;
   width: 100%;
   transition: border-color 0.2s ease;
 }
 
 .input:focus {
   outline: none;
-  border-color: #45ADFF;
+  border-color: #45adff;
   box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.15);
 }
 
 /* Loading */
 .loading {
-  color: #94A3B8;
+  color: #94a3b8;
   text-align: center;
   padding: 2rem;
 }
 
 /* Error */
 .error {
-  color: #EF4444;
+  color: #ef4444;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
@@ -191,11 +189,14 @@ export default ExampleComponent;
 import ExampleComponent from './components/ExampleComponent';
 
 // In routes:
-<Route path="/example" element={
-  <PrivateRoute>
-    <ExampleComponent />
-  </PrivateRoute>
-} />
+<Route
+  path="/example"
+  element={
+    <PrivateRoute>
+      <ExampleComponent />
+    </PrivateRoute>
+  }
+/>;
 ```
 
 ---
@@ -225,7 +226,7 @@ describe('ExampleComponent', () => {
   it('renders data after fetch', async () => {
     fetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ data: { name: 'Test' } })
+      json: () => Promise.resolve({ data: { name: 'Test' } }),
     });
 
     render(<ExampleComponent />);

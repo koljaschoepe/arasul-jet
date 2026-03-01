@@ -42,7 +42,7 @@ Instructions for Claude Code working in the Arasul Platform repository.
 ### 1. Always Test Before Commit
 
 ```bash
-./scripts/run-tests.sh --backend
+./scripts/test/run-tests.sh --backend
 ```
 
 ### 2. Follow Design System for Frontend
@@ -89,7 +89,7 @@ docker compose up -d --build <service-name>
 docker exec -it postgres-db psql -U arasul -d arasul_db
 
 # Run tests
-./scripts/run-tests.sh --backend
+./scripts/test/run-tests.sh --backend
 
 # Lint code
 npm run lint
@@ -129,12 +129,12 @@ npm run lint:fix
 
 ## Key Entry Points
 
-| Domain      | Entry Point                               | Pattern Reference         |
-| ----------- | ----------------------------------------- | ------------------------- |
-| Backend API | `services/dashboard-backend/src/index.js` | `routes/auth.js`          |
-| Frontend    | `services/dashboard-frontend/src/App.js`  | `components/ChatMulti.js` |
-| Database    | `services/postgres/init/`                 | Next: `039_*.sql`         |
-| AI Services | `services/llm-service/api_server.py`      | -                         |
+| Domain      | Entry Point                           | Pattern Reference            |
+| ----------- | ------------------------------------- | ---------------------------- |
+| Backend API | `apps/dashboard-backend/src/index.js` | `routes/auth.js`             |
+| Frontend    | `apps/dashboard-frontend/src/App.js`  | `features/chat/ChatMulti.js` |
+| Database    | `services/postgres/init/`             | Next: `042_*.sql`            |
+| AI Services | `services/llm-service/api_server.py`  | -                            |
 
 ---
 

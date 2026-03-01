@@ -1290,4 +1290,4 @@ User-created tables follow the naming convention `data_{slug}`:
 ## Related Documentation
 
 - [PostgreSQL Service](../services/postgres/README.md) - Service details
-- [Dashboard Backend](../services/dashboard-backend/README.md) - Database client
+- [Dashboard Backend](../apps/dashboard-backend/README.md) - Database client

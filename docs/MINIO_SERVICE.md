@@ -4,13 +4,13 @@ S3-compatible object storage for documents, backups, and application data.
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Image | minio/minio:latest |
-| S3 API Port | 9000 |
-| Console Port | 9001 |
-| Container | minio |
-| Hostname | minio |
+| Property     | Value              |
+| ------------ | ------------------ |
+| Image        | minio/minio:latest |
+| S3 API Port  | 9000               |
+| Console Port | 9001               |
+| Container    | minio              |
+| Hostname     | minio              |
 
 ## Architecture
 
@@ -35,15 +35,15 @@ S3-compatible object storage for documents, backups, and application data.
 
 ## Buckets
 
-| Bucket | Purpose | Access |
-|--------|---------|--------|
+| Bucket      | Purpose              | Access                    |
+| ----------- | -------------------- | ------------------------- |
 | `documents` | RAG document storage | Backend, Document-Indexer |
-| `backups` | Automated backups | Backup Service |
-| `apps` | App Store packages | Backend |
+| `backups`   | Automated backups    | Backup Service            |
+| `apps`      | App Store packages   | Backend                   |
 
 ### Bucket Initialization
 
-Buckets are created automatically on first startup via `scripts/init_minio_buckets.sh`:
+Buckets are created automatically on first startup via `scripts/util/init_minio_buckets.sh`:
 
 ```bash
 # Initialize buckets
@@ -55,11 +55,11 @@ mc mb local/apps --ignore-existing
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| MINIO_ROOT_USER | (required) | Admin access key |
-| MINIO_ROOT_PASSWORD | (required) | Admin secret key |
-| MINIO_BROWSER | on | Enable web console |
+| Variable            | Default    | Description        |
+| ------------------- | ---------- | ------------------ |
+| MINIO_ROOT_USER     | (required) | Admin access key   |
+| MINIO_ROOT_PASSWORD | (required) | Admin secret key   |
+| MINIO_BROWSER       | on         | Enable web console |
 
 ## Docker Compose Configuration
 
@@ -70,8 +70,8 @@ minio:
   hostname: minio
   command: server /data --console-address ":9001"
   ports:
-    - "9000:9000"
-    - "9001:9001"
+    - '9000:9000'
+    - '9001:9001'
   environment:
     MINIO_ROOT_USER: ${MINIO_ROOT_USER}
     MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -79,7 +79,7 @@ minio:
   volumes:
     - arasul-minio:/data
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+    test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
     interval: 10s
     timeout: 1s
     retries: 3
@@ -91,10 +91,10 @@ minio:
 
 ## Traefik Routing
 
-| Route | Path | Service | Auth |
-|-------|------|---------|------|
-| minio-console | `/minio` | minio:9001 | None |
-| minio-api | `/minio-api` | minio:9000 | CORS + Security |
+| Route         | Path         | Service    | Auth            |
+| ------------- | ------------ | ---------- | --------------- |
+| minio-console | `/minio`     | minio:9001 | None            |
+| minio-api     | `/minio-api` | minio:9000 | CORS + Security |
 
 ### CORS Configuration
 
@@ -102,9 +102,9 @@ minio:
 # For minio-api route
 cors:
   allowedOrigins:
-    - "http://localhost"
-    - "https://localhost"
-    - "http://192.168.*.*"
+    - 'http://localhost'
+    - 'https://localhost'
+    - 'http://192.168.*.*'
   allowedMethods:
     - GET
     - POST
@@ -129,6 +129,7 @@ curl -f http://localhost:9000/minio/health/live
 Access the MinIO Console at: `http://host/minio`
 
 **Features:**
+
 - Bucket management
 - Object browser
 - User management
@@ -169,17 +170,19 @@ const s3 = new S3Client({
   region: 'us-east-1',
   credentials: {
     accessKeyId: process.env.MINIO_ROOT_USER,
-    secretAccessKey: process.env.MINIO_ROOT_PASSWORD
+    secretAccessKey: process.env.MINIO_ROOT_PASSWORD,
   },
-  forcePathStyle: true
+  forcePathStyle: true,
 });
 
 // Upload
-await s3.send(new PutObjectCommand({
-  Bucket: 'documents',
-  Key: 'file.pdf',
-  Body: fileBuffer
-}));
+await s3.send(
+  new PutObjectCommand({
+    Bucket: 'documents',
+    Key: 'file.pdf',
+    Body: fileBuffer,
+  })
+);
 ```
 
 ## Backend Integration
@@ -187,7 +190,7 @@ await s3.send(new PutObjectCommand({
 The dashboard-backend uses MinIO for document storage:
 
 ```javascript
-// services/dashboard-backend/src/routes/documents.js
+// apps/dashboard-backend/src/routes/documents.js
 const Minio = require('minio');
 
 const minioClient = new Minio.Client({
@@ -195,7 +198,7 @@ const minioClient = new Minio.Client({
   port: parseInt(process.env.MINIO_PORT || '9000'),
   useSSL: false,
   accessKey: process.env.MINIO_ROOT_USER,
-  secretKey: process.env.MINIO_ROOT_PASSWORD
+  secretKey: process.env.MINIO_ROOT_PASSWORD,
 });
 ```
 
@@ -295,7 +298,7 @@ export MINIO_API_REQUESTS_DEADLINE=10m
   "Statement": [
     {
       "Effect": "Allow",
-      "Principal": {"AWS": ["arn:aws:iam::*:user/backend"]},
+      "Principal": { "AWS": ["arn:aws:iam::*:user/backend"] },
       "Action": ["s3:GetObject", "s3:PutObject"],
       "Resource": ["arn:aws:s3:::documents/*"]
     }
@@ -333,6 +336,7 @@ curl http://localhost:9000/minio/v2/metrics/cluster
 ```
 
 Key metrics:
+
 - `minio_bucket_usage_total_bytes` - Storage used per bucket
 - `minio_s3_requests_total` - API request count
 - `minio_s3_requests_errors_total` - Error count

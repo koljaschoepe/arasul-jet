@@ -2,7 +2,7 @@
 
 ## Quick Reference
 
-**Location:** `services/dashboard-backend/src/routes/`
+**Location:** `apps/dashboard-backend/src/routes/`
 **Pattern:** `routes/auth.js` (simple), `routes/llm.js` (SSE streaming)
 **Registration:** `src/index.js`
 
@@ -29,39 +29,47 @@ const { query } = require('../database');
 const logger = require('../utils/logger');
 
 // GET endpoint with auth
-router.get('/', auth, asyncHandler(async (req, res) => {
-  const result = await query('SELECT * FROM table WHERE user_id = $1', [req.user.id]);
-  res.json({
-    data: result.rows,
-    timestamp: new Date().toISOString()
-  });
-}));
+router.get(
+  '/',
+  auth,
+  asyncHandler(async (req, res) => {
+    const result = await query('SELECT * FROM table WHERE user_id = $1', [req.user.id]);
+    res.json({
+      data: result.rows,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
 
 // POST endpoint with validation
-router.post('/', auth, asyncHandler(async (req, res) => {
-  const { name, value } = req.body;
+router.post(
+  '/',
+  auth,
+  asyncHandler(async (req, res) => {
+    const { name, value } = req.body;
 
-  // Validation
-  if (!name || typeof name !== 'string') {
-    return res.status(400).json({
-      error: 'Name is required',
-      timestamp: new Date().toISOString()
+    // Validation
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({
+        error: 'Name is required',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Business logic
+    const result = await query(
+      'INSERT INTO table (name, value, user_id) VALUES ($1, $2, $3) RETURNING *',
+      [name, value, req.user.id]
+    );
+
+    logger.info(`Created record: ${result.rows[0].id}`);
+
+    res.status(201).json({
+      data: result.rows[0],
+      timestamp: new Date().toISOString(),
     });
-  }
-
-  // Business logic
-  const result = await query(
-    'INSERT INTO table (name, value, user_id) VALUES ($1, $2, $3) RETURNING *',
-    [name, value, req.user.id]
-  );
-
-  logger.info(`Created record: ${result.rows[0].id}`);
-
-  res.status(201).json({
-    data: result.rows[0],
-    timestamp: new Date().toISOString()
-  });
-}));
+  })
+);
 
 module.exports = router;
 ```
@@ -88,6 +96,7 @@ app.use('/api/example', exampleRoutes);
 ```
 
 Error response:
+
 ```json
 {
   "error": "Error message",
@@ -131,9 +140,7 @@ describe('Example API', () => {
   });
 
   it('should return data', async () => {
-    const res = await request(app)
-      .get('/api/example')
-      .set('Authorization', `Bearer ${authToken}`);
+    const res = await request(app).get('/api/example').set('Authorization', `Bearer ${authToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('data');

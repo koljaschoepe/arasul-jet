@@ -3,6 +3,7 @@
 ## Problem-Beschreibung
 
 ### Aktueller Zustand
+
 Beim Versuch, Google OAuth2-Credentials in n8n von einem Laptop im gleichen WLAN hinzuzufügen, erscheint:
 
 ```
@@ -13,15 +14,17 @@ Fehler 400: invalid_request
 ```
 
 ### Ursache
+
 1. **Google OAuth2 blockiert private IP-Adressen** als Callback-URLs
 2. **N8N_EDITOR_BASE_URL ist hardcoded** auf `http://192.168.0.112/n8n`
 3. **Keine öffentlich erreichbare URL** für OAuth-Callbacks
 4. **HTTPS wird benötigt** (außer bei localhost)
 
 ### Betroffene Konfigurationen
+
 ```yaml
 # docker-compose.yml (aktuell)
-N8N_EDITOR_BASE_URL: http://192.168.0.112/n8n  # HARDCODED!
+N8N_EDITOR_BASE_URL: http://192.168.0.112/n8n # HARDCODED!
 WEBHOOK_URL: http://${N8N_HOST}:${N8N_WEBHOOK_PORT}
 ```
 
@@ -198,7 +201,7 @@ http:
   routers:
     # OAuth2 Callback Route (Höchste Priorität)
     n8n-oauth-callback:
-      rule: "PathPrefix(`/n8n/rest/oauth2-credential`)"
+      rule: 'PathPrefix(`/n8n/rest/oauth2-credential`)'
       priority: 150
       service: n8n-service
       middlewares:
@@ -222,8 +225,8 @@ http:
     oauth-cors-headers:
       headers:
         accessControlAllowOriginList:
-          - "https://accounts.google.com"
-          - "https://oauth2.googleapis.com"
+          - 'https://accounts.google.com'
+          - 'https://oauth2.googleapis.com'
         accessControlAllowMethods:
           - GET
           - POST
@@ -289,7 +292,7 @@ http:
 
 #### 5.1 Automatisches Setup-Skript
 
-**Neue Datei: `scripts/setup-n8n-oauth-tunnel.sh`:**
+**Neue Datei: `scripts/util/setup-n8n-oauth-tunnel.sh`:**
 
 ```bash
 #!/bin/bash
@@ -437,7 +440,7 @@ main "$@"
 
 **Neue Datei: `docs/N8N_GOOGLE_OAUTH_SETUP.md`:**
 
-```markdown
+````markdown
 # n8n Google OAuth2 Setup Guide
 
 ## Voraussetzungen
@@ -458,10 +461,12 @@ main "$@"
 
 ```bash
 # Setup-Skript ausführen
-./scripts/setup-n8n-oauth-tunnel.sh
+./scripts/util/setup-n8n-oauth-tunnel.sh
 ```
+````
 
 Oder manuell in `.env`:
+
 ```bash
 CLOUDFLARE_TUNNEL_TOKEN=your-token-here
 N8N_PUBLIC_DOMAIN=n8n.yourdomain.com
@@ -493,18 +498,22 @@ N8N_EXTERNAL_URL=https://n8n.yourdomain.com
 ## Fehlerbehebung
 
 ### Fehler: "invalid_request"
+
 - Prüfe, ob die Redirect URI exakt übereinstimmt
 - Stelle sicher, dass HTTPS verwendet wird
 
 ### Fehler: "redirect_uri_mismatch"
+
 - Die URL in Google Console muss exakt mit n8n übereinstimmen
 - Kein trailing slash hinzufügen/entfernen
 
 ### Tunnel nicht erreichbar
+
 ```bash
 docker compose logs cloudflared
 ```
-```
+
+````
 
 ---
 
@@ -550,13 +559,15 @@ services:
     command: http reverse-proxy:80 --domain=${NGROK_DOMAIN}
     networks:
       - arasul-net
-```
+````
 
 **Vorteile:**
+
 - Schnellerer Setup
 - Traffic-Inspektion
 
 **Nachteile:**
+
 - Free Tier: 1 GB/Monat
 - Kostenpflichtig für Custom Domain
 
@@ -576,15 +587,15 @@ n8n:
 
 ## Zeitplan
 
-| Phase | Aufgabe | Geschätzter Aufwand |
-|-------|---------|---------------------|
-| 1 | Cloudflare Setup | 30 min |
-| 2 | .env & docker-compose | 1 Stunde |
-| 3 | Traefik-Anpassungen | 30 min |
-| 4 | Google OAuth Config | 30 min |
-| 5 | Setup-Skript | 1 Stunde |
-| 6 | Dokumentation | 1 Stunde |
-| 7 | Testing | 1 Stunde |
+| Phase | Aufgabe               | Geschätzter Aufwand |
+| ----- | --------------------- | ------------------- |
+| 1     | Cloudflare Setup      | 30 min              |
+| 2     | .env & docker-compose | 1 Stunde            |
+| 3     | Traefik-Anpassungen   | 30 min              |
+| 4     | Google OAuth Config   | 30 min              |
+| 5     | Setup-Skript          | 1 Stunde            |
+| 6     | Dokumentation         | 1 Stunde            |
+| 7     | Testing               | 1 Stunde            |
 
 **Gesamt:** ~5-6 Stunden
 
@@ -595,6 +606,7 @@ n8n:
 ### Funktionale Tests
 
 1. **Tunnel-Konnektivität**
+
    ```bash
    curl -I https://n8n.yourdomain.com/healthz
    ```
@@ -605,6 +617,7 @@ n8n:
    - Token wird gespeichert
 
 3. **Webhook-Test**
+
    ```bash
    curl -X POST https://n8n.yourdomain.com/webhook/test
    ```

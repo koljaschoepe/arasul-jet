@@ -25,6 +25,7 @@ All logs are stored in `/arasul/logs/` with the following structure:
 ## Log Rotation
 
 **Automatic rotation via logrotate:**
+
 - **Size limit:** 50MB per file
 - **Retention:** 10 rotated files
 - **Compression:** gzip (delayed compression)
@@ -34,11 +35,13 @@ All logs are stored in `/arasul/logs/` with the following structure:
 **Configuration:** `/etc/logrotate.d/arasul`
 
 **Manual rotation:**
+
 ```bash
 sudo logrotate -f /etc/logrotate.d/arasul
 ```
 
 **Check rotation status:**
+
 ```bash
 cat /var/lib/logrotate/arasul.status
 ```
@@ -54,6 +57,7 @@ All loggers support standard log levels:
 - `CRITICAL` - Critical errors requiring immediate attention
 
 **Set log level via environment:**
+
 ```bash
 export LOG_LEVEL=debug  # or info, warn, error, critical
 ```
@@ -61,12 +65,14 @@ export LOG_LEVEL=debug  # or info, warn, error, critical
 ## System Log (`system.log`)
 
 General system events including:
+
 - Server start/stop
 - API requests/responses
 - Database connections
 - Service errors
 
 **Format:** Human-readable with timestamps
+
 ```
 [2025-01-11T10:30:45.123Z] [INFO] [server] Server started on port 3001
 [2025-01-11T10:30:50.456Z] [INFO] [api] GET /api/system/status 200 15ms
@@ -74,6 +80,7 @@ General system events including:
 ```
 
 **Usage in Node.js:**
+
 ```javascript
 const { systemLogger } = require('./utils/fileLogger');
 
@@ -87,6 +94,7 @@ systemLogger.apiError('POST', '/api/data', new Error('Validation failed'));
 Self-healing events in structured JSON format for easy parsing and analysis.
 
 **Format:** JSON (one event per line)
+
 ```json
 {
   "timestamp": "2025-01-11T10:35:00.000Z",
@@ -102,6 +110,7 @@ Self-healing events in structured JSON format for easy parsing and analysis.
 ```
 
 **Usage in Python:**
+
 ```python
 from logger import get_logger
 
@@ -119,6 +128,7 @@ logger.system_reboot("Critical failures detected", scheduled=True)
 ```
 
 **Query logs:**
+
 ```bash
 # All critical events
 jq 'select(.severity=="CRITICAL")' /arasul/logs/self_healing.log
@@ -135,6 +145,7 @@ jq 'select(.event_type | contains("cpu"))' /arasul/logs/self_healing.log
 System update events including upload, validation, application, and rollback.
 
 **Format:** Human-readable with source tags
+
 ```
 [2025-01-11T11:00:00.000Z] [INFO] [upload] Update upload started: update-1.2.0.araupdate (52428800 bytes)
 [2025-01-11T11:00:15.123Z] [INFO] [validation] Validation passed: update-1.2.0.araupdate (version 1.2.0)
@@ -143,6 +154,7 @@ System update events including upload, validation, application, and rollback.
 ```
 
 **Usage:**
+
 ```javascript
 const { updateLogger } = require('./utils/fileLogger');
 
@@ -158,6 +170,7 @@ updateLogger.applyCompleted('1.2.0', 310333);
 Per-service logs for detailed debugging.
 
 **Usage:**
+
 ```javascript
 const { createServiceLogger } = require('./utils/fileLogger');
 
@@ -171,18 +184,21 @@ logger.error('Database query failed', { query: 'SELECT ...', error: 'timeout' })
 ## Docker Container Logs
 
 Docker's built-in logging with size limits:
+
 - **Max size:** 50MB per file
 - **Max files:** 5
 - **Compression:** Enabled
 - **Driver:** json-file
 
 **View container logs:**
+
 ```bash
 docker-compose logs -f dashboard-backend
 docker logs postgres-db --tail 100
 ```
 
 **Export container logs:**
+
 ```bash
 docker logs postgres-db > /arasul/logs/containers/postgres-db.log 2>&1
 ```
@@ -190,11 +206,13 @@ docker logs postgres-db > /arasul/logs/containers/postgres-db.log 2>&1
 ## Setup
 
 **Install logging infrastructure:**
+
 ```bash
-sudo ./scripts/setup_logrotate.sh
+sudo ./scripts/util/setup_logrotate.sh
 ```
 
 This will:
+
 1. Install logrotate if not present
 2. Create `/arasul/logs/` directory structure
 3. Install logrotate config to `/etc/logrotate.d/arasul`
@@ -202,6 +220,7 @@ This will:
 5. Initialize log files with correct permissions
 
 **Manual setup:**
+
 ```bash
 # Create log directories
 sudo mkdir -p /arasul/logs/{service,containers}
@@ -219,6 +238,7 @@ sudo logrotate -d /etc/logrotate.d/arasul
 ## Monitoring Logs
 
 **Real-time monitoring:**
+
 ```bash
 # All system logs
 tail -f /arasul/logs/system.log
@@ -234,6 +254,7 @@ tail -f /arasul/logs/*.log
 ```
 
 **Search logs:**
+
 ```bash
 # Errors in system log
 grep ERROR /arasul/logs/system.log
@@ -246,6 +267,7 @@ grep service_restart /arasul/logs/self_healing.log | tail -n 10 | jq .
 ```
 
 **Log analysis:**
+
 ```bash
 # Count events by type
 jq -r .event_type /arasul/logs/self_healing.log | sort | uniq -c
@@ -262,6 +284,7 @@ jq 'select(.event_type=="service_restart") | .service_name' \
 ## Integration with Services
 
 **Dashboard Backend:**
+
 ```javascript
 // In app.js or server.js
 const { systemLogger } = require('./utils/fileLogger');
@@ -287,6 +310,7 @@ app.use((err, req, res, next) => {
 ```
 
 **Self-Healing Agent:**
+
 ```python
 # In main.py
 from logger import get_logger
@@ -312,6 +336,7 @@ def main():
 ## Troubleshooting
 
 **Logs not rotating:**
+
 ```bash
 # Test rotation manually
 sudo logrotate -f -v /etc/logrotate.d/arasul
@@ -324,6 +349,7 @@ ls -la /etc/cron.hourly/arasul-logrotate
 ```
 
 **Permission errors:**
+
 ```bash
 # Fix ownership
 sudo chown -R arasul:arasul /arasul/logs
@@ -334,6 +360,7 @@ sudo chmod 644 /arasul/logs/*.log
 ```
 
 **Disk space issues:**
+
 ```bash
 # Check log sizes
 du -sh /arasul/logs/*
@@ -355,12 +382,13 @@ find /arasul/logs -name "*.gz" -mtime +30 -delete
    - `CRITICAL`: System failures
 
 2. **Include context:**
+
    ```javascript
    logger.error('Database query failed', {
      query: sql,
      params: params,
      error: err.message,
-     user_id: userId
+     user_id: userId,
    });
    ```
 

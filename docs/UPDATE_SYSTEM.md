@@ -9,10 +9,12 @@
 ## 🎯 Übersicht
 
 Das Update-System ermöglicht sichere, automatische und rollback-fähige System-Updates über zwei Kanäle:
+
 1. **Dashboard Upload** - Manuelle Uploads durch Admin über Web-UI
 2. **USB Auto-Update** - Automatische Erkennung von Updates auf USB-Sticks
 
 **Implementierte Features:**
+
 - ✅ OpenSSL-basierte Signaturprüfung (RSA-SHA256)
 - ✅ Automatisches Backup vor jedem Update
 - ✅ Atomare Update-Anwendung mit Rollback
@@ -113,6 +115,7 @@ const isValid = verify.verify(publicKey, signature);
 ```
 
 **Validierung schlägt fehl bei:**
+
 - Signatur-File fehlt (`.araupdate.sig` nicht vorhanden)
 - Signatur ungültig (Datei wurde manipuliert)
 - Public Key nicht gefunden
@@ -138,6 +141,7 @@ Body:
 ```
 
 **Response (Success):**
+
 ```json
 {
   "status": "validated",
@@ -152,6 +156,7 @@ Body:
 ```
 
 **Response (Validation Fehler):**
+
 ```json
 {
   "error": "Invalid signature",
@@ -173,6 +178,7 @@ Body:
 ```
 
 **Response:**
+
 ```json
 {
   "status": "started",
@@ -189,6 +195,7 @@ Authorization: Bearer <JWT_TOKEN>
 ```
 
 **Response (In Progress):**
+
 ```json
 {
   "status": "in_progress",
@@ -200,6 +207,7 @@ Authorization: Bearer <JWT_TOKEN>
 ```
 
 **Response (Completed):**
+
 ```json
 {
   "status": "completed",
@@ -212,6 +220,7 @@ Authorization: Bearer <JWT_TOKEN>
 ```
 
 **Response (Failed):**
+
 ```json
 {
   "status": "failed",
@@ -230,6 +239,7 @@ Authorization: Bearer <JWT_TOKEN>
 ```
 
 **Response:**
+
 ```json
 {
   "updates": [
@@ -285,7 +295,7 @@ sudo umount /mnt/usb
 sudo cp config/udev/99-arasul-usb.rules /etc/udev/rules.d/
 
 # Copy trigger script
-sudo cp scripts/arasul-usb-trigger.sh /usr/local/bin/
+sudo cp scripts/util/arasul-usb-trigger.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/arasul-usb-trigger.sh
 
 # Reload udev rules
@@ -304,6 +314,7 @@ tail -f /arasul/logs/update_usb.log
 ```
 
 **Log Format:**
+
 ```json
 {"timestamp": "2025-11-11T12:00:00.000Z", "filename": "update_v1.2.0.araupdate", "version": "1.2.0", "status": "started"}
 {"timestamp": "2025-11-11T12:05:00.000Z", "filename": "update_v1.2.0.araupdate", "version": "1.2.0", "status": "completed"}
@@ -381,7 +392,9 @@ Log Rollback Event
 ## 📊 Database Schema
 
 ### update_events
+
 Tracks all update attempts:
+
 ```sql
 - id, version_from, version_to, status
 - source (dashboard/usb/automatic)
@@ -391,7 +404,9 @@ Tracks all update attempts:
 ```
 
 ### update_files
+
 Registry of uploaded/detected files:
+
 ```sql
 - id, filename, file_path
 - checksum_sha256, file_size_bytes
@@ -401,7 +416,9 @@ Registry of uploaded/detected files:
 ```
 
 ### update_backups
+
 Backup tracking:
+
 ```sql
 - id, backup_path, update_event_id
 - created_at, backup_size_mb
@@ -410,7 +427,9 @@ Backup tracking:
 ```
 
 ### update_rollbacks
+
 Rollback history:
+
 ```sql
 - id, original_update_event_id, backup_id
 - rollback_reason, initiated_by
@@ -419,7 +438,9 @@ Rollback history:
 ```
 
 ### component_updates
+
 Per-component tracking:
+
 ```sql
 - id, update_event_id, component_name
 - component_type (docker_image/migration/config)
@@ -432,19 +453,22 @@ Per-component tracking:
 ## 🛡️ Safety Mechanisms
 
 ### 1. Atomicity
+
 - Alle Changes werden in Transaktion durchgeführt
 - Bei Fehler: Automatischer Rollback
 - State wird in `update_state.json` persistiert
 
 ### 2. Healthchecks
+
 Nach jedem Update werden kritische Services validiert:
+
 ```javascript
 const criticalServices = [
   'postgres-db',
   'metrics-collector',
   'llm-service',
   'dashboard-backend',
-  'dashboard-frontend'
+  'dashboard-frontend',
 ];
 
 // Wait max 60s for each service
@@ -452,7 +476,9 @@ await waitForServiceHealth(service, 60);
 ```
 
 ### 3. Backup Strategy
+
 Vor jedem Update wird ein vollständiges Backup erstellt:
+
 - Database: `pg_dump > backup.sql`
 - Container Versions: `docker ps --format json`
 - Config Files: `docker-compose.yml`, `.env`
@@ -461,6 +487,7 @@ Vor jedem Update wird ein vollständiges Backup erstellt:
 Backups werden in `/arasul/backups/backup_TIMESTAMP/` gespeichert.
 
 ### 4. Version Compatibility
+
 ```javascript
 // Update muss neuer sein als aktuelle Version
 if (compareVersions(manifest.version, currentVersion) <= 0) {
@@ -474,7 +501,9 @@ if (compareVersions(currentVersion, manifest.min_version) < 0) {
 ```
 
 ### 5. Rollback Triggers
+
 Automatischer Rollback bei:
+
 - Healthcheck Failure nach Update
 - Service startet nicht innerhalb 60s
 - Database Migration schlägt fehl
@@ -489,6 +518,7 @@ Automatischer Rollback bei:
 **Ursache:** Public Key fehlt oder Signatur ungültig
 
 **Lösung:**
+
 ```bash
 # Check if public key exists
 ls -la /arasul/config/public_update_key.pem
@@ -503,6 +533,7 @@ openssl dgst -sha256 -verify /arasul/config/public_update_key.pem \
 **Ursache:** Docker Image zu groß oder Disk voll
 
 **Lösung:**
+
 ```bash
 # Check disk space
 df -h /var/lib/docker
@@ -516,6 +547,7 @@ docker system prune -a --volumes
 **Ursache:** Backup korrupt oder fehlt
 
 **Lösung:**
+
 ```bash
 # List available backups
 ls -la /arasul/backups/
@@ -533,6 +565,7 @@ docker-compose -f /arasul/docker-compose.yml up -d
 **Ursache:** udev Rule nicht aktiv oder USB Monitor nicht laufend
 
 **Lösung:**
+
 ```bash
 # Check if udev rule is installed
 ls -la /etc/udev/rules.d/99-arasul-usb.rules
@@ -620,6 +653,7 @@ openssl dgst -sha256 -verify public_update_key.pem \
 ## ✅ Testing Checklist
 
 ### Dashboard Upload Test
+
 - [ ] Upload .araupdate File (mit Signatur)
 - [ ] Validation erfolgreich
 - [ ] Apply Update
@@ -628,6 +662,7 @@ openssl dgst -sha256 -verify public_update_key.pem \
 - [ ] Check update history: `GET /api/update/history`
 
 ### USB Auto-Update Test
+
 - [ ] Copy .araupdate + .sig auf USB-Stick
 - [ ] Einstecken
 - [ ] Check USB logs: `tail -f /arasul/logs/usb_trigger.log`
@@ -635,6 +670,7 @@ openssl dgst -sha256 -verify public_update_key.pem \
 - [ ] Verify Update completed
 
 ### Rollback Test
+
 - [ ] Upload defektes Update (z.B. fehlerhafte Migration)
 - [ ] Apply Update
 - [ ] Verify automatic rollback
@@ -642,6 +678,7 @@ openssl dgst -sha256 -verify public_update_key.pem \
 - [ ] Verify services healthy nach Rollback
 
 ### Signature Failure Test
+
 - [ ] Upload .araupdate ohne .sig File
 - [ ] Verify validation fails
 - [ ] Upload mit ungültiger Signatur
@@ -664,7 +701,7 @@ scp public_update_key.pem jetson@arasul.local:/arasul/config/
 # Install udev rule
 ssh jetson@arasul.local
 sudo cp /arasul/config/udev/99-arasul-usb.rules /etc/udev/rules.d/
-sudo cp /arasul/scripts/arasul-usb-trigger.sh /usr/local/bin/
+sudo cp /arasul/scripts/util/arasul-usb-trigger.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/arasul-usb-trigger.sh
 sudo udevadm control --reload-rules
 ```
@@ -711,4 +748,4 @@ ORDER BY started_at DESC;
 
 **Ende der Dokumentation**
 
-*Generiert am 2025-11-11 | Update System v1.0*
+_Generiert am 2025-11-11 | Update System v1.0_

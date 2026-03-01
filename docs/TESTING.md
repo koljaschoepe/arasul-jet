@@ -71,7 +71,7 @@ The ARASUL Platform uses a multi-layered testing approach to ensure reliability 
 ### Dashboard Backend (JavaScript)
 
 ```bash
-cd services/dashboard-backend
+cd apps/dashboard-backend
 
 # Run all tests with coverage
 npm test
@@ -90,6 +90,7 @@ npm test -- --coverage
 ```
 
 **Environment Variables** (required for integration tests):
+
 ```bash
 export POSTGRES_HOST=localhost
 export POSTGRES_PORT=5432
@@ -157,7 +158,7 @@ open newman-report.html
 
 ```bash
 # Validate dependency chain
-bash scripts/validate_dependencies.sh
+bash scripts/validate/validate_dependencies.sh
 
 # Output will show:
 # ✓ All services have health checks
@@ -174,7 +175,7 @@ bash scripts/validate_dependencies.sh
 docker-compose up -d postgres-db
 
 # Backend tests
-cd services/dashboard-backend && npm test && cd ../..
+cd apps/dashboard-backend && npm test && cd ../..
 
 # Metrics collector tests
 cd services/metrics-collector && pytest && cd ../..
@@ -199,14 +200,17 @@ docker-compose down
 Test individual functions and modules in isolation.
 
 **Dashboard Backend Examples**:
+
 - `password.test.js`: Password hashing and validation
 - `retry.test.js`: Retry logic with exponential backoff
 
 **Metrics Collector Examples**:
+
 - `test_collector.py`: CPU, RAM, GPU, disk collection
 - Database writer connection pooling
 
 **Characteristics**:
+
 - Fast execution (<100ms per test)
 - No external dependencies (mocked)
 - High coverage (>80%)
@@ -216,12 +220,14 @@ Test individual functions and modules in isolation.
 Test multiple components working together.
 
 **Examples**:
+
 - Full authentication flow (login → token → protected endpoint)
 - System status aggregation (all services)
 - Database connection pool under load
 - Self-healing event logging
 
 **Characteristics**:
+
 - Require real services (PostgreSQL, Redis)
 - Slower execution (100ms-2s per test)
 - Test realistic scenarios
@@ -231,6 +237,7 @@ Test multiple components working together.
 End-to-end testing of REST API endpoints.
 
 **Test Collections**:
+
 - Authentication (login, token validation)
 - System status and health checks
 - Metrics (live, historical)
@@ -240,6 +247,7 @@ End-to-end testing of REST API endpoints.
 - Logs retrieval
 
 **Characteristics**:
+
 - Full stack required
 - Tests HTTP status codes, response format, error handling
 - Validates rate limiting and authentication
@@ -249,12 +257,14 @@ End-to-end testing of REST API endpoints.
 Validate all container images build successfully.
 
 **Tested Services**:
+
 - dashboard-backend
 - dashboard-frontend
 - metrics-collector
 - self-healing-agent
 
 **Validation**:
+
 - Dockerfile syntax
 - Multi-stage builds
 - Layer caching
@@ -265,6 +275,7 @@ Validate all container images build successfully.
 Scan for vulnerabilities using Trivy.
 
 **Scans**:
+
 - Filesystem vulnerabilities
 - Dependency vulnerabilities (npm, pip)
 - Container image vulnerabilities
@@ -277,6 +288,7 @@ Scan for vulnerabilities using Trivy.
 ### Dashboard Backend (Jest)
 
 **Minimum Coverage Thresholds**:
+
 ```json
 {
   "branches": 70,
@@ -287,14 +299,16 @@ Scan for vulnerabilities using Trivy.
 ```
 
 **Current Coverage** (as of last run):
+
 - Branches: 75%
 - Functions: 78%
 - Lines: 82%
 - Statements: 81%
 
 **View Coverage Report**:
+
 ```bash
-cd services/dashboard-backend
+cd apps/dashboard-backend
 npm test -- --coverage
 open coverage/lcov-report/index.html
 ```
@@ -306,6 +320,7 @@ open coverage/lcov-report/index.html
 **Current Coverage**: 85%
 
 **View Coverage Report**:
+
 ```bash
 cd services/metrics-collector
 pytest --cov=. --cov-report=html
@@ -327,12 +342,14 @@ open htmlcov/index.html
 File: `.github/workflows/test.yml`
 
 **Trigger Events**:
+
 - Push to `main` or `develop` branches
 - Pull requests to `main` or `develop`
 
 ### Pipeline Jobs
 
 #### 1. Backend Tests
+
 - Runs on: Ubuntu Latest
 - PostgreSQL service container
 - Steps:
@@ -347,6 +364,7 @@ File: `.github/workflows/test.yml`
 **Duration**: ~3 minutes
 
 #### 2. Metrics Collector Tests
+
 - Runs on: Ubuntu Latest
 - PostgreSQL service container
 - Steps:
@@ -359,6 +377,7 @@ File: `.github/workflows/test.yml`
 **Duration**: ~2 minutes
 
 #### 3. Self-Healing Agent Tests
+
 - Runs on: Ubuntu Latest
 - PostgreSQL service container
 - Steps:
@@ -371,6 +390,7 @@ File: `.github/workflows/test.yml`
 **Duration**: ~2 minutes
 
 #### 4. API Tests
+
 - Runs on: Ubuntu Latest
 - Full Docker Compose stack
 - Steps:
@@ -386,6 +406,7 @@ File: `.github/workflows/test.yml`
 **Duration**: ~5 minutes
 
 #### 5. Docker Build Tests
+
 - Runs on: Ubuntu Latest
 - Matrix strategy (4 services)
 - Steps:
@@ -397,6 +418,7 @@ File: `.github/workflows/test.yml`
 **Duration**: ~8 minutes (parallel)
 
 #### 6. Dependency Validation
+
 - Runs on: Ubuntu Latest
 - Steps:
   1. Checkout code
@@ -407,6 +429,7 @@ File: `.github/workflows/test.yml`
 **Duration**: ~1 minute
 
 #### 7. Security Scan
+
 - Runs on: Ubuntu Latest
 - Steps:
   1. Checkout code
@@ -416,6 +439,7 @@ File: `.github/workflows/test.yml`
 **Duration**: ~3 minutes
 
 #### 8. Test Summary
+
 - Runs after all other jobs
 - Aggregates results
 - Reports overall pass/fail
@@ -473,8 +497,7 @@ describe('Module Name', () => {
     });
 
     test('should reject invalid input', () => {
-      expect(() => functionToTest('invalid'))
-        .toThrow('Expected error message');
+      expect(() => functionToTest('invalid')).toThrow('Expected error message');
     });
 
     test('should handle edge cases', () => {
@@ -486,15 +509,16 @@ describe('Module Name', () => {
 ```
 
 **Mocking Example**:
+
 ```javascript
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
   pool: {
     connect: jest.fn(() => ({
       query: jest.fn(),
-      release: jest.fn()
-    }))
-  }
+      release: jest.fn(),
+    })),
+  },
 }));
 ```
 
@@ -642,6 +666,7 @@ describe('API Integration', () => {
 **Cause**: PostgreSQL or other service not running
 
 **Solution**:
+
 ```bash
 # Start PostgreSQL
 docker-compose up -d postgres-db
@@ -658,6 +683,7 @@ docker-compose logs postgres-db
 **Cause**: Services not fully initialized
 
 **Solution**:
+
 ```javascript
 beforeAll(async () => {
   // Add delay for services to start
@@ -670,9 +696,10 @@ beforeAll(async () => {
 **Cause**: Environment variables not set
 
 **Solution**:
+
 ```bash
 # Create .env.test file
-cat > services/dashboard-backend/.env.test << EOF
+cat > apps/dashboard-backend/.env.test << EOF
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=arasul
@@ -691,6 +718,7 @@ require('dotenv').config({ path: '.env.test' });
 **Cause**: PYTHONPATH not set
 
 **Solution**:
+
 ```bash
 # Add to pytest.ini or pyproject.toml
 [tool:pytest]
@@ -698,6 +726,7 @@ pythonpath = . src
 ```
 
 Or:
+
 ```bash
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 pytest
@@ -708,6 +737,7 @@ pytest
 **Cause**: Admin password not set or incorrect
 
 **Solution**:
+
 ```bash
 # Ensure environment variable is set correctly
 newman run tests/api/arasul-api.postman_collection.json \
@@ -719,6 +749,7 @@ newman run tests/api/arasul-api.postman_collection.json \
 **Cause**: New code not covered by tests
 
 **Solution**:
+
 ```bash
 # Generate coverage report to see uncovered lines
 npm test -- --coverage
@@ -734,12 +765,13 @@ open coverage/lcov-report/index.html
 **Cause**: Dockerfile syntax error or missing dependencies
 
 **Solution**:
+
 ```bash
 # Build locally to see full error
-docker build -t test-image services/dashboard-backend/
+docker build -t test-image apps/dashboard-backend/
 
 # Check Dockerfile syntax
-docker build --check services/dashboard-backend/
+docker build --check apps/dashboard-backend/
 
 # Validate docker-compose.yml
 docker-compose config
@@ -748,6 +780,7 @@ docker-compose config
 ### Debug Mode
 
 #### Jest Debug Mode
+
 ```bash
 # Run with Node inspector
 node --inspect-brk node_modules/.bin/jest --runInBand
@@ -756,6 +789,7 @@ node --inspect-brk node_modules/.bin/jest --runInBand
 ```
 
 #### Pytest Debug Mode
+
 ```bash
 # Run with pdb on failure
 pytest --pdb
@@ -768,6 +802,7 @@ pytest -s
 ```
 
 #### Newman Verbose Mode
+
 ```bash
 newman run collection.json \
   --verbose \
@@ -805,17 +840,20 @@ newman run collection.json \
 ## Resources
 
 ### Documentation
+
 - [Jest Documentation](https://jestjs.io/docs/getting-started)
 - [pytest Documentation](https://docs.pytest.org/)
 - [Newman Documentation](https://learning.postman.com/docs/running-collections/using-newman-cli/command-line-integration-with-newman/)
 - [Supertest Documentation](https://github.com/visionmedia/supertest)
 
 ### Tools
+
 - [Jest VSCode Extension](https://marketplace.visualstudio.com/items?itemName=Orta.vscode-jest)
 - [Python Test Explorer](https://marketplace.visualstudio.com/items?itemName=LittleFoxTeam.vscode-python-test-adapter)
 - [Postman](https://www.postman.com/downloads/)
 
 ### Best Practices
+
 - [Testing Best Practices by Node.js](https://github.com/goldbergyoni/nodebestpractices#3-testing-and-overall-quality-practices)
 - [Effective Python Testing](https://realpython.com/pytest-python-testing/)
 - [API Testing Best Practices](https://assertible.com/blog/7-http-methods-every-web-developer-should-know-and-how-to-test-them)
@@ -826,26 +864,26 @@ newman run collection.json \
 
 ### Test Coverage by Component
 
-| Component              | Coverage | Tests | Status |
-|------------------------|----------|-------|--------|
-| Dashboard Backend      | 82%      | 45    | ✅     |
-| Metrics Collector      | 85%      | 12    | ✅     |
-| Self-Healing Agent     | 65%      | 8     | ⚠️     |
-| API Endpoints          | 95%      | 32    | ✅     |
-| Database Pooling       | 88%      | 10    | ✅     |
-| Authentication         | 92%      | 8     | ✅     |
+| Component          | Coverage | Tests | Status |
+| ------------------ | -------- | ----- | ------ |
+| Dashboard Backend  | 82%      | 45    | ✅     |
+| Metrics Collector  | 85%      | 12    | ✅     |
+| Self-Healing Agent | 65%      | 8     | ⚠️     |
+| API Endpoints      | 95%      | 32    | ✅     |
+| Database Pooling   | 88%      | 10    | ✅     |
+| Authentication     | 92%      | 8     | ✅     |
 
 ### Test Execution Times
 
-| Test Suite              | Duration | Tests |
-|-------------------------|----------|-------|
-| Backend Unit            | 2.5s     | 25    |
-| Backend Integration     | 12s      | 20    |
-| Metrics Collector       | 3s       | 12    |
-| Self-Healing Agent      | 4s       | 8     |
-| API Tests (Newman)      | 45s      | 32    |
-| Docker Build Tests      | 120s     | 4     |
-| **Total**               | **186s** | **101** |
+| Test Suite          | Duration | Tests   |
+| ------------------- | -------- | ------- |
+| Backend Unit        | 2.5s     | 25      |
+| Backend Integration | 12s      | 20      |
+| Metrics Collector   | 3s       | 12      |
+| Self-Healing Agent  | 4s       | 8       |
+| API Tests (Newman)  | 45s      | 32      |
+| Docker Build Tests  | 120s     | 4       |
+| **Total**           | **186s** | **101** |
 
 ---
 

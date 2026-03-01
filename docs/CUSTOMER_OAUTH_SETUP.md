@@ -9,18 +9,20 @@ Diese Anleitung erklärt, wie Sie Google-Dienste (Gmail, Google Sheets, Google D
 ### Von einem Laptop/PC im gleichen Netzwerk:
 
 **Linux/Mac:**
+
 ```bash
 # 1. Skript herunterladen (einmalig)
-scp arasul@JETSON_IP:/home/arasul/arasul/scripts/oauth-tunnel.sh .
+scp arasul@JETSON_IP:/home/arasul/arasul/scripts/util/oauth-tunnel.sh .
 
 # 2. Tunnel starten
 ./oauth-tunnel.sh JETSON_IP
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 # 1. Skript herunterladen (einmalig)
-scp arasul@JETSON_IP:/home/arasul/arasul/scripts/oauth-tunnel.ps1 .
+scp arasul@JETSON_IP:/home/arasul/arasul/scripts/util/oauth-tunnel.ps1 .
 
 # 2. Tunnel starten
 .\oauth-tunnel.ps1 -JetsonIP JETSON_IP
@@ -35,6 +37,7 @@ Ersetzen Sie `JETSON_IP` mit der IP-Adresse Ihres Jetsons (z.B. `192.168.0.112`)
 ### 1. Jetson IP-Adresse finden
 
 Die IP-Adresse wird beim Start des Jetsons angezeigt, oder:
+
 - Öffnen Sie das Dashboard: `http://JETSON_IP`
 - Schauen Sie unter "System Info"
 
@@ -75,6 +78,7 @@ http://localhost:5678/n8n
 ### 5. Tunnel beenden
 
 Nach dem OAuth-Setup können Sie den Tunnel beenden:
+
 - Schließen Sie das Terminal, oder
 - Drücken Sie `Ctrl+C`
 
@@ -87,6 +91,7 @@ Die Google-Verbindung bleibt auf dem Jetson gespeichert.
 ### Warum brauche ich einen Tunnel?
 
 Google erlaubt OAuth-Callbacks nur an:
+
 - `https://` URLs (öffentlich erreichbar)
 - `http://localhost` (lokale Ausnahme)
 
@@ -114,11 +119,13 @@ SSH-Passwort: (wurde bei der Ersteinrichtung festgelegt)
 ### Der Tunnel funktioniert nicht
 
 1. **Prüfen Sie die IP-Adresse**: Können Sie den Jetson pingen?
+
    ```bash
    ping JETSON_IP
    ```
 
 2. **Prüfen Sie SSH**: Ist SSH auf dem Jetson aktiviert?
+
    ```bash
    ssh arasul@JETSON_IP
    ```

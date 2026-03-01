@@ -10,12 +10,12 @@
 
 Die Arasul Platform ist zu **95% produktionsreif** für Jetson AGX Orin. Die Analyse identifizierte **~200 Issues** in verschiedenen Kategorien:
 
-| Priorität | Anzahl | Status |
-|-----------|--------|--------|
-| 🔴 KRITISCH | 12 | Vor Migration fixen |
-| 🟠 HOCH | 28 | Nach Migration fixen |
-| 🟡 MITTEL | ~50 | Backlog |
-| 🟢 NIEDRIG | ~110 | Nice-to-have |
+| Priorität   | Anzahl | Status               |
+| ----------- | ------ | -------------------- |
+| 🔴 KRITISCH | 12     | Vor Migration fixen  |
+| 🟠 HOCH     | 28     | Nach Migration fixen |
+| 🟡 MITTEL   | ~50    | Backlog              |
+| 🟢 NIEDRIG  | ~110   | Nice-to-have         |
 
 **Geschätzte Setup-Zeit auf neuem Jetson:** 45-90 Minuten (abhängig von Internet)
 
@@ -25,7 +25,8 @@ Die Arasul Platform ist zu **95% produktionsreif** für Jetson AGX Orin. Die Ana
 
 ### 🔴 SEC-C001: Passwort-Mindestanforderungen zu schwach
 
-**Datei:** `scripts/validate_config.sh:144`
+**Datei:** `scripts/validate/validate_config.sh:144`
+
 ```bash
 # AKTUELL: Nur 4 Zeichen Minimum
 if [ "$length" -lt 4 ]; then
@@ -33,6 +34,7 @@ if [ "$length" -lt 4 ]; then
 ```
 
 **FIX:**
+
 ```bash
 # SOLLTE: 12 Zeichen Minimum für Produktion
 if [ "$length" -lt 12 ]; then
@@ -47,17 +49,19 @@ fi
 
 ### 🔴 SEC-C002: XSS-Risiko in MermaidDiagram
 
-**Datei:** `services/dashboard-frontend/src/components/MermaidDiagram.js`
+**Datei:** `apps/dashboard-frontend/src/components/MermaidDiagram.js`
+
 ```javascript
 // AKTUELL: Unsicheres dangerouslySetInnerHTML
 <div dangerouslySetInnerHTML={{ __html: svg }} />
 ```
 
 **FIX:** DOMPurify sanitization hinzufügen
+
 ```javascript
 import DOMPurify from 'dompurify';
 // ...
-<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg) }} />
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg) }} />;
 ```
 
 **Aufwand:** 10 Minuten
@@ -67,17 +71,20 @@ import DOMPurify from 'dompurify';
 ### 🔴 SEC-C003: Docker Socket Direktzugriff
 
 **Datei:** `docker-compose.yml` (mehrere Services)
+
 ```yaml
 volumes:
   - /var/run/docker.sock:/var/run/docker.sock
 ```
 
 **Betroffene Services:**
+
 - self-healing-agent
 - dashboard-backend
 - metrics-collector
 
 **FIX:** Für Produktion: Docker API Proxy oder read-only Mount
+
 ```yaml
 volumes:
   - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -102,6 +109,7 @@ volumes:
 ### 🔴 DB-002: UNIQUE Constraint blockiert Retry
 
 **Datei:** `services/postgres/init/009_documents_schema.sql`
+
 ```sql
 CONSTRAINT unique_minio_path UNIQUE (minio_path)
 ```
@@ -130,7 +138,8 @@ CONSTRAINT unique_minio_path UNIQUE (minio_path)
 
 **Problem:** Vektordatenbank wird NICHT gesichert!
 
-**FIX für `scripts/backup.sh`:**
+**FIX für `scripts/backup/backup.sh`:**
+
 ```bash
 backup_qdrant() {
     log "INFO" "Starting Qdrant backup..."
@@ -148,6 +157,7 @@ backup_qdrant() {
 **Problem:** Alle Workflows gehen bei Datenverlust verloren
 
 **FIX:** n8n CLI Export in backup.sh integrieren
+
 ```bash
 backup_n8n() {
     docker exec n8n n8n export:workflow --all --output=/tmp/workflows.json
@@ -166,6 +176,7 @@ backup_n8n() {
 **Problem:** Commands in `commands/` Ordner existieren aber sind nicht im Bot registriert
 
 **FIX:** Import und Registration der Commands
+
 ```python
 from commands import disk, logs, services, status
 # In bot initialization:
@@ -180,12 +191,14 @@ application.add_handler(CommandHandler("services", services.handle))
 ### 🔴 SELF-HEAL-001: Gefährlicher Disk Cleanup
 
 **Datei:** `services/self-healing-agent/healing_engine.py`
+
 ```python
 # GEFÄHRLICH: Kann wichtige Volumes löschen!
 docker system prune --volumes -f
 ```
 
 **FIX:** Selektives Cleanup ohne --volumes
+
 ```python
 docker system prune -f  # Ohne Volumes
 docker image prune -a -f --filter "until=168h"  # Nur alte Images
@@ -200,6 +213,7 @@ docker image prune -a -f --filter "until=168h"  # Nur alte Images
 **Problem:** Maximale Reboots (3/Stunde) zu permissiv
 
 **FIX:** Cooldown erhöhen, exponentielles Backoff
+
 ```python
 MAX_REBOOTS_PER_HOUR = 1
 REBOOT_COOLDOWN_MINUTES = 30
@@ -225,7 +239,7 @@ REBOOT_COOLDOWN_MINUTES = 30
 
 ### 🟠 BACKEND-H001: Memory Leak in WebSocket Handler
 
-**Datei:** `services/dashboard-backend/src/routes/metrics.js`
+**Datei:** `apps/dashboard-backend/src/routes/metrics.js`
 
 **Problem:** Clients werden bei Disconnect nicht entfernt
 
@@ -235,7 +249,7 @@ REBOOT_COOLDOWN_MINUTES = 30
 
 ### 🟠 BACKEND-H002: N+1 Query in Chat-Route
 
-**Datei:** `services/dashboard-backend/src/routes/chats.js`
+**Datei:** `apps/dashboard-backend/src/routes/chats.js`
 
 **Problem:** Für jede Conversation separate Query für Messages
 
@@ -245,7 +259,7 @@ REBOOT_COOLDOWN_MINUTES = 30
 
 ### 🟠 FRONTEND-H001: Race Condition WebSocket/HTTP
 
-**Datei:** `services/dashboard-frontend/src/components/ChatMulti.js`
+**Datei:** `apps/dashboard-frontend/src/components/ChatMulti.js`
 
 **Problem:** Gleichzeitiger WebSocket-Stream und HTTP-Polling
 
@@ -255,7 +269,7 @@ REBOOT_COOLDOWN_MINUTES = 30
 
 ### 🟠 FRONTEND-H002: Component zu groß
 
-**Datei:** `services/dashboard-frontend/src/components/ChatMulti.js` (1574 Zeilen!)
+**Datei:** `apps/dashboard-frontend/src/components/ChatMulti.js` (1574 Zeilen!)
 
 **FIX:** In kleinere Komponenten aufteilen
 
@@ -266,6 +280,7 @@ REBOOT_COOLDOWN_MINUTES = 30
 **Problem:** minio/minio:latest, qdrant/qdrant:latest
 
 **FIX:** Pinned Versions verwenden
+
 ```yaml
 minio/minio:RELEASE.2024-01-16T16-07-38Z
 qdrant/qdrant:v1.7.4
@@ -299,7 +314,7 @@ qdrant/qdrant:v1.7.4
 
 ```bash
 # 0.1 Vollständiges Backup erstellen
-./scripts/backup.sh
+./scripts/backup/backup.sh
 
 # 0.2 Qdrant Snapshot (MANUELL - nicht im Backup!)
 curl -X POST "http://localhost:6333/snapshots" -H "Content-Type: application/json"
@@ -370,10 +385,10 @@ mv tmp/arasul-config/config/* config/
 
 ```bash
 # 3.1 Passwort-Validation (SEC-C001)
-# In scripts/validate_config.sh Zeile 144 ändern
+# In scripts/validate/validate_config.sh Zeile 144 ändern
 
 # 3.2 MermaidDiagram XSS Fix (SEC-C002)
-# In services/dashboard-frontend/src/components/MermaidDiagram.js
+# In apps/dashboard-frontend/src/components/MermaidDiagram.js
 
 # 3.3 Docker Socket Read-Only (SEC-C003)
 # In docker-compose.yml für betroffene Services
@@ -409,7 +424,7 @@ docker compose ps
 
 ```bash
 # 5.1 PostgreSQL & MinIO Backup wiederherstellen
-./scripts/restore.sh --latest
+./scripts/backup/restore.sh --latest
 
 # 5.2 Qdrant Snapshot importieren
 docker cp tmp/qdrant-backup/ qdrant:/qdrant/snapshots/
@@ -477,7 +492,7 @@ sudo ufw enable
 
 # 7.4 Backup-Cronjob prüfen
 crontab -l | grep backup
-# Sollte: 0 2 * * * /path/to/scripts/backup.sh
+# Sollte: 0 2 * * * /path/to/scripts/backup/backup.sh
 ```
 
 ---
@@ -486,21 +501,21 @@ crontab -l | grep backup
 
 ### Vollständig getestete Services
 
-| Service | ARM64 | GPU | Jetson-spezifisch |
-|---------|-------|-----|-------------------|
-| postgres-db | ✅ | - | - |
-| minio | ✅ | - | - |
-| qdrant | ✅ | - | - |
-| traefik | ✅ | - | - |
-| llm-service (Ollama) | ✅ | ✅ CUDA | - |
-| embedding-service | ✅ | ✅ CUDA | dustynv/l4t-pytorch:r36.2.0 |
-| metrics-collector | ✅ | ✅ pynvml | - |
-| document-indexer | ✅ | - | - |
-| self-healing-agent | ✅ | ✅ GPU Monitor | - |
-| telegram-bot | ✅ | - | - |
-| dashboard-backend | ✅ | - | - |
-| dashboard-frontend | ✅ | - | - |
-| n8n | ✅ | - | - |
+| Service              | ARM64 | GPU            | Jetson-spezifisch           |
+| -------------------- | ----- | -------------- | --------------------------- |
+| postgres-db          | ✅    | -              | -                           |
+| minio                | ✅    | -              | -                           |
+| qdrant               | ✅    | -              | -                           |
+| traefik              | ✅    | -              | -                           |
+| llm-service (Ollama) | ✅    | ✅ CUDA        | -                           |
+| embedding-service    | ✅    | ✅ CUDA        | dustynv/l4t-pytorch:r36.2.0 |
+| metrics-collector    | ✅    | ✅ pynvml      | -                           |
+| document-indexer     | ✅    | -              | -                           |
+| self-healing-agent   | ✅    | ✅ GPU Monitor | -                           |
+| telegram-bot         | ✅    | -              | -                           |
+| dashboard-backend    | ✅    | -              | -                           |
+| dashboard-frontend   | ✅    | -              | -                           |
+| n8n                  | ✅    | -              | -                           |
 
 ### Jetson-spezifische Konfiguration
 
@@ -508,8 +523,8 @@ crontab -l | grep backup
 # docker-compose.yml
 embedding-service:
   environment:
-    TORCH_CUDA_ARCH_LIST: "8.7"  # Jetson Orin GPU
-    CUDA_VISIBLE_DEVICES: "0"
+    TORCH_CUDA_ARCH_LIST: '8.7' # Jetson Orin GPU
+    CUDA_VISIBLE_DEVICES: '0'
 ```
 
 ### GPU Memory Thresholds (für 64GB Jetson Orin)
@@ -550,15 +565,15 @@ MEMORY_MAX_MB = 40 * 1024       # 40 GB
 
 ## Teil 6: Zeitschätzung
 
-| Phase | Dauer | Kumulativ |
-|-------|-------|-----------|
-| Vorbereitung (Altes System) | 30 min | 30 min |
-| Neuen Jetson vorbereiten | 20 min | 50 min |
-| Daten übertragen | 15 min | 1h 05min |
-| Kritische Fixes | 30 min | 1h 35min |
-| Bootstrap | 20-45 min | 2h 20min |
-| Daten wiederherstellen | 15 min | 2h 35min |
-| Validierung | 10 min | 2h 45min |
+| Phase                       | Dauer     | Kumulativ |
+| --------------------------- | --------- | --------- |
+| Vorbereitung (Altes System) | 30 min    | 30 min    |
+| Neuen Jetson vorbereiten    | 20 min    | 50 min    |
+| Daten übertragen            | 15 min    | 1h 05min  |
+| Kritische Fixes             | 30 min    | 1h 35min  |
+| Bootstrap                   | 20-45 min | 2h 20min  |
+| Daten wiederherstellen      | 15 min    | 2h 35min  |
+| Validierung                 | 10 min    | 2h 45min  |
 
 **Gesamt: ~3 Stunden** (konservativ)
 
@@ -582,11 +597,11 @@ docker compose restart <service>
 docker compose up -d --build <service>
 
 # Backup erstellen
-./scripts/backup.sh
+./scripts/backup/backup.sh
 
 # Backup wiederherstellen
-./scripts/restore.sh --list
-./scripts/restore.sh --latest
+./scripts/backup/restore.sh --list
+./scripts/backup/restore.sh --latest
 
 # GPU Status
 nvidia-smi
@@ -601,6 +616,7 @@ docker exec -it postgres-db psql -U arasul -d arasul_db
 ## Kontakt & Support
 
 Bei Problemen während der Migration:
+
 1. Logs prüfen: `docker compose logs`
 2. Health Checks: `docker compose ps`
 3. Bootstrap-Errors: `/tmp/arasul_bootstrap_errors.json`
@@ -608,4 +624,4 @@ Bei Problemen während der Migration:
 
 ---
 
-*Erstellt von Claude Code basierend auf umfassender Codebase-Analyse*
+_Erstellt von Claude Code basierend auf umfassender Codebase-Analyse_

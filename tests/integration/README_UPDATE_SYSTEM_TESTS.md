@@ -65,6 +65,7 @@ tests/integration/test_update_system.py
 ### Update Package Format
 
 **.araupdate File Structure:**
+
 ```
 update_package.araupdate (tar.gz)
 ├── manifest.json
@@ -86,6 +87,7 @@ update_package.araupdate.sig (signature file)
 ### API Endpoints
 
 **Upload Endpoint:**
+
 ```
 POST /api/update/upload
 Content-Type: multipart/form-data
@@ -108,6 +110,7 @@ Response:
 ```
 
 **Apply Endpoint:**
+
 ```
 POST /api/update/apply
 Content-Type: application/json
@@ -127,6 +130,7 @@ Response:
 ```
 
 **Status Endpoint:**
+
 ```
 GET /api/update/status
 Authorization: Bearer <token>
@@ -141,6 +145,7 @@ Response:
 ```
 
 **History Endpoint:**
+
 ```
 GET /api/update/history
 Authorization: Bearer <token>
@@ -163,12 +168,13 @@ Response:
 
 ### Service Availability (2 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
+| Test                               | Beschreibung                   | Coverage             |
+| ---------------------------------- | ------------------------------ | -------------------- |
 | `test_dashboard_backend_reachable` | Dashboard Backend Health Check | Service availability |
-| `test_update_endpoint_exists` | Update Endpoints vorhanden | Endpoint discovery |
+| `test_update_endpoint_exists`      | Update Endpoints vorhanden     | Endpoint discovery   |
 
 **Validiert:**
+
 - Dashboard Backend läuft
 - Update Endpoints sind registriert
 - HTTP Connectivity funktioniert
@@ -177,13 +183,14 @@ Response:
 
 ### Authentication (3 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
+| Test                                | Beschreibung           | Coverage                  |
+| ----------------------------------- | ---------------------- | ------------------------- |
 | `test_upload_without_auth_rejected` | Upload ohne Auth → 401 | Authentication middleware |
-| `test_status_without_auth_rejected` | Status ohne Auth → 401 | Protected endpoints |
-| `test_apply_without_auth_rejected` | Apply ohne Auth → 401 | Authorization checks |
+| `test_status_without_auth_rejected` | Status ohne Auth → 401 | Protected endpoints       |
+| `test_apply_without_auth_rejected`  | Apply ohne Auth → 401  | Authorization checks      |
 
 **Validiert:**
+
 - Alle Update Endpoints erfordern Authentication
 - JWT Token Validation funktioniert
 - Proper HTTP Status Codes (401/403)
@@ -192,13 +199,14 @@ Response:
 
 ### Upload Validation (3 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_upload_wrong_file_extension_rejected` | Falsche Extension → 400 | File type validation |
-| `test_upload_empty_file_rejected` | Leere Datei → 400 | File size validation |
-| `test_upload_without_signature_rejected` | Fehlende Signatur → 400 | Signature requirement |
+| Test                                        | Beschreibung            | Coverage              |
+| ------------------------------------------- | ----------------------- | --------------------- |
+| `test_upload_wrong_file_extension_rejected` | Falsche Extension → 400 | File type validation  |
+| `test_upload_empty_file_rejected`           | Leere Datei → 400       | File size validation  |
+| `test_upload_without_signature_rejected`    | Fehlende Signatur → 400 | Signature requirement |
 
 **Validiert:**
+
 - Nur .araupdate Files erlaubt
 - Leere Files werden abgelehnt
 - Signature Verification ist aktiv
@@ -209,12 +217,13 @@ Response:
 
 ### Update Status (2 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_get_status_idle` | Status bei keinem Update | Status endpoint logic |
-| `test_get_status_returns_json` | JSON Response Format | Response formatting |
+| Test                           | Beschreibung             | Coverage              |
+| ------------------------------ | ------------------------ | --------------------- |
+| `test_get_status_idle`         | Status bei keinem Update | Status endpoint logic |
+| `test_get_status_returns_json` | JSON Response Format     | Response formatting   |
 
 **Validiert:**
+
 - Status Endpoint gibt korrekten State zurück
 - JSON Format ist valide
 - Timestamp ist vorhanden
@@ -223,12 +232,13 @@ Response:
 
 ### Update History (2 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_get_history_returns_list` | History gibt Liste zurück | History endpoint |
-| `test_history_has_required_fields` | History Entries haben Pflichtfelder | Data structure |
+| Test                               | Beschreibung                        | Coverage         |
+| ---------------------------------- | ----------------------------------- | ---------------- |
+| `test_get_history_returns_list`    | History gibt Liste zurück           | History endpoint |
+| `test_history_has_required_fields` | History Entries haben Pflichtfelder | Data structure   |
 
 **Validiert:**
+
 - History Endpoint funktioniert
 - Updates List ist vorhanden
 - Entries enthalten Version/Status/Timestamp
@@ -237,11 +247,11 @@ Response:
 
 ### Version Comparison (3 Tests - Skipped)
 
-| Test | Beschreibung | Status |
-|------|--------------|--------|
-| `test_version_downgrade_rejected` | Downgrade → 400 | @pytest.mark.skip |
-| `test_same_version_rejected` | Gleiche Version → 400 | @pytest.mark.skip |
-| `test_version_upgrade_accepted` | Upgrade → 200 | @pytest.mark.skip |
+| Test                              | Beschreibung          | Status            |
+| --------------------------------- | --------------------- | ----------------- |
+| `test_version_downgrade_rejected` | Downgrade → 400       | @pytest.mark.skip |
+| `test_same_version_rejected`      | Gleiche Version → 400 | @pytest.mark.skip |
+| `test_version_upgrade_accepted`   | Upgrade → 200         | @pytest.mark.skip |
 
 **Reason for Skip:** Requires creating signed update packages with different versions
 
@@ -249,13 +259,14 @@ Response:
 
 ### Update Application (3 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_apply_nonexistent_file_rejected` | Nicht-existierende Datei → 404 | File existence check |
-| `test_apply_without_file_path_rejected` | Fehlender file_path → 400 | Parameter validation |
-| `test_apply_valid_update_starts_process` | Valide Datei startet Process | Process orchestration |
+| Test                                     | Beschreibung                   | Coverage              |
+| ---------------------------------------- | ------------------------------ | --------------------- |
+| `test_apply_nonexistent_file_rejected`   | Nicht-existierende Datei → 404 | File existence check  |
+| `test_apply_without_file_path_rejected`  | Fehlender file_path → 400      | Parameter validation  |
+| `test_apply_valid_update_starts_process` | Valide Datei startet Process   | Process orchestration |
 
 **Validiert:**
+
 - File Path Validation
 - Parameter Validation
 - Process Start Logic
@@ -266,13 +277,14 @@ Response:
 
 ### Error Handling (3 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
-| `test_malformed_request_returns_400` | Malformed Request → 400 | Error handling |
-| `test_endpoints_return_json_errors` | Fehler als JSON | Error formatting |
-| `test_all_responses_have_timestamp` | Alle Responses haben Timestamp | Response consistency |
+| Test                                 | Beschreibung                   | Coverage             |
+| ------------------------------------ | ------------------------------ | -------------------- |
+| `test_malformed_request_returns_400` | Malformed Request → 400        | Error handling       |
+| `test_endpoints_return_json_errors`  | Fehler als JSON                | Error formatting     |
+| `test_all_responses_have_timestamp`  | Alle Responses haben Timestamp | Response consistency |
 
 **Validiert:**
+
 - Proper Error Status Codes
 - JSON Error Format
 - Timestamp in allen Responses
@@ -281,12 +293,13 @@ Response:
 
 ### Integration Tests (2 Tests)
 
-| Test | Beschreibung | Coverage |
-|------|--------------|----------|
+| Test                              | Beschreibung                   | Coverage            |
+| --------------------------------- | ------------------------------ | ------------------- |
 | `test_full_status_check_workflow` | Status → History → Status Flow | End-to-end workflow |
-| `test_concurrent_status_requests` | Parallele Status Requests | Concurrency |
+| `test_concurrent_status_requests` | Parallele Status Requests      | Concurrency         |
 
 **Validiert:**
+
 - Kompletter Workflow funktioniert
 - Status ist konsistent
 - Concurrent Requests werden korrekt behandelt
@@ -306,32 +319,38 @@ pip3 install pytest requests
 ### Test Ausführung
 
 **Alle Tests:**
+
 ```bash
 cd /Users/koljaschope/Documents/dev/claude
 pytest tests/integration/test_update_system.py -v
 ```
 
 **Ohne Skipped Tests:**
+
 ```bash
 pytest tests/integration/test_update_system.py -v -k "not skip"
 ```
 
 **Nur Authentication Tests:**
+
 ```bash
 pytest tests/integration/test_update_system.py::TestUpdateAuthentication -v
 ```
 
 **Nur Error Handling Tests:**
+
 ```bash
 pytest tests/integration/test_update_system.py::TestUpdateErrorHandling -v
 ```
 
 **Mit Debug Output:**
+
 ```bash
 pytest tests/integration/test_update_system.py -v -s
 ```
 
 **Mit Custom Dashboard URL:**
+
 ```bash
 DASHBOARD_API_URL=http://localhost:3001 pytest tests/integration/test_update_system.py -v
 ```
@@ -363,6 +382,7 @@ tests/integration/test_update_system.py::TestUpdateUploadValidation::test_upload
 ### Test Execution Time
 
 **Typische Laufzeiten:**
+
 - Service Availability: ~1s
 - Authentication Tests: ~1.5s
 - Upload Validation: ~2s
@@ -378,6 +398,7 @@ tests/integration/test_update_system.py::TestUpdateUploadValidation::test_upload
 **Ursache:** Dashboard Backend läuft nicht oder ist nicht erreichbar
 
 **Lösung:**
+
 ```bash
 # Check if running
 docker-compose ps dashboard-backend
@@ -399,6 +420,7 @@ curl http://localhost:3001/api/health
 **Ursache:** Falsche Admin Credentials oder Auth nicht konfiguriert
 
 **Lösung:**
+
 ```bash
 # Check admin password in .env
 grep ADMIN_PASSWORD .env
@@ -417,6 +439,7 @@ pytest tests/integration/test_update_system.py -v
 **Ursache:** Dashboard Backend nicht erreichbar → Tests skippen automatisch
 
 **Solution:**
+
 ```bash
 # Verify backend is running
 docker-compose ps
@@ -435,6 +458,7 @@ docker-compose logs dashboard-backend | grep "listening"
 **Ursache:** Test Fixture konnte nicht erstellt werden
 
 **Lösung:**
+
 ```bash
 # Create fixtures directory manually
 mkdir -p tests/fixtures
@@ -455,6 +479,7 @@ pytest tests/integration/test_update_system.py::TestServiceAvailability::test_da
 **Status:** ✓ Expected - Tests sind als @pytest.mark.skip markiert
 
 **Info:** Signature Tests erfordern:
+
 1. RSA Key Pair generiert
 2. Public Key in `/arasul/config/public_update_key.pem`
 3. Private Key für Test Package Signierung
@@ -464,6 +489,7 @@ pytest tests/integration/test_update_system.py::TestServiceAvailability::test_da
 ### 1. Graceful Degradation
 
 **Tests skippen automatisch wenn:**
+
 - Dashboard Backend nicht läuft
 - Authentication fehlschlägt
 - Endpoints nicht verfügbar sind
@@ -473,6 +499,7 @@ pytest tests/integration/test_update_system.py::TestServiceAvailability::test_da
 ### 2. No Side Effects
 
 **Tests verändern KEIN Production State:**
+
 - Keine echten Updates werden installiert
 - Test Packages werden nach Test gelöscht
 - Nur Read Operations auf History/Status
@@ -480,6 +507,7 @@ pytest tests/integration/test_update_system.py::TestServiceAvailability::test_da
 ### 3. Realistic Test Data
 
 **Test Fixtures sind realistisch:**
+
 - Valide .araupdate Struktur (tar.gz)
 - Realistische manifest.json
 - Proper file extensions
@@ -487,6 +515,7 @@ pytest tests/integration/test_update_system.py::TestServiceAvailability::test_da
 ### 4. Comprehensive Error Cases
 
 **Tests decken ab:**
+
 - Wrong file types
 - Missing authentication
 - Invalid parameters
@@ -525,12 +554,14 @@ def test_new_update_validation(self, auth_headers):
 **Wenn Tests nach Update System Änderungen fehlschlagen:**
 
 1. **Check API Contract**
+
    ```bash
    # Verify endpoints still exist
    curl http://localhost:3001/api/update/status -H "Authorization: Bearer <token>"
    ```
 
 2. **Check Response Format**
+
    ```bash
    # Verify JSON structure
    curl http://localhost:3001/api/update/history -H "Authorization: Bearer <token>" | jq
@@ -605,7 +636,7 @@ jobs:
 
       - name: Start Dashboard Backend
         run: |
-          cd services/dashboard-backend
+          cd apps/dashboard-backend
           npm install
           npm run build
           npm start &
@@ -633,6 +664,7 @@ jobs:
 ### Authentication Tests
 
 **Wichtig:**
+
 - Tests verwenden Default Credentials
 - In Production: Starke Passwords verwenden
 - JWT Tokens haben Limited Lifetime
@@ -641,6 +673,7 @@ jobs:
 ### Signature Verification
 
 **Update Package Security:**
+
 - RSA-4096 Signatur (PRD Anforderung)
 - SHA-256 Hash Verification
 - Public Key in `/arasul/config/`
@@ -649,6 +682,7 @@ jobs:
 ### File Upload Security
 
 **Validierungen:**
+
 - Max File Size: 10GB
 - Nur .araupdate Extension
 - Signature Verification mandatory
@@ -656,8 +690,8 @@ jobs:
 
 ## Related Documentation
 
-- **Update Routes**: `services/dashboard-backend/src/routes/update.js`
-- **Update Service**: `services/dashboard-backend/src/services/updateService.js`
+- **Update Routes**: `apps/dashboard-backend/src/routes/update.js`
+- **Update Service**: `apps/dashboard-backend/src/services/updateService.js`
 - **Database Schema**: `services/postgres/init/004_update_schema.sql`
 - **PRD**: Update System Specification in `prd.md`
 

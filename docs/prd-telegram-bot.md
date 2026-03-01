@@ -9,11 +9,14 @@
 ## 1. Übersicht
 
 ### 1.1 Ziel
+
 Ein minimaler Telegram Bot für das Arasul-System mit **bidirektionaler Kommunikation**:
+
 - **Outbound**: Kritische System-Events melden
 - **Inbound**: Befehle und Nachrichten an Claude Code weiterleiten
 
 ### 1.2 Kernprinzipien
+
 - **Bidirektional**: Telegram ↔ Claude Code Kommunikation
 - **Minimal**: Max. 3 Nachrichten pro Tag (außer Rückfragen)
 - **Kritisch**: Nur wirklich wichtige Events (outbound)
@@ -77,24 +80,24 @@ Ein minimaler Telegram Bot für das Arasul-System mit **bidirektionaler Kommunik
 
 ### 2.2 Event-Klassifizierung (Global für gesamtes System)
 
-| Level | Trigger | Telegram-Aktion |
-|-------|---------|-----------------|
-| **CRITICAL** | Service down >5min, Disk >95%, GPU Temp >95°C, Workflow failed 3x | Sofortige Nachricht |
-| **WARNING** | Service restart, Disk >85%, RAM >90% für >10min | Aggregiert in Daily Digest (optional) |
-| **INFO** | Normale Operationen | Nur auf Anfrage (/status) |
+| Level        | Trigger                                                           | Telegram-Aktion                       |
+| ------------ | ----------------------------------------------------------------- | ------------------------------------- |
+| **CRITICAL** | Service down >5min, Disk >95%, GPU Temp >95°C, Workflow failed 3x | Sofortige Nachricht                   |
+| **WARNING**  | Service restart, Disk >85%, RAM >90% für >10min                   | Aggregiert in Daily Digest (optional) |
+| **INFO**     | Normale Operationen                                               | Nur auf Anfrage (/status)             |
 
 ### 2.3 Smart Event Aggregation
 
 ```javascript
 // Beispiel: Event-Scoring System
 const EVENT_WEIGHTS = {
-  service_down: 100,        // Kritisch
-  disk_critical: 90,        // Kritisch
-  gpu_overheat: 95,         // Kritisch
-  workflow_failed: 80,      // Kritisch bei 3x
-  service_restart: 30,      // Warning
-  high_memory: 40,          // Warning
-  backup_failed: 70         // Wichtig
+  service_down: 100, // Kritisch
+  disk_critical: 90, // Kritisch
+  gpu_overheat: 95, // Kritisch
+  workflow_failed: 80, // Kritisch bei 3x
+  service_restart: 30, // Warning
+  high_memory: 40, // Warning
+  backup_failed: 70, // Wichtig
 };
 
 // Event wird nur gesendet wenn:
@@ -106,14 +109,14 @@ const EVENT_WEIGHTS = {
 
 ### 2.4 Event-Quellen (Global)
 
-| Service | Events |
-|---------|--------|
-| **self-healing-agent** | CPU, RAM, Disk, GPU, Service-Status |
-| **n8n** | Workflow success/failure, Execution errors |
-| **llm-service** | Model load failures, OOM errors |
-| **document-indexer** | Indexing failures, Queue overflow |
-| **postgres-db** | Connection pool exhaustion, Replication lag |
-| **All Services** | Container restart, Health check failures |
+| Service                | Events                                      |
+| ---------------------- | ------------------------------------------- |
+| **self-healing-agent** | CPU, RAM, Disk, GPU, Service-Status         |
+| **n8n**                | Workflow success/failure, Execution errors  |
+| **llm-service**        | Model load failures, OOM errors             |
+| **document-indexer**   | Indexing failures, Queue overflow           |
+| **postgres-db**        | Connection pool exhaustion, Replication lag |
+| **All Services**       | Container restart, Health check failures    |
 
 ---
 
@@ -121,23 +124,23 @@ const EVENT_WEIGHTS = {
 
 ### 3.1 Basis-Befehle
 
-| Befehl | Beschreibung | Beispiel-Output |
-|--------|--------------|-----------------|
-| `/start` | Bot aktivieren, Chat-ID speichern | "Bot aktiviert. Sende /help für Befehle." |
-| `/status` | System-Übersicht | CPU: 45%, RAM: 62%, Disk: 71%, GPU: 58°C, Services: 10/10 |
-| `/services` | Service-Status | Liste aller Services mit Status |
-| `/logs <service>` | Letzte 20 Log-Zeilen | Formatierte Log-Ausgabe |
-| `/disk` | Speicher-Details | Usage pro Volume |
-| `/help` | Befehlsübersicht | Alle verfügbaren Befehle |
+| Befehl            | Beschreibung                      | Beispiel-Output                                           |
+| ----------------- | --------------------------------- | --------------------------------------------------------- |
+| `/start`          | Bot aktivieren, Chat-ID speichern | "Bot aktiviert. Sende /help für Befehle."                 |
+| `/status`         | System-Übersicht                  | CPU: 45%, RAM: 62%, Disk: 71%, GPU: 58°C, Services: 10/10 |
+| `/services`       | Service-Status                    | Liste aller Services mit Status                           |
+| `/logs <service>` | Letzte 20 Log-Zeilen              | Formatierte Log-Ausgabe                                   |
+| `/disk`           | Speicher-Details                  | Usage pro Volume                                          |
+| `/help`           | Befehlsübersicht                  | Alle verfügbaren Befehle                                  |
 
 ### 3.2 n8n Workflow-Integration
 
-| Befehl | Beschreibung |
-|--------|--------------|
-| `/workflows` | Liste aller n8n Workflows mit Status |
-| `/workflow <id> status` | Status eines Workflows |
-| `/workflow <id> run` | Workflow manuell starten |
-| `/workflow <id> disable` | Workflow deaktivieren |
+| Befehl                   | Beschreibung                         |
+| ------------------------ | ------------------------------------ |
+| `/workflows`             | Liste aller n8n Workflows mit Status |
+| `/workflow <id> status`  | Status eines Workflows               |
+| `/workflow <id> run`     | Workflow manuell starten             |
+| `/workflow <id> disable` | Workflow deaktivieren                |
 
 ### 3.3 Agent-Erstellung via Telegram (wie tasks.md)
 
@@ -163,14 +166,15 @@ const EVENT_WEIGHTS = {
 
 **Befehle:**
 
-| Befehl | Beschreibung |
-|--------|--------------|
+| Befehl                    | Beschreibung                     |
+| ------------------------- | -------------------------------- |
 | `/agent add <definition>` | Neuen Agent zur Queue hinzufügen |
-| `/agent list` | Alle pending/active Agents |
-| `/agent deploy <name>` | Agent in n8n erstellen |
-| `/agent remove <name>` | Agent entfernen |
+| `/agent list`             | Alle pending/active Agents       |
+| `/agent deploy <name>`    | Agent in n8n erstellen           |
+| `/agent remove <name>`    | Agent entfernen                  |
 
 **Beispiel-Interaktion:**
+
 ```
 User: /agent add @hourly: Health Reporter - Check all services, send summary if issues found
 
@@ -322,13 +326,13 @@ done
 
 ### 4.4 Befehle für Bidirektionale Kommunikation
 
-| Befehl | Beschreibung |
-|--------|--------------|
-| `/ask <message>` | Explizit an Claude Code senden |
-| `/queue` | Zeige pending Messages |
-| `/cancel <id>` | Message aus Queue entfernen |
-| `/session` | Claude Code Session-Status |
-| Freitext ohne `/` | Automatisch an Claude Code |
+| Befehl            | Beschreibung                   |
+| ----------------- | ------------------------------ |
+| `/ask <message>`  | Explizit an Claude Code senden |
+| `/queue`          | Zeige pending Messages         |
+| `/cancel <id>`    | Message aus Queue entfernen    |
+| `/session`        | Claude Code Session-Status     |
+| Freitext ohne `/` | Automatisch an Claude Code     |
 
 ### 4.5 Beispiel-Interaktion
 
@@ -344,8 +348,8 @@ Bot: ⏳ Nachricht an Claude Code gesendet...
 Bot: ✅ Aufgabe abgeschlossen
 
      Claude Code hat folgende Änderungen vorgenommen:
-     • services/dashboard-frontend/src/components/Settings.js
-     • services/dashboard-frontend/src/components/Settings.css
+     • apps/dashboard-frontend/src/components/Settings.js
+     • apps/dashboard-frontend/src/components/Settings.css
 
      Commit: feat: add dark mode toggle to settings
 
@@ -384,10 +388,10 @@ content_filters:
   max_message_length: 2000
   # Blacklist für gefährliche Befehle
   blocked_patterns:
-    - "rm -rf"
-    - "DROP TABLE"
-    - "DELETE FROM"
-    - "> /dev/"
+    - 'rm -rf'
+    - 'DROP TABLE'
+    - 'DELETE FROM'
+    - '> /dev/'
 ```
 
 ---
@@ -405,14 +409,14 @@ content_filters:
 defaults:
   quiet_hours:
     enabled: true
-    start: "22:00"
-    end: "07:00"
-    timezone: "Europe/Berlin"
+    start: '22:00'
+    end: '07:00'
+    timezone: 'Europe/Berlin'
 
   rate_limit:
     max_messages_per_day: 3
     cooldown_minutes: 30
-    bypass_for_critical: true  # CRITICAL ignoriert rate limit
+    bypass_for_critical: true # CRITICAL ignoriert rate limit
 
   aggregation:
     window_minutes: 15
@@ -431,7 +435,7 @@ events:
 
   workflow_failed:
     severity: warning
-    escalate_to_critical_after: 3  # 3x Fehler = Critical
+    escalate_to_critical_after: 3 # 3x Fehler = Critical
 
   gpu_temperature:
     severity: critical
@@ -604,7 +608,7 @@ telegram-bot:
   networks:
     - arasul-network
   healthcheck:
-    test: ["CMD", "node", "healthcheck.js"]
+    test: ['CMD', 'node', 'healthcheck.js']
     interval: 30s
     timeout: 5s
     retries: 3
@@ -628,7 +632,6 @@ telegram-bot:
 // tests/e2e.test.js
 
 describe('Telegram Bot E2E', () => {
-
   describe('Bot Initialization', () => {
     test('should connect to Telegram API', async () => {
       // Mock Telegram API
@@ -784,21 +787,25 @@ Disabled:
 ## 8. Implementierungs-Reihenfolge
 
 ### Phase 1: Basis (Tasks 1-4)
+
 1. Service-Skeleton mit Express
 2. Bot-Token Validierung
 3. Datenbank-Migration
 4. Event-Listener (PostgreSQL NOTIFY)
 
 ### Phase 2: Befehle (Tasks 5-6)
+
 5. Basis-Befehle (/status, /services, /logs, /disk, /help)
 6. Rate-Limiting & Quiet Hours
 
 ### Phase 3: Integration (Tasks 7-9)
+
 7. n8n Workflow-Befehle
 8. Agent-System (agents.md)
 9. Frontend-Komponente
 
 ### Phase 4: Testing (Tasks 10-12)
+
 10. Unit Tests
 11. E2E Tests
 12. Dokumentation
@@ -807,13 +814,13 @@ Disabled:
 
 ## 10. Offene Entscheidungen
 
-| # | Frage | Status |
-|---|-------|--------|
-| 1.1 | Kommunikationsrichtung | ✅ **Bidirektional** |
-| 1.2 | Benachrichtigungs-Verhalten | ✅ Nur Critical, max 3/Tag, kein Restart |
-| 2 | Soll der Bot Multi-User fähig sein? | Offen |
-| 3 | Soll es einen Daily Digest geben? | Offen |
-| 4 | Webhook vs. Long Polling? | Long Polling (einfacher) |
+| #   | Frage                               | Status                                   |
+| --- | ----------------------------------- | ---------------------------------------- |
+| 1.1 | Kommunikationsrichtung              | ✅ **Bidirektional**                     |
+| 1.2 | Benachrichtigungs-Verhalten         | ✅ Nur Critical, max 3/Tag, kein Restart |
+| 2   | Soll der Bot Multi-User fähig sein? | Offen                                    |
+| 3   | Soll es einen Daily Digest geben?   | Offen                                    |
+| 4   | Webhook vs. Long Polling?           | Long Polling (einfacher)                 |
 
 ---
 

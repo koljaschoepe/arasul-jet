@@ -4,18 +4,18 @@ This guide covers running the Arasul Platform on different NVIDIA Jetson devices
 
 ## Supported Devices
 
-| Device | RAM | GPU | Status | Recommended LLM |
-|--------|-----|-----|--------|-----------------|
-| AGX Orin 64GB | 64GB | Ampere | Fully Supported | qwen3:14b-q8 |
-| AGX Orin 32GB | 32GB | Ampere | Fully Supported | qwen3:8b-q8 |
-| Orin NX 16GB | 16GB | Ampere | Fully Supported | llama3.1:8b |
-| Orin NX 8GB | 8GB | Ampere | Supported | phi3:mini |
-| Orin Nano 8GB | 8GB | Ampere | Supported | phi3:mini |
-| Orin Nano 4GB | 4GB | Ampere | Limited | tinyllama:1.1b |
-| Xavier AGX 32GB | 32GB | Volta | Supported | llama3.1:8b |
-| Xavier AGX 16GB | 16GB | Volta | Supported | mistral:7b |
-| Xavier NX 8GB | 8GB | Volta | Supported | phi3:mini |
-| Jetson Nano 4GB | 4GB | Maxwell | Limited | tinyllama:1.1b |
+| Device          | RAM  | GPU     | Status          | Recommended LLM |
+| --------------- | ---- | ------- | --------------- | --------------- |
+| AGX Orin 64GB   | 64GB | Ampere  | Fully Supported | qwen3:14b-q8    |
+| AGX Orin 32GB   | 32GB | Ampere  | Fully Supported | qwen3:8b-q8     |
+| Orin NX 16GB    | 16GB | Ampere  | Fully Supported | llama3.1:8b     |
+| Orin NX 8GB     | 8GB  | Ampere  | Supported       | phi3:mini       |
+| Orin Nano 8GB   | 8GB  | Ampere  | Supported       | phi3:mini       |
+| Orin Nano 4GB   | 4GB  | Ampere  | Limited         | tinyllama:1.1b  |
+| Xavier AGX 32GB | 32GB | Volta   | Supported       | llama3.1:8b     |
+| Xavier AGX 16GB | 16GB | Volta   | Supported       | mistral:7b      |
+| Xavier NX 8GB   | 8GB  | Volta   | Supported       | phi3:mini       |
+| Jetson Nano 4GB | 4GB  | Maxwell | Limited         | tinyllama:1.1b  |
 
 ## Quick Setup
 
@@ -23,14 +23,14 @@ This guide covers running the Arasul Platform on different NVIDIA Jetson devices
 
 ```bash
 # Detect your device and generate configuration
-./scripts/detect-jetson.sh detect
+./scripts/setup/detect-jetson.sh detect
 
 # Generate and apply configuration
-./scripts/detect-jetson.sh generate
-./scripts/detect-jetson.sh apply
+./scripts/setup/detect-jetson.sh generate
+./scripts/setup/detect-jetson.sh apply
 
 # See recommended models
-./scripts/detect-jetson.sh recommend
+./scripts/setup/detect-jetson.sh recommend
 ```
 
 ### Manual Configuration
@@ -157,11 +157,11 @@ DISABLE_TELEGRAM=true
 Each Jetson family has a different CUDA compute capability:
 
 | Family | Architecture | Compute Capability |
-|--------|--------------|-------------------|
-| Orin | Ampere | 8.7 |
-| Xavier | Volta | 7.2 |
-| TX2 | Pascal | 6.2 |
-| Nano | Maxwell | 5.3 |
+| ------ | ------------ | ------------------ |
+| Orin   | Ampere       | 8.7                |
+| Xavier | Volta        | 7.2                |
+| TX2    | Pascal       | 6.2                |
+| Nano   | Maxwell      | 5.3                |
 
 The detection script automatically sets `TORCH_CUDA_ARCH_LIST` based on your device.
 
@@ -289,7 +289,7 @@ If a model doesn't fit in memory:
 
 ```bash
 # Download recommended model for your device
-./scripts/detect-jetson.sh recommend
+./scripts/setup/detect-jetson.sh recommend
 
 # Download a specific model
 docker exec llm-service ollama pull mistral:7b
@@ -314,10 +314,10 @@ docker compose up -d --scale n8n=0 --scale telegram-bot=0
 ## JetPack Requirements
 
 | JetPack Version | Supported Devices | CUDA Version |
-|-----------------|-------------------|--------------|
-| 6.0+ | Orin family | CUDA 12.2 |
-| 5.x | Xavier, Orin | CUDA 11.4 |
-| 4.6 | Nano, TX2 | CUDA 10.2 |
+| --------------- | ----------------- | ------------ |
+| 6.0+            | Orin family       | CUDA 12.2    |
+| 5.x             | Xavier, Orin      | CUDA 11.4    |
+| 4.6             | Nano, TX2         | CUDA 10.2    |
 
 Minimum recommended: **JetPack 5.1** or higher.
 

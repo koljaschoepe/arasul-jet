@@ -30,6 +30,7 @@ n8n (5678)
 Connects to Ollama for LLM inference.
 
 **Parameters:**
+
 - `model`: LLM model name (e.g., `qwen3:14b-q8`)
 - `prompt`: User prompt
 - `systemPrompt`: System instructions
@@ -37,6 +38,7 @@ Connects to Ollama for LLM inference.
 - `maxTokens`: Maximum response tokens
 
 **Output:**
+
 ```json
 {
   "response": "LLM response text",
@@ -50,10 +52,12 @@ Connects to Ollama for LLM inference.
 Generates text embeddings.
 
 **Parameters:**
+
 - `text`: Text to embed
 - `model`: Embedding model (default: `nomic-embed-text-v1.5`)
 
 **Output:**
+
 ```json
 {
   "embedding": [0.123, -0.456, ...],
@@ -150,14 +154,11 @@ curl -X POST http://localhost:5678/webhook/your-path \
 ### From Backend
 
 ```javascript
-// services/dashboard-backend/src/routes/workflows.js
+// apps/dashboard-backend/src/routes/workflows.js
 const axios = require('axios');
 
 async function triggerWorkflow(webhookPath, data) {
-  const response = await axios.post(
-    `http://n8n:5678/webhook/${webhookPath}`,
-    data
-  );
+  const response = await axios.post(`http://n8n:5678/webhook/${webhookPath}`, data);
   return response.data;
 }
 ```

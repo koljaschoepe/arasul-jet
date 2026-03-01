@@ -313,7 +313,7 @@ docker compose restart
 
 ```bash
 # Manuell ausfuehren und Fehler sehen:
-./scripts/backup.sh
+./scripts/backup/backup.sh
 
 # Log pruefen:
 cat data/backups/backup.log
@@ -323,10 +323,10 @@ cat data/backups/backup.log
 
 ```bash
 # Verfuegbare Backups anzeigen:
-./scripts/restore.sh --list
+./scripts/backup/restore.sh --list
 
 # Mit spezifischem Datum wiederherstellen:
-./scripts/restore.sh --all --date 20260217
+./scripts/backup/restore.sh --all --date 20260217
 ```
 
 ### Backup-Verzeichnis pruefen
@@ -392,7 +392,7 @@ Bitte halten Sie folgende Informationen bereit:
 3. **Zeitpunkt:** Wann trat das Problem auf?
 4. **Support-Logs exportieren:**
    ```bash
-   ./scripts/export-support-logs.sh
+   ./scripts/util/export-support-logs.sh
    # Erzeugt: data/support-logs-<datum>.tar.gz
    ```
 

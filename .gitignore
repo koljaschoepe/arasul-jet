@@ -51,3 +51,6 @@ n8n_data/
 *.pem
 *.key
 admin.hash
+
+# Device-specific configuration (not versioned)
+config/device/

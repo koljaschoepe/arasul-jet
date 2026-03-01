@@ -1,7 +1,7 @@
 # Deployment-Checkliste
 
 > Pre-Shipping Checkliste fuer die Auslieferung eines Jetson AGX Orin an den Kunden.
-> Automatisierte Pruefung: `./scripts/verify-deployment.sh`
+> Automatisierte Pruefung: `./scripts/deploy/verify-deployment.sh`
 
 ---
 
@@ -21,27 +21,27 @@
 
 ## 3. Konfiguration
 
-- [ ] `scripts/preconfigure.sh` ausgefuehrt
+- [ ] `scripts/setup/preconfigure.sh` ausgefuehrt
 - [ ] `.env` generiert mit sicheren Credentials
 - [ ] `.env` Berechtigungen: `chmod 600 .env`
 - [ ] Admin-Passwort notiert und dem Kunden uebergeben
 - [ ] Kein Placeholder/Default-Wert in `.env`
-- [ ] `scripts/validate_config.sh` ohne Fehler
+- [ ] `scripts/validate/validate_config.sh` ohne Fehler
 
 ## 4. Sicherheit
 
-- [ ] SSH-Hardening: `scripts/harden-ssh.sh` ausgefuehrt
+- [ ] SSH-Hardening: `scripts/security/harden-ssh.sh` ausgefuehrt
   - [ ] Nur Key-Authentifizierung
   - [ ] Port 2222 (oder custom)
   - [ ] Root-Login deaktiviert
-- [ ] Firewall: `scripts/setup-firewall.sh` ausgefuehrt
+- [ ] Firewall: `scripts/security/setup-firewall.sh` ausgefuehrt
   - [ ] UFW aktiv
   - [ ] Nur Ports 80, 443, 2222 offen
-- [ ] Service-User: `scripts/setup-service-user.sh` ausgefuehrt
-- [ ] Auto-Updates deaktiviert: `scripts/disable-auto-updates.sh`
+- [ ] Service-User: `scripts/setup/setup-service-user.sh` ausgefuehrt
+- [ ] Auto-Updates deaktiviert: `scripts/util/disable-auto-updates.sh`
 - [ ] TLS-Zertifikat vorhanden in `config/tls/`
 - [ ] SSH-Keys in `config/ssh-keys/`
-- [ ] Security-Scan: `scripts/security-scan.sh` ohne Critical
+- [ ] Security-Scan: `scripts/security/security-scan.sh` ohne Critical
 
 ## 5. Docker Services
 
@@ -61,7 +61,7 @@
 - [ ] Backup-Verzeichnis `data/backups/` vorhanden
 - [ ] Backup-Cron konfiguriert: `crontab -e`
   ```
-  0 2 * * * /opt/arasul/scripts/backup.sh >> /opt/arasul/logs/backup-cron.log 2>&1
+  0 2 * * * /opt/arasul/scripts/backup/backup.sh >> /opt/arasul/logs/backup-cron.log 2>&1
   ```
 - [ ] Test-Backup erstellt und verifiziert
 - [ ] Restore-Test durchgefuehrt
@@ -84,10 +84,10 @@
 
 ## 10. Tests
 
-- [ ] Backend-Tests: `./scripts/run-tests.sh --backend` (alle gruen)
-- [ ] Frontend-Tests: `./scripts/run-tests.sh --frontend` (alle gruen)
-- [ ] Integration-Tests: `./scripts/integration-test.sh` (alle gruen)
-- [ ] Performance-Baseline: `./scripts/measure-performance.sh` (Werte dokumentiert)
+- [ ] Backend-Tests: `./scripts/test/run-tests.sh --backend` (alle gruen)
+- [ ] Frontend-Tests: `./scripts/test/run-tests.sh --frontend` (alle gruen)
+- [ ] Integration-Tests: `./scripts/test/integration-test.sh` (alle gruen)
+- [ ] Performance-Baseline: `./scripts/test/measure-performance.sh` (Werte dokumentiert)
 
 ## 11. Dokumentation
 
@@ -98,7 +98,7 @@
 
 ## 12. Finale Pruefung
 
-- [ ] `./scripts/verify-deployment.sh` ohne Fehler
+- [ ] `./scripts/deploy/verify-deployment.sh` ohne Fehler
 - [ ] System neugestartet und automatisch hochgefahren
 - [ ] Frontend erreichbar nach Neustart
 - [ ] Alle Services healthy nach Neustart

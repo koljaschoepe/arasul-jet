@@ -106,7 +106,7 @@ sudo systemctl enable wg-quick@wg0
 Vor der Fernwartung Support-Logs exportieren:
 
 ```bash
-./scripts/export-support-logs.sh
+./scripts/util/export-support-logs.sh
 ```
 
 Die erzeugte Datei (`data/support-logs-*.tar.gz`) kann per E-Mail oder Dateitransfer

@@ -394,16 +394,16 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 docker compose up -d backup-service
 
 # Manual backup
-./scripts/backup.sh
+./scripts/backup/backup.sh
 
 # List available backups
-./scripts/restore.sh --list
+./scripts/backup/restore.sh --list
 
 # Restore from latest
-./scripts/restore.sh --latest
+./scripts/backup/restore.sh --latest
 
 # Restore from specific date
-./scripts/restore.sh --all --date 20260105
+./scripts/backup/restore.sh --all --date 20260105
 ```
 
 ---
@@ -458,7 +458,7 @@ docker compose up -d backup-service
 
 ## Jetson Device Configuration
 
-These variables configure the platform for different NVIDIA Jetson devices. Use `./scripts/detect-jetson.sh` to auto-detect and generate optimal values.
+These variables configure the platform for different NVIDIA Jetson devices. Use `./scripts/setup/detect-jetson.sh` to auto-detect and generate optimal values.
 
 ### CUDA Architecture
 
@@ -514,16 +514,16 @@ Pre-configured profiles for common Jetson devices:
 
 ```bash
 # Detect device and show profile
-./scripts/detect-jetson.sh detect
+./scripts/setup/detect-jetson.sh detect
 
 # Generate .env with optimal values
-./scripts/detect-jetson.sh generate
+./scripts/setup/detect-jetson.sh generate
 
 # Apply configuration
-./scripts/detect-jetson.sh apply
+./scripts/setup/detect-jetson.sh apply
 
 # See recommended models
-./scripts/detect-jetson.sh recommend
+./scripts/setup/detect-jetson.sh recommend
 ```
 
 See [docs/JETSON_COMPATIBILITY.md](JETSON_COMPATIBILITY.md) for full device compatibility guide.
@@ -599,7 +599,7 @@ SELF_HEALING_REBOOT_ENABLED=false
 Run the validation script to check configuration:
 
 ```bash
-./scripts/validate_config.sh
+./scripts/validate/validate_config.sh
 ```
 
 Validates:

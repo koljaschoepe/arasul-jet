@@ -9,9 +9,11 @@
 ## 🎯 KRITISCHE PRIORITÄT (Must-Have für Production)
 
 ### 1. Security & Authentication System ⏱️ 16-20h | ✅ COMPLETED
+
 **PRD Referenz**: §34 | **Status**: ✅ 100% | **Priorität**: CRITICAL | **Abgeschlossen**: 2025-11-10
 
 **Implementierte Features:**
+
 - [x] Admin Account Verwaltung
   - [x] User-Modell in PostgreSQL (`admin_users` Tabelle)
   - [x] Password Hashing (bcrypt, 12 rounds)
@@ -44,47 +46,54 @@
   - [x] Logout Button im Dashboard Header
 
 **Akzeptanzkriterien:** ✅ Alle erfüllt
+
 - ✅ Admin kann sich einloggen und Token erhalten
 - ✅ Geschützte Routes werfen 401 ohne gültiges Token
 - ✅ Rate Limits verhindern Brute-Force
 - ✅ Passwort-Änderung funktioniert
 
 **Erstellte Dateien:**
+
 - ✅ `services/postgres/init/002_auth_schema.sql`
-- ✅ `services/dashboard-backend/src/middleware/auth.js`
-- ✅ `services/dashboard-backend/src/middleware/rateLimit.js`
-- ✅ `services/dashboard-backend/src/routes/auth.js`
-- ✅ `services/dashboard-backend/src/utils/jwt.js`
-- ✅ `services/dashboard-backend/src/utils/password.js`
-- ✅ `services/dashboard-frontend/src/components/Login.js`
-- ✅ `services/dashboard-frontend/src/components/Login.css`
+- ✅ `apps/dashboard-backend/src/middleware/auth.js`
+- ✅ `apps/dashboard-backend/src/middleware/rateLimit.js`
+- ✅ `apps/dashboard-backend/src/routes/auth.js`
+- ✅ `apps/dashboard-backend/src/utils/jwt.js`
+- ✅ `apps/dashboard-backend/src/utils/password.js`
+- ✅ `apps/dashboard-frontend/src/components/Login.js`
+- ✅ `apps/dashboard-frontend/src/components/Login.css`
 
 **Geänderte Dateien:**
-- ✅ `services/dashboard-backend/src/routes/index.js`
-- ✅ `services/dashboard-backend/src/routes/update.js`
-- ✅ `services/dashboard-backend/src/index.js`
-- ✅ `services/dashboard-backend/package.json` (uuid dependency)
-- ✅ `services/dashboard-frontend/src/App.js`
-- ✅ `services/dashboard-frontend/src/index.css`
+
+- ✅ `apps/dashboard-backend/src/routes/index.js`
+- ✅ `apps/dashboard-backend/src/routes/update.js`
+- ✅ `apps/dashboard-backend/src/index.js`
+- ✅ `apps/dashboard-backend/package.json` (uuid dependency)
+- ✅ `apps/dashboard-frontend/src/App.js`
+- ✅ `apps/dashboard-frontend/src/index.css`
 
 **Ausstehend:**
+
 - [ ] Bootstrap-Integration: Initial Admin User Creation mit bcrypt Hash
 - [ ] Reverse Proxy Auth (Traefik Forward Auth) - wird in #9 behandelt
 
 ---
 
 ### 2. Self-Healing Engine - Vollständige Implementierung ⏱️ 12-16h | ✅ COMPLETED
+
 **PRD Referenz**: §28 | **Status**: ✅ 100% | **Priorität**: CRITICAL | **Abgeschlossen**: 2025-11-11
 
 **Implementierte Features:**
 
 #### Kategorie A - Service Down ✅ VOLLSTÄNDIG
+
 - [x] Restart (Versuch 1) ✅ `healing_engine.py:245`
 - [x] Stop + Start (Versuch 2) ✅ `healing_engine.py:266`
 - [x] Failure Counter Persistierung in PostgreSQL ✅ `healing_engine.py:133-150`
 - [x] Zeitfenster-Tracking (3 Fehler in 10min) ✅ `healing_engine.py:143`
 
 #### Kategorie B - Overload (Recovery Actions) ✅ VOLLSTÄNDIG
+
 - [x] Detection (CPU/RAM/GPU/Temp) ✅ `healing_engine.py:398`
 - [x] CPU > 90%: LLM Cache Clear ✅ `healing_engine.py:321, 408`
 - [x] RAM > 90%: n8n Restart (Workflow Pause) ✅ `healing_engine.py:384, 433`
@@ -93,6 +102,7 @@
 - [x] Temp > 85°C: Service Restart ✅ `healing_engine.py:481`
 
 #### Kategorie C - Critical (Hard Recovery) ✅ VOLLSTÄNDIG
+
 - [x] Event Detection ✅ `healing_engine.py:691`
 - [x] Hard Restart aller Application Services ✅ `healing_engine.py:539`
 - [x] Disk Cleanup Implementation ✅ `healing_engine.py:564`
@@ -107,12 +117,14 @@
   - [x] Error Detection & Logging ✅ `healing_engine.py:674`
 
 #### Kategorie D - System Reboot ✅ VOLLSTÄNDIG
+
 - [x] Reboot Activation (via ENV var) ✅ `healing_engine.py:791, .env.template:75`
 - [x] Pre-Reboot State Save ✅ `healing_engine.py:734`
 - [x] Reboot Command: `sudo reboot` (mit Permissions) ✅ `healing_engine.py:797, Dockerfile:18`
 - [x] Post-Reboot Validation ✅ `post_reboot_validation.py` (NEU)
 
 **Akzeptanzkriterien:** ✅ Alle erfüllt
+
 - ✅ Service-Restart erfolgt nach 3 Health-Check-Failures
 - ✅ Overload triggert automatische Cleanup-Actions
 - ✅ Critical Events führen zu Hard Recovery
@@ -122,6 +134,7 @@
 - ✅ Failure Tracking mit Zeitfenstern
 
 **Erstellte/Geänderte Dateien:**
+
 - ✅ `services/self-healing-agent/healing_engine.py` (bereits vollständig)
 - ✅ `services/self-healing-agent/Dockerfile` (sudo + nvidia-smi hinzugefügt)
 - ✅ `services/self-healing-agent/post_reboot_validation.py` (NEU - 334 Zeilen)
@@ -131,6 +144,7 @@
 - ✅ `DEPLOYMENT.md` (Schritt 9: Self-Healing Dokumentation hinzugefügt)
 
 **Zusätzliche Implementierungen:**
+
 - ✅ PostgreSQL Helper Functions (get_service_failure_count, is_service_in_cooldown, etc.)
 - ✅ Recovery Actions Tracking (recovery_actions Tabelle)
 - ✅ Reboot Events Tracking (reboot_events Tabelle)
@@ -141,9 +155,11 @@
 ---
 
 ### 3. GPU Error Handling & Recovery ⏱️ 10-12h | ✅ COMPLETED
+
 **PRD Referenz**: §19, §28 | **Status**: ✅ 100% | **Priorität**: CRITICAL | **Abgeschlossen**: 2025-11-11
 
 **Implementierte Features:**
+
 - [x] GPU Monitor Module (pynvml-basiert) ✅ `services/metrics-collector/gpu_monitor.py`
 - [x] NVML Error Detection ✅
   - [x] CUDA OOM Detection (Memory Thresholds: 36/38/40GB)
@@ -158,9 +174,9 @@
   - [x] Enforce 40GB Max (detection + alerts)
   - [x] Memory Pressure Detection (36GB warning, 38GB critical)
 - [x] Thermal Throttling ✅
-  - [x] >83°C: Warnings + Throttle GPU
-  - [x] >85°C: Restart LLM Service
-  - [x] >90°C: Stop LLM Service (emergency)
+  - [x] > 83°C: Warnings + Throttle GPU
+  - [x] > 85°C: Restart LLM Service
+  - [x] > 90°C: Stop LLM Service (emergency)
 - [x] Metrics Collector GPU Integration ✅
   - [x] `/api/gpu` endpoint für detaillierte Stats
   - [x] GPU stats collection every 10s
@@ -173,6 +189,7 @@
   - [x] Automatische GPU Error Checks alle 10s
 
 **Akzeptanzkriterien:** ✅ Alle erfüllt
+
 - ✅ LLM Service kann CUDA Errors detektieren
 - ✅ GPU-Reset Mechanismus implementiert
 - ✅ Temperature-Warnings vorhanden und im Backend verfügbar
@@ -181,12 +198,13 @@
 - ✅ Recovery Actions werden in DB protokolliert
 
 **Erstellte/Geänderte Dateien:**
+
 - ✅ `services/metrics-collector/gpu_monitor.py` (NEU - 446 Zeilen)
 - ✅ `services/self-healing-agent/gpu_recovery.py` (NEU - 420 Zeilen)
 - ✅ `services/metrics-collector/collector.py` (erweitert +67 Zeilen)
 - ✅ `services/self-healing-agent/healing_engine.py` (erweitert +88 Zeilen)
 - ✅ `services/self-healing-agent/requirements.txt` (pynvml hinzugefügt)
-- ✅ `services/dashboard-backend/src/routes/services.js` (erweitert mit GPU Stats)
+- ✅ `apps/dashboard-backend/src/routes/services.js` (erweitert mit GPU Stats)
 - ✅ `GPU_ERROR_HANDLING.md` (NEU - Vollständige Dokumentation)
 
 ---
@@ -194,11 +212,13 @@
 ## 🔥 HOHE PRIORITÄT (Wichtig für MVP)
 
 ### 4. Update-System - Vollständige Implementierung ⏱️ 20-24h | ✅ COMPLETED
+
 **PRD Referenz**: §33 | **Status**: ✅ 100% | **Priorität**: HIGH | **Abgeschlossen**: 2025-11-11
 
 **Implementierte Features:**
 
 #### Dashboard Upload ✅ VOLLSTÄNDIG
+
 - [x] `POST /api/update/upload` Endpoint ✅
 - [x] .araupdate File Validation ✅
 - [x] Manifest Extraction ✅
@@ -219,6 +239,7 @@
   - [x] Progress Reporting ✅ `GET /api/update/status`
 
 #### USB Update ✅ VOLLSTÄNDIG
+
 - [x] udev Rule für USB Detection ✅ `config/udev/99-arasul-usb.rules`
 - [x] Mount Event Monitoring in Self-Healing Agent ✅ `usb_monitor.py:186`
 - [x] File Copy von USB → `/arasul/updates/usb/` ✅ `usb_monitor.py:144`
@@ -228,6 +249,7 @@
 - [x] Checksum Tracking (verhindert Duplikate) ✅ `usb_monitor.py:123`
 
 #### Rollback ✅ VOLLSTÄNDIG
+
 - [x] Container Image Backup vor Update ✅ `updateService.js:213`
 - [x] DB Snapshot Creation (pg_dump) ✅ `updateService.js:207`
 - [x] Rollback Trigger bei Critical Failures ✅ `updateService.js:484`
@@ -235,6 +257,7 @@
 - [x] Rollback Event Logging ✅ `updateService.js:568`
 
 **Akzeptanzkriterien:** ✅ Alle erfüllt
+
 - ✅ Dashboard-Upload validiert Signatur korrekt (RSA-SHA256)
 - ✅ Update wird angewendet und Services neu gestartet
 - ✅ USB-Stick-Einstecken triggert automatisches Update
@@ -243,13 +266,14 @@
 - ✅ Vollständiges Update-Tracking in PostgreSQL
 
 **Erstellte/Geänderte Dateien:**
-- ✅ `services/dashboard-backend/src/routes/update.js` (erweitert +80 Zeilen)
-- ✅ `services/dashboard-backend/src/services/updateService.js` (NEU - 680 Zeilen)
+
+- ✅ `apps/dashboard-backend/src/routes/update.js` (erweitert +80 Zeilen)
+- ✅ `apps/dashboard-backend/src/services/updateService.js` (NEU - 680 Zeilen)
 - ✅ `services/self-healing-agent/usb_monitor.py` (NEU - 420 Zeilen)
 - ✅ `services/self-healing-agent/start.sh` (NEU - Startet beide Prozesse)
 - ✅ `services/self-healing-agent/Dockerfile` (USB Support hinzugefügt)
 - ✅ `config/udev/99-arasul-usb.rules` (NEU - udev Rule)
-- ✅ `scripts/arasul-usb-trigger.sh` (NEU - USB Trigger Script)
+- ✅ `scripts/util/arasul-usb-trigger.sh` (NEU - USB Trigger Script)
 - ✅ `services/postgres/init/004_update_schema.sql` (NEU - 180 Zeilen)
 - ✅ `docker-compose.yml` (USB Volumes + Devices)
 - ✅ `UPDATE_SYSTEM.md` (NEU - Vollständige Dokumentation)
@@ -257,9 +281,11 @@
 ---
 
 ### 5. Bootstrap-System - Verbesserungen ⏱️ 8-10h
+
 **PRD Referenz**: §30 | **Status**: ⚠️ 60% | **Priorität**: HIGH
 
 **Fehlende Features:**
+
 - [ ] **Hardware Validation**
   - [ ] Jetson AGX Orin Detection
   - [ ] JetPack Version Check (`dpkg -l | grep nvidia-jetpack`)
@@ -288,21 +314,25 @@
   - [ ] Hash → `/arasul/config/admin.hash`
 
 **Akzeptanzkriterien:**
+
 - Bootstrap erkennt Nicht-Jetson-Hardware
 - NVIDIA Runtime wird automatisch installiert
 - MinIO Buckets existieren nach Bootstrap
 - Smoke Tests validieren echte Funktionalität
 
 **Dateien zu ändern:**
+
 - `arasul` (Bootstrap Script)
 - `services/postgres/init/003_minio_init.sh` (neu)
 
 ---
 
 ### 6. Frontend - Login & Update UI ⏱️ 4-6h
+
 **PRD Referenz**: §24 | **Status**: ⚠️ 85% | **Priorität**: HIGH
 
 **Bereits implementiert (via #1):**
+
 - [x] **Login Screen**
   - [x] Login Form (Username + Password)
   - [x] JWT Token Storage (localStorage)
@@ -312,6 +342,7 @@
   - [x] Automatic 401 Logout Handling
 
 **Fehlende Features:**
+
 - [ ] **Update UI**
   - [ ] File Upload Component
   - [ ] Upload Progress Bar
@@ -332,25 +363,29 @@
   - [ ] Tablet Layout
 
 **Akzeptanzkriterien:**
+
 - ✅ Login funktioniert und speichert Token
 - [ ] Update kann über UI hochgeladen werden
 - [ ] WebSocket reconnected automatisch
 - ✅ Mobile-Ansicht ist nutzbar (basic)
 
 **Dateien zu erstellen/ändern:**
-- ✅ `services/dashboard-frontend/src/components/Login.js` (erstellt in #1)
-- ✅ `services/dashboard-frontend/src/components/Login.css` (erstellt in #1)
-- `services/dashboard-frontend/src/components/UpdatePage.js` (neu)
-- `services/dashboard-frontend/src/components/SelfHealingEvents.js` (neu)
-- ✅ `services/dashboard-frontend/src/App.js` (Auth Integration in #1)
-- ✅ `services/dashboard-frontend/src/index.css` (Logout Button Styles in #1)
+
+- ✅ `apps/dashboard-frontend/src/components/Login.js` (erstellt in #1)
+- ✅ `apps/dashboard-frontend/src/components/Login.css` (erstellt in #1)
+- `apps/dashboard-frontend/src/components/UpdatePage.js` (neu)
+- `apps/dashboard-frontend/src/components/SelfHealingEvents.js` (neu)
+- ✅ `apps/dashboard-frontend/src/App.js` (Auth Integration in #1)
+- ✅ `apps/dashboard-frontend/src/index.css` (Logout Button Styles in #1)
 
 ---
 
 ### 7. Deployment & Production Readiness ⏱️ 12-16h
+
 **PRD Referenz**: §31, §37 | **Status**: ❌ 40% | **Priorität**: HIGH
 
 **Fehlende Features:**
+
 - [ ] **Installer Package**
   - [ ] `.deb` Package für Jetson
   - [ ] Systemd Service Installation
@@ -379,12 +414,14 @@
   - [ ] Automated Health Reports
 
 **Akzeptanzkriterien:**
+
 - `.deb` Paket installiert System vollständig
 - `arasul.local` ist erreichbar
 - Load Tests bestanden
 - System läuft 30 Tage stabil
 
 **Dateien zu erstellen:**
+
 - `packaging/arasul.deb` (Debian Package)
 - `scripts/interactive_setup.sh` (neu)
 - `tests/load_test.py` (neu)
@@ -396,9 +433,11 @@
 ## 📦 MITTLERE PRIORITÄT (Wichtig für Stabilität)
 
 ### 8. Logging & Log Rotation ⏱️ 6-8h
+
 **PRD Referenz**: §35 | **Status**: ❌ 20% | **Priorität**: MEDIUM
 
 **Fehlende Features:**
+
 - [ ] Zentrale Log-Struktur
   - [ ] `/arasul/logs/system.log` (Dashboard, Proxy, Server Errors)
   - [ ] `/arasul/logs/self_healing.log`
@@ -414,42 +453,50 @@
   - [ ] Severity Filtering
 
 **Dateien zu erstellen:**
+
 - `/etc/logrotate.d/arasul` (System)
-- `services/dashboard-backend/src/utils/fileLogger.js` (neu)
+- `apps/dashboard-backend/src/utils/fileLogger.js` (neu)
 - `docker-compose.yml` (Volume Mounts anpassen)
 
 ---
 
 ### 9. Reverse Proxy - Vervollständigung ⏱️ 6-8h
+
 **PRD Referenz**: §18 | **Status**: ⚠️ 60% | **Priorität**: MEDIUM
 
 **Fehlende Routing:**
+
 - [ ] MinIO Console: `/minio/*` → `minio:9001`
 - [ ] MinIO API: `/minio-api/*` → `minio:9000`
 - [ ] LLM Direct: `/models/*` → `llm-service:11434`
 - [ ] Embeddings Direct: `/embeddings/*` → `embedding-service:11435`
 
 **Rate Limiting:**
+
 - [ ] n8n Webhooks: 100 req/min
 - [ ] LLM API: 10 req/s
 - [ ] Metrics API: 20 req/s
 - [ ] Auth Endpoints: 5 req/min
 
 **Weitere Features:**
+
 - [ ] TLS Termination (Let's Encrypt Integration)
 - [ ] WebSocket Upgrade explizit konfigurieren
 - [ ] Forward Auth Middleware
 
 **Dateien zu ändern:**
+
 - `config/traefik/dynamic.yml` (neu)
 - `docker-compose.yml` (Traefik Labels erweitern)
 
 ---
 
 ### 10. Workflow Integration (n8n ↔ Services) ⏱️ 8-10h
+
 **PRD Referenz**: §21 | **Status**: ❌ 50% | **Priorität**: MEDIUM
 
 **Fehlende Features:**
+
 - [ ] **n8n → LLM Integration**
   - [ ] Custom n8n Node für Arasul LLM
   - [ ] HTTP Request Templates
@@ -468,16 +515,19 @@
   - [ ] Duration Logging
 
 **Dateien zu erstellen:**
+
 - `services/n8n/custom-nodes/arasul-llm/` (Custom Node)
 - `services/n8n/custom-nodes/arasul-embeddings/` (Custom Node)
-- `services/dashboard-backend/src/services/n8nLogger.js` (neu)
+- `apps/dashboard-backend/src/services/n8nLogger.js` (neu)
 
 ---
 
 ### 11. Healthchecks - Vervollständigung ⏱️ 4-6h
+
 **PRD Referenz**: §29 | **Status**: ⚠️ 70% | **Priorität**: MEDIUM
 
 **Fehlende/Unvollständige Checks:**
+
 - [ ] **LLM Service**
   - [ ] GPU Erreichbar prüfen
   - [ ] Minimal Prompt Test (<500ms)
@@ -489,6 +539,7 @@
   - [ ] Latenz-Kriterium in Healthcheck (<50ms)
 
 **Dateien zu ändern:**
+
 - `docker-compose.yml` (Healthcheck-Commands)
 - `services/llm-service/healthcheck.sh` (neu)
 - `services/self-healing-agent/heartbeat.py` (neu)
@@ -496,9 +547,11 @@
 ---
 
 ### 12. MinIO Bucket Initialization ⏱️ 3-4h
+
 **PRD Referenz**: §22 | **Status**: ❌ 0% | **Priorität**: MEDIUM
 
 **Fehlende Features:**
+
 - [ ] Bootstrap-Integration
   - [ ] MinIO Client (mc) Installation
   - [ ] Bucket Creation Script
@@ -512,15 +565,18 @@
   - [ ] Private für andere Buckets
 
 **Dateien zu erstellen:**
-- `scripts/init_minio_buckets.sh` (neu)
+
+- `scripts/util/init_minio_buckets.sh` (neu)
 - `arasul` (Bootstrap-Integration)
 
 ---
 
 ### 13. Fehlende API Endpoints ⏱️ 4-6h
+
 **PRD Referenz**: §25 | **Priorität**: MEDIUM | **Status**: ⚠️ 50%
 
 **Bereits implementiert (via #1):**
+
 - [x] `POST /api/auth/login`
 - [x] `POST /api/auth/logout`
 - [x] `POST /api/auth/logout-all`
@@ -530,6 +586,7 @@
 - [x] `GET /api/auth/password-requirements`
 
 **Zu implementieren:**
+
 - [ ] `POST /api/update/apply`
 - [ ] `GET /api/logs?service=<name>&lines=100`
 - [ ] `GET /api/self-healing/events?limit=20`
@@ -537,15 +594,17 @@
 - [ ] `GET /api/llm/models` (List verfügbare Modelle)
 
 **Dateien zu erstellen/ändern:**
-- ✅ `services/dashboard-backend/src/routes/auth.js` (bereits erstellt in #1)
-- `services/dashboard-backend/src/routes/logs.js` (neu)
-- `services/dashboard-backend/src/routes/selfhealing.js` (neu)
+
+- ✅ `apps/dashboard-backend/src/routes/auth.js` (bereits erstellt in #1)
+- `apps/dashboard-backend/src/routes/logs.js` (neu)
+- `apps/dashboard-backend/src/routes/selfhealing.js` (neu)
 
 ---
 
 ## 🔧 TECHNISCHE SCHULD / OPTIMIERUNGEN
 
 ### 14. Error Handling & Resilience ⏱️ 6-8h
+
 **Priorität**: HIGH
 
 - [ ] Metrics Collector: GPU Error Recovery
@@ -557,6 +616,7 @@
 ---
 
 ### 15. Environment & Configuration Management ⏱️ 4-5h
+
 **Priorität**: MEDIUM
 
 - [ ] `config/` Directory erstellen und nutzen
@@ -568,6 +628,7 @@
 ---
 
 ### 16. Database Connection Pooling ⏱️ 3-4h
+
 **Priorität**: MEDIUM
 
 - [ ] Dashboard Backend: pg-pool Implementation
@@ -578,6 +639,7 @@
 ---
 
 ### 17. Docker Compose Improvements ⏱️ 2-3h
+
 **Priorität**: LOW
 
 - [ ] Service Conditions für alle depends_on
@@ -590,6 +652,7 @@
 ## 📝 DOKUMENTATION
 
 ### 18. API Dokumentation ⏱️ 4-6h
+
 **Priorität**: LOW-MEDIUM
 
 - [ ] OpenAPI/Swagger Spec
@@ -600,6 +663,7 @@
 ---
 
 ### 19. Testing Infrastructure ⏱️ 16-20h
+
 **Priorität**: MEDIUM
 
 - [ ] Unit Tests (Jest für Backend, pytest für Python)
@@ -613,6 +677,7 @@
 ## 📊 ZUSAMMENFASSUNG
 
 ### Gesamtaufwand
+
 - **CRITICAL**: 0 Hours verbleibend | 40-48h abgeschlossen (#1 + #2 + #3)
 - **HIGH**: 26-38 Hours verbleibend (3 Features) | 28-34h abgeschlossen (#1 anteilig + #4)
 - **MEDIUM**: 40-53 Hours verbleibend (6 Features) | 4h abgeschlossen (#13 anteilig)
@@ -624,28 +689,17 @@
 ### Empfohlene Implementierungs-Reihenfolge
 
 **Phase 1: Security & Core (Woche 1-2)** ✅ VOLLSTÄNDIG ABGESCHLOSSEN
+
 1. ✅ Security & Authentication (#1) - ABGESCHLOSSEN
 2. ✅ Self-Healing Complete (#2) - ABGESCHLOSSEN
 3. ✅ GPU Error Handling (#3) - ABGESCHLOSSEN
 4. ✅ Update System (#4) - ABGESCHLOSSEN
 
-**Phase 2: Deployment & Finalisierung (Woche 2-3)**
-5. Bootstrap Improvements (#5) - **NÄCHSTER SCHRITT**
-6. Frontend Updates (#6) - teilweise abgeschlossen
-7. Deployment Readiness (#7)
-8. Error Handling (#14)
+**Phase 2: Deployment & Finalisierung (Woche 2-3)** 5. Bootstrap Improvements (#5) - **NÄCHSTER SCHRITT** 6. Frontend Updates (#6) - teilweise abgeschlossen 7. Deployment Readiness (#7) 8. Error Handling (#14)
 
-**Phase 3: Integration & Stability (Woche 3-4)**
-9. Logging System (#8)
-10. Reverse Proxy (#9)
-11. Workflow Integration (#10)
-12. Healthchecks (#11)
+**Phase 3: Integration & Stability (Woche 3-4)** 9. Logging System (#8) 10. Reverse Proxy (#9) 11. Workflow Integration (#10) 12. Healthchecks (#11)
 
-**Phase 4: Polish & Testing (Woche 4-5)**
-13. MinIO Buckets (#12)
-14. Missing APIs (#13) - teilweise abgeschlossen
-15. Database Pooling (#16)
-16. Testing (#19)
+**Phase 4: Polish & Testing (Woche 4-5)** 13. MinIO Buckets (#12) 14. Missing APIs (#13) - teilweise abgeschlossen 15. Database Pooling (#16) 16. Testing (#19)
 
 ---
 
@@ -661,12 +715,14 @@
 **Alle essentiellen Features für ein produktionsreifes System sind implementiert!**
 
 **Nächste Schritte (HIGH Priority):**
+
 - #5: Bootstrap Improvements (Hardware Validation, Smoke Tests)
 - #6: Frontend Updates (Update UI, Error Handling)
 - #7: Deployment Readiness (Installer, mDNS, Load Tests)
 - #14: Error Handling & Logging (Comprehensive logging)
 
 **System ist jetzt in gutem Produktionszustand:**
+
 - ✅ Alle kritischen Features implementiert
 - ✅ Self-Healing funktionsfähig
 - ✅ GPU Monitoring & Recovery
