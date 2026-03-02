@@ -2,15 +2,14 @@ FROM node:20-alpine AS builder
 
 LABEL org.opencontainers.image.architecture="arm64"
 
-WORKDIR /app
+WORKDIR /repo
 
-# Copy shared package
+# Copy shared package (must match file:../../packages/shared reference)
 COPY packages/shared/ ./packages/shared/
 
-# Copy package files
+# Copy package files and install dependencies
+WORKDIR /repo/apps/dashboard-frontend
 COPY apps/dashboard-frontend/package*.json ./
-
-# Install dependencies (use install instead of ci when package-lock.json doesn't exist)
 RUN npm install
 
 # Copy source code
@@ -30,7 +29,7 @@ LABEL org.opencontainers.image.architecture="arm64"
 COPY apps/dashboard-frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built application
-COPY --from=builder /app/build /usr/share/nginx/html
+COPY --from=builder /repo/apps/dashboard-frontend/build /usr/share/nginx/html
 
 # Health check
 HEALTHCHECK --interval=10s --timeout=1s --retries=3 \

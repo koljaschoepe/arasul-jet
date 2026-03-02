@@ -13,13 +13,14 @@ import {
   FiStar,
   FiEdit2,
 } from 'react-icons/fi';
-const ProjectModal = lazy(() => import('../projects/ProjectModal'));
 import ChatMessage from './ChatMessage';
 import ChatTabsBar from './ChatTabsBar';
 import useChatActions from './useChatActions';
 import useChatStreaming from './useChatStreaming';
 import { useApi } from '../../hooks/useApi';
 import './chatmulti.css';
+
+const ProjectModal = lazy(() => import('../projects/ProjectModal'));
 
 function ChatMulti() {
   const api = useApi();
