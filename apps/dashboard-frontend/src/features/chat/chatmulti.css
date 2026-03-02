@@ -1405,6 +1405,65 @@
 }
 
 /* ========================================
+   PROJECT BANNER
+   ======================================== */
+
+.project-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-card);
+  border-bottom: 2px solid var(--primary-color);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.project-banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.project-banner-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.project-banner-prompt {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.project-banner-space {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.project-banner-edit {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.project-banner-edit:hover {
+  color: var(--primary-color);
+  background: var(--primary-muted);
+}
+
+/* ========================================
    RESPONSIVE DESIGN - Chat Interface
    MacBook-focused with progressive scaling
    ======================================== */

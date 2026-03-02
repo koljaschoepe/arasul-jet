@@ -8,7 +8,7 @@
  *  - Low temperature (0.3) for factual summaries
  *  - Stores summary in chat_conversations table
  *  - Logs compaction stats in compaction_log table
- *  - Pre-compaction memory flush placeholder (Phase 5 connects memoryService)
+ *  - Memory extraction removed (replaced by projects system)
  */
 
 const logger = require('../../utils/logger');
@@ -47,22 +47,9 @@ async function compactMessages({
     };
   }
 
-  // STEP 1: Pre-Compaction Memory Flush - extract important facts BEFORE summarizing
-  let memoriesExtracted = 0;
-  try {
-    const memoryService = require('./memoryService');
-    const extracted = await memoryService.extractMemories(messagesToCompact, model);
-    if (extracted.length > 0) {
-      memoriesExtracted = await memoryService.saveMemories(extracted, conversationId);
-      logger.info(
-        `[Compaction] Pre-flush: ${memoriesExtracted} memories extracted from ${messagesToCompact.length} messages`
-      );
-    }
-  } catch (memErr) {
-    logger.warn(`[Compaction] Memory flush failed (non-critical): ${memErr.message}`);
-  }
+  const memoriesExtracted = 0;
 
-  // STEP 2: Compaction - summarize the messages
+  // Compaction - summarize the messages
   // Calculate tokens before compaction
   const tokensBefore = messagesToCompact.reduce(
     (sum, msg) => sum + estimateTokens(msg.content || ''),

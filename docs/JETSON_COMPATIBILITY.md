@@ -321,9 +321,54 @@ docker compose up -d --scale n8n=0 --scale telegram-bot=0
 
 Minimum recommended: **JetPack 5.1** or higher.
 
+## GPU Error Handling & Recovery
+
+The platform includes automatic GPU error detection and recovery via the Self-Healing Agent.
+
+### GPU Monitoring
+
+The metrics-collector runs a GPU monitor (`gpu_monitor.py`, NVML-based) with Jetson AGX Orin support and fallback to `nvidia-smi`.
+
+**API endpoint**: `GET http://metrics-collector:9100/api/gpu`
+
+### Error Detection Thresholds
+
+| Type            | Threshold        | Action                          |
+| --------------- | ---------------- | ------------------------------- |
+| Memory Warning  | > 36 GB          | Clear LLM cache                 |
+| Memory Critical | > 38 GB          | Reset GPU session (LLM restart) |
+| Memory Max      | > 40 GB          | Hard limit (PRD)                |
+| Temp Warning    | > 83 C           | Throttle GPU (power limit 80%)  |
+| Temp Critical   | > 85 C           | Restart LLM service             |
+| Temp Shutdown   | > 90 C           | Emergency stop LLM              |
+| GPU Hang        | 99% util for 30s | `nvidia-smi --gpu-reset`        |
+
+### Recovery Actions
+
+| Action        | Trigger       | Method                   |
+| ------------- | ------------- | ------------------------ |
+| Clear Cache   | Memory > 36GB | Ollama models unload     |
+| Reset Session | Memory > 38GB | LLM service restart      |
+| Throttle GPU  | Temp > 83 C   | Power limit 80%          |
+| Restart LLM   | Temp > 85 C   | Service restart          |
+| Stop LLM      | Temp > 90 C   | Emergency stop           |
+| Reset GPU     | GPU Hang      | `nvidia-smi --gpu-reset` |
+
+### Jetson-Specific Features
+
+- `jetson_clocks --fan` for thermal management
+- Thermal zone reading (`/sys/class/thermal/`)
+- Power limiting via nvidia-smi
+
+### Files
+
+- `services/metrics-collector/gpu_monitor.py` - GPU monitoring module
+- `services/self-healing-agent/gpu_recovery.py` - Recovery actions
+- `apps/dashboard-backend/src/routes/system/services.js` - `/api/services/ai` endpoint
+
 ## Related Documentation
 
-- [Installation Guide](../INSTALLATION.md)
+- [Deployment Guide](DEPLOYMENT.md)
 - [LLM Service](../services/llm-service/README.md)
 - [Embedding Service](../services/embedding-service/README.md)
 - [Self-Healing Agent](../services/self-healing-agent/README.md)

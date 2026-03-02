@@ -17,7 +17,7 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '4h';
 
 /**
  * Generate JWT token for user

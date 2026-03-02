@@ -224,7 +224,7 @@ Required for Google OAuth and external webhook access from other devices.
 4. Configure public hostname in Cloudflare dashboard: `http://reverse-proxy:80`
 5. Restart: `docker compose up -d cloudflared n8n`
 
-See [N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md](./N8N_OAUTH_LAN_ACCESS_COMPLETE_GUIDE.md) for detailed instructions.
+See [CUSTOMER_OAUTH_SETUP.md](./CUSTOMER_OAUTH_SETUP.md) for detailed instructions.
 
 ---
 
@@ -668,5 +668,5 @@ If both `VAR` and `VAR_FILE` are set, the file-based value wins (overwrites the 
 
 ## Related Documentation
 
-- [INSTALLATION.md](../INSTALLATION.md) - Setup guide
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Setup & deployment guide
 - [config/README.md](../config/README.md) - Config directory

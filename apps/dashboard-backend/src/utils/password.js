@@ -8,13 +8,13 @@ const logger = require('./logger');
 const SALT_ROUNDS = 12;
 
 // Password complexity requirements for production deployment
-const PASSWORD_MIN_LENGTH = 4;
+const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REQUIREMENTS = {
   minLength: PASSWORD_MIN_LENGTH,
-  requireUppercase: false,
-  requireLowercase: false,
-  requireNumbers: false,
-  requireSpecialChars: false,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireNumbers: true,
+  requireSpecialChars: false, // Avoid lockout on edge device
 };
 
 /**
@@ -50,26 +50,26 @@ function validatePasswordComplexity(password) {
   const errors = [];
 
   if (password.length < PASSWORD_REQUIREMENTS.minLength) {
-    errors.push(`Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters long`);
+    errors.push(`Passwort muss mindestens ${PASSWORD_REQUIREMENTS.minLength} Zeichen lang sein`);
   }
 
   if (PASSWORD_REQUIREMENTS.requireUppercase && !/[A-Z]/.test(password)) {
-    errors.push('Password must contain at least one uppercase letter');
+    errors.push('Passwort muss mindestens einen Grossbuchstaben enthalten');
   }
 
   if (PASSWORD_REQUIREMENTS.requireLowercase && !/[a-z]/.test(password)) {
-    errors.push('Password must contain at least one lowercase letter');
+    errors.push('Passwort muss mindestens einen Kleinbuchstaben enthalten');
   }
 
   if (PASSWORD_REQUIREMENTS.requireNumbers && !/[0-9]/.test(password)) {
-    errors.push('Password must contain at least one number');
+    errors.push('Passwort muss mindestens eine Zahl enthalten');
   }
 
   if (
     PASSWORD_REQUIREMENTS.requireSpecialChars &&
     !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
   ) {
-    errors.push('Password must contain at least one special character');
+    errors.push('Passwort muss mindestens ein Sonderzeichen enthalten');
   }
 
   return {

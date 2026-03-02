@@ -162,10 +162,10 @@ describe('Settings Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('requirements');
       expect(res.body.requirements).toMatchObject({
-        minLength: 4,
-        requireUppercase: false,
-        requireLowercase: false,
-        requireNumbers: false,
+        minLength: 8,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireNumbers: true,
         requireSpecialChars: false
       });
       expect(res.body).toHaveProperty('timestamp');
@@ -200,7 +200,7 @@ describe('Settings Routes', () => {
       expect(res.body).toHaveProperty('error');
     });
 
-    test('returns 400 when new password is too short (< 4 chars)', async () => {
+    test('returns 400 when new password is too short (< 8 chars)', async () => {
       setupMocksWithAuth();
 
       const res = await request(app)

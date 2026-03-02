@@ -151,6 +151,7 @@ RUN_ALL=false
 RUN_BACKEND=false
 RUN_FRONTEND=false
 RUN_PYTHON=false
+RUN_QUALITY=false
 
 if [ "$1" = "--all" ] || [ "$1" = "-a" ]; then
   RUN_ALL=true
@@ -160,7 +161,21 @@ elif [ "$1" = "--frontend" ] || [ "$1" = "-f" ]; then
   RUN_FRONTEND=true
 elif [ "$1" = "--python" ] || [ "$1" = "-p" ]; then
   RUN_PYTHON=true
+elif [ "$1" = "--quality" ] || [ "$1" = "-q" ]; then
+  RUN_QUALITY=true
 fi
+
+# Funktion: Quality Gates (Design System + Code Quality)
+run_quality_gates() {
+  echo ""
+  echo "-> Running Quality Gates (Design System + Code Quality)..."
+  if node "$SCRIPT_DIR/check-design-system.js" && node "$SCRIPT_DIR/check-code-quality.js"; then
+    echo "   Quality gates: PASSED"
+  else
+    echo "   Quality gates: FAILED"
+    EXIT_CODE=1
+  fi
+}
 
 # Hauptlogik: Welche Tests laufen?
 if [ "$RUN_ALL" = true ]; then
@@ -168,12 +183,15 @@ if [ "$RUN_ALL" = true ]; then
   run_backend_tests
   run_frontend_tests
   run_python_tests
+  run_quality_gates
 elif [ "$RUN_BACKEND" = true ]; then
   run_backend_tests
 elif [ "$RUN_FRONTEND" = true ]; then
   run_frontend_tests
 elif [ "$RUN_PYTHON" = true ]; then
   run_python_tests
+elif [ "$RUN_QUALITY" = true ]; then
+  run_quality_gates
 else
   # Auto-Detection basierend auf Änderungen
   CHANGES=$(detect_changes)

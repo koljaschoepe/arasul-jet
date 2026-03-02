@@ -48,7 +48,7 @@ describe('Password Utilities', () => {
   });
 
   describe('validatePasswordComplexity', () => {
-    // Requirements: minLength 4, no uppercase/lowercase/number requirements
+    // Requirements: minLength 8, requireUppercase, requireLowercase, requireNumbers
 
     test('should accept strong password', () => {
       const result = validatePasswordComplexity('StrongPass123!@#');
@@ -57,40 +57,56 @@ describe('Password Utilities', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    test('should accept password meeting minimum length', () => {
-      const result = validatePasswordComplexity('abcd');
+    test('should accept password meeting all requirements', () => {
+      const result = validatePasswordComplexity('Abcdef1x');
 
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    test('should reject password too short', () => {
-      const result = validatePasswordComplexity('abc');
+    test('should reject password shorter than 8 characters', () => {
+      const result = validatePasswordComplexity('Abc1xyz');
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Password must be at least 4 characters long');
+      expect(result.errors).toContain('Passwort muss mindestens 8 Zeichen lang sein');
     });
 
-    test('should accept password without uppercase', () => {
+    test('should reject password without uppercase', () => {
       const result = validatePasswordComplexity('lowercase12345');
 
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Passwort muss mindestens einen Grossbuchstaben enthalten');
     });
 
-    test('should accept password without lowercase', () => {
+    test('should reject password without lowercase', () => {
       const result = validatePasswordComplexity('UPPERCASE12345');
 
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Passwort muss mindestens einen Kleinbuchstaben enthalten');
     });
 
-    test('should accept password without numbers', () => {
-      const result = validatePasswordComplexity('NoNumbersHere!');
+    test('should reject password without numbers', () => {
+      const result = validatePasswordComplexity('NoNumbersHere');
 
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Passwort muss mindestens eine Zahl enthalten');
     });
 
     test('should accept password without special characters', () => {
-      const result = validatePasswordComplexity('NoSpecialChars1');
+      const result = validatePasswordComplexity('NoSpecial1x');
+
+      expect(result.valid).toBe(true);
+    });
+
+    test('should return multiple errors for very weak password', () => {
+      const result = validatePasswordComplexity('abc');
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.length).toBeGreaterThanOrEqual(2);
+    });
+
+    test('should accept exactly 8 character password meeting all requirements', () => {
+      const result = validatePasswordComplexity('Abcdef1x');
 
       expect(result.valid).toBe(true);
     });

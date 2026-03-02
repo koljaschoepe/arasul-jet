@@ -192,7 +192,7 @@ Response: Server-Sent Events (SSE) stream
 | GET    | `/api/chats`              | List all conversations      |
 | POST   | `/api/chats`              | Create new conversation     |
 | GET    | `/api/chats/:id`          | Get conversation details    |
-| PATCH  | `/api/chats/:id`          | Update conversation title   |
+| PATCH  | `/api/chats/:id`          | Update title or project     |
 | DELETE | `/api/chats/:id`          | Soft delete conversation    |
 | GET    | `/api/chats/:id/messages` | Get messages                |
 | POST   | `/api/chats/:id/messages` | Add message                 |
@@ -202,9 +202,23 @@ Response: Server-Sent Events (SSE) stream
 
 ```json
 {
-  "title": "Optional title"
+  "title": "Optional title",
+  "project_id": "uuid" // optional, assign to project
 }
 ```
+
+**PATCH /api/chats/:id:**
+
+```json
+{
+  "title": "New title", // optional
+  "project_id": "uuid|null" // optional, move to/from project
+}
+```
+
+**GET /api/chats** Query Parameters:
+
+- `ungrouped=true`: Only return conversations not assigned to any project
 
 **POST /api/chats/:id/messages:**
 
@@ -262,6 +276,65 @@ JSON Export Example:
 ```
 
 Markdown Export: Generates a human-readable Markdown file with collapsible thinking blocks and source citations.
+
+### Projects
+
+Projects group conversations with a shared system prompt and optional Knowledge Space for RAG focus.
+
+| Method | Endpoint            | Description                                     |
+| ------ | ------------------- | ----------------------------------------------- |
+| GET    | `/api/projects`     | List all projects with conversation count       |
+| POST   | `/api/projects`     | Create new project                              |
+| GET    | `/api/projects/:id` | Get project details with conversations          |
+| PUT    | `/api/projects/:id` | Update project                                  |
+| DELETE | `/api/projects/:id` | Delete project (conversations become ungrouped) |
+
+**GET /api/projects:**
+
+Query Parameters:
+
+- `include=conversations`: Include full conversation list per project
+
+```json
+{
+  "projects": [
+    {
+      "id": "uuid",
+      "name": "Mein Projekt",
+      "description": "Projektbeschreibung",
+      "system_prompt": "Du bist ein Experte für...",
+      "icon": "folder",
+      "color": "#45ADFF",
+      "knowledge_space_id": "uuid|null",
+      "space_name": "Space Name|null",
+      "sort_order": 0,
+      "conversation_count": "3",
+      "conversations": [...]  // only with include=conversations
+    }
+  ]
+}
+```
+
+**POST /api/projects:**
+
+```json
+{
+  "name": "Projekt Name", // required, max 100 chars
+  "description": "Optional", // optional
+  "system_prompt": "Du bist...", // optional
+  "icon": "folder", // optional, default: "folder"
+  "color": "#45ADFF", // optional, default: "#45ADFF"
+  "knowledge_space_id": "uuid" // optional, must exist
+}
+```
+
+**PUT /api/projects/:id:**
+
+Same body as POST. All fields optional (COALESCE update). Set `knowledge_space_id` to `null` to unlink a space.
+
+**DELETE /api/projects/:id:**
+
+Conversations belonging to the deleted project are ungrouped (`project_id` set to `NULL`), not deleted.
 
 ### RAG (Document Q&A)
 
@@ -2258,6 +2331,6 @@ All responses include:
 
 ## Related Documentation
 
-- [API Guide](API_GUIDE.md) - Detailed usage examples
+- [Development Guide](DEVELOPMENT.md) - API usage examples & patterns
 - [API Errors](API_ERRORS.md) - Complete error code reference
 - [Dashboard Backend](../apps/dashboard-backend/README.md) - Backend implementation details

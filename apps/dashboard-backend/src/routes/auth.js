@@ -24,6 +24,10 @@ const {
 } = require('../utils/errors');
 const logger = require('../utils/logger');
 
+// Cookie security: enable secure flag in production or when explicitly forced
+const isSecure =
+  process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true';
+
 // Rate limiter for password changes
 const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000); // 3 per 15 minutes
 
@@ -112,9 +116,9 @@ router.post(
     // Set HttpOnly cookie for LAN access support (session persists across IP/hostname changes)
     res.cookie('arasul_session', tokenData.token, {
       httpOnly: true,
-      secure: false, // Allow HTTP for LAN access
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      maxAge: 4 * 60 * 60 * 1000, // 4 hours (matches JWT_EXPIRY)
       path: '/',
     });
 
@@ -149,8 +153,8 @@ router.post(
     // Clear session cookie
     res.clearCookie('arasul_session', {
       httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
       path: '/',
     });
 

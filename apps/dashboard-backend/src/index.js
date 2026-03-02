@@ -30,9 +30,19 @@ const cookieParser = require('cookie-parser');
 const http = require('http');
 const WebSocket = require('ws');
 
+const helmet = require('helmet');
+
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
+
+// Security headers via helmet
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // SPA serves own CSP via meta tag
+    crossOriginEmbedderPolicy: false, // Allow LAN resource loading
+  })
+);
 
 // Trust reverse proxy (Traefik) for rate limiting and client IP detection
 app.set('trust proxy', true);

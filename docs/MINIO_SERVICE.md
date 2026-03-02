@@ -35,22 +35,51 @@ S3-compatible object storage for documents, backups, and application data.
 
 ## Buckets
 
-| Bucket      | Purpose              | Access                    |
-| ----------- | -------------------- | ------------------------- |
-| `documents` | RAG document storage | Backend, Document-Indexer |
-| `backups`   | Automated backups    | Backup Service            |
-| `apps`      | App Store packages   | Backend                   |
+| Bucket             | Policy  | Versioning | Lifecycle | Description                               |
+| ------------------ | ------- | ---------- | --------- | ----------------------------------------- |
+| `documents`        | Private | Enabled    | No expiry | User document uploads and file storage    |
+| `workflow-data`    | Private | Enabled    | 30 days   | n8n workflow execution data and artifacts |
+| `llm-cache`        | Private | Disabled   | 7 days    | LLM model response caching                |
+| `embeddings-cache` | Private | Disabled   | 7 days    | Embedding model vector caching            |
+| `backups`          | Private | Enabled    | 90 days   | System backups (database, config)         |
+| `updates`          | Private | Enabled    | No expiry | System update packages (.araupdate files) |
+| `apps`             | Private | Enabled    | No expiry | App Store packages                        |
 
 ### Bucket Initialization
 
 Buckets are created automatically on first startup via `scripts/util/init_minio_buckets.sh`:
 
 ```bash
-# Initialize buckets
 mc alias set local http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
 mc mb local/documents --ignore-existing
 mc mb local/backups --ignore-existing
 mc mb local/apps --ignore-existing
+```
+
+### Lifecycle Policies
+
+- **workflow-data**: 30 days retention - automatic cleanup of old workflow artifacts
+- **llm-cache / embeddings-cache**: 7 days retention - automatic cleanup of stale cache
+- **backups**: 90 days retention - old backups auto-deleted
+
+### Versioning
+
+Enable versioning for critical data buckets (`documents`, `backups`, `updates`) to retain history. Cache buckets have versioning disabled.
+
+### Bucket Management
+
+```bash
+# Check all bucket sizes
+mc du --depth 1 local/
+
+# Enable versioning
+mc version enable local/my-bucket
+
+# Set lifecycle policy
+mc ilm import local/my-bucket < lifecycle.json
+
+# View lifecycle rules
+mc ilm export local/my-bucket
 ```
 
 ## Environment Variables

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import {
   FiAlertCircle,
   FiChevronDown,
@@ -11,7 +11,9 @@ import {
   FiFolder,
   FiCheck,
   FiStar,
+  FiEdit2,
 } from 'react-icons/fi';
+const ProjectModal = lazy(() => import('../projects/ProjectModal'));
 import ChatMessage from './ChatMessage';
 import ChatTabsBar from './ChatTabsBar';
 import useChatActions from './useChatActions';
@@ -57,6 +59,11 @@ function ChatMulti() {
   const [showSpacesDropdown, setShowSpacesDropdown] = useState(false);
   const [matchedSpaces, setMatchedSpaces] = useState([]); // Spaces matched by auto-routing
   const spacesDropdownRef = useRef(null);
+
+  // Project context
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [currentProject, setCurrentProject] = useState(null);
+  const [showProjectModal, setShowProjectModal] = useState(false);
 
   // Background job tracking - enables tab-switch resilience
   const [activeJobIds, setActiveJobIds] = useState({}); // chatId -> jobId
@@ -119,6 +126,7 @@ function ChatMulti() {
     editingTitle,
     setEditingChatId,
     setEditingTitle,
+    currentProjectId,
   });
 
   // Streaming deps ref - updated each render to break circular dependency
@@ -154,6 +162,26 @@ function ChatMulti() {
       resetTokenBatch();
     };
   }, [resetTokenBatch]);
+
+  // Load project info when project changes
+  useEffect(() => {
+    if (!currentProjectId) {
+      setCurrentProject(null);
+      return;
+    }
+    const controller = new AbortController();
+    api
+      .get(`/projects/${currentProjectId}`, { signal: controller.signal, showError: false })
+      .then(data => {
+        setCurrentProject(data.project || null);
+        // Auto-select knowledge space if project has one
+        if (data.project?.knowledge_space_id) {
+          setSelectedSpaces([data.project.knowledge_space_id]);
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [currentProjectId, api]);
 
   // Load all chats on mount
   useEffect(() => {
@@ -373,17 +401,27 @@ function ChatMulti() {
       setLoadingChats(true);
       const data = await api.get('/chats', { showError: false });
       const chatList = data.chats || [];
-      // [ChatMulti] loadChats: loaded', chatList.length, 'chats');
       setChats(chatList);
 
+      // Check if sidebar selected a specific chat
+      const sidebarSelectedChat = localStorage.getItem('arasul_selected_chat');
+      if (sidebarSelectedChat) {
+        localStorage.removeItem('arasul_selected_chat');
+        const chatId = parseInt(sidebarSelectedChat, 10);
+        const chat = chatList.find(c => c.id === chatId);
+        if (chat) {
+          setCurrentChatId(chat.id);
+          if (chat.project_id) setCurrentProjectId(chat.project_id);
+          return;
+        }
+      }
+
       if (!currentChatId && chatList.length > 0) {
-        // [ChatMulti] loadChats: setting currentChatId to', chatList[0].id);
         setCurrentChatId(chatList[0].id);
+        if (chatList[0].project_id) setCurrentProjectId(chatList[0].project_id);
       } else if (chatList.length === 0) {
-        // [ChatMulti] loadChats: no chats, creating new one');
-        // Don't set loadingChats to false yet - createNewChat will do it
         await createNewChat();
-        return; // createNewChat handles setLoadingChats(false)
+        return;
       }
     } catch (err) {
       console.error('Error loading chats:', err);
@@ -553,14 +591,51 @@ function ChatMulti() {
         editingTitle={editingTitle}
         tabsContainerRef={tabsContainerRef}
         onCreateNewChat={createNewChat}
-        onSelectChat={selectChat}
+        onSelectChat={chatId => {
+          selectChat(chatId);
+          const chat = chats.find(c => c.id === chatId);
+          setCurrentProjectId(chat?.project_id || null);
+        }}
         onStartEditingTitle={startEditingTitle}
         onEditingTitleChange={setEditingTitle}
         onTitleKeyDown={handleTitleKeyDown}
         onSaveTitle={saveTitle}
         onExportChat={exportChat}
         onDeleteChat={deleteChat}
+        currentProject={currentProject}
       />
+
+      {/* Project Banner */}
+      {currentProject && (
+        <div
+          className="project-banner"
+          style={{ borderColor: currentProject.color || 'var(--primary-color)' }}
+        >
+          <span
+            className="project-banner-dot"
+            style={{ backgroundColor: currentProject.color || 'var(--primary-color)' }}
+          />
+          <span className="project-banner-name">{currentProject.name}</span>
+          {currentProject.system_prompt && (
+            <span className="project-banner-prompt" title={currentProject.system_prompt}>
+              System-Prompt aktiv
+            </span>
+          )}
+          {currentProject.space_name && (
+            <span className="project-banner-space">
+              <FiFolder style={{ fontSize: '0.7rem' }} /> {currentProject.space_name}
+            </span>
+          )}
+          <button
+            type="button"
+            className="project-banner-edit"
+            onClick={() => setShowProjectModal(true)}
+            title="Projekt bearbeiten"
+          >
+            <FiEdit2 />
+          </button>
+        </div>
+      )}
 
       {/* Messages Area */}
       {hasMessages && (
@@ -917,6 +992,29 @@ function ChatMulti() {
           </button>
         </div>
       </div>
+
+      {/* Project Modal */}
+      {showProjectModal && (
+        <Suspense fallback={null}>
+          <ProjectModal
+            isOpen={showProjectModal}
+            onClose={() => setShowProjectModal(false)}
+            onSave={project => {
+              if (project) {
+                setCurrentProject(project);
+                setCurrentProjectId(project.id);
+              } else {
+                // Project deleted
+                setCurrentProject(null);
+                setCurrentProjectId(null);
+              }
+              setShowProjectModal(false);
+            }}
+            project={currentProject}
+            mode={currentProject ? 'edit' : 'create'}
+          />
+        </Suspense>
+      )}
     </main>
   );
 }

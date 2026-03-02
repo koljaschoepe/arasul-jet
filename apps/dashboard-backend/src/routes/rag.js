@@ -737,11 +737,29 @@ router.post(
       let routingMethod = 'none';
       let targetSpaceIds = space_ids;
 
-      if (space_ids && space_ids.length > 0) {
-        // User pre-selected spaces
+      // Project-level space override: if conversation belongs to a project with a knowledge_space_id
+      if (!space_ids && conversation_id) {
+        try {
+          const projSpace = await db.query(
+            `SELECT p.knowledge_space_id FROM projects p
+             JOIN chat_conversations c ON c.project_id = p.id
+             WHERE c.id = $1 AND p.knowledge_space_id IS NOT NULL`,
+            [conversation_id]
+          );
+          if (projSpace.rows.length > 0) {
+            targetSpaceIds = [projSpace.rows[0].knowledge_space_id];
+            logger.debug(`Project space override: ${targetSpaceIds[0]}`);
+          }
+        } catch (projErr) {
+          logger.debug(`Project space lookup failed: ${projErr.message}`);
+        }
+      }
+
+      if (targetSpaceIds && targetSpaceIds.length > 0) {
+        // User pre-selected spaces or project-level space
         const spacesResult = await db.query(
           'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',
-          [space_ids]
+          [targetSpaceIds]
         );
         targetSpaces = spacesResult.rows;
         routingMethod = 'manual';

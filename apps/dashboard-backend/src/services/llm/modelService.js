@@ -9,9 +9,11 @@
  */
 
 const services = require('../../config/services');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { promisify } = require('util');
-const execAsync = promisify(exec);
+const fs = require('fs');
+const execFileAsync = promisify(execFile);
+const readFileAsync = promisify(fs.readFile);
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_HOST = services.llm.host;
@@ -927,14 +929,20 @@ function createModelService(deps = {}) {
     async getDiskSpace() {
       try {
         // Check /data partition (where Ollama stores models) or fallback to /
-        const { stdout } = await execAsync(
-          "df -B1 /data 2>/dev/null || df -B1 / | tail -1 | awk '{print $4, $2}'"
-        );
-        const [free, total] = stdout
-          .trim()
-          .split(/\s+/)
-          .map(v => parseInt(v));
-        return { free: free || 0, total: total || 0 };
+        let stdout;
+        try {
+          ({ stdout } = await execFileAsync('df', ['-B1', '/data']));
+        } catch {
+          ({ stdout } = await execFileAsync('df', ['-B1', '/']));
+        }
+        // Parse df output: skip header, get last line
+        const lines = stdout.trim().split('\n');
+        const lastLine = lines[lines.length - 1];
+        const fields = lastLine.split(/\s+/);
+        // df -B1 output: Filesystem 1B-blocks Used Available Use% Mounted
+        const total = parseInt(fields[1]) || 0;
+        const free = parseInt(fields[3]) || 0;
+        return { free, total };
       } catch (err) {
         logger.warn(`Could not get disk space: ${err.message}`);
         // Return large value to not block on error
@@ -951,9 +959,10 @@ function createModelService(deps = {}) {
       try {
         // For Jetson AGX Orin: Use tegrastats or nvidia-smi
         // Try nvidia-smi first (works on both desktop and Jetson with newer JetPack)
-        const { stdout } = await execAsync(
-          'nvidia-smi --query-gpu=memory.free,memory.total,memory.used --format=csv,noheader,nounits 2>/dev/null'
-        );
+        const { stdout } = await execFileAsync('nvidia-smi', [
+          '--query-gpu=memory.free,memory.total,memory.used',
+          '--format=csv,noheader,nounits',
+        ]);
         const [free, total, used] = stdout
           .trim()
           .split(',')
@@ -962,9 +971,11 @@ function createModelService(deps = {}) {
       } catch (err) {
         // Fallback for Jetson without nvidia-smi or desktop without GPU
         try {
-          // Check if we're on Jetson by looking at tegrastats
-          const { stdout: memInfo } = await execAsync('cat /proc/meminfo | grep MemAvailable');
-          const availableKb = parseInt(memInfo.split(':')[1].trim().split(' ')[0]);
+          // Read /proc/meminfo directly instead of shell pipe
+          const memInfo = await readFileAsync('/proc/meminfo', 'utf8');
+          const match = memInfo.match(/MemAvailable:\s+(\d+)\s+kB/);
+          if (!match) {throw new Error('MemAvailable not found');}
+          const availableKb = parseInt(match[1]);
           // On Jetson, GPU shares RAM - estimate 80% available for GPU
           const estimatedGpuMb = Math.floor((availableKb / 1024) * 0.8);
           return { free_mb: estimatedGpuMb, total_mb: 64000, used_mb: 64000 - estimatedGpuMb };

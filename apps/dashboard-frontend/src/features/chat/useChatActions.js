@@ -15,13 +15,17 @@ export default function useChatActions({
   editingTitle,
   setEditingChatId,
   setEditingTitle,
+  currentProjectId,
 }) {
   const api = useApi();
 
-  const createNewChat = async () => {
+  const createNewChat = async projectId => {
     try {
       setLoadingChats(true);
-      const responseData = await api.post('/chats', { title: 'New Chat' }, { showError: false });
+      const payload = { title: 'New Chat' };
+      const pid = projectId || currentProjectId;
+      if (pid) payload.project_id = pid;
+      const responseData = await api.post('/chats', payload, { showError: false });
       const newChat = responseData.chat;
 
       setChats(prevChats => [...prevChats, newChat]);

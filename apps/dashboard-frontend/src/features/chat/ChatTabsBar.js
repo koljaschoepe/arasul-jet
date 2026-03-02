@@ -22,6 +22,7 @@ const ChatTabsBar = memo(function ChatTabsBar({
   onSaveTitle,
   onExportChat,
   onDeleteChat,
+  currentProject,
 }) {
   const [hoveredChatId, setHoveredChatId] = useState(null);
 

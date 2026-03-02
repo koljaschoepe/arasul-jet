@@ -634,6 +634,26 @@ describe('Security Tests', () => {
   });
 
   // =====================================================
+  // Helmet Integration (production app)
+  // =====================================================
+  describe('Helmet Security Headers (production app)', () => {
+    it('helmet is listed as a dependency', () => {
+      const pkg = require('../../package.json');
+      expect(pkg.dependencies.helmet).toBeDefined();
+    });
+
+    it('index.js requires helmet', () => {
+      const fs = require('fs');
+      const indexSrc = fs.readFileSync(
+        require('path').join(__dirname, '../../src/index.js'),
+        'utf8'
+      );
+      expect(indexSrc).toContain("require('helmet')");
+      expect(indexSrc).toContain('app.use(helmet(');
+    });
+  });
+
+  // =====================================================
   // Input Validation
   // =====================================================
   describe('Input Validation', () => {
@@ -806,6 +826,67 @@ describe('Security Tests', () => {
       expect(JSON.stringify(response.body)).not.toContain('/app/src');
     });
   });
+});
+
+describe('Password Policy Security', () => {
+  it('requires minimum 8 character passwords', () => {
+    const { PASSWORD_REQUIREMENTS } = require('../../src/utils/password');
+    expect(PASSWORD_REQUIREMENTS.minLength).toBeGreaterThanOrEqual(8);
+  });
+
+  it('requires uppercase letters', () => {
+    const { PASSWORD_REQUIREMENTS } = require('../../src/utils/password');
+    expect(PASSWORD_REQUIREMENTS.requireUppercase).toBe(true);
+  });
+
+  it('requires lowercase letters', () => {
+    const { PASSWORD_REQUIREMENTS } = require('../../src/utils/password');
+    expect(PASSWORD_REQUIREMENTS.requireLowercase).toBe(true);
+  });
+
+  it('requires numbers', () => {
+    const { PASSWORD_REQUIREMENTS } = require('../../src/utils/password');
+    expect(PASSWORD_REQUIREMENTS.requireNumbers).toBe(true);
+  });
+});
+
+describe('JWT Expiry Security', () => {
+  it('default expiry is 4h or shorter', () => {
+    // Read jwt.js source to verify default
+    const fs = require('fs');
+    const jwtSrc = fs.readFileSync(
+      require('path').join(__dirname, '../../src/utils/jwt.js'),
+      'utf8'
+    );
+    // Match the default value in the source
+    const match = jwtSrc.match(/JWT_EXPIRY\s*=\s*process\.env\.JWT_EXPIRY\s*\|\|\s*'(\d+)h'/);
+    expect(match).toBeTruthy();
+    const hours = parseInt(match[1]);
+    expect(hours).toBeLessThanOrEqual(4);
+  });
+});
+
+describe('exec() Elimination', () => {
+  const fs = require('fs');
+  const pathModule = require('path');
+
+  const filesToCheck = [
+    'src/services/llm/modelService.js',
+    'src/tools/servicesTool.js',
+    'src/tools/logsTool.js',
+  ];
+
+  for (const file of filesToCheck) {
+    it(`${file} does not use exec() (uses execFile instead)`, () => {
+      const content = fs.readFileSync(
+        pathModule.join(__dirname, '../../', file),
+        'utf8'
+      );
+      // Should not have { exec } import (but { execFile } is fine)
+      expect(content).not.toMatch(/\{\s*exec\s*\}/);
+      expect(content).toContain('execFile');
+    });
+  }
 });
 
 describe('Additional Security Vectors', () => {

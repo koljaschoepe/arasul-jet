@@ -4,10 +4,10 @@
  */
 
 const BaseTool = require('./baseTool');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const util = require('util');
 
-const execAsync = util.promisify(exec);
+const execFileAsync = util.promisify(execFile);
 
 // Whitelist of allowed service names (security)
 const ALLOWED_SERVICES = [
@@ -70,29 +70,37 @@ class LogsTool extends BaseTool {
     }
 
     try {
-      let command = `docker logs ${sanitizedName} --tail ${lines} 2>&1`;
+      // execFile avoids shell injection — stderr is captured via separate stream
+      const { stdout, stderr } = await execFileAsync(
+        'docker',
+        ['logs', sanitizedName, '--tail', String(lines)],
+        { timeout: 10000 }
+      );
 
-      if (errorsOnly) {
-        command += ' | grep -iE "(error|exception|fail|critical)" || echo "Keine Fehler gefunden"';
-      }
+      // Docker logs outputs to both stdout and stderr
+      let combined = (stdout + '\n' + stderr).trim();
 
-      const { stdout } = await execAsync(command, { timeout: 10000 });
-
-      if (!stdout.trim()) {
+      if (!combined) {
         return `📋 Keine Logs fuer "${sanitizedName}" gefunden`;
       }
 
+      // Filter errors in JS instead of shell pipe
+      if (errorsOnly) {
+        const errorPattern = /error|exception|fail|critical/i;
+        const filtered = combined.split('\n').filter(line => errorPattern.test(line));
+        combined = filtered.length > 0 ? filtered.join('\n') : 'Keine Fehler gefunden';
+      }
+
       // Truncate if too long for Telegram
-      let output = stdout.trim();
-      if (output.length > 3500) {
-        output = output.substring(0, 3500) + '\n... (gekuerzt)';
+      if (combined.length > 3500) {
+        combined = combined.substring(0, 3500) + '\n... (gekuerzt)';
       }
 
       const header = errorsOnly
         ? `📋 **Fehler-Logs: ${sanitizedName}** (${lines} Zeilen)`
         : `📋 **Logs: ${sanitizedName}** (${lines} Zeilen)`;
 
-      return `${header}\n\n\`\`\`\n${output}\n\`\`\``;
+      return `${header}\n\n\`\`\`\n${combined}\n\`\`\``;
     } catch (error) {
       if (error.message.includes('No such container')) {
         return `❌ Container "${sanitizedName}" nicht gefunden`;
@@ -120,7 +128,7 @@ class LogsTool extends BaseTool {
 
   async isAvailable() {
     try {
-      await execAsync('docker --version', { timeout: 2000 });
+      await execFileAsync('docker', ['--version'], { timeout: 2000 });
       return true;
     } catch {
       return false;

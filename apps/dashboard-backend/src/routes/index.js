@@ -23,6 +23,7 @@ const { metricsLimiter, llmLimiter } = require('../middleware/rateLimit');
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
 router.use('/chats', require('./chats'));
+router.use('/projects', require('./projects'));
 router.use('/documents', require('./documents'));
 router.use('/llm', llmLimiter, require('./llm'));
 router.use('/rag', require('./rag'));
@@ -49,7 +50,7 @@ router.use('/self-healing', require('./admin/selfhealing'));
 // --- AI ---
 router.use('/models', require('./ai/models'));
 router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
-router.use('/memory', require('./ai/memory'));
+// router.use('/memory', require('./ai/memory')); // Removed: replaced by projects system
 router.use('/spaces', require('./ai/spaces'));
 
 // --- Store ---

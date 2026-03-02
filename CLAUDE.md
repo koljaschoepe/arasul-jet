@@ -9,13 +9,13 @@ Instructions for Claude Code working in the Arasul Platform repository.
 | Looking for...              | Go to...                                                       |
 | --------------------------- | -------------------------------------------------------------- |
 | All documentation           | [docs/INDEX.md](docs/INDEX.md)                                 |
-| **Architecture & Services** | [docs/CLAUDE_ARCHITECTURE.md](docs/CLAUDE_ARCHITECTURE.md)     |
-| **Development Workflows**   | [docs/CLAUDE_DEVELOPMENT.md](docs/CLAUDE_DEVELOPMENT.md)       |
+| **Getting started**         | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)             |
+| **Architecture & Services** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   |
+| **Development Guide**       | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                     |
 | **Frontend Design System**  | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)                 |
 | API endpoints               | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)                 |
 | Database schema             | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)             |
 | Environment variables       | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) |
-| Error Handling Pattern      | `asyncHandler()` + custom errors in `utils/errors.js`          |
 
 ---
 
@@ -27,8 +27,8 @@ Instructions for Claude Code working in the Arasul Platform repository.
 | --------- | ------------------------------------------------- |
 | Hardware  | Jetson AGX Orin (12-Core ARM, 64GB DDR5)          |
 | Runtime   | Docker Compose V2 + NVIDIA Container Runtime      |
-| Frontend  | React 18 SPA                                      |
-| Backend   | Node.js/Express                                   |
+| Frontend  | React 18 SPA (`apps/dashboard-frontend/`)         |
+| Backend   | Node.js/Express (`apps/dashboard-backend/`)       |
 | Database  | PostgreSQL 16                                     |
 | AI        | Ollama (LLM) + Sentence Transformers (Embeddings) |
 | Vector DB | Qdrant                                            |
@@ -47,11 +47,18 @@ Instructions for Claude Code working in the Arasul Platform repository.
 
 ### 2. Follow Design System for Frontend
 
-- Primary color: `#45ADFF`
-- Background: `#101923` / `#1A2330`
+- Primary color: `#45ADFF`, Background: `#101923` / `#1A2330`
+- Always use CSS variables (`var(--primary-color)`) - never hardcoded hex in JSX
 - See [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
 
-### 3. Update Documentation
+### 3. Backend Patterns
+
+- **Always**: `asyncHandler()` wrapper + custom errors from `utils/errors.js`
+- **Always**: `useApi()` hook for frontend REST calls
+- **Never**: manual try-catch at route level, raw `fetch()` in components
+- See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+
+### 4. Update Documentation
 
 | Change Type      | Update These Files              |
 | ---------------- | ------------------------------- |
@@ -60,15 +67,10 @@ Instructions for Claude Code working in the Arasul Platform repository.
 | New env variable | `docs/ENVIRONMENT_VARIABLES.md` |
 | Bug fix          | `BUGS_AND_FIXES.md`             |
 
-### 4. Git Commit Convention
+### 5. Git Commit Convention
 
 ```
-feat: Add new feature
-fix: Bug fix
-docs: Documentation only
-refactor: Code restructure
-test: Add/update tests
-chore: Maintenance tasks
+feat|fix|docs|refactor|test|chore: Description
 ```
 
 ---
@@ -76,54 +78,13 @@ chore: Maintenance tasks
 ## Essential Commands
 
 ```bash
-# Start all services
-docker compose up -d
-
-# View logs
-docker compose logs -f <service-name>
-
-# Rebuild service
-docker compose up -d --build <service-name>
-
-# Database shell
-docker exec -it postgres-db psql -U arasul -d arasul_db
-
-# Run tests
-./scripts/test/run-tests.sh --backend
-
-# Lint code
-npm run lint
-npm run lint:fix
+docker compose up -d                          # Start all services
+docker compose logs -f <service-name>         # View logs
+docker compose up -d --build <service-name>   # Rebuild service
+docker exec -it postgres-db psql -U arasul -d arasul_db  # Database shell
+./scripts/test/run-tests.sh --backend         # Run tests
+npm run lint:fix                              # Lint code
 ```
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER LAYER                              │
-│  FRONTEND (3000) ──── TRAEFIK (80/443) ──── TELEGRAM-BOT (8090)│
-├─────────────────────────────────────────────────────────────────┤
-│                       APPLICATION LAYER                         │
-│  BACKEND (3001) ─────── n8n (5678) ─────── DOCUMENT-INDEXER    │
-├─────────────────────────────────────────────────────────────────┤
-│                          AI LAYER                               │
-│  LLM-SERVICE (11434) ── EMBEDDING (11435) ── QDRANT (6333)     │
-├─────────────────────────────────────────────────────────────────┤
-│                      INFRASTRUCTURE LAYER                       │
-│  POSTGRES (5432) ── MINIO (9000) ── METRICS (9100)             │
-│       SELF-HEALING-AGENT (9200) ── BACKUP-SERVICE              │
-├─────────────────────────────────────────────────────────────────┤
-│                      MONITORING LAYER                           │
-│  LOKI (3100) ─────────── PROMTAIL (9080)                       │
-├─────────────────────────────────────────────────────────────────┤
-│                      EXTERNAL ACCESS LAYER                      │
-│  CLOUDFLARED ───── (OAuth Tunnel to Cloudflare Edge)           │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Full service details:** [docs/CLAUDE_ARCHITECTURE.md](docs/CLAUDE_ARCHITECTURE.md)
 
 ---
 
@@ -147,7 +108,7 @@ npm run lint:fix
 | LLM not responding  | `docker compose logs llm-service`              |
 | Check all services  | `docker compose ps`                            |
 
-**Full debugging guide:** [docs/CLAUDE_DEVELOPMENT.md#debugging](docs/CLAUDE_DEVELOPMENT.md#debugging-cheatsheet)
+Full debugging guide: [docs/DEVELOPMENT.md#6-debugging-cheatsheet](docs/DEVELOPMENT.md#6-debugging-cheatsheet)
 
 ---
 
@@ -161,14 +122,3 @@ For task-specific context, see `.claude/context/`:
 - `database.md` - PostgreSQL migrations
 - `api-endpoint.md` - Adding new endpoints
 - `component.md` - Adding React components
-
----
-
-## References
-
-- [docs/CLAUDE_ARCHITECTURE.md](docs/CLAUDE_ARCHITECTURE.md) - Services, ports, startup order
-- [docs/CLAUDE_DEVELOPMENT.md](docs/CLAUDE_DEVELOPMENT.md) - Workflows, API reference, debugging
-- [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) - **Frontend Design Guidelines (MANDATORY)**
-- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) - API documentation
-- [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) - Database schema
-- [BUGS_AND_FIXES.md](BUGS_AND_FIXES.md) - Historical bugs & solutions

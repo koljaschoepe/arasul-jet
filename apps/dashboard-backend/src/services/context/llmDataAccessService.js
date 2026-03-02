@@ -513,6 +513,68 @@ const DANGEROUS_SQL_KEYWORDS = [
 ];
 
 /**
+ * Allowed SQL keywords whitelist — only these keywords are permitted in LLM-generated queries.
+ * This provides defense-in-depth on top of the blacklist above.
+ */
+const ALLOWED_SQL_KEYWORDS = new Set([
+  'select',
+  'from',
+  'where',
+  'and',
+  'or',
+  'not',
+  'in',
+  'between',
+  'like',
+  'ilike',
+  'is',
+  'null',
+  'as',
+  'order',
+  'by',
+  'asc',
+  'desc',
+  'limit',
+  'offset',
+  'count',
+  'sum',
+  'avg',
+  'min',
+  'max',
+  'group',
+  'having',
+  'distinct',
+  'case',
+  'when',
+  'then',
+  'else',
+  'end',
+  'cast',
+  'coalesce',
+  'nullif',
+  'true',
+  'false',
+  'join',
+  'left',
+  'right',
+  'inner',
+  'outer',
+  'on',
+  'exists',
+  'any',
+  'all',
+  'date_trunc',
+  'now',
+  'extract',
+  'upper',
+  'lower',
+  'trim',
+  'length',
+  'substring',
+  'concat',
+]);
+
+/**
  * Get the schema of a table including all field definitions
  * @param {string} tableSlug - Table slug
  * @returns {Object} Table schema with fields
@@ -692,6 +754,26 @@ function validateSQL(sql) {
   // Check for multiple statements
   if (trimmedSQL.includes(';') && trimmedSQL.indexOf(';') < trimmedSQL.length - 1) {
     return { valid: false, error: 'Multiple SQL statements are not allowed' };
+  }
+
+  // Whitelist check: extract SQL keywords and reject any not in the allowed set
+  // Match alphabetic words that look like SQL keywords (not inside quotes)
+  const sqlWithoutStrings = trimmedSQL.replace(/'[^']*'/g, ''); // Strip string literals
+  const words = sqlWithoutStrings.match(/\b[a-z_]+\b/g) || [];
+  for (const word of words) {
+    // Skip table/column names (data_ prefix, underscore-prefixed system cols) and numeric-like tokens
+    if (word.startsWith('data_') || word.startsWith('_') || /^\d+$/.test(word)) {
+      continue;
+    }
+    // Skip single-character words (aliases like 'a', 'b', etc.)
+    if (word.length === 1) {
+      continue;
+    }
+    // Check if this looks like a SQL keyword (not a column/table name)
+    // Only flag words that are known SQL keywords but not in the allowed set
+    if (!ALLOWED_SQL_KEYWORDS.has(word) && DANGEROUS_SQL_KEYWORDS.includes(word)) {
+      return { valid: false, error: `Forbidden SQL keyword: ${word}` };
+    }
   }
 
   return { valid: true };

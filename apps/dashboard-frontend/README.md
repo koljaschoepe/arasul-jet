@@ -588,5 +588,5 @@ test -f /usr/share/nginx/html/index.html
 
 - [Design System](../../docs/DESIGN_SYSTEM.md) - UI guidelines (MANDATORY)
 - [Dashboard Backend](../dashboard-backend/README.md) - Backend API
-- [API Guide](../../docs/API_GUIDE.md) - API usage examples
+- [Development Guide](../../docs/DEVELOPMENT.md) - API usage examples & patterns
 - [API Reference](../../docs/API_REFERENCE.md) - Complete endpoint list

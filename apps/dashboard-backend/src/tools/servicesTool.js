@@ -4,10 +4,10 @@
  */
 
 const BaseTool = require('./baseTool');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const util = require('util');
 
-const execAsync = util.promisify(exec);
+const execFileAsync = util.promisify(execFile);
 
 class ServicesTool extends BaseTool {
   get name() {
@@ -42,8 +42,9 @@ class ServicesTool extends BaseTool {
 
   async getAllServices() {
     try {
-      const { stdout } = await execAsync(
-        'docker ps --format "{{.Names}}|{{.Status}}|{{.State}}" 2>/dev/null',
+      const { stdout } = await execFileAsync(
+        'docker',
+        ['ps', '--format', '{{.Names}}|{{.Status}}|{{.State}}'],
         { timeout: 10000 }
       );
 
@@ -69,8 +70,9 @@ class ServicesTool extends BaseTool {
     } catch (error) {
       // Fallback: Try docker compose ps
       try {
-        const { stdout } = await execAsync(
-          'docker compose ps --format "{{.Name}}|{{.Status}}|{{.Health}}" 2>/dev/null',
+        const { stdout } = await execFileAsync(
+          'docker',
+          ['compose', 'ps', '--format', '{{.Name}}|{{.Status}}|{{.Health}}'],
           { timeout: 10000, cwd: '/app' }
         );
         return this.parseComposeOutput(stdout);
@@ -82,8 +84,16 @@ class ServicesTool extends BaseTool {
 
   async getServiceStatus(serviceName) {
     try {
-      const { stdout } = await execAsync(
-        `docker ps -a --filter "name=${serviceName}" --format "{{.Names}}|{{.Status}}|{{.State}}|{{.Ports}}" 2>/dev/null`,
+      const { stdout } = await execFileAsync(
+        'docker',
+        [
+          'ps',
+          '-a',
+          '--filter',
+          `name=${serviceName}`,
+          '--format',
+          '{{.Names}}|{{.Status}}|{{.State}}|{{.Ports}}',
+        ],
         { timeout: 5000 }
       );
 
@@ -102,8 +112,9 @@ class ServicesTool extends BaseTool {
 
       // Get container stats
       try {
-        const { stdout: stats } = await execAsync(
-          `docker stats ${name} --no-stream --format "{{.CPUPerc}}|{{.MemUsage}}" 2>/dev/null`,
+        const { stdout: stats } = await execFileAsync(
+          'docker',
+          ['stats', name, '--no-stream', '--format', '{{.CPUPerc}}|{{.MemUsage}}'],
           { timeout: 5000 }
         );
         if (stats.trim()) {
@@ -144,7 +155,7 @@ class ServicesTool extends BaseTool {
 
   async isAvailable() {
     try {
-      await execAsync('docker --version', { timeout: 2000 });
+      await execFileAsync('docker', ['--version'], { timeout: 2000 });
       return true;
     } catch {
       return false;

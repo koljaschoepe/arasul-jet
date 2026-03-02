@@ -23,14 +23,19 @@ router.get(
   '/',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await db.query(
-      `SELECT id, title, created_at, updated_at, message_count
+    const ungrouped = req.query.ungrouped === 'true';
+
+    let query = `SELECT id, title, project_id, created_at, updated_at, message_count
          FROM chat_conversations
-         WHERE deleted_at IS NULL
-         ORDER BY updated_at DESC
-         LIMIT 100`,
-      []
-    );
+         WHERE deleted_at IS NULL`;
+
+    if (ungrouped) {
+      query += ' AND project_id IS NULL';
+    }
+
+    query += ' ORDER BY updated_at DESC LIMIT 100';
+
+    const result = await db.query(query, []);
 
     res.json({
       chats: result.rows,
@@ -44,13 +49,13 @@ router.post(
   '/',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { title } = req.body;
+    const { title, project_id } = req.body;
 
     const result = await db.query(
-      `INSERT INTO chat_conversations (title, created_at, updated_at)
-         VALUES ($1, NOW(), NOW())
-         RETURNING id, title, created_at, updated_at, message_count`,
-      [title || 'New Chat']
+      `INSERT INTO chat_conversations (title, project_id, created_at, updated_at)
+         VALUES ($1, $2, NOW(), NOW())
+         RETURNING id, title, project_id, created_at, updated_at, message_count`,
+      [title || 'New Chat', project_id || null]
     );
 
     res.json({
@@ -163,29 +168,44 @@ router.post(
   })
 );
 
-// PATCH /api/chats/:id - Update chat title
+// PATCH /api/chats/:id - Update chat (title, project_id)
 router.patch(
   '/:id',
   requireAuth,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { title } = req.body;
+    const { title, project_id } = req.body;
 
     // PHASE3-FIX: Validate conversation_id
     if (!isValidConversationId(id)) {
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
     }
 
-    if (!title) {
-      throw new ValidationError('Title is required');
+    if (!title && project_id === undefined) {
+      throw new ValidationError('Title or project_id is required');
     }
 
+    // Build dynamic update
+    const setClauses = ['updated_at = NOW()'];
+    const params = [];
+    let paramIdx = 1;
+
+    if (title) {
+      setClauses.push(`title = $${paramIdx++}`);
+      params.push(title);
+    }
+    if (project_id !== undefined) {
+      setClauses.push(`project_id = $${paramIdx++}`);
+      params.push(project_id || null);
+    }
+
+    params.push(id);
     const result = await db.query(
       `UPDATE chat_conversations
-         SET title = $1, updated_at = NOW()
-         WHERE id = $2 AND deleted_at IS NULL
-         RETURNING id, title, created_at, updated_at, message_count`,
-      [title, id]
+         SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx} AND deleted_at IS NULL
+         RETURNING id, title, project_id, created_at, updated_at, message_count`,
+      params
     );
 
     if (result.rows.length === 0) {
