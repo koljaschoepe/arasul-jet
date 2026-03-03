@@ -39,15 +39,17 @@ jest.mock('../../../contexts/ToastContext', () => ({ useToast: () => mockToast }
 
 const mockRegister = jest.fn();
 const mockUnregister = jest.fn();
+const mockAbortExistingStream = jest.fn();
 const mockCheckActiveJobs = jest.fn().mockResolvedValue(null);
 const mockReconnectToJob = jest.fn();
-const mockLoadMessages = jest.fn().mockResolvedValue([]);
+const mockLoadMessages = jest.fn().mockResolvedValue({ messages: [], hasMore: false });
 
 jest.mock('../../../contexts/ChatContext', () => ({
   useChatContext: () => ({
     loadMessages: mockLoadMessages,
     registerMessageCallback: mockRegister,
     unregisterMessageCallback: mockUnregister,
+    abortExistingStream: mockAbortExistingStream,
     reconnectToJob: mockReconnectToJob,
     checkActiveJobs: mockCheckActiveJobs,
     activeJobIds: {},
@@ -97,21 +99,27 @@ describe('ChatView Component', () => {
     mockChatIdParam = '1';
 
     mockApi.get.mockImplementation(url => {
-      if (url.includes('/chats?')) return Promise.resolve({ chats: mockChats });
-      if (url.includes('/projects/1')) return Promise.resolve({ project: mockProject });
+      if (url.match(/\/chats\/\d+$/)) {
+        const id = parseInt(url.split('/').pop(), 10);
+        const chat = mockChats.find(c => c.id === id);
+        if (!chat) return Promise.resolve({ chat: null });
+        const project = chat.project_id === 1 ? mockProject : null;
+        return Promise.resolve({ chat, project });
+      }
       return Promise.resolve({});
     });
 
-    mockLoadMessages.mockResolvedValue(
-      mockMessages.map(m => ({
+    mockLoadMessages.mockResolvedValue({
+      messages: mockMessages.map(m => ({
         ...m,
         thinking: '',
         hasThinking: false,
         thinkingCollapsed: true,
         sources: [],
         sourcesCollapsed: true,
-      }))
-    );
+      })),
+      hasMore: false,
+    });
   });
 
   // =====================================================
@@ -196,7 +204,7 @@ describe('ChatView Component', () => {
   // =====================================================
   describe('Empty State', () => {
     test('zeigt Empty-State fuer Chat ohne Nachrichten', async () => {
-      mockLoadMessages.mockResolvedValueOnce([]);
+      mockLoadMessages.mockResolvedValueOnce({ messages: [], hasMore: false });
 
       render(<ChatView />);
 
@@ -261,7 +269,7 @@ describe('ChatView Component', () => {
     test('navigiert zu /chat wenn Chat nicht gefunden', async () => {
       mockChatIdParam = '999';
       mockApi.get.mockImplementation(url => {
-        if (url.includes('/chats?')) return Promise.resolve({ chats: mockChats }); // chat 999 not in list
+        if (url.match(/\/chats\/\d+$/)) return Promise.resolve({ chat: null });
         return Promise.resolve({});
       });
 

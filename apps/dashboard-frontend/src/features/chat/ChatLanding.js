@@ -197,6 +197,30 @@ export default function ChatLanding() {
     [api, confirm, toast, activeJobIds]
   );
 
+  // Rename chat from landing page
+  const handleRenameChat = useCallback(
+    async (chatId, newTitle) => {
+      try {
+        await api.patch(`/chats/${chatId}`, { title: newTitle });
+        // Update local state
+        setProjects(prev =>
+          prev.map(p => ({
+            ...p,
+            conversations: p.conversations?.map(c =>
+              c.id === chatId ? { ...c, title: newTitle } : c
+            ),
+          }))
+        );
+        setRecentChats(prev => prev.map(c => (c.id === chatId ? { ...c, title: newTitle } : c)));
+        toast.success('Chat umbenannt');
+      } catch (err) {
+        console.error('Error renaming chat:', err);
+        toast.error('Umbenennen fehlgeschlagen');
+      }
+    },
+    [api, toast]
+  );
+
   // Filtered projects based on selected filter
   const displayedProjects = useMemo(() => {
     if (!selectedFilter) return projects;
@@ -327,6 +351,7 @@ export default function ChatLanding() {
                 onEdit={openEditProject}
                 onDelete={handleDeleteProject}
                 onDeleteChat={handleDeleteChat}
+                onRenameChat={handleRenameChat}
               />
             ))}
             {displayedProjects.length === 0 && (

@@ -1,15 +1,7 @@
 import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {
-  FiChevronDown,
-  FiChevronUp,
-  FiCpu,
-  FiBook,
-  FiFolder,
-  FiSearch,
-  FiActivity,
-} from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiCpu, FiBook, FiFolder } from 'react-icons/fi';
 import MermaidDiagram from '../../components/editor/MermaidDiagram';
 import './chatmessage.css';
 
@@ -24,8 +16,6 @@ const ChatMessage = memo(function ChatMessage({
   isLoading,
   onToggleThinking,
   onToggleSources,
-  onToggleQueryOpt,
-  onToggleContext,
 }) {
   // Compaction banner (system message)
   if (message.role === 'system' && message.type === 'compaction') {
@@ -144,145 +134,6 @@ const ChatMessage = memo(function ChatMessage({
               </span>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Query Optimization Details (collapsible) */}
-      {message.queryOptimization && (
-        <div className={`query-opt-block ${message.queryOptCollapsed ? 'collapsed' : ''}`}>
-          <button
-            type="button"
-            className="query-opt-header"
-            onClick={() => onToggleQueryOpt(index)}
-            aria-expanded={!message.queryOptCollapsed}
-          >
-            <FiSearch className="query-opt-icon" aria-hidden="true" />
-            <span>Suchdetails ({message.queryOptimization.duration}ms)</span>
-            {message.queryOptCollapsed ? (
-              <FiChevronDown aria-hidden="true" />
-            ) : (
-              <FiChevronUp aria-hidden="true" />
-            )}
-          </button>
-          {!message.queryOptCollapsed && (
-            <div className="query-opt-content">
-              {message.queryOptimization.decompoundResult && (
-                <div className="query-opt-item">
-                  <span className="query-opt-label">Worttrennung:</span>
-                  <span className="query-opt-value">
-                    {message.queryOptimization.decompoundResult}
-                  </span>
-                </div>
-              )}
-              {message.queryOptimization.multiQueryVariants &&
-                message.queryOptimization.multiQueryVariants.length > 0 && (
-                  <div className="query-opt-item">
-                    <span className="query-opt-label">Suchvarianten:</span>
-                    <ul className="query-opt-variants">
-                      {message.queryOptimization.multiQueryVariants.map((variant, i) => (
-                        <li key={i}>{variant}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              {message.queryOptimization.hydeGenerated && (
-                <div className="query-opt-item">
-                  <span className="query-opt-badge">HyDE aktiv</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Context Debug Panel */}
-      {message.tokenBreakdown && (
-        <div className={`context-debug-block ${message.contextCollapsed ? 'collapsed' : ''}`}>
-          <button
-            type="button"
-            className="context-debug-header"
-            onClick={() => onToggleContext(index)}
-            aria-expanded={!message.contextCollapsed}
-          >
-            <FiActivity className="context-debug-icon" aria-hidden="true" />
-            <span>Kontext {Math.round(message.tokenBreakdown.utilization * 100)}%</span>
-            <span className="context-debug-summary">
-              {message.tokenBreakdown.total.toLocaleString('de-DE')}/
-              {message.tokenBreakdown.budget.toLocaleString('de-DE')} Tokens
-            </span>
-            {message.contextCollapsed ? (
-              <FiChevronDown aria-hidden="true" />
-            ) : (
-              <FiChevronUp aria-hidden="true" />
-            )}
-          </button>
-          {!message.contextCollapsed && (
-            <div className="context-debug-content">
-              <div className="context-util-bar">
-                <div
-                  className="context-util-fill"
-                  style={{
-                    width: `${Math.min(100, Math.round(message.tokenBreakdown.utilization * 100))}%`,
-                    background:
-                      message.tokenBreakdown.utilization > 0.9
-                        ? 'var(--danger-color)'
-                        : message.tokenBreakdown.utilization > 0.7
-                          ? 'var(--warning-color)'
-                          : 'var(--primary-color)',
-                  }}
-                />
-              </div>
-              <div className="context-debug-grid">
-                <div className="context-debug-item">
-                  <span className="context-debug-label">System</span>
-                  <span className="context-debug-value">{message.tokenBreakdown.system}</span>
-                </div>
-                <div className="context-debug-item">
-                  <span className="context-debug-label">Profil (T1)</span>
-                  <span className="context-debug-value">{message.tokenBreakdown.tier1}</span>
-                </div>
-                <div className="context-debug-item">
-                  <span className="context-debug-label">Memory (T2)</span>
-                  <span className="context-debug-value">{message.tokenBreakdown.tier2}</span>
-                </div>
-                <div className="context-debug-item">
-                  <span className="context-debug-label">Summary (T3)</span>
-                  <span className="context-debug-value">{message.tokenBreakdown.tier3}</span>
-                </div>
-                {message.tokenBreakdown.rag > 0 && (
-                  <div className="context-debug-item">
-                    <span className="context-debug-label">RAG</span>
-                    <span className="context-debug-value">{message.tokenBreakdown.rag}</span>
-                  </div>
-                )}
-                <div className="context-debug-item">
-                  <span className="context-debug-label">History</span>
-                  <span className="context-debug-value">{message.tokenBreakdown.history}</span>
-                </div>
-                <div className="context-debug-item">
-                  <span className="context-debug-label">Reserve</span>
-                  <span className="context-debug-value">
-                    {message.tokenBreakdown.responseReserve}
-                  </span>
-                </div>
-                <div className="context-debug-item">
-                  <span className="context-debug-label">Nachrichten</span>
-                  <span className="context-debug-value">
-                    {message.tokenBreakdown.messagesIncluded}
-                    {message.tokenBreakdown.messagesDropped > 0 && (
-                      <span className="context-debug-dropped">
-                        {' '}
-                        (-{message.tokenBreakdown.messagesDropped})
-                      </span>
-                    )}
-                  </span>
-                </div>
-              </div>
-              {message.tokenBreakdown.compacted && (
-                <div className="context-debug-compacted">Kompaktierung durchgeführt</div>
-              )}
-            </div>
-          )}
         </div>
       )}
 

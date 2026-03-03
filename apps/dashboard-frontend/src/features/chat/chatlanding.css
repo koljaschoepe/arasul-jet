@@ -1,19 +1,21 @@
 /* ============================================
    Chat Landing Page
+   Design aligned with DocumentManager / Store
    ============================================ */
 
 .chat-landing {
-  padding: var(--space-xl);
+  padding: clamp(1rem, 2vw, 2rem);
   max-width: 1200px;
   margin: 0 auto;
 }
 
-/* Header */
+/* ---- Header ---- */
 .chat-landing-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space-lg);
+  gap: var(--space-md);
 }
 
 .chat-landing-header h1 {
@@ -26,26 +28,36 @@
   margin: 0;
 }
 
+.chat-landing-header h1 svg {
+  color: var(--primary-color);
+}
+
 .btn-new-project {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
   padding: 0.5rem 1rem;
-  background: var(--primary-color);
-  color: #fff;
+  background: var(--gradient-primary, var(--primary-color));
+  color: var(--text-on-primary, #fff);
   border: none;
   border-radius: var(--radius-md);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity var(--duration-fast);
+  transition: transform var(--duration-fast), box-shadow var(--duration-fast), opacity var(--duration-fast);
 }
 
 .btn-new-project:hover {
-  opacity: 0.85;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  opacity: 0.9;
 }
 
-/* Search */
+.btn-new-project:active {
+  transform: scale(var(--scale-press, 0.97));
+}
+
+/* ---- Search ---- */
 .chat-landing-search {
   margin-bottom: var(--space-lg);
 }
@@ -54,7 +66,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  background: var(--bg-card);
+  background: var(--gradient-card, var(--bg-card));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 0.625rem 1rem;
@@ -93,13 +105,14 @@
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
+  transition: color var(--duration-fast);
 }
 
 .search-clear-btn:hover {
   color: var(--text-primary);
 }
 
-/* Filter Chips */
+/* ---- Filter Chips ---- */
 .project-filter-chips {
   display: flex;
   flex-wrap: wrap;
@@ -111,7 +124,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.25rem 0.75rem;
+  padding: 0.3rem 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-pill);
   background: transparent;
@@ -124,11 +137,13 @@
 .filter-chip:hover {
   border-color: var(--text-muted);
   color: var(--text-primary);
+  background: var(--primary-alpha-5);
 }
 
 .filter-chip.active {
   background: var(--primary-alpha-15);
   color: var(--text-primary);
+  border-color: var(--primary-alpha-30);
 }
 
 .filter-chip-dot {
@@ -138,17 +153,17 @@
   flex-shrink: 0;
 }
 
-/* Section Headers */
+/* ---- Section Headers ---- */
 .chat-landing h2 {
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   margin: 0 0 var(--space-md) 0;
 }
 
-/* Recent Chats Section */
+/* ---- Recent Chats ---- */
 .recent-chats-section {
   margin-bottom: var(--space-xl);
 }
@@ -163,19 +178,19 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  background: var(--bg-card);
-  padding: 0.75rem 1rem;
-  border-radius: var(--radius-md);
+  background: var(--gradient-card, var(--bg-card));
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-lg);
   text-decoration: none;
   color: inherit;
-  border: 1px solid transparent;
-  transition: all var(--duration-fast);
+  border: 1px solid var(--border-subtle);
+  transition: all var(--duration-medium) var(--ease-smooth, ease);
 }
 
 .recent-chat-card:hover {
-  background: var(--bg-card-hover);
   border-color: var(--border-color);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .recent-chat-info {
@@ -209,31 +224,36 @@
   margin-top: 0.125rem;
 }
 
-/* Projects Section */
+/* ---- Projects Section ---- */
 .projects-section {
   margin-bottom: var(--space-xl);
 }
 
-/* Project Card */
+/* ---- Project Card ---- */
 .project-card {
-  background: var(--bg-card);
-  border-left: 3px solid var(--text-muted);
-  border-radius: var(--radius-md);
+  background: var(--gradient-card, var(--bg-card));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   margin-bottom: var(--space-sm);
   overflow: hidden;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+
+.project-card:hover {
+  border-color: var(--border-color);
 }
 
 .project-card-header {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1rem;
   cursor: pointer;
   transition: background var(--duration-fast);
 }
 
 .project-card-header:hover {
-  background: var(--bg-card-hover);
+  background: var(--primary-alpha-5);
 }
 
 .expand-icon {
@@ -266,11 +286,36 @@
 
 .project-count {
   margin-left: auto;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
+/* Badges */
+.project-card-header .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  text-transform: none;
+  letter-spacing: 0;
+  border-radius: var(--radius-sm);
+}
+
+.badge-info {
+  background: var(--primary-alpha-10);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-alpha-20);
+}
+
+.badge-neutral {
+  background: var(--primary-alpha-5);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+/* Project Actions */
 .project-card-actions {
   display: flex;
   align-items: center;
@@ -291,23 +336,24 @@
 }
 
 .project-card-actions .btn-icon:hover {
-  color: var(--text-primary);
+  color: var(--primary-color);
   background: var(--primary-alpha-10);
 }
 
 .project-card-actions .btn-icon.danger:hover {
   color: var(--danger-color);
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-alpha-10);
 }
 
 .project-card-actions .btn-new-chat:hover {
   color: var(--primary-color);
 }
 
-/* Expanded chat list */
+/* ---- Expanded Chat List ---- */
 .project-card-chats {
   padding: 0.25rem 0.5rem 0.5rem var(--space-xl);
   border-top: 1px solid var(--border-subtle);
+  background: var(--primary-alpha-3, rgba(69, 173, 255, 0.03));
 }
 
 .chat-list-item-wrapper {
@@ -321,9 +367,6 @@
   background: var(--primary-alpha-5);
 }
 
-.chat-list-item-wrapper:hover .chat-delete-btn {
-  opacity: 1;
-}
 
 .chat-list-item {
   display: flex;
@@ -337,23 +380,88 @@
   min-width: 0;
 }
 
-.chat-delete-btn {
+.chat-action-btn {
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
   padding: 0.375rem;
-  margin-right: 0.5rem;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   opacity: 0;
-  transition: opacity var(--duration-fast), color var(--duration-fast);
+  transition: opacity var(--duration-fast), color var(--duration-fast), background var(--duration-fast);
   flex-shrink: 0;
 }
 
-.chat-delete-btn:hover {
+.chat-action-btn:last-child {
+  margin-right: 0.5rem;
+}
+
+.chat-action-btn:hover {
+  color: var(--primary-color);
+  background: var(--primary-alpha-10);
+}
+
+.chat-action-btn.danger:hover {
   color: var(--danger-color);
+  background: var(--danger-alpha-10);
+}
+
+.chat-list-item-wrapper:hover .chat-action-btn {
+  opacity: 1;
+}
+
+/* ---- Inline Rename ---- */
+.chat-rename-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0.375rem 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  padding: 0.3rem 0.5rem;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-alpha-15);
+}
+
+.chat-rename-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.375rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+
+.chat-rename-action.confirm {
+  color: var(--success-color);
+}
+
+.chat-rename-action.confirm:hover {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.chat-rename-action.cancel {
+  color: var(--text-muted);
+}
+
+.chat-rename-action.cancel:hover {
+  color: var(--danger-color);
+  background: var(--danger-alpha-10);
 }
 
 .chat-list-icon {
@@ -378,7 +486,7 @@
   white-space: nowrap;
 }
 
-/* Pulse dot for active jobs */
+/* ---- Pulse Dot (active jobs) ---- */
 .pulse-dot {
   width: 8px;
   height: 8px;
@@ -397,21 +505,7 @@
   50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
 }
 
-/* Badge additions for project card context */
-.project-card-header .badge {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.5rem;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.badge-neutral {
-  background: var(--primary-alpha-5);
-  color: var(--text-muted);
-  border: 1px solid var(--border-color);
-}
-
-/* Search Results */
+/* ---- Search Results ---- */
 .search-results {
   display: flex;
   flex-direction: column;
@@ -420,12 +514,12 @@
 
 .search-results-empty {
   text-align: center;
-  padding: var(--space-xl);
+  padding: var(--space-xl) var(--space-md);
   color: var(--text-muted);
   font-size: 0.9rem;
 }
 
-/* Loading skeleton */
+/* ---- Loading Skeleton ---- */
 .chat-landing-skeleton {
   display: flex;
   flex-direction: column;
@@ -433,14 +527,30 @@
 }
 
 .skeleton-card {
-  background: var(--bg-card);
-  border-radius: var(--radius-md);
+  background: var(--gradient-card, var(--bg-card));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   padding: 1rem;
-  height: 48px;
+  height: 52px;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.4; }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .chat-landing {
+    padding: 1rem;
+  }
+
+  .chat-landing-header {
+    flex-wrap: wrap;
+  }
+
+  .recent-chats-list {
+    grid-template-columns: 1fr;
+  }
 }

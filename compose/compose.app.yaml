@@ -51,8 +51,8 @@ services:
       SYSTEM_VERSION: ${SYSTEM_VERSION}
       BUILD_HASH: ${BUILD_HASH}
       LOG_LEVEL: ${LOG_LEVEL}
-      RAG_ENABLE_MULTI_QUERY: 'true'
-      RAG_ENABLE_HYDE: 'true'
+      RAG_ENABLE_MULTI_QUERY: 'false'
+      RAG_ENABLE_HYDE: 'false'
       RAG_ENABLE_DECOMPOUND: 'true'
       RAG_ENABLE_RERANKING: 'true'
       RAG_QUERY_OPTIMIZER_MODEL: ''

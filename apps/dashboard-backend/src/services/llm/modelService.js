@@ -46,6 +46,10 @@ function createModelService(deps = {}) {
   let lastSwitchTime = 0;
   let switchInProgress = false;
 
+  // Model availability cache (TTL-based)
+  const MODEL_AVAILABILITY_TTL = 60 * 1000; // 60 seconds
+  const modelAvailabilityCache = new Map(); // modelId -> { available, expiresAt }
+
   class ModelService {
     /**
      * Get curated model catalog with installation status
@@ -627,6 +631,7 @@ function createModelService(deps = {}) {
           [modelId]
         );
 
+        this.invalidateAvailabilityCache();
         logger.info(`Model ${modelId} activated in ${switchDuration}ms`);
         return {
           success: true,
@@ -721,12 +726,29 @@ function createModelService(deps = {}) {
 
     /**
      * Quick check if model is available in Ollama (for queue validation)
+     * Uses TTL cache (60s) to avoid redundant Ollama /api/tags calls.
      * @param {string} modelId - Model ID (catalog ID or ollama name)
      * @returns {Promise<boolean>}
      */
     async isModelAvailable(modelId) {
+      const cached = modelAvailabilityCache.get(modelId);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.available;
+      }
+
       const validation = await this.validateModelAvailability(modelId);
+      modelAvailabilityCache.set(modelId, {
+        available: validation.available,
+        expiresAt: Date.now() + MODEL_AVAILABILITY_TTL,
+      });
       return validation.available;
+    }
+
+    /**
+     * Invalidate model availability cache (called after sync/install/activate)
+     */
+    invalidateAvailabilityCache() {
+      modelAvailabilityCache.clear();
     }
 
     /**
@@ -879,6 +901,7 @@ function createModelService(deps = {}) {
           );
         }
 
+        this.invalidateAvailabilityCache();
         return { success: true, ollamaModels, cleanedUp: staleResult.rows.length };
       } catch (err) {
         logger.error(`[SYNC] Error syncing with Ollama: ${err.message}`);
@@ -974,7 +997,9 @@ function createModelService(deps = {}) {
           // Read /proc/meminfo directly instead of shell pipe
           const memInfo = await readFileAsync('/proc/meminfo', 'utf8');
           const match = memInfo.match(/MemAvailable:\s+(\d+)\s+kB/);
-          if (!match) {throw new Error('MemAvailable not found');}
+          if (!match) {
+            throw new Error('MemAvailable not found');
+          }
           const availableKb = parseInt(match[1]);
           // On Jetson, GPU shares RAM - estimate 80% available for GPU
           const estimatedGpuMb = Math.floor((availableKb / 1024) * 0.8);

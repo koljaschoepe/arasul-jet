@@ -45,7 +45,22 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return false;
     } catch (err) {
-      // Network error - clean up
+      // Network error - use cached user data instead of forcing logout
+      const cachedUser = localStorage.getItem('arasul_user');
+      const cachedToken = localStorage.getItem('arasul_token');
+      if (cachedUser && cachedToken) {
+        try {
+          const userData = JSON.parse(cachedUser);
+          setIsAuthenticated(true);
+          setUser(userData);
+          setLoading(false);
+          console.warn('Auth check failed (network error), using cached credentials');
+          return true;
+        } catch {
+          // Corrupted cache - fall through to cleanup
+        }
+      }
+      // No cached data - clean up
       localStorage.removeItem('arasul_token');
       localStorage.removeItem('arasul_user');
       setIsAuthenticated(false);

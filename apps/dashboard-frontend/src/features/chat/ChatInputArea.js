@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import {
   FiSearch,
   FiCpu,
@@ -12,12 +12,12 @@ import {
   FiX,
 } from 'react-icons/fi';
 import { useChatContext } from '../../contexts/ChatContext';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import './chatinput.css';
 
-export default function ChatInputArea({
+function ChatInputArea({
   chatId,
-  messages,
+  messagesRef,
+  hasMessages,
   isLoading,
   error,
   onClearError,
@@ -100,7 +100,7 @@ export default function ChatInputArea({
       useThinking,
       selectedSpaces,
       matchedSpaces,
-      messages,
+      messages: messagesRef?.current || [],
       model: selectedModel || undefined,
     });
   }, [
@@ -113,7 +113,7 @@ export default function ChatInputArea({
     useThinking,
     selectedSpaces,
     matchedSpaces,
-    messages,
+    messagesRef,
     selectedModel,
   ]);
 
@@ -150,28 +150,15 @@ export default function ChatInputArea({
   const showRagWarning = useRAG && currentModel && currentModel.rag_optimized === false;
 
   return (
-    <div className={`chat-input-section ${messages.length === 0 ? 'centered' : ''}`}>
-      {/* Welcome text for empty chat */}
-      {messages.length === 0 && (
-        <div
-          className="welcome-text"
-          style={{
-            fontSize: '2rem',
-            fontWeight: 400,
-            color: 'var(--text-muted)',
-            marginBottom: '36px',
-            textAlign: 'center',
-          }}
-        >
-          Wie kann ich dir heute helfen?
-        </div>
-      )}
-
+    <div className={`chat-input-section ${!hasMessages ? 'centered' : ''}`}>
       {/* Queue indicator */}
       {queuePosition > 0 && (
         <div className="queue-indicator">
-          <LoadingSpinner size="small" />
-          Position #{queuePosition} in der Warteschlange
+          <span className="queue-dot" />
+          <span>#{queuePosition}</span>
+          {globalQueue.pending_count > 1 && (
+            <span className="queue-total">von {globalQueue.pending_count}</span>
+          )}
         </div>
       )}
 
@@ -450,3 +437,14 @@ export default function ChatInputArea({
     </div>
   );
 }
+
+export default memo(
+  ChatInputArea,
+  (prev, next) =>
+    prev.chatId === next.chatId &&
+    prev.isLoading === next.isLoading &&
+    prev.error === next.error &&
+    prev.disabled === next.disabled &&
+    prev.hasMessages === next.hasMessages &&
+    prev.messagesRef === next.messagesRef
+);

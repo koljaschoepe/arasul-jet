@@ -16,6 +16,7 @@ const { processChatJob, processRAGJob, onJobComplete } = require('./llmJobProces
 // Configuration from environment
 const MODEL_BATCHING_ENABLED = process.env.MODEL_BATCHING_ENABLED !== 'false';
 const DEFAULT_MAX_WAIT_SECONDS = parseInt(process.env.MODEL_MAX_WAIT_SECONDS || '120');
+const MAX_QUEUE_SIZE = parseInt(process.env.LLM_MAX_QUEUE_SIZE || '20');
 
 /**
  * Factory function to create LLMQueueService with injected dependencies
@@ -176,6 +177,16 @@ function createLLMQueueService(deps = {}) {
       if (!resolvedModel) {
         throw new Error(
           'Kein LLM-Model verfügbar. Bitte laden Sie ein Model im Model Store herunter.'
+        );
+      }
+
+      // Check queue size limit
+      const queueCount = await database.query(
+        `SELECT COUNT(*) as cnt FROM llm_jobs WHERE status = 'pending'`
+      );
+      if (parseInt(queueCount.rows[0].cnt) >= MAX_QUEUE_SIZE) {
+        throw new Error(
+          `Warteschlange ist voll (${MAX_QUEUE_SIZE} Jobs). Bitte warten Sie, bis aktuelle Anfragen abgeschlossen sind.`
         );
       }
 

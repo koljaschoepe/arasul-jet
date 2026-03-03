@@ -286,16 +286,22 @@ router.get(
     let unsubscribe = null;
     let pollInterval = null;
 
+    /** Helper to clear poll/timeout */
+    const clearPoll = () => {
+      if (pollInterval) {
+        if (pollInterval.clear) {pollInterval.clear();}
+        else {clearInterval(pollInterval);}
+        pollInterval = null;
+      }
+    };
+
     /** Shared cleanup: stop poll, unsubscribe, end response */
     const finishStream = () => {
       if (jobDone) {
         return;
       }
       jobDone = true;
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-      }
+      clearPoll();
       clientConnected = false;
       if (unsubscribe) {
         unsubscribe();
@@ -310,10 +316,7 @@ router.get(
     // Single close handler for all cleanup
     res.on('close', () => {
       clientConnected = false;
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-      }
+      clearPoll();
       if (unsubscribe) {
         unsubscribe();
       }
@@ -322,10 +325,7 @@ router.get(
     res.on('error', error => {
       logger.debug(`[RECONNECT ${jobId}] Response error: ${error.message}`);
       clientConnected = false;
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-      }
+      clearPoll();
       if (unsubscribe) {
         unsubscribe();
       }
@@ -348,21 +348,14 @@ router.get(
       }
     });
 
-    // Also poll for updates (for jobs already streaming before subscribe)
+    // Safety timeout: check if job completed while we weren't subscribed
+    // (replaces 200ms polling - subscriber notifications are real-time)
     if (job.status === 'streaming' || job.status === 'pending') {
-      let lastContent = job.content || '';
-      let lastThinking = job.thinking || '';
-
-      pollInterval = setInterval(async () => {
-        if (jobDone || !clientConnected) {
-          clearInterval(pollInterval);
-          pollInterval = null;
-          return;
-        }
+      const safetyTimeout = setTimeout(async () => {
+        if (jobDone || !clientConnected) {return;}
 
         try {
           const currentJob = await llmJobService.getJob(jobId);
-
           if (!currentJob) {
             res.write(
               `data: ${JSON.stringify({ done: true, status: 'error', error: 'Job not found' })}\n\n`
@@ -382,10 +375,7 @@ router.get(
               })}\n\n`
             );
             finishStream();
-            return;
-          }
-
-          if (currentJob.status === 'error' || currentJob.status === 'cancelled') {
+          } else if (currentJob.status === 'error' || currentJob.status === 'cancelled') {
             res.write(
               `data: ${JSON.stringify({
                 done: true,
@@ -394,30 +384,14 @@ router.get(
               })}\n\n`
             );
             finishStream();
-            return;
           }
-
-          // Send incremental update if content changed
-          const newContent = currentJob.content || '';
-          const newThinking = currentJob.thinking || '';
-
-          if (newContent !== lastContent || newThinking !== lastThinking) {
-            res.write(
-              `data: ${JSON.stringify({
-                type: 'update',
-                content: newContent,
-                thinking: newThinking,
-                status: currentJob.status,
-                queuePosition: currentJob.queue_position,
-              })}\n\n`
-            );
-            lastContent = newContent;
-            lastThinking = newThinking;
-          }
-        } catch (pollError) {
-          logger.error(`Poll error for job ${jobId}: ${pollError.message}`);
+        } catch (err) {
+          logger.error(`Safety timeout check error for job ${jobId}: ${err.message}`);
         }
-      }, 200); // Poll every 200ms
+      }, 60000); // Single check after 60s
+
+      // Store timeout ref for cleanup
+      pollInterval = { clear: () => clearTimeout(safetyTimeout) };
     }
   })
 );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowDown } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
@@ -19,6 +19,7 @@ export default function ChatView() {
     loadMessages,
     registerMessageCallback,
     unregisterMessageCallback,
+    abortExistingStream,
     reconnectToJob,
     checkActiveJobs,
     activeJobIds,
@@ -36,6 +37,8 @@ export default function ChatView() {
   const [title, setTitle] = useState('');
   const [currentProject, setCurrentProject] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Scroll control
   const [isUserScrolling, setIsUserScrolling] = useState(false);
@@ -43,7 +46,19 @@ export default function ChatView() {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
-  // Initialize chat
+  // Ref-mirror for messages (used by ChatInputArea via messagesRef)
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Ref for stable handleScroll
+  const messagesLengthRef = useRef(0);
+  useEffect(() => {
+    messagesLengthRef.current = messages.length;
+  }, [messages.length]);
+
+  // Initialize chat - parallelized (Phase 1.1 + 1.2)
   useEffect(() => {
     if (!chatId || isNaN(chatId)) {
       navigate('/chat', { replace: true });
@@ -65,39 +80,27 @@ export default function ChatView() {
 
     const init = async () => {
       try {
-        // Load chat metadata
-        const chatsData = await api.get(`/chats?project_id=`, { showError: false });
-        const chat = (chatsData.chats || []).find(c => c.id === chatId);
+        // Parallel: fetch chat+project metadata, messages, and active jobs
+        const [chatData, msgResult, activeJob] = await Promise.all([
+          api.get(`/chats/${chatId}`, { showError: false }),
+          loadMessages(chatId),
+          checkActiveJobs(chatId),
+        ]);
 
         if (cancelled) return;
 
-        if (!chat) {
+        if (!chatData.chat) {
           toast.error('Chat nicht gefunden');
           navigate('/chat', { replace: true });
           return;
         }
 
-        setTitle(chat.title || '');
-
-        // Load project info if available
-        if (chat.project_id) {
-          try {
-            const projData = await api.get(`/projects/${chat.project_id}`, { showError: false });
-            if (!cancelled) setCurrentProject(projData.project || null);
-          } catch {
-            // Project load is non-critical
-          }
-        }
-
-        // Load messages
-        const msgs = await loadMessages(chatId);
-        if (cancelled) return;
-        setMessages(msgs);
+        setTitle(chatData.chat.title || '');
+        setCurrentProject(chatData.project || null);
+        setMessages(msgResult.messages);
+        setHasMoreMessages(msgResult.hasMore);
         setLoadingMessages(false);
 
-        // Check for active/pending jobs and reconnect
-        const activeJob = await checkActiveJobs(chatId);
-        if (cancelled) return;
         if (activeJob) {
           setIsLoading(true);
           reconnectToJob(activeJob.id, chatId);
@@ -114,6 +117,7 @@ export default function ChatView() {
 
     return () => {
       cancelled = true;
+      abortExistingStream(chatId);
       unregisterMessageCallback(chatId);
     };
   }, [
@@ -124,6 +128,7 @@ export default function ChatView() {
     loadMessages,
     registerMessageCallback,
     unregisterMessageCallback,
+    abortExistingStream,
     checkActiveJobs,
     reconnectToJob,
   ]);
@@ -140,16 +145,13 @@ export default function ChatView() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  const handleScroll = useCallback(
-    e => {
-      const { scrollTop, scrollHeight, clientHeight } = e.target;
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-      const isAtBottom = distanceFromBottom < 100;
-      setIsUserScrolling(!isAtBottom);
-      setShowScrollButton(!isAtBottom && messages.length > 0);
-    },
-    [messages.length]
-  );
+  const handleScroll = useCallback(e => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isAtBottom = distanceFromBottom < 100;
+    setIsUserScrolling(!isAtBottom);
+    setShowScrollButton(!isAtBottom && messagesLengthRef.current > 0);
+  }, []);
 
   // Toggle callbacks for ChatMessage
   const toggleThinking = useCallback(index => {
@@ -168,25 +170,30 @@ export default function ChatView() {
     });
   }, []);
 
-  const toggleQueryOpt = useCallback(index => {
-    setMessages(prev => {
-      const u = [...prev];
-      u[index] = { ...u[index], queryOptCollapsed: !u[index].queryOptCollapsed };
-      return u;
-    });
-  }, []);
-
-  const toggleContext = useCallback(index => {
-    setMessages(prev => {
-      const u = [...prev];
-      u[index] = { ...u[index], contextCollapsed: !u[index].contextCollapsed };
-      return u;
-    });
-  }, []);
-
   const handleTitleChange = useCallback(newTitle => {
     setTitle(newTitle);
   }, []);
+
+  // Load older messages (pagination)
+  const loadMoreMessages = useCallback(async () => {
+    if (loadingMore || !hasMoreMessages || messages.length === 0) return;
+    setLoadingMore(true);
+    try {
+      const oldestId = messages[0]?.id;
+      if (!oldestId) return;
+      const result = await loadMessages(chatId, { before: oldestId });
+      if (result.messages.length > 0) {
+        setMessages(prev => [...result.messages, ...prev]);
+        setHasMoreMessages(result.hasMore);
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (err) {
+      console.error('Error loading more messages:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMoreMessages, messages, chatId, loadMessages]);
 
   // Escape key: navigate back to landing (only when not in input/textarea)
   useEffect(() => {
@@ -244,6 +251,16 @@ export default function ChatView() {
           </div>
         ) : (
           <div className="messages-wrapper">
+            {hasMoreMessages && (
+              <button
+                type="button"
+                className="load-more-btn"
+                onClick={loadMoreMessages}
+                disabled={loadingMore}
+              >
+                {loadingMore ? 'Laden...' : 'Ältere Nachrichten laden'}
+              </button>
+            )}
             {messages.map((message, index) => (
               <ChatMessage
                 key={message.id || message.jobId || `${chatId}-msg-${index}`}
@@ -253,8 +270,6 @@ export default function ChatView() {
                 isLoading={isLoading}
                 onToggleThinking={toggleThinking}
                 onToggleSources={toggleSources}
-                onToggleQueryOpt={toggleQueryOpt}
-                onToggleContext={toggleContext}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -276,7 +291,8 @@ export default function ChatView() {
       {/* Input Area */}
       <ChatInputArea
         chatId={chatId}
-        messages={messages}
+        messagesRef={messagesRef}
+        hasMessages={messages.length > 0}
         isLoading={isLoading}
         error={error}
         onClearError={() => setError(null)}

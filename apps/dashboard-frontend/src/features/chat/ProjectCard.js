@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -8,6 +8,8 @@ import {
   FiTrash2,
   FiFolder,
   FiFileText,
+  FiCheck,
+  FiX,
 } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
 import EmptyState from '../../components/ui/EmptyState';
@@ -21,10 +23,14 @@ export default function ProjectCard({
   onEdit,
   onDelete,
   onDeleteChat,
+  onRenameChat,
 }) {
   const api = useApi();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const [renamingChatId, setRenamingChatId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef(null);
 
   const handleNewChat = useCallback(
     async e => {
@@ -58,6 +64,41 @@ export default function ProjectCard({
     },
     [project, onDelete]
   );
+
+  const startRename = useCallback((chatId, currentTitle) => {
+    setRenamingChatId(chatId);
+    setRenameValue(currentTitle || '');
+  }, []);
+
+  const cancelRename = useCallback(() => {
+    setRenamingChatId(null);
+    setRenameValue('');
+  }, []);
+
+  const submitRename = useCallback(
+    async chatId => {
+      const trimmed = renameValue.trim();
+      if (!trimmed) {
+        cancelRename();
+        return;
+      }
+      try {
+        await onRenameChat(chatId, trimmed);
+      } finally {
+        setRenamingChatId(null);
+        setRenameValue('');
+      }
+    },
+    [renameValue, onRenameChat, cancelRename]
+  );
+
+  // Auto-focus rename input
+  useEffect(() => {
+    if (renamingChatId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingChatId]);
 
   return (
     <div className="project-card" data-expanded={expanded || undefined}>
@@ -130,24 +171,72 @@ export default function ProjectCard({
           {project.conversations?.length > 0 ? (
             project.conversations.map(c => (
               <div key={c.id} className="chat-list-item-wrapper">
-                <Link to={`/chat/${c.id}`} className="chat-list-item">
-                  <FiMessageSquare className="chat-list-icon" />
-                  <span className="chat-title">{c.title || 'Neuer Chat'}</span>
-                  {activeJobIds[c.id] && <span className="pulse-dot active" />}
-                  <span className="chat-time">{formatRelativeTime(c.updated_at)}</span>
-                </Link>
-                <button
-                  type="button"
-                  className="chat-delete-btn"
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onDeleteChat(c.id, c.title);
-                  }}
-                  title="Chat löschen"
-                >
-                  <FiTrash2 />
-                </button>
+                {renamingChatId === c.id ? (
+                  <div className="chat-rename-row">
+                    <FiMessageSquare className="chat-list-icon" />
+                    <input
+                      ref={renameInputRef}
+                      className="chat-rename-input"
+                      type="text"
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') submitRename(c.id);
+                        if (e.key === 'Escape') cancelRename();
+                      }}
+                      maxLength={200}
+                    />
+                    <button
+                      type="button"
+                      className="chat-rename-action confirm"
+                      onClick={() => submitRename(c.id)}
+                      title="Speichern"
+                    >
+                      <FiCheck />
+                    </button>
+                    <button
+                      type="button"
+                      className="chat-rename-action cancel"
+                      onClick={cancelRename}
+                      title="Abbrechen"
+                    >
+                      <FiX />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Link to={`/chat/${c.id}`} className="chat-list-item">
+                      <FiMessageSquare className="chat-list-icon" />
+                      <span className="chat-title">{c.title || 'Neuer Chat'}</span>
+                      {activeJobIds[c.id] && <span className="pulse-dot active" />}
+                      <span className="chat-time">{formatRelativeTime(c.updated_at)}</span>
+                    </Link>
+                    <button
+                      type="button"
+                      className="chat-action-btn"
+                      onClick={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        startRename(c.id, c.title);
+                      }}
+                      title="Chat umbenennen"
+                    >
+                      <FiEdit2 />
+                    </button>
+                    <button
+                      type="button"
+                      className="chat-action-btn danger"
+                      onClick={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDeleteChat(c.id, c.title);
+                      }}
+                      title="Chat löschen"
+                    >
+                      <FiTrash2 />
+                    </button>
+                  </>
+                )}
               </div>
             ))
           ) : (

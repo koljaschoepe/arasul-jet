@@ -141,23 +141,25 @@ function createLLMJobService(deps = {}) {
     }
 
     /**
-     * Mark job as errored
+     * Mark job as errored (atomic transaction)
      * @param {string} jobId - Job UUID
      * @param {string} errorMessage - Error description
      */
     async errorJob(jobId, errorMessage) {
-      await database.query(
-        `UPDATE llm_jobs
-                 SET status = 'error', error_message = $2, completed_at = NOW()
-                 WHERE id = $1`,
-        [jobId, errorMessage]
-      );
+      await database.transaction(async client => {
+        await client.query(
+          `UPDATE llm_jobs
+                   SET status = 'error', error_message = $2, completed_at = NOW()
+                   WHERE id = $1`,
+          [jobId, errorMessage]
+        );
 
-      await database.query(
-        `UPDATE chat_messages SET status = 'error'
-                 WHERE job_id = $1`,
-        [jobId]
-      );
+        await client.query(
+          `UPDATE chat_messages SET status = 'error'
+                   WHERE job_id = $1`,
+          [jobId]
+        );
+      });
 
       activeStreams.delete(jobId);
       logger.error(`LLM job ${jobId} errored: ${errorMessage}`);
@@ -216,7 +218,7 @@ function createLLMJobService(deps = {}) {
     }
 
     /**
-     * Cancel a job (abort streaming)
+     * Cancel a job (abort streaming, atomic transaction)
      * @param {string} jobId - Job UUID
      */
     async cancelJob(jobId) {
@@ -227,12 +229,14 @@ function createLLMJobService(deps = {}) {
         logger.info(`Aborted stream for job ${jobId}`);
       }
 
-      await database.query(
-        `UPDATE llm_jobs SET status = 'cancelled', completed_at = NOW() WHERE id = $1`,
-        [jobId]
-      );
+      await database.transaction(async client => {
+        await client.query(
+          `UPDATE llm_jobs SET status = 'cancelled', completed_at = NOW() WHERE id = $1`,
+          [jobId]
+        );
 
-      await database.query(`UPDATE chat_messages SET status = 'error' WHERE job_id = $1`, [jobId]);
+        await client.query(`UPDATE chat_messages SET status = 'error' WHERE job_id = $1`, [jobId]);
+      });
 
       activeStreams.delete(jobId);
       logger.info(`Cancelled LLM job ${jobId}`);

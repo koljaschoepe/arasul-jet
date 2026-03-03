@@ -39,9 +39,12 @@ const mockToggleFavorite = jest.fn();
 const mockSetModelAsDefault = jest.fn();
 
 describe('ChatInputArea Component', () => {
+  const messagesRef = { current: [] };
+
   const defaultProps = {
     chatId: 1,
-    messages: [],
+    messagesRef,
+    hasMessages: false,
     isLoading: false,
     error: null,
     onClearError: jest.fn(),
@@ -337,22 +340,23 @@ describe('ChatInputArea Component', () => {
 
       render(<ChatInputArea {...defaultProps} />);
       // Queue position is array index + 1 = 1
-      expect(screen.getByText(/Position #1/)).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
+      expect(screen.getByText('von 3')).toBeInTheDocument();
     });
   });
 
   // =====================================================
-  // Willkommenstext
+  // Layout-Klasse
   // =====================================================
-  describe('Willkommenstext', () => {
-    test('zeigt Willkommenstext bei leerer Nachrichtenliste', () => {
-      render(<ChatInputArea {...defaultProps} messages={[]} />);
-      expect(screen.getByText('Wie kann ich dir heute helfen?')).toBeInTheDocument();
+  describe('Layout-Klasse', () => {
+    test('hat centered-Klasse bei leerer Nachrichtenliste', () => {
+      const { container } = render(<ChatInputArea {...defaultProps} hasMessages={false} />);
+      expect(container.querySelector('.chat-input-section.centered')).toBeInTheDocument();
     });
 
-    test('zeigt keinen Willkommenstext bei vorhandenen Nachrichten', () => {
-      render(<ChatInputArea {...defaultProps} messages={[{ role: 'user', content: 'Hi' }]} />);
-      expect(screen.queryByText('Wie kann ich dir heute helfen?')).not.toBeInTheDocument();
+    test('hat keine centered-Klasse bei vorhandenen Nachrichten', () => {
+      const { container } = render(<ChatInputArea {...defaultProps} hasMessages={true} />);
+      expect(container.querySelector('.chat-input-section.centered')).not.toBeInTheDocument();
     });
   });
 });

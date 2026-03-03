@@ -180,6 +180,8 @@ When enabled, the queue system batches all requests for the currently loaded mod
 | RAG_QUERY_OPTIMIZER_MODEL            | ""               | Model for query optimization (empty = default) |
 | SPACE_ROUTING_THRESHOLD              | 0.4              | Space routing confidence threshold             |
 | SPACE_ROUTING_MAX_SPACES             | 3                | Max spaces to search in RAG                    |
+| RAG_RELEVANCE_THRESHOLD              | 0.5              | Min rerank score to include document (0-1)     |
+| RAG_VECTOR_SCORE_THRESHOLD           | 0.55             | Min vector score when reranker is off (0-1)    |
 
 ---
 

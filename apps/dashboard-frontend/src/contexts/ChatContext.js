@@ -127,25 +127,34 @@ export function ChatProvider({ children }) {
     }
   }, [api]);
 
+  const mapMessage = msg => ({
+    id: msg.id,
+    role: msg.role,
+    content: msg.content || '',
+    thinking: msg.thinking || '',
+    hasThinking: !!(msg.thinking && msg.thinking.length > 0),
+    thinkingCollapsed: true,
+    sources: msg.sources || [],
+    sourcesCollapsed: true,
+    status: msg.status || 'completed',
+    jobId: msg.job_id,
+    jobStatus: msg.job_status,
+  });
+
   const loadMessages = useCallback(
-    async chatId => {
+    async (chatId, options = {}) => {
+      const { limit = 50, before } = options;
       try {
-        const data = await api.get(`/chats/${chatId}/messages`, { showError: false });
-        return (data.messages || []).map(msg => ({
-          role: msg.role,
-          content: msg.content || '',
-          thinking: msg.thinking || '',
-          hasThinking: !!(msg.thinking && msg.thinking.length > 0),
-          thinkingCollapsed: true,
-          sources: msg.sources || [],
-          sourcesCollapsed: true,
-          status: msg.status || 'completed',
-          jobId: msg.job_id,
-          jobStatus: msg.job_status,
-        }));
+        const params = new URLSearchParams({ limit: String(limit) });
+        if (before) params.set('before', String(before));
+        const data = await api.get(`/chats/${chatId}/messages?${params}`, { showError: false });
+        return {
+          messages: (data.messages || []).map(mapMessage),
+          hasMore: data.hasMore || false,
+        };
       } catch (err) {
         console.error('Error loading messages:', err);
-        return [];
+        return { messages: [], hasMore: false };
       }
     },
     [api]
@@ -203,6 +212,9 @@ export function ChatProvider({ children }) {
 
   const cancelJob = useCallback(
     chatId => {
+      // Get the jobId before clearing state
+      const jobId = activeJobIds[chatId];
+
       const controller = abortControllersRef.current[chatId];
       if (controller) {
         controller.abort();
@@ -214,8 +226,13 @@ export function ChatProvider({ children }) {
         return next;
       });
       updateIsLoading(chatId, false);
+
+      // Call backend to abort GPU stream
+      if (jobId) {
+        api.del(`/llm/jobs/${jobId}`, { showError: false }).catch(() => {});
+      }
     },
-    [updateIsLoading]
+    [activeJobIds, updateIsLoading, api]
   );
 
   // Abort any existing stream for a chatId
@@ -235,8 +252,9 @@ export function ChatProvider({ children }) {
   }, [loadModels, loadSpaces]);
 
   // Queue polling while active jobs exist
+  const activeJobCount = Object.keys(activeJobIds).length;
   useEffect(() => {
-    if (Object.keys(activeJobIds).length === 0) {
+    if (activeJobCount === 0) {
       setGlobalQueue({ pending_count: 0, processing: null, queue: [] });
       return;
     }
@@ -251,7 +269,7 @@ export function ChatProvider({ children }) {
     pollQueue();
     const interval = setInterval(pollQueue, 2000);
     return () => clearInterval(interval);
-  }, [activeJobIds, api]);
+  }, [activeJobCount, api]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -319,8 +337,8 @@ export function ChatProvider({ children }) {
                   delete n[targetChatId];
                   return n;
                 });
-                const finalMsgs = await loadMessages(targetChatId);
-                updateMessages(targetChatId, () => finalMsgs);
+                const result = await loadMessages(targetChatId);
+                updateMessages(targetChatId, () => result.messages);
               }
 
               if (data.error) {
@@ -418,7 +436,7 @@ export function ChatProvider({ children }) {
         const payload = isRAG
           ? {
               query: userMessage,
-              top_k: 5,
+              top_k: 10,
               thinking: useThinking,
               conversation_id: chatId,
               model: effectiveModel || undefined,
@@ -480,34 +498,25 @@ export function ChatProvider({ children }) {
                 break;
               }
 
-              // RAG-specific events
-              if (isRAG && data.type === 'matched_spaces' && data.spaces) {
-                const cb = messageCallbacksRef.current.get(chatId);
-                if (cb?.setMatchedSpaces) cb.setMatchedSpaces(data.spaces);
-              }
-
-              if (isRAG && data.type === 'query_optimization') {
+              // RAG-specific events: combined rag_metadata (single re-render)
+              if (isRAG && data.type === 'rag_metadata') {
+                ragSources = data.sources || [];
                 updateMessages(chatId, prev => {
                   const u = [...prev];
                   if (u[assistantMessageIndex]) {
+                    const qo = data.queryOptimization || {};
                     u[assistantMessageIndex] = {
                       ...u[assistantMessageIndex],
-                      queryOptimization: {
-                        duration: data.duration,
-                        decompoundEnabled: data.decompoundEnabled,
-                        decompoundResult: data.decompoundResult,
-                        multiQueryEnabled: data.multiQueryEnabled,
-                        multiQueryVariants: data.multiQueryVariants || [],
-                        hydeEnabled: data.hydeEnabled,
-                        hydeGenerated: data.hydeGenerated,
-                      },
-                      queryOptCollapsed: true,
+                      sources: ragSources,
+                      sourcesCollapsed: ragSources.length > 0,
+                      matchedSpaces: data.matchedSpaces || matchedSpaces,
                     };
                   }
                   return u;
                 });
               }
 
+              // Legacy: individual RAG events (backwards compat for reconnect)
               if (isRAG && data.type === 'sources' && data.sources) {
                 ragSources = data.sources;
                 updateMessages(chatId, prev => {
@@ -518,21 +527,6 @@ export function ChatProvider({ children }) {
                       sources: ragSources,
                       sourcesCollapsed: ragSources.length > 0,
                       matchedSpaces,
-                    };
-                  }
-                  return u;
-                });
-              }
-
-              // Context and compaction events
-              if (data.type === 'context_info') {
-                updateMessages(chatId, prev => {
-                  const u = [...prev];
-                  if (u[assistantMessageIndex]) {
-                    u[assistantMessageIndex] = {
-                      ...u[assistantMessageIndex],
-                      tokenBreakdown: data.tokenBreakdown,
-                      contextCollapsed: true,
                     };
                   }
                   return u;
@@ -581,6 +575,7 @@ export function ChatProvider({ children }) {
               // Stream complete
               if (data.type === 'done' || data.done) {
                 flushTokenBatch(assistantMessageIndex, true);
+                updateIsLoading(chatId, false);
                 setActiveJobIds(prev => {
                   const n = { ...prev };
                   delete n[chatId];
@@ -595,12 +590,13 @@ export function ChatProvider({ children }) {
           if (streamError) break;
         }
 
-        // Final consistency: reload from DB
+        // Final consistency: mark streaming messages as completed (no DB reload needed)
         const { content: fullResponse, thinking: fullThinking } = tokenBatchRef.current;
 
         if (fullResponse || fullThinking) {
-          const finalMsgs = await loadMessages(chatId);
-          updateMessages(chatId, () => finalMsgs);
+          updateMessages(chatId, prev =>
+            prev.map(msg => (msg.status === 'streaming' ? { ...msg, status: 'completed' } : msg))
+          );
         }
 
         if (!streamError && !fullResponse && !fullThinking) {
@@ -616,6 +612,7 @@ export function ChatProvider({ children }) {
           err.message ||
             (isRAG ? 'Fehler bei der RAG-Anfrage.' : 'Fehler beim Senden der Nachricht.')
         );
+        updateIsLoading(chatId, false);
         updateMessages(chatId, () => newMessages);
         setActiveJobIds(prev => {
           const n = { ...prev };
@@ -623,7 +620,6 @@ export function ChatProvider({ children }) {
           return n;
         });
       } finally {
-        updateIsLoading(chatId, false);
         delete abortControllersRef.current[chatId];
         resetTokenBatch();
         if (activeStreamChatIdRef.current === chatId) activeStreamChatIdRef.current = null;
@@ -662,6 +658,7 @@ export function ChatProvider({ children }) {
       sendMessage,
       reconnectToJob,
       cancelJob,
+      abortExistingStream,
       checkActiveJobs,
       loadModels,
       loadSpaces,
@@ -684,6 +681,7 @@ export function ChatProvider({ children }) {
       sendMessage,
       reconnectToJob,
       cancelJob,
+      abortExistingStream,
       checkActiveJobs,
       loadModels,
       loadSpaces,

@@ -6,9 +6,19 @@
  * All functions receive a `ctx` object with dependencies and service references.
  */
 
+const http = require('http');
+
 // Content batching configuration
 const BATCH_INTERVAL_MS = 500;
 const BATCH_SIZE_CHARS = 100;
+
+// Shared HTTP agent for Ollama connections (keep-alive + connection pooling)
+const ollamaAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 5,
+  maxFreeSockets: 2,
+  timeout: 600000,
+});
 
 /**
  * Process a chat job
@@ -148,20 +158,30 @@ async function processRAGJob(ctx, job) {
   const service = ctx.service;
 
   const { id: jobId, request_data: requestData, requested_model } = job;
-  const { query, context, thinking, sources } = requestData;
+  const { query, context, thinking, sources, noRelevantDocs } = requestData;
   const enableThinking = thinking !== false;
 
-  // German system prompt with citation rules
+  // German system prompt with citation rules (RAG 4.0: dual-mode)
   const thinkingInstruction = enableThinking ? '' : '/no_think\n';
-  const ragSystemPrompt = `${thinkingInstruction}Du bist ein professioneller Wissensassistent fuer ein Unternehmen.
-
-Regeln:
+  const ragRules = noRelevantDocs
+    ? `Regeln:
+1. Es wurden keine ausreichend relevanten Dokumente in der Wissensbasis gefunden.
+2. Du kannst die Frage aus deinem eigenen Wissen beantworten.
+3. Beginne deine Antwort mit dem Hinweis: "Hinweis: Keine relevanten Dokumente in der Wissensbasis gefunden. Die folgende Antwort basiert auf allgemeinem Wissen."
+4. Wenn Unternehmenskontext verfuegbar ist, beziehe diesen mit ein.
+5. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
+6. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`
+    : `Regeln:
 1. Antworte AUSSCHLIESSLICH auf Basis der bereitgestellten Dokumente.
 2. Wenn die Antwort nicht in den Dokumenten zu finden ist, sage das klar und deutlich.
 3. Zitiere deine Quellen mit [1], [2] etc. - die Nummern entsprechen den Dokumenten unten.
 4. Verwende Fachbegriffe aus den Dokumenten.
 5. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
 6. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
+
+  const ragSystemPrompt = `${thinkingInstruction}Du bist ein professioneller Wissensassistent fuer ein Unternehmen.
+
+${ragRules}`;
 
   // Context Management: Build optimized prompt with RAG context
   const contextBudgetManager = require('../context/contextBudgetManager');
@@ -349,6 +369,7 @@ async function streamFromOllama(
       responseType: 'stream',
       timeout: 600000,
       signal: abortController.signal,
+      httpAgent: ollamaAgent,
     });
 
     let buffer = '';

@@ -174,6 +174,13 @@ http:
           - 'text/event-stream'
           - 'application/grpc'
 
+  # Servers transports for SSE streams (extended timeout)
+  serversTransports:
+    sse-transport:
+      forwardingTimeouts:
+        responseHeaderTimeout: 600s
+        idleConnTimeout: 600s
+
     # Retry middleware
     retry:
       retry:

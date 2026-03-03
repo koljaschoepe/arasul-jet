@@ -187,7 +187,7 @@ router.put(
   })
 );
 
-// DELETE /api/projects/:id - Delete project (conversations reassigned to default)
+// DELETE /api/projects/:id - Delete project (conversations reassigned to default, atomic)
 router.delete(
   '/:id',
   requireAuth,
@@ -203,18 +203,20 @@ router.delete(
       throw new ValidationError('Das Standard-Projekt kann nicht geloescht werden');
     }
 
-    // Reassign conversations to default project
-    const defaultProject = await db.query(
-      'SELECT id FROM projects WHERE is_default = TRUE LIMIT 1'
-    );
-    if (defaultProject.rows.length > 0) {
-      await db.query('UPDATE chat_conversations SET project_id = $1 WHERE project_id = $2', [
-        defaultProject.rows[0].id,
-        id,
-      ]);
-    }
+    // Atomic: reassign conversations + delete in one transaction
+    await db.transaction(async client => {
+      const defaultProject = await client.query(
+        'SELECT id FROM projects WHERE is_default = TRUE LIMIT 1'
+      );
+      if (defaultProject.rows.length > 0) {
+        await client.query('UPDATE chat_conversations SET project_id = $1 WHERE project_id = $2', [
+          defaultProject.rows[0].id,
+          id,
+        ]);
+      }
 
-    await db.query('DELETE FROM projects WHERE id = $1', [id]);
+      await client.query('DELETE FROM projects WHERE id = $1', [id]);
+    });
 
     res.json({ success: true, timestamp: new Date().toISOString() });
   })

@@ -44,6 +44,10 @@ const SPACE_ROUTING_MAX_SPACES = parseInt(process.env.SPACE_ROUTING_MAX_SPACES |
 // RAG 3.0: Reranking and query optimization
 const ENABLE_RERANKING = process.env.RAG_ENABLE_RERANKING !== 'false';
 
+// RAG 4.0: Smart relevance filtering
+const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.5');
+const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.55');
+
 /**
  * Get embedding vector for text
  */
@@ -144,29 +148,45 @@ function cosineSimilarity(a, b) {
 
 /**
  * Route query to relevant spaces based on description embeddings (RAG 2.0)
+ * Caches parsed embeddings for 5 minutes to avoid repeated JSON parsing.
  */
+let _spaceEmbeddingCache = { rows: null, expiresAt: 0 };
+const SPACE_EMBEDDING_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 async function routeToSpaces(queryEmbedding, options = {}) {
   const { threshold = SPACE_ROUTING_THRESHOLD, maxSpaces = SPACE_ROUTING_MAX_SPACES } = options;
 
   try {
-    // Get all spaces with their description embeddings
-    const result = await db.query(`
-            SELECT id, name, slug, description, description_embedding, auto_summary
-            FROM knowledge_spaces
-            WHERE description_embedding IS NOT NULL
-        `);
+    // Get spaces with parsed embeddings (cached)
+    const now = Date.now();
+    if (!_spaceEmbeddingCache.rows || _spaceEmbeddingCache.expiresAt <= now) {
+      const result = await db.query(`
+              SELECT id, name, slug, description, description_embedding, auto_summary
+              FROM knowledge_spaces
+              WHERE description_embedding IS NOT NULL
+          `);
+      // Parse embeddings once and cache
+      _spaceEmbeddingCache = {
+        rows: result.rows.map(space => ({
+          ...space,
+          parsedEmbedding: JSON.parse(space.description_embedding),
+        })),
+        expiresAt: now + SPACE_EMBEDDING_CACHE_TTL,
+      };
+    }
 
-    if (result.rows.length === 0) {
+    const cachedSpaces = _spaceEmbeddingCache.rows;
+
+    if (cachedSpaces.length === 0) {
       logger.debug('No spaces with embeddings found, returning all spaces');
       const allSpaces = await db.query('SELECT id, name, slug, description FROM knowledge_spaces');
       return { spaces: allSpaces.rows, method: 'all' };
     }
 
     // Calculate similarity for each space
-    const scoredSpaces = result.rows
+    const scoredSpaces = cachedSpaces
       .map(space => {
-        const spaceEmbedding = JSON.parse(space.description_embedding);
-        const similarity = cosineSimilarity(queryEmbedding, spaceEmbedding);
+        const similarity = cosineSimilarity(queryEmbedding, space.parsedEmbedding);
         return {
           id: space.id,
           name: space.name,
@@ -338,6 +358,32 @@ async function rerankResults(query, results, topK = 5) {
     logger.warn(`Reranking failed (using unreranked results): ${error.message}`);
     return results.slice(0, topK);
   }
+}
+
+/**
+ * Filter results by relevance score (RAG 4.0)
+ * Uses rerank score when available, falls back to vector score.
+ * Returns only documents above the configured threshold.
+ */
+function filterByRelevance(results, reranked = true) {
+  if (results.length === 0) {return { relevant: [], filtered: 0 };}
+
+  const threshold = reranked ? RAG_RELEVANCE_THRESHOLD : RAG_VECTOR_SCORE_THRESHOLD;
+  const scoreField = reranked ? 'rerankScore' : 'score';
+
+  const relevant = results.filter(r => {
+    const score = r[scoreField];
+    return score != null && score >= threshold;
+  });
+
+  const filtered = results.length - relevant.length;
+  if (filtered > 0) {
+    logger.info(
+      `Relevance filter: ${results.length} → ${relevant.length} (threshold=${threshold}, filtered=${filtered})`
+    );
+  }
+
+  return { relevant, filtered };
 }
 
 /**
@@ -788,11 +834,15 @@ router.post(
       // Step 5: Rerank results (2-stage: FlashRank → BGE-reranker)
       const rerankedResults = await rerankResults(query, searchResults, top_k);
 
-      // Step 6: Load parent chunks for richer LLM context
-      const parentChunks = await getParentChunks(rerankedResults);
+      // Step 5b: RAG 4.0 - Filter by relevance score
+      const wasReranked = ENABLE_RERANKING && rerankedResults.some(r => r.rerankScore != null);
+      const { relevant: relevantResults } = filterByRelevance(rerankedResults, wasReranked);
 
-      // Step 7: Build sources from reranked results
-      const sources = rerankedResults.map(result => {
+      // Step 6: Load parent chunks for richer LLM context
+      const parentChunks = await getParentChunks(relevantResults);
+
+      // Step 7: Build sources from relevant results only
+      const sources = relevantResults.map(result => {
         const payload = result.payload;
         return {
           document_name: payload.document_name,
@@ -808,7 +858,7 @@ router.post(
       });
 
       // Step 8: Build hierarchical context with parent chunks (RAG 3.0)
-      const chunks = rerankedResults.map(r => ({
+      const chunks = relevantResults.map(r => ({
         document_name: r.payload.document_name,
         text: r.payload.text,
         space_name: r.payload.space_name,
@@ -822,6 +872,9 @@ router.post(
         chunks,
         parentChunks
       );
+
+      // RAG 4.0: Detect "docs exist but none relevant" case
+      const noRelevantDocs = relevantResults.length === 0 && rerankedResults.length > 0;
 
       // Set up SSE headers early
       res.setHeader('Content-Type', 'text/event-stream');
@@ -856,7 +909,7 @@ router.post(
       const { jobId, messageId, queuePosition } = await llmQueueService.enqueue(
         conversation_id,
         'rag',
-        { query, context, thinking: enableThinking, sources },
+        { query, context, thinking: enableThinking, sources, noRelevantDocs },
         { model }
       );
 
@@ -873,25 +926,21 @@ router.post(
         })}\n\n`
       );
 
-      // RAG 3.0: Send query optimization details
+      // Combined RAG metadata event (reduces 3 SSE events → 1 re-render)
       res.write(
         `data: ${JSON.stringify({
-          type: 'query_optimization',
-          ...queryOptDetails,
+          type: 'rag_metadata',
+          queryOptimization: queryOptDetails,
+          matchedSpaces: targetSpaces.map(s => ({
+            id: s.id,
+            name: s.name,
+            slug: s.slug,
+            score: s.score,
+          })),
+          routingMethod,
+          sources,
         })}\n\n`
       );
-
-      // RAG 2.0: Send matched spaces info
-      res.write(
-        `data: ${JSON.stringify({
-          type: 'matched_spaces',
-          spaces: targetSpaces.map(s => ({ id: s.id, name: s.name, slug: s.slug, score: s.score })),
-          routing_method: routingMethod,
-        })}\n\n`
-      );
-
-      // Send sources with rerank scores
-      res.write(`data: ${JSON.stringify({ type: 'sources', sources })}\n\n`);
 
       // Track client connection with single close handler
       let clientConnected = true;

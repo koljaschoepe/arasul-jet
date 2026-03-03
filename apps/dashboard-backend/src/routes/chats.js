@@ -112,6 +112,62 @@ router.get(
   })
 );
 
+// GET /api/chats/:id - Get single chat with project metadata
+router.get(
+  '/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    if (!isValidConversationId(id)) {
+      throw new ValidationError('Invalid conversation_id: must be a positive integer');
+    }
+
+    const result = await db.query(
+      `SELECT c.id, c.title, c.project_id, c.created_at, c.updated_at, c.message_count,
+              p.name as project_name, p.description as project_description,
+              p.system_prompt as project_system_prompt, p.icon as project_icon,
+              p.color as project_color, p.knowledge_space_id as project_space_id
+       FROM chat_conversations c
+       LEFT JOIN projects p ON c.project_id = p.id
+       WHERE c.id = $1 AND c.deleted_at IS NULL`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundError('Chat not found');
+    }
+
+    const row = result.rows[0];
+    const chat = {
+      id: row.id,
+      title: row.title,
+      project_id: row.project_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      message_count: row.message_count,
+    };
+
+    const project = row.project_id
+      ? {
+          id: row.project_id,
+          name: row.project_name,
+          description: row.project_description,
+          system_prompt: row.project_system_prompt,
+          icon: row.project_icon,
+          color: row.project_color,
+          knowledge_space_id: row.project_space_id,
+        }
+      : null;
+
+    res.json({
+      chat,
+      project,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
 // POST /api/chats - Create new chat conversation
 router.post(
   '/',
@@ -137,16 +193,29 @@ router.post(
 );
 
 // GET /api/chats/:id/messages - Get messages for a chat
+// Supports cursor-based pagination: ?limit=50&before=<messageId>
 // For active streaming jobs, content is fetched from llm_jobs table
 router.get(
   '/:id/messages',
   requireAuth,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+    const { limit: limitParam, before } = req.query;
 
     // PHASE3-FIX: Validate conversation_id
     if (!isValidConversationId(id)) {
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
+    }
+
+    const limit = Math.min(Math.max(parseInt(limitParam) || 50, 1), 100);
+
+    // Build query with optional cursor
+    let cursorCondition = '';
+    const params = [id, limit];
+
+    if (before && isValidConversationId(before)) {
+      cursorCondition = 'AND m.id < $3';
+      params.push(before);
     }
 
     // Query that joins with llm_jobs to get live content for streaming messages
@@ -174,12 +243,19 @@ router.get(
          FROM chat_messages m
          LEFT JOIN llm_jobs j ON m.job_id = j.id
          WHERE m.conversation_id = $1
-         ORDER BY m.created_at ASC`,
-      [id]
+         ${cursorCondition}
+         ORDER BY m.id DESC
+         LIMIT $2`,
+      params
     );
 
+    // Reverse to get chronological order (we fetched DESC for cursor pagination)
+    const messages = result.rows.reverse();
+    const hasMore = result.rows.length === limit;
+
     res.json({
-      messages: result.rows,
+      messages,
+      hasMore,
       timestamp: new Date().toISOString(),
     });
   })
@@ -418,7 +494,7 @@ router.get(
   })
 );
 
-// DELETE /api/chats/:id - Soft delete chat conversation
+// DELETE /api/chats/:id - Soft delete chat conversation (atomic)
 router.delete(
   '/:id',
   requireAuth,
@@ -430,19 +506,24 @@ router.delete(
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
     }
 
-    const result = await db.query(
-      `UPDATE chat_conversations
-         SET deleted_at = NOW()
-         WHERE id = $1 AND deleted_at IS NULL
-         RETURNING id`,
-      [id]
-    );
+    // Atomic: soft-delete + cancel active jobs in one transaction
+    const result = await db.transaction(async client => {
+      const deleteResult = await client.query(
+        `UPDATE chat_conversations
+           SET deleted_at = NOW()
+           WHERE id = $1 AND deleted_at IS NULL
+           RETURNING id`,
+        [id]
+      );
 
-    if (result.rows.length === 0) {
-      throw new NotFoundError('Chat not found');
-    }
+      if (deleteResult.rows.length === 0) {
+        throw new NotFoundError('Chat not found');
+      }
 
-    // DB-002: Cancel any active jobs for this conversation to prevent orphan streams
+      return deleteResult;
+    });
+
+    // Cancel active jobs outside transaction (involves external abort operations)
     const activeJobs = await llmJobService.getActiveJobsForConversation(parseInt(id));
     for (const job of activeJobs) {
       await llmJobService.cancelJob(job.id);
