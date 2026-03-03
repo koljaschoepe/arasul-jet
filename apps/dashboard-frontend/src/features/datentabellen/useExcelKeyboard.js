@@ -2,6 +2,9 @@ import { useCallback, useEffect } from 'react';
 
 /**
  * useExcelKeyboard - Keyboard navigation and shortcuts for ExcelEditor
+ *
+ * Supports: Arrow keys, Tab, Enter/F2, Delete, Ctrl+Z/Y, Ctrl+C/X/V,
+ * Home/End, Ctrl+Home/End
  */
 export default function useExcelKeyboard({
   tableRef,
@@ -18,9 +21,11 @@ export default function useExcelKeyboard({
   handleUndo,
   handleRedo,
   handleCellSave,
+  scrollToRow,
 }) {
   const handleKeyDown = useCallback(
     e => {
+      // Ctrl/Cmd shortcuts (work even while editing for undo/redo)
       if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
           case 'c':
@@ -63,11 +68,17 @@ export default function useExcelKeyboard({
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
-          if (row > 0) setActiveCell({ row: row - 1, col });
+          if (row > 0) {
+            setActiveCell({ row: row - 1, col });
+            scrollToRow?.(row - 1);
+          }
           break;
         case 'ArrowDown':
           e.preventDefault();
-          if (row < numRows - 1) setActiveCell({ row: row + 1, col });
+          if (row < numRows - 1) {
+            setActiveCell({ row: row + 1, col });
+            scrollToRow?.(row + 1);
+          }
           break;
         case 'ArrowLeft':
           e.preventDefault();
@@ -80,6 +91,25 @@ export default function useExcelKeyboard({
         case 'Tab':
           e.preventDefault();
           moveToCell(e.shiftKey ? 'prev' : 'next');
+          break;
+        case 'Home':
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            setActiveCell({ row: 0, col: 0 });
+            scrollToRow?.(0);
+          } else {
+            setActiveCell({ row, col: 0 });
+          }
+          break;
+        case 'End':
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            const lastRow = numRows - 1;
+            setActiveCell({ row: lastRow, col: numCols - 1 });
+            scrollToRow?.(lastRow);
+          } else {
+            setActiveCell({ row, col: numCols - 1 });
+          }
           break;
         case 'Enter':
         case 'F2':
@@ -111,6 +141,7 @@ export default function useExcelKeyboard({
       handleRedo,
       moveToCell,
       handleCellSave,
+      scrollToRow,
     ]
   );
 

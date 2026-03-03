@@ -1230,12 +1230,12 @@ Separate database `arasul_data_db` for user-created dynamic tables and quote man
 
 ### Meta Tables
 
-| Table        | Purpose                                       |
-| ------------ | --------------------------------------------- |
-| dt_tables    | Table definitions (name, slug, icon, color)   |
-| dt_fields    | Field definitions (type, validation, options) |
-| dt_relations | Relationships between tables                  |
-| dt_views     | Saved filter/sort configurations              |
+| Table        | Purpose                                             |
+| ------------ | --------------------------------------------------- |
+| dt_tables    | Table definitions (name, slug, icon, color)         |
+| dt_fields    | Field definitions (type, unit, validation, options) |
+| dt_relations | Relationships between tables                        |
+| dt_views     | Saved filter/sort configurations                    |
 
 ### Dynamic Data Tables
 
@@ -1276,14 +1276,30 @@ User-created tables follow the naming convention `data_{slug}`:
 | url         | TEXT            | Web URLs              |
 | phone       | TEXT            | Phone numbers         |
 
+### dt_fields Columns
+
+| Column      | Type         | Description                               |
+| ----------- | ------------ | ----------------------------------------- |
+| id          | SERIAL       | Primary key                               |
+| table_id    | INTEGER (FK) | Reference to dt_tables                    |
+| name        | VARCHAR(255) | Display name                              |
+| slug        | VARCHAR(255) | URL-safe identifier                       |
+| field_type  | VARCHAR(50)  | One of the supported field types above    |
+| unit        | VARCHAR(50)  | Optional measurement unit (e.g. kg, €, m) |
+| is_required | BOOLEAN      | Whether field is required                 |
+| is_unique   | BOOLEAN      | Whether values must be unique             |
+| options     | JSONB        | Type-specific options (e.g. select items) |
+| position    | INTEGER      | Display order                             |
+
 ### Schema Files
 
-| File                                | Description             |
-| ----------------------------------- | ----------------------- |
-| init/031_datentabellen_database.sql | Config table in main DB |
-| init/032_create_data_database.sh    | Creates arasul_data_db  |
-| init-data-db/001_meta_schema.sql    | Meta tables             |
-| init-data-db/002_quotes_schema.sql  | Quote tables            |
+| File                                | Description                   |
+| ----------------------------------- | ----------------------------- |
+| init/031_datentabellen_database.sql | Config table in main DB       |
+| init/032_create_data_database.sh    | Creates arasul_data_db        |
+| init-data-db/001_meta_schema.sql    | Meta tables                   |
+| init-data-db/002_quotes_schema.sql  | Quote tables                  |
+| init-data-db/004_add_field_unit.sql | Adds unit column to dt_fields |
 
 ---
 

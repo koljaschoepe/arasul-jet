@@ -90,10 +90,18 @@ const SQL_RESERVED_KEYWORDS = new Set([
  * Must start with a letter, max 100 chars, no SQL keywords
  */
 function isValidSlug(slug) {
-  if (!slug || typeof slug !== 'string') {return false;}
-  if (slug.length > 100) {return false;}
-  if (!/^[a-z][a-z0-9_]*$/.test(slug)) {return false;}
-  if (SQL_RESERVED_KEYWORDS.has(slug)) {return false;}
+  if (!slug || typeof slug !== 'string') {
+    return false;
+  }
+  if (slug.length > 100) {
+    return false;
+  }
+  if (!/^[a-z][a-z0-9_]*$/.test(slug)) {
+    return false;
+  }
+  if (SQL_RESERVED_KEYWORDS.has(slug)) {
+    return false;
+  }
   return true;
 }
 
@@ -111,7 +119,7 @@ async function getTableMeta(slug) {
 
   const fieldsResult = await dataDb.query(
     `
-        SELECT slug, name, field_type, is_required, is_unique, default_value, options
+        SELECT slug, name, field_type, is_required, is_unique, default_value, options, unit
         FROM dt_fields
         WHERE table_id = $1
         ORDER BY field_order
@@ -264,7 +272,7 @@ router.get(
 
     // Calculate pagination
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const limitNum = Math.min(10000, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
     // Get total count

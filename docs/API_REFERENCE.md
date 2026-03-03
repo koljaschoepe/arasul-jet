@@ -2007,6 +2007,20 @@ Dynamic database builder for creating custom tables and automated quote generati
 - `select`, `multiselect`, `checkbox`, `relation`
 - `file`, `image`, `email`, `url`, `phone`, `formula`
 
+**POST /tables/:slug/fields** Body:
+
+- `name` (required): Display name
+- `field_type` (required): One of the supported types
+- `unit` (optional): Measurement unit (e.g. "kg", "€", "m")
+- `is_required` (optional): Boolean, default false
+- `is_unique` (optional): Boolean, default false
+
+**PATCH /tables/:slug/fields/:fieldSlug** Body (all optional):
+
+- `name`: New display name
+- `field_type`: Change field type (with automatic column type conversion)
+- `unit`: Change or remove measurement unit (null to remove)
+
 ### Rows (Data)
 
 | Method | Endpoint                    | Description            |
@@ -2022,7 +2036,7 @@ Dynamic database builder for creating custom tables and automated quote generati
 **Query Parameters (GET /rows):**
 
 - `page`: Page number (default: 1)
-- `limit`: Items per page (default: 50, max: 100)
+- `limit`: Items per page (default: 50, max: 10000)
 - `sort`: Field to sort by (default: `_created_at`)
 - `order`: `asc` or `desc` (default: `desc`)
 - `filters`: JSON array of filter objects

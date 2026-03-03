@@ -4,12 +4,12 @@
  */
 
 export { default as CellEditor } from './CellEditor';
-export { default as DataCell } from './DataCell';
 export {
   FIELD_TYPES,
   getFieldType,
   validateValue,
   formatValue,
+  formatFieldLabel,
   toSlug,
   autoDetectType,
 } from './FieldTypes';

@@ -141,4 +141,10 @@ export const autoDetectType = values => {
   return 'text';
 };
 
+// Format field label with optional unit (e.g. "Zahl | kg")
+export const formatFieldLabel = field => {
+  const type = getFieldType(field.field_type);
+  return field.unit ? `${type.label} | ${field.unit}` : type.label;
+};
+
 export default FIELD_TYPES;

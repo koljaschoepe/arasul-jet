@@ -648,6 +648,7 @@ router.post(
     const {
       name,
       field_type,
+      unit,
       is_required,
       is_unique,
       is_primary_display,
@@ -744,8 +745,8 @@ router.post(
             INSERT INTO dt_fields (
                 table_id, name, slug, field_type, field_order,
                 is_required, is_unique, is_primary_display,
-                default_value, options, validation
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                default_value, options, validation, unit
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
         `,
         [
@@ -760,6 +761,7 @@ router.post(
           default_value ? JSON.stringify(default_value) : null,
           options ? JSON.stringify(options) : '{}',
           validation ? JSON.stringify(validation) : null,
+          unit || null,
         ]
       );
 
@@ -840,7 +842,16 @@ router.patch(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { slug, fieldSlug } = req.params;
-    const { name, is_required, is_primary_display, default_value, options, validation } = req.body;
+    const {
+      name,
+      field_type,
+      unit,
+      is_required,
+      is_primary_display,
+      default_value,
+      options,
+      validation,
+    } = req.body;
 
     if (!isValidSlug(slug) || !isValidSlug(fieldSlug)) {
       throw new ValidationError('Ungültiger Tabellen- oder Feldname');
@@ -855,6 +866,26 @@ router.patch(
 
     const tableId = tableResult.rows[0].id;
 
+    // Map field type to PostgreSQL type (for ALTER COLUMN TYPE)
+    const pgTypeMap = {
+      text: 'TEXT',
+      textarea: 'TEXT',
+      number: 'NUMERIC',
+      currency: 'NUMERIC(12,2)',
+      date: 'DATE',
+      datetime: 'TIMESTAMPTZ',
+      select: 'TEXT',
+      multiselect: 'TEXT[]',
+      checkbox: 'BOOLEAN',
+      relation: 'UUID',
+      file: 'TEXT',
+      image: 'TEXT',
+      email: 'TEXT',
+      url: 'TEXT',
+      phone: 'TEXT',
+      formula: 'TEXT',
+    };
+
     // Build update query
     const updates = [];
     const params = [];
@@ -863,6 +894,20 @@ router.patch(
     if (name !== undefined && name.trim()) {
       updates.push(`name = $${paramIndex++}`);
       params.push(name.trim());
+    }
+
+    if (field_type !== undefined) {
+      const pgType = pgTypeMap[field_type];
+      if (!pgType) {
+        throw new ValidationError(`Ungültiger Feldtyp: ${field_type}`);
+      }
+      updates.push(`field_type = $${paramIndex++}`);
+      params.push(field_type);
+    }
+
+    if (unit !== undefined) {
+      updates.push(`unit = $${paramIndex++}`);
+      params.push(unit || null);
     }
 
     if (is_required !== undefined) {
@@ -892,6 +937,41 @@ router.patch(
 
     if (updates.length === 0) {
       throw new ValidationError('Keine Änderungen angegeben');
+    }
+
+    // Use transaction if field_type change requires ALTER TABLE
+    if (field_type !== undefined) {
+      const pgType = pgTypeMap[field_type];
+
+      const result = await dataDb.transaction(async client => {
+        // ALTER COLUMN TYPE on the physical table
+        await client.query(
+          `ALTER TABLE data_${slug} ALTER COLUMN ${fieldSlug} TYPE ${pgType} USING ${fieldSlug}::${pgType}`
+        );
+
+        // Update dt_fields metadata
+        params.push(tableId, fieldSlug);
+        const fieldResult = await client.query(
+          `UPDATE dt_fields SET ${updates.join(', ')} WHERE table_id = $${paramIndex} AND slug = $${paramIndex + 1} RETURNING *`,
+          params
+        );
+        return fieldResult;
+      });
+
+      if (result.rows.length === 0) {
+        throw new NotFoundError('Feld nicht gefunden');
+      }
+
+      logger.info(
+        `[Datentabellen] Updated field ${fieldSlug} in ${slug} (type changed to ${field_type})`
+      );
+
+      return res.json({
+        success: true,
+        data: result.rows[0],
+        message: 'Feld erfolgreich aktualisiert',
+        timestamp: new Date().toISOString(),
+      });
     }
 
     params.push(tableId, fieldSlug);
