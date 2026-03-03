@@ -100,7 +100,7 @@ function StoreApps() {
   const [loading, setLoading] = useState(true);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('recommended'); // 'recommended' or 'all'
+  const [filter, setFilter] = useState('all'); // 'recommended' or 'all'
   const [selectedApp, setSelectedApp] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
   const [uninstallDialog, setUninstallDialog] = useState({

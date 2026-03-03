@@ -1,14 +1,13 @@
 /**
  * StoreHome Component
  * Landing page with recommended models and apps
- * Shows 3 model recommendations (based on RAM) + 3 app recommendations
+ * Shows loaded-model banner + 2 model + 2 app recommendations
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiCpu,
-  FiGrid,
   FiArrowRight,
   FiDownload,
   FiPlay,
@@ -18,6 +17,8 @@ import {
   FiZap,
   FiPackage,
   FiExternalLink,
+  FiHardDrive,
+  FiInfo,
 } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -163,22 +164,52 @@ function StoreHome({ systemInfo }) {
 
   return (
     <div className="store-home">
-      {/* Models Section */}
+      {/* Loaded Model Banner */}
+      {loadedModel && (
+        <div className="loaded-model-banner">
+          <div className="loaded-model-info">
+            <FiZap className="pulse" />
+            <span>Aktuell geladen:</span>
+            <strong>{loadedModel.model_id}</strong>
+          </div>
+          <div className="loaded-model-stats">
+            <span className="ram-usage">
+              <FiHardDrive />
+              {loadedModel.ram_usage_mb
+                ? `${(loadedModel.ram_usage_mb / 1024).toFixed(1)} GB RAM`
+                : 'RAM wird berechnet...'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!loadedModel && (
+        <div className="no-model-banner">
+          <FiInfo />
+          <span>Kein Modell geladen. Aktiviere ein Modell, um zu starten.</span>
+        </div>
+      )}
+
+      {/* Recommendations Section */}
       <section className="store-home-section">
         <div className="section-header">
           <h2>
-            <FiCpu /> Empfohlene Modelle
+            <FiZap /> Empfohlen fuer dein System
           </h2>
-          <Link to="/store/models" className="section-link">
-            Alle Modelle <FiArrowRight />
-          </Link>
+          <div className="section-links">
+            <Link to="/store/models" className="section-link">
+              Alle Modelle <FiArrowRight />
+            </Link>
+            <Link to="/store/apps" className="section-link">
+              Alle Apps <FiArrowRight />
+            </Link>
+          </div>
         </div>
-        <p className="section-subtitle">
-          Optimiert für dein System ({systemInfo?.availableRamGB || 64} GB RAM)
-        </p>
+        <p className="section-subtitle">Optimiert fuer {systemInfo?.availableRamGB || 64} GB RAM</p>
 
-        <div className="store-home-grid">
-          {recommendations.models.slice(0, 3).map(model => {
+        <div className="model-grid">
+          {/* Model Cards */}
+          {recommendations.models.slice(0, 2).map(model => {
             const isInstalled = model.install_status === 'available';
             const isLoaded = loadedModel?.model_id === model.id;
             const modelIsDownloading = isDownloading(model.id);
@@ -186,15 +217,12 @@ function StoreHome({ systemInfo }) {
             const isActivating = actionLoading[model.id] === 'activating';
 
             return (
-              <div
-                key={model.id}
-                className={`store-home-card model-card ${isLoaded ? 'active' : ''}`}
-              >
-                <div className="card-header">
-                  <div className="card-icon model-icon">
+              <div key={model.id} className={`model-card ${isLoaded ? 'active' : ''}`}>
+                <div className="model-card-header">
+                  <div className="model-icon">
                     <FiCpu />
                   </div>
-                  <div className="card-badges">
+                  <div className="model-badges">
                     {model.is_default && (
                       <span className="badge badge-default">
                         <FiStar /> Standard
@@ -208,18 +236,24 @@ function StoreHome({ systemInfo }) {
                   </div>
                 </div>
 
-                <h3 className="card-title">{model.name}</h3>
-                <p className="card-description">{model.description}</p>
+                <h3 className="model-name">{model.name}</h3>
+                <p className="model-description">{model.description}</p>
 
-                <div className="card-specs">
-                  <span className="spec">{formatSize(model.size_bytes)}</span>
-                  <span className="spec">{model.ram_required_gb} GB RAM</span>
+                <div className="model-specs">
+                  <div className="spec">
+                    <span className="spec-label">Groesse</span>
+                    <span className="spec-value">{formatSize(model.size_bytes)}</span>
+                  </div>
+                  <div className="spec">
+                    <span className="spec-label">RAM</span>
+                    <span className="spec-value">{model.ram_required_gb} GB</span>
+                  </div>
                 </div>
 
                 {model.capabilities && (
-                  <div className="card-tags">
+                  <div className="model-capabilities">
                     {model.capabilities.slice(0, 3).map(cap => (
-                      <span key={cap} className="tag">
+                      <span key={cap} className="capability-tag">
                         {cap}
                       </span>
                     ))}
@@ -239,7 +273,7 @@ function StoreHome({ systemInfo }) {
                   </div>
                 )}
 
-                <div className="card-actions">
+                <div className="model-actions">
                   {!isInstalled && !modelIsDownloading && (
                     <button
                       type="button"
@@ -276,34 +310,21 @@ function StoreHome({ systemInfo }) {
               </div>
             );
           })}
-        </div>
-      </section>
 
-      {/* Apps Section */}
-      <section className="store-home-section">
-        <div className="section-header">
-          <h2>
-            <FiGrid /> Empfohlene Apps
-          </h2>
-          <Link to="/store/apps" className="section-link">
-            Alle Apps <FiArrowRight />
-          </Link>
-        </div>
-        <p className="section-subtitle">Erweitere dein Arasul-System</p>
-
-        <div className="store-home-grid">
-          {recommendations.apps.slice(0, 3).map(app => {
+          {/* App Cards (in model-card style) */}
+          {recommendations.apps.slice(0, 2).map(app => {
             const isRunning = app.status === 'running';
             const isInstalled = app.status === 'installed';
             const isLoading = actionLoading[app.id];
 
             return (
-              <div key={app.id} className={`store-home-card app-card ${isRunning ? 'active' : ''}`}>
-                <div className="card-header">
-                  <div className="card-icon app-icon">
+              <div key={app.id} className={`model-card ${isRunning ? 'active' : ''}`}>
+                <div className="model-card-header">
+                  <div className="model-icon">
                     <FiPackage />
                   </div>
-                  <div className="card-badges">
+                  <div className="model-badges">
+                    <span className="badge badge-category">App</span>
                     {app.featured && (
                       <span className="badge badge-featured">
                         <FiStar /> Empfohlen
@@ -317,15 +338,21 @@ function StoreHome({ systemInfo }) {
                   </div>
                 </div>
 
-                <h3 className="card-title">{app.name}</h3>
-                <p className="card-description">{app.description}</p>
+                <h3 className="model-name">{app.name}</h3>
+                <p className="model-description">{app.description}</p>
 
-                <div className="card-specs">
-                  <span className="spec">v{app.version}</span>
-                  <span className="spec">{app.category}</span>
+                <div className="model-specs">
+                  <div className="spec">
+                    <span className="spec-label">Version</span>
+                    <span className="spec-value">v{app.version}</span>
+                  </div>
+                  <div className="spec">
+                    <span className="spec-label">Kategorie</span>
+                    <span className="spec-value">{app.category}</span>
+                  </div>
                 </div>
 
-                <div className="card-actions">
+                <div className="model-actions">
                   {app.status === 'available' && (
                     <button
                       type="button"

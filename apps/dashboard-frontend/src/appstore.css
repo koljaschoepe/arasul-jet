@@ -677,38 +677,6 @@
   color: var(--text-primary);
 }
 
-/* Tabs */
-.modal-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--border-color);
-  padding: 0 1.5rem;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: all var(--duration-normal) ease;
-}
-
-.tab:hover {
-  color: var(--text-primary);
-}
-
-.tab.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
-}
-
 /* Modal Body */
 .modal-body {
   padding: 1.5rem;
@@ -725,80 +693,6 @@
   color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 1.5rem;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.info-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-md);
-}
-
-.info-item svg {
-  color: var(--primary-color);
-  font-size: 1rem;
-  margin-top: 0.2rem;
-  flex-shrink: 0;
-}
-
-.info-item .label {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-bottom: 0.25rem;
-}
-
-.info-item .value {
-  display: block;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-}
-
-.info-item .value.link {
-  color: var(--primary-color);
-  text-decoration: none;
-  word-break: break-all;
-}
-
-.info-item .value.link:hover {
-  text-decoration: underline;
-}
-
-.error-box {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  margin-top: 1.5rem;
-  color: var(--text-secondary);
-}
-
-.error-box svg {
-  flex-shrink: 0;
-  margin-top: 0.2rem;
-  color: var(--text-muted);
-}
-
-.error-box .label {
-  display: block;
-  font-size: 0.75rem;
-  opacity: 0.8;
-  margin-bottom: 0.25rem;
-}
-
-.error-box .value {
-  font-size: 0.9rem;
 }
 
 /* Logs Tab */
@@ -1036,10 +930,6 @@
   .event-item {
     grid-template-columns: 1fr;
     gap: 0.5rem;
-  }
-
-  .info-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -1589,59 +1479,9 @@
   color: var(--text-primary);
 }
 
-/* Light Mode - Tabs */
-.light-mode .modal-tabs {
-  border-bottom-color: var(--border-color);
-}
-
-.light-mode .tab {
-  color: var(--text-muted);
-}
-
-.light-mode .tab:hover {
-  color: var(--text-primary);
-}
-
-.light-mode .tab.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
-}
-
-/* Light Mode - Info Grid */
+/* Light Mode - Description */
 .light-mode .app-long-description {
   color: var(--text-secondary);
-}
-
-.light-mode .info-item {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-color);
-}
-
-.light-mode .info-item svg {
-  color: var(--text-secondary);
-}
-
-.light-mode .info-item .label {
-  color: var(--text-muted);
-}
-
-.light-mode .info-item .value {
-  color: var(--text-primary);
-}
-
-.light-mode .info-item .value.link {
-  color: var(--primary-color);
-}
-
-/* Light Mode - Error Box */
-.light-mode .error-box {
-  background: var(--danger-bg-light);
-  border-color: var(--danger-border-light);
-  color: var(--danger-color);
-}
-
-.light-mode .error-box svg {
-  color: var(--danger-color);
 }
 
 /* Light Mode - Logs */
