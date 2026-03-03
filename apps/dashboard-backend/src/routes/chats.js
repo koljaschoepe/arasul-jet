@@ -10,7 +10,7 @@ const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const llmJobService = require('../services/llm/llmJobService');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { ValidationError, NotFoundError } = require('../utils/errors');
+const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
 
 // PHASE3-FIX: Input validation helper for conversation_id
 function isValidConversationId(id) {
@@ -18,24 +18,92 @@ function isValidConversationId(id) {
   return !isNaN(parsed) && parsed > 0 && parsed <= 2147483647 && String(parsed) === String(id);
 }
 
+// Helper: get default project ID
+async function getDefaultProjectId() {
+  const { rows } = await db.query('SELECT id FROM projects WHERE is_default = TRUE LIMIT 1');
+  if (!rows.length) {
+    throw new ServiceUnavailableError('Kein Standard-Projekt gefunden');
+  }
+  return rows[0].id;
+}
+
 // GET /api/chats - Get all chat conversations
 router.get(
   '/',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const ungrouped = req.query.ungrouped === 'true';
+    const { project_id } = req.query;
 
     let query = `SELECT id, title, project_id, created_at, updated_at, message_count
          FROM chat_conversations
          WHERE deleted_at IS NULL`;
+    const params = [];
 
-    if (ungrouped) {
-      query += ' AND project_id IS NULL';
+    if (project_id) {
+      params.push(project_id);
+      query += ` AND project_id = $${params.length}`;
     }
 
     query += ' ORDER BY updated_at DESC LIMIT 100';
 
-    const result = await db.query(query, []);
+    const result = await db.query(query, params);
+
+    res.json({
+      chats: result.rows,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// GET /api/chats/recent - Get top 10 recent chats with project info
+router.get(
+  '/recent',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const result = await db.query(
+      `SELECT c.id, c.title, c.project_id, c.updated_at, c.message_count,
+              p.name as project_name, p.color as project_color
+       FROM chat_conversations c
+       LEFT JOIN projects p ON c.project_id = p.id
+       WHERE c.deleted_at IS NULL
+       ORDER BY c.updated_at DESC
+       LIMIT 10`
+    );
+
+    res.json({
+      chats: result.rows,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// GET /api/chats/search - Search chats by title
+router.get(
+  '/search',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { q, project_id } = req.query;
+
+    if (!q || !q.trim()) {
+      return res.json({ chats: [], timestamp: new Date().toISOString() });
+    }
+
+    let query = `SELECT c.id, c.title, c.project_id, c.updated_at, c.message_count,
+                        p.name as project_name, p.color as project_color
+                 FROM chat_conversations c
+                 LEFT JOIN projects p ON c.project_id = p.id
+                 WHERE c.deleted_at IS NULL
+                   AND c.title ILIKE $1`;
+    const params = [`%${q.trim()}%`];
+
+    if (project_id) {
+      params.push(project_id);
+      query += ` AND c.project_id = $${params.length}`;
+    }
+
+    query += ' ORDER BY c.updated_at DESC LIMIT 50';
+
+    const result = await db.query(query, params);
 
     res.json({
       chats: result.rows,
@@ -51,11 +119,14 @@ router.post(
   asyncHandler(async (req, res) => {
     const { title, project_id } = req.body;
 
+    // Fallback to default project if none specified
+    const resolvedProjectId = project_id || (await getDefaultProjectId());
+
     const result = await db.query(
       `INSERT INTO chat_conversations (title, project_id, created_at, updated_at)
          VALUES ($1, $2, NOW(), NOW())
          RETURNING id, title, project_id, created_at, updated_at, message_count`,
-      [title || 'New Chat', project_id || null]
+      [title || 'Neuer Chat', resolvedProjectId]
     );
 
     res.json({

@@ -37,9 +37,6 @@ import {
   FiChevronLeft,
   FiSend,
   FiDownload,
-  FiChevronRight,
-  FiPlus,
-  FiEdit2,
 } from 'react-icons/fi';
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
@@ -55,16 +52,16 @@ import SetupWizard from './features/system/SetupWizard';
 import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ChatProvider } from './contexts/ChatContext';
 import { useWebSocketMetrics } from './hooks/useWebSocketMetrics';
 
 import { useApi } from './hooks/useApi';
 import './index.css';
-import './features/projects/projects.css';
 
 // PHASE 2: Code-Splitting - Lazy imports for route components
 // These components are loaded on-demand when the user navigates to them
 const Settings = lazy(() => import('./features/settings/Settings'));
-const ChatMulti = lazy(() => import('./features/chat/ChatMulti'));
+const ChatRouter = lazy(() => import('./features/chat/ChatRouter'));
 const DocumentManager = lazy(() => import('./features/documents/DocumentManager'));
 const Store = lazy(() => import('./features/store'));
 const ClaudeCode = lazy(() => import('./features/claude/ClaudeCode'));
@@ -72,7 +69,6 @@ const TelegramAppModal = lazy(() => import('./features/telegram/TelegramAppModal
 // Database components for Datentabellen feature
 const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
-const ProjectModal = lazy(() => import('./features/projects/ProjectModal'));
 
 /**
  * Main App Component
@@ -326,6 +322,9 @@ function AppContent() {
     await logout();
   }, [logout]);
 
+  // Memoize TelegramRedirect callback to prevent useEffect re-runs
+  const handleTelegramOpen = useCallback(() => setShowTelegramModal(true), []);
+
   // Show login screen if not authenticated
   if (!isAuthenticated) {
     if (authLoading) {
@@ -434,10 +433,12 @@ function AppContent() {
                   }
                 />
                 <Route
-                  path="/chat"
+                  path="/chat/*"
                   element={
                     <RouteErrorBoundary routeName="AI Chat">
-                      <ChatMulti />
+                      <ChatProvider>
+                        <ChatRouter />
+                      </ChatProvider>
                     </RouteErrorBoundary>
                   }
                 />
@@ -468,11 +469,11 @@ function AppContent() {
                 />
                 <Route
                   path="/telegram-bot"
-                  element={<TelegramRedirect onOpen={() => setShowTelegramModal(true)} />}
+                  element={<TelegramRedirect onOpen={handleTelegramOpen} />}
                 />
                 <Route
                   path="/telegram-bots"
-                  element={<TelegramRedirect onOpen={() => setShowTelegramModal(true)} />}
+                  element={<TelegramRedirect onOpen={handleTelegramOpen} />}
                 />
                 <Route
                   path="/database"
@@ -562,25 +563,6 @@ const Sidebar = React.memo(function Sidebar({
   activeDownloads = [],
 }) {
   const location = useLocation();
-  const navigate = useNavigate();
-  const api = useApi();
-
-  // Chat section expandable state
-  const [chatExpanded, setChatExpanded] = useState(false);
-  const [sidebarProjects, setSidebarProjects] = useState([]);
-  const [ungroupedChats, setUngroupedChats] = useState([]);
-  const [expandedProjects, setExpandedProjects] = useState(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem('arasul_expanded_projects') || '[]'));
-    } catch {
-      return new Set();
-    }
-  });
-  const [projectsLoaded, setProjectsLoaded] = useState(false);
-
-  // Project modal state
-  const [showProjectModal, setShowProjectModal] = useState(false);
-  const [editingProject, setEditingProject] = useState(null);
 
   const isActive = path => {
     const isMatch =
@@ -591,55 +573,6 @@ const Sidebar = React.memo(function Sidebar({
   };
 
   const isCurrent = path => location.pathname === path;
-
-  // Load projects + ungrouped chats when chat section is expanded
-  const loadSidebarData = useCallback(async () => {
-    try {
-      const [projData, chatData] = await Promise.all([
-        api.get('/projects?include=conversations', { showError: false }),
-        api.get('/chats?ungrouped=true', { showError: false }),
-      ]);
-      setSidebarProjects(projData.projects || []);
-      setUngroupedChats(chatData.chats || []);
-      setProjectsLoaded(true);
-    } catch {
-      // Silently fail
-    }
-  }, [api]);
-
-  useEffect(() => {
-    if (chatExpanded && !projectsLoaded) {
-      loadSidebarData();
-    }
-  }, [chatExpanded, projectsLoaded, loadSidebarData]);
-
-  // Persist expanded projects
-  useEffect(() => {
-    localStorage.setItem('arasul_expanded_projects', JSON.stringify([...expandedProjects]));
-  }, [expandedProjects]);
-
-  const toggleProjectExpanded = projectId => {
-    setExpandedProjects(prev => {
-      const next = new Set(prev);
-      if (next.has(projectId)) next.delete(projectId);
-      else next.add(projectId);
-      return next;
-    });
-  };
-
-  const handleConversationClick = chatId => {
-    // Store the selected chat ID and navigate to /chat
-    localStorage.setItem('arasul_selected_chat', String(chatId));
-    navigate('/chat');
-  };
-
-  const handleProjectSave = () => {
-    setProjectsLoaded(false);
-    setShowProjectModal(false);
-    setEditingProject(null);
-    // Reload data
-    loadSidebarData();
-  };
 
   const sidebarClassName = `sidebar ${collapsed ? 'collapsed' : 'expanded'}`;
 
@@ -674,141 +607,14 @@ const Sidebar = React.memo(function Sidebar({
             </Link>
           </li>
           <li role="none">
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Link
-                  to="/chat"
-                  className={isActive('/chat')}
-                  role="menuitem"
-                  aria-current={isCurrent('/chat') ? 'page' : undefined}
-                  style={{ flex: 1 }}
-                >
-                  <FiMessageSquare aria-hidden="true" /> <span>Chat</span>
-                </Link>
-                {!collapsed && (
-                  <button
-                    type="button"
-                    className="sidebar-toggle-section"
-                    onClick={e => {
-                      e.preventDefault();
-                      setChatExpanded(prev => !prev);
-                    }}
-                    aria-expanded={chatExpanded}
-                    aria-label={
-                      chatExpanded ? 'Chat-Projekte ausblenden' : 'Chat-Projekte einblenden'
-                    }
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      fontSize: '0.75rem',
-                      transition: 'transform 0.15s',
-                      transform: chatExpanded ? 'rotate(90deg)' : 'none',
-                    }}
-                  >
-                    <FiChevronRight aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-
-              {/* Expandable projects tree */}
-              {chatExpanded && !collapsed && (
-                <div className="sidebar-projects-section">
-                  <button
-                    type="button"
-                    className="sidebar-new-project-btn"
-                    onClick={() => {
-                      setEditingProject(null);
-                      setShowProjectModal(true);
-                    }}
-                  >
-                    <FiPlus /> Neues Projekt
-                  </button>
-
-                  {sidebarProjects.map(project => (
-                    <div key={project.id} className="sidebar-project-item">
-                      <button
-                        type="button"
-                        className="sidebar-project-header"
-                        onClick={() => toggleProjectExpanded(project.id)}
-                      >
-                        <span
-                          className="project-dot"
-                          style={{ backgroundColor: project.color || 'var(--primary-color)' }}
-                        />
-                        <FiChevronRight
-                          className={`project-expand-icon ${expandedProjects.has(project.id) ? 'expanded' : ''}`}
-                        />
-                        <span className="project-name">{project.name}</span>
-                        <span
-                          className="project-edit-btn"
-                          role="button"
-                          tabIndex={0}
-                          onClick={e => {
-                            e.stopPropagation();
-                            setEditingProject(project);
-                            setShowProjectModal(true);
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              e.stopPropagation();
-                              setEditingProject(project);
-                              setShowProjectModal(true);
-                            }
-                          }}
-                        >
-                          <FiEdit2 />
-                        </span>
-                      </button>
-
-                      {expandedProjects.has(project.id) && project.conversations && (
-                        <div className="sidebar-project-conversations">
-                          {project.conversations.map(conv => (
-                            <button
-                              key={conv.id}
-                              type="button"
-                              className="sidebar-conv-item"
-                              onClick={() => handleConversationClick(conv.id)}
-                              title={conv.title}
-                            >
-                              {conv.title}
-                            </button>
-                          ))}
-                          {project.conversations.length === 0 && (
-                            <div
-                              className="sidebar-conv-item"
-                              style={{ fontStyle: 'italic', cursor: 'default' }}
-                            >
-                              Keine Chats
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Ungrouped chats */}
-                  {ungroupedChats.length > 0 && (
-                    <>
-                      <div className="sidebar-section-divider">Weitere Chats</div>
-                      {ungroupedChats.slice(0, 10).map(chat => (
-                        <button
-                          key={chat.id}
-                          type="button"
-                          className="sidebar-conv-item"
-                          onClick={() => handleConversationClick(chat.id)}
-                          title={chat.title}
-                        >
-                          {chat.title}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            <Link
+              to="/chat"
+              className={isActive('/chat')}
+              role="menuitem"
+              aria-current={isCurrent('/chat') ? 'page' : undefined}
+            >
+              <FiMessageSquare aria-hidden="true" /> <span>Chat</span>
+            </Link>
           </li>
           <li role="none">
             <Link
@@ -880,22 +686,6 @@ const Sidebar = React.memo(function Sidebar({
           <FiSettings aria-hidden="true" /> <span>Einstellungen</span>
         </Link>
       </div>
-
-      {/* Project Modal */}
-      {showProjectModal && (
-        <Suspense fallback={null}>
-          <ProjectModal
-            isOpen={showProjectModal}
-            onClose={() => {
-              setShowProjectModal(false);
-              setEditingProject(null);
-            }}
-            onSave={handleProjectSave}
-            project={editingProject}
-            mode={editingProject ? 'edit' : 'create'}
-          />
-        </Suspense>
-      )}
     </aside>
   );
 });

@@ -20,9 +20,9 @@ services:
       ARASUL_DATA_DB_PASSWORD: ${ARASUL_DATA_DB_PASSWORD:-${POSTGRES_PASSWORD}}
     volumes:
       - arasul-postgres:/var/lib/postgresql/data
-      - ./services/postgres/init:/docker-entrypoint-initdb.d
-      - ./services/postgres/init-data-db:/docker-entrypoint-initdb.d/data-db:ro
-      - ./services/postgres/migrations:/migrations
+      - ../services/postgres/init:/docker-entrypoint-initdb.d
+      - ../services/postgres/init-data-db:/docker-entrypoint-initdb.d/data-db:ro
+      - ../services/postgres/migrations:/migrations
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 10s
@@ -89,19 +89,13 @@ services:
       - '127.0.0.1:8080:8080'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./config/traefik:/etc/traefik:ro
+      - ../config/traefik:/etc/traefik:ro
       - arasul-letsencrypt:/letsencrypt
-      - ./logs:/arasul/logs
+      - ../logs:/arasul/logs
     depends_on:
       postgres-db:
         condition: service_healthy
       minio:
-        condition: service_healthy
-      metrics-collector:
-        condition: service_healthy
-      llm-service:
-        condition: service_healthy
-      embedding-service:
         condition: service_healthy
     healthcheck:
       test: ['CMD', 'traefik', 'healthcheck', '--ping']

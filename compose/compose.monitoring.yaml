@@ -5,7 +5,7 @@ services:
   # 1. Metrics Collector
   metrics-collector:
     build:
-      context: ./services/metrics-collector
+      context: ../services/metrics-collector
       dockerfile: Dockerfile
     container_name: metrics-collector
     hostname: metrics-collector
@@ -51,7 +51,7 @@ services:
   # 2. Self-Healing Engine
   self-healing-agent:
     build:
-      context: ./services/self-healing-agent
+      context: ../services/self-healing-agent
       dockerfile: Dockerfile
     container_name: self-healing-agent
     hostname: self-healing-agent
@@ -75,15 +75,16 @@ services:
       DISK_CRITICAL_PERCENT: ${DISK_CRITICAL_PERCENT}
       DISK_REBOOT_PERCENT: ${DISK_REBOOT_PERCENT}
       HEARTBEAT_PORT: ${SELF_HEALING_HEARTBEAT_PORT:-9200}
+      EXCLUDED_CONTAINERS: 'telegram-bot-app,claude-code'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./logs:/arasul/logs
+      - ../logs:/arasul/logs
       - /sys:/host/sys:ro
       - /proc:/host/proc:ro
       - /media:/media:ro
       - /mnt:/mnt:ro
-      - ./data/updates:/arasul/updates
-      - ./data/backups:/arasul/backups
+      - ../data/updates:/arasul/updates
+      - ../data/backups:/arasul/backups
     devices:
       - /dev/bus/usb:/dev/bus/usb
     cap_drop:
@@ -99,16 +100,6 @@ services:
       postgres-db:
         condition: service_healthy
       metrics-collector:
-        condition: service_healthy
-      dashboard-backend:
-        condition: service_healthy
-      llm-service:
-        condition: service_healthy
-      embedding-service:
-        condition: service_healthy
-      n8n:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     healthcheck:
       test: ['CMD', 'python3', '/app/heartbeat.py', '--test']
@@ -129,7 +120,7 @@ services:
   # 3. Backup Service
   backup-service:
     build:
-      context: ./services/backup-service
+      context: ../services/backup-service
       dockerfile: Dockerfile
     container_name: backup-service
     hostname: backup-service
@@ -149,7 +140,7 @@ services:
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       TZ: ${TZ:-Europe/Berlin}
     volumes:
-      - ./data/backups:/backups
+      - ../data/backups:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       postgres-db:
@@ -185,7 +176,7 @@ services:
     networks:
       - arasul-monitoring
     volumes:
-      - ./config/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - ../config/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
       - arasul-loki:/loki
     command: -config.file=/etc/loki/local-config.yaml
     healthcheck:
@@ -223,7 +214,7 @@ services:
     networks:
       - arasul-monitoring
     volumes:
-      - ./config/promtail/config.yaml:/etc/promtail/config.yaml:ro
+      - ../config/promtail/config.yaml:/etc/promtail/config.yaml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - arasul-logs:/arasul/logs:ro
     command: -config.file=/etc/promtail/config.yaml

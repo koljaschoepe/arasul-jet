@@ -5,7 +5,7 @@
  * Supports success, error, warning, and info notifications with auto-dismiss.
  */
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiInfo, FiX } from 'react-icons/fi';
 
 // Context
@@ -94,23 +94,31 @@ export function ToastProvider({ children }) {
     setToasts([]);
   }, []);
 
-  // Convenience methods
-  const toast = {
-    success: (msg, duration) => addToast(msg, 'success', duration),
-    error: (msg, duration) => addToast(msg, 'error', duration),
-    warning: (msg, duration) => addToast(msg, 'warning', duration),
-    info: (msg, duration) => addToast(msg, 'info', duration),
-    remove: removeToast,
-    clear: clearToasts,
-  };
+  // Convenience methods - memoized to prevent cascading re-renders through useApi
+  const toast = useMemo(
+    () => ({
+      success: (msg, duration) => addToast(msg, 'success', duration),
+      error: (msg, duration) => addToast(msg, 'error', duration),
+      warning: (msg, duration) => addToast(msg, 'warning', duration),
+      info: (msg, duration) => addToast(msg, 'info', duration),
+      remove: removeToast,
+      clear: clearToasts,
+    }),
+    [addToast, removeToast, clearToasts]
+  );
 
-  const value = {
-    toasts,
-    toast,
-    addToast,
-    removeToast,
-    clearToasts,
-  };
+  // Note: toasts state is NOT included in context value - it's only passed as prop
+  // to ToastContainer. This prevents all useToast() consumers from re-rendering
+  // on every toast add/remove.
+  const value = useMemo(
+    () => ({
+      toast,
+      addToast,
+      removeToast,
+      clearToasts,
+    }),
+    [toast, addToast, removeToast, clearToasts]
+  );
 
   return (
     <ToastContext.Provider value={value}>

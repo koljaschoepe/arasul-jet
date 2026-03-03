@@ -17,6 +17,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TelegramSettings from '../TelegramSettings';
 
+// Mock AuthContext - useApi now requires AuthProvider
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ logout: jest.fn() }),
+  AuthProvider: ({ children }) => children,
+}));
+
 describe('TelegramSettings Component', () => {
   const mockConfig = {
     chat_id: '123456789',

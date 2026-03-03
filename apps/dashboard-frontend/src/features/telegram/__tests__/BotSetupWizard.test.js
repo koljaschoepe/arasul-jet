@@ -17,6 +17,12 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import BotSetupWizard from '../BotSetupWizard';
 
+// Mock AuthContext - useApi now requires AuthProvider
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ logout: jest.fn() }),
+  AuthProvider: ({ children }) => children,
+}));
+
 // Mock WebSocket
 class MockWebSocket {
   constructor(url) {

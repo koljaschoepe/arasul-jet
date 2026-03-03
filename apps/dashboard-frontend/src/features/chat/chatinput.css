@@ -1,0 +1,784 @@
+/* ============================================
+   Chat Input Area
+   ============================================ */
+
+.chat-input-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 32px 28px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.chat-input-section.centered {
+  justify-content: center;
+  flex: 1;
+}
+
+/* Queue Indicator */
+.queue-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+/* Error Banner */
+.chat-input-section .error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 800px;
+  padding: 12px 16px;
+  background: var(--danger-alpha-10);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.chat-input-section .error-banner svg:first-child {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--error-color);
+}
+
+.chat-input-section .error-banner span { flex: 1; }
+
+.chat-input-section .error-banner button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+  display: flex;
+}
+
+.chat-input-section .error-banner button:hover {
+  background: var(--danger-alpha-20);
+  color: var(--error-color);
+}
+
+/* Capability Warning */
+.chat-input-section .capability-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 800px;
+  padding: 10px 14px;
+  background: var(--warning-alpha-10);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+}
+
+.chat-input-section .capability-warning span {
+  flex: 1;
+}
+
+/* Input Box */
+.chat-input-section .input-box {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  transition: border-color var(--duration-normal) ease, box-shadow var(--duration-normal) ease;
+}
+
+.chat-input-section .input-box:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-alpha-10);
+}
+
+/* Input Toggles Row */
+.input-toggles {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+/* Textarea */
+.chat-input-section textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 8px;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-family: inherit;
+  line-height: 1.5;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 200px;
+  resize: none;
+  overflow-y: auto;
+}
+
+.chat-input-section textarea:focus {
+  outline: none;
+}
+
+.chat-input-section textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.chat-input-section textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Send Button */
+.chat-input-section .send-btn {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  background: var(--primary-color);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast) ease;
+  flex-shrink: 0;
+}
+
+.chat-input-section .send-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: scale(1.05);
+}
+
+.chat-input-section .send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: var(--border-color);
+}
+
+.chat-input-section .send-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Cancel Button */
+.chat-input-section .cancel-btn {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  background: var(--danger-alpha-15);
+  border: none;
+  border-radius: 50%;
+  color: var(--danger-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast) ease;
+  flex-shrink: 0;
+}
+
+.chat-input-section .cancel-btn:hover {
+  background: var(--danger-alpha-20);
+  transform: scale(1.05);
+}
+
+.chat-input-section .cancel-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---- Toggle Buttons ---- */
+.input-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  background: var(--bg-dark);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+  flex-shrink: 0;
+}
+
+.input-toggle:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.input-toggle svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.input-toggle span {
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* RAG Toggle Active */
+.input-toggle.rag-toggle.active {
+  background: var(--primary-alpha-15);
+  color: var(--primary-color);
+}
+
+/* Think Toggle Active */
+.input-toggle.think-toggle.active {
+  background: var(--primary-alpha-15);
+  color: var(--primary-hover);
+}
+
+/* ---- Model Selector ---- */
+.model-selector {
+  position: relative;
+}
+
+.input-toggle.model-toggle {
+  gap: 4px;
+  padding: 0 10px;
+  min-width: 80px;
+  max-width: 140px;
+}
+
+.input-toggle.model-toggle .model-name-short {
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.input-toggle.model-toggle .dropdown-arrow {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--duration-normal) ease;
+}
+
+.input-toggle.model-toggle .dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.input-toggle.model-toggle.active {
+  background: var(--primary-alpha-15);
+  color: var(--primary-color);
+}
+
+.model-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  min-width: 220px;
+  max-width: 280px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  z-index: 100;
+  animation: dropdownFadeIn var(--duration-fast) ease;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.model-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) ease;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+}
+
+.model-option:last-child {
+  border-bottom: none;
+}
+
+.model-option:hover {
+  background: var(--bg-card-hover);
+}
+
+.model-option.selected {
+  background: var(--primary-alpha-10);
+}
+
+.model-option.selected .model-option-name {
+  color: var(--primary-color);
+}
+
+.model-option.unavailable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.model-option.unavailable:hover {
+  background: transparent;
+}
+
+.model-option.unavailable .model-option-name {
+  color: var(--text-muted);
+}
+
+.model-option.unavailable .model-option-desc {
+  color: var(--error-color);
+}
+
+/* Favorite model styling */
+.model-option.favorite {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.model-option.favorite::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--warning-color);
+}
+
+.favorite-btn {
+  background: transparent;
+  border: none;
+  padding: 2px;
+  margin-right: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  transition: all var(--duration-fast) ease;
+}
+
+.favorite-btn:hover {
+  background: var(--warning-alpha-15);
+  transform: scale(1.1);
+}
+
+.favorite-btn.active svg {
+  fill: var(--warning-color);
+}
+
+.model-warning-icon {
+  vertical-align: middle;
+}
+
+.model-option-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.model-option-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Set as Default button */
+.set-default-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.set-default-btn:hover {
+  background: var(--primary-alpha-15);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.set-default-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* ---- Space Selector ---- */
+.space-selector {
+  position: relative;
+}
+
+.input-toggle.space-toggle {
+  gap: 4px;
+  padding: 0 10px;
+  min-width: 80px;
+  max-width: 140px;
+}
+
+.input-toggle.space-toggle .space-toggle-label {
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.input-toggle.space-toggle .dropdown-arrow {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--duration-normal) ease;
+}
+
+.input-toggle.space-toggle .dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.input-toggle.space-toggle.active {
+  background: var(--primary-alpha-15);
+  color: var(--primary-color);
+}
+
+.space-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  min-width: 240px;
+  max-width: 300px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  animation: dropdownFadeIn var(--duration-fast) ease;
+}
+
+.space-dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
+.space-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) ease;
+}
+
+.space-option:hover {
+  background: var(--bg-card-hover);
+}
+
+.space-option.selected {
+  background: var(--primary-alpha-10);
+}
+
+.space-option .check-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0;
+  color: var(--primary-color);
+}
+
+.space-option.selected .check-icon {
+  opacity: 1;
+}
+
+.space-option .space-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.space-option-name {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.space-option.selected .space-option-name {
+  color: var(--primary-color);
+}
+
+.space-option-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.space-option-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--primary-alpha-10);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+}
+
+.space-option.auto-option {
+  flex-wrap: wrap;
+}
+
+.space-option.auto-option .space-option-desc {
+  width: 100%;
+  margin-left: 24px;
+  margin-top: 2px;
+}
+
+/* ============================================
+   Responsive - Input
+   ============================================ */
+
+@media (max-width: 768px) {
+  .chat-input-section {
+    padding: 14px 16px 18px;
+  }
+
+  .chat-input-section .input-box {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  /* Touch-friendly toggle buttons */
+  .input-toggle {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: var(--radius-md);
+  }
+
+  .input-toggle svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .input-toggle span {
+    display: none;
+  }
+
+  .chat-input-section textarea {
+    font-size: 1rem;
+    padding: 10px 8px;
+    min-height: 44px;
+  }
+
+  /* Touch-friendly send button */
+  .chat-input-section .send-btn {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+  }
+
+  .chat-input-section .send-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .chat-input-section .error-banner {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .chat-input-section {
+    padding: 12px;
+  }
+
+  .chat-input-section .input-box {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  /* Toggle buttons - icon only, larger touch targets */
+  .input-toggle {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .input-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .chat-input-section textarea {
+    font-size: 0.95rem;
+    padding: 8px 6px;
+  }
+
+  .chat-input-section .send-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+  }
+
+  .chat-input-section .send-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 375px) {
+  .chat-input-section {
+    padding: 10px;
+  }
+
+  .chat-input-section .input-box {
+    padding: 6px 10px;
+    gap: 6px;
+    border-radius: var(--radius-md);
+  }
+
+  .input-toggle {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+  }
+
+  .chat-input-section textarea {
+    font-size: 0.9rem;
+    padding: 6px 4px;
+  }
+
+  .chat-input-section .send-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+  }
+
+  .chat-input-section .send-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ============================================
+   Light Mode - Input
+   ============================================ */
+
+.light-mode .chat-input-section .input-box {
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.light-mode .chat-input-section .input-box:focus-within {
+  box-shadow: 0 0 0 2px rgba(69, 173, 255, 0.15);
+}
+
+.light-mode .input-toggle {
+  background: var(--bg-elevated);
+}
+
+.light-mode .input-toggle:hover {
+  background: var(--border-color);
+}
+
+.light-mode .input-toggle.rag-toggle.active,
+.light-mode .input-toggle.think-toggle.active,
+.light-mode .input-toggle.model-toggle.active,
+.light-mode .input-toggle.space-toggle.active {
+  background: rgba(69, 173, 255, 0.12);
+  color: var(--primary-color);
+}
+
+.light-mode .chat-input-section .send-btn {
+  background: var(--primary-color);
+}
+
+.light-mode .chat-input-section .send-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.light-mode .chat-input-section .send-btn:disabled {
+  background: var(--border-color);
+}
+
+/* Light Mode - Dropdowns */
+.light-mode .model-dropdown,
+.light-mode .space-dropdown {
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+}
+
+.light-mode .model-option:hover,
+.light-mode .space-option:hover {
+  background: var(--bg-elevated);
+}
+
+.light-mode .model-option.selected,
+.light-mode .space-option.selected {
+  background: rgba(69, 173, 255, 0.08);
+}
+
+.light-mode .model-option.selected .model-option-name,
+.light-mode .space-option.selected .space-option-name,
+.light-mode .space-option .check-icon {
+  color: var(--primary-color);
+}
+
+.light-mode .model-option.unavailable .model-option-desc {
+  color: var(--danger-color);
+}
+
+/* Light Mode - Error Banner */
+.light-mode .chat-input-section .error-banner {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.light-mode .chat-input-section .error-banner svg:first-child {
+  color: var(--danger-color);
+}
+
+.light-mode .chat-input-section .error-banner button:hover {
+  background: rgba(220, 38, 38, 0.15);
+  color: var(--danger-color);
+}

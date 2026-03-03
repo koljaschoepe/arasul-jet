@@ -41,6 +41,7 @@ app.use(
   helmet({
     contentSecurityPolicy: false, // SPA serves own CSP via meta tag
     crossOriginEmbedderPolicy: false, // Allow LAN resource loading
+    hsts: false, // LAN appliance uses HTTP, HTTPS/TLS not configured
   })
 );
 
@@ -118,10 +119,8 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // HIGH-001 FIX: WebSocket server for live metrics streaming
-const wss = new WebSocket.Server({
-  server,
-  path: '/api/metrics/live-stream',
-});
+// Use noServer to prevent dual-WSS upgrade conflict with Telegram WSS
+const wss = new WebSocket.Server({ noServer: true });
 
 const axios = require('axios');
 const logger = require('./utils/logger');
@@ -305,6 +304,24 @@ if (require.main === module) {
     } catch (err) {
       logger.error(`Failed to initialize Telegram WebSocket Service: ${err.message}`);
     }
+
+    // Central upgrade handler - routes WebSocket connections by path
+    // Prevents dual-WSS conflict where two servers corrupt each other's upgrades
+    server.on('upgrade', (request, socket, head) => {
+      const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+
+      if (pathname === '/api/metrics/live-stream') {
+        wss.handleUpgrade(request, socket, head, ws => {
+          wss.emit('connection', ws, request);
+        });
+      } else if (pathname === '/api/telegram-app/ws' && telegramWebSocketService.wss) {
+        telegramWebSocketService.wss.handleUpgrade(request, socket, head, ws => {
+          telegramWebSocketService.wss.emit('connection', ws, request);
+        });
+      } else {
+        socket.destroy();
+      }
+    });
 
     // Initialize Data Database for Datentabellen feature
     try {

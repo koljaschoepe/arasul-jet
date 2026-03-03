@@ -276,7 +276,7 @@ describe('Database Module', () => {
             mockPool.connect.mockResolvedValueOnce(mockClient);
             mockClient.query.mockImplementationOnce(() => {
                 return new Promise((resolve) => {
-                    setTimeout(() => resolve({ rows: [{ health: 1 }] }), 10);
+                    setTimeout(() => resolve({ rows: [{ health: 1 }] }), 15);
                 });
             });
 

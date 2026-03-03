@@ -409,9 +409,19 @@ describe('Projects Routes', () => {
   // DELETE /api/projects/:id
   // ===========================================
   describe('DELETE /api/projects/:id', () => {
-    test('deletes project and ungroups conversations', async () => {
-      setupMocksWithAuth((query) => {
-        if (query.includes('UPDATE chat_conversations') && query.includes('project_id = NULL')) {
+    test('deletes project and reassigns conversations to default', async () => {
+      const defaultProjectId = 'default-project-uuid';
+      setupMocksWithAuth((query, params) => {
+        // Check if project exists
+        if (query.includes('SELECT') && query.includes('is_default') && query.includes('WHERE id')) {
+          return Promise.resolve({ rows: [{ id: mockProject.id, is_default: false }] });
+        }
+        // Get default project
+        if (query.includes('SELECT') && query.includes('is_default = TRUE')) {
+          return Promise.resolve({ rows: [{ id: defaultProjectId }] });
+        }
+        // Reassign conversations
+        if (query.includes('UPDATE chat_conversations') && query.includes('project_id = $1')) {
           return Promise.resolve({ rowCount: 2 });
         }
         if (query.includes('DELETE FROM projects')) {
@@ -427,19 +437,32 @@ describe('Projects Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
 
-      // Verify conversations were ungrouped first
+      // Verify conversations were reassigned to default project
       const updateCall = db.query.mock.calls.find(
-        ([q]) => q.includes('UPDATE chat_conversations') && q.includes('project_id = NULL')
+        ([q]) => q.includes('UPDATE chat_conversations') && q.includes('project_id = $1')
       );
       expect(updateCall).toBeDefined();
     });
 
+    test('returns 400 when trying to delete default project', async () => {
+      setupMocksWithAuth((query) => {
+        if (query.includes('SELECT') && query.includes('is_default') && query.includes('WHERE id')) {
+          return Promise.resolve({ rows: [{ id: 'default-id', is_default: true }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const res = await request(app)
+        .delete('/api/projects/default-id')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('Standard-Projekt');
+    });
+
     test('returns 404 for nonexistent project', async () => {
       setupMocksWithAuth((query) => {
-        if (query.includes('UPDATE chat_conversations')) {
-          return Promise.resolve({ rowCount: 0 });
-        }
-        if (query.includes('DELETE FROM projects')) {
+        if (query.includes('SELECT') && query.includes('is_default') && query.includes('WHERE id')) {
           return Promise.resolve({ rows: [] });
         }
         return Promise.resolve({ rows: [] });
@@ -462,7 +485,7 @@ describe('Projects Routes', () => {
         if (query.includes('INSERT INTO chat_conversations')) {
           return Promise.resolve({
             rows: [{
-              id: 1, title: 'New Chat', project_id: mockProject.id,
+              id: 1, title: 'Neuer Chat', project_id: mockProject.id,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               message_count: 0
@@ -475,10 +498,38 @@ describe('Projects Routes', () => {
       const res = await request(app)
         .post('/api/chats')
         .set('Authorization', `Bearer ${token}`)
-        .send({ title: 'New Chat', project_id: mockProject.id });
+        .send({ title: 'Neuer Chat', project_id: mockProject.id });
 
       expect(res.status).toBe(200);
       expect(res.body.chat.project_id).toBe(mockProject.id);
+    });
+
+    test('POST /api/chats falls back to default project when no project_id', async () => {
+      const defaultProjectId = 'default-project-uuid';
+      setupMocksWithAuth((query) => {
+        if (query.includes('is_default = TRUE')) {
+          return Promise.resolve({ rows: [{ id: defaultProjectId }] });
+        }
+        if (query.includes('INSERT INTO chat_conversations')) {
+          return Promise.resolve({
+            rows: [{
+              id: 1, title: 'Neuer Chat', project_id: defaultProjectId,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              message_count: 0
+            }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const res = await request(app)
+        .post('/api/chats')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: 'Neuer Chat' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.chat.project_id).toBe(defaultProjectId);
     });
 
     test('GET /api/chats returns project_id', async () => {
@@ -504,15 +555,15 @@ describe('Projects Routes', () => {
       expect(res.body.chats[0].project_id).toBe(mockProject.id);
     });
 
-    test('GET /api/chats?ungrouped=true filters to null project_id', async () => {
-      setupMocksWithAuth((query) => {
-        if (query.includes('project_id IS NULL')) {
+    test('GET /api/chats?project_id filters by project', async () => {
+      setupMocksWithAuth((query, params) => {
+        if (query.includes('FROM chat_conversations') && query.includes('project_id = $')) {
           return Promise.resolve({
             rows: [{
-              id: 2, title: 'Ungrouped', project_id: null,
+              id: 1, title: 'Project Chat', project_id: mockProject.id,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-              message_count: 0
+              message_count: 3
             }]
           });
         }
@@ -520,11 +571,12 @@ describe('Projects Routes', () => {
       });
 
       const res = await request(app)
-        .get('/api/chats?ungrouped=true')
+        .get(`/api/chats?project_id=${mockProject.id}`)
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.chats[0].project_id).toBeNull();
+      expect(res.body.chats).toHaveLength(1);
+      expect(res.body.chats[0].project_id).toBe(mockProject.id);
     });
 
     test('PATCH /api/chats/:id updates project_id', async () => {
@@ -549,6 +601,113 @@ describe('Projects Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.chat.project_id).toBe(mockProject.id);
+    });
+  });
+
+  // ===========================================
+  // GET /api/chats/recent
+  // ===========================================
+  describe('GET /api/chats/recent', () => {
+    test('returns top 10 recent chats with project info', async () => {
+      setupMocksWithAuth((query) => {
+        if (query.includes('FROM chat_conversations') && query.includes('project_name') && query.includes('LIMIT 10')) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 1, title: 'Recent Chat 1', project_id: mockProject.id,
+                updated_at: new Date().toISOString(), message_count: 5,
+                project_name: 'Test Projekt', project_color: '#45ADFF'
+              },
+              {
+                id: 2, title: 'Recent Chat 2', project_id: mockProject.id,
+                updated_at: new Date().toISOString(), message_count: 3,
+                project_name: 'Test Projekt', project_color: '#45ADFF'
+              }
+            ]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const res = await request(app)
+        .get('/api/chats/recent')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.chats).toHaveLength(2);
+      expect(res.body.chats[0].project_name).toBe('Test Projekt');
+      expect(res.body.chats[0].project_color).toBe('#45ADFF');
+    });
+
+    test('requires authentication', async () => {
+      const res = await request(app).get('/api/chats/recent');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  // ===========================================
+  // GET /api/chats/search
+  // ===========================================
+  describe('GET /api/chats/search', () => {
+    test('searches chats by title', async () => {
+      setupMocksWithAuth((query) => {
+        if (query.includes('ILIKE')) {
+          return Promise.resolve({
+            rows: [{
+              id: 1, title: 'JavaScript Fragen', project_id: mockProject.id,
+              updated_at: new Date().toISOString(), message_count: 10,
+              project_name: 'Test Projekt', project_color: '#45ADFF'
+            }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const res = await request(app)
+        .get('/api/chats/search?q=JavaScript')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.chats).toHaveLength(1);
+      expect(res.body.chats[0].title).toBe('JavaScript Fragen');
+    });
+
+    test('returns empty array for empty query', async () => {
+      setupMocksWithAuth();
+
+      const res = await request(app)
+        .get('/api/chats/search?q=')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.chats).toEqual([]);
+    });
+
+    test('filters by project_id', async () => {
+      setupMocksWithAuth((query, params) => {
+        if (query.includes('ILIKE') && query.includes('project_id = $')) {
+          return Promise.resolve({
+            rows: [{
+              id: 1, title: 'Test Chat', project_id: mockProject.id,
+              updated_at: new Date().toISOString(), message_count: 2,
+              project_name: 'Test Projekt', project_color: '#45ADFF'
+            }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const res = await request(app)
+        .get(`/api/chats/search?q=Test&project_id=${mockProject.id}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.chats).toHaveLength(1);
+    });
+
+    test('requires authentication', async () => {
+      const res = await request(app).get('/api/chats/search?q=test');
+      expect(res.status).toBe(401);
     });
   });
 });

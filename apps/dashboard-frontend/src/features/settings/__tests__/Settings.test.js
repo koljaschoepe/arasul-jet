@@ -14,6 +14,12 @@ import userEvent from '@testing-library/user-event';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import Settings from '../Settings';
 
+// Mock AuthContext - useApi now requires AuthProvider
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ logout: jest.fn() }),
+  AuthProvider: ({ children }) => children,
+}));
+
 // Mock child components that are rendered conditionally
 jest.mock('../../system/UpdatePage', () => {
   const React = require('react');

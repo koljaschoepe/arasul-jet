@@ -5,7 +5,7 @@
  * Handles login, logout, session verification, and 401 interceptor.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 
 // Context
@@ -40,12 +40,16 @@ export function AuthProvider({ children }) {
       // Token invalid or no user - clean up
       localStorage.removeItem('arasul_token');
       localStorage.removeItem('arasul_user');
+      setIsAuthenticated(false);
+      setUser(null);
       setLoading(false);
       return false;
     } catch (err) {
       // Network error - clean up
       localStorage.removeItem('arasul_token');
       localStorage.removeItem('arasul_user');
+      setIsAuthenticated(false);
+      setUser(null);
       setLoading(false);
       return false;
     }
@@ -87,15 +91,18 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const value = {
-    user,
-    isAuthenticated,
-    loading,
-    login,
-    logout,
-    checkAuth,
-    setLoadingComplete,
-  };
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated,
+      loading,
+      login,
+      logout,
+      checkAuth,
+      setLoadingComplete,
+    }),
+    [user, isAuthenticated, loading, login, logout, checkAuth, setLoadingComplete]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

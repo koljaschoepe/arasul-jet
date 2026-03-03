@@ -92,6 +92,11 @@ APPLICATION_SERVICES = [
 # App Store apps managed via dashboard (should not auto-restart if intentionally stopped)
 # This will be dynamically checked via database
 
+# Containers to exclude from monitoring (comma-separated, e.g. optional/stopped services)
+EXCLUDED_CONTAINERS = set(
+    c.strip() for c in os.getenv('EXCLUDED_CONTAINERS', '').split(',') if c.strip()
+)
+
 
 class SelfHealingEngine:
     """Advanced self-healing engine with database-backed failure tracking and connection pooling"""
@@ -1289,8 +1294,12 @@ class SelfHealingEngine:
                 if service_name == 'self-healing-agent':
                     continue
 
-                # Skip Store apps that were intentionally stopped
-                if self.is_store_app_intentionally_stopped(service_name):
+                # Skip explicitly excluded containers (optional/stopped services)
+                if service_name in EXCLUDED_CONTAINERS:
+                    continue
+
+                # Skip exited containers that are Store apps intentionally stopped
+                if service_info['status'] == 'exited' and self.is_store_app_intentionally_stopped(service_name):
                     logger.debug(f"Skipping {service_name} - Store app intentionally stopped")
                     continue
 

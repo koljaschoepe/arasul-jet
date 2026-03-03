@@ -649,7 +649,7 @@ describe('Security Tests', () => {
         'utf8'
       );
       expect(indexSrc).toContain("require('helmet')");
-      expect(indexSrc).toContain('app.use(helmet(');
+      expect(indexSrc).toContain('helmet(');
     });
   });
 

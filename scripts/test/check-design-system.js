@@ -32,9 +32,8 @@ const ALLOWED_COLORS = [
 ];
 
 // --- Thresholds (ratchet — never increase) -----------------------------------
-
 const HARDCODED_COLOR_THRESHOLD = 150;
-const MISSING_TRANSITION_THRESHOLD = 230;
+const MISSING_TRANSITION_THRESHOLD = 225;
 
 // --- Helpers -----------------------------------------------------------------
 

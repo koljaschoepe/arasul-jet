@@ -5,7 +5,7 @@ services:
   # 1. Dashboard Backend
   dashboard-backend:
     build:
-      context: .
+      context: ..
       dockerfile: apps/dashboard-backend/Dockerfile
     container_name: dashboard-backend
     hostname: dashboard-backend
@@ -60,12 +60,12 @@ services:
       COMPOSE_PROJECT_DIR: /home/arasul/arasul/arasul-jet
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./.env:/arasul/config/.env
-      - ./config:/config:ro
-      - ./data/updates:/arasul/updates
-      - ./data/backups:/arasul/backups:ro
-      - ./data/appstore/manifests:/arasul/appstore/manifests:ro
-      - ./data/ssh-keys:/arasul/ssh-keys:ro
+      - ../.env:/arasul/config/.env
+      - ../config:/config:ro
+      - ../data/updates:/arasul/updates
+      - ../data/backups:/arasul/backups:ro
+      - ../data/appstore/manifests:/arasul/appstore/manifests:ro
+      - ../data/ssh-keys:/arasul/ssh-keys:ro
     security_opt:
       - no-new-privileges:true
       - apparmor:arasul-backend
@@ -73,14 +73,6 @@ services:
       postgres-db:
         condition: service_healthy
       minio:
-        condition: service_healthy
-      metrics-collector:
-        condition: service_healthy
-      llm-service:
-        condition: service_healthy
-      embedding-service:
-        condition: service_healthy
-      reverse-proxy:
         condition: service_healthy
     healthcheck:
       test:
@@ -110,16 +102,13 @@ services:
   # 2. Dashboard Frontend
   dashboard-frontend:
     build:
-      context: .
+      context: ..
       dockerfile: apps/dashboard-frontend/Dockerfile
     container_name: dashboard-frontend
     hostname: dashboard-frontend
     restart: always
     networks:
       - arasul-frontend
-    depends_on:
-      reverse-proxy:
-        condition: service_healthy
     healthcheck:
       test: ['CMD', 'test', '-f', '/usr/share/nginx/html/index.html']
       interval: 10s
@@ -154,7 +143,7 @@ services:
   # 3. n8n Workflow Engine
   n8n:
     build:
-      context: ./services/n8n
+      context: ../services/n8n
       dockerfile: Dockerfile
     container_name: n8n
     hostname: n8n
@@ -185,8 +174,8 @@ services:
       N8N_RUNNERS_MODE: 'internal'
     volumes:
       - arasul-n8n:/home/node/.n8n
-      - ./services/n8n/credentials:/custom-credentials:ro
-      - ./services/n8n/templates:/custom-templates:ro
+      - ../services/n8n/credentials:/custom-credentials:ro
+      - ../services/n8n/templates:/custom-templates:ro
     depends_on:
       postgres-db:
         condition: service_healthy

@@ -19,14 +19,15 @@ router.get(
 
     const result = await db.query(
       `SELECT p.id, p.name, p.description, p.system_prompt, p.icon, p.color,
-              p.knowledge_space_id, p.sort_order, p.created_at, p.updated_at,
+              p.knowledge_space_id, p.sort_order, p.is_default,
+              p.created_at, p.updated_at,
               ks.name as space_name,
               COUNT(c.id) FILTER (WHERE c.deleted_at IS NULL) as conversation_count
        FROM projects p
        LEFT JOIN knowledge_spaces ks ON p.knowledge_space_id = ks.id
        LEFT JOIN chat_conversations c ON c.project_id = p.id
        GROUP BY p.id, ks.name
-       ORDER BY p.sort_order, p.created_at DESC`
+       ORDER BY p.is_default DESC NULLS LAST, p.sort_order, p.created_at DESC`
     );
 
     let projects = result.rows;
@@ -82,8 +83,8 @@ router.post(
     }
 
     const result = await db.query(
-      `INSERT INTO projects (name, description, system_prompt, icon, color, knowledge_space_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO projects (name, description, system_prompt, icon, color, knowledge_space_id, is_default)
+       VALUES ($1, $2, $3, $4, $5, $6, FALSE)
        RETURNING *`,
       [
         name.trim(),
@@ -186,21 +187,34 @@ router.put(
   })
 );
 
-// DELETE /api/projects/:id - Delete project (conversations become ungrouped)
+// DELETE /api/projects/:id - Delete project (conversations reassigned to default)
 router.delete(
   '/:id',
   requireAuth,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    // Ungroup conversations first
-    await db.query('UPDATE chat_conversations SET project_id = NULL WHERE project_id = $1', [id]);
-
-    const result = await db.query('DELETE FROM projects WHERE id = $1 RETURNING id', [id]);
-
-    if (result.rows.length === 0) {
+    // Check if project exists and is not the default
+    const projectCheck = await db.query('SELECT id, is_default FROM projects WHERE id = $1', [id]);
+    if (projectCheck.rows.length === 0) {
       throw new NotFoundError('Projekt nicht gefunden');
     }
+    if (projectCheck.rows[0].is_default) {
+      throw new ValidationError('Das Standard-Projekt kann nicht geloescht werden');
+    }
+
+    // Reassign conversations to default project
+    const defaultProject = await db.query(
+      'SELECT id FROM projects WHERE is_default = TRUE LIMIT 1'
+    );
+    if (defaultProject.rows.length > 0) {
+      await db.query('UPDATE chat_conversations SET project_id = $1 WHERE project_id = $2', [
+        defaultProject.rows[0].id,
+        id,
+      ]);
+    }
+
+    await db.query('DELETE FROM projects WHERE id = $1', [id]);
 
     res.json({ success: true, timestamp: new Date().toISOString() });
   })

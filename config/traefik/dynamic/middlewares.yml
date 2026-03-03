@@ -48,10 +48,9 @@ http:
         frameDeny: true
         browserXssFilter: true
         contentTypeNosniff: true
-        forceSTSHeader: true
-        stsIncludeSubdomains: true
-        stsPreload: true
-        stsSeconds: 31536000
+        # HSTS disabled: LAN appliance uses HTTP, HTTPS/TLS not configured
+        forceSTSHeader: false
+        stsSeconds: 0
         customFrameOptionsValue: 'SAMEORIGIN'
         # Content-Security-Policy: restrict resource loading to same origin
         contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"

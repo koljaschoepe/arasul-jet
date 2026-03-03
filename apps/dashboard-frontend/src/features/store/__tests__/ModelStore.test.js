@@ -17,6 +17,12 @@ import { StoreModels as ModelStore } from '..';
 import { DownloadProvider } from '../../../contexts/DownloadContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
 
+// Mock AuthContext - useApi now requires AuthProvider
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ logout: jest.fn() }),
+  AuthProvider: ({ children }) => children,
+}));
+
 // Helper to render with required providers (Router needed for useSearchParams)
 const renderWithProvider = ui => {
   return render(

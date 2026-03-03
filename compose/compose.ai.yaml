@@ -36,7 +36,7 @@ services:
   # 2. LLM Service (Ollama)
   llm-service:
     build:
-      context: ./services/llm-service
+      context: ../services/llm-service
       dockerfile: Dockerfile
     container_name: llm-service
     hostname: llm-service
@@ -54,8 +54,8 @@ services:
       OLLAMA_MAX_LOADED_MODELS: '1'
     volumes:
       - arasul-llm-models:/root/.ollama
-      - ./services/llm-service/healthcheck.sh:/healthcheck.sh:ro
-      - ./data/models:/host-models:ro
+      - ../services/llm-service/healthcheck.sh:/healthcheck.sh:ro
+      - ../data/models:/host-models:ro
     runtime: nvidia
     security_opt:
       - no-new-privileges:true
@@ -87,7 +87,7 @@ services:
   # 3. Embedding Service
   embedding-service:
     build:
-      context: ./services/embedding-service
+      context: ../services/embedding-service
       dockerfile: Dockerfile
     container_name: embedding-service
     hostname: embedding-service
@@ -102,6 +102,7 @@ services:
       MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS}
       EMBEDDING_VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE:-1024}
       EMBEDDING_MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS:-8192}
+      SENTENCE_TRANSFORMERS_HOME: /models
       ENABLE_RERANKING: 'true'
       FLASHRANK_MODEL: ms-marco-MiniLM-L-12-v2
       BGE_RERANKER_MODEL: BAAI/bge-reranker-v2-m3
@@ -109,7 +110,7 @@ services:
       TORCH_CUDA_ARCH_LIST: '${TORCH_CUDA_ARCH_LIST:-8.7}'
     volumes:
       - arasul-embeddings-models:/models
-      - ./services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
+      - ../services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
     runtime: nvidia
     security_opt:
       - no-new-privileges:true
@@ -141,7 +142,7 @@ services:
   # 4. Document Indexer - Automatic document indexing for RAG
   document-indexer:
     build:
-      context: ./services/document-indexer
+      context: ../services/document-indexer
       dockerfile: Dockerfile
     container_name: document-indexer
     hostname: document-indexer

@@ -11,6 +11,7 @@ import {
   FiActivity,
 } from 'react-icons/fi';
 import MermaidDiagram from '../../components/editor/MermaidDiagram';
+import './chatmessage.css';
 
 /**
  * ChatMessage - Renders a single chat message (user or assistant).

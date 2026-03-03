@@ -55,13 +55,8 @@ function createLLMJobService(deps = {}) {
 
         const messageId = messageResult.rows[0].id;
 
-        // Update job with message ID and status
-        await client.query(
-          `UPDATE llm_jobs
-                     SET message_id = $1, status = 'streaming', started_at = NOW()
-                     WHERE id = $2`,
-          [messageId, jobId]
-        );
+        // Link message to job (status stays 'pending' until queue processor starts it)
+        await client.query(`UPDATE llm_jobs SET message_id = $1 WHERE id = $2`, [messageId, jobId]);
 
         logger.info(`Created LLM job ${jobId} for conversation ${conversationId}`);
 

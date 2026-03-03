@@ -280,18 +280,40 @@ router.get(
       );
     }
 
-    // Track client connection and manage cleanup in single handler
+    // Track client connection and job completion to prevent race conditions
     let clientConnected = true;
+    let jobDone = false;
     let unsubscribe = null;
     let pollInterval = null;
 
-    // Single close handler for all cleanup
-    res.on('close', () => {
+    /** Shared cleanup: stop poll, unsubscribe, end response */
+    const finishStream = () => {
+      if (jobDone) {
+        return;
+      }
+      jobDone = true;
       if (pollInterval) {
         clearInterval(pollInterval);
         pollInterval = null;
       }
       clientConnected = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      try {
+        res.end();
+      } catch {
+        /* already ended */
+      }
+    };
+
+    // Single close handler for all cleanup
+    res.on('close', () => {
+      clientConnected = false;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
       if (unsubscribe) {
         unsubscribe();
       }
@@ -299,11 +321,11 @@ router.get(
 
     res.on('error', error => {
       logger.debug(`[RECONNECT ${jobId}] Response error: ${error.message}`);
+      clientConnected = false;
       if (pollInterval) {
         clearInterval(pollInterval);
         pollInterval = null;
       }
-      clientConnected = false;
       if (unsubscribe) {
         unsubscribe();
       }
@@ -311,7 +333,7 @@ router.get(
 
     // Subscribe to job updates
     unsubscribe = llmQueueService.subscribeToJob(jobId, event => {
-      if (!clientConnected) {
+      if (jobDone || !clientConnected) {
         return;
       }
 
@@ -319,16 +341,7 @@ router.get(
         res.write(`data: ${JSON.stringify(event)}\n\n`);
 
         if (event.done) {
-          // WS-002: Clean up subscription and poll before ending response
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
-          }
-          clientConnected = false;
-          if (unsubscribe) {
-            unsubscribe();
-          }
-          res.end();
+          finishStream();
         }
       } catch (err) {
         logger.debug(`[RECONNECT ${jobId}] Write error: ${err.message}`);
@@ -341,8 +354,9 @@ router.get(
       let lastThinking = job.thinking || '';
 
       pollInterval = setInterval(async () => {
-        if (!clientConnected) {
+        if (jobDone || !clientConnected) {
           clearInterval(pollInterval);
+          pollInterval = null;
           return;
         }
 
@@ -353,13 +367,7 @@ router.get(
             res.write(
               `data: ${JSON.stringify({ done: true, status: 'error', error: 'Job not found' })}\n\n`
             );
-            clearInterval(pollInterval);
-            pollInterval = null;
-            clientConnected = false;
-            if (unsubscribe) {
-              unsubscribe();
-            }
-            res.end();
+            finishStream();
             return;
           }
 
@@ -373,13 +381,7 @@ router.get(
                 status: 'completed',
               })}\n\n`
             );
-            clearInterval(pollInterval);
-            pollInterval = null;
-            clientConnected = false;
-            if (unsubscribe) {
-              unsubscribe();
-            }
-            res.end();
+            finishStream();
             return;
           }
 
@@ -391,13 +393,7 @@ router.get(
                 error: currentJob.error_message,
               })}\n\n`
             );
-            clearInterval(pollInterval);
-            pollInterval = null;
-            clientConnected = false;
-            if (unsubscribe) {
-              unsubscribe();
-            }
-            res.end();
+            finishStream();
             return;
           }
 

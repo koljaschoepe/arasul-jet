@@ -10,6 +10,12 @@
  */
 
 // Mock MarkdownEditor component which uses react-markdown - must be before imports
+import React from 'react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ToastProvider } from '../../../contexts/ToastContext';
+import DocumentManager from '../DocumentManager';
+
 jest.mock('../../../components/editor/MarkdownEditor', () => {
   const React = require('react');
   return function MockMarkdownEditor({ value, onChange }) {
@@ -41,12 +47,6 @@ const mockApi = {
   request: jest.fn(),
 };
 jest.mock('../../../hooks/useApi', () => ({ useApi: () => mockApi, default: () => mockApi }));
-
-import React from 'react';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { ToastProvider } from '../../../contexts/ToastContext';
-import DocumentManager from '../DocumentManager';
 
 const renderWithProviders = ui => render(<ToastProvider>{ui}</ToastProvider>);
 

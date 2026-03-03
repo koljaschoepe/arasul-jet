@@ -26,8 +26,8 @@ const mockApi = {
 jest.mock('../hooks/useApi', () => ({ useApi: () => mockApi, default: () => mockApi }));
 
 // Mock components to avoid complex setup
-jest.mock('../features/chat/ChatMulti', () => () => (
-  <div data-testid="chat-multi">Chat Component</div>
+jest.mock('../features/chat/ChatRouter', () => () => (
+  <div data-testid="chat-router">Chat Component</div>
 ));
 jest.mock('../features/documents/DocumentManager', () => () => (
   <div data-testid="document-manager">Documents Component</div>
@@ -235,7 +235,7 @@ describe('App Component', () => {
       await user.click(screen.getByText('Chat'));
 
       await waitFor(() => {
-        expect(screen.getByTestId('chat-multi')).toBeInTheDocument();
+        expect(screen.getByTestId('chat-router')).toBeInTheDocument();
       });
     });
 

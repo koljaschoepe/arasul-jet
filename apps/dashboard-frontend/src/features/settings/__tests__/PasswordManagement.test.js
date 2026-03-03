@@ -16,6 +16,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PasswordManagement from '../PasswordManagement';
 
+// Mock AuthContext - useApi now requires AuthProvider
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ logout: jest.fn() }),
+  AuthProvider: ({ children }) => children,
+}));
+
 describe('PasswordManagement Component', () => {
   const mockRequirements = {
     minLength: 8,

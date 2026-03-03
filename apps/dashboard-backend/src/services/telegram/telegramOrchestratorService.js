@@ -44,10 +44,9 @@ class TelegramWebSocketService {
       return;
     }
 
-    this.wss = new WebSocket.Server({
-      server,
-      path: '/api/telegram-app/ws',
-    });
+    // Use noServer to prevent dual-WSS upgrade conflict with metrics WSS
+    this.wss = new WebSocket.Server({ noServer: true });
+    this.server = server;
 
     this.wss.on('connection', (ws, req) => {
       const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;

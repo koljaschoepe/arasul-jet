@@ -15,12 +15,19 @@
  *   await api.del('/documents/123');
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export function useApi() {
   const toast = useToast();
+  const { logout } = useAuth();
+
+  // Use ref for logout to prevent request callback recreation on auth state changes.
+  // This breaks the useApi→AuthContext dependency chain that causes render loops.
+  const logoutRef = useRef(logout);
+  logoutRef.current = logout;
 
   const request = useCallback(
     async (path, options = {}) => {
@@ -52,6 +59,14 @@ export function useApi() {
       });
 
       if (!res.ok) {
+        // 401 interceptor: auto-logout on expired/invalid token
+        if (res.status === 401 && !path.startsWith('/auth/')) {
+          logoutRef.current();
+          const err = new Error('Sitzung abgelaufen');
+          err.status = 401;
+          throw err;
+        }
+
         const error = await res.json().catch(() => ({ message: 'Unbekannter Fehler' }));
         if (showError && toast) {
           toast.error(error.message || `Fehler ${res.status}`);
@@ -73,23 +88,25 @@ export function useApi() {
     [toast]
   );
 
-  return {
-    get: useCallback((path, opts) => request(path, { ...opts, method: 'GET' }), [request]),
-    post: useCallback(
-      (path, body, opts) => request(path, { ...opts, method: 'POST', body }),
-      [request]
-    ),
-    put: useCallback(
-      (path, body, opts) => request(path, { ...opts, method: 'PUT', body }),
-      [request]
-    ),
-    patch: useCallback(
-      (path, body, opts) => request(path, { ...opts, method: 'PATCH', body }),
-      [request]
-    ),
-    del: useCallback((path, opts) => request(path, { ...opts, method: 'DELETE' }), [request]),
-    request,
-  };
+  const get = useCallback((path, opts) => request(path, { ...opts, method: 'GET' }), [request]);
+  const post = useCallback(
+    (path, body, opts) => request(path, { ...opts, method: 'POST', body }),
+    [request]
+  );
+  const put = useCallback(
+    (path, body, opts) => request(path, { ...opts, method: 'PUT', body }),
+    [request]
+  );
+  const patch = useCallback(
+    (path, body, opts) => request(path, { ...opts, method: 'PATCH', body }),
+    [request]
+  );
+  const del = useCallback((path, opts) => request(path, { ...opts, method: 'DELETE' }), [request]);
+
+  return useMemo(
+    () => ({ get, post, put, patch, del, request }),
+    [get, post, put, patch, del, request]
+  );
 }
 
 export default useApi;

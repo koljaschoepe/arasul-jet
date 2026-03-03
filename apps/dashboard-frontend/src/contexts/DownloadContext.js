@@ -5,7 +5,15 @@
  * Downloads continue in the background even when user navigates away from ModelStore.
  */
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+} from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 
 // Context
@@ -355,41 +363,50 @@ export function DownloadProvider({ children }) {
     return () => onCompleteCallbacksRef.current.delete(callback);
   }, []);
 
-  // Check if a model is downloading
-  const isDownloading = useCallback(
-    modelId => {
-      return !!activeDownloads[modelId];
-    },
+  // Check if a model is downloading - uses ref to prevent callback recreation
+  const isDownloading = useCallback(modelId => {
+    return !!activeDownloadsRef.current[modelId];
+  }, []);
+
+  // Get download state for a model - uses ref to prevent callback recreation
+  const getDownloadState = useCallback(modelId => {
+    return activeDownloadsRef.current[modelId] || null;
+  }, []);
+
+  // Get all active downloads count - memoized to prevent unnecessary re-renders
+  const activeDownloadCount = useMemo(() => Object.keys(activeDownloads).length, [activeDownloads]);
+
+  // Get all active downloads as array - memoized to prevent new array every render
+  const activeDownloadsList = useMemo(
+    () => Object.entries(activeDownloads).map(([modelId, state]) => ({ modelId, ...state })),
     [activeDownloads]
   );
 
-  // Get download state for a model
-  const getDownloadState = useCallback(
-    modelId => {
-      return activeDownloads[modelId] || null;
-    },
-    [activeDownloads]
+  const value = useMemo(
+    () => ({
+      activeDownloads,
+      activeDownloadCount,
+      activeDownloadsList,
+      startDownload,
+      cancelDownload,
+      isDownloading,
+      getDownloadState,
+      onDownloadComplete,
+    }),
+    [
+      activeDownloads,
+      activeDownloadCount,
+      activeDownloadsList,
+      startDownload,
+      cancelDownload,
+      isDownloading,
+      getDownloadState,
+      onDownloadComplete,
+    ]
   );
-
-  // Get all active downloads count
-  const activeDownloadCount = Object.keys(activeDownloads).length;
-
-  // Get all active downloads as array
-  const activeDownloadsList = Object.entries(activeDownloads).map(([modelId, state]) => ({
-    modelId,
-    ...state,
-  }));
-
-  const value = {
-    activeDownloads,
-    activeDownloadCount,
-    activeDownloadsList,
-    startDownload,
-    cancelDownload,
-    isDownloading,
-    getDownloadState,
-    onDownloadComplete,
-  };
+  // Note: isDownloading, getDownloadState, startDownload, cancelDownload, onDownloadComplete
+  // all have empty deps (use refs internally), so they don't cause value recreation.
+  // Only activeDownloads/count/list changes trigger context updates.
 
   return <DownloadContext.Provider value={value}>{children}</DownloadContext.Provider>;
 }

@@ -16,6 +16,8 @@ import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import ChatMessage from '../ChatMessage';
+
 // Mock MermaidDiagram component before import - avoids mermaid module issues
 jest.mock('../../../components/editor/MermaidDiagram', () => {
   const React = require('react');
@@ -57,8 +59,6 @@ jest.mock('react-markdown', () => {
 
 // Mock remark-gfm
 jest.mock('remark-gfm', () => () => {});
-
-import ChatMessage from '../ChatMessage';
 
 describe('ChatMessage Component', () => {
   // Default props for convenience

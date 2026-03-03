@@ -17,6 +17,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UpdatePage from '../UpdatePage';
 
+// Mock AuthContext - useApi now requires AuthProvider
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ logout: jest.fn() }),
+  AuthProvider: ({ children }) => children,
+}));
+
 // Mock formatDate
 jest.mock('../../../utils/formatting', () => ({
   formatDate: jest.fn(() => '22.01.2026, 10:30'),

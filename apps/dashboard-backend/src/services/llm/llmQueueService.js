@@ -459,8 +459,24 @@ function createLLMQueueService(deps = {}) {
         }
       } catch (error) {
         logger.error(`Error in processNext: ${error.message}`);
+        if (this.processingJobId) {
+          try {
+            await llmJobService.errorJob(this.processingJobId, error.message);
+            this.notifySubscribers(this.processingJobId, {
+              type: 'error',
+              error: error.message,
+              done: true,
+            });
+          } catch (errJobError) {
+            logger.error(
+              `Failed to mark job ${this.processingJobId} as error: ${errJobError.message}`
+            );
+          }
+        }
         this.isProcessing = false;
         this.processingJobId = null;
+        // Try processing next job
+        setImmediate(() => this.processNext());
       }
     }
 
@@ -613,21 +629,36 @@ function createLLMQueueService(deps = {}) {
           const result = await database.query(`
                         UPDATE llm_jobs
                         SET status = 'error',
-                            error_message = 'Job timed out in queue (30 minutes)',
+                            error_message = CASE
+                              WHEN status = 'pending' THEN 'Job timed out in queue (30 minutes)'
+                              ELSE 'Job timed out during streaming (10 minutes without update)'
+                            END,
                             completed_at = NOW()
-                        WHERE status = 'pending'
-                        AND queued_at < NOW() - INTERVAL '30 minutes'
-                        RETURNING id
+                        WHERE (
+                          (status = 'pending' AND queued_at < NOW() - INTERVAL '30 minutes')
+                          OR
+                          (status = 'streaming' AND last_update_at < NOW() - INTERVAL '10 minutes')
+                        )
+                        RETURNING id, status as old_status
                     `);
 
           if (result.rows.length > 0) {
-            logger.warn(`Timed out ${result.rows.length} jobs in queue`);
+            logger.warn(`Timed out ${result.rows.length} jobs`);
             for (const row of result.rows) {
               this.notifySubscribers(row.id, {
                 type: 'error',
-                error: 'Job timed out in queue',
+                error:
+                  row.old_status === 'streaming'
+                    ? 'Job timed out during streaming (10 minutes without update)'
+                    : 'Job timed out in queue',
                 done: true,
               });
+              // If the timed-out job was the one being processed, reset state
+              if (this.processingJobId === row.id) {
+                this.isProcessing = false;
+                this.processingJobId = null;
+                setImmediate(() => this.processNext());
+              }
             }
           }
         } catch (err) {
