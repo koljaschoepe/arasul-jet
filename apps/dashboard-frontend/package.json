@@ -42,7 +42,7 @@
     ]
   },
   "devDependencies": {
-    "axios": "^1.6.5",
+    "axios": "^1.13.6",
     "react-scripts": "^5.0.1",
     "@testing-library/jest-dom": "^6.2.0",
     "@testing-library/react": "^14.1.2",
