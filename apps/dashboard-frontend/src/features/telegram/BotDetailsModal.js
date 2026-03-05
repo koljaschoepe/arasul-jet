@@ -1,6 +1,6 @@
 /**
  * BotDetailsModal - Modal for viewing and editing bot details
- * Tabs: Allgemein | Befehle | Verbundene Chats | Erweitert
+ * Tabs: Übersicht & Einstellungen | Befehle | Chats | Erweitert
  */
 
 import React, { useState, useEffect } from 'react';
@@ -18,6 +18,7 @@ import {
   FiRefreshCw,
   FiSliders,
   FiExternalLink,
+  FiBook,
 } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
@@ -26,9 +27,9 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import CommandsEditor from './CommandsEditor';
 
 const TABS = [
-  { id: 'settings', label: 'Allgemein', icon: FiSettings },
+  { id: 'settings', label: 'Übersicht', icon: FiSettings },
   { id: 'commands', label: 'Befehle', icon: FiCommand },
-  { id: 'chats', label: 'Verbundene Chats', icon: FiUsers },
+  { id: 'chats', label: 'Chats', icon: FiUsers },
   { id: 'advanced', label: 'Erweitert', icon: FiSliders },
 ];
 
@@ -38,18 +39,18 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
   const [activeTab, setActiveTab] = useState('settings');
   const [formData, setFormData] = useState({
     name: bot.name || '',
-    llmProvider: bot.llmProvider || bot.llm_provider || 'ollama',
     llmModel: bot.llmModel || bot.llm_model || '',
     systemPrompt: bot.systemPrompt || bot.system_prompt || '',
-    claudeApiKey: '',
+    ragEnabled: bot.ragEnabled || bot.rag_enabled || false,
+    ragSpaceIds: bot.ragSpaceIds || bot.rag_space_ids || null,
+    ragShowSources: bot.ragShowSources ?? bot.rag_show_sources ?? true,
     token: '',
   });
-  const [showApiKey, setShowApiKey] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
   const [ollamaModels, setOllamaModels] = useState([]);
-  const [claudeModels, setClaudeModels] = useState([]);
+  const [spaces, setSpaces] = useState([]);
   const [commands, setCommands] = useState([]);
   const [chats, setChats] = useState([]);
   const [loadingCommands, setLoadingCommands] = useState(false);
@@ -57,59 +58,47 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
 
   const username = bot.username || bot.bot_username;
 
-  // Fetch models
+  // Fetch models and spaces
   useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const [ollamaData, claudeData] = await Promise.allSettled([
-          api.get('/telegram-bots/models/ollama', { showError: false }),
-          api.get('/telegram-bots/models/claude', { showError: false }),
-        ]);
+    const fetchData = async () => {
+      const [modelsResult, spacesResult] = await Promise.allSettled([
+        api.get('/telegram-bots/models/ollama', { showError: false }),
+        api.get('/spaces', { showError: false }),
+      ]);
 
-        if (ollamaData.status === 'fulfilled') {
-          setOllamaModels(ollamaData.value.models || []);
-        }
-
-        if (claudeData.status === 'fulfilled') {
-          setClaudeModels(claudeData.value.models || []);
-        }
-      } catch (err) {
-        console.error('Error fetching models:', err);
+      if (modelsResult.status === 'fulfilled') {
+        setOllamaModels(modelsResult.value.models || []);
+      }
+      if (spacesResult.status === 'fulfilled') {
+        setSpaces(spacesResult.value.spaces || spacesResult.value || []);
       }
     };
-
-    fetchModels();
+    fetchData();
   }, [api]);
 
-  // Fetch commands
+  // Fetch commands on tab switch
   useEffect(() => {
     if (activeTab === 'commands') {
       setLoadingCommands(true);
       api
         .get(`/telegram-bots/${bot.id}/commands`, { showError: false })
         .then(data => setCommands(data.commands || []))
-        .catch(err => {
-          console.error('Error fetching commands:', err);
-          toast.error('Fehler beim Laden der Befehle');
-        })
+        .catch(() => toast.error('Fehler beim Laden der Befehle'))
         .finally(() => setLoadingCommands(false));
     }
-  }, [activeTab, bot.id, api]);
+  }, [activeTab, bot.id, api, toast]);
 
-  // Fetch chats
+  // Fetch chats on tab switch
   useEffect(() => {
     if (activeTab === 'chats') {
       setLoadingChats(true);
       api
         .get(`/telegram-bots/${bot.id}/chats`, { showError: false })
         .then(data => setChats(data.chats || []))
-        .catch(err => {
-          console.error('Error fetching chats:', err);
-          toast.error('Fehler beim Laden der Chats');
-        })
+        .catch(() => toast.error('Fehler beim Laden der Chats'))
         .finally(() => setLoadingChats(false));
     }
-  }, [activeTab, bot.id, api]);
+  }, [activeTab, bot.id, api, toast]);
 
   // Save settings
   const handleSave = async () => {
@@ -119,56 +108,52 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
     try {
       const payload = {
         name: formData.name,
-        llmProvider: formData.llmProvider,
+        llmProvider: 'ollama',
         llmModel: formData.llmModel,
         systemPrompt: formData.systemPrompt,
+        ragEnabled: formData.ragEnabled,
+        ragSpaceIds: formData.ragSpaceIds,
+        ragShowSources: formData.ragShowSources,
       };
 
-      if (formData.claudeApiKey) {
-        payload.claudeApiKey = formData.claudeApiKey;
-      }
-
-      if (formData.token) {
-        payload.token = formData.token;
-      }
+      if (formData.token) payload.token = formData.token;
 
       const data = await api.put(`/telegram-bots/${bot.id}`, payload, { showError: false });
-
       setMessage({ type: 'success', text: 'Einstellungen gespeichert' });
-      setFormData(prev => ({ ...prev, claudeApiKey: '', token: '' }));
+      setFormData(prev => ({ ...prev, token: '' }));
       if (onUpdate) onUpdate(data.bot);
     } catch (err) {
-      console.error('Bot-Einstellungen speichern fehlgeschlagen:', err);
-      setMessage({
-        type: 'error',
-        text: err.data?.error || 'Fehler beim Speichern der Einstellungen',
-      });
+      setMessage({ type: 'error', text: err.data?.error || 'Fehler beim Speichern' });
     } finally {
       setSaving(false);
     }
   };
 
-  // Handle command updates
-  const handleCommandsChange = updatedCommands => {
-    setCommands(updatedCommands);
-  };
+  const handleCommandsChange = updatedCommands => setCommands(updatedCommands);
 
-  // Remove chat
   const handleRemoveChat = async chatRowId => {
     try {
       await api.del(`/telegram-bots/${bot.id}/chats/${chatRowId}`, { showError: false });
-
       setChats(prev => prev.filter(c => c.id !== chatRowId));
-    } catch (err) {
-      console.error('Error removing chat:', err);
+    } catch {
       toast.error('Fehler beim Entfernen des Chats');
     }
   };
 
-  // Tab 1: Allgemein
+  const toggleSpace = spaceId => {
+    setFormData(prev => {
+      const ids = prev.ragSpaceIds || [];
+      const next = ids.includes(spaceId) ? ids.filter(id => id !== spaceId) : [...ids, spaceId];
+      return { ...prev, ragSpaceIds: next.length > 0 ? next : [] };
+    });
+  };
+
+  const isMaster = formData.ragEnabled && formData.ragSpaceIds === null;
+
+  // Tab 1: Übersicht & Einstellungen
   const renderSettings = () => (
     <div className="bot-details-settings">
-      {message && (
+      {message && activeTab === 'settings' && (
         <div className={`bot-details-message ${message.type}`}>
           {message.type === 'success' ? <FiCheck /> : <FiAlertCircle />}
           <span>{message.text}</span>
@@ -183,74 +168,95 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
             value={formData.name}
             onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
           />
-          <small>Wie soll dein Bot heißen?</small>
-        </div>
-
-        <div className="bot-details-form-row">
-          <div className="bot-details-form-group">
-            <label>KI-Anbieter</label>
-            <select
-              value={formData.llmProvider}
-              onChange={e => {
-                const provider = e.target.value;
-                const models = provider === 'ollama' ? ollamaModels : claudeModels;
-                setFormData(prev => ({
-                  ...prev,
-                  llmProvider: provider,
-                  llmModel: models[0]?.name || models[0]?.id || models[0] || '',
-                }));
-              }}
-            >
-              <option value="ollama">Lokale KI (Ollama)</option>
-              <option value="claude">Cloud KI (Claude)</option>
-            </select>
-            <small>
-              {formData.llmProvider === 'ollama'
-                ? 'Kostenlos, privat, läuft auf deinem Jetson'
-                : 'Leistungsstärker, benötigt API-Key'}
-            </small>
-          </div>
-
-          <div className="bot-details-form-group">
-            <label>Modell</label>
-            <select
-              value={formData.llmModel}
-              onChange={e => setFormData(prev => ({ ...prev, llmModel: e.target.value }))}
-            >
-              {formData.llmProvider === 'ollama' ? (
-                ollamaModels.length > 0 ? (
-                  ollamaModels.map(model => (
-                    <option key={model.name || model} value={model.name || model}>
-                      {model.name || model}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">Keine Modelle verfügbar</option>
-                )
-              ) : (
-                claudeModels.map(model => (
-                  <option key={model.id || model} value={model.id || model}>
-                    {model.name || model.id || model}
-                  </option>
-                ))
-              )}
-            </select>
-            <small>Welches KI-Modell soll antworten?</small>
-          </div>
         </div>
 
         <div className="bot-details-form-group">
-          <label>Basis-Kontext</label>
+          <label>System-Prompt</label>
           <textarea
             value={formData.systemPrompt}
             onChange={e => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
-            rows={6}
-            placeholder="z.B. Du bist ein hilfreicher Assistent, der auf Deutsch antwortet..."
+            rows={5}
+            placeholder="Definiere die Persönlichkeit deines Bots..."
           />
-          <small>
-            Definiere wer dein Bot ist und was er kann. Dieser Text wird bei jeder Unterhaltung
-            geladen.
-          </small>
+        </div>
+
+        <div className="bot-details-form-group">
+          <label>LLM-Modell</label>
+          <select
+            value={formData.llmModel}
+            onChange={e => setFormData(prev => ({ ...prev, llmModel: e.target.value }))}
+          >
+            {ollamaModels.length === 0 && <option value="">Keine Modelle verfügbar</option>}
+            {ollamaModels.map(model => {
+              const name = typeof model === 'string' ? model : model.name;
+              return (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              );
+            })}
+          </select>
+          <small>Lokales Modell via Ollama</small>
+        </div>
+
+        {/* RAG Configuration */}
+        <div className="bot-details-rag-section">
+          <h4>
+            <FiBook /> RAG-Konfiguration
+          </h4>
+
+          <label className="bot-details-checkbox">
+            <input
+              type="checkbox"
+              checked={formData.ragEnabled}
+              onChange={e => setFormData(prev => ({ ...prev, ragEnabled: e.target.checked }))}
+            />
+            RAG aktivieren (Dokument-Wissen nutzen)
+          </label>
+
+          {formData.ragEnabled && (
+            <>
+              <div className="bot-details-form-group" style={{ marginTop: '0.75rem' }}>
+                <label>Space-Zuordnung</label>
+                <div className="bot-details-space-list">
+                  <button
+                    type="button"
+                    className={`bot-details-space-tag ${formData.ragSpaceIds === null ? 'selected' : ''}`}
+                    onClick={() => setFormData(prev => ({ ...prev, ragSpaceIds: null }))}
+                  >
+                    Alle Spaces {isMaster && '(Master)'}
+                  </button>
+                  {spaces.map(space => (
+                    <button
+                      key={space.id}
+                      type="button"
+                      className={`bot-details-space-tag ${formData.ragSpaceIds?.includes(space.id) ? 'selected' : ''}`}
+                      onClick={() => {
+                        if (formData.ragSpaceIds === null) {
+                          setFormData(prev => ({ ...prev, ragSpaceIds: [space.id] }));
+                        } else {
+                          toggleSpace(space.id);
+                        }
+                      }}
+                    >
+                      {space.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="bot-details-checkbox">
+                <input
+                  type="checkbox"
+                  checked={formData.ragShowSources}
+                  onChange={e =>
+                    setFormData(prev => ({ ...prev, ragShowSources: e.target.checked }))
+                  }
+                />
+                Quellen in Antworten anzeigen
+              </label>
+            </>
+          )}
         </div>
 
         <div className="bot-details-actions">
@@ -262,13 +268,11 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
           >
             {saving ? (
               <>
-                <FiRefreshCw className="spinning" />
-                Speichern...
+                <FiRefreshCw className="spinning" /> Speichern...
               </>
             ) : (
               <>
-                <FiSave />
-                Speichern
+                <FiSave /> Speichern
               </>
             )}
           </button>
@@ -291,7 +295,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
     </div>
   );
 
-  // Tab 3: Verbundene Chats
+  // Tab 3: Chats
   const renderChats = () => (
     <div className="bot-details-chats">
       {loadingChats ? (
@@ -329,11 +333,8 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
                 {chat.username && <span className="chat-item-username">@{chat.username}</span>}
               </div>
               <div className="chat-item-stats">
-                <span className="chat-item-messages">
-                  {chat.messageCount || chat.message_count || 0} Nachrichten
-                </span>
+                <span>{chat.messageCount || chat.message_count || 0} Nachrichten</span>
                 <span className="chat-item-date">
-                  Zuletzt:{' '}
                   {new Date(chat.lastMessageAt || chat.last_message_at).toLocaleDateString('de-DE')}
                 </span>
               </div>
@@ -383,32 +384,6 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
           <small>Leer lassen um das aktuelle Token beizubehalten</small>
         </div>
 
-        {formData.llmProvider === 'claude' && (
-          <div className="bot-details-form-group">
-            <label>Claude API Key ändern</label>
-            <div className="bot-details-input-wrapper">
-              <input
-                type={showApiKey ? 'text' : 'password'}
-                value={formData.claudeApiKey}
-                onChange={e => setFormData(prev => ({ ...prev, claudeApiKey: e.target.value }))}
-                placeholder={
-                  bot.hasClaudeKey || bot.has_claude_key
-                    ? '(Key gespeichert)'
-                    : 'API Key eingeben...'
-                }
-              />
-              <button
-                type="button"
-                className="bot-details-toggle-visibility"
-                onClick={() => setShowApiKey(!showApiKey)}
-              >
-                {showApiKey ? <FiEyeOff /> : <FiEye />}
-              </button>
-            </div>
-            <small>Leer lassen um den aktuellen Key beizubehalten</small>
-          </div>
-        )}
-
         <div className="bot-details-info-section">
           <h4>Bot-Informationen</h4>
           <div className="bot-details-info-grid">
@@ -439,7 +414,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
           </div>
         </div>
 
-        {(formData.token || formData.claudeApiKey) && (
+        {formData.token && (
           <div className="bot-details-actions">
             <button
               type="button"
@@ -449,13 +424,11 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
             >
               {saving ? (
                 <>
-                  <FiRefreshCw className="spinning" />
-                  Speichern...
+                  <FiRefreshCw className="spinning" /> Speichern...
                 </>
               ) : (
                 <>
-                  <FiSave />
-                  Änderungen speichern
+                  <FiSave /> Änderungen speichern
                 </>
               )}
             </button>
@@ -481,7 +454,6 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
       size="large"
       className="bot-details-modal-wrapper"
     >
-      {/* Tabs */}
       <div className="bot-details-tabs">
         {TABS.map(tab => {
           const Icon = tab.icon;
@@ -492,14 +464,12 @@ function BotDetailsModal({ bot, onClose, onUpdate }) {
               className={`bot-details-tab ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => setActiveTab(tab.id)}
             >
-              <Icon />
-              <span>{tab.label}</span>
+              <Icon /> <span>{tab.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Content */}
       <div className="bot-details-content">
         {activeTab === 'settings' && renderSettings()}
         {activeTab === 'commands' && renderCommands()}

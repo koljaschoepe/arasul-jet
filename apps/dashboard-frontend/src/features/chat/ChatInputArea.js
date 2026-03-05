@@ -3,19 +3,19 @@ import {
   FiSearch,
   FiCpu,
   FiBox,
-  FiFolder,
-  FiChevronDown,
   FiCheck,
-  FiStar,
   FiAlertCircle,
   FiArrowUp,
   FiX,
+  FiChevronUp,
 } from 'react-icons/fi';
 import { useChatContext } from '../../contexts/ChatContext';
+import { useApi } from '../../hooks/useApi';
 import './chatinput.css';
 
 function ChatInputArea({
   chatId,
+  chatSettings,
   messagesRef,
   hasMessages,
   isLoading,
@@ -23,6 +23,7 @@ function ChatInputArea({
   onClearError,
   disabled,
 }) {
+  const api = useApi();
   const {
     sendMessage,
     cancelJob,
@@ -30,38 +31,48 @@ function ChatInputArea({
     globalQueue,
     installedModels,
     defaultModel,
-    loadedModel,
     selectedModel,
     setSelectedModel,
-    favoriteModels,
-    toggleFavorite,
     setModelAsDefault,
     spaces,
   } = useChatContext();
 
   const [input, setInput] = useState('');
-  const [useRAG, setUseRAG] = useState(true);
+  const [useRAG, setUseRAG] = useState(false);
   const [useThinking, setUseThinking] = useState(true);
-  const [selectedSpaces, setSelectedSpaces] = useState([]);
-  const [matchedSpaces, setMatchedSpaces] = useState([]);
+  const [selectedSpaceId, setSelectedSpaceId] = useState(null);
 
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
-  const [showSpacesDropdown, setShowSpacesDropdown] = useState(false);
+  const [showModelPopup, setShowModelPopup] = useState(false);
+  const [showRAGPopup, setShowRAGPopup] = useState(false);
 
   const inputRef = useRef(null);
-  const modelDropdownRef = useRef(null);
-  const spacesDropdownRef = useRef(null);
+  const modelPopupRef = useRef(null);
+  const ragPopupRef = useRef(null);
 
   const isStreaming = !!activeJobIds[chatId];
 
-  // Close dropdowns on outside click
+  // Initialize from chat settings when chat changes
+  useEffect(() => {
+    if (chatSettings) {
+      setUseRAG(chatSettings.use_rag ?? false);
+      setUseThinking(chatSettings.use_thinking ?? true);
+      setSelectedSpaceId(chatSettings.preferred_space_id ?? null);
+      if (chatSettings.preferred_model) setSelectedModel(chatSettings.preferred_model);
+    } else {
+      setUseRAG(false);
+      setUseThinking(true);
+      setSelectedSpaceId(null);
+    }
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close popups on outside click
   useEffect(() => {
     const handleClickOutside = e => {
-      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
-        setShowModelDropdown(false);
+      if (modelPopupRef.current && !modelPopupRef.current.contains(e.target)) {
+        setShowModelPopup(false);
       }
-      if (spacesDropdownRef.current && !spacesDropdownRef.current.contains(e.target)) {
-        setShowSpacesDropdown(false);
+      if (ragPopupRef.current && !ragPopupRef.current.contains(e.target)) {
+        setShowRAGPopup(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -74,6 +85,15 @@ function ChatInputArea({
       inputRef.current.focus();
     }
   }, [isLoading, disabled, chatId]);
+
+  // Save settings to backend
+  const saveSettings = useCallback(
+    updates => {
+      if (!chatId) return;
+      api.patch(`/chats/${chatId}/settings`, updates, { showError: false });
+    },
+    [chatId, api]
+  );
 
   // Queue position for current chat
   const queuePosition = (() => {
@@ -98,8 +118,8 @@ function ChatInputArea({
     sendMessage(chatId, msg, {
       useRAG,
       useThinking,
-      selectedSpaces,
-      matchedSpaces,
+      selectedSpaces: selectedSpaceId ? [selectedSpaceId] : [],
+      matchedSpaces: [],
       messages: messagesRef?.current || [],
       model: selectedModel || undefined,
     });
@@ -111,8 +131,7 @@ function ChatInputArea({
     sendMessage,
     useRAG,
     useThinking,
-    selectedSpaces,
-    matchedSpaces,
+    selectedSpaceId,
     messagesRef,
     selectedModel,
   ]);
@@ -131,16 +150,55 @@ function ChatInputArea({
     cancelJob(chatId);
   }, [cancelJob, chatId]);
 
-  const toggleSpaceSelection = useCallback(spaceId => {
-    setSelectedSpaces(prev =>
-      prev.includes(spaceId) ? prev.filter(id => id !== spaceId) : [...prev, spaceId]
-    );
-  }, []);
+  // Think toggle
+  const handleThinkToggle = useCallback(() => {
+    setUseThinking(prev => {
+      const next = !prev;
+      saveSettings({ use_thinking: next });
+      return next;
+    });
+  }, [saveSettings]);
 
-  const clearSpaceSelection = useCallback(() => {
-    setSelectedSpaces([]);
-    setShowSpacesDropdown(false);
-  }, []);
+  // RAG toggle: click when OFF → turn ON (no popup). Click when ON → show popup. Click again → turn OFF.
+  const handleRAGClick = useCallback(() => {
+    if (!useRAG) {
+      setUseRAG(true);
+      saveSettings({ use_rag: true });
+    } else if (showRAGPopup) {
+      // Clicking button while popup is open → turn off RAG
+      setUseRAG(false);
+      setShowRAGPopup(false);
+      saveSettings({ use_rag: false });
+    } else {
+      // RAG is on, popup is closed → show popup
+      setShowRAGPopup(true);
+    }
+  }, [useRAG, showRAGPopup, saveSettings]);
+
+  // Space selection (single-select)
+  const handleSelectSpace = useCallback(
+    spaceId => {
+      setSelectedSpaceId(spaceId);
+      setShowRAGPopup(false);
+      saveSettings({ preferred_space_id: spaceId });
+    },
+    [saveSettings]
+  );
+
+  // Model selection
+  const handleSelectModel = useCallback(
+    modelId => {
+      setSelectedModel(modelId);
+      setShowModelPopup(false);
+      saveSettings({ preferred_model: modelId || null });
+    },
+    [setSelectedModel, saveSettings]
+  );
+
+  // Available models only
+  const availableModels = installedModels.filter(
+    m => m.install_status === 'available' || m.status === 'available'
+  );
 
   // Model capability warnings
   const currentModel = selectedModel
@@ -149,19 +207,17 @@ function ChatInputArea({
   const showThinkWarning = useThinking && currentModel && currentModel.supports_thinking === false;
   const showRagWarning = useRAG && currentModel && currentModel.rag_optimized === false;
 
+  // Current model display name
+  const modelDisplayName = selectedModel
+    ? installedModels.find(m => m.id === selectedModel)?.name?.split(' ')[0] ||
+      selectedModel.split(':')[0]
+    : 'Standard';
+
+  // Current space display name
+  const selectedSpace = selectedSpaceId ? spaces.find(s => s.id === selectedSpaceId) : null;
+
   return (
     <div className={`chat-input-section ${!hasMessages ? 'centered' : ''}`}>
-      {/* Queue indicator */}
-      {queuePosition > 0 && (
-        <div className="queue-indicator">
-          <span className="queue-dot" />
-          <span>#{queuePosition}</span>
-          {globalQueue.pending_count > 1 && (
-            <span className="queue-total">von {globalQueue.pending_count}</span>
-          )}
-        </div>
-      )}
-
       {/* Error */}
       {error && (
         <div className="error-banner" role="alert">
@@ -187,252 +243,168 @@ function ChatInputArea({
         </div>
       )}
 
-      {/* Input box */}
-      <div className="input-box" role="toolbar" aria-label="Chat-Eingabe">
-        <div className="input-toggles">
-          {/* RAG Toggle */}
-          <button
-            type="button"
-            className={`input-toggle rag-toggle ${useRAG ? 'active' : ''}`}
-            onClick={() => setUseRAG(v => !v)}
-            aria-pressed={useRAG}
-            aria-label={useRAG ? 'RAG deaktivieren' : 'RAG aktivieren'}
-          >
-            <FiSearch aria-hidden="true" />
-            {useRAG && <span>RAG</span>}
-          </button>
-
-          {/* Space selector */}
-          {useRAG && spaces.length > 0 && (
-            <div className="space-selector" ref={spacesDropdownRef}>
-              <button
-                type="button"
-                className={`input-toggle space-toggle ${selectedSpaces.length > 0 ? 'active' : ''}`}
-                onClick={() => setShowSpacesDropdown(v => !v)}
-                aria-expanded={showSpacesDropdown}
-                aria-haspopup="listbox"
-              >
-                <FiFolder />
-                <span className="space-toggle-label">
-                  {selectedSpaces.length > 0 ? `${selectedSpaces.length} Bereiche` : 'Auto'}
-                </span>
-                <FiChevronDown className={`dropdown-arrow ${showSpacesDropdown ? 'open' : ''}`} />
-              </button>
-              {showSpacesDropdown && (
-                <div className="space-dropdown" role="listbox">
-                  <div
-                    className={`space-option auto-option ${selectedSpaces.length === 0 ? 'selected' : ''}`}
-                    onClick={clearSpaceSelection}
-                  >
-                    <FiCheck className="check-icon" />
-                    <span className="space-option-name">Auto-Routing</span>
-                    <span className="space-option-desc">KI wählt relevante Bereiche</span>
-                  </div>
-                  <div className="space-dropdown-divider" />
-                  {spaces.map(space => (
-                    <div
-                      key={space.id}
-                      className={`space-option ${selectedSpaces.includes(space.id) ? 'selected' : ''}`}
-                      onClick={() => toggleSpaceSelection(space.id)}
-                    >
-                      <FiCheck className="check-icon" />
-                      <FiFolder style={{ color: space.color }} className="space-icon" />
-                      <span className="space-option-name">{space.name}</span>
-                      <span className="space-option-count">{space.document_count || 0} Dok.</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
+      {/* Input Card (Toolbar + Input Row) */}
+      <div className="chat-input-card">
+        {/* Toolbar */}
+        <div className="chat-toolbar" role="toolbar" aria-label="Chat-Einstellungen">
           {/* Think Toggle */}
           <button
             type="button"
-            className={`input-toggle think-toggle ${useThinking ? 'active' : ''}`}
-            onClick={() => setUseThinking(v => !v)}
+            className={`chat-toolbar-btn think-toggle ${useThinking ? 'active' : ''}`}
+            onClick={handleThinkToggle}
             aria-pressed={useThinking}
             aria-label={useThinking ? 'Thinking deaktivieren' : 'Thinking aktivieren'}
           >
             <FiCpu aria-hidden="true" />
-            {useThinking && <span>Think</span>}
+            <span className="toolbar-btn-label">Think</span>
           </button>
 
-          {/* Model Selector */}
-          {installedModels.length > 0 && (
-            <div className="model-selector" ref={modelDropdownRef}>
-              <button
-                type="button"
-                className={`input-toggle model-toggle ${selectedModel ? 'active' : ''}`}
-                onClick={() => setShowModelDropdown(v => !v)}
-                aria-expanded={showModelDropdown}
-                aria-haspopup="listbox"
-              >
-                <FiBox />
-                <span className="model-name-short">
-                  {selectedModel
-                    ? installedModels.find(m => m.id === selectedModel)?.name?.split(' ')[0] ||
-                      selectedModel.split(':')[0]
-                    : 'Standard'}
-                </span>
-                <FiChevronDown className={`dropdown-arrow ${showModelDropdown ? 'open' : ''}`} />
-              </button>
-              {showModelDropdown && (
-                <div className="model-dropdown" role="listbox">
+          <div className="chat-toolbar-divider" />
+
+          {/* RAG Toggle + Popup */}
+          <div className="toolbar-popup-container" ref={ragPopupRef}>
+            <button
+              type="button"
+              className={`chat-toolbar-btn rag-toggle ${useRAG ? 'active' : ''}`}
+              onClick={handleRAGClick}
+              aria-pressed={useRAG}
+              aria-label={useRAG ? 'RAG deaktivieren' : 'RAG aktivieren'}
+            >
+              <FiSearch aria-hidden="true" />
+              <span className="toolbar-btn-label">
+                {useRAG && selectedSpace ? selectedSpace.name : 'RAG'}
+              </span>
+              {useRAG && <FiChevronUp className={`popup-arrow ${showRAGPopup ? 'open' : ''}`} />}
+            </button>
+            {showRAGPopup && spaces.length > 0 && (
+              <div className="toolbar-popup rag-popup" role="listbox">
+                <div className="toolbar-popup-header">Bereich:</div>
+                <div
+                  className={`popup-option ${!selectedSpaceId ? 'selected' : ''}`}
+                  onClick={() => handleSelectSpace(null)}
+                  role="option"
+                  aria-selected={!selectedSpaceId}
+                >
+                  <span className="popup-radio">{!selectedSpaceId ? '◉' : '○'}</span>
+                  <span className="popup-option-name">Auto-Routing</span>
+                </div>
+                {spaces.map(space => (
                   <div
-                    className={`model-option ${!selectedModel ? 'selected' : ''}`}
-                    onClick={() => {
-                      setSelectedModel('');
-                      setShowModelDropdown(false);
-                    }}
+                    key={space.id}
+                    className={`popup-option ${selectedSpaceId === space.id ? 'selected' : ''}`}
+                    onClick={() => handleSelectSpace(space.id)}
+                    role="option"
+                    aria-selected={selectedSpaceId === space.id}
                   >
-                    <span className="model-option-name">
-                      <FiStar style={{ color: 'var(--primary-color)', marginRight: '4px' }} />
-                      Standard
-                    </span>
-                    <span className="model-option-desc">
-                      {defaultModel ? defaultModel.split(':')[0] : 'Automatisch'}
-                    </span>
+                    <span className="popup-radio">{selectedSpaceId === space.id ? '◉' : '○'}</span>
+                    <span className="popup-option-name">{space.name}</span>
+                    <span className="popup-option-count">{space.document_count || 0} Dok.</span>
                   </div>
-                  {[...installedModels]
-                    .sort((a, b) => {
-                      const aFav = favoriteModels.includes(a.id) ? 0 : 1;
-                      const bFav = favoriteModels.includes(b.id) ? 0 : 1;
-                      if (aFav !== bFav) return aFav - bFav;
-                      return (a.performance_tier || 1) - (b.performance_tier || 1);
-                    })
-                    .map(model => {
-                      const isAvailable =
-                        model.install_status === 'available' || model.status === 'available';
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Model Selector + Popup */}
+          {availableModels.length > 0 && (
+            <>
+              <div className="chat-toolbar-divider" />
+              <div className="toolbar-popup-container" ref={modelPopupRef}>
+                <button
+                  type="button"
+                  className={`chat-toolbar-btn model-toggle ${selectedModel ? 'active' : ''}`}
+                  onClick={() => setShowModelPopup(v => !v)}
+                  aria-expanded={showModelPopup}
+                  aria-haspopup="listbox"
+                >
+                  <FiBox aria-hidden="true" />
+                  <span className="toolbar-btn-label model-name-short">{modelDisplayName}</span>
+                  <FiChevronUp className={`popup-arrow ${showModelPopup ? 'open' : ''}`} />
+                </button>
+                {showModelPopup && (
+                  <div className="toolbar-popup model-popup" role="listbox">
+                    {availableModels.map(model => {
+                      const isSelected = selectedModel === model.id;
                       const isDefault = model.id === defaultModel;
-                      const isFavorite = favoriteModels.includes(model.id);
-                      const isLoaded =
-                        loadedModel &&
-                        (model.effective_ollama_name === loadedModel ||
-                          model.id === loadedModel ||
-                          loadedModel.startsWith(model.id.split(':')[0]));
                       return (
                         <div
                           key={model.id}
-                          className={`model-option ${selectedModel === model.id ? 'selected' : ''} ${!isAvailable ? 'unavailable' : ''} ${isFavorite ? 'favorite' : ''}`}
-                          onClick={() => {
-                            if (isAvailable) {
-                              setSelectedModel(model.id);
-                              setShowModelDropdown(false);
-                            }
-                          }}
-                          title={
-                            !isAvailable ? model.install_error || 'Modell nicht verfügbar' : ''
-                          }
+                          className={`popup-option ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleSelectModel(model.id)}
+                          role="option"
+                          aria-selected={isSelected}
                         >
-                          <span className="model-option-name">
-                            <button
-                              type="button"
-                              className={`favorite-btn ${isFavorite ? 'active' : ''}`}
-                              onClick={e => {
-                                e.stopPropagation();
-                                toggleFavorite(model.id);
-                              }}
-                              title={
-                                isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'
-                              }
-                            >
-                              <FiStar
-                                style={{
-                                  color: isFavorite
-                                    ? 'var(--warning-color)'
-                                    : 'var(--text-disabled)',
-                                }}
-                              />
-                            </button>
+                          {isSelected && <FiCheck className="popup-check" />}
+                          <span className="popup-option-name">
                             {model.name}
-                            {isLoaded && (
-                              <FiCpu
-                                style={{ marginLeft: '6px', color: 'var(--text-muted)' }}
-                                title="Im RAM geladen"
-                              />
-                            )}
-                            {!isAvailable && (
-                              <FiAlertCircle
-                                className="model-warning-icon"
-                                style={{ marginLeft: '6px', color: 'var(--danger-color)' }}
-                              />
-                            )}
-                          </span>
-                          <span className="model-option-desc">
-                            {!isAvailable ? (
-                              model.install_error || 'Nicht verfügbar'
-                            ) : (
-                              <>
-                                {`${model.category} • ${model.ram_required_gb}GB RAM`}
-                                {model.supports_thinking && (
-                                  <span
-                                    style={{ color: 'var(--primary-color)', marginLeft: '6px' }}
-                                    title="Think-Mode"
-                                  >
-                                    💭
-                                  </span>
-                                )}
-                                {model.rag_optimized && (
-                                  <span
-                                    style={{ color: 'var(--success-color)', marginLeft: '6px' }}
-                                    title="RAG-optimiert"
-                                  >
-                                    📚
-                                  </span>
-                                )}
-                              </>
-                            )}
-                            {isAvailable && !isDefault && (
-                              <button
-                                type="button"
-                                className="set-default-btn"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  setModelAsDefault(model.id);
-                                }}
-                                title="Als Standard setzen"
-                              >
-                                <FiStar /> Standard
-                              </button>
-                            )}
+                            {isDefault && <span className="popup-default-badge">Standard</span>}
                           </span>
                         </div>
                       );
                     })}
-                </div>
+                    {selectedModel && selectedModel !== defaultModel && (
+                      <>
+                        <div className="popup-divider" />
+                        <div
+                          className="popup-option popup-action"
+                          onClick={() => {
+                            setModelAsDefault(selectedModel);
+                            setShowModelPopup(false);
+                          }}
+                        >
+                          <span className="popup-option-name">Als Standard festlegen</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          <div className="chat-toolbar-spacer" />
+
+          {/* Queue status pill */}
+          {queuePosition > 0 && (
+            <span className="chat-status-pill">
+              <span className="queue-dot" />
+              <span>#{queuePosition}</span>
+              {globalQueue.pending_count > 1 && (
+                <span className="queue-total">von {globalQueue.pending_count}</span>
               )}
-            </div>
+            </span>
           )}
         </div>
 
-        {/* Textarea */}
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder={useRAG ? 'Frage zu Dokumenten stellen...' : 'Nachricht eingeben...'}
-          rows={1}
-          disabled={disabled}
-        />
+        {/* Input Row */}
+        <div className="chat-input-row">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder={useRAG ? 'Frage zu Dokumenten stellen...' : 'Nachricht eingeben...'}
+            rows={1}
+            disabled={disabled}
+          />
 
-        {/* Send / Cancel */}
-        {isStreaming ? (
-          <button type="button" className="cancel-btn" onClick={handleCancel} title="Abbrechen">
-            <FiX />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="send-btn"
-            onClick={handleSend}
-            disabled={!input.trim() || disabled || isLoading}
-            title="Senden"
-          >
-            <FiArrowUp />
-          </button>
-        )}
+          {/* Send / Cancel */}
+          {isStreaming ? (
+            <button type="button" className="cancel-btn" onClick={handleCancel} title="Abbrechen">
+              <FiX />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="send-btn"
+              onClick={handleSend}
+              disabled={!input.trim() || disabled || isLoading}
+              title="Senden"
+            >
+              <FiArrowUp />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -442,6 +414,7 @@ export default memo(
   ChatInputArea,
   (prev, next) =>
     prev.chatId === next.chatId &&
+    prev.chatSettings === next.chatSettings &&
     prev.isLoading === next.isLoading &&
     prev.error === next.error &&
     prev.disabled === next.disabled &&

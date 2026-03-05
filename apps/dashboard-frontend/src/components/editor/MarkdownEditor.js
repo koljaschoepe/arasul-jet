@@ -31,6 +31,8 @@ const MarkdownEditor = memo(function MarkdownEditor({
   const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
   const containerRef = useRef(null);
+  const textareaRef = useRef(null);
+  const backdropRef = useRef(null);
   const [content, setContent] = useState('');
   const [originalContent, setOriginalContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -152,9 +154,32 @@ const MarkdownEditor = memo(function MarkdownEditor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [hasChanges, saving, handleSave, handleClose, isFullscreen]);
 
+  // Render highlighted content for backdrop
+  const renderHighlightedContent = useCallback(text => {
+    return text.split('\n').map((line, i) => {
+      if (/^#{1,6}\s/.test(line)) {
+        return (
+          <React.Fragment key={i}>
+            {i > 0 && '\n'}
+            <span className="md-heading-line">{line}</span>
+          </React.Fragment>
+        );
+      }
+      return i > 0 ? '\n' + line : line;
+    });
+  }, []);
+
+  // Sync scroll between textarea and backdrop
+  const handleTextareaScroll = useCallback(() => {
+    if (textareaRef.current && backdropRef.current) {
+      backdropRef.current.scrollTop = textareaRef.current.scrollTop;
+      backdropRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  }, []);
+
   // Insert text helper
   const insertText = (before, after = '') => {
-    const textarea = document.getElementById('markdown-textarea');
+    const textarea = textareaRef.current;
     if (!textarea) return;
 
     const start = textarea.selectionStart;
@@ -347,13 +372,20 @@ const MarkdownEditor = memo(function MarkdownEditor({
           {viewMode !== 'preview' && (
             <div className="editor-pane">
               <div className="pane-header">Editor</div>
-              <textarea
-                id="markdown-textarea"
-                value={content}
-                onChange={e => setContent(e.target.value)}
-                placeholder="Markdown hier eingeben..."
-                spellCheck="true"
-              />
+              <div className="editor-pane-content">
+                <div ref={backdropRef} className="editor-backdrop" aria-hidden="true">
+                  {renderHighlightedContent(content)}
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  id="markdown-textarea"
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  onScroll={handleTextareaScroll}
+                  placeholder="Markdown hier eingeben..."
+                  spellCheck="true"
+                />
+              </div>
             </div>
           )}
 

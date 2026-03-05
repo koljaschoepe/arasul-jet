@@ -39,20 +39,26 @@ jest.mock('../../../contexts/ToastContext', () => ({ useToast: () => mockToast }
 
 const mockRegister = jest.fn();
 const mockUnregister = jest.fn();
-const mockAbortExistingStream = jest.fn();
 const mockCheckActiveJobs = jest.fn().mockResolvedValue(null);
 const mockReconnectToJob = jest.fn();
 const mockLoadMessages = jest.fn().mockResolvedValue({ messages: [], hasMore: false });
+const mockGetBackgroundMessages = jest.fn().mockReturnValue(null);
+const mockGetBackgroundLoading = jest.fn().mockReturnValue(false);
+const mockClearBackgroundState = jest.fn();
+const mockHasActiveStream = jest.fn().mockReturnValue(false);
 
 jest.mock('../../../contexts/ChatContext', () => ({
   useChatContext: () => ({
     loadMessages: mockLoadMessages,
     registerMessageCallback: mockRegister,
     unregisterMessageCallback: mockUnregister,
-    abortExistingStream: mockAbortExistingStream,
     reconnectToJob: mockReconnectToJob,
     checkActiveJobs: mockCheckActiveJobs,
     activeJobIds: {},
+    getBackgroundMessages: mockGetBackgroundMessages,
+    getBackgroundLoading: mockGetBackgroundLoading,
+    clearBackgroundState: mockClearBackgroundState,
+    hasActiveStream: mockHasActiveStream,
   }),
 }));
 

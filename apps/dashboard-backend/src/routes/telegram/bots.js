@@ -161,7 +161,17 @@ router.get(
 router.post(
   '/',
   asyncHandler(async (req, res) => {
-    const { name, token, llmProvider, llmModel, systemPrompt, claudeApiKey } = req.body;
+    const {
+      name,
+      token,
+      llmProvider,
+      llmModel,
+      systemPrompt,
+      claudeApiKey,
+      ragEnabled,
+      ragSpaceIds,
+      ragShowSources,
+    } = req.body;
 
     if (!name || !token) {
       throw new ValidationError('Name und Token sind erforderlich');
@@ -174,6 +184,9 @@ router.post(
       llmModel,
       systemPrompt,
       claudeApiKey,
+      ragEnabled,
+      ragSpaceIds,
+      ragShowSources,
     });
 
     res.status(201).json({ bot });
@@ -198,7 +211,17 @@ router.get(
 router.put(
   '/:id',
   asyncHandler(async (req, res) => {
-    const { name, llmProvider, llmModel, systemPrompt, claudeApiKey, token } = req.body;
+    const {
+      name,
+      llmProvider,
+      llmModel,
+      systemPrompt,
+      claudeApiKey,
+      token,
+      ragEnabled,
+      ragSpaceIds,
+      ragShowSources,
+    } = req.body;
 
     const bot = await telegramBotService.updateBot(parseInt(req.params.id), req.user.id, {
       name,
@@ -207,6 +230,9 @@ router.put(
       systemPrompt,
       claudeApiKey,
       token,
+      ragEnabled,
+      ragSpaceIds,
+      ragShowSources,
     });
 
     res.json({ bot });

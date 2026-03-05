@@ -2,10 +2,10 @@
  * BotSetupWizard Component Tests
  *
  * Tests für BotSetupWizard:
- * - Step Navigation
+ * - Step Navigation (3 steps)
  * - Token Validation
- * - LLM Provider Selection
- * - System Prompt Input
+ * - Template Selection (Arasul Assistent / Custom Bot)
+ * - Configuration (System Prompt, RAG, Model)
  * - Chat Verification (WebSocket)
  * - Bot Creation
  * - Error Handling
@@ -13,11 +13,22 @@
 
 import React from 'react';
 import { ToastProvider } from '../../../contexts/ToastContext';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BotSetupWizard from '../BotSetupWizard';
 
-// Mock AuthContext - useApi now requires AuthProvider
+// Mock useApi
+const mockApi = {
+  get: jest.fn(),
+  post: jest.fn(),
+  put: jest.fn(),
+  del: jest.fn(),
+};
+jest.mock('../../../hooks/useApi', () => ({
+  useApi: () => mockApi,
+}));
+
+// Mock AuthContext
 jest.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ logout: jest.fn() }),
   AuthProvider: ({ children }) => children,
@@ -27,20 +38,15 @@ jest.mock('../../../contexts/AuthContext', () => ({
 class MockWebSocket {
   constructor(url) {
     this.url = url;
-    this.readyState = 1; // OPEN
+    this.readyState = 1;
     this.sentMessages = [];
     MockWebSocket.instances.push(this);
-
-    // Simulate connection
     setTimeout(() => {
       if (this.onopen) this.onopen();
     }, 10);
   }
-
   send(data) {
     this.sentMessages.push(JSON.parse(data));
-
-    // Simulate subscription response
     const message = JSON.parse(data);
     if (message.type === 'subscribe' && this.onmessage) {
       setTimeout(() => {
@@ -54,20 +60,14 @@ class MockWebSocket {
       }, 10);
     }
   }
-
   close() {
-    this.readyState = 3; // CLOSED
+    this.readyState = 3;
     if (this.onclose) this.onclose();
   }
-
-  // Helper to simulate incoming messages
   simulateMessage(data) {
-    if (this.onmessage) {
-      this.onmessage({ data: JSON.stringify(data) });
-    }
+    if (this.onmessage) this.onmessage({ data: JSON.stringify(data) });
   }
 }
-
 MockWebSocket.instances = [];
 
 describe('BotSetupWizard Component', () => {
@@ -75,55 +75,34 @@ describe('BotSetupWizard Component', () => {
   const mockOnCancel = jest.fn();
   const validToken = '1234567890:ABCdefGHIjklMNOpqrsTUVwxyz';
 
-  let originalFetch;
   let originalWebSocket;
-  let originalLocalStorage;
 
   beforeEach(() => {
     jest.clearAllMocks();
     MockWebSocket.instances = [];
 
-    // Mock fetch
-    originalFetch = global.fetch;
-    global.fetch = jest.fn();
-
-    // Mock WebSocket
     originalWebSocket = global.WebSocket;
     global.WebSocket = MockWebSocket;
 
-    // Mock localStorage
-    originalLocalStorage = global.localStorage;
-    const localStorageMock = {
-      getItem: jest.fn(() => 'mock-auth-token'),
-      setItem: jest.fn(),
-      removeItem: jest.fn(),
-      clear: jest.fn(),
-    };
-    Object.defineProperty(window, 'localStorage', { value: localStorageMock, writable: true });
-
-    // Default fetch mocks
-    global.fetch.mockImplementation((url, options) => {
+    // Default API mocks
+    mockApi.get.mockImplementation(url => {
       if (url.includes('/models/ollama')) {
+        return Promise.resolve({ models: [{ name: 'llama3.1:8b' }, { name: 'mistral' }] });
+      }
+      if (url.includes('/spaces')) {
         return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ models: [{ name: 'llama2' }, { name: 'mistral' }] }),
+          spaces: [
+            { id: 'space-1', name: 'Allgemein' },
+            { id: 'space-2', name: 'Projekte' },
+          ],
         });
       }
-      if (url.includes('/models/claude')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              models: [{ id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet' }],
-            }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      return Promise.resolve({});
     });
+    mockApi.post.mockResolvedValue({});
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
     global.WebSocket = originalWebSocket;
     jest.useRealTimers();
   });
@@ -139,25 +118,21 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      // Check for the token input placeholder
-      expect(screen.getByPlaceholderText(/123456789:ABCdef/)).toBeInTheDocument();
-      // Check that step 1 is active
-      const step1 = screen.getAllByText('Bot-Token')[0].closest('.wizard-progress-step');
+      expect(screen.getByPlaceholderText('Token von @BotFather eingeben')).toBeInTheDocument();
+      const step1 = screen.getByText('Token & Vorlage').closest('.wizard-step');
       expect(step1).toHaveClass('active');
     });
 
-    test('zeigt alle 4 Schritte in der Progress-Anzeige', () => {
+    test('zeigt alle 3 Schritte in der Progress-Anzeige', () => {
       render(
         <ToastProvider>
           <BotSetupWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />
         </ToastProvider>
       );
 
-      // Use getAllByText since text appears in both progress bar and form labels
-      expect(screen.getAllByText('Bot-Token').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('KI-Anbieter')).toBeInTheDocument();
-      expect(screen.getByText('Persönlichkeit')).toBeInTheDocument();
-      expect(screen.getByText('Chat verbinden')).toBeInTheDocument();
+      expect(screen.getByText('Token & Vorlage')).toBeInTheDocument();
+      expect(screen.getByText('Konfiguration')).toBeInTheDocument();
+      expect(screen.getByText('Verbinden')).toBeInTheDocument();
     });
 
     test('Abbrechen-Button ruft onCancel auf', () => {
@@ -168,7 +143,6 @@ describe('BotSetupWizard Component', () => {
       );
 
       fireEvent.click(screen.getByText('Abbrechen'));
-
       expect(mockOnCancel).toHaveBeenCalled();
     });
   });
@@ -177,16 +151,14 @@ describe('BotSetupWizard Component', () => {
   // Token Validation
   // =====================================================
   describe('Token Validation', () => {
-    test('deaktiviert Button bei leerem Token', async () => {
+    test('zeigt "Token prüfen" als initialen Button', () => {
       render(
         <ToastProvider>
           <BotSetupWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />
         </ToastProvider>
       );
 
-      // Check that button is disabled when token is empty
-      const validateButton = screen.getByText('Token prüfen');
-      expect(validateButton).toBeDisabled();
+      expect(screen.getByText('Token prüfen')).toBeInTheDocument();
     });
 
     test('zeigt Fehler bei ungueltigem Token-Format', async () => {
@@ -196,9 +168,8 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/123456789:ABCdef/);
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
       await userEvent.type(input, 'invalid-token-format');
-
       fireEvent.click(screen.getByText('Token prüfen'));
 
       await waitFor(() => {
@@ -206,22 +177,15 @@ describe('BotSetupWizard Component', () => {
       });
     });
 
-    test('validiert Token erfolgreich', async () => {
-      global.fetch.mockImplementation(url => {
+    test('validiert Token erfolgreich und zeigt Bot-Info', async () => {
+      mockApi.post.mockImplementation(url => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                valid: true,
-                botInfo: {
-                  first_name: 'Test Bot',
-                  username: 'test_bot',
-                },
-              }),
+            valid: true,
+            botInfo: { first_name: 'Test Bot', username: 'test_bot' },
           });
         }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) });
+        return Promise.resolve({});
       });
 
       render(
@@ -230,23 +194,22 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/123456789:ABCdef/);
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
       await userEvent.type(input, validToken);
-
       fireEvent.click(screen.getByText('Token prüfen'));
 
       await waitFor(() => {
         expect(screen.getByText('Test Bot')).toBeInTheDocument();
-        expect(screen.getByText('@test_bot')).toBeInTheDocument();
+        expect(screen.getByText(/@test_bot/)).toBeInTheDocument();
       });
     });
 
     test('zeigt Validierung-Ladezustand', async () => {
-      global.fetch.mockImplementation(url => {
+      mockApi.post.mockImplementation(url => {
         if (url.includes('/validate-token')) {
           return new Promise(() => {}); // Never resolves
         }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) });
+        return Promise.resolve({});
       });
 
       render(
@@ -255,9 +218,8 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/123456789:ABCdef/);
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
       await userEvent.type(input, validToken);
-
       fireEvent.click(screen.getByText('Token prüfen'));
 
       await waitFor(() => {
@@ -267,34 +229,18 @@ describe('BotSetupWizard Component', () => {
   });
 
   // =====================================================
-  // LLM Provider Selection
+  // Template Selection
   // =====================================================
-  describe('LLM Provider Selection', () => {
-    const setupToStep2 = async () => {
-      global.fetch.mockImplementation(url => {
+  describe('Template Selection', () => {
+    const setupToTemplateSelection = async () => {
+      mockApi.post.mockImplementation(url => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                valid: true,
-                botInfo: { first_name: 'Test Bot', username: 'test_bot' },
-              }),
+            valid: true,
+            botInfo: { first_name: 'Test Bot', username: 'test_bot' },
           });
         }
-        if (url.includes('/models/ollama')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ models: [{ name: 'llama2' }] }),
-          });
-        }
-        if (url.includes('/models/claude')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ models: [{ id: 'claude-3-sonnet-20240229' }] }),
-          });
-        }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        return Promise.resolve({});
       });
 
       render(
@@ -303,7 +249,78 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/123456789:ABCdef/);
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
+      await userEvent.type(input, validToken);
+      fireEvent.click(screen.getByText('Token prüfen'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Bot')).toBeInTheDocument();
+      });
+    };
+
+    test('zeigt Vorlagen nach Token-Validierung', async () => {
+      await setupToTemplateSelection();
+
+      expect(screen.getByText('Arasul Assistent')).toBeInTheDocument();
+      expect(screen.getByText('Custom Bot')).toBeInTheDocument();
+    });
+
+    test('zeigt Bot-Vorlage Label', async () => {
+      await setupToTemplateSelection();
+
+      expect(screen.getByText('Bot-Vorlage')).toBeInTheDocument();
+    });
+
+    test('wählt Arasul Assistent Vorlage aus', async () => {
+      await setupToTemplateSelection();
+
+      const assistantBtn = screen.getByText('Arasul Assistent').closest('button');
+      fireEvent.click(assistantBtn);
+
+      expect(assistantBtn).toHaveClass('selected');
+    });
+
+    test('wählt Custom Bot Vorlage aus', async () => {
+      await setupToTemplateSelection();
+
+      const customBtn = screen.getByText('Custom Bot').closest('button');
+      fireEvent.click(customBtn);
+
+      expect(customBtn).toHaveClass('selected');
+    });
+
+    test('Weiter-Button deaktiviert ohne Vorlage', async () => {
+      await setupToTemplateSelection();
+
+      // After validation, button shows "Weiter" but should be disabled without template
+      const weiterBtn = screen.getByText('Weiter').closest('button');
+      expect(weiterBtn).toBeDisabled();
+    });
+  });
+
+  // =====================================================
+  // Step 2: Configuration
+  // =====================================================
+  describe('Configuration (Step 2)', () => {
+    const setupToStep2 = async (template = 'master') => {
+      mockApi.post.mockImplementation(url => {
+        if (url.includes('/validate-token')) {
+          return Promise.resolve({
+            valid: true,
+            botInfo: { first_name: 'Test Bot', username: 'test_bot' },
+          });
+        }
+        return Promise.resolve({});
+      });
+
+      render(
+        <ToastProvider>
+          <BotSetupWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />
+        </ToastProvider>
+      );
+
+      // Step 1: Enter token
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
       await userEvent.type(input, validToken);
       fireEvent.click(screen.getByText('Token prüfen'));
 
@@ -311,93 +328,70 @@ describe('BotSetupWizard Component', () => {
         expect(screen.getByText('Test Bot')).toBeInTheDocument();
       });
 
+      // Select template
+      const templateBtn = screen
+        .getByText(template === 'master' ? 'Arasul Assistent' : 'Custom Bot')
+        .closest('button');
+      fireEvent.click(templateBtn);
+
+      // Go to step 2
       fireEvent.click(screen.getByText('Weiter'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Konfiguration').closest('.wizard-step')).toHaveClass('active');
+      });
     };
 
-    test('zeigt Lokale KI und Cloud KI als Provider-Optionen', async () => {
-      await setupToStep2();
+    test('zeigt Master Bot Zusammenfassung für Arasul Assistent', async () => {
+      await setupToStep2('master');
+
+      expect(screen.getByText(/Globaler RAG-Zugriff auf alle Spaces/)).toBeInTheDocument();
+    });
+
+    test('zeigt System-Prompt Textarea', async () => {
+      await setupToStep2('master');
+
+      const textarea = screen.getByLabelText('System-Prompt');
+      expect(textarea).toBeInTheDocument();
+      expect(textarea.value).toContain('Arasul Assistent');
+    });
+
+    test('zeigt LLM-Modell Dropdown', async () => {
+      await setupToStep2('master');
+
+      const select = screen.getByLabelText('LLM-Modell');
+      expect(select).toBeInTheDocument();
+      expect(screen.getByText('llama3.1:8b')).toBeInTheDocument();
+    });
+
+    test('zeigt RAG-Toggle für Custom Bot', async () => {
+      await setupToStep2('custom');
+
+      expect(screen.getByText(/RAG aktivieren/)).toBeInTheDocument();
+    });
+
+    test('zeigt Space-Auswahl wenn RAG aktiviert', async () => {
+      await setupToStep2('custom');
+
+      // Enable RAG
+      const ragCheckbox = screen.getByRole('checkbox');
+      fireEvent.click(ragCheckbox);
 
       await waitFor(() => {
-        expect(screen.getByText('Lokale KI')).toBeInTheDocument();
-        expect(screen.getByText('Cloud KI')).toBeInTheDocument();
+        expect(screen.getByText('Space-Zuordnung')).toBeInTheDocument();
+        expect(screen.getByText('Alle Spaces')).toBeInTheDocument();
+        expect(screen.getByText('Allgemein')).toBeInTheDocument();
+        expect(screen.getByText('Projekte')).toBeInTheDocument();
       });
     });
 
-    test('Lokale KI ist standardmäßig ausgewählt', async () => {
-      await setupToStep2();
+    test('Zurück-Button navigiert zu Step 1', async () => {
+      await setupToStep2('master');
+
+      fireEvent.click(screen.getByText('Zurück'));
 
       await waitFor(() => {
-        const ollamaButton = screen.getByText('Lokale KI').closest('button');
-        expect(ollamaButton).toHaveClass('selected');
-      });
-    });
-  });
-
-  // =====================================================
-  // Error Handling
-  // =====================================================
-  describe('Error Handling', () => {
-    test('zeigt Netzwerkfehler', async () => {
-      // Mock all fetch calls to fail for token validation
-      global.fetch.mockImplementation(url => {
-        if (url.includes('/validate-token')) {
-          return Promise.reject(new Error('Failed to fetch'));
-        }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) });
-      });
-
-      render(
-        <ToastProvider>
-          <BotSetupWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />
-        </ToastProvider>
-      );
-
-      const input = screen.getByPlaceholderText(/123456789:ABCdef/);
-      await userEvent.type(input, validToken);
-
-      fireEvent.click(screen.getByText('Token prüfen'));
-
-      // Wait for retries to complete and error to show
-      await waitFor(
-        () => {
-          const errorElement = screen.queryByText(
-            /Netzwerkfehler|Internetverbindung|Token-Validierung/
-          );
-          expect(errorElement).toBeInTheDocument();
-        },
-        { timeout: 10000 }
-      );
-    });
-
-    test('zeigt Server-Fehler', async () => {
-      global.fetch.mockImplementation(url => {
-        if (url.includes('/validate-token')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: () => Promise.resolve({ valid: false, error: 'Token ist ungueltig' }),
-          });
-        }
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ models: [] }),
-        });
-      });
-
-      render(
-        <ToastProvider>
-          <BotSetupWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />
-        </ToastProvider>
-      );
-
-      const input = screen.getByPlaceholderText(/123456789:ABCdef/);
-      await userEvent.type(input, validToken);
-
-      fireEvent.click(screen.getByText('Token prüfen'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Token ist ungueltig')).toBeInTheDocument();
+        expect(screen.getByText('Token & Vorlage').closest('.wizard-step')).toHaveClass('active');
       });
     });
   });
@@ -413,7 +407,7 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/123456789:ABCdef/);
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
       expect(input).toHaveAttribute('type', 'password');
     });
 
@@ -424,16 +418,13 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      // Find the visibility toggle button (the one with the eye icon)
-      const toggleButtons = screen.getAllByRole('button');
-      const visibilityToggle = toggleButtons.find(btn =>
-        btn.classList.contains('wizard-toggle-visibility')
-      );
+      const toggleButton = screen
+        .getAllByRole('button')
+        .find(btn => btn.classList.contains('wizard-visibility-btn'));
 
-      if (visibilityToggle) {
-        fireEvent.click(visibilityToggle);
-
-        const input = screen.getByPlaceholderText(/123456789:ABCdef/);
+      if (toggleButton) {
+        fireEvent.click(toggleButton);
+        const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
         expect(input).toHaveAttribute('type', 'text');
       }
     });
@@ -444,18 +435,14 @@ describe('BotSetupWizard Component', () => {
   // =====================================================
   describe('Bot Name', () => {
     test('setzt Bot-Name nach Token-Validierung', async () => {
-      global.fetch.mockImplementation(url => {
+      mockApi.post.mockImplementation(url => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                valid: true,
-                botInfo: { first_name: 'Mein Bot', username: 'mein_bot' },
-              }),
+            valid: true,
+            botInfo: { first_name: 'Mein Bot', username: 'mein_bot' },
           });
         }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) });
+        return Promise.resolve({});
       });
 
       render(
@@ -464,25 +451,43 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      const tokenInput = screen.getByPlaceholderText(/123456789:ABCdef/);
+      const tokenInput = screen.getByPlaceholderText('Token von @BotFather eingeben');
       await userEvent.type(tokenInput, validToken);
-
       fireEvent.click(screen.getByText('Token prüfen'));
 
       await waitFor(() => {
-        const nameInput = screen.getByPlaceholderText('Mein Assistent');
+        const nameInput = screen.getByPlaceholderText('Name für deinen Bot');
         expect(nameInput).toHaveValue('Mein Bot');
       });
     });
 
     test('erlaubt manuelle Aenderung des Bot-Namens', async () => {
+      mockApi.post.mockImplementation(url => {
+        if (url.includes('/validate-token')) {
+          return Promise.resolve({
+            valid: true,
+            botInfo: { first_name: 'Test', username: 'test' },
+          });
+        }
+        return Promise.resolve({});
+      });
+
       render(
         <ToastProvider>
           <BotSetupWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />
         </ToastProvider>
       );
 
-      const nameInput = screen.getByPlaceholderText('Mein Assistent');
+      // Must validate first for name field to appear
+      const tokenInput = screen.getByPlaceholderText('Token von @BotFather eingeben');
+      await userEvent.type(tokenInput, validToken);
+      fireEvent.click(screen.getByText('Token prüfen'));
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Name für deinen Bot')).toBeInTheDocument();
+      });
+
+      const nameInput = screen.getByPlaceholderText('Name für deinen Bot');
       await userEvent.clear(nameInput);
       await userEvent.type(nameInput, 'Neuer Name');
 
@@ -491,28 +496,15 @@ describe('BotSetupWizard Component', () => {
   });
 
   // =====================================================
-  // Retry Logic
+  // Error Handling
   // =====================================================
-  describe('Retry Logic', () => {
-    test('versucht Token-Validierung mehrmals bei Netzwerkfehler', async () => {
-      let fetchCount = 0;
-
-      global.fetch.mockImplementation(url => {
+  describe('Error Handling', () => {
+    test('zeigt Netzwerkfehler', async () => {
+      mockApi.post.mockImplementation(url => {
         if (url.includes('/validate-token')) {
-          fetchCount++;
-          if (fetchCount <= 2) {
-            return Promise.reject(new Error('Network error'));
-          }
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                valid: true,
-                botInfo: { first_name: 'Test', username: 'test' },
-              }),
-          });
+          return Promise.reject(new Error('Failed to fetch'));
         }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [] }) });
+        return Promise.resolve({});
       });
 
       render(
@@ -521,18 +513,70 @@ describe('BotSetupWizard Component', () => {
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/123456789:ABCdef/);
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
       await userEvent.type(input, validToken);
-
       fireEvent.click(screen.getByText('Token prüfen'));
 
-      // Wait for retries to complete
       await waitFor(
         () => {
-          expect(fetchCount).toBeGreaterThanOrEqual(2);
+          const errorElement = screen.queryByText(/Failed to fetch|Token-Validierung|Fehler/);
+          expect(errorElement).toBeInTheDocument();
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
+    });
+
+    test('zeigt Server-Fehler', async () => {
+      mockApi.post.mockImplementation(url => {
+        if (url.includes('/validate-token')) {
+          return Promise.resolve({ valid: false, error: 'Token ist ungueltig' });
+        }
+        return Promise.resolve({});
+      });
+
+      render(
+        <ToastProvider>
+          <BotSetupWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />
+        </ToastProvider>
+      );
+
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
+      await userEvent.type(input, validToken);
+      fireEvent.click(screen.getByText('Token prüfen'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Token ist ungueltig')).toBeInTheDocument();
+      });
+    });
+
+    test('zeigt Fehler wenn keine Vorlage gewaehlt', async () => {
+      mockApi.post.mockImplementation(url => {
+        if (url.includes('/validate-token')) {
+          return Promise.resolve({
+            valid: true,
+            botInfo: { first_name: 'Test', username: 'test' },
+          });
+        }
+        return Promise.resolve({});
+      });
+
+      render(
+        <ToastProvider>
+          <BotSetupWizard onComplete={mockOnComplete} onCancel={mockOnCancel} />
+        </ToastProvider>
+      );
+
+      const input = screen.getByPlaceholderText('Token von @BotFather eingeben');
+      await userEvent.type(input, validToken);
+      fireEvent.click(screen.getByText('Token prüfen'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Test')).toBeInTheDocument();
+      });
+
+      // Try to advance without selecting template - button should be disabled
+      const weiterBtn = screen.getByText('Weiter').closest('button');
+      expect(weiterBtn).toBeDisabled();
     });
   });
 });

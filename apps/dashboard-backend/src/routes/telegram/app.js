@@ -304,68 +304,6 @@ router.get(
 );
 
 /**
- * POST /api/telegram-app/zero-config/chat-detected
- * Called by the bot when user sends /start (internal endpoint)
- */
-router.post(
-  '/zero-config/chat-detected',
-  asyncHandler(async (req, res) => {
-    const { setupToken, chatId, username, firstName } = req.body;
-
-    // Verify this is a valid waiting session
-    const session = await db.query(
-      `
-        SELECT * FROM telegram_setup_sessions
-        WHERE setup_token = $1 AND status = 'waiting_start'
-    `,
-      [setupToken]
-    );
-
-    if (session.rows.length === 0) {
-      throw new NotFoundError('Session nicht gefunden oder nicht im Warte-Status');
-    }
-
-    // Complete the setup
-    await db.query(
-      `
-        SELECT complete_telegram_setup($1, $2, $3, $4)
-    `,
-      [setupToken, chatId, username, firstName]
-    );
-
-    // Log orchestrator thinking
-    if (orchestratorService) {
-      await orchestratorService.logThinking(
-        'setup',
-        setupToken,
-        `Chat detected! User: @${username}, Chat-ID: ${chatId}`,
-        { action: 'chat_detected', chatId, username }
-      );
-    }
-
-    // Broadcast via WebSocket (will be implemented in WebSocket service)
-    const websocketService = require('../../services/websocketService');
-    if (websocketService && websocketService.broadcast) {
-      websocketService.broadcast('telegram-setup', {
-        setupToken,
-        status: 'completed',
-        chatId,
-        username,
-        firstName,
-      });
-    }
-
-    logger.info(`Telegram setup completed: Chat ${chatId} (@${username})`);
-
-    res.json({
-      success: true,
-      message: 'Setup erfolgreich abgeschlossen',
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
  * POST /api/telegram-app/zero-config/cancel
  * Cancel a setup session and stop polling
  */
@@ -473,9 +411,9 @@ router.post(
       `
         INSERT INTO app_configurations (app_id, config_key, config_value, is_secret)
         VALUES
-            ('telegram-bot-app', 'TELEGRAM_CHAT_ID', $1, false),
-            ('telegram-bot-app', 'SETUP_COMPLETED', 'true', false),
-            ('telegram-bot-app', 'SETUP_COMPLETED_AT', $2, false)
+            ('telegram-bot', 'TELEGRAM_CHAT_ID', $1, false),
+            ('telegram-bot', 'SETUP_COMPLETED', 'true', false),
+            ('telegram-bot', 'SETUP_COMPLETED_AT', $2, false)
         ON CONFLICT (app_id, config_key) DO UPDATE
         SET config_value = EXCLUDED.config_value, updated_at = NOW()
     `,

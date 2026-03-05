@@ -55,7 +55,7 @@ async function getBotsByUser(userId) {
     `SELECT
       b.id, b.name, b.bot_username, b.llm_provider, b.llm_model,
       b.is_active, b.created_at, b.updated_at, b.last_message_at,
-      b.system_prompt,
+      b.system_prompt, b.rag_enabled, b.rag_space_ids, b.rag_show_sources, b.rag_context_limit,
       (SELECT COUNT(*) FROM telegram_bot_commands WHERE bot_id = b.id AND is_enabled = true) as command_count,
       (SELECT COUNT(*) FROM telegram_bot_chats WHERE bot_id = b.id AND is_active = true) as chat_count
     FROM telegram_bots b
@@ -72,6 +72,10 @@ async function getBotsByUser(userId) {
     llmModel: bot.llm_model,
     isActive: bot.is_active,
     systemPrompt: bot.system_prompt,
+    ragEnabled: bot.rag_enabled || false,
+    ragSpaceIds: bot.rag_space_ids || null,
+    ragShowSources: bot.rag_show_sources ?? true,
+    ragContextLimit: bot.rag_context_limit || 2000,
     commandCount: parseInt(bot.command_count) || 0,
     chatCount: parseInt(bot.chat_count) || 0,
     createdAt: bot.created_at,
@@ -120,6 +124,10 @@ async function getBotById(botId, userId) {
     isActive: bot.is_active,
     isPolling: bot.is_polling,
     hasClaudeKey,
+    ragEnabled: bot.rag_enabled || false,
+    ragSpaceIds: bot.rag_space_ids || null,
+    ragShowSources: bot.rag_show_sources ?? true,
+    ragContextLimit: bot.rag_context_limit || 2000,
     commandCount: parseInt(bot.command_count) || 0,
     chatCount: parseInt(bot.chat_count) || 0,
     createdAt: bot.created_at,
@@ -136,7 +144,17 @@ async function getBotById(botId, userId) {
  * @returns {Promise<Object>} Created bot
  */
 async function createBot(userId, botData) {
-  const { name, token, llmProvider = 'ollama', llmModel, systemPrompt, claudeApiKey } = botData;
+  const {
+    name,
+    token,
+    llmProvider = 'ollama',
+    llmModel,
+    systemPrompt,
+    claudeApiKey,
+    ragEnabled = false,
+    ragSpaceIds = null,
+    ragShowSources = true,
+  } = botData;
 
   // Validate token format
   if (!cryptoService.isValidTokenFormat(token)) {
@@ -172,9 +190,11 @@ async function createBot(userId, botData) {
       bot_token_encrypted, bot_token_iv, bot_token_tag,
       llm_provider, llm_model, system_prompt,
       claude_api_key_encrypted, claude_api_key_iv, claude_api_key_tag,
-      webhook_secret
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-    RETURNING id, name, bot_username, llm_provider, llm_model, is_active, created_at`,
+      webhook_secret,
+      rag_enabled, rag_space_ids, rag_show_sources
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+    RETURNING id, name, bot_username, llm_provider, llm_model, is_active, created_at,
+              rag_enabled, rag_space_ids, rag_show_sources`,
     [
       userId,
       name,
@@ -189,6 +209,9 @@ async function createBot(userId, botData) {
       claudeIv,
       claudeTag,
       webhookSecret,
+      ragEnabled,
+      ragSpaceIds,
+      ragShowSources,
     ]
   );
 
@@ -203,6 +226,9 @@ async function createBot(userId, botData) {
     llmProvider: bot.llm_provider,
     llmModel: bot.llm_model,
     isActive: bot.is_active,
+    ragEnabled: bot.rag_enabled || false,
+    ragSpaceIds: bot.rag_space_ids || null,
+    ragShowSources: bot.rag_show_sources ?? true,
     createdAt: bot.created_at,
   };
 }
@@ -215,7 +241,17 @@ async function createBot(userId, botData) {
  * @returns {Promise<Object>} Updated bot
  */
 async function updateBot(botId, userId, updates) {
-  const { name, llmProvider, llmModel, systemPrompt, claudeApiKey, token } = updates;
+  const {
+    name,
+    llmProvider,
+    llmModel,
+    systemPrompt,
+    claudeApiKey,
+    token,
+    ragEnabled,
+    ragSpaceIds,
+    ragShowSources,
+  } = updates;
 
   // Build dynamic update query
   const setClauses = [];
@@ -240,6 +276,22 @@ async function updateBot(botId, userId, updates) {
   if (systemPrompt !== undefined) {
     setClauses.push(`system_prompt = $${paramIndex++}`);
     values.push(systemPrompt);
+  }
+
+  // Handle RAG fields
+  if (ragEnabled !== undefined) {
+    setClauses.push(`rag_enabled = $${paramIndex++}`);
+    values.push(ragEnabled);
+  }
+
+  if (ragSpaceIds !== undefined) {
+    setClauses.push(`rag_space_ids = $${paramIndex++}`);
+    values.push(ragSpaceIds);
+  }
+
+  if (ragShowSources !== undefined) {
+    setClauses.push(`rag_show_sources = $${paramIndex++}`);
+    values.push(ragShowSources);
   }
 
   // Handle Claude API key update
@@ -294,7 +346,8 @@ async function updateBot(botId, userId, updates) {
     `UPDATE telegram_bots
     SET ${setClauses.join(', ')}, updated_at = NOW()
     WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
-    RETURNING id, name, bot_username, llm_provider, llm_model, system_prompt, is_active`,
+    RETURNING id, name, bot_username, llm_provider, llm_model, system_prompt, is_active,
+              rag_enabled, rag_space_ids, rag_show_sources`,
     values
   );
 
@@ -313,6 +366,9 @@ async function updateBot(botId, userId, updates) {
     llmModel: bot.llm_model,
     systemPrompt: bot.system_prompt,
     isActive: bot.is_active,
+    ragEnabled: bot.rag_enabled || false,
+    ragSpaceIds: bot.rag_space_ids || null,
+    ragShowSources: bot.rag_show_sources ?? true,
   };
 }
 

@@ -27,7 +27,7 @@ import {
   FiStar,
   FiAlertTriangle,
 } from 'react-icons/fi';
-import AppDetailModal from './AppDetailModal';
+import StoreDetailModal from './StoreDetailModal';
 import ConfirmIconButton from '../../components/ui/ConfirmIconButton';
 import { useApi } from '../../hooks/useApi';
 
@@ -47,7 +47,7 @@ const FEATURED_APPS = ['n8n', 'telegram-bot', 'claude-code'];
 // Category labels
 const categoryLabels = {
   development: 'Entwicklung',
-  productivity: 'Produktivitaet',
+  productivity: 'Produktivität',
   ai: 'KI & ML',
   storage: 'Speicher',
   monitoring: 'Monitoring',
@@ -100,7 +100,6 @@ function StoreApps() {
   const [loading, setLoading] = useState(true);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('all'); // 'recommended' or 'all'
   const [selectedApp, setSelectedApp] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
   const [uninstallDialog, setUninstallDialog] = useState({
@@ -201,14 +200,6 @@ function StoreApps() {
     return statusConfig[status] || statusConfig.available;
   };
 
-  // Filter apps
-  const filteredApps = apps.filter(app => {
-    if (filter === 'recommended') {
-      return FEATURED_APPS.includes(app.id) || app.featured;
-    }
-    return true;
-  });
-
   // Render app card
   const renderAppCard = app => {
     const status = getStatusConfig(app.status);
@@ -287,7 +278,7 @@ function StoreApps() {
             <>
               {app.hasCustomPage && app.customPageRoute ? (
                 <Link to={app.customPageRoute} className="btn btn-primary">
-                  <FiExternalLink /> Oeffnen
+                  <FiExternalLink /> Öffnen
                 </Link>
               ) : (
                 <a
@@ -296,7 +287,7 @@ function StoreApps() {
                   rel="noopener noreferrer"
                   className="btn btn-primary"
                 >
-                  <FiExternalLink /> Oeffnen
+                  <FiExternalLink /> Öffnen
                 </a>
               )}
               <ConfirmIconButton
@@ -304,7 +295,7 @@ function StoreApps() {
                 label="Stoppen"
                 confirmText="Stoppen?"
                 onConfirm={() => handleAction(app.id, 'stop')}
-                variant="warning"
+                variant="danger"
                 disabled={isLoading}
               />
             </>
@@ -398,32 +389,10 @@ function StoreApps() {
         </div>
       )}
 
-      {/* Filter */}
-      <div className="store-filters">
-        <div className="filter-group">
-          <div className="filter-chips">
-            <button
-              type="button"
-              className={`filter-chip ${filter === 'recommended' ? 'active' : ''}`}
-              onClick={() => setFilter('recommended')}
-            >
-              <FiStar /> Empfohlen
-            </button>
-            <button
-              type="button"
-              className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
-              onClick={() => setFilter('all')}
-            >
-              Alle
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Apps Grid */}
       <div className="app-grid">
-        {filteredApps.length > 0 ? (
-          filteredApps.map(renderAppCard)
+        {apps.length > 0 ? (
+          apps.map(renderAppCard)
         ) : (
           <div className="store-empty">
             <FiPackage />
@@ -434,14 +403,13 @@ function StoreApps() {
 
       {/* App Detail Modal */}
       {selectedApp && (
-        <AppDetailModal
-          app={selectedApp}
+        <StoreDetailModal
+          type="app"
+          item={selectedApp}
           onClose={() => setSelectedApp(null)}
           onAction={handleAction}
           onUninstall={openUninstallDialog}
           actionLoading={actionLoading}
-          statusConfig={statusConfig}
-          getIcon={getIcon}
         />
       )}
 
@@ -466,11 +434,10 @@ function StoreApps() {
             </div>
             <div className="modal-body">
               <p>
-                Moechten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
+                Möchten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
               </p>
               <p className="uninstall-warning">
-                <FiAlertCircle /> Waehlen Sie, ob die App-Daten behalten oder geloescht werden
-                sollen:
+                <FiAlertCircle /> Wählen Sie, ob die App-Daten behalten oder gelöscht werden sollen:
               </p>
             </div>
             <div className="modal-footer uninstall-buttons">
@@ -493,7 +460,7 @@ function StoreApps() {
                 className="btn btn-danger"
                 onClick={() => handleUninstall(true)}
               >
-                <FiTrash2 /> App + Daten loeschen
+                <FiTrash2 /> App + Daten löschen
               </button>
             </div>
           </div>

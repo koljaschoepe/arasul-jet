@@ -21,7 +21,7 @@
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-lg);
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-dark);
+  background: var(--bg-card);
   flex-shrink: 0;
   min-height: 56px;
 }
@@ -82,6 +82,7 @@
   font-weight: 600;
   padding: 0.25rem 0.5rem;
   outline: none;
+  box-shadow: 0 0 0 3px var(--primary-alpha-15);
 }
 
 .chat-top-bar-project {
@@ -111,7 +112,7 @@
   width: 36px;
   height: 36px;
   background: none;
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-muted);
   cursor: pointer;
@@ -121,11 +122,13 @@
 .chat-top-bar-actions .btn-icon:hover {
   background: var(--primary-alpha-8);
   color: var(--text-primary);
+  border-color: var(--primary-color);
 }
 
 .chat-top-bar-actions .btn-icon.danger:hover {
   background: var(--danger-alpha-10);
   color: var(--danger-color);
+  border-color: var(--danger-color);
 }
 
 /* ---- FadeIn Animation ---- */
@@ -169,7 +172,7 @@
   padding: var(--space-lg) var(--space-md);
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 0;
 }
 
 /* ---- Empty State ---- */
@@ -219,6 +222,7 @@
   justify-content: center;
   transition: all var(--duration-fast);
   z-index: 10;
+  box-shadow: var(--shadow-md);
 }
 
 .chat-view .scroll-bottom-btn:hover {
@@ -227,11 +231,35 @@
   border-color: var(--primary-color);
 }
 
+/* ---- Load More Button ---- */
+.load-more-btn {
+  align-self: center;
+  padding: 0.5rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: all var(--duration-fast) ease;
+}
+
+.load-more-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ---- Skeleton Loading ---- */
 .skeleton-messages {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 0;
   max-width: 800px;
   margin: 0 auto;
   padding: var(--space-lg) var(--space-md);
@@ -241,6 +269,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.skeleton-message:last-child {
+  border-bottom: none;
 }
 
 .skeleton-message-label {
@@ -278,7 +312,7 @@
 
   .chat-view .messages-wrapper {
     max-width: 100%;
-    gap: 24px;
+    gap: 0;
     padding: var(--space-md);
   }
 
@@ -296,19 +330,19 @@
 
 @media (max-width: 576px) {
   .chat-view .messages-wrapper {
-    gap: 20px;
+    gap: 0;
     padding: var(--space-sm);
   }
 
   .skeleton-messages {
-    gap: 24px;
+    gap: 0;
     padding: var(--space-sm);
   }
 }
 
 @media (max-width: 375px) {
   .chat-view .messages-wrapper {
-    gap: 16px;
+    gap: 0;
   }
 
   .chat-view .scroll-bottom-btn {

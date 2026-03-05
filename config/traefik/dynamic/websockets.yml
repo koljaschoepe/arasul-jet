@@ -6,7 +6,7 @@ http:
     # Dashboard WebSocket (metrics live-stream)
     # LAN-accessible: Host restriction removed to allow access via IP address
     dashboard-websocket:
-      rule: "PathPrefix(`/api/metrics/live-stream`)"
+      rule: 'PathPrefix(`/api/metrics/live-stream`)'
       service: dashboard-backend-service
       priority: 50
       middlewares:
@@ -19,11 +19,24 @@ http:
     # n8n WebSocket
     # LAN-accessible: Host restriction removed to allow access via IP address
     n8n-websocket:
-      rule: "PathPrefix(`/n8n/`) && Headers(`Upgrade`, `websocket`)"
+      rule: 'PathPrefix(`/n8n/`) && Headers(`Upgrade`, `websocket`)'
       service: n8n-service
       priority: 50
       middlewares:
         - strip-n8n-prefix
+        - security-headers
+      entryPoints:
+        - web
+        - websecure
+      tls: {}
+
+    # Telegram Bot Setup WebSocket
+    # Bypasses compress and rate-limit middlewares that could interfere with WS frames
+    telegram-websocket:
+      rule: 'PathPrefix(`/api/telegram-app/ws`)'
+      service: dashboard-backend-service
+      priority: 50
+      middlewares:
         - security-headers
       entryPoints:
         - web
@@ -35,7 +48,7 @@ http:
     # Security: Terminal iframe is only accessible when logged into Dashboard
     # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal-websocket:
-      rule: "PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)"
+      rule: 'PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)'
       service: claude-terminal-service
       priority: 110
       entryPoints:
@@ -46,7 +59,7 @@ http:
     # Security: Terminal iframe is only accessible when logged into Dashboard
     # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal-websocket-secure:
-      rule: "PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)"
+      rule: 'PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)'
       service: claude-terminal-service
       priority: 110
       entryPoints:
@@ -58,9 +71,9 @@ http:
     websocket-headers:
       headers:
         customRequestHeaders:
-          X-Forwarded-Proto: "https"
+          X-Forwarded-Proto: 'https'
         customResponseHeaders:
-          X-WebSocket-Enabled: "true"
+          X-WebSocket-Enabled: 'true'
 
   services:
     # Note: Services are already defined in routes.yml

@@ -26,6 +26,7 @@ const telegramBotService = require('./telegramBotService');
 const services = require('../../config/services');
 const toolRegistry = require('../../tools');
 const cryptoService = require('../core/cryptoService');
+const telegramRagService = require('./telegramRagService');
 
 // =============================================================================
 // LLM Constants
@@ -372,30 +373,42 @@ async function getContextMessages(botId, chatId, systemPrompt) {
 }
 
 /**
- * Chat with Ollama
+ * Chat with Ollama (supports native function calling)
  * @param {Object} bot - Bot configuration
  * @param {Array} messages - Conversation messages
  * @param {string} systemPrompt - System prompt
+ * @param {Object} options - Options
+ * @param {boolean} options.enableTools - Whether to include native tool definitions
  * @returns {Promise<string>} Response content
  */
-async function chatWithOllama(bot, messages, systemPrompt) {
+async function chatWithOllama(bot, messages, systemPrompt, options = {}) {
+  const { enableTools = false } = options;
   const model = bot.llm_model || DEFAULT_OLLAMA_MODEL;
 
-  // Format messages for Ollama
   const ollamaMessages = [{ role: 'system', content: systemPrompt }, ...messages];
+
+  // Build request with optional native tools
+  const requestBody = {
+    model,
+    messages: ollamaMessages,
+    stream: false,
+    options: {
+      num_predict: MAX_RESPONSE_TOKENS,
+    },
+  };
+
+  if (enableTools) {
+    const toolDefs = await toolRegistry.getOllamaToolDefinitions();
+    if (toolDefs.length > 0) {
+      requestBody.tools = toolDefs;
+    }
+  }
 
   try {
     const response = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages: ollamaMessages,
-        stream: false,
-        options: {
-          num_predict: MAX_RESPONSE_TOKENS,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -404,7 +417,45 @@ async function chatWithOllama(bot, messages, systemPrompt) {
     }
 
     const data = await response.json();
-    return data.message?.content || 'Keine Antwort erhalten.';
+    const msg = data.message;
+
+    // Handle native tool calls from Ollama
+    if (msg?.tool_calls && msg.tool_calls.length > 0) {
+      const context = { botId: bot.id };
+      const { messages: toolMessages } = await toolRegistry.processNativeToolCalls(
+        msg.tool_calls,
+        context
+      );
+
+      // Send tool results back to Ollama for final answer
+      const followUpMessages = [
+        ...ollamaMessages,
+        msg, // assistant message with tool_calls
+        ...toolMessages, // tool results
+      ];
+
+      const followUpResponse = await fetch(`${OLLAMA_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages: followUpMessages,
+          stream: false,
+          options: { num_predict: MAX_RESPONSE_TOKENS },
+        }),
+      });
+
+      if (!followUpResponse.ok) {
+        // Fallback: return tool results directly
+        const toolOutputs = toolMessages.map(m => m.content).join('\n\n---\n');
+        return (msg.content || '') + '\n\n' + toolOutputs;
+      }
+
+      const followUpData = await followUpResponse.json();
+      return followUpData.message?.content || 'Keine Antwort erhalten.';
+    }
+
+    return msg?.content || 'Keine Antwort erhalten.';
   } catch (error) {
     logger.error('Ollama chat error:', error);
     throw new Error(`LLM-Fehler: ${error.message}`);
@@ -497,9 +548,11 @@ async function chat(botId, chatId, userMessage, options = {}) {
     }
   }
 
-  // Get bot configuration
+  // Get bot configuration (including RAG fields)
   const botResult = await database.query(
-    `SELECT id, name, llm_provider, llm_model, system_prompt FROM telegram_bots WHERE id = $1`,
+    `SELECT id, name, llm_provider, llm_model, system_prompt,
+            rag_enabled, rag_space_ids, rag_show_sources, rag_context_limit
+     FROM telegram_bots WHERE id = $1`,
     [botId]
   );
 
@@ -510,8 +563,18 @@ async function chat(botId, chatId, userMessage, options = {}) {
   const bot = botResult.rows[0];
   const baseSystemPrompt = bot.system_prompt || 'Du bist ein hilfreicher Assistent.';
 
-  // Build system prompt with tools if enabled
-  const systemPrompt = enableTools ? await buildSystemPrompt(baseSystemPrompt) : baseSystemPrompt;
+  // RAG enrichment: inject document context into system prompt
+  let ragResult = { context: null, sources: [], sourceText: null };
+  if (bot.rag_enabled) {
+    ragResult = await telegramRagService.enrichWithRAG(userMessage, bot);
+  }
+
+  // Build system prompt: base + RAG context + tools
+  let enrichedPrompt = baseSystemPrompt;
+  if (ragResult.context) {
+    enrichedPrompt += `\n\n--- Relevanter Kontext aus Dokumenten ---\n${ragResult.context}\n--- Ende Kontext ---\n\nNutze den obigen Kontext, um die Frage zu beantworten. Wenn der Kontext nicht relevant ist, antworte basierend auf deinem Wissen.`;
+  }
+  const systemPrompt = enableTools ? await buildSystemPrompt(enrichedPrompt) : enrichedPrompt;
 
   // Ensure session exists
   await getOrCreateSession(botId, chatId);
@@ -523,6 +586,7 @@ async function chat(botId, chatId, userMessage, options = {}) {
   const contextMessages = await getContextMessages(botId, chatId, systemPrompt);
 
   let response;
+  let usedNativeTools = false;
 
   if (bot.llm_provider === 'claude') {
     // Get Claude API key
@@ -534,32 +598,33 @@ async function chat(botId, chatId, userMessage, options = {}) {
     }
     response = await chatWithClaude(bot, contextMessages, systemPrompt, apiKey);
   } else {
-    // Default to Ollama
-    response = await chatWithOllama(bot, contextMessages, systemPrompt);
+    // Default to Ollama - use native function calling when tools enabled
+    response = await chatWithOllama(bot, contextMessages, systemPrompt, { enableTools });
+    usedNativeTools = enableTools;
   }
 
-  // Process tool calls if enabled
-  if (enableTools) {
+  // Text-based tool fallback (for Claude or when native tools miss a call)
+  if (enableTools && !usedNativeTools) {
     const context = { botId, chatId };
     const toolResult = await toolRegistry.processToolCalls(response, context);
 
     if (toolResult.hasTools) {
-      // Build response with tool results
       const toolOutputs = toolResult.results.map(r => `\n\n---\n${r.result}`).join('');
-
       response = toolResult.cleanResponse + toolOutputs;
-
-      logger.debug(`Executed ${toolResult.results.length} tools for bot ${botId}`);
+      logger.debug(`Executed ${toolResult.results.length} tools (text-based) for bot ${botId}`);
     }
   }
 
-  // Add assistant response to session
+  // Append RAG sources to response (if enabled and sources exist)
+  const fullResponse = ragResult.sourceText ? response + ragResult.sourceText : response;
+
+  // Add assistant response to session (without sources for cleaner context)
   await addMessageToSession(botId, chatId, 'assistant', response);
 
   // Update bot's last message timestamp
   await telegramBotService.updateLastMessage(botId);
 
-  return response;
+  return fullResponse;
 }
 
 /**
@@ -1055,11 +1120,11 @@ class TelegramAppService {
     try {
       const status = await this.getAppStatus(userId);
 
-      // Also check if the telegram-bot-app is installed via the App Store
+      // Also check if the telegram-bot is installed via the App Store
       let appInstalled = false;
       try {
         const installResult = await database.query(
-          `SELECT status FROM app_installations WHERE app_id = 'telegram-bot-app' AND status NOT IN ('available', 'uninstalling')`
+          `SELECT status FROM app_installations WHERE app_id = 'telegram-bot' AND status NOT IN ('available', 'uninstalling')`
         );
         appInstalled = installResult.rows.length > 0;
       } catch {
@@ -1082,7 +1147,7 @@ class TelegramAppService {
       }
 
       return {
-        id: 'telegram-bot-app',
+        id: 'telegram-bot',
         name: 'Telegram Bot',
         description,
         icon: 'FiSend',

@@ -1,6 +1,8 @@
 /**
- * BotSetupWizard - Multi-step wizard for creating a new Telegram bot
- * With WebSocket integration for real-time chat detection
+ * BotSetupWizard - 3-step wizard for creating Telegram bots
+ * Step 1: Token & Template (Arasul Assistent or Custom)
+ * Step 2: Configuration (System Prompt, Model, Spaces)
+ * Step 3: Connect (WebSocket + Polling fallback)
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -16,50 +18,39 @@ import {
   FiExternalLink,
   FiRefreshCw,
   FiCpu,
-  FiCloud,
+  FiBook,
+  FiStar,
+  FiEdit2,
 } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
 import { sanitizeUrl } from '../../utils/sanitizeUrl';
 import './TelegramBots.css';
 
-// Debug flag - set to false in production
-const DEBUG = process.env.NODE_ENV === 'development';
-
 const STEPS = [
-  { id: 1, title: 'Bot-Token', description: 'Token von @BotFather eingeben' },
-  { id: 2, title: 'KI-Anbieter', description: 'KI-Anbieter auswählen' },
-  { id: 3, title: 'Persönlichkeit', description: 'Bot-Persönlichkeit definieren' },
-  { id: 4, title: 'Chat verbinden', description: 'Bot mit Chat verknüpfen' },
+  { id: 1, title: 'Token & Vorlage', description: 'Token eingeben und Vorlage wählen' },
+  { id: 2, title: 'Konfiguration', description: 'Bot konfigurieren' },
+  { id: 3, title: 'Verbinden', description: 'Bot mit Chat verknüpfen' },
 ];
 
-const PERSONALITY_TEMPLATES = [
+const BOT_TEMPLATES = [
   {
-    id: 'assistant',
-    name: 'Freundlicher Assistent',
-    icon: FiCheck,
+    id: 'master',
+    name: 'Arasul Assistent',
+    description: 'Dein persönlicher KI-Assistent mit Zugriff auf alle Daten',
+    icon: FiStar,
     prompt:
-      'Du bist ein freundlicher und hilfreicher KI-Assistent. Du antwortest immer auf Deutsch, bist geduldig und erklärst Dinge verständlich. Du hilfst bei alltäglichen Fragen, Recherchen und Aufgaben.',
+      'Du bist der Arasul Assistent – ein intelligenter KI-Assistent mit Zugriff auf alle Dokumente und Wissens-Spaces. Du antwortest auf Deutsch, bist hilfsbereit und nutzt die verfügbaren Daten, um fundierte Antworten zu geben. Bei Bedarf gibst du auch die Quellen deiner Informationen an.',
+    ragEnabled: true,
+    ragSpaceIds: null, // null = all spaces
   },
   {
-    id: 'support',
-    name: 'Technischer Support',
-    icon: FiCpu,
-    prompt:
-      'Du bist ein technischer Support-Assistent. Du hilfst bei IT-Problemen, Software-Fragen und technischen Anleitungen. Du gibst klare Schritt-für-Schritt-Anweisungen und fragst bei Bedarf nach Details.',
-  },
-  {
-    id: 'creative',
-    name: 'Kreativ-Schreiber',
-    icon: FiSend,
-    prompt:
-      'Du bist ein kreativer Schreibassistent. Du hilfst beim Verfassen von Texten, E-Mails, Geschichten und anderen kreativen Inhalten. Du bist einfallsreich, achtest auf guten Stil und passt den Ton an den Kontext an.',
-  },
-  {
-    id: 'admin',
-    name: 'System-Administrator',
-    icon: FiCloud,
-    prompt:
-      'Du bist ein System-Administrator-Assistent für einen Jetson AGX Orin. Du hilfst bei Linux-Befehlen, Docker-Container-Verwaltung, Netzwerk-Konfiguration und System-Monitoring. Du gibst präzise technische Antworten.',
+    id: 'custom',
+    name: 'Custom Bot',
+    description: 'Erstelle einen spezialisierten Bot mit eigener Konfiguration',
+    icon: FiEdit2,
+    prompt: 'Du bist ein hilfreicher Assistent. Du antwortest auf Deutsch.',
+    ragEnabled: false,
+    ragSpaceIds: [],
   },
 ];
 
@@ -69,20 +60,20 @@ function BotSetupWizard({ onComplete, onCancel }) {
   const [formData, setFormData] = useState({
     name: '',
     token: '',
-    llmProvider: 'ollama',
     llmModel: '',
-    systemPrompt: 'Du bist ein hilfreicher Assistent.',
-    claudeApiKey: '',
+    systemPrompt: '',
+    template: null, // 'master' or 'custom'
+    ragEnabled: false,
+    ragSpaceIds: null,
+    ragShowSources: true,
   });
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showToken, setShowToken] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
   const [botInfo, setBotInfo] = useState(null);
   const [error, setError] = useState(null);
   const [ollamaModels, setOllamaModels] = useState([]);
-  const [claudeModels, setClaudeModels] = useState([]);
+  const [spaces, setSpaces] = useState([]);
   const [creating, setCreating] = useState(false);
 
   // Chat verification state
@@ -94,25 +85,23 @@ function BotSetupWizard({ onComplete, onCancel }) {
   const [waitingForChat, setWaitingForChat] = useState(false);
   const [verificationTimeout, setVerificationTimeout] = useState(null);
 
-  // Refs for WebSocket and polling
+  // Refs
   const wsRef = useRef(null);
   const pollingIntervalRef = useRef(null);
   const timeoutRef = useRef(null);
+  const chatDetectedRef = useRef(false);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Close WebSocket
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
-      // Clear polling interval
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
-      // Clear timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
@@ -120,38 +109,47 @@ function BotSetupWizard({ onComplete, onCancel }) {
     };
   }, []);
 
-  // Connect to WebSocket for real-time chat detection
+  // Fetch models and spaces
+  useEffect(() => {
+    const fetchData = async () => {
+      const [modelsResult, spacesResult] = await Promise.allSettled([
+        api.get('/telegram-bots/models/ollama', { showError: false }),
+        api.get('/spaces', { showError: false }),
+      ]);
+
+      if (modelsResult.status === 'fulfilled') {
+        const models = modelsResult.value.models || [];
+        setOllamaModels(models);
+        if (models.length > 0 && !formData.llmModel) {
+          setFormData(prev => ({ ...prev, llmModel: models[0].name || models[0] }));
+        }
+      }
+
+      if (spacesResult.status === 'fulfilled') {
+        setSpaces(spacesResult.value.spaces || spacesResult.value || []);
+      }
+    };
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // WebSocket connection for chat detection
   const connectWebSocket = useCallback(token => {
-    // Determine WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/telegram-app/ws`;
-
-    DEBUG && console.log('[Wizard] Connecting to WebSocket:', wsUrl);
-
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      DEBUG && console.log('[Wizard] WebSocket connected');
       setWsConnected(true);
-
-      // Subscribe to the setup token
-      ws.send(
-        JSON.stringify({
-          type: 'subscribe',
-          setupToken: token,
-        })
-      );
+      ws.send(JSON.stringify({ type: 'subscribe', setupToken: token }));
     };
 
     ws.onmessage = event => {
       try {
         const data = JSON.parse(event.data);
-        DEBUG && console.log('[Wizard] WebSocket message:', data);
-
         if (data.type === 'setup_complete') {
-          // Chat detected!
-          DEBUG && console.log('[Wizard] Chat detected via WebSocket:', data);
+          chatDetectedRef.current = true;
           setChatDetected(true);
           setChatInfo({
             chatId: data.chatId,
@@ -160,54 +158,50 @@ function BotSetupWizard({ onComplete, onCancel }) {
             type: data.chatType || 'private',
           });
           setWaitingForChat(false);
-
-          // Stop polling
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
           }
-        } else if (data.type === 'subscribed') {
-          DEBUG && console.log('[Wizard] Subscribed to token:', data.setupToken);
-        } else if (data.type === 'error') {
-          console.error('[Wizard] WebSocket error:', data.message || data.error);
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
         }
       } catch (err) {
         console.error('[Wizard] Error parsing WebSocket message:', err);
       }
     };
 
-    ws.onerror = error => {
-      console.error('[Wizard] WebSocket error:', error);
+    ws.onerror = () => {
       setWsConnected(false);
-      // Start polling as fallback
       startPolling(token);
     };
 
     ws.onclose = () => {
-      DEBUG && console.log('[Wizard] WebSocket closed');
       setWsConnected(false);
       wsRef.current = null;
+      // Start polling fallback if chat not yet detected
+      if (!chatDetectedRef.current) {
+        startPolling(token);
+      }
     };
 
     return ws;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Polling fallback for chat detection
+  // Polling fallback
   const startPolling = useCallback(
     token => {
-      if (pollingIntervalRef.current) return; // Already polling
-
-      DEBUG && console.log('[Wizard] Starting polling fallback');
+      if (pollingIntervalRef.current) return;
 
       const poll = async () => {
         try {
           const data = await api.get(`/telegram-app/zero-config/status/${token}`, {
             showError: false,
           });
-          DEBUG && console.log('[Wizard] Poll status:', data.status);
-
           if (data.status === 'completed' && data.chatId) {
+            chatDetectedRef.current = true;
             setChatDetected(true);
             setChatInfo({
               chatId: data.chatId,
@@ -216,11 +210,13 @@ function BotSetupWizard({ onComplete, onCancel }) {
               type: 'private',
             });
             setWaitingForChat(false);
-
-            // Stop polling
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
               pollingIntervalRef.current = null;
+            }
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
             }
           }
         } catch (err) {
@@ -228,155 +224,134 @@ function BotSetupWizard({ onComplete, onCancel }) {
         }
       };
 
-      // Poll every 2 seconds
       pollingIntervalRef.current = setInterval(poll, 2000);
-
-      // Initial poll
       poll();
     },
     [api]
   );
 
-  // Parse error response with user-friendly messages
-  const parseErrorMessage = useCallback((error, context = '') => {
-    const message = error?.message || String(error);
-
-    // Network errors
-    if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
-      return 'Netzwerkfehler: Bitte prüfe deine Internetverbindung.';
+  // Validate bot token
+  const validateToken = async () => {
+    const tokenTrimmed = formData.token?.trim();
+    if (!tokenTrimmed) {
+      setError('Bitte gib ein Bot-Token ein');
+      return;
     }
 
-    // Rate limiting
-    if (
-      message.includes('429') ||
-      message.includes('rate limit') ||
-      message.includes('Too Many Requests')
-    ) {
-      return 'Zu viele Anfragen. Bitte warte einen Moment und versuche es erneut.';
+    const tokenRegex = /^\d+:[A-Za-z0-9_-]+$/;
+    if (!tokenRegex.test(tokenTrimmed)) {
+      setError('Ungültiges Token-Format. Das Token sollte das Format "123456789:ABCdef..." haben.');
+      return;
     }
 
-    // Auth errors
-    if (
-      message.includes('401') ||
-      message.includes('Unauthorized') ||
-      message.includes('nicht autorisiert')
-    ) {
-      return 'Sitzung abgelaufen. Bitte melde dich erneut an.';
+    setValidating(true);
+    setError(null);
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      let data;
+      try {
+        data = await api.post(
+          '/telegram-bots/validate-token',
+          { token: tokenTrimmed },
+          { showError: false, signal: controller.signal }
+        );
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (data.valid) {
+        setValidated(true);
+        setBotInfo(data.botInfo);
+        setFormData(prev => ({
+          ...prev,
+          name: data.botInfo.first_name || prev.name,
+          token: tokenTrimmed,
+        }));
+      } else {
+        setError(data.error || 'Token konnte nicht validiert werden');
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setError('Zeitüberschreitung bei der Token-Validierung');
+      } else {
+        setError(err.data?.error || err.message || 'Fehler bei der Token-Validierung');
+      }
+    } finally {
+      setValidating(false);
     }
+  };
 
-    // Token validation errors
-    if (message.includes('Bot-Token ungültig') || message.includes('invalid token')) {
-      return 'Bot-Token ungültig. Bitte überprüfe das Token von @BotFather.';
-    }
+  // Select template
+  const selectTemplate = template => {
+    const tpl = BOT_TEMPLATES.find(t => t.id === template);
+    if (!tpl) return;
+    setFormData(prev => ({
+      ...prev,
+      template,
+      systemPrompt: tpl.prompt,
+      ragEnabled: tpl.ragEnabled,
+      ragSpaceIds: tpl.ragSpaceIds,
+    }));
+  };
 
-    // Session errors
-    if (message.includes('Session nicht gefunden') || message.includes('abgelaufen')) {
-      return 'Setup-Session abgelaufen. Bitte starte den Vorgang neu.';
-    }
-
-    // Timeout
-    if (message.includes('timeout') || message.includes('ETIMEDOUT')) {
-      return `Zeitüberschreitung bei ${context}. Bitte versuche es erneut.`;
-    }
-
-    // Default: return original message or generic error
-    return message || 'Ein unerwarteter Fehler ist aufgetreten.';
-  }, []);
-
-  // Initialize chat verification (Step 4)
+  // Initialize chat verification (Step 3)
   const initChatVerification = useCallback(async () => {
     setWaitingForChat(true);
     setError(null);
 
     try {
-      // Step 1: Create setup session with timeout
-      DEBUG && console.log('[Wizard] Creating setup session...');
-      const initController = new AbortController();
-      const initTimeout = setTimeout(() => initController.abort(), 15000);
-
-      let initData;
-      try {
-        initData = await api.post('/telegram-app/zero-config/init', undefined, {
-          showError: false,
-          signal: initController.signal,
-        });
-      } finally {
-        clearTimeout(initTimeout);
-      }
-
+      const initData = await api.post('/telegram-app/zero-config/init', undefined, {
+        showError: false,
+      });
       const token = initData.setupToken;
-      if (!token) {
-        throw new Error('Setup-Token wurde nicht generiert');
-      }
+      if (!token) throw new Error('Setup-Token wurde nicht generiert');
       setSetupToken(token);
 
-      DEBUG && console.log('[Wizard] Setup session created:', token.substring(0, 8) + '...');
-
-      // Step 2: Connect WebSocket and subscribe
       connectWebSocket(token);
 
-      // Step 3: Validate token and get deep link with timeout
-      DEBUG && console.log('[Wizard] Validating bot token...');
-      const tokenController = new AbortController();
-      const tokenTimeout = setTimeout(() => tokenController.abort(), 20000);
+      const tokenData = await api.post(
+        '/telegram-app/zero-config/token',
+        {
+          setupToken: token,
+          botToken: formData.token,
+        },
+        { showError: false }
+      );
 
-      let tokenData;
-      try {
-        tokenData = await api.post(
-          '/telegram-app/zero-config/token',
-          {
-            setupToken: token,
-            botToken: formData.token,
-          },
-          {
-            showError: false,
-            signal: tokenController.signal,
-          }
-        );
-      } finally {
-        clearTimeout(tokenTimeout);
-      }
-
-      if (!tokenData.deepLink) {
-        throw new Error('Deep-Link konnte nicht generiert werden');
-      }
+      if (!tokenData.deepLink) throw new Error('Deep-Link konnte nicht generiert werden');
       setDeepLink(tokenData.deepLink);
 
-      DEBUG && console.log('[Wizard] Deep link generated:', tokenData.deepLink);
+      // Always start polling as backup alongside WebSocket
+      // This ensures detection even if WebSocket drops silently
+      startPolling(token);
 
-      // Set timeout for verification (5 minutes)
       timeoutRef.current = setTimeout(
         () => {
-          if (!chatDetected) {
-            setError(
-              'Zeitüberschreitung: Keine Nachricht vom Bot empfangen. Bitte versuche es erneut.'
-            );
+          if (!chatDetectedRef.current) {
+            setError('Zeitüberschreitung: Keine Nachricht vom Bot empfangen.');
             setWaitingForChat(false);
           }
         },
         5 * 60 * 1000
       );
 
-      setVerificationTimeout(5 * 60); // 5 minutes in seconds
+      setVerificationTimeout(5 * 60);
     } catch (err) {
-      console.error('[Wizard] Chat verification error:', err);
-
-      // Handle abort errors specifically
       if (err.name === 'AbortError') {
-        setError(
-          'Verbindungs-Timeout. Bitte prüfe deine Internetverbindung und versuche es erneut.'
-        );
+        setError('Verbindungs-Timeout. Bitte prüfe deine Internetverbindung.');
       } else {
-        setError(err.data?.error || parseErrorMessage(err, 'Chat-Verifizierung'));
+        setError(err.data?.error || err.message || 'Fehler bei der Chat-Verifizierung');
       }
       setWaitingForChat(false);
     }
-  }, [api, formData.token, connectWebSocket, chatDetected, parseErrorMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, formData.token, connectWebSocket]);
 
-  // Countdown timer for timeout display
+  // Countdown timer
   useEffect(() => {
     if (!waitingForChat || verificationTimeout === null) return;
-
     const interval = setInterval(() => {
       setVerificationTimeout(prev => {
         if (prev <= 0) {
@@ -386,14 +361,12 @@ function BotSetupWizard({ onComplete, onCancel }) {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waitingForChat]);
 
   // Retry chat verification
   const retryChatVerification = useCallback(() => {
-    // Cleanup previous attempt
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -406,160 +379,14 @@ function BotSetupWizard({ onComplete, onCancel }) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-
+    chatDetectedRef.current = false;
     setChatDetected(false);
     setChatInfo(null);
     setSetupToken(null);
     setDeepLink(null);
     setError(null);
-
-    // Start new verification
     initChatVerification();
   }, [initChatVerification]);
-
-  // Fetch available models
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const [ollamaResult, claudeResult] = await Promise.allSettled([
-          api.get('/telegram-bots/models/ollama', { showError: false }),
-          api.get('/telegram-bots/models/claude', { showError: false }),
-        ]);
-
-        if (ollamaResult.status === 'fulfilled') {
-          const data = ollamaResult.value;
-          setOllamaModels(data.models || []);
-          if (data.models?.length > 0 && !formData.llmModel) {
-            setFormData(prev => ({ ...prev, llmModel: data.models[0].name || data.models[0] }));
-          }
-        }
-
-        if (claudeResult.status === 'fulfilled') {
-          setClaudeModels(claudeResult.value.models || []);
-        }
-      } catch (err) {
-        console.error('Error fetching models:', err);
-      }
-    };
-
-    fetchModels();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.llmModel]);
-
-  // Validate bot token with retry logic
-  const validateToken = async () => {
-    const tokenTrimmed = formData.token?.trim();
-
-    if (!tokenTrimmed) {
-      setError('Bitte gib ein Bot-Token ein');
-      return;
-    }
-
-    // Basic token format validation (botId:secretPart)
-    const tokenRegex = /^\d+:[A-Za-z0-9_-]+$/;
-    if (!tokenRegex.test(tokenTrimmed)) {
-      setError('Ungültiges Token-Format. Das Token sollte das Format "123456789:ABCdef..." haben.');
-      return;
-    }
-
-    setValidating(true);
-    setError(null);
-
-    const maxRetries = 2;
-    let lastError = null;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-
-        let data;
-        try {
-          data = await api.post(
-            '/telegram-bots/validate-token',
-            { token: tokenTrimmed },
-            {
-              showError: false,
-              signal: controller.signal,
-            }
-          );
-        } finally {
-          clearTimeout(timeout);
-        }
-
-        if (data.valid) {
-          setValidated(true);
-          setBotInfo(data.botInfo);
-          setFormData(prev => ({
-            ...prev,
-            name: data.botInfo.first_name || prev.name,
-            token: tokenTrimmed, // Use trimmed token
-          }));
-          setValidating(false);
-          return; // Success!
-        } else {
-          // Specific error messages for common issues
-          let errorMessage = data.error || 'Token ist ungültig';
-
-          if (errorMessage.includes('Unauthorized') || errorMessage.includes('401')) {
-            errorMessage =
-              'Token ist ungültig oder wurde widerrufen. Bitte erstelle ein neues Token bei @BotFather.';
-          } else if (errorMessage.includes('bot was blocked')) {
-            errorMessage = 'Dieser Bot wurde blockiert. Bitte kontaktiere den Telegram-Support.';
-          }
-
-          setError(errorMessage);
-          setValidating(false);
-          return;
-        }
-      } catch (err) {
-        lastError = err;
-
-        // Don't retry on abort
-        if (err.name === 'AbortError') {
-          setError('Zeitüberschreitung bei der Validierung. Bitte prüfe deine Internetverbindung.');
-          setValidating(false);
-          return;
-        }
-
-        // Retry on network errors
-        if (attempt < maxRetries) {
-          DEBUG &&
-            console.log(`[Wizard] Token validation attempt ${attempt + 1} failed, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-          continue;
-        }
-      }
-    }
-
-    // All retries failed
-    console.error('[Wizard] Token validation failed after retries:', lastError);
-    setError(parseErrorMessage(lastError, 'Token-Validierung'));
-    setValidating(false);
-  };
-
-  // Handle step navigation
-  const nextStep = () => {
-    if (currentStep === 1 && !validated) {
-      validateToken();
-      return;
-    }
-    if (currentStep < STEPS.length) {
-      const newStep = currentStep + 1;
-      setCurrentStep(newStep);
-
-      // Initialize chat verification when entering step 4
-      if (newStep === 4 && !chatDetected && !waitingForChat) {
-        initChatVerification();
-      }
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
 
   // Create bot
   const handleCreate = async () => {
@@ -567,451 +394,119 @@ function BotSetupWizard({ onComplete, onCancel }) {
     setError(null);
 
     try {
-      const payload = {
-        name: formData.name,
-        token: formData.token,
-        llmProvider: formData.llmProvider,
-        llmModel: formData.llmModel,
-        systemPrompt: formData.systemPrompt,
-      };
-
-      if (formData.llmProvider === 'claude' && formData.claudeApiKey) {
-        payload.claudeApiKey = formData.claudeApiKey;
-      }
-
-      // Include chat info if available
-      if (chatInfo) {
-        payload.defaultChatId = chatInfo.chatId;
-        payload.defaultChatUsername = chatInfo.username;
-      }
-
-      // Include setup token for completing zero-config flow
+      // Complete zero-config
       if (setupToken) {
-        payload.setupToken = setupToken;
+        await api.post(
+          '/telegram-app/zero-config/complete',
+          {
+            setupToken,
+            botToken: formData.token,
+          },
+          { showError: false }
+        );
       }
 
-      const data = await api.post('/telegram-bots', payload, { showError: false });
+      // Create bot
+      const data = await api.post(
+        '/telegram-bots',
+        {
+          name: formData.name,
+          token: formData.token,
+          llmProvider: 'ollama',
+          llmModel: formData.llmModel,
+          systemPrompt: formData.systemPrompt,
+          setupToken: setupToken || undefined,
+          ragEnabled: formData.ragEnabled,
+          ragSpaceIds: formData.ragSpaceIds,
+          ragShowSources: formData.ragShowSources,
+        },
+        { showError: false }
+      );
 
-      // Auto-activate the bot so it starts receiving messages
-      try {
-        await api.post(`/telegram-bots/${data.bot.id}/activate`, undefined, { showError: false });
-        data.bot.isActive = true;
-      } catch (activateErr) {
-        console.warn('[Wizard] Could not auto-activate bot:', activateErr);
-      }
-
-      // Complete zero-config flow if we have a setup token
-      if (setupToken && chatInfo) {
+      if (data.bot) {
+        // Activate
         try {
-          await api.post(
-            '/telegram-app/zero-config/complete',
-            { setupToken },
-            { showError: false }
-          );
-        } catch (completeErr) {
-          console.warn('[Wizard] Could not complete zero-config flow:', completeErr);
+          await api.post(`/telegram-bots/${data.bot.id}/activate`, undefined, { showError: false });
+          data.bot.isActive = true;
+        } catch {
+          /* ignore activation errors */
         }
+        onComplete(data.bot);
       }
-
-      // Cleanup
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      onComplete(data.bot);
     } catch (err) {
-      setError(err.data?.error || err.message);
+      setError(err.data?.error || err.message || 'Fehler beim Erstellen des Bots');
     } finally {
       setCreating(false);
     }
   };
 
-  // Render step content
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <div className="wizard-step-content">
-            <div className="wizard-info-box">
-              <h4>Erstelle deinen Bot in Telegram</h4>
-              <ol className="wizard-numbered-steps">
-                <li>
-                  Öffne Telegram und suche nach <strong>@BotFather</strong>
-                </li>
-                <li>
-                  Sende <code>/newbot</code> und folge den Anweisungen
-                </li>
-                <li>
-                  Kopiere das Token (sieht so aus: <code>123456789:ABCdef...</code>)
-                </li>
-              </ol>
-            </div>
+  // Navigation
+  const nextStep = () => {
+    if (currentStep === 1 && !validated) {
+      validateToken();
+      return;
+    }
+    if (currentStep === 1 && !formData.template) {
+      setError('Bitte wähle eine Vorlage');
+      return;
+    }
+    if (currentStep === 2 && !formData.systemPrompt.trim()) {
+      setError('Bitte gib einen System-Prompt ein');
+      return;
+    }
+    if (currentStep === 3 && !chatDetected) return;
 
-            <div className="wizard-form-group">
-              <label>Bot-Token</label>
-              <div className="wizard-input-wrapper">
-                <input
-                  type={showToken ? 'text' : 'password'}
-                  value={formData.token}
-                  onChange={e => {
-                    setFormData(prev => ({ ...prev, token: e.target.value }));
-                    setValidated(false);
-                    setBotInfo(null);
-                  }}
-                  placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                  disabled={validating}
-                />
-                <button
-                  type="button"
-                  className="wizard-toggle-visibility"
-                  onClick={() => setShowToken(!showToken)}
-                  aria-label={showToken ? 'Token verbergen' : 'Token anzeigen'}
-                >
-                  {showToken ? <FiEyeOff /> : <FiEye />}
-                </button>
-              </div>
-              <small>
-                Das Token erhältst du von <strong>@BotFather</strong> nach dem Erstellen eines Bots
-              </small>
-            </div>
-
-            {validated && botInfo && (
-              <div className="wizard-success-box">
-                <FiCheck className="wizard-success-icon" />
-                <div>
-                  <strong>{botInfo.first_name}</strong>
-                  <span className="wizard-bot-username">@{botInfo.username}</span>
-                </div>
-              </div>
-            )}
-
-            <div className="wizard-form-group">
-              <label>Bot Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Mein Assistent"
-              />
-              <small>Wie soll dein Bot heißen? Kann später geändert werden.</small>
-            </div>
-          </div>
-        );
-
-      case 2:
-        return (
-          <div className="wizard-step-content">
-            <div className="wizard-form-group">
-              <label>Wie soll dein Bot denken?</label>
-              <div className="wizard-provider-options">
-                <button
-                  type="button"
-                  className={`wizard-provider-option ${formData.llmProvider === 'ollama' ? 'selected' : ''}`}
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      llmProvider: 'ollama',
-                      llmModel: ollamaModels[0]?.name || ollamaModels[0] || '',
-                    }));
-                  }}
-                >
-                  <div className="provider-option-header">
-                    <FiCpu className="provider-option-icon" />
-                    <span className="provider-option-name">Lokale KI</span>
-                    <span className="provider-option-badge local">Empfohlen</span>
-                  </div>
-                  <span className="provider-option-desc">
-                    Läuft direkt auf deinem Jetson (Ollama)
-                  </span>
-                  <ul className="provider-option-pros">
-                    <li>Kostenlos nutzbar</li>
-                    <li>Daten bleiben privat</li>
-                    <li>Funktioniert offline</li>
-                  </ul>
-                </button>
-                <button
-                  type="button"
-                  className={`wizard-provider-option ${formData.llmProvider === 'claude' ? 'selected' : ''}`}
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      llmProvider: 'claude',
-                      llmModel:
-                        claudeModels[0]?.id || claudeModels[0] || 'claude-3-sonnet-20240229',
-                    }));
-                  }}
-                >
-                  <div className="provider-option-header">
-                    <FiCloud className="provider-option-icon" />
-                    <span className="provider-option-name">Cloud KI</span>
-                    <span className="provider-option-badge cloud">Cloud</span>
-                  </div>
-                  <span className="provider-option-desc">Anthropic Claude über das Internet</span>
-                  <ul className="provider-option-pros">
-                    <li>Leistungsstärker</li>
-                    <li>Schnellere Antworten</li>
-                    <li className="provider-option-con">API-Key nötig</li>
-                  </ul>
-                </button>
-              </div>
-            </div>
-
-            <div className="wizard-form-group">
-              <label>Modell</label>
-              <select
-                value={formData.llmModel}
-                onChange={e => setFormData(prev => ({ ...prev, llmModel: e.target.value }))}
-              >
-                {formData.llmProvider === 'ollama' ? (
-                  ollamaModels.length > 0 ? (
-                    ollamaModels.map(model => (
-                      <option key={model.name || model} value={model.name || model}>
-                        {model.name || model}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">Keine Modelle verfügbar</option>
-                  )
-                ) : (
-                  claudeModels.map(model => (
-                    <option key={model.id || model} value={model.id || model}>
-                      {model.name || model.id || model}
-                    </option>
-                  ))
-                )}
-              </select>
-              <small>Welches Modell soll die Antworten generieren?</small>
-            </div>
-
-            {formData.llmProvider === 'claude' && (
-              <div className="wizard-form-group">
-                <label>Claude API Key</label>
-                <div className="wizard-input-wrapper">
-                  <input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={formData.claudeApiKey}
-                    onChange={e => setFormData(prev => ({ ...prev, claudeApiKey: e.target.value }))}
-                    placeholder="sk-ant-api03-..."
-                  />
-                  <button
-                    type="button"
-                    className="wizard-toggle-visibility"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    aria-label={showApiKey ? 'API Key verbergen' : 'API Key anzeigen'}
-                  >
-                    {showApiKey ? <FiEyeOff /> : <FiEye />}
-                  </button>
-                </div>
-                <small>
-                  API Key von <strong>console.anthropic.com</strong>
-                </small>
-              </div>
-            )}
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="wizard-step-content">
-            <div className="wizard-form-group">
-              <label>Wähle eine Vorlage</label>
-              <div className="wizard-template-grid">
-                {PERSONALITY_TEMPLATES.map(template => {
-                  const Icon = template.icon;
-                  return (
-                    <button
-                      key={template.id}
-                      type="button"
-                      className={`wizard-template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
-                      onClick={() => {
-                        setSelectedTemplate(template.id);
-                        setFormData(prev => ({ ...prev, systemPrompt: template.prompt }));
-                      }}
-                    >
-                      <Icon className="wizard-template-icon" />
-                      <span className="wizard-template-name">{template.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="wizard-form-group">
-              <label>Basis-Kontext</label>
-              <textarea
-                value={formData.systemPrompt}
-                onChange={e => {
-                  setFormData(prev => ({ ...prev, systemPrompt: e.target.value }));
-                  // Deselect template when user edits manually
-                  const matchingTemplate = PERSONALITY_TEMPLATES.find(
-                    t => t.prompt === e.target.value
-                  );
-                  setSelectedTemplate(matchingTemplate ? matchingTemplate.id : null);
-                }}
-                placeholder="Beschreibe wer dein Bot ist und wie er antworten soll..."
-                rows={6}
-              />
-              <small>
-                Dieser Text wird bei jedem Gespräch geladen und definiert, wie dein Bot antwortet.
-                Du kannst die Vorlage oben anpassen oder deinen eigenen Text schreiben.
-              </small>
-            </div>
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="wizard-step-content">
-            {chatDetected && chatInfo ? (
-              // Chat erfolgreich erkannt
-              <div className="wizard-chat-success">
-                <div className="wizard-success-box large">
-                  <FiCheck className="wizard-success-icon" />
-                  <div>
-                    <strong>Chat verbunden!</strong>
-                    <p className="wizard-chat-info">
-                      {chatInfo.firstName && <span>{chatInfo.firstName}</span>}
-                      {chatInfo.username && (
-                        <span className="wizard-chat-username">@{chatInfo.username}</span>
-                      )}
-                      <span className="wizard-chat-id">ID: {chatInfo.chatId}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="wizard-summary">
-                  <h4>Zusammenfassung</h4>
-                  <div className="wizard-summary-item">
-                    <span className="wizard-summary-label">Bot:</span>
-                    <span className="wizard-summary-value">{formData.name}</span>
-                  </div>
-                  <div className="wizard-summary-item">
-                    <span className="wizard-summary-label">Username:</span>
-                    <span className="wizard-summary-value">@{botInfo?.username}</span>
-                  </div>
-                  <div className="wizard-summary-item">
-                    <span className="wizard-summary-label">KI-Anbieter:</span>
-                    <span className="wizard-summary-value">
-                      {formData.llmProvider === 'ollama'
-                        ? 'Lokale KI (Ollama)'
-                        : 'Cloud KI (Claude)'}
-                    </span>
-                  </div>
-                  <div className="wizard-summary-item">
-                    <span className="wizard-summary-label">Modell:</span>
-                    <span className="wizard-summary-value">{formData.llmModel}</span>
-                  </div>
-                  <div className="wizard-summary-item">
-                    <span className="wizard-summary-label">Chat:</span>
-                    <span className="wizard-summary-value">{chatInfo.chatId}</span>
-                  </div>
-                </div>
-              </div>
-            ) : waitingForChat ? (
-              // Warte auf Chat
-              <div className="wizard-waiting-chat">
-                <div className="wizard-waiting-icon">
-                  <FiSend size={48} />
-                </div>
-                <h4>Warte auf Verbindung...</h4>
-                <p>
-                  Öffne Telegram und sende <strong>/start</strong> an deinen Bot:
-                </p>
-
-                {deepLink && (
-                  <div className="wizard-deeplink-box">
-                    <a
-                      href={sanitizeUrl(deepLink)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="wizard-deeplink-btn"
-                    >
-                      <FiExternalLink />@{botInfo?.username} öffnen
-                    </a>
-                    <span className="wizard-deeplink-hint">
-                      oder suche nach @{botInfo?.username} in Telegram
-                    </span>
-                  </div>
-                )}
-
-                <div className="wizard-status-bar">
-                  <div className="wizard-status-indicator">
-                    <FiLoader className="spinning" />
-                    <span>{wsConnected ? 'WebSocket verbunden' : 'Verbinde...'}</span>
-                  </div>
-                  {verificationTimeout !== null && verificationTimeout > 0 && (
-                    <span className="wizard-timeout">
-                      {Math.floor(verificationTimeout / 60)}:
-                      {(verificationTimeout % 60).toString().padStart(2, '0')}
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  className="wizard-btn secondary small"
-                  onClick={retryChatVerification}
-                >
-                  <FiRefreshCw />
-                  Neu versuchen
-                </button>
-              </div>
-            ) : (
-              // Bereit zum Starten
-              <div className="wizard-ready-verify">
-                <div className="wizard-info-box">
-                  <h4>Chat-Verbindung herstellen</h4>
-                  <p>
-                    Im nächsten Schritt wirst du gebeten, <strong>/start</strong> an deinen Bot zu
-                    senden. Dadurch wird der Bot mit deinem Chat verknüpft und kann dir Nachrichten
-                    senden.
-                  </p>
-                </div>
-                <button type="button" className="wizard-btn primary" onClick={initChatVerification}>
-                  <FiSend />
-                  Verbindung starten
-                </button>
-              </div>
-            )}
-          </div>
-        );
-
-      default:
-        return null;
+    setError(null);
+    if (currentStep < 3) {
+      const next = currentStep + 1;
+      setCurrentStep(next);
+      if (next === 3) initChatVerification();
     }
   };
 
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setError(null);
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const formatTime = seconds => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // Toggle space selection
+  const toggleSpace = spaceId => {
+    setFormData(prev => {
+      const ids = prev.ragSpaceIds || [];
+      const next = ids.includes(spaceId) ? ids.filter(id => id !== spaceId) : [...ids, spaceId];
+      return { ...prev, ragSpaceIds: next.length > 0 ? next : [] };
+    });
+  };
+
   return (
-    <div className="bot-setup-wizard">
-      {/* Progress Steps */}
-      <div className="wizard-progress">
-        {STEPS.map((step, index) => (
+    <div className="wizard-container">
+      {/* Step Indicator */}
+      <div className="wizard-steps">
+        {STEPS.map(step => (
           <div
             key={step.id}
-            className={`wizard-progress-step ${currentStep === step.id ? 'active' : ''} ${currentStep > step.id ? 'completed' : ''}`}
+            className={`wizard-step ${currentStep === step.id ? 'active' : ''} ${currentStep > step.id ? 'completed' : ''}`}
           >
-            <div className="wizard-progress-number">
+            <div className="wizard-step-number">
               {currentStep > step.id ? <FiCheck /> : step.id}
             </div>
-            <div className="wizard-progress-info">
-              <span className="wizard-progress-title">{step.title}</span>
-              <span className="wizard-progress-desc">{step.description}</span>
+            <div className="wizard-step-info">
+              <span className="wizard-step-title">{step.title}</span>
+              <span className="wizard-step-desc">{step.description}</span>
             </div>
-            {index < STEPS.length - 1 && <div className="wizard-progress-connector" />}
           </div>
         ))}
       </div>
 
-      {/* Step Content */}
-      {renderStepContent()}
-
-      {/* Error Message */}
+      {/* Error */}
       {error && (
         <div className="wizard-error">
           <FiAlertCircle />
@@ -1019,65 +514,311 @@ function BotSetupWizard({ onComplete, onCancel }) {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="wizard-actions">
-        <button type="button" className="wizard-btn secondary" onClick={onCancel}>
-          Abbrechen
-        </button>
-        <div className="wizard-actions-right">
-          {currentStep > 1 && (
-            <button
-              type="button"
-              className="wizard-btn secondary"
-              onClick={prevStep}
-              disabled={waitingForChat}
-            >
-              <FiChevronLeft />
-              Zurück
-            </button>
-          )}
-          {currentStep < STEPS.length ? (
-            <button
-              type="button"
-              className="wizard-btn primary"
-              onClick={nextStep}
-              disabled={validating || (currentStep === 1 && !formData.token)}
-            >
-              {validating ? (
-                <>
-                  <FiLoader className="spinning" />
-                  Validiere...
-                </>
-              ) : currentStep === 1 && !validated ? (
-                'Token prüfen'
-              ) : (
-                <>
-                  Weiter
-                  <FiChevronRight />
-                </>
+      {/* Step Content */}
+      <div className="wizard-content">
+        {/* ---- STEP 1: Token & Template ---- */}
+        {currentStep === 1 && (
+          <div className="wizard-step-content">
+            <div className="wizard-form-group">
+              <label htmlFor="wizard-token">Bot Token</label>
+              <div className="wizard-input-wrapper">
+                <input
+                  id="wizard-token"
+                  type={showToken ? 'text' : 'password'}
+                  value={formData.token}
+                  onChange={e => {
+                    setFormData(prev => ({ ...prev, token: e.target.value }));
+                    setValidated(false);
+                    setBotInfo(null);
+                  }}
+                  placeholder="Token von @BotFather eingeben"
+                  autoComplete="off"
+                  disabled={validating}
+                />
+                <button
+                  type="button"
+                  className="wizard-visibility-btn"
+                  onClick={() => setShowToken(!showToken)}
+                >
+                  {showToken ? <FiEyeOff /> : <FiEye />}
+                </button>
+              </div>
+              {validated && botInfo && (
+                <div className="wizard-token-valid">
+                  <FiCheck /> Token gültig: <strong>{botInfo.first_name}</strong> (@
+                  {botInfo.username})
+                </div>
               )}
-            </button>
+            </div>
+
+            {validated && (
+              <>
+                <div className="wizard-form-group">
+                  <label htmlFor="wizard-name">Bot Name</label>
+                  <input
+                    id="wizard-name"
+                    type="text"
+                    value={formData.name}
+                    onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Name für deinen Bot"
+                  />
+                </div>
+
+                <div className="wizard-form-group">
+                  <label>Bot-Vorlage</label>
+                  <div className="wizard-template-grid">
+                    {BOT_TEMPLATES.map(tpl => {
+                      const Icon = tpl.icon;
+                      return (
+                        <button
+                          key={tpl.id}
+                          type="button"
+                          className={`wizard-template-card ${formData.template === tpl.id ? 'selected' : ''}`}
+                          onClick={() => selectTemplate(tpl.id)}
+                        >
+                          <Icon className="wizard-template-icon" />
+                          <strong>{tpl.name}</strong>
+                          <span>{tpl.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ---- STEP 2: Configuration ---- */}
+        {currentStep === 2 && (
+          <div className="wizard-step-content">
+            {formData.template === 'master' ? (
+              <>
+                <div className="wizard-summary-card">
+                  <FiStar className="wizard-summary-icon" />
+                  <div>
+                    <strong>Arasul Assistent</strong>
+                    <p>
+                      Globaler RAG-Zugriff auf alle Spaces. Quellen werden in Antworten angezeigt.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="wizard-form-group">
+                  <label htmlFor="wizard-prompt">System-Prompt</label>
+                  <textarea
+                    id="wizard-prompt"
+                    value={formData.systemPrompt}
+                    onChange={e => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                    rows={4}
+                    placeholder="System-Prompt für den Bot..."
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="wizard-form-group">
+                  <label htmlFor="wizard-prompt-custom">System-Prompt</label>
+                  <textarea
+                    id="wizard-prompt-custom"
+                    value={formData.systemPrompt}
+                    onChange={e => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                    rows={4}
+                    placeholder="Definiere die Persönlichkeit deines Bots..."
+                  />
+                </div>
+
+                <div className="wizard-form-group">
+                  <label className="wizard-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.ragEnabled}
+                      onChange={e =>
+                        setFormData(prev => ({ ...prev, ragEnabled: e.target.checked }))
+                      }
+                    />
+                    <FiBook /> RAG aktivieren (Dokument-Wissen nutzen)
+                  </label>
+                </div>
+
+                {formData.ragEnabled && spaces.length > 0 && (
+                  <div className="wizard-form-group">
+                    <label>Space-Zuordnung</label>
+                    <div className="wizard-space-list">
+                      <button
+                        type="button"
+                        className={`wizard-space-tag ${formData.ragSpaceIds === null ? 'selected' : ''}`}
+                        onClick={() => setFormData(prev => ({ ...prev, ragSpaceIds: null }))}
+                      >
+                        Alle Spaces
+                      </button>
+                      {spaces.map(space => (
+                        <button
+                          key={space.id}
+                          type="button"
+                          className={`wizard-space-tag ${formData.ragSpaceIds?.includes(space.id) ? 'selected' : ''}`}
+                          onClick={() => {
+                            if (formData.ragSpaceIds === null) {
+                              setFormData(prev => ({ ...prev, ragSpaceIds: [space.id] }));
+                            } else {
+                              toggleSpace(space.id);
+                            }
+                          }}
+                        >
+                          {space.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="wizard-form-group">
+              <label htmlFor="wizard-model">LLM-Modell</label>
+              <select
+                id="wizard-model"
+                value={formData.llmModel}
+                onChange={e => setFormData(prev => ({ ...prev, llmModel: e.target.value }))}
+              >
+                {ollamaModels.length === 0 && <option value="">Keine Modelle verfügbar</option>}
+                {ollamaModels.map(model => {
+                  const name = typeof model === 'string' ? model : model.name;
+                  return (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  );
+                })}
+              </select>
+              <small>Lokales Modell via Ollama</small>
+            </div>
+          </div>
+        )}
+
+        {/* ---- STEP 3: Connect ---- */}
+        {currentStep === 3 && (
+          <div className="wizard-step-content">
+            {chatDetected ? (
+              <div className="wizard-success">
+                <div className="wizard-success-icon">
+                  <FiCheck size={32} />
+                </div>
+                <h3>Chat verbunden!</h3>
+                {chatInfo && (
+                  <p>
+                    {chatInfo.firstName || chatInfo.username || 'Chat'} (ID: {chatInfo.chatId})
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="wizard-btn-primary"
+                  onClick={handleCreate}
+                  disabled={creating}
+                >
+                  {creating ? (
+                    <>
+                      <FiLoader className="spinning" /> Bot wird erstellt...
+                    </>
+                  ) : (
+                    <>
+                      <FiCheck /> Bot erstellen
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : waitingForChat ? (
+              <div className="wizard-waiting">
+                <div className="wizard-waiting-spinner">
+                  <FiLoader className="spinning" size={24} />
+                </div>
+                <h3>Warte auf Nachricht...</h3>
+                <p>
+                  Öffne den Bot in Telegram und sende <code>/start</code>
+                </p>
+
+                {deepLink && (
+                  <a
+                    href={sanitizeUrl(deepLink)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="wizard-deep-link"
+                  >
+                    <FiExternalLink /> In Telegram öffnen
+                  </a>
+                )}
+
+                <div className="wizard-connection-info">
+                  <span className={`wizard-ws-status ${wsConnected ? 'connected' : ''}`}>
+                    {wsConnected ? 'WebSocket verbunden' : 'Polling-Modus'}
+                  </span>
+                  {verificationTimeout !== null && verificationTimeout > 0 && (
+                    <span className="wizard-timeout">
+                      Timeout: {formatTime(verificationTimeout)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="wizard-waiting">
+                <p>Verbindung wird aufgebaut...</p>
+                {error && (
+                  <button
+                    type="button"
+                    className="wizard-btn-secondary"
+                    onClick={retryChatVerification}
+                  >
+                    <FiRefreshCw /> Erneut versuchen
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="wizard-footer">
+        <button
+          type="button"
+          className="wizard-btn-secondary"
+          onClick={currentStep === 1 ? onCancel : prevStep}
+        >
+          {currentStep === 1 ? (
+            'Abbrechen'
           ) : (
-            <button
-              type="button"
-              className="wizard-btn primary"
-              onClick={handleCreate}
-              disabled={creating || (currentStep === 4 && !chatDetected)}
-            >
-              {creating ? (
-                <>
-                  <FiLoader className="spinning" />
-                  Erstelle...
-                </>
-              ) : (
-                <>
-                  <FiCheck />
-                  Bot erstellen
-                </>
-              )}
-            </button>
+            <>
+              <FiChevronLeft /> Zurück
+            </>
           )}
-        </div>
+        </button>
+
+        {currentStep < 3 && (
+          <button
+            type="button"
+            className="wizard-btn-primary"
+            onClick={nextStep}
+            disabled={
+              validating ||
+              (currentStep === 1 && !validated && !formData.token.trim()) ||
+              (currentStep === 1 && validated && !formData.template)
+            }
+          >
+            {validating ? (
+              <>
+                <FiLoader className="spinning" /> Validiere...
+              </>
+            ) : currentStep === 1 && !validated ? (
+              <>
+                Token prüfen <FiChevronRight />
+              </>
+            ) : (
+              <>
+                Weiter <FiChevronRight />
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

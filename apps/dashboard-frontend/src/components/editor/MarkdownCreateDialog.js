@@ -16,7 +16,6 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
 }) {
   const api = useApi();
   const [filename, setFilename] = useState('');
-  const [description, setDescription] = useState('');
   const [selectedSpaceId, setSelectedSpaceId] = useState(spaceId || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -25,7 +24,6 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
   React.useEffect(() => {
     if (isOpen) {
       setFilename('');
-      setDescription('');
       setSelectedSpaceId(spaceId || '');
       setError(null);
     }
@@ -48,7 +46,6 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
         '/documents/create-markdown',
         {
           filename: filename.trim(),
-          description: description.trim(),
           space_id: selectedSpaceId || null,
         },
         { showError: false }
@@ -56,7 +53,6 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
 
       // Reset form
       setFilename('');
-      setDescription('');
 
       // Notify parent with the created document
       onCreated(data.document);
@@ -69,11 +65,11 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Neues Markdown-Dokument" size="medium">
-      <form onSubmit={handleCreate} className="yaml-create-form">
+    <Modal isOpen={isOpen} onClose={onClose} title="Neues Markdown-Dokument" size="small">
+      <form onSubmit={handleCreate} className="simple-table-form">
         {error && <div className="yaml-form-error">{error}</div>}
 
-        <div className="yaml-create-header-icon">
+        <div className="simple-table-icon">
           <FiFileText />
         </div>
 
@@ -89,17 +85,6 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
             required
           />
           <span className="yaml-form-hint">.md wird automatisch angehängt</span>
-        </div>
-
-        <div className="yaml-form-group">
-          <label htmlFor="md-desc">Beschreibung (optional)</label>
-          <textarea
-            id="md-desc"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            placeholder="Kurze Beschreibung des Dokuments"
-            rows={2}
-          />
         </div>
 
         {spaces.length > 0 && (
@@ -121,10 +106,10 @@ const MarkdownCreateDialog = memo(function MarkdownCreateDialog({
         )}
 
         <div className="yaml-modal-actions">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="submit" className="btn-primary" disabled={loading || !filename.trim()}>
+          <button type="submit" className="btn btn-primary" disabled={loading || !filename.trim()}>
             {loading ? 'Erstelle...' : 'Dokument erstellen'}
           </button>
         </div>

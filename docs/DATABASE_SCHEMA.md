@@ -1168,6 +1168,24 @@ Introduces the `system_settings` singleton table that persists the state of the 
 
 ---
 
+### 047_telegram_rag.sql - Telegram Bot RAG Configuration
+
+Adds RAG (Retrieval-Augmented Generation) settings to `telegram_bots`:
+
+| Column            | Type    | Default | Description                                               |
+| ----------------- | ------- | ------- | --------------------------------------------------------- |
+| rag_enabled       | boolean | false   | Whether RAG is enabled for this bot                       |
+| rag_space_ids     | uuid[]  | NULL    | Array of space IDs the bot can access (NULL = all spaces) |
+| rag_show_sources  | boolean | true    | Whether to show sources in responses                      |
+| rag_context_limit | integer | 2000    | Maximum context length for RAG                            |
+
+**Notes:**
+
+- Master Bot: `rag_space_ids = NULL` means access to all spaces
+- Custom Bots: `rag_space_ids = '{uuid1,uuid2}'` restricts to specific spaces
+
+---
+
 ## Indexes Summary
 
 | Table                     | Index                                  | Columns                                     |

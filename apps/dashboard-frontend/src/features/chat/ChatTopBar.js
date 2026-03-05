@@ -80,6 +80,7 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }) {
     if (!ok) return;
     try {
       await api.del(`/chats/${chatId}`, { showError: false });
+      localStorage.removeItem('arasul_last_chat_id');
       navigate('/chat', { replace: true });
     } catch (err) {
       console.error('Error deleting chat:', err);
@@ -92,7 +93,10 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }) {
       <button
         type="button"
         className="back-btn"
-        onClick={() => navigate('/chat')}
+        onClick={() => {
+          localStorage.removeItem('arasul_last_chat_id');
+          navigate('/chat');
+        }}
         aria-label="Zurück zur Übersicht"
       >
         <FiArrowLeft />

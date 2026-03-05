@@ -380,169 +380,169 @@ function AppContent() {
 
   return (
     <DownloadProvider>
-      <Router>
-        <div className="app">
-          {/* PHASE 5: Skip-to-content link for keyboard navigation */}
-          <a href="#main-content" className="skip-to-content">
-            Zum Hauptinhalt springen
-          </a>
+      <ChatProvider isAuthenticated={isAuthenticated}>
+        <Router>
+          <div className="app">
+            {/* PHASE 5: Skip-to-content link for keyboard navigation */}
+            <a href="#main-content" className="skip-to-content">
+              Zum Hauptinhalt springen
+            </a>
 
-          <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+            <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
-          <div
-            className="container"
-            id="main-content"
-            role="main"
-            tabIndex={-1}
-            ref={el => {
-              if (el && window.location.hash === '#main-content') el.focus();
-            }}
-          >
-            {/* PHASE 2: Suspense wrapper for lazy-loaded route components */}
-            <Suspense fallback={<LoadingSpinner message="Lade..." />}>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <RouteErrorBoundary routeName="Dashboard">
-                      <DashboardHome
-                        metrics={metrics}
-                        metricsHistory={metricsHistory}
-                        services={services}
-                        systemInfo={systemInfo}
-                        networkInfo={networkInfo}
-                        runningApps={runningApps}
-                        formatChartData={formatChartData}
-                        formatUptime={formatUptime}
-                        thresholds={thresholds}
-                        deviceInfo={deviceInfo}
-                      />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <RouteErrorBoundary routeName="Einstellungen">
-                      <Settings
-                        handleLogout={handleLogout}
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
-                      />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/chat/*"
-                  element={
-                    <RouteErrorBoundary routeName="AI Chat">
-                      <ChatProvider>
+            <div
+              className="container"
+              id="main-content"
+              role="main"
+              tabIndex={-1}
+              ref={el => {
+                if (el && window.location.hash === '#main-content') el.focus();
+              }}
+            >
+              {/* PHASE 2: Suspense wrapper for lazy-loaded route components */}
+              <Suspense fallback={<LoadingSpinner message="Lade..." />}>
+                <Routes>
+                  <Route
+                    path="/"
+                    element={
+                      <RouteErrorBoundary routeName="Dashboard">
+                        <DashboardHome
+                          metrics={metrics}
+                          metricsHistory={metricsHistory}
+                          services={services}
+                          systemInfo={systemInfo}
+                          networkInfo={networkInfo}
+                          runningApps={runningApps}
+                          formatChartData={formatChartData}
+                          formatUptime={formatUptime}
+                          thresholds={thresholds}
+                          deviceInfo={deviceInfo}
+                        />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <RouteErrorBoundary routeName="Einstellungen">
+                        <Settings
+                          handleLogout={handleLogout}
+                          theme={theme}
+                          onToggleTheme={toggleTheme}
+                        />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/chat/*"
+                    element={
+                      <RouteErrorBoundary routeName="AI Chat">
                         <ChatRouter />
-                      </ChatProvider>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/data"
-                  element={
-                    <RouteErrorBoundary routeName="Dokumente">
-                      <DocumentManager />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route path="/documents" element={<Navigate to="/data" replace />} />
-                <Route
-                  path="/store/*"
-                  element={
-                    <RouteErrorBoundary routeName="Store">
-                      <Store />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/claude-code"
-                  element={
-                    <RouteErrorBoundary routeName="Claude Code">
-                      <ClaudeCode />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/telegram-bot"
-                  element={<TelegramRedirect onOpen={handleTelegramOpen} />}
-                />
-                <Route
-                  path="/telegram-bots"
-                  element={<TelegramRedirect onOpen={handleTelegramOpen} />}
-                />
-                <Route
-                  path="/database"
-                  element={
-                    <RouteErrorBoundary routeName="Datenbank">
-                      <DatabaseOverview />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/database/:slug"
-                  element={
-                    <RouteErrorBoundary routeName="Datentabelle">
-                      <DatabaseTable />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="*"
-                  element={
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: '60vh',
-                        color: 'var(--text-secondary)',
-                      }}
-                    >
-                      <h1 style={{ fontSize: '4rem', margin: 0, color: 'var(--text-primary)' }}>
-                        404
-                      </h1>
-                      <p style={{ fontSize: '1.2rem', marginTop: '0.5rem' }}>
-                        Seite nicht gefunden
-                      </p>
-                      <Link
-                        to="/"
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/data"
+                    element={
+                      <RouteErrorBoundary routeName="Dokumente">
+                        <DocumentManager />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route path="/documents" element={<Navigate to="/data" replace />} />
+                  <Route
+                    path="/store/*"
+                    element={
+                      <RouteErrorBoundary routeName="Store">
+                        <Store />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/claude-code"
+                    element={
+                      <RouteErrorBoundary routeName="Claude Code">
+                        <ClaudeCode />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/telegram-bot"
+                    element={<TelegramRedirect onOpen={handleTelegramOpen} />}
+                  />
+                  <Route
+                    path="/telegram-bots"
+                    element={<TelegramRedirect onOpen={handleTelegramOpen} />}
+                  />
+                  <Route
+                    path="/database"
+                    element={
+                      <RouteErrorBoundary routeName="Datenbank">
+                        <DatabaseOverview />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/database/:slug"
+                    element={
+                      <RouteErrorBoundary routeName="Datentabelle">
+                        <DatabaseTable />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="*"
+                    element={
+                      <div
                         style={{
-                          marginTop: '1.5rem',
-                          padding: '0.6rem 1.5rem',
-                          background: 'var(--primary)',
-                          color: 'var(--text-primary)',
-                          borderRadius: '8px',
-                          textDecoration: 'none',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: '60vh',
+                          color: 'var(--text-secondary)',
                         }}
                       >
-                        Zum Dashboard
-                      </Link>
-                    </div>
-                  }
-                />
-              </Routes>
-            </Suspense>
+                        <h1 style={{ fontSize: '4rem', margin: 0, color: 'var(--text-primary)' }}>
+                          404
+                        </h1>
+                        <p style={{ fontSize: '1.2rem', marginTop: '0.5rem' }}>
+                          Seite nicht gefunden
+                        </p>
+                        <Link
+                          to="/"
+                          style={{
+                            marginTop: '1.5rem',
+                            padding: '0.6rem 1.5rem',
+                            background: 'var(--primary)',
+                            color: 'var(--text-primary)',
+                            borderRadius: '8px',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Zum Dashboard
+                        </Link>
+                      </div>
+                    }
+                  />
+                </Routes>
+              </Suspense>
+            </div>
           </div>
-        </div>
-      </Router>
+        </Router>
 
-      {/* Telegram App Modal */}
-      {showTelegramModal && (
-        <Suspense fallback={null}>
-          <ComponentErrorBoundary componentName="Telegram App">
-            <TelegramAppModal
-              isOpen={showTelegramModal}
-              onClose={() => setShowTelegramModal(false)}
-            />
-          </ComponentErrorBoundary>
-        </Suspense>
-      )}
+        {/* Telegram App Modal */}
+        {showTelegramModal && (
+          <Suspense fallback={null}>
+            <ComponentErrorBoundary componentName="Telegram App">
+              <TelegramAppModal
+                isOpen={showTelegramModal}
+                onClose={() => setShowTelegramModal(false)}
+              />
+            </ComponentErrorBoundary>
+          </Suspense>
+        )}
+      </ChatProvider>
     </DownloadProvider>
   );
 }

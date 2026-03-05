@@ -7,6 +7,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.message:last-child {
+  border-bottom: none;
 }
 
 .message-label {
@@ -233,13 +239,13 @@
 .sources-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
   cursor: pointer;
   user-select: none;
   color: var(--text-muted);
   transition: background var(--duration-fast) ease;
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
   width: 100%;
   border: none;
   background: none;

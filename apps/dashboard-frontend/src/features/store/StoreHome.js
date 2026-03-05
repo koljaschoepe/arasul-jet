@@ -1,7 +1,7 @@
 /**
  * StoreHome Component
- * Landing page with recommended models and apps
- * Shows loaded-model banner + 2 model + 2 app recommendations
+ * Landing page with recommended models and apps in 2 separate sections
+ * Shows loaded-model banner + 4 model cards + 4 app cards
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -24,6 +24,7 @@ import { useDownloads } from '../../contexts/DownloadContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useApi } from '../../hooks/useApi';
 import { formatModelSize as formatSize } from '../../utils/formatting';
+import StoreDetailModal from './StoreDetailModal';
 
 function StoreHome({ systemInfo }) {
   const api = useApi();
@@ -33,6 +34,7 @@ function StoreHome({ systemInfo }) {
   const [error, setError] = useState(null);
   const [loadedModel, setLoadedModel] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
+  const [selectedItem, setSelectedItem] = useState(null); // { type: 'model'|'app', item }
 
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
 
@@ -113,7 +115,7 @@ function StoreHome({ systemInfo }) {
     }
   };
 
-  // Handle app action (install/start)
+  // Handle app action (install/start/stop/restart)
   const handleAppAction = async (appId, action) => {
     setActionLoading(prev => ({ ...prev, [appId]: action }));
     try {
@@ -125,21 +127,6 @@ function StoreHome({ systemInfo }) {
     } finally {
       setActionLoading(prev => ({ ...prev, [appId]: null }));
     }
-  };
-
-  // Get app URL
-  const getAppUrl = app => {
-    if (app.hasCustomPage && app.customPageRoute) {
-      return app.customPageRoute;
-    }
-    const traefikPaths = { n8n: '/n8n' };
-    if (traefikPaths[app.id]) {
-      return `${window.location.origin}${traefikPaths[app.id]}`;
-    }
-    if (app.ports?.external) {
-      return `http://${window.location.hostname}:${app.ports.external}`;
-    }
-    return '#';
   };
 
   if (loading) {
@@ -190,26 +177,20 @@ function StoreHome({ systemInfo }) {
         </div>
       )}
 
-      {/* Recommendations Section */}
+      {/* Models Section */}
       <section className="store-home-section">
         <div className="section-header">
           <h2>
-            <FiZap /> Empfohlen fuer dein System
+            <FiCpu /> Modelle
           </h2>
-          <div className="section-links">
-            <Link to="/store/models" className="section-link">
-              Alle Modelle <FiArrowRight />
-            </Link>
-            <Link to="/store/apps" className="section-link">
-              Alle Apps <FiArrowRight />
-            </Link>
-          </div>
+          <Link to="/store/models" className="section-link">
+            Alle Modelle <FiArrowRight />
+          </Link>
         </div>
-        <p className="section-subtitle">Optimiert fuer {systemInfo?.availableRamGB || 64} GB RAM</p>
+        <p className="section-subtitle">Empfohlen für {systemInfo?.availableRamGB || 64} GB RAM</p>
 
         <div className="model-grid">
-          {/* Model Cards */}
-          {recommendations.models.slice(0, 2).map(model => {
+          {recommendations.models.slice(0, 4).map(model => {
             const isInstalled = model.install_status === 'available';
             const isLoaded = loadedModel?.model_id === model.id;
             const modelIsDownloading = isDownloading(model.id);
@@ -217,7 +198,11 @@ function StoreHome({ systemInfo }) {
             const isActivating = actionLoading[model.id] === 'activating';
 
             return (
-              <div key={model.id} className={`model-card ${isLoaded ? 'active' : ''}`}>
+              <div
+                key={model.id}
+                className={`model-card ${isLoaded ? 'active' : ''}`}
+                onClick={() => setSelectedItem({ type: 'model', item: model })}
+              >
                 <div className="model-card-header">
                   <div className="model-icon">
                     <FiCpu />
@@ -241,7 +226,7 @@ function StoreHome({ systemInfo }) {
 
                 <div className="model-specs">
                   <div className="spec">
-                    <span className="spec-label">Groesse</span>
+                    <span className="spec-label">Größe</span>
                     <span className="spec-value">{formatSize(model.size_bytes)}</span>
                   </div>
                   <div className="spec">
@@ -262,7 +247,7 @@ function StoreHome({ systemInfo }) {
 
                 {/* Download Progress */}
                 {modelIsDownloading && downloadState && (
-                  <div className="download-progress">
+                  <div className="download-progress" onClick={e => e.stopPropagation()}>
                     <div className="progress-bar">
                       <div
                         className="progress-fill"
@@ -273,7 +258,7 @@ function StoreHome({ systemInfo }) {
                   </div>
                 )}
 
-                <div className="model-actions">
+                <div className="model-actions" onClick={e => e.stopPropagation()}>
                   {!isInstalled && !modelIsDownloading && (
                     <button
                       type="button"
@@ -310,15 +295,32 @@ function StoreHome({ systemInfo }) {
               </div>
             );
           })}
+        </div>
+      </section>
 
-          {/* App Cards (in model-card style) */}
-          {recommendations.apps.slice(0, 2).map(app => {
+      {/* Apps Section */}
+      <section className="store-home-section">
+        <div className="section-header">
+          <h2>
+            <FiPackage /> Apps
+          </h2>
+          <Link to="/store/apps" className="section-link">
+            Alle Apps <FiArrowRight />
+          </Link>
+        </div>
+
+        <div className="model-grid">
+          {recommendations.apps.slice(0, 4).map(app => {
             const isRunning = app.status === 'running';
             const isInstalled = app.status === 'installed';
             const isLoading = actionLoading[app.id];
 
             return (
-              <div key={app.id} className={`model-card ${isRunning ? 'active' : ''}`}>
+              <div
+                key={app.id}
+                className={`model-card ${isRunning ? 'active' : ''}`}
+                onClick={() => setSelectedItem({ type: 'app', item: app })}
+              >
                 <div className="model-card-header">
                   <div className="model-icon">
                     <FiPackage />
@@ -352,7 +354,7 @@ function StoreHome({ systemInfo }) {
                   </div>
                 </div>
 
-                <div className="model-actions">
+                <div className="model-actions" onClick={e => e.stopPropagation()}>
                   {app.status === 'available' && (
                     <button
                       type="button"
@@ -389,27 +391,32 @@ function StoreHome({ systemInfo }) {
                       )}
                     </button>
                   )}
-                  {isRunning &&
-                    (app.hasCustomPage ? (
-                      <Link to={app.customPageRoute} className="btn btn-primary">
-                        <FiExternalLink /> Oeffnen
-                      </Link>
-                    ) : (
-                      <a
-                        href={getAppUrl(app)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-primary"
-                      >
-                        <FiExternalLink /> Oeffnen
-                      </a>
-                    ))}
+                  {isRunning && (
+                    <button type="button" className="btn btn-active" disabled>
+                      <FiCheck /> Aktiv
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       </section>
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <StoreDetailModal
+          type={selectedItem.type}
+          item={selectedItem.item}
+          onClose={() => setSelectedItem(null)}
+          loadedModel={loadedModel}
+          isDownloading={isDownloading}
+          onDownload={handleModelDownload}
+          onActivate={handleModelActivate}
+          onAction={handleAppAction}
+          actionLoading={actionLoading}
+        />
+      )}
     </div>
   );
 }

@@ -27,15 +27,15 @@ import {
 } from 'react-icons/fi';
 import { useDownloads } from '../../contexts/DownloadContext';
 import { useApi } from '../../hooks/useApi';
-import { sanitizeUrl } from '../../utils/sanitizeUrl';
 import { formatModelSize as formatSize } from '../../utils/formatting';
+import StoreDetailModal from './StoreDetailModal';
 
 // Category/Size configuration
 const sizeConfig = {
   small: { label: 'Klein', description: '7-12 GB RAM' },
   medium: { label: 'Mittel', description: '15-25 GB RAM' },
-  large: { label: 'Gross', description: '30-40 GB RAM' },
-  xlarge: { label: 'Sehr Gross', description: '45+ GB RAM' },
+  large: { label: 'Groß', description: '30-40 GB RAM' },
+  xlarge: { label: 'Sehr Groß', description: '45+ GB RAM' },
 };
 
 // Model type configuration
@@ -189,7 +189,7 @@ function StoreModels() {
 
   // Delete model
   const handleDelete = async modelId => {
-    if (!(await confirm({ message: `Modell "${modelId}" wirklich loeschen?` }))) return;
+    if (!(await confirm({ message: `Modell "${modelId}" wirklich löschen?` }))) return;
 
     try {
       await api.del(`/models/${modelId}`, { showError: false });
@@ -278,7 +278,7 @@ function StoreModels() {
       {/* Filters */}
       <div className="store-filters">
         <div className="filter-group">
-          <span className="filter-label">Groesse:</span>
+          <span className="filter-label">Größe:</span>
           <div className="filter-chips">
             <button
               type="button"
@@ -385,7 +385,7 @@ function StoreModels() {
 
               <div className="model-specs">
                 <div className="spec">
-                  <span className="spec-label">Groesse</span>
+                  <span className="spec-label">Größe</span>
                   <span className="spec-value">{formatSize(model.size_bytes)}</span>
                 </div>
                 <div className="spec">
@@ -486,7 +486,7 @@ function StoreModels() {
                       type="button"
                       className="btn btn-danger btn-icon"
                       onClick={() => handleDelete(model.id)}
-                      title="Loeschen"
+                      title="Löschen"
                     >
                       <FiTrash2 />
                     </button>
@@ -522,97 +522,20 @@ function StoreModels() {
 
       {/* Model Detail Modal */}
       {selectedModel && (
-        <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
-          <div className="modal-content model-detail-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>
-                <FiCpu /> {selectedModel.name}
-              </h2>
-              <button type="button" className="modal-close" onClick={() => setSelectedModel(null)}>
-                <FiX />
-              </button>
-            </div>
-            <div className="modal-body">
-              <p className="model-detail-description">{selectedModel.description}</p>
-
-              <div className="model-detail-specs">
-                <div className="detail-spec">
-                  <span className="detail-label">Modell-ID</span>
-                  <code className="detail-value">{selectedModel.id}</code>
-                </div>
-                <div className="detail-spec">
-                  <span className="detail-label">Download-Groesse</span>
-                  <span className="detail-value">{formatSize(selectedModel.size_bytes)}</span>
-                </div>
-                <div className="detail-spec">
-                  <span className="detail-label">RAM-Bedarf</span>
-                  <span className="detail-value">{selectedModel.ram_required_gb} GB</span>
-                </div>
-                <div className="detail-spec">
-                  <span className="detail-label">Kategorie</span>
-                  <span className="detail-value badge badge-category">
-                    {sizeConfig[selectedModel.category]?.label}
-                  </span>
-                </div>
-                <div className="detail-spec">
-                  <span className="detail-label">Typ</span>
-                  <span className="detail-value badge badge-type">
-                    {typeConfig[selectedModel.model_type]?.label || 'LLM'}
-                  </span>
-                </div>
-                <div className="detail-spec">
-                  <span className="detail-label">Performance</span>
-                  <span className="detail-value">
-                    {selectedModel.performance_tier === 1
-                      ? 'Schnell'
-                      : selectedModel.performance_tier === 2
-                        ? 'Mittel'
-                        : 'Langsam'}
-                  </span>
-                </div>
-              </div>
-
-              {selectedModel.capabilities && selectedModel.capabilities.length > 0 && (
-                <div className="model-detail-section">
-                  <h3>Faehigkeiten</h3>
-                  <div className="model-capabilities">
-                    {selectedModel.capabilities.map(cap => (
-                      <span key={cap} className="capability-tag">
-                        {cap}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedModel.recommended_for && selectedModel.recommended_for.length > 0 && (
-                <div className="model-detail-section">
-                  <h3>Empfohlen fuer</h3>
-                  <div className="model-capabilities">
-                    {selectedModel.recommended_for.map(use => (
-                      <span key={use} className="capability-tag recommended">
-                        {use}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedModel.ollama_library_url && (
-                <div className="model-detail-section">
-                  <a
-                    href={sanitizeUrl(selectedModel.ollama_library_url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary"
-                  >
-                    Ollama Library ansehen
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <StoreDetailModal
+          type="model"
+          item={selectedModel}
+          onClose={() => setSelectedModel(null)}
+          loadedModel={loadedModel}
+          defaultModel={defaultModel}
+          isDownloading={isDownloading}
+          activating={activating}
+          activatingPercent={activatingPercent}
+          onDownload={handleDownload}
+          onActivate={handleActivate}
+          onDelete={handleDelete}
+          onSetDefault={handleSetDefault}
+        />
       )}
       {ConfirmDialog}
     </div>

@@ -124,7 +124,7 @@ function validateTelegramMessage(message) {
  * @param {string} firstName - User's first name
  * @param {string} chatType - Chat type
  */
-async function notifySetupSessionIfExists(chatId, username, firstName, chatType) {
+async function notifySetupSessionIfExists(chatId, username, firstName, chatType, botToken) {
   // Lazy load to avoid circular dependency
   let telegramWebSocketService;
   try {
@@ -135,9 +135,10 @@ async function notifySetupSessionIfExists(chatId, username, firstName, chatType)
   }
 
   try {
-    // Find active setup sessions waiting for /start
+    // Find active setup sessions waiting for /start that match this bot token
+    // Only complete sessions whose bot token matches the message source
     const result = await database.query(`
-      SELECT setup_token
+      SELECT setup_token, bot_token_encrypted
       FROM telegram_setup_sessions
       WHERE status = 'waiting_start'
         AND expires_at > NOW()
@@ -150,9 +151,20 @@ async function notifySetupSessionIfExists(chatId, username, firstName, chatType)
       return;
     }
 
-    // Update each matching session and notify via WebSocket
     for (const row of result.rows) {
       const setupToken = row.setup_token;
+
+      // Verify bot token matches (only complete the session for the correct bot)
+      if (botToken && row.bot_token_encrypted) {
+        try {
+          const sessionBotToken = decryptToken(row.bot_token_encrypted);
+          if (sessionBotToken !== botToken) {
+            continue; // Skip sessions for different bots
+          }
+        } catch {
+          continue; // Skip if decryption fails
+        }
+      }
 
       // Update session with chat info
       await database.query(
@@ -369,7 +381,7 @@ Wie kann ich dir helfen?`;
     logger.info(`Chat registered: ${chatId} (${chatType}) for bot ${bot.id}`);
 
     // Notify any waiting setup sessions
-    await notifySetupSessionIfExists(chatId, chatUsername, firstName, chatType);
+    await notifySetupSessionIfExists(chatId, chatUsername, firstName, chatType, token);
 
     return true;
   } catch (error) {
@@ -401,8 +413,12 @@ async function handleHelpCommand(bot, token, message) {
 
 <b>System-Tools:</b>
 /tools - Verfügbare Tools anzeigen
-/status - System-Status anzeigen
+/status - System-Status (CPU, RAM, GPU)
 /services - Docker-Services anzeigen
+/workflows - n8n Workflow-Status
+/alerts - System-Alerts anzeigen
+/query &lt;text&gt; - Datentabellen abfragen
+/spaces - Wissens-Spaces anzeigen
 
 <b>Einstellungen:</b>
 /apikey - API Key Management
@@ -524,6 +540,71 @@ async function handleServicesCommand(bot, token, message) {
 }
 
 /**
+ * Handle generic tool command (for /workflows, /alerts, /query)
+ * @param {Object} bot - Bot object
+ * @param {string} token - Bot token
+ * @param {Object} message - Telegram message
+ * @param {string} toolName - Tool to execute
+ * @param {Object} params - Tool parameters
+ */
+async function handleToolCommand(bot, token, message, toolName, params = {}) {
+  const chatId = message.chat.id;
+  await sendTypingAction(token, chatId);
+
+  try {
+    const result = await telegramIntegrationService.executeTool(toolName, params, {
+      botId: bot.id,
+      chatId,
+    });
+    await sendFormattedMessage(token, chatId, result);
+  } catch (error) {
+    logger.error(`Tool ${toolName} error:`, error);
+    await sendMessage(token, chatId, `❌ Fehler: ${error.message}`);
+  }
+}
+
+/**
+ * Handle /spaces command - show available knowledge spaces
+ * @param {Object} bot - Bot object
+ * @param {string} token - Bot token
+ * @param {Object} message - Telegram message
+ */
+async function handleSpacesCommand(bot, token, message) {
+  const chatId = message.chat.id;
+
+  try {
+    const result = await database.query(
+      `SELECT name, description,
+              (SELECT COUNT(*) FROM documents d WHERE d.space_id = ks.id) as doc_count
+       FROM knowledge_spaces ks
+       ORDER BY name`
+    );
+
+    if (result.rows.length === 0) {
+      await sendMessage(token, chatId, '📚 Keine Wissens-Spaces vorhanden.');
+      return;
+    }
+
+    let text = '📚 <b>Verfügbare Wissens-Spaces:</b>\n';
+    for (const space of result.rows) {
+      text += `\n• <b>${space.name}</b> (${space.doc_count} Dok.)`;
+      if (space.description) {
+        text += `\n  <i>${space.description.substring(0, 80)}</i>`;
+      }
+    }
+
+    await sendMessage(token, chatId, text);
+  } catch (error) {
+    if (error.message.includes('does not exist')) {
+      await sendMessage(token, chatId, '📚 Wissens-Spaces sind nicht verfügbar.');
+    } else {
+      logger.error('Spaces command error:', error);
+      await sendMessage(token, chatId, `❌ Fehler: ${error.message}`);
+    }
+  }
+}
+
+/**
  * Handle /commands command - list all custom commands
  * @param {Object} bot - Bot object
  * @param {string} token - Bot token
@@ -588,6 +669,73 @@ async function handleCustomCommand(bot, token, message, command, args) {
 }
 
 /**
+ * Convert LLM markdown to Telegram-compatible HTML.
+ * Handles: bold, italic, code blocks, inline code, blockquotes.
+ * @param {string} text - LLM markdown text
+ * @returns {string} Telegram HTML
+ */
+function formatTelegramMessage(text) {
+  if (!text) {return text;}
+
+  let result = text;
+
+  // Code blocks: ```lang\n...\n``` → <pre>...</pre>
+  result = result.replace(/```[\w]*\n([\s\S]*?)```/g, '<pre>$1</pre>');
+  // Inline code: `...` → <code>...</code>
+  result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Bold: **text** → <b>text</b>
+  result = result.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  // Italic: *text* → <i>text</i> (but not inside already-processed tags)
+  result = result.replace(/(?<![<\w])\*([^*]+)\*(?![>\w])/g, '<i>$1</i>');
+  // Blockquotes: > text → <blockquote>text</blockquote>
+  result = result.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  return result;
+}
+
+/**
+ * Send a formatted message, splitting if too long (>4096 chars).
+ * @param {string} token - Bot token
+ * @param {number} chatId - Chat ID
+ * @param {string} text - Message text (may be markdown)
+ * @param {Object} options - sendMessage options
+ */
+async function sendFormattedMessage(token, chatId, text, options = {}) {
+  const formatted = formatTelegramMessage(text);
+
+  // Telegram max message length
+  if (formatted.length <= MAX_MESSAGE_LENGTH) {
+    return sendMessage(token, chatId, formatted, options);
+  }
+
+  // Split on paragraph boundaries
+  const chunks = [];
+  let remaining = formatted;
+  while (remaining.length > 0) {
+    if (remaining.length <= MAX_MESSAGE_LENGTH) {
+      chunks.push(remaining);
+      break;
+    }
+
+    // Find last paragraph break before limit
+    let splitAt = remaining.lastIndexOf('\n\n', MAX_MESSAGE_LENGTH);
+    if (splitAt <= 0) {
+      splitAt = remaining.lastIndexOf('\n', MAX_MESSAGE_LENGTH);
+    }
+    if (splitAt <= 0) {
+      splitAt = MAX_MESSAGE_LENGTH;
+    }
+
+    chunks.push(remaining.substring(0, splitAt));
+    remaining = remaining.substring(splitAt).trimStart();
+  }
+
+  for (const chunk of chunks) {
+    await sendMessage(token, chatId, chunk, options);
+  }
+}
+
+/**
  * Handle text message (LLM chat)
  * @param {Object} bot - Bot object
  * @param {string} token - Bot token
@@ -602,7 +750,7 @@ async function handleTextMessage(bot, token, message) {
 
   try {
     const response = await telegramIntegrationService.chat(bot.id, chatId, text);
-    await sendMessage(token, chatId, response);
+    await sendFormattedMessage(token, chatId, response);
   } catch (error) {
     logger.error('LLM chat error:', error);
     await sendMessage(token, chatId, `❌ Fehler: ${error.message}`);
@@ -965,6 +1113,20 @@ async function processUpdate(botId, update) {
             break;
           case 'services':
             await handleServicesCommand(bot, token, message);
+            break;
+          case 'workflows':
+            await handleToolCommand(bot, token, message, 'workflows', { action: args || 'list' });
+            break;
+          case 'alerts':
+            await handleToolCommand(bot, token, message, 'check_alerts', {
+              action: args || 'list',
+            });
+            break;
+          case 'query':
+            await handleToolCommand(bot, token, message, 'query_data', { query: args });
+            break;
+          case 'spaces':
+            await handleSpacesCommand(bot, token, message);
             break;
           case 'apikey':
             await handleApiKeyCommand(bot, token, message, args);
@@ -1437,9 +1599,9 @@ async function setupPollUpdates(setupToken, botToken, state, telegramWebSocketSe
 
     const text = message.text.trim();
 
-    // Match /start with our setup token parameter
+    // Match /start with our setup token parameter (exact match only for security)
     const expectedPayload = `setup_${setupToken}`;
-    const isStartMatch = text === `/start ${expectedPayload}` || text === '/start';
+    const isStartMatch = text === `/start ${expectedPayload}`;
 
     if (!isStartMatch) {
       continue;
@@ -1560,6 +1722,8 @@ module.exports = {
   deleteWebhook,
   getWebhookInfo,
   sendMessage,
+  sendFormattedMessage,
+  formatTelegramMessage,
   sendTypingAction,
   sendTestMessage,
 

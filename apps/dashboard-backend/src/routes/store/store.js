@@ -23,11 +23,11 @@ const FEATURED_APPS = ['n8n', 'telegram-bot', 'claude-code'];
 // Model recommendations based on RAM
 const MODEL_RECOMMENDATIONS = {
   // 64GB+ RAM (Jetson AGX Orin 64GB)
-  large: ['qwen3:32b-q4', 'llama3.1:70b-q4', 'qwen3:14b-q8'],
+  large: ['qwen3:32b-q4', 'llama3.1:70b-q4', 'qwen3:14b-q8', 'mistral:7b-q8'],
   // 32GB RAM
-  medium: ['qwen3:14b-q8', 'mistral:7b-q8', 'deepseek-coder:6.7b'],
+  medium: ['qwen3:14b-q8', 'mistral:7b-q8', 'deepseek-coder:6.7b', 'gemma2:9b-q8'],
   // 8-16GB RAM
-  small: ['qwen3:7b-q8', 'mistral:7b-q8', 'gemma2:9b-q8'],
+  small: ['qwen3:7b-q8', 'mistral:7b-q8', 'gemma2:9b-q8', 'deepseek-coder:6.7b'],
 };
 
 // Cache keys and TTLs
@@ -78,13 +78,13 @@ router.get(
     const recommendedModels = recommendedModelIds
       .map(id => catalog.find(m => m.id === id))
       .filter(Boolean)
-      .slice(0, 3);
+      .slice(0, 4);
 
     // If we don't have enough recommended models, fill with first available
-    if (recommendedModels.length < 3) {
+    if (recommendedModels.length < 4) {
       const remaining = catalog
         .filter(m => !recommendedModelIds.includes(m.id))
-        .slice(0, 3 - recommendedModels.length);
+        .slice(0, 4 - recommendedModels.length);
       recommendedModels.push(...remaining);
     }
 
@@ -103,13 +103,13 @@ router.get(
         featured: FEATURED_APPS.includes(app.id),
       }))
       .filter(app => FEATURED_APPS.includes(app.id) || app.featured)
-      .slice(0, 3);
+      .slice(0, 4);
 
     // If we don't have enough featured apps, fill with first available
-    if (recommendedApps.length < 3) {
+    if (recommendedApps.length < 4) {
       const remaining = allApps
         .filter(a => !FEATURED_APPS.includes(a.id))
-        .slice(0, 3 - recommendedApps.length);
+        .slice(0, 4 - recommendedApps.length);
       recommendedApps.push(...remaining);
     }
 

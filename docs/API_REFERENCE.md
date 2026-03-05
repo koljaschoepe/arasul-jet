@@ -1929,9 +1929,42 @@ CRUD-Operationen für Telegram-Bot-Verwaltung mit LLM-Integration.
   "llmModel": "llama3.2",
   "systemPrompt": "Du bist ein hilfreicher Assistent...",
   "maxTokens": 2048,
-  "temperature": 0.7
+  "temperature": 0.7,
+  "ragEnabled": false, // optional, default false
+  "ragSpaceIds": ["uuid1", "uuid2"], // optional, array of RAG space UUIDs or null
+  "ragShowSources": false // optional, default false - include source references in responses
 }
 ```
+
+**PUT /:id (Update Bot):**
+
+Accepts the same body fields as `POST /`. All fields are optional; only provided fields are updated.
+
+```json
+{
+  "name": "Neuer Name",
+  "ragEnabled": true,
+  "ragSpaceIds": ["uuid1"],
+  "ragShowSources": true
+}
+```
+
+**GET / and GET /:id Response (RAG fields):**
+
+Bot objects returned by list and detail endpoints include the following RAG-related fields:
+
+```json
+{
+  "id": "uuid",
+  "name": "Mein Assistent",
+  "...": "...",
+  "rag_enabled": false,
+  "rag_space_ids": ["uuid1", "uuid2"],
+  "rag_show_sources": false
+}
+```
+
+> **Database Migration:** `047_telegram_rag.sql` adds the columns `rag_enabled` (boolean, default false), `rag_space_ids` (jsonb, nullable), and `rag_show_sources` (boolean, default false) to the `telegram_bots` table.
 
 ### Bot Commands
 

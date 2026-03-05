@@ -115,6 +115,38 @@ Wichtig:
   }
 
   /**
+   * Generate Ollama-native tool definitions for function calling.
+   * @returns {Promise<Object[]>} Array of Ollama tool definitions
+   */
+  async getOllamaToolDefinitions() {
+    const available = await this.getAvailable();
+    return available.map(tool => tool.toOllamaToolDefinition());
+  }
+
+  /**
+   * Process Ollama native tool call responses.
+   * Executes each tool_call and returns results as tool-role messages.
+   * @param {Object[]} toolCalls - Array of {function: {name, arguments}} from Ollama
+   * @param {Object} context - Execution context
+   * @returns {Promise<{results: Object[], messages: Object[]}>}
+   */
+  async processNativeToolCalls(toolCalls, context = {}) {
+    const results = [];
+    const messages = [];
+
+    for (const call of toolCalls) {
+      const fnName = call.function?.name;
+      const fnArgs = call.function?.arguments || {};
+
+      const result = await this.execute(fnName, fnArgs, context);
+      results.push({ tool: fnName, params: fnArgs, result });
+      messages.push({ role: 'tool', content: result });
+    }
+
+    return { results, messages };
+  }
+
+  /**
    * Parse tool calls from LLM response
    * @param {string} response - LLM response text
    * @returns {Array<{name: string, params: Object}>}

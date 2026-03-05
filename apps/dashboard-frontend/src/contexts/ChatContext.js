@@ -1,14 +1,16 @@
 /**
  * ChatContext - Global Chat State Management
  *
- * Manages shared chat state that survives route changes within /chat/*:
+ * Manages shared chat state at app level (survives all navigation):
  * - Active streaming jobs and queue status
  * - Model selection and installed models
  * - Knowledge Spaces for RAG
  * - Streaming with callback registry (per-chat UI updates)
+ * - Background message accumulation when ChatView is not mounted
  *
- * Scoped to /chat/* route - unmounts when user navigates to other sections.
- * Backend jobs continue running; messages reload from DB on return.
+ * Mounted at App level — streams persist across route changes.
+ * When ChatView unmounts, tokens accumulate in backgroundMessagesRef.
+ * When ChatView remounts, it picks up accumulated state instantly.
  */
 
 import React, {
@@ -26,7 +28,7 @@ import { API_BASE, getAuthHeaders } from '../config/api';
 
 const ChatContext = createContext(null);
 
-export function ChatProvider({ children }) {
+export function ChatProvider({ children, isAuthenticated }) {
   const api = useApi();
 
   // --- State ---
@@ -56,6 +58,9 @@ export function ChatProvider({ children }) {
   const abortControllersRef = useRef({});
   const messageCallbacksRef = useRef(new Map());
   const activeStreamChatIdRef = useRef(null);
+  // Background accumulation: stores messages/loading when ChatView is not mounted
+  const backgroundMessagesRef = useRef(new Map()); // chatId → messages[]
+  const backgroundLoadingRef = useRef(new Set()); // chatIds still loading
   // Ref-mirror for selectedModel to keep sendMessage stable
   const selectedModelRef = useRef(selectedModel);
   useEffect(() => {
@@ -75,26 +80,69 @@ export function ChatProvider({ children }) {
   }, []);
 
   // Route setMessages to the active streaming chat's callback (used by useTokenBatching)
+  // Falls back to background accumulation when ChatView is not mounted.
   const routedSetMessages = useCallback(updater => {
     const chatId = activeStreamChatIdRef.current;
     if (!chatId) return;
     const cb = messageCallbacksRef.current.get(chatId);
-    if (cb?.setMessages) cb.setMessages(updater);
+    if (cb?.setMessages) {
+      cb.setMessages(updater);
+    } else {
+      // ChatView not mounted — accumulate in background
+      const prev = backgroundMessagesRef.current.get(chatId) || [];
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      backgroundMessagesRef.current.set(chatId, next);
+    }
   }, []);
 
   const updateMessages = useCallback((chatId, updater) => {
     const cb = messageCallbacksRef.current.get(chatId);
-    if (cb?.setMessages) cb.setMessages(updater);
+    if (cb?.setMessages) {
+      cb.setMessages(updater);
+    } else {
+      // ChatView not mounted — accumulate in background
+      const prev = backgroundMessagesRef.current.get(chatId) || [];
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      backgroundMessagesRef.current.set(chatId, next);
+    }
   }, []);
 
   const updateIsLoading = useCallback((chatId, value) => {
     const cb = messageCallbacksRef.current.get(chatId);
-    if (cb?.setIsLoading) cb.setIsLoading(value);
+    if (cb?.setIsLoading) {
+      cb.setIsLoading(value);
+    } else {
+      // Track loading state in background
+      if (value) {
+        backgroundLoadingRef.current.add(chatId);
+      } else {
+        backgroundLoadingRef.current.delete(chatId);
+      }
+    }
   }, []);
 
   const updateError = useCallback((chatId, value) => {
     const cb = messageCallbacksRef.current.get(chatId);
     if (cb?.setError) cb.setError(value);
+  }, []);
+
+  // --- Background State Accessors ---
+
+  const getBackgroundMessages = useCallback(chatId => {
+    return backgroundMessagesRef.current.get(chatId) || null;
+  }, []);
+
+  const getBackgroundLoading = useCallback(chatId => {
+    return backgroundLoadingRef.current.has(chatId);
+  }, []);
+
+  const clearBackgroundState = useCallback(chatId => {
+    backgroundMessagesRef.current.delete(chatId);
+    backgroundLoadingRef.current.delete(chatId);
+  }, []);
+
+  const hasActiveStream = useCallback(chatId => {
+    return !!abortControllersRef.current[chatId];
   }, []);
 
   // --- Token Batching ---
@@ -245,11 +293,12 @@ export function ChatProvider({ children }) {
 
   // --- Effects ---
 
-  // Load models and spaces on mount
+  // Load models and spaces when authenticated
   useEffect(() => {
+    if (!isAuthenticated) return;
     loadModels();
     loadSpaces();
-  }, [loadModels, loadSpaces]);
+  }, [isAuthenticated, loadModels, loadSpaces]);
 
   // Queue polling while active jobs exist
   const activeJobCount = Object.keys(activeJobIds).length;
@@ -271,16 +320,18 @@ export function ChatProvider({ children }) {
     return () => clearInterval(interval);
   }, [activeJobCount, api]);
 
-  // Cleanup on unmount
+  // Cleanup streams when user logs out (isAuthenticated → false)
   useEffect(() => {
-    return () => {
+    if (!isAuthenticated) {
       Object.values(abortControllersRef.current).forEach(c => {
         if (c?.abort) c.abort();
       });
       abortControllersRef.current = {};
+      backgroundMessagesRef.current.clear();
+      backgroundLoadingRef.current.clear();
       resetTokenBatch();
-    };
-  }, [resetTokenBatch]);
+    }
+  }, [isAuthenticated, resetTokenBatch]);
 
   // --- Streaming: Reconnect ---
 
@@ -377,7 +428,7 @@ export function ChatProvider({ children }) {
   const sendMessage = useCallback(
     async (chatId, input, options = {}) => {
       const {
-        useRAG = true,
+        useRAG = false,
         useThinking = true,
         selectedSpaces = [],
         matchedSpaces = [],
@@ -668,6 +719,11 @@ export function ChatProvider({ children }) {
       getActiveJobForChat,
       registerMessageCallback,
       unregisterMessageCallback,
+      // Background state accessors
+      getBackgroundMessages,
+      getBackgroundLoading,
+      clearBackgroundState,
+      hasActiveStream,
     }),
     [
       activeJobIds,
@@ -691,6 +747,10 @@ export function ChatProvider({ children }) {
       getActiveJobForChat,
       registerMessageCallback,
       unregisterMessageCallback,
+      getBackgroundMessages,
+      getBackgroundLoading,
+      clearBackgroundState,
+      hasActiveStream,
     ]
   );
 

@@ -33,7 +33,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 
 /* Container */
 .markdown-editor-container {
-    background: var(--bg-terminal);
+    background: var(--bg-dark);
     border-radius: var(--radius-lg);
     width: 100%;
     max-width: min(1400px, calc(100% - 32px));  /* Immer mindestens 16px Abstand auf jeder Seite */
@@ -131,7 +131,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 
 .toolbar-btn.save-btn.has-changes {
     background: var(--primary-color);
-    color: var(--bg-terminal);
+    color: var(--bg-dark);
 }
 
 .toolbar-btn.save-btn.has-changes:hover {
@@ -140,7 +140,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 
 .toolbar-btn.close-btn:hover {
     background: var(--error-color);
-    color: var(--bg-terminal);
+    color: var(--bg-dark);
 }
 
 /* Error message */
@@ -208,19 +208,54 @@ body.sidebar-collapsed .markdown-editor-overlay {
     letter-spacing: 0.5px;
 }
 
+/* Editor pane content wrapper (for backdrop highlighting) */
+.editor-pane-content {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: var(--bg-dark);
+}
+
+.editor-backdrop {
+    position: absolute;
+    inset: 0;
+    padding: 16px;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: var(--text-primary);
+}
+
+.editor-backdrop .md-heading-line {
+    color: var(--primary-color);
+}
+
 /* Editor textarea */
 .editor-pane textarea {
     flex: 1;
     width: 100%;
     padding: 16px;
-    background: var(--bg-terminal);
+    background: transparent;
     border: none;
-    color: var(--text-primary);
+    color: transparent;
+    caret-color: var(--text-primary);
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
     font-size: 14px;
     line-height: 1.6;
     resize: none;
     outline: none;
+    position: relative;
+    z-index: 1;
+    overflow-y: scroll;
+}
+
+.editor-pane textarea::selection {
+    background: rgba(69, 173, 255, 0.3);
 }
 
 .editor-pane textarea::placeholder {
@@ -232,7 +267,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
     flex: 1;
     padding: 16px 24px;
     overflow-y: auto;
-    background: var(--bg-terminal);
+    background: var(--bg-dark);
     color: var(--text-primary);
     font-size: 15px;
     line-height: 1.7;
@@ -614,9 +649,16 @@ body.sidebar-collapsed .markdown-editor-overlay {
     border-right-color: var(--border-color);
 }
 
-.light-mode .editor-pane textarea {
+.light-mode .editor-pane-content {
     background: var(--bg-card);
+}
+
+.light-mode .editor-backdrop {
     color: var(--text-primary);
+}
+
+.light-mode .editor-pane textarea {
+    caret-color: var(--text-primary);
 }
 
 .light-mode .editor-pane textarea::placeholder {

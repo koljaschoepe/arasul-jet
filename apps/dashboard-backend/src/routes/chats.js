@@ -125,6 +125,7 @@ router.get(
 
     const result = await db.query(
       `SELECT c.id, c.title, c.project_id, c.created_at, c.updated_at, c.message_count,
+              c.use_rag, c.use_thinking, c.preferred_model, c.preferred_space_id,
               p.name as project_name, p.description as project_description,
               p.system_prompt as project_system_prompt, p.icon as project_icon,
               p.color as project_color, p.knowledge_space_id as project_space_id
@@ -146,6 +147,12 @@ router.get(
       created_at: row.created_at,
       updated_at: row.updated_at,
       message_count: row.message_count,
+      settings: {
+        use_rag: row.use_rag ?? false,
+        use_thinking: row.use_thinking ?? true,
+        preferred_model: row.preferred_model || null,
+        preferred_space_id: row.preferred_space_id || null,
+      },
     };
 
     const project = row.project_id
@@ -361,6 +368,84 @@ router.patch(
 
     res.json({
       chat: result.rows[0],
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// PATCH /api/chats/:id/settings - Update chat settings (RAG, Think, Model, Space)
+router.patch(
+  '/:id/settings',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    if (!isValidConversationId(id)) {
+      throw new ValidationError('Invalid conversation_id: must be a positive integer');
+    }
+
+    const { use_rag, use_thinking, preferred_model, preferred_space_id } = req.body;
+
+    // Validate: at least one field must be provided
+    if (
+      use_rag === undefined &&
+      use_thinking === undefined &&
+      preferred_model === undefined &&
+      preferred_space_id === undefined
+    ) {
+      throw new ValidationError('Mindestens ein Setting muss angegeben werden');
+    }
+
+    // Build dynamic update
+    const setClauses = ['updated_at = NOW()'];
+    const params = [];
+    let paramIdx = 1;
+
+    if (use_rag !== undefined) {
+      if (typeof use_rag !== 'boolean') {throw new ValidationError('use_rag muss ein Boolean sein');}
+      setClauses.push(`use_rag = $${paramIdx++}`);
+      params.push(use_rag);
+    }
+    if (use_thinking !== undefined) {
+      if (typeof use_thinking !== 'boolean')
+        {throw new ValidationError('use_thinking muss ein Boolean sein');}
+      setClauses.push(`use_thinking = $${paramIdx++}`);
+      params.push(use_thinking);
+    }
+    if (preferred_model !== undefined) {
+      if (preferred_model !== null && typeof preferred_model !== 'string')
+        {throw new ValidationError('preferred_model muss ein String oder null sein');}
+      setClauses.push(`preferred_model = $${paramIdx++}`);
+      params.push(preferred_model || null);
+    }
+    if (preferred_space_id !== undefined) {
+      if (preferred_space_id !== null && typeof preferred_space_id !== 'string')
+        {throw new ValidationError('preferred_space_id muss ein String oder null sein');}
+      setClauses.push(`preferred_space_id = $${paramIdx++}`);
+      params.push(preferred_space_id || null);
+    }
+
+    params.push(id);
+    const result = await db.query(
+      `UPDATE chat_conversations
+         SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx} AND deleted_at IS NULL
+         RETURNING use_rag, use_thinking, preferred_model, preferred_space_id`,
+      params
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundError('Chat not found');
+    }
+
+    const row = result.rows[0];
+    res.json({
+      settings: {
+        use_rag: row.use_rag,
+        use_thinking: row.use_thinking,
+        preferred_model: row.preferred_model,
+        preferred_space_id: row.preferred_space_id,
+      },
       timestamp: new Date().toISOString(),
     });
   })

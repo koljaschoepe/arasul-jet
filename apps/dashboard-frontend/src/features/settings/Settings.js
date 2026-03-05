@@ -25,7 +25,7 @@ import {
 import UpdatePage from '../system/UpdatePage';
 import SelfHealingEvents from '../system/SelfHealingEvents';
 import PasswordManagement from './PasswordManagement';
-import TelegramSettings from '../telegram/TelegramSettings';
+import { Link } from 'react-router-dom';
 import ClaudeTerminal from '../claude/ClaudeTerminal';
 import { formatDate } from '../../utils/formatting';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
@@ -76,7 +76,7 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
       id: 'telegram',
       label: 'Telegram',
       icon: <FiSend />,
-      description: 'Bot-Benachrichtigungen konfigurieren',
+      description: 'Im Store verwalten',
     },
     {
       id: 'claude-terminal',
@@ -132,9 +132,48 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
         );
       case 'telegram':
         return (
-          <ComponentErrorBoundary componentName="Telegram">
-            <TelegramSettings />
-          </ComponentErrorBoundary>
+          <div className="settings-section">
+            <div className="settings-section-header">
+              <h1 className="settings-section-title">Telegram Bot</h1>
+              <p className="settings-section-description">
+                Die Telegram Bot Verwaltung wurde in den Store verschoben.
+              </p>
+            </div>
+            <div className="settings-cards">
+              <div className="settings-card">
+                <div
+                  className="settings-card-body"
+                  style={{ textAlign: 'center', padding: '2rem' }}
+                >
+                  <FiSend
+                    size={32}
+                    style={{ color: 'var(--primary-color)', marginBottom: '1rem' }}
+                  />
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                    Bots erstellen, System-Benachrichtigungen konfigurieren und Logs einsehen
+                    &ndash; alles im Telegram Bot App.
+                  </p>
+                  <Link
+                    to="/telegram-bot"
+                    className="btn btn-primary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.625rem 1.25rem',
+                      background: 'var(--primary-color)',
+                      color: 'white',
+                      borderRadius: '8px',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    <FiSend /> Im Store öffnen
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
         );
       case 'claude-terminal':
         return (

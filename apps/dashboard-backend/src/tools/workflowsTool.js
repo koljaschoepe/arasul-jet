@@ -21,12 +21,15 @@ class WorkflowsTool extends BaseTool {
   get parameters() {
     return {
       action: {
-        description: 'list (Standard), status, oder executions',
+        description: 'list (Standard), status, executions, errors, stats, oder trigger',
         required: false,
+        type: 'string',
+        enum: ['list', 'status', 'executions', 'errors', 'stats', 'trigger'],
       },
       workflow: {
-        description: 'Workflow-Name oder ID fuer Details',
+        description: 'Workflow-Name oder ID fuer Details/Trigger',
         required: false,
+        type: 'string',
       },
     };
   }
@@ -44,6 +47,14 @@ class WorkflowsTool extends BaseTool {
         case 'executions':
         case 'runs':
           return await this.getRecentExecutions(workflowId);
+        case 'errors':
+          return await this.getRecentErrors();
+        case 'stats':
+          return await this.getExecutionStats();
+        case 'trigger':
+          return workflowId
+            ? await this.triggerWorkflow(workflowId)
+            : 'Fehler: Bitte Workflow-Name oder ID angeben.';
         default:
           return await this.listWorkflows();
       }
@@ -162,6 +173,101 @@ class WorkflowsTool extends BaseTool {
     }
 
     return lines.join('\n');
+  }
+
+  async getRecentErrors() {
+    const headers = this.getHeaders();
+    const response = await axios.get(`${N8N_URL}/api/v1/executions?limit=10&status=error`, {
+      headers,
+      timeout: 10000,
+    });
+
+    const executions = response.data.data || response.data || [];
+    const errors = executions.filter(
+      e => e.status === 'error' || (e.finished && e.stoppedAt && e.status !== 'success')
+    );
+
+    if (errors.length === 0) {
+      return '✅ Keine fehlgeschlagenen Workflows.';
+    }
+
+    const lines = ['❌ **Letzte Fehler:**\n'];
+    for (const exec of errors.slice(0, 10)) {
+      const date = new Date(exec.startedAt).toLocaleString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const wfName = exec.workflowData?.name || `WF ${exec.workflowId}`;
+      lines.push(`❌ ${date} - ${wfName}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  async getExecutionStats() {
+    const headers = this.getHeaders();
+    const response = await axios.get(`${N8N_URL}/api/v1/executions?limit=100`, {
+      headers,
+      timeout: 10000,
+    });
+
+    const executions = response.data.data || response.data || [];
+    if (executions.length === 0) {
+      return '📊 Keine Ausführungen vorhanden.';
+    }
+
+    const total = executions.length;
+    const success = executions.filter(
+      e => e.status === 'success' || (e.finished && !e.stoppedAt)
+    ).length;
+    const failed = executions.filter(e => e.status === 'error').length;
+    const rate = total > 0 ? ((success / total) * 100).toFixed(0) : 0;
+
+    return [
+      '📊 **Workflow-Statistiken** (letzte 100)\n',
+      `✅ Erfolgreich: ${success}`,
+      `❌ Fehlgeschlagen: ${failed}`,
+      `📈 Erfolgsrate: ${rate}%`,
+      `📋 Gesamt: ${total}`,
+    ].join('\n');
+  }
+
+  async triggerWorkflow(workflowId) {
+    const headers = this.getHeaders();
+
+    // Find workflow by ID or name
+    const listResponse = await axios.get(`${N8N_URL}/api/v1/workflows`, {
+      headers,
+      timeout: 10000,
+    });
+    const workflows = listResponse.data.data || listResponse.data || [];
+    const workflow = workflows.find(
+      w =>
+        String(w.id) === String(workflowId) ||
+        w.name?.toLowerCase().includes(workflowId.toLowerCase())
+    );
+
+    if (!workflow) {
+      return `❌ Workflow "${workflowId}" nicht gefunden.`;
+    }
+
+    if (!workflow.active) {
+      return `⏸️ Workflow "${workflow.name}" ist nicht aktiv. Bitte zuerst aktivieren.`;
+    }
+
+    // Trigger via webhook or test endpoint
+    try {
+      await axios.post(
+        `${N8N_URL}/api/v1/workflows/${workflow.id}/activate`,
+        {},
+        { headers: { ...headers, 'Content-Type': 'application/json' }, timeout: 10000 }
+      );
+      return `⚡ Workflow "${workflow.name}" wurde ausgelöst.`;
+    } catch {
+      return `⚠️ Workflow "${workflow.name}" konnte nicht manuell ausgelöst werden. Möglicherweise kein Webhook-Trigger konfiguriert.`;
+    }
   }
 
   getHeaders() {

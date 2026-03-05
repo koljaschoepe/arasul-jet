@@ -53,7 +53,7 @@ class BaseTool {
   }
 
   /**
-   * Format tool for LLM system prompt
+   * Format tool for LLM system prompt (text-based fallback)
    * @returns {string}
    */
   toPromptDescription() {
@@ -66,6 +66,41 @@ class BaseTool {
       desc += ` (Parameter: ${paramList})`;
     }
     return desc;
+  }
+
+  /**
+   * Convert to Ollama native function calling format.
+   * @returns {Object} Ollama tool definition
+   */
+  toOllamaToolDefinition() {
+    const properties = {};
+    const required = [];
+
+    for (const [key, info] of Object.entries(this.parameters)) {
+      properties[key] = {
+        type: info.type || 'string',
+        description: info.description,
+      };
+      if (info.enum) {
+        properties[key].enum = info.enum;
+      }
+      if (info.required) {
+        required.push(key);
+      }
+    }
+
+    return {
+      type: 'function',
+      function: {
+        name: this.name,
+        description: this.description,
+        parameters: {
+          type: 'object',
+          properties,
+          ...(required.length > 0 ? { required } : {}),
+        },
+      },
+    };
   }
 }
 

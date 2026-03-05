@@ -5,12 +5,13 @@
  * - Textarea Rendering und Interaktion
  * - Enter sendet, Shift+Enter neue Zeile
  * - Send-Button deaktiviert bei leerem Input
- * - RAG- und Think-Toggles
- * - Model-Dropdown
- * - Space-Selector (RAG-abhaengig)
+ * - Think-Toggle (einfacher Toggle)
+ * - RAG-Toggle mit Popup-Logik
+ * - Model-Popup (nach oben oeffnend)
  * - Cancel-Button bei laufendem Stream
  * - Queue-Indikator
  * - Error-Banner
+ * - Settings-Persistenz via chatSettings Prop
  */
 
 import React from 'react';
@@ -25,6 +26,19 @@ jest.mock('../../../components/ui/LoadingSpinner', () => {
   };
 });
 
+// Mock useApi
+const mockApiPatch = jest.fn().mockResolvedValue({});
+jest.mock('../../../hooks/useApi', () => ({
+  useApi: () => ({
+    get: jest.fn().mockResolvedValue({}),
+    post: jest.fn().mockResolvedValue({}),
+    put: jest.fn().mockResolvedValue({}),
+    patch: mockApiPatch,
+    del: jest.fn().mockResolvedValue({}),
+    request: jest.fn().mockResolvedValue({}),
+  }),
+}));
+
 // Use a mutable container so the hoisted jest.mock can reference it
 const chatCtx = {};
 
@@ -35,7 +49,6 @@ jest.mock('../../../contexts/ChatContext', () => ({
 const mockSendMessage = jest.fn();
 const mockCancelJob = jest.fn();
 const mockSetSelectedModel = jest.fn();
-const mockToggleFavorite = jest.fn();
 const mockSetModelAsDefault = jest.fn();
 
 describe('ChatInputArea Component', () => {
@@ -43,6 +56,7 @@ describe('ChatInputArea Component', () => {
 
   const defaultProps = {
     chatId: 1,
+    chatSettings: null,
     messagesRef,
     hasMessages: false,
     isLoading: false,
@@ -81,12 +95,10 @@ describe('ChatInputArea Component', () => {
       loadedModel: null,
       selectedModel: '',
       setSelectedModel: mockSetSelectedModel,
-      favoriteModels: [],
-      toggleFavorite: mockToggleFavorite,
       setModelAsDefault: mockSetModelAsDefault,
       spaces: [
-        { id: 1, name: 'Dokumentation', document_count: 10 },
-        { id: 2, name: 'FAQ', document_count: 5 },
+        { id: 'space-1', name: 'Dokumentation', document_count: 10 },
+        { id: 'space-2', name: 'FAQ', document_count: 5 },
       ],
     });
   });
@@ -100,9 +112,9 @@ describe('ChatInputArea Component', () => {
       expect(screen.getByRole('textbox')).toBeInTheDocument();
     });
 
-    test('Textarea hat Placeholder fuer RAG-Modus', () => {
+    test('Textarea hat Standard-Placeholder', () => {
       render(<ChatInputArea {...defaultProps} />);
-      expect(screen.getByPlaceholderText('Frage zu Dokumenten stellen...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Nachricht eingeben...')).toBeInTheDocument();
     });
 
     test('rendert Send-Button', () => {
@@ -110,22 +122,20 @@ describe('ChatInputArea Component', () => {
       expect(screen.getByTitle('Senden')).toBeInTheDocument();
     });
 
-    test('rendert RAG-Toggle', () => {
-      render(<ChatInputArea {...defaultProps} />);
-      expect(screen.getByLabelText('RAG deaktivieren')).toBeInTheDocument();
-    });
-
     test('rendert Think-Toggle', () => {
       render(<ChatInputArea {...defaultProps} />);
       expect(screen.getByLabelText('Thinking deaktivieren')).toBeInTheDocument();
     });
 
+    test('rendert RAG-Toggle', () => {
+      render(<ChatInputArea {...defaultProps} />);
+      expect(screen.getByLabelText('RAG aktivieren')).toBeInTheDocument();
+    });
+
     test('rendert toolbar mit aria-label', () => {
       const { container } = render(<ChatInputArea {...defaultProps} />);
-      expect(container.querySelector('[role="toolbar"]')).toHaveAttribute(
-        'aria-label',
-        'Chat-Eingabe'
-      );
+      const toolbar = container.querySelector('.chat-toolbar[role="toolbar"]');
+      expect(toolbar).toHaveAttribute('aria-label', 'Chat-Einstellungen');
     });
   });
 
@@ -166,7 +176,7 @@ describe('ChatInputArea Component', () => {
       expect(mockSendMessage).toHaveBeenCalledWith(
         1,
         'Test Nachricht',
-        expect.objectContaining({ useRAG: true, useThinking: true })
+        expect.objectContaining({ useRAG: false, useThinking: true })
       );
     });
 
@@ -187,46 +197,6 @@ describe('ChatInputArea Component', () => {
   });
 
   // =====================================================
-  // RAG-Toggle
-  // =====================================================
-  describe('RAG-Toggle', () => {
-    test('RAG ist standardmaessig aktiv', () => {
-      render(<ChatInputArea {...defaultProps} />);
-      const ragToggle = screen.getByLabelText('RAG deaktivieren');
-      expect(ragToggle).toHaveAttribute('aria-pressed', 'true');
-    });
-
-    test('Klick auf RAG-Toggle deaktiviert RAG', async () => {
-      const user = userEvent.setup();
-      render(<ChatInputArea {...defaultProps} />);
-
-      await user.click(screen.getByLabelText('RAG deaktivieren'));
-
-      expect(screen.getByLabelText('RAG aktivieren')).toHaveAttribute('aria-pressed', 'false');
-    });
-
-    test('Placeholder aendert sich wenn RAG aus', async () => {
-      const user = userEvent.setup();
-      render(<ChatInputArea {...defaultProps} />);
-
-      await user.click(screen.getByLabelText('RAG deaktivieren'));
-
-      expect(screen.getByPlaceholderText('Nachricht eingeben...')).toBeInTheDocument();
-    });
-
-    test('Space-Selector verschwindet wenn RAG aus', async () => {
-      const user = userEvent.setup();
-      const { container } = render(<ChatInputArea {...defaultProps} />);
-
-      expect(container.querySelector('.space-selector')).toBeInTheDocument();
-
-      await user.click(screen.getByLabelText('RAG deaktivieren'));
-
-      expect(container.querySelector('.space-selector')).not.toBeInTheDocument();
-    });
-  });
-
-  // =====================================================
   // Think-Toggle
   // =====================================================
   describe('Think-Toggle', () => {
@@ -236,35 +206,104 @@ describe('ChatInputArea Component', () => {
       expect(thinkToggle).toHaveAttribute('aria-pressed', 'true');
     });
 
-    test('Klick toggled Thinking', async () => {
+    test('Klick toggled Thinking und speichert', async () => {
       const user = userEvent.setup();
       render(<ChatInputArea {...defaultProps} />);
 
       await user.click(screen.getByLabelText('Thinking deaktivieren'));
       expect(screen.getByLabelText('Thinking aktivieren')).toHaveAttribute('aria-pressed', 'false');
+      expect(mockApiPatch).toHaveBeenCalledWith(
+        '/chats/1/settings',
+        { use_thinking: false },
+        { showError: false }
+      );
     });
   });
 
   // =====================================================
-  // Model-Dropdown
+  // RAG-Toggle
   // =====================================================
-  describe('Model-Dropdown', () => {
+  describe('RAG-Toggle', () => {
+    test('RAG ist standardmaessig inaktiv', () => {
+      render(<ChatInputArea {...defaultProps} />);
+      const ragToggle = screen.getByLabelText('RAG aktivieren');
+      expect(ragToggle).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    test('Klick auf RAG wenn AUS schaltet RAG ein', async () => {
+      const user = userEvent.setup();
+      render(<ChatInputArea {...defaultProps} />);
+
+      await user.click(screen.getByLabelText('RAG aktivieren'));
+
+      expect(screen.getByLabelText('RAG deaktivieren')).toHaveAttribute('aria-pressed', 'true');
+      expect(mockApiPatch).toHaveBeenCalledWith(
+        '/chats/1/settings',
+        { use_rag: true },
+        { showError: false }
+      );
+    });
+
+    test('Placeholder aendert sich wenn RAG an', async () => {
+      const user = userEvent.setup();
+      render(<ChatInputArea {...defaultProps} />);
+
+      await user.click(screen.getByLabelText('RAG aktivieren'));
+
+      expect(screen.getByPlaceholderText('Frage zu Dokumenten stellen...')).toBeInTheDocument();
+    });
+
+    test('Zweiter Klick auf RAG-Button oeffnet Popup', async () => {
+      const user = userEvent.setup();
+      const { container } = render(<ChatInputArea {...defaultProps} />);
+
+      // First click: turn on RAG
+      await user.click(screen.getByLabelText('RAG aktivieren'));
+      // Second click: open popup
+      await user.click(screen.getByLabelText('RAG deaktivieren'));
+
+      expect(container.querySelector('.rag-popup')).toBeInTheDocument();
+    });
+
+    test('Space-Auswahl im Popup', async () => {
+      const user = userEvent.setup();
+      render(<ChatInputArea {...defaultProps} />);
+
+      // Turn on RAG
+      await user.click(screen.getByLabelText('RAG aktivieren'));
+      // Open popup
+      await user.click(screen.getByLabelText('RAG deaktivieren'));
+      // Select a space
+      await user.click(screen.getByText('Dokumentation'));
+
+      expect(mockApiPatch).toHaveBeenCalledWith(
+        '/chats/1/settings',
+        { preferred_space_id: 'space-1' },
+        { showError: false }
+      );
+    });
+  });
+
+  // =====================================================
+  // Model-Popup
+  // =====================================================
+  describe('Model-Popup', () => {
     test('zeigt Model-Toggle', () => {
       render(<ChatInputArea {...defaultProps} />);
       expect(screen.getByText('Standard')).toBeInTheDocument();
     });
 
-    test('Klick oeffnet Model-Dropdown', async () => {
+    test('Klick oeffnet Model-Popup', async () => {
       const user = userEvent.setup();
       const { container } = render(<ChatInputArea {...defaultProps} />);
 
       const modelToggle = container.querySelector('.model-toggle');
       await user.click(modelToggle);
 
-      expect(container.querySelector('.model-dropdown')).toBeInTheDocument();
+      expect(container.querySelector('.model-popup')).toBeInTheDocument();
     });
 
-    test('zeigt installierte Modelle im Dropdown', async () => {
+    test('zeigt verfuegbare Modelle im Popup', async () => {
       const user = userEvent.setup();
       const { container } = render(<ChatInputArea {...defaultProps} />);
 
@@ -272,6 +311,45 @@ describe('ChatInputArea Component', () => {
 
       expect(screen.getByText('Qwen3 7B')).toBeInTheDocument();
       expect(screen.getByText('Llama3 8B')).toBeInTheDocument();
+    });
+
+    test('Modell-Auswahl speichert Settings', async () => {
+      const user = userEvent.setup();
+      const { container } = render(<ChatInputArea {...defaultProps} />);
+
+      await user.click(container.querySelector('.model-toggle'));
+      await user.click(screen.getByText('Llama3 8B'));
+
+      expect(mockSetSelectedModel).toHaveBeenCalledWith('llama3:8b');
+      expect(mockApiPatch).toHaveBeenCalledWith(
+        '/chats/1/settings',
+        { preferred_model: 'llama3:8b' },
+        { showError: false }
+      );
+    });
+  });
+
+  // =====================================================
+  // Settings-Persistenz
+  // =====================================================
+  describe('Settings-Persistenz', () => {
+    test('initialisiert aus chatSettings', () => {
+      render(
+        <ChatInputArea
+          {...defaultProps}
+          chatSettings={{
+            use_rag: true,
+            use_thinking: false,
+            preferred_model: 'llama3:8b',
+            preferred_space_id: null,
+          }}
+        />
+      );
+
+      // RAG should be active
+      expect(screen.getByLabelText('RAG deaktivieren')).toHaveAttribute('aria-pressed', 'true');
+      // Think should be inactive
+      expect(screen.getByLabelText('Thinking aktivieren')).toHaveAttribute('aria-pressed', 'false');
     });
   });
 
@@ -339,7 +417,6 @@ describe('ChatInputArea Component', () => {
       };
 
       render(<ChatInputArea {...defaultProps} />);
-      // Queue position is array index + 1 = 1
       expect(screen.getByText('#1')).toBeInTheDocument();
       expect(screen.getByText('von 3')).toBeInTheDocument();
     });

@@ -43,11 +43,6 @@ jest.mock('../PasswordManagement', () => {
       'Password Management Content'
     );
 });
-jest.mock('../../telegram/TelegramSettings', () => {
-  const React = require('react');
-  return () =>
-    React.createElement('div', { 'data-testid': 'telegram-settings' }, 'Telegram Settings');
-});
 jest.mock('../../claude/ClaudeTerminal', () => {
   const React = require('react');
   return () => React.createElement('div', { 'data-testid': 'claude-terminal' }, 'Claude Terminal');

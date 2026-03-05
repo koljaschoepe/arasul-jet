@@ -19,10 +19,13 @@ export default function ChatView() {
     loadMessages,
     registerMessageCallback,
     unregisterMessageCallback,
-    abortExistingStream,
     reconnectToJob,
     checkActiveJobs,
     activeJobIds,
+    getBackgroundMessages,
+    getBackgroundLoading,
+    clearBackgroundState,
+    hasActiveStream,
   } = useChatContext();
 
   // Parse and validate chatId
@@ -36,6 +39,7 @@ export default function ChatView() {
   // Chat metadata
   const [title, setTitle] = useState('');
   const [currentProject, setCurrentProject] = useState(null);
+  const [chatSettings, setChatSettings] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -61,15 +65,28 @@ export default function ChatView() {
   // Initialize chat - parallelized (Phase 1.1 + 1.2)
   useEffect(() => {
     if (!chatId || isNaN(chatId)) {
+      localStorage.removeItem('arasul_last_chat_id');
       navigate('/chat', { replace: true });
       return;
     }
 
     let cancelled = false;
-    setLoadingMessages(true);
-    setMessages([]);
-    setError(null);
-    setIsLoading(false);
+
+    // Apply background state immediately if stream was running while we were away
+    const bgMessages = getBackgroundMessages(chatId);
+    const bgLoading = getBackgroundLoading(chatId) || hasActiveStream(chatId);
+
+    if (bgMessages && bgMessages.length > 0) {
+      setMessages(bgMessages);
+      setIsLoading(bgLoading);
+      setLoadingMessages(false);
+      setError(null);
+    } else {
+      setLoadingMessages(true);
+      setMessages([]);
+      setError(null);
+      setIsLoading(bgLoading);
+    }
 
     // Register callbacks so ChatContext streaming can update our local state
     registerMessageCallback(chatId, {
@@ -77,6 +94,9 @@ export default function ChatView() {
       setIsLoading,
       setError,
     });
+
+    // Clear background state now that callbacks are registered
+    clearBackgroundState(chatId);
 
     const init = async () => {
       try {
@@ -91,12 +111,17 @@ export default function ChatView() {
 
         if (!chatData.chat) {
           toast.error('Chat nicht gefunden');
+          localStorage.removeItem('arasul_last_chat_id');
           navigate('/chat', { replace: true });
           return;
         }
 
+        // Remember last visited chat
+        localStorage.setItem('arasul_last_chat_id', String(chatId));
+
         setTitle(chatData.chat.title || '');
         setCurrentProject(chatData.project || null);
+        setChatSettings(chatData.chat.settings || null);
         setMessages(msgResult.messages);
         setHasMoreMessages(msgResult.hasMore);
         setLoadingMessages(false);
@@ -109,6 +134,7 @@ export default function ChatView() {
         if (cancelled) return;
         console.error('Error initializing chat:', err);
         toast.error('Chat konnte nicht geladen werden');
+        localStorage.removeItem('arasul_last_chat_id');
         navigate('/chat', { replace: true });
       }
     };
@@ -117,7 +143,7 @@ export default function ChatView() {
 
     return () => {
       cancelled = true;
-      abortExistingStream(chatId);
+      // Only unregister callback — do NOT abort stream, it continues in background
       unregisterMessageCallback(chatId);
     };
   }, [
@@ -128,9 +154,12 @@ export default function ChatView() {
     loadMessages,
     registerMessageCallback,
     unregisterMessageCallback,
-    abortExistingStream,
     checkActiveJobs,
     reconnectToJob,
+    getBackgroundMessages,
+    getBackgroundLoading,
+    clearBackgroundState,
+    hasActiveStream,
   ]);
 
   // Auto-scroll on new messages
@@ -201,6 +230,7 @@ export default function ChatView() {
       if (e.key !== 'Escape') return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      localStorage.removeItem('arasul_last_chat_id');
       navigate('/chat');
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -291,6 +321,7 @@ export default function ChatView() {
       {/* Input Area */}
       <ChatInputArea
         chatId={chatId}
+        chatSettings={chatSettings}
         messagesRef={messagesRef}
         hasMessages={messages.length > 0}
         isLoading={isLoading}
