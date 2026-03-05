@@ -18,6 +18,11 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Download spaCy German model for Knowledge Graph NER
+RUN python -m spacy download de_core_news_lg || \
+    python -m spacy download de_core_news_sm || \
+    echo "WARNING: No spaCy German model available - entity extraction disabled"
+
 # Copy application code
 COPY *.py ./
 

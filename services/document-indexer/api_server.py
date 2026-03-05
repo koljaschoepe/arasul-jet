@@ -19,6 +19,10 @@ from flask_cors import CORS
 from enhanced_indexer import get_indexer, EnhancedDocumentIndexer
 from decompound_service import decompound_text, CHARSPLIT_AVAILABLE
 from bm25_index import get_bm25_index
+from spell_corrector import correct_query, SYMSPELL_AVAILABLE
+from sparse_encoder import compute_sparse_vector, STEMMER_AVAILABLE
+from entity_extractor import extract_entities, extract_from_document, SPACY_AVAILABLE
+from graph_refiner import get_refiner
 
 # Configure logging
 logging.basicConfig(
@@ -289,10 +293,10 @@ def semantic_search():
         if query_embedding is None:
             return jsonify({'error': 'Failed to generate embedding'}), 500
 
-        # Search Qdrant
+        # Search Qdrant (using named "dense" vector)
         results = indexer.qdrant_client.search(
             collection_name=os.getenv('QDRANT_COLLECTION_NAME', 'documents'),
-            query_vector=query_embedding,
+            query_vector=("dense", query_embedding),
             limit=top_k,
             with_payload=True
         )
@@ -350,6 +354,122 @@ def decompound():
 
     except Exception as e:
         logger.error(f"Decompound error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/spellcheck', methods=['POST'])
+def spellcheck():
+    """
+    Correct typos in query text using SymSpell.
+    Request body: { "text": "Projekr Managment" }
+    Response: { "original": "...", "corrected": "...", "corrections": [...], "available": true }
+    """
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+
+        if not text:
+            return jsonify({'error': 'text is required'}), 400
+
+        corrected, corrections = correct_query(text)
+
+        return jsonify({
+            'original': text,
+            'corrected': corrected,
+            'corrections': corrections,
+            'available': SYMSPELL_AVAILABLE
+        })
+
+    except Exception as e:
+        logger.error(f"Spellcheck error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/sparse-encode', methods=['POST'])
+def sparse_encode():
+    """
+    Encode text into a sparse BM25 vector for Qdrant hybrid search.
+    Request body: { "text": "search query text" }
+    Response: { "indices": [...], "values": [...], "available": true }
+    """
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+
+        if not text:
+            return jsonify({'error': 'text is required'}), 400
+
+        indices, values = compute_sparse_vector(text)
+
+        return jsonify({
+            'indices': indices,
+            'values': values,
+            'available': STEMMER_AVAILABLE
+        })
+
+    except Exception as e:
+        logger.error(f"Sparse encode error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/extract-entities', methods=['POST'])
+def extract_entities_endpoint():
+    """
+    Extract named entities from text using spaCy NER.
+    Request body: { "text": "BMW entwickelt autonome Fahrzeuge in München" }
+    Response: { "entities": [...], "available": true }
+    """
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+
+        if not text:
+            return jsonify({'error': 'text is required'}), 400
+
+        entities = extract_entities(text)
+
+        return jsonify({
+            'entities': entities,
+            'count': len(entities),
+            'available': SPACY_AVAILABLE
+        })
+
+    except Exception as e:
+        logger.error(f"Entity extraction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/extract-document', methods=['POST'])
+def extract_document_endpoint():
+    """
+    Full entity + relation extraction for a document.
+    Request body: { "text": "...", "document_id": "uuid", "title": "Doc Title" }
+    Response: { "entities": [...], "relations": [...], "available": true }
+    """
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        document_id = data.get('document_id', '')
+        title = data.get('title', 'Untitled')
+
+        if not text:
+            return jsonify({'error': 'text is required'}), 400
+
+        result = extract_from_document(text, document_id, title)
+        if result is None:
+            return jsonify({
+                'entities': [],
+                'relations': [],
+                'available': False
+            })
+
+        return jsonify({
+            **result,
+            'available': SPACY_AVAILABLE
+        })
+
+    except Exception as e:
+        logger.error(f"Document extraction error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -434,6 +554,54 @@ def bm25_status():
             'index_size': bm25.size
         })
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/refine-graph', methods=['POST'])
+def refine_graph():
+    """
+    Trigger LLM-based graph refinement (entity resolution + relation refinement).
+    Runs in a background thread. Returns immediately with status.
+    """
+    try:
+        refiner = get_refiner()
+
+        with refiner._lock:
+            if refiner._running:
+                return jsonify({
+                    'status': 'already_running',
+                    'message': 'A refinement batch is already in progress'
+                }), 409
+
+        # Run in background thread
+        def _run():
+            try:
+                refiner.run_refinement_batch()
+            except Exception as e:
+                logger.error(f"Background refinement failed: {e}")
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+
+        return jsonify({
+            'status': 'started',
+            'message': 'Graph refinement started in background'
+        })
+
+    except Exception as e:
+        logger.error(f"Refine graph error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/refine-graph/status', methods=['GET'])
+def refine_graph_status():
+    """Get graph refinement status and statistics."""
+    try:
+        refiner = get_refiner()
+        stats = refiner.get_refinement_stats()
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Refine graph status error: {e}")
         return jsonify({'error': str(e)}), 500
 
 

@@ -52,6 +52,7 @@ router.use('/models', require('./ai/models'));
 router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
 // router.use('/memory', require('./ai/memory')); // Removed: replaced by projects system
 router.use('/spaces', require('./ai/spaces'));
+router.use('/knowledge-graph', require('./ai/knowledge-graph'));
 
 // --- Store ---
 router.use('/apps', require('./store/appstore'));

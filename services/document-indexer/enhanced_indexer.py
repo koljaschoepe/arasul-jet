@@ -24,15 +24,21 @@ from datetime import datetime
 from minio import Minio
 from minio.error import S3Error
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import (
+    Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue,
+    SparseVectorParams, SparseVector, Modifier
+)
 import requests
 
 from document_parsers import parse_pdf, parse_docx, parse_txt, parse_markdown, parse_yaml_table, parse_image
 from text_chunker import chunk_text, chunk_text_hierarchical
-from bm25_index import get_bm25_index
 from metadata_extractor import extract_metadata, extract_key_topics
 from database import DatabaseManager
 from ai_services import AIServices, DocumentAnalyzer
+from spell_corrector import update_domain_dictionary
+from sparse_encoder import compute_sparse_vector
+from entity_extractor import extract_from_document, SPACY_AVAILABLE
+from graph_store import GraphStore
 
 # Configure logging
 logging.basicConfig(
@@ -66,8 +72,8 @@ QDRANT_COLLECTION = os.getenv('QDRANT_COLLECTION_NAME', 'documents')
 
 EMBEDDING_HOST = os.getenv('EMBEDDING_SERVICE_HOST', 'embedding-service')
 EMBEDDING_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', '11435'))
-EMBEDDING_VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '768'))
-EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
+EMBEDDING_VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '1024'))
+EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-m3')
 
 CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHUNK_SIZE', '500'))
 CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
@@ -84,6 +90,15 @@ MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 ENABLE_AI_ANALYSIS = os.getenv('DOCUMENT_INDEXER_ENABLE_AI', 'true').lower() == 'true'
 ENABLE_SIMILARITY = os.getenv('DOCUMENT_INDEXER_ENABLE_SIMILARITY', 'true').lower() == 'true'
 SIMILARITY_THRESHOLD = float(os.getenv('DOCUMENT_INDEXER_SIMILARITY_THRESHOLD', '0.8'))
+ENABLE_KNOWLEDGE_GRAPH = os.getenv('DOCUMENT_INDEXER_ENABLE_KG', 'true').lower() == 'true'
+
+# Build PostgreSQL DSN for GraphStore
+_PG_HOST = os.getenv('POSTGRES_HOST', 'postgres-db')
+_PG_PORT = os.getenv('POSTGRES_PORT', '5432')
+_PG_USER = os.getenv('POSTGRES_USER', 'arasul')
+_PG_PASS = os.getenv('POSTGRES_PASSWORD', '')
+_PG_DB = os.getenv('POSTGRES_DB', 'arasul_db')
+POSTGRES_DSN = f"host={_PG_HOST} port={_PG_PORT} user={_PG_USER} password={_PG_PASS} dbname={_PG_DB}"
 
 
 class EnhancedDocumentIndexer:
@@ -101,6 +116,13 @@ class EnhancedDocumentIndexer:
         # Initialize AI services
         self.ai_services = AIServices()
         self.analyzer = DocumentAnalyzer(self.ai_services)
+
+        # Initialize Knowledge Graph store
+        self.graph_store = GraphStore(POSTGRES_DSN) if ENABLE_KNOWLEDGE_GRAPH and SPACY_AVAILABLE else None
+        if self.graph_store:
+            logger.info("Knowledge Graph enabled (spaCy + PostgreSQL)")
+        else:
+            logger.info(f"Knowledge Graph disabled (ENABLE_KG={ENABLE_KNOWLEDGE_GRAPH}, spaCy={SPACY_AVAILABLE})")
 
         # File parsers
         self.parsers = {
@@ -179,7 +201,7 @@ class EnhancedDocumentIndexer:
                     raise
 
     def _init_qdrant(self) -> QdrantClient:
-        """Initialize Qdrant client and collection with Binary Quantization and HNSW tuning"""
+        """Initialize Qdrant client and collection with hybrid dense+sparse vectors"""
         from qdrant_client.models import BinaryQuantization, BinaryQuantizationConfig, HnswConfigDiff
 
         max_retries = 5
@@ -187,24 +209,35 @@ class EnhancedDocumentIndexer:
             try:
                 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
-                # Check/create collection
-                collections = client.get_collections().collections
-                collection_names = [c.name for c in collections]
+                # Check/create collection (also handles aliases)
+                collection_exists = False
+                try:
+                    client.get_collection(QDRANT_COLLECTION)
+                    collection_exists = True
+                except Exception:
+                    pass
 
-                if QDRANT_COLLECTION not in collection_names:
+                if not collection_exists:
                     client.create_collection(
                         collection_name=QDRANT_COLLECTION,
-                        vectors_config=VectorParams(
-                            size=EMBEDDING_VECTOR_SIZE,
-                            distance=Distance.COSINE,
-                            on_disk=True
-                        ),
+                        vectors_config={
+                            "dense": VectorParams(
+                                size=EMBEDDING_VECTOR_SIZE,
+                                distance=Distance.COSINE,
+                                on_disk=True
+                            )
+                        },
+                        sparse_vectors_config={
+                            "bm25": SparseVectorParams(
+                                modifier=Modifier.IDF
+                            )
+                        },
                         hnsw_config=HnswConfigDiff(m=16, ef_construct=100),
                         quantization_config=BinaryQuantization(
                             binary=BinaryQuantizationConfig(always_ram=True)
                         )
                     )
-                    logger.info(f"Created Qdrant collection: {QDRANT_COLLECTION}")
+                    logger.info(f"Created Qdrant collection: {QDRANT_COLLECTION} (dense + sparse BM25)")
 
                     # Create payload indices for efficient filtering
                     client.create_payload_index(QDRANT_COLLECTION, "space_id", "keyword")
@@ -321,6 +354,35 @@ class EnhancedDocumentIndexer:
             logger.debug(f"Failed to get space info for {doc_id}: {e}")
         return {'space_id': None, 'space_name': '', 'space_slug': ''}
 
+    @staticmethod
+    def contextualize_chunk(chunk_text, document_title, parent_text, chunk_index, total_chunks):
+        """
+        Add document context to a chunk before embedding (Contextual Retrieval).
+
+        The context header helps the embedding model understand the chunk's
+        position and topic within the document. The original chunk_text is
+        stored unchanged in the Qdrant payload for display.
+
+        Args:
+            chunk_text: Original child chunk text
+            document_title: Document title/filename
+            parent_text: Parent chunk text for section context
+            chunk_index: Global index of the child chunk
+            total_chunks: Total number of child chunks
+
+        Returns:
+            Contextualized text for embedding
+        """
+        context = f"[Dokument: {document_title}]"
+        if chunk_index == 0:
+            context += " [Anfang]"
+        elif chunk_index == total_chunks - 1:
+            context += " [Ende]"
+        if parent_text:
+            parent_preview = parent_text[:150].strip().replace('\n', ' ')
+            context += f" [Abschnitt: {parent_preview}...]"
+        return f"{context}\n{chunk_text}"
+
     def index_document(self, doc_id: str, text: str, metadata: Dict[str, Any]) -> int:
         """
         Index document text into Qdrant using hierarchical chunking.
@@ -329,6 +391,15 @@ class EnhancedDocumentIndexer:
         - Parent chunks (large) are stored in PostgreSQL for rich LLM context
         - Child chunks (small) are embedded and stored in Qdrant for precise retrieval
         - Each child chunk references its parent for context expansion at query time
+
+        Hybrid vectors (Phase 2):
+        - Dense vectors (BGE-M3) for semantic search
+        - Sparse vectors (BM25) for keyword matching
+        - Both stored in Qdrant for server-side RRF fusion
+
+        Contextual chunking (Phase 2):
+        - Each chunk gets a context header before embedding
+        - Original text stored unchanged in payload
 
         Args:
             doc_id: Document UUID
@@ -351,34 +422,43 @@ class EnhancedDocumentIndexer:
                 return 0
 
             total_children = sum(len(p.children) for p in parent_chunks)
+            doc_title = metadata.get('title', metadata.get('filename', ''))
             logger.info(
                 f"Document {doc_id}: {len(parent_chunks)} parent chunks, "
                 f"{total_children} child chunks to index"
             )
 
             # Save parent chunks to PostgreSQL and get their DB IDs
-            # save_parent_chunks expects objects with .parent_index, .text, etc. attributes
             parent_id_map = self.db.save_parent_chunks(doc_id, parent_chunks)
 
             # Generate embeddings and Qdrant points for child chunks
             batch_size = 10
             all_points = []
             chunk_records = []
-            bm25_records = []
+            domain_texts = []
 
             for parent in parent_chunks:
                 parent_db_id = parent_id_map.get(parent.parent_index)
 
-                # Collect child texts for batch embedding
-                child_texts = [child.text for child in parent.children]
+                # Contextualized texts for embedding (includes document context header)
+                contextualized_texts = [
+                    self.contextualize_chunk(
+                        child.text, doc_title, parent.text,
+                        child.global_index, total_children
+                    )
+                    for child in parent.children
+                ]
+                # Original texts for payload storage (no context header)
+                original_texts = [child.text for child in parent.children]
 
-                for i in range(0, len(child_texts), batch_size):
-                    batch_texts = child_texts[i:i + batch_size]
+                for i in range(0, len(contextualized_texts), batch_size):
+                    batch_ctx_texts = contextualized_texts[i:i + batch_size]
+                    batch_orig_texts = original_texts[i:i + batch_size]
                     batch_children = parent.children[i:i + batch_size]
-                    embeddings = self.get_batch_embeddings(batch_texts)
+                    embeddings = self.get_batch_embeddings(batch_ctx_texts)
 
-                    for child, child_text_content, embedding in zip(
-                        batch_children, batch_texts, embeddings
+                    for child, orig_text, embedding in zip(
+                        batch_children, batch_orig_texts, embeddings
                     ):
                         if embedding is None:
                             logger.warning(
@@ -394,10 +474,19 @@ class EnhancedDocumentIndexer:
                             ).hexdigest()
                         ))
 
-                        # Create Qdrant point with parent reference
+                        # Compute sparse BM25 vector from original text
+                        sparse_indices, sparse_values = compute_sparse_vector(orig_text)
+
+                        # Create Qdrant point with named dense + sparse vectors
+                        vector_data = {"dense": embedding}
+                        if sparse_indices:
+                            vector_data["bm25"] = SparseVector(
+                                indices=sparse_indices, values=sparse_values
+                            )
+
                         point = PointStruct(
                             id=chunk_id,
-                            vector=embedding,
+                            vector=vector_data,
                             payload={
                                 "document_id": doc_id,
                                 "document_name": metadata.get('filename', ''),
@@ -407,7 +496,7 @@ class EnhancedDocumentIndexer:
                                 "parent_chunk_id": parent_db_id,
                                 "parent_index": parent.parent_index,
                                 "total_chunks": total_children,
-                                "text": child_text_content,
+                                "text": orig_text,
                                 "title": metadata.get('title', ''),
                                 "category": metadata.get('category_name', 'Allgemein'),
                                 "language": metadata.get('language', 'de'),
@@ -426,36 +515,31 @@ class EnhancedDocumentIndexer:
                             'chunk_index': child.global_index,
                             'child_index': child.child_index,
                             'parent_chunk_id': parent_db_id,
-                            'text': child_text_content,
+                            'text': orig_text,
                             'char_start': child.char_start,
                             'char_end': child.char_end,
                             'word_count': child.word_count,
                         })
 
-                        # Record for BM25 index
-                        bm25_records.append({
-                            'id': chunk_id,
-                            'text': child_text_content,
-                        })
+                        domain_texts.append(orig_text)
 
-            # Upsert to Qdrant
+            # Upsert to Qdrant (dense + sparse vectors together)
             if all_points:
                 self.qdrant_client.upsert(
                     collection_name=QDRANT_COLLECTION,
                     points=all_points
                 )
-                logger.info(f"Indexed {len(all_points)} child chunks for document {doc_id}")
+                logger.info(f"Indexed {len(all_points)} child chunks for document {doc_id} (dense + sparse)")
 
             # Save child chunk records to PostgreSQL (with parent_chunk_id reference)
             self.db.save_chunks(doc_id, chunk_records)
 
-            # Update BM25 index with new chunks
-            if bm25_records:
+            # Update domain dictionary for spell correction
+            if domain_texts:
                 try:
-                    bm25 = get_bm25_index()
-                    bm25.add_document_chunks(bm25_records)
+                    update_domain_dictionary(domain_texts)
                 except Exception as e:
-                    logger.warning(f"BM25 index update failed (non-critical): {e}")
+                    logger.warning(f"Domain dictionary update failed (non-critical): {e}")
 
             return len(all_points)
 
@@ -638,6 +722,19 @@ class EnhancedDocumentIndexer:
             if ENABLE_SIMILARITY:
                 self._calculate_similarities(doc_id)
 
+            # Knowledge Graph: extract entities and relations
+            if self.graph_store:
+                try:
+                    doc_title = metadata.get('title') or filename
+                    extraction = extract_from_document(text, str(doc_id), doc_title)
+                    if extraction:
+                        self.graph_store.store_document_graph(str(doc_id), extraction)
+                        entity_count = len(extraction.get('entities', []))
+                        relation_count = len(extraction.get('relations', []))
+                        logger.info(f"Graph: {entity_count} entities, {relation_count} relations for {filename}")
+                except Exception as e:
+                    logger.warning(f"Knowledge graph extraction failed for {filename}: {e}")
+
             return doc_id
 
         except Exception as e:
@@ -753,6 +850,17 @@ class EnhancedDocumentIndexer:
             if ENABLE_SIMILARITY:
                 self._calculate_similarities(doc_id)
 
+            # Knowledge Graph: extract entities and relations
+            if self.graph_store:
+                try:
+                    doc_title = metadata.get('title') or filename
+                    extraction = extract_from_document(text, str(doc_id), doc_title)
+                    if extraction:
+                        self.graph_store.store_document_graph(str(doc_id), extraction)
+                        logger.info(f"Graph: {len(extraction.get('entities', []))} entities for {filename}")
+                except Exception as e:
+                    logger.warning(f"Knowledge graph extraction failed for {filename}: {e}")
+
             return doc_id
 
         except Exception as e:
@@ -804,15 +912,19 @@ class EnhancedDocumentIndexer:
             if not chunks[0]:
                 return
 
-            query_vector = chunks[0][0].vector
+            # Named vector: extract "dense" vector from dict
+            raw_vector = chunks[0][0].vector
+            if isinstance(raw_vector, dict):
+                query_vector = raw_vector.get("dense", raw_vector)
+            else:
+                query_vector = raw_vector  # Legacy unnamed vector
 
-            # MEDIUM-PRIORITY-FIX 3.4: Optimized search with score threshold
-            # Qdrant's HNSW index makes this O(log n) instead of O(n²)
+            # Search using named "dense" vector
             similar = self.qdrant_client.search(
                 collection_name=QDRANT_COLLECTION,
-                query_vector=query_vector,
-                limit=15,  # Reduced from 20 - we only need top similar docs
-                score_threshold=SIMILARITY_THRESHOLD,  # Filter at DB level
+                query_vector=("dense", query_vector),
+                limit=15,
+                score_threshold=SIMILARITY_THRESHOLD,
                 with_payload=True
             )
 
@@ -874,6 +986,13 @@ class EnhancedDocumentIndexer:
                     self.minio_client.remove_object(MINIO_BUCKET, doc['file_path'])
                 except Exception as e:
                     logger.warning(f"Failed to delete from MinIO: {e}")
+
+            # Clean up knowledge graph data for this document
+            if self.graph_store:
+                try:
+                    self.graph_store.delete_document_graph(doc_id)
+                except Exception as e:
+                    logger.warning(f"Failed to clean up graph for deleted document: {e}")
 
             # Soft delete from database
             self.db.delete_document(doc_id, soft=True)

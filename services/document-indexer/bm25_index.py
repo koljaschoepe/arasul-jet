@@ -89,45 +89,67 @@ class BM25Index:
             self._index = bm25s.BM25()
             self._index.index(stemmed)
 
-            # Save to disk
+            # Save to disk (including texts for future incremental rebuilds)
             self._save_to_disk()
+            self._save_texts(texts)
 
             logger.info(f"BM25 index built with {len(chunks)} chunks")
             return len(chunks)
 
     def add_document_chunks(self, chunks: List[Dict]) -> int:
         """
-        Add new chunks to the index incrementally.
-        For now, triggers a full rebuild (bm25s doesn't support incremental).
-
-        In production, you'd want to batch these and rebuild periodically.
+        Add new chunks to the index by rebuilding with all existing + new data.
+        bm25s doesn't support incremental updates, so we store texts alongside
+        chunk IDs and rebuild the full index each time.
         """
         if not BM25S_AVAILABLE or not chunks:
             return 0
 
         with self._lock:
-            # Append new chunk IDs and texts
             new_ids = [c.get('id', '') for c in chunks]
             new_texts = [c.get('text', '') for c in chunks]
 
-            # Add to existing data
-            existing_texts = []
-            if self._index is not None and self._chunk_ids:
-                # We need to rebuild - get existing data from metadata
-                meta_path = os.path.join(self.index_path, 'chunk_ids.json')
-                if os.path.exists(meta_path):
-                    # We don't store original texts, so we need a full rebuild
-                    # This is called from enhanced_indexer which should call rebuild periodically
-                    pass
+            # Load existing texts from disk
+            existing_texts = self._load_texts()
 
+            # Append new data
+            all_texts = existing_texts + new_texts
             self._chunk_ids.extend(new_ids)
 
-            # For incremental updates, just save the mapping
-            # The actual index rebuild happens via /bm25/rebuild endpoint
-            self._save_chunk_ids()
+            # Rebuild full index with all texts
+            tokens = self._tokenize(all_texts)
+            stemmed = self._stem_tokens(tokens)
 
-            logger.info(f"Added {len(chunks)} chunks to BM25 mapping (rebuild needed for search)")
+            self._index = bm25s.BM25()
+            self._index.index(stemmed)
+
+            # Save everything to disk
+            self._save_to_disk()
+            self._save_texts(all_texts)
+
+            logger.info(f"BM25 index rebuilt: added {len(chunks)} chunks, total {len(self._chunk_ids)}")
             return len(chunks)
+
+    def _save_texts(self, texts: List[str]):
+        """Save chunk texts for future index rebuilds"""
+        try:
+            os.makedirs(self.index_path, exist_ok=True)
+            texts_path = os.path.join(self.index_path, 'chunk_texts.json')
+            with open(texts_path, 'w') as f:
+                json.dump(texts, f)
+        except Exception as e:
+            logger.error(f"Failed to save chunk texts: {e}")
+
+    def _load_texts(self) -> List[str]:
+        """Load saved chunk texts from disk"""
+        try:
+            texts_path = os.path.join(self.index_path, 'chunk_texts.json')
+            if os.path.exists(texts_path):
+                with open(texts_path, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load chunk texts: {e}")
+        return []
 
     def search(self, query: str, top_k: int = 20) -> List[Tuple[str, float]]:
         """

@@ -35,7 +35,6 @@ const DOCUMENT_INDEXER_URL = services.documentIndexer.url;
 
 // Hybrid search configuration
 const HYBRID_SEARCH_ENABLED = process.env.RAG_HYBRID_SEARCH !== 'false';
-const RRF_K = 60; // Reciprocal Rank Fusion constant
 
 // RAG 2.0: Space routing configuration
 const SPACE_ROUTING_THRESHOLD = parseFloat(process.env.SPACE_ROUTING_THRESHOLD || '0.4');
@@ -44,9 +43,14 @@ const SPACE_ROUTING_MAX_SPACES = parseInt(process.env.SPACE_ROUTING_MAX_SPACES |
 // RAG 3.0: Reranking and query optimization
 const ENABLE_RERANKING = process.env.RAG_ENABLE_RERANKING !== 'false';
 
+// RAG 5.0: Knowledge Graph enrichment
+const ENABLE_GRAPH_ENRICHMENT = process.env.RAG_ENABLE_GRAPH !== 'false';
+const GRAPH_MAX_ENTITIES = parseInt(process.env.RAG_GRAPH_MAX_ENTITIES || '3');
+const GRAPH_TRAVERSAL_DEPTH = parseInt(process.env.RAG_GRAPH_TRAVERSAL_DEPTH || '2');
+
 // RAG 4.0: Smart relevance filtering
-const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.5');
-const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.55');
+const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.3');
+const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.4');
 
 /**
  * Get embedding vector for text
@@ -86,6 +90,28 @@ async function getEmbeddings(texts) {
   } catch (error) {
     logger.error(`Error getting batch embeddings: ${error.message}`);
     throw new Error('Failed to generate embeddings');
+  }
+}
+
+/**
+ * Get sparse BM25 vector for text (via document-indexer)
+ * Used for Qdrant-native hybrid search with RRF fusion.
+ */
+async function getSparseVector(text) {
+  try {
+    const response = await axios.post(
+      `${DOCUMENT_INDEXER_URL}/sparse-encode`,
+      { text },
+      { timeout: 5000 }
+    );
+    const { indices, values } = response.data;
+    if (indices && indices.length > 0) {
+      return { indices, values };
+    }
+    return null;
+  } catch (error) {
+    logger.debug(`Sparse encoding unavailable: ${error.message}`);
+    return null;
   }
 }
 
@@ -231,72 +257,21 @@ async function routeToSpaces(queryEmbedding, options = {}) {
 }
 
 /**
- * Search using BM25 index with German stemming (via document-indexer).
- * Returns full chunk payloads (compatible with RRF pipeline).
- * Falls back gracefully if BM25 service is unavailable.
+ * Build Qdrant filter for space-based search.
+ * Includes specified spaces + unassigned documents (null/empty space_id).
  */
-async function searchBM25(query, limit = 20, spaceIds = null) {
-  try {
-    const response = await axios.post(
-      `${DOCUMENT_INDEXER_URL}/bm25/search`,
-      { query, top_k: limit },
-      { timeout: 5000 }
-    );
-
-    if (!response.data.results || !response.data.is_ready || response.data.results.length === 0) {
-      return [];
-    }
-
-    const chunkIds = response.data.results.map(r => r.chunk_id);
-
-    // Fetch full chunk data from PostgreSQL
-    let spaceCondition = '';
-    const params = [chunkIds];
-    if (spaceIds && spaceIds.length > 0) {
-      spaceCondition = 'AND (d.space_id = ANY($2::uuid[]) OR d.space_id IS NULL)';
-      params.push(spaceIds);
-    }
-
-    const result = await db.query(
-      `
-            SELECT dc.id, dc.document_id, dc.chunk_index, dc.chunk_text as text,
-                   dc.parent_chunk_id, d.filename as document_name, d.space_id,
-                   ks.name as space_name
-            FROM document_chunks dc
-            JOIN documents d ON dc.document_id = d.id
-            LEFT JOIN knowledge_spaces ks ON d.space_id = ks.id
-            WHERE dc.id = ANY($1::uuid[])
-            AND d.deleted_at IS NULL
-            ${spaceCondition}
-        `,
-      params
-    );
-
-    // Map BM25 scores by chunk ID
-    const scoreMap = new Map(response.data.results.map(r => [r.chunk_id, r.score]));
-
-    // Sort by BM25 score descending
-    return result.rows
-      .map(row => ({
-        id: String(row.id),
-        payload: {
-          document_id: row.document_id,
-          document_name: row.document_name,
-          chunk_index: row.chunk_index,
-          text: row.text,
-          space_id: row.space_id,
-          space_name: row.space_name,
-          parent_chunk_id: row.parent_chunk_id,
-        },
-        score: scoreMap.get(String(row.id)) || 0,
-        source: 'bm25',
-      }))
-      .sort((a, b) => b.score - a.score)
-      .map((r, i) => ({ ...r, rank: i + 1 }));
-  } catch (error) {
-    logger.warn(`BM25 search failed (falling back to PostgreSQL FTS): ${error.message}`);
-    return [];
-  }
+function buildSpaceFilter(spaceIds) {
+  if (!spaceIds || spaceIds.length === 0) {return undefined;}
+  return {
+    should: [
+      ...spaceIds.map(spaceId => ({
+        key: 'space_id',
+        match: { value: spaceId },
+      })),
+      { key: 'space_id', match: { value: '' } },
+      { is_null: { key: 'space_id' } },
+    ],
+  };
 }
 
 /**
@@ -366,7 +341,9 @@ async function rerankResults(query, results, topK = 5) {
  * Returns only documents above the configured threshold.
  */
 function filterByRelevance(results, reranked = true) {
-  if (results.length === 0) {return { relevant: [], filtered: 0 };}
+  if (results.length === 0) {
+    return { relevant: [], filtered: 0 };
+  }
 
   const threshold = reranked ? RAG_RELEVANCE_THRESHOLD : RAG_VECTOR_SCORE_THRESHOLD;
   const scoreField = reranked ? 'rerankScore' : 'score';
@@ -384,6 +361,145 @@ function filterByRelevance(results, reranked = true) {
   }
 
   return { relevant, filtered };
+}
+
+// =============================================================================
+// RAG 5.0: KNOWLEDGE GRAPH ENRICHMENT
+// =============================================================================
+
+/**
+ * Extract entities from query and traverse the knowledge graph.
+ * Returns structured graph context for LLM enrichment.
+ * Non-fatal: returns empty result on any failure.
+ *
+ * @param {string} query - User query text
+ * @returns {Object} { graphContext: string|null, graphEntities: Object[] }
+ */
+async function graphEnrichedRetrieval(query) {
+  if (!ENABLE_GRAPH_ENRICHMENT) {
+    return { graphContext: null, graphEntities: [] };
+  }
+
+  try {
+    // 1. Extract entities from query via document-indexer
+    const entityResponse = await axios.post(
+      `${DOCUMENT_INDEXER_URL}/extract-entities`,
+      { text: query },
+      { timeout: 5000 }
+    );
+
+    const queryEntities = entityResponse.data.entities || [];
+    if (queryEntities.length === 0 || !entityResponse.data.available) {
+      return { graphContext: null, graphEntities: [] };
+    }
+
+    // 2. For each entity (max GRAPH_MAX_ENTITIES), query the knowledge graph
+    const graphResults = [];
+    const entityNames = queryEntities.slice(0, GRAPH_MAX_ENTITIES).map(e => e.name);
+
+    for (const entityName of entityNames) {
+      try {
+        const result = await db.query(
+          `
+          WITH RECURSIVE graph_walk AS (
+            SELECT
+              e.id, e.name, e.entity_type,
+              0 AS distance,
+              ''::text AS relation_path,
+              ARRAY[e.id] AS visited
+            FROM kg_entities e
+            WHERE LOWER(e.name) = LOWER($1)
+
+            UNION ALL
+
+            SELECT
+              t.id, t.name, t.entity_type,
+              gw.distance + 1,
+              gw.relation_path || CASE WHEN gw.relation_path = '' THEN '' ELSE ' → ' END || r.relation_type,
+              gw.visited || t.id
+            FROM graph_walk gw
+            JOIN kg_relations r ON r.source_entity_id = gw.id
+            JOIN kg_entities t ON t.id = r.target_entity_id
+            WHERE gw.distance < $2 AND t.id != ALL(gw.visited)
+
+            UNION ALL
+
+            SELECT
+              s.id, s.name, s.entity_type,
+              gw.distance + 1,
+              gw.relation_path || CASE WHEN gw.relation_path = '' THEN '' ELSE ' → ' END || r.relation_type,
+              gw.visited || s.id
+            FROM graph_walk gw
+            JOIN kg_relations r ON r.target_entity_id = gw.id
+            JOIN kg_entities s ON s.id = r.source_entity_id
+            WHERE gw.distance < $2 AND s.id != ALL(gw.visited)
+          )
+          SELECT DISTINCT ON (name)
+            name, entity_type AS type, distance, relation_path AS relation
+          FROM graph_walk
+          WHERE distance > 0
+          ORDER BY name, distance
+          LIMIT 10
+        `,
+          [entityName, GRAPH_TRAVERSAL_DEPTH]
+        );
+
+        for (const row of result.rows) {
+          graphResults.push({
+            source: entityName,
+            target: row.name,
+            target_type: row.type,
+            relation: row.relation,
+            distance: row.distance,
+          });
+        }
+      } catch (entityErr) {
+        logger.debug(`Graph traversal failed for "${entityName}": ${entityErr.message}`);
+      }
+    }
+
+    // 3. Format graph context as text
+    if (graphResults.length > 0) {
+      const graphContext = formatGraphContext(queryEntities, graphResults);
+      logger.info(
+        `Graph enrichment: ${queryEntities.length} entities, ${graphResults.length} relations`
+      );
+      return { graphContext, graphEntities: queryEntities };
+    }
+
+    return { graphContext: null, graphEntities: queryEntities };
+  } catch (error) {
+    logger.warn(`Graph enrichment failed: ${error.message}`);
+    return { graphContext: null, graphEntities: [] };
+  }
+}
+
+/**
+ * Format knowledge graph results as readable text context for the LLM.
+ */
+function formatGraphContext(entities, graphResults) {
+  let context = '## Wissensverknüpfungen\n';
+  context += 'Folgende Zusammenhänge sind aus dem Wissensgraphen bekannt:\n\n';
+
+  // Group by source entity
+  const bySource = new Map();
+  for (const r of graphResults) {
+    if (!bySource.has(r.source)) {
+      bySource.set(r.source, []);
+    }
+    bySource.get(r.source).push(r);
+  }
+
+  for (const [source, relations] of bySource) {
+    context += `**${source}:**\n`;
+    for (const r of relations) {
+      const relLabel = r.relation.replace(/_/g, ' ').toLowerCase() || 'verwandt mit';
+      context += `- ${relLabel} → ${r.target} (${r.target_type})\n`;
+    }
+    context += '\n';
+  }
+
+  return context;
 }
 
 /**
@@ -425,8 +541,15 @@ async function getParentChunks(results) {
  * @param {Object[]|null} spaces - Matched knowledge spaces
  * @param {Object[]} chunks - Child chunk data with metadata
  * @param {Object[]|null} parentChunks - Parent chunks from PostgreSQL (richer context)
+ * @param {string|null} graphContext - Knowledge Graph context (Level 4)
  */
-function buildHierarchicalContext(companyContext, spaces, chunks, parentChunks = null) {
+function buildHierarchicalContext(
+  companyContext,
+  spaces,
+  chunks,
+  parentChunks = null,
+  graphContext = null
+) {
   const parts = [];
 
   // Level 1: Company context (if available)
@@ -473,254 +596,126 @@ function buildHierarchicalContext(companyContext, spaces, chunks, parentChunks =
     parts.push(`## Gefundene Informationen\n${chunkTexts}`);
   }
 
+  // Level 4: Knowledge Graph context (if available)
+  if (graphContext) {
+    parts.push(graphContext);
+  }
+
   return parts.join('\n\n');
 }
 
 /**
- * Search for similar chunks in Qdrant (Vector Search)
- * RAG 2.0: Supports space_ids filter for targeted search
- */
-async function searchVectorSimilar(embedding, limit = 10, spaceIds = null) {
-  try {
-    const searchBody = {
-      vector: embedding,
-      limit: limit,
-      with_payload: true,
-      score_threshold: 0.3,
-      params: {
-        hnsw_ef: 128,
-        quantization: {
-          rescore: true,
-          oversampling: 2.0,
-        },
-      },
-    };
-
-    // RAG 2.0: Add space filter if provided
-    // Also include unassigned documents (space_id is null or empty string from legacy data)
-    if (spaceIds && spaceIds.length > 0) {
-      searchBody.filter = {
-        should: [
-          // Match specific space IDs
-          ...spaceIds.map(spaceId => ({
-            key: 'space_id',
-            match: { value: spaceId },
-          })),
-          // Match legacy data with empty string space_id
-          {
-            key: 'space_id',
-            match: { value: '' },
-          },
-          // Match documents where space_id is null (not present in payload)
-          {
-            is_null: { key: 'space_id' },
-          },
-        ],
-      };
-      logger.debug(`Qdrant search with space filter: ${spaceIds.join(', ')} (+ unassigned)`);
-    }
-
-    const response = await axios.post(
-      `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/search`,
-      searchBody,
-      { timeout: 10000 }
-    );
-
-    return response.data.result || [];
-  } catch (error) {
-    logger.error(`Error searching Qdrant: ${error.message}`);
-    throw new Error('Failed to search documents');
-  }
-}
-
-/**
- * Search for chunks using PostgreSQL full-text search (Keyword Search)
- * This catches exact matches that vector search might miss
- * RAG 2.0: Supports space_ids filter
- */
-async function searchKeywordChunks(query, limit = 10, spaceIds = null) {
-  try {
-    // Build space filter condition
-    let spaceCondition = '';
-    const params = [query, limit];
-
-    if (spaceIds && spaceIds.length > 0) {
-      spaceCondition = `AND (d.space_id = ANY($3::uuid[]) OR d.space_id IS NULL)`;
-      params.push(spaceIds);
-    }
-
-    // Use PostgreSQL full-text search with German dictionary
-    const result = await db.query(
-      `
-            SELECT
-                dc.id,
-                dc.document_id,
-                dc.chunk_index,
-                dc.chunk_text as text,
-                d.filename as document_name,
-                d.space_id,
-                ks.name as space_name,
-                ts_rank(
-                    to_tsvector('german', dc.chunk_text),
-                    plainto_tsquery('german', $1)
-                ) as keyword_score
-            FROM document_chunks dc
-            JOIN documents d ON dc.document_id = d.id
-            LEFT JOIN knowledge_spaces ks ON d.space_id = ks.id
-            WHERE d.deleted_at IS NULL
-            AND to_tsvector('german', dc.chunk_text) @@ plainto_tsquery('german', $1)
-            ${spaceCondition}
-            ORDER BY keyword_score DESC
-            LIMIT $2
-        `,
-      params
-    );
-
-    return result.rows.map((row, index) => ({
-      id: row.id,
-      payload: {
-        document_id: row.document_id,
-        document_name: row.document_name,
-        chunk_index: row.chunk_index,
-        text: row.text,
-        space_id: row.space_id,
-        space_name: row.space_name,
-      },
-      score: row.keyword_score,
-      rank: index + 1,
-      source: 'keyword',
-    }));
-  } catch (error) {
-    logger.warn(`Keyword search fallback failed: ${error.message}`);
-    return []; // Graceful fallback - don't fail the whole search
-  }
-}
-
-/**
- * Reciprocal Rank Fusion (RRF) to combine vector and keyword results
- * Formula: RRF(d) = Σ 1/(k + rank(d))
- * where k is a constant (typically 60) and rank is the position in each list
- */
-function reciprocalRankFusion(vectorResults, keywordResults, k = RRF_K) {
-  const scores = new Map(); // Map<chunk_id, {score, data}>
-
-  // Score vector results
-  vectorResults.forEach((result, index) => {
-    const id = result.id || `${result.payload.document_id}_${result.payload.chunk_index}`;
-    const rank = index + 1;
-    const rrfScore = 1 / (k + rank);
-
-    scores.set(id, {
-      score: rrfScore,
-      vectorScore: result.score,
-      vectorRank: rank,
-      keywordScore: 0,
-      keywordRank: null,
-      data: result,
-    });
-  });
-
-  // Score keyword results
-  keywordResults.forEach((result, index) => {
-    const id = result.id || `${result.payload.document_id}_${result.payload.chunk_index}`;
-    const rank = index + 1;
-    const rrfScore = 1 / (k + rank);
-
-    if (scores.has(id)) {
-      // Chunk appears in both lists - boost score
-      const existing = scores.get(id);
-      existing.score += rrfScore;
-      existing.keywordScore = result.score;
-      existing.keywordRank = rank;
-    } else {
-      // Chunk only in keyword results
-      scores.set(id, {
-        score: rrfScore,
-        vectorScore: 0,
-        vectorRank: null,
-        keywordScore: result.score,
-        keywordRank: rank,
-        data: result,
-      });
-    }
-  });
-
-  // Sort by combined RRF score and return
-  return Array.from(scores.values())
-    .sort((a, b) => b.score - a.score)
-    .map(item => ({
-      ...item.data,
-      hybridScore: item.score,
-      vectorScore: item.vectorScore,
-      keywordScore: item.keywordScore,
-    }));
-}
-
-/**
- * Hybrid search combining vector similarity and keyword matching
- * RAG 3.0: Multi-query embeddings + BM25 + space filtering
+ * Qdrant-native hybrid search using Prefetch + RRF Fusion.
  *
- * @param {string} query - Original query text
- * @param {number[]} embedding - Primary query embedding
+ * Sends a single query to Qdrant that combines:
+ * - Dense vector search (BGE-M3 embeddings, named vector "dense")
+ * - Sparse vector search (BM25 with IDF, named vector "bm25")
+ * - Server-side Reciprocal Rank Fusion
+ *
+ * This replaces the previous architecture of separate BM25 index +
+ * vector search + client-side RRF fusion.
+ *
+ * @param {string} query - Original query text (for sparse encoding)
+ * @param {number[]} embedding - Primary dense query embedding
  * @param {number} limit - Max results to return
  * @param {string[]|null} spaceIds - Space filter
  * @param {Object} options - Additional search options
- * @param {number[][]} options.additionalEmbeddings - Extra embeddings (multi-query + HyDE)
- * @param {string} options.decompoundedQuery - Decompounded query for BM25
+ * @param {number[][]} options.additionalEmbeddings - Extra dense embeddings (multi-query + HyDE)
+ * @param {string} options.decompoundedQuery - Decompounded query for BM25 sparse search
  */
 async function hybridSearch(query, embedding, limit = 5, spaceIds = null, options = {}) {
   const { additionalEmbeddings = [], decompoundedQuery = null } = options;
 
-  // Fetch more results when reranking is enabled (reranker needs broader candidate set)
+  // Fetch more results when reranking is enabled
   const fetchLimit = ENABLE_RERANKING ? Math.min(limit * 10, 50) : limit * 2;
 
-  // Build all vector searches (original + multi-query variants + HyDE)
-  const allEmbeddings = [embedding, ...additionalEmbeddings];
-  const vectorSearches = allEmbeddings.map(emb => searchVectorSimilar(emb, fetchLimit, spaceIds));
+  // Get sparse BM25 vector for keyword matching
+  const sparseQuery = decompoundedQuery || query;
+  const sparseVector = HYBRID_SEARCH_ENABLED ? await getSparseVector(sparseQuery) : null;
 
-  // BM25 search with decompounded query (better German keyword matching)
-  const bm25Query = decompoundedQuery || query;
-  const bm25Search = HYBRID_SEARCH_ENABLED
-    ? searchBM25(bm25Query, fetchLimit, spaceIds)
-    : Promise.resolve([]);
+  // Build prefetch queries for Qdrant server-side fusion
+  const filter = buildSpaceFilter(spaceIds);
+  const prefetch = [];
 
-  // Run all searches in parallel
-  const [vectorResultArrays, bm25Results] = await Promise.all([
-    Promise.all(vectorSearches),
-    bm25Search,
-  ]);
+  // Primary dense query
+  const denseParams = {
+    hnsw_ef: 128,
+    quantization: { rescore: true, oversampling: 2.0 },
+  };
+  prefetch.push({
+    query: embedding,
+    using: 'dense',
+    limit: fetchLimit,
+    params: denseParams,
+    ...(filter ? { filter } : {}),
+  });
 
-  // Merge all vector results (deduplicate by ID, keep highest score)
-  const vectorMap = new Map();
-  for (const results of vectorResultArrays) {
-    for (const result of results) {
-      const id = String(result.id);
-      const existing = vectorMap.get(id);
-      if (!existing || result.score > existing.score) {
-        vectorMap.set(id, result);
-      }
+  // Additional dense queries (multi-query variants + HyDE)
+  for (const emb of additionalEmbeddings) {
+    prefetch.push({
+      query: emb,
+      using: 'dense',
+      limit: Math.min(fetchLimit, 30),
+      params: denseParams,
+      ...(filter ? { filter } : {}),
+    });
+  }
+
+  // Sparse BM25 query
+  if (sparseVector) {
+    prefetch.push({
+      query: sparseVector,
+      using: 'bm25',
+      limit: fetchLimit,
+      ...(filter ? { filter } : {}),
+    });
+  }
+
+  try {
+    // Single Qdrant call with server-side RRF fusion
+    const response = await axios.post(
+      `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/query`,
+      {
+        prefetch,
+        query: { fusion: 'rrf' },
+        limit: fetchLimit,
+        with_payload: true,
+      },
+      { timeout: 15000 }
+    );
+
+    const points = response.data.result?.points || [];
+
+    logger.debug(
+      `Hybrid search (Qdrant-native): ${points.length} results from ${prefetch.length} prefetch queries ` +
+        `(${additionalEmbeddings.length + 1} dense, ${sparseVector ? 1 : 0} sparse)`
+    );
+
+    return points.map(point => ({
+      id: point.id,
+      score: point.score,
+      payload: point.payload,
+    }));
+  } catch (error) {
+    // Fallback: dense-only search if hybrid query fails
+    logger.warn(`Qdrant hybrid query failed, falling back to dense-only: ${error.message}`);
+    try {
+      const fallbackResponse = await axios.post(
+        `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/search`,
+        {
+          vector: { name: 'dense', vector: embedding },
+          limit: fetchLimit,
+          with_payload: true,
+          ...(filter ? { filter } : {}),
+        },
+        { timeout: 10000 }
+      );
+      return fallbackResponse.data.result || [];
+    } catch (fallbackErr) {
+      logger.error(`Dense-only fallback also failed: ${fallbackErr.message}`);
+      throw new Error('Failed to search documents');
     }
   }
-  const mergedVectorResults = Array.from(vectorMap.values()).sort((a, b) => b.score - a.score);
-
-  // Use BM25 results; fall back to PostgreSQL FTS if BM25 unavailable
-  let keywordResults = bm25Results;
-  if (keywordResults.length === 0 && HYBRID_SEARCH_ENABLED) {
-    keywordResults = await searchKeywordChunks(query, fetchLimit, spaceIds);
-  }
-
-  logger.debug(
-    `Hybrid search: ${mergedVectorResults.length} vector (${allEmbeddings.length} queries) + ${keywordResults.length} keyword results`
-  );
-
-  if (keywordResults.length === 0) {
-    return mergedVectorResults.slice(0, fetchLimit);
-  }
-
-  // Combine using Reciprocal Rank Fusion
-  const fusedResults = reciprocalRankFusion(mergedVectorResults, keywordResults);
-
-  return fusedResults.slice(0, fetchLimit);
 }
 
 /**
@@ -757,10 +752,30 @@ router.post(
         `RAG query: "${query}" (top_k=${top_k}, thinking=${enableThinking}, hybrid=${HYBRID_SEARCH_ENABLED}, reranking=${ENABLE_RERANKING})`
       );
 
+      // Step 0: Spell correction (typo tolerance)
+      let correctedQuery = query;
+      let spellCorrections = [];
+      try {
+        const spellResult = await axios.post(
+          `${DOCUMENT_INDEXER_URL}/spellcheck`,
+          { text: query },
+          { timeout: 3000 }
+        );
+        if (spellResult.data.corrections && spellResult.data.corrections.length > 0) {
+          correctedQuery = spellResult.data.corrected;
+          spellCorrections = spellResult.data.corrections;
+          logger.info(
+            `Spell correction: "${query}" → "${correctedQuery}" (${spellCorrections.length} fixes)`
+          );
+        }
+      } catch (spellErr) {
+        logger.debug(`Spell check unavailable: ${spellErr.message}`);
+      }
+
       // Step 1: Query optimization + embedding + company context in parallel
       const [queryOptResult, queryEmbedding, companyContext] = await Promise.all([
-        optimizeQuery(query),
-        getEmbedding(query),
+        optimizeQuery(correctedQuery),
+        getEmbedding(correctedQuery),
         getCompanyContext(),
       ]);
 
@@ -824,12 +839,15 @@ router.post(
         logger.debug(`Auto-routing: ${routingMethod}, ${targetSpaces.length} spaces`);
       }
 
-      // Step 4: Hybrid search with multi-query + BM25 + space filter
+      // Step 4: Hybrid search + Graph enrichment IN PARALLEL
       const spaceFilter = targetSpaceIds && targetSpaceIds.length > 0 ? targetSpaceIds : null;
-      const searchResults = await hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
-        additionalEmbeddings,
-        decompoundedQuery: decompounded,
-      });
+      const [searchResults, graphEnrichment] = await Promise.all([
+        hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
+          additionalEmbeddings,
+          decompoundedQuery: decompounded,
+        }),
+        graphEnrichedRetrieval(correctedQuery),
+      ]);
 
       // Step 5: Rerank results (2-stage: FlashRank → BGE-reranker)
       const rerankedResults = await rerankResults(query, searchResults, top_k);
@@ -870,7 +888,8 @@ router.post(
         companyContext,
         targetSpaces.length > 0 ? targetSpaces : null,
         chunks,
-        parentChunks
+        parentChunks,
+        graphEnrichment.graphContext
       );
 
       // RAG 4.0: Detect "docs exist but none relevant" case
@@ -931,6 +950,14 @@ router.post(
         `data: ${JSON.stringify({
           type: 'rag_metadata',
           queryOptimization: queryOptDetails,
+          spellCorrection:
+            spellCorrections.length > 0
+              ? {
+                  original: query,
+                  corrected: correctedQuery,
+                  corrections: spellCorrections,
+                }
+              : null,
           matchedSpaces: targetSpaces.map(s => ({
             id: s.id,
             name: s.name,
@@ -939,6 +966,16 @@ router.post(
           })),
           routingMethod,
           sources,
+          graphEnrichment:
+            graphEnrichment.graphEntities.length > 0
+              ? {
+                  entities: graphEnrichment.graphEntities.map(e => ({
+                    name: e.name,
+                    type: e.type,
+                  })),
+                  hasContext: !!graphEnrichment.graphContext,
+                }
+              : null,
         })}\n\n`
       );
 
