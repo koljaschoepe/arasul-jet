@@ -2309,3 +2309,108 @@
   border-color: var(--danger-border-light);
   color: var(--danger-color);
 }
+
+/* ===================================
+   AI PROFILE SETTINGS
+   =================================== */
+
+.ai-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ai-profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ai-profile-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-profile-input,
+.ai-profile-select {
+  padding: 0.625rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.ai-profile-input:focus,
+.ai-profile-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(69, 173, 255, 0.15);
+}
+
+.ai-profile-input::placeholder {
+  color: var(--text-disabled);
+}
+
+.ai-profile-select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+.ai-profile-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.ai-profile-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ai-profile-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-dark);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.ai-profile-radio-label:hover {
+  border-color: var(--primary-color);
+}
+
+.ai-profile-radio-label:has(input:checked) {
+  border-color: var(--primary-color);
+  background: rgba(69, 173, 255, 0.08);
+}
+
+.ai-profile-radio-label input[type='radio'] {
+  accent-color: var(--primary-color);
+  margin: 0;
+}
+
+/* Light Mode - AI Profile */
+.light-mode .ai-profile-input,
+.light-mode .ai-profile-select {
+  background: var(--bg-white);
+  border-color: var(--border-light);
+}
+
+.light-mode .ai-profile-radio-label {
+  background: var(--bg-white);
+  border-color: var(--border-light);
+}
+
+.light-mode .ai-profile-radio-label:has(input:checked) {
+  background: rgba(69, 173, 255, 0.06);
+}

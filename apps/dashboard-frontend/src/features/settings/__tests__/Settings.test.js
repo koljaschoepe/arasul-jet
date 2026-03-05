@@ -127,7 +127,8 @@ describe('Settings Component', () => {
       const descTexts = Array.from(navDescriptions).map(el => el.textContent);
 
       expect(descTexts).toContain('System information and configuration');
-      expect(descTexts).toContain('Globaler Kontext für RAG-Anfragen');
+      expect(descTexts).toContain('Firmen- und KI-Verhalten konfigurieren');
+      expect(descTexts).toContain('Globaler Kontext für alle KI-Anfragen');
     });
 
     test('startet mit General Section aktiv', () => {

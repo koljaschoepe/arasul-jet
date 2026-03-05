@@ -40,6 +40,8 @@ router.put(
       throw new ValidationError('profile (string) is required');
     }
     await memoryService.updateProfile(profile);
+    const { invalidateProfileCache } = require('../../services/llm/systemPromptBuilder');
+    invalidateProfileCache();
     res.json({ success: true });
   })
 );
@@ -64,6 +66,8 @@ router.post(
     });
 
     await memoryService.updateProfile(profileYaml);
+    const { invalidateProfileCache } = require('../../services/llm/systemPromptBuilder');
+    invalidateProfileCache();
     res.json({ success: true, profile: profileYaml });
   })
 );

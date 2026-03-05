@@ -405,6 +405,10 @@ router.put(
 
     logger.info(`Company context updated by user ${req.user.username}`);
 
+    // Invalidate system prompt cache
+    const { invalidateCompanyContextCache } = require('../../services/llm/systemPromptBuilder');
+    invalidateCompanyContextCache();
+
     res.json({
       content: result.rows[0].content,
       updated_at: result.rows[0].updated_at,

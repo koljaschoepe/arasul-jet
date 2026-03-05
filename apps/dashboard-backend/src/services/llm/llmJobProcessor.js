@@ -63,45 +63,9 @@ async function processChatJob(ctx, job) {
     });
   }
 
-  // Lookup project system prompt via conversation -> project
-  let projectSystemPrompt = '';
-  if (job.conversation_id) {
-    try {
-      const projResult = await database.query(
-        `SELECT p.system_prompt FROM projects p
-         JOIN chat_conversations c ON c.project_id = p.id
-         WHERE c.id = $1 AND p.system_prompt != ''`,
-        [job.conversation_id]
-      );
-      if (projResult.rows.length > 0) {
-        projectSystemPrompt = projResult.rows[0].system_prompt;
-      }
-    } catch (projErr) {
-      logger.debug(`Could not fetch project system prompt: ${projErr.message}`);
-    }
-  }
-
-  // Build system prompt: project prompt takes priority, fallback to company context
-  let systemPrompt = '';
-  if (projectSystemPrompt) {
-    systemPrompt = projectSystemPrompt;
-  } else {
-    // Fallback: company context
-    let companyContext = '';
-    try {
-      const contextResult = await database.query(
-        `SELECT content FROM company_context WHERE id = 1`
-      );
-      if (contextResult.rows.length > 0 && contextResult.rows[0].content) {
-        companyContext = contextResult.rows[0].content;
-      }
-    } catch (ctxErr) {
-      logger.warn(`Could not fetch company context: ${ctxErr.message}`);
-    }
-    if (companyContext) {
-      systemPrompt = `## Unternehmenskontext\n\n${companyContext}\n\nBitte beziehe diesen Kontext in deine Antworten ein, wenn relevant.`;
-    }
-  }
+  // Build layered system prompt (global base + AI profile + company context + project prompt)
+  const { buildSystemPrompt } = require('./systemPromptBuilder');
+  const systemPrompt = await buildSystemPrompt(database, job.conversation_id);
 
   // Context Management: Build optimized prompt within token budget
   const contextBudgetManager = require('../context/contextBudgetManager');

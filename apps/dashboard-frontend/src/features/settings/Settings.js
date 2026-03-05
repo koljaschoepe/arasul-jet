@@ -20,6 +20,7 @@ import {
   FiLogOut,
   FiSun,
   FiMoon,
+  FiUser,
 } from 'react-icons/fi';
 import UpdatePage from '../system/UpdatePage';
 import SelfHealingEvents from '../system/SelfHealingEvents';
@@ -42,10 +43,16 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
       description: 'System information and configuration',
     },
     {
+      id: 'ai-profile',
+      label: 'KI-Profil',
+      icon: <FiUser />,
+      description: 'Firmen- und KI-Verhalten konfigurieren',
+    },
+    {
       id: 'company-context',
       label: 'Unternehmenskontext',
       icon: <FiFileText />,
-      description: 'Globaler Kontext für RAG-Anfragen',
+      description: 'Globaler Kontext für alle KI-Anfragen',
     },
     {
       id: 'updates',
@@ -91,6 +98,12 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
         return (
           <ComponentErrorBoundary componentName="Allgemein">
             <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />
+          </ComponentErrorBoundary>
+        );
+      case 'ai-profile':
+        return (
+          <ComponentErrorBoundary componentName="KI-Profil">
+            <AIProfileSettings />
           </ComponentErrorBoundary>
         );
       case 'company-context':
@@ -198,6 +211,444 @@ function Settings({ handleLogout, theme, onToggleTheme }) {
   );
 }
 
+// AI Profile Settings Component
+const AI_INDUSTRIES = [
+  'IT & Software',
+  'Handel & E-Commerce',
+  'Produktion & Fertigung',
+  'Beratung & Dienstleistungen',
+  'Gesundheit & Medizin',
+];
+
+const AI_TEAM_SIZES = [
+  { label: '1-5', value: '5' },
+  { label: '6-20', value: '20' },
+  { label: '21-50', value: '50' },
+  { label: '51-200', value: '200' },
+  { label: '200+', value: '200+' },
+];
+
+function AIProfileSettings() {
+  const api = useApi();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  // Form fields
+  const [companyName, setCompanyName] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [customIndustry, setCustomIndustry] = useState('');
+  const [teamSize, setTeamSize] = useState('');
+  const [products, setProducts] = useState('');
+  const [answerLength, setAnswerLength] = useState('mittel');
+  const [formality, setFormality] = useState('normal');
+
+  // Track original state to detect changes
+  const [original, setOriginal] = useState(null);
+
+  const parseYaml = useCallback(yamlStr => {
+    if (!yamlStr) return {};
+    const data = {};
+    for (const line of yamlStr.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('- ') || !trimmed || trimmed.startsWith('#')) continue;
+      const colonIdx = trimmed.indexOf(':');
+      if (colonIdx > 0) {
+        const key = trimmed.substring(0, colonIdx).trim();
+        const val = trimmed
+          .substring(colonIdx + 1)
+          .trim()
+          .replace(/^["']|["']$/g, '');
+        data[key] = val;
+      }
+    }
+    // Parse produkte list
+    const lines = yamlStr.split('\n');
+    const produkteIdx = lines.findIndex(l => l.trim() === 'produkte:');
+    if (produkteIdx >= 0) {
+      const items = [];
+      for (let i = produkteIdx + 1; i < lines.length; i++) {
+        const l = lines[i].trim();
+        if (l.startsWith('- ')) {
+          items.push(l.substring(2).trim());
+        } else if (l && !l.startsWith('#')) {
+          break;
+        }
+      }
+      data._produkte = items;
+    }
+    // Parse praeferenzen
+    const praefIdx = lines.findIndex(l => l.trim() === 'praeferenzen:');
+    if (praefIdx >= 0) {
+      for (let i = praefIdx + 1; i < lines.length; i++) {
+        const l = lines[i].trim();
+        if (l.startsWith('antwortlaenge:')) {
+          data._antwortlaenge = l
+            .split(':')[1]
+            .trim()
+            .replace(/^["']|["']$/g, '');
+        } else if (l.startsWith('formalitaet:')) {
+          data._formalitaet = l
+            .split(':')[1]
+            .trim()
+            .replace(/^["']|["']$/g, '');
+        } else if (l && !l.startsWith('#') && !l.startsWith('-')) {
+          if (l.indexOf(':') > 0 && !l.startsWith(' ')) break;
+        }
+      }
+    }
+    return data;
+  }, []);
+
+  const fetchProfile = useCallback(
+    async signal => {
+      try {
+        const data = await api.get('/memory/profile', { signal, showError: false });
+        if (data.profile) {
+          const parsed = parseYaml(data.profile);
+          const firma = parsed.firma || '';
+          const branche = parsed.branche || '';
+          const team = parsed.mitarbeiter || '';
+          const prods = parsed._produkte ? parsed._produkte.join(', ') : '';
+          const aLen = parsed._antwortlaenge || 'mittel';
+          const form = parsed._formalitaet || 'normal';
+
+          setCompanyName(firma);
+          if (AI_INDUSTRIES.includes(branche)) {
+            setIndustry(branche);
+            setCustomIndustry('');
+          } else if (branche) {
+            setIndustry('custom');
+            setCustomIndustry(branche);
+          }
+          setTeamSize(team);
+          setProducts(prods);
+          setAnswerLength(aLen);
+          setFormality(form);
+          setOriginal({ firma, branche, team, prods, aLen, form });
+        } else {
+          setOriginal({
+            firma: '',
+            branche: '',
+            team: '',
+            prods: '',
+            aLen: 'mittel',
+            form: 'normal',
+          });
+        }
+      } catch (error) {
+        if (signal?.aborted) return;
+        console.error('Error fetching profile:', error);
+        setOriginal({
+          firma: '',
+          branche: '',
+          team: '',
+          prods: '',
+          aLen: 'mittel',
+          form: 'normal',
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [api, parseYaml]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchProfile(controller.signal);
+    return () => controller.abort();
+  }, [fetchProfile]);
+
+  const currentState = {
+    firma: companyName,
+    branche: industry === 'custom' ? customIndustry : industry,
+    team: teamSize,
+    prods: products,
+    aLen: answerLength,
+    form: formality,
+  };
+
+  const hasChanges =
+    original &&
+    (currentState.firma !== original.firma ||
+      currentState.branche !== original.branche ||
+      currentState.team !== original.team ||
+      currentState.prods !== original.prods ||
+      currentState.aLen !== original.aLen ||
+      currentState.form !== original.form);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const resolvedIndustry = industry === 'custom' ? customIndustry : industry;
+      const productList = products
+        .split(',')
+        .map(p => p.trim())
+        .filter(Boolean);
+
+      await api.post(
+        '/memory/profile',
+        {
+          companyName: companyName || 'Unbekannt',
+          industry: resolvedIndustry,
+          teamSize,
+          products: productList,
+          preferences: {
+            antwortlaenge: answerLength,
+            formalitaet: formality,
+          },
+        },
+        { showError: false }
+      );
+
+      setOriginal({ ...currentState });
+      setMessage({ type: 'success', text: 'KI-Profil erfolgreich gespeichert' });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error.data?.error || error.message || 'Fehler beim Speichern',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="settings-section">
+        <div className="settings-section-header">
+          <h1 className="settings-section-title">KI-Profil</h1>
+        </div>
+        <SkeletonCard hasAvatar={false} lines={4} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="settings-section">
+      <div className="settings-section-header">
+        <h1 className="settings-section-title">KI-Profil</h1>
+        <p className="settings-section-description">
+          Firmen- und KI-Verhalten konfigurieren. Diese Einstellungen werden automatisch bei jedem
+          Chat als Kontext mitgegeben.
+        </p>
+      </div>
+
+      <div className="settings-cards">
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <h3 className="settings-card-title">
+              <FiUser style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              Unternehmensprofil
+            </h3>
+            <p className="settings-card-description">
+              Grundlegende Informationen über Ihr Unternehmen
+            </p>
+          </div>
+          <div className="settings-card-body">
+            {message && (
+              <div className={`company-context-message ${message.type}`}>
+                {message.type === 'success' ? <FiCheck /> : <FiAlertCircle />}
+                <span>{message.text}</span>
+              </div>
+            )}
+
+            <div className="ai-profile-form">
+              {/* Firma */}
+              <div className="ai-profile-field">
+                <label className="ai-profile-label">Firmenname</label>
+                <input
+                  type="text"
+                  className="ai-profile-input"
+                  value={companyName}
+                  onChange={e => setCompanyName(e.target.value)}
+                  placeholder="z.B. Muster GmbH"
+                />
+              </div>
+
+              {/* Branche */}
+              <div className="ai-profile-field">
+                <label className="ai-profile-label">Branche</label>
+                <select
+                  className="ai-profile-select"
+                  value={industry}
+                  onChange={e => {
+                    setIndustry(e.target.value);
+                    if (e.target.value !== 'custom') setCustomIndustry('');
+                  }}
+                >
+                  <option value="">-- Bitte wählen --</option>
+                  {AI_INDUSTRIES.map(ind => (
+                    <option key={ind} value={ind}>
+                      {ind}
+                    </option>
+                  ))}
+                  <option value="custom">Sonstige...</option>
+                </select>
+                {industry === 'custom' && (
+                  <input
+                    type="text"
+                    className="ai-profile-input"
+                    style={{ marginTop: '0.5rem' }}
+                    value={customIndustry}
+                    onChange={e => setCustomIndustry(e.target.value)}
+                    placeholder="Ihre Branche eingeben..."
+                  />
+                )}
+              </div>
+
+              {/* Teamgröße */}
+              <div className="ai-profile-field">
+                <label className="ai-profile-label">Teamgröße</label>
+                <div className="ai-profile-radio-group">
+                  {AI_TEAM_SIZES.map(ts => (
+                    <label key={ts.value} className="ai-profile-radio-label">
+                      <input
+                        type="radio"
+                        name="teamSize"
+                        value={ts.value}
+                        checked={teamSize === ts.value}
+                        onChange={e => setTeamSize(e.target.value)}
+                      />
+                      <span className="ai-profile-radio-text">{ts.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Produkte */}
+              <div className="ai-profile-field">
+                <label className="ai-profile-label">
+                  Produkte & Services{' '}
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  className="ai-profile-input"
+                  value={products}
+                  onChange={e => setProducts(e.target.value)}
+                  placeholder="z.B. Webentwicklung, Cloud-Hosting, Beratung"
+                />
+                <span className="ai-profile-hint">Komma-getrennt eingeben</span>
+              </div>
+
+              {/* Antwortlänge */}
+              <div className="ai-profile-field">
+                <label className="ai-profile-label">Antwortlänge</label>
+                <div className="ai-profile-radio-group">
+                  {[
+                    { value: 'kurz', label: 'Kurz' },
+                    { value: 'mittel', label: 'Mittel' },
+                    { value: 'ausfuehrlich', label: 'Ausführlich' },
+                  ].map(opt => (
+                    <label key={opt.value} className="ai-profile-radio-label">
+                      <input
+                        type="radio"
+                        name="answerLength"
+                        value={opt.value}
+                        checked={answerLength === opt.value}
+                        onChange={e => setAnswerLength(e.target.value)}
+                      />
+                      <span className="ai-profile-radio-text">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Formalität */}
+              <div className="ai-profile-field">
+                <label className="ai-profile-label">Formalität</label>
+                <div className="ai-profile-radio-group">
+                  {[
+                    { value: 'formell', label: 'Formell' },
+                    { value: 'normal', label: 'Normal' },
+                    { value: 'locker', label: 'Locker' },
+                  ].map(opt => (
+                    <label key={opt.value} className="ai-profile-radio-label">
+                      <input
+                        type="radio"
+                        name="formality"
+                        value={opt.value}
+                        checked={formality === opt.value}
+                        onChange={e => setFormality(e.target.value)}
+                      />
+                      <span className="ai-profile-radio-text">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="company-context-footer">
+              <div className="company-context-meta">
+                {hasChanges && (
+                  <span className="company-context-unsaved">Ungespeicherte Änderungen</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className={`company-context-save-btn ${hasChanges ? 'has-changes' : ''}`}
+                onClick={handleSave}
+                disabled={saving || !hasChanges}
+              >
+                {saving ? (
+                  <>Speichern...</>
+                ) : (
+                  <>
+                    <FiSave />
+                    Speichern
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Card */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <h3 className="settings-card-title">Wie wird das Profil genutzt?</h3>
+          </div>
+          <div className="settings-card-body">
+            <div className="settings-about-features">
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon">1</div>
+                <div className="settings-feature-text">
+                  <strong>Automatischer Kontext</strong>
+                  <span>
+                    Diese Einstellungen werden bei jedem Chat automatisch an die KI übergeben
+                  </span>
+                </div>
+              </div>
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon">2</div>
+                <div className="settings-feature-text">
+                  <strong>Bessere Antworten</strong>
+                  <span>
+                    Die KI kennt Ihre Branche und passt Sprache und Detailgrad entsprechend an
+                  </span>
+                </div>
+              </div>
+              <div className="settings-feature-item">
+                <div className="settings-feature-icon">3</div>
+                <div className="settings-feature-text">
+                  <strong>Ergänzt Unternehmenskontext</strong>
+                  <span>
+                    Wird zusammen mit dem Unternehmenskontext und Projekt-Prompts kombiniert
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Company Context Settings Component (RAG 2.0)
 function CompanyContextSettings() {
   const api = useApi();
@@ -228,7 +679,7 @@ function CompanyContextSettings() {
 - [Besonderheit 2]
 
 ---
-*Diese Informationen werden bei jeder RAG-Anfrage als Hintergrundkontext bereitgestellt.*`;
+*Diese Informationen werden bei allen KI-Anfragen als Hintergrundkontext bereitgestellt.*`;
 
   const fetchContent = useCallback(
     async signal => {
@@ -292,7 +743,8 @@ function CompanyContextSettings() {
       <div className="settings-section-header">
         <h1 className="settings-section-title">Unternehmenskontext</h1>
         <p className="settings-section-description">
-          Dieser Text wird bei jeder RAG-Anfrage als Hintergrundkontext an die KI übergeben.
+          Dieser Text wird bei <strong>allen</strong> KI-Anfragen als Hintergrundkontext mitgegeben
+          (Chat und RAG).
         </p>
       </div>
 
