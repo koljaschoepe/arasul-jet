@@ -400,6 +400,20 @@ See [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md).
 
 ---
 
+## 8. Feature-Erweiterbarkeit (Multi-Device)
+
+Die Skalierungsarchitektur stellt sicher, dass neue Features automatisch auf allen Geraeten landen:
+
+- **Neuer Docker-Service**: In `compose/*.yaml` hinzufuegen. Wird automatisch gebaut/gepullt bei `docker compose up -d`.
+- **Neue DB-Migration**: SQL-Datei in `services/postgres/init/` ablegen. Wird beim naechsten frischen Setup angewendet. Fuer bestehende Geraete: Migration manuell oder via Update-Paket.
+- **Neue env-Variable**: In `.env.example` dokumentieren. In `preconfigure.sh` Default setzen. In der relevanten Compose-Datei referenzieren.
+- **Neues Frontend-Feature**: Normaler Build-Prozess. `docker compose up -d --build dashboard-frontend` aktualisiert.
+- **Pfad-Referenzen**: Immer `process.env.COMPOSE_PROJECT_DIR || '/opt/arasul'` verwenden. Nie `/home/arasul/...` hardcoden.
+
+Kein separater "Skalierungscode" noetig. `git pull && docker compose up -d --build` beinhaltet alle Aenderungen.
+
+---
+
 ## Related Documentation
 
 - [API_REFERENCE.md](API_REFERENCE.md) - Full endpoint reference

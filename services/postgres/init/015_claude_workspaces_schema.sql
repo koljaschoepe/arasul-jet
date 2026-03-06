@@ -64,13 +64,15 @@ CREATE TRIGGER trigger_claude_workspaces_updated_at
     EXECUTE FUNCTION update_claude_workspaces_updated_at();
 
 -- Insert default workspaces
+-- Paths use /opt/arasul as portable default. preconfigure.sh updates these
+-- with the actual COMPOSE_PROJECT_DIR at setup time.
 INSERT INTO claude_workspaces (name, slug, description, host_path, container_path, is_default, is_system)
 VALUES
     (
         'Arasul Projekt',
         'arasul',
         'Das Hauptprojekt dieser Plattform. Ideal zum Entwickeln und Anpassen der Arasul-Plattform.',
-        '/home/arasul/arasul/arasul-jet',
+        '/opt/arasul',
         '/workspace/arasul',
         TRUE,
         TRUE

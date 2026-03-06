@@ -5,7 +5,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_DIR="$SCRIPT_DIR/../services/mcp-remote-bash"
 PORT=${MCP_PORT:-3100}
-WORKSPACE=${WORKSPACE:-/home/arasul/arasul/arasul-jet}
+WORKSPACE=${WORKSPACE:-${COMPOSE_PROJECT_DIR:-/opt/arasul}}
 
 # Check if Python dependencies are installed
 if ! python3 -c "import flask" 2>/dev/null; then

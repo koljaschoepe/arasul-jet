@@ -11,8 +11,10 @@
 
 const request = require('supertest');
 
+const mockTransactionClient = { query: jest.fn() };
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
+  transaction: jest.fn(async (callback) => callback(mockTransactionClient)),
   initialize: jest.fn().mockResolvedValue(true),
   getPoolStats: jest.fn().mockReturnValue({ total: 10, idle: 5, waiting: 0 })
 }));
@@ -117,6 +119,7 @@ describe('Projects Routes', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTransactionClient.query.mockReset();
   });
 
   // ===========================================
@@ -412,23 +415,18 @@ describe('Projects Routes', () => {
     test('deletes project and reassigns conversations to default', async () => {
       const defaultProjectId = 'default-project-uuid';
       setupMocksWithAuth((query, params) => {
-        // Check if project exists
+        // Check if project exists (before transaction)
         if (query.includes('SELECT') && query.includes('is_default') && query.includes('WHERE id')) {
           return Promise.resolve({ rows: [{ id: mockProject.id, is_default: false }] });
         }
-        // Get default project
-        if (query.includes('SELECT') && query.includes('is_default = TRUE')) {
-          return Promise.resolve({ rows: [{ id: defaultProjectId }] });
-        }
-        // Reassign conversations
-        if (query.includes('UPDATE chat_conversations') && query.includes('project_id = $1')) {
-          return Promise.resolve({ rowCount: 2 });
-        }
-        if (query.includes('DELETE FROM projects')) {
-          return Promise.resolve({ rows: [{ id: mockProject.id }] });
-        }
         return Promise.resolve({ rows: [] });
       });
+
+      // Transaction client handles the atomic operations
+      mockTransactionClient.query
+        .mockResolvedValueOnce({ rows: [{ id: defaultProjectId }] })  // SELECT default project
+        .mockResolvedValueOnce({ rowCount: 2 })                       // UPDATE conversations
+        .mockResolvedValueOnce({ rows: [{ id: mockProject.id }] });   // DELETE project
 
       const res = await request(app)
         .delete(`/api/projects/${mockProject.id}`)
@@ -437,8 +435,10 @@ describe('Projects Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
 
-      // Verify conversations were reassigned to default project
-      const updateCall = db.query.mock.calls.find(
+      // Verify transaction was used
+      expect(db.transaction).toHaveBeenCalled();
+      // Verify conversations were reassigned inside transaction
+      const updateCall = mockTransactionClient.query.mock.calls.find(
         ([q]) => q.includes('UPDATE chat_conversations') && q.includes('project_id = $1')
       );
       expect(updateCall).toBeDefined();

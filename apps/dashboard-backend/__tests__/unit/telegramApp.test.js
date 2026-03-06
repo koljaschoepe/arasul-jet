@@ -36,6 +36,12 @@ jest.mock('../../src/services/websocketService', () => ({
   broadcast: jest.fn()
 }), { virtual: true });
 
+// Mock token crypto for decryptToken in /zero-config/complete
+jest.mock('../../src/utils/tokenCrypto', () => ({
+  encryptToken: jest.fn(token => `encrypted:${token}`),
+  decryptToken: jest.fn(encrypted => 'decrypted-bot-token')
+}));
+
 const db = require('../../src/database');
 const axios = require('axios');
 const { app } = require('../../src/server');
@@ -218,31 +224,40 @@ describe('Telegram App Routes', () => {
       });
     });
 
-    describe('POST /api/telegram-app/zero-config/chat-detected', () => {
-      test('should complete setup when chat is detected', async () => {
-        db.query.mockImplementation((query, params) => {
-          if (query.includes('SELECT') && query.includes('telegram_setup_sessions')) {
+    describe('POST /api/telegram-app/zero-config/complete', () => {
+      test('should complete setup when session is completed', async () => {
+        setupMocksWithAuth((query, params) => {
+          // Session lookup
+          if (query.includes('telegram_setup_sessions') && query.includes('completed')) {
             return Promise.resolve({
-              rows: [{ setup_token: 'test', status: 'waiting_start' }]
+              rows: [{
+                setup_token: 'test-token',
+                status: 'completed',
+                user_id: 1,
+                chat_id: '123456789',
+                bot_username: 'test_bot',
+                bot_token_encrypted: 'encrypted-token'
+              }]
             });
           }
-          if (query.includes('complete_telegram_setup')) {
+          // App configuration upsert
+          if (query.includes('app_configurations')) {
             return Promise.resolve({ rows: [] });
           }
           return Promise.resolve({ rows: [] });
         });
 
+        // Mock Telegram API call (sendMessage)
+        axios.post.mockResolvedValueOnce({ data: { ok: true } });
+
         const response = await request(app)
-          .post('/api/telegram-app/zero-config/chat-detected')
-          .send({
-            setupToken: 'test-token',
-            chatId: '123456789',
-            username: 'testuser',
-            firstName: 'Test'
-          });
+          .post('/api/telegram-app/zero-config/complete')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ setupToken: 'test-token' });
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
+        expect(response.body.chatId).toBe('123456789');
       });
     });
   });

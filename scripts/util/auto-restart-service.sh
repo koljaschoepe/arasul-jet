@@ -39,7 +39,8 @@ if [ -z "$FILE_PATH" ]; then
 fi
 
 # Normalize path - extract relative path from project root
-FILE_PATH=$(echo "$FILE_PATH" | sed 's|.*/arasul-jet/||' | sed 's|^/home/arasul/arasul/arasul-jet/||')
+PROJECT_DIR="${COMPOSE_PROJECT_DIR:-/opt/arasul}"
+FILE_PATH=$(echo "$FILE_PATH" | sed "s|.*arasul-jet/||" | sed "s|^${PROJECT_DIR}/||")
 
 # =============================================================================
 # File Pattern Exclusions - Don't restart for these
@@ -174,7 +175,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] Restarting $SERVICE (changed: $FILE_PATH)" 
 
 # Restart the service in background (don't block Claude)
 (
-    cd /home/arasul/arasul/arasul-jet
+    cd "${COMPOSE_PROJECT_DIR:-/opt/arasul}"
     docker compose restart "$SERVICE" >/dev/null 2>&1
 ) &
 

@@ -5,6 +5,7 @@
  */
 
 const fs = require('fs').promises;
+const path = require('path');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 
@@ -168,9 +169,11 @@ async function getClaudeWorkspaceVolumes() {
   } catch (err) {
     // If table doesn't exist yet, return default volumes
     logger.warn(`Could not load workspace volumes: ${err.message}. Using defaults.`);
+    const projectDir = process.env.COMPOSE_PROJECT_DIR || '/opt/arasul';
+    const homeDir = require('os').homedir();
     return [
-      { hostPath: '/home/arasul/arasul/arasul-jet', containerPath: '/workspace/arasul' },
-      { hostPath: '/home/arasul/workspace', containerPath: '/workspace/custom' },
+      { hostPath: projectDir, containerPath: '/workspace/arasul' },
+      { hostPath: path.join(homeDir, 'workspace'), containerPath: '/workspace/custom' },
     ];
   }
 }
@@ -227,7 +230,8 @@ async function getN8nCredentials(appId) {
       },
     },
     command: manifest.n8nIntegration.command || null,
-    workingDirectory: manifest.n8nIntegration.workingDirectory || '/home/arasul/arasul/arasul-jet',
+    workingDirectory:
+      manifest.n8nIntegration.workingDirectory || process.env.COMPOSE_PROJECT_DIR || '/opt/arasul',
     instructions: [
       'Öffne n8n (Port 5678 oder /n8n)',
       'Gehe zu Credentials → Add Credential → SSH',
@@ -238,7 +242,7 @@ async function getN8nCredentials(appId) {
     ],
     exampleCommand:
       manifest.n8nIntegration.exampleCommand ||
-      'cd /home/arasul/arasul/arasul-jet && echo "Dein Prompt hier" | /home/arasul/.local/bin/claude -p --dangerously-skip-permissions',
+      `cd ${process.env.COMPOSE_PROJECT_DIR || '/opt/arasul'} && echo "Dein Prompt hier" | ${process.env.CLAUDE_CLI_PATH || 'claude'} -p --dangerously-skip-permissions`,
   };
 }
 

@@ -70,7 +70,7 @@ async function restartService(serviceName) {
     throw new Error(`Service '${serviceName}' is not allowed to be restarted`);
   }
 
-  const composeDir = process.env.COMPOSE_PROJECT_DIR || '/home/arasul/arasul/arasul-jet';
+  const composeDir = process.env.COMPOSE_PROJECT_DIR || '/opt/arasul';
 
   try {
     logger.info(`Restarting service: ${serviceName}`);

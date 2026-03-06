@@ -154,11 +154,12 @@ describe('LLMJobService (Legacy)', () => {
 
     describe('errorJob()', () => {
         test('markiert Job als fehlerhaft', async () => {
-            mockDb.query.mockResolvedValue({ rows: [] });
+            mockDb._mockClient.query.mockResolvedValue({ rows: [] });
 
             await service.errorJob('job-123', 'Connection timeout');
 
-            expect(mockDb.query).toHaveBeenCalledWith(
+            expect(mockDb.transaction).toHaveBeenCalled();
+            expect(mockDb._mockClient.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'error'"),
                 expect.arrayContaining(['job-123', 'Connection timeout'])
             );
@@ -186,11 +187,12 @@ describe('LLMJobService (Legacy)', () => {
 
     describe('cancelJob()', () => {
         test('cancelled Job und aktualisiert Message', async () => {
-            mockDb.query.mockResolvedValue({ rows: [] });
+            mockDb._mockClient.query.mockResolvedValue({ rows: [] });
 
             await service.cancelJob('job-123');
 
-            expect(mockDb.query).toHaveBeenCalledWith(
+            expect(mockDb.transaction).toHaveBeenCalled();
+            expect(mockDb._mockClient.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'cancelled'"),
                 expect.arrayContaining(['job-123'])
             );

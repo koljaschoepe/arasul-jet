@@ -52,7 +52,7 @@ function WorkspaceManager({
   const toast = useToast();
   const { confirm: showConfirm, ConfirmDialog: WorkspaceConfirmDialog } = useConfirm();
   const [newName, setNewName] = useState('');
-  const [newPath, setNewPath] = useState('/home/arasul/');
+  const [newPath, setNewPath] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
@@ -82,7 +82,7 @@ function WorkspaceManager({
       onWorkspaceCreated(data.workspace);
       toast.success('Workspace erstellt');
       setNewName('');
-      setNewPath('/home/arasul/');
+      setNewPath('');
       setNewDescription('');
       setShowCreateForm(false);
     } catch (err) {
@@ -205,7 +205,7 @@ function WorkspaceManager({
               type="text"
               value={newPath}
               onChange={e => setNewPath(e.target.value)}
-              placeholder="/home/arasul/mein-projekt"
+              placeholder="/opt/arasul/mein-projekt"
               required
             />
             <span className="form-hint">
@@ -586,7 +586,7 @@ function ClaudeCode() {
             name: 'Arasul Projekt',
             slug: 'arasul',
             description: 'Das Hauptprojekt dieser Plattform',
-            host_path: '/home/arasul/arasul/arasul-jet',
+            host_path: '/opt/arasul',
             container_path: '/workspace/arasul',
             is_default: true,
             is_system: true,
@@ -596,7 +596,7 @@ function ClaudeCode() {
             name: 'Eigener Workspace',
             slug: 'custom',
             description: 'Dein persönliches Verzeichnis',
-            host_path: '/home/arasul/workspace',
+            host_path: '/home/user/workspace',
             container_path: '/workspace/custom',
             is_default: false,
             is_system: false,

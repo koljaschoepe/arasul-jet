@@ -28,8 +28,26 @@ jest.mock('../../src/utils/logger', () => ({
   debug: jest.fn()
 }));
 
-// Mock axios for external service calls
+// Mock axios for external service calls (spellcheck, etc.)
 jest.mock('axios');
+
+// Mock ragCore - isolates route tests from internal ragCore axios calls
+jest.mock('../../src/services/rag/ragCore', () => ({
+  getEmbedding: jest.fn().mockResolvedValue(new Array(768).fill(0.1)),
+  getEmbeddings: jest.fn().mockResolvedValue([]),
+  getSparseVector: jest.fn().mockResolvedValue({ indices: [], values: [] }),
+  getCompanyContext: jest.fn().mockResolvedValue(''),
+  cosineSimilarity: jest.fn().mockReturnValue(0.5),
+  routeToSpaces: jest.fn().mockResolvedValue({ spaces: [], method: 'none' }),
+  buildSpaceFilter: jest.fn().mockReturnValue(null),
+  hybridSearch: jest.fn().mockResolvedValue([]),
+  rerankResults: jest.fn().mockResolvedValue([]),
+  filterByRelevance: jest.fn().mockImplementation((results) => ({ relevant: results, filtered: [] })),
+  graphEnrichedRetrieval: jest.fn().mockResolvedValue({ graphContext: '', graphEntities: [] }),
+  getParentChunks: jest.fn().mockResolvedValue([]),
+  buildHierarchicalContext: jest.fn().mockReturnValue('No documents found.'),
+  ENABLE_RERANKING: false,
+}));
 
 // Mock query optimizer (RAG 3.0)
 jest.mock('../../src/services/context/queryOptimizer', () => ({
@@ -63,6 +81,7 @@ jest.mock('../../src/services/llm/llmQueueService', () => ({
 
 const db = require('../../src/database');
 const axios = require('axios');
+const ragCore = require('../../src/services/rag/ragCore');
 const llmJobService = require('../../src/services/llm/llmJobService');
 const llmQueueService = require('../../src/services/llm/llmQueueService');
 const { app } = require('../../src/server');
@@ -163,6 +182,18 @@ describe('RAG Routes', () => {
     db.query.mockReset();
     axios.get.mockReset();
     axios.post.mockReset();
+    // Reset ragCore mocks to defaults
+    ragCore.getEmbedding.mockResolvedValue(new Array(768).fill(0.1));
+    ragCore.getEmbeddings.mockResolvedValue([]);
+    ragCore.getCompanyContext.mockResolvedValue('');
+    ragCore.routeToSpaces.mockResolvedValue({ spaces: [], method: 'none' });
+    ragCore.buildSpaceFilter.mockReturnValue(null);
+    ragCore.hybridSearch.mockResolvedValue([]);
+    ragCore.rerankResults.mockResolvedValue([]);
+    ragCore.filterByRelevance.mockImplementation((results) => ({ relevant: results, filtered: [] }));
+    ragCore.buildHierarchicalContext.mockReturnValue('No documents found.');
+    ragCore.graphEnrichedRetrieval.mockResolvedValue({ graphContext: '', graphEntities: [] });
+    ragCore.getParentChunks.mockResolvedValue([]);
     llmJobService.createJob.mockReset();
     llmJobService.updateJobContent.mockReset();
     llmJobService.completeJob.mockReset();
@@ -224,8 +255,10 @@ describe('RAG Routes', () => {
       const token = getAuthToken();
       setupAuthMocks(db);
 
-      // Mock embedding service failure
-      axios.post.mockRejectedValueOnce(new Error('Embedding service down'));
+      // Mock spellcheck (silent fail is OK)
+      axios.post.mockRejectedValueOnce(new Error('Spellcheck down'));
+      // Mock ragCore embedding failure
+      ragCore.getEmbedding.mockRejectedValueOnce(new Error('Embedding service down'));
 
       const response = await request(app)
         .post('/api/rag/query')
@@ -244,18 +277,13 @@ describe('RAG Routes', () => {
         keywordResults: []
       });
 
-      // Mock embedding generation (getEmbedding)
-      axios.post.mockResolvedValueOnce({
-        data: { vectors: [new Array(768).fill(0.1)] }
-      });
+      // Spellcheck (fails silently)
+      axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
 
-      // Mock Qdrant vector search - empty results
-      axios.post.mockResolvedValueOnce({ data: { result: [] } });
+      // ragCore mocks already return empty results by default
+      // hybridSearch returns [], rerankResults returns [], etc.
 
-      // Mock BM25 search (via document-indexer)
-      axios.post.mockResolvedValueOnce({ data: { results: [] } });
-
-      // Mock job creation
+      // Mock job creation for "no documents" path
       llmJobService.createJob.mockResolvedValueOnce({
         jobId: 'job-123',
         messageId: 'msg-123'
@@ -268,20 +296,14 @@ describe('RAG Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ query: 'test query', conversation_id: 1 });
 
-      // Debug: Check for auth failures first
-      if (response.status === 401) {
-        console.log('Auth failed:', response.body);
-      }
       expect(response.status).not.toBe(401);
 
-      // Should be SSE response (or JSON if error)
-      // The endpoint returns SSE for successful queries
-      if (response.headers['content-type'].includes('text/event-stream')) {
+      // Should be SSE response with no-documents message
+      if (response.headers['content-type'] && response.headers['content-type'].includes('text/event-stream')) {
         expect(response.text).toContain('job_started');
         expect(response.text).toContain('keine relevanten Dokumente');
         expect(response.text).toContain('done');
       } else {
-        // Check for error response
         expect(response.status).toBe(200);
       }
     });
@@ -294,48 +316,26 @@ describe('RAG Routes', () => {
         keywordResults: []
       });
 
-      // Mock embedding generation (getEmbedding)
-      axios.post.mockResolvedValueOnce({
-        data: { vectors: [new Array(768).fill(0.1)] }
-      });
+      // Spellcheck (fails silently)
+      axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
 
-      // Mock Qdrant vector search - documents found
-      axios.post.mockResolvedValueOnce({
-        data: {
-          result: [
-            {
-              id: 'chunk-1',
-              score: 0.95,
-              payload: {
-                document_id: 'doc-1',
-                document_name: 'test.pdf',
-                chunk_index: 0,
-                text: 'This is test content from the document.',
-                space_id: null,
-                space_name: null
-              }
-            }
-          ]
+      // ragCore mocks: return documents found
+      ragCore.getCompanyContext.mockResolvedValueOnce('Wir sind eine Test-Firma');
+      const mockSearchResult = {
+        id: 'chunk-1',
+        score: 0.95,
+        payload: {
+          document_id: 'doc-1',
+          document_name: 'test.pdf',
+          chunk_index: 0,
+          text: 'This is test content from the document.',
+          space_id: null,
+          space_name: null
         }
-      });
-
-      // Mock BM25 search (via document-indexer)
-      axios.post.mockResolvedValueOnce({ data: { results: [] } });
-
-      // Mock reranker (returns same results with rerank scores)
-      axios.post.mockResolvedValueOnce({
-        data: {
-          results: [
-            {
-              id: 'chunk-1',
-              text: 'This is test content from the document.',
-              rerank_score: 0.92,
-              stage1_score: 0.88,
-              stage2_score: 0.92
-            }
-          ]
-        }
-      });
+      };
+      ragCore.hybridSearch.mockResolvedValueOnce([mockSearchResult]);
+      ragCore.rerankResults.mockResolvedValueOnce([mockSearchResult]);
+      ragCore.buildHierarchicalContext.mockReturnValueOnce('Context with documents.');
 
       // Mock queue enqueue
       llmQueueService.enqueue.mockResolvedValueOnce({
@@ -346,7 +346,6 @@ describe('RAG Routes', () => {
 
       // Mock subscribe to job
       llmQueueService.subscribeToJob.mockImplementation((jobId, callback) => {
-        // Simulate job completion
         setTimeout(() => {
           callback({ type: 'response', token: 'Test response' });
           callback({ done: true });
@@ -363,16 +362,14 @@ describe('RAG Routes', () => {
           top_k: 3
         });
 
-      // Debug: Check for auth failures first
       expect(response.status).not.toBe(401);
 
       // Should be SSE response
-      if (response.headers['content-type'].includes('text/event-stream')) {
+      if (response.headers['content-type'] && response.headers['content-type'].includes('text/event-stream')) {
         expect(response.text).toContain('job_started');
         expect(response.text).toContain('sources');
-        expect(response.text).toContain('matched_spaces');
+        expect(response.text).toContain('matchedSpaces');
       } else {
-        // If not SSE, the test should still pass if no error
         expect(response.status).toBe(200);
       }
     });
@@ -391,16 +388,10 @@ describe('RAG Routes', () => {
         keywordResults: []
       });
 
-      // Mock embedding generation (getEmbedding)
-      axios.post.mockResolvedValueOnce({
-        data: { vectors: [new Array(768).fill(0.1)] }
-      });
+      // Spellcheck (fails silently)
+      axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
 
-      // Mock Qdrant vector search with space filter
-      axios.post.mockResolvedValueOnce({ data: { result: [] } });
-
-      // Mock BM25 search
-      axios.post.mockResolvedValueOnce({ data: { results: [] } });
+      // ragCore mocks return empty by default (no documents)
 
       // Mock job creation for no results
       llmJobService.createJob.mockResolvedValueOnce({
@@ -419,9 +410,9 @@ describe('RAG Routes', () => {
           space_ids: ['space-1']
         });
 
-      // Verify space query was made (WHERE id = ANY($1::uuid[]))
+      // Verify space query was made via db.query (WHERE id = ANY($1::uuid[]))
       const spaceCalls = db.query.mock.calls.filter(call =>
-        call[0].includes('knowledge_spaces')
+        call[0] && call[0].includes('knowledge_spaces')
       );
       expect(spaceCalls.length).toBeGreaterThan(0);
     });
@@ -434,13 +425,8 @@ describe('RAG Routes', () => {
         keywordResults: []
       });
 
-      // Mock embedding
-      axios.post.mockResolvedValueOnce({
-        data: { vectors: [new Array(768).fill(0.1)] }
-      });
-
-      // Mock search
-      axios.post.mockResolvedValueOnce({ data: { result: [] } });
+      // Spellcheck (fails silently)
+      axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
 
       llmJobService.createJob.mockResolvedValueOnce({
         jobId: 'job-123',
@@ -458,11 +444,8 @@ describe('RAG Routes', () => {
           auto_routing: false
         });
 
-      // Should not query for spaces with description_embedding (auto-routing)
-      const spacesQueryCalls = db.query.mock.calls.filter(call =>
-        call[0].includes('knowledge_spaces') && call[0].includes('description_embedding')
-      );
-      expect(spacesQueryCalls.length).toBe(0);
+      // When auto_routing is false, routeToSpaces should NOT be called
+      expect(ragCore.routeToSpaces).not.toHaveBeenCalled();
     });
 
     // Skip: Complex mock setup issue with axios.post sequence
@@ -587,52 +570,26 @@ describe('RAG Routes', () => {
         keywordResults: []
       });
 
-      // Mock embedding generation (getEmbedding)
-      axios.post.mockResolvedValueOnce({
-        data: { vectors: [new Array(768).fill(0.1)] }
-      });
+      // Spellcheck (fails silently)
+      axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
 
-      // Mock Qdrant vector search results
-      axios.post.mockResolvedValueOnce({
-        data: {
-          result: [
-            {
-              id: 'chunk-1',
-              score: 0.9,
-              payload: {
-                document_id: 'doc-1',
-                document_name: 'test1.pdf',
-                chunk_index: 0,
-                text: 'Vector match content'
-              }
-            }
-          ]
+      // ragCore mocks: return documents via hybrid search
+      const mockResult = {
+        id: 'chunk-1',
+        score: 0.9,
+        payload: {
+          document_id: 'doc-1',
+          document_name: 'test1.pdf',
+          chunk_index: 0,
+          text: 'Vector match content',
+          space_id: null,
+          space_name: null
         }
-      });
-
-      // Mock BM25 search (via document-indexer)
-      axios.post.mockResolvedValueOnce({
-        data: {
-          results: [
-            { chunk_id: 'chunk-2', score: 0.8 }
-          ]
-        }
-      });
-
-      // Mock reranker
-      axios.post.mockResolvedValueOnce({
-        data: {
-          results: [
-            {
-              id: 'chunk-1',
-              text: 'Vector match content',
-              rerank_score: 0.92,
-              stage1_score: 0.88,
-              stage2_score: 0.92
-            }
-          ]
-        }
-      });
+      };
+      ragCore.hybridSearch.mockResolvedValueOnce([mockResult]);
+      ragCore.rerankResults.mockResolvedValueOnce([mockResult]);
+      ragCore.filterByRelevance.mockReturnValueOnce({ relevant: [mockResult], filtered: [] });
+      ragCore.buildHierarchicalContext.mockReturnValueOnce('Context from hybrid search.');
 
       llmQueueService.enqueue.mockResolvedValueOnce({
         jobId: 'job-123',
@@ -650,14 +607,12 @@ describe('RAG Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ query: 'test query', conversation_id: 1 });
 
-      // Debug: Check for auth failures first
       expect(response.status).not.toBe(401);
 
       // Should contain sources in the response
-      if (response.headers['content-type'].includes('text/event-stream')) {
+      if (response.headers['content-type'] && response.headers['content-type'].includes('text/event-stream')) {
         expect(response.text).toContain('sources');
       } else {
-        // If JSON error, make sure it's not a failure
         expect(response.status).toBe(200);
       }
     });

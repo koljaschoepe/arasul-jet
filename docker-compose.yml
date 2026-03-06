@@ -1,5 +1,6 @@
 # Arasul Platform - Docker Compose
 # ==============================================================================
+name: arasul-platform
 # Startup Order (enforced by depends_on in each compose file):
 #   1. postgres-db, minio          (compose.core.yaml)
 #   2. qdrant, llm-service,        (compose.ai.yaml)

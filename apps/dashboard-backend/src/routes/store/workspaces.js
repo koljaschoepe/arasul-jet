@@ -115,7 +115,9 @@ router.post(
     }
 
     // Validate host path - must be absolute and start with allowed prefixes
-    const allowedPrefixes = ['/home/arasul/', '/workspace/', '/tmp/'];
+    const homeDir = require('os').homedir();
+    const projectDir = process.env.COMPOSE_PROJECT_DIR || '/opt/arasul';
+    const allowedPrefixes = [homeDir + '/', projectDir + '/', '/workspace/', '/tmp/'];
     const normalizedPath = path.normalize(hostPath);
 
     if (!path.isAbsolute(normalizedPath)) {

@@ -4,15 +4,23 @@
 # Prepares a fresh Jetson device for first customer deployment.
 # This script is IDEMPOTENT - safe to run multiple times.
 #
-# What it does:
+# What it does (15 steps):
+#   0. (--full only) Install OS packages, Docker, NVIDIA runtime
 #   1. Detect Jetson hardware and apply device-specific config
 #   2. Generate .env with secure random credentials
-#   3. Generate SSH keys (if not present)
-#   4. Generate self-signed TLS certificate (if not present)
-#   5. Create required directories
-#   6. Pull Docker images
-#   7. Initialize database
-#   8. Pre-load default Ollama model
+#   3. Create required directories
+#   4. Generate SSH keys (if not present)
+#   5. Generate self-signed TLS certificate (if not present)
+#   6. Generate Traefik Basic Auth credentials
+#   7. Pull/build Docker images
+#   8. Initialize database
+#   9. Pre-load default Ollama model
+#  10. Install development tools (jq, rg, tmux)
+#  11. Git configuration
+#  12. mDNS (arasul.local) setup
+#  13. Device identity and configuration layers
+#  14. Shell aliases
+#  15. systemd auto-start service
 #
 # Usage:
 #   ./scripts/preconfigure.sh [--skip-pull] [--skip-model] [--skip-tools]
@@ -40,9 +48,11 @@ SKIP_TOOLS=false
 SKIP_GIT=false
 SKIP_MDNS=false
 SKIP_DEVENV=false
+FULL_MODE=false
 
 for arg in "$@"; do
   case "$arg" in
+    --full)        FULL_MODE=true ;;
     --skip-pull)   SKIP_PULL=true ;;
     --skip-model)  SKIP_MODEL=true ;;
     --skip-tools)  SKIP_TOOLS=true ;;
@@ -53,6 +63,7 @@ for arg in "$@"; do
       echo "Usage: $0 [OPTIONS]"
       echo ""
       echo "Options:"
+      echo "  --full         Full provisioning (install OS packages, Docker, NVIDIA runtime)"
       echo "  --skip-pull    Skip Docker image pulling"
       echo "  --skip-model   Skip Ollama model download"
       echo "  --skip-tools   Skip system tools installation (jq, rg, tmux)"
@@ -71,7 +82,7 @@ log_warn()    { echo -e "  ${YELLOW}⚠${NC} $1"; }
 log_error()   { echo -e "  ${RED}✗${NC} $1"; }
 log_skip()    { echo -e "  ${YELLOW}→${NC} Übersprungen: $1"; }
 
-TOTAL_STEPS=13
+TOTAL_STEPS=15
 
 ###############################################################################
 # Helper functions
@@ -95,6 +106,45 @@ echo -e "${BLUE}${BOLD}    ARASUL PLATFORM - Vorkonfiguration${NC}"
 echo -e "${BLUE}${BOLD}════════════════════════════════════════════════${NC}"
 echo -e "  Zeitstempel: $(date -Iseconds)"
 echo -e "  Verzeichnis: ${PROJECT_ROOT}\n"
+
+###############################################################################
+# Step 0 (--full only): Install OS-level packages
+###############################################################################
+if [ "$FULL_MODE" = true ]; then
+  echo -e "\n${BLUE}${BOLD}[0/$TOTAL_STEPS]${NC} ${BOLD}OS-Pakete installieren (--full Modus)${NC}"
+
+  if [ "$(id -u)" -ne 0 ] && ! sudo -n true 2>/dev/null; then
+    log_error "--full benoetigt sudo-Zugriff ohne Passwort"
+    exit 1
+  fi
+
+  # Core packages
+  log_info "Installiere System-Pakete..."
+  sudo apt-get update -qq >/dev/null 2>&1
+  sudo apt-get install -y -qq \
+    docker.io docker-compose-plugin \
+    avahi-daemon avahi-utils libnss-mdns \
+    jq openssl curl apache2-utils \
+    >/dev/null 2>&1 && log_info "System-Pakete installiert" || log_warn "Einige Pakete fehlgeschlagen"
+
+  # NVIDIA Container Runtime (if nvidia-ctk available)
+  if command -v nvidia-ctk >/dev/null 2>&1; then
+    sudo nvidia-ctk runtime configure --runtime=docker --set-as-default 2>/dev/null && \
+      log_info "NVIDIA Container Runtime als Default konfiguriert" || \
+      log_warn "NVIDIA Runtime-Konfiguration fehlgeschlagen"
+    sudo systemctl restart docker 2>/dev/null || true
+  else
+    log_warn "nvidia-ctk nicht gefunden, NVIDIA Runtime uebersprungen"
+  fi
+
+  # Ensure current user is in docker group
+  if ! groups | grep -q docker; then
+    sudo usermod -aG docker "$(whoami)" 2>/dev/null && \
+      log_info "User zur docker-Gruppe hinzugefuegt (Neulogin erforderlich)" || true
+  fi
+else
+  echo -e "\n  ${YELLOW}→${NC} OS-Pakete uebersprungen (nutze --full fuer vollstaendige Provisionierung)"
+fi
 
 ###############################################################################
 # Step 1: Detect hardware
@@ -171,6 +221,9 @@ MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 N8N_BASIC_AUTH_USER=admin
 N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
 N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+
+# Project
+COMPOSE_PROJECT_DIR=${PROJECT_ROOT}
 
 # LLM
 LLM_HOST=llm-service
@@ -278,9 +331,40 @@ else
 fi
 
 ###############################################################################
-# Step 6: Pull Docker images
+# Step 6: Generate Traefik Basic Auth credentials
 ###############################################################################
-log_step 6 "Docker-Images vorbereiten"
+log_step 6 "Traefik-Authentifizierung generieren"
+
+MIDDLEWARES_FILE="${PROJECT_ROOT}/config/traefik/dynamic/middlewares.yml"
+if [ -f "$MIDDLEWARES_FILE" ] && grep -q "PLACEHOLDER" "$MIDDLEWARES_FILE" 2>/dev/null; then
+  # Use ADMIN_PASSWORD from .env if available (new install), else generate fresh
+  if [ -z "${ADMIN_PASSWORD:-}" ] && [ -f "$ENV_FILE" ]; then
+    ADMIN_PASSWORD=$(grep "^ADMIN_PASSWORD=" "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
+  fi
+
+  if [ -n "${ADMIN_PASSWORD:-}" ] && command -v htpasswd >/dev/null 2>&1; then
+    # Generate bcrypt hash and escape $ for YAML
+    TRAEFIK_HASH=$(htpasswd -nbB admin "$ADMIN_PASSWORD" | sed 's/\$/\$\$/g')
+    # Replace both PLACEHOLDER lines
+    sed -i "s|'admin:\$apr1\$PLACEHOLDER\$REPLACE_WITH_GENERATED_HASH'|'${TRAEFIK_HASH}'|" "$MIDDLEWARES_FILE"
+    sed -i "s|'admin:\$\$2y\$\$05\$\$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH'|'${TRAEFIK_HASH}'|" "$MIDDLEWARES_FILE"
+    log_info "Traefik Basic Auth generiert (Admin-Passwort)"
+  else
+    log_warn "htpasswd nicht installiert oder kein Admin-Passwort verfuegbar"
+    log_warn "Traefik PLACEHOLDER-Hashes muessen manuell ersetzt werden"
+  fi
+else
+  if [ -f "$MIDDLEWARES_FILE" ]; then
+    log_info "Traefik-Authentifizierung bereits konfiguriert"
+  else
+    log_warn "middlewares.yml nicht gefunden, ueberspringe Traefik-Auth"
+  fi
+fi
+
+###############################################################################
+# Step 7: Pull Docker images
+###############################################################################
+log_step 7 "Docker-Images vorbereiten"
 
 if [ "$SKIP_PULL" = true ]; then
   log_skip "Docker-Pull übersprungen (--skip-pull)"
@@ -304,9 +388,9 @@ else
 fi
 
 ###############################################################################
-# Step 7: Initialize database
+# Step 8: Initialize database
 ###############################################################################
-log_step 7 "Datenbank initialisieren"
+log_step 8 "Datenbank initialisieren"
 
 if command -v docker >/dev/null 2>&1; then
   cd "$PROJECT_ROOT"
@@ -337,9 +421,9 @@ else
 fi
 
 ###############################################################################
-# Step 8: Pre-load Ollama model
+# Step 9: Pre-load Ollama model
 ###############################################################################
-log_step 8 "KI-Modell vorladen"
+log_step 9 "KI-Modell vorladen"
 
 if [ "$SKIP_MODEL" = true ]; then
   log_skip "Modell-Download übersprungen (--skip-model)"
@@ -385,9 +469,9 @@ else
 fi
 
 ###############################################################################
-# Step 9: Install development tools
+# Step 10: Install development tools
 ###############################################################################
-log_step 9 "Entwicklungswerkzeuge installieren"
+log_step 10 "Entwicklungswerkzeuge installieren"
 
 if [ "$SKIP_TOOLS" = true ]; then
   log_skip "Tool-Installation übersprungen (--skip-tools)"
@@ -437,9 +521,9 @@ else
 fi
 
 ###############################################################################
-# Step 10: Git configuration
+# Step 11: Git configuration
 ###############################################################################
-log_step 10 "Git-Konfiguration einrichten"
+log_step 11 "Git-Konfiguration einrichten"
 
 if [ "$SKIP_GIT" = true ]; then
   log_skip "Git-Konfiguration übersprungen (--skip-git)"
@@ -520,9 +604,9 @@ else
 fi
 
 ###############################################################################
-# Step 11: mDNS (arasul.local) configuration
+# Step 12: mDNS (arasul.local) configuration
 ###############################################################################
-log_step 11 "mDNS (arasul.local) konfigurieren"
+log_step 12 "mDNS (arasul.local) konfigurieren"
 
 if [ "$SKIP_MDNS" = true ]; then
   log_skip "mDNS-Setup übersprungen (--skip-mdns)"
@@ -545,9 +629,9 @@ else
 fi
 
 ###############################################################################
-# Step 12: Device identity and configuration layers
+# Step 13: Device identity and configuration layers
 ###############################################################################
-log_step 12 "Geräte-ID und Konfigurationsebenen"
+log_step 13 "Geräte-ID und Konfigurationsebenen"
 
 # Create config layer directories
 mkdir -p "${PROJECT_ROOT}/config/base"
@@ -614,9 +698,9 @@ else
 fi
 
 ###############################################################################
-# Step 13: Shell aliases
+# Step 14: Shell aliases
 ###############################################################################
-log_step 13 "Shell-Aliase konfigurieren"
+log_step 14 "Shell-Aliase konfigurieren"
 
 if [ "$SKIP_DEVENV" = true ]; then
   log_skip "Shell-Aliase übersprungen (--skip-devenv)"
@@ -638,6 +722,42 @@ else
     fi
   else
     log_warn "Alias-Template nicht gefunden: $ALIASES_SRC"
+  fi
+fi
+
+###############################################################################
+# Step 15: systemd service for auto-start after reboot
+###############################################################################
+log_step 15 "Autostart-Service einrichten"
+
+SYSTEMD_SERVICE="/etc/systemd/system/arasul.service"
+if [ -f "$SYSTEMD_SERVICE" ]; then
+  log_info "systemd-Service existiert bereits"
+else
+  if sudo -n true 2>/dev/null; then
+    CURRENT_USER=$(whoami)
+    sudo tee "$SYSTEMD_SERVICE" > /dev/null << EOF
+[Unit]
+Description=Arasul Platform
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=${PROJECT_ROOT}
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+User=${CURRENT_USER}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable arasul.service >/dev/null 2>&1
+    log_info "systemd-Service erstellt und aktiviert (Autostart nach Reboot)"
+  else
+    log_warn "Kein sudo-Zugriff. Manuell einrichten: sudo systemctl enable arasul"
   fi
 fi
 

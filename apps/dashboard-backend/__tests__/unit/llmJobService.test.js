@@ -210,11 +210,12 @@ describe('LLMJobService (DI)', () => {
     // =====================================================
     describe('errorJob()', () => {
         test('should mark job as errored with message', async () => {
-            mockDatabase.query.mockResolvedValue({ rows: [] });
+            mockClient.query.mockResolvedValue({ rows: [] });
 
             await service.errorJob('job-123', 'Connection timeout');
 
-            expect(mockDatabase.query).toHaveBeenCalledWith(
+            expect(mockDatabase.transaction).toHaveBeenCalled();
+            expect(mockClient.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'error'"),
                 expect.arrayContaining(['job-123', 'Connection timeout'])
             );
@@ -224,12 +225,12 @@ describe('LLMJobService (DI)', () => {
         });
 
         test('should update associated message status', async () => {
-            mockDatabase.query.mockResolvedValue({ rows: [] });
+            mockClient.query.mockResolvedValue({ rows: [] });
 
             await service.errorJob('job-123', 'Error');
 
-            // Second call should update messages
-            expect(mockDatabase.query).toHaveBeenCalledWith(
+            // Second call should update messages (inside transaction)
+            expect(mockClient.query).toHaveBeenCalledWith(
                 expect.stringContaining('chat_messages'),
                 expect.arrayContaining(['job-123'])
             );
@@ -239,7 +240,7 @@ describe('LLMJobService (DI)', () => {
             const abortController = new AbortController();
             service.registerStream('job-123', abortController);
 
-            mockDatabase.query.mockResolvedValue({ rows: [] });
+            mockClient.query.mockResolvedValue({ rows: [] });
             await service.errorJob('job-123', 'Error');
 
             expect(service.isStreamActive('job-123')).toBe(false);
@@ -299,11 +300,12 @@ describe('LLMJobService (DI)', () => {
     // =====================================================
     describe('cancelJob()', () => {
         test('should cancel job and update message', async () => {
-            mockDatabase.query.mockResolvedValue({ rows: [] });
+            mockClient.query.mockResolvedValue({ rows: [] });
 
             await service.cancelJob('job-123');
 
-            expect(mockDatabase.query).toHaveBeenCalledWith(
+            expect(mockDatabase.transaction).toHaveBeenCalled();
+            expect(mockClient.query).toHaveBeenCalledWith(
                 expect.stringContaining("status = 'cancelled'"),
                 expect.arrayContaining(['job-123'])
             );
@@ -315,7 +317,7 @@ describe('LLMJobService (DI)', () => {
             const abortSpy = jest.spyOn(abortController, 'abort');
             service.registerStream('job-123', abortController);
 
-            mockDatabase.query.mockResolvedValue({ rows: [] });
+            mockClient.query.mockResolvedValue({ rows: [] });
             await service.cancelJob('job-123');
 
             expect(abortSpy).toHaveBeenCalled();
@@ -323,12 +325,12 @@ describe('LLMJobService (DI)', () => {
         });
 
         test('should handle non-existent stream gracefully', async () => {
-            mockDatabase.query.mockResolvedValue({ rows: [] });
+            mockClient.query.mockResolvedValue({ rows: [] });
 
             // Should not throw
             await service.cancelJob('nonexistent');
 
-            expect(mockDatabase.query).toHaveBeenCalled();
+            expect(mockDatabase.transaction).toHaveBeenCalled();
         });
     });
 

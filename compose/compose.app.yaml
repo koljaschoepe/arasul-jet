@@ -57,7 +57,7 @@ services:
       RAG_ENABLE_RERANKING: 'true'
       RAG_QUERY_OPTIMIZER_MODEL: ''
       ENV_FILE_PATH: /arasul/config/.env
-      COMPOSE_PROJECT_DIR: /home/arasul/arasul/arasul-jet
+      COMPOSE_PROJECT_DIR: ${COMPOSE_PROJECT_DIR:-.}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../.env:/arasul/config/.env

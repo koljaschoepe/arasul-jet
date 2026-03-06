@@ -59,7 +59,7 @@ cp "$SSHD_CONFIG" "$BACKUP_DIR/sshd_config.bak"
 echo "  Backup saved to: $BACKUP_DIR/sshd_config.bak"
 
 # 2. Check that at least one SSH key exists for a user
-ARASUL_HOME="/home/arasul"
+ARASUL_HOME="${HOME:-/home/arasul}"
 if [ ! -f "$ARASUL_HOME/.ssh/authorized_keys" ] || [ ! -s "$ARASUL_HOME/.ssh/authorized_keys" ]; then
     echo ""
     echo "WARNING: No SSH authorized_keys found for user 'arasul'!"

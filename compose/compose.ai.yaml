@@ -4,7 +4,7 @@
 services:
   # 1. Qdrant - Vector Database for RAG
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.16.1
     container_name: qdrant
     hostname: qdrant
     restart: always
