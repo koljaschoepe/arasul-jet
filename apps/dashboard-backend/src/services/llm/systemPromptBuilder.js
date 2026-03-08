@@ -7,7 +7,7 @@
  *   4. Project prompt (per conversation, from projects table)
  */
 
-const YAML = require('yamljs');
+const yaml = require('js-yaml');
 const memoryService = require('../memory/memoryService');
 const logger = require('../../utils/logger');
 
@@ -42,17 +42,29 @@ function invalidateCompanyContextCache() {
  * @returns {string|null} Formatted section or null
  */
 function formatProfile(yamlString) {
-  if (!yamlString || !yamlString.trim()) {return null;}
+  if (!yamlString || !yamlString.trim()) {
+    return null;
+  }
 
   try {
-    const data = YAML.parse(yamlString);
-    if (!data || typeof data !== 'object') {return null;}
+    const data = yaml.load(yamlString);
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
 
     const lines = ['## KI-Profil'];
-    if (data.firma) {lines.push(`- Firma: ${data.firma}`);}
-    if (data.branche) {lines.push(`- Branche: ${data.branche}`);}
-    if (data.sprache) {lines.push(`- Sprache: ${data.sprache}`);}
-    if (data.mitarbeiter) {lines.push(`- Mitarbeiter: ${data.mitarbeiter}`);}
+    if (data.firma) {
+      lines.push(`- Firma: ${data.firma}`);
+    }
+    if (data.branche) {
+      lines.push(`- Branche: ${data.branche}`);
+    }
+    if (data.sprache) {
+      lines.push(`- Sprache: ${data.sprache}`);
+    }
+    if (data.mitarbeiter) {
+      lines.push(`- Mitarbeiter: ${data.mitarbeiter}`);
+    }
     if (data.produkte && Array.isArray(data.produkte) && data.produkte.length > 0) {
       lines.push(`- Produkte: ${data.produkte.join(', ')}`);
     }
@@ -123,7 +135,9 @@ async function loadProfile() {
  * @returns {Promise<string>}
  */
 async function loadProjectPrompt(database, conversationId) {
-  if (!conversationId) {return '';}
+  if (!conversationId) {
+    return '';
+  }
 
   try {
     const result = await database.query(

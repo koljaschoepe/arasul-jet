@@ -525,7 +525,7 @@ const { ValidationError, NotFoundError, ForbiddenError } = require('../utils/err
 - cookie-parser (1.4.6) - Cookie parsing
 - dotenv (16.3.1) - Environment variables
 - swagger-ui-express (5.0.0) - API docs UI
-- yamljs (0.3.0) - YAML parsing
+- js-yaml (4.1.0) - YAML parsing
 
 ### Development (3)
 

@@ -1184,6 +1184,44 @@ Adds RAG (Retrieval-Augmented Generation) settings to `telegram_bots`:
 - Master Bot: `rag_space_ids = NULL` means access to all spaces
 - Custom Bots: `rag_space_ids = '{uuid1,uuid2}'` restricts to specific spaces
 
+### 050_scheduled_cleanup_and_fk_fixes.sql - Consolidated Cleanup & FK Fixes
+
+**FK Fix:** Ensures `llm_jobs.conversation_id` has `ON DELETE CASCADE` (idempotent DROP + ADD).
+
+**Function:** `run_all_cleanups() RETURNS JSONB`
+
+Calls all 17 cleanup functions in isolation (each wrapped in its own exception handler). Returns a JSONB object with per-function status, timing, and a `_summary` key with totals.
+
+| Cleanup Function                      | Source Migration | Retention Policy                           |
+| ------------------------------------- | ---------------- | ------------------------------------------ |
+| `cleanup_old_metrics()`               | 001              | 7d metrics, 30d events/restarts            |
+| `cleanup_expired_auth_data()`         | 002              | Expired tokens/sessions, 7d login attempts |
+| `cleanup_service_failures()`          | 003              | 1h failures, 7d actions, 30d reboots       |
+| `cleanup_old_update_files()`          | 004              | 90d, keep latest 10                        |
+| `cleanup_old_update_events()`         | 004              | 180d, keep latest 20                       |
+| `cleanup_deleted_chats()`             | 005              | 30d after soft-delete                      |
+| `cleanup_old_llm_jobs()`              | 006              | 1h after completion                        |
+| `cleanup_stale_llm_jobs()`            | 006              | 10min timeout on streaming jobs            |
+| `cleanup_old_access_logs()`           | 009              | 30d                                        |
+| `cleanup_old_alert_history()`         | 010              | Trims to max_history_entries setting       |
+| `cleanup_old_app_events()`            | 013              | 30d                                        |
+| `cleanup_old_audit_logs()`            | 017              | 90d (default)                              |
+| `cleanup_old_notification_events()`   | 019              | 30d events, 1d rate limits                 |
+| `cleanup_old_api_audit_logs()`        | 021              | 90d (default)                              |
+| `cleanup_expired_telegram_sessions()` | 024              | Expires pending sessions past expiry time  |
+| `cleanup_old_performance_metrics()`   | 030              | 30d                                        |
+| `cleanup_old_compaction_logs()`       | 041              | 30d                                        |
+
+**Usage:**
+
+```sql
+-- From backend scheduler or cron:
+SELECT run_all_cleanups();
+
+-- Host cron example (daily at 3 AM):
+-- 0 3 * * * psql -U arasul -d arasul_db -c "SELECT run_all_cleanups()"
+```
+
 ---
 
 ## Indexes Summary

@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/shadcn/switch';
 import { Label } from '@/components/ui/shadcn/label';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
+import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 
 interface SystemInfo {
   version: string;
@@ -149,14 +150,14 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
         {/* Platform Info */}
         <Card>
           <CardHeader>
-            <CardTitle>Über Arasul Platform</CardTitle>
+            <CardTitle>{`Über ${PLATFORM_NAME} Platform`}</CardTitle>
             <CardDescription>Edge-AI-Plattform für NVIDIA Jetson</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Arasul ist eine autonome Edge-AI-Plattform, die auf NVIDIA Jetson AGX Orin läuft. Die
-              Plattform bietet lokale KI-Funktionen, Multi-Jahres-Betrieb ohne Wartung und ein
-              einheitliches Dashboard-Interface.
+              {PLATFORM_NAME} ist eine autonome Edge-AI-Plattform, die auf NVIDIA Jetson AGX Orin
+              läuft. Die Plattform bietet lokale KI-Funktionen, Multi-Jahres-Betrieb ohne Wartung
+              und ein einheitliches Dashboard-Interface.
             </p>
             <div className="flex flex-col gap-3">
               {[
@@ -190,8 +191,8 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground">
                 Support:{' '}
-                <a href="mailto:info@arasul.de" className="text-primary hover:underline">
-                  info@arasul.de
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+                  {SUPPORT_EMAIL}
                 </a>
               </p>
             </div>

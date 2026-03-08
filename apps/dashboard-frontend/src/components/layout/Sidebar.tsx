@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { useDownloads } from '@/contexts/DownloadContext';
+import { PLATFORM_NAME, PLATFORM_SUBTITLE } from '@/config/branding';
 
 // Preload functions for lazy-loaded route chunks (triggered on hover)
 const preloadDocuments = () => import('@/features/documents/DocumentManager');
@@ -68,8 +69,8 @@ const SidebarNav = React.memo(function SidebarNav({
   return (
     <aside className={sidebarClassName} aria-label="Hauptnavigation">
       <div className="sidebar-header">
-        <h1 className="sidebar-title">{collapsed ? 'A' : 'Arasul'}</h1>
-        <p className="sidebar-subtitle">Edge AI Platform</p>
+        <h1 className="sidebar-title">{collapsed ? PLATFORM_NAME[0] : PLATFORM_NAME}</h1>
+        <p className="sidebar-subtitle">{PLATFORM_SUBTITLE}</p>
         <button
           type="button"
           className="sidebar-toggle"

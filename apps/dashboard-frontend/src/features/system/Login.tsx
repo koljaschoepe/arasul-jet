@@ -4,6 +4,7 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/shadc
 import { Input } from '@/components/ui/shadcn/input';
 import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
+import { PLATFORM_NAME, PLATFORM_DESCRIPTION, SUPPORT_EMAIL } from '@/config/branding';
 
 interface LoginProps {
   onLoginSuccess: (data: any) => void;
@@ -47,10 +48,10 @@ function Login({ onLoginSuccess }: LoginProps) {
       <Card className="w-full max-w-[420px] rounded-2xl border-[var(--border-color)] bg-[var(--bg-card)] p-[clamp(2rem,4vw,3rem)] shadow-lg min-[1728px]:max-w-[450px] min-[1728px]:p-14 min-[1280px]:max-[1511px]:max-w-[400px] min-[1280px]:max-[1511px]:p-10 max-md:max-w-[min(420px,95vw)] max-md:rounded-[14px] max-md:p-10 max-sm:max-w-full max-sm:rounded-lg max-sm:p-8 max-[375px]:p-6">
         <CardHeader className="p-0 text-center mb-8 max-md:mb-7 max-sm:mb-6">
           <h1 className="text-[2rem] text-[var(--primary-color)] mb-2 font-bold min-[1728px]:text-[2.25rem] min-[1280px]:max-[1511px]:text-[1.875rem] max-md:text-[1.875rem] max-sm:text-[1.75rem] max-sm:mb-1 max-[375px]:text-2xl">
-            Arasul Platform
+            {PLATFORM_NAME} Platform
           </h1>
           <p className="text-[var(--text-secondary)] text-sm max-sm:text-sm max-[375px]:text-sm">
-            Edge-KI Verwaltungssystem
+            {PLATFORM_DESCRIPTION}
           </p>
         </CardHeader>
 
@@ -122,8 +123,11 @@ function Login({ onLoginSuccess }: LoginProps) {
           </p>
           <p className="text-[var(--text-muted)] text-xs max-sm:text-[0.75rem]">
             Passwort vergessen? Kontaktieren Sie{' '}
-            <a href="mailto:info@arasul.de" className="text-[var(--primary-color)] hover:underline">
-              info@arasul.de
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="text-[var(--primary-color)] hover:underline"
+            >
+              {SUPPORT_EMAIL}
             </a>
           </p>
         </CardFooter>

@@ -5,7 +5,8 @@
 
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
-const YAML = require('yamljs');
+const yaml = require('js-yaml');
+const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
@@ -18,7 +19,7 @@ router.use(requireAuth);
 let swaggerDocument;
 try {
   const swaggerPath = path.join(__dirname, '../../openapi.yaml');
-  swaggerDocument = YAML.load(swaggerPath);
+  swaggerDocument = yaml.load(fs.readFileSync(swaggerPath, 'utf8'));
   logger.info('OpenAPI specification loaded successfully');
 } catch (error) {
   logger.error(`Failed to load OpenAPI specification: ${error.message}`);

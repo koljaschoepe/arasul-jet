@@ -414,14 +414,18 @@ docker compose up -d backup-service
 
 ## Dashboard
 
-| Variable                | Default | Description                          |
-| ----------------------- | ------- | ------------------------------------ |
-| PORT                    | 3001    | Backend port                         |
-| ALLOWED_ORIGINS         | (empty) | CORS allowed origins                 |
-| VITE_API_URL            | /api    | Frontend API URL                     |
-| VITE_WS_URL             | (auto)  | Frontend WebSocket URL               |
-| CLAUDE_TERMINAL_TIMEOUT | 60000   | Claude terminal command timeout (ms) |
-| RATE_LIMIT_ENABLED      | true    | Enable API rate limiting             |
+| Variable                  | Default                   | Description                          |
+| ------------------------- | ------------------------- | ------------------------------------ |
+| PORT                      | 3001                      | Backend port                         |
+| ALLOWED_ORIGINS           | (empty)                   | CORS allowed origins                 |
+| VITE_API_URL              | /api                      | Frontend API URL                     |
+| VITE_WS_URL               | (auto)                    | Frontend WebSocket URL               |
+| VITE_PLATFORM_NAME        | Arasul                    | Platform brand name (white-label)    |
+| VITE_PLATFORM_SUBTITLE    | Edge AI Platform          | Subtitle shown in sidebar            |
+| VITE_PLATFORM_DESCRIPTION | Edge-KI Verwaltungssystem | Description shown on login page      |
+| VITE_SUPPORT_EMAIL        | info@arasul.de            | Support email (login & settings)     |
+| CLAUDE_TERMINAL_TIMEOUT   | 60000                     | Claude terminal command timeout (ms) |
+| RATE_LIMIT_ENABLED        | true                      | Enable API rate limiting             |
 
 ---
 

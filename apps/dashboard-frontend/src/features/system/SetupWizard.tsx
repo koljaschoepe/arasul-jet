@@ -43,6 +43,7 @@ import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { cn } from '@/lib/utils';
+import { PLATFORM_NAME } from '@/config/branding';
 
 interface SetupWizardProps {
   onComplete: () => void;
@@ -429,7 +430,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
         {/* Header */}
         <div className="text-center py-8 px-8 pb-4 max-md:py-6 max-md:px-6 max-md:pb-3 max-sm:p-4">
           <h1 className="text-[1.75rem] text-[var(--primary-color)] m-0 mb-1 font-bold max-md:text-2xl">
-            Arasul Platform
+            {PLATFORM_NAME} Platform
           </h1>
           <p className="text-[var(--text-secondary)] text-sm m-0">Ersteinrichtung</p>
         </div>
@@ -485,7 +486,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 <Server className="w-7 h-7 max-sm:w-5 max-sm:h-5" />
               </div>
               <h2 className="text-[var(--text-primary)] text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
-                Willkommen bei Arasul
+                Willkommen bei {PLATFORM_NAME}
               </h2>
               <p className="text-[var(--text-secondary)] text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
                 Ihr Edge-AI-System ist bereit für die Einrichtung. Dieser Assistent führt Sie durch
