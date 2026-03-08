@@ -39,6 +39,11 @@ jest.mock('../../src/services/core/tokenService', () => ({
   estimateTokens: jest.fn(text => Math.ceil(text.length / 4)),
 }));
 
+jest.mock('../../src/services/embeddingService', () => ({
+  getEmbedding: jest.fn(),
+  getEmbeddings: jest.fn(),
+}));
+
 jest.mock('minio', () => ({
   Client: jest.fn().mockImplementation(() => ({
     bucketExists: jest.fn().mockResolvedValue(true),
@@ -52,6 +57,7 @@ jest.mock('minio', () => ({
 global.fetch = jest.fn();
 
 const database = require('../../src/database');
+const { getEmbedding } = require('../../src/services/embeddingService');
 const memoryService = require('../../src/services/memory/memoryService');
 
 describe('memoryService', () => {
@@ -403,13 +409,10 @@ describe('memoryService', () => {
           rows: [{ qdrant_point_id: 'qdrant-456', type: 'fact' }],
         }); // SELECT for re-embed
 
-      // Mock embedding fetch
-      global.fetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({ vectors: [[0.1, 0.2, 0.3]] }),
-        }) // getEmbedding
-        .mockResolvedValueOnce({ ok: true }); // Qdrant upsert
+      // getEmbedding now comes from embeddingService
+      getEmbedding.mockResolvedValueOnce([0.1, 0.2, 0.3]);
+      // Qdrant upsert
+      global.fetch.mockResolvedValueOnce({ ok: true });
 
       await memoryService.updateMemory('mem-456', 'Updated content');
 
@@ -579,18 +582,15 @@ describe('memoryService', () => {
       // ensureQdrantCollection
       global.fetch.mockResolvedValueOnce({ ok: true }); // Collection exists
 
-      // For each memory:
-      // 1. getEmbedding
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ vectors: [[0.1, 0.2, 0.3]] }),
-      });
-      // 2. checkDuplicate (search returns empty)
+      // getEmbedding now comes from embeddingService (uses axios, not fetch)
+      getEmbedding.mockResolvedValueOnce([0.1, 0.2, 0.3]);
+
+      // checkDuplicate (search returns empty)
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ result: [] }),
       });
-      // 3. Qdrant upsert
+      // Qdrant upsert
       global.fetch.mockResolvedValueOnce({ ok: true });
 
       // DB: count check + INSERT
@@ -612,11 +612,8 @@ describe('memoryService', () => {
       // ensureQdrantCollection
       global.fetch.mockResolvedValueOnce({ ok: true });
 
-      // getEmbedding
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ vectors: [[0.1, 0.2, 0.3]] }),
-      });
+      // getEmbedding now comes from embeddingService
+      getEmbedding.mockResolvedValueOnce([0.1, 0.2, 0.3]);
 
       // checkDuplicate returns a match (duplicate)
       global.fetch.mockResolvedValueOnce({
@@ -636,11 +633,8 @@ describe('memoryService', () => {
   // =========================================================================
   describe('searchRelevantMemories', () => {
     it('should return matching memories with scores', async () => {
-      // getEmbedding
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ vectors: [[0.1, 0.2, 0.3]] }),
-      });
+      // getEmbedding now comes from embeddingService
+      getEmbedding.mockResolvedValueOnce([0.1, 0.2, 0.3]);
 
       // Qdrant search
       global.fetch.mockResolvedValueOnce({
@@ -668,7 +662,8 @@ describe('memoryService', () => {
     });
 
     it('should return empty array on search error', async () => {
-      global.fetch.mockRejectedValue(new Error('Embedding service down'));
+      // getEmbedding now comes from embeddingService
+      getEmbedding.mockRejectedValueOnce(new Error('Embedding service down'));
 
       const results = await memoryService.searchRelevantMemories('test');
 
@@ -676,11 +671,8 @@ describe('memoryService', () => {
     });
 
     it('should enforce token limit on results', async () => {
-      // getEmbedding
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ vectors: [[0.1, 0.2, 0.3]] }),
-      });
+      // getEmbedding now comes from embeddingService
+      getEmbedding.mockResolvedValueOnce([0.1, 0.2, 0.3]);
 
       // Qdrant returns many results but token limit should cap them
       // estimateTokens mock returns text.length / 4
@@ -704,11 +696,8 @@ describe('memoryService', () => {
     });
 
     it('should return empty when Qdrant returns non-ok', async () => {
-      // getEmbedding
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ vectors: [[0.1, 0.2, 0.3]] }),
-      });
+      // getEmbedding now comes from embeddingService
+      getEmbedding.mockResolvedValueOnce([0.1, 0.2, 0.3]);
 
       // Qdrant error
       global.fetch.mockResolvedValueOnce({ ok: false });
@@ -735,11 +724,10 @@ describe('memoryService', () => {
     it('should create collection if it does not exist', async () => {
       global.fetch
         .mockResolvedValueOnce({ ok: false, status: 404 }) // Collection doesn't exist
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({ vectors: [[0.1, 0.2]] }),
-        }) // getEmbedding for dimension
         .mockResolvedValueOnce({ ok: true }); // PUT create collection
+
+      // getEmbedding for dimension detection now comes from embeddingService
+      getEmbedding.mockResolvedValueOnce([0.1, 0.2]);
 
       await memoryService.ensureQdrantCollection();
 

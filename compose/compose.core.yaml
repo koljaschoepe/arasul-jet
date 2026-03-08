@@ -129,5 +129,4 @@ networks:
 
 volumes:
   arasul-postgres:
-  arasul-data-db:
   arasul-minio:

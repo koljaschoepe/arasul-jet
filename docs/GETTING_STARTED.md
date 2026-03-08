@@ -46,7 +46,7 @@ arasul-platform/
 │   │       ├── routes/            #     API routes (central router: routes/index.js)
 │   │       ├── services/          #     Business logic
 │   │       └── middleware/        #     Auth, error handling, rate limiting
-│   └── dashboard-frontend/        #   React 18 SPA
+│   └── dashboard-frontend/        #   React 19 SPA
 │       └── src/
 │           ├── features/          #     Feature modules (chat, documents, settings, ...)
 │           ├── components/        #     Shared UI components
@@ -55,7 +55,7 @@ arasul-platform/
 │   ├── llm-service/               #   Ollama LLM (Python/Flask)
 │   ├── embedding-service/         #   Text vectorization (Python/Flask)
 │   ├── document-indexer/          #   RAG document processing
-│   ├── postgres/init/             #   Database migrations (001-041)
+│   ├── postgres/init/             #   Database migrations (001-049)
 │   └── ...                        #   metrics-collector, self-healing, telegram-bot
 ├── compose/                       # Docker Compose split files
 ├── config/                        # Traefik, TLS, secrets
@@ -81,7 +81,7 @@ arasul-platform/
 ### Frontend: Add a component
 
 1. Create in `apps/dashboard-frontend/src/features/<feature>/`
-2. Export from barrel file (`index.js`)
+2. Export from barrel file (`index.ts`)
 3. Use `useApi()` for API calls, CSS variables for styling
 4. Follow [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
 

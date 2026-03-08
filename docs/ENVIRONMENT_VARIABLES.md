@@ -8,13 +8,15 @@ All variables are defined in `.env` file at repository root.
 
 ## System
 
-| Variable        | Default    | Description         |
-| --------------- | ---------- | ------------------- |
-| SYSTEM_NAME     | arasul     | System identifier   |
-| SYSTEM_VERSION  | 1.0.0      | Current version     |
-| BUILD_HASH      | dev-build  | Git commit hash     |
-| JETPACK_VERSION | 6.0        | JetPack version     |
-| NODE_ENV        | production | Node.js environment |
+| Variable        | Default    | Description                        |
+| --------------- | ---------- | ---------------------------------- |
+| SYSTEM_NAME     | arasul     | System identifier                  |
+| SYSTEM_VERSION  | 1.0.0      | Current version                    |
+| BUILD_HASH      | dev-build  | Git commit hash                    |
+| JETPACK_VERSION | 6.0        | JetPack version                    |
+| NODE_ENV        | production | Node.js environment                |
+| NODE_VERSION    | 20.19      | Node.js version (Docker build arg) |
+| PYTHON_VERSION  | 3.11.12    | Python version (Docker build arg)  |
 
 ---
 
