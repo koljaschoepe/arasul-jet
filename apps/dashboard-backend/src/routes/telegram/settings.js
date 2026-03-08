@@ -13,6 +13,7 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { buildSetClauses } = require('../../utils/queryBuilder');
 
 // Rate limiter for test endpoint (5 tests per minute)
 const testLimiter = createUserRateLimiter(5, 60 * 1000);
@@ -144,30 +145,21 @@ router.post(
     }
 
     // Build dynamic update query
-    const updates = [];
-    const params = [];
-    let paramIndex = 1;
+    const { setClauses, params } = buildSetClauses({
+      chat_id: chat_id !== undefined ? chat_id || null : undefined,
+      enabled,
+    });
 
-    if (chat_id !== undefined) {
-      updates.push(`chat_id = $${paramIndex++}`);
-      params.push(chat_id || null);
-    }
-
-    if (enabled !== undefined) {
-      updates.push(`enabled = $${paramIndex++}`);
-      params.push(enabled);
-    }
-
-    if (updates.length === 0) {
+    // updated_at = NOW() is always included by buildSetClauses,
+    // so check if we got any actual field updates
+    if (setClauses.length <= 1) {
       throw new ValidationError('No fields to update');
     }
-
-    updates.push('updated_at = NOW()');
 
     await db.query(
       `
         UPDATE telegram_config
-        SET ${updates.join(', ')}
+        SET ${setClauses.join(', ')}
         WHERE id = 1
     `,
       params

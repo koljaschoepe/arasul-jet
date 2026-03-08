@@ -17,21 +17,16 @@ const {
   escapeIdentifier,
   escapeTableName,
 } = require('../../utils/sqlIdentifier');
+const { generateSlug } = require('../../utils/slugGenerator');
+const { buildSetClauses } = require('../../utils/queryBuilder');
 
 /**
- * Helper: Generate URL-safe slug from name
+ * Helper: Generate SQL-safe table/field slug from name
+ * Uses shared generateSlug for umlaut handling and normalization,
+ * then applies table-specific transformations (underscores, SQL safety)
  */
-function generateSlug(name) {
-  let slug = name
-    .toLowerCase()
-    .replace(/ä/g, 'ae')
-    .replace(/ö/g, 'oe')
-    .replace(/ü/g, 'ue')
-    .replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '')
-    .substring(0, 100);
+function generateTableSlug(name) {
+  let slug = generateSlug(name).replace(/-/g, '_');
 
   // Ensure slug doesn't start with a number
   if (/^[0-9]/.test(slug)) {
@@ -260,7 +255,7 @@ router.post(
       throw new ValidationError('Tabellenname erforderlich');
     }
 
-    const slug = generateSlug(name);
+    const slug = generateTableSlug(name);
 
     if (!isValidSlug(slug)) {
       throw new ValidationError('Tabellenname enthält ungültige Zeichen');
@@ -390,43 +385,14 @@ router.patch(
       throw new ValidationError('Systemtabellen können nicht umbenannt werden');
     }
 
-    // Build update query
-    const updates = [];
-    const params = [];
-    let paramIndex = 1;
-
-    if (name !== undefined && name.trim() && name !== existing.name) {
-      updates.push(`name = $${paramIndex++}`);
-      params.push(name.trim());
-    }
-
-    if (description !== undefined) {
-      updates.push(`description = $${paramIndex++}`);
-      params.push(description);
-    }
-
-    if (icon !== undefined) {
-      updates.push(`icon = $${paramIndex++}`);
-      params.push(icon);
-    }
-
-    if (color !== undefined) {
-      updates.push(`color = $${paramIndex++}`);
-      params.push(color);
-    }
-
-    if (space_id !== undefined) {
-      // Validate space_id against main-db if not null
-      if (space_id) {
-        const spaceCheck = await pool.query('SELECT id FROM knowledge_spaces WHERE id = $1', [
-          space_id,
-        ]);
-        if (spaceCheck.rows.length === 0) {
-          throw new ValidationError('Ungültiger Wissensbereich');
-        }
+    // Validate before building query
+    if (space_id !== undefined && space_id) {
+      const spaceCheck = await pool.query('SELECT id FROM knowledge_spaces WHERE id = $1', [
+        space_id,
+      ]);
+      if (spaceCheck.rows.length === 0) {
+        throw new ValidationError('Ungültiger Wissensbereich');
       }
-      updates.push(`space_id = $${paramIndex++}`);
-      params.push(space_id || null);
     }
 
     if (status !== undefined) {
@@ -434,16 +400,23 @@ router.patch(
       if (!validStatuses.includes(status)) {
         throw new ValidationError(`Ungültiger Status. Erlaubt: ${validStatuses.join(', ')}`);
       }
-      updates.push(`status = $${paramIndex++}`);
-      params.push(status);
     }
 
-    if (category !== undefined) {
-      updates.push(`category = $${paramIndex++}`);
-      params.push(category || null);
-    }
+    // Build update query
+    const { setClauses, params, paramIndex } = buildSetClauses(
+      {
+        name: name !== undefined && name.trim() && name !== existing.name ? name.trim() : undefined,
+        description,
+        icon,
+        color,
+        space_id: space_id !== undefined ? space_id || null : undefined,
+        status,
+        category: category !== undefined ? category || null : undefined,
+      },
+      { includeUpdatedAt: false }
+    );
 
-    if (updates.length === 0) {
+    if (setClauses.length === 0) {
       throw new ValidationError('Keine Änderungen angegeben');
     }
 
@@ -451,7 +424,7 @@ router.patch(
     const result = await dataDb.query(
       `
         UPDATE dt_tables
-        SET ${updates.join(', ')}
+        SET ${setClauses.join(', ')}
         WHERE slug = $${paramIndex}
         RETURNING *
     `,
@@ -557,7 +530,7 @@ router.post(
     }
 
     const tableId = tableResult.rows[0].id;
-    const fieldSlug = generateSlug(name);
+    const fieldSlug = generateTableSlug(name);
 
     // Map field type to PostgreSQL type
     const pgTypeMap = {
@@ -768,56 +741,30 @@ router.patch(
       formula: 'TEXT',
     };
 
-    // Build update query
-    const updates = [];
-    const params = [];
-    let paramIndex = 1;
-
-    if (name !== undefined && name.trim()) {
-      updates.push(`name = $${paramIndex++}`);
-      params.push(name.trim());
-    }
-
+    // Validate field_type before building query
     if (field_type !== undefined) {
       const pgType = pgTypeMap[field_type];
       if (!pgType) {
         throw new ValidationError(`Ungültiger Feldtyp: ${field_type}`);
       }
-      updates.push(`field_type = $${paramIndex++}`);
-      params.push(field_type);
     }
 
-    if (unit !== undefined) {
-      updates.push(`unit = $${paramIndex++}`);
-      params.push(unit || null);
-    }
+    // Build update query
+    const { setClauses, params, paramIndex } = buildSetClauses(
+      {
+        name: name !== undefined && name.trim() ? name.trim() : undefined,
+        field_type,
+        unit: unit !== undefined ? unit || null : undefined,
+        is_required,
+        is_primary_display,
+        default_value: default_value !== undefined ? JSON.stringify(default_value) : undefined,
+        options: options !== undefined ? JSON.stringify(options) : undefined,
+        validation: validation !== undefined ? JSON.stringify(validation) : undefined,
+      },
+      { includeUpdatedAt: false }
+    );
 
-    if (is_required !== undefined) {
-      updates.push(`is_required = $${paramIndex++}`);
-      params.push(is_required);
-    }
-
-    if (is_primary_display !== undefined) {
-      updates.push(`is_primary_display = $${paramIndex++}`);
-      params.push(is_primary_display);
-    }
-
-    if (default_value !== undefined) {
-      updates.push(`default_value = $${paramIndex++}`);
-      params.push(JSON.stringify(default_value));
-    }
-
-    if (options !== undefined) {
-      updates.push(`options = $${paramIndex++}`);
-      params.push(JSON.stringify(options));
-    }
-
-    if (validation !== undefined) {
-      updates.push(`validation = $${paramIndex++}`);
-      params.push(JSON.stringify(validation));
-    }
-
-    if (updates.length === 0) {
+    if (setClauses.length === 0) {
       throw new ValidationError('Keine Änderungen angegeben');
     }
 
@@ -834,7 +781,7 @@ router.patch(
         // Update dt_fields metadata
         params.push(tableId, fieldSlug);
         const fieldResult = await client.query(
-          `UPDATE dt_fields SET ${updates.join(', ')} WHERE table_id = $${paramIndex} AND slug = $${paramIndex + 1} RETURNING *`,
+          `UPDATE dt_fields SET ${setClauses.join(', ')} WHERE table_id = $${paramIndex} AND slug = $${paramIndex + 1} RETURNING *`,
           params
         );
         return fieldResult;
@@ -861,7 +808,7 @@ router.patch(
     const result = await dataDb.query(
       `
         UPDATE dt_fields
-        SET ${updates.join(', ')}
+        SET ${setClauses.join(', ')}
         WHERE table_id = $${paramIndex} AND slug = $${paramIndex + 1}
         RETURNING *
     `,

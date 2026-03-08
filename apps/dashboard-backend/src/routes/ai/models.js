@@ -23,6 +23,7 @@ const modelService = require('../../services/llm/modelService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 
 // Cache keys
@@ -153,10 +154,7 @@ router.post(
     // DL-002: Check if model is already downloading or installed
     if (modelInfo.install_status === 'downloading') {
       // Already downloading - return current progress via SSE and close
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no');
+      initSSE(res);
       res.write(
         `data: ${JSON.stringify({
           status: 'already_downloading',
@@ -170,10 +168,7 @@ router.post(
     }
 
     if (modelInfo.install_status === 'available') {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no');
+      initSSE(res);
       res.write(
         `data: ${JSON.stringify({
           status: 'already_installed',
@@ -189,38 +184,32 @@ router.post(
     }
 
     // Set up SSE for progress
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
+    initSSE(res);
 
     // DL-003: Track client connection
-    let clientConnected = true;
-    res.on('close', () => {
-      clientConnected = false;
-    });
+    const connection = trackConnection(res);
 
     // Send initial event
     res.write(`data: ${JSON.stringify({ status: 'starting', model_id, progress: 0 })}\n\n`);
 
     // DL-001: Heartbeat to keep connection alive during slow Ollama manifest fetches
     const heartbeatInterval = setInterval(() => {
-      if (clientConnected) {
+      if (connection.isConnected()) {
         try {
           res.write(`:heartbeat\n\n`);
         } catch {
-          clientConnected = false;
+          // connection lost - trackConnection handles state
         }
       }
     }, 10000);
 
     try {
       await modelService.downloadModel(model_id, (progress, status) => {
-        if (clientConnected) {
+        if (connection.isConnected()) {
           try {
             res.write(`data: ${JSON.stringify({ progress, status, model_id })}\n\n`);
           } catch {
-            clientConnected = false;
+            // connection lost - trackConnection handles state
           }
         }
       });
@@ -228,17 +217,17 @@ router.post(
       // Invalidate model caches after successful download
       cacheService.invalidatePattern('models:*');
 
-      if (clientConnected) {
+      if (connection.isConnected()) {
         res.write(`data: ${JSON.stringify({ done: true, success: true, model_id })}\n\n`);
       }
     } catch (error) {
       logger.error(`Error downloading model ${model_id}: ${error.message}`);
-      if (clientConnected) {
+      if (connection.isConnected()) {
         res.write(`data: ${JSON.stringify({ error: error.message, done: true, model_id })}\n\n`);
       }
     } finally {
       clearInterval(heartbeatInterval);
-      if (clientConnected) {
+      if (connection.isConnected()) {
         res.end();
       }
     }
@@ -283,7 +272,7 @@ router.post(
     const isInstalled = await modelService.isModelInstalled(modelId);
     if (!isInstalled) {
       if (useStream) {
-        res.setHeader('Content-Type', 'text/event-stream');
+        initSSE(res);
         res.write(
           `data: ${JSON.stringify({ error: `Modell ${modelId} ist nicht installiert`, done: true })}\n\n`
         );
@@ -294,10 +283,7 @@ router.post(
 
     // P3-001: SSE streaming for activation progress
     if (useStream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no');
+      initSSE(res);
 
       // Get model info for estimated time
       const modelInfo = await modelService.getModelInfo(modelId);

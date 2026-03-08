@@ -1,6 +1,16 @@
 # Arasul Platform - Core Infrastructure
 # PostgreSQL, MinIO, Traefik Reverse Proxy
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '50m'
+    max-file: '10'
+
+x-security: &default-security
+  security_opt:
+    - no-new-privileges:true
+
 services:
   # 1. PostgreSQL - Telemetry and Audit Database
   postgres-db:
@@ -28,17 +38,12 @@ services:
       interval: 10s
       timeout: 2s
       retries: 3
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     deploy:
       resources:
         limits:
           memory: ${RAM_LIMIT_POSTGRES}
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
+    logging: *default-logging
 
   # 2. MinIO - Object Storage
   minio:
@@ -60,13 +65,8 @@ services:
       interval: 10s
       timeout: 1s
       retries: 3
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
-    security_opt:
-      - no-new-privileges:true
+    logging: *default-logging
+    <<: *default-security
     deploy:
       resources:
         limits:
@@ -101,16 +101,11 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
+    logging: *default-logging
     read_only: true
     tmpfs:
       - /tmp:noexec,nosuid,size=64M
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     cap_drop:
       - ALL
     cap_add:

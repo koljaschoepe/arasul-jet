@@ -34,8 +34,7 @@
     "uuid": "^9.0.1",
     "winston": "^3.11.0",
     "ws": "^8.16.0",
-    "yamljs": "^0.3.0",
-    "@arasul/shared": "file:../../packages/shared"
+    "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

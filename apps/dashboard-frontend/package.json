@@ -4,7 +4,6 @@
   "description": "Arasul Platform Dashboard Frontend",
   "private": true,
   "dependencies": {
-    "@arasul/shared": "file:../../packages/shared",
     "@hookform/resolvers": "^5.2.2",
     "@tailwindcss/vite": "^4.2.1",
     "class-variance-authority": "^0.7.1",

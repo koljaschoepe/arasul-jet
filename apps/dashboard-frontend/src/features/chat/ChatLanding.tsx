@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { MessageSquare, Plus, Search, X, FolderOpen } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
+import { useFetchData } from '../../hooks/useFetchData';
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 import { useChatContext } from '../../contexts/ChatContext';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
@@ -19,10 +21,42 @@ export default function ChatLanding() {
   const { confirm, ConfirmDialog } = useConfirm();
   const { activeJobIds } = useChatContext();
 
-  const [projects, setProjects] = useState<any[]>([]);
-  const [recentChats, setRecentChats] = useState<any[]>([]);
-  const [searchResults, setSearchResults] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const fetcher = useCallback(
+    async (signal: AbortSignal) => {
+      const [projData, recentData] = await Promise.all([
+        api.get('/projects?include=conversations', { signal, showError: false }),
+        api.get('/chats/recent', { signal, showError: false }),
+      ]);
+      return {
+        projects: (projData as any).projects || [],
+        recentChats: (recentData as any).chats || [],
+      };
+    },
+    [api]
+  );
+
+  const {
+    data: { projects, recentChats },
+    setData,
+    loading,
+    refetch: loadData,
+  } = useFetchData(fetcher, {
+    initialData: { projects: [] as any[], recentChats: [] as any[] },
+    errorMessage: 'Error loading chat landing data',
+  });
+
+  // Helpers to update projects/recentChats individually
+  const setProjects = useCallback(
+    (updater: (prev: any[]) => any[]) =>
+      setData(prev => ({ ...prev, projects: updater(prev.projects) })),
+    [setData]
+  );
+  const setRecentChats = useCallback(
+    (updater: (prev: any[]) => any[]) =>
+      setData(prev => ({ ...prev, recentChats: updater(prev.recentChats) })),
+    [setData]
+  );
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<number | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(() => {
@@ -36,48 +70,24 @@ export default function ChatLanding() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingProject, setEditingProject] = useState<any>(null);
 
-  const loadData = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        const [projData, recentData] = await Promise.all([
-          api.get('/projects?include=conversations', { signal, showError: false }),
-          api.get('/chats/recent', { signal, showError: false }),
-        ]);
-        setProjects(projData.projects || []);
-        setRecentChats(recentData.chats || []);
-      } catch (err: any) {
-        if (signal?.aborted) return;
-        console.error('Error loading chat landing data:', err);
-      } finally {
-        setLoading(false);
-      }
+  const chatSearcher = useCallback(
+    async (q: string, signal: AbortSignal) => {
+      const params = new URLSearchParams({ q });
+      if (selectedFilter) params.append('project_id', String(selectedFilter));
+      const data = await api.get<{ chats: any[] }>(`/chats/search?${params}`, {
+        signal,
+        showError: false,
+      });
+      return data.chats || [];
     },
-    [api]
+    [api, selectedFilter]
   );
 
-  useEffect(() => {
-    const controller = new AbortController();
-    loadData(controller.signal);
-    return () => controller.abort();
-  }, [loadData]);
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults(null);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      try {
-        const params = new URLSearchParams({ q: searchQuery.trim() });
-        if (selectedFilter) params.append('project_id', String(selectedFilter));
-        const data = await api.get(`/chats/search?${params}`, { showError: false });
-        setSearchResults(data.chats || []);
-      } catch (err) {
-        console.error('Search error:', err);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, selectedFilter, api]);
+  const { results: searchResults, searching: searchLoading } = useDebouncedSearch<any[] | null>(
+    searchQuery,
+    chatSearcher,
+    { initialResults: null, deps: [selectedFilter] }
+  );
 
   const toggleProject = useCallback((projectId: number) => {
     setExpandedProjects(prev => {
@@ -331,7 +341,7 @@ export default function ChatLanding() {
 
       {isSearching ? (
         <section className="search-results flex flex-col gap-1">
-          {searchResults === null ? (
+          {searchLoading || searchResults === null ? (
             <div className="chat-landing-skeleton flex flex-col gap-4">
               <div className="skeleton-card bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
               <div className="skeleton-card bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />

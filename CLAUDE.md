@@ -94,7 +94,7 @@ npm run lint:fix                              # Lint code
 | ----------- | ------------------------------------- | ---------------------------------- |
 | Backend API | `apps/dashboard-backend/src/index.js` | `routes/index.js` (central router) |
 | Frontend    | `apps/dashboard-frontend/src/App.tsx` | `features/chat/ChatRouter.tsx`     |
-| Database    | `services/postgres/init/`             | Next: `048_*.sql`                  |
+| Database    | `services/postgres/init/`             | Next: `050_*.sql`                  |
 | AI Services | `services/llm-service/api_server.py`  | -                                  |
 
 ---

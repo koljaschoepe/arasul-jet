@@ -1,6 +1,16 @@
 # Arasul Platform - AI Services
 # LLM (Ollama), Embedding, Qdrant Vector DB, Document Indexer
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '50m'
+    max-file: '10'
+
+x-security: &default-security
+  security_opt:
+    - no-new-privileges:true
+
 services:
   # 1. Qdrant - Vector Database for RAG
   qdrant:
@@ -21,13 +31,8 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
-    security_opt:
-      - no-new-privileges:true
+    logging: *default-logging
+    <<: *default-security
     deploy:
       resources:
         limits:
@@ -57,8 +62,7 @@ services:
       - ../services/llm-service/healthcheck.sh:/healthcheck.sh:ro
       - ../data/models:/host-models:ro
     runtime: nvidia
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     deploy:
       resources:
         limits:
@@ -78,11 +82,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 300s
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
+    logging: *default-logging
 
   # 3. Embedding Service
   embedding-service:
@@ -112,8 +112,7 @@ services:
       - arasul-embeddings-models:/models
       - ../services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
     runtime: nvidia
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     deploy:
       resources:
         limits:
@@ -133,17 +132,15 @@ services:
       timeout: 3s
       retries: 3
       start_period: 300s
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
+    logging: *default-logging
 
   # 4. Document Indexer - Automatic document indexing for RAG
   document-indexer:
     build:
       context: ../services/document-indexer
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.11.12}
     container_name: document-indexer
     hostname: document-indexer
     restart: always
@@ -202,26 +199,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
-    security_opt:
-      - no-new-privileges:true
+    logging: *default-logging
+    <<: *default-security
     cap_drop:
       - ALL
     deploy:
       resources:
         limits:
           memory: ${RAM_LIMIT_DOCUMENT_INDEXER:-2G}
-
-networks:
-  arasul-backend:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.64/26
 
 volumes:
   arasul-llm-models:

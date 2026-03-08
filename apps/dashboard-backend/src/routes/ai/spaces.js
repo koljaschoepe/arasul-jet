@@ -11,7 +11,6 @@
 
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const logger = require('../../utils/logger');
 const { requireAuth } = require('../../middleware/auth');
 const pool = require('../../database');
@@ -22,50 +21,14 @@ const {
   ForbiddenError,
   ConflictError,
 } = require('../../utils/errors');
-const services = require('../../config/services');
+const { buildSetClauses } = require('../../utils/queryBuilder');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
+const { generateSlug } = require('../../utils/slugGenerator');
+const { getEmbedding } = require('../../services/embeddingService');
 
 // Cache configuration
 const CACHE_KEY_SPACES = 'spaces:list';
 const CACHE_TTL_SPACES = 30000; // 30 seconds
-
-// Configuration
-const EMBEDDING_HOST = services.embedding.host;
-const EMBEDDING_PORT = services.embedding.port;
-
-/**
- * Helper: Generate embedding for text
- */
-async function getEmbedding(text) {
-  try {
-    const response = await axios.post(
-      `http://${EMBEDDING_HOST}:${EMBEDDING_PORT}/embed`,
-      { texts: text },
-      { timeout: 30000 }
-    );
-    return response.data.vectors[0];
-  } catch (error) {
-    logger.error(`Embedding error: ${error.message}`);
-    return null;
-  }
-}
-
-/**
- * Helper: Generate URL-safe slug
- */
-function generateSlug(name) {
-  return name
-    .toLowerCase()
-    .replace(/ä/g, 'ae')
-    .replace(/ö/g, 'oe')
-    .replace(/ü/g, 'ue')
-    .replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 100);
-}
 
 /**
  * GET /api/spaces
@@ -251,44 +214,30 @@ router.put(
       throw new ForbiddenError('Systembereich kann nicht umbenannt werden');
     }
 
-    // Build update query
-    const updates = [];
-    const params = [];
-    let paramIndex = 1;
-
-    if (name !== undefined && name.trim()) {
-      updates.push(`name = $${paramIndex++}`);
-      params.push(name.trim());
-    }
-
+    // Re-generate embedding if description changed
+    let descriptionEmbedding;
     if (description !== undefined && description.trim()) {
-      updates.push(`description = $${paramIndex++}`);
-      params.push(description.trim());
-
-      // Re-generate embedding for new description
       const embedding = await getEmbedding(description);
       if (embedding) {
-        updates.push(`description_embedding = $${paramIndex++}`);
-        params.push(JSON.stringify(embedding));
+        descriptionEmbedding = JSON.stringify(embedding);
       }
     }
 
-    if (icon !== undefined) {
-      updates.push(`icon = $${paramIndex++}`);
-      params.push(icon);
-    }
+    // Build update query
+    const { setClauses, params, paramIndex } = buildSetClauses(
+      {
+        name: name !== undefined && name.trim() ? name.trim() : undefined,
+        description:
+          description !== undefined && description.trim() ? description.trim() : undefined,
+        description_embedding: descriptionEmbedding,
+        icon,
+        color,
+        sort_order,
+      },
+      { includeUpdatedAt: false }
+    );
 
-    if (color !== undefined) {
-      updates.push(`color = $${paramIndex++}`);
-      params.push(color);
-    }
-
-    if (sort_order !== undefined) {
-      updates.push(`sort_order = $${paramIndex++}`);
-      params.push(sort_order);
-    }
-
-    if (updates.length === 0) {
+    if (setClauses.length === 0) {
       throw new ValidationError('Keine Änderungen angegeben');
     }
 
@@ -296,7 +245,7 @@ router.put(
     const result = await pool.query(
       `
         UPDATE knowledge_spaces
-        SET ${updates.join(', ')}
+        SET ${setClauses.join(', ')}
         WHERE id = $${paramIndex}
         RETURNING *
     `,

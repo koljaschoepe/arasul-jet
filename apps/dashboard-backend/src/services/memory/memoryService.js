@@ -17,9 +17,9 @@ const logger = require('../../utils/logger');
 const database = require('../../database');
 const services = require('../../config/services');
 const { estimateTokens } = require('../core/tokenService');
+const { getEmbedding } = require('../embeddingService');
 
 // Service URLs
-const EMBEDDING_URL = services.embedding.embedEndpoint;
 const QDRANT_URL = services.qdrant.url;
 const LLM_SERVICE_URL = services.llm.url;
 
@@ -46,29 +46,6 @@ function getMinioClient() {
     });
   }
   return minioClient;
-}
-
-// ============================================================================
-// Embedding Helper
-// ============================================================================
-
-/**
- * Get embedding vector for text via embedding service.
- * @param {string} text
- * @returns {Promise<number[]>}
- */
-async function getEmbedding(text) {
-  const response = await fetch(EMBEDDING_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ texts: text }),
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!response.ok) {
-    throw new Error(`Embedding service returned ${response.status}`);
-  }
-  const data = await response.json();
-  return data.vectors[0];
 }
 
 // ============================================================================
@@ -377,6 +354,10 @@ async function saveMemories(memories, conversationId = null) {
     try {
       // Generate embedding
       const embedding = await getEmbedding(memory.content);
+      if (!embedding) {
+        logger.warn(`[Memory] Embedding failed for: "${memory.content.substring(0, 50)}..."`);
+        continue;
+      }
 
       // Check for duplicates (cosine similarity > 0.9)
       const isDuplicate = await checkDuplicate(embedding);

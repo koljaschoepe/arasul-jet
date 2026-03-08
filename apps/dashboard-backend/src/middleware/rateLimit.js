@@ -13,122 +13,64 @@ const logger = require('../utils/logger');
 const isRateLimitDisabled = () => process.env.RATE_LIMIT_ENABLED === 'false';
 
 /**
- * Login rate limiter - 30 attempts per 5 minutes per IP
- * Balance security vs. usability for development/testing
- * Additional security: Database tracks failed attempts per user account
+ * Factory for creating rate limiters with consistent defaults.
+ * @param {string} name - Identifier used in log messages (e.g. "Login", "API")
+ * @param {number} windowMs - Time window in milliseconds
+ * @param {number} max - Max requests per window
+ * @param {string} errorMessage - Error message returned in the 429 response
+ * @param {object} [extraOptions] - Additional express-rate-limit options to merge
  */
-const loginLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 30,
-  skip: isRateLimitDisabled,
-  message: {
-    error: 'Too many login attempts from this IP, please try again after 15 minutes',
-    timestamp: new Date().toISOString(),
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
-  handler: (req, res) => {
-    logger.warn(`Login rate limit exceeded for IP: ${req.ip}`);
-    res.status(429).json({
-      error: 'Too many login attempts from this IP, please try again after 15 minutes',
-      timestamp: new Date().toISOString(),
-    });
-  },
+function createLimiter(name, windowMs, max, errorMessage, extraOptions = {}) {
+  return rateLimit({
+    windowMs,
+    max,
+    skip: isRateLimitDisabled,
+    message: { error: errorMessage, timestamp: new Date().toISOString() },
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
+    handler: (req, res) => {
+      logger.warn(`${name} rate limit exceeded for IP: ${req.ip}`);
+      res.status(429).json({
+        error: errorMessage,
+        timestamp: new Date().toISOString(),
+      });
+    },
+    ...extraOptions,
+  });
+}
+
+/** Login rate limiter - 30 attempts per 5 minutes per IP */
+const loginLimiter = createLimiter(
+  'Login',
+  5 * 60 * 1000,
+  30,
+  'Too many login attempts from this IP, please try again after 15 minutes'
+);
+
+/** API rate limiter - 100 requests per minute per IP */
+const apiLimiter = createLimiter(
+  'API',
+  60 * 1000,
+  100,
+  'Too many requests from this IP, please try again later'
+);
+
+/** LLM API rate limiter - 10 requests per second per IP */
+const llmLimiter = createLimiter(
+  'LLM',
+  1000,
+  10,
+  'LLM request rate limit exceeded, please slow down'
+);
+
+/** Metrics API rate limiter - 20 requests per second per IP */
+const metricsLimiter = createLimiter('Metrics', 1000, 20, 'Metrics request rate limit exceeded', {
+  skipSuccessfulRequests: true,
 });
 
-/**
- * API rate limiter - 100 requests per minute per IP
- */
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 100,
-  skip: isRateLimitDisabled,
-  message: {
-    error: 'Too many requests from this IP, please try again later',
-    timestamp: new Date().toISOString(),
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
-  handler: (req, res) => {
-    logger.warn(`API rate limit exceeded for IP: ${req.ip}, path: ${req.path}`);
-    res.status(429).json({
-      error: 'Too many requests from this IP, please try again later',
-      timestamp: new Date().toISOString(),
-    });
-  },
-});
-
-/**
- * LLM API rate limiter - 10 requests per second per IP
- */
-const llmLimiter = rateLimit({
-  windowMs: 1000, // 1 second
-  max: 10,
-  skip: isRateLimitDisabled,
-  message: {
-    error: 'LLM request rate limit exceeded, please slow down',
-    timestamp: new Date().toISOString(),
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
-  handler: (req, res) => {
-    logger.warn(`LLM rate limit exceeded for IP: ${req.ip}`);
-    res.status(429).json({
-      error: 'LLM request rate limit exceeded, please slow down',
-      timestamp: new Date().toISOString(),
-    });
-  },
-});
-
-/**
- * Metrics API rate limiter - 20 requests per second per IP
- */
-const metricsLimiter = rateLimit({
-  windowMs: 1000, // 1 second
-  max: 20,
-  skip: isRateLimitDisabled,
-  message: {
-    error: 'Metrics request rate limit exceeded',
-    timestamp: new Date().toISOString(),
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful requests (only errors)
-  validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
-  handler: (req, res) => {
-    logger.warn(`Metrics rate limit exceeded for IP: ${req.ip}`);
-    res.status(429).json({
-      error: 'Metrics request rate limit exceeded',
-      timestamp: new Date().toISOString(),
-    });
-  },
-});
-
-/**
- * n8n Webhook rate limiter - 100 requests per minute
- */
-const webhookLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 100,
-  skip: isRateLimitDisabled,
-  message: {
-    error: 'Webhook rate limit exceeded',
-    timestamp: new Date().toISOString(),
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
-  handler: (req, res) => {
-    logger.warn(`Webhook rate limit exceeded for IP: ${req.ip}`);
-    res.status(429).json({
-      error: 'Webhook rate limit exceeded',
-      timestamp: new Date().toISOString(),
-    });
-  },
-});
+/** n8n Webhook rate limiter - 100 requests per minute */
+const webhookLimiter = createLimiter('Webhook', 60 * 1000, 100, 'Webhook rate limit exceeded');
 
 /**
  * BUG-003 FIX: Global store for user rate limiters with automatic cleanup

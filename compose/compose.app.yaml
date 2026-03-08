@@ -1,12 +1,24 @@
 # Arasul Platform - Application Services
 # Dashboard Backend, Dashboard Frontend, n8n Workflow Engine
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '50m'
+    max-file: '10'
+
+x-security: &default-security
+  security_opt:
+    - no-new-privileges:true
+
 services:
   # 1. Dashboard Backend
   dashboard-backend:
     build:
       context: ..
       dockerfile: apps/dashboard-backend/Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20.19}
     container_name: dashboard-backend
     hostname: dashboard-backend
     restart: always
@@ -95,17 +107,15 @@ services:
           memory: ${RAM_LIMIT_BACKEND:-1G}
     labels:
       - 'traefik.enable=false'
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
+    logging: *default-logging
 
   # 2. Dashboard Frontend
   dashboard-frontend:
     build:
       context: ..
       dockerfile: apps/dashboard-frontend/Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20.19}
     container_name: dashboard-frontend
     hostname: dashboard-frontend
     restart: always
@@ -121,8 +131,7 @@ services:
       - /tmp:noexec,nosuid,size=32M
       - /var/cache/nginx:size=32M
       - /run:size=8M
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     cap_drop:
       - ALL
     cap_add:
@@ -132,11 +141,7 @@ services:
       - SETGID
     labels:
       - 'traefik.enable=false'
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
+    logging: *default-logging
     deploy:
       resources:
         limits:
@@ -192,8 +197,7 @@ services:
       interval: 15s
       timeout: 2s
       retries: 3
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     deploy:
       resources:
         limits:
@@ -201,28 +205,7 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.services.n8n-docker.loadbalancer.server.port=5678'
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
-
-networks:
-  arasul-frontend:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.0/26
-  arasul-backend:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.64/26
-  arasul-monitoring:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.128/26
+    logging: *default-logging
 
 volumes:
   arasul-n8n:

@@ -10,6 +10,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import useConfirm from '../../hooks/useConfirm';
 import EmptyState from '../../components/ui/EmptyState';
+import DataStateRenderer from '../../components/ui/DataStateRenderer';
 import { useToast } from '../../contexts/ToastContext';
 import {
   Cpu,
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useDownloads } from '../../contexts/DownloadContext';
 import { useApi } from '../../hooks/useApi';
+import { useFetchData } from '../../hooks/useFetchData';
 import { formatModelSize as formatSize } from '../../utils/formatting';
 import StoreDetailModal from './StoreDetailModal';
 import { SkeletonCard } from '../../components/ui/Skeleton';
@@ -96,15 +98,48 @@ function StoreModels() {
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
 
-  const [catalog, setCatalog] = useState<CatalogModel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [loadedModel, setLoadedModel] = useState<LoadedModel | null>(null);
-  const [defaultModel, setDefaultModel] = useState<string | null>(null);
+  interface ModelData {
+    catalog: CatalogModel[];
+    loadedModel: LoadedModel | null;
+    defaultModel: string | null;
+    queueByModel: QueueEntry[];
+  }
+
+  const modelFetcher = useCallback(
+    async (signal: AbortSignal) => {
+      const opts = { signal, showError: false };
+      const [catalogData, statusData, defaultData] = await Promise.all([
+        api.get('/models/catalog', opts),
+        api.get('/models/status', opts).catch(() => ({})),
+        api.get('/models/default', opts).catch(() => ({})),
+      ]);
+      return {
+        catalog: (catalogData as any).models || [],
+        loadedModel: (statusData as any).loaded_model || null,
+        defaultModel: (defaultData as any).default_model || null,
+        queueByModel: (statusData as any).queue_by_model || [],
+      } as ModelData;
+    },
+    [api]
+  );
+
+  const {
+    data: modelData,
+    setData: setModelData,
+    loading,
+    error,
+    setError,
+    refetch: loadData,
+  } = useFetchData<ModelData>(modelFetcher, {
+    initialData: { catalog: [], loadedModel: null, defaultModel: null, queueByModel: [] },
+    errorMessage: 'Fehler beim Laden der Modell-Daten',
+  });
+
+  const { catalog, loadedModel, defaultModel, queueByModel } = modelData;
+
   const [activating, setActivating] = useState<string | null>(null);
   const [activatingProgress, setActivatingProgress] = useState('');
   const [activatingPercent, setActivatingPercent] = useState(0);
-  const [queueByModel, setQueueByModel] = useState<QueueEntry[]>([]);
   const [selectedModel, setSelectedModel] = useState<CatalogModel | null>(null);
 
   // Filters
@@ -114,41 +149,10 @@ function StoreModels() {
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
   const activatingRef = useRef(false);
 
-  // Load catalog and status
-  const loadData = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        const opts = { signal, showError: false };
-        const [catalogData, statusData, defaultData] = await Promise.all([
-          api.get('/models/catalog', opts),
-          api.get('/models/status', opts).catch(() => ({})),
-          api.get('/models/default', opts).catch(() => ({})),
-        ]);
-
-        setCatalog(catalogData.models || []);
-        setLoadedModel(statusData.loaded_model);
-        setQueueByModel(statusData.queue_by_model || []);
-        setDefaultModel(defaultData.default_model);
-        setError(null);
-      } catch (err: any) {
-        if (signal?.aborted) return;
-        console.error('[StoreModels] Error loading data:', err);
-        setError('Fehler beim Laden der Modell-Daten');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api]
-  );
-
+  // Poll for status updates every 15 seconds
   useEffect(() => {
-    const controller = new AbortController();
-    loadData(controller.signal);
-    const interval = setInterval(() => loadData(controller.signal), 15000);
-    return () => {
-      controller.abort();
-      clearInterval(interval);
-    };
+    const interval = setInterval(() => loadData(), 15000);
+    return () => clearInterval(interval);
   }, [loadData]);
 
   // Reload when download completes
@@ -252,7 +256,7 @@ function StoreModels() {
   const handleSetDefault = async (modelId: string) => {
     try {
       await api.post('/models/default', { model_id: modelId }, { showError: false });
-      setDefaultModel(modelId);
+      setModelData(prev => ({ ...prev, defaultModel: modelId }));
     } catch (err) {
       console.error('Set default error:', err);
       const model = catalog.find(m => m.id === modelId);
@@ -277,415 +281,421 @@ function StoreModels() {
   // Get available types from catalog
   const availableTypes = Array.from(new Set(catalog.map(m => m.model_type || 'llm')));
 
-  if (loading) {
-    return (
-      <div className="store-models animate-in fade-in">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-          <SkeletonCard hasAvatar={false} lines={3} />
-          <SkeletonCard hasAvatar={false} lines={3} />
-          <SkeletonCard hasAvatar={false} lines={3} />
-          <SkeletonCard hasAvatar={false} lines={3} />
-          <SkeletonCard hasAvatar={false} lines={3} />
-          <SkeletonCard hasAvatar={false} lines={3} />
-        </div>
-      </div>
-    );
-  }
+  // Full-page error only when initial load fails (no data yet)
+  const initialError = error && catalog.length === 0 ? error : null;
 
   return (
-    <div className="store-models">
-      {/* Loaded model banner */}
-      {loadedModel && (
-        <div className="loaded-model-banner flex items-center justify-between bg-primary/10 border border-primary rounded-lg px-6 py-4 mb-6 flex-wrap gap-4">
-          <div className="loaded-model-info flex items-center gap-3">
-            <Zap className="pulse animate-pulse size-5 text-primary" />
-            <span className="text-muted-foreground">Aktuell geladen:</span>
-            <strong className="text-foreground">{loadedModel.model_id}</strong>
+    <DataStateRenderer
+      loading={loading}
+      error={initialError}
+      empty={false}
+      onRetry={() => loadData()}
+      loadingSkeleton={
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
+          {Array(6)
+            .fill(0)
+            .map((_, i) => (
+              <SkeletonCard key={i} hasAvatar={false} lines={3} />
+            ))}
+        </div>
+      }
+    >
+      <div className="store-models">
+        {/* Loaded model banner */}
+        {loadedModel && (
+          <div className="loaded-model-banner flex items-center justify-between bg-primary/10 border border-primary rounded-lg px-6 py-4 mb-6 flex-wrap gap-4">
+            <div className="loaded-model-info flex items-center gap-3">
+              <Zap className="pulse animate-pulse size-5 text-primary" />
+              <span className="text-muted-foreground">Aktuell geladen:</span>
+              <strong className="text-foreground">{loadedModel.model_id}</strong>
+            </div>
+            <div className="loaded-model-stats flex items-center gap-2">
+              <span className="ram-usage flex items-center gap-1.5 text-sm text-muted-foreground">
+                <HardDrive className="size-4" />
+                {loadedModel.ram_usage_mb
+                  ? `${(loadedModel.ram_usage_mb / 1024).toFixed(1)} GB RAM`
+                  : 'RAM wird berechnet...'}
+              </span>
+            </div>
           </div>
-          <div className="loaded-model-stats flex items-center gap-2">
-            <span className="ram-usage flex items-center gap-1.5 text-sm text-muted-foreground">
-              <HardDrive className="size-4" />
-              {loadedModel.ram_usage_mb
-                ? `${(loadedModel.ram_usage_mb / 1024).toFixed(1)} GB RAM`
-                : 'RAM wird berechnet...'}
-            </span>
+        )}
+
+        {!loadedModel && (
+          <div className="no-model-banner flex items-center gap-3 bg-card border border-border rounded-lg px-6 py-4 mb-6 text-muted-foreground">
+            <Info className="size-5" />
+            <span>Kein Modell geladen. Aktiviere ein Modell, um zu starten.</span>
           </div>
-        </div>
-      )}
+        )}
 
-      {!loadedModel && (
-        <div className="no-model-banner flex items-center gap-3 bg-card border border-border rounded-lg px-6 py-4 mb-6 text-muted-foreground">
-          <Info className="size-5" />
-          <span>Kein Modell geladen. Aktiviere ein Modell, um zu starten.</span>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="store-error flex items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-md px-4 py-3 mb-6 text-destructive">
-          <AlertCircle className="size-5" />
-          <span>{error}</span>
-          <button
-            type="button"
-            className="ml-auto hover:opacity-70 transition-opacity"
-            onClick={() => setError(null)}
-            aria-label="Fehlermeldung schließen"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="store-filters flex gap-6 mb-6 flex-wrap">
-        <div className="filter-group flex items-center gap-3">
-          <span className="filter-label text-sm text-muted-foreground font-medium">Größe:</span>
-          <div className="filter-chips flex gap-2 flex-wrap">
+        {/* Error */}
+        {error && (
+          <div className="store-error flex items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-md px-4 py-3 mb-6 text-destructive">
+            <AlertCircle className="size-5" />
+            <span>{error}</span>
             <button
               type="button"
-              className={cn(
-                'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
-                sizeFilter === 'all' && 'active bg-primary/10 border-primary text-primary'
-              )}
-              onClick={() => setSizeFilter('all')}
-              aria-pressed={sizeFilter === 'all'}
+              className="ml-auto hover:opacity-70 transition-opacity"
+              onClick={() => setError(null)}
+              aria-label="Fehlermeldung schließen"
             >
-              Alle
+              <X className="size-4" />
             </button>
-            {Object.entries(sizeConfig).map(([key, config]) => (
-              <button
-                type="button"
-                key={key}
-                className={cn(
-                  'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
-                  sizeFilter === key && 'active bg-primary/10 border-primary text-primary'
-                )}
-                onClick={() => setSizeFilter(key)}
-                aria-pressed={sizeFilter === key}
-                title={config.description}
-              >
-                {config.label}
-              </button>
-            ))}
           </div>
-        </div>
+        )}
 
-        {availableTypes.length > 1 && (
+        {/* Filters */}
+        <div className="store-filters flex gap-6 mb-6 flex-wrap">
           <div className="filter-group flex items-center gap-3">
-            <span className="filter-label text-sm text-muted-foreground font-medium">Typ:</span>
+            <span className="filter-label text-sm text-muted-foreground font-medium">Größe:</span>
             <div className="filter-chips flex gap-2 flex-wrap">
               <button
                 type="button"
                 className={cn(
                   'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
-                  typeFilter === 'all' && 'active bg-primary/10 border-primary text-primary'
+                  sizeFilter === 'all' && 'active bg-primary/10 border-primary text-primary'
                 )}
-                onClick={() => setTypeFilter('all')}
-                aria-pressed={typeFilter === 'all'}
+                onClick={() => setSizeFilter('all')}
+                aria-pressed={sizeFilter === 'all'}
               >
                 Alle
               </button>
-              {availableTypes.map(type => {
-                const config = typeConfig[type] || { label: type, icon: Cpu };
-                const Icon = config.icon;
-                return (
-                  <button
-                    type="button"
-                    key={type}
-                    className={cn(
-                      'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
-                      typeFilter === type && 'active bg-primary/10 border-primary text-primary'
-                    )}
-                    onClick={() => setTypeFilter(type)}
-                    aria-pressed={typeFilter === type}
-                  >
-                    <Icon className="size-4" /> {config.label}
-                  </button>
-                );
-              })}
+              {Object.entries(sizeConfig).map(([key, config]) => (
+                <button
+                  type="button"
+                  key={key}
+                  className={cn(
+                    'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
+                    sizeFilter === key && 'active bg-primary/10 border-primary text-primary'
+                  )}
+                  onClick={() => setSizeFilter(key)}
+                  aria-pressed={sizeFilter === key}
+                  title={config.description}
+                >
+                  {config.label}
+                </button>
+              ))}
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Model Grid */}
-      <div className="model-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-        {filteredCatalog.map(model => {
-          const isInstalled = model.install_status === 'available';
-          const isLoaded =
-            loadedModel?.model_id === model.id ||
-            loadedModel?.model_id === model.effective_ollama_name;
-          const modelIsDownloading = isDownloading(model.id);
-          const downloadState: DownloadState | undefined = getDownloadState(model.id);
-          const isActivating = activating === model.id;
-          const isDefault = defaultModel === model.id;
-          const pendingJobs = getQueueCount(model.id);
-          const sizeInfo = sizeConfig[model.category] || sizeConfig.medium;
-          const typeInfo = typeConfig[model.model_type || 'llm'] || typeConfig.llm;
-          const TypeIcon = typeInfo.icon;
-
-          return (
-            <div
-              key={model.id}
-              className={cn(
-                'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted',
-                isLoaded && 'active border-primary bg-primary/5',
-                isInstalled && 'installed border-muted'
-              )}
-              onClick={() => setSelectedModel(model)}
-              tabIndex={0}
-              role="button"
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setSelectedModel(model);
-                }
-              }}
-            >
-              <div className="model-card-header flex items-start justify-between gap-3">
-                <div className="model-icon size-12 bg-muted rounded-lg flex items-center justify-center text-primary text-2xl shrink-0">
-                  <TypeIcon className="size-6" />
-                </div>
-                <div className="model-badges flex flex-wrap gap-1.5 justify-end">
-                  {isDefault && (
-                    <Badge
-                      variant="outline"
-                      className="badge-default bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
-                    >
-                      <Star className="size-3" /> Standard
-                    </Badge>
-                  )}
-                  {isLoaded && (
-                    <Badge
-                      variant="outline"
-                      className="badge-loaded bg-primary/10 border-primary text-primary"
-                    >
-                      <Zap className="size-3" /> Aktiv
-                    </Badge>
-                  )}
-                  {pendingJobs > 0 && (
-                    <Badge
-                      variant="outline"
-                      className="badge-queue bg-orange-500/10 border-orange-500/30 text-orange-500"
-                    >
-                      {pendingJobs} wartend
-                    </Badge>
-                  )}
-                  <Badge
-                    variant="outline"
-                    className="badge-type bg-muted border-border text-muted-foreground"
-                    title={typeInfo.description}
-                  >
-                    {typeInfo.label}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className="badge-category bg-muted border-border text-muted-foreground"
-                    title={sizeInfo.description}
-                  >
-                    {sizeInfo.label}
-                  </Badge>
-                </div>
-              </div>
-
-              <h3 className="model-name text-base font-semibold text-foreground">{model.name}</h3>
-              <p className="model-description text-sm text-muted-foreground line-clamp-2">
-                {model.description}
-              </p>
-
-              <div className="model-specs flex gap-4 text-sm">
-                <div className="spec flex flex-col">
-                  <span className="spec-label text-xs text-muted-foreground">Größe</span>
-                  <span className="spec-value font-medium text-foreground">
-                    {formatSize(model.size_bytes)}
-                  </span>
-                </div>
-                <div className="spec flex flex-col">
-                  <span className="spec-label text-xs text-muted-foreground">RAM-Bedarf</span>
-                  <span className="spec-value font-medium text-foreground">
-                    {model.ram_required_gb} GB
-                  </span>
-                </div>
-              </div>
-
-              {model.capabilities && model.capabilities.length > 0 && (
-                <div className="model-capabilities flex flex-wrap gap-1.5">
-                  {model.capabilities.slice(0, 4).map(cap => (
-                    <span
-                      key={cap}
-                      className="capability-tag text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
-                    >
-                      {cap}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Download Progress */}
-              {modelIsDownloading && downloadState && (
-                <div
+          {availableTypes.length > 1 && (
+            <div className="filter-group flex items-center gap-3">
+              <span className="filter-label text-sm text-muted-foreground font-medium">Typ:</span>
+              <div className="filter-chips flex gap-2 flex-wrap">
+                <button
+                  type="button"
                   className={cn(
-                    'download-progress bg-muted rounded-md p-3.5 border border-border',
-                    `phase-${downloadState.phase}`,
-                    downloadState.phase === 'complete' && 'border-green-500 bg-green-500/10'
+                    'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
+                    typeFilter === 'all' && 'active bg-primary/10 border-primary text-primary'
                   )}
-                  onClick={e => e.stopPropagation()}
+                  onClick={() => setTypeFilter('all')}
+                  aria-pressed={typeFilter === 'all'}
                 >
-                  <div className="progress-header flex justify-between items-center mb-2">
-                    <span
+                  Alle
+                </button>
+                {availableTypes.map(type => {
+                  const config = typeConfig[type] || { label: type, icon: Cpu };
+                  const Icon = config.icon;
+                  return (
+                    <button
+                      type="button"
+                      key={type}
                       className={cn(
-                        'progress-phase-label text-xs font-semibold text-muted-foreground uppercase tracking-wider',
-                        downloadState.phase === 'complete' && 'text-green-500'
+                        'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
+                        typeFilter === type && 'active bg-primary/10 border-primary text-primary'
                       )}
+                      onClick={() => setTypeFilter(type)}
+                      aria-pressed={typeFilter === type}
                     >
-                      {downloadState.phase === 'init' && 'Initialisiere'}
-                      {downloadState.phase === 'download' && 'Download'}
-                      {downloadState.phase === 'verify' && 'Verifiziere'}
-                      {downloadState.phase === 'complete' && 'Fertig'}
-                      {downloadState.phase === 'error' && 'Fehler'}
-                    </span>
-                    <span
-                      className={cn(
-                        'progress-percent text-primary font-semibold text-sm',
-                        downloadState.phase === 'complete' && 'text-green-500'
-                      )}
-                    >
-                      {downloadState.progress}%
-                    </span>
-                  </div>
-                  <div className="progress-bar h-2 bg-border rounded overflow-hidden mb-2">
-                    <div
-                      className={cn(
-                        'progress-fill h-full bg-gradient-to-r from-primary to-primary/80 rounded transition-all duration-300',
-                        downloadState.phase === 'verify' &&
-                          'pulsing animate-pulse from-yellow-500 to-yellow-400',
-                        downloadState.phase === 'complete' && 'from-green-500 to-green-400'
-                      )}
-                      style={{
-                        width: `${downloadState.phase === 'verify' && downloadState.progress < 100 ? 100 : downloadState.progress}%`,
-                      }}
-                    />
-                  </div>
-                  <div
-                    className={cn(
-                      'progress-status text-xs text-muted-foreground',
-                      downloadState.phase === 'complete' && 'text-green-500'
-                    )}
-                  >
-                    {downloadState.error || downloadState.status}
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div
-                className="model-actions flex gap-2 mt-auto pt-2"
-                onClick={e => e.stopPropagation()}
-              >
-                {!isInstalled && !modelIsDownloading && (
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleDownload(model.id, model.name)}
-                  >
-                    <Download className="size-4" /> Herunterladen
-                  </Button>
-                )}
-
-                {isInstalled && !isLoaded && (
-                  <>
-                    <Button
-                      size="sm"
-                      className={cn('flex-1', isActivating && 'activating-btn')}
-                      onClick={() => handleActivate(model.id)}
-                      disabled={isActivating}
-                      style={
-                        isActivating
-                          ? {
-                              background: `linear-gradient(90deg, var(--success-color) ${activatingPercent}%, var(--bg-card) ${activatingPercent}%)`,
-                              borderColor: 'var(--success-color)',
-                            }
-                          : {}
-                      }
-                    >
-                      {isActivating ? (
-                        <>
-                          <RefreshCw className="size-4 animate-spin" /> {activatingPercent}%
-                        </>
-                      ) : (
-                        <>
-                          <Play className="size-4" /> Aktivieren
-                        </>
-                      )}
-                    </Button>
-                    {!isDefault && (
-                      <Button
-                        size="icon-sm"
-                        variant="outline"
-                        onClick={() => handleSetDefault(model.id)}
-                        title="Als Standard setzen"
-                        aria-label="Als Standard setzen"
-                      >
-                        <Star className="size-4" />
-                      </Button>
-                    )}
-                    <Button
-                      size="icon-sm"
-                      variant="destructive"
-                      onClick={() => handleDelete(model.id)}
-                      title="Löschen"
-                      aria-label="Löschen"
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </>
-                )}
-
-                {isLoaded && (
-                  <>
-                    <Button size="sm" className="flex-1" disabled>
-                      <Check className="size-4" /> Aktiv
-                    </Button>
-                    {!isDefault && (
-                      <Button
-                        size="icon-sm"
-                        variant="outline"
-                        onClick={() => handleSetDefault(model.id)}
-                        title="Als Standard setzen"
-                        aria-label="Als Standard setzen"
-                      >
-                        <Star className="size-4" />
-                      </Button>
-                    )}
-                  </>
-                )}
+                      <Icon className="size-4" /> {config.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          );
-        })}
+          )}
+        </div>
+
+        {/* Model Grid */}
+        <div className="model-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
+          {filteredCatalog.map(model => {
+            const isInstalled = model.install_status === 'available';
+            const isLoaded =
+              loadedModel?.model_id === model.id ||
+              loadedModel?.model_id === model.effective_ollama_name;
+            const modelIsDownloading = isDownloading(model.id);
+            const downloadState: DownloadState | undefined = getDownloadState(model.id);
+            const isActivating = activating === model.id;
+            const isDefault = defaultModel === model.id;
+            const pendingJobs = getQueueCount(model.id);
+            const sizeInfo = sizeConfig[model.category] || sizeConfig.medium;
+            const typeInfo = typeConfig[model.model_type || 'llm'] || typeConfig.llm;
+            const TypeIcon = typeInfo.icon;
+
+            return (
+              <div
+                key={model.id}
+                className={cn(
+                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted',
+                  isLoaded && 'active border-primary bg-primary/5',
+                  isInstalled && 'installed border-muted'
+                )}
+                onClick={() => setSelectedModel(model)}
+                tabIndex={0}
+                role="button"
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedModel(model);
+                  }
+                }}
+              >
+                <div className="model-card-header flex items-start justify-between gap-3">
+                  <div className="model-icon size-12 bg-muted rounded-lg flex items-center justify-center text-primary text-2xl shrink-0">
+                    <TypeIcon className="size-6" />
+                  </div>
+                  <div className="model-badges flex flex-wrap gap-1.5 justify-end">
+                    {isDefault && (
+                      <Badge
+                        variant="outline"
+                        className="badge-default bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
+                      >
+                        <Star className="size-3" /> Standard
+                      </Badge>
+                    )}
+                    {isLoaded && (
+                      <Badge
+                        variant="outline"
+                        className="badge-loaded bg-primary/10 border-primary text-primary"
+                      >
+                        <Zap className="size-3" /> Aktiv
+                      </Badge>
+                    )}
+                    {pendingJobs > 0 && (
+                      <Badge
+                        variant="outline"
+                        className="badge-queue bg-orange-500/10 border-orange-500/30 text-orange-500"
+                      >
+                        {pendingJobs} wartend
+                      </Badge>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className="badge-type bg-muted border-border text-muted-foreground"
+                      title={typeInfo.description}
+                    >
+                      {typeInfo.label}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="badge-category bg-muted border-border text-muted-foreground"
+                      title={sizeInfo.description}
+                    >
+                      {sizeInfo.label}
+                    </Badge>
+                  </div>
+                </div>
+
+                <h3 className="model-name text-base font-semibold text-foreground">{model.name}</h3>
+                <p className="model-description text-sm text-muted-foreground line-clamp-2">
+                  {model.description}
+                </p>
+
+                <div className="model-specs flex gap-4 text-sm">
+                  <div className="spec flex flex-col">
+                    <span className="spec-label text-xs text-muted-foreground">Größe</span>
+                    <span className="spec-value font-medium text-foreground">
+                      {formatSize(model.size_bytes)}
+                    </span>
+                  </div>
+                  <div className="spec flex flex-col">
+                    <span className="spec-label text-xs text-muted-foreground">RAM-Bedarf</span>
+                    <span className="spec-value font-medium text-foreground">
+                      {model.ram_required_gb} GB
+                    </span>
+                  </div>
+                </div>
+
+                {model.capabilities && model.capabilities.length > 0 && (
+                  <div className="model-capabilities flex flex-wrap gap-1.5">
+                    {model.capabilities.slice(0, 4).map(cap => (
+                      <span
+                        key={cap}
+                        className="capability-tag text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
+                      >
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Download Progress */}
+                {modelIsDownloading && downloadState && (
+                  <div
+                    className={cn(
+                      'download-progress bg-muted rounded-md p-3.5 border border-border',
+                      `phase-${downloadState.phase}`,
+                      downloadState.phase === 'complete' && 'border-green-500 bg-green-500/10'
+                    )}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="progress-header flex justify-between items-center mb-2">
+                      <span
+                        className={cn(
+                          'progress-phase-label text-xs font-semibold text-muted-foreground uppercase tracking-wider',
+                          downloadState.phase === 'complete' && 'text-green-500'
+                        )}
+                      >
+                        {downloadState.phase === 'init' && 'Initialisiere'}
+                        {downloadState.phase === 'download' && 'Download'}
+                        {downloadState.phase === 'verify' && 'Verifiziere'}
+                        {downloadState.phase === 'complete' && 'Fertig'}
+                        {downloadState.phase === 'error' && 'Fehler'}
+                      </span>
+                      <span
+                        className={cn(
+                          'progress-percent text-primary font-semibold text-sm',
+                          downloadState.phase === 'complete' && 'text-green-500'
+                        )}
+                      >
+                        {downloadState.progress}%
+                      </span>
+                    </div>
+                    <div className="progress-bar h-2 bg-border rounded overflow-hidden mb-2">
+                      <div
+                        className={cn(
+                          'progress-fill h-full bg-gradient-to-r from-primary to-primary/80 rounded transition-all duration-300',
+                          downloadState.phase === 'verify' &&
+                            'pulsing animate-pulse from-yellow-500 to-yellow-400',
+                          downloadState.phase === 'complete' && 'from-green-500 to-green-400'
+                        )}
+                        style={{
+                          width: `${downloadState.phase === 'verify' && downloadState.progress < 100 ? 100 : downloadState.progress}%`,
+                        }}
+                      />
+                    </div>
+                    <div
+                      className={cn(
+                        'progress-status text-xs text-muted-foreground',
+                        downloadState.phase === 'complete' && 'text-green-500'
+                      )}
+                    >
+                      {downloadState.error || downloadState.status}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div
+                  className="model-actions flex gap-2 mt-auto pt-2"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {!isInstalled && !modelIsDownloading && (
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleDownload(model.id, model.name)}
+                    >
+                      <Download className="size-4" /> Herunterladen
+                    </Button>
+                  )}
+
+                  {isInstalled && !isLoaded && (
+                    <>
+                      <Button
+                        size="sm"
+                        className={cn('flex-1', isActivating && 'activating-btn')}
+                        onClick={() => handleActivate(model.id)}
+                        disabled={isActivating}
+                        style={
+                          isActivating
+                            ? {
+                                background: `linear-gradient(90deg, var(--success-color) ${activatingPercent}%, var(--bg-card) ${activatingPercent}%)`,
+                                borderColor: 'var(--success-color)',
+                              }
+                            : {}
+                        }
+                      >
+                        {isActivating ? (
+                          <>
+                            <RefreshCw className="size-4 animate-spin" /> {activatingPercent}%
+                          </>
+                        ) : (
+                          <>
+                            <Play className="size-4" /> Aktivieren
+                          </>
+                        )}
+                      </Button>
+                      {!isDefault && (
+                        <Button
+                          size="icon-sm"
+                          variant="outline"
+                          onClick={() => handleSetDefault(model.id)}
+                          title="Als Standard setzen"
+                          aria-label="Als Standard setzen"
+                        >
+                          <Star className="size-4" />
+                        </Button>
+                      )}
+                      <Button
+                        size="icon-sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(model.id)}
+                        title="Löschen"
+                        aria-label="Löschen"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </>
+                  )}
+
+                  {isLoaded && (
+                    <>
+                      <Button size="sm" className="flex-1" disabled>
+                        <Check className="size-4" /> Aktiv
+                      </Button>
+                      {!isDefault && (
+                        <Button
+                          size="icon-sm"
+                          variant="outline"
+                          onClick={() => handleSetDefault(model.id)}
+                          title="Als Standard setzen"
+                          aria-label="Als Standard setzen"
+                        >
+                          <Star className="size-4" />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {filteredCatalog.length === 0 && (
+          <EmptyState icon={<Cpu />} title="Keine Modelle gefunden" />
+        )}
+
+        {/* Model Detail Modal */}
+        {selectedModel && (
+          <StoreDetailModal
+            type="model"
+            item={selectedModel}
+            onClose={() => setSelectedModel(null)}
+            loadedModel={loadedModel}
+            defaultModel={defaultModel ?? undefined}
+            isDownloading={isDownloading}
+            activating={activating}
+            activatingPercent={activatingPercent}
+            onDownload={handleDownload}
+            onActivate={handleActivate}
+            onDelete={handleDelete}
+            onSetDefault={handleSetDefault}
+          />
+        )}
+        {ConfirmDialog}
       </div>
-
-      {filteredCatalog.length === 0 && <EmptyState icon={<Cpu />} title="Keine Modelle gefunden" />}
-
-      {/* Model Detail Modal */}
-      {selectedModel && (
-        <StoreDetailModal
-          type="model"
-          item={selectedModel}
-          onClose={() => setSelectedModel(null)}
-          loadedModel={loadedModel}
-          defaultModel={defaultModel ?? undefined}
-          isDownloading={isDownloading}
-          activating={activating}
-          activatingPercent={activatingPercent}
-          onDownload={handleDownload}
-          onActivate={handleActivate}
-          onDelete={handleDelete}
-          onSetDefault={handleSetDefault}
-        />
-      )}
-      {ConfirmDialog}
-    </div>
+    </DataStateRenderer>
   );
 }
 

@@ -211,7 +211,7 @@ export default function ChatView() {
   }, [navigate]);
 
   return (
-    <main className="chat-view flex flex-col h-full bg-[var(--bg-dark)] overflow-hidden w-full max-w-[1400px] mx-auto relative animate-[fadeIn_200ms_ease-out]">
+    <main className="chat-view flex flex-col h-full bg-[var(--bg-dark)] overflow-hidden w-full max-w-[1400px] mx-auto relative animate-[chat-fadeIn_200ms_ease-out]">
       <ChatTopBar
         chatId={chatId}
         title={title}

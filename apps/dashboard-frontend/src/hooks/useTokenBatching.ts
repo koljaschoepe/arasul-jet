@@ -13,7 +13,8 @@ interface TokenBatch {
   pendingThinking: string;
 }
 
-interface ChatMessage {
+/** Minimal message shape needed for token batching – intentionally narrower than ChatMessage */
+interface TokenCountableMessage {
   content: string;
   thinking?: string;
   hasThinking?: boolean;
@@ -38,7 +39,7 @@ interface UseTokenBatchingReturn {
  * @param batchIntervalMs - Flush interval in milliseconds
  */
 export default function useTokenBatching(
-  setMessages: Dispatch<SetStateAction<ChatMessage[]>>,
+  setMessages: Dispatch<SetStateAction<TokenCountableMessage[]>>,
   batchIntervalMs: number = 50
 ): UseTokenBatchingReturn {
   const tokenBatchRef = useRef<TokenBatch>({

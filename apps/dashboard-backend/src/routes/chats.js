@@ -11,6 +11,7 @@ const { requireAuth } = require('../middleware/auth');
 const llmJobService = require('../services/llm/llmJobService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
+const { buildSetClauses } = require('../utils/queryBuilder');
 
 // PHASE3-FIX: Input validation helper for conversation_id
 function isValidConversationId(id) {
@@ -340,24 +341,16 @@ router.patch(
     }
 
     // Build dynamic update
-    const setClauses = ['updated_at = NOW()'];
-    const params = [];
-    let paramIdx = 1;
-
-    if (title) {
-      setClauses.push(`title = $${paramIdx++}`);
-      params.push(title);
-    }
-    if (project_id !== undefined) {
-      setClauses.push(`project_id = $${paramIdx++}`);
-      params.push(project_id || null);
-    }
+    const { setClauses, params, paramIndex } = buildSetClauses({
+      title: title || undefined,
+      project_id: project_id !== undefined ? project_id || null : undefined,
+    });
 
     params.push(id);
     const result = await db.query(
       `UPDATE chat_conversations
          SET ${setClauses.join(', ')}
-         WHERE id = $${paramIdx} AND deleted_at IS NULL
+         WHERE id = $${paramIndex} AND deleted_at IS NULL
          RETURNING id, title, project_id, created_at, updated_at, message_count`,
       params
     );
@@ -396,40 +389,41 @@ router.patch(
       throw new ValidationError('Mindestens ein Setting muss angegeben werden');
     }
 
-    // Build dynamic update
-    const setClauses = ['updated_at = NOW()'];
-    const params = [];
-    let paramIdx = 1;
+    // Validate types before building query
+    if (use_rag !== undefined && typeof use_rag !== 'boolean') {
+      throw new ValidationError('use_rag muss ein Boolean sein');
+    }
+    if (use_thinking !== undefined && typeof use_thinking !== 'boolean') {
+      throw new ValidationError('use_thinking muss ein Boolean sein');
+    }
+    if (
+      preferred_model !== undefined &&
+      preferred_model !== null &&
+      typeof preferred_model !== 'string'
+    ) {
+      throw new ValidationError('preferred_model muss ein String oder null sein');
+    }
+    if (
+      preferred_space_id !== undefined &&
+      preferred_space_id !== null &&
+      typeof preferred_space_id !== 'string'
+    ) {
+      throw new ValidationError('preferred_space_id muss ein String oder null sein');
+    }
 
-    if (use_rag !== undefined) {
-      if (typeof use_rag !== 'boolean') {throw new ValidationError('use_rag muss ein Boolean sein');}
-      setClauses.push(`use_rag = $${paramIdx++}`);
-      params.push(use_rag);
-    }
-    if (use_thinking !== undefined) {
-      if (typeof use_thinking !== 'boolean')
-        {throw new ValidationError('use_thinking muss ein Boolean sein');}
-      setClauses.push(`use_thinking = $${paramIdx++}`);
-      params.push(use_thinking);
-    }
-    if (preferred_model !== undefined) {
-      if (preferred_model !== null && typeof preferred_model !== 'string')
-        {throw new ValidationError('preferred_model muss ein String oder null sein');}
-      setClauses.push(`preferred_model = $${paramIdx++}`);
-      params.push(preferred_model || null);
-    }
-    if (preferred_space_id !== undefined) {
-      if (preferred_space_id !== null && typeof preferred_space_id !== 'string')
-        {throw new ValidationError('preferred_space_id muss ein String oder null sein');}
-      setClauses.push(`preferred_space_id = $${paramIdx++}`);
-      params.push(preferred_space_id || null);
-    }
+    // Build dynamic update
+    const { setClauses, params, paramIndex } = buildSetClauses({
+      use_rag,
+      use_thinking,
+      preferred_model: preferred_model !== undefined ? preferred_model || null : undefined,
+      preferred_space_id: preferred_space_id !== undefined ? preferred_space_id || null : undefined,
+    });
 
     params.push(id);
     const result = await db.query(
       `UPDATE chat_conversations
          SET ${setClauses.join(', ')}
-         WHERE id = $${paramIdx} AND deleted_at IS NULL
+         WHERE id = $${paramIndex} AND deleted_at IS NULL
          RETURNING use_rag, use_thinking, preferred_model, preferred_space_id`,
       params
     );

@@ -15,6 +15,7 @@ const llmJobService = require('../services/llm/llmJobService');
 const llmQueueService = require('../services/llm/llmQueueService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
+const { initSSE, trackConnection } = require('../utils/sseHelper');
 const services = require('../config/services');
 
 const LLM_SERVICE_URL = services.llm.url;
@@ -70,10 +71,7 @@ router.post(
 
       // If streaming is requested (default: true)
       if (stream !== false) {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
+        initSSE(res);
 
         // Send job info with queue position and model
         res.write(
@@ -88,22 +86,11 @@ router.post(
         );
 
         // Track client connection state
-        let clientConnected = true;
+        const connection = trackConnection(res);
         let unsubscribe = null;
 
-        // PHASE1-FIX: Single close handler to prevent race conditions and memory leaks
-        res.on('close', () => {
-          clientConnected = false;
+        connection.onClose(() => {
           logger.debug(`[JOB ${jobId}] Client disconnected, job continues in background`);
-          if (unsubscribe) {
-            unsubscribe();
-          }
-        });
-
-        // SSE-001: Handle response errors to prevent unhandled exceptions
-        res.on('error', error => {
-          logger.debug(`[JOB ${jobId}] Response error: ${error.message}`);
-          clientConnected = false;
           if (unsubscribe) {
             unsubscribe();
           }
@@ -111,7 +98,7 @@ router.post(
 
         // Subscribe to job updates and forward to client
         unsubscribe = llmQueueService.subscribeToJob(jobId, event => {
-          if (!clientConnected) {
+          if (!connection.isConnected()) {
             return;
           }
 
@@ -232,10 +219,7 @@ router.get(
       throw new NotFoundError('Job not found');
     }
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
+    initSSE(res);
 
     // Send current content immediately
     logger.debug(
@@ -281,7 +265,7 @@ router.get(
     }
 
     // Track client connection and job completion to prevent race conditions
-    let clientConnected = true;
+    const connection = trackConnection(res);
     let jobDone = false;
     let unsubscribe = null;
     let pollInterval = null;
@@ -289,8 +273,11 @@ router.get(
     /** Helper to clear poll/timeout */
     const clearPoll = () => {
       if (pollInterval) {
-        if (pollInterval.clear) {pollInterval.clear();}
-        else {clearInterval(pollInterval);}
+        if (pollInterval.clear) {
+          pollInterval.clear();
+        } else {
+          clearInterval(pollInterval);
+        }
         pollInterval = null;
       }
     };
@@ -302,7 +289,6 @@ router.get(
       }
       jobDone = true;
       clearPoll();
-      clientConnected = false;
       if (unsubscribe) {
         unsubscribe();
       }
@@ -313,18 +299,8 @@ router.get(
       }
     };
 
-    // Single close handler for all cleanup
-    res.on('close', () => {
-      clientConnected = false;
-      clearPoll();
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    });
-
-    res.on('error', error => {
-      logger.debug(`[RECONNECT ${jobId}] Response error: ${error.message}`);
-      clientConnected = false;
+    connection.onClose(() => {
+      logger.debug(`[RECONNECT ${jobId}] Client disconnected`);
       clearPoll();
       if (unsubscribe) {
         unsubscribe();
@@ -333,7 +309,7 @@ router.get(
 
     // Subscribe to job updates
     unsubscribe = llmQueueService.subscribeToJob(jobId, event => {
-      if (jobDone || !clientConnected) {
+      if (jobDone || !connection.isConnected()) {
         return;
       }
 
@@ -352,7 +328,9 @@ router.get(
     // (replaces 200ms polling - subscriber notifications are real-time)
     if (job.status === 'streaming' || job.status === 'pending') {
       const safetyTimeout = setTimeout(async () => {
-        if (jobDone || !clientConnected) {return;}
+        if (jobDone || !connection.isConnected()) {
+          return;
+        }
 
         try {
           const currentJob = await llmJobService.getJob(jobId);

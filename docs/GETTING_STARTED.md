@@ -57,7 +57,6 @@ arasul-platform/
 │   ├── document-indexer/          #   RAG document processing
 │   ├── postgres/init/             #   Database migrations (001-041)
 │   └── ...                        #   metrics-collector, self-healing, telegram-bot
-├── packages/shared/               # Shared constants, validation, formatting
 ├── compose/                       # Docker Compose split files
 ├── config/                        # Traefik, TLS, secrets
 ├── scripts/                       # Categorized scripts (setup, test, deploy, ...)

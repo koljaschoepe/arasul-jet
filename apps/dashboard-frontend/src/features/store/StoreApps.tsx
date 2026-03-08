@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import StoreDetailModal from './StoreDetailModal';
 import ConfirmIconButton from '../../components/ui/ConfirmIconButton';
+import DataStateRenderer from '../../components/ui/DataStateRenderer';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { cn } from '@/lib/utils';
@@ -464,16 +465,26 @@ function StoreApps() {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="store-apps animate-in fade-in">
+  // Full-page error only when initial load fails (no data yet)
+  const initialError = error && apps.length === 0 ? error : null;
+
+  return (
+    <DataStateRenderer
+      loading={loading}
+      error={initialError}
+      empty={false}
+      onRetry={retry}
+      loadingSkeleton={
         <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-          <SkeletonCard hasAvatar={false} lines={3} />
-          <SkeletonCard hasAvatar={false} lines={3} />
-          <SkeletonCard hasAvatar={false} lines={3} />
-          <SkeletonCard hasAvatar={false} lines={3} />
+          {Array(4)
+            .fill(0)
+            .map((_, i) => (
+              <SkeletonCard key={i} hasAvatar={false} lines={3} />
+            ))}
         </div>
-        {loadingTimeout && (
+      }
+      loadingFooter={
+        loadingTimeout ? (
           <div className="mt-6 text-center">
             <p className="text-warning mb-4 flex items-center justify-center gap-2">
               <AlertTriangle className="size-4" />
@@ -488,77 +499,75 @@ function StoreApps() {
               </Button>
             </div>
           </div>
+        ) : undefined
+      }
+    >
+      <div className="store-apps">
+        {/* Error */}
+        {error && (
+          <div className="store-error flex items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-md px-4 py-3 mb-6 text-destructive">
+            <AlertCircle className="size-5 shrink-0" />
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={() => loadApps()}>
+              Erneut versuchen
+            </Button>
+          </div>
         )}
-      </div>
-    );
-  }
 
-  return (
-    <div className="store-apps">
-      {/* Error */}
-      {error && (
-        <div className="store-error flex items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-md px-4 py-3 mb-6 text-destructive">
-          <AlertCircle className="size-5 shrink-0" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => loadApps()}>
-            Erneut versuchen
-          </Button>
+        {/* Apps Grid */}
+        <div className="app-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
+          {apps.length > 0 ? (
+            apps.map(renderAppCard)
+          ) : (
+            <div className="store-empty flex flex-col items-center justify-center p-12 text-muted-foreground col-span-full">
+              <Package className="size-12 mb-4 opacity-50" />
+              <p>Keine Apps gefunden</p>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Apps Grid */}
-      <div className="app-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-        {apps.length > 0 ? (
-          apps.map(renderAppCard)
-        ) : (
-          <div className="store-empty flex flex-col items-center justify-center p-12 text-muted-foreground col-span-full">
-            <Package className="size-12 mb-4 opacity-50" />
-            <p>Keine Apps gefunden</p>
-          </div>
+        {/* App Detail Modal */}
+        {selectedApp && (
+          <StoreDetailModal
+            type="app"
+            item={selectedApp}
+            onClose={() => setSelectedApp(null)}
+            onAction={handleAction}
+            onUninstall={openUninstallDialog}
+            actionLoading={actionLoading}
+          />
         )}
+
+        {/* Uninstall Dialog */}
+        <Dialog open={uninstallDialog.open} onOpenChange={open => !open && closeUninstall()}>
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="size-5" /> App deinstallieren
+              </DialogTitle>
+              <DialogDescription>
+                Möchten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center gap-2 text-sm text-warning bg-warning/10 border border-warning/30 rounded-md p-3">
+              <AlertCircle className="size-4 shrink-0" />
+              Wählen Sie, ob die App-Daten behalten oder gelöscht werden sollen:
+            </div>
+            <DialogFooter className="flex-wrap gap-2">
+              <Button variant="outline" onClick={closeUninstall}>
+                Abbrechen
+              </Button>
+              <Button variant="secondary" onClick={() => handleUninstall(false)}>
+                <Trash2 className="size-4" /> Nur App entfernen
+              </Button>
+              <Button variant="destructive" onClick={() => handleUninstall(true)}>
+                <Trash2 className="size-4" /> App + Daten löschen
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* App Detail Modal */}
-      {selectedApp && (
-        <StoreDetailModal
-          type="app"
-          item={selectedApp}
-          onClose={() => setSelectedApp(null)}
-          onAction={handleAction}
-          onUninstall={openUninstallDialog}
-          actionLoading={actionLoading}
-        />
-      )}
-
-      {/* Uninstall Dialog */}
-      <Dialog open={uninstallDialog.open} onOpenChange={open => !open && closeUninstall()}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <Trash2 className="size-5" /> App deinstallieren
-            </DialogTitle>
-            <DialogDescription>
-              Möchten Sie <strong>{uninstallDialog.appName}</strong> wirklich deinstallieren?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-2 text-sm text-warning bg-warning/10 border border-warning/30 rounded-md p-3">
-            <AlertCircle className="size-4 shrink-0" />
-            Wählen Sie, ob die App-Daten behalten oder gelöscht werden sollen:
-          </div>
-          <DialogFooter className="flex-wrap gap-2">
-            <Button variant="outline" onClick={closeUninstall}>
-              Abbrechen
-            </Button>
-            <Button variant="secondary" onClick={() => handleUninstall(false)}>
-              <Trash2 className="size-4" /> Nur App entfernen
-            </Button>
-            <Button variant="destructive" onClick={() => handleUninstall(true)}>
-              <Trash2 className="size-4" /> App + Daten löschen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </DataStateRenderer>
   );
 }
 

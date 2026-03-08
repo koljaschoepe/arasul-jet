@@ -12,6 +12,7 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { buildSetClauses } = require('../../utils/queryBuilder');
 const { encryptToken, decryptToken } = require('../../utils/tokenCrypto');
 const telegramSetupPollingService = require('../../services/telegram/telegramSetupPollingService');
 
@@ -554,7 +555,7 @@ router.put(
     }
 
     // Build dynamic update query
-    const allowedFields = [
+    const allowedFields = new Set([
       'name',
       'description',
       'event_source',
@@ -564,26 +565,24 @@ router.put(
       'message_template',
       'cooldown_seconds',
       'is_enabled',
-    ];
+    ]);
 
-    const setClauses = [];
-    const values = [];
-    let paramIndex = 1;
-
+    // Filter to allowed fields and convert camelCase keys to snake_case
+    const fields = {};
     for (const [key, value] of Object.entries(updates)) {
       const snakeKey = key.replace(/[A-Z]/g, m => '_' + m.toLowerCase());
-      if (allowedFields.includes(snakeKey)) {
-        setClauses.push(`${snakeKey} = $${paramIndex}`);
-        values.push(snakeKey === 'trigger_condition' ? JSON.stringify(value) : value);
-        paramIndex++;
+      if (allowedFields.has(snakeKey)) {
+        fields[snakeKey] = snakeKey === 'trigger_condition' ? JSON.stringify(value) : value;
       }
     }
+
+    const { setClauses, params, paramIndex } = buildSetClauses(fields, { includeUpdatedAt: false });
 
     if (setClauses.length === 0) {
       throw new ValidationError('Keine gültigen Felder zum Aktualisieren');
     }
 
-    values.push(id, userId);
+    params.push(id, userId);
 
     const result = await db.query(
       `
@@ -592,7 +591,7 @@ router.put(
         WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1}
         RETURNING *
     `,
-      values
+      params
     );
 
     res.json({

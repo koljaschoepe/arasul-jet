@@ -51,10 +51,10 @@ test: ## Alle Tests ausführen
 	./scripts/test/run-tests.sh --all
 
 test-backend: ## Backend-Tests ausführen
-	cd apps/dashboard-backend && npx jest --no-coverage
+	./scripts/test/run-tests.sh --backend
 
 test-frontend: ## Frontend-Tests ausführen
-	cd apps/dashboard-frontend && npx react-scripts test --watchAll=false --ci
+	./scripts/test/run-tests.sh --frontend
 
 # === Datenbank ===
 

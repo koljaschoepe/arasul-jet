@@ -6,7 +6,7 @@
  * Migrated to TypeScript + shadcn + Tailwind
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { Package, Search, X, Cpu, LayoutGrid, Home } from 'lucide-react';
 import { Input } from '@/components/ui/shadcn/input';
@@ -17,6 +17,7 @@ import StoreModels from './StoreModels';
 import StoreApps from './StoreApps';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 
 interface SearchResultItem {
@@ -35,13 +36,13 @@ interface SystemInfo {
   availableDiskGB: number;
 }
 
+const EMPTY_SEARCH: SearchResults = { models: [], apps: [] };
+
 function Store() {
   const api = useApi();
   const toast = useToast();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResults>({ models: [], apps: [] });
-  const [isSearching, setIsSearching] = useState(false);
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     availableRamGB: 64,
     availableDiskGB: 100,
@@ -61,36 +62,28 @@ function Store() {
   }, []);
 
   // Debounced search with AbortController for race condition prevention (STORE-003)
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults({ models: [], apps: [] });
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(async () => {
+  const storeSearcher = useCallback(
+    async (q: string, signal: AbortSignal) => {
       try {
-        const data = await api.get(`/store/search?q=${encodeURIComponent(searchQuery)}`, {
-          signal: controller.signal,
+        return await api.get<SearchResults>(`/store/search?q=${encodeURIComponent(q)}`, {
+          signal,
           showError: false,
         });
-        setSearchResults(data);
       } catch (err: unknown) {
         if (err instanceof Error && err.name !== 'AbortError') {
           toast.error('Suche fehlgeschlagen');
         }
-      } finally {
-        setIsSearching(false);
+        throw err;
       }
-    }, 300);
+    },
+    [api, toast]
+  );
 
-    return () => {
-      clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [searchQuery]);
+  const { results: searchResults, searching: isSearching } = useDebouncedSearch(
+    searchQuery,
+    storeSearcher,
+    { initialResults: EMPTY_SEARCH }
+  );
 
   // Determine active tab from URL
   const activeTab = useMemo(() => {

@@ -25,6 +25,7 @@ const llmQueueService = require('../services/llm/llmQueueService');
 const db = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
+const { initSSE, trackConnection } = require('../utils/sseHelper');
 const services = require('../config/services');
 const { optimizeQuery } = require('../services/context/queryOptimizer');
 
@@ -227,10 +228,7 @@ router.post(
       const noRelevantDocs = relevantResults.length === 0 && rerankedResults.length > 0;
 
       // Set up SSE headers early
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no');
+      initSSE(res);
 
       // Handle no documents case - respond immediately without queue
       if (rerankedResults.length === 0) {
@@ -310,20 +308,11 @@ router.post(
       );
 
       // Track client connection with single close handler
-      let clientConnected = true;
+      const connection = trackConnection(res);
       let unsubscribe = null;
 
-      res.on('close', () => {
-        clientConnected = false;
+      connection.onClose(() => {
         logger.debug(`[RAG ${jobId}] Client disconnected, job continues in background`);
-        if (unsubscribe) {
-          unsubscribe();
-        }
-      });
-
-      res.on('error', error => {
-        logger.debug(`[RAG ${jobId}] Response error: ${error.message}`);
-        clientConnected = false;
         if (unsubscribe) {
           unsubscribe();
         }
@@ -331,7 +320,7 @@ router.post(
 
       // Subscribe to job updates and forward to client
       unsubscribe = llmQueueService.subscribeToJob(jobId, event => {
-        if (!clientConnected) {
+        if (!connection.isConnected()) {
           return;
         }
 

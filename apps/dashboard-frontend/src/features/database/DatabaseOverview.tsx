@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, LayoutGrid, List, Database, FileText } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
+import { useFetchData } from '../../hooks/useFetchData';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
@@ -237,52 +238,33 @@ const TableCard = memo(function TableCard({ table }: { table: Table }) {
 
 const DatabaseOverview = memo(function DatabaseOverview() {
   const api = useApi();
-  const [tables, setTables] = useState<Table[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const tableFetcher = useCallback(
+    async (signal: AbortSignal) => {
+      const data = await api.get('/v1/datentabellen/tables', {
+        signal,
+        showError: false,
+      });
+      return (data as any).data || [];
+    },
+    [api]
+  );
+
+  const {
+    data: tables,
+    setData: setTables,
+    loading,
+    error,
+    setError,
+    refetch: fetchTables,
+  } = useFetchData<Table[]>(tableFetcher, {
+    initialData: [],
+    errorMessage: 'Fehler beim Laden der Tabellen',
+  });
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-
-  const fetchAbortRef = useRef<AbortController | null>(null);
-
-  const fetchTables = useCallback(async () => {
-    if (fetchAbortRef.current) {
-      fetchAbortRef.current.abort();
-    }
-    fetchAbortRef.current = new AbortController();
-
-    try {
-      setLoading(true);
-      const data = await api.get('/v1/datentabellen/tables', {
-        signal: fetchAbortRef.current.signal,
-        showError: false,
-      });
-      setTables(data.data || []);
-      setError(null);
-    } catch (err: any) {
-      if (
-        err.name === 'AbortError' ||
-        err.name === 'CanceledError' ||
-        err.code === 'ERR_CANCELED'
-      ) {
-        return;
-      }
-      console.error('[Database] Fetch error:', err);
-      setError(err.data?.error || err.message || 'Fehler beim Laden der Tabellen');
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
-
-  useEffect(() => {
-    fetchTables();
-    return () => {
-      if (fetchAbortRef.current) {
-        fetchAbortRef.current.abort();
-      }
-    };
-  }, [fetchTables]);
 
   const filteredTables = tables.filter(
     t =>

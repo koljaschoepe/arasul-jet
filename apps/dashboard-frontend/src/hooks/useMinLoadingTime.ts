@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * useMinLoadingTime - Prevents "flash of loading content"
@@ -43,33 +43,7 @@ export function useMinLoadingTime(isLoading: boolean, minTime: number = 300): bo
     };
   }, [isLoading, minTime]);
 
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
   return showLoading;
-}
-
-/**
- * useLoadingState - Combined loading state management
- */
-export function useLoadingState(initialLoading: boolean = true, minTime: number = 300) {
-  const [isLoading, setIsLoading] = useState(initialLoading);
-  const showLoading = useMinLoadingTime(isLoading, minTime);
-
-  const setLoading = useCallback((value: boolean) => {
-    setIsLoading(value);
-  }, []);
-
-  return {
-    isLoading,
-    showLoading,
-    setLoading,
-  };
 }
 
 export default useMinLoadingTime;

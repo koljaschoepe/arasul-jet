@@ -1,12 +1,24 @@
 # Arasul Platform - Monitoring & Operations
 # Metrics Collector, Self-Healing Agent, Backup Service, Loki, Promtail
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '50m'
+    max-file: '10'
+
+x-security: &default-security
+  security_opt:
+    - no-new-privileges:true
+
 services:
   # 1. Metrics Collector
   metrics-collector:
     build:
       context: ../services/metrics-collector
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.11.12}
     container_name: metrics-collector
     hostname: metrics-collector
     restart: always
@@ -34,25 +46,22 @@ services:
       interval: 10s
       timeout: 1s
       retries: 3
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     cap_drop:
       - ALL
     deploy:
       resources:
         limits:
           memory: ${RAM_LIMIT_METRICS:-512M}
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
+    logging: *default-logging
 
   # 2. Self-Healing Engine
   self-healing-agent:
     build:
       context: ../services/self-healing-agent
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.11.12}
     container_name: self-healing-agent
     hostname: self-healing-agent
     restart: always
@@ -107,11 +116,7 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '10'
+    logging: *default-logging
     deploy:
       resources:
         limits:
@@ -159,8 +164,7 @@ services:
       options:
         max-size: '10m'
         max-file: '5'
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     deploy:
       resources:
         limits:
@@ -195,8 +199,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:noexec,nosuid,size=64M
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     cap_drop:
       - ALL
     deploy:
@@ -237,8 +240,7 @@ services:
     tmpfs:
       - /tmp:noexec,nosuid,size=32M
       - /run:size=8M
-    security_opt:
-      - no-new-privileges:true
+    <<: *default-security
     cap_drop:
       - ALL
     deploy:
@@ -247,11 +249,6 @@ services:
           memory: ${RAM_LIMIT_PROMTAIL:-256M}
 
 networks:
-  arasul-backend:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.64/26
   arasul-monitoring:
     driver: bridge
     ipam:

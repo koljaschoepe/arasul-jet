@@ -5,13 +5,9 @@ LABEL maintainer="Arasul Platform"
 LABEL description="Dashboard Backend API"
 LABEL org.opencontainers.image.architecture="arm64"
 
-WORKDIR /repo
-
-# Copy shared package (must match file:../../packages/shared reference)
-COPY packages/shared/ ./packages/shared/
+WORKDIR /app
 
 # Install dependencies
-WORKDIR /repo/apps/dashboard-backend
 COPY apps/dashboard-backend/package*.json ./
 RUN npm install --omit=dev
 

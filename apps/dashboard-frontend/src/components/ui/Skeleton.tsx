@@ -127,22 +127,6 @@ export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; column
   );
 }
 
-export function SkeletonStatCard() {
-  return (
-    <div
-      className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
-      aria-hidden="true"
-    >
-      <SkeletonAvatar size="48px" />
-      <div className="flex-1 flex flex-col gap-2">
-        <Skeleton height="0.75rem" width="60%" />
-        <Skeleton height="1.5rem" width="40%" />
-        <Skeleton height="0.625rem" width="30%" />
-      </div>
-    </div>
-  );
-}
-
 export function SkeletonChatMessage({ isUser = false }: { isUser?: boolean }) {
   return (
     <div
@@ -195,25 +179,6 @@ export function SkeletonDocumentList({ count = 5 }: { count?: number }) {
         .map((_, i) => (
           <SkeletonDocumentItem key={i} />
         ))}
-    </div>
-  );
-}
-
-export function SkeletonDashboard() {
-  return (
-    <div className="flex flex-col gap-6" aria-label="Lade Dashboard..." role="status">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array(4)
-          .fill(0)
-          .map((_, i) => (
-            <SkeletonStatCard key={i} />
-          ))}
-      </div>
-      <Skeleton height="280px" borderRadius="12px" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <SkeletonCard lines={4} hasAvatar={false} />
-        <SkeletonCard lines={4} hasAvatar={false} />
-      </div>
     </div>
   );
 }

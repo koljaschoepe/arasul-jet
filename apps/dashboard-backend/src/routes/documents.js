@@ -23,6 +23,7 @@ const { requireAuth } = require('../middleware/auth');
 const pool = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
+const { buildSetClauses } = require('../utils/queryBuilder');
 const services = require('../config/services');
 
 /**
@@ -116,8 +117,7 @@ const QDRANT_HOST = services.qdrant.host;
 const QDRANT_PORT = services.qdrant.port;
 const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
 
-const EMBEDDING_HOST = services.embedding.host;
-const EMBEDDING_PORT = services.embedding.port;
+const { getEmbedding } = require('../services/embeddingService');
 
 // Allowed file types and size limits
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
@@ -626,38 +626,18 @@ router.patch(
     const { title, category_id, user_tags, user_notes, is_favorite } = req.body;
 
     // Build update query
-    const updates = [];
-    const params = [];
-    let paramIndex = 1;
+    const { setClauses, params, paramIndex } = buildSetClauses(
+      { title, category_id, user_tags, user_notes, is_favorite },
+      { includeUpdatedAt: false }
+    );
 
-    if (title !== undefined) {
-      updates.push(`title = $${paramIndex++}`);
-      params.push(title);
-    }
-    if (category_id !== undefined) {
-      updates.push(`category_id = $${paramIndex++}`);
-      params.push(category_id);
-    }
-    if (user_tags !== undefined) {
-      updates.push(`user_tags = $${paramIndex++}`);
-      params.push(user_tags);
-    }
-    if (user_notes !== undefined) {
-      updates.push(`user_notes = $${paramIndex++}`);
-      params.push(user_notes);
-    }
-    if (is_favorite !== undefined) {
-      updates.push(`is_favorite = $${paramIndex++}`);
-      params.push(is_favorite);
-    }
-
-    if (updates.length === 0) {
+    if (setClauses.length === 0) {
       throw new ValidationError('Keine Aktualisierungen angegeben');
     }
 
     params.push(id);
     const result = await pool.query(
-      `UPDATE documents SET ${updates.join(', ')} WHERE id = $${paramIndex} AND deleted_at IS NULL RETURNING *`,
+      `UPDATE documents SET ${setClauses.join(', ')} WHERE id = $${paramIndex} AND deleted_at IS NULL RETURNING *`,
       params
     );
 
@@ -822,13 +802,10 @@ router.post(
     }
 
     // Get query embedding
-    const embeddingResponse = await axios.post(
-      `http://${EMBEDDING_HOST}:${EMBEDDING_PORT}/embed`,
-      { texts: query },
-      { timeout: 30000 }
-    );
-
-    const queryVector = embeddingResponse.data.vectors[0];
+    const queryVector = await getEmbedding(query);
+    if (!queryVector) {
+      throw new ValidationError('Embedding-Service nicht verfügbar');
+    }
 
     // Build Qdrant filter
     const filter = category_id

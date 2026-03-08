@@ -1,7 +1,0 @@
-{
-  "name": "@arasul/shared",
-  "version": "1.0.0",
-  "description": "Shared constants, validation, and formatting for Arasul Platform",
-  "main": "index.js",
-  "private": true
-}

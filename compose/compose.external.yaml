@@ -53,10 +53,3 @@ services:
         max-file: '3'
     profiles:
       - tunnel
-
-networks:
-  arasul-frontend:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.0/26

@@ -19,12 +19,12 @@ const llmDataAccess = require('../../services/context/llmDataAccessService');
 const { isValidSlug, escapeTableName } = require('../../utils/sqlIdentifier');
 const { ValidationError } = require('../../utils/errors');
 
+const { getEmbeddings } = require('../../services/embeddingService');
+
 // RAG/Embedding configuration
 const QDRANT_HOST = services.qdrant?.host || 'qdrant';
 const QDRANT_PORT = services.qdrant?.port || 6333;
 const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
-const EMBEDDING_HOST = services.embedding?.host || 'embedding-service';
-const EMBEDDING_PORT = services.embedding?.port || 11435;
 
 /**
  * Middleware: Check if data database is initialized
@@ -198,13 +198,11 @@ router.post(
 
       try {
         // Get embeddings
-        const embeddingResponse = await axios.post(
-          `http://${EMBEDDING_HOST}:${EMBEDDING_PORT}/embed`,
-          { texts: batch },
-          { timeout: 60000 }
-        );
-
-        const vectors = embeddingResponse.data.vectors || embeddingResponse.data.embeddings;
+        const vectors = await getEmbeddings(batch);
+        if (!vectors) {
+          logger.warn(`[Datentabellen] Embedding batch failed, skipping ${batch.length} rows`);
+          continue;
+        }
 
         // Create points for Qdrant
         vectors.forEach((vector, idx) => {

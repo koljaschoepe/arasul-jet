@@ -12,16 +12,12 @@ const {
   blacklistAllUserTokens,
   getUserSessions,
 } = require('../utils/jwt');
-const { verifyPassword, hashPassword, validatePasswordComplexity } = require('../utils/password');
+const { verifyPassword } = require('../utils/password');
+const { changeDashboardPassword } = require('../services/auth/passwordService');
 const { requireAuth } = require('../middleware/auth');
 const { loginLimiter, createUserRateLimiter } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
-const {
-  ValidationError,
-  UnauthorizedError,
-  ForbiddenError,
-  NotFoundError,
-} = require('../utils/errors');
+const { ValidationError, UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
 // Cookie security: enable secure flag in production or when explicitly forced
@@ -193,71 +189,15 @@ router.post(
   passwordChangeLimiter,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
-    const ipAddress = req.ip;
 
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      throw new ValidationError('Current password and new password are required');
-    }
-
-    // Validate new password complexity
-    const validation = validatePasswordComplexity(newPassword);
-    if (!validation.valid) {
-      throw new ValidationError(
-        'Password does not meet complexity requirements',
-        validation.errors
-      );
-    }
-
-    // Get user's current password hash
-    const result = await db.query('SELECT password_hash FROM admin_users WHERE id = $1', [
-      req.user.id,
-    ]);
-
-    if (result.rows.length === 0) {
-      throw new NotFoundError('User not found');
-    }
-
-    const user = result.rows[0];
-
-    // Verify current password
-    const passwordValid = await verifyPassword(currentPassword, user.password_hash);
-
-    if (!passwordValid) {
-      logger.warn(`Failed password change attempt for user: ${req.user.username}`);
-      throw new UnauthorizedError('Current password is incorrect');
-    }
-
-    // Check if new password is same as current
-    const sameAsOld = await verifyPassword(newPassword, user.password_hash);
-    if (sameAsOld) {
-      throw new ValidationError('New password must be different from current password');
-    }
-
-    // Hash new password
-    const newPasswordHash = await hashPassword(newPassword);
-
-    // Use transaction for atomicity: password update + history record
-    await db.transaction(async client => {
-      // Update password
-      await client.query(
-        'UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
-        [newPasswordHash, req.user.id]
-      );
-
-      // Record password change in history
-      await client.query(
-        `INSERT INTO password_history (user_id, password_hash, changed_by, ip_address)
-             VALUES ($1, $2, $3, $4)`,
-        [req.user.id, newPasswordHash, req.user.username, ipAddress]
-      );
+    await changeDashboardPassword(req.user.id, currentPassword, newPassword, {
+      username: req.user.username,
+      ipAddress: req.ip,
     });
 
     // Invalidate all existing sessions (force re-login) - outside transaction
     // since token blacklisting may use different storage
     await blacklistAllUserTokens(req.user.id);
-
-    logger.info(`Password changed for user: ${req.user.username}`);
 
     res.json({
       success: true,

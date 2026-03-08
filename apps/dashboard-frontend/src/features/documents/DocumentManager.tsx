@@ -29,8 +29,7 @@ import {
 } from 'lucide-react';
 import { TableBadge, StatusBadge, TableStatusBadge, CategoryBadge, SpaceBadge } from './Badges';
 import MarkdownEditor from '../../components/editor/MarkdownEditor';
-import MarkdownCreateDialog from '../../components/editor/MarkdownCreateDialog';
-import SimpleTableCreateDialog from '../../components/editor/SimpleTableCreateDialog';
+import CreateDocumentDialog from '../../components/editor/CreateDocumentDialog';
 import ExcelEditor from '../datentabellen/ExcelEditor';
 import SpaceModal from './SpaceModal';
 import Modal from '../../components/ui/Modal';
@@ -1551,7 +1550,8 @@ function DocumentManager() {
 
       {/* Create New Markdown Document Dialog */}
       {showMarkdownCreate && (
-        <MarkdownCreateDialog
+        <CreateDocumentDialog
+          type="markdown"
           isOpen={showMarkdownCreate}
           onClose={() => setShowMarkdownCreate(false)}
           onCreated={handleMarkdownCreated}
@@ -1562,7 +1562,8 @@ function DocumentManager() {
 
       {/* Simple Table Create Dialog (PostgreSQL Datentabellen) */}
       {showSimpleTableCreate && (
-        <SimpleTableCreateDialog
+        <CreateDocumentDialog
+          type="table"
           isOpen={showSimpleTableCreate}
           onClose={() => setShowSimpleTableCreate(false)}
           onCreated={handleDataTableCreated}

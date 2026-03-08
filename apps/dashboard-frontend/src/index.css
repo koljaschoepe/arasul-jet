@@ -128,23 +128,6 @@
   --input: #2a3544;
   --ring: #45ADFF;
 
-  /* ========================================
-     RESPONSIVE BREAKPOINTS - MacBook Focused
-     ======================================== */
-  /* MacBook-specific breakpoints */
-  --bp-macbook-pro-16: 1728px;  /* MacBook Pro 16" */
-  --bp-macbook-pro-14: 1512px;  /* MacBook Pro 14" */
-  --bp-macbook-air: 1280px;     /* MacBook Air 13" */
-  --bp-external: 1920px;        /* External monitors */
-
-  /* General breakpoints */
-  --breakpoint-xxl: 1440px;
-  --breakpoint-xl: 1200px;
-  --breakpoint-lg: 1024px;
-  --breakpoint-md: 768px;
-  --breakpoint-sm: 576px;
-  --breakpoint-xs: 375px;
-
   /* Sidebar widths */
   --sidebar-width: 260px;
   --sidebar-width-collapsed: 72px;
@@ -192,12 +175,6 @@
   --icon-xl: 32px;
   --icon-2xl: 48px;
 
-  /* Responsive spacing (uses clamp for fluid sizing) */
-  --space-responsive-sm: clamp(8px, 1vw, 12px);
-  --space-responsive-md: clamp(12px, 1.5vw, 20px);
-  --space-responsive-lg: clamp(16px, 2vw, 32px);
-  --space-responsive-xl: clamp(24px, 3vw, 48px);
-
   /* Blue Theme Colors - Design System */
   --primary-color: #45ADFF;
   --primary-hover: #6EC4FF;
@@ -208,16 +185,8 @@
   --danger-color: #ef4444;
   --danger-hover: #dc2626;
   --danger-light: #fca5a5;
-  --danger-bg-light: #FEF2F2;
-  --danger-bg-lighter: #FEE2E2;
-  --danger-border-light: #FECACA;
   --warning-color: #f59e0b;
-  --warning-hover: #d97706;
-  --warning-bg-light: #FFFBEB;
-  --warning-border-light: #FDE68A;
   --success-color: #22c55e;
-  --success-light: #4ADE80;
-  --warning-light: #FBBF24;
   --error-color: var(--danger-color);
 
   /* Status Colors - Semantic (NEW) */
@@ -570,7 +539,7 @@
 }
 
 .light-mode .status-dot-error {
-  background: var(--danger-color-hover);
+  background: var(--danger-hover);
   box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
 }
 
@@ -2104,11 +2073,6 @@ a:focus:not(:focus-visible),
 /* Slow spin animation for download icon */
 .spin-slow {
   animation: spin 2s linear infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
 }
 
 /* Scrollbar Styling */

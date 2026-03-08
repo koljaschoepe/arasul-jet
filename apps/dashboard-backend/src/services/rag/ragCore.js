@@ -24,13 +24,12 @@ const axios = require('axios');
 const logger = require('../../utils/logger');
 const db = require('../../database');
 const services = require('../../config/services');
+const embeddingService = require('../embeddingService');
 
 // Environment variables
 const QDRANT_HOST = services.qdrant.host;
 const QDRANT_PORT = services.qdrant.port;
 const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
-const EMBEDDING_SERVICE_HOST = services.embedding.host;
-const EMBEDDING_SERVICE_PORT = services.embedding.port;
 const DOCUMENT_INDEXER_URL = services.documentIndexer.url;
 
 // Hybrid search configuration
@@ -53,40 +52,28 @@ const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD |
 const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.4');
 
 /**
- * Get embedding vector for text
+ * Get embedding vector for text.
+ * Throws on failure (RAG pipeline requires embeddings to proceed).
  */
 async function getEmbedding(text) {
-  try {
-    const response = await axios.post(
-      `http://${EMBEDDING_SERVICE_HOST}:${EMBEDDING_SERVICE_PORT}/embed`,
-      { texts: text },
-      { timeout: 30000 }
-    );
-    return response.data.vectors[0];
-  } catch (error) {
-    logger.error(`Error getting embedding: ${error.message}`);
+  const vector = await embeddingService.getEmbedding(text);
+  if (!vector) {
     throw new Error('Failed to generate embedding');
   }
+  return vector;
 }
 
 /**
- * Get embedding vectors for multiple texts (batch)
+ * Get embedding vectors for multiple texts (batch).
+ * Throws on failure (RAG pipeline requires embeddings to proceed).
  */
 async function getEmbeddings(texts) {
   if (texts.length === 0) {return [];}
-  if (texts.length === 1) {return [await getEmbedding(texts[0])];}
-
-  try {
-    const response = await axios.post(
-      `http://${EMBEDDING_SERVICE_HOST}:${EMBEDDING_SERVICE_PORT}/embed`,
-      { texts },
-      { timeout: 60000 }
-    );
-    return response.data.vectors;
-  } catch (error) {
-    logger.error(`Error getting batch embeddings: ${error.message}`);
+  const vectors = await embeddingService.getEmbeddings(texts);
+  if (!vectors) {
     throw new Error('Failed to generate embeddings');
   }
+  return vectors;
 }
 
 /**
@@ -145,7 +132,9 @@ async function getCompanyContext() {
  * Calculate cosine similarity between two vectors
  */
 function cosineSimilarity(a, b) {
-  if (!a || !b || a.length !== b.length) {return 0;}
+  if (!a || !b || a.length !== b.length) {
+    return 0;
+  }
 
   let dotProduct = 0;
   let normA = 0;
@@ -160,7 +149,9 @@ function cosineSimilarity(a, b) {
   normA = Math.sqrt(normA);
   normB = Math.sqrt(normB);
 
-  if (normA === 0 || normB === 0) {return 0;}
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
   return dotProduct / (normA * normB);
 }
 
@@ -244,7 +235,9 @@ async function routeToSpaces(queryEmbedding, options = {}) {
  * Includes specified spaces + unassigned documents (null/empty space_id).
  */
 function buildSpaceFilter(spaceIds) {
-  if (!spaceIds || spaceIds.length === 0) {return undefined;}
+  if (!spaceIds || spaceIds.length === 0) {
+    return undefined;
+  }
   return {
     should: [
       ...spaceIds.map(spaceId => ({
@@ -277,7 +270,7 @@ async function rerankResults(query, results, topK = 5) {
     }));
 
     const response = await axios.post(
-      `http://${EMBEDDING_SERVICE_HOST}:${EMBEDDING_SERVICE_PORT}/rerank`,
+      `${services.embedding.url}/rerank`,
       {
         query,
         passages,
@@ -300,7 +293,9 @@ async function rerankResults(query, results, topK = 5) {
     return response.data.results
       .map(rr => {
         const original = idToResult.get(String(rr.id));
-        if (!original) {return null;}
+        if (!original) {
+          return null;
+        }
         return {
           ...original,
           rerankScore: rr.rerank_score,
@@ -355,7 +350,9 @@ function formatGraphContext(entities, graphResults) {
 
   const bySource = new Map();
   for (const r of graphResults) {
-    if (!bySource.has(r.source)) {bySource.set(r.source, []);}
+    if (!bySource.has(r.source)) {
+      bySource.set(r.source, []);
+    }
     bySource.get(r.source).push(r);
   }
 
@@ -479,7 +476,9 @@ async function graphEnrichedRetrieval(query) {
 async function getParentChunks(results) {
   const parentIds = [...new Set(results.map(r => r.payload?.parent_chunk_id).filter(Boolean))];
 
-  if (parentIds.length === 0) {return null;}
+  if (parentIds.length === 0) {
+    return null;
+  }
 
   try {
     const result = await db.query(
