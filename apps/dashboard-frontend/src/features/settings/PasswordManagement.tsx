@@ -1,0 +1,326 @@
+import { useState, useEffect } from 'react';
+import { Lock, Eye, EyeOff, Check, X, AlertCircle, Monitor, HardDrive, Zap } from 'lucide-react';
+import { useApi } from '../../hooks/useApi';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/shadcn/card';
+import { Input } from '@/components/ui/shadcn/input';
+import { Label } from '@/components/ui/shadcn/label';
+import { Button } from '@/components/ui/shadcn/button';
+import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { cn } from '@/lib/utils';
+
+interface PasswordRequirements {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumbers: boolean;
+  requireSpecialChars: boolean;
+}
+
+interface PasswordFields {
+  current: string;
+  new: string;
+  confirm: string;
+}
+
+interface ShowPasswordFields {
+  current: boolean;
+  new: boolean;
+  confirm: boolean;
+}
+
+type ServiceId = 'dashboard' | 'minio' | 'n8n';
+
+const SERVICES: { id: ServiceId; label: string; icon: React.ReactNode }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: <Monitor className="size-4" /> },
+  { id: 'minio', label: 'MinIO', icon: <HardDrive className="size-4" /> },
+  { id: 'n8n', label: 'n8n', icon: <Zap className="size-4" /> },
+];
+
+function PasswordManagement() {
+  const api = useApi();
+  const [activeService, setActiveService] = useState<ServiceId>('dashboard');
+  const [passwords, setPasswords] = useState<Record<ServiceId, PasswordFields>>({
+    dashboard: { current: '', new: '', confirm: '' },
+    minio: { current: '', new: '', confirm: '' },
+    n8n: { current: '', new: '', confirm: '' },
+  });
+  const [showPasswords, setShowPasswords] = useState<Record<ServiceId, ShowPasswordFields>>({
+    dashboard: { current: false, new: false, confirm: false },
+    minio: { current: false, new: false, confirm: false },
+    n8n: { current: false, new: false, confirm: false },
+  });
+  const [requirements, setRequirements] = useState<PasswordRequirements | null>(null);
+  const [validations, setValidations] = useState({
+    minLength: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false,
+    match: false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+
+  useEffect(() => {
+    fetchPasswordRequirements();
+  }, []);
+
+  useEffect(() => {
+    validatePassword();
+  }, [passwords, activeService]);
+
+  const fetchPasswordRequirements = async () => {
+    try {
+      const data = await api.get('/settings/password-requirements', { showError: false });
+      setRequirements(data.requirements);
+    } catch (error) {
+      console.error('Failed to fetch password requirements:', error);
+    }
+  };
+
+  const validatePassword = () => {
+    const newPass = passwords[activeService].new;
+    const confirmPass = passwords[activeService].confirm;
+
+    if (!requirements) return;
+
+    setValidations({
+      minLength: newPass.length >= requirements.minLength,
+      uppercase: requirements.requireUppercase ? /[A-Z]/.test(newPass) : true,
+      lowercase: requirements.requireLowercase ? /[a-z]/.test(newPass) : true,
+      number: requirements.requireNumbers ? /[0-9]/.test(newPass) : true,
+      special: requirements.requireSpecialChars
+        ? /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPass)
+        : true,
+      match: newPass.length > 0 && newPass === confirmPass,
+    });
+  };
+
+  const handleInputChange = (service: ServiceId, field: keyof PasswordFields, value: string) => {
+    setPasswords(prev => ({
+      ...prev,
+      [service]: { ...prev[service], [field]: value },
+    }));
+    setMessage(null);
+  };
+
+  const togglePasswordVisibility = (service: ServiceId, field: keyof ShowPasswordFields) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [service]: { ...prev[service], [field]: !prev[service][field] },
+    }));
+  };
+
+  const isFormValid = () => {
+    const current = passwords[activeService];
+    return (
+      current.current &&
+      current.new &&
+      current.confirm &&
+      Object.values(validations).every(v => v === true)
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!isFormValid()) {
+      setMessage({
+        type: 'error',
+        text: 'Bitte überprüfen Sie alle Felder und Anforderungen',
+      });
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const data = await api.post(
+        `/settings/password/${activeService}`,
+        {
+          currentPassword: passwords[activeService].current,
+          newPassword: passwords[activeService].new,
+        },
+        { showError: false }
+      );
+
+      setMessage({
+        type: 'success',
+        text: data.message || 'Passwort erfolgreich geändert',
+      });
+
+      setPasswords(prev => ({
+        ...prev,
+        [activeService]: { current: '', new: '', confirm: '' },
+      }));
+
+      if (activeService === 'dashboard') {
+        setTimeout(() => {
+          localStorage.removeItem('arasul_token');
+          localStorage.removeItem('arasul_user');
+          window.location.href = '/';
+        }, 2000);
+      }
+    } catch (error: any) {
+      setMessage({
+        type: 'error',
+        text:
+          error.data?.error ||
+          error.data?.message ||
+          error.message ||
+          'Fehler beim Ändern des Passworts',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderPasswordField = (
+    field: keyof PasswordFields,
+    label: string,
+    placeholder: string,
+    hint?: string,
+  ) => (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="relative">
+        <Input
+          type={showPasswords[activeService][field] ? 'text' : 'password'}
+          value={passwords[activeService][field]}
+          onChange={e => handleInputChange(activeService, field, e.target.value)}
+          placeholder={placeholder}
+          required
+          className="pr-10"
+        />
+        <button
+          type="button"
+          className="toggle-password absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => togglePasswordVisibility(activeService, field)}
+        >
+          {showPasswords[activeService][field] ? (
+            <EyeOff className="size-4" />
+          ) : (
+            <Eye className="size-4" />
+          )}
+        </button>
+      </div>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+
+  return (
+    <div className="password-management">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="password-icon size-5" />
+            Passwortverwaltung
+          </CardTitle>
+          <CardDescription>
+            Ändern Sie die Passwörter für Dashboard, MinIO und n8n
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Service Selector */}
+          <div className="service-selector flex gap-2">
+            {SERVICES.map(service => (
+              <Button
+                key={service.id}
+                type="button"
+                variant={activeService === service.id ? 'default' : 'outline'}
+                className={cn(
+                  'service-button flex-1',
+                  activeService === service.id && 'active'
+                )}
+                onClick={() => {
+                  setActiveService(service.id);
+                  setMessage(null);
+                }}
+              >
+                {service.icon}
+                <span>{service.label}</span>
+              </Button>
+            ))}
+          </div>
+
+          {/* Password Change Form */}
+          <form onSubmit={handleSubmit} className="password-form space-y-4">
+            {renderPasswordField('current', 'Aktuelles Dashboard-Passwort', 'Aktuelles Passwort eingeben', 'Zur Sicherheit wird Ihr aktuelles Dashboard-Passwort benötigt')}
+            {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
+            {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
+
+            {/* Password Requirements */}
+            {requirements && passwords[activeService].new && (
+              <div className="password-requirements rounded-lg border border-border p-4 space-y-2">
+                <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
+                <ul className="space-y-1">
+                  <li className={cn('flex items-center gap-2 text-xs', validations.minLength ? 'valid text-green-500' : 'invalid text-red-500')}>
+                    {validations.minLength ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                    Mindestens {requirements.minLength} Zeichen
+                  </li>
+                  {requirements.requireUppercase && (
+                    <li className={cn('flex items-center gap-2 text-xs', validations.uppercase ? 'valid text-green-500' : 'invalid text-red-500')}>
+                      {validations.uppercase ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                      Mindestens ein Großbuchstabe
+                    </li>
+                  )}
+                  {requirements.requireLowercase && (
+                    <li className={cn('flex items-center gap-2 text-xs', validations.lowercase ? 'valid text-green-500' : 'invalid text-red-500')}>
+                      {validations.lowercase ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                      Mindestens ein Kleinbuchstabe
+                    </li>
+                  )}
+                  {requirements.requireNumbers && (
+                    <li className={cn('flex items-center gap-2 text-xs', validations.number ? 'valid text-green-500' : 'invalid text-red-500')}>
+                      {validations.number ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                      Mindestens eine Zahl
+                    </li>
+                  )}
+                  {requirements.requireSpecialChars && (
+                    <li className={cn('flex items-center gap-2 text-xs', validations.special ? 'valid text-green-500' : 'invalid text-red-500')}>
+                      {validations.special ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                      Mindestens ein Sonderzeichen
+                    </li>
+                  )}
+                  <li className={cn('flex items-center gap-2 text-xs', validations.match ? 'valid text-green-500' : 'invalid text-red-500')}>
+                    {validations.match ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                    Passwörter stimmen überein
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            {/* Message */}
+            {message && (
+              <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className={`password-message ${message.type}`}>
+                <AlertCircle className="size-4" />
+                <AlertDescription>{message.text}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Submit Button */}
+            <Button type="submit" className="w-full" disabled={!isFormValid() || loading}>
+              {loading ? 'Wird geändert...' : 'Passwort ändern'}
+            </Button>
+
+            {activeService === 'dashboard' && (
+              <p className="text-xs text-warning text-center">
+                ⚠️ Nach dem Ändern des Dashboard-Passworts werden Sie automatisch abgemeldet.
+              </p>
+            )}
+
+            {(activeService === 'minio' || activeService === 'n8n') && (
+              <p className="text-xs text-muted-foreground text-center">
+                ℹ️ Der {activeService === 'minio' ? 'MinIO' : 'n8n'}-Service wird nach der
+                Passwortänderung automatisch neu gestartet.
+              </p>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default PasswordManagement;
