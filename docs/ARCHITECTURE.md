@@ -393,7 +393,7 @@ services/postgres/init/
 | llm-service        | Custom script (model test)                        | 30s      | 5s      | 3       | 300s         |
 | embedding-service  | Custom script (vectorization test)                | 15s      | 3s      | 3       | 300s         |
 | dashboard-backend  | `curl -f http://localhost:3001/api/health`        | 10s      | 3s      | 3       | 10s          |
-| dashboard-frontend | `test -f /usr/share/nginx/html/index.html`        | 10s      | 1s      | 3       | -            |
+| dashboard-frontend | `test -f /usr/share/nginx/html/index.html`        | 10s      | 1s      | 3       | 15s          |
 | n8n                | `wget --spider -q http://localhost:5678/healthz`  | 15s      | 2s      | 3       | -            |
 | reverse-proxy      | `wget -q --spider http://localhost:8080/ping`     | 10s      | 3s      | 3       | 30s          |
 | self-healing-agent | `python3 /app/heartbeat.py --test`                | 30s      | 3s      | 3       | 10s          |

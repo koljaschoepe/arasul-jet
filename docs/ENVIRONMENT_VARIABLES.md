@@ -137,16 +137,16 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## Embedding Service
 
-| Variable                   | Default                        | Description                          |
-| -------------------------- | ------------------------------ | ------------------------------------ |
-| EMBEDDING_SERVICE_HOST     | embedding-service              | Service hostname                     |
-| EMBEDDING_SERVICE_PORT     | 11435                          | Service port                         |
-| EMBEDDING_MODEL            | nomic-ai/nomic-embed-text-v1.5 | HuggingFace model                    |
-| EMBEDDING_VECTOR_SIZE      | 1024                           | Vector dimension for embedding model |
-| EMBEDDING_MAX_INPUT_TOKENS | 8192                           | Max input token length               |
-| ENABLE_RERANKING           | true                           | Enable 2-stage reranking             |
-| FLASHRANK_MODEL            | ms-marco-MiniLM-L-12-v2        | CPU reranker model                   |
-| BGE_RERANKER_MODEL         | BAAI/bge-reranker-v2-m3        | GPU reranker model                   |
+| Variable                   | Default                 | Description                          |
+| -------------------------- | ----------------------- | ------------------------------------ |
+| EMBEDDING_SERVICE_HOST     | embedding-service       | Service hostname                     |
+| EMBEDDING_SERVICE_PORT     | 11435                   | Service port                         |
+| EMBEDDING_MODEL            | BAAI/bge-m3             | HuggingFace model                    |
+| EMBEDDING_VECTOR_SIZE      | 1024                    | Vector dimension for embedding model |
+| EMBEDDING_MAX_INPUT_TOKENS | 8192                    | Max input token length               |
+| ENABLE_RERANKING           | true                    | Enable 2-stage reranking             |
+| FLASHRANK_MODEL            | ms-marco-MiniLM-L-12-v2 | CPU reranker model                   |
+| BGE_RERANKER_MODEL         | BAAI/bge-reranker-v2-m3 | GPU reranker model                   |
 
 ---
 
@@ -418,8 +418,8 @@ docker compose up -d backup-service
 | ----------------------- | ------- | ------------------------------------ |
 | PORT                    | 3001    | Backend port                         |
 | ALLOWED_ORIGINS         | (empty) | CORS allowed origins                 |
-| REACT_APP_API_URL       | /api    | Frontend API URL                     |
-| REACT_APP_WS_URL        | (auto)  | Frontend WebSocket URL               |
+| VITE_API_URL            | /api    | Frontend API URL                     |
+| VITE_WS_URL             | (auto)  | Frontend WebSocket URL               |
 | CLAUDE_TERMINAL_TIMEOUT | 60000   | Claude terminal command timeout (ms) |
 | RATE_LIMIT_ENABLED      | true    | Enable API rate limiting             |
 
