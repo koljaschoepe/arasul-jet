@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
-DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama3.1:8b")  # Used for session reset
+DEFAULT_MODEL = os.environ.get("LLM_MODEL", "qwen3:14b-q8")  # Used for session reset
 
 # HIGH-PRIORITY-FIX 2.2: Background CPU monitoring to avoid blocking requests
 _cpu_percent = 0.0

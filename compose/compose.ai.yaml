@@ -67,7 +67,7 @@ services:
       resources:
         limits:
           cpus: '${CPU_LIMIT_LLM}'
-          memory: ${RAM_LIMIT_LLM}
+          memory: ${RAM_LIMIT_LLM:-32G}
         reservations:
           devices:
             - driver: nvidia
@@ -95,11 +95,11 @@ services:
     networks:
       - arasul-backend
     environment:
-      MODEL_NAME: ${EMBEDDING_MODEL}
-      SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
-      SERVICE_URL: http://localhost:${EMBEDDING_SERVICE_PORT}
-      VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE}
-      MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS}
+      MODEL_NAME: ${EMBEDDING_MODEL:-BAAI/bge-m3}
+      SERVICE_PORT: ${EMBEDDING_SERVICE_PORT:-11435}
+      SERVICE_URL: http://localhost:${EMBEDDING_SERVICE_PORT:-11435}
+      VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE:-1024}
+      MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS:-8192}
       EMBEDDING_VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE:-1024}
       EMBEDDING_MAX_INPUT_TOKENS: ${EMBEDDING_MAX_INPUT_TOKENS:-8192}
       SENTENCE_TRANSFORMERS_HOME: /models

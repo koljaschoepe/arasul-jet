@@ -11,6 +11,7 @@ const REQUIRED_ENV_VARS = [
   'JWT_SECRET',
   'MINIO_ROOT_USER',
   'MINIO_ROOT_PASSWORD',
+  'ADMIN_PASSWORD',
 ];
 const missingVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
 if (missingVars.length > 0) {

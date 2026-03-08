@@ -8,7 +8,7 @@ Complete architecture overview of the Arasul Platform.
 
 | #   | Service            | Port      | Technology          | Entry Point           | Purpose                    |
 | --- | ------------------ | --------- | ------------------- | --------------------- | -------------------------- |
-| 1   | dashboard-frontend | 3000      | React 18            | `src/App.js`          | Web UI                     |
+| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                     |
 | 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket |
 | 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database        |
 | 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference              |
@@ -48,7 +48,7 @@ Complete architecture overview of the Arasul Platform.
 │  ┌─────────────────┐                                            │
 │  │    Document     │                                            │
 │  │    Indexer      │                                            │
-│  │   Port: 8080    │                                            │
+│  │   Port: 9102    │                                            │
 │  └─────────────────┘                                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                       SYSTEM SERVICES                            │
@@ -110,7 +110,7 @@ Complete architecture overview of the Arasul Platform.
     ┌─────▼─────┐          ┌─────────────┐
     │Self-Heal  │          │   Document  │
     │ :9200     │          │   Indexer   │
-    └───────────┘          │   :8080     │
+    └───────────┘          │   :9102     │
                            └─────────────┘
 ```
 
@@ -128,7 +128,7 @@ Complete architecture overview of the Arasul Platform.
 | qdrant             | 6333, 6334    | 6333, 6334           | HTTP/gRPC  |
 | llm-service        | 11434, 11436  | -                    | HTTP       |
 | embedding-service  | 11435         | -                    | HTTP       |
-| document-indexer   | 8080          | -                    | HTTP       |
+| document-indexer   | 9102          | -                    | HTTP       |
 | metrics-collector  | 9100          | -                    | HTTP       |
 | self-healing-agent | 9200          | -                    | HTTP       |
 | n8n                | 5678          | 5678                 | HTTP       |
@@ -296,18 +296,18 @@ apps/dashboard-backend/
     └── jwt.js                # Token utilities
 ```
 
-### Frontend (React 18)
+### Frontend (React 19)
 
 ```
 apps/dashboard-frontend/
-├── src/App.js                # Routes, WebSocket, Auth context
-├── src/features/             # Feature modules with barrel exports
-│   ├── chat/                 # ChatMulti, ChatMessage, ChatTabsBar
+├── src/App.tsx               # Routes, WebSocket, Auth context
+├── src/features/             # Feature modules with barrel exports (index.ts)
+│   ├── chat/                 # ChatRouter, ChatLanding, ChatView
 │   ├── documents/            # DocumentManager, SpaceModal, Badges
-│   ├── telegram/             # TelegramSettings, BotSetupWizard
-│   ├── settings/             # Settings, MemorySettings, PasswordManagement
+│   ├── telegram/             # TelegramAppModal, BotSetupWizard
+│   ├── settings/             # Settings, GeneralSettings, AIProfileSettings
 │   ├── store/                # Store, StoreHome, StoreApps, StoreModels
-│   ├── datentabellen/        # ExcelEditor, DataTableEditor
+│   ├── datentabellen/        # ExcelEditor
 │   ├── claude/               # ClaudeCode, ClaudeTerminal
 │   ├── system/               # SetupWizard, UpdatePage, Login
 │   └── database/             # DatabaseOverview, DatabaseTable
@@ -328,7 +328,7 @@ services/llm-service/
 └── healthcheck.sh            # Health check
 
 services/embedding-service/
-└── embedding_server.py       # Flask, nomic-embed-text-v1.5
+└── embedding_server.py       # Flask, BAAI/bge-m3 (1024d)
 
 services/document-indexer/
 ├── indexer.py                # Background loop (30s intervals)
@@ -344,8 +344,8 @@ services/postgres/init/
 ├── 001_init_schema.sql       # metrics, metric_history
 ├── 002_auth_schema.sql       # admin_users, sessions
 ├── ...
-└── 041_*.sql
-# Next migration: 042_*.sql
+└── 049_*.sql
+# Next migration: 050_*.sql
 ```
 
 ---
@@ -395,7 +395,7 @@ services/postgres/init/
 | dashboard-backend  | `curl -f http://localhost:3001/api/health`        | 10s      | 3s      | 3       | 10s          |
 | dashboard-frontend | `test -f /usr/share/nginx/html/index.html`        | 10s      | 1s      | 3       | -            |
 | n8n                | `wget --spider -q http://localhost:5678/healthz`  | 15s      | 2s      | 3       | -            |
-| reverse-proxy      | `traefik healthcheck --ping`                      | 10s      | 3s      | 3       | -            |
+| reverse-proxy      | `wget -q --spider http://localhost:8080/ping`     | 10s      | 3s      | 3       | 30s          |
 | self-healing-agent | `python3 /app/heartbeat.py --test`                | 30s      | 3s      | 3       | 10s          |
 | telegram-bot       | `curl -f http://localhost:8090/health`            | 30s      | 3s      | 3       | 10s          |
 

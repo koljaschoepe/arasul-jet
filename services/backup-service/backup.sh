@@ -11,7 +11,7 @@ echo "[$TIMESTAMP] Starting backup..."
 
 # PostgreSQL backup (use .pgpass to avoid password in process listing)
 mkdir -p /backups/postgres
-echo "$POSTGRES_HOST:5432:$POSTGRES_DB:$POSTGRES_USER:$POSTGRES_PASSWORD" > ~/.pgpass
+echo "$POSTGRES_HOST:${POSTGRES_PORT:-5432}:$POSTGRES_DB:$POSTGRES_USER:$POSTGRES_PASSWORD" > ~/.pgpass
 chmod 600 ~/.pgpass
 pg_dump \
   -h "$POSTGRES_HOST" \

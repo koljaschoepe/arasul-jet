@@ -4,20 +4,20 @@ Text-to-vector embedding service for RAG and semantic search.
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Port | 11435 (internal) |
-| Framework | Flask |
-| Runtime | Python 3.10+ |
-| GPU | CUDA-enabled (with CPU fallback) |
+| Property  | Value                            |
+| --------- | -------------------------------- |
+| Port      | 11435 (internal)                 |
+| Framework | Flask                            |
+| Runtime   | Python 3.10+                     |
+| GPU       | CUDA-enabled (with CPU fallback) |
 
 ## Model
 
-| Property | Value |
-|----------|-------|
-| Model | nomic-ai/nomic-embed-text-v1.5 |
-| Vector Size | 768 dimensions |
-| Max Tokens | 4096 |
+| Property    | Value               |
+| ----------- | ------------------- |
+| Model       | BAAI/bge-m3         |
+| Vector Size | 1024 dimensions     |
+| Max Tokens  | 8192                |
 | Performance | <50ms per embedding |
 
 ## Directory Structure
@@ -32,15 +32,16 @@ embedding-service/
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/embed` | Generate embedding for text |
-| GET | `/health` | Health check |
-| GET | `/models` | List loaded models |
+| Method | Path      | Description                 |
+| ------ | --------- | --------------------------- |
+| POST   | `/embed`  | Generate embedding for text |
+| GET    | `/health` | Health check                |
+| GET    | `/models` | List loaded models          |
 
 ### POST /embed
 
 **Request:**
+
 ```json
 {
   "text": "Text to embed"
@@ -48,17 +49,19 @@ embedding-service/
 ```
 
 **Response:**
+
 ```json
 {
   "embedding": [0.123, -0.456, ...],
-  "dimensions": 768,
-  "model": "nomic-ai/nomic-embed-text-v1.5"
+  "dimensions": 1024,
+  "model": "BAAI/bge-m3"
 }
 ```
 
 ### GET /health
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -70,13 +73,13 @@ embedding-service/
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| EMBEDDING_SERVICE_PORT | 11435 | Service port |
-| EMBEDDING_MODEL | nomic-ai/nomic-embed-text-v1.5 | HuggingFace model |
-| EMBEDDING_VECTOR_SIZE | 768 | Vector dimensions |
-| EMBEDDING_MAX_INPUT_TOKENS | 4096 | Max input tokens |
-| CUDA_VISIBLE_DEVICES | 0 | GPU device ID |
+| Variable                   | Default     | Description       |
+| -------------------------- | ----------- | ----------------- |
+| EMBEDDING_SERVICE_PORT     | 11435       | Service port      |
+| EMBEDDING_MODEL            | BAAI/bge-m3 | HuggingFace model |
+| EMBEDDING_VECTOR_SIZE      | 1024        | Vector dimensions |
+| EMBEDDING_MAX_INPUT_TOKENS | 8192        | Max input tokens  |
+| CUDA_VISIBLE_DEVICES       | 0           | GPU device ID     |
 
 ## GPU Support
 
@@ -109,12 +112,12 @@ curl -s http://localhost:11435/health | grep -q '"status":"healthy"'
 
 ## Performance
 
-| Metric | Target |
-|--------|--------|
-| Single embedding | <50ms |
-| Batch (10 texts) | <200ms |
-| Model load time | ~30s |
-| Memory usage | ~2GB GPU |
+| Metric           | Target   |
+| ---------------- | -------- |
+| Single embedding | <50ms    |
+| Batch (10 texts) | <200ms   |
+| Model load time  | ~30s     |
+| Memory usage     | ~2GB GPU |
 
 ## Docker Configuration
 

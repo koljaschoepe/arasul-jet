@@ -45,9 +45,9 @@ fi
 # BUG-001 FIX: Auto-import GGUF models from /host-models if not already imported
 echo "[2.5/3] Checking for models to import..."
 
-# Check if Qwen3 14B GGUF exists and needs to be imported
-GGUF_FILE="/host-models/Qwen3-14B-Q8_0.gguf"
-MODEL_NAME="qwen3:14b-q8"
+# Check if GGUF model exists and needs to be imported (configurable via env vars)
+GGUF_FILE="${GGUF_MODEL_PATH:-/host-models/Qwen3-14B-Q8_0.gguf}"
+MODEL_NAME="${LLM_MODEL:-qwen3:14b-q8}"
 
 if [ -f "$GGUF_FILE" ]; then
     echo "Found GGUF file: $GGUF_FILE"

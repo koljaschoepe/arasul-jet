@@ -84,7 +84,7 @@ services:
       DISK_CRITICAL_PERCENT: ${DISK_CRITICAL_PERCENT}
       DISK_REBOOT_PERCENT: ${DISK_REBOOT_PERCENT}
       HEARTBEAT_PORT: ${SELF_HEALING_HEARTBEAT_PORT:-9200}
-      EXCLUDED_CONTAINERS: 'telegram-bot-app,claude-code'
+      EXCLUDED_CONTAINERS: 'claude-code'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../logs:/arasul/logs

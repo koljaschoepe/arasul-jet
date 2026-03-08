@@ -101,6 +101,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+      start_period: 30s
     logging: *default-logging
     read_only: true
     tmpfs:

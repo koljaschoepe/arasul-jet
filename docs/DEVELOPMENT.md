@@ -163,7 +163,7 @@ const response = await axios.get(url, { timeout: 5000 });
 
 ### useApi Hook
 
-All REST calls use the `useApi()` hook from `hooks/useApi.js`:
+All REST calls use the `useApi()` hook from `hooks/useApi.ts`:
 
 ```javascript
 const { api } = useApi();
@@ -195,9 +195,9 @@ api.get('/endpoint', { raw: true }); // Raw Response (for blobs, SSE)
 Components are organized in `src/features/` with barrel exports:
 
 ```
-src/features/chat/index.js       → ChatMulti, ChatMessage, ChatTabsBar
-src/features/documents/index.js  → DocumentManager, SpaceModal
-src/features/settings/index.js   → Settings, MemorySettings
+src/features/chat/index.ts       → ChatRouter, ChatLanding, ChatView
+src/features/documents/index.ts  → DocumentManager, SpaceModal
+src/features/settings/index.ts   → Settings, GeneralSettings
 ```
 
 Shared UI: `src/components/ui/` (Modal, Skeleton, LoadingSpinner, etc.)
