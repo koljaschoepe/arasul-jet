@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Moon, Sun, Clock } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/shadcn/card';
+import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/shadcn/card';
 import { Switch } from '@/components/ui/shadcn/switch';
 import { Label } from '@/components/ui/shadcn/label';
 import { SkeletonCard } from '../../components/ui/Skeleton';
@@ -56,13 +62,13 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
   }, [fetchSystemInfo]);
 
   return (
-    <div className="settings-section animate-in fade-in">
+    <div className="animate-in fade-in">
       <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="settings-section-title text-3xl font-bold text-foreground mb-2">General</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Allgemein</h1>
         <p className="text-sm text-muted-foreground">Systeminformationen und Konfiguration</p>
       </div>
 
-      <div className="settings-cards flex flex-col gap-6">
+      <div className="flex flex-col gap-6">
         {/* Theme Toggle */}
         <Card>
           <CardHeader>
@@ -107,7 +113,7 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
               <CardDescription>Aktuelle System- und Versionsinformationen</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
                 {[
                   { label: 'Platform Version', value: systemInfo.version },
                   { label: 'Hostname', value: systemInfo.hostname },
@@ -154,13 +160,25 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
             </p>
             <div className="flex flex-col gap-3">
               {[
-                { title: 'Offline-First Design', desc: 'Funktioniert ohne Internetverbindung' },
-                { title: 'Self-Healing System', desc: 'Automatische Fehlerkorrektur und Recovery' },
-                { title: 'GPU-Accelerated AI', desc: 'Lokale LLMs und Embedding-Modelle' },
+                {
+                  title: 'Offline-Verfügbarkeit',
+                  desc: 'Funktioniert ohne Internetverbindung',
+                  icon: <Wifi className="size-4" />,
+                },
+                {
+                  title: 'Selbstheilungs-System',
+                  desc: 'Automatische Fehlerkorrektur und Recovery',
+                  icon: <ShieldCheck className="size-4" />,
+                },
+                {
+                  title: 'GPU-beschleunigte KI',
+                  desc: 'Lokale LLMs und Embedding-Modelle',
+                  icon: <Cpu className="size-4" />,
+                },
               ].map((feature, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                    {i + 1}
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    {feature.icon}
                   </div>
                   <div className="flex flex-col">
                     <strong className="text-sm text-foreground">{feature.title}</strong>
@@ -168,6 +186,14 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                Support:{' '}
+                <a href="mailto:info@arasul.de" className="text-primary hover:underline">
+                  info@arasul.de
+                </a>
+              </p>
             </div>
           </CardContent>
         </Card>

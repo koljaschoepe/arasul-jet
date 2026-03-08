@@ -471,7 +471,11 @@ function buildContainerConfig(manifest, overrides = {}, dynamicVolumes = []) {
     if (vol.type === 'volume') {
       config.HostConfig.Binds.push(`${vol.name}:${vol.containerPath}`);
     } else if (vol.type === 'bind') {
-      config.HostConfig.Binds.push(`${vol.name}:${vol.containerPath}`);
+      // Resolve ${VAR} patterns in host paths (e.g. ${COMPOSE_PROJECT_DIR})
+      const hostPath = vol.name.replace(/\$\{([^}]+)\}/g, (match, varName) => {
+        return process.env[varName] || match;
+      });
+      config.HostConfig.Binds.push(`${hostPath}:${vol.containerPath}`);
     }
   }
 

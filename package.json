@@ -29,7 +29,7 @@
       "prettier --write",
       "eslint --fix"
     ],
-    "apps/dashboard-frontend/src/**/*.{js,jsx}": [
+    "apps/dashboard-frontend/src/**/*.{ts,tsx}": [
       "prettier --write"
     ],
     "*.{json,md,yml,yaml}": [

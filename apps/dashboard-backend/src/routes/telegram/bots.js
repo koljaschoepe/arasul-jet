@@ -38,6 +38,7 @@ const telegramBotService = require('../../services/telegram/telegramBotService')
 const telegramLLMService = require('../../services/telegram/telegramLLMService');
 const telegramWebhookService = require('../../services/telegram/telegramWebhookService');
 const telegramPollingManager = require('../../services/telegram/telegramPollingManager');
+const database = require('../../database');
 
 // ============================================================================
 // WEBHOOK ENDPOINT (No auth - called by Telegram)
@@ -171,6 +172,7 @@ router.post(
       ragEnabled,
       ragSpaceIds,
       ragShowSources,
+      setupToken,
     } = req.body;
 
     if (!name || !token) {
@@ -188,6 +190,32 @@ router.post(
       ragSpaceIds,
       ragShowSources,
     });
+
+    // If created via zero-config setup, register the chat from the setup session
+    if (setupToken) {
+      try {
+        const session = await database.query(
+          `SELECT chat_id, chat_username, chat_first_name
+           FROM telegram_setup_sessions
+           WHERE setup_token = $1 AND status = 'completed'`,
+          [setupToken]
+        );
+
+        if (session.rows.length > 0 && session.rows[0].chat_id) {
+          await telegramBotService.addChat(bot.id, {
+            chatId: session.rows[0].chat_id,
+            title: session.rows[0].chat_first_name || 'Private Chat',
+            type: 'private',
+            username: session.rows[0].chat_username,
+          });
+          logger.info(
+            `Chat ${session.rows[0].chat_id} registered for bot ${bot.id} from setup session`
+          );
+        }
+      } catch (chatErr) {
+        logger.warn(`Could not register chat from setup session: ${chatErr.message}`);
+      }
+    }
 
     res.status(201).json({ bot });
   })
@@ -252,29 +280,66 @@ router.delete(
 router.post(
   '/:id/activate',
   asyncHandler(async (req, res) => {
-    const bot = await telegramBotService.activateBot(parseInt(req.params.id), req.user.id);
+    const botId = parseInt(req.params.id);
+    const bot = await telegramBotService.activateBot(botId, req.user.id);
 
-    // Get webhook secret from DB
-    const botDetails = await telegramBotService.getBotById(parseInt(req.params.id), req.user.id);
+    // Get full bot details for webhook/polling setup
+    const botDetails = await telegramBotService.getBotById(botId, req.user.id);
+    let mode = 'unknown';
 
     if (botDetails) {
+      // Verify bot token is valid before starting polling/webhook
+      const botToken = await telegramBotService.getBotToken(botId);
+      if (!botToken) {
+        logger.error(`Cannot activate bot ${botId}: token decryption failed`);
+        throw new ValidationError('Bot-Token konnte nicht entschlüsselt werden');
+      }
+
       if (process.env.PUBLIC_URL && botDetails.webhookSecret) {
         // Use webhooks when PUBLIC_URL is available
         const fullWebhookUrl = `${process.env.PUBLIC_URL}/api/telegram-bots/webhook/${bot.id}/${botDetails.webhookSecret}`;
         try {
           await telegramWebhookService.setWebhook(bot.id, fullWebhookUrl);
-          logger.info(`Webhook set for bot ${bot.id}`);
+          mode = 'webhook';
+          logger.info(`Webhook set for bot ${bot.id}: ${fullWebhookUrl}`);
         } catch (webhookError) {
           logger.warn('Could not set webhook, falling back to polling:', webhookError.message);
           await telegramPollingManager.startPolling(bot.id);
+          mode = 'polling';
         }
       } else {
-        // No PUBLIC_URL: use getUpdates polling
+        // No PUBLIC_URL: use getUpdates polling (standard for edge devices)
         await telegramPollingManager.startPolling(bot.id);
+        mode = 'polling';
+        logger.info(`Polling started for bot ${bot.id} (no PUBLIC_URL configured)`);
+      }
+
+      // Send welcome message to all registered chats
+      try {
+        const chats = await telegramBotService.getChats(botId);
+        for (const chat of chats) {
+          try {
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: chat.chatId || chat.chat_id,
+                text: `🤖 <b>${bot.name} ist jetzt aktiv!</b>\n\nSchreib mir einfach eine Nachricht und ich antworte dir.\n\n/help - Zeigt alle Befehle`,
+                parse_mode: 'HTML',
+              }),
+            });
+          } catch (sendErr) {
+            logger.warn(
+              `Could not send welcome to chat ${chat.chatId || chat.chat_id}: ${sendErr.message}`
+            );
+          }
+        }
+      } catch (chatErr) {
+        logger.warn(`Could not send welcome messages: ${chatErr.message}`);
       }
     }
 
-    res.json({ bot, message: 'Bot aktiviert' });
+    res.json({ bot, message: 'Bot aktiviert', mode });
   })
 );
 
@@ -555,6 +620,79 @@ router.post(
       text
     );
     res.json({ success: true, messageId: result.message_id });
+  })
+);
+
+// ----------------------------------------------------------------------------
+// DEBUG
+// ----------------------------------------------------------------------------
+
+// Get bot debug info (polling status, webhook status, token validity)
+router.get(
+  '/:id/debug',
+  asyncHandler(async (req, res) => {
+    const botId = parseInt(req.params.id);
+    const bot = await telegramBotService.getBotById(botId, req.user.id);
+    if (!bot) {
+      throw new NotFoundError('Bot nicht gefunden');
+    }
+
+    const debug = {
+      botId,
+      name: bot.name,
+      isActive: bot.isActive,
+      isPolling: bot.isPolling,
+      webhookUrl: bot.webhookUrl || null,
+      lastMessageAt: bot.lastMessageAt || null,
+      publicUrl: process.env.PUBLIC_URL || null,
+      mode: process.env.PUBLIC_URL ? 'webhook' : 'polling',
+      pollingActive: telegramPollingManager.isPollingActive?.(botId) || false,
+      tokenValid: false,
+      telegramWebhookInfo: null,
+    };
+
+    // Check token validity and get Telegram webhook info
+    try {
+      const botToken = await telegramBotService.getBotToken(botId);
+      if (botToken) {
+        const meResponse = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+        const meData = await meResponse.json();
+        debug.tokenValid = meData.ok === true;
+        debug.botUsername = meData.result?.username;
+
+        // Get webhook info from Telegram
+        const whResponse = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+        const whData = await whResponse.json();
+        if (whData.ok) {
+          debug.telegramWebhookInfo = {
+            url: whData.result.url || '(none)',
+            hasCustomCertificate: whData.result.has_custom_certificate,
+            pendingUpdateCount: whData.result.pending_update_count,
+            lastErrorDate: whData.result.last_error_date
+              ? new Date(whData.result.last_error_date * 1000).toISOString()
+              : null,
+            lastErrorMessage: whData.result.last_error_message || null,
+          };
+        }
+      }
+    } catch (err) {
+      debug.tokenError = err.message;
+    }
+
+    // Get chat count
+    try {
+      const chats = await telegramBotService.getChats(botId);
+      debug.chatCount = chats.length;
+      debug.chats = chats.map(c => ({
+        chatId: c.chatId || c.chat_id,
+        title: c.chatTitle || c.chat_title || c.title,
+        type: c.chatType || c.chat_type || c.type,
+      }));
+    } catch {
+      debug.chatCount = 0;
+    }
+
+    res.json({ debug });
   })
 );
 

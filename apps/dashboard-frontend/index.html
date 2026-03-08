@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Arasul Platform Dashboard - Edge AI Management" />
+    <title>Arasul Platform</title>
+    <style>
+      /* Minimal pre-CSS-load styles (loading screen only).
+         Do NOT add * { margin/padding } here — it's un-layered CSS
+         and would override ALL Tailwind @layer utilities. */
+      body {
+        background: #101923;
+        color: #ffffff;
+        margin: 0;
+      }
+      .loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-size: 1.5rem;
+        color: #00ff88;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root">
+      <div class="loading">Arasul Platform wird geladen...</div>
+    </div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>

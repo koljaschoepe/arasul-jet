@@ -1,4 +1,5 @@
-FROM node:20-slim
+ARG NODE_VERSION=20.19
+FROM node:${NODE_VERSION}-slim
 
 # System dependencies for Claude Code
 RUN apt-get update && apt-get install -y \

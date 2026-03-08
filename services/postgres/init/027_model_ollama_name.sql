@@ -19,7 +19,7 @@ WHERE ollama_name IS NULL;
 -- These mappings ensure downloads use the exact names Ollama expects
 
 -- Qwen models: q8/q4 quantization suffix is not part of Ollama name
-UPDATE llm_model_catalog SET ollama_name = 'qwen3:7b' WHERE id = 'qwen3:7b-q8';
+UPDATE llm_model_catalog SET ollama_name = 'qwen3:8b' WHERE id = 'qwen3:7b-q8';
 UPDATE llm_model_catalog SET ollama_name = 'qwen3:14b' WHERE id = 'qwen3:14b-q8';
 UPDATE llm_model_catalog SET ollama_name = 'qwen3:32b' WHERE id = 'qwen3:32b-q4';
 

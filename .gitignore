@@ -2,8 +2,10 @@
 
 # Environment files with secrets
 .env
+.env.bak
 .env.local
 .env.*.local
+.env.jetson
 
 # Data directories
 /data/
@@ -52,6 +54,16 @@ n8n_data/
 *.key
 admin.hash
 config/secrets/
+config/.traefik-credentials
+config/certs/
+config/ssh/
 
 # Device-specific configuration (not versioned)
 config/device/
+config/profiles/
+config/dev/
+
+# Local tool configuration
+.mcp.json
+.claude/plans/
+config/base/

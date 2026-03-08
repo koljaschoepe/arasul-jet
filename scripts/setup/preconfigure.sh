@@ -108,6 +108,41 @@ echo -e "  Zeitstempel: $(date -Iseconds)"
 echo -e "  Verzeichnis: ${PROJECT_ROOT}\n"
 
 ###############################################################################
+# Config layer merge helper
+# Merges base.env → profiles/jetson.env → device/device.env into .env
+# Non-destructive: only adds variables that don't already exist
+###############################################################################
+merge_config_layers() {
+  local env_file="${PROJECT_ROOT}/.env"
+  local layers=(
+    "${PROJECT_ROOT}/config/base/base.env"
+    "${PROJECT_ROOT}/config/profiles/jetson.env"
+    "${PROJECT_ROOT}/config/device/device.env"
+  )
+  local added=0
+
+  for layer in "${layers[@]}"; do
+    [ -f "$layer" ] || continue
+    while IFS='=' read -r key value; do
+      # Skip comments and empty lines
+      [[ "$key" =~ ^[[:space:]]*# ]] && continue
+      [[ -z "$key" ]] && continue
+      # Strip whitespace from key
+      key=$(echo "$key" | xargs)
+      # Only add if not already set in .env
+      if ! grep -q "^${key}=" "$env_file" 2>/dev/null; then
+        echo "${key}=${value}" >> "$env_file"
+        added=$((added + 1))
+      fi
+    done < "$layer"
+  done
+
+  if [ "$added" -gt 0 ]; then
+    log_info "Config-Layer-Merge: $added neue Variablen aus Konfigurationsebenen hinzugefügt"
+  fi
+}
+
+###############################################################################
 # Step 0 (--full only): Install OS-level packages
 ###############################################################################
 if [ "$FULL_MODE" = true ]; then
@@ -173,8 +208,9 @@ ENV_TEMPLATE="${PROJECT_ROOT}/.env.example"
 
 if [ -f "$ENV_FILE" ]; then
   log_info ".env existiert bereits, Credentials bleiben erhalten"
-  # Ensure all required variables exist (non-destructive merge)
   NEEDS_UPDATE=false
+  # Non-destructive merge: apply config layers without overwriting existing values
+  merge_config_layers
 else
   log_info "Erstelle neue .env mit sicheren Zufallswerten"
   NEEDS_UPDATE=true
@@ -257,6 +293,13 @@ EOF
     log_info "Gerätespezifische Konfiguration angewendet"
   fi
 
+  # Merge config layers into fresh .env
+  merge_config_layers
+
+  # Secure .env permissions (owner-only read/write)
+  chmod 600 "$ENV_FILE"
+  log_info ".env Berechtigungen gesetzt (600)"
+
   echo ""
   echo -e "  ${BOLD}╔══════════════════════════════════════════════╗${NC}"
   echo -e "  ${BOLD}║  Admin-Passwort: ${GREEN}${ADMIN_PASSWORD}${NC}${BOLD}  ║${NC}"
@@ -335,6 +378,23 @@ fi
 ###############################################################################
 log_step 6 "Traefik-Authentifizierung generieren"
 
+# Helper: Generate bcrypt htpasswd hash (htpasswd → Python fallback)
+generate_htpasswd_hash() {
+  local username="$1"
+  local password="$2"
+  if command -v htpasswd >/dev/null 2>&1; then
+    echo "$password" | htpasswd -niB "$username"
+  elif command -v python3 >/dev/null 2>&1 && python3 -c "import bcrypt" 2>/dev/null; then
+    python3 -c "
+import bcrypt
+h = bcrypt.hashpw(b'''${password}''', bcrypt.gensalt(rounds=10)).decode()
+print(f'${username}:{h}')
+"
+  else
+    return 1
+  fi
+}
+
 MIDDLEWARES_FILE="${PROJECT_ROOT}/config/traefik/dynamic/middlewares.yml"
 if [ -f "$MIDDLEWARES_FILE" ] && grep -q "PLACEHOLDER" "$MIDDLEWARES_FILE" 2>/dev/null; then
   # Use ADMIN_PASSWORD from .env if available (new install), else generate fresh
@@ -342,16 +402,37 @@ if [ -f "$MIDDLEWARES_FILE" ] && grep -q "PLACEHOLDER" "$MIDDLEWARES_FILE" 2>/de
     ADMIN_PASSWORD=$(grep "^ADMIN_PASSWORD=" "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
   fi
 
-  if [ -n "${ADMIN_PASSWORD:-}" ] && command -v htpasswd >/dev/null 2>&1; then
-    # Generate bcrypt hash and escape $ for YAML
-    TRAEFIK_HASH=$(htpasswd -nbB admin "$ADMIN_PASSWORD" | sed 's/\$/\$\$/g')
+  # Auto-generate password if none is set
+  if [ -z "${ADMIN_PASSWORD:-}" ]; then
+    ADMIN_PASSWORD=$(generate_password 20)
+    log_info "Traefik Admin-Passwort automatisch generiert"
+    # Save to .env for reference
+    if [ -f "$ENV_FILE" ]; then
+      echo "ADMIN_PASSWORD=\"${ADMIN_PASSWORD}\"" >> "$ENV_FILE"
+    fi
+  fi
+
+  TRAEFIK_HASH=$(generate_htpasswd_hash admin "$ADMIN_PASSWORD" 2>/dev/null) || true
+  if [ -n "$TRAEFIK_HASH" ]; then
+    # Escape $ for YAML (double $$)
+    TRAEFIK_HASH_ESCAPED=$(echo "$TRAEFIK_HASH" | sed 's/\$/\$\$/g')
     # Replace both PLACEHOLDER lines
-    sed -i "s|'admin:\$apr1\$PLACEHOLDER\$REPLACE_WITH_GENERATED_HASH'|'${TRAEFIK_HASH}'|" "$MIDDLEWARES_FILE"
-    sed -i "s|'admin:\$\$2y\$\$05\$\$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH'|'${TRAEFIK_HASH}'|" "$MIDDLEWARES_FILE"
-    log_info "Traefik Basic Auth generiert (Admin-Passwort)"
+    sed -i "s|'admin:\$apr1\$PLACEHOLDER\$REPLACE_WITH_GENERATED_HASH'|'${TRAEFIK_HASH_ESCAPED}'|" "$MIDDLEWARES_FILE"
+    sed -i "s|'admin:\$\$2y\$\$05\$\$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH'|'${TRAEFIK_HASH_ESCAPED}'|" "$MIDDLEWARES_FILE"
+    log_info "Traefik Basic Auth generiert (User: admin)"
+
+    # Save credentials file for admin reference
+    CREDS_FILE="${PROJECT_ROOT}/config/.traefik-credentials"
+    echo "# Traefik Basic Auth Credentials (generated $(date -Iseconds))" > "$CREDS_FILE"
+    echo "# Used for: Traefik Dashboard (/dashboard) and n8n (/n8n)" >> "$CREDS_FILE"
+    echo "TRAEFIK_USER=admin" >> "$CREDS_FILE"
+    echo "TRAEFIK_PASSWORD=${ADMIN_PASSWORD}" >> "$CREDS_FILE"
+    chmod 600 "$CREDS_FILE"
+    log_info "Zugangsdaten gespeichert: config/.traefik-credentials"
   else
-    log_warn "htpasswd nicht installiert oder kein Admin-Passwort verfuegbar"
-    log_warn "Traefik PLACEHOLDER-Hashes muessen manuell ersetzt werden"
+    log_warn "Weder htpasswd noch python3+bcrypt verfuegbar"
+    log_warn "Installiere: sudo apt-get install apache2-utils"
+    log_warn "  oder: pip3 install bcrypt"
   fi
 else
   if [ -f "$MIDDLEWARES_FILE" ]; then

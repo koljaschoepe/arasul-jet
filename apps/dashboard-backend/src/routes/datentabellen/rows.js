@@ -10,100 +10,7 @@ const { requireAuth } = require('../../middleware/auth');
 const dataDb = require('../../dataDatabase');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
-
-/**
- * SQL Reserved Keywords - blocked from use in identifiers
- */
-const SQL_RESERVED_KEYWORDS = new Set([
-  'select',
-  'insert',
-  'update',
-  'delete',
-  'drop',
-  'create',
-  'alter',
-  'truncate',
-  'table',
-  'index',
-  'view',
-  'database',
-  'schema',
-  'grant',
-  'revoke',
-  'cascade',
-  'union',
-  'intersect',
-  'except',
-  'join',
-  'where',
-  'from',
-  'into',
-  'values',
-  'set',
-  'null',
-  'not',
-  'and',
-  'or',
-  'true',
-  'false',
-  'is',
-  'in',
-  'like',
-  'between',
-  'exists',
-  'all',
-  'any',
-  'some',
-  'order',
-  'by',
-  'group',
-  'having',
-  'limit',
-  'offset',
-  'as',
-  'on',
-  'using',
-  'natural',
-  'left',
-  'right',
-  'inner',
-  'outer',
-  'cross',
-  'full',
-  'primary',
-  'foreign',
-  'key',
-  'references',
-  'unique',
-  'check',
-  'default',
-  'constraint',
-  'exec',
-  'execute',
-  'declare',
-  'cursor',
-]);
-
-/**
- * Helper: Validate slug format
- * Strict validation: only lowercase letters, numbers, and underscores
- * Must start with a letter, max 100 chars, no SQL keywords
- */
-function isValidSlug(slug) {
-  if (!slug || typeof slug !== 'string') {
-    return false;
-  }
-  if (slug.length > 100) {
-    return false;
-  }
-  if (!/^[a-z][a-z0-9_]*$/.test(slug)) {
-    return false;
-  }
-  if (SQL_RESERVED_KEYWORDS.has(slug)) {
-    return false;
-  }
-  return true;
-}
+const { isValidSlug, escapeIdentifier, escapeTableName } = require('../../utils/sqlIdentifier');
 
 /**
  * Helper: Get table and fields metadata
@@ -155,47 +62,51 @@ function buildWhereClause(filters, fields, startParamIndex = 1) {
       continue; // Skip invalid fields
     }
 
+    // System fields (start with _) are hardcoded constants, user fields use escapeIdentifier
+    const SYSTEM_FIELDS = new Set(['_id', '_created_at', '_updated_at', '_created_by']);
+    const escapedField = SYSTEM_FIELDS.has(field) ? `"${field}"` : escapeIdentifier(field);
+
     switch (operator) {
       case 'eq':
-        conditions.push(`${field} = $${paramIndex++}`);
+        conditions.push(`${escapedField} = $${paramIndex++}`);
         params.push(value);
         break;
       case 'neq':
-        conditions.push(`${field} != $${paramIndex++}`);
+        conditions.push(`${escapedField} != $${paramIndex++}`);
         params.push(value);
         break;
       case 'gt':
-        conditions.push(`${field} > $${paramIndex++}`);
+        conditions.push(`${escapedField} > $${paramIndex++}`);
         params.push(value);
         break;
       case 'gte':
-        conditions.push(`${field} >= $${paramIndex++}`);
+        conditions.push(`${escapedField} >= $${paramIndex++}`);
         params.push(value);
         break;
       case 'lt':
-        conditions.push(`${field} < $${paramIndex++}`);
+        conditions.push(`${escapedField} < $${paramIndex++}`);
         params.push(value);
         break;
       case 'lte':
-        conditions.push(`${field} <= $${paramIndex++}`);
+        conditions.push(`${escapedField} <= $${paramIndex++}`);
         params.push(value);
         break;
       case 'like':
-        conditions.push(`${field} ILIKE $${paramIndex++}`);
+        conditions.push(`${escapedField} ILIKE $${paramIndex++}`);
         params.push(`%${value}%`);
         break;
       case 'in':
         if (Array.isArray(value) && value.length > 0) {
           const placeholders = value.map(() => `$${paramIndex++}`).join(', ');
-          conditions.push(`${field} IN (${placeholders})`);
+          conditions.push(`${escapedField} IN (${placeholders})`);
           params.push(...value);
         }
         break;
       case 'is_null':
-        conditions.push(`${field} IS NULL`);
+        conditions.push(`${escapedField} IS NULL`);
         break;
       case 'is_not_null':
-        conditions.push(`${field} IS NOT NULL`);
+        conditions.push(`${escapedField} IS NOT NULL`);
         break;
     }
   }
@@ -276,8 +187,14 @@ router.get(
     const offset = (pageNum - 1) * limitNum;
 
     // Get total count
+    const escapedTable = escapeTableName(slug);
+    const SYSTEM_SORT_FIELDS = new Set(['_id', '_created_at', '_updated_at', '_created_by']);
+    const escapedSortField = SYSTEM_SORT_FIELDS.has(sortField)
+      ? `"${sortField}"`
+      : escapeIdentifier(sortField);
+
     const countResult = await dataDb.query(
-      `SELECT COUNT(*)::int as total FROM data_${slug} ${whereClause}`,
+      `SELECT COUNT(*)::int as total FROM ${escapedTable} ${whereClause}`,
       whereParams
     );
     const total = countResult.rows[0].total;
@@ -285,9 +202,9 @@ router.get(
     // Get rows
     const rowsResult = await dataDb.query(
       `
-        SELECT * FROM data_${slug}
+        SELECT * FROM ${escapedTable}
         ${whereClause}
-        ORDER BY ${sortField} ${sortOrder}
+        ORDER BY ${escapedSortField} ${sortOrder}
         LIMIT $${nextIndex} OFFSET $${nextIndex + 1}
     `,
       [...whereParams, limitNum, offset]
@@ -333,7 +250,9 @@ router.get(
 
     const { table } = await getTableMeta(slug);
 
-    const result = await dataDb.query(`SELECT * FROM data_${slug} WHERE _id = $1`, [rowId]);
+    const result = await dataDb.query(`SELECT * FROM ${escapeTableName(slug)} WHERE _id = $1`, [
+      rowId,
+    ]);
 
     if (result.rows.length === 0) {
       throw new NotFoundError('Datensatz nicht gefunden');
@@ -380,14 +299,14 @@ router.post(
 
     // Build insert query
     const validFields = new Set(fields.map(f => f.slug));
-    const columns = ['_created_by'];
+    const columns = ['"_created_by"'];
     const values = [req.user?.username || 'system'];
     const placeholders = ['$1'];
     let paramIndex = 2;
 
     for (const [key, value] of Object.entries(data)) {
       if (validFields.has(key) && value !== undefined) {
-        columns.push(key);
+        columns.push(escapeIdentifier(key));
         values.push(value);
         placeholders.push(`$${paramIndex++}`);
       }
@@ -395,7 +314,7 @@ router.post(
 
     const result = await dataDb.query(
       `
-        INSERT INTO data_${slug} (${columns.join(', ')})
+        INSERT INTO ${escapeTableName(slug)} (${columns.join(', ')})
         VALUES (${placeholders.join(', ')})
         RETURNING *
     `,
@@ -438,7 +357,7 @@ router.patch(
 
     // Check if row exists and get current state
     const existingResult = await dataDb.query(
-      `SELECT _id, _updated_at FROM data_${slug} WHERE _id = $1`,
+      `SELECT _id, _updated_at FROM ${escapeTableName(slug)} WHERE _id = $1`,
       [rowId]
     );
 
@@ -468,7 +387,7 @@ router.patch(
 
     for (const [key, value] of Object.entries(data)) {
       if (validFields.has(key)) {
-        updates.push(`${key} = $${paramIndex++}`);
+        updates.push(`${escapeIdentifier(key)} = $${paramIndex++}`);
         params.push(value);
       }
     }
@@ -482,7 +401,7 @@ router.patch(
 
     const result = await dataDb.query(
       `
-        UPDATE data_${slug}
+        UPDATE ${escapeTableName(slug)}
         SET ${updates.join(', ')}
         WHERE _id = $${paramIndex}
         RETURNING *
@@ -523,9 +442,10 @@ router.delete(
 
     await getTableMeta(slug); // Verify table exists
 
-    const result = await dataDb.query(`DELETE FROM data_${slug} WHERE _id = $1 RETURNING _id`, [
-      rowId,
-    ]);
+    const result = await dataDb.query(
+      `DELETE FROM ${escapeTableName(slug)} WHERE _id = $1 RETURNING _id`,
+      [rowId]
+    );
 
     if (result.rows.length === 0) {
       throw new NotFoundError('Datensatz nicht gefunden');
@@ -575,14 +495,14 @@ router.post(
 
       for (const rowData of rows) {
         try {
-          const columns = ['_created_by'];
+          const columns = ['"_created_by"'];
           const values = [username];
           const placeholders = ['$1'];
           let paramIndex = 2;
 
           for (const [key, value] of Object.entries(rowData)) {
             if (validFields.has(key) && value !== undefined) {
-              columns.push(key);
+              columns.push(escapeIdentifier(key));
               values.push(value);
               placeholders.push(`$${paramIndex++}`);
             }
@@ -590,7 +510,7 @@ router.post(
 
           const rowResult = await client.query(
             `
-                    INSERT INTO data_${slug} (${columns.join(', ')})
+                    INSERT INTO ${escapeTableName(slug)} (${columns.join(', ')})
                     VALUES (${placeholders.join(', ')})
                     RETURNING _id
                 `,
@@ -655,7 +575,7 @@ router.delete(
 
     const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
     const result = await dataDb.query(
-      `DELETE FROM data_${slug} WHERE _id IN (${placeholders}) RETURNING _id`,
+      `DELETE FROM ${escapeTableName(slug)} WHERE _id IN (${placeholders}) RETURNING _id`,
       ids
     );
 

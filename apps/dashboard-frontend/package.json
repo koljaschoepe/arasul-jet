@@ -4,61 +4,52 @@
   "description": "Arasul Platform Dashboard Frontend",
   "private": true,
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@arasul/shared": "file:../../packages/shared",
+    "@hookform/resolvers": "^5.2.2",
+    "@tailwindcss/vite": "^4.2.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "dompurify": "^3.0.8",
+    "lucide-react": "^0.577.0",
+    "mermaid": "^10.9.0",
+    "radix-ui": "^1.4.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.71.2",
+    "react-markdown": "^9.0.1",
     "react-router-dom": "^6.21.1",
     "recharts": "^2.10.3",
-    "react-icons": "^5.0.1",
-    "react-markdown": "^9.0.1",
     "remark-gfm": "^4.0.0",
-    "dompurify": "^3.0.8",
-    "mermaid": "^10.9.0",
-    "@arasul/shared": "file:../../packages/shared"
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.1",
+    "tw-animate-css": "^1.4.0",
+    "zod": "^4.3.6"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "test:ci": "react-scripts test --watchAll=false --coverage --coverageReporters=lcov --coverageReporters=text",
-    "lint": "eslint src/ --ext .js,.jsx",
-    "lint:fix": "eslint src/ --ext .js,.jsx --fix",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run --coverage",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix"
   },
   "devDependencies": {
-    "axios": "^1.6.5",
-    "react-scripts": "^5.0.1",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.2.0",
-    "@testing-library/react": "^14.1.2",
-    "@testing-library/user-event": "^14.5.2"
-  },
-  "jest": {
-    "transformIgnorePatterns": [
-      "node_modules/(?!(axios|react-markdown|remark-.*|unified|bail|is-plain-obj|trough|vfile.*|unist-util-.*|mdast-util-.*|micromark.*|decode-named-character-reference|character-entities.*|ccount|escape-string-regexp|markdown-table|devlop|hast-util-.*|property-information|space-separated-tokens|comma-separated-tokens|estree-util-.*|style-to-object|inline-style-parser|html-url-attributes|trim-lines|zwitch|longest-streak)/)"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "branches": 20,
-        "functions": 20,
-        "lines": 25,
-        "statements": 25
-      }
-    }
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.5.2",
+    "axios": "^1.6.5",
+    "eslint-plugin-react": "^7.37.5",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.1"
   }
 }

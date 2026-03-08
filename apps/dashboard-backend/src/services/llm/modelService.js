@@ -217,6 +217,25 @@ function createModelService(deps = {}) {
                 const data = JSON.parse(line);
                 let progress = lastProgress;
 
+                // Handle Ollama error responses (e.g. version mismatch, model not found)
+                if (data.error) {
+                  const errorMsg = data.error.includes('newer version')
+                    ? 'Ollama-Version zu alt für dieses Modell. Bitte Ollama aktualisieren.'
+                    : data.error.includes('not found')
+                      ? `Modell "${ollamaName}" nicht in Ollama Registry gefunden.`
+                      : data.error;
+                  logger.error(`[DOWNLOAD] Ollama error for ${modelId}: ${data.error}`);
+                  await database.query(
+                    `UPDATE llm_installed_models SET status = 'error', error_message = $1 WHERE id = $2`,
+                    [errorMsg, modelId]
+                  );
+                  if (progressCallback) {
+                    progressCallback(0, errorMsg);
+                  }
+                  reject(new Error(errorMsg));
+                  return;
+                }
+
                 // Improved progress calculation based on status
                 if (data.status) {
                   const statusLower = data.status.toLowerCase();

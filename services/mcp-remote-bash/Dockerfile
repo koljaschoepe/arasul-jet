@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+ARG PYTHON_VERSION=3.11.12
+FROM python:${PYTHON_VERSION}-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \

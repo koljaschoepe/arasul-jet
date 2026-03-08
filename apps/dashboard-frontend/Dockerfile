@@ -1,4 +1,5 @@
-FROM node:20-alpine AS builder
+ARG NODE_VERSION=20.19
+FROM node:${NODE_VERSION}-alpine AS builder
 
 LABEL org.opencontainers.image.architecture="arm64"
 
@@ -19,7 +20,7 @@ COPY apps/dashboard-frontend/ .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:1.27-alpine
 
 LABEL maintainer="Arasul Platform"
 LABEL description="Dashboard Frontend - Single Page Application"
@@ -29,7 +30,7 @@ LABEL org.opencontainers.image.architecture="arm64"
 COPY apps/dashboard-frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built application
-COPY --from=builder /repo/apps/dashboard-frontend/build /usr/share/nginx/html
+COPY --from=builder /repo/apps/dashboard-frontend/dist /usr/share/nginx/html
 
 # Health check
 HEALTHCHECK --interval=10s --timeout=1s --retries=3 \

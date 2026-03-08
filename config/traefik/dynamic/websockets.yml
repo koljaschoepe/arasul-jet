@@ -6,7 +6,7 @@ http:
     # Dashboard WebSocket (metrics live-stream)
     # LAN-accessible: Host restriction removed to allow access via IP address
     dashboard-websocket:
-      rule: 'PathPrefix(`/api/metrics/live-stream`)'
+      rule: 'PathPrefix(`/api/metrics/live-stream`) && Headers(`Upgrade`, `websocket`)'
       service: dashboard-backend-service
       priority: 50
       middlewares:
@@ -33,7 +33,7 @@ http:
     # Telegram Bot Setup WebSocket
     # Bypasses compress and rate-limit middlewares that could interfere with WS frames
     telegram-websocket:
-      rule: 'PathPrefix(`/api/telegram-app/ws`)'
+      rule: 'PathPrefix(`/api/telegram-app/ws`) && Headers(`Upgrade`, `websocket`)'
       service: dashboard-backend-service
       priority: 50
       middlewares:
@@ -66,18 +66,5 @@ http:
         - websecure
       tls: {}
 
-  middlewares:
-    # WebSocket-specific headers
-    websocket-headers:
-      headers:
-        customRequestHeaders:
-          X-Forwarded-Proto: 'https'
-        customResponseHeaders:
-          X-WebSocket-Enabled: 'true'
-
-  services:
-    # Note: Services are already defined in routes.yml
-    # WebSocket support is automatic when:
-    # 1. Connection: Upgrade header is present
-    # 2. Upgrade: websocket header is present
-    # Traefik automatically handles the upgrade
+  # Note: Services are already defined in routes.yml
+  # WebSocket support is automatic when Connection: Upgrade header is present

@@ -4,7 +4,7 @@
 
 # PHASE1-FIX: Pin to specific version for reproducible builds
 # Update OLLAMA_VERSION when upgrading (check: https://hub.docker.com/r/ollama/ollama/tags)
-ARG OLLAMA_VERSION=0.4.7
+ARG OLLAMA_VERSION=0.9.0
 FROM ollama/ollama:${OLLAMA_VERSION}
 
 # Install Python and dependencies for Management API

@@ -30,12 +30,22 @@ fi
 info "Configuring mDNS (Avahi) for Arasul Platform..."
 
 # Load configuration
-if [ -f "${PROJECT_ROOT}/config/.env" ]; then
+if [ -f "${PROJECT_ROOT}/.env" ]; then
+    source "${PROJECT_ROOT}/.env"
+elif [ -f "${PROJECT_ROOT}/config/.env" ]; then
     source "${PROJECT_ROOT}/config/.env"
-    MDNS_HOSTNAME="${MDNS_NAME:-arasul.local}"
-    MDNS_HOSTNAME="${MDNS_HOSTNAME%.local}" # Remove .local suffix if present
+fi
+
+if [ -n "${MDNS_NAME:-}" ]; then
+    # Explicit hostname configured
+    MDNS_HOSTNAME="${MDNS_NAME%.local}" # Remove .local suffix if present
+elif [ -f "${PROJECT_ROOT}/config/device/device-id" ]; then
+    # Generate unique hostname from device-id (prevents mDNS conflicts with multiple devices)
+    DEVICE_ID=$(cat "${PROJECT_ROOT}/config/device/device-id" | cut -c1-8)
+    MDNS_HOSTNAME="arasul-${DEVICE_ID}"
+    info "Using device-id for unique hostname: ${MDNS_HOSTNAME}"
 else
-    warn ".env file not found, using default hostname 'arasul'"
+    warn "No device-id found, using default hostname 'arasul'"
     MDNS_HOSTNAME="arasul"
 fi
 

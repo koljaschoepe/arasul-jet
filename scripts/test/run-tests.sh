@@ -85,11 +85,11 @@ run_backend_tests() {
 run_frontend_tests() {
   if [ -f "apps/dashboard-frontend/package.json" ]; then
     echo ""
-    echo "-> Running Frontend Tests (React Testing Library)..."
+    echo "-> Running Frontend Tests (Vitest)..."
 
     if check_npm; then
       cd apps/dashboard-frontend
-      if CI=true npm test -- --passWithNoTests --watchAll=false; then
+      if npx vitest run --reporter=verbose; then
         echo "   Frontend tests: PASSED"
       else
         echo "   Frontend tests: FAILED"
@@ -98,7 +98,7 @@ run_frontend_tests() {
       cd "$PROJECT_ROOT"
     elif docker compose ps dashboard-frontend 2>/dev/null | grep -q "Up"; then
       echo "   Running in Docker container..."
-      if docker compose exec -T dashboard-frontend sh -c "CI=true npm test -- --passWithNoTests --watchAll=false"; then
+      if docker compose exec -T dashboard-frontend sh -c "npx vitest run --reporter=verbose"; then
         echo "   Frontend tests: PASSED"
       else
         echo "   Frontend tests: FAILED"

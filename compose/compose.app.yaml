@@ -48,6 +48,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: ${JWT_EXPIRY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       SYSTEM_VERSION: ${SYSTEM_VERSION}
       BUILD_HASH: ${BUILD_HASH}
       LOG_LEVEL: ${LOG_LEVEL}
@@ -66,6 +67,7 @@ services:
       - ../data/backups:/arasul/backups:ro
       - ../data/appstore/manifests:/arasul/appstore/manifests:ro
       - ../data/ssh-keys:/arasul/ssh-keys:ro
+      - ../services/postgres/init:/arasul/migrations:ro
     security_opt:
       - no-new-privileges:true
       - apparmor:arasul-backend

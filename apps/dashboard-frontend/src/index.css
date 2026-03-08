@@ -1,24 +1,133 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ========================================
+   TAILWIND THEME - Arasul Design Tokens
+   Custom tokens that don't overlap with shadcn/ui.
+   e.g. --color-bg-card → bg-bg-card, --color-danger → text-danger
+   ======================================== */
+@theme {
+  /* Colors - Primary variants */
+  --color-primary-hover: #6EC4FF;
+  --color-primary-active: #2D8FD9;
+
+  /* Colors - Semantic */
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-warning-hover: #d97706;
+
+  /* Colors - Background */
+  --color-bg-dark: #101923;
+  --color-bg-card: #1a2330;
+  --color-bg-card-hover: #222d3d;
+  --color-bg-elevated: #2a3544;
+  --color-bg-subtle: #1d2835;
+  --color-bg-input: #101923;
+  --color-bg-modal: #1a2330;
+
+  /* Colors - Text */
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-text-disabled: #64748b;
+
+  /* Colors - Border */
+  --color-border-subtle: #1d2835;
+
+  /* Border Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Fonts */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', source-code-pro, Menlo, Monaco, Consolas, monospace;
 }
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--bg-dark);
-  color: var(--text-primary);
-  overflow-x: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
+/* ========================================
+   shadcn/ui - Semantic Color Mappings
+   Maps CSS variables to Tailwind utilities.
+   e.g. bg-primary, text-muted-foreground, border-border
+   ======================================== */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
-code {
-  font-family: 'JetBrains Mono', 'Fira Code', source-code-pro, Menlo, Monaco, Consolas, monospace;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    border: 0 solid; /* Required for Tailwind border-* utilities */
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', source-code-pro, Menlo, Monaco, Consolas, monospace;
+  }
 }
 
 :root {
+  /* ========================================
+     shadcn/ui Semantic Colors (Dark Theme)
+     These drive shadcn component styling.
+     ======================================== */
+  --radius: 0.75rem;
+  --background: #101923;
+  --foreground: #f8fafc;
+  --card: #1a2330;
+  --card-foreground: #f8fafc;
+  --popover: #1a2330;
+  --popover-foreground: #f8fafc;
+  --primary: #45ADFF;
+  --primary-foreground: #000000;
+  --secondary: #1d2835;
+  --secondary-foreground: #f8fafc;
+  --muted: #1d2835;
+  --muted-foreground: #94a3b8;
+  --accent: #222d3d;
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #f8fafc;
+  --border: #2a3544;
+  --input: #2a3544;
+  --ring: #45ADFF;
+
   /* ========================================
      RESPONSIVE BREAKPOINTS - MacBook Focused
      ======================================== */
@@ -108,9 +217,8 @@ code {
   --warning-border-light: #FDE68A;
   --success-color: #22c55e;
   --success-light: #4ADE80;
-  --purple-color: #8b5cf6;
   --warning-light: #FBBF24;
-  --error-color: #ef4444;
+  --error-color: var(--danger-color);
 
   /* Status Colors - Semantic (NEW) */
   --status-neutral: #94A3B8;        /* Grau - für "Normal", "OK", "Indexiert" */
@@ -284,6 +392,27 @@ code {
    Helle Hintergründe, dunkler Text
    ======================================== */
 .light-mode {
+  /* shadcn/ui Semantic Colors (Light Theme) */
+  --background: #FFFFFF;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #45ADFF;
+  --primary-foreground: #000000;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #45ADFF;
+
   /* Hintergründe - Hell/Weiß */
   --bg-dark: #FFFFFF;
   --bg-app: #FFFFFF;
@@ -395,6 +524,13 @@ code {
 }
 
 /* Light Mode - Animated background override (disabled) */
+
+/* ========================================
+   ALL COMPONENT CSS IN @layer components
+   This ensures Tailwind @layer utilities can override these styles.
+   Without this, un-layered CSS always beats Tailwind utilities.
+   ======================================== */
+@layer components {
 
 /* Light Mode - Status colors with better contrast */
 .light-mode .status-ok {
@@ -762,6 +898,16 @@ code {
   }
 }
 
+@keyframes spinner-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes message-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 /* ========================================
    PHASE 5: Skip-to-content Link (Accessibility)
    Allows keyboard users to skip navigation
@@ -832,10 +978,11 @@ a:focus:not(:focus-visible),
 }
 
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   background: var(--bg-dark);
   position: relative;
+  overflow: hidden;
 }
 
 /* Background gradient disabled for consistent appearance */
@@ -843,7 +990,7 @@ a:focus:not(:focus-visible),
   display: none;
 }
 
-.container {
+.app-content {
   flex: 1;
   min-width: 0; /* Critical: Allows container to shrink below content width */
   overflow-y: auto;
@@ -856,23 +1003,23 @@ a:focus:not(:focus-visible),
 }
 
 /* Focus style when skip-to-content link is used */
-.container:focus {
+.app-content:focus {
   outline: none;
 }
 
-.container:focus-visible {
+.app-content:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
 }
 
 /* Container variant for fullscreen content (no padding) */
-.container--fullscreen {
+.app-content--fullscreen {
   padding: 0;
   overflow: hidden;
 }
 
 /* Container variant with reduced padding for dense content */
-.container--dense {
+.app-content--dense {
   padding: 1rem;
 }
 
@@ -2137,7 +2284,7 @@ a:focus:not(:focus-visible),
 
 /* MacBook Pro 16" and larger (1728px+) - Full experience */
 @media (min-width: 1728px) {
-  .container {
+  .app-content {
     max-width: var(--container-max-width);
     margin: 0 auto;
     padding: 2.5rem;
@@ -2354,7 +2501,7 @@ a:focus:not(:focus-visible),
     min-height: var(--touch-target-min);
   }
 
-  .container {
+  .app-content {
     padding: var(--space-lg);
   }
 
@@ -2415,7 +2562,7 @@ a:focus:not(:focus-visible),
     gap: 0.75rem;
   }
 
-  .container {
+  .app-content {
     padding: var(--space-md);
   }
 
@@ -2504,7 +2651,7 @@ a:focus:not(:focus-visible),
 
 /* Mobile Large (≤576px) - Compact everything */
 @media (max-width: 576px) {
-  .container {
+  .app-content {
     padding: 0.75rem;
   }
 
@@ -2642,7 +2789,7 @@ a:focus:not(:focus-visible),
 
 /* Mobile Small (≤375px) - iPhone SE and similar */
 @media (max-width: 375px) {
-  .container {
+  .app-content {
     padding: 0.5rem;
   }
 
@@ -4055,7 +4202,7 @@ button.service-link-card.telegram-app-card:focus {
     display: none !important;
   }
 
-  .container {
+  .app-content {
     margin: 0;
     padding: 0;
     max-width: 100%;
@@ -4394,3 +4541,5 @@ button.service-link-card.telegram-app-card:focus {
   white-space: nowrap;
   border: 0;
 }
+
+} /* end @layer components */

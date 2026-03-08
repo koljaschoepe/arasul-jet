@@ -48,31 +48,21 @@ END $$;
 -- 2. CREATE: Rate Limiting Table for LLM Calls
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS telegram_rate_limits (
+-- Drop old version (from 022) that lacks bot_id, then recreate with full schema
+DROP TABLE IF EXISTS telegram_rate_limits CASCADE;
+CREATE TABLE telegram_rate_limits (
     id SERIAL PRIMARY KEY,
-
-    -- Identification
     bot_id INTEGER REFERENCES telegram_bots(id) ON DELETE CASCADE NOT NULL,
     chat_id BIGINT NOT NULL,
     user_id BIGINT,
-
-    -- Rate limiting counters
     request_count INTEGER DEFAULT 0,
     window_start TIMESTAMPTZ DEFAULT NOW(),
-
-    -- Limits (configurable per bot)
     max_requests_per_minute INTEGER DEFAULT 10,
     max_requests_per_hour INTEGER DEFAULT 100,
-
-    -- Cooldown tracking
     is_rate_limited BOOLEAN DEFAULT false,
     cooldown_until TIMESTAMPTZ,
-
-    -- Timestamps
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-    -- Constraints
     UNIQUE(bot_id, chat_id)
 );
 

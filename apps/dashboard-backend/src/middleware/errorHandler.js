@@ -106,7 +106,11 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Send response
+  // Send response (skip if headers already sent, e.g. during SSE streaming)
+  if (res.headersSent) {
+    logger.error('Headers already sent, cannot send error response', { path: req.originalUrl });
+    return;
+  }
   res.status(statusCode).json({
     error: message,
     ...(details && { details }),

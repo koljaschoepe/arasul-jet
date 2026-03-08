@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS kg_entities (
     entity_type TEXT NOT NULL,
     properties JSONB DEFAULT '{}',
     mention_count INTEGER DEFAULT 1,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(name, entity_type)
 );
 
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS kg_entity_documents (
     entity_id INTEGER NOT NULL REFERENCES kg_entities(id) ON DELETE CASCADE,
     document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     mention_count INTEGER DEFAULT 1,
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (entity_id, document_id)
 );
 
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS kg_relations (
     properties JSONB DEFAULT '{}',
     weight REAL DEFAULT 1.0,
     source_document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(source_entity_id, target_entity_id, relation_type)
 );
 

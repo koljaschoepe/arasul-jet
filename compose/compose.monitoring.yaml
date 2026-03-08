@@ -141,6 +141,7 @@ services:
       TZ: ${TZ:-Europe/Berlin}
     volumes:
       - ../data/backups:/backups
+      - ../scripts/backup/backup.sh:/usr/local/bin/backup-full.sh:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       postgres-db:

@@ -1,11 +1,31 @@
-import { useState, useEffect } from 'react';
-import { Lock, Eye, EyeOff, Check, X, AlertCircle, Monitor, HardDrive, Zap } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Lock,
+  Eye,
+  EyeOff,
+  Check,
+  X,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  Monitor,
+  HardDrive,
+  Zap,
+} from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/shadcn/card';
+import useConfirm from '../../hooks/useConfirm';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/shadcn/card';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/shadcn/tabs';
 import { cn } from '@/lib/utils';
 
 interface PasswordRequirements {
@@ -38,6 +58,7 @@ const SERVICES: { id: ServiceId; label: string; icon: React.ReactNode }[] = [
 
 function PasswordManagement() {
   const api = useApi();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [activeService, setActiveService] = useState<ServiceId>('dashboard');
   const [passwords, setPasswords] = useState<Record<ServiceId, PasswordFields>>({
     dashboard: { current: '', new: '', confirm: '' },
@@ -111,6 +132,32 @@ function PasswordManagement() {
     }));
   };
 
+  const handleServiceSwitch = useCallback(
+    async (newService: string) => {
+      const current = passwords[activeService];
+      const hasInput = current.current || current.new || current.confirm;
+
+      if (hasInput) {
+        const confirmed = await confirm({
+          title: 'Ungespeicherte Eingaben',
+          message: 'Die eingegebenen Passwörter gehen beim Wechsel verloren. Fortfahren?',
+          confirmText: 'Fortfahren',
+          confirmVariant: 'warning',
+        });
+        if (!confirmed) return;
+      }
+
+      // Clear fields for the old service and switch
+      setPasswords(prev => ({
+        ...prev,
+        [activeService]: { current: '', new: '', confirm: '' },
+      }));
+      setActiveService(newService as ServiceId);
+      setMessage(null);
+    },
+    [activeService, passwords, confirm]
+  );
+
   const isFormValid = () => {
     const current = passwords[activeService];
     return (
@@ -180,7 +227,7 @@ function PasswordManagement() {
     field: keyof PasswordFields,
     label: string,
     placeholder: string,
-    hint?: string,
+    hint?: string
   ) => (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -193,98 +240,151 @@ function PasswordManagement() {
           required
           className="pr-10"
         />
-        <button
+        <Button
           type="button"
-          className="toggle-password absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+          variant="ghost"
+          size="icon"
+          className="absolute right-1 top-1/2 -translate-y-1/2 size-8"
           onClick={() => togglePasswordVisibility(activeService, field)}
+          aria-label={
+            showPasswords[activeService][field] ? 'Passwort verbergen' : 'Passwort anzeigen'
+          }
         >
           {showPasswords[activeService][field] ? (
             <EyeOff className="size-4" />
           ) : (
             <Eye className="size-4" />
           )}
-        </button>
+        </Button>
       </div>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 
   return (
-    <div className="password-management">
+    <div>
+      {ConfirmDialog}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Lock className="password-icon size-5" />
+            <Lock className="size-5" />
             Passwortverwaltung
           </CardTitle>
-          <CardDescription>
-            Ändern Sie die Passwörter für Dashboard, MinIO und n8n
-          </CardDescription>
+          <CardDescription>Ändern Sie die Passwörter für Dashboard, MinIO und n8n</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Service Selector */}
-          <div className="service-selector flex gap-2">
-            {SERVICES.map(service => (
-              <Button
-                key={service.id}
-                type="button"
-                variant={activeService === service.id ? 'default' : 'outline'}
-                className={cn(
-                  'service-button flex-1',
-                  activeService === service.id && 'active'
-                )}
-                onClick={() => {
-                  setActiveService(service.id);
-                  setMessage(null);
-                }}
-              >
-                {service.icon}
-                <span>{service.label}</span>
-              </Button>
-            ))}
-          </div>
+          <Tabs value={activeService} onValueChange={handleServiceSwitch}>
+            <TabsList className="w-full">
+              {SERVICES.map(service => (
+                <TabsTrigger key={service.id} value={service.id} className="flex-1">
+                  {service.icon}
+                  <span>{service.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
           {/* Password Change Form */}
-          <form onSubmit={handleSubmit} className="password-form space-y-4">
-            {renderPasswordField('current', 'Aktuelles Dashboard-Passwort', 'Aktuelles Passwort eingeben', 'Zur Sicherheit wird Ihr aktuelles Dashboard-Passwort benötigt')}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {renderPasswordField(
+              'current',
+              'Aktuelles Dashboard-Passwort',
+              'Aktuelles Passwort eingeben',
+              'Zur Sicherheit wird Ihr aktuelles Dashboard-Passwort benötigt'
+            )}
             {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
             {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
 
             {/* Password Requirements */}
             {requirements && passwords[activeService].new && (
-              <div className="password-requirements rounded-lg border border-border p-4 space-y-2">
+              <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
                 <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
                 <ul className="space-y-1">
-                  <li className={cn('flex items-center gap-2 text-xs', validations.minLength ? 'valid text-green-500' : 'invalid text-red-500')}>
-                    {validations.minLength ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                  <li
+                    className={cn(
+                      'flex items-center gap-2 text-xs',
+                      validations.minLength ? 'text-green-500' : 'text-red-500'
+                    )}
+                  >
+                    {validations.minLength ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
                     Mindestens {requirements.minLength} Zeichen
                   </li>
                   {requirements.requireUppercase && (
-                    <li className={cn('flex items-center gap-2 text-xs', validations.uppercase ? 'valid text-green-500' : 'invalid text-red-500')}>
-                      {validations.uppercase ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                    <li
+                      className={cn(
+                        'flex items-center gap-2 text-xs',
+                        validations.uppercase ? 'text-green-500' : 'text-red-500'
+                      )}
+                    >
+                      {validations.uppercase ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
                       Mindestens ein Großbuchstabe
                     </li>
                   )}
                   {requirements.requireLowercase && (
-                    <li className={cn('flex items-center gap-2 text-xs', validations.lowercase ? 'valid text-green-500' : 'invalid text-red-500')}>
-                      {validations.lowercase ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                    <li
+                      className={cn(
+                        'flex items-center gap-2 text-xs',
+                        validations.lowercase ? 'text-green-500' : 'text-red-500'
+                      )}
+                    >
+                      {validations.lowercase ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
                       Mindestens ein Kleinbuchstabe
                     </li>
                   )}
                   {requirements.requireNumbers && (
-                    <li className={cn('flex items-center gap-2 text-xs', validations.number ? 'valid text-green-500' : 'invalid text-red-500')}>
-                      {validations.number ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                    <li
+                      className={cn(
+                        'flex items-center gap-2 text-xs',
+                        validations.number ? 'text-green-500' : 'text-red-500'
+                      )}
+                    >
+                      {validations.number ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
                       Mindestens eine Zahl
                     </li>
                   )}
                   {requirements.requireSpecialChars && (
-                    <li className={cn('flex items-center gap-2 text-xs', validations.special ? 'valid text-green-500' : 'invalid text-red-500')}>
-                      {validations.special ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                    <li
+                      className={cn(
+                        'flex items-center gap-2 text-xs',
+                        validations.special ? 'text-green-500' : 'text-red-500'
+                      )}
+                    >
+                      {validations.special ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
                       Mindestens ein Sonderzeichen
                     </li>
                   )}
-                  <li className={cn('flex items-center gap-2 text-xs', validations.match ? 'valid text-green-500' : 'invalid text-red-500')}>
-                    {validations.match ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                  <li
+                    className={cn(
+                      'flex items-center gap-2 text-xs',
+                      validations.match ? 'text-green-500' : 'text-red-500'
+                    )}
+                  >
+                    {validations.match ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
                     Passwörter stimmen überein
                   </li>
                 </ul>
@@ -293,27 +393,31 @@ function PasswordManagement() {
 
             {/* Message */}
             {message && (
-              <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className={`password-message ${message.type}`}>
+              <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
                 <AlertCircle className="size-4" />
                 <AlertDescription>{message.text}</AlertDescription>
               </Alert>
             )}
 
             {/* Submit Button */}
-            <Button type="submit" className="w-full" disabled={!isFormValid() || loading}>
-              {loading ? 'Wird geändert...' : 'Passwort ändern'}
-            </Button>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={!isFormValid() || loading}>
+                {loading ? 'Wird geändert...' : 'Passwort ändern'}
+              </Button>
+            </div>
 
             {activeService === 'dashboard' && (
               <p className="text-xs text-warning text-center">
-                ⚠️ Nach dem Ändern des Dashboard-Passworts werden Sie automatisch abgemeldet.
+                <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des
+                Dashboard-Passworts werden Sie automatisch abgemeldet.
               </p>
             )}
 
             {(activeService === 'minio' || activeService === 'n8n') && (
               <p className="text-xs text-muted-foreground text-center">
-                ℹ️ Der {activeService === 'minio' ? 'MinIO' : 'n8n'}-Service wird nach der
-                Passwortänderung automatisch neu gestartet.
+                <Info className="size-3.5 inline" /> Der{' '}
+                {activeService === 'minio' ? 'MinIO' : 'n8n'}-Service wird nach der Passwortänderung
+                automatisch neu gestartet.
               </p>
             )}
           </form>

@@ -445,37 +445,8 @@ CREATE TRIGGER trigger_telegram_bot_configs_updated_at
 -- 9. DEFAULT NOTIFICATION RULES (Pre-configured)
 -- ============================================================================
 
--- Insert default rules for admin user (id=1)
-INSERT INTO telegram_notification_rules (name, description, event_source, event_type, severity, message_template, user_id, is_enabled)
-VALUES
-    -- Claude Events
-    ('Claude Task gestartet', 'Benachrichtigung wenn Claude einen Task startet', 'claude', 'task_started', 'info',
-     '🚀 <b>Claude Task gestartet</b>\n\nTask: {{event.task_name}}\nZeit: {{timestamp}}', 1, TRUE),
-
-    ('Claude Task abgeschlossen', 'Benachrichtigung wenn Claude einen Task abschließt', 'claude', 'task_completed', 'info',
-     '✅ <b>Claude Task abgeschlossen</b>\n\nTask: {{event.task_name}}\nDauer: {{event.duration}}\nZeit: {{timestamp}}', 1, TRUE),
-
-    ('Claude Blocker', 'Warnung wenn Claude einen Blocker erkennt', 'claude', 'blocker', 'warning',
-     '⚠️ <b>Claude Blocker erkannt</b>\n\n{{event.message}}\n\nZeit: {{timestamp}}', 1, TRUE),
-
-    ('Claude Rate-Limit', 'Warnung bei Rate-Limit', 'claude', 'rate_limit', 'warning',
-     '⏳ <b>Rate-Limit erreicht</b>\n\nWarte {{event.wait_seconds}} Sekunden...\nZeit: {{timestamp}}', 1, TRUE),
-
-    -- System Events
-    ('Hohe Disk-Auslastung', 'Warnung bei Disk > 80%', 'system', 'disk_warning', 'warning',
-     '💾 <b>Hohe Disk-Auslastung</b>\n\nAktuell: {{event.percent}}%\nFrei: {{event.free_gb}} GB\n\nZeit: {{timestamp}}', 1, TRUE),
-
-    ('Hohe RAM-Auslastung', 'Warnung bei RAM > 90%', 'system', 'ram_warning', 'warning',
-     '🧠 <b>Hohe RAM-Auslastung</b>\n\nAktuell: {{event.percent}}%\nFrei: {{event.free_gb}} GB\n\nZeit: {{timestamp}}', 1, TRUE),
-
-    ('Service Neustart', 'Info bei Service-Neustart durch Self-Healing', 'system', 'service_restart', 'info',
-     '🔄 <b>Service neu gestartet</b>\n\nService: {{event.service_name}}\nGrund: {{event.reason}}\n\nZeit: {{timestamp}}', 1, TRUE),
-
-    -- n8n Events
-    ('Workflow fehlgeschlagen', 'Fehler wenn n8n Workflow fehlschlägt', 'n8n', 'workflow_failed', 'error',
-     '❌ <b>Workflow fehlgeschlagen</b>\n\nWorkflow: {{event.workflow_name}}\nFehler: {{event.error}}\n\nZeit: {{timestamp}}', 1, TRUE)
-
-ON CONFLICT DO NOTHING;
+-- Default notification rules are created at runtime by the bootstrap process
+-- (Removed from migration: requires admin user to exist + custom enum type casting)
 
 -- ============================================================================
 -- 10. COMMENTS

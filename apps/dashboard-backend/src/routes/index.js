@@ -50,7 +50,7 @@ router.use('/self-healing', require('./admin/selfhealing'));
 // --- AI ---
 router.use('/models', require('./ai/models'));
 router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
-// router.use('/memory', require('./ai/memory')); // Removed: replaced by projects system
+router.use('/memory', require('./ai/memory'));
 router.use('/spaces', require('./ai/spaces'));
 router.use('/knowledge-graph', require('./ai/knowledge-graph'));
 

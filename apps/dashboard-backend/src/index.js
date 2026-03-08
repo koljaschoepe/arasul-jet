@@ -87,10 +87,12 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.use((req, res, next) => {
-  require('./utils/logger').debug(`${req.method} ${req.path}`);
-  next();
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    require('./utils/logger').debug(`${req.method} ${req.path}`);
+    next();
+  });
+}
 
 // Audit logging middleware - logs all /api/* requests
 const { createAuditMiddleware } = require('./middleware/audit');
@@ -135,6 +137,7 @@ const telegramWebSocketService = require('./services/telegram/telegramWebSocketS
 const telegramPollingManager = require('./services/telegram/telegramPollingManager');
 const eventListenerService = require('./services/core/eventListenerService');
 const { cacheService } = require('./services/core/cacheService');
+const { bootstrap } = require('./bootstrap');
 const pool = require('./database');
 
 wss.on('connection', ws => {
@@ -296,6 +299,13 @@ if (require.main === module) {
   server.listen(PORT, '0.0.0.0', async () => {
     logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
     logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);
+
+    // Bootstrap: run migrations + ensure admin user (critical for fresh deploys)
+    try {
+      await bootstrap();
+    } catch (err) {
+      logger.error(`Bootstrap failed: ${err.message}`);
+    }
 
     // Initialize Telegram WebSocket Service for real-time setup notifications
     try {

@@ -11,101 +11,12 @@ const dataDb = require('../../dataDatabase');
 const pool = require('../../database');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
-
-/**
- * SQL Reserved Keywords - blocked from use in identifiers
- */
-const SQL_RESERVED_KEYWORDS = new Set([
-  'select',
-  'insert',
-  'update',
-  'delete',
-  'drop',
-  'create',
-  'alter',
-  'truncate',
-  'table',
-  'index',
-  'view',
-  'database',
-  'schema',
-  'grant',
-  'revoke',
-  'cascade',
-  'union',
-  'intersect',
-  'except',
-  'join',
-  'where',
-  'from',
-  'into',
-  'values',
-  'set',
-  'null',
-  'not',
-  'and',
-  'or',
-  'true',
-  'false',
-  'is',
-  'in',
-  'like',
-  'between',
-  'exists',
-  'all',
-  'any',
-  'some',
-  'order',
-  'by',
-  'group',
-  'having',
-  'limit',
-  'offset',
-  'as',
-  'on',
-  'using',
-  'natural',
-  'left',
-  'right',
-  'inner',
-  'outer',
-  'cross',
-  'full',
-  'primary',
-  'foreign',
-  'key',
-  'references',
-  'unique',
-  'check',
-  'default',
-  'constraint',
-  'exec',
-  'execute',
-  'declare',
-  'cursor',
-  'fetch',
-  'open',
-  'close',
-  'begin',
-  'end',
-  'commit',
-  'rollback',
-  'savepoint',
-  'trigger',
-  'function',
-  'procedure',
-  'return',
-  'returns',
-  'language',
-  'security',
-  'definer',
-  'invoker',
-  'volatile',
-  'stable',
-  'immutable',
-  'parallel',
-  'safe',
-]);
+const {
+  SQL_RESERVED_KEYWORDS,
+  isValidSlug,
+  escapeIdentifier,
+  escapeTableName,
+} = require('../../utils/sqlIdentifier');
 
 /**
  * Helper: Generate URL-safe slug from name
@@ -133,39 +44,6 @@ function generateSlug(name) {
   }
 
   return slug;
-}
-
-/**
- * Helper: Validate slug format
- * Strict validation: only lowercase letters, numbers, and underscores
- * Must start with a letter, max 100 chars
- */
-function isValidSlug(slug) {
-  if (!slug || typeof slug !== 'string') {
-    return false;
-  }
-  if (slug.length > 100) {
-    return false;
-  }
-  if (!/^[a-z][a-z0-9_]*$/.test(slug)) {
-    return false;
-  }
-  if (SQL_RESERVED_KEYWORDS.has(slug)) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * Helper: Escape identifier for safe use in dynamic SQL
- * Double-quotes the identifier and escapes any existing double quotes
- */
-function escapeIdentifier(identifier) {
-  if (!isValidSlug(identifier)) {
-    throw new ValidationError(`Invalid identifier: ${identifier}`);
-  }
-  // Even though we validate, double-quote for extra safety
-  return `"${identifier.replace(/"/g, '""')}"`;
 }
 
 /**
@@ -270,7 +148,7 @@ router.get(
               batch.map(async table => {
                 try {
                   const countResult = await dataDb.query(
-                    `SELECT COUNT(*)::int as count FROM data_${table.slug}`
+                    `SELECT COUNT(*)::int as count FROM ${escapeTableName(table.slug)}`
                   );
                   rowCounts[table.slug] = countResult.rows[0].count;
                 } catch {
@@ -345,7 +223,9 @@ router.get(
     // Get row count
     let rowCount = 0;
     try {
-      const countResult = await dataDb.query(`SELECT COUNT(*)::int as count FROM data_${slug}`);
+      const countResult = await dataDb.query(
+        `SELECT COUNT(*)::int as count FROM ${escapeTableName(slug)}`
+      );
       rowCount = countResult.rows[0].count;
     } catch (err) {
       // Ignore - table might not exist yet
@@ -429,7 +309,7 @@ router.post(
       // Create physical data table with optional default "name" column
       if (createDefaultField) {
         await client.query(`
-                CREATE TABLE data_${slug} (
+                CREATE TABLE ${escapeTableName(slug)} (
                     _id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     _created_at TIMESTAMPTZ DEFAULT NOW(),
                     _updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -450,7 +330,7 @@ router.post(
         logger.info(`[Datentabellen] Created table with default field: ${name} (${slug})`);
       } else {
         await client.query(`
-                CREATE TABLE data_${slug} (
+                CREATE TABLE ${escapeTableName(slug)} (
                     _id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     _created_at TIMESTAMPTZ DEFAULT NOW(),
                     _updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -461,10 +341,10 @@ router.post(
         logger.info(`[Datentabellen] Created table: ${name} (${slug})`);
       }
 
-      // Create update trigger
+      // Create update trigger (slug already validated above)
       await client.query(`
-            CREATE TRIGGER trigger_data_${slug}_updated_at
-                BEFORE UPDATE ON data_${slug}
+            CREATE TRIGGER "trigger_data_${slug}_updated_at"
+                BEFORE UPDATE ON ${escapeTableName(slug)}
                 FOR EACH ROW
                 EXECUTE FUNCTION update_dt_updated_at()
         `);
@@ -620,7 +500,7 @@ router.delete(
     // Delete in transaction
     await dataDb.transaction(async client => {
       // Drop data table (CASCADE handles trigger)
-      await client.query(`DROP TABLE IF EXISTS data_${slug} CASCADE`);
+      await client.query(`DROP TABLE IF EXISTS ${escapeTableName(slug)} CASCADE`);
 
       // Delete meta entry (CASCADE handles fields, views, relations)
       await client.query('DELETE FROM dt_tables WHERE slug = $1', [slug]);
@@ -729,7 +609,7 @@ router.post(
       }
 
       // Add column to physical table
-      let columnDef = `${fieldSlug} ${pgType}`;
+      let columnDef = `${escapeIdentifier(fieldSlug)} ${pgType}`;
       if (is_required) {
         columnDef += ' NOT NULL';
       }
@@ -737,7 +617,7 @@ router.post(
         columnDef += ' UNIQUE';
       }
 
-      await client.query(`ALTER TABLE data_${slug} ADD COLUMN ${columnDef}`);
+      await client.query(`ALTER TABLE ${escapeTableName(slug)} ADD COLUMN ${columnDef}`);
 
       // Add meta entry
       const fieldResult = await client.query(
@@ -814,7 +694,9 @@ router.delete(
     // Delete in transaction
     await dataDb.transaction(async client => {
       // Drop column from physical table
-      await client.query(`ALTER TABLE data_${slug} DROP COLUMN IF EXISTS ${fieldSlug}`);
+      await client.query(
+        `ALTER TABLE ${escapeTableName(slug)} DROP COLUMN IF EXISTS ${escapeIdentifier(fieldSlug)}`
+      );
 
       // Delete meta entry
       await client.query('DELETE FROM dt_fields WHERE table_id = $1 AND slug = $2', [
@@ -946,7 +828,7 @@ router.patch(
       const result = await dataDb.transaction(async client => {
         // ALTER COLUMN TYPE on the physical table
         await client.query(
-          `ALTER TABLE data_${slug} ALTER COLUMN ${fieldSlug} TYPE ${pgType} USING ${fieldSlug}::${pgType}`
+          `ALTER TABLE ${escapeTableName(slug)} ALTER COLUMN ${escapeIdentifier(fieldSlug)} TYPE ${pgType} USING ${escapeIdentifier(fieldSlug)}::${pgType}`
         );
 
         // Update dt_fields metadata

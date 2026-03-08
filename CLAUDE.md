@@ -23,17 +23,17 @@ Instructions for Claude Code working in the Arasul Platform repository.
 
 **Arasul Platform** - Autonomous Edge AI appliance for NVIDIA Jetson AGX Orin.
 
-| Property  | Value                                             |
-| --------- | ------------------------------------------------- |
-| Hardware  | Jetson AGX Orin (12-Core ARM, 64GB DDR5)          |
-| Runtime   | Docker Compose V2 + NVIDIA Container Runtime      |
-| Frontend  | React 18 SPA (`apps/dashboard-frontend/`)         |
-| Backend   | Node.js/Express (`apps/dashboard-backend/`)       |
-| Database  | PostgreSQL 16                                     |
-| AI        | Ollama (LLM) + Sentence Transformers (Embeddings) |
-| Vector DB | Qdrant                                            |
-| Storage   | MinIO (S3-compatible)                             |
-| Services  | 17 Docker containers                              |
+| Property  | Value                                              |
+| --------- | -------------------------------------------------- |
+| Hardware  | Jetson AGX Orin (12-Core ARM, 64GB DDR5)           |
+| Runtime   | Docker Compose V2 + NVIDIA Container Runtime       |
+| Frontend  | React 19 SPA + Vite 6 (`apps/dashboard-frontend/`) |
+| Backend   | Node.js/Express (`apps/dashboard-backend/`)        |
+| Database  | PostgreSQL 16                                      |
+| AI        | Ollama (LLM) + Sentence Transformers (Embeddings)  |
+| Vector DB | Qdrant                                             |
+| Storage   | MinIO (S3-compatible)                              |
+| Services  | 17 Docker containers                               |
 
 ---
 
@@ -93,8 +93,8 @@ npm run lint:fix                              # Lint code
 | Domain      | Entry Point                           | Pattern Reference                  |
 | ----------- | ------------------------------------- | ---------------------------------- |
 | Backend API | `apps/dashboard-backend/src/index.js` | `routes/index.js` (central router) |
-| Frontend    | `apps/dashboard-frontend/src/App.js`  | `features/chat/ChatMulti.js`       |
-| Database    | `services/postgres/init/`             | Next: `042_*.sql`                  |
+| Frontend    | `apps/dashboard-frontend/src/App.tsx` | `features/chat/ChatRouter.tsx`     |
+| Database    | `services/postgres/init/`             | Next: `048_*.sql`                  |
 | AI Services | `services/llm-service/api_server.py`  | -                                  |
 
 ---

@@ -7,22 +7,18 @@ import {
   Info,
   ChevronRight,
   Server,
-  LogOut,
   User,
-  MonitorOff,
 } from 'lucide-react';
 import UpdatePage from '../system/UpdatePage';
 import SelfHealingEvents from '../system/SelfHealingEvents';
-import PasswordManagement from './PasswordManagement';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
-import { Button } from '@/components/ui/shadcn/button';
-import { Card, CardContent } from '@/components/ui/shadcn/card';
 import { cn } from '@/lib/utils';
 import { useApi } from '../../hooks/useApi';
 import { GeneralSettings } from './GeneralSettings';
 import { AIProfileSettings } from './AIProfileSettings';
 import { ServicesSettings } from './ServicesSettings';
+import { SecuritySettings } from './SecuritySettings';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -40,7 +36,7 @@ interface Section {
 const sections: Section[] = [
   {
     id: 'general',
-    label: 'General',
+    label: 'Allgemein',
     icon: <Info className="size-5" />,
     description: 'Systeminformationen und Konfiguration',
   },
@@ -78,6 +74,9 @@ const sections: Section[] = [
 
 function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   const api = useApi();
+  // TODO: warn about unsaved changes on tab switch
+  // This would require lifting hasChanges state from sub-components (AIProfileSettings etc.)
+  // or implementing a shared context. Skipping for now to avoid over-engineering.
   const [activeSection, setActiveSection] = useState('general');
   const [loggingOutAll, setLoggingOutAll] = useState(false);
 
@@ -107,44 +106,13 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
         );
       case 'security':
         return (
-          <div className="animate-in fade-in">
-            <div className="mb-8 pb-6 border-b border-border">
-              <h1 className="settings-section-title text-3xl font-bold text-foreground mb-2">Sicherheit</h1>
-              <p className="text-sm text-muted-foreground">
-                Passwörter verwalten und Sitzungen beenden
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-6">
-              <ComponentErrorBoundary componentName="Passwortverwaltung">
-                <PasswordManagement />
-              </ComponentErrorBoundary>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <h3 className="flex items-center gap-2 text-lg font-semibold text-foreground mb-2">
-                    <LogOut className="size-5" /> Sitzungen
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Beenden Sie Ihre aktuelle Sitzung oder melden Sie sich auf allen Geräten ab.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button variant="outline" onClick={handleLogout}>
-                      <LogOut className="size-4" /> Abmelden
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={handleLogoutAll}
-                      disabled={loggingOutAll}
-                    >
-                      <MonitorOff className="size-4" />
-                      {loggingOutAll ? 'Wird abgemeldet...' : 'Von allen Geräten abmelden'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <ComponentErrorBoundary componentName="Sicherheit">
+            <SecuritySettings
+              handleLogout={handleLogout}
+              loggingOutAll={loggingOutAll}
+              onLogoutAll={handleLogoutAll}
+            />
+          </ComponentErrorBoundary>
         );
       case 'services':
         return (
@@ -174,56 +142,87 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   };
 
   return (
-    <div className="settings-layout grid grid-cols-1 md:grid-cols-[280px_1fr] h-[calc(100vh-4rem)] animate-in fade-in">
-      {/* Sidebar Navigation */}
-      <div className="settings-sidebar bg-card border-r border-border flex flex-col animate-in slide-in-from-left">
-        <div className="p-6 pb-4 border-b border-border bg-gradient-to-b from-primary/5 to-transparent flex items-center gap-3">
+    <div className="flex flex-col md:grid md:grid-cols-[280px_1fr] h-full animate-in fade-in">
+      {/* Sidebar Navigation - horizontal tabs on mobile, vertical sidebar on md+ */}
+      <div className="bg-card border-b md:border-b-0 md:border-r border-border flex flex-col animate-in slide-in-from-left">
+        <div className="hidden md:flex p-6 pb-4 border-b border-border bg-gradient-to-b from-primary/5 to-transparent items-center gap-3">
           <SettingsIcon className="size-7 text-primary shrink-0" />
           <div>
-            <h2 className="text-lg font-bold text-foreground leading-tight">Einstellungen</h2>
+            <h2 className="text-xl font-bold text-foreground leading-tight">Einstellungen</h2>
             <p className="text-xs text-muted-foreground font-medium">System-Konfiguration</p>
           </div>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0">
-          <nav className="settings-nav p-3 flex flex-col gap-1">
+        {/* Mobile: horizontal scrollable tabs */}
+        <div className="md:hidden overflow-x-auto scrollbar-none">
+          <nav className="flex gap-1 p-2">
             {sections.map(section => (
               <button
                 key={section.id}
                 type="button"
                 className={cn(
-                  'settings-nav-item flex items-center justify-between px-3 py-3 rounded-lg border border-transparent text-left transition-all duration-200 group',
+                  'flex items-center gap-2 px-3 py-2 rounded-full border border-transparent text-nowrap text-sm font-medium transition-all duration-200 shrink-0',
+                  activeSection === section.id
+                    ? 'bg-primary/10 border-primary/20 text-primary'
+                    : 'text-muted-foreground hover:bg-primary/5'
+                )}
+                onClick={() => setActiveSection(section.id)}
+              >
+                <div className="shrink-0">{section.icon}</div>
+                <span>{section.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Desktop: vertical sidebar */}
+        <ScrollArea className="hidden md:flex flex-1 min-h-0">
+          <nav className="p-3 flex flex-col gap-1">
+            {sections.map(section => (
+              <button
+                key={section.id}
+                type="button"
+                className={cn(
+                  'flex items-center justify-between px-3 py-3 rounded-lg border border-transparent text-left transition-all duration-200 group',
                   activeSection === section.id
                     ? 'active bg-primary/10 border-primary/20 text-primary'
                     : 'text-muted-foreground hover:bg-primary/5 hover:border-primary/10 hover:pl-4'
                 )}
                 onClick={() => setActiveSection(section.id)}
               >
-                <div className="settings-nav-item-content flex items-center gap-3 flex-1">
-                  <div className={cn(
-                    'settings-nav-item-icon shrink-0 transition-all duration-200',
-                    activeSection === section.id ? 'text-primary scale-110' : 'group-hover:text-primary group-hover:scale-110'
-                  )}>
+                <div className="flex items-center gap-3 flex-1">
+                  <div
+                    className={cn(
+                      'shrink-0 transition-all duration-200',
+                      activeSection === section.id
+                        ? 'text-primary scale-110'
+                        : 'group-hover:text-primary group-hover:scale-110'
+                    )}
+                  >
                     {section.icon}
                   </div>
-                  <div className="settings-nav-item-text flex flex-col gap-0.5">
-                    <span className="settings-nav-item-label text-sm font-semibold leading-tight">
-                      {section.label}
-                    </span>
-                    <span className={cn(
-                      'settings-nav-item-description text-xs leading-snug transition-colors duration-200',
-                      activeSection === section.id ? 'text-muted-foreground' : 'text-muted-foreground/70'
-                    )}>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold leading-tight">{section.label}</span>
+                    <span
+                      className={cn(
+                        'text-xs leading-snug transition-colors duration-200',
+                        activeSection === section.id
+                          ? 'text-muted-foreground'
+                          : 'text-muted-foreground/70'
+                      )}
+                    >
                       {section.description}
                     </span>
                   </div>
                 </div>
-                <ChevronRight className={cn(
-                  'settings-nav-item-arrow size-4 shrink-0 transition-all duration-200',
-                  activeSection === section.id
-                    ? 'opacity-100 text-primary translate-x-0.5'
-                    : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5'
-                )} />
+                <ChevronRight
+                  className={cn(
+                    'size-4 shrink-0 transition-all duration-200',
+                    activeSection === section.id
+                      ? 'opacity-100 text-primary translate-x-0.5'
+                      : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5'
+                  )}
+                />
               </button>
             ))}
           </nav>
@@ -231,10 +230,8 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
       </div>
 
       {/* Main Content Area */}
-      <ScrollArea className="settings-content-area bg-background">
-        <div className="settings-content-wrapper max-w-[900px] p-8">
-          {renderContent()}
-        </div>
+      <ScrollArea className="bg-background flex-1">
+        <div className="max-w-[900px] p-6">{renderContent()}</div>
       </ScrollArea>
     </div>
   );

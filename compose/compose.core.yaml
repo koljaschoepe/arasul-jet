@@ -90,7 +90,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../config/traefik:/etc/traefik:ro
-      - arasul-letsencrypt:/letsencrypt
       - ../logs:/arasul/logs
     depends_on:
       postgres-db:
@@ -137,4 +136,3 @@ volumes:
   arasul-postgres:
   arasul-data-db:
   arasul-minio:
-  arasul-letsencrypt:

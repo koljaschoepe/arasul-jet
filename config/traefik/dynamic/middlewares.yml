@@ -53,7 +53,7 @@ http:
         stsSeconds: 0
         customFrameOptionsValue: 'SAMEORIGIN'
         # Content-Security-Policy: restrict resource loading to same origin
-        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
         # Referrer-Policy: prevent leaking URLs to external services
         referrerPolicy: 'strict-origin-when-cross-origin'
         # Permissions-Policy: disable unnecessary browser features
@@ -105,13 +105,6 @@ http:
           - 'X-User-Name'
           - 'X-User-Email'
 
-    # Strip path prefixes
-    strip-minio-prefix:
-      stripPrefix:
-        prefixes:
-          - '/minio'
-        forceSlash: false
-
     # MinIO Headers for reverse proxy
     minio-headers:
       headers:
@@ -144,29 +137,6 @@ http:
           - '/n8n'
         forceSlash: false
 
-    # n8n Root Redirect: /n8n or /n8n/ → /n8n/signin
-    # Uses HTTP 302 redirect so browser URL changes (required for n8n SPA routing)
-    # FIX: Must redirect to /n8n/signin (not /signin) to stay within n8n context
-    n8n-root-to-signin:
-      redirectRegex:
-        regex: '^(https?://[^/]+)/n8n/?$'
-        replacement: '${1}/n8n/signin'
-        permanent: false
-
-    # Strip terminal prefix for Claude Code (legacy)
-    strip-terminal-prefix:
-      stripPrefix:
-        prefixes:
-          - '/terminal'
-        forceSlash: false
-
-    # Strip claude-terminal prefix for Claude Code
-    strip-claude-terminal-prefix:
-      stripPrefix:
-        prefixes:
-          - '/claude-terminal'
-        forceSlash: false
-
     # Compression
     compress:
       compress:
@@ -174,28 +144,7 @@ http:
           - 'text/event-stream'
           - 'application/grpc'
 
-  # Servers transports for SSE streams (extended timeout)
-  serversTransports:
-    sse-transport:
-      forwardingTimeouts:
-        responseHeaderTimeout: 600s
-        idleConnTimeout: 600s
-
-    # Retry middleware
-    retry:
-      retry:
-        attempts: 3
-        initialInterval: 100ms
-
-    # Circuit breaker
-    circuit-breaker:
-      circuitBreaker:
-        expression: 'NetworkErrorRatio() > 0.5 || ResponseCodeRatio(500, 600, 0, 600) > 0.25'
-        checkPeriod: 10s
-        fallbackDuration: 30s
-        recoveryDuration: 60s
-
-    # IP Whitelist (for admin routes)
+    # IP Whitelist (for admin routes - available for future use)
     admin-whitelist:
       ipWhiteList:
         sourceRange:
@@ -204,42 +153,27 @@ http:
           - '192.168.0.0/16' # Local network
           - '10.0.0.0/8' # Private network
 
-    # Redirect to HTTPS
-    redirect-https:
-      redirectScheme:
-        scheme: https
-        permanent: true
-
-    # Add trailing slash
-    add-trailing-slash:
-      redirectRegex:
-        regex: '^(https?://[^/]+/[a-z0-9_]+)$'
-        replacement: '${1}/'
-        permanent: true
-
     # Basic Auth for Traefik Dashboard
-    # PHASE1-FIX (SEC-NEW-003): CRITICAL SECURITY WARNING
-    # These credentials are PLACEHOLDERS - you MUST regenerate before production!
-    # Generate new hash: htpasswd -nb <username> <password>
-    # Or use: scripts/security/generate_htpasswd.sh <username> <password>
-    # Then replace the hash below with the generated output
+    # Regenerate: scripts/security/generate_htpasswd.sh admin
     basicAuth-traefik:
       basicAuth:
         users:
-          # PLACEHOLDER - Replace with output from: htpasswd -nb admin <YOUR_SECURE_PASSWORD>
-          - 'admin:$apr1$PLACEHOLDER$REPLACE_WITH_GENERATED_HASH'
+          - 'admin:$$2b$$10$$SamY/Wyo./gIZvPQKFrt1.BkvX9.9Gt8zePgLWgCNvfT7pBxD715m'
         realm: 'Traefik Dashboard'
         removeHeader: true
 
     # Basic Auth for n8n
-    # PHASE1-FIX (SEC-NEW-003): CRITICAL SECURITY WARNING
-    # These credentials are PLACEHOLDERS - you MUST regenerate before production!
-    # Generate new hash: scripts/security/generate_htpasswd.sh <username> <password>
-    # Then replace the hash below with the generated output
+    # Regenerate: scripts/security/generate_htpasswd.sh admin
     basicAuth-n8n:
       basicAuth:
         users:
-          # PLACEHOLDER - Replace with output from: scripts/security/generate_htpasswd.sh admin <YOUR_SECURE_PASSWORD>
-          - 'admin:$$2y$$05$$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH'
+          - 'admin:$$2b$$10$$SamY/Wyo./gIZvPQKFrt1.BkvX9.9Gt8zePgLWgCNvfT7pBxD715m'
         realm: 'n8n Workflow Engine'
         removeHeader: true
+
+  # Servers transports for SSE streams (extended timeout)
+  serversTransports:
+    sse-transport:
+      forwardingTimeouts:
+        responseHeaderTimeout: 600s
+        idleConnTimeout: 600s

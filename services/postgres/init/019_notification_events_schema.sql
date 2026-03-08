@@ -296,7 +296,7 @@ INSERT INTO notification_settings (user_id, channel, enabled, event_types, min_s
 SELECT id, 'telegram', TRUE,
        ARRAY['service_status', 'workflow_event', 'system_boot', 'self_healing'],
        'warning'
-FROM users
+FROM admin_users
 WHERE username = 'admin'
 ON CONFLICT (user_id, channel) DO NOTHING;
 

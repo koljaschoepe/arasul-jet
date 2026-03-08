@@ -5,7 +5,7 @@ http:
   routers:
     # Dashboard Frontend (catch-all, lowest priority) - HTTP only
     dashboard-frontend:
-      rule: "PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)"
+      rule: 'PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)'
       service: dashboard-frontend-service
       priority: 1
       entryPoints:
@@ -13,7 +13,7 @@ http:
 
     # Dashboard Frontend (catch-all, lowest priority) - HTTPS
     dashboard-frontend-secure:
-      rule: "PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)"
+      rule: 'PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)'
       service: dashboard-frontend-service
       priority: 1
       entryPoints:
@@ -22,7 +22,7 @@ http:
 
     # Dashboard Backend API - HTTP
     dashboard-api:
-      rule: "PathPrefix(`/api`)"
+      rule: 'PathPrefix(`/api`)'
       service: dashboard-backend-service
       priority: 10
       middlewares:
@@ -34,7 +34,7 @@ http:
 
     # Dashboard Backend API - HTTPS
     dashboard-api-secure:
-      rule: "PathPrefix(`/api`)"
+      rule: 'PathPrefix(`/api`)'
       service: dashboard-backend-service
       priority: 10
       middlewares:
@@ -43,12 +43,11 @@ http:
         - compress
       entryPoints:
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # Auth endpoints (with stricter rate limiting) - HTTP
     auth-api:
-      rule: "PathPrefix(`/api/auth`)"
+      rule: 'PathPrefix(`/api/auth`)'
       service: dashboard-backend-service
       priority: 20
       middlewares:
@@ -59,7 +58,7 @@ http:
 
     # Auth endpoints - HTTPS
     auth-api-secure:
-      rule: "PathPrefix(`/api/auth`)"
+      rule: 'PathPrefix(`/api/auth`)'
       service: dashboard-backend-service
       priority: 20
       middlewares:
@@ -67,12 +66,11 @@ http:
         - rate-limit-auth
       entryPoints:
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # Metrics API (with rate limiting) - HTTP
     metrics-api:
-      rule: "PathPrefix(`/api/metrics`)"
+      rule: 'PathPrefix(`/api/metrics`)'
       service: dashboard-backend-service
       priority: 15
       middlewares:
@@ -84,7 +82,7 @@ http:
 
     # Metrics API - HTTPS
     metrics-api-secure:
-      rule: "PathPrefix(`/api/metrics`)"
+      rule: 'PathPrefix(`/api/metrics`)'
       service: dashboard-backend-service
       priority: 15
       middlewares:
@@ -93,13 +91,12 @@ http:
         - compress
       entryPoints:
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # MinIO Console
     # Accessible from any IP address in the network via HTTP and HTTPS
     minio-console:
-      rule: "PathPrefix(`/minio`)"
+      rule: 'PathPrefix(`/minio`)'
       service: minio-console-service
       priority: 100
       middlewares:
@@ -113,7 +110,7 @@ http:
     # MinIO S3 API
     # Accessible from any IP address in the network via HTTP and HTTPS
     minio-api:
-      rule: "PathPrefix(`/minio-api`)"
+      rule: 'PathPrefix(`/minio-api`)'
       service: minio-api-service
       priority: 30
       middlewares:
@@ -124,13 +121,12 @@ http:
       entryPoints:
         - web
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # LLM Service Direct Access
     # Accessible from any IP address in the network via HTTP and HTTPS
     llm-direct:
-      rule: "PathPrefix(`/models`)"
+      rule: 'PathPrefix(`/models`)'
       service: llm-service
       priority: 25
       middlewares:
@@ -140,13 +136,12 @@ http:
       entryPoints:
         - web
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # Embeddings Service Direct Access
     # Accessible from any IP address in the network via HTTP and HTTPS
     embeddings-direct:
-      rule: "PathPrefix(`/embeddings`)"
+      rule: 'PathPrefix(`/embeddings`)'
       service: embeddings-service
       priority: 25
       middlewares:
@@ -156,14 +151,13 @@ http:
       entryPoints:
         - web
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # Claude Code Web Terminal - HTTP
     # Protected by forward-auth (requires dashboard login)
     # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal:
-      rule: "PathPrefix(`/claude-terminal`)"
+      rule: 'PathPrefix(`/claude-terminal`)'
       service: claude-terminal-service
       priority: 100
       middlewares:
@@ -174,7 +168,7 @@ http:
     # Claude Code Web Terminal - HTTPS
     # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal-secure:
-      rule: "PathPrefix(`/claude-terminal`)"
+      rule: 'PathPrefix(`/claude-terminal`)'
       service: claude-terminal-service
       priority: 100
       middlewares:
@@ -190,24 +184,26 @@ http:
     # n8n Workflow Engine - HTTP
     # N8N_PATH=/n8n/ makes frontend generate paths with /n8n prefix
     # But n8n server still serves files at root, so we must strip the prefix
-    # No forward-auth: n8n handles its own authentication
+    # basicAuth-n8n: additional layer on top of n8n's own authentication
     n8n-http:
-      rule: "PathPrefix(`/n8n`)"
+      rule: 'PathPrefix(`/n8n`)'
       service: n8n-service
       priority: 100
       middlewares:
+        - basicAuth-n8n
         - strip-n8n-prefix
         - security-headers
       entryPoints:
         - web
 
     # n8n Workflow Engine - HTTPS
-    # No forward-auth: n8n handles its own authentication
+    # basicAuth-n8n: additional layer on top of n8n's own authentication
     n8n-https:
-      rule: "PathPrefix(`/n8n`)"
+      rule: 'PathPrefix(`/n8n`)'
       service: n8n-service
       priority: 100
       middlewares:
+        - basicAuth-n8n
         - strip-n8n-prefix
         - security-headers
       entryPoints:
@@ -231,7 +227,7 @@ http:
     # Dashboard Frontend Static Files - HTTP
     # These must have higher priority than n8n-static to serve React bundles
     dashboard-static-http:
-      rule: "PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)"
+      rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'
       service: dashboard-frontend-service
       priority: 65
       entryPoints:
@@ -239,7 +235,7 @@ http:
 
     # Dashboard Frontend Static Files - HTTPS
     dashboard-static-https:
-      rule: "PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)"
+      rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'
       service: dashboard-frontend-service
       priority: 65
       entryPoints:
@@ -257,7 +253,7 @@ http:
     # n8n favicon - HTTP
     # No forward-auth: favicon must load publicly
     n8n-favicon-http:
-      rule: "Path(`/favicon.ico`)"
+      rule: 'Path(`/favicon.ico`)'
       service: n8n-service
       priority: 85
       entryPoints:
@@ -265,7 +261,7 @@ http:
 
     # n8n favicon - HTTPS
     n8n-favicon-https:
-      rule: "Path(`/favicon.ico`)"
+      rule: 'Path(`/favicon.ico`)'
       service: n8n-service
       priority: 85
       entryPoints:
@@ -275,7 +271,7 @@ http:
     # n8n Webhooks (with rate limiting)
     # Accessible from any IP address in the network via HTTP and HTTPS
     n8n-webhooks:
-      rule: "PathPrefix(`/webhook`)"
+      rule: 'PathPrefix(`/webhook`)'
       service: n8n-service
       priority: 25
       middlewares:
@@ -284,13 +280,12 @@ http:
       entryPoints:
         - web
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
     # Traefik Dashboard (secured with Basic Auth)
     # Accessible from any IP address in the network via HTTP and HTTPS
     traefik-dashboard:
-      rule: "(PathPrefix(`/api/traefik`) || PathPrefix(`/dashboard`))"
+      rule: '(PathPrefix(`/api/traefik`) || PathPrefix(`/dashboard`))'
       service: api@internal
       priority: 35
       middlewares:
@@ -300,15 +295,14 @@ http:
       entryPoints:
         - web
         - websecure
-      tls:
-        certResolver: letsencrypt
+      tls: {}
 
   services:
     # Dashboard Frontend
     dashboard-frontend-service:
       loadBalancer:
         servers:
-          - url: "http://dashboard-frontend:3000"
+          - url: 'http://dashboard-frontend:3000'
         healthCheck:
           path: /
           interval: 30s
@@ -318,7 +312,7 @@ http:
     dashboard-backend-service:
       loadBalancer:
         servers:
-          - url: "http://dashboard-backend:3001"
+          - url: 'http://dashboard-backend:3001'
         healthCheck:
           path: /api/health
           interval: 10s
@@ -331,7 +325,7 @@ http:
     minio-console-service:
       loadBalancer:
         servers:
-          - url: "http://minio:9001"
+          - url: 'http://minio:9001'
         healthCheck:
           path: /
           interval: 30s
@@ -341,7 +335,7 @@ http:
     minio-api-service:
       loadBalancer:
         servers:
-          - url: "http://minio:9000"
+          - url: 'http://minio:9000'
         healthCheck:
           path: /minio/health/live
           interval: 30s
@@ -351,7 +345,7 @@ http:
     llm-service:
       loadBalancer:
         servers:
-          - url: "http://llm-service:11434"
+          - url: 'http://llm-service:11434'
         healthCheck:
           path: /api/tags
           interval: 30s
@@ -361,7 +355,7 @@ http:
     embeddings-service:
       loadBalancer:
         servers:
-          - url: "http://embedding-service:11435"
+          - url: 'http://embedding-service:11435'
         healthCheck:
           path: /health
           interval: 30s
@@ -373,7 +367,7 @@ http:
     n8n-service:
       loadBalancer:
         servers:
-          - url: "http://n8n:5678"
+          - url: 'http://n8n:5678'
         healthCheck:
           path: /healthz
           interval: 30s
@@ -383,5 +377,5 @@ http:
     claude-terminal-service:
       loadBalancer:
         servers:
-          - url: "http://claude-code:7681"
+          - url: 'http://claude-code:7681'
         passHostHeader: true

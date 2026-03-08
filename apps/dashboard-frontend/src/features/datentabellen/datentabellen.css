@@ -1,0 +1,76 @@
+/**
+ * Datentabellen - Minimal CSS for patterns not expressible in Tailwind
+ * 1. Sidebar-aware fullscreen overlay (body parent selector)
+ * 2. CellEditor dynamic classPrefix="excel" styles
+ */
+
+/* --- Sidebar-aware fullscreen overlay --- */
+.excel-overlay {
+  left: var(--sidebar-width, 260px);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.sidebar-collapsed .excel-overlay {
+  left: var(--sidebar-width-collapsed, 72px);
+}
+
+/* --- CellEditor (classPrefix="excel") --- */
+.excel-cell-editor-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.excel-cell-editor {
+  width: 100%;
+  height: 100%;
+  padding: 0.375rem 0.5rem;
+  background: var(--bg-dark, #101923);
+  border: 2px solid var(--primary-color, #45ADFF);
+  color: var(--text-primary, #F8FAFC);
+  font-size: 0.8125rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.excel-cell-editor-checkbox {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+}
+
+/* --- Responsive: Tablet/Small Laptop --- */
+@media (max-width: 1279px) and (min-width: 1025px) {
+  .excel-overlay {
+    left: var(--sidebar-width-tablet, 220px);
+    padding-left: 40px;
+  }
+  body.sidebar-collapsed .excel-overlay {
+    left: var(--sidebar-width-collapsed, 72px);
+    padding-left: 32px;
+  }
+}
+
+/* --- Responsive: Tablet --- */
+@media (max-width: 1024px) {
+  .excel-overlay {
+    left: 0;
+    top: 60px;
+    padding: 24px;
+  }
+  body.sidebar-collapsed .excel-overlay {
+    left: 0;
+    top: 60px;
+  }
+}
+
+/* --- Light Mode Overrides --- */
+.light-mode .excel-overlay {
+  background: var(--bg-app, #f8fafc);
+}
+
+.light-mode .excel-cell-editor {
+  background: var(--bg-elevated, #ffffff);
+  border-color: var(--primary-color, #45ADFF);
+  color: var(--text-primary, #0f172a);
+}

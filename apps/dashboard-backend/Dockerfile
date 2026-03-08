@@ -1,4 +1,5 @@
-FROM node:20-alpine
+ARG NODE_VERSION=20.19
+FROM node:${NODE_VERSION}-alpine
 
 LABEL maintainer="Arasul Platform"
 LABEL description="Dashboard Backend API"
@@ -19,11 +20,6 @@ COPY apps/dashboard-backend/src/ ./src/
 
 # Copy OpenAPI spec for API docs
 COPY apps/dashboard-backend/openapi.yaml ./
-
-# Copy test files, mocks and setup
-COPY apps/dashboard-backend/__tests__/ ./__tests__/
-COPY apps/dashboard-backend/__mocks__/ ./__mocks__/
-COPY apps/dashboard-backend/jest.setup.js ./
 
 EXPOSE 3001
 

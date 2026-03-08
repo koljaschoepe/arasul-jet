@@ -79,13 +79,16 @@ describe('PasswordManagement Component', () => {
     });
 
     test('zeigt Lock-Icon', async () => {
-      const { container } = render(
+      render(
         <ToastProvider>
           <PasswordManagement />
         </ToastProvider>
       );
 
-      expect(container.querySelector('.password-icon')).toBeInTheDocument();
+      // Lock icon is rendered inside the CardTitle
+      const title = screen.getByText('Passwortverwaltung');
+      const svg = title.closest('[data-slot="card-title"]')?.querySelector('svg');
+      expect(svg).toBeInTheDocument();
     });
 
     test('lädt Passwort-Anforderungen beim Mount', async () => {
@@ -130,7 +133,7 @@ describe('PasswordManagement Component', () => {
       );
 
       const dashboardButton = screen.getByText('Dashboard').closest('button');
-      expect(dashboardButton).toHaveClass('active');
+      expect(dashboardButton).toHaveAttribute('data-state', 'active');
     });
 
     test('wechselt zu MinIO bei Click', async () => {
@@ -144,7 +147,7 @@ describe('PasswordManagement Component', () => {
       await user.click(screen.getByText('MinIO'));
 
       const minioButton = screen.getByText('MinIO').closest('button');
-      expect(minioButton).toHaveClass('active');
+      expect(minioButton).toHaveAttribute('data-state', 'active');
     });
 
     test('wechselt zu n8n bei Click', async () => {
@@ -158,7 +161,7 @@ describe('PasswordManagement Component', () => {
       await user.click(screen.getByText('n8n'));
 
       const n8nButton = screen.getByText('n8n').closest('button');
-      expect(n8nButton).toHaveClass('active');
+      expect(n8nButton).toHaveAttribute('data-state', 'active');
     });
 
     test('zeigt Service-Icons', async () => {
@@ -168,11 +171,10 @@ describe('PasswordManagement Component', () => {
         </ToastProvider>
       );
 
-      // Lucide-React Icons (Monitor, HardDrive, Zap)
-      const buttons = screen.getAllByRole('button').filter(btn => btn.textContent?.match(/Dashboard|MinIO|n8n/));
-      expect(buttons).toHaveLength(3);
-      buttons.forEach(btn => {
-        expect(btn.querySelector('svg')).toBeInTheDocument();
+      const tabs = screen.getAllByRole('tab');
+      expect(tabs).toHaveLength(3);
+      tabs.forEach(tab => {
+        expect(tab.querySelector('svg')).toBeInTheDocument();
       });
     });
   });
@@ -263,8 +265,11 @@ describe('PasswordManagement Component', () => {
         </ToastProvider>
       );
 
-      const toggleButtons = container.querySelectorAll('.toggle-password');
-      await user.click(toggleButtons[0]);
+      const passwordFields = container.querySelectorAll('.relative');
+      const toggleButtons = Array.from(passwordFields)
+        .map(field => field.querySelector('button'))
+        .filter(Boolean);
+      await user.click(toggleButtons[0]!);
 
       const currentField = screen.getByPlaceholderText('Aktuelles Passwort eingeben');
       expect(currentField).toHaveAttribute('type', 'text');
@@ -278,9 +283,12 @@ describe('PasswordManagement Component', () => {
         </ToastProvider>
       );
 
-      const toggleButtons = container.querySelectorAll('.toggle-password');
-      await user.click(toggleButtons[0]); // Show
-      await user.click(toggleButtons[0]); // Hide
+      const passwordFields = container.querySelectorAll('.relative');
+      const toggleButtons = Array.from(passwordFields)
+        .map(field => field.querySelector('button'))
+        .filter(Boolean);
+      await user.click(toggleButtons[0]!); // Show
+      await user.click(toggleButtons[0]!); // Hide
 
       const currentField = screen.getByPlaceholderText('Aktuelles Passwort eingeben');
       expect(currentField).toHaveAttribute('type', 'password');
@@ -359,8 +367,7 @@ describe('PasswordManagement Component', () => {
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'TestPass123!');
 
-      // Strong password should satisfy most requirements
-      const validItems = container.querySelectorAll('.password-requirements li.valid');
+      const validItems = container.querySelectorAll('li.text-green-500');
       expect(validItems.length).toBeGreaterThan(0);
     });
 
@@ -377,8 +384,7 @@ describe('PasswordManagement Component', () => {
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'ab');
 
-      // Password too short should have invalid minLength item
-      const invalidItems = container.querySelectorAll('.password-requirements li.invalid');
+      const invalidItems = container.querySelectorAll('li.text-red-500');
       expect(invalidItems.length).toBeGreaterThan(0);
     });
   });
@@ -634,41 +640,6 @@ describe('PasswordManagement Component', () => {
       });
 
       consoleSpy.mockRestore();
-    });
-  });
-
-  // =====================================================
-  // CSS Classes (backward compat)
-  // =====================================================
-  describe('CSS Classes', () => {
-    test('hat password-management Container', async () => {
-      const { container } = render(
-        <ToastProvider>
-          <PasswordManagement />
-        </ToastProvider>
-      );
-
-      expect(container.querySelector('.password-management')).toBeInTheDocument();
-    });
-
-    test('hat service-selector', async () => {
-      const { container } = render(
-        <ToastProvider>
-          <PasswordManagement />
-        </ToastProvider>
-      );
-
-      expect(container.querySelector('.service-selector')).toBeInTheDocument();
-    });
-
-    test('hat password-form', async () => {
-      const { container } = render(
-        <ToastProvider>
-          <PasswordManagement />
-        </ToastProvider>
-      );
-
-      expect(container.querySelector('.password-form')).toBeInTheDocument();
     });
   });
 });

@@ -675,7 +675,9 @@ async function handleCustomCommand(bot, token, message, command, args) {
  * @returns {string} Telegram HTML
  */
 function formatTelegramMessage(text) {
-  if (!text) {return text;}
+  if (!text) {
+    return text;
+  }
 
   let result = text;
 
@@ -745,13 +747,18 @@ async function handleTextMessage(bot, token, message) {
   const chatId = message.chat.id;
   const text = message.text;
 
-  // Show typing
+  // Show typing indicator and keep it alive during LLM processing
   await sendTypingAction(token, chatId);
+  const typingInterval = setInterval(() => {
+    sendTypingAction(token, chatId).catch(() => {});
+  }, 4000);
 
   try {
     const response = await telegramIntegrationService.chat(bot.id, chatId, text);
+    clearInterval(typingInterval);
     await sendFormattedMessage(token, chatId, response);
   } catch (error) {
+    clearInterval(typingInterval);
     logger.error('LLM chat error:', error);
     await sendMessage(token, chatId, `❌ Fehler: ${error.message}`);
   }
@@ -1335,14 +1342,23 @@ async function startPolling(botId) {
     return;
   }
 
-  if (!shouldUsePollling()) {
-    logger.debug(`Polling not needed for bot ${botId} (PUBLIC_URL is set)`);
+  const token = await telegramBotService.getBotToken(botId);
+  if (!token) {
+    logger.error(`Cannot start polling for bot ${botId}: token not found or decryption failed`);
     return;
   }
 
-  const token = await telegramBotService.getBotToken(botId);
-  if (!token) {
-    logger.error(`Cannot start polling for bot ${botId}: token not found`);
+  // Verify token is valid before starting polling loop
+  try {
+    const meResponse = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const meData = await meResponse.json();
+    if (!meData.ok) {
+      logger.error(`Bot token invalid for bot ${botId}: ${meData.description}`);
+      return;
+    }
+    logger.info(`Token verified for bot ${botId} (@${meData.result.username}), starting polling`);
+  } catch (err) {
+    logger.error(`Cannot verify bot token for bot ${botId}: ${err.message}`);
     return;
   }
 
@@ -1356,9 +1372,13 @@ async function startPolling(botId) {
     const data = await response.json();
     if (data.ok) {
       logger.info(`Webhook deleted for bot ${botId} to enable polling`);
+    } else {
+      logger.warn(`deleteWebhook returned ok=false for bot ${botId}: ${data.description}`);
     }
   } catch (err) {
-    logger.warn(`Could not delete webhook for bot ${botId}: ${err.message}`);
+    logger.error(
+      `Could not delete webhook for bot ${botId}: ${err.message} - polling may fail with 409 Conflict`
+    );
   }
 
   // Mark as polling in DB
@@ -1732,6 +1752,7 @@ module.exports = {
   startPolling,
   stopPolling,
   isPolling,
+  isPollingActive: isPolling,
   getActiveCount,
   shutdown,
   shouldUsePollling,

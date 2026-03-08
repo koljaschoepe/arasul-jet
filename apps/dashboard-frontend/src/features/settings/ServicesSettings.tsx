@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
-import { Card, CardContent } from '@/components/ui/shadcn/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/shadcn/card';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import {
@@ -44,7 +44,10 @@ interface Service {
   canRestart?: boolean;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; dot: string }> = {
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; dot: string }
+> = {
   healthy: { label: 'Aktiv', variant: 'default', dot: 'bg-green-500' },
   starting: { label: 'Startet...', variant: 'secondary', dot: 'bg-yellow-500 animate-pulse' },
   restarting: { label: 'Neustart...', variant: 'secondary', dot: 'bg-yellow-500 animate-pulse' },
@@ -55,11 +58,11 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
 
 const SERVICE_INFO: Record<string, { icon: LucideIcon; displayName: string }> = {
   'postgres-db': { icon: Database, displayName: 'PostgreSQL' },
-  'minio': { icon: HardDrive, displayName: 'MinIO' },
-  'qdrant': { icon: Search, displayName: 'Qdrant' },
+  minio: { icon: HardDrive, displayName: 'MinIO' },
+  qdrant: { icon: Search, displayName: 'Qdrant' },
   'llm-service': { icon: Bot, displayName: 'LLM Service' },
   'embedding-service': { icon: Sparkles, displayName: 'Embeddings' },
-  'n8n': { icon: Zap, displayName: 'n8n' },
+  n8n: { icon: Zap, displayName: 'n8n' },
   'document-indexer': { icon: FileSearch, displayName: 'Document Indexer' },
   'reverse-proxy': { icon: Globe, displayName: 'Reverse Proxy' },
   'dashboard-backend': { icon: Server, displayName: 'Dashboard API' },
@@ -132,7 +135,8 @@ export function ServicesSettings() {
       if (error.status === 429) {
         setMessage({
           type: 'error',
-          text: error.data?.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
+          text:
+            error.data?.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
         });
       } else {
         setMessage({
@@ -149,9 +153,9 @@ export function ServicesSettings() {
     return (
       <div className="animate-in fade-in">
         <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="settings-section-title text-3xl font-bold text-foreground mb-2">Services</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Services</h1>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
           <SkeletonCard hasAvatar={false} lines={2} />
           <SkeletonCard hasAvatar={false} lines={2} />
           <SkeletonCard hasAvatar={false} lines={2} />
@@ -166,7 +170,7 @@ export function ServicesSettings() {
   return (
     <div className="animate-in fade-in">
       <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="settings-section-title text-3xl font-bold text-foreground mb-2">Services</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Services</h1>
         <p className="text-sm text-muted-foreground">
           Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und Dienste
           bei Bedarf neustarten.
@@ -175,10 +179,20 @@ export function ServicesSettings() {
 
       {message && (
         <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className="mb-6">
-          {message.type === 'success' ? <Check className="size-4" /> : <AlertCircle className="size-4" />}
+          {message.type === 'success' ? (
+            <Check className="size-4" />
+          ) : (
+            <AlertCircle className="size-4" />
+          )}
           <AlertDescription className="flex items-center justify-between">
             <span>{message.text}</span>
-            <Button variant="ghost" size="icon" className="size-6" onClick={() => setMessage(null)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              onClick={() => setMessage(null)}
+              aria-label="Meldung schließen"
+            >
               <X className="size-4" />
             </Button>
           </AlertDescription>
@@ -187,9 +201,13 @@ export function ServicesSettings() {
 
       <div className="flex flex-col gap-6">
         {/* Service Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
           {services.map(service => {
-            const config = STATUS_CONFIG[service.status] || { label: 'Unbekannt', variant: 'outline' as const, dot: 'bg-muted-foreground' };
+            const config = STATUS_CONFIG[service.status] || {
+              label: 'Unbekannt',
+              variant: 'outline' as const,
+              dot: 'bg-muted-foreground',
+            };
             const info = getServiceInfo(service.name);
             const ServiceIcon = info.icon;
             const isRestarting = restartingService === service.name;
@@ -226,7 +244,10 @@ export function ServicesSettings() {
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-xs"
-                        onClick={() => { setConfirmRestart(service); setMessage(null); }}
+                        onClick={() => {
+                          setConfirmRestart(service);
+                          setMessage(null);
+                        }}
                         disabled={isRestarting}
                       >
                         <RefreshCw className={cn('size-3.5', isRestarting && 'animate-spin')} />
@@ -242,18 +263,40 @@ export function ServicesSettings() {
 
         {/* Hints Card */}
         <Card>
-          <CardContent className="pt-5 pb-4">
+          <CardHeader>
+            <CardTitle className="text-base">Hinweise</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
             <div className="flex flex-col gap-3">
               {[
-                { icon: AlertTriangle, color: 'warning' as const, title: 'Downtime beachten', desc: 'Während des Neustarts ist der Dienst kurzzeitig nicht verfügbar' },
-                { icon: AlertCircle, color: 'warning' as const, title: 'Rate Limit', desc: 'Jeder Dienst kann maximal einmal pro Minute neugestartet werden' },
-                { icon: Info, color: 'primary' as const, title: 'Audit-Log', desc: 'Alle Neustarts werden im Self-Healing Event-Log protokolliert' },
+                {
+                  icon: AlertTriangle,
+                  color: 'warning' as const,
+                  title: 'Downtime beachten',
+                  desc: 'Während des Neustarts ist der Dienst kurzzeitig nicht verfügbar',
+                },
+                {
+                  icon: AlertCircle,
+                  color: 'warning' as const,
+                  title: 'Rate Limit',
+                  desc: 'Jeder Dienst kann maximal einmal pro Minute neugestartet werden',
+                },
+                {
+                  icon: Info,
+                  color: 'primary' as const,
+                  title: 'Audit-Log',
+                  desc: 'Alle Neustarts werden im Self-Healing Event-Log protokolliert',
+                },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <div className={cn(
-                    'flex size-7 shrink-0 items-center justify-center rounded-full',
-                    item.color === 'warning' ? 'bg-warning/20 text-warning' : 'bg-primary/10 text-primary'
-                  )}>
+                  <div
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center rounded-full',
+                      item.color === 'warning'
+                        ? 'bg-warning/20 text-warning'
+                        : 'bg-primary/10 text-primary'
+                    )}
+                  >
                     <item.icon className="size-3.5" />
                   </div>
                   <div className="flex flex-col">
@@ -276,8 +319,12 @@ export function ServicesSettings() {
               Service neustarten?
             </DialogTitle>
             <DialogDescription>
-              Möchten Sie den Service <strong>{confirmRestart ? getServiceInfo(confirmRestart.name).displayName : ''}</strong> wirklich neustarten?
-              Der Dienst wird während des Neustarts kurzzeitig nicht verfügbar sein.
+              Möchten Sie den Service{' '}
+              <strong>
+                {confirmRestart ? getServiceInfo(confirmRestart.name).displayName : ''}
+              </strong>{' '}
+              wirklich neustarten? Der Dienst wird während des Neustarts kurzzeitig nicht verfügbar
+              sein.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

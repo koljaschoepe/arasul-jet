@@ -25,27 +25,14 @@ entryPoints:
   websecure:
     address: ':443'
     http:
-      tls:
-        certResolver: letsencrypt
-        domains:
-          - main: 'arasul.local'
-            sans:
-              - '*.arasul.local'
+      tls: {} # Uses self-signed cert from tls.yml
 
   # Traefik dashboard
   traefik:
     address: ':8080'
 
-# Certificate resolvers
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: admin@arasul.local
-      storage: /letsencrypt/acme.json
-      # Use staging for testing
-      # caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
-      # httpChallenge: # Disabled for self-signed cert
-      # entryPoint: web # Disabled for self-signed cert
+# TLS: Self-signed certificates configured in dynamic/tls.yml
+# Let's Encrypt disabled: arasul.local is a LAN-only domain
 
 # Providers
 providers:

@@ -10,6 +10,16 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 
 /**
+ * Resolve ${VAR} patterns in a string from process.env
+ */
+function resolveEnvVars(str) {
+  if (!str || typeof str !== 'string') {return str;}
+  return str.replace(/\$\{([^}]+)\}/g, (match, varName) => {
+    return process.env[varName] || match;
+  });
+}
+
+/**
  * Get app configuration from database
  * Returns config values, masking secrets
  */
@@ -229,9 +239,11 @@ async function getN8nCredentials(appId) {
         privateKey: 'SSH Private Key für passwortlose Authentifizierung',
       },
     },
-    command: manifest.n8nIntegration.command || null,
+    command: resolveEnvVars(manifest.n8nIntegration.command) || null,
     workingDirectory:
-      manifest.n8nIntegration.workingDirectory || process.env.COMPOSE_PROJECT_DIR || '/opt/arasul',
+      resolveEnvVars(manifest.n8nIntegration.workingDirectory) ||
+      process.env.COMPOSE_PROJECT_DIR ||
+      '/opt/arasul',
     instructions: [
       'Öffne n8n (Port 5678 oder /n8n)',
       'Gehe zu Credentials → Add Credential → SSH',
@@ -241,7 +253,7 @@ async function getN8nCredentials(appId) {
       'Speichern und in einem Workflow verwenden',
     ],
     exampleCommand:
-      manifest.n8nIntegration.exampleCommand ||
+      resolveEnvVars(manifest.n8nIntegration.exampleCommand) ||
       `cd ${process.env.COMPOSE_PROJECT_DIR || '/opt/arasul'} && echo "Dein Prompt hier" | ${process.env.CLAUDE_CLI_PATH || 'claude'} -p --dangerously-skip-permissions`,
   };
 }

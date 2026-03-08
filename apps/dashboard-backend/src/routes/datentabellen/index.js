@@ -16,6 +16,8 @@ const { requireAuth } = require('../../middleware/auth');
 const logger = require('../../utils/logger');
 const services = require('../../config/services');
 const llmDataAccess = require('../../services/context/llmDataAccessService');
+const { isValidSlug, escapeTableName } = require('../../utils/sqlIdentifier');
+const { ValidationError } = require('../../utils/errors');
 
 // RAG/Embedding configuration
 const QDRANT_HOST = services.qdrant?.host || 'qdrant';
@@ -93,7 +95,7 @@ router.get(
     for (const table of tableListResult.rows) {
       try {
         const rowCountResult = await dataDb.query(
-          `SELECT COUNT(*)::int as count FROM data_${table.slug}`
+          `SELECT COUNT(*)::int as count FROM ${escapeTableName(table.slug)}`
         );
         totalRows += rowCountResult.rows[0].count;
       } catch (err) {
@@ -135,6 +137,10 @@ router.post(
   asyncHandler(async (req, res) => {
     const { slug } = req.params;
 
+    if (!isValidSlug(slug)) {
+      throw new ValidationError('Ungültiger Tabellenname');
+    }
+
     logger.info(`[Datentabellen] Starting RAG indexing for table: ${slug}`);
 
     // Get table metadata
@@ -158,7 +164,7 @@ router.post(
     const fields = fieldsResult.rows;
 
     // Get all rows
-    const rowsResult = await dataDb.query(`SELECT * FROM data_${slug}`);
+    const rowsResult = await dataDb.query(`SELECT * FROM ${escapeTableName(slug)}`);
     const rows = rowsResult.rows;
 
     if (rows.length === 0) {
@@ -287,6 +293,10 @@ router.delete(
   asyncHandler(async (req, res) => {
     const { slug } = req.params;
 
+    if (!isValidSlug(slug)) {
+      throw new ValidationError('Ungültiger Tabellenname');
+    }
+
     // Get table metadata
     const tableResult = await dataDb.query('SELECT id, name FROM dt_tables WHERE slug = $1', [
       slug,
@@ -342,6 +352,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const { slug } = req.params;
 
+    if (!isValidSlug(slug)) {
+      throw new ValidationError('Ungültiger Tabellenname');
+    }
+
     // Get table metadata
     const tableResult = await dataDb.query('SELECT id, name FROM dt_tables WHERE slug = $1', [
       slug,
@@ -375,7 +389,9 @@ router.get(
       const indexedCount = countResponse.data.result?.count || 0;
 
       // Get total row count
-      const rowCountResult = await dataDb.query(`SELECT COUNT(*)::int as count FROM data_${slug}`);
+      const rowCountResult = await dataDb.query(
+        `SELECT COUNT(*)::int as count FROM ${escapeTableName(slug)}`
+      );
       const totalRows = rowCountResult.rows[0].count;
 
       res.json({
