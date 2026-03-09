@@ -96,6 +96,10 @@ npm run lint:fix                              # Lint code
 | Frontend    | `apps/dashboard-frontend/src/App.tsx` | `features/chat/ChatRouter.tsx`     |
 | Database    | `services/postgres/init/`             | Next: `050_*.sql`                  |
 | AI Services | `services/llm-service/api_server.py`  | -                                  |
+| Setup       | `scripts/interactive_setup.sh`        | Deutsche Terminal-UI               |
+| Bootstrap   | `arasul` (cmd_bootstrap)              | 15-Schritte Produktions-Flow       |
+| HW-Detect   | `scripts/setup/detect-jetson.sh`      | 5-Stufen Thor/Orin-Erkennung       |
+| Factory     | `scripts/deploy/factory-install.sh`   | Offline-Installation via USB       |
 
 ---
 

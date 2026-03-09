@@ -53,15 +53,13 @@ if [ ! -f ".env" ]; then
     N8N_BASIC_AUTH_PASSWORD=$(generate_password)
     N8N_ENCRYPTION_KEY=$(generate_secret)
     
-    # Replace placeholders
-    sed -i.bak "s|__JWT_SECRET_PLACEHOLDER__|$JWT_SECRET|g" .env
-    sed -i.bak "s|__ADMIN_PASSWORD_PLACEHOLDER__|$ADMIN_PASSWORD|g" .env
-    sed -i.bak "s|__POSTGRES_PASSWORD_PLACEHOLDER__|$POSTGRES_PASSWORD|g" .env
-    sed -i.bak "s|__MINIO_ROOT_PASSWORD_PLACEHOLDER__|$MINIO_ROOT_PASSWORD|g" .env
-    sed -i.bak "s|__N8N_BASIC_AUTH_PASSWORD_PLACEHOLDER__|$N8N_BASIC_AUTH_PASSWORD|g" .env
-    sed -i.bak "s|__N8N_ENCRYPTION_KEY_PLACEHOLDER__|$N8N_ENCRYPTION_KEY|g" .env
-    
-    rm .env.bak
+    # Replace placeholders (in-place without backup to avoid plaintext leak)
+    sed -i "s|__JWT_SECRET_PLACEHOLDER__|$JWT_SECRET|g" .env
+    sed -i "s|__ADMIN_PASSWORD_PLACEHOLDER__|$ADMIN_PASSWORD|g" .env
+    sed -i "s|__POSTGRES_PASSWORD_PLACEHOLDER__|$POSTGRES_PASSWORD|g" .env
+    sed -i "s|__MINIO_ROOT_PASSWORD_PLACEHOLDER__|$MINIO_ROOT_PASSWORD|g" .env
+    sed -i "s|__N8N_BASIC_AUTH_PASSWORD_PLACEHOLDER__|$N8N_BASIC_AUTH_PASSWORD|g" .env
+    sed -i "s|__N8N_ENCRYPTION_KEY_PLACEHOLDER__|$N8N_ENCRYPTION_KEY|g" .env
     log_success ".env created and populated with secure values"
 
     # Note: Admin password is stored in .env only, not in separate plaintext file

@@ -3,6 +3,10 @@
 # Arasul Platform - Pre-commit Hook
 # Runs lint-staged for staged files and validates design system compliance
 
+# Load NVM if available (needed for npx in non-interactive shells)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
 echo "Running pre-commit checks..."
 
 # Check for accidentally staged .env files or secrets

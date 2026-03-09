@@ -13,9 +13,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory
+# Script directory (scripts/setup/)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # =============================================================================
 # Device Detection Functions
@@ -23,13 +23,35 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 detect_jetson_model() {
     local model_file="/proc/device-tree/model"
+    local compatible_file="/proc/device-tree/compatible"
     local tegra_file="/sys/module/tegra_fuse/parameters/tegra_chip_id"
 
+    # Stufe 1: Device-Tree Model (zuverlaessigste Quelle)
     if [ -f "$model_file" ]; then
-        cat "$model_file" 2>/dev/null | tr -d '\0'
-    elif [ -f "$tegra_file" ]; then
+        local model=$(cat "$model_file" 2>/dev/null | tr -d '\0')
+        if [ -n "$model" ]; then
+            echo "$model"
+            return
+        fi
+    fi
+
+    # Stufe 2: Device-Tree Compatible String
+    if [ -f "$compatible_file" ]; then
+        local compat=$(cat "$compatible_file" 2>/dev/null | tr '\0' '\n')
+        if echo "$compat" | grep -qi "thor"; then
+            echo "NVIDIA Jetson Thor"
+            return
+        elif echo "$compat" | grep -qi "orin"; then
+            echo "NVIDIA Jetson Orin (via compatible)"
+            return
+        fi
+    fi
+
+    # Stufe 3: Tegra Chip ID
+    if [ -f "$tegra_file" ]; then
         local chip_id=$(cat "$tegra_file" 2>/dev/null)
         case "$chip_id" in
+            "36"|"37"|"38") echo "NVIDIA Jetson Thor" ;;
             "35") echo "NVIDIA Jetson AGX Orin" ;;
             "33") echo "NVIDIA Jetson Xavier" ;;
             "25") echo "NVIDIA Jetson TX2" ;;
@@ -37,9 +59,35 @@ detect_jetson_model() {
             "21") echo "NVIDIA Jetson Nano" ;;
             *) echo "Unknown Jetson (Chip ID: $chip_id)" ;;
         esac
-    else
-        echo "Unknown (not a Jetson device)"
+        return
     fi
+
+    # Stufe 4: nvidia-smi GPU-Name
+    if command -v nvidia-smi &>/dev/null; then
+        local gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+        if echo "$gpu_name" | grep -qi "thor\|blackwell\|gh"; then
+            echo "NVIDIA Jetson Thor (via GPU)"
+            return
+        elif echo "$gpu_name" | grep -qi "orin"; then
+            echo "NVIDIA Jetson Orin (via GPU)"
+            return
+        fi
+    fi
+
+    # Stufe 5: RAM-basierter Fallback (nur wenn Jetson-Marker vorhanden)
+    if [ -f /etc/nv_tegra_release ] || [ -d /sys/devices/platform/tegra-pmc ]; then
+        local ram=$(detect_ram_total)
+        if [ "$ram" -ge 120 ]; then
+            echo "NVIDIA Jetson Thor (RAM-basiert: ${ram}GB)"
+        elif [ "$ram" -ge 60 ]; then
+            echo "NVIDIA Jetson AGX Orin (RAM-basiert: ${ram}GB)"
+        else
+            echo "NVIDIA Jetson (unbekanntes Modell, ${ram}GB RAM)"
+        fi
+        return
+    fi
+
+    echo "Kein Jetson-Geraet erkannt"
 }
 
 detect_ram_total() {
@@ -73,6 +121,7 @@ detect_cuda_arch() {
     # Fallback based on device model
     local model=$(detect_jetson_model)
     case "$model" in
+        *"Thor"*)     echo "10.0" ;;  # Blackwell SM_100
         *"Orin"*)     echo "8.7" ;;
         *"Xavier"*)   echo "7.2" ;;
         *"TX2"*)      echo "6.2" ;;
@@ -91,6 +140,13 @@ get_device_profile() {
 
     # Determine profile based on model and RAM
     case "$model" in
+        *"Thor"*)
+            if [ "$ram" -ge 120 ]; then
+                echo "thor_128gb"
+            else
+                echo "thor_64gb"  # Falls Thor auch in 64GB kommt
+            fi
+            ;;
         *"AGX Orin"*)
             if [ "$ram" -ge 60 ]; then
                 echo "agx_orin_64gb"
@@ -131,7 +187,9 @@ get_device_profile() {
             ;;
         *)
             # Auto-detect based on RAM
-            if [ "$ram" -ge 60 ]; then
+            if [ "$ram" -ge 120 ]; then
+                echo "thor_128gb"
+            elif [ "$ram" -ge 60 ]; then
                 echo "high_memory"
             elif [ "$ram" -ge 30 ]; then
                 echo "medium_memory"
@@ -154,6 +212,94 @@ get_config_for_profile() {
     local profile=$1
 
     case "$profile" in
+        "thor_128gb")
+            cat << 'EOF'
+# Jetson Thor 128GB - Maximum Performance
+JETSON_PROFILE=thor_128gb
+JETSON_DESCRIPTION="NVIDIA Jetson Thor 128GB"
+
+# Resource Limits
+RAM_LIMIT_POSTGRES=4G
+RAM_LIMIT_LLM=96G
+RAM_LIMIT_EMBEDDING=12G
+RAM_LIMIT_BACKEND=2G
+RAM_LIMIT_FRONTEND=1G
+RAM_LIMIT_N8N=4G
+RAM_LIMIT_QDRANT=8G
+RAM_LIMIT_MINIO=4G
+RAM_LIMIT_METRICS=512M
+RAM_LIMIT_SELF_HEALING=512M
+RAM_LIMIT_TELEGRAM=256M
+RAM_LIMIT_DOCUMENT_INDEXER=4G
+RAM_LIMIT_REVERSE_PROXY=512M
+RAM_LIMIT_BACKUP=256M
+
+# CPU Limits (Thor hat voraussichtlich 12-16+ Cores)
+CPU_LIMIT_LLM=12
+CPU_LIMIT_EMBEDDING=4
+CPU_LIMIT_BACKEND=4
+CPU_LIMIT_N8N=4
+
+# LLM Configuration
+LLM_MODEL=qwen3:32b-q8
+LLM_CONTEXT_LENGTH=32768
+LLM_GPU_LAYERS=99
+LLM_KEEP_ALIVE_SECONDS=900
+OLLAMA_STARTUP_TIMEOUT=240
+
+# Embedding Configuration
+EMBEDDING_USE_FP16=false
+EMBEDDING_MAX_BATCH_SIZE=200
+
+# Recommended Models (in order of capability)
+RECOMMENDED_MODELS="qwen3:32b-q8,llama3.1:70b-q4,codellama:70b,mixtral:8x7b,deepseek-coder:33b"
+EOF
+            ;;
+
+        "thor_64gb")
+            cat << 'EOF'
+# Jetson Thor 64GB - High Performance
+JETSON_PROFILE=thor_64gb
+JETSON_DESCRIPTION="NVIDIA Jetson Thor 64GB"
+
+# Resource Limits
+RAM_LIMIT_POSTGRES=2G
+RAM_LIMIT_LLM=48G
+RAM_LIMIT_EMBEDDING=8G
+RAM_LIMIT_BACKEND=2G
+RAM_LIMIT_FRONTEND=1G
+RAM_LIMIT_N8N=2G
+RAM_LIMIT_QDRANT=4G
+RAM_LIMIT_MINIO=4G
+RAM_LIMIT_METRICS=512M
+RAM_LIMIT_SELF_HEALING=512M
+RAM_LIMIT_TELEGRAM=256M
+RAM_LIMIT_DOCUMENT_INDEXER=2G
+RAM_LIMIT_REVERSE_PROXY=512M
+RAM_LIMIT_BACKUP=256M
+
+# CPU Limits
+CPU_LIMIT_LLM=10
+CPU_LIMIT_EMBEDDING=4
+CPU_LIMIT_BACKEND=4
+CPU_LIMIT_N8N=2
+
+# LLM Configuration
+LLM_MODEL=qwen3:14b-q8
+LLM_CONTEXT_LENGTH=16384
+LLM_GPU_LAYERS=99
+LLM_KEEP_ALIVE_SECONDS=600
+OLLAMA_STARTUP_TIMEOUT=180
+
+# Embedding Configuration
+EMBEDDING_USE_FP16=false
+EMBEDDING_MAX_BATCH_SIZE=100
+
+# Recommended Models
+RECOMMENDED_MODELS="qwen3:14b-q8,llama3.1:70b-q4,codellama:34b,mixtral:8x7b"
+EOF
+            ;;
+
         "agx_orin_64gb")
             cat << 'EOF'
 # AGX Orin 64GB - Maximum Performance
@@ -609,6 +755,27 @@ show_recommendations() {
     echo ""
 
     case "$profile" in
+        "thor_128gb")
+            echo -e "${GREEN}Maximum Performance:${NC}"
+            echo "  - qwen3:32b-q8      (32GB) - Beste Qualitaet"
+            echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
+            echo "  - codellama:70b     (38GB) - Bester Code-Assistent"
+            echo ""
+            echo -e "${YELLOW}Auch unterstuetzt:${NC}"
+            echo "  - mixtral:8x7b      (26GB) - MoE Architektur"
+            echo "  - deepseek-coder:33b (18GB) - Code-Spezialist"
+            echo "  - qwen3:14b-q8      (15GB) - Schnell & hochwertig"
+            ;;
+        "thor_64gb")
+            echo -e "${GREEN}Empfohlen:${NC}"
+            echo "  - qwen3:14b-q8      (15GB) - Beste Balance"
+            echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
+            echo "  - codellama:34b     (19GB) - Best fuer Coding"
+            echo ""
+            echo -e "${YELLOW}Auch unterstuetzt:${NC}"
+            echo "  - mixtral:8x7b      (26GB) - MoE Architektur"
+            echo "  - deepseek-coder:33b (18GB) - Code-Spezialist"
+            ;;
         "agx_orin_64gb")
             echo -e "${GREEN}Best Performance:${NC}"
             echo "  - qwen3:14b-q8      (15GB) - Excellent quality"
@@ -708,4 +875,7 @@ main() {
     esac
 }
 
-main "$@"
+# Nur ausfuehren wenn direkt aufgerufen (nicht beim Sourcen)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

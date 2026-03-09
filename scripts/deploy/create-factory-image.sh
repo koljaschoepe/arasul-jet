@@ -36,14 +36,18 @@ OUTPUT_DIR="${PROJECT_ROOT}/deployment"
 VERSION=$(date +%Y%m%d-%H%M)
 ARCHIVE_NAME=""
 
+INCLUDE_MODELS=false
+
 for arg in "$@"; do
   case "$arg" in
     --output=*)  OUTPUT_DIR="${arg#*=}" ;;
     --version=*) VERSION="${arg#*=}" ;;
+    --include-models) INCLUDE_MODELS=true ;;
     --help|-h)
-      echo "Usage: $0 [--output=DIR] [--version=VER]"
-      echo "  --output=DIR   Output directory (default: ./deployment)"
-      echo "  --version=VER  Version tag (default: timestamp)"
+      echo "Usage: $0 [--output=DIR] [--version=VER] [--include-models]"
+      echo "  --output=DIR       Output directory (default: ./deployment)"
+      echo "  --version=VER      Version tag (default: timestamp)"
+      echo "  --include-models   Include Ollama models in factory image"
       exit 0
       ;;
   esac
@@ -63,7 +67,7 @@ cd "$PROJECT_ROOT"
 ###############################################################################
 # Step 1: Build all Docker images
 ###############################################################################
-echo -e "${BOLD}[1/5]${NC} Docker-Images bauen..."
+echo -e "${BOLD}[1/6]${NC} Docker-Images bauen..."
 
 docker compose build --parallel 2>&1 | tail -5
 echo -e "  ${GREEN}✓${NC} Images gebaut"
@@ -71,7 +75,7 @@ echo -e "  ${GREEN}✓${NC} Images gebaut"
 ###############################################################################
 # Step 2: Export Docker images
 ###############################################################################
-echo -e "${BOLD}[2/5]${NC} Docker-Images exportieren..."
+echo -e "${BOLD}[2/6]${NC} Docker-Images exportieren..."
 
 mkdir -p "$OUTPUT_DIR"
 STAGING="${OUTPUT_DIR}/${ARCHIVE_NAME}"
@@ -91,7 +95,7 @@ echo -e "  ${GREEN}✓${NC} Images exportiert (${IMAGE_SIZE})"
 ###############################################################################
 # Step 3: Copy project files (excluding dev/data)
 ###############################################################################
-echo -e "${BOLD}[3/5]${NC} Projektdateien kopieren..."
+echo -e "${BOLD}[3/6]${NC} Projektdateien kopieren..."
 
 rsync -a --exclude-from=- "$PROJECT_ROOT/" "${STAGING}/project/" << 'EXCLUDE'
 .git
@@ -117,9 +121,45 @@ EXCLUDE
 echo -e "  ${GREEN}✓${NC} Projektdateien kopiert"
 
 ###############################################################################
+# Step 3b: Embed factory-install.sh
+###############################################################################
+echo -e "${BOLD}[3b/6]${NC} Factory-Installer einbetten..."
+
+if [ -f "${SCRIPT_DIR}/factory-install.sh" ]; then
+    cp "${SCRIPT_DIR}/factory-install.sh" "${STAGING}/factory-install.sh"
+    chmod +x "${STAGING}/factory-install.sh"
+    echo -e "  ${GREEN}✓${NC} factory-install.sh eingebettet"
+else
+    echo -e "  ${YELLOW}!${NC} factory-install.sh nicht gefunden - manuelles Setup erforderlich"
+fi
+
+###############################################################################
+# Step 3c: Export Ollama models (optional)
+###############################################################################
+if [ "$INCLUDE_MODELS" = true ]; then
+    echo -e "${BOLD}[3c/6]${NC} KI-Modelle exportieren..."
+
+    LLM_VOLUME=$(docker volume ls -q 2>/dev/null | grep -E "llm|ollama" | head -1)
+    if [ -n "$LLM_VOLUME" ]; then
+        mkdir -p "${STAGING}/ollama-models"
+        docker run --rm \
+            -v "${LLM_VOLUME}:/src:ro" \
+            -v "${STAGING}/ollama-models:/dest" \
+            alpine sh -c "cp -a /src/. /dest/"
+
+        MODEL_SIZE=$(du -sh "${STAGING}/ollama-models" | cut -f1)
+        echo -e "  ${GREEN}✓${NC} Modelle exportiert (${MODEL_SIZE})"
+    else
+        echo -e "  ${YELLOW}!${NC} Kein Ollama-Volume gefunden - uebersprungen"
+    fi
+else
+    echo -e "${BOLD}[3c/6]${NC} KI-Modelle: uebersprungen (--include-models zum Einschliessen)"
+fi
+
+###############################################################################
 # Step 4: Create manifest
 ###############################################################################
-echo -e "${BOLD}[4/5]${NC} Manifest erstellen..."
+echo -e "${BOLD}[5/6]${NC} Manifest erstellen..."
 
 # Collect image versions
 IMAGE_MANIFEST=""
@@ -143,11 +183,9 @@ checksums:
 
 instructions: |
   1. tar xzf ${ARCHIVE_NAME}.tar.gz
-  2. cd ${ARCHIVE_NAME}/project
-  3. docker load < ../images.tar.gz
-  4. ./scripts/setup/preconfigure.sh --skip-pull
-  5. docker compose up -d
-  6. Browser: http://arasul.local
+  2. cd ${ARCHIVE_NAME}/
+  3. ./factory-install.sh
+  4. Fertig! Browser: https://arasul.local
 EOF
 
 echo -e "  ${GREEN}✓${NC} Manifest erstellt"
@@ -155,7 +193,7 @@ echo -e "  ${GREEN}✓${NC} Manifest erstellt"
 ###############################################################################
 # Step 5: Create archive
 ###############################################################################
-echo -e "${BOLD}[5/5]${NC} Archiv erstellen..."
+echo -e "${BOLD}[6/6]${NC} Archiv erstellen..."
 
 cd "$OUTPUT_DIR"
 tar czf "${ARCHIVE_NAME}.tar.gz" "${ARCHIVE_NAME}/"
@@ -175,10 +213,11 @@ echo ""
 echo -e "  Datei:  ${BOLD}${OUTPUT_DIR}/${ARCHIVE_NAME}.tar.gz${NC}"
 echo -e "  Größe:  ${TOTAL_SIZE}"
 echo ""
-echo -e "  Auf neuem Gerät:"
+echo -e "  Auf neuem Geraet:"
 echo -e "    tar xzf ${ARCHIVE_NAME}.tar.gz"
-echo -e "    cd ${ARCHIVE_NAME}/project"
-echo -e "    docker load < ../images.tar.gz"
-echo -e "    ./scripts/setup/preconfigure.sh --skip-pull"
-echo -e "    docker compose up -d"
+echo -e "    cd ${ARCHIVE_NAME}/"
+echo -e "    ./factory-install.sh"
+echo ""
+echo -e "  Non-Interactive (fuer Massen-Rollout):"
+echo -e "    ADMIN_PASSWORD=... ./factory-install.sh --non-interactive"
 echo ""

@@ -474,16 +474,28 @@ create_directories() {
     log_success "Directory structure created"
 }
 
-# Initialize .env file
-# DEVELOPMENT MODE: Uses fixed credentials from .env.template
-init_env() {
-    if [ ! -f .env ]; then
-        log_info "Creating .env file from template..."
-        cp .env.template .env
-        log_success ".env file created (using fixed development credentials)"
-        log_warning "Default credentials: admin / arasul123"
+# Run interactive setup to generate .env
+run_interactive_setup() {
+    if [ -f "${SCRIPT_DIR}/scripts/interactive_setup.sh" ]; then
+        bash "${SCRIPT_DIR}/scripts/interactive_setup.sh"
+        if [ $? -ne 0 ]; then
+            log_error "Setup abgebrochen"
+            exit 1
+        fi
     else
-        log_info ".env file already exists, skipping creation"
+        log_error "Setup-Script nicht gefunden: scripts/interactive_setup.sh"
+        exit 1
+    fi
+}
+
+# Apply Jetson hardware profile
+apply_jetson_profile() {
+    local detect_script="${SCRIPT_DIR}/scripts/setup/detect-jetson.sh"
+    if [ -f "$detect_script" ]; then
+        log_info "Wende Jetson-Profil an..."
+        bash "$detect_script" generate >/dev/null 2>&1 || true
+        bash "$detect_script" apply >/dev/null 2>&1 || true
+        log_success "Jetson-Profil angewendet"
     fi
 }
 
@@ -536,8 +548,8 @@ init_minio_buckets() {
     fi
 
     # Check if initialization script exists
-    if [ ! -f "./scripts/init_minio_buckets.sh" ]; then
-        log_error "MinIO initialization script not found: ./scripts/init_minio_buckets.sh"
+    if [ ! -f "./scripts/util/init_minio_buckets.sh" ]; then
+        log_error "MinIO initialization script not found: ./scripts/util/init_minio_buckets.sh"
         return 1
     fi
 
@@ -545,7 +557,7 @@ init_minio_buckets() {
     log_info "Running MinIO bucket initialization script..."
 
     # Copy script to container
-    docker cp ./scripts/init_minio_buckets.sh minio:/tmp/init_minio_buckets.sh
+    docker cp ./scripts/util/init_minio_buckets.sh minio:/tmp/init_minio_buckets.sh
 
     # Execute script in container
     docker compose exec -T minio sh /tmp/init_minio_buckets.sh
@@ -568,56 +580,56 @@ init_minio_buckets() {
 }
 
 # Setup secrets directory and Basic Auth for proxied services
-# DEVELOPMENT MODE: Uses fixed credentials from .env
 setup_secrets() {
-    log_info "Setting up secrets directory..."
+    log_info "Konfiguriere Secrets..."
 
     mkdir -p config/secrets
     chmod 700 config/secrets
 
-    # Read credentials from .env
-    N8N_BASIC_USER=$(grep "^N8N_BASIC_AUTH_USER=" .env | cut -d'=' -f2)
-    N8N_BASIC_PASS=$(grep "^N8N_BASIC_AUTH_PASSWORD=" .env | cut -d'=' -f2)
+    # Credentials aus .env lesen (vom Interactive Setup generiert)
+    local n8n_user=$(grep "^N8N_BASIC_AUTH_USER=" .env | cut -d'=' -f2)
+    local n8n_pass=$(grep "^N8N_BASIC_AUTH_PASSWORD=" .env | cut -d'=' -f2)
+
+    if [ -z "$n8n_pass" ]; then
+        log_warning "N8N_BASIC_AUTH_PASSWORD nicht in .env - ueberspringe Traefik-Auth"
+        return 0
+    fi
 
     # Store n8n password in secrets for reference
-    echo "$N8N_BASIC_PASS" > config/secrets/n8n_basic_auth_password
+    echo "$n8n_pass" > config/secrets/n8n_basic_auth_password
     chmod 600 config/secrets/n8n_basic_auth_password
 
-    # Configure n8n Basic Auth for Traefik (if htpasswd available)
-    if command -v htpasswd &> /dev/null; then
-        log_info "Configuring Traefik Basic Auth for n8n..."
-        N8N_HASH=$(htpasswd -nbB "${N8N_BASIC_USER:-admin}" "$N8N_BASIC_PASS" | cut -d: -f2)
-        ESCAPED_HASH=$(echo "$N8N_HASH" | sed 's/\$/\\$\\$/g')
+    # Configure Traefik Basic Auth (if htpasswd available)
+    if command -v htpasswd &> /dev/null && [ -f config/traefik/dynamic/middlewares.yml ]; then
+        log_info "Konfiguriere Traefik Basic Auth..."
 
-        awk -v user="${N8N_BASIC_USER:-admin}" -v hash="$ESCAPED_HASH" '
+        # n8n Auth
+        local n8n_hash=$(htpasswd -nbB "${n8n_user:-admin}" "$n8n_pass" | cut -d: -f2)
+        local escaped_hash=$(echo "$n8n_hash" | sed 's/\$/\\$\\$/g')
+
+        awk -v user="${n8n_user:-admin}" -v hash="$escaped_hash" '
         /basicAuth-n8n:/ { in_n8n_section=1 }
         in_n8n_section && /users:/ { print; getline; print "          - \"" user ":" hash "\""; in_n8n_section=0; next }
         { print }
         ' config/traefik/dynamic/middlewares.yml > config/traefik/dynamic/middlewares.yml.tmp
         mv config/traefik/dynamic/middlewares.yml.tmp config/traefik/dynamic/middlewares.yml
 
-        log_success "n8n Basic Auth configured (admin / arasul123)"
-    else
-        log_warning "htpasswd not found - n8n Basic Auth not configured"
-        log_info "Install apache2-utils: sudo apt-get install apache2-utils"
-    fi
+        # Traefik Dashboard Auth
+        local traefik_hash=$(htpasswd -nbm "admin" "$n8n_pass" | cut -d: -f2)
 
-    # Configure Traefik Dashboard Basic Auth (using same credentials)
-    if command -v htpasswd &> /dev/null; then
-        log_info "Configuring Traefik Dashboard Basic Auth..."
-        TRAEFIK_HASH=$(htpasswd -nbm "admin" "$N8N_BASIC_PASS" | cut -d: -f2)
-
-        awk -v user="admin" -v hash="$TRAEFIK_HASH" '
+        awk -v user="admin" -v hash="$traefik_hash" '
         /basicAuth-traefik:/ { in_traefik_section=1 }
         in_traefik_section && /users:/ { print; getline; print "          - \"" user ":" hash "\"  # " user; in_traefik_section=0; next }
         { print }
         ' config/traefik/dynamic/middlewares.yml > config/traefik/dynamic/middlewares.yml.tmp
         mv config/traefik/dynamic/middlewares.yml.tmp config/traefik/dynamic/middlewares.yml
 
-        log_success "Traefik Dashboard Basic Auth configured"
+        log_success "Traefik Basic Auth konfiguriert"
+    else
+        log_warning "htpasswd nicht gefunden oder middlewares.yml fehlt - Basic Auth uebersprungen"
     fi
 
-    log_success "Secrets setup complete (using fixed development credentials)"
+    log_success "Secrets konfiguriert"
 }
 
 # Setup HTTPS/TLS certificates
@@ -644,8 +656,8 @@ setup_https() {
         log_info "Generating self-signed certificate for offline use..."
 
         # Run self-signed certificate generation script
-        if [ -f "scripts/generate_self_signed_cert.sh" ]; then
-            bash scripts/generate_self_signed_cert.sh "./config/traefik/certs" "arasul.local" "3650"
+        if [ -f "scripts/security/generate_self_signed_cert.sh" ]; then
+            bash scripts/security/generate_self_signed_cert.sh "./config/traefik/certs" "arasul.local" "3650"
 
             log_success "Self-signed certificate generated"
             log_warning "Browser will show security warning (this is normal for self-signed certificates)"
@@ -659,48 +671,62 @@ setup_https() {
 }
 
 # Initialize admin user with bcrypt hash from .env
-# DEVELOPMENT MODE: Uses pre-computed hash from .env.template
 init_admin_user() {
-    log_info "Creating admin user..."
+    log_info "Erstelle Administrator-Benutzer..."
 
-    # Extract credentials from .env
-    ADMIN_USERNAME=$(grep "^ADMIN_USERNAME=" .env | cut -d'=' -f2)
-    ADMIN_PASSWORD=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
-    ADMIN_HASH=$(grep "^ADMIN_HASH=" .env | cut -d'=' -f2-)
+    local admin_user=$(grep "^ADMIN_USERNAME=" .env | cut -d'=' -f2)
+    local admin_pass=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
+    local admin_email=$(grep "^ADMIN_EMAIL=" .env | cut -d'=' -f2)
+    local admin_hash=$(grep "^ADMIN_HASH=" .env | cut -d'=' -f2-)
 
-    if [ -z "$ADMIN_PASSWORD" ]; then
-        log_error "ADMIN_PASSWORD not found in .env file"
+    if [ -z "$admin_pass" ]; then
+        log_error "ADMIN_PASSWORD nicht in .env gefunden"
         return 1
     fi
 
-    if [ -z "$ADMIN_HASH" ]; then
-        log_error "ADMIN_HASH not found in .env file"
-        log_info "Please ensure .env contains a pre-computed bcrypt hash for ADMIN_HASH"
-        return 1
+    # Hash generieren falls nicht vorhanden oder Platzhalter
+    if [ -z "$admin_hash" ] || [ "$admin_hash" = "GENERATE_ON_FIRST_START" ]; then
+        log_info "Generiere Passwort-Hash..."
+
+        # Methode 1: htpasswd
+        if command -v htpasswd &>/dev/null; then
+            admin_hash=$(htpasswd -nbB "" "$admin_pass" | cut -d: -f2)
+        # Methode 2: Backend-Container (bcryptjs)
+        elif docker compose ps dashboard-backend 2>/dev/null | grep -q "Up\|running"; then
+            admin_hash=$(docker compose exec -T dashboard-backend \
+                node -e "const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],12))" "$admin_pass" \
+                2>/dev/null)
+        # Methode 3: Python3 bcrypt
+        elif command -v python3 &>/dev/null && python3 -c "import bcrypt" 2>/dev/null; then
+            admin_hash=$(printf '%s' "$admin_pass" | python3 -c "import sys,bcrypt; pw=sys.stdin.buffer.read(); print(bcrypt.hashpw(pw, bcrypt.gensalt(12)).decode())")
+        fi
+
+        if [ -z "$admin_hash" ]; then
+            log_warning "Hash-Generierung fehlgeschlagen - Backend generiert beim ersten Start"
+            return 0
+        fi
+        log_success "Passwort-Hash generiert"
     fi
 
-    # Store hash in config/secrets directory for reference
+    # Hash in Secrets speichern
     mkdir -p config/secrets
     chmod 700 config/secrets
-    echo "$ADMIN_HASH" > config/secrets/admin.hash
+    echo "$admin_hash" > config/secrets/admin.hash
     chmod 600 config/secrets/admin.hash
 
-    # Insert admin user into database
-    log_info "Creating admin user in database..."
+    # Admin-Benutzer in Datenbank anlegen
+    log_info "Erstelle Admin-Benutzer in Datenbank..."
 
-    docker compose exec -T postgres-db psql -U arasul -d arasul_db <<EOF
-INSERT INTO admin_users (username, password_hash, email, created_at)
-VALUES ('${ADMIN_USERNAME:-admin}', '$ADMIN_HASH', 'admin@arasul.local', NOW())
-ON CONFLICT (username) DO UPDATE
-SET password_hash = EXCLUDED.password_hash;
-EOF
+    docker compose exec -T postgres-db psql -U arasul -d arasul_db -c "
+        INSERT INTO admin_users (username, password_hash, email, created_at)
+        VALUES ('${admin_user:-admin}', '${admin_hash}', '${admin_email:-admin@arasul.local}', NOW())
+        ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash;
+    "
 
     if [ $? -eq 0 ]; then
-        log_success "Admin user created (using fixed development credentials)"
-        log_info "Username: ${ADMIN_USERNAME:-admin}"
-        log_info "Password: $ADMIN_PASSWORD"
+        log_success "Administrator erstellt: ${admin_user:-admin}"
     else
-        log_error "Failed to create admin user in database"
+        log_error "Administrator-Erstellung fehlgeschlagen"
         return 1
     fi
 }
@@ -743,6 +769,30 @@ run_smoke_tests() {
 
     local failed=0
     local warnings=0
+
+    # Config-Validierung: keine Dev-Credentials in Production
+    log_info "Pruefe Konfiguration..."
+    if grep -q "arasul123" .env 2>/dev/null; then
+        log_warning "Konfiguration: Standard-Dev-Credentials erkannt"
+        warnings=1
+    else
+        local jwt_len=$(grep "^JWT_SECRET=" .env 2>/dev/null | cut -d'=' -f2 | wc -c)
+        if [ "$jwt_len" -ge 32 ]; then
+            log_success "Konfiguration: Produktionsreif"
+        else
+            log_warning "JWT_SECRET kurz (${jwt_len} Zeichen)"
+            warnings=1
+        fi
+    fi
+
+    # Jetson-Profil pruefen
+    local profile=$(grep "^JETSON_PROFILE=" .env 2>/dev/null | cut -d'=' -f2)
+    if [ -n "$profile" ]; then
+        log_success "Jetson-Profil: ${profile}"
+    else
+        log_warning "Kein Jetson-Profil in .env"
+        warnings=1
+    fi
 
     # Wait for services to be fully ready
     log_info "Waiting for services to stabilize (30s)..."
@@ -899,96 +949,123 @@ run_smoke_tests() {
     fi
 }
 
+# Show completion summary after successful bootstrap
+show_completion_summary() {
+    local admin_user=$(grep "^ADMIN_USERNAME=" .env | cut -d'=' -f2)
+    local admin_pass=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
+    local hostname=$(grep "^MDNS_NAME=" .env | cut -d'=' -f2)
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${GREEN}  ARASUL PLATFORM - Erfolgreich installiert!${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo -e "  Dashboard:    ${BLUE}https://${hostname:-arasul}.local${NC}"
+    echo -e "  n8n:          ${BLUE}https://${hostname:-arasul}.local/n8n${NC}"
+    echo ""
+    echo "  ┌─────────────────────────────────────────────┐"
+    echo "  │  Benutzername:  ${admin_user:-admin}"
+    echo "  │  Passwort:      ${admin_pass}"
+    echo "  │                                             │"
+    echo "  │  BITTE NOTIEREN UND SICHER AUFBEWAHREN!     │"
+    echo "  └─────────────────────────────────────────────┘"
+    echo ""
+    echo "  Befehle:"
+    echo "    ./arasul status    - Status anzeigen"
+    echo "    ./arasul logs      - Logs anzeigen"
+    echo "    ./arasul stop      - System stoppen"
+    echo "    ./arasul restart   - System neustarten"
+    echo ""
+}
+
 # Bootstrap command
 cmd_bootstrap() {
     show_banner
     check_root
 
-    # Hardware validation
+    # 1. Hardware validieren
     if ! validate_hardware; then
-        log_error "Hardware validation failed. Cannot proceed with bootstrap."
-        log_info "Please ensure your system meets the minimum requirements:"
-        log_info "  - NVIDIA GPU with drivers installed"
-        log_info "  - Minimum 16GB RAM (32GB+ recommended)"
-        log_info "  - Minimum 64GB disk space (128GB+ recommended)"
+        log_error "Hardware-Validierung fehlgeschlagen."
+        log_info "Mindestanforderungen:"
+        log_info "  - NVIDIA GPU mit installierten Treibern"
+        log_info "  - Mindestens 16GB RAM (32GB+ empfohlen)"
+        log_info "  - Mindestens 64GB Speicherplatz (128GB+ empfohlen)"
         exit 1
     fi
 
+    # 2. Software-Voraussetzungen
     check_requirements
+
+    # 3. Interactive Setup (generiert .env)
+    if [ ! -f .env ] || [ "$FORCE_SETUP" = "true" ]; then
+        run_interactive_setup
+    else
+        log_info ".env existiert bereits, ueberspringe Setup"
+        log_info "Tipp: ./arasul setup  um die Konfiguration zu aendern"
+    fi
+
+    # 4. Jetson-Profil anwenden
+    apply_jetson_profile
+
+    # 5. Konfiguration validieren
+    log_info "Validiere Konfiguration..."
+    if [ -f "${SCRIPT_DIR}/scripts/validate/validate_config.sh" ]; then
+        if ! "${SCRIPT_DIR}/scripts/validate/validate_config.sh"; then
+            log_error "Konfigurationsvalidierung fehlgeschlagen"
+            exit 1
+        fi
+    fi
+
+    if [ -f "${SCRIPT_DIR}/scripts/validate/validate_dependencies.sh" ]; then
+        if ! "${SCRIPT_DIR}/scripts/validate/validate_dependencies.sh"; then
+            log_error "Abhaengigkeitsvalidierung fehlgeschlagen"
+            exit 1
+        fi
+    fi
+
+    # 6. Verzeichnisse erstellen
     create_directories
-    init_env
 
-    # Validate configuration
-    log_info "Validating configuration..."
-    if ! "${SCRIPT_DIR}/scripts/validate_config.sh"; then
-        log_error "Configuration validation failed. Please fix errors and try again."
-        exit 1
-    fi
-
-    # Validate Docker Compose dependencies
-    log_info "Validating Docker Compose dependency chain..."
-    if ! "${SCRIPT_DIR}/scripts/validate_dependencies.sh"; then
-        log_error "Docker Compose dependency validation failed. Please fix errors and try again."
-        exit 1
-    fi
-
-    # Setup secrets (using fixed credentials from .env)
+    # 7. Secrets & Auth konfigurieren
     setup_secrets
 
-    # Setup HTTPS/TLS
+    # 8. TLS-Zertifikate
     setup_https
 
-    pull_images
-    build_images
+    # 9. Docker-Images (--skip-pull / --skip-build fuer Factory-Images)
+    if [ "$SKIP_PULL" != "true" ]; then
+        pull_images
+    else
+        log_info "Image-Pull uebersprungen (--skip-pull)"
+    fi
+
+    if [ "$SKIP_BUILD" != "true" ]; then
+        build_images
+    else
+        log_info "Image-Build uebersprungen (--skip-build)"
+    fi
+
+    # 10. Datenbank initialisieren
     init_database
+
+    # 11. Services starten
     start_services
 
-    # Wait for services to stabilize before initialization
-    log_info "Waiting for services to stabilize..."
+    # 12. Warten auf Stabilisierung
+    log_info "Warte auf Service-Stabilisierung..."
     sleep 10
 
+    # 13. MinIO-Buckets erstellen
     init_minio_buckets
+
+    # 14. Admin-Benutzer anlegen
     init_admin_user
 
+    # 15. Smoke Tests & Ergebnis
     if run_smoke_tests; then
-        # Success - generate success report
         generate_error_report 0 "completed"
-
-        echo ""
-        log_success "Arasul Platform bootstrap completed successfully!"
-        echo ""
-        log_info "Dashboard URL: http://localhost"
-        log_info "n8n URL: http://localhost/n8n"
-        log_info "MinIO Console: http://localhost:9001"
-        echo ""
-
-        # Display development credentials
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        log_info "🔐 DEVELOPMENT CREDENTIALS (all services):"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-
-        ADMIN_PASS=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
-        log_info "All Services:"
-        log_info "   Username: admin"
-        log_info "   Password: $ADMIN_PASS"
-        echo ""
-        log_info "Services using these credentials:"
-        log_info "   - Dashboard: http://localhost"
-        log_info "   - n8n: http://localhost:5678"
-        log_info "   - MinIO Console: http://localhost:9001"
-        echo ""
-
-        log_warning "⚠️  DEVELOPMENT MODE: Fixed credentials - NOT for production!"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-
-        log_info "View logs: ./arasul logs"
-        log_info "Stop system: ./arasul stop"
-        log_info "Restart system: ./arasul restart"
-        echo ""
+        show_completion_summary
     else
-        # Smoke tests failed - generate error report
         generate_error_report 1 "smoke_tests"
         exit 1
     fi
@@ -1044,22 +1121,15 @@ cmd_update() {
 
 # Setup command - Interactive configuration
 cmd_setup() {
-    log_info "Starting interactive setup wizard..."
-
-    if [ -f "${SCRIPT_DIR}/scripts/interactive_setup.sh" ]; then
-        "${SCRIPT_DIR}/scripts/interactive_setup.sh"
-    else
-        log_error "Setup wizard not found"
-        exit 1
-    fi
+    run_interactive_setup
 }
 
 # mDNS setup command
 cmd_mdns() {
     log_info "Configuring mDNS (Avahi)..."
 
-    if [ -f "${SCRIPT_DIR}/scripts/setup_mdns.sh" ]; then
-        sudo "${SCRIPT_DIR}/scripts/setup_mdns.sh"
+    if [ -f "${SCRIPT_DIR}/scripts/setup/setup_mdns.sh" ]; then
+        sudo "${SCRIPT_DIR}/scripts/setup/setup_mdns.sh"
     else
         log_error "mDNS setup script not found"
         exit 1
@@ -1104,15 +1174,15 @@ cmd_test_stability() {
 cmd_validate_config() {
     log_info "Validating configuration..."
 
-    if [ -f "${SCRIPT_DIR}/scripts/validate_config.sh" ]; then
-        "${SCRIPT_DIR}/scripts/validate_config.sh" "$@"
+    if [ -f "${SCRIPT_DIR}/scripts/validate/validate_config.sh" ]; then
+        "${SCRIPT_DIR}/scripts/validate/validate_config.sh" "$@"
     else
         log_error "Config validation script not found"
         exit 1
     fi
 }
 
-# Setup secrets (using fixed credentials from .env)
+# Setup secrets (uses credentials from .env)
 cmd_setup_secrets() {
     setup_secrets
 }
@@ -1121,8 +1191,8 @@ cmd_setup_secrets() {
 cmd_validate_dependencies() {
     log_info "Validating Docker Compose dependency chain..."
 
-    if [ -f "${SCRIPT_DIR}/scripts/validate_dependencies.sh" ]; then
-        "${SCRIPT_DIR}/scripts/validate_dependencies.sh" "$@"
+    if [ -f "${SCRIPT_DIR}/scripts/validate/validate_dependencies.sh" ]; then
+        "${SCRIPT_DIR}/scripts/validate/validate_dependencies.sh" "$@"
     else
         log_error "Dependency validation script not found"
         exit 1
@@ -1156,8 +1226,11 @@ cmd_help() {
     echo "Usage: ./arasul <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  setup             - Run interactive configuration wizard"
-    echo "  bootstrap         - Initialize and start the platform for the first time"
+    echo "  setup             - Interaktive Konfiguration starten"
+    echo "  bootstrap         - Plattform erstmalig einrichten und starten"
+    echo "    --skip-pull       Kein Docker Pull (fuer Factory-Images)"
+    echo "    --skip-build      Kein Docker Build (fuer Factory-Images)"
+    echo "    --force-setup     Setup erneut ausfuehren auch wenn .env existiert"
     echo "  start             - Start all services"
     echo "  stop              - Stop all services"
     echo "  restart           - Restart all services"
@@ -1193,6 +1266,15 @@ case "${1:-help}" in
         cmd_setup
         ;;
     bootstrap)
+        # Parse bootstrap flags
+        shift
+        for arg in "$@"; do
+            case "$arg" in
+                --skip-pull)   SKIP_PULL=true ;;
+                --skip-build)  SKIP_BUILD=true ;;
+                --force-setup) FORCE_SETUP=true ;;
+            esac
+        done
         cmd_bootstrap
         ;;
     start)

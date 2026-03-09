@@ -524,12 +524,14 @@ else
       cd "$PROJECT_ROOT"
       docker compose up -d llm-service 2>/dev/null || true
 
-      # Wait for Ollama to be ready
-      for i in $(seq 1 60); do
+      # Wait for Ollama to be ready (adaptive timeout based on device)
+      OLLAMA_TIMEOUT=${OLLAMA_STARTUP_TIMEOUT:-120}
+      log_info "Warte auf Ollama (Timeout: ${OLLAMA_TIMEOUT}s)..."
+      for i in $(seq 1 "$OLLAMA_TIMEOUT"); do
         if docker compose exec -T llm-service ollama list >/dev/null 2>&1; then
           break
         fi
-        sleep 2
+        sleep 1
       done
     fi
 
