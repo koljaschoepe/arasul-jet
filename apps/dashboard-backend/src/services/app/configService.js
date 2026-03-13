@@ -13,7 +13,9 @@ const logger = require('../../utils/logger');
  * Resolve ${VAR} patterns in a string from process.env
  */
 function resolveEnvVars(str) {
-  if (!str || typeof str !== 'string') {return str;}
+  if (!str || typeof str !== 'string') {
+    return str;
+  }
   return str.replace(/\$\{([^}]+)\}/g, (match, varName) => {
     return process.env[varName] || match;
   });
@@ -210,7 +212,7 @@ async function getN8nCredentials(appId) {
   // Docker Gateway = Host IP from container perspective
   // The gateway of the arasul-net network (172.30.0.1) points to the host
   const hostIp = process.env.DOCKER_GATEWAY_IP || '172.30.0.1';
-  const sshPort = parseInt(process.env.SSH_PORT || '22');
+  const sshPort = parseInt(process.env.SSH_PORT || '2222');
   const sshUser = process.env.SSH_USER || 'arasul';
 
   // Try to read the private key from shared volume

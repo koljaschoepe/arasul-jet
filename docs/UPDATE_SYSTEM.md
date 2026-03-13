@@ -696,10 +696,10 @@ openssl genrsa -out private_key.pem 4096
 openssl rsa -in private_key.pem -pubout -out public_update_key.pem
 
 # Copy public key to device
-scp public_update_key.pem jetson@arasul.local:/arasul/config/
+scp -P 2222 public_update_key.pem arasul@arasul.local:/arasul/config/
 
 # Install udev rule
-ssh jetson@arasul.local
+ssh -p 2222 arasul@arasul.local
 sudo cp /arasul/config/udev/99-arasul-usb.rules /etc/udev/rules.d/
 sudo cp /arasul/scripts/util/arasul-usb-trigger.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/arasul-usb-trigger.sh

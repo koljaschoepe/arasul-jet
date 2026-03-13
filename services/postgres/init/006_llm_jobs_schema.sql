@@ -134,11 +134,11 @@ COMMENT ON COLUMN llm_jobs.last_update_at IS 'Last content update timestamp (for
 -- ============================================================================
 
 INSERT INTO self_healing_events (event_type, severity, description, action_taken, service_name, success)
-VALUES (
-    'database_migration',
-    'INFO',
+SELECT 'database_migration', 'INFO',
     'LLM Jobs schema migration (006) applied successfully',
     'Created llm_jobs table and extended chat_messages with job_id and status',
-    'postgres-db',
-    true
+    'postgres-db', true
+WHERE NOT EXISTS (
+    SELECT 1 FROM self_healing_events
+    WHERE event_type = 'database_migration' AND description = 'LLM Jobs schema migration (006) applied successfully'
 );

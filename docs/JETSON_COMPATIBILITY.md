@@ -4,18 +4,20 @@ This guide covers running the Arasul Platform on different NVIDIA Jetson devices
 
 ## Supported Devices
 
-| Device          | RAM  | GPU     | Status          | Recommended LLM |
-| --------------- | ---- | ------- | --------------- | --------------- |
-| AGX Orin 64GB   | 64GB | Ampere  | Fully Supported | qwen3:14b-q8    |
-| AGX Orin 32GB   | 32GB | Ampere  | Fully Supported | qwen3:8b-q8     |
-| Orin NX 16GB    | 16GB | Ampere  | Fully Supported | llama3.1:8b     |
-| Orin NX 8GB     | 8GB  | Ampere  | Supported       | phi3:mini       |
-| Orin Nano 8GB   | 8GB  | Ampere  | Supported       | phi3:mini       |
-| Orin Nano 4GB   | 4GB  | Ampere  | Limited         | tinyllama:1.1b  |
-| Xavier AGX 32GB | 32GB | Volta   | Supported       | llama3.1:8b     |
-| Xavier AGX 16GB | 16GB | Volta   | Supported       | mistral:7b      |
-| Xavier NX 8GB   | 8GB  | Volta   | Supported       | phi3:mini       |
-| Jetson Nano 4GB | 4GB  | Maxwell | Limited         | tinyllama:1.1b  |
+| Device          | RAM   | GPU       | Status          | Recommended LLM |
+| --------------- | ----- | --------- | --------------- | --------------- |
+| Thor 128GB      | 128GB | Blackwell | Planned         | qwen3:32b-q8    |
+| Thor 64GB       | 64GB  | Blackwell | Planned         | qwen3:14b-q8    |
+| AGX Orin 64GB   | 64GB  | Ampere    | Fully Supported | qwen3:14b-q8    |
+| AGX Orin 32GB   | 32GB  | Ampere    | Fully Supported | qwen3:8b-q8     |
+| Orin NX 16GB    | 16GB  | Ampere    | Fully Supported | llama3.1:8b     |
+| Orin NX 8GB     | 8GB   | Ampere    | Supported       | phi3:mini       |
+| Orin Nano 8GB   | 8GB   | Ampere    | Supported       | phi3:mini       |
+| Orin Nano 4GB   | 4GB   | Ampere    | Limited         | tinyllama:1.1b  |
+| Xavier AGX 32GB | 32GB  | Volta     | Supported       | llama3.1:8b     |
+| Xavier AGX 16GB | 16GB  | Volta     | Supported       | mistral:7b      |
+| Xavier NX 8GB   | 8GB   | Volta     | Supported       | phi3:mini       |
+| Jetson Nano 4GB | 4GB   | Maxwell   | Limited         | tinyllama:1.1b  |
 
 ## Quick Setup
 
@@ -46,6 +48,99 @@ nano .env
 ```
 
 ## Device Profiles
+
+### Thor 128GB (Maximum Performance)
+
+> **Note:** Thor support is based on preliminary specifications (Blackwell GPU, sm_100 compute capability). Configuration values may need adjustment when hardware is available. The `L4T_PYTORCH_TAG` for Thor (`r37.0.0`) is speculative and must be updated once NVIDIA publishes the corresponding dustynv base image.
+
+```bash
+# Resource Limits
+# Budget: ~120G for services, ~8G reserved for OS
+RAM_LIMIT_POSTGRES=4G
+RAM_LIMIT_LLM=92G
+RAM_LIMIT_EMBEDDING=8G
+RAM_LIMIT_BACKEND=2G
+RAM_LIMIT_FRONTEND=1G
+RAM_LIMIT_N8N=2G
+RAM_LIMIT_QDRANT=4G
+RAM_LIMIT_MINIO=2G
+RAM_LIMIT_METRICS=512M
+RAM_LIMIT_SELF_HEALING=512M
+RAM_LIMIT_TELEGRAM=256M
+RAM_LIMIT_DOCUMENT_INDEXER=2G
+RAM_LIMIT_REVERSE_PROXY=512M
+RAM_LIMIT_BACKUP=256M
+# Total allocated: ~119.5G
+
+# CPU Limits (Thor expected 12-16+ cores)
+CPU_LIMIT_LLM=12
+CPU_LIMIT_EMBEDDING=4
+CPU_LIMIT_BACKEND=4
+
+# LLM Configuration
+LLM_MODEL=qwen3:32b-q8
+LLM_CONTEXT_LENGTH=32768
+LLM_GPU_LAYERS=99
+LLM_KEEP_ALIVE_SECONDS=900
+OLLAMA_STARTUP_TIMEOUT=240
+
+# GPU Configuration
+TORCH_CUDA_ARCH_LIST=10.0
+L4T_PYTORCH_TAG=r37.0.0
+
+# Recommended Models (in order of capability)
+# - qwen3:32b-q8 (32GB) - Default, best quality
+# - llama3.1:70b-q4 (40GB) - Maximum capability
+# - codellama:70b (38GB) - Best for coding
+# - mixtral:8x7b (26GB) - MoE architecture
+# - deepseek-coder:33b (18GB) - Code specialist
+```
+
+### Thor 64GB (High Performance)
+
+> **Note:** Same preliminary-specs caveat as Thor 128GB above.
+
+```bash
+# Resource Limits
+# Budget: ~58G for services, ~6G reserved for OS
+RAM_LIMIT_POSTGRES=2G
+RAM_LIMIT_LLM=38G
+RAM_LIMIT_EMBEDDING=6G
+RAM_LIMIT_BACKEND=2G
+RAM_LIMIT_FRONTEND=1G
+RAM_LIMIT_N8N=2G
+RAM_LIMIT_QDRANT=3G
+RAM_LIMIT_MINIO=2G
+RAM_LIMIT_METRICS=512M
+RAM_LIMIT_SELF_HEALING=512M
+RAM_LIMIT_TELEGRAM=256M
+RAM_LIMIT_DOCUMENT_INDEXER=2G
+RAM_LIMIT_REVERSE_PROXY=512M
+RAM_LIMIT_BACKUP=256M
+# Total allocated: ~57.5G
+
+# CPU Limits
+CPU_LIMIT_LLM=10
+CPU_LIMIT_EMBEDDING=4
+CPU_LIMIT_BACKEND=4
+
+# LLM Configuration
+LLM_MODEL=qwen3:14b-q8
+LLM_CONTEXT_LENGTH=16384
+LLM_GPU_LAYERS=99
+LLM_KEEP_ALIVE_SECONDS=600
+OLLAMA_STARTUP_TIMEOUT=180
+
+# GPU Configuration
+TORCH_CUDA_ARCH_LIST=10.0
+L4T_PYTORCH_TAG=r37.0.0
+
+# Recommended Models
+# - qwen3:14b-q8 (15GB) - Default, best balance
+# - llama3.1:70b-q4 (40GB) - Maximum capability
+# - codellama:34b (19GB) - Best for coding
+# - mixtral:8x7b (26GB) - MoE architecture
+```
 
 ### AGX Orin 64GB (Maximum Performance)
 
@@ -152,18 +247,41 @@ DISABLE_TELEGRAM=true
 # - qwen:0.5b (0.3GB) - Smallest
 ```
 
+## Thor vs Orin: Key Differences
+
+| Property               | Thor 128GB                 | AGX Orin 64GB   |
+| ---------------------- | -------------------------- | --------------- |
+| GPU Architecture       | Blackwell                  | Ampere          |
+| Unified Memory         | 128GB                      | 64GB            |
+| CUDA Compute Cap.      | sm_100 (speculative)       | sm_87           |
+| Default LLM Model      | qwen3:32b-q8               | qwen3:14b-q8    |
+| Max Context Length     | 32768                      | 16384           |
+| LLM RAM Allocation     | 92G                        | 48G             |
+| Ollama Startup Timeout | 240s                       | 180s            |
+| L4T PyTorch Tag        | r37.0.0 (TBD)              | r36.4.0         |
+| Expected CPU Cores     | 12-16+                     | 12              |
+| Status                 | Planned (specs may change) | Fully Supported |
+
+**Setup differences:**
+
+- Thor detection uses a 5-level hierarchy in `detect-jetson.sh`: device-tree model, compatible string, chip ID (36/37/38), nvidia-smi GPU name, and RAM-based fallback (>=120GB).
+- Thor profiles set a longer `OLLAMA_STARTUP_TIMEOUT` (240s for 128GB, 180s for 64GB) because larger default models take more time to load.
+- The `L4T_PYTORCH_TAG` for Thor (`r37.0.0`) is a placeholder. It must be updated once NVIDIA publishes the Thor JetPack release and dustynv provides a matching base image.
+- FP16 embeddings are disabled by default on Thor (enough RAM for FP32), while most Orin variants use FP16 to save memory.
+
 ## CUDA Architecture
 
 Each Jetson family has a different CUDA compute capability:
 
-| Family | Architecture | Compute Capability |
-| ------ | ------------ | ------------------ |
-| Orin   | Ampere       | 8.7                |
-| Xavier | Volta        | 7.2                |
-| TX2    | Pascal       | 6.2                |
-| Nano   | Maxwell      | 5.3                |
+| Family | Architecture | Compute Capability | L4T PyTorch Tag |
+| ------ | ------------ | ------------------ | --------------- |
+| Thor   | Blackwell    | 10.0 (speculative) | r37.0.0 (TBD)   |
+| Orin   | Ampere       | 8.7                | r36.4.0         |
+| Xavier | Volta        | 7.2                | r35.4.1         |
+| TX2    | Pascal       | 6.2                | -               |
+| Nano   | Maxwell      | 5.3                | -               |
 
-The detection script automatically sets `TORCH_CUDA_ARCH_LIST` based on your device.
+The detection script automatically sets `TORCH_CUDA_ARCH_LIST` based on your device. The value is passed as the `CUDA_ARCH_LIST` build arg to the embedding-service Dockerfile and set as the `TORCH_CUDA_ARCH_LIST` runtime environment variable for PyTorch.
 
 ## Memory Management
 
@@ -315,11 +433,12 @@ docker compose up -d --scale n8n=0 --scale telegram-bot=0
 
 | JetPack Version | Supported Devices | CUDA Version |
 | --------------- | ----------------- | ------------ |
+| 7.x (planned)   | Thor family       | TBD          |
 | 6.0+            | Orin family       | CUDA 12.2    |
 | 5.x             | Xavier, Orin      | CUDA 11.4    |
 | 4.6             | Nano, TX2         | CUDA 10.2    |
 
-Minimum recommended: **JetPack 5.1** or higher.
+Minimum recommended: **JetPack 5.1** or higher. Thor devices will require JetPack 7.x (not yet released).
 
 ## GPU Error Handling & Recovery
 

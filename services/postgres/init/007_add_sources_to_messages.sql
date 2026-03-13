@@ -27,11 +27,11 @@ COMMENT ON COLUMN chat_messages.sources IS 'RAG sources as JSONB array (document
 -- ============================================================================
 
 INSERT INTO self_healing_events (event_type, severity, description, action_taken, service_name, success)
-VALUES (
-    'database_migration',
-    'INFO',
+SELECT 'database_migration', 'INFO',
     'Chat messages sources migration (007) applied successfully',
     'Added sources JSONB column to chat_messages table',
-    'postgres-db',
-    true
+    'postgres-db', true
+WHERE NOT EXISTS (
+    SELECT 1 FROM self_healing_events
+    WHERE event_type = 'database_migration' AND description = 'Chat messages sources migration (007) applied successfully'
 );

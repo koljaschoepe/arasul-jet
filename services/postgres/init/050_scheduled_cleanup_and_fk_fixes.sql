@@ -302,13 +302,13 @@ GRANT EXECUTE ON FUNCTION run_all_cleanups() TO arasul;
 -- ============================================================================
 
 INSERT INTO self_healing_events (event_type, severity, description, action_taken, service_name, success)
-VALUES (
-    'database_migration',
-    'INFO',
+SELECT 'database_migration', 'INFO',
     'Scheduled cleanup and FK fixes migration (050) applied successfully',
     'Created run_all_cleanups() function consolidating 17 cleanup functions; ensured llm_jobs.conversation_id ON DELETE CASCADE',
-    'postgres-db',
-    true
+    'postgres-db', true
+WHERE NOT EXISTS (
+    SELECT 1 FROM self_healing_events
+    WHERE event_type = 'database_migration' AND description = 'Scheduled cleanup and FK fixes migration (050) applied successfully'
 );
 
 COMMIT;

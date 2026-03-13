@@ -4,7 +4,7 @@
 # Creates default buckets for the platform
 ###############################################################################
 
-set -e
+set -euo pipefail
 
 # Colors
 GREEN='\033[0;32m'
@@ -16,6 +16,10 @@ log_info() { echo -e "[INFO] $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# Track critical bucket failures
+FAILED_BUCKETS=()
+CRITICAL_BUCKETS="documents backups"
 
 # MinIO credentials from environment or defaults
 MINIO_HOST="${MINIO_HOST:-minio}"
@@ -80,6 +84,7 @@ for bucket_spec in "${BUCKETS[@]}"; do
             log_success "Bucket '$bucket_name' created"
         else
             log_error "Failed to create bucket '$bucket_name'"
+            FAILED_BUCKETS+=("$bucket_name")
             continue
         fi
     fi
@@ -158,9 +163,34 @@ EOF
     log_success "Bucket '$bucket_name' configured successfully"
 done
 
+# Check for critical bucket failures before proceeding
+if [ ${#FAILED_BUCKETS[@]} -gt 0 ]; then
+    log_error "The following buckets failed to create: ${FAILED_BUCKETS[*]}"
+
+    # Check if any critical buckets failed
+    CRITICAL_FAILURE=false
+    for failed in "${FAILED_BUCKETS[@]}"; do
+        for critical in $CRITICAL_BUCKETS; do
+            if [ "$failed" = "$critical" ]; then
+                log_error "CRITICAL: Bucket '$failed' is required for platform operation"
+                CRITICAL_FAILURE=true
+            fi
+        done
+    done
+
+    if [ "$CRITICAL_FAILURE" = true ]; then
+        log_error "Critical bucket creation failed - platform cannot function correctly"
+        log_error "Check MinIO service health: curl -f http://${MINIO_HOST}:${MINIO_PORT}/minio/health/live"
+        log_error "Check MinIO credentials: MINIO_ROOT_USER / MINIO_ROOT_PASSWORD"
+        exit 1
+    fi
+
+    log_warning "Non-critical buckets failed - platform may have reduced functionality"
+fi
+
 # Verify buckets
 log_info "Verifying created buckets..."
-BUCKET_COUNT=$(mc ls local | wc -l)
+BUCKET_COUNT=$(mc ls local 2>/dev/null | wc -l || echo "0")
 log_success "Total buckets: $BUCKET_COUNT"
 
 echo ""

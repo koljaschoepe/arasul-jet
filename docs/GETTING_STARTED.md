@@ -36,6 +36,94 @@ Dashboard: `http://localhost` | n8n: `http://localhost/n8n` | MinIO: `http://loc
 
 ---
 
+## Interactive Setup
+
+For first-time installations, use the interactive setup wizard instead of manually editing `.env`:
+
+```bash
+./scripts/interactive_setup.sh
+```
+
+The wizard walks through 5 steps: hardware detection, admin account, network, AI model selection, and confirmation. It auto-detects Jetson hardware (Orin/Thor), generates all secrets, and writes a production-ready `.env` file. Afterwards, run `./arasul bootstrap` to start all services.
+
+---
+
+## Non-Interactive Setup
+
+For automated deployments, CI/CD pipelines, or fleet provisioning, skip all prompts:
+
+```bash
+ADMIN_PASSWORD='YourSecurePass1' ./scripts/interactive_setup.sh --non-interactive
+```
+
+**What it does:** Generates a complete `.env` with auto-detected hardware profile, default AI model for the detected device, and randomly generated secrets -- all without user interaction.
+
+**Password requirements:** Minimum 12 characters, at least one uppercase letter, one lowercase letter, and one digit. Common weak passwords are rejected.
+
+**Optional overrides via environment variables:**
+
+| Variable         | Default              | Description         |
+| ---------------- | -------------------- | ------------------- |
+| `ADMIN_USERNAME` | `admin`              | Admin login name    |
+| `ADMIN_EMAIL`    | `admin@arasul.local` | Admin email address |
+| `LLM_MODEL`      | _(auto-detected)_    | Ollama model name   |
+| `HOSTNAME`       | `arasul`             | mDNS hostname       |
+
+After setup completes, run `./arasul bootstrap` to pull images and start services.
+
+---
+
+## Factory Image Workflow
+
+Factory images enable fully offline deployment to new Jetson devices via USB, with no internet required.
+
+### Creating a Factory Image
+
+On an existing, working Arasul device:
+
+```bash
+./scripts/deploy/create-factory-image.sh
+```
+
+**Options:**
+
+| Flag               | Description                                  |
+| ------------------ | -------------------------------------------- |
+| `--include-models` | Bundle Ollama AI models (can add several GB) |
+| `--output=DIR`     | Output directory (default: `./deployment`)   |
+| `--version=VER`    | Version tag (default: timestamp)             |
+
+The script builds all Docker images, exports them, copies the project source (excluding data, `.env`, and secrets), and creates a `MANIFEST.yml` with checksums. Output is a single `arasul-factory-<version>.tar.gz` archive.
+
+### Deploying to a New Device
+
+Copy the archive to the target device (e.g. via USB drive), then:
+
+```bash
+tar xzf arasul-factory-*.tar.gz
+cd arasul-factory-*/
+./factory-install.sh
+```
+
+The installer loads pre-built Docker images, restores AI models (if included), runs the interactive setup wizard for admin credentials and network config, then bootstraps all services. Takes roughly 5-10 minutes with no internet required.
+
+For fleet provisioning, combine with non-interactive mode:
+
+```bash
+ADMIN_PASSWORD='YourSecurePass1' ./factory-install.sh --non-interactive
+```
+
+**What's included in the factory image:**
+
+- All Docker images (pre-built for ARM/Jetson)
+- Project source code and scripts
+- Factory installer script and manifest
+- Ollama AI models (only with `--include-models`)
+
+**Not included** (generated fresh on each device): `.env`, TLS certificates, database data, uploaded files.
+
+---
+
 ## Project Structure
 
 ```

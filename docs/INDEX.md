@@ -39,14 +39,15 @@ Quick navigation to all Arasul Platform documentation.
 
 ## Operations
 
-| Document                                 | Description                                      |
-| ---------------------------------------- | ------------------------------------------------ |
-| [DEPLOYMENT.md](DEPLOYMENT.md)           | Installation, deployment, pre-shipping checklist |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Problem resolution & support                     |
-| [BACKUP_SYSTEM.md](BACKUP_SYSTEM.md)     | Automated backup documentation                   |
-| [UPDATE_SYSTEM.md](UPDATE_SYSTEM.md)     | Update mechanism                                 |
-| [ADMIN_HANDBUCH.md](ADMIN_HANDBUCH.md)   | Administration handbook (12 chapters)            |
-| [QUICK_START.md](QUICK_START.md)         | Customer quick start guide                       |
+| Document                                       | Description                                      |
+| ---------------------------------------------- | ------------------------------------------------ |
+| [FRESH_DEPLOY_GUIDE.md](FRESH_DEPLOY_GUIDE.md) | Fresh Jetson deployment (3 methods, German)      |
+| [DEPLOYMENT.md](DEPLOYMENT.md)                 | Installation, deployment, pre-shipping checklist |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md)       | Problem resolution & support                     |
+| [BACKUP_SYSTEM.md](BACKUP_SYSTEM.md)           | Automated backup documentation                   |
+| [UPDATE_SYSTEM.md](UPDATE_SYSTEM.md)           | Update mechanism                                 |
+| [ADMIN_HANDBUCH.md](ADMIN_HANDBUCH.md)         | Administration handbook (12 chapters)            |
+| [QUICK_START.md](QUICK_START.md)               | Customer quick start guide                       |
 
 ---
 

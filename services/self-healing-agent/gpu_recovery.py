@@ -43,13 +43,13 @@ class GPURecovery:
         self.metrics_url = f"http://{os.getenv('METRICS_COLLECTOR_HOST', 'metrics-collector')}:9100"
         self.last_gpu_stats = None
 
-        # Thresholds (matching GPU Monitor)
+        # Thresholds (matching GPU Monitor - percentage-based for device-agnostic support)
         self.TEMP_WARNING = 83.0
         self.TEMP_CRITICAL = 85.0
         self.TEMP_SHUTDOWN = 90.0
-        self.MEMORY_WARNING_MB = 36 * 1024
-        self.MEMORY_CRITICAL_MB = 38 * 1024
-        self.MEMORY_MAX_MB = 40 * 1024
+        self.MEMORY_WARNING_PERCENT = float(os.getenv('GPU_MEMORY_WARNING_PERCENT', '85'))
+        self.MEMORY_CRITICAL_PERCENT = float(os.getenv('GPU_MEMORY_CRITICAL_PERCENT', '92'))
+        self.MEMORY_MAX_PERCENT = float(os.getenv('GPU_MEMORY_MAX_PERCENT', '97'))
 
     def get_gpu_stats(self) -> Optional[Dict]:
         """Fetch current GPU stats from metrics collector"""
@@ -105,7 +105,7 @@ class GPURecovery:
 
     def check_memory_limit(self) -> Tuple[bool, float]:
         """
-        Check if GPU memory exceeds limits
+        Check if GPU memory exceeds limits (percentage-based, works across Orin/Thor)
 
         Returns:
             Tuple of (exceeded, memory_used_mb)
@@ -116,15 +116,21 @@ class GPURecovery:
             return False, 0.0
 
         memory_used = stats.get('memory', {}).get('used_mb', 0)
+        memory_total = stats.get('memory', {}).get('total_mb', 1)
+        memory_percent = stats.get('memory', {}).get('percent', 0.0)
 
-        if memory_used >= self.MEMORY_MAX_MB:
-            logger.critical(f"GPU memory exceeded absolute limit: {memory_used}MB >= {self.MEMORY_MAX_MB}MB")
+        # Use reported percent if available, otherwise calculate
+        if memory_percent <= 0 and memory_total > 0:
+            memory_percent = (memory_used / memory_total) * 100
+
+        if memory_percent >= self.MEMORY_MAX_PERCENT:
+            logger.critical(f"GPU memory exceeded limit: {memory_percent:.1f}% ({memory_used}MB/{memory_total}MB)")
             return True, memory_used
-        elif memory_used >= self.MEMORY_CRITICAL_MB:
-            logger.warning(f"GPU memory critical: {memory_used}MB >= {self.MEMORY_CRITICAL_MB}MB")
+        elif memory_percent >= self.MEMORY_CRITICAL_PERCENT:
+            logger.warning(f"GPU memory critical: {memory_percent:.1f}% ({memory_used}MB/{memory_total}MB)")
             return True, memory_used
-        elif memory_used >= self.MEMORY_WARNING_MB:
-            logger.info(f"GPU memory warning: {memory_used}MB >= {self.MEMORY_WARNING_MB}MB")
+        elif memory_percent >= self.MEMORY_WARNING_PERCENT:
+            logger.info(f"GPU memory warning: {memory_percent:.1f}% ({memory_used}MB/{memory_total}MB)")
 
         return False, memory_used
 

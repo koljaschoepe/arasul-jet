@@ -20,11 +20,19 @@ INSERT INTO app_dependencies (app_id, depends_on, dependency_type) VALUES
     ('n8n', 'minio', 'required')
 ON CONFLICT (app_id, depends_on) DO NOTHING;
 
--- Log the migration event
+-- Log the migration event (idempotent)
 INSERT INTO app_events (app_id, event_type, event_message, event_details)
-VALUES
-    ('n8n', 'config_update', 'App-Typ von system zu official geaendert', '{"migration": "012_convert_system_apps", "old_type": "system", "new_type": "official"}'::jsonb),
-    ('minio', 'config_update', 'App-Typ von system zu official geaendert', '{"migration": "012_convert_system_apps", "old_type": "system", "new_type": "official"}'::jsonb);
+SELECT 'n8n', 'config_update', 'App-Typ von system zu official geaendert',
+    '{"migration": "012_convert_system_apps", "old_type": "system", "new_type": "official"}'::jsonb
+WHERE NOT EXISTS (
+    SELECT 1 FROM app_events WHERE app_id = 'n8n' AND event_message = 'App-Typ von system zu official geaendert'
+);
+INSERT INTO app_events (app_id, event_type, event_message, event_details)
+SELECT 'minio', 'config_update', 'App-Typ von system zu official geaendert',
+    '{"migration": "012_convert_system_apps", "old_type": "system", "new_type": "official"}'::jsonb
+WHERE NOT EXISTS (
+    SELECT 1 FROM app_events WHERE app_id = 'minio' AND event_message = 'App-Typ von system zu official geaendert'
+);
 
 -- Create function to check dependencies before stop/uninstall
 CREATE OR REPLACE FUNCTION check_app_dependencies(p_app_id VARCHAR(100))

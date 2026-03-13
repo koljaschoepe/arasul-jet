@@ -83,6 +83,50 @@ print_err() {
     echo -e "  ${RED}✗${NC} $1"
 }
 
+# Passwort-Komplexitaet pruefen
+# Gibt Fehlermeldung zurueck (leer = OK)
+validate_password() {
+    local pw="$1"
+    local min_length="${2:-12}"
+
+    # Laenge
+    if [ ${#pw} -lt "$min_length" ]; then
+        echo "Mindestens ${min_length} Zeichen erforderlich (aktuell: ${#pw})"
+        return 1
+    fi
+
+    # Grossbuchstabe
+    if ! echo "$pw" | grep -q '[A-Z]'; then
+        echo "Mindestens ein Grossbuchstabe erforderlich (A-Z)"
+        return 1
+    fi
+
+    # Kleinbuchstabe
+    if ! echo "$pw" | grep -q '[a-z]'; then
+        echo "Mindestens ein Kleinbuchstabe erforderlich (a-z)"
+        return 1
+    fi
+
+    # Ziffer
+    if ! echo "$pw" | grep -q '[0-9]'; then
+        echo "Mindestens eine Ziffer erforderlich (0-9)"
+        return 1
+    fi
+
+    # Schwache Passwoerter ablehnen (case-insensitive)
+    local pw_lower
+    pw_lower=$(echo "$pw" | tr '[:upper:]' '[:lower:]')
+    local weak_passwords="password passwd admin administrator letmein welcome qwerty 123456 12345678 123456789 1234567890 abcdefgh changeme master trustno1 iloveyou dragon monkey shadow"
+    for weak in $weak_passwords; do
+        if [ "$pw_lower" = "$weak" ]; then
+            echo "Dieses Passwort ist zu einfach und leicht zu erraten"
+            return 1
+        fi
+    done
+
+    return 0
+}
+
 # Passwort-Eingabe mit Validierung
 prompt_password() {
     local prompt="$1"
@@ -93,8 +137,10 @@ prompt_password() {
         read -s password
         echo ""
 
-        if [ ${#password} -lt "$min_length" ]; then
-            print_err "Mindestens ${min_length} Zeichen erforderlich"
+        local validation_error
+        validation_error=$(validate_password "$password" "$min_length")
+        if [ $? -ne 0 ]; then
+            print_err "$validation_error"
             continue
         fi
 
@@ -210,9 +256,9 @@ generate_bcrypt_hash() {
         return
     fi
 
-    # Methode 4: Docker mit node
+    # Methode 4: Docker mit node (bcryptjs installieren, dann hashen)
     if command -v docker &>/dev/null; then
-        docker run --rm node:20-alpine node -e "const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],12))" "$password" 2>/dev/null
+        docker run --rm node:20-alpine sh -c "npm install --no-fund --no-audit bcryptjs 2>/dev/null && node -e \"const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],12))\" '$password'" 2>/dev/null
         return
     fi
 
@@ -235,12 +281,14 @@ detect_hardware() {
         DEVICE_CORES=$(detect_cpu_cores)
         DEVICE_PROFILE=$(get_device_profile)
         DEVICE_CUDA=$(detect_cuda_arch)
+        DEVICE_L4T_TAG=$(detect_l4t_pytorch_tag)
     else
         DEVICE_MODEL="Unbekannt"
         DEVICE_RAM=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print int($2/1024/1024)}' || echo "0")
         DEVICE_CORES=$(nproc 2>/dev/null || echo "1")
         DEVICE_PROFILE="generic"
         DEVICE_CUDA="8.7"
+        DEVICE_L4T_TAG="r36.4.0"
     fi
 
     # Default-Modell aus Profil extrahieren
@@ -306,8 +354,10 @@ main() {
             print_err "ADMIN_PASSWORD muss gesetzt sein im Non-Interactive Modus"
             exit 1
         fi
-        if [ ${#ADMIN_PASSWORD} -lt 12 ]; then
-            print_err "ADMIN_PASSWORD muss mindestens 12 Zeichen lang sein (aktuell: ${#ADMIN_PASSWORD})"
+        local pw_error
+        pw_error=$(validate_password "$ADMIN_PASSWORD" 12)
+        if [ $? -ne 0 ]; then
+            print_err "ADMIN_PASSWORD ungueltig: ${pw_error}"
             exit 1
         fi
         print_ok "Benutzername: ${ADMIN_USERNAME}"
@@ -456,32 +506,95 @@ POSTGRES_DB=arasul_db
 POSTGRES_HOST=postgres-db
 POSTGRES_PORT=5432
 
+# --- Datenbank (erweitert) ---
+POSTGRES_MAX_CONNECTIONS=200
+
 # --- MinIO (S3-Speicher) ---
 MINIO_ROOT_USER=${MINIO_ROOT_USER}
 MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+MINIO_HOST=minio
+MINIO_PORT=9000
+MINIO_BROWSER=on
 
 # --- n8n Workflows ---
 N8N_BASIC_AUTH_USER=${ADMIN_USERNAME}
 N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+N8N_HOST=localhost
+N8N_PORT=5678
 
 # --- KI-Modell ---
 LLM_MODEL=${LLM_MODEL}
+LLM_SERVICE_HOST=llm-service
+LLM_SERVICE_PORT=11434
+
+# --- Embedding ---
+EMBEDDING_SERVICE_HOST=embedding-service
+EMBEDDING_SERVICE_PORT=11435
+EMBEDDING_MODEL=BAAI/bge-m3
+EMBEDDING_VECTOR_SIZE=1024
+EMBEDDING_MAX_INPUT_TOKENS=8192
+
+# --- Qdrant (Vektor-DB) ---
+QDRANT_HOST=qdrant
+QDRANT_PORT=6333
+QDRANT_COLLECTION_NAME=documents
+
+# --- Document Indexer ---
+DOCUMENT_INDEXER_HOST=document-indexer
+DOCUMENT_INDEXER_PORT=9102
+DOCUMENT_INDEXER_INTERVAL=3600
+DOCUMENT_INDEXER_CHUNK_SIZE=500
+DOCUMENT_INDEXER_CHUNK_OVERLAP=50
+DOCUMENT_INDEXER_MINIO_BUCKET=documents
+
+# --- Dashboard ---
+DASHBOARD_BACKEND_PORT=3001
+JWT_EXPIRY=24h
+BUILD_HASH=$(git -C "${PROJECT_ROOT}" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+LOG_LEVEL=info
+
+# --- Monitoring ---
+METRICS_INTERVAL_LIVE=10
+METRICS_INTERVAL_PERSIST=300
+
+# --- Self-Healing ---
+SELF_HEALING_ENABLED=true
+SELF_HEALING_REBOOT_ENABLED=false
+SELF_HEALING_INTERVAL=300
+DISK_WARNING_PERCENT=70
+DISK_CLEANUP_PERCENT=80
+DISK_CRITICAL_PERCENT=90
+DISK_REBOOT_PERCENT=95
 
 # --- Netzwerk ---
 MDNS_NAME=${SETUP_HOSTNAME}
 ENVEOF
 
-    # Jetson-Profil generieren und anhaengen
+    # Jetson-Profil: Inline aus bereits geladenen Funktionen generieren
+    # (generate_env_config wird NICHT aufgerufen - das Bootstrap-Script
+    #  entscheidet selbst, ob apply_jetson_profile noetig ist)
     local detect_script="${SCRIPT_DIR}/setup/detect-jetson.sh"
     if [ -f "$detect_script" ]; then
-        # Generiere .env.jetson (Funktionen bereits geladen)
-        generate_env_config >/dev/null 2>&1
+        local profile_config
+        profile_config=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null || true)
 
-        # Anhaengen
-        if [ -f "${PROJECT_ROOT}/.env.jetson" ]; then
-            echo "" >> "$env_file"
-            echo "# --- Jetson Hardware-Profil ---" >> "$env_file"
-            cat "${PROJECT_ROOT}/.env.jetson" >> "$env_file"
+        if [ -n "$profile_config" ]; then
+            {
+                echo ""
+                echo "# --- Jetson Hardware-Profil (Profil: ${DEVICE_PROFILE}) ---"
+                echo "$profile_config"
+                echo ""
+                echo "# GPU Configuration"
+                echo "TORCH_CUDA_ARCH_LIST=\"${DEVICE_CUDA}\""
+                echo "CUDA_VISIBLE_DEVICES=0"
+                echo ""
+                echo "# Base Image Configuration (for embedding-service Docker build)"
+                echo "L4T_PYTORCH_TAG=\"${DEVICE_L4T_TAG}\""
+                echo ""
+                echo "# System Detection (read-only)"
+                echo "JETSON_RAM_TOTAL=${DEVICE_RAM}"
+                echo "JETSON_CPU_CORES=${DEVICE_CORES}"
+            } >> "$env_file"
         fi
     fi
 
@@ -492,8 +605,8 @@ ENVEOF
     echo ""
     print_ok ".env geschrieben (Berechtigungen: 600)"
 
-    if [ -f "${PROJECT_ROOT}/.env.jetson" ]; then
-        print_ok ".env.jetson angewendet"
+    if [ -n "$DEVICE_PROFILE" ] && [ "$DEVICE_PROFILE" != "generic" ]; then
+        print_ok "Jetson-Profil eingebettet: ${DEVICE_PROFILE}"
     fi
 
     echo ""

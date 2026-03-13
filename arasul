@@ -139,6 +139,45 @@ EOF
     fi
 }
 
+# Wait for a Docker service to become healthy or respond to a check command.
+# Usage: wait_for_healthy <service_name> <timeout_seconds> [check_command]
+# If check_command is omitted, uses Docker health status.
+# Returns 0 on success, 1 on timeout.
+wait_for_healthy() {
+    local service="$1"
+    local timeout="$2"
+    local check_cmd="${3:-}"
+    local elapsed=0
+    local interval=2
+
+    while [ "$elapsed" -lt "$timeout" ]; do
+        if [ -n "$check_cmd" ]; then
+            # Use custom check command
+            if eval "$check_cmd" &>/dev/null; then
+                return 0
+            fi
+        else
+            # Use Docker health status
+            local health
+            health=$(docker inspect --format='{{.State.Health.Status}}' "$(docker compose ps -q "$service" 2>/dev/null)" 2>/dev/null || echo "unknown")
+            if [ "$health" = "healthy" ]; then
+                return 0
+            fi
+            # Fallback: if container has no healthcheck, check if it's running
+            local state
+            state=$(docker inspect --format='{{.State.Status}}' "$(docker compose ps -q "$service" 2>/dev/null)" 2>/dev/null || echo "unknown")
+            if [ "$health" = "none" ] && [ "$state" = "running" ]; then
+                return 0
+            fi
+        fi
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+    done
+
+    log_warning "${service} did not become ready within ${timeout}s"
+    return 1
+}
+
 # Banner
 show_banner() {
     echo ""
@@ -172,11 +211,11 @@ detect_jetson() {
         JETSON_VERSION=$(cat /etc/nv_tegra_release | grep -oP 'R\d+' | head -1)
         JETSON_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
 
-        if echo "$JETSON_MODEL" | grep -qi "AGX Orin"; then
-            log_success "Jetson AGX Orin detected: $JETSON_MODEL"
+        if echo "$JETSON_MODEL" | grep -qiE "AGX Orin|Thor"; then
+            log_success "Jetson detected: $JETSON_MODEL"
             return 0
         else
-            log_warning "Jetson device detected but not AGX Orin: $JETSON_MODEL"
+            log_warning "Jetson device detected but not AGX Orin/Thor: $JETSON_MODEL"
             return 1
         fi
     else
@@ -374,8 +413,12 @@ check_requirements() {
     log_success "Docker Compose found"
 
     # Check NVIDIA Container Runtime (optional but recommended)
-    if docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi &> /dev/null 2>&1; then
+    # Use 'docker info' instead of pulling a test image (works on ARM64 Jetson)
+    if docker info 2>/dev/null | grep -q "nvidia"; then
         log_success "NVIDIA Container Runtime detected"
+    elif nvidia-smi &>/dev/null; then
+        log_success "NVIDIA GPU detected (nvidia-smi works)"
+        log_warning "NVIDIA Container Runtime may not be configured as Docker runtime"
     else
         log_warning "NVIDIA Container Runtime not available."
         log_info "Attempting to install NVIDIA Container Runtime..."
@@ -446,7 +489,7 @@ install_nvidia_runtime() {
             $SUDO_CMD systemctl restart docker
 
             # Test installation
-            if docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi &> /dev/null; then
+            if docker info 2>/dev/null | grep -q "nvidia"; then
                 return 0
             else
                 return 1
@@ -488,10 +531,17 @@ run_interactive_setup() {
     fi
 }
 
-# Apply Jetson hardware profile
+# Apply Jetson hardware profile (only if not already embedded by interactive_setup)
 apply_jetson_profile() {
     local detect_script="${SCRIPT_DIR}/scripts/setup/detect-jetson.sh"
     if [ -f "$detect_script" ]; then
+        # Skip if interactive_setup already embedded the profile in .env
+        if grep -q "^JETSON_PROFILE=" .env 2>/dev/null; then
+            local existing_profile=$(grep "^JETSON_PROFILE=" .env | cut -d'=' -f2)
+            log_info "Jetson-Profil bereits in .env vorhanden: ${existing_profile} (ueberspringe)"
+            return 0
+        fi
+
         log_info "Wende Jetson-Profil an..."
         bash "$detect_script" generate >/dev/null 2>&1 || true
         bash "$detect_script" apply >/dev/null 2>&1 || true
@@ -537,13 +587,17 @@ init_database() {
     log_success "Database initialized"
 }
 
-# Initialize MinIO buckets
+# Initialize MinIO buckets (with retry)
 init_minio_buckets() {
     log_info "Initializing MinIO buckets..."
 
+    local MAX_RETRIES=3
+    local RETRY_DELAY=10
+
     # Check if MinIO is running
     if ! docker compose ps minio | grep -q "Up"; then
-        log_error "MinIO is not running"
+        log_error "MinIO is not running - cannot create buckets"
+        log_error "MinIO buckets are required for platform operation (documents, backups)"
         return 1
     fi
 
@@ -553,30 +607,44 @@ init_minio_buckets() {
         return 1
     fi
 
-    # Run bucket initialization script inside MinIO container
-    log_info "Running MinIO bucket initialization script..."
+    # Retry loop for bucket initialization
+    local attempt=1
+    while [ $attempt -le $MAX_RETRIES ]; do
+        log_info "MinIO bucket initialization (Versuch ${attempt}/${MAX_RETRIES})..."
 
-    # Copy script to container
-    docker cp ./scripts/util/init_minio_buckets.sh minio:/tmp/init_minio_buckets.sh
+        # Copy script to container
+        if ! docker cp ./scripts/util/init_minio_buckets.sh minio:/tmp/init_minio_buckets.sh; then
+            log_error "Failed to copy initialization script to MinIO container"
+            return 1
+        fi
 
-    # Execute script in container
-    docker compose exec -T minio sh /tmp/init_minio_buckets.sh
+        # Execute script in container - capture exit code properly
+        # NOTE: "local var=$?" always returns 0 because local is a command.
+        # Use "cmd || exit_code=$?" pattern instead.
+        local exit_code=0
+        docker compose exec -T minio sh /tmp/init_minio_buckets.sh || exit_code=$?
 
-    local EXIT_CODE=$?
+        # Clean up
+        docker compose exec -T minio rm -f /tmp/init_minio_buckets.sh 2>/dev/null || true
 
-    # Clean up
-    docker compose exec -T minio rm -f /tmp/init_minio_buckets.sh
+        if [ $exit_code -eq 0 ]; then
+            log_success "MinIO buckets initialized successfully"
+            return 0
+        fi
 
-    # HIGH-009 FIX: Make error handling explicit and clear
-    if [ $EXIT_CODE -eq 0 ]; then
-        log_success "MinIO buckets initialized successfully"
-        return 0
-    else
-        log_error "MinIO bucket initialization failed"
-        log_info "Update functionality will not work without MinIO buckets"
-        log_info "Please check MinIO service status and retry bootstrap"
-        return 1
-    fi
+        if [ $attempt -lt $MAX_RETRIES ]; then
+            log_warning "MinIO bucket initialization failed (Versuch ${attempt}/${MAX_RETRIES})"
+            log_info "Warte ${RETRY_DELAY}s vor erneutem Versuch..."
+            sleep $RETRY_DELAY
+        fi
+
+        attempt=$((attempt + 1))
+    done
+
+    log_error "MinIO bucket initialization failed after ${MAX_RETRIES} attempts"
+    log_error "MinIO buckets are CRITICAL for platform operation (document storage, backups)"
+    log_error "Please check MinIO service: docker compose logs minio"
+    return 1
 }
 
 # Setup secrets directory and Basic Auth for proxied services
@@ -679,8 +747,8 @@ init_admin_user() {
     local admin_email=$(grep "^ADMIN_EMAIL=" .env | cut -d'=' -f2)
     local admin_hash=$(grep "^ADMIN_HASH=" .env | cut -d'=' -f2-)
 
-    if [ -z "$admin_pass" ]; then
-        log_error "ADMIN_PASSWORD nicht in .env gefunden"
+    if [ -z "$admin_pass" ] || [ "$admin_pass" = "REDACTED_AFTER_BOOTSTRAP" ]; then
+        log_error "ADMIN_PASSWORD nicht verfuegbar. Bitte './arasul setup' erneut ausfuehren."
         return 1
     fi
 
@@ -735,28 +803,39 @@ init_admin_user() {
 start_services() {
     log_info "Starting all services in deterministic order..."
 
-    # Start services in order (some are already started)
+    # Layer 1: Data stores
     docker compose up -d postgres-db
-    sleep 5
+    log_info "Waiting for PostgreSQL..."
+    wait_for_healthy postgres-db 60 "docker compose exec -T postgres-db pg_isready -U arasul" || true
 
     docker compose up -d minio
-    sleep 5
+    log_info "Waiting for MinIO..."
+    wait_for_healthy minio 60 "docker compose exec -T minio curl -sf http://localhost:9000/minio/health/live" || true
 
+    # Layer 2: Monitoring
     docker compose up -d metrics-collector
-    sleep 5
+    wait_for_healthy metrics-collector 30 || true
 
+    # Layer 3: AI services (longer timeout - model loading)
     docker compose up -d llm-service embedding-service
-    sleep 10
+    log_info "Waiting for LLM and Embedding services (this may take a while)..."
+    wait_for_healthy llm-service 120 "docker compose exec -T llm-service curl -sf http://localhost:11434/api/tags" || true
+    wait_for_healthy embedding-service 120 "docker compose exec -T embedding-service curl -sf http://localhost:11435/health" || true
 
+    # Layer 4: Reverse proxy
     docker compose up -d reverse-proxy
-    sleep 3
+    wait_for_healthy reverse-proxy 30 || true
 
+    # Layer 5: Application layer
     docker compose up -d dashboard-backend dashboard-frontend
-    sleep 5
+    log_info "Waiting for Dashboard..."
+    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:80/api/health" || true
 
+    # Layer 6: Workflow engine
     docker compose up -d n8n
-    sleep 5
+    wait_for_healthy n8n 60 || true
 
+    # Layer 7: Background agents
     docker compose up -d self-healing-agent
 
     log_success "All services started"
@@ -795,8 +874,9 @@ run_smoke_tests() {
     fi
 
     # Wait for services to be fully ready
-    log_info "Waiting for services to stabilize (30s)..."
-    sleep 30
+    log_info "Waiting for services to stabilize..."
+    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:80/api/health" || true
+    wait_for_healthy llm-service 60 "docker compose exec -T llm-service curl -sf http://localhost:11434/api/tags" || true
 
     # Test Dashboard Backend
     log_info "Testing Dashboard Backend..."
@@ -978,6 +1058,31 @@ show_completion_summary() {
     echo ""
 }
 
+# Remove plaintext ADMIN_PASSWORD from .env after bootstrap
+# The bcrypt hash is stored in config/secrets/admin.hash and the DB.
+# The plaintext password is no longer needed.
+redact_plaintext_password() {
+    if [ ! -f .env ]; then
+        return 0
+    fi
+
+    local current_val
+    current_val=$(grep "^ADMIN_PASSWORD=" .env | cut -d'=' -f2)
+
+    # Skip if already redacted or empty
+    if [ -z "$current_val" ] || [ "$current_val" = "REDACTED_AFTER_BOOTSTRAP" ]; then
+        return 0
+    fi
+
+    sed -i 's/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP/' .env
+
+    if grep -q "^ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP" .env; then
+        log_success "Klartext-Passwort aus .env entfernt (Sicherheit)"
+    else
+        log_warning "Konnte Klartext-Passwort nicht aus .env entfernen"
+    fi
+}
+
 # Bootstrap command
 cmd_bootstrap() {
     show_banner
@@ -1051,9 +1156,9 @@ cmd_bootstrap() {
     # 11. Services starten
     start_services
 
-    # 12. Warten auf Stabilisierung
+    # 12. Warten auf Stabilisierung (MinIO muss bereit sein fuer Bucket-Init)
     log_info "Warte auf Service-Stabilisierung..."
-    sleep 10
+    wait_for_healthy minio 30 "docker compose exec -T minio curl -sf http://localhost:9000/minio/health/live" || true
 
     # 13. MinIO-Buckets erstellen
     init_minio_buckets
@@ -1065,6 +1170,9 @@ cmd_bootstrap() {
     if run_smoke_tests; then
         generate_error_report 0 "completed"
         show_completion_summary
+
+        # 16. Klartext-Passwort aus .env entfernen (Sicherheit)
+        redact_plaintext_password
     else
         generate_error_report 1 "smoke_tests"
         exit 1

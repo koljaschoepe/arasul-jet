@@ -14,7 +14,7 @@
 # Dauer: ~5-10 Minuten (kein Internet noetig)
 ###############################################################################
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -28,11 +28,21 @@ DIM='\033[2m'
 NC='\033[0m'
 
 NON_INTERACTIVE=""
-if [ "$1" = "--non-interactive" ] || [ "$1" = "-n" ]; then
+if [ "${1:-}" = "--non-interactive" ] || [ "${1:-}" = "-n" ]; then
     NON_INTERACTIVE="--non-interactive"
 fi
 
-trap 'echo ""; echo -e "${RED}Installation abgebrochen.${NC}"; exit 1' INT
+cleanup_on_error() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo -e "${RED}Factory-Installation fehlgeschlagen (Exit-Code: ${exit_code})${NC}"
+        echo -e "${DIM}Pruefe die Ausgabe oben fuer Details zum Fehler.${NC}"
+    fi
+}
+
+trap 'echo ""; echo -e "${RED}Installation abgebrochen.${NC}"; exit 130' INT
+trap cleanup_on_error EXIT
 
 # =============================================================================
 # Voraussetzungen pruefen
@@ -87,15 +97,27 @@ echo -e "${BOLD}[1/5]${NC} Lade Docker-Images (offline)..."
 images_loaded=false
 if [ -f images.tar.gz ]; then
     echo -e "  ${DIM}Lade images.tar.gz (kann einige Minuten dauern)...${NC}"
-    docker load < images.tar.gz
+    if ! docker load < images.tar.gz; then
+        echo -e "  ${RED}Fehler: Docker-Images konnten nicht geladen werden${NC}"
+        echo -e "  ${DIM}Die Datei images.tar.gz ist moeglicherweise beschaedigt.${NC}"
+        exit 1
+    fi
     images_loaded=true
     echo -e "  ${GREEN}✓${NC} Docker-Images geladen"
 elif [ -d docker-images/ ]; then
     img_count=$(ls docker-images/*.tar.gz 2>/dev/null | wc -l)
+    if [ "$img_count" -eq 0 ]; then
+        echo -e "  ${RED}Fehler: docker-images/ Verzeichnis existiert, aber enthaelt keine .tar.gz Dateien${NC}"
+        exit 1
+    fi
     echo -e "  ${DIM}Lade ${img_count} Image-Archive...${NC}"
     for img in docker-images/*.tar.gz; do
         echo -e "    ${DIM}$(basename "$img")${NC}"
-        docker load < "$img"
+        if ! docker load < "$img"; then
+            echo -e "  ${RED}Fehler: Konnte Image nicht laden: $(basename "$img")${NC}"
+            echo -e "  ${DIM}Die Datei ist moeglicherweise beschaedigt.${NC}"
+            exit 1
+        fi
     done
     images_loaded=true
     echo -e "  ${GREEN}✓${NC} ${img_count} Docker-Images geladen"
@@ -112,11 +134,18 @@ echo -e "${BOLD}[2/5]${NC} Stelle KI-Modelle wieder her..."
 
 if [ -d ollama-models/ ] && [ "$(ls -A ollama-models/ 2>/dev/null)" ]; then
     # Docker-Volume erstellen und Modelle kopieren
-    docker volume create arasul-llm-models 2>/dev/null || true
-    docker run --rm \
+    if ! docker volume create arasul-llm-models 2>/dev/null; then
+        # Volume existiert bereits - kein Fehler
+        echo -e "  ${DIM}Volume arasul-llm-models existiert bereits${NC}"
+    fi
+    if ! docker run --rm \
         -v arasul-llm-models:/dest \
         -v "$(pwd)/ollama-models:/src" \
-        alpine sh -c "cp -a /src/. /dest/"
+        alpine sh -c "cp -a /src/. /dest/"; then
+        echo -e "  ${RED}Fehler: KI-Modelle konnten nicht kopiert werden${NC}"
+        echo -e "  ${DIM}Pruefe Docker-Zugriff und Speicherplatz.${NC}"
+        exit 1
+    fi
     echo -e "  ${GREEN}✓${NC} KI-Modelle wiederhergestellt"
 else
     echo -e "  ${DIM}Keine vorinstallierten Modelle (wird beim ersten Start heruntergeladen)${NC}"
@@ -137,8 +166,16 @@ fi
 cd project/
 
 # Ausfuehrbare Rechte setzen
-chmod +x arasul 2>/dev/null || true
-chmod +x scripts/**/*.sh 2>/dev/null || true
+if [ -f arasul ]; then
+    chmod +x arasul
+else
+    echo -e "  ${RED}Fehler: Bootstrap-Script 'arasul' nicht gefunden${NC}"
+    exit 1
+fi
+# Set executable on all shell scripts (glob may not match, so check)
+find scripts/ -name "*.sh" -exec chmod +x {} + 2>/dev/null || {
+    echo -e "  ${YELLOW}!${NC} Warnung: Konnte nicht alle Scripts ausfuehrbar machen"
+}
 
 echo -e "  ${GREEN}✓${NC} Projektverzeichnis bereit"
 
@@ -149,15 +186,17 @@ echo -e "  ${GREEN}✓${NC} Projektverzeichnis bereit"
 echo -e "${BOLD}[4/5]${NC} Konfiguration..."
 echo ""
 
+# Run setup - with set -e, a non-zero exit will abort automatically
 if [ -n "$NON_INTERACTIVE" ]; then
-    ./scripts/interactive_setup.sh --non-interactive
+    if ! ./scripts/interactive_setup.sh --non-interactive; then
+        echo -e "${RED}Setup fehlgeschlagen${NC}"
+        exit 1
+    fi
 else
-    ./scripts/interactive_setup.sh
-fi
-
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Setup fehlgeschlagen${NC}"
-    exit 1
+    if ! ./scripts/interactive_setup.sh; then
+        echo -e "${RED}Setup fehlgeschlagen${NC}"
+        exit 1
+    fi
 fi
 
 # =========================================================================
@@ -174,7 +213,11 @@ if [ "$images_loaded" = true ]; then
     BOOTSTRAP_FLAGS="--skip-pull --skip-build"
 fi
 
-./arasul bootstrap $BOOTSTRAP_FLAGS
+if ! ./arasul bootstrap $BOOTSTRAP_FLAGS; then
+    echo -e "${RED}Bootstrap fehlgeschlagen${NC}"
+    echo -e "${DIM}Pruefe die Ausgabe oben fuer Details.${NC}"
+    exit 1
+fi
 
 echo ""
 echo -e "${BOLD}══════════════════════════════════════════════════════${NC}"

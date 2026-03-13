@@ -89,6 +89,9 @@ services:
     build:
       context: ../services/embedding-service
       dockerfile: Dockerfile
+      args:
+        L4T_PYTORCH_TAG: ${L4T_PYTORCH_TAG:-r36.4.0}
+        CUDA_ARCH_LIST: ${TORCH_CUDA_ARCH_LIST:-8.7}
     container_name: embedding-service
     hostname: embedding-service
     restart: always

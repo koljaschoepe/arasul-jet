@@ -82,7 +82,6 @@ services:
       - ../services/postgres/init:/arasul/migrations:ro
     security_opt:
       - no-new-privileges:true
-      - apparmor:arasul-backend
     depends_on:
       postgres-db:
         condition: service_healthy

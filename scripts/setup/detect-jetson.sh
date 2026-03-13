@@ -130,6 +130,19 @@ detect_cuda_arch() {
     esac
 }
 
+detect_l4t_pytorch_tag() {
+    # Detect the appropriate dustynv/l4t-pytorch base image tag
+    # Tags follow L4T release versions (e.g. r36.4.0 for JetPack 6.2)
+    # Must match host L4T major.minor; use closest published dustynv tag.
+    local model=$(detect_jetson_model)
+    case "$model" in
+        *"Thor"*)     echo "r37.0.0" ;;  # Thor/Blackwell - update when dustynv publishes
+        *"Orin"*)     echo "r36.4.0" ;;  # Orin/Ampere - JetPack 6.2 (host r36.4.7)
+        *"Xavier"*)   echo "r35.4.1" ;;  # Xavier/Volta - JetPack 5.x
+        *)            echo "r36.4.0" ;;  # Default to current stable
+    esac
+}
+
 # =============================================================================
 # Configuration Profiles
 # =============================================================================
@@ -215,22 +228,26 @@ get_config_for_profile() {
         "thor_128gb")
             cat << 'EOF'
 # Jetson Thor 128GB - Maximum Performance
+# RAM Budget: ~120G for services, ~8G reserved for system/OS
+# Total allocated: 119.0G (Postgres 4 + LLM 92 + Embedding 8 + Backend 2 +
+#   Frontend 1 + N8N 2 + Qdrant 4 + MinIO 2 + Metrics 0.5 + SelfHeal 0.5 +
+#   Telegram 0.25 + DocIndex 2 + Proxy 0.5 + Backup 0.25)
 JETSON_PROFILE=thor_128gb
 JETSON_DESCRIPTION="NVIDIA Jetson Thor 128GB"
 
 # Resource Limits
 RAM_LIMIT_POSTGRES=4G
-RAM_LIMIT_LLM=96G
-RAM_LIMIT_EMBEDDING=12G
+RAM_LIMIT_LLM=92G
+RAM_LIMIT_EMBEDDING=8G
 RAM_LIMIT_BACKEND=2G
 RAM_LIMIT_FRONTEND=1G
-RAM_LIMIT_N8N=4G
-RAM_LIMIT_QDRANT=8G
-RAM_LIMIT_MINIO=4G
+RAM_LIMIT_N8N=2G
+RAM_LIMIT_QDRANT=4G
+RAM_LIMIT_MINIO=2G
 RAM_LIMIT_METRICS=512M
 RAM_LIMIT_SELF_HEALING=512M
 RAM_LIMIT_TELEGRAM=256M
-RAM_LIMIT_DOCUMENT_INDEXER=4G
+RAM_LIMIT_DOCUMENT_INDEXER=2G
 RAM_LIMIT_REVERSE_PROXY=512M
 RAM_LIMIT_BACKUP=256M
 
@@ -239,6 +256,7 @@ CPU_LIMIT_LLM=12
 CPU_LIMIT_EMBEDDING=4
 CPU_LIMIT_BACKEND=4
 CPU_LIMIT_N8N=4
+CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
 LLM_MODEL=qwen3:32b-q8
@@ -259,18 +277,22 @@ EOF
         "thor_64gb")
             cat << 'EOF'
 # Jetson Thor 64GB - High Performance
+# RAM Budget: ~58G for services, ~6G reserved for system/OS
+# Total allocated: 57.0G (Postgres 2 + LLM 36 + Embedding 6 + Backend 2 +
+#   Frontend 1 + N8N 2 + Qdrant 2 + MinIO 2 + Metrics 0.5 + SelfHeal 0.5 +
+#   Telegram 0.25 + DocIndex 2 + Proxy 0.5 + Backup 0.25)
 JETSON_PROFILE=thor_64gb
 JETSON_DESCRIPTION="NVIDIA Jetson Thor 64GB"
 
 # Resource Limits
 RAM_LIMIT_POSTGRES=2G
-RAM_LIMIT_LLM=48G
-RAM_LIMIT_EMBEDDING=8G
+RAM_LIMIT_LLM=36G
+RAM_LIMIT_EMBEDDING=6G
 RAM_LIMIT_BACKEND=2G
 RAM_LIMIT_FRONTEND=1G
 RAM_LIMIT_N8N=2G
-RAM_LIMIT_QDRANT=4G
-RAM_LIMIT_MINIO=4G
+RAM_LIMIT_QDRANT=2G
+RAM_LIMIT_MINIO=2G
 RAM_LIMIT_METRICS=512M
 RAM_LIMIT_SELF_HEALING=512M
 RAM_LIMIT_TELEGRAM=256M
@@ -283,6 +305,7 @@ CPU_LIMIT_LLM=10
 CPU_LIMIT_EMBEDDING=4
 CPU_LIMIT_BACKEND=4
 CPU_LIMIT_N8N=2
+CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
 LLM_MODEL=qwen3:14b-q8
@@ -327,6 +350,7 @@ CPU_LIMIT_LLM=10
 CPU_LIMIT_EMBEDDING=4
 CPU_LIMIT_BACKEND=4
 CPU_LIMIT_N8N=2
+CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
 LLM_MODEL=qwen3:14b-q8
@@ -371,6 +395,7 @@ CPU_LIMIT_LLM=8
 CPU_LIMIT_EMBEDDING=4
 CPU_LIMIT_BACKEND=4
 CPU_LIMIT_N8N=2
+CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
 LLM_MODEL=qwen3:8b-q8
@@ -415,6 +440,7 @@ CPU_LIMIT_LLM=6
 CPU_LIMIT_EMBEDDING=2
 CPU_LIMIT_BACKEND=2
 CPU_LIMIT_N8N=2
+CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
 LLM_MODEL=llama3.1:8b
@@ -459,6 +485,7 @@ CPU_LIMIT_LLM=4
 CPU_LIMIT_EMBEDDING=2
 CPU_LIMIT_BACKEND=2
 CPU_LIMIT_N8N=1
+CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
 LLM_MODEL=phi3:mini
@@ -503,6 +530,7 @@ CPU_LIMIT_LLM=2
 CPU_LIMIT_EMBEDDING=1
 CPU_LIMIT_BACKEND=1
 CPU_LIMIT_N8N=1
+CPU_LIMIT_DASHBOARD=1
 
 # LLM Configuration
 LLM_MODEL=tinyllama:1.1b
@@ -551,6 +579,7 @@ CPU_LIMIT_LLM=6
 CPU_LIMIT_EMBEDDING=2
 CPU_LIMIT_BACKEND=2
 CPU_LIMIT_N8N=2
+CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
 LLM_MODEL=llama3.1:8b
@@ -595,6 +624,7 @@ CPU_LIMIT_LLM=4
 CPU_LIMIT_EMBEDDING=2
 CPU_LIMIT_BACKEND=2
 CPU_LIMIT_N8N=1
+CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
 LLM_MODEL=phi3:mini
@@ -640,6 +670,7 @@ CPU_LIMIT_LLM=4
 CPU_LIMIT_EMBEDDING=2
 CPU_LIMIT_BACKEND=2
 CPU_LIMIT_N8N=1
+CPU_LIMIT_DASHBOARD=2
 
 # LLM Configuration
 LLM_MODEL=mistral:7b
@@ -673,6 +704,7 @@ print_device_info() {
     echo -e "${GREEN}GPU Memory:${NC}      ~$(detect_gpu_memory) GB (shared)"
     echo -e "${GREEN}CPU Cores:${NC}       $(detect_cpu_cores)"
     echo -e "${GREEN}CUDA Arch:${NC}       $(detect_cuda_arch)"
+    echo -e "${GREEN}L4T PyTorch:${NC}    $(detect_l4t_pytorch_tag)"
     echo -e "${GREEN}Profile:${NC}         $(get_device_profile)"
     echo ""
 }
@@ -697,6 +729,9 @@ $(get_config_for_profile "$profile")
 # GPU Configuration
 TORCH_CUDA_ARCH_LIST="$(detect_cuda_arch)"
 CUDA_VISIBLE_DEVICES=0
+
+# Base Image Configuration (for embedding-service Docker build)
+L4T_PYTORCH_TAG="$(detect_l4t_pytorch_tag)"
 
 # System Detection (read-only)
 JETSON_RAM_TOTAL=$(detect_ram_total)

@@ -45,10 +45,10 @@ async function ensureAdminUser() {
 
     // No admin users - create one
     const password = process.env.ADMIN_PASSWORD;
-    if (!password) {
+    if (!password || password === 'REDACTED_AFTER_BOOTSTRAP') {
       logger.error(
-        'Bootstrap: No admin users exist and ADMIN_PASSWORD env var is not set. ' +
-          'Set ADMIN_PASSWORD in .env or environment to create the initial admin user.'
+        'Bootstrap: No admin users exist and ADMIN_PASSWORD is not available. ' +
+          'Re-run "./arasul setup" and "./arasul bootstrap" to create an admin user.'
       );
       return;
     }

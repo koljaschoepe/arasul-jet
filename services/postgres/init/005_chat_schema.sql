@@ -95,11 +95,11 @@ COMMENT ON COLUMN chat_messages.thinking IS 'LLM thinking/reasoning content from
 -- ============================================================================
 
 INSERT INTO self_healing_events (event_type, severity, description, action_taken, service_name, success)
-VALUES (
-    'database_migration',
-    'INFO',
+SELECT 'database_migration', 'INFO',
     'Chat schema migration (005) applied successfully',
     'Created chat_conversations and chat_messages tables with triggers',
-    'postgres-db',
-    true
+    'postgres-db', true
+WHERE NOT EXISTS (
+    SELECT 1 FROM self_healing_events
+    WHERE event_type = 'database_migration' AND description = 'Chat schema migration (005) applied successfully'
 );

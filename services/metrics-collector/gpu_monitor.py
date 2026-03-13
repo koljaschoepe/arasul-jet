@@ -10,7 +10,8 @@ import time
 import logging
 import json
 import subprocess
-from typing import Dict, Optional, Tuple
+import glob as glob_module
+from typing import Dict, Optional, Tuple, List
 from dataclasses import dataclass
 from enum import Enum
 
@@ -76,30 +77,186 @@ class GPUMonitor:
 
     Monitors GPU health using NVML and provides error detection
     for CUDA OOM, GPU hangs, thermal issues, etc.
+
+    On NVIDIA Jetson (AGX Orin/Thor), reads GPU metrics from sysfs
+    since NVML and nvidia-smi are not fully supported on integrated GPUs.
     """
+
+    # Jetson sysfs prefixes (mounted as /host/sys in container)
+    JETSON_SYSFS_PREFIXES = ['/host/sys', '/sys']
+
+    # Candidate GPU load paths (Orin, Thor, generic)
+    GPU_LOAD_CANDIDATES = [
+        'devices/platform/gpu.0/load',
+        'devices/platform/gpu/load',
+    ]
+
+    # Candidate GPU devfreq paths (glob patterns for dynamic discovery)
+    GPU_FREQ_GLOB_PATTERNS = [
+        'devices/platform/bus@0/*/devfreq/*/cur_freq',
+        'devices/platform/*/gpu/devfreq/*/cur_freq',
+        'devices/platform/gpu.0/devfreq/*/cur_freq',
+        'devices/platform/gpu/devfreq/*/cur_freq',
+    ]
+
+    GPU_MAX_FREQ_GLOB_PATTERNS = [
+        'devices/platform/bus@0/*/devfreq/*/max_freq',
+        'devices/platform/*/gpu/devfreq/*/max_freq',
+        'devices/platform/gpu.0/devfreq/*/max_freq',
+        'devices/platform/gpu/devfreq/*/max_freq',
+    ]
+
+    # GPU thermal zone is discovered dynamically by checking zone type
 
     def __init__(self):
         self.nvml_initialized = False
         self.gpu_count = 0
         self.last_stats = {}
         self.error_counts = {}
+        self.is_jetson = False
+        self._sysfs_prefix = '/host/sys'
 
-        # Thresholds
+        # Discovered sysfs paths (set by _detect_jetson)
+        self._gpu_load_path = None
+        self._gpu_freq_path = None
+        self._gpu_max_freq_path = None
+        self._gpu_thermal_path = None
+
+        # Thresholds - temperature
         self.TEMP_WARNING = 83.0  # °C
         self.TEMP_CRITICAL = 85.0  # °C
         self.TEMP_SHUTDOWN = 90.0  # °C
-        self.MEMORY_WARNING = 36 * 1024  # 36 GB in MB
-        self.MEMORY_CRITICAL = 38 * 1024  # 38 GB in MB
-        self.MEMORY_MAX = 40 * 1024  # 40 GB in MB
+
+        # Thresholds - memory (percentage-based, device-agnostic)
+        self.MEMORY_WARNING_PERCENT = float(os.getenv('GPU_MEMORY_WARNING_PERCENT', '85'))
+        self.MEMORY_CRITICAL_PERCENT = float(os.getenv('GPU_MEMORY_CRITICAL_PERCENT', '92'))
+        self.MEMORY_MAX_PERCENT = float(os.getenv('GPU_MEMORY_MAX_PERCENT', '97'))
+
         self.UTILIZATION_HANG_THRESHOLD = 99.0
         self.HANG_DURATION_SEC = 30
 
+        self._detect_jetson()
         self.initialize_nvml()
+
+    def _discover_sysfs_path(self, prefix: str, candidates: List[str]) -> Optional[str]:
+        """Try multiple candidate paths and return the first that exists"""
+        for candidate in candidates:
+            full_path = os.path.join(prefix, candidate)
+            if os.path.exists(full_path):
+                return candidate
+        return None
+
+    def _discover_sysfs_glob(self, prefix: str, patterns: List[str]) -> Optional[str]:
+        """Try multiple glob patterns and return the first match as a relative path"""
+        for pattern in patterns:
+            full_pattern = os.path.join(prefix, pattern)
+            matches = glob_module.glob(full_pattern)
+            if matches:
+                # Return relative path (strip prefix)
+                rel = os.path.relpath(matches[0], prefix)
+                return rel
+        return None
+
+    def _discover_gpu_thermal_zone(self, prefix: str) -> Optional[str]:
+        """Find GPU thermal zone by checking type files instead of hardcoding zone number"""
+        thermal_base = os.path.join(prefix, 'class/thermal')
+        if not os.path.isdir(thermal_base):
+            return None
+
+        # Look for GPU-therm zone by checking each zone's type
+        gpu_therm_names = ['gpu-therm', 'GPU-therm', 'gpu_therm', 'Tdiode_GPU', 'GPU']
+        try:
+            zones = sorted(glob_module.glob(os.path.join(thermal_base, 'thermal_zone*')))
+            for zone_dir in zones:
+                type_file = os.path.join(zone_dir, 'type')
+                try:
+                    if os.path.exists(type_file):
+                        with open(type_file, 'r') as f:
+                            zone_type = f.read().strip()
+                            if zone_type in gpu_therm_names:
+                                zone_name = os.path.basename(zone_dir)
+                                rel_path = f'class/thermal/{zone_name}/temp'
+                                logger.info(f"GPU thermal zone found: {zone_type} -> {rel_path}")
+                                return rel_path
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # Fallback: try common zone numbers (zone1 on Orin, zone0 as last resort)
+        for zone_num in [1, 0, 2]:
+            fallback = f'class/thermal/thermal_zone{zone_num}/temp'
+            if os.path.exists(os.path.join(prefix, fallback)):
+                logger.info(f"GPU thermal zone fallback: thermal_zone{zone_num}")
+                return fallback
+
+        return None
+
+    def _detect_jetson(self):
+        """Detect if running on NVIDIA Jetson (AGX Orin, Thor, etc.) and discover sysfs paths"""
+        for prefix in self.JETSON_SYSFS_PREFIXES:
+            # Try to find GPU load path
+            gpu_load = self._discover_sysfs_path(prefix, self.GPU_LOAD_CANDIDATES)
+            if gpu_load:
+                self._sysfs_prefix = prefix
+                self._gpu_load_path = gpu_load
+                self.is_jetson = True
+                logger.info(f"Jetson GPU detected via sysfs ({prefix}), load path: {gpu_load}")
+
+                # Discover other paths
+                self._gpu_freq_path = self._discover_sysfs_glob(prefix, self.GPU_FREQ_GLOB_PATTERNS)
+                self._gpu_max_freq_path = self._discover_sysfs_glob(prefix, self.GPU_MAX_FREQ_GLOB_PATTERNS)
+                self._gpu_thermal_path = self._discover_gpu_thermal_zone(prefix)
+
+                if self._gpu_freq_path:
+                    logger.info(f"GPU freq path: {self._gpu_freq_path}")
+                else:
+                    logger.warning("GPU frequency sysfs path not found")
+                if self._gpu_thermal_path:
+                    logger.info(f"GPU thermal path: {self._gpu_thermal_path}")
+                else:
+                    logger.warning("GPU thermal zone not found")
+                return
+
+        # Also check device-tree model for Jetson identification
+        for prefix in self.JETSON_SYSFS_PREFIXES:
+            model_path = os.path.join(prefix, 'firmware/devicetree/base/model')
+            try:
+                if os.path.exists(model_path):
+                    with open(model_path, 'r') as f:
+                        model = f.read().strip().rstrip('\x00')
+                        if 'jetson' in model.lower() or 'orin' in model.lower() or 'thor' in model.lower():
+                            self._sysfs_prefix = prefix
+                            self.is_jetson = True
+                            logger.info(f"Jetson detected via device-tree: {model}")
+
+                            # Try to discover paths even without gpu.0/load
+                            self._gpu_load_path = self._discover_sysfs_path(prefix, self.GPU_LOAD_CANDIDATES)
+                            self._gpu_freq_path = self._discover_sysfs_glob(prefix, self.GPU_FREQ_GLOB_PATTERNS)
+                            self._gpu_max_freq_path = self._discover_sysfs_glob(prefix, self.GPU_MAX_FREQ_GLOB_PATTERNS)
+                            self._gpu_thermal_path = self._discover_gpu_thermal_zone(prefix)
+                            return
+            except Exception:
+                pass
+
+        logger.debug("Not a Jetson platform")
+
+    def _read_sysfs(self, relative_path: str) -> Optional[str]:
+        """Read a value from sysfs"""
+        path = os.path.join(self._sysfs_prefix, relative_path)
+        try:
+            with open(path, 'r') as f:
+                return f.read().strip()
+        except Exception:
+            return None
 
     def initialize_nvml(self) -> bool:
         """Initialize NVML library"""
         if not NVML_AVAILABLE:
-            logger.warning("NVML library not available")
+            if self.is_jetson:
+                logger.info("NVML not available - using Jetson sysfs for GPU monitoring")
+            else:
+                logger.warning("NVML library not available")
             return False
 
         try:
@@ -109,7 +266,10 @@ class GPUMonitor:
             logger.info(f"NVML initialized successfully. Found {self.gpu_count} GPU(s)")
             return True
         except Exception as e:
-            logger.error(f"Failed to initialize NVML: {e}")
+            if self.is_jetson:
+                logger.info(f"NVML not usable on Jetson ({e}) - using sysfs for GPU monitoring")
+            else:
+                logger.error(f"Failed to initialize NVML: {e}")
             self.nvml_initialized = False
             return False
 
@@ -229,13 +389,14 @@ class GPUMonitor:
         elif temp >= self.TEMP_WARNING:
             return GPUHealth.WARNING, GPUError.THERMAL, f"Temperature warning: {temp}°C (>= {self.TEMP_WARNING}°C)"
 
-        # Check memory
-        if mem_used >= self.MEMORY_MAX:
-            return GPUHealth.CRITICAL, GPUError.OOM, f"Memory exceeded limit: {mem_used}MB (>= {self.MEMORY_MAX}MB)"
-        elif mem_used >= self.MEMORY_CRITICAL:
-            return GPUHealth.CRITICAL, GPUError.OOM, f"Memory critical: {mem_used}MB (>= {self.MEMORY_CRITICAL}MB)"
-        elif mem_used >= self.MEMORY_WARNING:
-            return GPUHealth.WARNING, GPUError.OOM, f"Memory warning: {mem_used}MB (>= {self.MEMORY_WARNING}MB)"
+        # Check memory (percentage-based, works across Orin 32/64GB and Thor 64/128GB)
+        mem_percent = (mem_used / mem_total * 100) if mem_total > 0 else 0.0
+        if mem_percent >= self.MEMORY_MAX_PERCENT:
+            return GPUHealth.CRITICAL, GPUError.OOM, f"Memory exceeded limit: {mem_percent:.1f}% ({mem_used}MB/{mem_total}MB)"
+        elif mem_percent >= self.MEMORY_CRITICAL_PERCENT:
+            return GPUHealth.CRITICAL, GPUError.OOM, f"Memory critical: {mem_percent:.1f}% ({mem_used}MB/{mem_total}MB)"
+        elif mem_percent >= self.MEMORY_WARNING_PERCENT:
+            return GPUHealth.WARNING, GPUError.OOM, f"Memory warning: {mem_percent:.1f}% ({mem_used}MB/{mem_total}MB)"
 
         # Check for GPU hang (high utilization for extended period)
         if self._detect_gpu_hang(gpu_index, util):
@@ -272,7 +433,11 @@ class GPUMonitor:
         return False
 
     def _get_fallback_stats(self, gpu_index: int = 0) -> Optional[GPUStats]:
-        """Fallback GPU stats using nvidia-smi when NVML not available"""
+        """Fallback GPU stats via Jetson sysfs or nvidia-smi"""
+        if self.is_jetson:
+            return self._get_jetson_stats(gpu_index)
+
+        # Non-Jetson: try nvidia-smi
         try:
             result = subprocess.run(
                 [
@@ -322,8 +487,66 @@ class GPUMonitor:
                 error_message=error_msg
             )
 
+        except FileNotFoundError:
+            logger.warning("nvidia-smi not found and not a Jetson platform - GPU monitoring unavailable")
+            return None
         except Exception as e:
             logger.error(f"Fallback GPU stats failed: {e}")
+            return None
+
+    def _get_jetson_stats(self, gpu_index: int = 0) -> Optional[GPUStats]:
+        """Read GPU stats from Jetson sysfs (AGX Orin, Thor) using dynamically discovered paths"""
+        try:
+            # GPU load: 0-1000 scale (divide by 10 for percentage)
+            load_raw = self._read_sysfs(self._gpu_load_path) if self._gpu_load_path else None
+            utilization = int(load_raw) / 10.0 if load_raw is not None else 0.0
+
+            # GPU temperature from dynamically discovered thermal zone (millidegrees)
+            temp_raw = self._read_sysfs(self._gpu_thermal_path) if self._gpu_thermal_path else None
+            temperature = int(temp_raw) / 1000.0 if temp_raw is not None else 0.0
+
+            # GPU clock frequency (Hz -> MHz)
+            freq_raw = self._read_sysfs(self._gpu_freq_path) if self._gpu_freq_path else None
+            clock_graphics = int(int(freq_raw) / 1_000_000) if freq_raw is not None else 0
+
+            max_freq_raw = self._read_sysfs(self._gpu_max_freq_path) if self._gpu_max_freq_path else None
+            max_freq_mhz = int(int(max_freq_raw) / 1_000_000) if max_freq_raw is not None else 0
+
+            # Jetson uses unified memory (shared CPU/GPU) - report system memory
+            import psutil
+            mem = psutil.virtual_memory()
+            mem_total = int(mem.total / (1024 * 1024))  # MB
+            mem_used = int(mem.used / (1024 * 1024))  # MB
+            mem_percent = mem.percent
+
+            # Detect Jetson model name
+            model_raw = self._read_sysfs('firmware/devicetree/base/model')
+            name = model_raw.rstrip('\x00') if model_raw else 'Jetson GPU'
+
+            health, error, error_msg = self._analyze_health(
+                temperature, utilization, mem_used, mem_total, 0.0, gpu_index
+            )
+
+            return GPUStats(
+                index=gpu_index,
+                name=name,
+                temperature=temperature,
+                utilization=utilization,
+                memory_used=mem_used,
+                memory_total=mem_total,
+                memory_percent=mem_percent,
+                power_draw=0.0,
+                power_limit=0.0,
+                fan_speed=None,
+                clock_graphics=clock_graphics,
+                clock_memory=max_freq_mhz,  # Report max freq as reference
+                health=health,
+                error=error,
+                error_message=error_msg
+            )
+
+        except Exception as e:
+            logger.error(f"Jetson GPU stats failed: {e}")
             return None
 
     def get_all_gpus_stats(self) -> Dict[int, GPUStats]:

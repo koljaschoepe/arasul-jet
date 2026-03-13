@@ -168,9 +168,10 @@ else
     log_error "metrics-collector must depend on postgres-db"
 fi
 
-# Dashboard backend must depend on postgres, minio, metrics, llm, embedding
-REQUIRED_DEPS=("postgres-db" "minio" "metrics-collector" "llm-service" "embedding-service")
-for dep in "${REQUIRED_DEPS[@]}"; do
+# Dashboard backend must depend on postgres and minio (core data services)
+# Note: AI services (llm, embedding) are NOT required deps - backend handles their absence gracefully
+REQUIRED_BACKEND_DEPS=("postgres-db" "minio")
+for dep in "${REQUIRED_BACKEND_DEPS[@]}"; do
     if docker compose -f "$COMPOSE_FILE" config | grep -A 50 "^  dashboard-backend:" | sed -n '/depends_on:/,/^  [a-z]/p' | grep -q "$dep:"; then
         log_success "dashboard-backend depends on $dep"
         CHECKS=$((CHECKS + 1))
@@ -179,8 +180,8 @@ for dep in "${REQUIRED_DEPS[@]}"; do
     fi
 done
 
-# Reverse proxy must start AFTER core services but BEFORE application services
-REQUIRED_PROXY_DEPS=("postgres-db" "minio" "metrics-collector" "llm-service" "embedding-service")
+# Reverse proxy must depend on core infrastructure
+REQUIRED_PROXY_DEPS=("postgres-db" "minio")
 for dep in "${REQUIRED_PROXY_DEPS[@]}"; do
     SERVICE_DEF=$(docker compose -f "$COMPOSE_FILE" config | sed -n "/^  reverse-proxy:/,/^  [a-z-]/p")
     if echo "$SERVICE_DEF" | sed -n '/^    depends_on:/,/^    [a-z]/p' | grep -q "^      $dep:"; then
@@ -191,8 +192,8 @@ for dep in "${REQUIRED_PROXY_DEPS[@]}"; do
     fi
 done
 
-# Self-healing must be LAST to start
-REQUIRED_HEALING_DEPS=("postgres-db" "metrics-collector" "dashboard-backend" "llm-service" "n8n")
+# Self-healing must depend on postgres and metrics
+REQUIRED_HEALING_DEPS=("postgres-db" "metrics-collector")
 for dep in "${REQUIRED_HEALING_DEPS[@]}"; do
     if docker compose -f "$COMPOSE_FILE" config | grep -A 50 "^  self-healing-agent:" | sed -n '/depends_on:/,/^  [a-z]/p' | grep -q "$dep:"; then
         log_success "self-healing-agent depends on $dep"

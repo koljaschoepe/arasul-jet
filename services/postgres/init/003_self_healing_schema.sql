@@ -252,14 +252,15 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO arasul;
 -- INITIAL DATA
 -- ============================================================================
 
--- Log schema upgrade
+-- Log schema upgrade (idempotent)
 INSERT INTO self_healing_events (event_type, severity, description, action_taken, success)
-VALUES (
-    'schema_upgrade',
-    'INFO',
+SELECT 'schema_upgrade', 'INFO',
     'Self-healing schema upgraded with advanced failure tracking',
     'Created service_failures, reboot_events, and recovery_actions tables',
     true
+WHERE NOT EXISTS (
+    SELECT 1 FROM self_healing_events
+    WHERE event_type = 'schema_upgrade' AND description = 'Self-healing schema upgraded with advanced failure tracking'
 );
 
 -- Run initial cleanup

@@ -1,13 +1,21 @@
-# Jetson PyTorch Container with CUDA 12.6 Support
+# Jetson PyTorch Container with CUDA Support
 # This container already includes PyTorch with GPU acceleration for ARM64
-FROM dustynv/l4t-pytorch:r36.2.0
+# Default: L4T r36.4.0 (Orin/Ampere, JetPack 6.2). Override for Thor/Blackwell with newer L4T.
+# Must match host L4T major.minor version. Host runs r36.4.7; r36.4.0 is the closest published tag.
+ARG L4T_PYTORCH_TAG=r36.4.0
+FROM dustynv/l4t-pytorch:${L4T_PYTORCH_TAG}
 
 LABEL maintainer="Arasul Platform"
-LABEL description="Embedding Service - Text vectorization with GPU support (Jetson Orin)"
+LABEL description="Embedding Service - Text vectorization with GPU support (Jetson)"
 LABEL org.opencontainers.image.architecture="arm64"
 
+# CUDA compute capability - set at build time for ahead-of-time compilation
+# Orin (Ampere): 8.7, Thor (Blackwell): 10.0
+ARG CUDA_ARCH_LIST=8.7
+ENV TORCH_CUDA_ARCH_LIST=${CUDA_ARCH_LIST}
+
 # Note: curl, wget, git, gcc already included in base image
-# PyTorch 2.5 with CUDA 12.6 already pre-installed
+# PyTorch with CUDA already pre-installed
 
 # Set working directory
 WORKDIR /app

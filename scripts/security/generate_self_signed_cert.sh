@@ -24,20 +24,28 @@ KEY_FILE="$CERT_DIR/arasul.key"
 
 # Check if certificate already exists
 if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
-    echo "⚠️  Certificate already exists:"
+    echo "Certificate already exists:"
     echo "   Certificate: $CERT_FILE"
     echo "   Key: $KEY_FILE"
-    echo ""
 
     # Show certificate info
-    echo "📋 Current certificate info:"
     openssl x509 -in "$CERT_FILE" -noout -subject -dates 2>/dev/null || echo "   (Cannot read certificate)"
     echo ""
 
-    read -p "   Overwrite existing certificate? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Aborted. Keeping existing certificate."
+    # Non-interactive mode: skip if --force not passed
+    if [ "${1}" = "--force" ] || [ "${FORCE_OVERWRITE:-}" = "true" ]; then
+        echo "   Overwriting existing certificate (--force)."
+    elif [ -t 0 ]; then
+        # Interactive terminal: ask user
+        read -p "   Overwrite existing certificate? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Keeping existing certificate."
+            exit 0
+        fi
+    else
+        # Non-interactive (piped/bootstrap): keep existing cert
+        echo "   Keeping existing certificate (non-interactive mode)."
         exit 0
     fi
 fi

@@ -104,7 +104,7 @@ services:
       - SYS_NICE
     security_opt:
       - no-new-privileges:true
-      - apparmor:arasul-self-healing
+      # apparmor:arasul-self-healing  # Disabled: profile not installed on fresh Jetson
     depends_on:
       postgres-db:
         condition: service_healthy

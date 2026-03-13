@@ -236,27 +236,23 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO arasul;
 -- INITIAL DATA
 -- ============================================================================
 
--- Insert initial system snapshot
+-- Insert initial system snapshot (idempotent)
 INSERT INTO system_snapshots (status, cpu, ram, gpu, temperature, disk_percent, services)
-VALUES (
-    'OK',
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
+SELECT 'OK', 0.0, 0.0, 0.0, 0.0, 0.0,
     '{"postgres": "healthy", "minio": "healthy", "llm": "starting", "embeddings": "starting", "n8n": "starting", "dashboard": "starting"}'::jsonb
+WHERE NOT EXISTS (
+    SELECT 1 FROM system_snapshots WHERE status = 'OK' AND cpu = 0.0 AND ram = 0.0 AND gpu = 0.0
 );
 
--- Log database initialization
+-- Log database initialization (idempotent)
 INSERT INTO self_healing_events (event_type, severity, description, action_taken, service_name, success)
-VALUES (
-    'database_init',
-    'INFO',
+SELECT 'database_init', 'INFO',
     'Database schema initialized successfully',
     'Created all tables, indexes, views, and functions',
-    'postgres-db',
-    true
+    'postgres-db', true
+WHERE NOT EXISTS (
+    SELECT 1 FROM self_healing_events
+    WHERE event_type = 'database_init' AND description = 'Database schema initialized successfully'
 );
 
 -- ============================================================================

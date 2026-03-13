@@ -71,6 +71,17 @@ describe('ensureAdminUser', () => {
     expect(db.query).toHaveBeenCalledTimes(1); // No INSERT
   });
 
+  test('logs error when ADMIN_PASSWORD is redacted', async () => {
+    process.env.ADMIN_PASSWORD = 'REDACTED_AFTER_BOOTSTRAP';
+    db.query.mockResolvedValueOnce({ rows: [{ count: '0' }] });
+    const logger = require('../../src/utils/logger');
+
+    await ensureAdminUser();
+
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('ADMIN_PASSWORD'));
+    expect(db.query).toHaveBeenCalledTimes(1); // No INSERT
+  });
+
   test('handles missing table gracefully', async () => {
     db.query.mockRejectedValueOnce(new Error('relation "admin_users" does not exist'));
     const logger = require('../../src/utils/logger');

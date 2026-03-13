@@ -122,8 +122,8 @@ validate_boolean() {
         return 0
     fi
 
-    if [[ ! "$value" =~ ^(true|false|yes|no|1|0)$ ]]; then
-        log_error "$var_name must be boolean (true/false/yes/no/1/0): $value"
+    if [[ ! "$value" =~ ^(true|false|yes|no|on|off|1|0)$ ]]; then
+        log_error "$var_name must be boolean (true/false/yes/no/on/off/1/0): $value"
         ERRORS=$((ERRORS + 1))
         return 1
     fi
@@ -291,8 +291,9 @@ validate_required_var "LOG_LEVEL"
 
 # Validate log level
 if [ -n "$LOG_LEVEL" ]; then
-    if [[ ! "$LOG_LEVEL" =~ ^(DEBUG|INFO|WARN|ERROR|CRITICAL)$ ]]; then
-        log_error "LOG_LEVEL must be one of: DEBUG, INFO, WARN, ERROR, CRITICAL"
+    LOG_LEVEL_UPPER=$(echo "$LOG_LEVEL" | tr '[:lower:]' '[:upper:]')
+    if [[ ! "$LOG_LEVEL_UPPER" =~ ^(DEBUG|INFO|WARN|ERROR|CRITICAL)$ ]]; then
+        log_error "LOG_LEVEL must be one of: DEBUG, INFO, WARN, ERROR, CRITICAL (got: $LOG_LEVEL)"
         ERRORS=$((ERRORS + 1))
     fi
 fi

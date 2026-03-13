@@ -22,14 +22,14 @@ All variables are defined in `.env` file at repository root.
 
 ## Authentication
 
-| Variable               | Default    | Description                    |
-| ---------------------- | ---------- | ------------------------------ |
-| ADMIN_USERNAME         | admin      | Dashboard admin username       |
-| ADMIN_PASSWORD         | (required) | Dashboard admin password       |
-| JWT_SECRET             | (required) | JWT signing key (32+ chars)    |
-| JWT_EXPIRY             | 24h        | Token expiration time          |
-| LOGIN_LOCKOUT_ATTEMPTS | 5          | Failed attempts before lockout |
-| LOGIN_LOCKOUT_MINUTES  | 15         | Lockout duration               |
+| Variable               | Default    | Description                                         |
+| ---------------------- | ---------- | --------------------------------------------------- |
+| ADMIN_USERNAME         | admin      | Dashboard admin username                            |
+| ADMIN_PASSWORD         | (required) | Dashboard admin password (redacted after bootstrap) |
+| JWT_SECRET             | (required) | JWT signing key (32+ chars)                         |
+| JWT_EXPIRY             | 24h        | Token expiration time                               |
+| LOGIN_LOCKOUT_ATTEMPTS | 5          | Failed attempts before lockout                      |
+| LOGIN_LOCKOUT_MINUTES  | 15         | Lockout duration                                    |
 
 ---
 
@@ -137,16 +137,18 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## Embedding Service
 
-| Variable                   | Default                 | Description                          |
-| -------------------------- | ----------------------- | ------------------------------------ |
-| EMBEDDING_SERVICE_HOST     | embedding-service       | Service hostname                     |
-| EMBEDDING_SERVICE_PORT     | 11435                   | Service port                         |
-| EMBEDDING_MODEL            | BAAI/bge-m3             | HuggingFace model                    |
-| EMBEDDING_VECTOR_SIZE      | 1024                    | Vector dimension for embedding model |
-| EMBEDDING_MAX_INPUT_TOKENS | 8192                    | Max input token length               |
-| ENABLE_RERANKING           | true                    | Enable 2-stage reranking             |
-| FLASHRANK_MODEL            | ms-marco-MiniLM-L-12-v2 | CPU reranker model                   |
-| BGE_RERANKER_MODEL         | BAAI/bge-reranker-v2-m3 | GPU reranker model                   |
+| Variable                   | Default                 | Description                                                                 |
+| -------------------------- | ----------------------- | --------------------------------------------------------------------------- |
+| EMBEDDING_SERVICE_HOST     | embedding-service       | Service hostname                                                            |
+| EMBEDDING_SERVICE_PORT     | 11435                   | Service port                                                                |
+| EMBEDDING_MODEL            | BAAI/bge-m3             | HuggingFace model                                                           |
+| EMBEDDING_VECTOR_SIZE      | 1024                    | Vector dimension for embedding model                                        |
+| EMBEDDING_MAX_INPUT_TOKENS | 8192                    | Max input token length                                                      |
+| EMBEDDING_USE_FP16         | false                   | Use FP16 for embeddings (saves ~50% memory, recommended for <=32GB devices) |
+| EMBEDDING_MAX_BATCH_SIZE   | 100                     | Max batch size for embedding requests (lower on memory-constrained devices) |
+| ENABLE_RERANKING           | true                    | Enable 2-stage reranking                                                    |
+| FLASHRANK_MODEL            | ms-marco-MiniLM-L-12-v2 | CPU reranker model                                                          |
+| BGE_RERANKER_MODEL         | BAAI/bge-reranker-v2-m3 | GPU reranker model                                                          |
 
 ---
 
@@ -257,22 +259,25 @@ See [CUSTOMER_OAUTH_SETUP.md](./CUSTOMER_OAUTH_SETUP.md) for detailed instructio
 
 These thresholds are used by both Self-Healing and the Dashboard. If not set, device-specific defaults are auto-detected (see `/api/system/thresholds`).
 
-| Variable              | Default | Description                              |
-| --------------------- | ------- | ---------------------------------------- |
-| CPU_WARNING_PERCENT   | (auto)  | CPU warning threshold (dashboard yellow) |
-| CPU_CRITICAL_PERCENT  | 90      | CPU critical threshold (dashboard red)   |
-| RAM_WARNING_PERCENT   | (auto)  | RAM warning threshold                    |
-| RAM_CRITICAL_PERCENT  | 90      | RAM critical threshold                   |
-| GPU_WARNING_PERCENT   | (auto)  | GPU warning threshold                    |
-| GPU_CRITICAL_PERCENT  | 95      | GPU critical threshold                   |
-| DISK_WARNING_PERCENT  | 80      | Disk warning threshold                   |
-| DISK_CLEANUP_PERCENT  | 90      | Disk cleanup threshold                   |
-| DISK_CRITICAL_PERCENT | 95      | Disk critical threshold                  |
-| DISK_REBOOT_PERCENT   | 97      | Disk reboot threshold                    |
-| TEMP_WARNING_CELSIUS  | (auto)  | Temperature warning (dashboard yellow)   |
-| TEMP_CRITICAL_CELSIUS | (auto)  | Temperature critical (dashboard red)     |
-| TEMP_THROTTLE_CELSIUS | 83      | Temperature throttle (self-healing)      |
-| TEMP_RESTART_CELSIUS  | 85      | Temperature restart (self-healing)       |
+| Variable                    | Default | Description                                      |
+| --------------------------- | ------- | ------------------------------------------------ |
+| CPU_WARNING_PERCENT         | (auto)  | CPU warning threshold (dashboard yellow)         |
+| CPU_CRITICAL_PERCENT        | 90      | CPU critical threshold (dashboard red)           |
+| RAM_WARNING_PERCENT         | (auto)  | RAM warning threshold                            |
+| RAM_CRITICAL_PERCENT        | 90      | RAM critical threshold                           |
+| GPU_WARNING_PERCENT         | (auto)  | GPU utilization warning threshold                |
+| GPU_CRITICAL_PERCENT        | 95      | GPU utilization critical threshold               |
+| GPU_MEMORY_WARNING_PERCENT  | 85      | GPU memory usage warning (triggers cache clear)  |
+| GPU_MEMORY_CRITICAL_PERCENT | 92      | GPU memory usage critical (triggers LLM restart) |
+| GPU_MEMORY_MAX_PERCENT      | 97      | GPU memory hard limit                            |
+| DISK_WARNING_PERCENT        | 80      | Disk warning threshold                           |
+| DISK_CLEANUP_PERCENT        | 90      | Disk cleanup threshold                           |
+| DISK_CRITICAL_PERCENT       | 95      | Disk critical threshold                          |
+| DISK_REBOOT_PERCENT         | 97      | Disk reboot threshold                            |
+| TEMP_WARNING_CELSIUS        | (auto)  | Temperature warning (dashboard yellow)           |
+| TEMP_CRITICAL_CELSIUS       | (auto)  | Temperature critical (dashboard red)             |
+| TEMP_THROTTLE_CELSIUS       | 83      | Temperature throttle (self-healing)              |
+| TEMP_RESTART_CELSIUS        | 85      | Temperature restart (self-healing)               |
 
 **Auto-detected defaults by device:**
 | Device | CPU warn/crit | RAM warn/crit | Temp warn/crit |
@@ -458,7 +463,7 @@ docker compose up -d backup-service
 | APPSTORE_MANIFESTS_DIR | /arasul/appstore/manifests           | App store manifest directory       |
 | DOCKER_GATEWAY_IP      | 172.30.0.1                           | Docker bridge gateway IP           |
 | DOCKER_NETWORK         | arasul-jet_arasul-net                | Docker network name                |
-| SSH_PORT               | 22                                   | SSH port for app access            |
+| SSH_PORT               | 2222                                 | SSH port (2222 after hardening)    |
 | SSH_USER               | arasul                               | SSH username for app access        |
 | UPDATE_PUBLIC_KEY_PATH | /arasul/config/public_update_key.pem | Public key for update verification |
 
@@ -468,11 +473,21 @@ docker compose up -d backup-service
 
 These variables configure the platform for different NVIDIA Jetson devices. Use `./scripts/setup/detect-jetson.sh` to auto-detect and generate optimal values.
 
-### CUDA Architecture
+### GPU & Base Image
 
-| Variable             | Default | Description                                              |
-| -------------------- | ------- | -------------------------------------------------------- |
-| TORCH_CUDA_ARCH_LIST | 8.7     | CUDA compute capability (8.7=Orin, 7.2=Xavier, 5.3=Nano) |
+| Variable             | Default                 | Description                                                                      |
+| -------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| TORCH_CUDA_ARCH_LIST | 8.7                     | CUDA compute capability (10.0=Thor, 8.7=Orin, 7.2=Xavier, 5.3=Nano)              |
+| L4T_PYTORCH_TAG      | r36.4.0                 | dustynv/l4t-pytorch base image tag (build arg for embedding-service)             |
+| CUDA_ARCH_LIST       | (=TORCH_CUDA_ARCH_LIST) | Docker build arg alias, passed to embedding-service Dockerfile                   |
+| JETSON_PROFILE       | (auto)                  | Device profile name set by detect-jetson.sh (e.g. `thor_128gb`, `agx_orin_64gb`) |
+| JETSON_DESCRIPTION   | (auto)                  | Human-readable device description (e.g. "NVIDIA Jetson Thor 128GB")              |
+| JETSON_RAM_TOTAL     | (auto)                  | Detected total RAM in GB (read-only, set by detect-jetson.sh)                    |
+| JETSON_CPU_CORES     | (auto)                  | Detected CPU core count (read-only, set by detect-jetson.sh)                     |
+
+`TORCH_CUDA_ARCH_LIST` is used at both build time (as `CUDA_ARCH_LIST` build arg in `compose/compose.ai.yaml`) and runtime (passed to PyTorch inside the embedding-service container). The detection script sets this automatically based on device family. For Thor, the value `10.0` is speculative (Blackwell sm_100) and may need adjustment.
+
+`L4T_PYTORCH_TAG` selects the dustynv/l4t-pytorch base image for the embedding-service Docker build. It must match the host L4T major.minor version. For Thor, `r37.0.0` is a placeholder until NVIDIA publishes the Thor JetPack release.
 
 ### Memory Limits (per Service)
 
@@ -507,16 +522,18 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 
 Pre-configured profiles for common Jetson devices:
 
-| Device           | RAM  | LLM Limit | Embedding | Qdrant | Recommended Model |
-| ---------------- | ---- | --------- | --------- | ------ | ----------------- |
-| AGX Orin 64GB    | 64GB | 48G       | 8G        | 4G     | qwen3:14b-q8      |
-| AGX Orin 32GB    | 32GB | 24G       | 4G        | 2G     | qwen3:8b-q8       |
-| Orin NX 16GB     | 16GB | 10G       | 2G        | 1G     | llama3.1:8b       |
-| Orin NX/Nano 8GB | 8GB  | 5G        | 1G        | 512M   | phi3:mini         |
-| Orin Nano 4GB    | 4GB  | 2G        | 512M      | 256M   | tinyllama:1.1b    |
-| Xavier AGX 32GB  | 32GB | 24G       | 4G        | 2G     | llama3.1:8b       |
-| Xavier NX 8GB    | 8GB  | 5G        | 1G        | 512M   | phi3:mini         |
-| Jetson Nano 4GB  | 4GB  | 2G        | 512M      | 256M   | tinyllama:1.1b    |
+| Device           | RAM   | LLM Limit | Embedding | Qdrant | Recommended Model |
+| ---------------- | ----- | --------- | --------- | ------ | ----------------- |
+| Thor 128GB       | 128GB | 92G       | 8G        | 4G     | qwen3:32b-q8      |
+| Thor 64GB        | 64GB  | 38G       | 6G        | 3G     | qwen3:14b-q8      |
+| AGX Orin 64GB    | 64GB  | 48G       | 8G        | 4G     | qwen3:14b-q8      |
+| AGX Orin 32GB    | 32GB  | 24G       | 4G        | 2G     | qwen3:8b-q8       |
+| Orin NX 16GB     | 16GB  | 10G       | 2G        | 1G     | llama3.1:8b       |
+| Orin NX/Nano 8GB | 8GB   | 5G        | 1G        | 512M   | phi3:mini         |
+| Orin Nano 4GB    | 4GB   | 2G        | 512M      | 256M   | tinyllama:1.1b    |
+| Xavier AGX 32GB  | 32GB  | 24G       | 4G        | 2G     | llama3.1:8b       |
+| Xavier NX 8GB    | 8GB   | 5G        | 1G        | 512M   | phi3:mini         |
+| Jetson Nano 4GB  | 4GB   | 2G        | 512M      | 256M   | tinyllama:1.1b    |
 
 ### Auto-Detection
 

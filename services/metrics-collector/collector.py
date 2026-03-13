@@ -10,6 +10,7 @@ import psutil
 import logging
 import asyncio
 import psycopg2
+import glob as glob_module
 from psycopg2 import pool
 from datetime import datetime
 from aiohttp import web
@@ -78,9 +79,19 @@ metrics_buffer = []
 class MetricsCollector:
     """Collects system metrics from various sources"""
 
+    # Candidate GPU load paths (Orin, Thor, generic)
+    GPU_LOAD_CANDIDATES = [
+        'devices/platform/gpu.0/load',
+        'devices/platform/gpu/load',
+    ]
+
+    SYSFS_PREFIXES = ['/host/sys', '/sys']
+
     def __init__(self):
         self.nvml_available = False
         self.gpu_monitor = None
+        self._cached_gpu_load_path = None  # Discovered GPU load sysfs path
+        self._cached_gpu_thermal_path = None  # Discovered GPU thermal sysfs path
         self._init_nvml()
         self._init_gpu_monitor()
         # Initialize CPU percent with blocking call once (for accurate subsequent readings)
@@ -95,8 +106,12 @@ class MetricsCollector:
             self.pynvml = pynvml
             logger.info("NVML initialized successfully")
         except Exception as e:
-            logger.warning(f"NVML not available: {e}")
             self.nvml_available = False
+            # On Jetson, NVML is expected to be unavailable - use sysfs instead
+            if self._find_gpu_load_path():
+                logger.info(f"NVML not available ({e}) - using Jetson sysfs for GPU metrics")
+            else:
+                logger.warning(f"NVML not available: {e}")
 
     def _init_gpu_monitor(self):
         """Initialize advanced GPU monitor"""
@@ -109,6 +124,66 @@ class MetricsCollector:
                 self.gpu_monitor = None
         else:
             logger.info("GPU Monitor not available")
+
+    def _find_gpu_load_path(self) -> Optional[str]:
+        """Discover GPU load sysfs path dynamically (cached after first call)"""
+        if self._cached_gpu_load_path is not None:
+            return self._cached_gpu_load_path if self._cached_gpu_load_path else None
+
+        for prefix in self.SYSFS_PREFIXES:
+            for candidate in self.GPU_LOAD_CANDIDATES:
+                full_path = os.path.join(prefix, candidate)
+                if os.path.exists(full_path):
+                    self._cached_gpu_load_path = full_path
+                    return full_path
+
+        self._cached_gpu_load_path = ''  # Mark as searched but not found
+        return None
+
+    def _find_gpu_thermal_path(self) -> Optional[str]:
+        """Discover GPU thermal zone by checking type instead of hardcoding zone number (cached)"""
+        if self._cached_gpu_thermal_path is not None:
+            return self._cached_gpu_thermal_path if self._cached_gpu_thermal_path else None
+
+        gpu_therm_names = ['gpu-therm', 'GPU-therm', 'gpu_therm', 'Tdiode_GPU', 'GPU']
+
+        for prefix in self.SYSFS_PREFIXES:
+            thermal_base = os.path.join(prefix, 'class/thermal')
+            if not os.path.isdir(thermal_base):
+                continue
+
+            try:
+                zones = sorted(glob_module.glob(os.path.join(thermal_base, 'thermal_zone*')))
+                for zone_dir in zones:
+                    type_file = os.path.join(zone_dir, 'type')
+                    try:
+                        if os.path.exists(type_file):
+                            with open(type_file, 'r') as f:
+                                zone_type = f.read().strip()
+                                if zone_type in gpu_therm_names:
+                                    temp_path = os.path.join(zone_dir, 'temp')
+                                    if os.path.exists(temp_path):
+                                        self._cached_gpu_thermal_path = temp_path
+                                        logger.info(f"GPU thermal zone: {zone_type} -> {temp_path}")
+                                        return temp_path
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        # Fallback: try common zone paths
+        fallback_paths = [
+            '/host/sys/class/thermal/thermal_zone1/temp',
+            '/host/sys/class/thermal/thermal_zone0/temp',
+            '/sys/class/thermal/thermal_zone0/temp',
+        ]
+        for path in fallback_paths:
+            if os.path.exists(path):
+                self._cached_gpu_thermal_path = path
+                return path
+
+        self._cached_gpu_thermal_path = ''  # Mark as searched but not found
+        return None
 
     def get_cpu_percent(self) -> float:
         """Get CPU utilization percentage (non-blocking)"""
@@ -130,34 +205,36 @@ class MetricsCollector:
 
     def get_gpu_percent(self) -> float:
         """Get GPU utilization percentage"""
-        if not self.nvml_available:
-            return 0.0
+        if self.nvml_available:
+            try:
+                handle = self.pynvml.nvmlDeviceGetHandleByIndex(0)
+                utilization = self.pynvml.nvmlDeviceGetUtilizationRates(handle)
+                return float(utilization.gpu)
+            except Exception as e:
+                logger.error(f"Error reading GPU via NVML: {e}")
 
-        try:
-            handle = self.pynvml.nvmlDeviceGetHandleByIndex(0)
-            utilization = self.pynvml.nvmlDeviceGetUtilizationRates(handle)
-            return float(utilization.gpu)
-        except Exception as e:
-            logger.error(f"Error reading GPU: {e}")
-            return 0.0
+        # Jetson fallback: read GPU load from sysfs (0-1000 scale)
+        gpu_load_path = self._find_gpu_load_path()
+        if gpu_load_path:
+            try:
+                with open(gpu_load_path, 'r') as f:
+                    return int(f.read().strip()) / 10.0
+            except Exception:
+                pass
+
+        return 0.0
 
     def get_temperature(self) -> float:
         """Get system temperature in Celsius"""
         try:
-            # Try to read from thermal zone (Jetson AGX Orin)
-            thermal_zones = [
-                '/host/sys/class/thermal/thermal_zone0/temp',
-                '/host/sys/class/thermal/thermal_zone1/temp',
-                '/sys/class/thermal/thermal_zone0/temp'
-            ]
+            # Try to find GPU thermal zone dynamically
+            thermal_path = self._find_gpu_thermal_path()
+            if thermal_path:
+                with open(thermal_path, 'r') as f:
+                    temp = int(f.read().strip()) / 1000.0
+                    return temp
 
-            for zone_file in thermal_zones:
-                if os.path.exists(zone_file):
-                    with open(zone_file, 'r') as f:
-                        temp = int(f.read().strip()) / 1000.0
-                        return temp
-
-            # Fallback: try GPU temperature if available
+            # Fallback: try GPU temperature via NVML if available
             if self.nvml_available:
                 handle = self.pynvml.nvmlDeviceGetHandleByIndex(0)
                 temp = self.pynvml.nvmlDeviceGetTemperature(
