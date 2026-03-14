@@ -667,34 +667,35 @@ setup_secrets() {
     echo "$n8n_pass" > config/secrets/n8n_basic_auth_password
     chmod 600 config/secrets/n8n_basic_auth_password
 
-    # Configure Traefik Basic Auth (if htpasswd available)
-    if command -v htpasswd &> /dev/null && [ -f config/traefik/dynamic/middlewares.yml ]; then
-        log_info "Konfiguriere Traefik Basic Auth..."
+    # Configure Traefik Basic Auth (replace __BASIC_AUTH_HASH__ placeholder)
+    local middlewares_file="config/traefik/dynamic/middlewares.yml"
+    if [ -f "$middlewares_file" ]; then
+        local auth_hash=""
 
-        # n8n Auth
-        local n8n_hash=$(htpasswd -nbB "${n8n_user:-admin}" "$n8n_pass" | cut -d: -f2)
-        local escaped_hash=$(echo "$n8n_hash" | sed 's/\$/\\$\\$/g')
+        # Generate bcrypt hash: htpasswd > python3 > node fallback
+        if command -v htpasswd &> /dev/null; then
+            auth_hash=$(htpasswd -nbB "${n8n_user:-admin}" "$n8n_pass" 2>/dev/null)
+        elif command -v python3 &> /dev/null && python3 -c "import bcrypt" 2>/dev/null; then
+            local py_hash
+            py_hash=$(printf '%s' "$n8n_pass" | python3 -c "import sys,bcrypt; pw=sys.stdin.buffer.read(); print(bcrypt.hashpw(pw, bcrypt.gensalt(10)).decode())" 2>/dev/null)
+            auth_hash="${n8n_user:-admin}:${py_hash}"
+        elif command -v node &> /dev/null; then
+            local node_hash
+            node_hash=$(node -e "try{const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],10))}catch(e){process.exit(1)}" "$n8n_pass" 2>/dev/null)
+            auth_hash="${n8n_user:-admin}:${node_hash}"
+        fi
 
-        awk -v user="${n8n_user:-admin}" -v hash="$escaped_hash" '
-        /basicAuth-n8n:/ { in_n8n_section=1 }
-        in_n8n_section && /users:/ { print; getline; print "          - \"" user ":" hash "\""; in_n8n_section=0; next }
-        { print }
-        ' config/traefik/dynamic/middlewares.yml > config/traefik/dynamic/middlewares.yml.tmp
-        mv config/traefik/dynamic/middlewares.yml.tmp config/traefik/dynamic/middlewares.yml
-
-        # Traefik Dashboard Auth
-        local traefik_hash=$(htpasswd -nbm "admin" "$n8n_pass" | cut -d: -f2)
-
-        awk -v user="admin" -v hash="$traefik_hash" '
-        /basicAuth-traefik:/ { in_traefik_section=1 }
-        in_traefik_section && /users:/ { print; getline; print "          - \"" user ":" hash "\"  # " user; in_traefik_section=0; next }
-        { print }
-        ' config/traefik/dynamic/middlewares.yml > config/traefik/dynamic/middlewares.yml.tmp
-        mv config/traefik/dynamic/middlewares.yml.tmp config/traefik/dynamic/middlewares.yml
-
-        log_success "Traefik Basic Auth konfiguriert"
+        if [ -n "$auth_hash" ]; then
+            # Escape $ for YAML ($ → $$) and for sed delimiter
+            local escaped_hash
+            escaped_hash=$(echo "$auth_hash" | sed 's/\$/\$\$/g; s|/|\\/|g')
+            sed -i "s|'__BASIC_AUTH_HASH__'|'${escaped_hash}'|g" "$middlewares_file"
+            log_success "Traefik Basic Auth konfiguriert"
+        else
+            log_warning "Kein bcrypt-Tool gefunden (htpasswd/python3-bcrypt/node) - Basic Auth Platzhalter nicht ersetzt"
+        fi
     else
-        log_warning "htpasswd nicht gefunden oder middlewares.yml fehlt - Basic Auth uebersprungen"
+        log_warning "middlewares.yml nicht gefunden - Basic Auth uebersprungen"
     fi
 
     log_success "Secrets konfiguriert"
@@ -736,6 +737,30 @@ setup_https() {
     fi
 
     log_success "HTTPS/TLS configuration complete"
+}
+
+# Validate that Basic Auth hash placeholder has been replaced in Traefik config
+validate_basic_auth_hash() {
+    if grep -q '__BASIC_AUTH_HASH__' config/traefik/dynamic/middlewares.yml 2>/dev/null; then
+        log_error "BASIC_AUTH_HASH Platzhalter nicht ersetzt in Traefik-Config!"
+        log_error "Bitte setup erneut ausfuehren: ./scripts/interactive_setup.sh"
+        # Don't exit - try to fix it
+        local admin_hash
+        admin_hash=$(grep "^ADMIN_HASH=" .env 2>/dev/null | cut -d'=' -f2-)
+        if [ -n "$admin_hash" ] && [ "$admin_hash" != "GENERATE_ON_FIRST_START" ]; then
+            # Re-run setup_secrets to generate and apply the hash
+            setup_secrets
+            if ! grep -q '__BASIC_AUTH_HASH__' config/traefik/dynamic/middlewares.yml 2>/dev/null; then
+                log_success "Basic-Auth-Hash automatisch ersetzt"
+            else
+                log_warning "Basic-Auth-Hash konnte nicht automatisch ersetzt werden"
+            fi
+        else
+            log_warning "Kein ADMIN_HASH in .env - Basic Auth bleibt unkonfiguriert"
+        fi
+    else
+        log_success "Basic-Auth-Hash in Traefik-Config: OK"
+    fi
 }
 
 # Initialize admin user with bcrypt hash from .env
@@ -782,14 +807,30 @@ init_admin_user() {
     echo "$admin_hash" > config/secrets/admin.hash
     chmod 600 config/secrets/admin.hash
 
-    # Admin-Benutzer in Datenbank anlegen
+    # Validate inputs before SQL (prevent injection)
+    local safe_user="${admin_user:-admin}"
+    local safe_email="${admin_email:-admin@arasul.local}"
+
+    if ! echo "$safe_user" | grep -qE '^[a-zA-Z0-9_-]{1,64}$'; then
+        log_error "Ungueltiger Benutzername: nur a-z, 0-9, _ und - erlaubt (max 64 Zeichen)"
+        return 1
+    fi
+    if ! echo "$safe_email" | grep -qE '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'; then
+        log_error "Ungueltige E-Mail-Adresse: ${safe_email}"
+        return 1
+    fi
+
+    # Admin-Benutzer in Datenbank anlegen (parameterisierte Query via stdin)
     log_info "Erstelle Admin-Benutzer in Datenbank..."
 
-    docker compose exec -T postgres-db psql -U arasul -d arasul_db -c "
+    docker compose exec -T postgres-db psql -U arasul -d arasul_db \
+        -v "admin_user=${safe_user}" \
+        -v "admin_hash=${admin_hash}" \
+        -v "admin_email=${safe_email}" <<'EOSQL'
         INSERT INTO admin_users (username, password_hash, email, created_at)
-        VALUES ('${admin_user:-admin}', '${admin_hash}', '${admin_email:-admin@arasul.local}', NOW())
+        VALUES (:'admin_user', :'admin_hash', :'admin_email', NOW())
         ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash;
-    "
+EOSQL
 
     if [ $? -eq 0 ]; then
         log_success "Administrator erstellt: ${admin_user:-admin}"
@@ -1083,6 +1124,85 @@ redact_plaintext_password() {
     fi
 }
 
+# Production security hardening (SSH + Firewall)
+# Non-critical: failures warn but don't block bootstrap
+harden_production_security() {
+    local node_env
+    node_env=$(grep "^NODE_ENV=" .env 2>/dev/null | cut -d'=' -f2)
+
+    # SSH Hardening (production only, opt-out via ENABLE_SSH_HARDENING=false)
+    if [ "${ENABLE_SSH_HARDENING:-true}" = "true" ] && [ "${node_env}" = "production" ]; then
+        log_info "SSH-Hardening wird angewendet..."
+        if [ -f "scripts/security/harden-ssh.sh" ]; then
+            bash scripts/security/harden-ssh.sh --port "${SSH_PORT:-2222}" --non-interactive 2>/dev/null || {
+                log_warning "SSH-Hardening fehlgeschlagen (nicht kritisch)"
+            }
+        else
+            log_warning "SSH-Hardening-Script nicht gefunden: scripts/security/harden-ssh.sh"
+        fi
+    elif [ "${ENABLE_SSH_HARDENING:-true}" != "true" ]; then
+        log_info "SSH-Hardening uebersprungen (ENABLE_SSH_HARDENING=false)"
+    else
+        log_info "SSH-Hardening uebersprungen (NODE_ENV != production)"
+    fi
+
+    # Firewall Setup (production only, opt-out via ENABLE_FIREWALL=false)
+    if [ "${ENABLE_FIREWALL:-true}" = "true" ] && [ "${node_env}" = "production" ]; then
+        log_info "Firewall wird konfiguriert..."
+        if [ -f "scripts/security/setup-firewall.sh" ]; then
+            bash scripts/security/setup-firewall.sh --ssh-port "${SSH_PORT:-2222}" --non-interactive 2>/dev/null || {
+                log_warning "Firewall-Setup fehlgeschlagen (nicht kritisch)"
+            }
+        else
+            log_warning "Firewall-Script nicht gefunden: scripts/security/setup-firewall.sh"
+        fi
+    elif [ "${ENABLE_FIREWALL:-true}" != "true" ]; then
+        log_info "Firewall-Setup uebersprungen (ENABLE_FIREWALL=false)"
+    else
+        log_info "Firewall-Setup uebersprungen (NODE_ENV != production)"
+    fi
+}
+
+# Install systemd watchdog and deadman-switch timers
+install_systemd_timers() {
+    if [ "${INSTALL_SYSTEMD_TIMERS:-true}" != "true" ]; then
+        log_info "Systemd-Timer-Installation uebersprungen (INSTALL_SYSTEMD_TIMERS=false)"
+        return 0
+    fi
+
+    log_info "Installiere Systemd-Timer (Watchdog, Deadman-Switch)..."
+
+    local installed=0
+
+    # Copy timer files
+    for timer_file in packaging/arasul-platform/etc/systemd/system/*.timer; do
+        if [ -f "$timer_file" ]; then
+            sudo cp "$timer_file" /etc/systemd/system/ 2>/dev/null || true
+            installed=$((installed + 1))
+        fi
+    done
+
+    # Copy associated service files
+    for service_file in packaging/arasul-platform/etc/systemd/system/docker-watchdog.service \
+                        packaging/arasul-platform/etc/systemd/system/deadman-switch.service; do
+        if [ -f "$service_file" ]; then
+            sudo cp "$service_file" /etc/systemd/system/ 2>/dev/null || true
+            installed=$((installed + 1))
+        fi
+    done
+
+    if [ $installed -gt 0 ]; then
+        sudo systemctl daemon-reload 2>/dev/null || true
+        sudo systemctl enable --now docker-watchdog.timer deadman-switch.timer 2>/dev/null || {
+            log_warning "Systemd-Timer konnten nicht aktiviert werden"
+            return 0
+        }
+        log_success "Systemd-Timer installiert und aktiviert ($installed Dateien)"
+    else
+        log_warning "Keine Systemd-Timer-Dateien gefunden"
+    fi
+}
+
 # Bootstrap command
 cmd_bootstrap() {
     show_banner
@@ -1137,6 +1257,9 @@ cmd_bootstrap() {
     # 8. TLS-Zertifikate
     setup_https
 
+    # 8b. Basic-Auth-Hash Validierung
+    validate_basic_auth_hash
+
     # 9. Docker-Images (--skip-pull / --skip-build fuer Factory-Images)
     if [ "$SKIP_PULL" != "true" ]; then
         pull_images
@@ -1168,10 +1291,17 @@ cmd_bootstrap() {
 
     # 15. Smoke Tests & Ergebnis
     if run_smoke_tests; then
+
+        # 16. Production-Haertung (nicht kritisch - Fehler blockieren Bootstrap nicht)
+        harden_production_security
+
+        # 17. Systemd-Timer installieren
+        install_systemd_timers
+
         generate_error_report 0 "completed"
         show_completion_summary
 
-        # 16. Klartext-Passwort aus .env entfernen (Sicherheit)
+        # 18. Klartext-Passwort aus .env entfernen (Sicherheit)
         redact_plaintext_password
     else
         generate_error_report 1 "smoke_tests"

@@ -1,0 +1,9 @@
+[Unit]
+Description=ARASUL Deadman Switch for Self-Healing Agent
+After=docker.service arasul-platform.service
+Wants=arasul-platform.service
+
+[Service]
+Type=oneshot
+ExecStart=/arasul/scripts/system/deadman-switch.sh
+TimeoutStartSec=30

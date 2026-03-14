@@ -19,6 +19,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { getCsrfToken } from '../utils/csrf';
 
 interface ApiError extends Error {
   status: number;
@@ -84,16 +85,27 @@ export function useApi(): ApiMethods {
         ...extraHeaders,
       };
 
+      // Add CSRF token for state-changing requests
+      if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+        const csrfToken = getCsrfToken();
+        if (csrfToken) {
+          headers['X-CSRF-Token'] = csrfToken;
+        }
+      }
+
       // Remove Content-Type for FormData (browser sets it with boundary)
       if (body instanceof FormData) {
         delete headers['Content-Type'];
       }
 
+      // LEAK-002: Default 30s timeout if no signal provided (prevents hanging requests)
+      const effectiveSignal = signal || AbortSignal.timeout(30000);
+
       const res = await fetch(`${API_BASE}${path}`, {
         method,
         headers,
         body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-        signal,
+        signal: effectiveSignal,
       });
 
       if (!res.ok) {

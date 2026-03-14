@@ -4,7 +4,7 @@ set -euo pipefail
 # ARASUL Firewall Setup Script
 # Configures UFW for production deployment on Jetson AGX Orin
 #
-# Usage: sudo ./setup-firewall.sh [--ssh-port PORT]
+# Usage: sudo ./setup-firewall.sh [--ssh-port PORT] [--non-interactive]
 #
 # Default allowed ports:
 #   - 80/tcp   (HTTP via Traefik)
@@ -15,6 +15,7 @@ set -euo pipefail
 # Docker internal networking (172.30.0.0/24) is allowed.
 
 SSH_PORT="2222"
+NON_INTERACTIVE=false
 
 # Parse options
 while [[ $# -gt 0 ]]; do
@@ -22,6 +23,10 @@ while [[ $# -gt 0 ]]; do
         --ssh-port)
             SSH_PORT="$2"
             shift 2
+            ;;
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
             ;;
         *)
             shift

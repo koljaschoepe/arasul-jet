@@ -17,6 +17,9 @@ function resolveSecrets() {
     'MINIO_ROOT_PASSWORD',
     'ARASUL_DATA_DB_PASSWORD',
     'TELEGRAM_ENCRYPTION_KEY',
+    'TELEGRAM_BOT_TOKEN',
+    'ADMIN_PASSWORD',
+    'N8N_ENCRYPTION_KEY',
   ];
 
   for (const name of vars) {

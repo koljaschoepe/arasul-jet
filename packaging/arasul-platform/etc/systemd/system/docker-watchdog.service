@@ -1,0 +1,9 @@
+[Unit]
+Description=ARASUL Docker Daemon Watchdog
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/arasul/scripts/system/docker-watchdog.sh
+TimeoutStartSec=30

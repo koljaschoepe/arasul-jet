@@ -48,9 +48,10 @@ http:
         frameDeny: true
         browserXssFilter: true
         contentTypeNosniff: true
-        # HSTS disabled: LAN appliance uses HTTP, HTTPS/TLS not configured
-        forceSTSHeader: false
-        stsSeconds: 0
+        # HSTS: force browsers to use HTTPS for 2 years
+        forceSTSHeader: true
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
         customFrameOptionsValue: 'SAMEORIGIN'
         # Content-Security-Policy: restrict resource loading to same origin
         contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
@@ -154,20 +155,22 @@ http:
           - '10.0.0.0/8' # Private network
 
     # Basic Auth for Traefik Dashboard
-    # Regenerate: scripts/security/generate_htpasswd.sh admin
+    # Hash wird beim Bootstrap generiert: ./arasul bootstrap
+    # Manuell: scripts/security/generate_htpasswd.sh admin
     basicAuth-traefik:
       basicAuth:
         users:
-          - 'admin:$$2b$$10$$SamY/Wyo./gIZvPQKFrt1.BkvX9.9Gt8zePgLWgCNvfT7pBxD715m'
+          - '__BASIC_AUTH_HASH__'
         realm: 'Traefik Dashboard'
         removeHeader: true
 
     # Basic Auth for n8n
-    # Regenerate: scripts/security/generate_htpasswd.sh admin
+    # Hash wird beim Bootstrap generiert: ./arasul bootstrap
+    # Manuell: scripts/security/generate_htpasswd.sh admin
     basicAuth-n8n:
       basicAuth:
         users:
-          - 'admin:$$2b$$10$$SamY/Wyo./gIZvPQKFrt1.BkvX9.9Gt8zePgLWgCNvfT7pBxD715m'
+          - '__BASIC_AUTH_HASH__'
         realm: 'n8n Workflow Engine'
         removeHeader: true
 

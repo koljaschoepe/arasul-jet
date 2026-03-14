@@ -4,7 +4,7 @@ set -euo pipefail
 # ARASUL SSH Hardening Script
 # Secures SSH for production deployment on Jetson AGX Orin
 #
-# Usage: sudo ./harden-ssh.sh [--port PORT] [--no-fail2ban]
+# Usage: sudo ./harden-ssh.sh [--port PORT] [--no-fail2ban] [--non-interactive]
 #
 # Actions:
 #   1. Backup current sshd_config
@@ -17,6 +17,7 @@ set -euo pipefail
 
 SSH_PORT="${1:-2222}"
 INSTALL_FAIL2BAN=true
+NON_INTERACTIVE=false
 
 # Parse options
 while [[ $# -gt 0 ]]; do
@@ -27,6 +28,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-fail2ban)
             INSTALL_FAIL2BAN=false
+            shift
+            ;;
+        --non-interactive)
+            NON_INTERACTIVE=true
             shift
             ;;
         *)
@@ -67,6 +72,10 @@ if [ ! -f "$ARASUL_HOME/.ssh/authorized_keys" ] || [ ! -s "$ARASUL_HOME/.ssh/aut
     echo "  Run: ssh-copy-id -p 22 arasul@<jetson-ip>"
     echo "  Then re-run this script."
     echo ""
+    if [ "$NON_INTERACTIVE" = true ]; then
+        echo "Non-interactive mode: skipping SSH hardening (no authorized_keys found)"
+        exit 1
+    fi
     read -rp "Continue anyway? (y/N): " CONFIRM
     if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
         echo "Aborted."

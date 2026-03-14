@@ -270,8 +270,8 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 | GPU_MEMORY_WARNING_PERCENT  | 85      | GPU memory usage warning (triggers cache clear)  |
 | GPU_MEMORY_CRITICAL_PERCENT | 92      | GPU memory usage critical (triggers LLM restart) |
 | GPU_MEMORY_MAX_PERCENT      | 97      | GPU memory hard limit                            |
-| DISK_WARNING_PERCENT        | 80      | Disk warning threshold                           |
-| DISK_CLEANUP_PERCENT        | 90      | Disk cleanup threshold                           |
+| DISK_WARNING_PERCENT        | 75      | Disk warning threshold                           |
+| DISK_CLEANUP_PERCENT        | 85      | Disk cleanup threshold                           |
 | DISK_CRITICAL_PERCENT       | 95      | Disk critical threshold                          |
 | DISK_REBOOT_PERCENT         | 97      | Disk reboot threshold                            |
 | TEMP_WARNING_CELSIUS        | (auto)  | Temperature warning (dashboard yellow)           |
@@ -487,7 +487,7 @@ These variables configure the platform for different NVIDIA Jetson devices. Use 
 
 `TORCH_CUDA_ARCH_LIST` is used at both build time (as `CUDA_ARCH_LIST` build arg in `compose/compose.ai.yaml`) and runtime (passed to PyTorch inside the embedding-service container). The detection script sets this automatically based on device family. For Thor, the value `10.0` is speculative (Blackwell sm_100) and may need adjustment.
 
-`L4T_PYTORCH_TAG` selects the dustynv/l4t-pytorch base image for the embedding-service Docker build. It must match the host L4T major.minor version. For Thor, `r37.0.0` is a placeholder until NVIDIA publishes the Thor JetPack release.
+`L4T_PYTORCH_TAG` selects the dustynv/l4t-pytorch base image for the embedding-service Docker build. It must match the host L4T major.minor version. For Thor, the tag currently falls back to `r36.4.0` because dustynv has not yet published an L4T r37 image. The detection script verifies tag availability via `docker manifest inspect` and falls back automatically.
 
 ### Memory Limits (per Service)
 

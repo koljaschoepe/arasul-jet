@@ -388,6 +388,24 @@ main() {
     echo -e "  ${DIM}Geraet wird erreichbar unter: ${SETUP_HOSTNAME}.local${NC}"
     print_ok "Hostname: ${SETUP_HOSTNAME}"
 
+    # Unbeaufsichtigter Betrieb (Auto-Reboot bei kritischen Fehlern)
+    UNATTENDED_MODE=false
+    if [ "$NON_INTERACTIVE" = true ]; then
+        UNATTENDED_MODE="${SELF_HEALING_REBOOT_ENABLED:-false}"
+    else
+        echo ""
+        echo -e "  ${DIM}Unbeaufsichtigter Betrieb aktiviert Auto-Reboot bei${NC}"
+        echo -e "  ${DIM}kritischen Fehlern (GPU-Hang, Disk-Overflow).${NC}"
+        if prompt_confirm "Unbeaufsichtigter Betrieb (Auto-Reboot)?"; then
+            UNATTENDED_MODE=true
+        fi
+    fi
+    if [ "$UNATTENDED_MODE" = true ]; then
+        print_ok "Auto-Reboot: aktiviert"
+    else
+        print_ok "Auto-Reboot: deaktiviert"
+    fi
+
     # =========================================================================
     # Schritt 4: KI-Modell
     # =========================================================================
@@ -452,6 +470,7 @@ main() {
     echo -e "  E-Mail:         ${ADMIN_EMAIL}"
     echo -e "  Hostname:       ${GREEN}${SETUP_HOSTNAME}.local${NC}"
     echo -e "  KI-Modell:      ${GREEN}${LLM_MODEL}${NC}"
+    echo -e "  Auto-Reboot:    $([ "$UNATTENDED_MODE" = true ] && echo "${GREEN}aktiviert${NC}" || echo "deaktiviert")"
     echo -e "  Profil:         ${DEVICE_PROFILE}"
     echo ""
     echo -e "  ${BOLD}Generierte Secrets:${NC}"
@@ -559,7 +578,7 @@ METRICS_INTERVAL_PERSIST=300
 
 # --- Self-Healing ---
 SELF_HEALING_ENABLED=true
-SELF_HEALING_REBOOT_ENABLED=false
+SELF_HEALING_REBOOT_ENABLED=${UNATTENDED_MODE}
 SELF_HEALING_INTERVAL=300
 DISK_WARNING_PERCENT=70
 DISK_CLEANUP_PERCENT=80
@@ -602,8 +621,28 @@ ENVEOF
     chmod 600 "$env_file"
     SETUP_ENV_WRITTEN=true
 
+    # Docker-Secrets-Dateien erstellen (Vorbereitung fuer docker-compose.secrets.yml)
+    local secrets_dir="${PROJECT_ROOT}/config/secrets"
+    mkdir -p "$secrets_dir"
+    chmod 700 "$secrets_dir"
+
+    echo -n "$ADMIN_PASSWORD" > "$secrets_dir/admin_password"
+    echo -n "$POSTGRES_PASSWORD" > "$secrets_dir/postgres_password"
+    echo -n "$JWT_SECRET" > "$secrets_dir/jwt_secret"
+    echo -n "$MINIO_ROOT_USER" > "$secrets_dir/minio_root_user"
+    echo -n "$MINIO_ROOT_PASSWORD" > "$secrets_dir/minio_root_password"
+    echo -n "$N8N_ENCRYPTION_KEY" > "$secrets_dir/n8n_encryption_key"
+    echo -n "$TELEGRAM_ENCRYPTION_KEY" > "$secrets_dir/telegram_encryption_key"
+    # Telegram Bot Token: Platzhalter (wird spaeter via Dashboard konfiguriert)
+    if [ ! -f "$secrets_dir/telegram_bot_token" ]; then
+        touch "$secrets_dir/telegram_bot_token"
+    fi
+
+    chmod 600 "$secrets_dir"/*
+
     echo ""
     print_ok ".env geschrieben (Berechtigungen: 600)"
+    print_ok "Docker-Secrets-Dateien erstellt in config/secrets/"
 
     if [ -n "$DEVICE_PROFILE" ] && [ "$DEVICE_PROFILE" != "generic" ]; then
         print_ok "Jetson-Profil eingebettet: ${DEVICE_PROFILE}"

@@ -34,7 +34,6 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       LLM_SERVICE_HOST: ${LLM_SERVICE_HOST}
       LLM_SERVICE_PORT: ${LLM_SERVICE_PORT}
@@ -42,8 +41,6 @@ services:
       EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
       MINIO_HOST: ${MINIO_HOST}
       MINIO_PORT: ${MINIO_PORT}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       N8N_HOST: ${N8N_HOST}
       N8N_PORT: ${N8N_PORT}
       QDRANT_HOST: ${QDRANT_HOST}
@@ -57,10 +54,8 @@ services:
       ARASUL_DATA_DB_NAME: ${ARASUL_DATA_DB_NAME:-arasul_data_db}
       ARASUL_DATA_DB_USER: ${ARASUL_DATA_DB_USER:-arasul_data}
       ARASUL_DATA_DB_PASSWORD: ${ARASUL_DATA_DB_PASSWORD:-${POSTGRES_PASSWORD}}
-      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: ${JWT_EXPIRY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       SYSTEM_VERSION: ${SYSTEM_VERSION}
       BUILD_HASH: ${BUILD_HASH}
       LOG_LEVEL: ${LOG_LEVEL}
@@ -71,8 +66,8 @@ services:
       RAG_QUERY_OPTIMIZER_MODEL: ''
       ENV_FILE_PATH: /arasul/config/.env
       COMPOSE_PROJECT_DIR: ${COMPOSE_PROJECT_DIR:-.}
+      DOCKER_HOST: tcp://docker-proxy:2375
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ../.env:/arasul/config/.env
       - ../config:/config:ro
       - ../data/updates:/arasul/updates
@@ -87,6 +82,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      docker-proxy:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -102,7 +99,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '${CPU_LIMIT_DASHBOARD}'
+          cpus: '${CPU_LIMIT_DASHBOARD:-4}'
           memory: ${RAM_LIMIT_BACKEND:-1G}
     labels:
       - 'traefik.enable=false'
@@ -166,7 +163,7 @@ services:
       N8N_PATH: '/n8n/'
       N8N_BASIC_AUTH_ACTIVE: 'false'
       WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      # N8N_ENCRYPTION_KEY provided via Docker secret (compose.secrets.yaml)
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
       EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: 'true'
@@ -201,7 +198,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${RAM_LIMIT_N8N}
+          memory: ${RAM_LIMIT_N8N:-2G}
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.services.n8n-docker.loadbalancer.server.port=5678'

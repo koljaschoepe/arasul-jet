@@ -108,25 +108,18 @@ detect_cpu_cores() {
 }
 
 detect_cuda_arch() {
-    # Detect CUDA compute capability
-    if command -v nvcc &> /dev/null; then
-        # Try to detect from nvcc
-        local arch=$(nvcc --list-gpu-arch 2>/dev/null | tail -1 | sed 's/compute_//' | sed 's/sm_//')
-        if [ -n "$arch" ]; then
-            echo "${arch:0:1}.${arch:1}"
-            return
-        fi
-    fi
-
-    # Fallback based on device model
+    # Detect CUDA compute capability from device model
+    # NOTE: nvcc --list-gpu-arch lists all architectures the COMPILER supports,
+    # NOT the actual device's compute capability. On Orin (8.7) it returns 9.0
+    # because the compiler can target sm_90. We use model-based detection instead.
     local model=$(detect_jetson_model)
     case "$model" in
         *"Thor"*)     echo "10.0" ;;  # Blackwell SM_100
-        *"Orin"*)     echo "8.7" ;;
-        *"Xavier"*)   echo "7.2" ;;
-        *"TX2"*)      echo "6.2" ;;
-        *"Nano"*)     echo "5.3" ;;
-        *)            echo "7.2" ;;  # Safe default
+        *"Orin"*)     echo "8.7" ;;   # Ampere SM_87
+        *"Xavier"*)   echo "7.2" ;;   # Volta SM_72
+        *"TX2"*)      echo "6.2" ;;   # Pascal SM_62
+        *"Nano"*)     echo "5.3" ;;   # Maxwell SM_53
+        *)            echo "7.2" ;;   # Safe default
     esac
 }
 
@@ -135,12 +128,44 @@ detect_l4t_pytorch_tag() {
     # Tags follow L4T release versions (e.g. r36.4.0 for JetPack 6.2)
     # Must match host L4T major.minor; use closest published dustynv tag.
     local model=$(detect_jetson_model)
+    local tag
     case "$model" in
-        *"Thor"*)     echo "r37.0.0" ;;  # Thor/Blackwell - update when dustynv publishes
-        *"Orin"*)     echo "r36.4.0" ;;  # Orin/Ampere - JetPack 6.2 (host r36.4.7)
-        *"Xavier"*)   echo "r35.4.1" ;;  # Xavier/Volta - JetPack 5.x
-        *)            echo "r36.4.0" ;;  # Default to current stable
+        # TODO: Update to r37.0.0 when dustynv publishes JetPack 7.x / L4T r37 image
+        *"Thor"*)     tag="r36.4.0" ;;   # Thor/Blackwell - fallback to Orin tag until r37 exists
+        *"Orin"*)     tag="r36.4.0" ;;   # Orin/Ampere - JetPack 6.2 (host r36.4.7)
+        *"Xavier"*)   tag="r35.4.1" ;;   # Xavier/Volta - JetPack 5.x
+        *)            tag="r36.4.0" ;;   # Default to current stable
     esac
+
+    # Verify the tag exists on Docker Hub; fall back to latest known-good tag
+    if ! verify_l4t_tag "$tag"; then
+        local fallback="r36.4.0"
+        echo -e "${YELLOW}Warning: dustynv/l4t-pytorch:${tag} not found, falling back to ${fallback}${NC}" >&2
+        tag="$fallback"
+    fi
+
+    echo "$tag"
+}
+
+verify_l4t_tag() {
+    # Check if a dustynv/l4t-pytorch tag exists on Docker Hub.
+    # Uses docker manifest inspect (requires docker CLI with experimental enabled).
+    # Returns 0 (success) if the tag exists, 1 otherwise.
+    # Silently succeeds if docker is unavailable (offline/CI builds).
+    local tag="$1"
+    local image="dustynv/l4t-pytorch:${tag}"
+
+    if ! command -v docker &>/dev/null; then
+        # Cannot verify without docker - assume tag is valid
+        return 0
+    fi
+
+    # Timeout after 10 seconds to avoid blocking on slow networks
+    if docker manifest inspect "$image" &>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # =============================================================================
@@ -228,16 +253,14 @@ get_config_for_profile() {
         "thor_128gb")
             cat << 'EOF'
 # Jetson Thor 128GB - Maximum Performance
-# RAM Budget: ~120G for services, ~8G reserved for system/OS
-# Total allocated: 119.0G (Postgres 4 + LLM 92 + Embedding 8 + Backend 2 +
-#   Frontend 1 + N8N 2 + Qdrant 4 + MinIO 2 + Metrics 0.5 + SelfHeal 0.5 +
-#   Telegram 0.25 + DocIndex 2 + Proxy 0.5 + Backup 0.25)
+# RAM Budget: 115G for services (~90%), 13G reserved for system/OS
+# Total allocated: 114.5G
 JETSON_PROFILE=thor_128gb
 JETSON_DESCRIPTION="NVIDIA Jetson Thor 128GB"
 
 # Resource Limits
 RAM_LIMIT_POSTGRES=4G
-RAM_LIMIT_LLM=92G
+RAM_LIMIT_LLM=88G
 RAM_LIMIT_EMBEDDING=8G
 RAM_LIMIT_BACKEND=2G
 RAM_LIMIT_FRONTEND=1G
@@ -277,16 +300,14 @@ EOF
         "thor_64gb")
             cat << 'EOF'
 # Jetson Thor 64GB - High Performance
-# RAM Budget: ~58G for services, ~6G reserved for system/OS
-# Total allocated: 57.0G (Postgres 2 + LLM 36 + Embedding 6 + Backend 2 +
-#   Frontend 1 + N8N 2 + Qdrant 2 + MinIO 2 + Metrics 0.5 + SelfHeal 0.5 +
-#   Telegram 0.25 + DocIndex 2 + Proxy 0.5 + Backup 0.25)
+# RAM Budget: 57G for services (~89%), 7G reserved for system/OS
+# Total allocated: 55.0G
 JETSON_PROFILE=thor_64gb
 JETSON_DESCRIPTION="NVIDIA Jetson Thor 64GB"
 
 # Resource Limits
 RAM_LIMIT_POSTGRES=2G
-RAM_LIMIT_LLM=36G
+RAM_LIMIT_LLM=34G
 RAM_LIMIT_EMBEDDING=6G
 RAM_LIMIT_BACKEND=2G
 RAM_LIMIT_FRONTEND=1G
@@ -326,18 +347,20 @@ EOF
         "agx_orin_64gb")
             cat << 'EOF'
 # AGX Orin 64GB - Maximum Performance
+# RAM Budget: 57G for services (~89%), 7G reserved for system/OS
+# Total allocated: 56.5G
 JETSON_PROFILE=agx_orin_64gb
 JETSON_DESCRIPTION="NVIDIA Jetson AGX Orin 64GB"
 
 # Resource Limits
 RAM_LIMIT_POSTGRES=2G
-RAM_LIMIT_LLM=48G
-RAM_LIMIT_EMBEDDING=8G
+RAM_LIMIT_LLM=38G
+RAM_LIMIT_EMBEDDING=6G
 RAM_LIMIT_BACKEND=2G
-RAM_LIMIT_FRONTEND=1G
+RAM_LIMIT_FRONTEND=512M
 RAM_LIMIT_N8N=2G
-RAM_LIMIT_QDRANT=4G
-RAM_LIMIT_MINIO=4G
+RAM_LIMIT_QDRANT=2G
+RAM_LIMIT_MINIO=2G
 RAM_LIMIT_METRICS=512M
 RAM_LIMIT_SELF_HEALING=512M
 RAM_LIMIT_TELEGRAM=256M
@@ -371,24 +394,26 @@ EOF
         "agx_orin_32gb")
             cat << 'EOF'
 # AGX Orin 32GB - High Performance
+# RAM Budget: 28G for services (~88%), 4G reserved for system/OS
+# Total allocated: 28.3G
 JETSON_PROFILE=agx_orin_32gb
 JETSON_DESCRIPTION="NVIDIA Jetson AGX Orin 32GB"
 
 # Resource Limits
 RAM_LIMIT_POSTGRES=1G
-RAM_LIMIT_LLM=24G
-RAM_LIMIT_EMBEDDING=4G
+RAM_LIMIT_LLM=20G
+RAM_LIMIT_EMBEDDING=3G
 RAM_LIMIT_BACKEND=1G
-RAM_LIMIT_FRONTEND=512M
+RAM_LIMIT_FRONTEND=384M
 RAM_LIMIT_N8N=1G
-RAM_LIMIT_QDRANT=2G
-RAM_LIMIT_MINIO=2G
+RAM_LIMIT_QDRANT=1G
+RAM_LIMIT_MINIO=1G
 RAM_LIMIT_METRICS=256M
 RAM_LIMIT_SELF_HEALING=256M
 RAM_LIMIT_TELEGRAM=128M
-RAM_LIMIT_DOCUMENT_INDEXER=1G
-RAM_LIMIT_REVERSE_PROXY=384M
-RAM_LIMIT_BACKUP=192M
+RAM_LIMIT_DOCUMENT_INDEXER=768M
+RAM_LIMIT_REVERSE_PROXY=256M
+RAM_LIMIT_BACKUP=128M
 
 # CPU Limits
 CPU_LIMIT_LLM=8

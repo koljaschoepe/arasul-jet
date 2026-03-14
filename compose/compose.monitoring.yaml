@@ -85,8 +85,8 @@ services:
       DISK_REBOOT_PERCENT: ${DISK_REBOOT_PERCENT}
       HEARTBEAT_PORT: ${SELF_HEALING_HEARTBEAT_PORT:-9200}
       EXCLUDED_CONTAINERS: 'claude-code'
+      DOCKER_HOST: tcp://docker-proxy:2375
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ../logs:/arasul/logs
       - /sys:/host/sys:ro
       - /proc:/host/proc:ro
@@ -102,14 +102,14 @@ services:
       - SYS_ADMIN
       - SYS_BOOT
       - SYS_NICE
-    security_opt:
-      - no-new-privileges:true
-      # apparmor:arasul-self-healing  # Disabled: profile not installed on fresh Jetson
+    # no-new-privileges intentionally omitted: sudo reboot requires setuid
     depends_on:
       postgres-db:
         condition: service_healthy
       metrics-collector:
         condition: service_healthy
+      docker-proxy:
+        condition: service_started
     healthcheck:
       test: ['CMD', 'python3', '/app/heartbeat.py', '--test']
       interval: 30s
@@ -142,10 +142,12 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_WEEKLY_RETENTION_WEEKS: ${BACKUP_WEEKLY_RETENTION_WEEKS:-12}
       TZ: ${TZ:-Europe/Berlin}
     volumes:
       - ../data/backups:/backups
+      - arasul-wal:/backups/wal
       - ../scripts/backup/backup.sh:/usr/local/bin/backup-full.sh:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:

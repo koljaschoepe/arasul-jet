@@ -22,17 +22,22 @@ services:
       - arasul-backend
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS}
       ARASUL_DATA_DB_NAME: ${ARASUL_DATA_DB_NAME:-arasul_data_db}
       ARASUL_DATA_DB_USER: ${ARASUL_DATA_DB_USER:-arasul_data}
       ARASUL_DATA_DB_PASSWORD: ${ARASUL_DATA_DB_PASSWORD:-${POSTGRES_PASSWORD}}
+    command:
+      - 'postgres'
+      - '-c'
+      - 'config_file=/etc/postgresql/postgresql.conf'
     volumes:
       - arasul-postgres:/var/lib/postgresql/data
       - ../services/postgres/init:/docker-entrypoint-initdb.d
       - ../services/postgres/init-data-db:/docker-entrypoint-initdb.d/data-db:ro
       - ../services/postgres/migrations:/migrations
+      - ../config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - arasul-wal:/backups/wal
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 10s
@@ -42,7 +47,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${RAM_LIMIT_POSTGRES}
+          memory: ${RAM_LIMIT_POSTGRES:-4G}
     logging: *default-logging
 
   # 2. MinIO - Object Storage
@@ -55,8 +60,6 @@ services:
       - arasul-backend
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_BROWSER: ${MINIO_BROWSER}
     volumes:
       - arasul-minio:/data
@@ -72,7 +75,52 @@ services:
         limits:
           memory: ${RAM_LIMIT_MINIO:-4G}
 
-  # 3. Reverse Proxy (Traefik)
+  # 3. Docker Socket Proxy - Restricts Docker API access for backend services
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-proxy
+    hostname: docker-proxy
+    restart: always
+    networks:
+      - arasul-backend
+    environment:
+      # Granted API sections
+      CONTAINERS: 1
+      IMAGES: 1
+      INFO: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      EXEC: 1
+      SYSTEM: 1
+      BUILD: 1
+      POST: 1
+      # Fine-grained container controls
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+      # Explicitly denied (defaults)
+      AUTH: 0
+      SECRETS: 0
+      SWARM: 0
+      NODES: 0
+      PLUGINS: 0
+      SERVICES: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs:
+      - /run:size=8M
+      - /tmp:noexec,nosuid,size=8M
+    <<: *default-security
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: ${RAM_LIMIT_DOCKER_PROXY:-128M}
+    logging: *default-logging
+
+  # 4. Reverse Proxy (Traefik)
   reverse-proxy:
     image: traefik:v2.11
     container_name: reverse-proxy
@@ -111,6 +159,7 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
+      - DAC_READ_SEARCH # Read TLS key files owned by host user
     deploy:
       resources:
         limits:
@@ -131,3 +180,4 @@ networks:
 volumes:
   arasul-postgres:
   arasul-minio:
+  arasul-wal:

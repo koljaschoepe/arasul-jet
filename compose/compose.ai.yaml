@@ -58,15 +58,17 @@ services:
       OLLAMA_NUM_PARALLEL: '1'
       OLLAMA_MAX_LOADED_MODELS: '1'
     volumes:
-      - arasul-llm-models:/root/.ollama
+      - arasul-llm-models:/home/ollama/.ollama
       - ../services/llm-service/healthcheck.sh:/healthcheck.sh:ro
       - ../data/models:/host-models:ro
     runtime: nvidia
     <<: *default-security
+    cap_drop:
+      - ALL
     deploy:
       resources:
         limits:
-          cpus: '${CPU_LIMIT_LLM}'
+          cpus: '${CPU_LIMIT_LLM:-8}'
           memory: ${RAM_LIMIT_LLM:-32G}
         reservations:
           devices:
@@ -119,7 +121,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '${CPU_LIMIT_EMBEDDING}'
+          cpus: '${CPU_LIMIT_EMBEDDING:-4}'
           memory: ${RAM_LIMIT_EMBEDDING:-12G}
         reservations:
           devices:

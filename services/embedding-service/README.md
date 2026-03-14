@@ -86,7 +86,7 @@ embedding-service/
 The service runs on NVIDIA GPU with CUDA:
 
 - Base image: `dustynv/l4t-pytorch:${L4T_PYTORCH_TAG}` (Jetson-optimized, configurable via build arg)
-- Default: `r36.4.0` (Orin/Ampere, JetPack 6.2). Override with `r37.0.0` for Thor/Blackwell.
+- Default: `r36.4.0` (Orin/Ampere, JetPack 6.2). Thor also uses `r36.4.0` as fallback until dustynv publishes an L4T r37 image.
 - `TORCH_CUDA_ARCH_LIST` set at build time via `CUDA_ARCH_LIST` build arg (default: `8.7`)
 - Automatic fallback to CPU if GPU unavailable
 - GPU memory: ~2GB for model

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import {
   BrowserRouter as Router,
   Route,
@@ -231,6 +231,39 @@ function AppContent(): React.JSX.Element | null {
       setMetrics(wsMetrics);
     }
   }, [wsMetrics]);
+
+  // Auto-update notification: poll /api/health every 5 min for build hash change
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const initialBuildHashRef = useRef<string | null>(null);
+  const updateDismissedRef = useRef(0); // timestamp of last dismiss
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkVersion = async () => {
+      // Don't re-show if dismissed less than 30 min ago
+      if (updateDismissedRef.current && Date.now() - updateDismissedRef.current < 30 * 60 * 1000)
+        return;
+      try {
+        const resp = await fetch('/api/health');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const hash = data.build_hash;
+        if (!hash || hash === 'dev') return;
+        if (!initialBuildHashRef.current) {
+          initialBuildHashRef.current = hash;
+        } else if (hash !== initialBuildHashRef.current) {
+          setUpdateAvailable(true);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    checkVersion();
+    const id = setInterval(checkVersion, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [isAuthenticated]);
 
   // Sidebar collapsed state - persisted in localStorage
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -471,6 +504,38 @@ function AppContent(): React.JSX.Element | null {
             </a>
 
             <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+
+            {/* Network offline banner */}
+            {metrics &&
+              (metrics as Record<string, unknown>).network &&
+              !((metrics as Record<string, unknown>).network as Record<string, unknown>)
+                ?.online && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-amber-600 text-white text-center py-1.5 text-sm font-medium">
+                  Keine Internetverbindung
+                </div>
+              )}
+
+            {/* Update available banner */}
+            {updateAvailable && (
+              <div className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
+                <span>Update verfügbar — Seite neu laden</span>
+                <button
+                  className="underline font-semibold hover:opacity-80"
+                  onClick={() => window.location.reload()}
+                >
+                  Jetzt laden
+                </button>
+                <button
+                  className="ml-2 opacity-70 hover:opacity-100"
+                  onClick={() => {
+                    setUpdateAvailable(false);
+                    updateDismissedRef.current = Date.now();
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             <div
               className="app-content animate-in fade-in duration-150"
@@ -933,29 +998,29 @@ const DashboardHome = React.memo(function DashboardHome({
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(69, 173, 255, 0.1)" />
               <XAxis
                 dataKey="time"
-                stroke="#94a3b8"
-                tick={{ fill: '#94a3b8', fontSize: '0.75rem' }}
-                axisLine={{ stroke: '#94a3b8' }}
-                tickLine={{ stroke: '#94a3b8' }}
+                stroke="var(--text-muted)"
+                tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
+                axisLine={{ stroke: 'var(--text-muted)' }}
+                tickLine={{ stroke: 'var(--text-muted)' }}
                 interval="preserveStartEnd"
                 minTickGap={60}
               />
               <YAxis
-                stroke="#94a3b8"
-                tick={{ fill: '#94a3b8', fontSize: '0.75rem' }}
-                axisLine={{ stroke: '#94a3b8' }}
-                tickLine={{ stroke: '#94a3b8' }}
+                stroke="var(--text-muted)"
+                tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
+                axisLine={{ stroke: 'var(--text-muted)' }}
+                tickLine={{ stroke: 'var(--text-muted)' }}
                 domain={[0, 100]}
                 tickFormatter={(value: number) => `${value}%`}
               />
               <Tooltip
                 contentStyle={{
-                  background: 'linear-gradient(135deg, #1a2330 0%, #1f2835 100%)',
+                  background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-subtle) 100%)',
                   border: '1px solid rgba(69, 173, 255, 0.3)',
                   borderRadius: '10px',
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
                 }}
-                labelStyle={{ color: '#45ADFF', fontWeight: 600 }}
+                labelStyle={{ color: 'var(--primary-color)', fontWeight: 600 }}
                 formatter={(value: any, name: string) => {
                   const unit = name === 'Temp' ? '°C' : '%';
                   return [`${value?.toFixed(1)}${unit}`, name];
@@ -965,7 +1030,7 @@ const DashboardHome = React.memo(function DashboardHome({
               <Line
                 type="monotone"
                 dataKey="CPU"
-                stroke="#45ADFF"
+                stroke="var(--primary-color)"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5 }}
@@ -989,7 +1054,7 @@ const DashboardHome = React.memo(function DashboardHome({
               <Line
                 type="monotone"
                 dataKey="Temp"
-                stroke="#f59e0b"
+                stroke="var(--warning-color)"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5 }}

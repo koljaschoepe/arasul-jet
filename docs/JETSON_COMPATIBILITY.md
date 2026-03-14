@@ -51,7 +51,7 @@ nano .env
 
 ### Thor 128GB (Maximum Performance)
 
-> **Note:** Thor support is based on preliminary specifications (Blackwell GPU, sm_100 compute capability). Configuration values may need adjustment when hardware is available. The `L4T_PYTORCH_TAG` for Thor (`r37.0.0`) is speculative and must be updated once NVIDIA publishes the corresponding dustynv base image.
+> **Note:** Thor support is based on preliminary specifications (Blackwell GPU, sm_100 compute capability). Configuration values may need adjustment when hardware is available. The `L4T_PYTORCH_TAG` for Thor currently falls back to `r36.4.0` (the Orin tag) because dustynv has not yet published an L4T r37 image. The detection script will automatically upgrade when an `r37.0.0` image becomes available.
 
 ```bash
 # Resource Limits
@@ -86,7 +86,7 @@ OLLAMA_STARTUP_TIMEOUT=240
 
 # GPU Configuration
 TORCH_CUDA_ARCH_LIST=10.0
-L4T_PYTORCH_TAG=r37.0.0
+L4T_PYTORCH_TAG=r36.4.0  # Fallback; update to r37.0.0 when dustynv publishes JetPack 7.x image
 
 # Recommended Models (in order of capability)
 # - qwen3:32b-q8 (32GB) - Default, best quality
@@ -133,7 +133,7 @@ OLLAMA_STARTUP_TIMEOUT=180
 
 # GPU Configuration
 TORCH_CUDA_ARCH_LIST=10.0
-L4T_PYTORCH_TAG=r37.0.0
+L4T_PYTORCH_TAG=r36.4.0  # Fallback; update to r37.0.0 when dustynv publishes JetPack 7.x image
 
 # Recommended Models
 # - qwen3:14b-q8 (15GB) - Default, best balance
@@ -249,37 +249,37 @@ DISABLE_TELEGRAM=true
 
 ## Thor vs Orin: Key Differences
 
-| Property               | Thor 128GB                 | AGX Orin 64GB   |
-| ---------------------- | -------------------------- | --------------- |
-| GPU Architecture       | Blackwell                  | Ampere          |
-| Unified Memory         | 128GB                      | 64GB            |
-| CUDA Compute Cap.      | sm_100 (speculative)       | sm_87           |
-| Default LLM Model      | qwen3:32b-q8               | qwen3:14b-q8    |
-| Max Context Length     | 32768                      | 16384           |
-| LLM RAM Allocation     | 92G                        | 48G             |
-| Ollama Startup Timeout | 240s                       | 180s            |
-| L4T PyTorch Tag        | r37.0.0 (TBD)              | r36.4.0         |
-| Expected CPU Cores     | 12-16+                     | 12              |
-| Status                 | Planned (specs may change) | Fully Supported |
+| Property               | Thor 128GB                  | AGX Orin 64GB   |
+| ---------------------- | --------------------------- | --------------- |
+| GPU Architecture       | Blackwell                   | Ampere          |
+| Unified Memory         | 128GB                       | 64GB            |
+| CUDA Compute Cap.      | sm_100 (speculative)        | sm_87           |
+| Default LLM Model      | qwen3:32b-q8                | qwen3:14b-q8    |
+| Max Context Length     | 32768                       | 16384           |
+| LLM RAM Allocation     | 92G                         | 48G             |
+| Ollama Startup Timeout | 240s                        | 180s            |
+| L4T PyTorch Tag        | r36.4.0 (fallback; r37 TBD) | r36.4.0         |
+| Expected CPU Cores     | 12-16+                      | 12              |
+| Status                 | Planned (specs may change)  | Fully Supported |
 
 **Setup differences:**
 
 - Thor detection uses a 5-level hierarchy in `detect-jetson.sh`: device-tree model, compatible string, chip ID (36/37/38), nvidia-smi GPU name, and RAM-based fallback (>=120GB).
 - Thor profiles set a longer `OLLAMA_STARTUP_TIMEOUT` (240s for 128GB, 180s for 64GB) because larger default models take more time to load.
-- The `L4T_PYTORCH_TAG` for Thor (`r37.0.0`) is a placeholder. It must be updated once NVIDIA publishes the Thor JetPack release and dustynv provides a matching base image.
+- The `L4T_PYTORCH_TAG` for Thor currently falls back to `r36.4.0`. The detection script includes `verify_l4t_tag()` which will automatically validate tag availability via `docker manifest inspect`. Update the Thor case to `r37.0.0` once dustynv publishes the JetPack 7.x / L4T r37 image.
 - FP16 embeddings are disabled by default on Thor (enough RAM for FP32), while most Orin variants use FP16 to save memory.
 
 ## CUDA Architecture
 
 Each Jetson family has a different CUDA compute capability:
 
-| Family | Architecture | Compute Capability | L4T PyTorch Tag |
-| ------ | ------------ | ------------------ | --------------- |
-| Thor   | Blackwell    | 10.0 (speculative) | r37.0.0 (TBD)   |
-| Orin   | Ampere       | 8.7                | r36.4.0         |
-| Xavier | Volta        | 7.2                | r35.4.1         |
-| TX2    | Pascal       | 6.2                | -               |
-| Nano   | Maxwell      | 5.3                | -               |
+| Family | Architecture | Compute Capability | L4T PyTorch Tag             |
+| ------ | ------------ | ------------------ | --------------------------- |
+| Thor   | Blackwell    | 10.0 (speculative) | r36.4.0 (fallback; r37 TBD) |
+| Orin   | Ampere       | 8.7                | r36.4.0                     |
+| Xavier | Volta        | 7.2                | r35.4.1                     |
+| TX2    | Pascal       | 6.2                | -                           |
+| Nano   | Maxwell      | 5.3                | -                           |
 
 The detection script automatically sets `TORCH_CUDA_ARCH_LIST` based on your device. The value is passed as the `CUDA_ARCH_LIST` build arg to the embedding-service Dockerfile and set as the `TORCH_CUDA_ARCH_LIST` runtime environment variable for PyTorch.
 

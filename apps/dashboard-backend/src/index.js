@@ -24,6 +24,27 @@ if (missingVars.length > 0) {
   }
 }
 
+// Validate secret strength in production (prevent weak/default secrets)
+if (process.env.NODE_ENV === 'production') {
+  const weakPatterns = ['dev', 'test', 'default', 'example', 'changeme', 'password'];
+  const secretChecks = [
+    { name: 'JWT_SECRET', minLen: 32 },
+    { name: 'POSTGRES_PASSWORD', minLen: 16 },
+    { name: 'MINIO_ROOT_PASSWORD', minLen: 16 },
+  ];
+  const weakSecrets = secretChecks.filter(({ name, minLen }) => {
+    const val = process.env[name] || '';
+    return val.length < minLen || weakPatterns.some(p => val.toLowerCase().includes(p));
+  });
+  if (weakSecrets.length > 0) {
+    process.stderr.write(
+      `FATAL: Weak secrets detected: ${weakSecrets.map(s => s.name).join(', ')}\n`
+    );
+    process.stderr.write('Re-run "./arasul setup" to generate secure secrets.\n');
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -41,7 +62,7 @@ app.use(
   helmet({
     contentSecurityPolicy: false, // SPA serves own CSP via meta tag
     crossOriginEmbedderPolicy: false, // Allow LAN resource loading
-    hsts: false, // LAN appliance uses HTTP, HTTPS/TLS not configured
+    hsts: false, // HSTS handled by Traefik reverse proxy
   })
 );
 
@@ -78,7 +99,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   maxAge: 86400, // 24 hours
 };
 
@@ -98,16 +119,23 @@ if (process.env.NODE_ENV !== 'production') {
 const { createAuditMiddleware } = require('./middleware/audit');
 app.use(createAuditMiddleware());
 
+// CSRF protection for state-changing requests (double-submit cookie pattern)
+const { csrfProtection } = require('./middleware/csrf');
+app.use('/api', csrfProtection);
+
 // Register all API routes (centralized in routes/index.js)
 app.use('/api', require('./routes'));
 
 // Health check endpoint (public, no auth required)
 app.get('/api/health', (req, res) => {
+  const { circuitBreakers } = require('./utils/retry');
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     service: 'dashboard-backend',
     version: process.env.SYSTEM_VERSION || '1.0.0',
+    build_hash: process.env.BUILD_HASH || 'dev',
+    circuitBreakers: circuitBreakers.getAllStatus(),
   });
 });
 
@@ -125,6 +153,10 @@ app.use(errorHandler);
 const wss = new WebSocket.Server({ noServer: true });
 
 const axios = require('axios');
+// TIMEOUT-002: Global safety-net timeout (prevents hanging requests if per-call timeout is missing)
+if (axios.defaults) {
+  axios.defaults.timeout = 30000; // 30s
+}
 const logger = require('./utils/logger');
 const services = require('./config/services');
 const llmJobService = require('./services/llm/llmJobService');
@@ -201,6 +233,7 @@ wss.on('connection', ws => {
 });
 
 // WS-001: Heartbeat interval to detect and clean up dead metrics WS connections
+// LEAK-001: Reduced from 30s to 15s for faster zombie detection
 const metricsHeartbeat = setInterval(() => {
   wss.clients.forEach(ws => {
     if (ws.isAlive === false) {
@@ -210,11 +243,15 @@ const metricsHeartbeat = setInterval(() => {
     ws.isAlive = false;
     ws.ping();
   });
-}, 30000);
+}, 15000);
 
 wss.on('close', () => {
   clearInterval(metricsHeartbeat);
 });
+
+// LEAK-001: Track all intervals/timeouts for graceful shutdown
+const globalIntervals = [];
+const globalTimeouts = [];
 
 // Export app and server for testing
 module.exports = { app, server, wss };
@@ -257,9 +294,20 @@ async function gracefulShutdown(signal) {
     logger.warn(`WebSocket cleanup error: ${err.message}`);
   }
 
-  // 3. Stop services
+  // 3. Clear all tracked intervals and timeouts (LEAK-001)
+  globalIntervals.forEach(id => clearInterval(id));
+  globalTimeouts.forEach(id => clearTimeout(id));
+  globalIntervals.length = 0;
+  globalTimeouts.length = 0;
+
+  // 4. Stop services
   try {
     eventListenerService.stop();
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    llmQueueService.stop();
   } catch (e) {
     /* ignore */
   }
@@ -278,8 +326,15 @@ async function gracefulShutdown(signal) {
   } catch (e) {
     /* ignore */
   }
+  // LEAK-001: Destroy HTTP agent for Ollama connections
+  try {
+    const { destroyOllamaAgent } = require('./services/llm/llmJobProcessor');
+    destroyOllamaAgent();
+  } catch (e) {
+    /* ignore */
+  }
 
-  // 4. Close database pool
+  // 5. Close database pool
   try {
     await pool.close();
     logger.info('Database pool closed');
@@ -368,17 +423,36 @@ if (require.main === module) {
       logger.error(`Failed to initialize LLM Queue Service: ${err.message}`);
     }
 
+    // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
-    setInterval(
-      async () => {
-        try {
-          await llmJobService.cleanupOldJobs();
-        } catch (err) {
-          logger.error(`Failed to cleanup old LLM jobs: ${err.message}`);
-        }
-      },
-      30 * 60 * 1000
-    ); // 30 minutes
+    globalIntervals.push(
+      setInterval(
+        async () => {
+          try {
+            await llmJobService.cleanupOldJobs();
+          } catch (err) {
+            logger.error(`Failed to cleanup old LLM jobs: ${err.message}`);
+          }
+        },
+        30 * 60 * 1000
+      )
+    );
+
+    // Database cleanup: run_all_cleanups() every 4 hours (retention policies)
+    const DB_CLEANUP_INTERVAL = 4 * 60 * 60 * 1000; // 4 hours
+    const runDbCleanup = async () => {
+      try {
+        const result = await pool.query('SELECT run_all_cleanups() as report');
+        const report = result.rows[0]?.report;
+        logger.info('Database cleanup completed', { report });
+      } catch (err) {
+        logger.warn(`Database cleanup failed (non-critical): ${err.message}`);
+      }
+    };
+    // Initial cleanup after 60s delay (let migrations finish)
+    const dbCleanupTimeout = setTimeout(runDbCleanup, 60 * 1000);
+    globalTimeouts.push(dbCleanupTimeout);
+    globalIntervals.push(setInterval(runDbCleanup, DB_CLEANUP_INTERVAL));
 
     // Initialize Alert Engine with WebSocket broadcast support
     try {

@@ -18,6 +18,7 @@ const { requireAuth } = require('../middleware/auth');
 const { loginLimiter, createUserRateLimiter } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, UnauthorizedError, ForbiddenError } = require('../utils/errors');
+const { generateCsrfToken, CSRF_COOKIE } = require('../middleware/csrf');
 const logger = require('../utils/logger');
 
 // Cookie security: enable secure flag in production or when explicitly forced
@@ -118,6 +119,16 @@ router.post(
       path: '/',
     });
 
+    // Set CSRF cookie (readable by JS so frontend can send it as a header)
+    const csrfToken = generateCsrfToken();
+    res.cookie(CSRF_COOKIE, csrfToken, {
+      httpOnly: false, // Must be readable by frontend JS
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      maxAge: 4 * 60 * 60 * 1000, // 4 hours (matches session cookie)
+      path: '/',
+    });
+
     res.json({
       success: true,
       token: tokenData.token,
@@ -149,6 +160,14 @@ router.post(
     // Clear session cookie
     res.clearCookie('arasul_session', {
       httpOnly: true,
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      path: '/',
+    });
+
+    // Clear CSRF cookie
+    res.clearCookie(CSRF_COOKIE, {
+      httpOnly: false,
       secure: isSecure,
       sameSite: isSecure ? 'strict' : 'lax',
       path: '/',

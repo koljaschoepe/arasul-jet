@@ -1,10 +1,9 @@
 # Traefik Dynamic Configuration - WebSocket Support
-# Explicit WebSocket routing and configuration
+# All HTTP traffic is redirected to HTTPS; WebSocket routers use websecure only
 
 http:
   routers:
     # Dashboard WebSocket (metrics live-stream)
-    # LAN-accessible: Host restriction removed to allow access via IP address
     dashboard-websocket:
       rule: 'PathPrefix(`/api/metrics/live-stream`) && Headers(`Upgrade`, `websocket`)'
       service: dashboard-backend-service
@@ -12,12 +11,10 @@ http:
       middlewares:
         - security-headers
       entryPoints:
-        - web
         - websecure
       tls: {}
 
     # n8n WebSocket
-    # LAN-accessible: Host restriction removed to allow access via IP address
     n8n-websocket:
       rule: 'PathPrefix(`/n8n/`) && Headers(`Upgrade`, `websocket`)'
       service: n8n-service
@@ -26,12 +23,10 @@ http:
         - strip-n8n-prefix
         - security-headers
       entryPoints:
-        - web
         - websecure
       tls: {}
 
     # Telegram Bot Setup WebSocket
-    # Bypasses compress and rate-limit middlewares that could interfere with WS frames
     telegram-websocket:
       rule: 'PathPrefix(`/api/telegram-app/ws`) && Headers(`Upgrade`, `websocket`)'
       service: dashboard-backend-service
@@ -39,29 +34,21 @@ http:
       middlewares:
         - security-headers
       entryPoints:
-        - web
         - websecure
       tls: {}
 
-    # Claude Code Terminal WebSocket - HTTP
-    # No forward-auth for WebSockets - browsers may not send cookies with WS upgrade
-    # Security: Terminal iframe is only accessible when logged into Dashboard
-    # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
+    # Claude Code Terminal WebSocket
+    # SECURITY: forward-auth is required here — without it, the terminal is
+    # accessible to anyone who can reach the host, bypassing dashboard login.
+    # Browsers DO send cookies (including arasul_session) on same-origin
+    # WebSocket upgrade requests, so cookie-based JWT validation works.
     claude-terminal-websocket:
       rule: 'PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)'
       service: claude-terminal-service
       priority: 110
-      entryPoints:
-        - web
-
-    # Claude Code Terminal WebSocket - HTTPS
-    # No forward-auth for WebSockets - browsers may not send cookies with WS upgrade
-    # Security: Terminal iframe is only accessible when logged into Dashboard
-    # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
-    claude-terminal-websocket-secure:
-      rule: 'PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)'
-      service: claude-terminal-service
-      priority: 110
+      middlewares:
+        - forward-auth
+        - security-headers
       entryPoints:
         - websecure
       tls: {}
