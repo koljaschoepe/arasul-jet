@@ -320,7 +320,7 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
                     className={cn(
                       'relative w-10 h-[22px] rounded-full cursor-pointer transition-all border',
                       (cmd.isEnabled ?? cmd.is_enabled ?? true)
-                        ? 'bg-green-500 border-green-500'
+                        ? 'bg-primary border-primary'
                         : 'bg-background border-border'
                     )}
                     onClick={() => handleToggleEnabled(cmd)}

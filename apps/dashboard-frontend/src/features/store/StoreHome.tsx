@@ -335,7 +335,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                     {model.capabilities.slice(0, 3).map(cap => (
                       <span
                         key={cap}
-                        className="capability-tag text-xs bg-muted text-muted-foreground rounded-full px-2.5 py-0.5"
+                        className="capability-tag text-xs bg-muted text-foreground/60 rounded-full px-2.5 py-0.5"
                       >
                         {cap}
                       </span>

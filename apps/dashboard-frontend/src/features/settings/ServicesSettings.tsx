@@ -48,12 +48,12 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; dot: string }
 > = {
-  healthy: { label: 'Aktiv', variant: 'default', dot: 'bg-green-500' },
-  starting: { label: 'Startet...', variant: 'secondary', dot: 'bg-yellow-500 animate-pulse' },
-  restarting: { label: 'Neustart...', variant: 'secondary', dot: 'bg-yellow-500 animate-pulse' },
-  failed: { label: 'Fehler', variant: 'destructive', dot: 'bg-red-500' },
-  unhealthy: { label: 'Fehler', variant: 'destructive', dot: 'bg-red-500' },
-  exited: { label: 'Beendet', variant: 'destructive', dot: 'bg-red-500' },
+  healthy: { label: 'Aktiv', variant: 'default', dot: 'bg-primary' },
+  starting: { label: 'Startet...', variant: 'secondary', dot: 'bg-primary animate-pulse' },
+  restarting: { label: 'Neustart...', variant: 'secondary', dot: 'bg-primary animate-pulse' },
+  failed: { label: 'Fehler', variant: 'destructive', dot: 'bg-foreground/40' },
+  unhealthy: { label: 'Fehler', variant: 'destructive', dot: 'bg-foreground/40' },
+  exited: { label: 'Beendet', variant: 'destructive', dot: 'bg-foreground/40' },
 };
 
 const SERVICE_INFO: Record<string, { icon: LucideIcon; displayName: string }> = {

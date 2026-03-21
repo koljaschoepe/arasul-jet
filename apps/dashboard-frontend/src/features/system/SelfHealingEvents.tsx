@@ -100,9 +100,10 @@ const SelfHealingEvents = () => {
         className={cn(
           'badge gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold',
           severity === 'INFO' && 'border-primary bg-primary/10 text-primary',
-          severity === 'WARNING' && 'border-amber-500 bg-amber-500/10 text-amber-500',
+          severity === 'WARNING' &&
+            'border-muted-foreground bg-muted-foreground/10 text-muted-foreground',
           severity === 'CRITICAL' && 'border-destructive bg-destructive/10 text-destructive',
-          !severityMap[severity] && 'border-muted-foreground bg-muted text-muted-foreground'
+          !severityMap[severity] && 'border-border bg-muted text-foreground/60'
         )}
       >
         <IconComponent className="size-3.5 shrink-0" />
@@ -203,7 +204,7 @@ const SelfHealingEvents = () => {
             Info
           </div>
         </div>
-        <div className="bg-card/80 backdrop-blur-sm p-7 rounded-xl border border-border shadow-md border-l-[3px] border-l-amber-500 transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
+        <div className="bg-card/80 backdrop-blur-sm p-7 rounded-xl border border-border shadow-md border-l-[3px] border-l-muted-foreground transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
           <div className="text-4xl font-bold text-foreground mb-2 leading-none">
             {stats.WARNING}
           </div>
@@ -279,7 +280,7 @@ const SelfHealingEvents = () => {
               className={cn(
                 'bg-card/80 backdrop-blur-sm rounded-xl p-6 border border-border shadow-md border-l-[3px] border-l-border transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg',
                 event.severity?.toLowerCase() === 'info' && 'border-l-primary',
-                event.severity?.toLowerCase() === 'warning' && 'border-l-amber-500',
+                event.severity?.toLowerCase() === 'warning' && 'border-l-muted-foreground',
                 event.severity?.toLowerCase() === 'critical' && 'border-l-destructive'
               )}
             >
@@ -304,7 +305,7 @@ const SelfHealingEvents = () => {
                 </p>
 
                 {event.action_taken && (
-                  <div className="flex gap-3 p-3.5 px-4 bg-muted border border-border/50 rounded-md border-l-[3px] border-l-green-500 transition-all hover:translate-x-1">
+                  <div className="flex gap-3 p-3.5 px-4 bg-muted border border-border/50 rounded-md border-l-[3px] border-l-primary transition-all hover:translate-x-1">
                     <span className="font-semibold text-muted-foreground text-sm min-w-[120px] shrink-0">
                       Maßnahme:
                     </span>

@@ -155,7 +155,7 @@ export default function ProjectCard({
         )}
         {project.space_name && (
           <span
-            className="badge badge-neutral inline-flex items-center gap-1 text-xs py-0.5 px-2 rounded-md bg-primary/5 text-muted-foreground border border-border"
+            className="badge badge-neutral inline-flex items-center gap-1 text-xs py-0.5 px-2 rounded-md bg-primary/10 text-foreground/60 border border-primary/15"
             title={`Knowledge Space: ${project.space_name}`}
           >
             <Folder className="size-3" /> {project.space_name}
@@ -230,7 +230,7 @@ export default function ProjectCard({
                     />
                     <button
                       type="button"
-                      className="chat-rename-action confirm bg-transparent border-none cursor-pointer p-1.5 rounded-md flex items-center shrink-0 transition-all duration-150 text-green-500 hover:bg-green-500/10"
+                      className="chat-rename-action confirm bg-transparent border-none cursor-pointer p-1.5 rounded-md flex items-center shrink-0 transition-all duration-150 text-primary hover:bg-primary/10"
                       onClick={() => submitRename(c.id)}
                       title="Speichern"
                       aria-label="Speichern"
@@ -258,7 +258,7 @@ export default function ProjectCard({
                         {c.title || 'Neuer Chat'}
                       </span>
                       {activeJobIds[c.id] && (
-                        <span className="pulse-dot size-2 rounded-full bg-green-500 shrink-0 animate-[pulse-glow_1.5s_ease-in-out_infinite]" />
+                        <span className="pulse-dot size-2 rounded-full bg-primary shrink-0 animate-[pulse-glow_1.5s_ease-in-out_infinite]" />
                       )}
                       <span className="chat-time text-xs text-muted-foreground whitespace-nowrap">
                         {formatRelativeTime(c.updated_at)}

@@ -569,7 +569,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
               className={cn(
                 'flex items-center justify-center size-7 rounded-full bg-background border-2 border-border text-muted-foreground text-xs font-semibold shrink-0 transition-all',
                 currentStep === step.id && 'bg-primary border-primary text-white',
-                currentStep > step.id && 'bg-green-500 border-green-500 text-white'
+                currentStep > step.id && 'bg-primary border-primary text-white'
               )}
             >
               {currentStep > step.id ? <Check className="size-3.5" /> : step.id}
@@ -626,7 +626,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 </button>
               </div>
               {validated && botInfo && (
-                <div className="flex items-center gap-1.5 mt-2 text-sm text-green-500">
+                <div className="flex items-center gap-1.5 mt-2 text-sm text-primary">
                   <Check className="size-4" /> Token gültig: <strong>{botInfo.first_name}</strong>{' '}
                   (@
                   {botInfo.username})
@@ -846,7 +846,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
           <div>
             {chatDetected ? (
               <div className="flex flex-col items-center text-center p-8">
-                <div className="size-16 flex items-center justify-center bg-green-500/15 rounded-full text-green-500 mb-4">
+                <div className="size-16 flex items-center justify-center bg-primary/15 rounded-full text-primary mb-4">
                   <Check size={32} />
                 </div>
                 <h3 className="text-foreground m-0 mb-2">Chat verbunden!</h3>
@@ -887,7 +887,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 )}
 
                 <div className="flex gap-4 text-xs text-muted-foreground">
-                  <span className={cn('text-amber-500', wsConnected && 'text-green-500')}>
+                  <span className={cn('text-muted-foreground', wsConnected && 'text-primary')}>
                     {wsConnected ? 'WebSocket verbunden' : 'Polling-Modus'}
                   </span>
                   {verificationTimeout !== null && verificationTimeout > 0 && (

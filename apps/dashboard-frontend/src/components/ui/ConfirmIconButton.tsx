@@ -20,9 +20,9 @@ const variantStyles = {
     confirm: 'hover:bg-destructive/20 text-destructive',
   },
   warning: {
-    trigger: 'hover:bg-amber-500/10 hover:text-amber-500',
-    popup: 'border-amber-500/30 bg-amber-500/10',
-    confirm: 'hover:bg-amber-500/20 text-amber-500',
+    trigger: 'hover:bg-muted-foreground/10 hover:text-muted-foreground',
+    popup: 'border-muted-foreground/30 bg-muted-foreground/10',
+    confirm: 'hover:bg-muted-foreground/20 text-muted-foreground',
   },
   primary: {
     trigger: 'hover:bg-primary/10 hover:text-primary',

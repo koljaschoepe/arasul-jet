@@ -34,7 +34,7 @@ export default function RecentChatCard({ chat, hasActiveJob }: RecentChatCardPro
       </div>
       {hasActiveJob && (
         <span
-          className="pulse-dot size-2 rounded-full bg-green-500 shrink-0 animate-[pulse-glow_1.5s_ease-in-out_infinite]"
+          className="pulse-dot size-2 rounded-full bg-primary shrink-0 animate-[pulse-glow_1.5s_ease-in-out_infinite]"
           title="Verarbeitung läuft"
         />
       )}

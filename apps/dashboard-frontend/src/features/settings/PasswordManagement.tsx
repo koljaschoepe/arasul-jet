@@ -304,7 +304,7 @@ function PasswordManagement() {
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.minLength ? 'text-green-500' : 'text-red-500'
+                      validations.minLength ? 'text-primary' : 'text-foreground/50'
                     )}
                   >
                     {validations.minLength ? (
@@ -318,7 +318,7 @@ function PasswordManagement() {
                     <li
                       className={cn(
                         'flex items-center gap-2 text-xs',
-                        validations.uppercase ? 'text-green-500' : 'text-red-500'
+                        validations.uppercase ? 'text-primary' : 'text-foreground/50'
                       )}
                     >
                       {validations.uppercase ? (
@@ -333,7 +333,7 @@ function PasswordManagement() {
                     <li
                       className={cn(
                         'flex items-center gap-2 text-xs',
-                        validations.lowercase ? 'text-green-500' : 'text-red-500'
+                        validations.lowercase ? 'text-primary' : 'text-foreground/50'
                       )}
                     >
                       {validations.lowercase ? (
@@ -348,7 +348,7 @@ function PasswordManagement() {
                     <li
                       className={cn(
                         'flex items-center gap-2 text-xs',
-                        validations.number ? 'text-green-500' : 'text-red-500'
+                        validations.number ? 'text-primary' : 'text-foreground/50'
                       )}
                     >
                       {validations.number ? (
@@ -363,7 +363,7 @@ function PasswordManagement() {
                     <li
                       className={cn(
                         'flex items-center gap-2 text-xs',
-                        validations.special ? 'text-green-500' : 'text-red-500'
+                        validations.special ? 'text-primary' : 'text-foreground/50'
                       )}
                     >
                       {validations.special ? (
@@ -377,7 +377,7 @@ function PasswordManagement() {
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.match ? 'text-green-500' : 'text-red-500'
+                      validations.match ? 'text-primary' : 'text-foreground/50'
                     )}
                   >
                     {validations.match ? (

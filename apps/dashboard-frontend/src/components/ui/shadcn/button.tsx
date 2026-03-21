@@ -11,7 +11,7 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/85 active:bg-primary/75',
         destructive:
-          'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
+          'border-2 border-foreground/25 bg-foreground/5 text-foreground hover:bg-foreground/10 hover:border-foreground/40 focus-visible:ring-foreground/20',
         outline:
           'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
@@ -22,11 +22,11 @@ const buttonVariants = cva(
         warning:
           'bg-warning text-warning-foreground hover:bg-warning/85 active:bg-warning/75 focus-visible:ring-warning/20',
         'outline-danger':
-          'border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50',
+          'border border-foreground/20 bg-foreground/5 text-foreground hover:bg-foreground/10 hover:border-foreground/30',
         'outline-success':
-          'border border-success/30 bg-success/10 text-success hover:bg-success/20 hover:border-success/50',
+          'border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/50',
         'outline-warning':
-          'border border-warning/30 bg-warning/10 text-warning hover:bg-warning/20 hover:border-warning/50',
+          'border border-muted-foreground/30 bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/20 hover:border-muted-foreground/50',
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',

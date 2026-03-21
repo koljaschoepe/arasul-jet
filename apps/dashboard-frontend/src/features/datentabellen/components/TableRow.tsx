@@ -125,7 +125,7 @@ const TableRow = memo(function TableRow({
               <span
                 className={cn(
                   'block px-3 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-muted-foreground',
-                  field.field_type === 'checkbox' && 'text-green-500',
+                  field.field_type === 'checkbox' && 'text-primary',
                   (field.field_type === 'currency' || field.field_type === 'number') &&
                     'text-right tabular-nums'
                 )}

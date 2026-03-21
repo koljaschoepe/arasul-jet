@@ -259,7 +259,7 @@ const ProjectModal = memo(function ProjectModal({
             <div
               className={cn(
                 'self-end text-xs text-muted-foreground',
-                systemPrompt.length > 2000 && 'text-amber-500'
+                systemPrompt.length > 2000 && 'text-muted-foreground'
               )}
             >
               {systemPrompt.length} / 2000

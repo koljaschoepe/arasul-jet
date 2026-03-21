@@ -297,13 +297,13 @@ const UpdatePage = () => {
       completed: {
         variant: 'secondary',
         label: 'Abgeschlossen',
-        className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+        className: 'bg-primary/15 text-primary border-primary/20',
       },
       failed: { variant: 'destructive', label: 'Fehlgeschlagen' },
       in_progress: {
         variant: 'secondary',
         label: 'In Bearbeitung',
-        className: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+        className: 'bg-muted-foreground/15 text-muted-foreground border-muted-foreground/20',
       },
       validated: {
         variant: 'secondary',
@@ -313,7 +313,7 @@ const UpdatePage = () => {
       rolled_back: {
         variant: 'secondary',
         label: 'Zurückgesetzt',
-        className: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+        className: 'bg-muted-foreground/15 text-muted-foreground border-muted-foreground/20',
       },
       signature_verified: {
         variant: 'secondary',
@@ -449,7 +449,7 @@ const UpdatePage = () => {
             <div className="flex flex-col">
               <label
                 htmlFor="signature-file"
-                className="file-label secondary flex items-center gap-4 p-5 px-6 bg-violet-500/5 border-2 border-dashed border-primary/20 rounded-xl cursor-pointer transition-all relative overflow-hidden hover:bg-violet-500/[0.08] hover:border-primary/40 hover:-translate-y-1 hover:shadow-lg"
+                className="file-label secondary flex items-center gap-4 p-5 px-6 bg-muted/50 border-2 border-dashed border-primary/20 rounded-xl cursor-pointer transition-all relative overflow-hidden hover:bg-muted hover:border-primary/40 hover:-translate-y-1 hover:shadow-lg"
               >
                 <Lock className="text-primary" size={24} />
                 <span className="flex-1 text-muted-foreground font-medium text-sm">
@@ -495,9 +495,9 @@ const UpdatePage = () => {
         )}
 
         {uploadStatus === 'validated' && validationResult && (
-          <div className="validation-result p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-md">
+          <div className="validation-result p-6 bg-primary/5 border border-primary/20 rounded-md">
             <div className="flex items-center gap-4 mb-6">
-              <div className="result-icon success size-10 flex items-center justify-center rounded-full bg-muted text-green-500 shrink-0">
+              <div className="result-icon success size-10 flex items-center justify-center rounded-full bg-muted text-primary shrink-0">
                 <CheckCircle size={20} />
               </div>
               <h4 className="text-foreground text-lg font-semibold">Update-Paket validiert</h4>
@@ -595,7 +595,7 @@ const UpdatePage = () => {
               <div className="progress-fill h-full bg-gradient-to-r from-primary to-primary/80 rounded-sm w-full animate-[progressSlide_2s_ease-in-out_infinite]"></div>
             </div>
 
-            <p className="mt-6 text-amber-500 font-medium text-sm">
+            <p className="mt-6 text-muted-foreground font-medium text-sm">
               Bitte diese Seite nicht schließen und das Gerät nicht ausschalten.
             </p>
 
@@ -609,7 +609,7 @@ const UpdatePage = () => {
 
         {uploadStatus === 'success' && (
           <div className="update-result success text-center p-10 px-6 rounded-md bg-muted border border-border">
-            <div className="result-icon w-[60px] h-[60px] flex items-center justify-center rounded-full bg-muted text-green-500 mx-auto mb-4">
+            <div className="result-icon w-[60px] h-[60px] flex items-center justify-center rounded-full bg-muted text-primary mx-auto mb-4">
               <CheckCircle size={32} />
             </div>
             <h4 className="text-foreground text-xl font-semibold mb-3">
@@ -619,7 +619,7 @@ const UpdatePage = () => {
               Das System wurde auf Version {validationResult?.version} aktualisiert.
             </p>
             {validationResult?.requires_reboot && (
-              <p className="mt-6 py-4 px-5 bg-amber-500/10 border-2 border-amber-500/30 rounded-md text-amber-500 font-medium text-sm">
+              <p className="mt-6 py-4 px-5 bg-muted-foreground/10 border-2 border-muted-foreground/30 rounded-md text-muted-foreground font-medium text-sm">
                 <AlertCircle className="inline mr-2" size={16} />
                 Systemneustart erforderlich. Bitte starten Sie das System neu.
               </p>
@@ -667,22 +667,22 @@ const UpdatePage = () => {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th className="p-4 text-left bg-muted text-muted-foreground font-semibold uppercase tracking-wide text-xs">
+                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
                     Datum
                   </th>
-                  <th className="p-4 text-left bg-muted text-muted-foreground font-semibold uppercase tracking-wide text-xs">
+                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
                     Von Version
                   </th>
-                  <th className="p-4 text-left bg-muted text-muted-foreground font-semibold uppercase tracking-wide text-xs">
+                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
                     Auf Version
                   </th>
-                  <th className="p-4 text-left bg-muted text-muted-foreground font-semibold uppercase tracking-wide text-xs">
+                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
                     Quelle
                   </th>
-                  <th className="p-4 text-left bg-muted text-muted-foreground font-semibold uppercase tracking-wide text-xs">
+                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
                     Status
                   </th>
-                  <th className="p-4 text-left bg-muted text-muted-foreground font-semibold uppercase tracking-wide text-xs">
+                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
                     Dauer
                   </th>
                 </tr>

@@ -330,10 +330,12 @@ function ClaudeTerminal() {
             )}
 
             {!isAvailable && status && (
-              <div className="flex items-start gap-4 p-6 bg-amber-500/10 border-2 border-amber-500/30 rounded-lg mt-4 max-sm:flex-col max-sm:p-5">
-                <AlertCircle className="size-6 text-amber-500 shrink-0 mt-1" />
+              <div className="flex items-start gap-4 p-6 bg-muted-foreground/10 border-2 border-muted-foreground/30 rounded-lg mt-4 max-sm:flex-col max-sm:p-5">
+                <AlertCircle className="size-6 text-muted-foreground shrink-0 mt-1" />
                 <div>
-                  <strong className="block text-amber-500 mb-2">LLM Service nicht verfügbar</strong>
+                  <strong className="block text-muted-foreground mb-2">
+                    LLM Service nicht verfügbar
+                  </strong>
                   <p className="text-muted-foreground text-sm m-0 mb-4">
                     Der LLM Service startet möglicherweise gerade. Bitte versuchen Sie es in einigen
                     Momenten erneut.
@@ -410,7 +412,7 @@ function ClaudeTerminal() {
                             'flex items-center gap-1 uppercase tracking-wide font-medium',
                             item.status === 'completed' && 'text-[var(--status-neutral)]',
                             item.status === 'error' && 'text-destructive',
-                            item.status === 'timeout' && 'text-amber-500'
+                            item.status === 'timeout' && 'text-muted-foreground'
                           )}
                         >
                           {item.status === 'completed' && <CheckCircle className="size-3.5" />}

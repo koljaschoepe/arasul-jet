@@ -29,7 +29,7 @@ const EditorHeader = memo(function EditorHeader({
           className={cn(
             'size-2 rounded-full transition-colors duration-300',
             saving && 'bg-primary animate-pulse',
-            !saving && saveStatus === 'success' && 'bg-green-500',
+            !saving && saveStatus === 'success' && 'bg-primary',
             !saving && saveStatus === 'error' && 'bg-destructive',
             !saving && !saveStatus && 'bg-transparent'
           )}

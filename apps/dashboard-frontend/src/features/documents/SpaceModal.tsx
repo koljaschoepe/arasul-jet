@@ -25,16 +25,16 @@ const SPACE_ICONS = [
 
 // Available colors for spaces
 const SPACE_COLORS = [
-  '#6366f1', // Indigo
-  '#8b5cf6', // Violet
-  '#ec4899', // Pink
-  '#ef4444', // Red
-  '#f59e0b', // Amber
-  '#22c55e', // Green
-  '#14b8a6', // Teal
-  '#3b82f6', // Blue
-  '#06b6d4', // Cyan
-  '#64748b', // Slate
+  '#45ADFF', // Primary blue
+  '#6EC4FF', // Primary hover
+  '#2D8FD9', // Primary active
+  '#94A3B8', // Muted grey
+  '#64748B', // Disabled grey
+  '#CBD5E1', // Light grey
+  '#F0F4F8', // Near-white
+  '#2A3544', // Border dark
+  '#1A2330', // Card dark
+  '#222D3A', // Elevated dark
 ];
 
 const descriptionTemplate = `**Inhalt:** Beschreiben Sie, welche Dokumente dieser Bereich enthält.
@@ -76,7 +76,7 @@ const SpaceModal = memo(function SpaceModal({
   const [name, setName] = useState('');
   const [description, setDescription] = useState(descriptionTemplate);
   const [icon, setIcon] = useState('folder');
-  const [color, setColor] = useState('#6366f1');
+  const [color, setColor] = useState('#45ADFF');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -88,12 +88,12 @@ const SpaceModal = memo(function SpaceModal({
         setName(space.name || '');
         setDescription(space.description || '');
         setIcon(space.icon || 'folder');
-        setColor(space.color || '#6366f1');
+        setColor(space.color || '#45ADFF');
       } else {
         setName('');
         setDescription(descriptionTemplate);
         setIcon('folder');
-        setColor('#6366f1');
+        setColor('#45ADFF');
       }
       setError(null);
       setSuccess(null);

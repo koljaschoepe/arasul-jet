@@ -15,12 +15,12 @@
   --color-primary-hover: #6EC4FF;
   --color-primary-active: #2D8FD9;
 
-  /* Colors - Semantic */
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-warning-hover: #d97706;
+  /* Colors - Semantic (monochromatic) */
+  --color-danger: #F0F4F8;
+  --color-danger-hover: #CBD5E1;
+  --color-success: #45ADFF;
+  --color-warning: #94A3B8;
+  --color-warning-hover: #64748B;
 
   /* Colors - Background */
   --color-bg-dark: #101923;
@@ -124,12 +124,12 @@
   --muted-foreground: #94a3b8;
   --accent: #222d3d;
   --accent-foreground: #f8fafc;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --success: #22c55e;
-  --success-foreground: #052e16;
-  --warning: #f59e0b;
-  --warning-foreground: #422006;
+  --destructive: #F0F4F8;
+  --destructive-foreground: #101923;
+  --success: #45ADFF;
+  --success-foreground: #000000;
+  --warning: #94A3B8;
+  --warning-foreground: #1A2330;
   --border: #2a3544;
   --input: #2a3544;
   --ring: #45ADFF;
@@ -188,24 +188,24 @@
   --primary-light: #6EC4FF;
   --primary-muted: var(--primary-alpha-15);
   --text-on-primary: #000000;
-  --danger-color: #ef4444;
-  --danger-hover: #dc2626;
-  --danger-light: #fca5a5;
-  --warning-color: #f59e0b;
-  --success-color: #22c55e;
+  --danger-color: #F0F4F8;
+  --danger-hover: #CBD5E1;
+  --danger-light: #CBD5E1;
+  --warning-color: #94A3B8;
+  --success-color: #45ADFF;
   --error-color: var(--danger-color);
 
   /* Status Colors - Semantic (NEW) */
   --status-neutral: #94A3B8;        /* Grau - für "Normal", "OK", "Indexiert" */
   --status-neutral-bg: rgba(148, 163, 184, 0.15);
   --status-neutral-border: rgba(148, 163, 184, 0.3);
-  --status-critical: #EF4444;       /* Rot - für kritische Zustände */
-  --status-critical-bg: rgba(239, 68, 68, 0.15);
-  --status-critical-border: rgba(239, 68, 68, 0.3);
-  --status-warning: #F59E0B;        /* Orange - für Warnungen */
-  --status-performance: #22C55E;    /* Grün - NUR für Performance-Indikatoren */
-  --status-performance-bg: rgba(34, 197, 94, 0.15);
-  --status-performance-border: rgba(34, 197, 94, 0.3);
+  --status-critical: #F0F4F8;       /* Near-white - höchster Kontrast */
+  --status-critical-bg: rgba(240, 244, 248, 0.15);
+  --status-critical-border: rgba(240, 244, 248, 0.3);
+  --status-warning: #94A3B8;        /* Muted grey */
+  --status-performance: #45ADFF;    /* Primary blue */
+  --status-performance-bg: rgba(69, 173, 255, 0.15);
+  --status-performance-border: rgba(69, 173, 255, 0.3);
 
   /* Background Colors */
   --bg-dark: #101923;
@@ -285,24 +285,24 @@
   --primary-alpha-40: rgba(69, 173, 255, 0.4);
   --primary-alpha-50: rgba(69, 173, 255, 0.5);
 
-  /* Danger alpha variants */
-  --danger-alpha-8: rgba(239, 68, 68, 0.08);
-  --danger-alpha-10: rgba(239, 68, 68, 0.1);
-  --danger-alpha-15: rgba(239, 68, 68, 0.15);
-  --danger-alpha-20: rgba(239, 68, 68, 0.2);
-  --danger-alpha-30: rgba(239, 68, 68, 0.3);
+  /* Danger alpha variants (monochromatic near-white) */
+  --danger-alpha-8: rgba(240, 244, 248, 0.08);
+  --danger-alpha-10: rgba(240, 244, 248, 0.1);
+  --danger-alpha-15: rgba(240, 244, 248, 0.15);
+  --danger-alpha-20: rgba(240, 244, 248, 0.2);
+  --danger-alpha-30: rgba(240, 244, 248, 0.3);
 
-  /* Warning alpha variants */
-  --warning-alpha-10: rgba(245, 158, 11, 0.1);
-  --warning-alpha-15: rgba(245, 158, 11, 0.15);
-  --warning-alpha-20: rgba(245, 158, 11, 0.2);
-  --warning-alpha-30: rgba(245, 158, 11, 0.3);
+  /* Warning alpha variants (muted grey) */
+  --warning-alpha-10: rgba(148, 163, 184, 0.1);
+  --warning-alpha-15: rgba(148, 163, 184, 0.15);
+  --warning-alpha-20: rgba(148, 163, 184, 0.2);
+  --warning-alpha-30: rgba(148, 163, 184, 0.3);
 
-  /* Success alpha variants */
-  --success-alpha-10: rgba(34, 197, 94, 0.1);
-  --success-alpha-15: rgba(34, 197, 94, 0.15);
-  --success-alpha-20: rgba(34, 197, 94, 0.2);
-  --success-alpha-30: rgba(34, 197, 94, 0.3);
+  /* Success alpha variants (primary blue) */
+  --success-alpha-10: rgba(69, 173, 255, 0.1);
+  --success-alpha-15: rgba(69, 173, 255, 0.15);
+  --success-alpha-20: rgba(69, 173, 255, 0.2);
+  --success-alpha-30: rgba(69, 173, 255, 0.3);
 
   /* Neutral alpha variants */
   --neutral-alpha-2: rgba(148, 163, 184, 0.02);
@@ -352,12 +352,12 @@
   --muted-foreground: #64748B;
   --accent: #F1F5F9;
   --accent-foreground: #0F172A;
-  --destructive: #EF4444;
-  --destructive-foreground: #ffffff;
-  --success: #16A34A;
-  --success-foreground: #f0fdf4;
-  --warning: #D97706;
-  --warning-foreground: #fffbeb;
+  --destructive: #334155;
+  --destructive-foreground: #FFFFFF;
+  --success: #45ADFF;
+  --success-foreground: #000000;
+  --warning: #64748B;
+  --warning-foreground: #FFFFFF;
   --border: #E2E8F0;
   --input: #E2E8F0;
   --ring: #45ADFF;
@@ -443,37 +443,37 @@
   --primary-alpha-40: rgba(69, 173, 255, 0.4);
   --primary-alpha-50: rgba(69, 173, 255, 0.5);
 
-  /* Danger/Warning/Success/Neutral alpha variants (same in both modes) */
-  --danger-alpha-8: rgba(239, 68, 68, 0.08);
-  --danger-alpha-10: rgba(239, 68, 68, 0.1);
-  --danger-alpha-15: rgba(239, 68, 68, 0.15);
-  --danger-alpha-20: rgba(239, 68, 68, 0.2);
-  --danger-alpha-30: rgba(239, 68, 68, 0.3);
-  --warning-alpha-10: rgba(245, 158, 11, 0.1);
-  --warning-alpha-15: rgba(245, 158, 11, 0.15);
-  --warning-alpha-20: rgba(245, 158, 11, 0.2);
-  --warning-alpha-30: rgba(245, 158, 11, 0.3);
-  --success-alpha-10: rgba(34, 197, 94, 0.1);
-  --success-alpha-15: rgba(34, 197, 94, 0.15);
-  --success-alpha-20: rgba(34, 197, 94, 0.2);
-  --success-alpha-30: rgba(34, 197, 94, 0.3);
+  /* Danger/Warning/Success/Neutral alpha variants (monochromatic, light mode) */
+  --danger-alpha-8: rgba(51, 65, 85, 0.08);
+  --danger-alpha-10: rgba(51, 65, 85, 0.1);
+  --danger-alpha-15: rgba(51, 65, 85, 0.15);
+  --danger-alpha-20: rgba(51, 65, 85, 0.2);
+  --danger-alpha-30: rgba(51, 65, 85, 0.3);
+  --warning-alpha-10: rgba(100, 116, 139, 0.1);
+  --warning-alpha-15: rgba(100, 116, 139, 0.15);
+  --warning-alpha-20: rgba(100, 116, 139, 0.2);
+  --warning-alpha-30: rgba(100, 116, 139, 0.3);
+  --success-alpha-10: rgba(69, 173, 255, 0.1);
+  --success-alpha-15: rgba(69, 173, 255, 0.15);
+  --success-alpha-20: rgba(69, 173, 255, 0.2);
+  --success-alpha-30: rgba(69, 173, 255, 0.3);
   --neutral-alpha-2: rgba(148, 163, 184, 0.02);
   --neutral-alpha-10: rgba(148, 163, 184, 0.1);
   --neutral-alpha-15: rgba(148, 163, 184, 0.15);
   --neutral-alpha-20: rgba(148, 163, 184, 0.2);
   --neutral-alpha-30: rgba(148, 163, 184, 0.3);
 
-  /* Status Colors - Semantic (Light Mode) */
-  --status-neutral: #64748B;        /* Dunkleres Grau für besseren Kontrast */
+  /* Status Colors - Semantic (Light Mode, monochromatic) */
+  --status-neutral: #64748B;
   --status-neutral-bg: rgba(100, 116, 139, 0.12);
   --status-neutral-border: rgba(100, 116, 139, 0.25);
-  --status-critical: #DC2626;       /* Dunkleres Rot für Light Mode */
-  --status-critical-bg: rgba(220, 38, 38, 0.12);
-  --status-critical-border: rgba(220, 38, 38, 0.25);
-  --status-warning: #D97706;        /* Dunkleres Orange */
-  --status-performance: #16A34A;    /* Dunkleres Grün für Performance */
-  --status-performance-bg: rgba(22, 163, 74, 0.12);
-  --status-performance-border: rgba(22, 163, 74, 0.25);
+  --status-critical: #334155;       /* Dark grey for high contrast on light bg */
+  --status-critical-bg: rgba(51, 65, 85, 0.12);
+  --status-critical-border: rgba(51, 65, 85, 0.25);
+  --status-warning: #64748B;        /* Muted grey */
+  --status-performance: #45ADFF;    /* Primary blue */
+  --status-performance-bg: rgba(69, 173, 255, 0.12);
+  --status-performance-border: rgba(69, 173, 255, 0.25);
 }
 
 /* Light Mode - Animated background override (disabled) */
@@ -497,9 +497,9 @@
 }
 
 .light-mode .status-warning {
-  background: rgba(217, 119, 6, 0.12);
+  background: var(--warning-alpha-10);
   color: var(--status-warning);
-  border: 1px solid rgba(217, 119, 6, 0.25);
+  border: 1px solid var(--warning-alpha-20);
 }
 
 .light-mode .status-warning::before {
@@ -507,9 +507,9 @@
 }
 
 .light-mode .status-critical {
-  background: rgba(220, 38, 38, 0.12);
+  background: var(--danger-alpha-10);
   color: var(--status-critical);
-  border: 1px solid rgba(220, 38, 38, 0.25);
+  border: 1px solid var(--danger-alpha-20);
 }
 
 .light-mode .status-critical::before {
@@ -524,7 +524,7 @@
 
 .light-mode .status-dot-error {
   background: var(--danger-hover);
-  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
 /* Light Mode - Stat changes */
@@ -535,15 +535,15 @@
 }
 
 .light-mode .stat-change-negative {
-  background: rgba(220, 38, 38, 0.1);
+  background: var(--danger-alpha-10);
   color: var(--status-critical);
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid var(--danger-alpha-20);
 }
 
 .light-mode .stat-change-warning {
-  background: rgba(217, 119, 6, 0.1);
+  background: var(--warning-alpha-10);
   color: var(--status-warning);
-  border: 1px solid rgba(217, 119, 6, 0.2);
+  border: 1px solid var(--warning-alpha-20);
 }
 
 /* Light Mode - Service indicators */
@@ -554,7 +554,7 @@
 
 .light-mode .service-error {
   background: var(--status-critical);
-  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
 /* Light Mode - ALL Badges unified gray (like version badges) */
@@ -577,17 +577,17 @@
 
 .light-mode .status-indicator.critical {
   background: var(--status-critical);
-  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
 .light-mode .status-indicator.warning {
   background: var(--status-warning);
-  box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
+  box-shadow: 0 0 8px var(--warning-alpha-30);
 }
 
 .light-mode .status-indicator.error {
   background: var(--status-critical);
-  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
 /* Light Mode - Progress bar container */

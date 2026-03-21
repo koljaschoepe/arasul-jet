@@ -229,10 +229,10 @@ function ChatInputArea({
 
       {(showThinkWarning || showRagWarning) && (
         <div
-          className="capability-warning flex items-center gap-2.5 w-full max-w-[800px] py-2.5 px-3.5 bg-amber-500/10 border border-amber-500/25 rounded-lg text-muted-foreground text-xs mb-3"
+          className="capability-warning flex items-center gap-2.5 w-full max-w-[800px] py-2.5 px-3.5 bg-muted/50 border border-border rounded-lg text-muted-foreground text-xs mb-3"
           role="status"
         >
-          <AlertCircle className="size-4 text-amber-500 shrink-0" />
+          <AlertCircle className="size-4 text-muted-foreground shrink-0" />
           <span className="flex-1">
             {showThinkWarning && showRagWarning
               ? `"${currentModel.name}" ist weder für Think-Mode noch RAG optimiert.`

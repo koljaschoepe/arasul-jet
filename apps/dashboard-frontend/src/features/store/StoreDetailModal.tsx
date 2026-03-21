@@ -178,7 +178,7 @@ function StoreDetailModal({
               {isModel && isLoaded && (
                 <Badge
                   variant="secondary"
-                  className="badge-loaded bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                  className="badge-loaded bg-primary/20 text-primary border-primary/30"
                 >
                   <Zap className="size-3" /> Aktiv
                 </Badge>
@@ -186,7 +186,7 @@ function StoreDetailModal({
               {isModel && isDefault && (
                 <Badge
                   variant="secondary"
-                  className="badge-default bg-amber-500/20 text-amber-400 border-amber-500/30"
+                  className="badge-default bg-primary/20 text-primary border-primary/30"
                 >
                   <Star className="size-3" /> Standard
                 </Badge>
@@ -194,7 +194,7 @@ function StoreDetailModal({
               {!isModel && item.status === 'running' && (
                 <Badge
                   variant="secondary"
-                  className="badge-running bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                  className="badge-running bg-primary/20 text-primary border-primary/30"
                 >
                   <Zap className="size-3" /> Aktiv
                 </Badge>
@@ -350,7 +350,7 @@ function StoreDetailModal({
                   {item.capabilities.map((cap: string) => (
                     <span
                       key={cap}
-                      className="capability-tag bg-muted text-muted-foreground px-2 py-1 rounded text-xs"
+                      className="capability-tag bg-muted text-foreground/60 px-2 py-1 rounded text-xs"
                     >
                       {cap}
                     </span>

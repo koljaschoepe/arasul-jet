@@ -367,7 +367,7 @@ describe('PasswordManagement Component', () => {
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'TestPass123!');
 
-      const validItems = container.querySelectorAll('li.text-green-500');
+      const validItems = container.querySelectorAll('li.text-primary');
       expect(validItems.length).toBeGreaterThan(0);
     });
 
@@ -384,7 +384,7 @@ describe('PasswordManagement Component', () => {
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'ab');
 
-      const invalidItems = container.querySelectorAll('li.text-red-500');
+      const invalidItems = container.querySelectorAll('li.text-foreground\\/50');
       expect(invalidItems.length).toBeGreaterThan(0);
     });
   });

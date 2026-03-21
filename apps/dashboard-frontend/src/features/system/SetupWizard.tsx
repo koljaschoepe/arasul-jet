@@ -458,7 +458,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     isActive
                       ? 'bg-primary text-white border-primary'
                       : isCompleted
-                        ? 'bg-green-500 text-white border-green-500'
+                        ? 'bg-primary text-white border-primary'
                         : 'bg-background text-muted-foreground border-border'
                   )}
                 >
@@ -682,7 +682,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               </div>
 
               {profileSaved && (
-                <div className="flex items-center gap-1.5 text-green-500 text-xs font-medium mt-2 self-center">
+                <div className="flex items-center gap-1.5 text-primary text-xs font-medium mt-2 self-center">
                   <Check className="size-4" /> Profil gespeichert
                 </div>
               )}
@@ -703,7 +703,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               </p>
 
               {passwordChanged ? (
-                <div className="flex items-center gap-3 bg-green-500/10 border border-green-500 text-green-500 p-5 rounded-md w-full max-w-[440px] text-base font-semibold">
+                <div className="flex items-center gap-3 bg-primary/10 border border-primary text-primary p-5 rounded-md w-full max-w-[440px] text-base font-semibold">
                   <Check className="size-6 shrink-0" />
                   <p className="m-0">Passwort wurde erfolgreich geändert!</p>
                 </div>
@@ -834,8 +834,8 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                       className={cn(
                         'size-7 rounded-full flex items-center justify-center shrink-0 text-sm',
                         networkInfo.internet_reachable
-                          ? 'bg-green-500/15 text-green-500'
-                          : 'bg-amber-500/15 text-amber-500'
+                          ? 'bg-primary/15 text-primary'
+                          : 'bg-muted-foreground/15 text-muted-foreground'
                       )}
                     >
                       {networkInfo.internet_reachable ? (
@@ -855,7 +855,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   </div>
 
                   <div className="flex items-start gap-3 py-3 border-b border-border/30">
-                    <div className="size-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-green-500/15 text-green-500">
+                    <div className="size-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-primary/15 text-primary">
                       <Check className="size-3.5" />
                     </div>
                     <div>
@@ -867,7 +867,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   </div>
 
                   <div className="flex items-start gap-3 py-3">
-                    <div className="size-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-green-500/15 text-green-500">
+                    <div className="size-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-primary/15 text-primary">
                       <Check className="size-3.5" />
                     </div>
                     <div>
@@ -962,12 +962,12 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                                 </span>
                                 <div className="flex gap-1.5 shrink-0">
                                   {isRecommended && (
-                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase tracking-wide py-0.5 px-2 rounded-sm bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase tracking-wide py-0.5 px-2 rounded-sm bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/30">
                                       <Star className="w-2.5 h-2.5" /> Empfohlen
                                     </Badge>
                                   )}
                                   {isInstalled && (
-                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase py-0.5 px-2 rounded-sm bg-green-500/10 text-green-500 border border-green-500/30">
+                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase py-0.5 px-2 rounded-sm bg-primary/10 text-primary border border-primary/30">
                                       <Check className="w-2.5 h-2.5" /> Installiert
                                     </Badge>
                                   )}
@@ -1036,7 +1036,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
           {/* Step 6: Summary */}
           {currentStep === 6 && (
             <div className="flex flex-col items-center">
-              <div className="size-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4 text-green-500 max-sm:size-12">
+              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary max-sm:size-12">
                 <Check className="size-7 max-sm:size-5" />
               </div>
               <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
@@ -1058,11 +1058,11 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   <span className="text-muted-foreground text-sm">Passwort</span>
                   <span className="text-foreground font-semibold text-sm">
                     {passwordChanged ? (
-                      <span className="inline-flex items-center gap-1 text-green-500">
+                      <span className="inline-flex items-center gap-1 text-primary">
                         <Check className="size-4" /> Geändert
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-amber-500">
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">
                         <AlertCircle className="size-4" /> Nicht geändert
                       </span>
                     )}
@@ -1073,7 +1073,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   <span className="text-muted-foreground text-sm">Netzwerk</span>
                   <span className="text-foreground font-semibold text-sm">
                     {networkInfo?.internet_reachable ? (
-                      <span className="inline-flex items-center gap-1 text-green-500">
+                      <span className="inline-flex items-center gap-1 text-primary">
                         <Wifi className="size-4" /> Online
                       </span>
                     ) : (
@@ -1104,13 +1104,13 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                           if (!dlState) return null;
                           if (dlState.phase === 'complete')
                             return (
-                              <span className="inline-flex items-center gap-1 text-green-500 ml-2">
+                              <span className="inline-flex items-center gap-1 text-primary ml-2">
                                 <Check className="size-4" /> Fertig
                               </span>
                             );
                           if (dlState.phase === 'error')
                             return (
-                              <span className="inline-flex items-center gap-1 text-amber-500 ml-2">
+                              <span className="inline-flex items-center gap-1 text-muted-foreground ml-2">
                                 <AlertCircle className="size-4" /> Fehler
                               </span>
                             );

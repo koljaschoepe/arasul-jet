@@ -196,10 +196,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         <div
           className={cn(
             'flex items-center gap-2 py-2.5 px-3.5 rounded-lg text-sm mb-4',
-            message.type === 'success' &&
-              'bg-green-500/10 text-green-500 border border-green-500/20',
+            message.type === 'success' && 'bg-primary/10 text-primary border border-primary/20',
             message.type === 'error' &&
-              'bg-destructive/10 text-destructive border border-destructive/20'
+              'bg-foreground/5 text-foreground border border-foreground/20'
           )}
         >
           {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
@@ -428,10 +427,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         <div
           className={cn(
             'flex items-center gap-2 py-2.5 px-3.5 rounded-lg text-sm mb-4',
-            message.type === 'success' &&
-              'bg-green-500/10 text-green-500 border border-green-500/20',
+            message.type === 'success' && 'bg-primary/10 text-primary border border-primary/20',
             message.type === 'error' &&
-              'bg-destructive/10 text-destructive border border-destructive/20'
+              'bg-foreground/5 text-foreground border border-foreground/20'
           )}
         >
           {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}

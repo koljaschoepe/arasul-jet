@@ -167,7 +167,7 @@ function WorkspaceManager({
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-1">
-                {ws.is_default && <Star className="size-4 text-amber-500" />}
+                {ws.is_default && <Star className="size-4 text-muted-foreground" />}
                 {ws.name}
                 {ws.is_system && (
                   <span className="text-[0.65rem] py-0.5 px-2 bg-[var(--neutral-alpha-20)] text-muted-foreground rounded-full font-medium uppercase">
@@ -313,8 +313,8 @@ function WorkspaceManager({
         </form>
       )}
 
-      <div className="p-4 px-6 bg-amber-500/5 border-t border-amber-500/20">
-        <p className="flex items-start gap-2 text-xs text-amber-500 m-0 leading-relaxed">
+      <div className="p-4 px-6 bg-muted/50 border-t border-muted-foreground/20">
+        <p className="flex items-start gap-2 text-xs text-muted-foreground m-0 leading-relaxed">
           <AlertTriangle className="size-4 shrink-0 mt-0.5" /> Nach dem Erstellen eines neuen
           Workspace muss Claude Code neu gestartet werden, damit der Workspace verfügbar ist.
         </p>
@@ -533,7 +533,7 @@ function SetupWizard({
                     <div className="flex-1 min-w-0">
                       <h4 className="flex items-center gap-1 text-sm font-semibold text-foreground m-0">
                         {ws.name}
-                        {ws.is_default && <Star className="size-3.5 text-amber-500" />}
+                        {ws.is_default && <Star className="size-3.5 text-muted-foreground" />}
                       </h4>
                       <p className="text-xs text-muted-foreground m-0 mt-0.5">
                         {ws.description || 'Keine Beschreibung'}
@@ -595,7 +595,7 @@ function SetupWizard({
                 </div>
               )}
 
-              <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-500 text-sm">
+              <div className="flex items-center gap-2 p-3 bg-muted-foreground/10 border border-muted-foreground/30 rounded-lg text-muted-foreground text-sm">
                 <AlertTriangle className="size-4 shrink-0" />
                 <span>Claude Code läuft im autonomen Modus für beste Performance.</span>
               </div>
@@ -1071,11 +1071,11 @@ function ClaudeCode() {
         text: 'Installiert',
       },
       installing: {
-        cls: 'bg-amber-500/20 text-amber-500 border-amber-500/30',
+        cls: 'bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30',
         text: 'Installiert...',
       },
       restarting: {
-        cls: 'bg-amber-500/20 text-amber-500 border-amber-500/30',
+        cls: 'bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30',
         text: 'Neustart...',
       },
       error: {
@@ -1111,7 +1111,7 @@ function ClaudeCode() {
         <LoadingSpinner message="Claude Code wird geladen..." />
         {loadingTimeout && (
           <div className="mt-4 text-center">
-            <p className="text-amber-500 mb-4">
+            <p className="text-muted-foreground mb-4">
               <AlertTriangle className="size-4 inline-block mr-2 align-middle" />
               Laden dauert länger als erwartet.
             </p>
@@ -1139,7 +1139,7 @@ function ClaudeCode() {
     return (
       <div className="claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-background">
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-          <AlertCircle className="size-12 text-amber-500 mb-4" />
+          <AlertCircle className="size-12 text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold text-foreground mb-2">
             Claude Code nicht verfügbar
           </h2>
@@ -1234,7 +1234,7 @@ function ClaudeCode() {
                 </span>
               </div>
             ) : (
-              <div className="auth-badge flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-amber-500/15 border border-amber-500/30 text-amber-500">
+              <div className="auth-badge flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-muted-foreground/15 border border-muted-foreground/30 text-muted-foreground">
                 <AlertTriangle className="size-4" />
                 <span>Session abgelaufen</span>
                 <button
@@ -1396,7 +1396,7 @@ function ClaudeCode() {
                 saveMessage.type === 'error' &&
                   'bg-destructive/10 border border-destructive/30 text-destructive',
                 saveMessage.type === 'warning' &&
-                  'bg-amber-500/10 border border-amber-500/30 text-amber-500'
+                  'bg-muted-foreground/10 border border-muted-foreground/30 text-muted-foreground'
               )}
             >
               {saveMessage.type === 'success' ? (

@@ -17,11 +17,11 @@ import { cn } from '@/lib/utils';
 const badgeBase = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-medium';
 
 const badgeVariants: Record<string, string> = {
-  success: 'bg-green-500/10 text-green-500',
-  warning: 'bg-amber-500/10 text-amber-500',
+  success: 'bg-primary/10 text-primary',
+  warning: 'bg-muted-foreground/10 text-muted-foreground',
   info: 'bg-primary/10 text-primary',
   error: 'bg-destructive/10 text-destructive',
-  neutral: 'bg-muted text-muted-foreground',
+  neutral: 'bg-muted text-foreground/60',
 };
 
 // -- TableBadge --

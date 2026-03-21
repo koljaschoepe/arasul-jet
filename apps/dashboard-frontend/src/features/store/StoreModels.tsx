@@ -457,7 +457,7 @@ function StoreModels() {
                     {isDefault && (
                       <Badge
                         variant="outline"
-                        className="badge-default bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
+                        className="badge-default bg-primary/10 border-primary/30 text-primary"
                       >
                         <Star className="size-3" /> Standard
                       </Badge>
@@ -473,21 +473,21 @@ function StoreModels() {
                     {pendingJobs > 0 && (
                       <Badge
                         variant="outline"
-                        className="badge-queue bg-orange-500/10 border-orange-500/30 text-orange-500"
+                        className="badge-queue bg-muted-foreground/10 border-muted-foreground/30 text-muted-foreground"
                       >
                         {pendingJobs} wartend
                       </Badge>
                     )}
                     <Badge
                       variant="outline"
-                      className="badge-type bg-muted border-border text-muted-foreground"
+                      className="badge-type bg-muted border-border text-foreground/60"
                       title={typeInfo.description}
                     >
                       {typeInfo.label}
                     </Badge>
                     <Badge
                       variant="outline"
-                      className="badge-category bg-muted border-border text-muted-foreground"
+                      className="badge-category bg-muted border-border text-foreground/60"
                       title={sizeInfo.description}
                     >
                       {sizeInfo.label}
@@ -520,7 +520,7 @@ function StoreModels() {
                     {model.capabilities.slice(0, 4).map(cap => (
                       <span
                         key={cap}
-                        className="capability-tag text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
+                        className="capability-tag text-xs bg-muted text-foreground/60 px-2 py-0.5 rounded-full"
                       >
                         {cap}
                       </span>
@@ -534,7 +534,7 @@ function StoreModels() {
                     className={cn(
                       'download-progress bg-muted rounded-md p-3.5 border border-border',
                       `phase-${downloadState.phase}`,
-                      downloadState.phase === 'complete' && 'border-green-500 bg-green-500/10'
+                      downloadState.phase === 'complete' && 'border-primary bg-primary/10'
                     )}
                     onClick={e => e.stopPropagation()}
                   >
@@ -542,7 +542,7 @@ function StoreModels() {
                       <span
                         className={cn(
                           'progress-phase-label text-xs font-semibold text-muted-foreground uppercase tracking-wider',
-                          downloadState.phase === 'complete' && 'text-green-500'
+                          downloadState.phase === 'complete' && 'text-primary'
                         )}
                       >
                         {downloadState.phase === 'init' && 'Initialisiere'}
@@ -554,7 +554,7 @@ function StoreModels() {
                       <span
                         className={cn(
                           'progress-percent text-primary font-semibold text-sm',
-                          downloadState.phase === 'complete' && 'text-green-500'
+                          downloadState.phase === 'complete' && 'text-primary'
                         )}
                       >
                         {downloadState.progress}%
@@ -565,8 +565,8 @@ function StoreModels() {
                         className={cn(
                           'progress-fill h-full bg-gradient-to-r from-primary to-primary/80 rounded transition-all duration-300',
                           downloadState.phase === 'verify' &&
-                            'pulsing animate-pulse from-yellow-500 to-yellow-400',
-                          downloadState.phase === 'complete' && 'from-green-500 to-green-400'
+                            'pulsing animate-pulse from-muted-foreground to-muted-foreground/80',
+                          downloadState.phase === 'complete' && 'from-primary to-primary/80'
                         )}
                         style={{
                           width: `${downloadState.phase === 'verify' && downloadState.progress < 100 ? 100 : downloadState.progress}%`,
@@ -576,7 +576,7 @@ function StoreModels() {
                     <div
                       className={cn(
                         'progress-status text-xs text-muted-foreground',
-                        downloadState.phase === 'complete' && 'text-green-500'
+                        downloadState.phase === 'complete' && 'text-primary'
                       )}
                     >
                       {downloadState.error || downloadState.status}

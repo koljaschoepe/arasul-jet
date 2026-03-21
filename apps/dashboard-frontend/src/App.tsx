@@ -510,7 +510,7 @@ function AppContent(): React.JSX.Element | null {
               (metrics as Record<string, unknown>).network &&
               !((metrics as Record<string, unknown>).network as Record<string, unknown>)
                 ?.online && (
-                <div className="fixed top-0 left-0 right-0 z-50 bg-amber-600 text-white text-center py-1.5 text-sm font-medium">
+                <div className="fixed top-0 left-0 right-0 z-50 bg-muted border-b border-border text-foreground text-center py-1.5 text-sm font-medium">
                   Keine Internetverbindung
                 </div>
               )}
@@ -1038,7 +1038,7 @@ const DashboardHome = React.memo(function DashboardHome({
               <Line
                 type="monotone"
                 dataKey="RAM"
-                stroke="#8b5cf6"
+                stroke="#45ADFF"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5 }}
@@ -1046,7 +1046,7 @@ const DashboardHome = React.memo(function DashboardHome({
               <Line
                 type="monotone"
                 dataKey="GPU"
-                stroke="#06b6d4"
+                stroke="#94A3B8"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5 }}

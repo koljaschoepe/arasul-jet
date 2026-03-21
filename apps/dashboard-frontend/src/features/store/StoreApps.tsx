@@ -309,7 +309,7 @@ function StoreApps() {
             {isFeatured && (
               <Badge
                 variant="outline"
-                className="badge badge-featured border-amber-500/30 bg-amber-500/10 text-amber-400 gap-1"
+                className="badge badge-featured border-primary/30 bg-primary/10 text-primary gap-1"
               >
                 <Star className="size-3" /> Empfohlen
               </Badge>
@@ -326,9 +326,9 @@ function StoreApps() {
                 app.status === 'running' &&
                   'badge-running border-primary/30 bg-primary/10 text-primary',
                 app.status === 'installed' &&
-                  'badge-installed border-muted-foreground/30 bg-muted text-muted-foreground',
+                  'badge-installed border-border bg-muted text-foreground/60',
                 app.status === 'available' &&
-                  'badge-available border-border bg-muted text-muted-foreground',
+                  'badge-available border-border bg-muted text-foreground/60',
                 app.status === 'error' &&
                   'badge-error border-destructive/30 bg-destructive/10 text-destructive',
                 (app.status === 'installing' ||

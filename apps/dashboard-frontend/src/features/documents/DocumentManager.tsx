@@ -488,7 +488,7 @@ function DocumentManager() {
             className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
             aria-label={`${statistics?.indexed_documents || 0} Dokumente indexiert`}
           >
-            <Check className="text-3xl text-green-500 opacity-80 shrink-0" aria-hidden="true" />
+            <Check className="text-3xl text-primary opacity-80 shrink-0" aria-hidden="true" />
             <div>
               <span className="dm-stat-value text-2xl font-bold text-foreground block">
                 {statistics?.indexed_documents || 0}
@@ -502,7 +502,10 @@ function DocumentManager() {
             className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
             aria-label={`${statistics?.pending_documents || 0} Dokumente wartend`}
           >
-            <Clock className="text-3xl text-amber-500 opacity-80 shrink-0" aria-hidden="true" />
+            <Clock
+              className="text-3xl text-muted-foreground opacity-80 shrink-0"
+              aria-hidden="true"
+            />
             <div>
               <span className="dm-stat-value text-2xl font-bold text-foreground block">
                 {statistics?.pending_documents || 0}
@@ -885,7 +888,8 @@ function DocumentManager() {
         </Button>
 
         <Button
-          variant="outline"
+          variant="ghost"
+          className="border border-primary/25 bg-primary/[0.06] text-primary hover:bg-primary/15 hover:text-primary"
           onClick={() => setShowSimpleTableCreate(true)}
           aria-label="Neue Tabelle erstellen"
         >
@@ -894,7 +898,8 @@ function DocumentManager() {
         </Button>
 
         <Button
-          variant="outline"
+          variant="ghost"
+          className="border border-primary/25 bg-primary/[0.06] text-primary hover:bg-primary/15 hover:text-primary"
           onClick={() => setShowMarkdownCreate(true)}
           aria-label="Neues Dokument erstellen"
         >
@@ -934,7 +939,12 @@ function DocumentManager() {
                   Filter zurücksetzen
                 </Button>
               ) : (
-                <Button size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="bg-primary/15 text-primary border border-primary/25 hover:bg-primary/25 hover:text-primary"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Upload className="size-4 mr-1" /> Datei hochladen
                 </Button>
               )
@@ -1072,7 +1082,7 @@ function DocumentManager() {
                     key={`doc-${doc.id}`}
                     className={cn(
                       'cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2',
-                      doc.is_favorite && 'bg-amber-400/5'
+                      doc.is_favorite && 'bg-primary/5'
                     )}
                     onClick={() => viewDocumentDetails(doc)}
                     tabIndex={0}
@@ -1083,8 +1093,8 @@ function DocumentManager() {
                       <button
                         type="button"
                         className={cn(
-                          'bg-transparent border-none text-muted-foreground cursor-pointer p-1 transition-colors hover:text-amber-500',
-                          doc.is_favorite && 'text-amber-500'
+                          'bg-transparent border-none text-muted-foreground cursor-pointer p-1 transition-colors hover:text-primary',
+                          doc.is_favorite && 'text-primary'
                         )}
                         onClick={e => {
                           e.stopPropagation();

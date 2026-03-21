@@ -344,7 +344,7 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
             <Send className="text-primary text-xl" size={20} />
             <h2 className="m-0 text-xl text-foreground">Telegram Bot</h2>
             {activeBots > 0 && (
-              <span className="bg-green-500 text-white text-[0.7rem] font-semibold px-2 py-0.5 rounded-full">
+              <span className="bg-primary text-primary-foreground text-[0.7rem] font-semibold px-2 py-0.5 rounded-full">
                 {activeBots} aktiv
               </span>
             )}
@@ -607,7 +607,7 @@ function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCar
     <div
       className={cn(
         'bg-card border border-border rounded-xl p-5 transition-all hover:border-primary hover:shadow-lg hover:-translate-y-0.5',
-        isActive && 'border-green-500/30'
+        isActive && 'border-primary/30'
       )}
     >
       <div className="flex justify-between items-start mb-3.5">
@@ -625,13 +625,13 @@ function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCar
         <span
           className={cn(
             'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium',
-            isActive ? 'bg-green-500/10 text-green-500' : 'bg-slate-400/10 text-muted-foreground'
+            isActive ? 'bg-primary/10 text-primary' : 'bg-slate-400/10 text-muted-foreground'
           )}
         >
           <span
             className={cn(
               'w-1.5 h-1.5 rounded-full bg-current shrink-0',
-              isActive && 'shadow-[0_0_6px_theme(--color-green-500)] animate-pulse'
+              isActive && 'shadow-[0_0_6px_theme(--color-primary)] animate-pulse'
             )}
           />
           {isActive ? 'Aktiv' : 'Inaktiv'}
@@ -665,7 +665,7 @@ function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCar
           type="button"
           className={cn(
             'flex items-center justify-center size-9 border-none rounded-lg bg-background cursor-pointer transition-all hover:bg-primary hover:text-white disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
-            isActive ? 'text-amber-500' : 'text-green-500'
+            isActive ? 'text-muted-foreground' : 'text-primary'
           )}
           onClick={onToggle}
           disabled={toggling}
@@ -802,7 +802,7 @@ function StatusSection({ appStatus, bots, loading }: StatusSectionProps) {
                         className={cn(
                           'text-xs font-medium px-2 py-0.5 rounded-full',
                           bot.isActive
-                            ? 'bg-green-500/10 text-green-500'
+                            ? 'bg-primary/10 text-primary'
                             : 'bg-slate-400/10 text-muted-foreground'
                         )}
                       >
@@ -891,7 +891,7 @@ function SystemSection({
             type="button"
             className={cn(
               'relative w-12 h-[26px] bg-background border border-border rounded-full cursor-pointer transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
-              config.enabled && 'bg-green-500 border-green-500'
+              config.enabled && 'bg-primary border-primary'
             )}
             onClick={onToggle}
             disabled={saving || (!hasToken && !config.enabled)}
@@ -922,8 +922,8 @@ function SystemSection({
             className={cn(
               'flex items-center gap-2 py-2.5 px-3.5 rounded-lg text-sm mb-4',
               message.type === 'success'
-                ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-                : 'bg-destructive/10 text-destructive border border-destructive/20'
+                ? 'bg-primary/10 text-primary border border-primary/20'
+                : 'bg-foreground/5 text-foreground border border-foreground/20'
             )}
           >
             {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
@@ -1087,8 +1087,8 @@ function LogsSection({ logs, loading, onRefresh }: LogsSectionProps) {
                       className={cn(
                         'text-xs font-medium px-2 py-0.5 rounded-full',
                         log.success
-                          ? 'bg-green-500/10 text-green-500'
-                          : 'bg-destructive/10 text-destructive'
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-foreground/10 text-foreground'
                       )}
                     >
                       {log.success ? 'OK' : 'Fehler'}
