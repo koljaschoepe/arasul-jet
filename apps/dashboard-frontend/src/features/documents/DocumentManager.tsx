@@ -471,69 +471,55 @@ function DocumentManager() {
           aria-label="Übersicht"
         >
           <div
-            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-lg py-4 px-5"
+            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
             aria-label={`${(statistics?.total_documents || 0) + (statistics?.table_count || 0)} Einträge insgesamt`}
           >
-            <Database
-              className="text-3xl text-[var(--primary-color)] opacity-80 shrink-0"
-              aria-hidden="true"
-            />
+            <Database className="text-3xl text-primary opacity-80 shrink-0" aria-hidden="true" />
             <div>
-              <span className="dm-stat-value text-2xl font-bold text-[var(--text-primary)] block">
+              <span className="dm-stat-value text-2xl font-bold text-foreground block">
                 {(statistics?.total_documents || 0) + (statistics?.table_count || 0)}
               </span>
-              <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">
                 Gesamt{activeSpaceId || statusFilter || categoryFilter ? ' (gefiltert)' : ''}
               </span>
             </div>
           </div>
           <div
-            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-lg py-4 px-5"
+            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
             aria-label={`${statistics?.indexed_documents || 0} Dokumente indexiert`}
           >
-            <Check
-              className="text-3xl text-[var(--success-color)] opacity-80 shrink-0"
-              aria-hidden="true"
-            />
+            <Check className="text-3xl text-green-500 opacity-80 shrink-0" aria-hidden="true" />
             <div>
-              <span className="dm-stat-value text-2xl font-bold text-[var(--text-primary)] block">
+              <span className="dm-stat-value text-2xl font-bold text-foreground block">
                 {statistics?.indexed_documents || 0}
               </span>
-              <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">
                 Indexiert
               </span>
             </div>
           </div>
           <div
-            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-lg py-4 px-5"
+            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
             aria-label={`${statistics?.pending_documents || 0} Dokumente wartend`}
           >
-            <Clock
-              className="text-3xl text-[var(--warning-color)] opacity-80 shrink-0"
-              aria-hidden="true"
-            />
+            <Clock className="text-3xl text-amber-500 opacity-80 shrink-0" aria-hidden="true" />
             <div>
-              <span className="dm-stat-value text-2xl font-bold text-[var(--text-primary)] block">
+              <span className="dm-stat-value text-2xl font-bold text-foreground block">
                 {statistics?.pending_documents || 0}
               </span>
-              <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
-                Wartend
-              </span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">Wartend</span>
             </div>
           </div>
           <div
-            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-lg py-4 px-5"
+            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
             aria-label={`${statistics?.table_count || 0} Tabellen`}
           >
-            <Table
-              className="text-3xl text-[var(--primary-color)] opacity-80 shrink-0"
-              aria-hidden="true"
-            />
+            <Table className="text-3xl text-primary opacity-80 shrink-0" aria-hidden="true" />
             <div>
-              <span className="dm-stat-value text-2xl font-bold text-[var(--text-primary)] block">
+              <span className="dm-stat-value text-2xl font-bold text-foreground block">
                 {statistics?.table_count || 0}
               </span>
-              <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">
                 Tabellen
               </span>
             </div>
@@ -553,16 +539,15 @@ function DocumentManager() {
             role="tab"
             aria-selected={activeSpaceId === null}
             className={cn(
-              'flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-md text-[var(--text-muted)] text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-[var(--border-hover)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]',
-              activeSpaceId === null &&
-                'border-[var(--primary-color)] bg-[var(--primary-muted)] text-[var(--text-primary)] shadow-sm'
+              'flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-border rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-[var(--border-hover)] hover:bg-accent hover:text-foreground',
+              activeSpaceId === null && 'border-primary bg-primary/10 text-foreground shadow-sm'
             )}
             onClick={() => handleSpaceChange(null)}
           >
             <Folder aria-hidden="true" size={16} />
             <span>Alle</span>
             <span
-              className="bg-[var(--primary-muted)] text-[var(--primary-color)] py-0.5 px-1.5 rounded-xs text-xs font-semibold"
+              className="bg-primary/10 text-primary py-0.5 px-1.5 rounded-xs text-xs font-semibold"
               aria-label={`${statistics?.total_documents || 0} Dokumente`}
             >
               {statistics?.total_documents || 0}
@@ -575,9 +560,9 @@ function DocumentManager() {
               role="tab"
               aria-selected={activeSpaceId === space.id}
               className={cn(
-                'group/tab flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-md text-[var(--text-muted)] text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-[var(--border-hover)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]',
+                'group/tab flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-border rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-[var(--border-hover)] hover:bg-accent hover:text-foreground',
                 activeSpaceId === space.id &&
-                  'border-[var(--space-color,var(--primary-color))] bg-[var(--primary-muted)] text-[var(--text-primary)] shadow-sm'
+                  'border-[var(--space-color,var(--primary-color))] bg-primary/10 text-foreground shadow-sm'
               )}
               onClick={() => handleSpaceChange(space.id)}
               style={{ '--space-color': space.color } as React.CSSProperties}
@@ -585,7 +570,7 @@ function DocumentManager() {
               <Folder style={{ color: space.color }} aria-hidden="true" size={16} />
               <span>{space.name}</span>
               <span
-                className="bg-[var(--primary-muted)] text-[var(--primary-color)] py-0.5 px-1.5 rounded-xs text-xs font-semibold"
+                className="bg-primary/10 text-primary py-0.5 px-1.5 rounded-xs text-xs font-semibold"
                 aria-label={`${space.document_count || 0} Dokumente`}
               >
                 {space.document_count || 0}
@@ -593,7 +578,7 @@ function DocumentManager() {
               {!space.is_default && !space.is_system && (
                 <button
                   type="button"
-                  className="hidden group-hover/tab:flex bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-0.5 ml-1 rounded-xs transition-colors hover:text-[var(--primary-color)] hover:bg-[var(--primary-muted)]"
+                  className="hidden group-hover/tab:flex bg-transparent border-none text-muted-foreground cursor-pointer p-0.5 ml-1 rounded-xs transition-colors hover:text-primary hover:bg-primary/10"
                   onClick={e => handleEditSpace(space, e)}
                   aria-label={`${space.name} bearbeiten`}
                 >
@@ -604,7 +589,7 @@ function DocumentManager() {
           ))}
           <button
             type="button"
-            className="flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-dashed border-[var(--border-input)] rounded-md text-[var(--primary-color)] text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-[var(--primary-color)] hover:bg-[var(--primary-muted)]"
+            className="flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-dashed border-border rounded-md text-primary text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-primary hover:bg-primary/10"
             onClick={() => {
               setEditingSpace(null);
               setShowSpaceModal(true);
@@ -619,7 +604,7 @@ function DocumentManager() {
 
       {/* Active Space Description (if a space is selected) */}
       {activeSpaceId && spaces.find((s: any) => s.id === activeSpaceId) && (
-        <div className="bg-[var(--bg-elevated)] border border-[var(--border-color)] rounded-md py-4 px-5 mb-4">
+        <div className="bg-muted border border-border rounded-md py-4 px-5 mb-4">
           <div>
             <h4>{spaces.find((s: any) => s.id === activeSpaceId)?.name}</h4>
             <p>
@@ -666,29 +651,25 @@ function DocumentManager() {
             aria-valuemax={100}
           >
             <div
-              className="h-1.5 bg-[var(--primary-color)] rounded-sm max-w-[200px] transition-[width]"
+              className="h-1.5 bg-primary rounded-sm max-w-[200px] transition-[width]"
               style={{ width: `${uploadProgress}%` }}
             />
             <span aria-live="polite">{uploadProgress}% hochgeladen</span>
           </div>
         ) : (
           <>
-            <Upload
-              className="text-4xl text-[var(--primary-color)] mb-3 mx-auto"
-              aria-hidden="true"
-              size={40}
-            />
+            <Upload className="text-4xl text-primary mb-3 mx-auto" aria-hidden="true" size={40} />
             <p>
               Dateien hier ablegen oder klicken zum Auswählen
               {(uploadSpaceId || activeSpaceId) && spaces.length > 0 && (
-                <span className="text-[var(--primary-color)] font-medium">
+                <span className="text-primary font-medium">
                   {' \u2192 '}
                   {spaces.find((s: any) => s.id === (uploadSpaceId || activeSpaceId))?.name ||
                     'Allgemein'}
                 </span>
               )}
             </p>
-            <span className="text-[var(--text-muted)] text-sm">
+            <span className="text-muted-foreground text-sm">
               PDF, DOCX, Markdown, YAML (max. 50MB)
             </span>
           </>
@@ -698,46 +679,41 @@ function DocumentManager() {
       {/* Error message */}
       {error && (
         <div
-          className="dm-error flex items-center gap-3 bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] rounded-md py-3 px-4 mb-4 text-[var(--danger-light)]"
+          className="dm-error flex items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-md py-3 px-4 mb-4 text-destructive"
           role="alert"
           aria-live="assertive"
         >
           <AlertCircle aria-hidden="true" size={18} />
           <span>{error}</span>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={() => setError(null)}
             aria-label="Fehlermeldung schließen"
-            className="ml-auto bg-transparent border-none text-[var(--danger-light)] cursor-pointer"
+            className="ml-auto text-destructive"
           >
             <X aria-hidden="true" size={18} />
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Semantic Search */}
       <section className="mb-6" aria-label="Semantische Suche">
         <div
-          className="flex items-center bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-md py-2 px-4 gap-3"
+          className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-4 gap-3"
           role="search"
         >
-          <Cpu
-            className="text-[var(--primary-color)] text-xl shrink-0"
-            aria-hidden="true"
-            size={20}
-          />
+          <Cpu className="text-primary text-xl shrink-0" aria-hidden="true" size={20} />
           <input
             type="search"
-            className="flex-1 bg-transparent border-none text-[var(--text-primary)] text-sm py-2 placeholder:text-[var(--text-muted)] focus:outline-none"
+            className="flex-1 bg-transparent border-none text-foreground text-sm py-2 placeholder:text-muted-foreground focus:outline-none"
             placeholder="Semantische Suche in allen Dokumenten..."
             value={semanticSearch}
             onChange={e => setSemanticSearch(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSemanticSearch()}
             aria-label="Semantische Suche in Dokumenten"
           />
-          <button
-            type="button"
-            className="bg-[var(--gradient-primary)] border-none rounded-md text-white py-2 px-4 cursor-pointer flex items-center gap-2 text-sm transition-all hover:scale-[1.02] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          <Button
             onClick={handleSemanticSearch}
             disabled={searching || !semanticSearch.trim()}
             aria-label={searching ? 'Suche läuft...' : 'Suchen'}
@@ -747,13 +723,13 @@ function DocumentManager() {
             ) : (
               <Search aria-hidden="true" size={16} />
             )}
-          </button>
+          </Button>
         </div>
 
         {/* Search Results */}
         {searchResults && (
           <div
-            className="bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-md mt-4 overflow-hidden"
+            className="bg-[var(--gradient-card)] border border-border rounded-md mt-4 overflow-hidden"
             role="region"
             aria-label="Suchergebnisse"
             aria-live="polite"
@@ -766,37 +742,32 @@ function DocumentManager() {
                 type="button"
                 onClick={() => setSearchResults(null)}
                 aria-label="Suchergebnisse schließen"
-                className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-primary)]"
+                className="bg-transparent border-none text-muted-foreground cursor-pointer hover:text-foreground"
               >
                 <X aria-hidden="true" size={18} />
               </button>
             </div>
             {searchResults.results.length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-[var(--text-muted)]">Keine Ergebnisse gefunden</p>
-                <p className="text-[var(--text-disabled)] text-xs mt-1">
+                <p className="text-muted-foreground">Keine Ergebnisse gefunden</p>
+                <p className="text-muted-foreground/60 text-xs mt-1">
                   Versuche andere Suchbegriffe
                 </p>
               </div>
             ) : (
               <ul className="max-h-[300px] overflow-y-auto" aria-labelledby="search-results-title">
                 {searchResults.results.map((result: any, idx: number) => (
-                  <li
-                    key={idx}
-                    className="py-3 px-4 border-b border-[var(--border-subtle)] last:border-b-0"
-                  >
+                  <li key={idx} className="py-3 px-4 border-b border-border/50 last:border-b-0">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-[var(--primary-color)] font-medium">
-                        {result.document_name}
-                      </span>
+                      <span className="text-primary font-medium">{result.document_name}</span>
                       <span
-                        className="bg-[var(--primary-muted)] text-[var(--primary-color)] py-0.5 px-2 rounded-xs text-xs"
+                        className="bg-primary/10 text-primary py-0.5 px-2 rounded-xs text-xs"
                         aria-label={`Relevanz: ${(result.score * 100).toFixed(0)} Prozent`}
                       >
                         {(result.score * 100).toFixed(0)}%
                       </span>
                     </div>
-                    <p className="text-[var(--text-muted)] text-sm leading-snug m-0">
+                    <p className="text-muted-foreground text-sm leading-snug m-0">
                       {result.chunk_text}
                     </p>
                   </li>
@@ -813,11 +784,11 @@ function DocumentManager() {
         role="group"
         aria-label="Dokumenten-Filter"
       >
-        <div className="flex items-center bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
-          <Search className="text-[var(--text-muted)] shrink-0" aria-hidden="true" size={16} />
+        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
+          <Search className="text-muted-foreground shrink-0" aria-hidden="true" size={16} />
           <input
             type="text"
-            className="flex-1 bg-transparent border-none text-[var(--text-primary)] text-sm w-full placeholder:text-[var(--text-muted)] focus:outline-none"
+            className="flex-1 bg-transparent border-none text-foreground text-sm w-full placeholder:text-muted-foreground focus:outline-none"
             placeholder="Suchen..."
             value={searchQuery}
             onChange={e => {
@@ -828,10 +799,10 @@ function DocumentManager() {
           />
         </div>
 
-        <div className="flex items-center bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
-          <Filter className="text-[var(--text-muted)] shrink-0" aria-hidden="true" size={16} />
+        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
+          <Filter className="text-muted-foreground shrink-0" aria-hidden="true" size={16} />
           <select
-            className="flex-1 bg-transparent border-none text-[var(--text-primary)] text-sm w-full placeholder:text-[var(--text-muted)] focus:outline-none cursor-pointer"
+            className="flex-1 bg-transparent border-none text-foreground text-sm w-full placeholder:text-muted-foreground focus:outline-none cursor-pointer"
             value={statusFilter}
             onChange={e => {
               setStatusFilter(e.target.value);
@@ -841,41 +812,41 @@ function DocumentManager() {
           >
             <option
               value=""
-              style={{ background: 'var(--bg-option)', color: 'var(--text-primary)' }}
+              style={{ background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
             >
               Alle Status
             </option>
             <option
               value="indexed"
-              style={{ background: 'var(--bg-option)', color: 'var(--text-primary)' }}
+              style={{ background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
             >
               Indexiert
             </option>
             <option
               value="pending"
-              style={{ background: 'var(--bg-option)', color: 'var(--text-primary)' }}
+              style={{ background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
             >
               Wartend
             </option>
             <option
               value="processing"
-              style={{ background: 'var(--bg-option)', color: 'var(--text-primary)' }}
+              style={{ background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
             >
               Verarbeitung
             </option>
             <option
               value="failed"
-              style={{ background: 'var(--bg-option)', color: 'var(--text-primary)' }}
+              style={{ background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
             >
               Fehlgeschlagen
             </option>
           </select>
         </div>
 
-        <div className="flex items-center bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
-          <Folder className="text-[var(--text-muted)] shrink-0" aria-hidden="true" size={16} />
+        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
+          <Folder className="text-muted-foreground shrink-0" aria-hidden="true" size={16} />
           <select
-            className="flex-1 bg-transparent border-none text-[var(--text-primary)] text-sm w-full placeholder:text-[var(--text-muted)] focus:outline-none cursor-pointer"
+            className="flex-1 bg-transparent border-none text-foreground text-sm w-full placeholder:text-muted-foreground focus:outline-none cursor-pointer"
             value={categoryFilter}
             onChange={e => {
               setCategoryFilter(e.target.value);
@@ -885,7 +856,7 @@ function DocumentManager() {
           >
             <option
               value=""
-              style={{ background: 'var(--bg-option)', color: 'var(--text-primary)' }}
+              style={{ background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
             >
               Alle Kategorien
             </option>
@@ -893,7 +864,10 @@ function DocumentManager() {
               <option
                 key={cat.id}
                 value={cat.id}
-                style={{ background: 'var(--bg-option)', color: 'var(--text-primary)' }}
+                style={{
+                  background: 'hsl(var(--popover))',
+                  color: 'hsl(var(--popover-foreground))',
+                }}
               >
                 {cat.name}
               </option>
@@ -901,39 +875,37 @@ function DocumentManager() {
           </select>
         </div>
 
-        <button
-          type="button"
-          className="bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-md text-[var(--primary-color)] py-2 px-3 cursor-pointer transition-all hover:border-[var(--primary-color)]"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => loadDocuments()}
           aria-label="Aktualisieren"
         >
           <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" size={16} />
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 py-2.5 px-4 bg-transparent text-[var(--text-secondary)] border border-[var(--border-color)] rounded-sm text-sm font-medium cursor-pointer transition-all hover:border-[var(--primary-color)] hover:text-[var(--primary-color)] hover:bg-[var(--primary-alpha-10)] hover:-translate-y-px hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        <Button
+          variant="outline"
           onClick={() => setShowSimpleTableCreate(true)}
           aria-label="Neue Tabelle erstellen"
         >
           <Table aria-hidden="true" size={16} />
           <span>Neue Tabelle</span>
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 py-2.5 px-4 bg-transparent text-[var(--text-secondary)] border border-[var(--border-color)] rounded-sm text-sm font-medium cursor-pointer transition-all hover:border-[var(--primary-color)] hover:text-[var(--primary-color)] hover:bg-[var(--primary-alpha-10)] hover:-translate-y-px hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        <Button
+          variant="outline"
           onClick={() => setShowMarkdownCreate(true)}
           aria-label="Neues Dokument erstellen"
         >
           <FileText aria-hidden="true" size={16} />
           <span>Neues Dokument</span>
-        </button>
+        </Button>
       </div>
 
       {/* Documents and Tables List */}
       <section
-        className="bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-lg overflow-hidden"
+        className="bg-[var(--gradient-card)] border border-border rounded-lg overflow-hidden"
         aria-label="Datenliste"
       >
         {(loading || loadingTables) && filteredItems.length === 0 ? (
@@ -963,7 +935,7 @@ function DocumentManager() {
                 </Button>
               ) : (
                 <Button size="sm" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="w-4 h-4 mr-1" /> Datei hochladen
+                  <Upload className="size-4 mr-1" /> Datei hochladen
                 </Button>
               )
             }
@@ -974,42 +946,42 @@ function DocumentManager() {
               <tr>
                 <th
                   scope="col"
-                  className="bg-[var(--bg-table-header)] text-[var(--text-muted)] font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
+                  className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
                   aria-label="Favorit"
                 ></th>
                 <th
                   scope="col"
-                  className="bg-[var(--bg-table-header)] text-[var(--text-muted)] font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
+                  className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
                 >
                   Name
                 </th>
                 <th
                   scope="col"
-                  className="bg-[var(--bg-table-header)] text-[var(--text-muted)] font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
+                  className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
                 >
                   Typ
                 </th>
                 <th
                   scope="col"
-                  className="bg-[var(--bg-table-header)] text-[var(--text-muted)] font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
+                  className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
                 >
                   Bereich
                 </th>
                 <th
                   scope="col"
-                  className="bg-[var(--bg-table-header)] text-[var(--text-muted)] font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
+                  className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
                 >
                   Status
                 </th>
                 <th
                   scope="col"
-                  className="bg-[var(--bg-table-header)] text-[var(--text-muted)] font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
+                  className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
                 >
                   Info
                 </th>
                 <th
                   scope="col"
-                  className="bg-[var(--bg-table-header)] text-[var(--text-muted)] font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
+                  className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
                 >
                   Aktionen
                 </th>
@@ -1022,21 +994,21 @@ function DocumentManager() {
                 .map((table: any) => (
                   <tr
                     key={`table-${table.id}`}
-                    className="cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:-outline-offset-2"
+                    className="cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2"
                     onClick={() => handleTableEdit(table)}
                     tabIndex={0}
                     onKeyDown={e => e.key === 'Enter' && handleTableEdit(table)}
                     aria-label={`Tabelle: ${table.name}`}
                   >
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm">
-                      <span className="inline-flex items-center justify-center w-6 h-6 text-[var(--primary-color)] opacity-60">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
+                      <span className="inline-flex items-center justify-center size-6 text-primary opacity-60">
                         <Grid3x3 aria-hidden="true" size={16} />
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm max-w-[300px]">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-[300px]">
                       <div className="flex items-center gap-3">
                         <Table
-                          className="text-[var(--primary-color)] text-xl shrink-0"
+                          className="text-primary text-xl shrink-0"
                           aria-hidden="true"
                           size={20}
                         />
@@ -1045,48 +1017,50 @@ function DocumentManager() {
                             {table.name}
                           </span>
                           {table.description && (
-                            <span className="block text-[var(--text-muted)] text-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                            <span className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap">
                               {table.description}
                             </span>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
                       <TableBadge />
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
                       <SpaceBadge
                         name={getTableSpaceName(table)}
                         color={getTableSpaceColor(table)}
                       />
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
                       <TableStatusBadge status={table.status || 'active'} />
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-muted)] border-b border-[var(--border-subtle)] text-sm">
+                    <td className="py-3 px-4 text-muted-foreground border-b border-border/50 text-sm">
                       <span>{table.field_count || 0} Spalten</span>
                     </td>
                     <td
-                      className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm whitespace-nowrap"
+                      className="py-3 px-4 text-foreground border-b border-border/50 text-sm whitespace-nowrap"
                       onClick={e => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
-                        className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1.5 rounded-xs transition-colors mr-1 hover:text-[var(--primary-color)] hover:bg-[var(--primary-muted)]"
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="mr-1"
                         onClick={() => handleTableEdit(table)}
                         aria-label={`${table.name} bearbeiten`}
                       >
                         <Pencil aria-hidden="true" size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1.5 rounded-xs transition-colors mr-1 hover:text-[var(--danger-color)] hover:bg-[var(--danger-alpha-10)]"
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="mr-1 hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => handleDeleteTable(table)}
                         aria-label={`${table.name} löschen`}
                       >
                         <Trash2 aria-hidden="true" size={16} />
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -1097,20 +1071,20 @@ function DocumentManager() {
                   <tr
                     key={`doc-${doc.id}`}
                     className={cn(
-                      'cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:-outline-offset-2',
-                      doc.is_favorite && 'bg-[rgba(251,191,36,0.05)]'
+                      'cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2',
+                      doc.is_favorite && 'bg-amber-400/5'
                     )}
                     onClick={() => viewDocumentDetails(doc)}
                     tabIndex={0}
                     onKeyDown={e => e.key === 'Enter' && viewDocumentDetails(doc)}
                     aria-label={`${doc.title || doc.filename}, Typ: ${getDocumentType(doc)}, Status: ${doc.status}`}
                   >
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
                       <button
                         type="button"
                         className={cn(
-                          'bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1 transition-colors hover:text-[var(--warning-color)]',
-                          doc.is_favorite && 'text-[var(--warning-color)]'
+                          'bg-transparent border-none text-muted-foreground cursor-pointer p-1 transition-colors hover:text-amber-500',
+                          doc.is_favorite && 'text-amber-500'
                         )}
                         onClick={e => {
                           e.stopPropagation();
@@ -1124,10 +1098,10 @@ function DocumentManager() {
                         <Star aria-hidden="true" size={16} />
                       </button>
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm max-w-[300px]">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-[300px]">
                       <div className="flex items-center gap-3">
                         {React.createElement(getFileIcon(doc), {
-                          className: 'text-[var(--primary-color)] text-xl shrink-0',
+                          className: 'text-primary text-xl shrink-0',
                           'aria-hidden': 'true',
                           size: 20,
                         })}
@@ -1136,20 +1110,20 @@ function DocumentManager() {
                             {doc.title || doc.filename}
                           </span>
                           {doc.title && doc.title !== doc.filename && (
-                            <span className="block text-[var(--text-muted)] text-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                            <span className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap">
                               {doc.filename}
                             </span>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm">
-                      <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-sm text-xs font-medium uppercase tracking-wide bg-[var(--primary-alpha-10)] text-[var(--primary-color)]">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
+                      <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-sm text-xs font-medium uppercase tracking-wide bg-primary/10 text-primary">
                         {getDocumentType(doc)}
                       </span>
                     </td>
                     <td
-                      className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm"
+                      className="py-3 px-4 text-foreground border-b border-border/50 text-sm"
                       onClick={e => e.stopPropagation()}
                     >
                       <SpaceBadge
@@ -1160,60 +1134,65 @@ function DocumentManager() {
                         onMove={handleMoveDocument}
                       />
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
                       <StatusBadge status={doc.status} />
                     </td>
-                    <td className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
                       {formatFileSize(doc.file_size)}
                     </td>
                     <td
-                      className="py-3 px-4 text-[var(--text-primary)] border-b border-[var(--border-subtle)] text-sm whitespace-nowrap"
+                      className="py-3 px-4 text-foreground border-b border-border/50 text-sm whitespace-nowrap"
                       onClick={e => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
-                        className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1.5 rounded-xs transition-colors mr-1 hover:text-[var(--primary-color)] hover:bg-[var(--primary-muted)]"
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="mr-1"
                         onClick={() => viewDocumentDetails(doc)}
                         aria-label={`Details für ${doc.title || doc.filename} anzeigen`}
                       >
                         <Eye aria-hidden="true" size={16} />
-                      </button>
+                      </Button>
                       {canEdit(doc) && (
-                        <button
-                          type="button"
-                          className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1.5 rounded-xs transition-colors mr-1 hover:text-[var(--primary-color)] hover:bg-[var(--primary-muted)]"
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="mr-1"
                           onClick={() => handleEdit(doc)}
                           aria-label={`${doc.title || doc.filename} bearbeiten`}
                         >
                           <Pencil aria-hidden="true" size={16} />
-                        </button>
+                        </Button>
                       )}
-                      <button
-                        type="button"
-                        className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1.5 rounded-xs transition-colors mr-1 hover:text-[var(--primary-color)] hover:bg-[var(--primary-muted)]"
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="mr-1"
                         onClick={() => handleDownload(doc.id, doc.filename)}
                         aria-label={`${doc.filename} herunterladen`}
                       >
                         <Download aria-hidden="true" size={16} />
-                      </button>
+                      </Button>
                       {doc.status === 'failed' && (
-                        <button
-                          type="button"
-                          className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1.5 rounded-xs transition-colors mr-1 hover:text-[var(--primary-color)] hover:bg-[var(--primary-muted)]"
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="mr-1"
                           onClick={() => handleReindex(doc.id)}
                           aria-label={`${doc.title || doc.filename} neu indexieren`}
                         >
                           <RefreshCw aria-hidden="true" size={16} />
-                        </button>
+                        </Button>
                       )}
-                      <button
-                        type="button"
-                        className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1.5 rounded-xs transition-colors mr-1 hover:text-[var(--danger-color)] hover:bg-[var(--danger-alpha-10)]"
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="mr-1 hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => handleDelete(doc.id, doc.filename)}
                         aria-label={`${doc.title || doc.filename} löschen`}
                       >
                         <Trash2 aria-hidden="true" size={16} />
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -1232,13 +1211,13 @@ function DocumentManager() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="dm-page-size"
-              className="text-[var(--text-muted)] text-sm whitespace-nowrap"
+              className="text-muted-foreground text-sm whitespace-nowrap"
             >
               Pro Seite:
             </label>
             <select
               id="dm-page-size"
-              className="bg-[var(--bg-dark)] border border-[var(--border-input)] rounded-sm text-[var(--text-primary)] py-1.5 px-2 text-sm cursor-pointer"
+              className="bg-background border border-border rounded-sm text-foreground py-1.5 px-2 text-sm cursor-pointer"
               value={itemsPerPage}
               onChange={e => {
                 setItemsPerPage(Number(e.target.value));
@@ -1252,49 +1231,49 @@ function DocumentManager() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-sm text-[var(--primary-color)] py-2 px-4 cursor-pointer text-sm transition-all hover:border-[var(--primary-color)] disabled:opacity-50 disabled:cursor-not-allowed"
+            <Button
+              variant="outline"
+              size="sm"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(1)}
               aria-label="Erste Seite"
             >
               &laquo;
-            </button>
-            <button
-              type="button"
-              className="bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-sm text-[var(--primary-color)] py-2 px-4 cursor-pointer text-sm transition-all hover:border-[var(--primary-color)] disabled:opacity-50 disabled:cursor-not-allowed"
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(p => p - 1)}
               aria-label="Vorherige Seite"
             >
               Zur&uuml;ck
-            </button>
+            </Button>
             <span
-              className="text-[var(--text-muted)] text-sm whitespace-nowrap"
+              className="text-muted-foreground text-sm whitespace-nowrap"
               aria-live="polite"
               aria-atomic="true"
             >
               Seite {currentPage} von {totalPages}
             </span>
-            <button
-              type="button"
-              className="bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-sm text-[var(--primary-color)] py-2 px-4 cursor-pointer text-sm transition-all hover:border-[var(--primary-color)] disabled:opacity-50 disabled:cursor-not-allowed"
+            <Button
+              variant="outline"
+              size="sm"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(p => p + 1)}
               aria-label="Nächste Seite"
             >
               Weiter
-            </button>
-            <button
-              type="button"
-              className="bg-[var(--gradient-card)] border border-[var(--border-input)] rounded-sm text-[var(--primary-color)] py-2 px-4 cursor-pointer text-sm transition-all hover:border-[var(--primary-color)] disabled:opacity-50 disabled:cursor-not-allowed"
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(totalPages)}
               aria-label="Letzte Seite"
             >
               &raquo;
-            </button>
+            </Button>
           </div>
         </nav>
       )}
@@ -1309,9 +1288,7 @@ function DocumentManager() {
           footer={
             <div className="flex items-center gap-3" role="group" aria-label="Aktionen">
               {isEditable(selectedDocument) && (
-                <button
-                  type="button"
-                  className="flex items-center gap-2 py-2.5 px-5 rounded-md text-sm cursor-pointer transition-all bg-[var(--primary-color)] border border-[var(--primary-color)] text-[var(--text-on-primary)] hover:bg-[var(--primary-hover)] hover:border-[var(--primary-hover)]"
+                <Button
                   onClick={() => {
                     setShowDetails(false);
                     handleEdit(selectedDocument);
@@ -1319,19 +1296,17 @@ function DocumentManager() {
                   aria-label="Dokument bearbeiten"
                 >
                   <Pencil aria-hidden="true" size={16} /> Bearbeiten
-                </button>
+                </Button>
               )}
-              <button
-                type="button"
-                className="flex items-center gap-2 py-2.5 px-5 rounded-md text-sm cursor-pointer transition-all bg-[var(--bg-elevated)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] hover:border-[var(--border-hover)]"
+              <Button
+                variant="outline"
                 onClick={() => handleDownload(selectedDocument.id, selectedDocument.filename)}
                 aria-label="Dokument herunterladen"
               >
                 <Download aria-hidden="true" size={16} /> Download
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-2 py-2.5 px-5 rounded-md text-sm cursor-pointer transition-all bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] text-[var(--danger-color)] hover:bg-[var(--danger-alpha-20)]"
+              </Button>
+              <Button
+                variant="destructive"
                 onClick={() => {
                   handleDelete(selectedDocument.id, selectedDocument.filename);
                   setShowDetails(false);
@@ -1339,59 +1314,55 @@ function DocumentManager() {
                 aria-label="Dokument löschen"
               >
                 <Trash2 aria-hidden="true" size={16} /> Löschen
-              </button>
+              </Button>
             </div>
           }
         >
           {/* Basic Info */}
           <div className="mb-6 last:mb-0">
-            <h4 className="flex items-center gap-2 text-[var(--text-muted)] text-sm uppercase tracking-wide m-0 mb-3">
+            <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
               Informationen
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <span className="text-[var(--text-muted)] text-xs">Dateiname</span>
-                <span className="text-[var(--text-primary)] text-sm">
-                  {selectedDocument.filename}
-                </span>
+                <span className="text-muted-foreground text-xs">Dateiname</span>
+                <span className="text-foreground text-sm">{selectedDocument.filename}</span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-[var(--text-muted)] text-xs">Gr&ouml;&szlig;e</span>
-                <span className="text-[var(--text-primary)] text-sm">
+                <span className="text-muted-foreground text-xs">Gr&ouml;&szlig;e</span>
+                <span className="text-foreground text-sm">
                   {formatFileSize(selectedDocument.file_size)}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-[var(--text-muted)] text-xs">Typ</span>
-                <span className="text-[var(--text-primary)] text-sm">
-                  {selectedDocument.file_extension}
-                </span>
+                <span className="text-muted-foreground text-xs">Typ</span>
+                <span className="text-foreground text-sm">{selectedDocument.file_extension}</span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-[var(--text-muted)] text-xs">Status</span>
+                <span className="text-muted-foreground text-xs">Status</span>
                 <StatusBadge status={selectedDocument.status} />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-[var(--text-muted)] text-xs">Seiten</span>
-                <span className="text-[var(--text-primary)] text-sm">
+                <span className="text-muted-foreground text-xs">Seiten</span>
+                <span className="text-foreground text-sm">
                   {selectedDocument.page_count || '-'}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-[var(--text-muted)] text-xs">W&ouml;rter</span>
-                <span className="text-[var(--text-primary)] text-sm">
+                <span className="text-muted-foreground text-xs">W&ouml;rter</span>
+                <span className="text-foreground text-sm">
                   {selectedDocument.word_count?.toLocaleString() || '-'}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-[var(--text-muted)] text-xs">Chunks</span>
-                <span className="text-[var(--text-primary)] text-sm">
+                <span className="text-muted-foreground text-xs">Chunks</span>
+                <span className="text-foreground text-sm">
                   {selectedDocument.chunk_count || '-'}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-[var(--text-muted)] text-xs">Sprache</span>
-                <span className="text-[var(--text-primary)] text-sm">
+                <span className="text-muted-foreground text-xs">Sprache</span>
+                <span className="text-foreground text-sm">
                   {selectedDocument.language === 'de' ? 'Deutsch' : 'Englisch'}
                 </span>
               </div>
@@ -1401,10 +1372,10 @@ function DocumentManager() {
           {/* AI Summary */}
           {selectedDocument.summary && (
             <div className="mb-6 last:mb-0">
-              <h4 className="flex items-center gap-2 text-[var(--text-muted)] text-sm uppercase tracking-wide m-0 mb-3">
+              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
                 <Cpu aria-hidden="true" size={16} /> KI-Zusammenfassung
               </h4>
-              <p className="text-[var(--text-secondary)] leading-relaxed text-sm m-0 bg-[var(--bg-code)] p-4 rounded-md border-l-[3px] border-l-[var(--primary-color)]">
+              <p className="text-muted-foreground leading-relaxed text-sm m-0 bg-[var(--bg-code)] p-4 rounded-md border-l-[3px] border-l-primary">
                 {selectedDocument.summary}
               </p>
             </div>
@@ -1413,14 +1384,14 @@ function DocumentManager() {
           {/* Topics */}
           {selectedDocument.key_topics && selectedDocument.key_topics.length > 0 && (
             <div className="mb-6 last:mb-0">
-              <h4 className="flex items-center gap-2 text-[var(--text-muted)] text-sm uppercase tracking-wide m-0 mb-3">
+              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
                 <Tag aria-hidden="true" size={16} /> Themen
               </h4>
               <div className="flex flex-wrap gap-2" aria-label="Dokumenten-Themen">
                 {selectedDocument.key_topics.map((topic: string, idx: number) => (
                   <span
                     key={idx}
-                    className="bg-[var(--primary-muted)] text-[var(--primary-color)] py-1 px-2.5 rounded-xs text-sm"
+                    className="bg-primary/10 text-primary py-1 px-2.5 rounded-xs text-sm"
                   >
                     {topic}
                   </span>
@@ -1432,7 +1403,7 @@ function DocumentManager() {
           {/* Category with confidence */}
           {selectedDocument.category_name && (
             <div className="mb-6 last:mb-0">
-              <h4 className="flex items-center gap-2 text-[var(--text-muted)] text-sm uppercase tracking-wide m-0 mb-3">
+              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
                 <Folder aria-hidden="true" size={16} /> Kategorie
               </h4>
               <div className="flex items-center gap-3">
@@ -1442,7 +1413,7 @@ function DocumentManager() {
                 />
                 {selectedDocument.category_confidence && (
                   <span
-                    className="text-[var(--text-muted)] text-sm"
+                    className="text-muted-foreground text-sm"
                     aria-label={`Konfidenz: ${(selectedDocument.category_confidence * 100).toFixed(0)} Prozent`}
                   >
                     ({(selectedDocument.category_confidence * 100).toFixed(0)}% Konfidenz)
@@ -1455,12 +1426,12 @@ function DocumentManager() {
           {/* Similar Documents */}
           {selectedDocument.status === 'indexed' && (
             <div className="mb-6 last:mb-0">
-              <h4 className="flex items-center gap-2 text-[var(--text-muted)] text-sm uppercase tracking-wide m-0 mb-3">
+              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
                 <Link aria-hidden="true" size={16} /> Ähnliche Dokumente
               </h4>
               {loadingSimilar ? (
                 <div
-                  className="flex items-center gap-3 text-[var(--text-muted)]"
+                  className="flex items-center gap-3 text-muted-foreground"
                   role="status"
                   aria-live="polite"
                 >
@@ -1468,9 +1439,7 @@ function DocumentManager() {
                   <span>Suche ähnliche Dokumente...</span>
                 </div>
               ) : similarDocuments.length === 0 ? (
-                <p className="text-[var(--text-muted)] italic">
-                  Keine ähnlichen Dokumente gefunden
-                </p>
+                <p className="text-muted-foreground italic">Keine ähnlichen Dokumente gefunden</p>
               ) : (
                 <div className="flex flex-col gap-2" aria-label="Ähnliche Dokumente">
                   {similarDocuments.map((sim: any, idx: number) => (
@@ -1479,11 +1448,11 @@ function DocumentManager() {
                       className="flex items-center gap-3 py-2 px-3 bg-[var(--bg-code)] rounded-sm"
                     >
                       <File aria-hidden="true" size={16} />
-                      <span className="flex-1 text-[var(--text-primary)] overflow-hidden text-ellipsis whitespace-nowrap">
+                      <span className="flex-1 text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                         {sim.title || sim.filename}
                       </span>
                       <span
-                        className="bg-[var(--primary-muted)] text-[var(--primary-color)] py-0.5 px-2 rounded-xs text-xs"
+                        className="bg-primary/10 text-primary py-0.5 px-2 rounded-xs text-xs"
                         aria-label={`Ähnlichkeit: ${(sim.similarity_score * 100).toFixed(0)} Prozent`}
                       >
                         {(sim.similarity_score * 100).toFixed(0)}%
@@ -1498,18 +1467,18 @@ function DocumentManager() {
           {/* Error message if failed */}
           {selectedDocument.status === 'failed' && selectedDocument.processing_error && (
             <div
-              className="mb-6 last:mb-0 bg-[rgba(239,68,68,0.05)] p-4 rounded-md border border-[var(--danger-alpha-20)]"
+              className="mb-6 last:mb-0 bg-destructive/5 p-4 rounded-md border border-destructive/20"
               role="alert"
             >
-              <h4 className="flex items-center gap-2 text-[var(--text-muted)] text-sm uppercase tracking-wide m-0 mb-3">
+              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
                 <AlertCircle aria-hidden="true" size={16} /> Fehler
               </h4>
-              <p className="text-[var(--danger-light)] m-0 mb-4 text-sm">
+              <p className="text-destructive m-0 mb-4 text-sm">
                 {selectedDocument.processing_error}
               </p>
               <button
                 type="button"
-                className="flex items-center gap-2 bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] text-[var(--danger-light)] py-2 px-4 rounded-sm cursor-pointer text-sm transition-all hover:bg-[var(--danger-alpha-20)]"
+                className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-destructive py-2 px-4 rounded-sm cursor-pointer text-sm transition-all hover:bg-destructive/20"
                 onClick={() => {
                   handleReindex(selectedDocument.id);
                   setShowDetails(false);

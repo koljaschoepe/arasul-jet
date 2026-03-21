@@ -279,7 +279,7 @@ describe('BotSetupWizard Component', () => {
       fireEvent.click(assistantBtn);
 
       // Selected template gets primary border color class
-      expect(assistantBtn.className).toContain('border-[var(--primary-color)]');
+      expect(assistantBtn.className).toContain('border-primary');
     });
 
     test('wählt Custom Bot Vorlage aus', async () => {
@@ -289,7 +289,7 @@ describe('BotSetupWizard Component', () => {
       fireEvent.click(customBtn);
 
       // Selected template gets primary border color class
-      expect(customBtn.className).toContain('border-[var(--primary-color)]');
+      expect(customBtn.className).toContain('border-primary');
     });
 
     test('Weiter-Button deaktiviert ohne Vorlage', async () => {

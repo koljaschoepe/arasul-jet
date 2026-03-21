@@ -32,6 +32,7 @@ import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/ui/Modal';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 import './claude.css';
 
@@ -136,21 +137,21 @@ function WorkspaceManager({
       onClose={onClose}
       title={
         <>
-          <Folder className="w-5 h-5 inline-block mr-2" /> Workspace-Verwaltung
+          <Folder className="size-5 inline-block mr-2" /> Workspace-Verwaltung
         </>
       }
       size="medium"
     >
       {error && (
-        <div className="flex items-center gap-3 py-3 px-6 bg-[var(--danger-alpha-10)] border-b border-[var(--danger-alpha-30)] text-[var(--danger-color)] text-sm">
-          <AlertCircle className="w-4 h-4" /> {error}
+        <div className="flex items-center gap-3 py-3 px-6 bg-destructive/10 border-b border-destructive/30 text-destructive text-sm">
+          <AlertCircle className="size-4" /> {error}
           <button
             type="button"
-            className="ml-auto bg-transparent border-none text-inherit cursor-pointer p-1 flex rounded hover:bg-[var(--danger-alpha-20)]"
+            className="ml-auto bg-transparent border-none text-inherit cursor-pointer p-1 flex rounded hover:bg-destructive/20"
             onClick={() => setError(null)}
             aria-label="Fehlermeldung schließen"
           >
-            <X className="w-4 h-4" />
+            <X className="size-4" />
           </button>
         </div>
       )}
@@ -160,52 +161,50 @@ function WorkspaceManager({
           <div
             key={ws.id}
             className={cn(
-              'flex justify-between items-start p-4 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg transition-all max-sm:flex-col max-sm:gap-3 max-sm:p-3',
-              ws.is_default
-                ? 'border-[var(--primary-color)] bg-[var(--primary-alpha-5)]'
-                : 'hover:border-[var(--primary-alpha-30)]'
+              'flex justify-between items-start p-4 bg-background border border-border rounded-lg transition-all max-sm:flex-col max-sm:gap-3 max-sm:p-3',
+              ws.is_default ? 'border-primary bg-primary/5' : 'hover:border-primary/30'
             )}
           >
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] mb-1">
-                {ws.is_default && <Star className="w-4 h-4 text-[var(--warning-color)]" />}
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-1">
+                {ws.is_default && <Star className="size-4 text-amber-500" />}
                 {ws.name}
                 {ws.is_system && (
-                  <span className="text-[0.65rem] py-0.5 px-2 bg-[var(--neutral-alpha-20)] text-[var(--text-muted)] rounded-full font-medium uppercase">
+                  <span className="text-[0.65rem] py-0.5 px-2 bg-[var(--neutral-alpha-20)] text-muted-foreground rounded-full font-medium uppercase">
                     System
                   </span>
                 )}
               </div>
               <div className="mb-1">
-                <code className="text-xs text-[var(--text-secondary)] bg-[var(--primary-alpha-10)] py-0.5 px-2 rounded">
+                <code className="text-xs text-muted-foreground bg-primary/10 py-0.5 px-2 rounded">
                   {ws.host_path}
                 </code>
               </div>
               {ws.description && (
-                <div className="text-xs text-[var(--text-muted)] mt-1">{ws.description}</div>
+                <div className="text-xs text-muted-foreground mt-1">{ws.description}</div>
               )}
             </div>
             <div className="flex gap-2 shrink-0 max-sm:w-full max-sm:justify-end">
               {!ws.is_default && (
                 <button
                   type="button"
-                  className="bg-transparent border border-[var(--border-color)] text-[var(--text-muted)] cursor-pointer p-2 rounded-lg flex items-center justify-center transition-all hover:bg-[var(--bg-card-hover)] hover:border-[var(--primary-color)] hover:text-[var(--primary-color)]"
+                  className="bg-transparent border border-border text-muted-foreground cursor-pointer p-2 rounded-lg flex items-center justify-center transition-all hover:bg-accent hover:border-primary hover:text-primary"
                   onClick={() => handleSetDefault(ws)}
                   title="Als Standard setzen"
                   aria-label="Als Standard setzen"
                 >
-                  <Star className="w-4 h-4" />
+                  <Star className="size-4" />
                 </button>
               )}
               {!ws.is_system && !ws.is_default && (
                 <button
                   type="button"
-                  className="bg-transparent border border-[var(--border-color)] text-[var(--text-muted)] cursor-pointer p-2 rounded-lg flex items-center justify-center transition-all hover:border-[var(--danger-color)] hover:text-[var(--danger-color)]"
+                  className="bg-transparent border border-border text-muted-foreground cursor-pointer p-2 rounded-lg flex items-center justify-center transition-all hover:border-destructive hover:text-destructive"
                   onClick={() => handleDelete(ws)}
                   title="Löschen"
                   aria-label="Löschen"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="size-4" />
                 </button>
               )}
             </div>
@@ -216,24 +215,24 @@ function WorkspaceManager({
       {!showCreateForm ? (
         <button
           type="button"
-          className="flex items-center justify-center gap-2 mx-6 mb-4 py-4 bg-transparent border-2 border-dashed border-[var(--border-color)] rounded-lg text-[var(--text-muted)] text-sm cursor-pointer transition-all hover:border-[var(--primary-color)] hover:text-[var(--primary-color)] hover:bg-[var(--primary-alpha-5)]"
+          className="flex items-center justify-center gap-2 mx-6 mb-4 py-4 bg-transparent border-2 border-dashed border-border rounded-lg text-muted-foreground text-sm cursor-pointer transition-all hover:border-primary hover:text-primary hover:bg-primary/5"
           onClick={() => setShowCreateForm(true)}
         >
-          <Plus className="w-4 h-4" /> Neuen Workspace erstellen
+          <Plus className="size-4" /> Neuen Workspace erstellen
         </button>
       ) : (
         <form
-          className="p-4 px-6 pb-6 border-t border-[var(--border-color)] animate-[slideDown_0.2s_ease]"
+          className="p-4 px-6 pb-6 border-t border-border animate-[slideDown_0.2s_ease]"
           onSubmit={handleCreate}
         >
-          <h3 className="text-base font-semibold text-[var(--text-primary)] m-0 mb-4">
+          <h3 className="text-base font-semibold text-foreground m-0 mb-4">
             Neuen Workspace erstellen
           </h3>
 
           <div className="mb-4">
             <label
               htmlFor="ws-name"
-              className="block text-xs font-medium text-[var(--text-secondary)] mb-2"
+              className="block text-xs font-medium text-muted-foreground mb-2"
             >
               Name *
             </label>
@@ -245,14 +244,14 @@ function WorkspaceManager({
               placeholder="Mein Projekt"
               required
               autoFocus
-              className="w-full py-3 px-4 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm transition-all focus:outline-none focus:border-[var(--primary-color)] focus:shadow-[0_0_0_3px_var(--primary-alpha-10)] placeholder:text-[var(--text-muted)]"
+              className="w-full py-3 px-4 bg-background border border-border rounded-lg text-foreground text-sm transition-all focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground"
             />
           </div>
 
           <div className="mb-4">
             <label
               htmlFor="ws-path"
-              className="block text-xs font-medium text-[var(--text-secondary)] mb-2"
+              className="block text-xs font-medium text-muted-foreground mb-2"
             >
               Host-Pfad *
             </label>
@@ -263,9 +262,9 @@ function WorkspaceManager({
               onChange={e => setNewPath(e.target.value)}
               placeholder="/opt/arasul/mein-projekt"
               required
-              className="w-full py-3 px-4 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm transition-all focus:outline-none focus:border-[var(--primary-color)] focus:shadow-[0_0_0_3px_var(--primary-alpha-10)] placeholder:text-[var(--text-muted)]"
+              className="w-full py-3 px-4 bg-background border border-border rounded-lg text-foreground text-sm transition-all focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground"
             />
-            <span className="block text-[0.7rem] text-[var(--text-muted)] mt-1">
+            <span className="block text-[0.7rem] text-muted-foreground mt-1">
               Absoluter Pfad auf dem Jetson (wird erstellt falls nicht vorhanden)
             </span>
           </div>
@@ -273,7 +272,7 @@ function WorkspaceManager({
           <div className="mb-4">
             <label
               htmlFor="ws-desc"
-              className="block text-xs font-medium text-[var(--text-secondary)] mb-2"
+              className="block text-xs font-medium text-muted-foreground mb-2"
             >
               Beschreibung
             </label>
@@ -283,14 +282,14 @@ function WorkspaceManager({
               value={newDescription}
               onChange={e => setNewDescription(e.target.value)}
               placeholder="Kurze Beschreibung des Projekts"
-              className="w-full py-3 px-4 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm transition-all focus:outline-none focus:border-[var(--primary-color)] focus:shadow-[0_0_0_3px_var(--primary-alpha-10)] placeholder:text-[var(--text-muted)]"
+              className="w-full py-3 px-4 bg-background border border-border rounded-lg text-foreground text-sm transition-all focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground"
             />
           </div>
 
           <div className="flex justify-end gap-3 mt-5 pt-4 max-sm:flex-col">
             <button
               type="button"
-              className="inline-flex items-center gap-2 py-2.5 px-5 bg-transparent border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] text-sm font-medium cursor-pointer transition-all hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] max-sm:w-full max-sm:justify-center"
+              className="inline-flex items-center gap-2 py-2.5 px-5 bg-transparent border border-border rounded-lg text-muted-foreground text-sm font-medium cursor-pointer transition-all hover:bg-accent hover:text-foreground max-sm:w-full max-sm:justify-center"
               onClick={() => setShowCreateForm(false)}
             >
               Abbrechen
@@ -302,11 +301,11 @@ function WorkspaceManager({
             >
               {creating ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Erstellen...
+                  <RefreshCw className="size-4 animate-spin" /> Erstellen...
                 </>
               ) : (
                 <>
-                  <Plus className="w-4 h-4" /> Erstellen
+                  <Plus className="size-4" /> Erstellen
                 </>
               )}
             </button>
@@ -314,9 +313,9 @@ function WorkspaceManager({
         </form>
       )}
 
-      <div className="p-4 px-6 bg-[rgba(245,158,11,0.05)] border-t border-[var(--warning-alpha-20)]">
-        <p className="flex items-start gap-2 text-xs text-[var(--warning-color)] m-0 leading-relaxed">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> Nach dem Erstellen eines neuen
+      <div className="p-4 px-6 bg-amber-500/5 border-t border-amber-500/20">
+        <p className="flex items-start gap-2 text-xs text-amber-500 m-0 leading-relaxed">
+          <AlertTriangle className="size-4 shrink-0 mt-0.5" /> Nach dem Erstellen eines neuen
           Workspace muss Claude Code neu gestartet werden, damit der Workspace verfügbar ist.
         </p>
       </div>
@@ -426,11 +425,11 @@ function SetupWizard({
 
   return (
     <div className="flex items-center justify-center min-h-[60vh] p-4">
-      <div className="w-full max-w-[600px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-[var(--shadow-xl)]">
+      <div className="w-full max-w-[600px] bg-card border border-border rounded-2xl overflow-hidden shadow-[var(--shadow-xl)]">
         {/* Progress Bar */}
-        <div className="relative py-6 px-8 border-b border-[var(--border-color)]">
+        <div className="relative py-6 px-8 border-b border-border">
           <div
-            className="absolute top-0 left-0 h-1 bg-[var(--primary-color)] transition-all duration-300"
+            className="absolute top-0 left-0 h-1 bg-primary transition-all duration-300"
             style={{ width: `${(step / totalSteps) * 100}%` }}
           />
           <div className="flex justify-center gap-8">
@@ -438,14 +437,14 @@ function SetupWizard({
               <div
                 key={s}
                 className={cn(
-                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border transition-all',
+                  'size-8 rounded-full flex items-center justify-center text-sm font-semibold border transition-all',
                   step >= s
-                    ? 'bg-[var(--primary-color)] border-[var(--primary-color)] text-white'
-                    : 'bg-[var(--bg-dark)] border-[var(--border-color)] text-[var(--text-muted)]',
-                  step === s && 'shadow-[0_0_0_4px_var(--primary-alpha-20)]'
+                    ? 'bg-primary border-primary text-white'
+                    : 'bg-background border-border text-muted-foreground',
+                  step === s && 'ring-4 ring-primary/20'
                 )}
               >
-                {step > s ? <Check className="w-4 h-4" /> : s}
+                {step > s ? <Check className="size-4" /> : s}
               </div>
             ))}
           </div>
@@ -455,13 +454,13 @@ function SetupWizard({
         <div className="p-8">
           {step === 1 && (
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[var(--primary-alpha-10)] to-[var(--primary-alpha-5)] flex items-center justify-center mx-auto mb-6">
-                <Zap className="w-8 h-8 text-[var(--primary-color)]" />
+              <div className="size-16 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
+                <Zap className="size-8 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+              <h2 className="text-xl font-semibold text-foreground mb-2">
                 Willkommen bei Claude Code
               </h2>
-              <p className="text-sm text-[var(--text-muted)] mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 Claude Code ist ein KI-Programmierassistent, der direkt in deinem Browser läuft. Um
                 loszulegen, benötigst du einen Anthropic API-Key.
               </p>
@@ -469,9 +468,9 @@ function SetupWizard({
               <div className="text-left">
                 <label
                   htmlFor="setup-api-key"
-                  className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] mb-2"
+                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2"
                 >
-                  <KeyRound className="w-4 h-4 text-[var(--primary-color)]" /> Anthropic API Key
+                  <KeyRound className="size-4 text-primary" /> Anthropic API Key
                 </label>
                 <input
                   id="setup-api-key"
@@ -480,25 +479,23 @@ function SetupWizard({
                   onChange={handleApiKeyChange}
                   placeholder="sk-ant-api03-..."
                   className={cn(
-                    'w-full py-3 px-4 bg-[var(--bg-dark)] border rounded-lg text-[var(--text-primary)] text-sm transition-all focus:outline-none focus:border-[var(--primary-color)] focus:shadow-[0_0_0_3px_var(--primary-alpha-10)] placeholder:text-[var(--text-muted)]',
-                    error
-                      ? 'border-[var(--danger-color)] shadow-[0_0_0_3px_var(--danger-alpha-10)]'
-                      : 'border-[var(--border-color)]'
+                    'w-full py-3 px-4 bg-background border rounded-lg text-foreground text-sm transition-all focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground',
+                    error ? 'border-destructive ring-3 ring-destructive/10' : 'border-border'
                   )}
                   autoFocus
                 />
                 {error && (
-                  <span className="flex items-center gap-1.5 text-sm text-[var(--danger-color)] mt-2">
-                    <AlertCircle className="w-4 h-4" /> {error}
+                  <span className="flex items-center gap-1.5 text-sm text-destructive mt-2">
+                    <AlertCircle className="size-4" /> {error}
                   </span>
                 )}
                 <a
                   href="https://console.anthropic.com/settings/keys"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-sm text-[var(--primary-color)] mt-3 no-underline hover:underline"
+                  className="flex items-center gap-1.5 text-sm text-primary mt-3 no-underline hover:underline"
                 >
-                  <ExternalLink className="w-4 h-4" /> API-Key bei Anthropic erstellen
+                  <ExternalLink className="size-4" /> API-Key bei Anthropic erstellen
                 </a>
               </div>
             </div>
@@ -506,13 +503,11 @@ function SetupWizard({
 
           {step === 2 && (
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[var(--primary-alpha-10)] to-[var(--primary-alpha-5)] flex items-center justify-center mx-auto mb-6">
-                <Folder className="w-8 h-8 text-[var(--primary-color)]" />
+              <div className="size-16 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
+                <Folder className="size-8 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
-                Workspace auswählen
-              </h2>
-              <p className="text-sm text-[var(--text-muted)] mb-6">
+              <h2 className="text-xl font-semibold text-foreground mb-2">Workspace auswählen</h2>
+              <p className="text-sm text-muted-foreground mb-6">
                 Wähle das Verzeichnis, in dem Claude Code arbeiten soll.
               </p>
 
@@ -521,46 +516,44 @@ function SetupWizard({
                   <div
                     key={ws.id}
                     className={cn(
-                      'flex items-center gap-4 p-4 bg-[var(--bg-dark)] border rounded-lg cursor-pointer transition-all hover:border-[var(--primary-color)] hover:bg-[rgba(69,173,255,0.04)]',
+                      'flex items-center gap-4 p-4 bg-background border rounded-lg cursor-pointer transition-all hover:border-primary hover:bg-primary/5',
                       workspace === ws.container_path
-                        ? 'border-[var(--primary-color)] bg-[rgba(69,173,255,0.08)]'
-                        : 'border-[var(--border-color)]'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border'
                     )}
                     onClick={() => setWorkspace(ws.container_path)}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-[rgba(69,173,255,0.1)] flex items-center justify-center shrink-0">
+                    <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                       {ws.is_system ? (
-                        <Cpu className="w-5 h-5 text-[var(--primary-color)]" />
+                        <Cpu className="size-5 text-primary" />
                       ) : (
-                        <Folder className="w-5 h-5 text-[var(--primary-color)]" />
+                        <Folder className="size-5 text-primary" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="flex items-center gap-1 text-sm font-semibold text-[var(--text-primary)] m-0">
+                      <h4 className="flex items-center gap-1 text-sm font-semibold text-foreground m-0">
                         {ws.name}
-                        {ws.is_default && (
-                          <Star className="w-3.5 h-3.5 text-[var(--warning-color)]" />
-                        )}
+                        {ws.is_default && <Star className="size-3.5 text-amber-500" />}
                       </h4>
-                      <p className="text-xs text-[var(--text-muted)] m-0 mt-0.5">
+                      <p className="text-xs text-muted-foreground m-0 mt-0.5">
                         {ws.description || 'Keine Beschreibung'}
                       </p>
-                      <code className="text-xs text-[var(--text-secondary)] bg-[rgba(69,173,255,0.08)] py-0.5 px-2 rounded mt-1 inline-block">
+                      <code className="text-xs text-muted-foreground bg-primary/10 py-0.5 px-2 rounded mt-1 inline-block">
                         {ws.container_path}
                       </code>
                     </div>
                     {workspace === ws.container_path && (
-                      <Check className="w-5 h-5 text-[var(--primary-color)] shrink-0" />
+                      <Check className="size-5 text-primary shrink-0" />
                     )}
                   </div>
                 ))}
 
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 w-full py-3 mt-2 bg-transparent border border-dashed border-[var(--border-color)] rounded-lg text-[var(--text-muted)] text-sm cursor-pointer transition-all hover:border-[var(--primary-color)] hover:text-[var(--primary-color)] hover:bg-[var(--primary-alpha-5)]"
+                  className="flex items-center justify-center gap-2 w-full py-3 mt-2 bg-transparent border border-dashed border-border rounded-lg text-muted-foreground text-sm cursor-pointer transition-all hover:border-primary hover:text-primary hover:bg-primary/5"
                   onClick={onOpenWorkspaceManager}
                 >
-                  <Plus className="w-4 h-4" /> Neuen Workspace erstellen oder verwalten
+                  <Plus className="size-4" /> Neuen Workspace erstellen oder verwalten
                 </button>
               </div>
             </div>
@@ -568,44 +561,42 @@ function SetupWizard({
 
           {step === 3 && (
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[var(--primary-alpha-10)] to-[var(--primary-alpha-5)] flex items-center justify-center mx-auto mb-6">
-                <Check className="w-8 h-8 text-[var(--primary-color)]" />
+              <div className="size-16 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
+                <Check className="size-8 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
-                Bereit zum Starten!
-              </h2>
-              <p className="text-sm text-[var(--text-muted)] mb-6">
+              <h2 className="text-xl font-semibold text-foreground mb-2">Bereit zum Starten!</h2>
+              <p className="text-sm text-muted-foreground mb-6">
                 Deine Konfiguration ist vollständig. Claude Code wird jetzt eingerichtet und
                 gestartet.
               </p>
 
-              <div className="bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg p-4 text-left mb-4">
-                <div className="flex justify-between items-center py-2 border-b border-[var(--border-subtle)]">
-                  <span className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                    <KeyRound className="w-4 h-4 text-[var(--primary-color)]" /> API-Key:
+              <div className="bg-background border border-border rounded-lg p-4 text-left mb-4">
+                <div className="flex justify-between items-center py-2 border-b border-border/50">
+                  <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <KeyRound className="size-4 text-primary" /> API-Key:
                   </span>
-                  <span className="text-sm font-medium text-[var(--text-primary)]">
+                  <span className="text-sm font-medium text-foreground">
                     ****{apiKey.slice(-8)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2">
-                  <span className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                    <Folder className="w-4 h-4 text-[var(--primary-color)]" /> Workspace:
+                  <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Folder className="size-4 text-primary" /> Workspace:
                   </span>
-                  <span className="text-sm font-medium text-[var(--text-primary)]">
+                  <span className="text-sm font-medium text-foreground">
                     {getWorkspaceName(workspace)}
                   </span>
                 </div>
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 p-3 bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] rounded-lg text-[var(--danger-color)] text-sm mb-4">
-                  <AlertCircle className="w-4 h-4" /> {error}
+                <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm mb-4">
+                  <AlertCircle className="size-4" /> {error}
                 </div>
               )}
 
-              <div className="flex items-center gap-2 p-3 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] rounded-lg text-[var(--warning-color)] text-sm">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
+              <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-500 text-sm">
+                <AlertTriangle className="size-4 shrink-0" />
                 <span>Claude Code läuft im autonomen Modus für beste Performance.</span>
               </div>
             </div>
@@ -613,15 +604,15 @@ function SetupWizard({
         </div>
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between p-6 border-t border-[var(--border-color)]">
+        <div className="flex items-center justify-between p-6 border-t border-border">
           {step > 1 ? (
             <button
               type="button"
-              className="inline-flex items-center gap-2 py-2.5 px-4 bg-transparent border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] text-sm font-medium cursor-pointer transition-all hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]"
+              className="inline-flex items-center gap-2 py-2.5 px-4 bg-transparent border border-border rounded-lg text-muted-foreground text-sm font-medium cursor-pointer transition-all hover:bg-card hover:text-foreground"
               onClick={prevStep}
               disabled={saving}
             >
-              <ChevronLeft className="w-4 h-4" /> Zurück
+              <ChevronLeft className="size-4" /> Zurück
             </button>
           ) : (
             <div />
@@ -631,7 +622,7 @@ function SetupWizard({
             {step === 1 && (
               <button
                 type="button"
-                className="py-2.5 px-4 bg-transparent border-none text-[var(--text-muted)] text-sm cursor-pointer transition-all hover:text-[var(--text-primary)]"
+                className="py-2.5 px-4 bg-transparent border-none text-muted-foreground text-sm cursor-pointer transition-all hover:text-foreground"
                 onClick={onSkip}
               >
                 Später einrichten
@@ -644,7 +635,7 @@ function SetupWizard({
                 className="inline-flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-primary)] border-transparent border rounded-lg text-white text-sm font-medium cursor-pointer transition-all hover:shadow-[var(--shadow-md)]"
                 onClick={nextStep}
               >
-                Weiter <ChevronRight className="w-4 h-4" />
+                Weiter <ChevronRight className="size-4" />
               </button>
             ) : (
               <button
@@ -655,11 +646,11 @@ function SetupWizard({
               >
                 {saving ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" /> Einrichten...
+                    <RefreshCw className="size-4 animate-spin" /> Einrichten...
                   </>
                 ) : (
                   <>
-                    <Play className="w-4 h-4" /> Claude Code starten
+                    <Play className="size-4" /> Claude Code starten
                   </>
                 )}
               </button>
@@ -1068,32 +1059,32 @@ function ClaudeCode() {
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { cls: string; text: string }> = {
       running: {
-        cls: 'bg-[var(--primary-alpha-20)] text-[var(--primary-color)] border-[var(--primary-alpha-30)]',
+        cls: 'bg-primary/20 text-primary border-primary/30',
         text: 'Läuft',
       },
       stopped: {
-        cls: 'bg-[var(--danger-alpha-20)] text-[var(--danger-color)] border-[var(--danger-alpha-30)]',
+        cls: 'bg-destructive/20 text-destructive border-destructive/30',
         text: 'Gestoppt',
       },
       installed: {
-        cls: 'bg-[var(--primary-alpha-20)] text-[var(--primary-color)] border-[var(--primary-alpha-30)]',
+        cls: 'bg-primary/20 text-primary border-primary/30',
         text: 'Installiert',
       },
       installing: {
-        cls: 'bg-[var(--warning-alpha-20)] text-[var(--warning-color)] border-[var(--warning-alpha-30)]',
+        cls: 'bg-amber-500/20 text-amber-500 border-amber-500/30',
         text: 'Installiert...',
       },
       restarting: {
-        cls: 'bg-[var(--warning-alpha-20)] text-[var(--warning-color)] border-[var(--warning-alpha-30)]',
+        cls: 'bg-amber-500/20 text-amber-500 border-amber-500/30',
         text: 'Neustart...',
       },
       error: {
-        cls: 'bg-[var(--neutral-alpha-20)] text-[var(--text-muted)] border-[var(--neutral-alpha-30)]',
+        cls: 'bg-[var(--neutral-alpha-20)] text-muted-foreground border-[var(--neutral-alpha-30)]',
         text: 'Fehler',
       },
     };
     const info = statusMap[status] || {
-      cls: 'bg-[var(--neutral-alpha-20)] text-[var(--text-muted)] border-[var(--neutral-alpha-30)]',
+      cls: 'bg-[var(--neutral-alpha-20)] text-muted-foreground border-[var(--neutral-alpha-30)]',
       text: status || 'Unbekannt',
     };
     return (
@@ -1114,38 +1105,29 @@ function ClaudeCode() {
     return ws ? ws.name : currentPath;
   };
 
-  // Button style constants
-  const btnBase =
-    'inline-flex items-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed';
-  const btnPrimary = `${btnBase} bg-[var(--gradient-primary)] border-transparent border text-white hover:enabled:shadow-[var(--shadow-md)]`;
-  const btnSecondary = `${btnBase} bg-transparent border border-[var(--border-color)] text-[var(--text-muted)] hover:enabled:bg-[var(--bg-card)] hover:enabled:text-[var(--text-primary)]`;
-  const btnIcon = `${btnBase} p-2.5 min-w-[40px] justify-center bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:enabled:bg-[var(--bg-card-hover)] hover:enabled:border-[var(--primary-color)] hover:enabled:text-[var(--text-primary)]`;
-
   if (loading) {
     return (
-      <div className="claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-[var(--bg-dark)]">
+      <div className="claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-background">
         <LoadingSpinner message="Claude Code wird geladen..." />
         {loadingTimeout && (
           <div className="mt-4 text-center">
-            <p className="text-[var(--warning-color)] mb-4">
-              <AlertTriangle className="w-4 h-4 inline-block mr-2 align-middle" />
+            <p className="text-amber-500 mb-4">
+              <AlertTriangle className="size-4 inline-block mr-2 align-middle" />
               Laden dauert länger als erwartet.
             </p>
             <div className="flex gap-3 justify-center">
-              <button
-                type="button"
-                className={btnPrimary}
+              <Button
                 onClick={() => {
                   setLoading(true);
                   setLoadingTimeout(false);
                   loadAppData();
                 }}
               >
-                <RefreshCw className="w-4 h-4" /> Erneut versuchen
-              </button>
-              <button type="button" className={btnSecondary} onClick={() => navigate('/')}>
+                <RefreshCw className="size-4" /> Erneut versuchen
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/')}>
                 Zurück zum Dashboard
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -1155,31 +1137,29 @@ function ClaudeCode() {
 
   if (error && !appStatus) {
     return (
-      <div className="claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-[var(--bg-dark)]">
+      <div className="claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-background">
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-          <AlertCircle className="w-12 h-12 text-[var(--warning-color)] mb-4" />
-          <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+          <AlertCircle className="size-12 text-amber-500 mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Claude Code nicht verfügbar
           </h2>
-          <p className="text-sm text-[var(--text-muted)] mb-6">{error}</p>
+          <p className="text-sm text-muted-foreground mb-6">{error}</p>
           <div className="flex gap-3 flex-wrap justify-center">
-            <button
-              type="button"
-              className={btnPrimary}
+            <Button
               onClick={() => {
                 setError(null);
                 setLoading(true);
                 loadAppData();
               }}
             >
-              <RefreshCw className="w-4 h-4" /> Erneut versuchen
-            </button>
-            <button type="button" className={btnSecondary} onClick={() => navigate('/')}>
+              <RefreshCw className="size-4" /> Erneut versuchen
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/')}>
               Zurück zum Dashboard
-            </button>
-            <button type="button" className={btnSecondary} onClick={() => navigate('/store')}>
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/store')}>
               Zum Store
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1188,7 +1168,7 @@ function ClaudeCode() {
 
   if (showSetupWizard) {
     return (
-      <div className="claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-[var(--bg-dark)]">
+      <div className="claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-background">
         <SetupWizard
           config={config}
           setConfig={setConfig}
@@ -1213,24 +1193,24 @@ function ClaudeCode() {
   return (
     <div
       className={cn(
-        'claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-[var(--bg-dark)]',
-        isFullscreen && 'fixed inset-0 h-screen z-[var(--z-modal-backdrop)] p-0 max-w-none'
+        'claude-code-page flex flex-col h-full max-w-[1600px] mx-auto bg-background',
+        isFullscreen && 'fixed inset-0 h-screen z-50 p-0 max-w-none'
       )}
     >
       {/* Header */}
       <div
         className={cn(
-          'flex justify-between items-center pb-6 border-b border-[var(--border-color)] mb-4 shrink-0 max-md:flex-col max-md:gap-4 max-md:items-start',
+          'flex justify-between items-center pb-6 border-b border-border mb-4 shrink-0 max-md:flex-col max-md:gap-4 max-md:items-start',
           isFullscreen && 'py-3 px-4'
         )}
       >
         <div className="flex items-center gap-4">
-          <Terminal className="text-[2rem] text-[var(--primary-color)]" />
+          <Terminal className="text-[2rem] text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--text-primary)] m-0 leading-tight">
+            <h1 className="text-2xl font-semibold text-foreground m-0 leading-tight">
               Claude Code
             </h1>
-            <span className="text-sm text-[var(--text-muted)]">{getCurrentWorkspaceName()}</span>
+            <span className="text-sm text-muted-foreground">{getCurrentWorkspaceName()}</span>
           </div>
           {getStatusBadge(appStatus?.status)}
         </div>
@@ -1240,34 +1220,34 @@ function ClaudeCode() {
           <div className="ml-auto mr-4 max-md:mr-0 max-md:ml-0">
             {authStatus.oauth?.valid ? (
               <div
-                className="auth-badge flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-[var(--primary-alpha-15)] border border-[var(--primary-alpha-30)] text-[var(--primary-color)]"
+                className="auth-badge flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-primary/15 border border-primary/30 text-primary"
                 title={`Token gültig für ${authStatus.oauth.expiresInHours}h`}
               >
-                <User className="w-4 h-4" />
+                <User className="size-4" />
                 <span>
                   {authStatus.oauth.account?.displayName ||
                     authStatus.oauth.account?.email ||
                     'Angemeldet'}
                 </span>
-                <span className="flex items-center gap-1 py-0.5 px-2 bg-[rgba(255,255,255,0.1)] rounded text-xs ml-1">
-                  <Clock className="w-3 h-3" /> {authStatus.oauth.expiresInHours}h
+                <span className="flex items-center gap-1 py-0.5 px-2 bg-white/10 rounded text-xs ml-1">
+                  <Clock className="size-3" /> {authStatus.oauth.expiresInHours}h
                 </span>
               </div>
             ) : (
-              <div className="auth-badge flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-[var(--warning-alpha-15)] border border-[var(--warning-alpha-30)] text-[var(--warning-color)]">
-                <AlertTriangle className="w-4 h-4" />
+              <div className="auth-badge flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-amber-500/15 border border-amber-500/30 text-amber-500">
+                <AlertTriangle className="size-4" />
                 <span>Session abgelaufen</span>
                 <button
                   type="button"
-                  className="flex items-center justify-center w-7 h-7 p-0 ml-2 bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] rounded-md text-inherit cursor-pointer transition-all hover:enabled:bg-[rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center size-7 p-0 ml-2 bg-white/10 border border-white/20 rounded-md text-inherit cursor-pointer transition-all hover:enabled:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleAuthRefresh}
                   disabled={authRefreshing}
                   title="Token erneuern"
                 >
                   {authRefreshing ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <RefreshCw className="size-3.5 animate-spin" />
                   ) : (
-                    <LogIn className="w-3.5 h-3.5" />
+                    <LogIn className="size-3.5" />
                   )}
                 </button>
               </div>
@@ -1278,72 +1258,62 @@ function ClaudeCode() {
         <div className="flex gap-2 items-center max-md:w-full max-md:justify-start max-md:flex-wrap">
           {appStatus?.status === 'running' && (
             <>
-              <button
-                type="button"
-                className={btnIcon}
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={restartApp}
                 disabled={actionLoading}
                 title="Neustarten"
               >
-                <RefreshCw className={cn('w-4 h-4', actionLoading && 'animate-spin')} />
-              </button>
-              <button
-                type="button"
-                className={btnIcon}
+                <RefreshCw className={cn('size-4', actionLoading && 'animate-spin')} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={stopApp}
                 disabled={actionLoading}
                 title="Stoppen"
               >
-                <Square className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className={btnIcon}
+                <Square className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={toggleFullscreen}
                 title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
               >
-                {isFullscreen ? (
-                  <Minimize2 className="w-4 h-4" />
-                ) : (
-                  <Maximize2 className="w-4 h-4" />
-                )}
-              </button>
+                {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+              </Button>
             </>
           )}
-          <button
-            type="button"
-            className={cn(
-              btnBase,
-              'bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:enabled:bg-[var(--bg-card-hover)] hover:enabled:border-[var(--primary-color)] hover:enabled:text-[var(--text-primary)]',
-              showSettings &&
-                'bg-[var(--bg-card-hover)] border-[var(--primary-color)] text-[var(--primary-color)]'
-            )}
+          <Button
+            variant={showSettings ? 'default' : 'outline'}
             onClick={() => setShowSettings(!showSettings)}
           >
-            <Settings className="w-4 h-4" /> Einstellungen
-          </button>
+            <Settings className="size-4" /> Einstellungen
+          </Button>
         </div>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="flex items-center gap-3 py-3 px-4 bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] rounded-lg text-[var(--danger-color)] mb-4 shrink-0">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+        <div className="flex items-center gap-3 py-3 px-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive mb-4 shrink-0">
+          <AlertCircle className="size-4 shrink-0" />
           <span className="flex-1">{error}</span>
           <button
             type="button"
-            className="bg-transparent border-none text-inherit cursor-pointer p-1 flex items-center justify-center rounded hover:bg-[var(--danger-alpha-20)]"
+            className="bg-transparent border-none text-inherit cursor-pointer p-1 flex items-center justify-center rounded hover:bg-destructive/20"
             onClick={() => setError(null)}
           >
-            <X className="w-4 h-4" />
+            <X className="size-4" />
           </button>
         </div>
       )}
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-6 mb-4 shrink-0 animate-[slideDown_0.2s_ease]">
-          <h3 className="text-base font-semibold text-[var(--text-primary)] m-0 mb-5 pb-3 border-b border-[var(--border-subtle)]">
+        <div className="bg-card border border-border rounded-xl p-6 mb-4 shrink-0 animate-[slideDown_0.2s_ease]">
+          <h3 className="text-base font-semibold text-foreground m-0 mb-5 pb-3 border-b border-border/50">
             Konfiguration
           </h3>
 
@@ -1351,10 +1321,10 @@ function ClaudeCode() {
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="cc-api-key"
-                className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] [&>svg]:text-[var(--primary-color)]"
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground [&>svg]:text-primary"
               >
-                <KeyRound className="w-4 h-4" /> Anthropic API Key
-                <span className="text-[var(--danger-color)] ml-1">*</span>
+                <KeyRound className="size-4" /> Anthropic API Key
+                <span className="text-destructive ml-1">*</span>
               </label>
               <input
                 id="cc-api-key"
@@ -1368,9 +1338,9 @@ function ClaudeCode() {
                     ? 'Aktuell gesetzt - zum Ändern neuen Wert eingeben'
                     : 'sk-ant-api03-...'
                 }
-                className="py-3 px-4 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm transition-all focus:outline-none focus:border-[var(--primary-color)] focus:shadow-[0_0_0_3px_var(--primary-alpha-10)] placeholder:text-[var(--text-muted)]"
+                className="py-3 px-4 bg-background border border-border rounded-lg text-foreground text-sm transition-all focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground"
               />
-              <span className="text-xs text-[var(--text-muted)]">
+              <span className="text-xs text-muted-foreground">
                 {config.ANTHROPIC_API_KEY_set
                   ? 'API-Key ist gesetzt. Leer lassen um beizubehalten, neuen Wert eingeben zum Ändern.'
                   : 'Dein API-Key von anthropic.com'}
@@ -1380,16 +1350,16 @@ function ClaudeCode() {
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="cc-workspace"
-                className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] [&>svg]:text-[var(--primary-color)]"
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground [&>svg]:text-primary"
               >
-                <Folder className="w-4 h-4" /> Workspace
+                <Folder className="size-4" /> Workspace
               </label>
               <div className="flex gap-2">
                 <select
                   id="cc-workspace"
                   value={config.CLAUDE_WORKSPACE || '/workspace/arasul'}
                   onChange={e => setConfig({ ...config, CLAUDE_WORKSPACE: e.target.value })}
-                  className="flex-1 py-3 px-4 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm cursor-pointer transition-all focus:outline-none focus:border-[var(--primary-color)] focus:shadow-[0_0_0_3px_var(--primary-alpha-10)] [&>option]:bg-[var(--bg-card)] [&>option]:text-[var(--text-primary)]"
+                  className="flex-1 py-3 px-4 bg-background border border-border rounded-lg text-foreground text-sm cursor-pointer transition-all focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>option]:bg-card [&>option]:text-foreground"
                 >
                   {workspaces.map(ws => (
                     <option key={ws.id} value={ws.container_path}>
@@ -1399,20 +1369,20 @@ function ClaudeCode() {
                 </select>
                 <button
                   type="button"
-                  className="py-3 px-3 bg-[var(--bg-dark)] border border-[var(--border-color)] text-[var(--text-muted)] cursor-pointer rounded-lg flex items-center justify-center transition-all hover:bg-[var(--bg-card-hover)] hover:border-[var(--primary-color)] hover:text-[var(--primary-color)]"
+                  className="py-3 px-3 bg-background border border-border text-muted-foreground cursor-pointer rounded-lg flex items-center justify-center transition-all hover:bg-accent hover:border-primary hover:text-primary"
                   onClick={() => setShowWorkspaceManager(true)}
                   title="Workspaces verwalten"
                 >
-                  <Pencil className="w-4 h-4" />
+                  <Pencil className="size-4" />
                 </button>
               </div>
-              <span className="text-xs text-[var(--text-muted)]">
+              <span className="text-xs text-muted-foreground">
                 Arbeitsverzeichnis für Claude Code
               </span>
             </div>
           </div>
 
-          <div className="text-xs text-[var(--text-muted)] mt-4 p-3 bg-[rgba(69,173,255,0.1)] rounded-lg">
+          <div className="text-xs text-muted-foreground mt-4 p-3 bg-primary/10 rounded-lg">
             <strong>Hinweis:</strong> Claude Code läuft im autonomen Modus
             (--dangerously-skip-permissions). Das Terminal ist ohne Passwort zugänglich.
           </div>
@@ -1422,48 +1392,47 @@ function ClaudeCode() {
               className={cn(
                 'flex items-center gap-2 p-3 rounded-lg text-sm mb-4 mt-4',
                 saveMessage.type === 'success' &&
-                  'bg-[var(--primary-alpha-10)] border border-[var(--primary-alpha-30)] text-[var(--primary-color)]',
+                  'bg-primary/10 border border-primary/30 text-primary',
                 saveMessage.type === 'error' &&
-                  'bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] text-[var(--danger-color)]',
+                  'bg-destructive/10 border border-destructive/30 text-destructive',
                 saveMessage.type === 'warning' &&
-                  'bg-[var(--warning-alpha-10)] border border-[var(--warning-alpha-30)] text-[var(--warning-color)]'
+                  'bg-amber-500/10 border border-amber-500/30 text-amber-500'
               )}
             >
               {saveMessage.type === 'success' ? (
-                <Check className="w-4 h-4" />
+                <Check className="size-4" />
               ) : saveMessage.type === 'warning' ? (
-                <AlertTriangle className="w-4 h-4" />
+                <AlertTriangle className="size-4" />
               ) : (
-                <AlertCircle className="w-4 h-4" />
+                <AlertCircle className="size-4" />
               )}
               {saveMessage.text}
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-subtle)] mt-4 max-md:flex-col">
-            <button
-              type="button"
-              className={cn(btnSecondary, 'max-md:w-full max-md:justify-center')}
+          <div className="flex justify-end gap-3 pt-4 border-t border-border/50 mt-4 max-md:flex-col">
+            <Button
+              variant="outline"
+              className="max-md:w-full max-md:justify-center"
               onClick={() => setShowSettings(false)}
             >
               Abbrechen
-            </button>
-            <button
-              type="button"
-              className={cn(btnPrimary, 'max-md:w-full max-md:justify-center')}
+            </Button>
+            <Button
+              className="max-md:w-full max-md:justify-center"
               onClick={saveConfig}
               disabled={actionLoading}
             >
               {actionLoading ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Speichern...
+                  <RefreshCw className="size-4 animate-spin" /> Speichern...
                 </>
               ) : (
                 <>
-                  <Check className="w-4 h-4" /> Speichern
+                  <Check className="size-4" /> Speichern
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1482,57 +1451,50 @@ function ClaudeCode() {
       {/* Terminal Area */}
       <div
         className={cn(
-          'flex-1 flex flex-col bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden min-h-[400px]',
+          'flex-1 flex flex-col bg-card border border-border rounded-xl overflow-hidden min-h-[400px]',
           isFullscreen && 'rounded-none'
         )}
       >
         {!config.ANTHROPIC_API_KEY_set ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--primary-alpha-10)] to-[var(--primary-alpha-5)] flex items-center justify-center mb-6">
-              <KeyRound className="w-8 h-8 text-[var(--primary-color)]" />
+            <div className="size-20 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-6">
+              <KeyRound className="size-8 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
-              API-Key erforderlich
-            </h3>
-            <p className="text-sm text-[var(--text-muted)] mb-6 max-w-[400px]">
+            <h3 className="text-xl font-semibold text-foreground mb-2">API-Key erforderlich</h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-[400px]">
               Bitte gib deinen Anthropic API-Key in den Einstellungen ein, um Claude Code zu nutzen.
             </p>
             <div className="flex gap-3 flex-wrap justify-center">
-              <button type="button" className={btnPrimary} onClick={() => setShowSetupWizard(true)}>
-                <Zap className="w-4 h-4" /> Einrichtung starten
-              </button>
-              <button type="button" className={btnSecondary} onClick={() => setShowSettings(true)}>
-                <Settings className="w-4 h-4" /> Einstellungen öffnen
-              </button>
+              <Button onClick={() => setShowSetupWizard(true)}>
+                <Zap className="size-4" /> Einrichtung starten
+              </Button>
+              <Button variant="outline" onClick={() => setShowSettings(true)}>
+                <Settings className="size-4" /> Einstellungen öffnen
+              </Button>
             </div>
           </div>
         ) : appStatus?.status !== 'running' ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--primary-alpha-10)] to-[var(--primary-alpha-5)] flex items-center justify-center mb-6">
-              <Terminal className="w-8 h-8 text-[var(--primary-color)]" />
+            <div className="size-20 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-6">
+              <Terminal className="size-8 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+            <h3 className="text-xl font-semibold text-foreground mb-2">
               Claude Code ist nicht gestartet
             </h3>
-            <p className="text-sm text-[var(--text-muted)] mb-6">
+            <p className="text-sm text-muted-foreground mb-6">
               Klicke auf Starten, um das Terminal zu öffnen.
             </p>
-            <button
-              type="button"
-              className={btnPrimary}
-              onClick={startApp}
-              disabled={actionLoading}
-            >
+            <Button onClick={startApp} disabled={actionLoading}>
               {actionLoading ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Startet...
+                  <RefreshCw className="size-4 animate-spin" /> Startet...
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4" /> Starten
+                  <Play className="size-4" /> Starten
                 </>
               )}
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="flex-1 flex bg-[var(--bg-terminal)]">

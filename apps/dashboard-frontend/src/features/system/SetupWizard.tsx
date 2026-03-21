@@ -425,19 +425,19 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   const passwordTooShort = passwordTouched && newPassword.length > 0 && newPassword.length < 4;
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[var(--bg-app)] p-4">
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl w-full max-w-[720px] shadow-lg flex flex-col max-h-[90vh] md:max-h-[90vh] max-md:max-w-full max-md:rounded-lg max-md:max-h-[95vh]">
+    <div className="flex justify-center items-center min-h-screen bg-background p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-[720px] shadow-lg flex flex-col max-h-[90vh] md:max-h-[90vh] max-md:max-w-full max-md:rounded-lg max-md:max-h-[95vh]">
         {/* Header */}
         <div className="text-center py-8 px-8 pb-4 max-md:py-6 max-md:px-6 max-md:pb-3 max-sm:p-4">
-          <h1 className="text-[1.75rem] text-[var(--primary-color)] m-0 mb-1 font-bold max-md:text-2xl">
+          <h1 className="text-[1.75rem] text-primary m-0 mb-1 font-bold max-md:text-2xl">
             {PLATFORM_NAME} Platform
           </h1>
-          <p className="text-[var(--text-secondary)] text-sm m-0">Ersteinrichtung</p>
+          <p className="text-muted-foreground text-sm m-0">Ersteinrichtung</p>
         </div>
 
         {/* Progress Steps */}
         <div
-          className="flex justify-center gap-2 py-4 px-8 border-b border-[var(--border-color)] max-md:py-3 max-md:px-4 max-md:gap-1"
+          className="flex justify-center gap-2 py-4 px-8 border-b border-border max-md:py-3 max-md:px-4 max-md:gap-1"
           role="navigation"
           aria-label="Setup-Fortschritt"
         >
@@ -454,20 +454,20 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               >
                 <div
                   className={cn(
-                    'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all max-md:w-7 max-md:h-7 max-md:text-xs',
+                    'size-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all max-md:size-7 max-md:text-xs',
                     isActive
-                      ? 'bg-[var(--primary-color)] text-white border-[var(--primary-color)]'
+                      ? 'bg-primary text-white border-primary'
                       : isCompleted
-                        ? 'bg-[var(--success-color)] text-white border-[var(--success-color)]'
-                        : 'bg-[var(--bg-dark)] text-[var(--text-secondary)] border-[var(--border-color)]'
+                        ? 'bg-green-500 text-white border-green-500'
+                        : 'bg-background text-muted-foreground border-border'
                   )}
                 >
-                  {isCompleted ? <Check className="w-4 h-4" aria-hidden="true" /> : step.id}
+                  {isCompleted ? <Check className="size-4" aria-hidden="true" /> : step.id}
                 </div>
                 <span
                   className={cn(
-                    'text-[0.7rem] text-[var(--text-muted)] text-center whitespace-nowrap max-md:text-[0.6rem]',
-                    isActive && 'text-[var(--text-primary)] font-semibold'
+                    'text-[0.7rem] text-muted-foreground text-center whitespace-nowrap max-md:text-[0.6rem]',
+                    isActive && 'text-foreground font-semibold'
                   )}
                 >
                   {step.title}
@@ -482,13 +482,13 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
           {/* Step 1: Welcome */}
           {currentStep === 1 && (
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-[var(--primary-alpha-10)] flex items-center justify-center mb-4 text-[var(--primary-color)] max-sm:w-12 max-sm:h-12">
-                <Server className="w-7 h-7 max-sm:w-5 max-sm:h-5" />
+              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary max-sm:size-12">
+                <Server className="size-7 max-sm:size-5" />
               </div>
-              <h2 className="text-[var(--text-primary)] text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
+              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
                 Willkommen bei {PLATFORM_NAME}
               </h2>
-              <p className="text-[var(--text-secondary)] text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
                 Ihr Edge-AI-System ist bereit für die Einrichtung. Dieser Assistent führt Sie durch
                 die wichtigsten Konfigurationsschritte.
               </p>
@@ -496,7 +496,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               <div className="w-full max-w-[440px] mb-4">
                 <label
                   htmlFor="company-name"
-                  className="block mb-1.5 text-[var(--text-secondary)] font-semibold text-sm uppercase tracking-wide"
+                  className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
                 >
                   Firmenname (optional)
                 </label>
@@ -506,17 +506,17 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   value={companyName}
                   onChange={e => setCompanyName(e.target.value)}
                   placeholder="z.B. Meine Firma GmbH"
-                  className="bg-[var(--bg-dark)] border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--primary-color)] focus:ring-[var(--primary-alpha-15)]"
+                  className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
                 />
               </div>
 
-              <div className="flex gap-3 p-4 bg-[var(--primary-alpha-10)] border border-[rgba(69,173,255,0.2)] rounded-md w-full max-w-[440px] mt-4">
-                <Shield className="w-5 h-5 shrink-0 text-[var(--primary-color)] mt-0.5" />
+              <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full max-w-[440px] mt-4">
+                <Shield className="size-5 shrink-0 text-primary mt-0.5" />
                 <div>
-                  <strong className="block text-[var(--text-primary)] mb-1 text-sm">
+                  <strong className="block text-foreground mb-1 text-sm">
                     Was wird eingerichtet?
                   </strong>
-                  <ul className="m-0 mt-1 pl-5 text-[var(--text-secondary)] text-sm">
+                  <ul className="m-0 mt-1 pl-5 text-muted-foreground text-sm">
                     <li className="mb-0.5">Sicheres Admin-Passwort</li>
                     <li className="mb-0.5">Netzwerk-Konnektivität</li>
                     <li>KI-Modell-Auswahl</li>
@@ -529,19 +529,19 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
           {/* Step 2: KI-Profil */}
           {currentStep === 2 && (
             <div className="flex flex-col items-stretch max-w-[560px] w-full mx-auto">
-              <div className="w-16 h-16 rounded-full bg-[var(--primary-alpha-10)] flex items-center justify-center mb-4 text-[var(--primary-color)] self-center max-sm:w-12 max-sm:h-12">
-                <Cpu className="w-7 h-7 max-sm:w-5 max-sm:h-5" />
+              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary self-center max-sm:size-12">
+                <Cpu className="size-7 max-sm:size-5" />
               </div>
-              <h2 className="text-[var(--text-primary)] text-[1.35rem] m-0 mb-2 text-center self-center max-sm:text-[1.15rem]">
+              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center self-center max-sm:text-[1.15rem]">
                 KI-Profil einrichten
               </h2>
-              <p className="text-[var(--text-secondary)] text-center mb-6 text-sm max-w-[440px] self-center max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] self-center max-sm:text-sm">
                 Damit die KI Sie optimal unterstützt, erzählen Sie kurz etwas über Ihr Unternehmen.
               </p>
 
               {/* Industry */}
               <div className="mb-6 w-full">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] m-0 mb-2.5 flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 mb-2.5 flex items-center gap-2">
                   Branche
                 </h3>
                 <div className="grid grid-cols-3 gap-2 w-full max-md:grid-cols-2 max-sm:grid-cols-2">
@@ -553,21 +553,16 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                         key={ind.value}
                         type="button"
                         className={cn(
-                          'flex flex-col items-center gap-1.5 py-3.5 px-2 bg-[var(--bg-dark)] border-2 border-[var(--border-color)] rounded-md cursor-pointer transition-all text-[var(--text-secondary)] text-center hover:border-[var(--primary-alpha-30)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]',
+                          'flex flex-col items-center gap-1.5 py-3.5 px-2 bg-background border-2 border-border rounded-md cursor-pointer transition-all text-muted-foreground text-center hover:border-primary/30 hover:bg-card hover:text-foreground',
                           isSelected &&
-                            'border-[var(--primary-color)] bg-[rgba(69,173,255,0.08)] text-[var(--primary-color)] shadow-[0_0_0_1px_var(--primary-alpha-30)]'
+                            'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
                         )}
                         onClick={() => {
                           setIndustry(ind.value);
                           if (ind.value !== 'custom') setCustomIndustry('');
                         }}
                       >
-                        <Icon
-                          className={cn(
-                            'w-5 h-5 shrink-0',
-                            isSelected && 'text-[var(--primary-color)]'
-                          )}
-                        />
+                        <Icon className={cn('size-5 shrink-0', isSelected && 'text-primary')} />
                         <span className="text-xs font-semibold leading-tight">{ind.label}</span>
                       </button>
                     );
@@ -579,7 +574,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     value={customIndustry}
                     onChange={e => setCustomIndustry(e.target.value)}
                     placeholder="Ihre Branche eingeben..."
-                    className="mt-2 bg-[var(--bg-dark)] border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--primary-color)] focus:ring-[var(--primary-alpha-15)]"
+                    className="mt-2 bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
                     autoFocus
                   />
                 )}
@@ -587,7 +582,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
               {/* Team Size */}
               <div className="mb-6 w-full">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] m-0 mb-2.5 flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 mb-2.5 flex items-center gap-2">
                   Teamgröße
                 </h3>
                 <div className="grid grid-cols-4 gap-2 w-full max-md:grid-cols-2 max-sm:grid-cols-2">
@@ -599,23 +594,18 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                         key={ts.value}
                         type="button"
                         className={cn(
-                          'flex flex-col items-center gap-1.5 py-3 px-1.5 bg-[var(--bg-dark)] border-2 border-[var(--border-color)] rounded-md cursor-pointer transition-all text-[var(--text-secondary)] text-center hover:border-[var(--primary-alpha-30)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]',
+                          'flex flex-col items-center gap-1.5 py-3 px-1.5 bg-background border-2 border-border rounded-md cursor-pointer transition-all text-muted-foreground text-center hover:border-primary/30 hover:bg-card hover:text-foreground',
                           isSelected &&
-                            'border-[var(--primary-color)] bg-[rgba(69,173,255,0.08)] text-[var(--primary-color)] shadow-[0_0_0_1px_var(--primary-alpha-30)]'
+                            'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
                         )}
                         onClick={() => setTeamSize(ts.value)}
                       >
-                        <Icon
-                          className={cn(
-                            'w-5 h-5 shrink-0',
-                            isSelected && 'text-[var(--primary-color)]'
-                          )}
-                        />
+                        <Icon className={cn('size-5 shrink-0', isSelected && 'text-primary')} />
                         <span className="text-xs font-semibold leading-tight">{ts.label}</span>
                         <span
                           className={cn(
-                            'text-[0.65rem] text-[var(--text-muted)] font-normal',
-                            isSelected && 'text-[var(--primary-color)] opacity-70'
+                            'text-[0.65rem] text-muted-foreground font-normal',
+                            isSelected && 'text-primary opacity-70'
                           )}
                         >
                           {ts.sublabel}
@@ -628,9 +618,9 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
               {/* Products */}
               <div className="mb-6 w-full">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] m-0 mb-2.5 flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 mb-2.5 flex items-center gap-2">
                   Produkte & Services{' '}
-                  <span className="text-[0.65rem] font-medium normal-case tracking-normal text-[var(--text-muted)] bg-[var(--bg-dark)] py-0.5 px-1.5 rounded-sm border border-[var(--border-color)]">
+                  <span className="text-[0.65rem] font-medium normal-case tracking-normal text-muted-foreground bg-background py-0.5 px-1.5 rounded-sm border border-border">
                     optional
                   </span>
                 </h3>
@@ -639,16 +629,16 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   value={products}
                   onChange={e => setProducts(e.target.value)}
                   placeholder="z.B. Webentwicklung, Cloud-Hosting, Beratung"
-                  className="bg-[var(--bg-dark)] border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--primary-color)] focus:ring-[var(--primary-alpha-15)]"
+                  className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
                 />
-                <span className="block text-[0.72rem] text-[var(--text-muted)] mt-1">
+                <span className="block text-[0.72rem] text-muted-foreground mt-1">
                   Komma-getrennt eingeben
                 </span>
               </div>
 
               {/* Answer Style */}
               <div className="mb-6 w-full">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] m-0 mb-2.5 flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 mb-2.5 flex items-center gap-2">
                   Antwort-Stil
                 </h3>
                 <div className="grid grid-cols-2 gap-2 w-full max-sm:grid-cols-1">
@@ -660,26 +650,26 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                         key={style.value}
                         type="button"
                         className={cn(
-                          'flex flex-row items-center text-left py-3.5 px-4 gap-3 bg-[var(--bg-dark)] border-2 border-[var(--border-color)] rounded-md cursor-pointer transition-all text-[var(--text-secondary)] hover:border-[var(--primary-alpha-30)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] max-sm:py-3 max-sm:px-3.5',
+                          'flex flex-row items-center text-left py-3.5 px-4 gap-3 bg-background border-2 border-border rounded-md cursor-pointer transition-all text-muted-foreground hover:border-primary/30 hover:bg-card hover:text-foreground max-sm:py-3 max-sm:px-3.5',
                           isSelected &&
-                            'border-[var(--primary-color)] bg-[rgba(69,173,255,0.08)] text-[var(--primary-color)] shadow-[0_0_0_1px_var(--primary-alpha-30)]'
+                            'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
                         )}
                         onClick={() => setAnswerStyle(style.value)}
                       >
                         <div
                           className={cn(
-                            'w-9 h-9 rounded-sm bg-[var(--bg-card)] flex items-center justify-center shrink-0 transition-all',
-                            isSelected && 'bg-[var(--primary-alpha-15)] text-[var(--primary-color)]'
+                            'size-9 rounded-sm bg-card flex items-center justify-center shrink-0 transition-all',
+                            isSelected && 'bg-primary/15 text-primary'
                           )}
                         >
-                          <Icon className="w-4 h-4" />
+                          <Icon className="size-4" />
                         </div>
                         <div className="flex flex-col gap-0.5 min-w-0">
                           <span className="text-xs font-semibold leading-tight">{style.label}</span>
                           <span
                             className={cn(
-                              'text-[0.72rem] text-[var(--text-muted)] font-normal leading-snug',
-                              isSelected && 'text-[var(--text-secondary)]'
+                              'text-[0.72rem] text-muted-foreground font-normal leading-snug',
+                              isSelected && 'text-muted-foreground'
                             )}
                           >
                             {style.desc}
@@ -692,8 +682,8 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               </div>
 
               {profileSaved && (
-                <div className="flex items-center gap-1.5 text-[var(--success-color)] text-xs font-medium mt-2 self-center">
-                  <Check className="w-4 h-4" /> Profil gespeichert
+                <div className="flex items-center gap-1.5 text-green-500 text-xs font-medium mt-2 self-center">
+                  <Check className="size-4" /> Profil gespeichert
                 </div>
               )}
             </div>
@@ -702,36 +692,36 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
           {/* Step 3: Password Change */}
           {currentStep === 3 && (
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-[var(--primary-alpha-10)] flex items-center justify-center mb-4 text-[var(--primary-color)] max-sm:w-12 max-sm:h-12">
-                <Shield className="w-7 h-7 max-sm:w-5 max-sm:h-5" />
+              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary max-sm:size-12">
+                <Shield className="size-7 max-sm:size-5" />
               </div>
-              <h2 className="text-[var(--text-primary)] text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
+              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
                 Admin-Passwort ändern
               </h2>
-              <p className="text-[var(--text-secondary)] text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
                 Ändern Sie das Standard-Passwort für mehr Sicherheit. Dies ist ein Pflichtschritt.
               </p>
 
               {passwordChanged ? (
-                <div className="flex items-center gap-3 bg-[var(--success-alpha-10)] border border-[var(--success-color)] text-[var(--success-color)] p-5 rounded-md w-full max-w-[440px] text-base font-semibold">
-                  <Check className="w-6 h-6 shrink-0" />
+                <div className="flex items-center gap-3 bg-green-500/10 border border-green-500 text-green-500 p-5 rounded-md w-full max-w-[440px] text-base font-semibold">
+                  <Check className="size-6 shrink-0" />
                   <p className="m-0">Passwort wurde erfolgreich geändert!</p>
                 </div>
               ) : (
                 <>
                   {passwordError && (
                     <div
-                      className="flex items-center gap-2 bg-[var(--danger-alpha-10)] border border-[var(--danger-color)] text-[var(--danger-color)] py-3 px-4 rounded-md w-full max-w-[440px] mb-4 text-sm"
+                      className="flex items-center gap-2 bg-destructive/10 border border-destructive text-destructive py-3 px-4 rounded-md w-full max-w-[440px] mb-4 text-sm"
                       role="alert"
                     >
-                      <AlertCircle className="w-4 h-4 shrink-0" /> {passwordError}
+                      <AlertCircle className="size-4 shrink-0" /> {passwordError}
                     </div>
                   )}
 
                   <div className="w-full max-w-[440px] mb-4">
                     <label
                       htmlFor="current-password"
-                      className="block mb-1.5 text-[var(--text-secondary)] font-semibold text-sm uppercase tracking-wide"
+                      className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
                     >
                       Aktuelles Passwort
                     </label>
@@ -742,14 +732,14 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                       onChange={e => setCurrentPassword(e.target.value)}
                       placeholder="Aktuelles Passwort eingeben"
                       autoComplete="current-password"
-                      className="bg-[var(--bg-dark)] border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--primary-color)] focus:ring-[var(--primary-alpha-15)]"
+                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
                     />
                   </div>
 
                   <div className="w-full max-w-[440px] mb-4">
                     <label
                       htmlFor="new-password"
-                      className="block mb-1.5 text-[var(--text-secondary)] font-semibold text-sm uppercase tracking-wide"
+                      className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
                     >
                       Neues Passwort
                     </label>
@@ -763,10 +753,10 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                       }}
                       placeholder="Mindestens 4 Zeichen"
                       autoComplete="new-password"
-                      className="bg-[var(--bg-dark)] border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--primary-color)] focus:ring-[var(--primary-alpha-15)]"
+                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
                     />
                     {passwordTooShort && (
-                      <p className="text-xs text-[var(--danger-color)] mt-1">
+                      <p className="text-xs text-destructive mt-1">
                         Passwort muss mindestens 4 Zeichen lang sein
                       </p>
                     )}
@@ -775,7 +765,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   <div className="w-full max-w-[440px] mb-4">
                     <label
                       htmlFor="confirm-password"
-                      className="block mb-1.5 text-[var(--text-secondary)] font-semibold text-sm uppercase tracking-wide"
+                      className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
                     >
                       Passwort bestätigen
                     </label>
@@ -789,10 +779,10 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                       }}
                       placeholder="Neues Passwort wiederholen"
                       autoComplete="new-password"
-                      className="bg-[var(--bg-dark)] border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--primary-color)] focus:ring-[var(--primary-alpha-15)]"
+                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
                     />
                     {passwordMismatch && (
-                      <p className="text-xs text-[var(--danger-color)] mt-1">
+                      <p className="text-xs text-destructive mt-1">
                         Passwörter stimmen nicht überein
                       </p>
                     )}
@@ -804,7 +794,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Wird geändert...
+                        <Loader2 className="size-4 animate-spin" /> Wird geändert...
                       </>
                     ) : (
                       'Passwort ändern'
@@ -818,47 +808,45 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
           {/* Step 4: Network Check */}
           {currentStep === 4 && (
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-[var(--primary-alpha-10)] flex items-center justify-center mb-4 text-[var(--primary-color)] max-sm:w-12 max-sm:h-12">
+              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary max-sm:size-12">
                 {networkInfo?.internet_reachable ? (
-                  <Wifi className="w-7 h-7 max-sm:w-5 max-sm:h-5" />
+                  <Wifi className="size-7 max-sm:size-5" />
                 ) : (
-                  <WifiOff className="w-7 h-7 max-sm:w-5 max-sm:h-5" />
+                  <WifiOff className="size-7 max-sm:size-5" />
                 )}
               </div>
-              <h2 className="text-[var(--text-primary)] text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
+              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
                 Netzwerk-Status
               </h2>
-              <p className="text-[var(--text-secondary)] text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
                 Überprüfung der Netzwerk-Konnektivität Ihres Systems.
               </p>
 
               {networkLoading ? (
-                <div className="flex flex-col items-center gap-3 py-8 text-[var(--text-secondary)]">
-                  <Loader2 className="w-6 h-6 animate-spin text-[var(--primary-color)]" />
+                <div className="flex flex-col items-center gap-3 py-8 text-muted-foreground">
+                  <Loader2 className="size-6 animate-spin text-primary" />
                   <p className="m-0">Netzwerk wird geprüft...</p>
                 </div>
               ) : networkInfo ? (
                 <div className="w-full max-w-[440px]">
-                  <div className="flex items-start gap-3 py-3 border-b border-[rgba(148,163,184,0.1)]">
+                  <div className="flex items-start gap-3 py-3 border-b border-border/30">
                     <div
                       className={cn(
-                        'w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-sm',
+                        'size-7 rounded-full flex items-center justify-center shrink-0 text-sm',
                         networkInfo.internet_reachable
-                          ? 'bg-[var(--success-alpha-15)] text-[var(--success-color)]'
-                          : 'bg-[var(--warning-alpha-15)] text-[var(--warning-color)]'
+                          ? 'bg-green-500/15 text-green-500'
+                          : 'bg-amber-500/15 text-amber-500'
                       )}
                     >
                       {networkInfo.internet_reachable ? (
-                        <Check className="w-3.5 h-3.5" />
+                        <Check className="size-3.5" />
                       ) : (
-                        <WifiOff className="w-3.5 h-3.5" />
+                        <WifiOff className="size-3.5" />
                       )}
                     </div>
                     <div>
-                      <strong className="block text-[var(--text-primary)] text-sm mb-0.5">
-                        Internet
-                      </strong>
-                      <p className="text-[var(--text-secondary)] text-sm m-0">
+                      <strong className="block text-foreground text-sm mb-0.5">Internet</strong>
+                      <p className="text-muted-foreground text-sm m-0">
                         {networkInfo.internet_reachable
                           ? 'Verbunden'
                           : 'Nicht verfügbar (Offline-Modus)'}
@@ -866,42 +854,38 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 py-3 border-b border-[rgba(148,163,184,0.1)]">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-[var(--success-alpha-15)] text-[var(--success-color)]">
-                      <Check className="w-3.5 h-3.5" />
+                  <div className="flex items-start gap-3 py-3 border-b border-border/30">
+                    <div className="size-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-green-500/15 text-green-500">
+                      <Check className="size-3.5" />
                     </div>
                     <div>
-                      <strong className="block text-[var(--text-primary)] text-sm mb-0.5">
-                        IP-Adressen
-                      </strong>
-                      <p className="text-[var(--text-secondary)] text-sm m-0">
+                      <strong className="block text-foreground text-sm mb-0.5">IP-Adressen</strong>
+                      <p className="text-muted-foreground text-sm m-0">
                         {networkInfo.ip_addresses?.join(', ') || 'Keine gefunden'}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-3 py-3">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-[var(--success-alpha-15)] text-[var(--success-color)]">
-                      <Check className="w-3.5 h-3.5" />
+                    <div className="size-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-green-500/15 text-green-500">
+                      <Check className="size-3.5" />
                     </div>
                     <div>
-                      <strong className="block text-[var(--text-primary)] text-sm mb-0.5">
-                        mDNS
-                      </strong>
-                      <p className="text-[var(--text-secondary)] text-sm m-0">
+                      <strong className="block text-foreground text-sm mb-0.5">mDNS</strong>
+                      <p className="text-muted-foreground text-sm m-0">
                         {networkInfo.mdns || 'arasul.local'}
                       </p>
                     </div>
                   </div>
 
                   {!networkInfo.internet_reachable && (
-                    <div className="flex gap-3 p-4 bg-[var(--primary-alpha-10)] border border-[rgba(69,173,255,0.2)] rounded-md w-full mt-4">
-                      <AlertCircle className="w-5 h-5 shrink-0 text-[var(--primary-color)] mt-0.5" />
+                    <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full mt-4">
+                      <AlertCircle className="size-5 shrink-0 text-primary mt-0.5" />
                       <div>
-                        <strong className="block text-[var(--text-primary)] mb-1 text-sm">
+                        <strong className="block text-foreground mb-1 text-sm">
                           Offline-Modus
                         </strong>
-                        <p className="text-[var(--text-secondary)] text-sm m-0">
+                        <p className="text-muted-foreground text-sm m-0">
                           Das System funktioniert vollständig ohne Internet. Updates können per USB
                           eingespielt werden.
                         </p>
@@ -925,20 +909,20 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
           {/* Step 5: AI Models */}
           {currentStep === 5 && (
             <div className="flex flex-col items-stretch max-w-[580px] w-full mx-auto">
-              <div className="w-16 h-16 rounded-full bg-[var(--primary-alpha-10)] flex items-center justify-center mb-4 text-[var(--primary-color)] self-center max-sm:w-12 max-sm:h-12">
-                <Cpu className="w-7 h-7 max-sm:w-5 max-sm:h-5" />
+              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary self-center max-sm:size-12">
+                <Cpu className="size-7 max-sm:size-5" />
               </div>
-              <h2 className="text-[var(--text-primary)] text-[1.35rem] m-0 mb-2 text-center self-center max-sm:text-[1.15rem]">
+              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center self-center max-sm:text-[1.15rem]">
                 KI-Modell auswählen
               </h2>
-              <p className="text-[var(--text-secondary)] text-center mb-6 text-sm max-w-[440px] self-center max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] self-center max-sm:text-sm">
                 Wählen Sie ein Startmodell für Ihren KI-Assistenten. Es wird im Hintergrund
                 heruntergeladen.
               </p>
 
               {modelsLoading ? (
-                <div className="flex flex-col items-center gap-3 py-8 text-[var(--text-secondary)]">
-                  <Loader2 className="w-6 h-6 animate-spin text-[var(--primary-color)]" />
+                <div className="flex flex-col items-center gap-3 py-8 text-muted-foreground">
+                  <Loader2 className="size-6 animate-spin text-primary" />
                   <p className="m-0">Modell-Katalog wird geladen...</p>
                 </div>
               ) : models.length > 0 ? (
@@ -949,11 +933,11 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     const catInfo = MODEL_CATEGORIES[cat];
                     return (
                       <div key={cat} className="w-full mb-4">
-                        <div className="flex items-baseline gap-2 mb-1.5 pb-1 border-b border-[rgba(148,163,184,0.1)]">
-                          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                        <div className="flex items-baseline gap-2 mb-1.5 pb-1 border-b border-border/30">
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                             {catInfo.title}
                           </span>
-                          <span className="text-[0.7rem] text-[var(--text-muted)] opacity-70">
+                          <span className="text-[0.7rem] text-muted-foreground opacity-70">
                             {catInfo.desc}
                           </span>
                         </div>
@@ -967,50 +951,49 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                               key={model.id}
                               type="button"
                               className={cn(
-                                'flex flex-col gap-1 py-3 px-4 bg-[var(--bg-dark)] border-2 border-[var(--border-color)] rounded-md cursor-pointer transition-all text-left w-full mb-1.5 text-[var(--text-secondary)] hover:border-[var(--primary-alpha-30)] hover:bg-[var(--bg-card)]',
-                                isSelected &&
-                                  'border-[var(--primary-color)] bg-[rgba(69,173,255,0.05)]'
+                                'flex flex-col gap-1 py-3 px-4 bg-background border-2 border-border rounded-md cursor-pointer transition-all text-left w-full mb-1.5 text-muted-foreground hover:border-primary/30 hover:bg-card',
+                                isSelected && 'border-primary bg-primary/5'
                               )}
                               onClick={() => setSelectedModel(model.id)}
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm font-bold text-[var(--text-primary)]">
+                                <span className="text-sm font-bold text-foreground">
                                   {model.name}
                                 </span>
                                 <div className="flex gap-1.5 shrink-0">
                                   {isRecommended && (
-                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase tracking-wide py-0.5 px-2 rounded-sm bg-[rgba(245,158,11,0.12)] text-[var(--warning-color)] border border-[rgba(245,158,11,0.3)]">
+                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase tracking-wide py-0.5 px-2 rounded-sm bg-amber-500/10 text-amber-500 border border-amber-500/30">
                                       <Star className="w-2.5 h-2.5" /> Empfohlen
                                     </Badge>
                                   )}
                                   {isInstalled && (
-                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase py-0.5 px-2 rounded-sm bg-[var(--success-alpha-10)] text-[var(--success-color)] border border-[rgba(34,197,94,0.3)]">
+                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase py-0.5 px-2 rounded-sm bg-green-500/10 text-green-500 border border-green-500/30">
                                       <Check className="w-2.5 h-2.5" /> Installiert
                                     </Badge>
                                   )}
                                 </div>
                               </div>
-                              <span className="text-xs text-[var(--text-muted)] leading-snug">
+                              <span className="text-xs text-muted-foreground leading-snug">
                                 {model.description}
                               </span>
-                              <div className="flex gap-3 text-[0.75rem] text-[var(--text-muted)] mt-0.5">
+                              <div className="flex gap-3 text-[0.75rem] text-muted-foreground mt-0.5">
                                 <span className="inline-flex items-center gap-1">
-                                  <Download className="w-3 h-3" />{' '}
+                                  <Download className="size-3" />{' '}
                                   {formatModelSize(model.size_bytes)}
                                 </span>
                                 <span className="inline-flex items-center gap-1">
-                                  <HardDrive className="w-3 h-3" /> {model.ram_required_gb} GB RAM
+                                  <HardDrive className="size-3" /> {model.ram_required_gb} GB RAM
                                 </span>
                               </div>
                               {dlState && (
                                 <div className="mt-1.5">
-                                  <div className="h-1 bg-[var(--border-color)] rounded-full overflow-hidden">
+                                  <div className="h-1 bg-border rounded-full overflow-hidden">
                                     <div
-                                      className="h-full bg-[var(--primary-color)] rounded-full transition-[width] duration-300"
+                                      className="h-full bg-primary rounded-full transition-[width] duration-300"
                                       style={{ width: `${dlState.progress}%` }}
                                     />
                                   </div>
-                                  <span className="block text-[0.7rem] text-[var(--primary-color)] mt-0.5">
+                                  <span className="block text-[0.7rem] text-primary mt-0.5">
                                     {dlState.status} ({dlState.progress}%)
                                   </span>
                                 </div>
@@ -1022,10 +1005,10 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     );
                   })}
 
-                  <div className="flex gap-3 p-4 bg-[var(--primary-alpha-10)] border border-[rgba(69,173,255,0.2)] rounded-md w-full mt-4">
-                    <Info className="w-5 h-5 shrink-0 text-[var(--primary-color)] mt-0.5" />
+                  <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full mt-4">
+                    <Info className="size-5 shrink-0 text-primary mt-0.5" />
                     <div>
-                      <p className="text-[var(--text-secondary)] text-sm m-0">
+                      <p className="text-muted-foreground text-sm m-0">
                         Das Standardmodell kann später jederzeit unter{' '}
                         <strong>Store &rarr; Modelle</strong> geändert werden. Weitere Modelle
                         können dort ebenfalls heruntergeladen werden.
@@ -1034,13 +1017,13 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   </div>
                 </>
               ) : (
-                <div className="flex gap-3 p-4 bg-[var(--primary-alpha-10)] border border-[rgba(69,173,255,0.2)] rounded-md w-full max-w-[440px] self-center mt-4">
-                  <AlertCircle className="w-5 h-5 shrink-0 text-[var(--primary-color)] mt-0.5" />
+                <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full max-w-[440px] self-center mt-4">
+                  <AlertCircle className="size-5 shrink-0 text-primary mt-0.5" />
                   <div>
-                    <strong className="block text-[var(--text-primary)] mb-1 text-sm">
+                    <strong className="block text-foreground mb-1 text-sm">
                       Keine Modelle verfügbar
                     </strong>
-                    <p className="text-[var(--text-secondary)] text-sm m-0">
+                    <p className="text-muted-foreground text-sm m-0">
                       Der Modell-Katalog konnte nicht geladen werden. Modelle können später im Store
                       heruntergeladen werden.
                     </p>
@@ -1053,68 +1036,66 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
           {/* Step 6: Summary */}
           {currentStep === 6 && (
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-[var(--success-alpha-10)] flex items-center justify-center mb-4 text-[var(--success-color)] max-sm:w-12 max-sm:h-12">
-                <Check className="w-7 h-7 max-sm:w-5 max-sm:h-5" />
+              <div className="size-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4 text-green-500 max-sm:size-12">
+                <Check className="size-7 max-sm:size-5" />
               </div>
-              <h2 className="text-[var(--text-primary)] text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
+              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
                 Zusammenfassung
               </h2>
-              <p className="text-[var(--text-secondary)] text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
                 Ihre Einrichtung ist fast abgeschlossen. Überprüfen Sie die Konfiguration.
               </p>
 
               <div className="w-full max-w-[440px]">
                 {companyName && (
-                  <div className="flex justify-between items-center py-3 border-b border-[rgba(148,163,184,0.1)]">
-                    <span className="text-[var(--text-secondary)] text-sm">Firma</span>
-                    <span className="text-[var(--text-primary)] font-semibold text-sm">
-                      {companyName}
-                    </span>
+                  <div className="flex justify-between items-center py-3 border-b border-border/30">
+                    <span className="text-muted-foreground text-sm">Firma</span>
+                    <span className="text-foreground font-semibold text-sm">{companyName}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between items-center py-3 border-b border-[rgba(148,163,184,0.1)]">
-                  <span className="text-[var(--text-secondary)] text-sm">Passwort</span>
-                  <span className="text-[var(--text-primary)] font-semibold text-sm">
+                <div className="flex justify-between items-center py-3 border-b border-border/30">
+                  <span className="text-muted-foreground text-sm">Passwort</span>
+                  <span className="text-foreground font-semibold text-sm">
                     {passwordChanged ? (
-                      <span className="inline-flex items-center gap-1 text-[var(--success-color)]">
-                        <Check className="w-4 h-4" /> Geändert
+                      <span className="inline-flex items-center gap-1 text-green-500">
+                        <Check className="size-4" /> Geändert
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[var(--warning-color)]">
-                        <AlertCircle className="w-4 h-4" /> Nicht geändert
+                      <span className="inline-flex items-center gap-1 text-amber-500">
+                        <AlertCircle className="size-4" /> Nicht geändert
                       </span>
                     )}
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center py-3 border-b border-[rgba(148,163,184,0.1)]">
-                  <span className="text-[var(--text-secondary)] text-sm">Netzwerk</span>
-                  <span className="text-[var(--text-primary)] font-semibold text-sm">
+                <div className="flex justify-between items-center py-3 border-b border-border/30">
+                  <span className="text-muted-foreground text-sm">Netzwerk</span>
+                  <span className="text-foreground font-semibold text-sm">
                     {networkInfo?.internet_reachable ? (
-                      <span className="inline-flex items-center gap-1 text-[var(--success-color)]">
-                        <Wifi className="w-4 h-4" /> Online
+                      <span className="inline-flex items-center gap-1 text-green-500">
+                        <Wifi className="size-4" /> Online
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
-                        <WifiOff className="w-4 h-4" /> Offline-Modus
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                        <WifiOff className="size-4" /> Offline-Modus
                       </span>
                     )}
                   </span>
                 </div>
 
                 {networkInfo?.ip_addresses?.[0] && (
-                  <div className="flex justify-between items-center py-3 border-b border-[rgba(148,163,184,0.1)]">
-                    <span className="text-[var(--text-secondary)] text-sm">IP-Adresse</span>
-                    <span className="text-[var(--text-primary)] font-semibold text-sm">
+                  <div className="flex justify-between items-center py-3 border-b border-border/30">
+                    <span className="text-muted-foreground text-sm">IP-Adresse</span>
+                    <span className="text-foreground font-semibold text-sm">
                       {networkInfo.ip_addresses[0]}
                     </span>
                   </div>
                 )}
 
-                <div className="flex justify-between items-center py-3 border-b border-[rgba(148,163,184,0.1)]">
-                  <span className="text-[var(--text-secondary)] text-sm">KI-Modell</span>
-                  <span className="text-[var(--text-primary)] font-semibold text-sm">
+                <div className="flex justify-between items-center py-3 border-b border-border/30">
+                  <span className="text-muted-foreground text-sm">KI-Modell</span>
+                  <span className="text-foreground font-semibold text-sm">
                     {selectedModel ? (
                       <>
                         {models.find((m: any) => m.id === selectedModel)?.name || selectedModel}
@@ -1123,19 +1104,19 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                           if (!dlState) return null;
                           if (dlState.phase === 'complete')
                             return (
-                              <span className="inline-flex items-center gap-1 text-[var(--success-color)] ml-2">
-                                <Check className="w-4 h-4" /> Fertig
+                              <span className="inline-flex items-center gap-1 text-green-500 ml-2">
+                                <Check className="size-4" /> Fertig
                               </span>
                             );
                           if (dlState.phase === 'error')
                             return (
-                              <span className="inline-flex items-center gap-1 text-[var(--warning-color)] ml-2">
-                                <AlertCircle className="w-4 h-4" /> Fehler
+                              <span className="inline-flex items-center gap-1 text-amber-500 ml-2">
+                                <AlertCircle className="size-4" /> Fehler
                               </span>
                             );
                           return (
-                            <span className="inline-flex items-center gap-1 text-[var(--text-muted)] ml-2">
-                              <Loader2 className="w-4 h-4 animate-spin" /> {dlState.progress}%
+                            <span className="inline-flex items-center gap-1 text-muted-foreground ml-2">
+                              <Loader2 className="size-4 animate-spin" /> {dlState.progress}%
                             </span>
                           );
                         })()}
@@ -1147,18 +1128,16 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 </div>
 
                 {deviceInfo && (
-                  <div className="flex justify-between items-center py-3 border-b border-[rgba(148,163,184,0.1)]">
-                    <span className="text-[var(--text-secondary)] text-sm">Gerät</span>
-                    <span className="text-[var(--text-primary)] font-semibold text-sm">
-                      {deviceInfo.name}
-                    </span>
+                  <div className="flex justify-between items-center py-3 border-b border-border/30">
+                    <span className="text-muted-foreground text-sm">Gerät</span>
+                    <span className="text-foreground font-semibold text-sm">{deviceInfo.name}</span>
                   </div>
                 )}
 
                 {systemInfo && (
                   <div className="flex justify-between items-center py-3">
-                    <span className="text-[var(--text-secondary)] text-sm">Version</span>
-                    <span className="text-[var(--text-primary)] font-semibold text-sm">
+                    <span className="text-muted-foreground text-sm">Version</span>
+                    <span className="text-foreground font-semibold text-sm">
                       {systemInfo.version || '1.0.0'}
                     </span>
                   </div>
@@ -1167,10 +1146,10 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
               {error && (
                 <div
-                  className="flex items-center gap-2 bg-[var(--danger-alpha-10)] border border-[var(--danger-color)] text-[var(--danger-color)] py-3 px-4 rounded-md w-full max-w-[440px] mb-4 mt-4 text-sm"
+                  className="flex items-center gap-2 bg-destructive/10 border border-destructive text-destructive py-3 px-4 rounded-md w-full max-w-[440px] mb-4 mt-4 text-sm"
                   role="alert"
                 >
-                  <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                  <AlertCircle className="size-4 shrink-0" /> {error}
                 </div>
               )}
             </div>
@@ -1178,11 +1157,11 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
         </div>
 
         {/* Footer Navigation */}
-        <div className="flex justify-between items-center p-4 px-8 border-t border-[var(--border-color)] max-md:px-6 max-md:py-3 max-md:flex-wrap max-md:gap-2">
+        <div className="flex justify-between items-center p-4 px-8 border-t border-border max-md:px-6 max-md:py-3 max-md:flex-wrap max-md:gap-2">
           <div className="flex items-center">
             {currentStep > 1 && (
               <Button variant="ghost" onClick={goBack}>
-                <ChevronLeft className="w-4 h-4" /> Zurück
+                <ChevronLeft className="size-4" /> Zurück
               </Button>
             )}
           </div>
@@ -1195,22 +1174,22 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               title="Einrichtung überspringen (für erfahrene Admins)"
               className="text-xs opacity-70 hover:opacity-100"
             >
-              <SkipForward className="w-3.5 h-3.5" /> Überspringen
+              <SkipForward className="size-3.5" /> Überspringen
             </Button>
 
             {currentStep < 6 ? (
               <Button onClick={goNext} disabled={!canAdvance()}>
-                Weiter <ChevronRight className="w-4 h-4" />
+                Weiter <ChevronRight className="size-4" />
               </Button>
             ) : (
               <Button onClick={handleComplete} disabled={loading}>
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Wird abgeschlossen...
+                    <Loader2 className="size-4 animate-spin" /> Wird abgeschlossen...
                   </>
                 ) : (
                   <>
-                    <Check className="w-4 h-4" /> Einrichtung abschließen
+                    <Check className="size-4" /> Einrichtung abschließen
                   </>
                 )}
               </Button>

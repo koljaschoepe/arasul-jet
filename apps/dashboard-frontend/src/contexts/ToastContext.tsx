@@ -3,6 +3,8 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useEffect,
+  useRef,
   useMemo,
   type ReactNode,
 } from 'react';
@@ -79,20 +81,49 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
   );
 }
 
+// LEAK-002: Max toasts to prevent unbounded growth
+const MAX_TOASTS = 5;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // LEAK-002: Track timeout IDs for cleanup on unmount
+  const timeoutIdsRef = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutIdsRef.current.forEach(tid => clearTimeout(tid));
+      timeoutIdsRef.current.clear();
+    };
+  }, []);
 
   const addToast = useCallback(
     (message: string, type: ToastType = 'info', duration: number | null = null) => {
       const id = Date.now() + Math.random();
       const actualDuration = duration ?? DEFAULT_DURATIONS[type] ?? 4000;
 
-      setToasts(prev => [...prev, { id, message, type }]);
+      setToasts(prev => {
+        const next = [...prev, { id, message, type }];
+        // LEAK-002: Evict oldest toasts if over limit
+        if (next.length > MAX_TOASTS) {
+          const removed = next.splice(0, next.length - MAX_TOASTS);
+          removed.forEach(t => {
+            const tid = timeoutIdsRef.current.get(t.id);
+            if (tid) {
+              clearTimeout(tid);
+              timeoutIdsRef.current.delete(t.id);
+            }
+          });
+        }
+        return next;
+      });
 
       if (actualDuration > 0) {
-        setTimeout(() => {
+        const tid = setTimeout(() => {
           setToasts(prev => prev.filter(t => t.id !== id));
+          timeoutIdsRef.current.delete(id);
         }, actualDuration);
+        timeoutIdsRef.current.set(id, tid);
       }
 
       return id;
@@ -102,10 +133,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const removeToast = useCallback((id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
+    const tid = timeoutIdsRef.current.get(id);
+    if (tid) {
+      clearTimeout(tid);
+      timeoutIdsRef.current.delete(id);
+    }
   }, []);
 
   const clearToasts = useCallback(() => {
     setToasts([]);
+    timeoutIdsRef.current.forEach(tid => clearTimeout(tid));
+    timeoutIdsRef.current.clear();
   }, []);
 
   const toast = useMemo<ToastMethods>(

@@ -149,7 +149,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
-    background: rgba(243, 139, 168, 0.15);
+    background: var(--danger-alpha-15);
     border-bottom: 1px solid var(--error-color);
     color: var(--error-color);
     font-size: 14px;
@@ -255,7 +255,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 }
 
 .editor-pane textarea::selection {
-    background: rgba(69, 173, 255, 0.3);
+    background: var(--primary-alpha-30);
 }
 
 .editor-pane textarea::placeholder {
@@ -340,7 +340,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
     border-left: 4px solid var(--primary-color);
     margin: 1em 0;
     padding: 0.5em 1em;
-    background: rgba(137, 180, 250, 0.1);
+    background: var(--primary-alpha-10);
     color: var(--text-muted);
 }
 
@@ -411,11 +411,11 @@ body.sidebar-collapsed .markdown-editor-overlay {
 }
 
 .preview-content table tbody tr:nth-child(even) {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--neutral-alpha-2);
 }
 
 .preview-content table tbody tr:hover {
-    background: rgba(137, 180, 250, 0.08);
+    background: var(--primary-alpha-8);
 }
 
 /* Mermaid Diagrams */
@@ -435,8 +435,8 @@ body.sidebar-collapsed .markdown-editor-overlay {
 
 .preview-content .mermaid-error {
     padding: 12px;
-    background: rgba(243, 139, 168, 0.15);
-    border: 1px solid rgba(243, 139, 168, 0.3);
+    background: var(--danger-alpha-15);
+    border: 1px solid var(--danger-alpha-30);
     border-radius: var(--radius-md);
     color: var(--error-color);
     font-size: 0.9rem;
@@ -628,7 +628,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 
 /* Light Mode - Error message */
 .light-mode .markdown-editor-error {
-    background: rgba(210, 15, 57, 0.1);
+    background: var(--danger-alpha-10);
     border-bottom-color: var(--danger-color);
     color: var(--danger-color);
 }
@@ -704,7 +704,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 
 .light-mode .preview-content blockquote {
     border-left-color: var(--primary-color);
-    background: rgba(30, 102, 245, 0.08);
+    background: var(--primary-alpha-8);
     color: var(--text-secondary);
 }
 
@@ -736,7 +736,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 }
 
 .light-mode .preview-content table thead {
-    background: rgba(30, 102, 245, 0.08);
+    background: var(--primary-alpha-8);
 }
 
 .light-mode .preview-content table td {
@@ -748,7 +748,7 @@ body.sidebar-collapsed .markdown-editor-overlay {
 }
 
 .light-mode .preview-content table tbody tr:hover {
-    background: rgba(30, 102, 245, 0.05);
+    background: var(--primary-alpha-5);
 }
 
 /* Light Mode - Mermaid */
@@ -758,8 +758,8 @@ body.sidebar-collapsed .markdown-editor-overlay {
 }
 
 .light-mode .preview-content .mermaid-error {
-    background: rgba(210, 15, 57, 0.08);
-    border-color: rgba(210, 15, 57, 0.2);
+    background: var(--danger-alpha-8);
+    border-color: var(--danger-alpha-20);
     color: var(--danger-color);
 }
 

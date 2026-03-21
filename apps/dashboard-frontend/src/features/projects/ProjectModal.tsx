@@ -6,6 +6,7 @@ import useConfirm from '../../hooks/useConfirm';
 import Modal from '../../components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
+import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
   Select,
@@ -199,25 +200,22 @@ const ProjectModal = memo(function ProjectModal({
     >
       <div className="p-6 flex flex-col gap-5">
         {error && (
-          <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm font-medium bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] text-[var(--danger-light)]">
+          <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm font-medium bg-destructive/10 border border-destructive/30 text-destructive">
             <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm font-medium bg-[var(--primary-muted)] border border-[var(--primary-alpha-30)] text-[var(--primary-color)]">
+          <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm font-medium bg-primary/10 border border-primary/30 text-primary">
             <Check className="size-4 shrink-0" />
             <span>{success}</span>
           </div>
         )}
 
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="pm-name"
-            className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]"
-          >
+          <Label htmlFor="pm-name" className="flex items-center gap-1.5">
             Name
-          </label>
+          </Label>
           <Input
             id="pm-name"
             type="text"
@@ -230,13 +228,9 @@ const ProjectModal = memo(function ProjectModal({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="pm-desc"
-            className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]"
-          >
-            Beschreibung{' '}
-            <span className="font-normal text-[var(--text-muted)] text-xs">optional</span>
-          </label>
+          <Label htmlFor="pm-desc" className="flex items-center gap-1.5">
+            Beschreibung <span className="font-normal text-muted-foreground text-xs">optional</span>
+          </Label>
           <Input
             id="pm-desc"
             type="text"
@@ -247,15 +241,12 @@ const ProjectModal = memo(function ProjectModal({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="pm-prompt"
-            className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]"
-          >
+          <Label htmlFor="pm-prompt" className="flex items-center gap-1.5">
             System-Prompt{' '}
-            <span className="font-normal text-[var(--text-muted)] text-xs">
+            <span className="font-normal text-muted-foreground text-xs">
               Anweisungen für die KI
             </span>
-          </label>
+          </Label>
           <Textarea
             id="pm-prompt"
             value={systemPrompt}
@@ -267,8 +258,8 @@ const ProjectModal = memo(function ProjectModal({
           {systemPrompt.length > 0 && (
             <div
               className={cn(
-                'self-end text-xs text-[var(--text-muted)]',
-                systemPrompt.length > 2000 && 'text-[var(--warning-color)]'
+                'self-end text-xs text-muted-foreground',
+                systemPrompt.length > 2000 && 'text-amber-500'
               )}
             >
               {systemPrompt.length} / 2000
@@ -278,16 +269,13 @@ const ProjectModal = memo(function ProjectModal({
 
         {spaces.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="pm-space"
-              className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]"
-            >
-              <Database className="size-4 text-[var(--text-muted)]" />
+            <Label htmlFor="pm-space" className="flex items-center gap-1.5">
+              <Database className="size-4 text-muted-foreground" />
               Knowledge Space{' '}
-              <span className="font-normal text-[var(--text-muted)] text-xs">
+              <span className="font-normal text-muted-foreground text-xs">
                 RAG auf Bereich einschränken
               </span>
-            </label>
+            </Label>
             <Select
               value={knowledgeSpaceId || 'none'}
               onValueChange={val => setKnowledgeSpaceId(val === 'none' ? '' : val)}

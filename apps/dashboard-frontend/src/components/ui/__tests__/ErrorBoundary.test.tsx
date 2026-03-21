@@ -364,8 +364,8 @@ describe('ErrorBoundary Component', () => {
       const reloadButton = screen.getByText('Seite neu laden');
       const backButton = screen.getByText('Zurück');
 
-      expect(reloadButton).toHaveClass('btn-reload');
-      expect(backButton).toHaveClass('btn-back');
+      expect(reloadButton.closest('[data-slot="button"]')).toBeInTheDocument();
+      expect(backButton.closest('[data-slot="button"]')).toBeInTheDocument();
     });
   });
 

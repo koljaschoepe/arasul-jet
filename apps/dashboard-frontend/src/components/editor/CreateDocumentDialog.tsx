@@ -113,19 +113,19 @@ const CreateDocumentDialog = memo(function CreateDocumentDialog({
     <Modal isOpen={isOpen} onClose={onClose} title={config.title} size="small">
       <form onSubmit={handleCreate} className="space-y-4">
         {error && (
-          <div className="flex items-center gap-2 p-3 rounded-md text-sm bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] text-[var(--danger-light)]">
+          <div className="flex items-center gap-2 p-3 rounded-md text-sm bg-destructive/10 border border-destructive/30 text-destructive">
             {error}
           </div>
         )}
 
-        <div className="flex justify-center text-[var(--primary-color)]">
+        <div className="flex justify-center text-primary">
           <Icon className="size-8" />
         </div>
 
         <div>
           <label
             htmlFor={config.inputId}
-            className="block text-sm font-semibold text-[var(--text-primary)] mb-2"
+            className="block text-sm font-semibold text-foreground mb-2"
           >
             {config.inputLabel}
           </label>
@@ -145,7 +145,7 @@ const CreateDocumentDialog = memo(function CreateDocumentDialog({
           <div>
             <label
               htmlFor={config.spaceSelectId}
-              className="block text-sm font-semibold text-[var(--text-primary)] mb-2"
+              className="block text-sm font-semibold text-foreground mb-2"
             >
               {config.spaceLabel}
             </label>

@@ -15,6 +15,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
+import { getCsrfToken } from '../utils/csrf';
 
 interface User {
   id: number;
@@ -120,9 +121,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Handle logout
   const logout = useCallback(async () => {
     try {
+      const headers: Record<string, string> = getAuthHeaders();
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers,
       });
     } catch (err) {
       console.error('Logout error:', err);

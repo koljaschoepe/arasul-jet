@@ -15,7 +15,7 @@ function EmptyState({ icon, title, description, action }: EmptyStateProps) {
       role="status"
     >
       <div className="text-5xl mb-4 opacity-50">{icon || <Inbox className="size-12" />}</div>
-      {title && <div className="text-xl font-semibold text-secondary-foreground mb-2">{title}</div>}
+      {title && <div className="text-lg font-semibold text-secondary-foreground mb-2">{title}</div>}
       {description && <div className="text-sm max-w-96">{description}</div>}
       {action && <div className="mt-4">{action}</div>}
     </div>

@@ -1,5 +1,5 @@
 import React, { type ErrorInfo, type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/shadcn/button';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -71,22 +71,23 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       if (isCompact) {
         return (
           <div
-            className="error-boundary-compact rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 my-2"
+            className="error-boundary-compact rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 my-2"
             role="alert"
           >
             <div className="error-boundary-compact-content flex items-center gap-3">
               <span className="error-icon-small text-xl shrink-0">⚠️</span>
-              <span className="error-text flex-1 text-red-400 text-sm">
+              <span className="error-text flex-1 text-destructive text-sm">
                 {this.props.message || 'Komponente konnte nicht geladen werden'}
               </span>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={this.handleRetry}
-                className="btn-retry-small shrink-0 px-3 py-1.5 rounded-md text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                className="shrink-0"
                 aria-label="Erneut versuchen"
               >
                 Erneut
-              </button>
+              </Button>
             </div>
           </div>
         );
@@ -94,7 +95,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
       return (
         <div
-          className="error-boundary min-h-screen flex items-center justify-center bg-[var(--bg-dark)] p-8"
+          className="error-boundary min-h-screen flex items-center justify-center bg-background p-8"
           role="alert"
         >
           <div className="error-boundary-content max-w-[600px] w-full bg-card border border-border rounded-lg px-8 py-12 text-center">
@@ -107,11 +108,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             </p>
 
             {(isDevelopment || this.props.showDetails) && this.state.error && (
-              <details className="error-details my-8 text-left bg-[var(--bg-dark)] border border-border rounded-md p-4">
+              <details className="error-details my-8 text-left bg-background border border-border rounded-md p-4">
                 <summary className="text-primary cursor-pointer font-semibold select-none hover:underline">
                   Fehlerdetails anzeigen
                 </summary>
-                <pre className="error-stack mt-4 text-destructive text-sm overflow-x-auto whitespace-pre-wrap break-words bg-[var(--bg-dark)] p-4 rounded border border-border/50">
+                <pre className="error-stack mt-4 text-destructive text-sm overflow-x-auto whitespace-pre-wrap break-words bg-background p-4 rounded border border-border/50">
                   {this.state.error.toString()}
                   {this.state.errorInfo?.componentStack}
                 </pre>
@@ -119,25 +120,25 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             )}
 
             <div className="error-actions flex gap-4 justify-center my-8">
-              <button
-                type="button"
+              <Button
+                size="lg"
                 onClick={this.handleRetry}
-                className="btn-retry px-6 py-3 rounded-md font-semibold text-base bg-green-500 text-white hover:bg-green-400 hover:-translate-y-0.5 transition-all"
                 aria-label="Erneut versuchen ohne Neuladen"
               >
                 Erneut versuchen
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="default"
+                size="lg"
                 onClick={this.handleReload}
-                className="btn-reload px-6 py-3 rounded-md font-semibold text-base bg-primary text-primary-foreground hover:bg-primary/90 hover:-translate-y-0.5 transition-all"
                 aria-label="Seite neu laden"
               >
                 Seite neu laden
-              </button>
+              </Button>
               {!this.props.hideBackButton && (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="lg"
                   onClick={() => {
                     if (window.history.length > 1) {
                       window.history.back();
@@ -145,11 +146,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                       window.location.href = '/';
                     }
                   }}
-                  className="btn-back px-6 py-3 rounded-md font-semibold text-base bg-transparent text-muted-foreground border border-border hover:bg-accent hover:border-primary hover:text-primary transition-all"
                   aria-label="Zurück zur vorherigen Seite"
                 >
                   Zurück
-                </button>
+                </Button>
               )}
             </div>
 

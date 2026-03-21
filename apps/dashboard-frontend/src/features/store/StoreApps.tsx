@@ -105,16 +105,16 @@ const categoryLabels: Record<string, string> = {
   networking: 'Netzwerk',
 };
 
-// Status configuration - uses CSS variables from Design System
+// Status configuration - uses shadcn/Tailwind semantic tokens
 const statusConfig: Record<string, StatusConfigEntry> = {
-  running: { color: 'var(--primary-color)', label: 'Aktiv', icon: Check },
-  installed: { color: 'var(--status-neutral)', label: 'Gestoppt', icon: Clock },
-  available: { color: 'var(--text-disabled)', label: 'Verfügbar', icon: Download },
-  installing: { color: 'var(--primary-light)', label: 'Installiert...', icon: RefreshCw },
-  starting: { color: 'var(--primary-light)', label: 'Startet...', icon: RefreshCw },
-  stopping: { color: 'var(--status-neutral)', label: 'Stoppt...', icon: RefreshCw },
-  uninstalling: { color: 'var(--text-disabled)', label: 'Deinstalliert...', icon: RefreshCw },
-  error: { color: 'var(--danger-color)', label: 'Fehler', icon: AlertCircle },
+  running: { color: 'var(--primary)', label: 'Aktiv', icon: Check },
+  installed: { color: 'var(--muted-foreground)', label: 'Gestoppt', icon: Clock },
+  available: { color: 'var(--muted-foreground)', label: 'Verfügbar', icon: Download },
+  installing: { color: 'var(--primary)', label: 'Installiert...', icon: RefreshCw },
+  starting: { color: 'var(--primary)', label: 'Startet...', icon: RefreshCw },
+  stopping: { color: 'var(--muted-foreground)', label: 'Stoppt...', icon: RefreshCw },
+  uninstalling: { color: 'var(--muted-foreground)', label: 'Deinstalliert...', icon: RefreshCw },
+  error: { color: 'var(--destructive)', label: 'Fehler', icon: AlertCircle },
 };
 
 // Get app URL
@@ -377,7 +377,7 @@ function StoreApps() {
           {app.status === 'installed' && (
             <>
               <Button
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                variant="success"
                 onClick={() => handleAction(app.id, 'start')}
                 disabled={!!isLoading}
               >

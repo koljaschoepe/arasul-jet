@@ -256,17 +256,17 @@ export default function ChatLanding() {
 
   if (loading) {
     return (
-      <div className="chat-landing p-[clamp(1rem,2vw,2rem)] max-w-[1200px] mx-auto">
+      <div className="chat-landing p-6 max-md:p-4 max-w-[1400px] mx-auto">
         <div className="chat-landing-header flex items-center justify-between mb-6 gap-4">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-[var(--text-primary)] m-0">
-            <MessageSquare className="text-[var(--primary-color)]" /> Chat
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground m-0">
+            <MessageSquare className="text-primary" /> Chat
           </h1>
         </div>
         <div className="chat-landing-skeleton flex flex-col gap-4">
           {[1, 2, 3, 4].map(i => (
             <div
               key={i}
-              className="skeleton-card bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]"
+              className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]"
             />
           ))}
         </div>
@@ -277,25 +277,21 @@ export default function ChatLanding() {
   const isSearching = searchQuery.trim().length > 0;
 
   return (
-    <main className="chat-landing p-[clamp(1rem,2vw,2rem)] max-w-[1200px] mx-auto">
+    <main className="chat-landing p-6 max-md:p-4 max-w-[1400px] mx-auto">
       <header className="chat-landing-header flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-[var(--text-primary)] m-0">
-          <MessageSquare className="text-[var(--primary-color)]" /> Chat
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground m-0">
+          <MessageSquare className="text-primary" /> Chat
         </h1>
-        <button
-          type="button"
-          className="btn-new-project inline-flex items-center gap-1 py-2 px-4 bg-[var(--primary-color)] text-white border-none rounded-lg text-sm font-semibold cursor-pointer transition-all duration-150 hover:-translate-y-px hover:shadow-md hover:opacity-90 active:scale-[0.97]"
-          onClick={openNewProject}
-        >
-          <Plus className="w-4 h-4" /> Neues Projekt
-        </button>
+        <Button onClick={openNewProject}>
+          <Plus className="size-4" /> Neues Projekt
+        </Button>
       </header>
 
       <div className="chat-landing-search mb-6">
-        <div className="search-input-wrapper flex items-center gap-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-2.5 px-4 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] transition-all duration-150 focus-within:border-[var(--primary-color)] focus-within:shadow-[0_0_0_3px_var(--primary-alpha-15)]">
-          <Search className="text-[var(--text-muted)] shrink-0 w-4 h-4" />
+        <div className="search-input-wrapper flex items-center gap-2 bg-card border border-border rounded-xl py-2.5 px-4 transition-all duration-150 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+          <Search className="text-muted-foreground shrink-0 size-4" />
           <input
-            className="flex-1 bg-transparent border-none text-[var(--text-primary)] text-sm outline-none placeholder:text-[var(--text-muted)]"
+            className="flex-1 bg-transparent border-none text-foreground text-sm outline-none placeholder:text-muted-foreground"
             type="text"
             placeholder="Chats durchsuchen..."
             value={searchQuery}
@@ -303,14 +299,14 @@ export default function ChatLanding() {
             aria-label="Chats durchsuchen"
           />
           {searchQuery && (
-            <button
-              type="button"
-              className="search-clear-btn bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1 rounded-md flex items-center transition-colors duration-150 hover:text-[var(--text-primary)]"
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setSearchQuery('')}
               aria-label="Suche leeren"
             >
-              <X className="w-4 h-4" />
-            </button>
+              <X className="size-4" />
+            </Button>
           )}
         </div>
         {projects.length > 1 && (
@@ -320,16 +316,16 @@ export default function ChatLanding() {
                 key={p.id}
                 type="button"
                 className={cn(
-                  'filter-chip inline-flex items-center gap-1.5 py-1 px-3 border border-[var(--border-color)] rounded-full bg-transparent text-[var(--text-muted)] text-xs cursor-pointer transition-all duration-150 hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--primary-alpha-5)]',
+                  'filter-chip inline-flex items-center gap-1.5 py-1 px-3 border border-border rounded-full bg-transparent text-muted-foreground text-xs cursor-pointer transition-all duration-150 hover:border-muted-foreground hover:text-foreground hover:bg-primary/5',
                   selectedFilter === p.id &&
-                    'active bg-[var(--primary-alpha-15)] text-[var(--text-primary)] border-[var(--primary-alpha-30)] font-semibold'
+                    'active bg-primary/15 text-foreground border-primary/30 font-semibold'
                 )}
                 style={{ borderColor: selectedFilter === p.id ? p.color : undefined }}
                 onClick={() => toggleFilter(p.id)}
                 aria-pressed={selectedFilter === p.id}
               >
                 <span
-                  className="filter-chip-dot w-2 h-2 rounded-full shrink-0"
+                  className="filter-chip-dot size-2 rounded-full shrink-0"
                   style={{ background: p.color }}
                 />
                 {p.name}
@@ -343,8 +339,8 @@ export default function ChatLanding() {
         <section className="search-results flex flex-col gap-1">
           {searchLoading || searchResults === null ? (
             <div className="chat-landing-skeleton flex flex-col gap-4">
-              <div className="skeleton-card bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
-              <div className="skeleton-card bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
+              <div className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
+              <div className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
             </div>
           ) : searchResults.length === 0 ? (
             <EmptyState
@@ -374,7 +370,7 @@ export default function ChatLanding() {
         <>
           {displayedRecentChats.length > 0 && (
             <section className="recent-chats-section mb-8">
-              <h2 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide m-0 mb-4">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide m-0 mb-4">
                 Letzte Chats
               </h2>
               <div className="recent-chats-list grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2">
@@ -390,7 +386,7 @@ export default function ChatLanding() {
           )}
 
           <section className="projects-section mb-8">
-            <h2 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide m-0 mb-4">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide m-0 mb-4">
               Projekte
             </h2>
             {displayedProjects.map(p => (
@@ -413,7 +409,7 @@ export default function ChatLanding() {
                 description="Erstelle dein erstes Projekt, um Chats thematisch zu organisieren."
                 action={
                   <Button size="sm" onClick={openNewProject}>
-                    <Plus className="w-4 h-4 mr-1" /> Neues Projekt erstellen
+                    <Plus className="size-4 mr-1" /> Neues Projekt erstellen
                   </Button>
                 }
               />

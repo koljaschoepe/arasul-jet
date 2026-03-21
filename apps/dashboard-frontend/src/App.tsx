@@ -995,7 +995,7 @@ const DashboardHome = React.memo(function DashboardHome({
               role="img"
               aria-label={`Performance-Diagramm der letzten ${chartTimeRange} Stunden: CPU, RAM, GPU und Temperatur`}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(69, 173, 255, 0.1)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-alpha-10)" />
               <XAxis
                 dataKey="time"
                 stroke="var(--text-muted)"
@@ -1016,7 +1016,7 @@ const DashboardHome = React.memo(function DashboardHome({
               <Tooltip
                 contentStyle={{
                   background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-subtle) 100%)',
-                  border: '1px solid rgba(69, 173, 255, 0.3)',
+                  border: '1px solid var(--primary-alpha-30)',
                   borderRadius: '10px',
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
                 }}

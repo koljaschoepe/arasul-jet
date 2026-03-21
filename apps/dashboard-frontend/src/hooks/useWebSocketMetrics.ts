@@ -41,6 +41,9 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
   const reconnectAttemptsRef = useRef(0);
   const isIntentionallyClosedRef = useRef(false);
   const httpPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // HEARTBEAT-001: Track last data time for stale connection detection
+  const lastDataTimeRef = useRef<number>(0);
+  const staleCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Calculate reconnection delay with exponential backoff and jitter
   const calculateReconnectDelay = useCallback((attempt: number): number => {
@@ -74,6 +77,28 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
     }
   }, []);
 
+  // HEARTBEAT-001: Start stale connection checker
+  // Server sends data every 5s, so 15s without data means connection is dead
+  const startStaleCheck = useCallback(() => {
+    if (staleCheckRef.current) return;
+    staleCheckRef.current = setInterval(() => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const elapsed = Date.now() - lastDataTimeRef.current;
+      if (lastDataTimeRef.current > 0 && elapsed > 15000) {
+        // Connection is stale - force close to trigger reconnect
+        ws.close();
+      }
+    }, 5000);
+  }, []);
+
+  const stopStaleCheck = useCallback(() => {
+    if (staleCheckRef.current) {
+      clearInterval(staleCheckRef.current);
+      staleCheckRef.current = null;
+    }
+  }, []);
+
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
     if (!isAuthenticated || isIntentionallyClosedRef.current) return;
@@ -83,12 +108,15 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
 
       ws.onopen = () => {
         reconnectAttemptsRef.current = 0;
+        lastDataTimeRef.current = Date.now();
         setWsConnected(true);
         setWsReconnecting(false);
         stopHttpPolling();
+        startStaleCheck();
       };
 
       ws.onmessage = (event: MessageEvent) => {
+        lastDataTimeRef.current = Date.now();
         try {
           const data = JSON.parse(event.data as string) as Metrics;
           // Only update if data doesn't contain an error
@@ -105,6 +133,7 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
       ws.onclose = () => {
         setWsConnected(false);
         wsRef.current = null;
+        stopStaleCheck();
 
         // Don't reconnect if closed intentionally
         if (isIntentionallyClosedRef.current) {
@@ -141,7 +170,14 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
         startHttpPolling();
       }
     }
-  }, [isAuthenticated, calculateReconnectDelay, startHttpPolling, stopHttpPolling]);
+  }, [
+    isAuthenticated,
+    calculateReconnectDelay,
+    startHttpPolling,
+    stopHttpPolling,
+    startStaleCheck,
+    stopStaleCheck,
+  ]);
 
   // Setup WebSocket connection
   useEffect(() => {
@@ -165,8 +201,9 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
       }
 
       stopHttpPolling();
+      stopStaleCheck();
     };
-  }, [isAuthenticated, connectWebSocket, stopHttpPolling]);
+  }, [isAuthenticated, connectWebSocket, stopHttpPolling, stopStaleCheck]);
 
   return {
     metrics,

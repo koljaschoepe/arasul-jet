@@ -16,6 +16,7 @@ import {
 import { formatDate } from '../../utils/formatting';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
+import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 
 interface HistoryItem {
@@ -187,14 +188,14 @@ function ClaudeTerminal() {
                 <Terminal style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
                 Service Status
               </h3>
-              <button
-                type="button"
-                className="bg-transparent border border-[var(--border-subtle)] rounded-md p-2 text-[var(--text-muted)] cursor-pointer transition-all duration-200 flex items-center justify-center hover:bg-[var(--primary-alpha-10)] hover:border-[var(--primary-color)] hover:text-[var(--primary-color)]"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={checkStatus}
                 title="Status aktualisieren"
               >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+                <RefreshCw className="size-4" />
+              </Button>
             </div>
             <p className="settings-card-description">
               {status?.llm?.available
@@ -206,27 +207,27 @@ function ClaudeTerminal() {
             <div className="flex flex-wrap gap-4 max-md:flex-col">
               <div
                 className={cn(
-                  'flex items-center gap-2 py-2 px-4 border border-[var(--border-subtle)] rounded-md text-sm',
+                  'flex items-center gap-2 py-2 px-4 border border-border/50 rounded-md text-sm',
                   isAvailable
                     ? 'bg-[var(--status-neutral-bg)] border-[var(--status-neutral-border)] text-[var(--status-neutral)]'
-                    : 'bg-[rgba(239,68,68,0.1)] border-[rgba(239,68,68,0.3)] text-[var(--error-color)]'
+                    : 'bg-destructive/10 border-destructive/30 text-destructive'
                 )}
               >
                 {isAvailable ? (
-                  <CheckCircle className="w-4 h-4" />
+                  <CheckCircle className="size-4" />
                 ) : (
-                  <AlertCircle className="w-4 h-4" />
+                  <AlertCircle className="size-4" />
                 )}
                 <span>{isAvailable ? 'Online' : 'Offline'}</span>
               </div>
               {status?.config && (
                 <>
-                  <div className="flex items-center gap-2 py-2 px-4 bg-[var(--primary-alpha-5)] border border-[var(--border-subtle)] rounded-md text-sm text-[var(--text-secondary)] [&>svg]:text-[var(--primary-color)]">
-                    <Clock className="w-4 h-4" />
+                  <div className="flex items-center gap-2 py-2 px-4 bg-primary/5 border border-border/50 rounded-md text-sm text-muted-foreground [&>svg]:text-primary">
+                    <Clock className="size-4" />
                     <span>Timeout: {formatTime(status.config.defaultTimeout)}</span>
                   </div>
-                  <div className="flex items-center gap-2 py-2 px-4 bg-[var(--primary-alpha-5)] border border-[var(--border-subtle)] rounded-md text-sm text-[var(--text-secondary)] [&>svg]:text-[var(--primary-color)]">
-                    <Info className="w-4 h-4" />
+                  <div className="flex items-center gap-2 py-2 px-4 bg-primary/5 border border-border/50 rounded-md text-sm text-muted-foreground [&>svg]:text-primary">
+                    <Info className="size-4" />
                     <span>Rate: {status.config.rateLimit}</span>
                   </div>
                 </>
@@ -236,7 +237,7 @@ function ClaudeTerminal() {
         </div>
 
         {/* Main Terminal Card */}
-        <div className="settings-card border-[var(--border-glow)]">
+        <div className="settings-card border-primary/30">
           <div className="settings-card-header">
             <h3 className="settings-card-title">Terminal</h3>
             <p className="settings-card-description">
@@ -248,7 +249,7 @@ function ClaudeTerminal() {
               <div className="flex gap-3 items-end max-md:flex-col">
                 <textarea
                   ref={inputRef}
-                  className="flex-1 p-4 bg-[var(--bg-elevated)] border-2 border-[var(--border-subtle)] rounded-lg text-[var(--text-primary)] font-mono text-sm leading-relaxed resize-none transition-all duration-300 min-h-[60px] focus:outline-none focus:border-[var(--primary-color)] focus:bg-[var(--bg-card)] focus:shadow-[0_0_0_3px_var(--primary-alpha-10)] placeholder:text-[var(--text-muted)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 p-4 bg-muted border-2 border-border/50 rounded-lg text-foreground font-mono text-sm leading-relaxed resize-none transition-all duration-300 min-h-[60px] focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus:bg-card placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -256,25 +257,26 @@ function ClaudeTerminal() {
                   disabled={actionLoading || !isAvailable}
                   rows={2}
                 />
-                <button
+                <Button
                   type="submit"
-                  className="p-4 px-5 bg-[var(--gradient-primary)] border-none rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center text-xl shadow-[var(--shadow-md)] shrink-0 min-h-[60px] hover:enabled:-translate-y-0.5 hover:enabled:shadow-[var(--shadow-lg)] disabled:opacity-50 disabled:cursor-not-allowed max-md:w-full max-md:min-h-[48px]"
+                  size="lg"
+                  className="shrink-0 min-h-[60px] px-5 max-md:w-full max-md:min-h-[48px]"
                   disabled={!query.trim() || actionLoading || !isAvailable}
                 >
                   {actionLoading ? (
-                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    <RefreshCw className="size-5 animate-spin" />
                   ) : (
-                    <Send className="w-5 h-5" />
+                    <Send className="size-5" />
                   )}
-                </button>
+                </Button>
               </div>
               <div className="flex items-center">
-                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                   <input
                     type="checkbox"
                     checked={includeContext}
                     onChange={e => setIncludeContext(e.target.checked)}
-                    className="w-4 h-4 accent-[var(--primary-color)] cursor-pointer"
+                    className="size-4 accent-primary cursor-pointer"
                   />
                   <span>System-Kontext einbeziehen (Metriken, Logs, Services)</span>
                 </label>
@@ -282,49 +284,43 @@ function ClaudeTerminal() {
             </form>
 
             {error && (
-              <div className="flex items-center gap-3 p-4 bg-[rgba(239,68,68,0.1)] border-2 border-[rgba(239,68,68,0.3)] rounded-lg text-[var(--error-color)] text-sm mt-4 animate-[slideInDown_0.3s_ease]">
-                <AlertCircle className="w-5 h-5 shrink-0" />
+              <div className="flex items-center gap-3 p-4 bg-destructive/10 border-2 border-destructive/30 rounded-lg text-destructive text-sm mt-4 animate-[slideInDown_0.3s_ease]">
+                <AlertCircle className="size-5 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             {(response || actionLoading) && (
-              <div className="mt-6 border border-[var(--border-subtle)] rounded-lg overflow-hidden animate-[fadeIn_0.3s_ease]">
-                <div className="flex items-center justify-between py-3 px-4 bg-[var(--primary-alpha-5)] border-b border-[var(--border-subtle)]">
-                  <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+              <div className="mt-6 border border-border/50 rounded-lg overflow-hidden animate-[fadeIn_0.3s_ease]">
+                <div className="flex items-center justify-between py-3 px-4 bg-primary/5 border-b border-border/50">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {actionLoading ? 'Generiere Antwort...' : 'Antwort'}
                   </span>
                   {response && !actionLoading && (
-                    <button
-                      type="button"
-                      className="bg-transparent border border-[var(--border-subtle)] rounded py-1.5 px-2 text-[var(--text-muted)] cursor-pointer transition-all duration-200 flex items-center gap-1 text-xs hover:bg-[var(--primary-alpha-10)] hover:border-[var(--primary-color)] hover:text-[var(--primary-color)]"
+                    <Button
+                      variant="outline"
+                      size="xs"
                       onClick={copyResponse}
                       title="Antwort kopieren"
                     >
-                      {copied ? (
-                        <Check className="w-3.5 h-3.5" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                    </Button>
                   )}
                 </div>
                 <div
                   ref={responseRef}
                   className={cn(
-                    'p-5 bg-[var(--bg-elevated)] text-[var(--text-primary)] font-mono text-sm leading-[1.7] whitespace-pre-wrap break-words max-h-[400px] overflow-y-auto max-md:max-h-[300px] max-md:text-sm max-md:p-4',
+                    'p-5 bg-muted text-foreground font-mono text-sm leading-[1.7] whitespace-pre-wrap break-words max-h-[400px] overflow-y-auto max-md:max-h-[300px] max-md:text-sm max-md:p-4',
                     actionLoading && 'min-h-[60px]'
                   )}
                 >
                   {response ||
                     (actionLoading && (
-                      <span className="animate-[blink_1s_infinite] text-[var(--primary-color)]">
-                        ▊
-                      </span>
+                      <span className="animate-[blink_1s_infinite] text-primary">▊</span>
                     ))}
                 </div>
                 {stats && (
-                  <div className="flex items-center gap-3 py-3 px-4 bg-[rgba(69,173,255,0.03)] border-t border-[var(--border-subtle)] text-xs text-[var(--text-muted)]">
+                  <div className="flex items-center gap-3 py-3 px-4 bg-primary/5 border-t border-border/50 text-xs text-muted-foreground">
                     <span>{stats.tokens} Tokens</span>
                     <span>&bull;</span>
                     <span>{formatTime(stats.time)}</span>
@@ -334,24 +330,18 @@ function ClaudeTerminal() {
             )}
 
             {!isAvailable && status && (
-              <div className="flex items-start gap-4 p-6 bg-[rgba(245,158,11,0.1)] border-2 border-[rgba(245,158,11,0.3)] rounded-lg mt-4 max-sm:flex-col max-sm:p-5">
-                <AlertCircle className="w-6 h-6 text-[var(--warning-color)] shrink-0 mt-1" />
+              <div className="flex items-start gap-4 p-6 bg-amber-500/10 border-2 border-amber-500/30 rounded-lg mt-4 max-sm:flex-col max-sm:p-5">
+                <AlertCircle className="size-6 text-amber-500 shrink-0 mt-1" />
                 <div>
-                  <strong className="block text-[var(--warning-color)] mb-2">
-                    LLM Service nicht verfügbar
-                  </strong>
-                  <p className="text-[var(--text-secondary)] text-sm m-0 mb-4">
+                  <strong className="block text-amber-500 mb-2">LLM Service nicht verfügbar</strong>
+                  <p className="text-muted-foreground text-sm m-0 mb-4">
                     Der LLM Service startet möglicherweise gerade. Bitte versuchen Sie es in einigen
                     Momenten erneut.
                   </p>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 py-2 px-4 bg-[rgba(245,158,11,0.2)] border border-[rgba(245,158,11,0.4)] rounded-md text-[var(--warning-color)] text-sm cursor-pointer transition-all duration-200 hover:bg-[rgba(245,158,11,0.3)]"
-                    onClick={checkStatus}
-                  >
-                    <RefreshCw className="w-4 h-4" />
+                  <Button variant="outline" size="sm" onClick={checkStatus}>
+                    <RefreshCw className="size-4" />
                     Status erneut prüfen
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -361,7 +351,7 @@ function ClaudeTerminal() {
         {/* History Card */}
         <div className="settings-card">
           <div
-            className="settings-card-header cursor-pointer flex items-center justify-between hover:bg-[var(--primary-alpha-5)]"
+            className="settings-card-header cursor-pointer flex items-center justify-between hover:bg-primary/5"
             onClick={() => setShowHistory(!showHistory)}
           >
             <div>
@@ -372,21 +362,22 @@ function ClaudeTerminal() {
             </div>
             <div className="flex items-center gap-3">
               {history.length > 0 && (
-                <button
-                  className="bg-transparent border border-[var(--border-subtle)] rounded-md py-1.5 px-2 text-[var(--text-muted)] cursor-pointer transition-all duration-200 flex items-center hover:bg-[rgba(239,68,68,0.1)] hover:border-[rgba(239,68,68,0.3)] hover:text-[var(--error-color)]"
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={e => {
                     e.stopPropagation();
                     clearHistory();
                   }}
                   title="Verlauf löschen"
                 >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                  <Trash2 className="size-4" />
+                </Button>
               )}
               {showHistory ? (
-                <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" />
+                <ChevronUp className="size-4 text-muted-foreground" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
+                <ChevronDown className="size-4 text-muted-foreground" />
               )}
             </div>
           </div>
@@ -394,8 +385,8 @@ function ClaudeTerminal() {
             <div className="settings-card-body">
               {history.length === 0 ? (
                 <div className="text-center p-4">
-                  <p className="text-[var(--text-muted)] text-sm">Noch keine Anfragen gestellt</p>
-                  <p className="text-[var(--text-disabled)] text-xs mt-1">
+                  <p className="text-muted-foreground text-sm">Noch keine Anfragen gestellt</p>
+                  <p className="text-muted-foreground/60 text-xs mt-1">
                     Versuche eine Anfrage wie &bdquo;Wie ist der aktuelle Systemstatus?&ldquo;
                   </p>
                 </div>
@@ -404,27 +395,27 @@ function ClaudeTerminal() {
                   {history.map(item => (
                     <div
                       key={item.id}
-                      className="p-3.5 bg-[rgba(69,173,255,0.03)] border border-[var(--border-subtle)] rounded-lg cursor-pointer transition-all duration-200 hover:bg-[var(--primary-alpha-8)] hover:border-[var(--border-glow)] hover:translate-x-1 max-sm:p-3"
+                      className="p-3.5 bg-primary/5 border border-border/50 rounded-lg cursor-pointer transition-all duration-200 hover:bg-primary/[0.08] hover:border-primary/30 hover:translate-x-1 max-sm:p-3"
                       onClick={() => {
                         setQuery(item.query);
                         inputRef.current?.focus();
                       }}
                     >
-                      <div className="font-mono text-sm text-[var(--text-primary)] mb-2 max-sm:text-xs">
+                      <div className="font-mono text-sm text-foreground mb-2 max-sm:text-xs">
                         {item.query.length > 80 ? item.query.substring(0, 80) + '...' : item.query}
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-[var(--text-muted)] flex-wrap max-md:gap-2">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap max-md:gap-2">
                         <span
                           className={cn(
                             'flex items-center gap-1 uppercase tracking-wide font-medium',
                             item.status === 'completed' && 'text-[var(--status-neutral)]',
-                            item.status === 'error' && 'text-[var(--error-color)]',
-                            item.status === 'timeout' && 'text-[var(--warning-color)]'
+                            item.status === 'error' && 'text-destructive',
+                            item.status === 'timeout' && 'text-amber-500'
                           )}
                         >
-                          {item.status === 'completed' && <CheckCircle className="w-3.5 h-3.5" />}
-                          {item.status === 'error' && <AlertCircle className="w-3.5 h-3.5" />}
-                          {item.status === 'timeout' && <Clock className="w-3.5 h-3.5" />}
+                          {item.status === 'completed' && <CheckCircle className="size-3.5" />}
+                          {item.status === 'error' && <AlertCircle className="size-3.5" />}
+                          {item.status === 'timeout' && <Clock className="size-3.5" />}
                           {item.status}
                         </span>
                         <span>{formatDate(item.created_at)}</span>
@@ -455,7 +446,7 @@ function ClaudeTerminal() {
                 <button
                   key={index}
                   type="button"
-                  className="py-2.5 px-4 bg-[var(--primary-alpha-5)] border border-[var(--primary-alpha-20)] rounded-full text-[var(--text-secondary)] text-sm cursor-pointer transition-all duration-200 hover:enabled:bg-[var(--primary-alpha-12)] hover:enabled:border-[var(--primary-color)] hover:enabled:text-[var(--primary-color)] hover:enabled:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed max-md:w-full max-md:text-center"
+                  className="py-2.5 px-4 bg-primary/5 border border-primary/20 rounded-full text-muted-foreground text-sm cursor-pointer transition-all duration-200 hover:enabled:bg-primary/[0.12] hover:enabled:border-primary hover:enabled:text-primary hover:enabled:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed max-md:w-full max-md:text-center"
                   onClick={() => {
                     setQuery(example);
                     inputRef.current?.focus();

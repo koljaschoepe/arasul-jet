@@ -99,14 +99,10 @@ const SelfHealingEvents = () => {
         variant="outline"
         className={cn(
           'badge gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold',
-          severity === 'INFO' &&
-            'border-[var(--primary-color)] bg-[rgba(69,173,255,0.1)] text-[var(--primary-color)]',
-          severity === 'WARNING' &&
-            'border-[var(--warning-color)] bg-[rgba(245,158,11,0.1)] text-[var(--warning-color)]',
-          severity === 'CRITICAL' &&
-            'border-[var(--danger-color)] bg-[rgba(239,68,68,0.1)] text-[var(--danger-color)]',
-          !severityMap[severity] &&
-            'border-[var(--text-muted)] bg-[rgba(148,163,184,0.1)] text-[var(--text-muted)]'
+          severity === 'INFO' && 'border-primary bg-primary/10 text-primary',
+          severity === 'WARNING' && 'border-amber-500 bg-amber-500/10 text-amber-500',
+          severity === 'CRITICAL' && 'border-destructive bg-destructive/10 text-destructive',
+          !severityMap[severity] && 'border-muted-foreground bg-muted text-muted-foreground'
         )}
       >
         <IconComponent className="size-3.5 shrink-0" />
@@ -166,23 +162,19 @@ const SelfHealingEvents = () => {
   return (
     <div className="self-healing-events">
       {/* Header */}
-      <div className="events-header flex justify-between items-start mb-8 pb-6 border-b border-[var(--border-subtle)] flex-wrap gap-6">
+      <div className="events-header flex justify-between items-start mb-8 pb-6 border-b border-border/50 flex-wrap gap-6">
         <div>
-          <h2 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
-            Selbstheilungs-Ereignisse
-          </h2>
-          <p className="text-[var(--text-muted)] text-sm m-0">
-            Systemwiederherstellung und Wartung
-          </p>
+          <h2 className="text-3xl font-bold text-foreground mb-2">Selbstheilungs-Ereignisse</h2>
+          <p className="text-muted-foreground text-sm m-0">Systemwiederherstellung und Wartung</p>
         </div>
 
         <div className="flex gap-4 items-center max-md:flex-col max-md:items-stretch">
-          <label className="flex items-center gap-2.5 py-3 px-5 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-md cursor-pointer transition-all font-medium text-sm text-[var(--text-secondary)] hover:bg-[var(--primary-alpha-8)] hover:border-[var(--border-glow)] hover:text-[var(--text-primary)]">
+          <label className="flex items-center gap-2.5 py-3 px-5 bg-muted border border-border/50 rounded-md cursor-pointer transition-all font-medium text-sm text-muted-foreground hover:bg-primary/8 hover:border-primary/30 hover:text-foreground">
             <input
               type="checkbox"
               checked={autoRefresh}
               onChange={e => setAutoRefresh(e.target.checked)}
-              className="cursor-pointer w-4 h-4 accent-[var(--primary-color)]"
+              className="cursor-pointer size-4 accent-primary"
             />
             <span>Auto-Aktualisierung (15s)</span>
           </label>
@@ -190,7 +182,7 @@ const SelfHealingEvents = () => {
           <Button
             type="button"
             onClick={() => fetchEvents()}
-            className="py-3 px-6 bg-gradient-to-r from-[var(--primary-color)] to-[var(--primary-hover)] text-white border-none rounded-md font-semibold text-sm cursor-pointer transition-all flex items-center gap-2 shadow-sm hover:-translate-y-0.5 hover:shadow-md"
+            className="py-3 px-6 bg-gradient-to-r from-primary to-primary/80 text-white border-none rounded-md font-semibold text-sm cursor-pointer transition-all flex items-center gap-2 shadow-sm hover:-translate-y-0.5 hover:shadow-md"
           >
             <RefreshCw className="size-4" /> Aktualisieren
           </Button>
@@ -199,35 +191,31 @@ const SelfHealingEvents = () => {
 
       {/* Statistics */}
       <div className="events-stats grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <div className="bg-[rgba(16,25,35,0.4)] p-7 rounded-xl border border-[rgba(69,173,255,0.15)] shadow-md border-l-[3px] border-l-[var(--neutral-alpha-30)] transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
-          <div className="text-4xl font-bold text-[var(--text-primary)] mb-2 leading-none">
-            {stats.total}
-          </div>
-          <div className="text-[var(--text-muted)] text-sm font-semibold uppercase tracking-wide">
+        <div className="bg-card/80 backdrop-blur-sm p-7 rounded-xl border border-border shadow-md border-l-[3px] border-l-border transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
+          <div className="text-4xl font-bold text-foreground mb-2 leading-none">{stats.total}</div>
+          <div className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
             Gesamt
           </div>
         </div>
-        <div className="bg-[rgba(16,25,35,0.4)] p-7 rounded-xl border border-[rgba(69,173,255,0.15)] shadow-md border-l-[3px] border-l-[var(--primary-color)] transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
-          <div className="text-4xl font-bold text-[var(--text-primary)] mb-2 leading-none">
-            {stats.INFO}
-          </div>
-          <div className="text-[var(--text-muted)] text-sm font-semibold uppercase tracking-wide">
+        <div className="bg-card/80 backdrop-blur-sm p-7 rounded-xl border border-border shadow-md border-l-[3px] border-l-primary transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
+          <div className="text-4xl font-bold text-foreground mb-2 leading-none">{stats.INFO}</div>
+          <div className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
             Info
           </div>
         </div>
-        <div className="bg-[rgba(16,25,35,0.4)] p-7 rounded-xl border border-[rgba(69,173,255,0.15)] shadow-md border-l-[3px] border-l-[var(--warning-color)] transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
-          <div className="text-4xl font-bold text-[var(--text-primary)] mb-2 leading-none">
+        <div className="bg-card/80 backdrop-blur-sm p-7 rounded-xl border border-border shadow-md border-l-[3px] border-l-amber-500 transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
+          <div className="text-4xl font-bold text-foreground mb-2 leading-none">
             {stats.WARNING}
           </div>
-          <div className="text-[var(--text-muted)] text-sm font-semibold uppercase tracking-wide">
+          <div className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
             Warnungen
           </div>
         </div>
-        <div className="bg-[rgba(16,25,35,0.4)] p-7 rounded-xl border border-[rgba(69,173,255,0.15)] shadow-md border-l-[3px] border-l-[var(--danger-color)] transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
-          <div className="text-4xl font-bold text-[var(--text-primary)] mb-2 leading-none">
+        <div className="bg-card/80 backdrop-blur-sm p-7 rounded-xl border border-border shadow-md border-l-[3px] border-l-destructive transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg">
+          <div className="text-4xl font-bold text-foreground mb-2 leading-none">
             {stats.CRITICAL}
           </div>
-          <div className="text-[var(--text-muted)] text-sm font-semibold uppercase tracking-wide">
+          <div className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
             Kritisch
           </div>
         </div>
@@ -245,9 +233,9 @@ const SelfHealingEvents = () => {
             key={value}
             type="button"
             className={cn(
-              'filter-btn py-3 px-6 border border-[rgba(69,173,255,0.2)] bg-[rgba(69,173,255,0.05)] rounded-md font-semibold text-sm cursor-pointer transition-all text-[var(--text-secondary)] hover:border-[rgba(69,173,255,0.4)] hover:bg-[rgba(69,173,255,0.12)] hover:text-[var(--text-primary)]',
+              'filter-btn py-3 px-6 border border-primary/20 bg-primary/5 rounded-md font-semibold text-sm cursor-pointer transition-all text-muted-foreground hover:border-primary/40 hover:bg-primary/[0.12] hover:text-foreground',
               filter === value &&
-                'active bg-gradient-to-r from-[var(--primary-color)] to-[var(--primary-hover)] border-transparent text-white shadow-md -translate-y-0.5'
+                'active bg-gradient-to-r from-primary to-primary/80 border-transparent text-white shadow-md -translate-y-0.5'
             )}
             onClick={() => setFilter(value)}
             aria-pressed={filter === value}
@@ -259,7 +247,7 @@ const SelfHealingEvents = () => {
 
       {/* Error Message */}
       {error && (
-        <div className="flex items-center gap-4 p-4 px-5 bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] text-[var(--error-color)] rounded-md mb-6 border-l-[3px] border-l-[var(--danger-color)] text-sm">
+        <div className="flex items-center gap-4 p-4 px-5 bg-destructive/10 border border-destructive/30 text-destructive rounded-md mb-6 border-l-[3px] border-l-destructive text-sm">
           <AlertTriangle className="size-5 shrink-0" />
           <span>{error}</span>
         </div>
@@ -289,21 +277,21 @@ const SelfHealingEvents = () => {
             <div
               key={event.id}
               className={cn(
-                'bg-[rgba(16,25,35,0.4)] rounded-xl p-6 border border-[rgba(69,173,255,0.15)] shadow-md border-l-[3px] border-l-[var(--neutral-alpha-30)] transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg',
-                event.severity?.toLowerCase() === 'info' && 'border-l-[var(--primary-color)]',
-                event.severity?.toLowerCase() === 'warning' && 'border-l-[var(--warning-color)]',
-                event.severity?.toLowerCase() === 'critical' && 'border-l-[var(--danger-color)]'
+                'bg-card/80 backdrop-blur-sm rounded-xl p-6 border border-border shadow-md border-l-[3px] border-l-border transition-all backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg',
+                event.severity?.toLowerCase() === 'info' && 'border-l-primary',
+                event.severity?.toLowerCase() === 'warning' && 'border-l-amber-500',
+                event.severity?.toLowerCase() === 'critical' && 'border-l-destructive'
               )}
             >
               <div className="flex items-center gap-5 mb-5">
-                <div className="text-2xl w-12 h-12 flex items-center justify-center bg-[rgba(69,173,255,0.1)] rounded-md shrink-0 text-[var(--primary-color)]">
+                <div className="text-2xl size-12 flex items-center justify-center bg-primary/10 rounded-md shrink-0 text-primary">
                   {getEventTypeIcon(event.event_type)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-base font-semibold text-[var(--text-primary)] capitalize mb-1 m-0">
+                  <h4 className="text-base font-semibold text-foreground capitalize mb-1 m-0">
                     {event.event_type?.replace(/_/g, ' ').toUpperCase()}
                   </h4>
-                  <span className="text-sm text-[var(--text-muted)]">
+                  <span className="text-sm text-muted-foreground">
                     {formatRelativeDate(event.timestamp)}
                   </span>
                 </div>
@@ -311,49 +299,43 @@ const SelfHealingEvents = () => {
               </div>
 
               <div className="flex flex-col gap-3.5">
-                <p className="text-[var(--text-secondary)] leading-relaxed text-sm m-0">
+                <p className="text-muted-foreground leading-relaxed text-sm m-0">
                   {event.description}
                 </p>
 
                 {event.action_taken && (
-                  <div className="flex gap-3 p-3.5 px-4 bg-[var(--status-neutral-bg)] border border-[var(--border-subtle)] rounded-md border-l-[3px] border-l-[var(--status-neutral)] transition-all hover:translate-x-1">
-                    <span className="font-semibold text-[var(--text-muted)] text-sm min-w-[120px] shrink-0">
+                  <div className="flex gap-3 p-3.5 px-4 bg-muted border border-border/50 rounded-md border-l-[3px] border-l-green-500 transition-all hover:translate-x-1">
+                    <span className="font-semibold text-muted-foreground text-sm min-w-[120px] shrink-0">
                       Maßnahme:
                     </span>
-                    <span className="text-[var(--text-primary)] flex-1 text-sm">
-                      {event.action_taken}
-                    </span>
+                    <span className="text-foreground flex-1 text-sm">{event.action_taken}</span>
                   </div>
                 )}
 
                 {event.service_name && (
-                  <div className="flex gap-3 p-3.5 px-4 bg-[rgba(69,173,255,0.05)] border border-[var(--border-subtle)] rounded-md transition-all hover:translate-x-1">
-                    <span className="font-semibold text-[var(--text-muted)] text-sm min-w-[120px] shrink-0">
+                  <div className="flex gap-3 p-3.5 px-4 bg-primary/5 border border-border/50 rounded-md transition-all hover:translate-x-1">
+                    <span className="font-semibold text-muted-foreground text-sm min-w-[120px] shrink-0">
                       Service:
                     </span>
-                    <span className="text-[var(--text-primary)] flex-1 text-sm">
-                      {event.service_name}
-                    </span>
+                    <span className="text-foreground flex-1 text-sm">{event.service_name}</span>
                   </div>
                 )}
 
                 {event.duration_ms && (
-                  <div className="flex gap-3 p-3.5 px-4 bg-[rgba(69,173,255,0.05)] border border-[var(--border-subtle)] rounded-md transition-all hover:translate-x-1">
-                    <span className="font-semibold text-[var(--text-muted)] text-sm min-w-[120px] shrink-0">
+                  <div className="flex gap-3 p-3.5 px-4 bg-primary/5 border border-border/50 rounded-md transition-all hover:translate-x-1">
+                    <span className="font-semibold text-muted-foreground text-sm min-w-[120px] shrink-0">
                       Dauer:
                     </span>
-                    <span className="text-[var(--text-primary)] flex-1 text-sm">
-                      {event.duration_ms}ms
-                    </span>
+                    <span className="text-foreground flex-1 text-sm">{event.duration_ms}ms</span>
                   </div>
                 )}
 
                 {event.error_message && (
-                  <div className="p-4 bg-[rgba(239,68,68,0.08)] border border-[var(--danger-alpha-20)] border-l-[3px] border-l-[var(--danger-color)] rounded-md">
-                    <span className="font-semibold text-[var(--error-color)] block mb-1.5 text-sm">
+                  <div className="p-4 bg-destructive/10 border border-destructive/20 border-l-[3px] border-l-destructive rounded-md">
+                    <span className="font-semibold text-destructive block mb-1.5 text-sm">
                       Fehler:
                     </span>
-                    <span className="text-[var(--text-secondary)] font-mono text-sm block leading-relaxed">
+                    <span className="text-muted-foreground font-mono text-sm block leading-relaxed">
                       {event.error_message}
                     </span>
                   </div>

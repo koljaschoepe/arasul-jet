@@ -92,7 +92,7 @@ export function useFetchData<T>(
     return () => {
       controller.abort();
     };
-  }, [load, fetcher]);
+  }, [load]); // fetcherRef handles fetcher identity — no need to re-run on fetcher change
 
   const refetch = useCallback(() => {
     // Abort any in-flight request

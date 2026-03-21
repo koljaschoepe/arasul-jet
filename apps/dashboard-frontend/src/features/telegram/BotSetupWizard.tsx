@@ -23,6 +23,7 @@ import {
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { sanitizeUrl } from '../../utils/sanitizeUrl';
+import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
@@ -555,7 +556,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
   return (
     <div className="flex flex-col min-h-[420px]">
       {/* Step Indicator */}
-      <div className="flex gap-2 px-2 pb-6 border-b border-[var(--border-color)] mb-6 max-md:flex-col max-md:gap-1.5">
+      <div className="flex gap-2 px-2 pb-6 border-b border-border mb-6 max-md:flex-col max-md:gap-1.5">
         {STEPS.map(step => (
           <div
             key={step.id}
@@ -566,18 +567,16 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
           >
             <div
               className={cn(
-                'flex items-center justify-center w-7 h-7 rounded-full bg-[var(--bg-dark)] border-2 border-[var(--border-color)] text-[var(--text-muted)] text-xs font-semibold shrink-0 transition-all',
-                currentStep === step.id &&
-                  'bg-[var(--primary-color)] border-[var(--primary-color)] text-white',
-                currentStep > step.id &&
-                  'bg-[var(--success-color)] border-[var(--success-color)] text-white'
+                'flex items-center justify-center size-7 rounded-full bg-background border-2 border-border text-muted-foreground text-xs font-semibold shrink-0 transition-all',
+                currentStep === step.id && 'bg-primary border-primary text-white',
+                currentStep > step.id && 'bg-green-500 border-green-500 text-white'
               )}
             >
-              {currentStep > step.id ? <Check className="w-3.5 h-3.5" /> : step.id}
+              {currentStep > step.id ? <Check className="size-3.5" /> : step.id}
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-[var(--text-primary)]">{step.title}</span>
-              <span className="text-[0.7rem] text-[var(--text-muted)]">{step.description}</span>
+              <span className="text-sm font-medium text-foreground">{step.title}</span>
+              <span className="text-[0.7rem] text-muted-foreground">{step.description}</span>
             </div>
           </div>
         ))}
@@ -585,8 +584,8 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 py-2.5 px-3.5 mx-1 mb-4 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] rounded-lg text-[var(--danger-color)] text-sm">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+        <div className="flex items-center gap-2 py-2.5 px-3.5 mx-1 mb-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
+          <AlertCircle className="size-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -599,7 +598,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
             <div className="mb-5">
               <label
                 htmlFor="wizard-token"
-                className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium"
+                className="block mb-1.5 text-foreground text-sm font-medium"
               >
                 Bot Token
               </label>
@@ -620,15 +619,15 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 />
                 <button
                   type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-muted-foreground cursor-pointer p-1"
                   onClick={() => setShowToken(!showToken)}
                 >
-                  {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
               {validated && botInfo && (
-                <div className="flex items-center gap-1.5 mt-2 text-sm text-[var(--success-color)]">
-                  <Check className="w-4 h-4" /> Token gültig: <strong>{botInfo.first_name}</strong>{' '}
+                <div className="flex items-center gap-1.5 mt-2 text-sm text-green-500">
+                  <Check className="size-4" /> Token gültig: <strong>{botInfo.first_name}</strong>{' '}
                   (@
                   {botInfo.username})
                 </div>
@@ -640,7 +639,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 <div className="mb-5">
                   <label
                     htmlFor="wizard-name"
-                    className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium"
+                    className="block mb-1.5 text-foreground text-sm font-medium"
                   >
                     Bot Name
                   </label>
@@ -656,7 +655,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 </div>
 
                 <div className="mb-5">
-                  <label className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium">
+                  <label className="block mb-1.5 text-foreground text-sm font-medium">
                     Bot-Vorlage
                   </label>
                   <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
@@ -668,18 +667,18 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                           key={tpl.id}
                           type="button"
                           className={cn(
-                            'flex flex-col items-center gap-2 py-5 px-4 bg-[var(--bg-card)] border-2 border-[var(--border-color)] rounded-xl cursor-pointer transition-all text-center text-[var(--text-muted)] hover:border-[var(--primary-color)] hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(69,173,255,0.1)] focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:outline-offset-2',
-                            isSelected && 'border-[var(--primary-color)] bg-[rgba(69,173,255,0.08)]'
+                            'flex flex-col items-center gap-2 py-5 px-4 bg-card border-2 border-border rounded-xl cursor-pointer transition-all text-center text-muted-foreground hover:border-primary hover:-translate-y-0.5 hover:shadow-[0_4px_16px] hover:shadow-primary/10 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
+                            isSelected && 'border-primary bg-primary/[0.08]'
                           )}
                           onClick={() => selectTemplate(tpl.id)}
                         >
                           <Icon
                             className={cn(
-                              'w-6 h-6 text-[var(--text-muted)] transition-colors',
-                              isSelected && 'text-[var(--primary-color)]'
+                              'size-6 text-muted-foreground transition-colors',
+                              isSelected && 'text-primary'
                             )}
                           />
-                          <strong className="text-sm text-[var(--text-primary)]">{tpl.name}</strong>
+                          <strong className="text-sm text-foreground">{tpl.name}</strong>
                           <span className="text-xs leading-[1.4]">{tpl.description}</span>
                         </button>
                       );
@@ -696,13 +695,11 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
           <div>
             {formData.template === 'master' ? (
               <>
-                <div className="flex items-start gap-3.5 p-4 bg-[rgba(69,173,255,0.08)] border border-[rgba(69,173,255,0.2)] rounded-xl mb-5">
-                  <Star className="w-6 h-6 text-[var(--primary-color)] shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3.5 p-4 bg-primary/[0.08] border border-primary/20 rounded-xl mb-5">
+                  <Star className="size-6 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <strong className="block text-[var(--text-primary)] text-sm mb-1">
-                      Arasul Assistent
-                    </strong>
-                    <p className="m-0 text-[var(--text-muted)] text-sm leading-[1.4]">
+                    <strong className="block text-foreground text-sm mb-1">Arasul Assistent</strong>
+                    <p className="m-0 text-muted-foreground text-sm leading-[1.4]">
                       Globaler RAG-Zugriff auf alle Spaces. Quellen werden in Antworten angezeigt.
                     </p>
                   </div>
@@ -711,7 +708,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 <div className="mb-5">
                   <label
                     htmlFor="wizard-prompt"
-                    className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium"
+                    className="block mb-1.5 text-foreground text-sm font-medium"
                   >
                     System-Prompt
                   </label>
@@ -731,7 +728,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 <div className="mb-5">
                   <label
                     htmlFor="wizard-prompt-custom"
-                    className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium"
+                    className="block mb-1.5 text-foreground text-sm font-medium"
                   >
                     System-Prompt
                   </label>
@@ -747,31 +744,31 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 </div>
 
                 <div className="mb-5">
-                  <label className="flex items-center gap-2 cursor-pointer text-[var(--text-primary)] text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer text-foreground text-sm">
                     <input
                       type="checkbox"
                       checked={formData.ragEnabled}
                       onChange={(e: ChangeEvent<HTMLInputElement>) =>
                         setFormData(prev => ({ ...prev, ragEnabled: e.target.checked }))
                       }
-                      className="w-auto accent-[var(--primary-color)]"
+                      className="w-auto accent-primary"
                     />
-                    <BookOpen className="w-4 h-4" /> RAG aktivieren (Dokument-Wissen nutzen)
+                    <BookOpen className="size-4" /> RAG aktivieren (Dokument-Wissen nutzen)
                   </label>
                 </div>
 
                 {formData.ragEnabled && spaces.length > 0 && (
                   <div className="mb-5">
-                    <label className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium">
+                    <label className="block mb-1.5 text-foreground text-sm font-medium">
                       Space-Zuordnung
                     </label>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         className={cn(
-                          'py-1.5 px-3 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-full text-[var(--text-muted)] text-xs cursor-pointer transition-all hover:border-[var(--primary-color)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:outline-offset-2',
+                          'py-1.5 px-3 bg-background border border-border rounded-full text-muted-foreground text-xs cursor-pointer transition-all hover:border-primary hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
                           formData.ragSpaceIds === null &&
-                            'bg-[rgba(69,173,255,0.15)] border-[var(--primary-color)] text-[var(--primary-color)]'
+                            'bg-primary/15 border-primary text-primary'
                         )}
                         onClick={() => setFormData(prev => ({ ...prev, ragSpaceIds: null }))}
                       >
@@ -782,9 +779,9 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                           key={space.id}
                           type="button"
                           className={cn(
-                            'py-1.5 px-3 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-full text-[var(--text-muted)] text-xs cursor-pointer transition-all hover:border-[var(--primary-color)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:outline-offset-2',
+                            'py-1.5 px-3 bg-background border border-border rounded-full text-muted-foreground text-xs cursor-pointer transition-all hover:border-primary hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
                             formData.ragSpaceIds?.includes(space.id) &&
-                              'bg-[rgba(69,173,255,0.15)] border-[var(--primary-color)] text-[var(--primary-color)]'
+                              'bg-primary/15 border-primary text-primary'
                           )}
                           onClick={() => {
                             if (formData.ragSpaceIds === null) {
@@ -806,7 +803,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
             <div className="mb-5">
               <label
                 htmlFor="wizard-model"
-                className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium"
+                className="block mb-1.5 text-foreground text-sm font-medium"
               >
                 LLM-Modell
               </label>
@@ -837,7 +834,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                   })}
                 </SelectContent>
               </Select>
-              <small className="block mt-1.5 text-[var(--text-muted)] text-xs">
+              <small className="block mt-1.5 text-muted-foreground text-xs">
                 Lokales Modell via Ollama
               </small>
             </div>
@@ -849,65 +846,52 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
           <div>
             {chatDetected ? (
               <div className="flex flex-col items-center text-center p-8">
-                <div className="w-16 h-16 flex items-center justify-center bg-[rgba(34,197,94,0.15)] rounded-full text-[var(--success-color)] mb-4">
+                <div className="size-16 flex items-center justify-center bg-green-500/15 rounded-full text-green-500 mb-4">
                   <Check size={32} />
                 </div>
-                <h3 className="text-[var(--text-primary)] m-0 mb-2">Chat verbunden!</h3>
+                <h3 className="text-foreground m-0 mb-2">Chat verbunden!</h3>
                 {chatInfo && (
-                  <p className="text-[var(--text-muted)] text-sm m-0 mb-6">
+                  <p className="text-muted-foreground text-sm m-0 mb-6">
                     {chatInfo.firstName || chatInfo.username || 'Chat'} (ID: {chatInfo.chatId})
                   </p>
                 )}
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 py-2 px-5 bg-[var(--primary-color)] text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-all hover:opacity-90 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:outline-offset-2"
-                  onClick={handleCreate}
-                  disabled={creating}
-                >
+                <Button onClick={handleCreate} disabled={creating}>
                   {creating ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Bot wird erstellt...
+                      <Loader2 className="size-4 animate-spin" /> Bot wird erstellt...
                     </>
                   ) : (
                     <>
-                      <Check className="w-4 h-4" /> Bot erstellen
+                      <Check className="size-4" /> Bot erstellen
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             ) : waitingForChat ? (
               <div className="flex flex-col items-center text-center p-8">
-                <div className="text-[var(--primary-color)] mb-4">
-                  <Loader2 className="w-6 h-6 animate-spin" />
+                <div className="text-primary mb-4">
+                  <Loader2 className="size-6 animate-spin" />
                 </div>
-                <h3 className="text-[var(--text-primary)] m-0 mb-2">Warte auf Nachricht...</h3>
-                <p className="text-[var(--text-muted)] text-sm m-0 mb-5">
+                <h3 className="text-foreground m-0 mb-2">Warte auf Nachricht...</h3>
+                <p className="text-muted-foreground text-sm m-0 mb-5">
                   Öffne den Bot in Telegram und sende{' '}
-                  <code className="bg-[var(--bg-card)] py-0.5 px-2 rounded text-sm">/start</code>
+                  <code className="bg-card py-0.5 px-2 rounded text-sm">/start</code>
                 </p>
 
                 {deepLink && (
-                  <a
-                    href={sanitizeUrl(deepLink)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 py-2.5 px-5 bg-[var(--primary-color)] text-white rounded-lg no-underline text-sm font-medium transition-all mb-5 hover:opacity-90 hover:-translate-y-px"
-                  >
-                    <ExternalLink className="w-4 h-4" /> In Telegram öffnen
-                  </a>
+                  <Button asChild className="mb-5">
+                    <a href={sanitizeUrl(deepLink)} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="size-4" /> In Telegram öffnen
+                    </a>
+                  </Button>
                 )}
 
-                <div className="flex gap-4 text-xs text-[var(--text-muted)]">
-                  <span
-                    className={cn(
-                      'text-[var(--warning-color)]',
-                      wsConnected && 'text-[var(--success-color)]'
-                    )}
-                  >
+                <div className="flex gap-4 text-xs text-muted-foreground">
+                  <span className={cn('text-amber-500', wsConnected && 'text-green-500')}>
                     {wsConnected ? 'WebSocket verbunden' : 'Polling-Modus'}
                   </span>
                   {verificationTimeout !== null && verificationTimeout > 0 && (
-                    <span className="text-[var(--text-muted)]">
+                    <span className="text-muted-foreground">
                       Timeout: {formatTime(verificationTimeout)}
                     </span>
                   )}
@@ -915,17 +899,13 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
               </div>
             ) : (
               <div className="flex flex-col items-center text-center p-8">
-                <p className="text-[var(--text-muted)] text-sm m-0 mb-5">
+                <p className="text-muted-foreground text-sm m-0 mb-5">
                   Verbindung wird aufgebaut...
                 </p>
                 {error && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 py-2 px-4 bg-transparent text-[var(--text-muted)] border border-[var(--border-color)] rounded-lg text-sm cursor-pointer transition-all hover:text-[var(--text-primary)] hover:border-[var(--text-muted)] focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:outline-offset-2"
-                    onClick={retryChatVerification}
-                  >
-                    <RefreshCw className="w-4 h-4" /> Erneut versuchen
-                  </button>
+                  <Button variant="outline" onClick={retryChatVerification}>
+                    <RefreshCw className="size-4" /> Erneut versuchen
+                  </Button>
                 )}
               </div>
             )}
@@ -934,25 +914,19 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center pt-4 border-t border-[var(--border-color)] mt-6 max-[480px]:flex-col-reverse max-[480px]:gap-2 [&_button]:max-[480px]:w-full [&_button]:max-[480px]:justify-center">
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 py-2 px-4 bg-transparent text-[var(--text-muted)] border border-[var(--border-color)] rounded-lg text-sm cursor-pointer transition-all hover:text-[var(--text-primary)] hover:border-[var(--text-muted)] focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:outline-offset-2"
-          onClick={currentStep === 1 ? onCancel : prevStep}
-        >
+      <div className="flex justify-between items-center pt-4 border-t border-border mt-6 max-[480px]:flex-col-reverse max-[480px]:gap-2 [&_button]:max-[480px]:w-full [&_button]:max-[480px]:justify-center">
+        <Button variant="outline" onClick={currentStep === 1 ? onCancel : prevStep}>
           {currentStep === 1 ? (
             'Abbrechen'
           ) : (
             <>
-              <ChevronLeft className="w-4 h-4" /> Zurück
+              <ChevronLeft className="size-4" /> Zurück
             </>
           )}
-        </button>
+        </Button>
 
         {currentStep < 3 && (
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 py-2 px-5 bg-[var(--primary-color)] text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-all hover:opacity-90 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 focus-visible:outline-2 focus-visible:outline-[var(--primary-color)] focus-visible:outline-offset-2"
+          <Button
             onClick={nextStep}
             disabled={
               validating ||
@@ -962,18 +936,18 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
           >
             {validating ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Validiere...
+                <Loader2 className="size-4 animate-spin" /> Validiere...
               </>
             ) : currentStep === 1 && !validated ? (
               <>
-                Token prüfen <ChevronRight className="w-4 h-4" />
+                Token prüfen <ChevronRight className="size-4" />
               </>
             ) : (
               <>
-                Weiter <ChevronRight className="w-4 h-4" />
+                Weiter <ChevronRight className="size-4" />
               </>
             )}
-          </button>
+          </Button>
         )}
       </div>
     </div>

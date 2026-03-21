@@ -9,16 +9,16 @@ interface LoadingSpinnerProps {
 }
 
 const sizeConfig = {
-  small: { container: 'w-8 h-8', border: 'border-2' },
-  medium: { container: 'w-16 h-16', border: 'border-3' },
-  large: { container: 'w-20 h-20', border: 'border-4' },
+  small: { container: 'size-8', border: 'border-2' },
+  medium: { container: 'size-16', border: 'border-3' },
+  large: { container: 'size-20', border: 'border-4' },
 };
 
 const ringColors = [
-  'border-t-[var(--primary-color)]',
-  'border-t-[var(--primary-hover)]',
-  'border-t-[var(--primary-active)]',
-  'border-t-[var(--primary-color)]/50',
+  'border-t-primary',
+  'border-t-primary/80',
+  'border-t-primary/60',
+  'border-t-primary/50',
 ];
 
 const ringDelays = ['0ms', '-150ms', '-300ms', '-450ms'];
@@ -36,7 +36,7 @@ const LoadingSpinner = memo(function LoadingSpinner({
       className={cn(
         'loading-spinner flex flex-col items-center justify-center',
         fullscreen
-          ? 'loading-spinner-fullscreen min-h-screen bg-[var(--bg-dark)]'
+          ? 'loading-spinner-fullscreen min-h-screen bg-background'
           : 'loading-spinner-inline p-12',
         className
       )}

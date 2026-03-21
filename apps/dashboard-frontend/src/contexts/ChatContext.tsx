@@ -171,6 +171,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   const messageCallbacksRef = useRef(new Map<string, MessageCallbacks>());
   const activeStreamChatIdRef = useRef<string | null>(null);
   // Background accumulation: stores messages/loading when ChatView is not mounted
+  // LEAK-002: LRU eviction - max 10 chats in background to prevent unbounded growth
+  const MAX_BACKGROUND_CHATS = 10;
   const backgroundMessagesRef = useRef(new Map<string, ChatMessage[]>()); // chatId → messages[]
   const backgroundLoadingRef = useRef(new Set<string>()); // chatIds still loading
   // Ref-mirror for selectedModel to keep sendMessage stable
@@ -191,21 +193,40 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     messageCallbacksRef.current.delete(chatId);
   }, []);
 
-  // Route setMessages to the active streaming chat's callback (used by useTokenBatching)
-  // Falls back to background accumulation when ChatView is not mounted.
-  const routedSetMessages = useCallback((updater: any) => {
-    const chatId = activeStreamChatIdRef.current;
-    if (!chatId) return;
-    const cb = messageCallbacksRef.current.get(chatId);
-    if (cb?.setMessages) {
-      cb.setMessages(updater);
-    } else {
-      // ChatView not mounted — accumulate in background
-      const prev = backgroundMessagesRef.current.get(chatId) || [];
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      backgroundMessagesRef.current.set(chatId, next);
+  // LEAK-002: Evict oldest background entries when limit exceeded
+  const evictBackgroundIfNeeded = useCallback(() => {
+    const map = backgroundMessagesRef.current;
+    while (map.size > MAX_BACKGROUND_CHATS) {
+      // Map iterates in insertion order - first key is oldest
+      const oldest = map.keys().next().value;
+      if (oldest !== undefined) {
+        map.delete(oldest);
+        backgroundLoadingRef.current.delete(oldest);
+      } else {
+        break;
+      }
     }
   }, []);
+
+  // Route setMessages to the active streaming chat's callback (used by useTokenBatching)
+  // Falls back to background accumulation when ChatView is not mounted.
+  const routedSetMessages = useCallback(
+    (updater: any) => {
+      const chatId = activeStreamChatIdRef.current;
+      if (!chatId) return;
+      const cb = messageCallbacksRef.current.get(chatId);
+      if (cb?.setMessages) {
+        cb.setMessages(updater);
+      } else {
+        // ChatView not mounted — accumulate in background
+        const prev = backgroundMessagesRef.current.get(chatId) || [];
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        backgroundMessagesRef.current.set(chatId, next);
+        evictBackgroundIfNeeded();
+      }
+    },
+    [evictBackgroundIfNeeded]
+  );
 
   const updateMessages = useCallback(
     (chatId: string, updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
@@ -217,9 +238,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         const prev = backgroundMessagesRef.current.get(chatId) || [];
         const next = typeof updater === 'function' ? updater(prev) : updater;
         backgroundMessagesRef.current.set(chatId, next);
+        evictBackgroundIfNeeded();
       }
     },
-    []
+    [evictBackgroundIfNeeded]
   );
 
   const updateIsLoading = useCallback((chatId: string, value: boolean) => {

@@ -609,8 +609,8 @@ function StoreModels() {
                         style={
                           isActivating
                             ? {
-                                background: `linear-gradient(90deg, var(--success-color) ${activatingPercent}%, var(--bg-card) ${activatingPercent}%)`,
-                                borderColor: 'var(--success-color)',
+                                background: `linear-gradient(90deg, var(--color-success) ${activatingPercent}%, var(--card) ${activatingPercent}%)`,
+                                borderColor: 'var(--color-success)',
                               }
                             : {}
                         }

@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, X } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useChatContext } from '../../contexts/ChatContext';
 import { useToast } from '../../contexts/ToastContext';
 import ChatTopBar from './ChatTopBar';
 import ChatInputArea from './ChatInputArea';
 import ChatMessage from './ChatMessage';
+import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 import './chat.css';
 
@@ -211,7 +212,7 @@ export default function ChatView() {
   }, [navigate]);
 
   return (
-    <main className="chat-view flex flex-col h-full bg-[var(--bg-dark)] overflow-hidden w-full max-w-[1400px] mx-auto relative animate-[chat-fadeIn_200ms_ease-out]">
+    <main className="chat-view flex flex-col h-full bg-background overflow-hidden w-full max-w-[1400px] mx-auto relative animate-[chat-fadeIn_200ms_ease-out]">
       <ChatTopBar
         chatId={chatId}
         title={title}
@@ -237,12 +238,12 @@ export default function ChatView() {
             ].map((s, i) => (
               <div
                 key={i}
-                className="skeleton-message flex flex-col gap-2 py-5 border-b border-[var(--border-color)] last:border-b-0"
+                className="skeleton-message flex flex-col gap-2 py-5 border-b border-border last:border-b-0"
               >
-                <div className="skeleton-message-label w-8 h-3.5 bg-[var(--bg-card)] rounded-md animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
+                <div className="skeleton-message-label w-8 h-3.5 bg-card rounded-md animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
                 <div
                   className={cn(
-                    'skeleton-message-body bg-[var(--bg-card)] rounded-xl p-4 animate-[skeleton-pulse_1.5s_ease-in-out_infinite]',
+                    'skeleton-message-body bg-card rounded-xl p-4 animate-[skeleton-pulse_1.5s_ease-in-out_infinite]',
                     s.body === 'short' && 'h-10 max-w-[60%]',
                     s.body === 'medium' && 'h-20',
                     s.body === 'long' && 'h-[120px]'
@@ -253,12 +254,12 @@ export default function ChatView() {
           </div>
         ) : messages.length === 0 ? (
           <div className="chat-empty-state flex flex-col items-center justify-center flex-1 min-h-[300px] p-8">
-            <h2 className="text-3xl font-normal text-[var(--text-muted)] m-0 mb-4 text-center">
+            <h2 className="text-3xl font-normal text-muted-foreground m-0 mb-4 text-center">
               Wie kann ich dir heute helfen?
             </h2>
             {currentProject && (
               <span
-                className="project-badge inline-flex items-center gap-1.5 py-1 px-3 border border-[var(--border-color)] rounded-full text-sm text-[var(--text-muted)]"
+                className="project-badge inline-flex items-center gap-1.5 py-1 px-3 border border-border rounded-full text-sm text-muted-foreground"
                 style={{ borderColor: currentProject.color }}
               >
                 <span
@@ -272,14 +273,15 @@ export default function ChatView() {
         ) : (
           <div className="messages-wrapper max-w-[800px] mx-auto py-6 px-4 flex flex-col">
             {hasMoreMessages && (
-              <button
-                type="button"
-                className="load-more-btn self-center py-2 px-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] text-sm cursor-pointer mb-4 transition-all duration-150 hover:border-[var(--primary-color)] hover:text-[var(--primary-color)] disabled:opacity-60 disabled:cursor-not-allowed"
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-center mb-4"
                 onClick={loadMoreMessages}
                 disabled={loadingMore}
               >
                 {loadingMore ? 'Laden...' : 'Ältere Nachrichten laden'}
-              </button>
+              </Button>
             )}
             {messages.map((message: any, index: number) => (
               <ChatMessage
@@ -297,16 +299,33 @@ export default function ChatView() {
         )}
 
         {showScrollButton && (
-          <button
-            type="button"
-            className="scroll-bottom-btn absolute bottom-5 right-5 w-10 h-10 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full text-[var(--text-muted)] cursor-pointer flex items-center justify-center transition-all duration-150 z-10 shadow-md hover:bg-[var(--bg-card-hover)] hover:text-[var(--primary-color)] hover:border-[var(--primary-color)]"
+          <Button
+            variant="outline"
+            size="icon"
+            className="absolute bottom-5 right-5 rounded-full z-10 shadow-md"
             onClick={scrollToBottom}
             aria-label="Zum Ende scrollen"
           >
             <ArrowDown aria-hidden="true" />
-          </button>
+          </Button>
         )}
       </div>
+
+      {error && (
+        <div className="mx-auto max-w-[800px] px-4 py-2">
+          <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm flex items-center justify-between">
+            <span>{error}</span>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setError(null)}
+              aria-label="Fehler schließen"
+            >
+              <X className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ChatInputArea
         chatId={chatId}

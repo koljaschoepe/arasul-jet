@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 interface Field {
   slug: string;
   field_type: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface DataRow {
@@ -27,7 +27,7 @@ interface UseExcelClipboardParams {
   displayRows: DataRow[];
   fields: Field[];
   handleCellSave: (rowId: string, fieldSlug: string, value: unknown) => void;
-  setSaveStatus: (status: string | null) => void;
+  setSaveStatus: (status: any) => void;
 }
 
 interface UseExcelClipboardReturn {

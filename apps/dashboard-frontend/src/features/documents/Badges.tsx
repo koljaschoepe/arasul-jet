@@ -17,22 +17,17 @@ import { cn } from '@/lib/utils';
 const badgeBase = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-medium';
 
 const badgeVariants: Record<string, string> = {
-  success: 'bg-[var(--success-alpha-10,rgba(34,197,94,0.1))] text-[var(--success-color)]',
-  warning: 'bg-[rgba(245,158,11,0.1)] text-[var(--warning-color)]',
-  info: 'bg-[var(--primary-alpha-10)] text-[var(--primary-color)]',
-  error: 'bg-[var(--danger-alpha-10)] text-[var(--danger-color)]',
-  neutral: 'bg-[var(--neutral-alpha-10)] text-[var(--text-muted)]',
+  success: 'bg-green-500/10 text-green-500',
+  warning: 'bg-amber-500/10 text-amber-500',
+  info: 'bg-primary/10 text-primary',
+  error: 'bg-destructive/10 text-destructive',
+  neutral: 'bg-muted text-muted-foreground',
 };
 
 // -- TableBadge --
 
 export const TableBadge: React.FC = () => (
-  <span
-    className={cn(
-      badgeBase,
-      'uppercase tracking-wide bg-[var(--primary-alpha-10)] text-[var(--primary-color)]'
-    )}
-  >
+  <span className={cn(badgeBase, 'uppercase tracking-wide bg-primary/10 text-primary')}>
     <Grid3x3 className="size-3.5" aria-hidden="true" />
     Tabelle
   </span>
@@ -117,7 +112,7 @@ interface CategoryBadgeProps {
 
 export const CategoryBadge: React.FC<CategoryBadgeProps> = ({ name, color }) => (
   <span
-    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs bg-[rgba(107,114,128,0.1)] border border-current"
+    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs bg-muted border border-current"
     style={{ color: color || 'var(--text-muted)' }}
   >
     <Folder className="size-3.5" aria-hidden="true" />
@@ -156,7 +151,7 @@ export const SpaceBadge: React.FC<SpaceBadgeProps> = ({ name, color, docId, spac
   }, [open]);
 
   const badgeClasses =
-    'inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs bg-[var(--primary-muted)] border border-current opacity-90';
+    'inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs bg-primary/10 border border-current opacity-90';
 
   // Static badge (no move capability)
   if (!docId || !onMove) {
@@ -193,14 +188,14 @@ export const SpaceBadge: React.FC<SpaceBadgeProps> = ({ name, color, docId, spac
       </button>
       {open && (
         <div
-          className="absolute top-[calc(100%+4px)] left-0 min-w-[180px] max-h-[240px] overflow-y-auto bg-[var(--bg-card,#1a2330)] border border-[var(--border-input,#2A3544)] rounded-md shadow-lg z-50 p-1"
+          className="absolute top-[calc(100%+4px)] left-0 min-w-[180px] max-h-[240px] overflow-y-auto bg-card border border-border rounded-md shadow-lg z-50 p-1"
           role="listbox"
           aria-label="Bereich wählen"
         >
           <button
             className={cn(
-              'flex items-center gap-2 w-full py-2 px-2.5 border-none bg-transparent text-[var(--text-primary)] text-xs cursor-pointer rounded-sm text-left transition-colors hover:bg-[var(--primary-alpha-10)]',
-              !name && 'bg-[var(--primary-alpha-15)] text-[var(--primary-color)]'
+              'flex items-center gap-2 w-full py-2 px-2.5 border-none bg-transparent text-foreground text-xs cursor-pointer rounded-sm text-left transition-colors hover:bg-primary/10',
+              !name && 'bg-primary/15 text-primary'
             )}
             onClick={e => {
               e.stopPropagation();
@@ -211,23 +206,20 @@ export const SpaceBadge: React.FC<SpaceBadgeProps> = ({ name, color, docId, spac
             aria-selected={!name}
           >
             <span
-              className="w-2 h-2 rounded-full shrink-0"
+              className="size-2 rounded-full shrink-0"
               style={{ background: 'var(--text-muted)' }}
             />
             Kein Bereich
             {!name && (
-              <Check
-                className="ml-auto text-xs text-[var(--primary-color)] size-3.5"
-                aria-hidden="true"
-              />
+              <Check className="ml-auto text-xs text-primary size-3.5" aria-hidden="true" />
             )}
           </button>
           {(spaces || []).map(s => (
             <button
               key={s.id}
               className={cn(
-                'flex items-center gap-2 w-full py-2 px-2.5 border-none bg-transparent text-[var(--text-primary)] text-xs cursor-pointer rounded-sm text-left transition-colors hover:bg-[var(--primary-alpha-10)]',
-                s.name === name && 'bg-[var(--primary-alpha-15)] text-[var(--primary-color)]'
+                'flex items-center gap-2 w-full py-2 px-2.5 border-none bg-transparent text-foreground text-xs cursor-pointer rounded-sm text-left transition-colors hover:bg-primary/10',
+                s.name === name && 'bg-primary/15 text-primary'
               )}
               onClick={e => {
                 e.stopPropagation();
@@ -238,15 +230,12 @@ export const SpaceBadge: React.FC<SpaceBadgeProps> = ({ name, color, docId, spac
               aria-selected={s.name === name}
             >
               <span
-                className="w-2 h-2 rounded-full shrink-0"
+                className="size-2 rounded-full shrink-0"
                 style={{ background: s.color || 'var(--primary-color)' }}
               />
               {s.name}
               {s.name === name && (
-                <Check
-                  className="ml-auto text-xs text-[var(--primary-color)] size-3.5"
-                  aria-hidden="true"
-                />
+                <Check className="ml-auto text-xs text-primary size-3.5" aria-hidden="true" />
               )}
             </button>
           ))}

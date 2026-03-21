@@ -26,6 +26,7 @@ import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/ui/Modal';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import CommandsEditor from './CommandsEditor';
+import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import {
@@ -196,9 +197,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
           className={cn(
             'flex items-center gap-2 py-2.5 px-3.5 rounded-lg text-sm mb-4',
             message.type === 'success' &&
-              'bg-[rgba(34,197,94,0.1)] text-[var(--success-color)] border border-[rgba(34,197,94,0.2)]',
+              'bg-green-500/10 text-green-500 border border-green-500/20',
             message.type === 'error' &&
-              'bg-[rgba(239,68,68,0.1)] text-[var(--danger-color)] border border-[rgba(239,68,68,0.2)]'
+              'bg-destructive/10 text-destructive border border-destructive/20'
           )}
         >
           {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
@@ -208,9 +209,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
 
       <div className="flex flex-col gap-1">
         <div className="mb-4">
-          <label className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium">
-            Bot Name
-          </label>
+          <label className="block mb-1.5 text-foreground text-sm font-medium">Bot Name</label>
           <Input
             type="text"
             value={formData.name}
@@ -219,9 +218,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium">
-            System-Prompt
-          </label>
+          <label className="block mb-1.5 text-foreground text-sm font-medium">System-Prompt</label>
           <Textarea
             value={formData.systemPrompt}
             onChange={e => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
@@ -231,9 +228,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium">
-            LLM-Modell
-          </label>
+          <label className="block mb-1.5 text-foreground text-sm font-medium">LLM-Modell</label>
           <Select
             value={formData.llmModel}
             onValueChange={val => setFormData(prev => ({ ...prev, llmModel: val }))}
@@ -261,23 +256,23 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
               })}
             </SelectContent>
           </Select>
-          <small className="block mt-1.5 text-[var(--text-muted)] text-xs">
+          <small className="block mt-1.5 text-muted-foreground text-xs">
             Lokales Modell via Ollama
           </small>
         </div>
 
         {/* RAG Configuration */}
-        <div className="my-4 p-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl">
-          <h4 className="flex items-center gap-2 m-0 mb-3 text-[var(--text-primary)] text-sm">
+        <div className="my-4 p-4 bg-card border border-border rounded-xl">
+          <h4 className="flex items-center gap-2 m-0 mb-3 text-foreground text-sm">
             <BookOpen size={16} /> RAG-Konfiguration
           </h4>
 
-          <label className="flex items-center gap-2 cursor-pointer text-[var(--text-primary)] text-sm mb-2">
+          <label className="flex items-center gap-2 cursor-pointer text-foreground text-sm mb-2">
             <input
               type="checkbox"
               checked={formData.ragEnabled}
               onChange={e => setFormData(prev => ({ ...prev, ragEnabled: e.target.checked }))}
-              className="w-auto accent-[var(--primary-color)]"
+              className="w-auto accent-primary"
             />
             RAG aktivieren (Dokument-Wissen nutzen)
           </label>
@@ -285,16 +280,15 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
           {formData.ragEnabled && (
             <>
               <div className="mb-4" style={{ marginTop: '0.75rem' }}>
-                <label className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium">
+                <label className="block mb-1.5 text-foreground text-sm font-medium">
                   Space-Zuordnung
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     className={cn(
-                      'py-1.5 px-3 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-full text-[var(--text-muted)] text-xs cursor-pointer transition-all hover:border-[var(--primary-color)]',
-                      formData.ragSpaceIds === null &&
-                        'bg-[rgba(69,173,255,0.15)] border-[var(--primary-color)] text-[var(--primary-color)]'
+                      'py-1.5 px-3 bg-background border border-border rounded-full text-muted-foreground text-xs cursor-pointer transition-all hover:border-primary',
+                      formData.ragSpaceIds === null && 'bg-primary/15 border-primary text-primary'
                     )}
                     onClick={() => setFormData(prev => ({ ...prev, ragSpaceIds: null }))}
                   >
@@ -305,9 +299,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
                       key={space.id}
                       type="button"
                       className={cn(
-                        'py-1.5 px-3 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-full text-[var(--text-muted)] text-xs cursor-pointer transition-all hover:border-[var(--primary-color)]',
+                        'py-1.5 px-3 bg-background border border-border rounded-full text-muted-foreground text-xs cursor-pointer transition-all hover:border-primary',
                         formData.ragSpaceIds?.includes(space.id) &&
-                          'bg-[rgba(69,173,255,0.15)] border-[var(--primary-color)] text-[var(--primary-color)]'
+                          'bg-primary/15 border-primary text-primary'
                       )}
                       onClick={() => {
                         if (formData.ragSpaceIds === null) {
@@ -323,14 +317,14 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer text-[var(--text-primary)] text-sm mb-2">
+              <label className="flex items-center gap-2 cursor-pointer text-foreground text-sm mb-2">
                 <input
                   type="checkbox"
                   checked={formData.ragShowSources}
                   onChange={e =>
                     setFormData(prev => ({ ...prev, ragShowSources: e.target.checked }))
                   }
-                  className="w-auto accent-[var(--primary-color)]"
+                  className="w-auto accent-primary"
                 />
                 Quellen in Antworten anzeigen
               </label>
@@ -339,12 +333,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         </div>
 
         <div className="flex gap-3 mt-4">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 py-2 px-4 border-none rounded-lg text-sm cursor-pointer transition-all bg-[var(--primary-color)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={handleSave}
-            disabled={saving}
-          >
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? (
               <>
                 <RefreshCw size={16} className="animate-spin" /> Speichern...
@@ -354,7 +343,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
                 <Save size={16} /> Speichern
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -377,21 +366,18 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
       {loadingChats ? (
         <SkeletonList count={3} hasAvatar={false} />
       ) : chats.length === 0 ? (
-        <div className="flex flex-col items-center p-10 text-center text-[var(--text-muted)]">
-          <Users size={32} className="mb-3 text-[var(--text-disabled)]" />
-          <p className="m-0 mb-1 text-[var(--text-primary)] text-sm">Noch keine Chats verbunden</p>
-          <small className="text-[var(--text-muted)] text-sm">
+        <div className="flex flex-col items-center p-10 text-center text-muted-foreground">
+          <Users size={32} className="mb-3 text-muted-foreground/60" />
+          <p className="m-0 mb-1 text-foreground text-sm">Noch keine Chats verbunden</p>
+          <small className="text-muted-foreground text-sm">
             Öffne deinen Bot in Telegram und sende /start
           </small>
           {username && (
-            <a
-              href={`https://t.me/${username}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 py-2 px-4 rounded-lg text-sm cursor-pointer transition-all bg-[var(--bg-dark)] text-[var(--text-primary)] border border-[var(--border-color)] hover:border-[var(--primary-color)] no-underline mt-4"
-            >
-              <ExternalLink size={16} /> Bot in Telegram öffnen
-            </a>
+            <Button variant="outline" asChild className="mt-4">
+              <a href={`https://t.me/${username}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink size={16} /> Bot in Telegram öffnen
+              </a>
+            </Button>
           )}
         </div>
       ) : (
@@ -399,34 +385,35 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
           {chats.map(chat => (
             <div
               key={chat.id}
-              className="flex items-center gap-3 py-3 px-4 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg transition-colors hover:border-[rgba(69,173,255,0.3)]"
+              className="flex items-center gap-3 py-3 px-4 bg-background border border-border rounded-lg transition-colors hover:border-primary/30"
             >
               <div className="flex-1">
-                <span className="block text-sm text-[var(--text-primary)] font-medium">
+                <span className="block text-sm text-foreground font-medium">
                   {chat.firstName || chat.first_name || 'Unbekannt'}{' '}
                   {chat.lastName || chat.last_name || ''}
                 </span>
-                <span className="text-xs text-[var(--text-muted)] mr-2">
+                <span className="text-xs text-muted-foreground mr-2">
                   ID: {chat.chatId || chat.chat_id}
                 </span>
                 {chat.username && (
-                  <span className="text-xs text-[var(--text-muted)] mr-2">@{chat.username}</span>
+                  <span className="text-xs text-muted-foreground mr-2">@{chat.username}</span>
                 )}
               </div>
-              <div className="flex flex-col items-end gap-0.5 text-xs text-[var(--text-muted)]">
+              <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
                 <span>{chat.messageCount || chat.message_count || 0} Nachrichten</span>
                 <span>
                   {new Date(chat.lastMessageAt || chat.last_message_at).toLocaleDateString('de-DE')}
                 </span>
               </div>
-              <button
-                type="button"
-                className="flex items-center justify-center w-7 h-7 border-none rounded-md bg-transparent text-[var(--text-muted)] cursor-pointer transition-colors hover:bg-[var(--danger-color)] hover:text-white"
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => handleRemoveChat(chat.id)}
                 title="Chat entfernen"
               >
                 <X size={14} />
-              </button>
+              </Button>
             </div>
           ))}
         </div>
@@ -442,9 +429,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
           className={cn(
             'flex items-center gap-2 py-2.5 px-3.5 rounded-lg text-sm mb-4',
             message.type === 'success' &&
-              'bg-[rgba(34,197,94,0.1)] text-[var(--success-color)] border border-[rgba(34,197,94,0.2)]',
+              'bg-green-500/10 text-green-500 border border-green-500/20',
             message.type === 'error' &&
-              'bg-[rgba(239,68,68,0.1)] text-[var(--danger-color)] border border-[rgba(239,68,68,0.2)]'
+              'bg-destructive/10 text-destructive border border-destructive/20'
           )}
         >
           {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
@@ -454,7 +441,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
 
       <div className="flex flex-col gap-1">
         <div className="mb-4">
-          <label className="block mb-1.5 text-[var(--text-primary)] text-sm font-medium">
+          <label className="block mb-1.5 text-foreground text-sm font-medium">
             Bot-Token ändern
           </label>
           <div className="relative">
@@ -467,47 +454,47 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
             />
             <button
               type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-muted-foreground cursor-pointer p-1"
               onClick={() => setShowToken(!showToken)}
             >
               {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          <small className="block mt-1.5 text-[var(--text-muted)] text-xs">
+          <small className="block mt-1.5 text-muted-foreground text-xs">
             Leer lassen um das aktuelle Token beizubehalten
           </small>
         </div>
 
-        <div className="mt-6 pt-5 border-t border-[var(--border-color)]">
-          <h4 className="m-0 mb-3 text-[var(--text-primary)] text-sm">Bot-Informationen</h4>
+        <div className="mt-6 pt-5 border-t border-border">
+          <h4 className="m-0 mb-3 text-foreground text-sm">Bot-Informationen</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <span className="text-[0.725rem] text-[var(--text-muted)] uppercase tracking-wide">
+              <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wide">
                 Bot-ID
               </span>
-              <span className="text-sm text-[var(--text-primary)]">{bot.id}</span>
+              <span className="text-sm text-foreground">{bot.id}</span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[0.725rem] text-[var(--text-muted)] uppercase tracking-wide">
+              <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wide">
                 Username
               </span>
-              <span className="text-sm text-[var(--text-primary)]">@{username || '–'}</span>
+              <span className="text-sm text-foreground">@{username || '–'}</span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[0.725rem] text-[var(--text-muted)] uppercase tracking-wide">
+              <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wide">
                 Erstellt
               </span>
-              <span className="text-sm text-[var(--text-primary)]">
+              <span className="text-sm text-foreground">
                 {bot.createdAt || bot.created_at
                   ? new Date(bot.createdAt || bot.created_at).toLocaleDateString('de-DE')
                   : '–'}
               </span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[0.725rem] text-[var(--text-muted)] uppercase tracking-wide">
+              <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wide">
                 Letzte Nachricht
               </span>
-              <span className="text-sm text-[var(--text-primary)]">
+              <span className="text-sm text-foreground">
                 {bot.lastMessageAt || bot.last_message_at
                   ? new Date(bot.lastMessageAt || bot.last_message_at).toLocaleDateString('de-DE')
                   : '–'}
@@ -518,12 +505,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
 
         {formData.token && (
           <div className="flex gap-3 mt-4">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 py-2 px-4 border-none rounded-lg text-sm cursor-pointer transition-all bg-[var(--primary-color)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handleSave}
-              disabled={saving}
-            >
+            <Button onClick={handleSave} disabled={saving}>
               {saving ? (
                 <>
                   <RefreshCw size={16} className="animate-spin" /> Speichern...
@@ -533,7 +515,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
                   <Save size={16} /> Änderungen speichern
                 </>
               )}
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -546,10 +528,10 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
       onClose={onClose}
       title={
         <div className="flex items-center gap-3">
-          <MessageCircle size={20} className="text-[var(--primary-color)]" />
+          <MessageCircle size={20} className="text-primary" />
           <div>
             <span>{bot.name}</span>
-            <span className="block text-xs text-[var(--text-muted)] font-normal">
+            <span className="block text-xs text-muted-foreground font-normal">
               @{username || 'nicht verbunden'}
             </span>
           </div>
@@ -557,7 +539,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
       }
       size="large"
     >
-      <div className="flex gap-1 px-4 border-b border-[var(--border-color)] mb-5">
+      <div className="flex gap-1 px-4 border-b border-border mb-5">
         {TABS.map(tab => {
           const Icon = tab.icon;
           return (
@@ -565,9 +547,8 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
               type="button"
               key={tab.id}
               className={cn(
-                'flex items-center gap-1.5 py-2.5 px-3.5 bg-transparent border-none text-[var(--text-muted)] text-sm cursor-pointer border-b-2 border-b-transparent transition-all hover:text-[var(--text-primary)]',
-                activeTab === tab.id &&
-                  'text-[var(--primary-color)] border-b-[var(--primary-color)]'
+                'flex items-center gap-1.5 py-2.5 px-3.5 bg-transparent border-none text-muted-foreground text-sm cursor-pointer border-b-2 border-b-transparent transition-all hover:text-foreground',
+                activeTab === tab.id && 'text-primary border-b-primary'
               )}
               onClick={() => setActiveTab(tab.id)}
             >

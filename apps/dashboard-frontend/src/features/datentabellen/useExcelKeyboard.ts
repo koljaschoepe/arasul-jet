@@ -3,7 +3,7 @@ import { useCallback, useEffect, type RefObject } from 'react';
 interface Field {
   slug: string;
   field_type: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface DataRow {
@@ -22,7 +22,7 @@ interface EditingCell {
 }
 
 interface UseExcelKeyboardParams {
-  tableRef: RefObject<HTMLElement>;
+  tableRef: RefObject<HTMLElement | null>;
   activeCell: CellPosition;
   setActiveCell: (cell: CellPosition) => void;
   editingCell: EditingCell | null;

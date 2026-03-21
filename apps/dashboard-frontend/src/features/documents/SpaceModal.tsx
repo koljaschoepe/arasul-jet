@@ -5,6 +5,7 @@ import useConfirm from '../../hooks/useConfirm';
 import Modal from '../../components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
+import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { cn } from '@/lib/utils';
 
@@ -230,13 +231,13 @@ const SpaceModal = memo(function SpaceModal({
       <div className="flex-1 overflow-y-auto p-6 max-sm:p-5">
         {/* Messages */}
         {error && (
-          <div className="flex items-center gap-3 p-3.5 rounded-md text-sm font-medium mb-4 animate-[fadeIn_0.2s_ease] bg-[var(--danger-alpha-10)] border border-[var(--danger-alpha-30)] text-[var(--danger-light)]">
+          <div className="flex items-center gap-3 p-3.5 rounded-md text-sm font-medium mb-4 animate-[fadeIn_0.2s_ease] bg-destructive/10 border border-destructive/30 text-destructive">
             <AlertCircle className="shrink-0 w-[1.15rem] h-[1.15rem]" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="flex items-center gap-3 p-3.5 rounded-md text-sm font-medium mb-4 animate-[fadeIn_0.2s_ease] bg-[var(--primary-muted)] border border-[var(--primary-alpha-30)] text-[var(--primary-color)]">
+          <div className="flex items-center gap-3 p-3.5 rounded-md text-sm font-medium mb-4 animate-[fadeIn_0.2s_ease] bg-primary/10 border border-primary/30 text-primary">
             <Check className="shrink-0 w-[1.15rem] h-[1.15rem]" />
             <span>{success}</span>
           </div>
@@ -244,12 +245,9 @@ const SpaceModal = memo(function SpaceModal({
 
         {/* Name */}
         <div className="mb-5 last:mb-0">
-          <label
-            htmlFor="space-name"
-            className="block text-sm font-semibold text-[var(--text-primary)] mb-2"
-          >
+          <Label htmlFor="space-name" className="mb-2">
             Name
-          </label>
+          </Label>
           <Input
             id="space-name"
             type="text"
@@ -264,41 +262,36 @@ const SpaceModal = memo(function SpaceModal({
         {/* Icon and Color */}
         <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
           <div className="mb-0">
-            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-              Icon
-            </label>
+            <Label className="mb-2">Icon</Label>
             <div className="flex flex-wrap gap-2">
               {SPACE_ICONS.map(opt => (
                 <button
                   key={opt.value}
                   type="button"
                   className={cn(
-                    'w-9 h-9 bg-[var(--bg-input)] border-2 border-[var(--border-input)] rounded-md text-[var(--text-muted)] cursor-pointer flex items-center justify-center transition-all hover:border-[var(--border-input-focus)] hover:text-[var(--text-secondary)]',
-                    icon === opt.value &&
-                      'bg-[var(--primary-muted)] border-[var(--primary-color)] text-[var(--primary-color)]'
+                    'size-9 bg-background border-2 border-border rounded-md text-muted-foreground cursor-pointer flex items-center justify-center transition-all hover:border-[var(--border-input-focus)] hover:text-muted-foreground',
+                    icon === opt.value && 'bg-primary/10 border-primary text-primary'
                   )}
                   onClick={() => setIcon(opt.value)}
                   title={opt.label}
                   aria-label={opt.label}
                   aria-pressed={icon === opt.value}
                 >
-                  <Folder className="w-4 h-4" />
+                  <Folder className="size-4" />
                 </button>
               ))}
             </div>
           </div>
 
           <div className="mb-0 max-sm:mb-5">
-            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-              Farbe
-            </label>
+            <Label className="mb-2">Farbe</Label>
             <div className="flex flex-wrap gap-2">
               {SPACE_COLORS.map(c => (
                 <button
                   key={c}
                   type="button"
                   className={cn(
-                    'w-7 h-7 border-2 border-transparent rounded-full cursor-pointer transition-all hover:scale-115',
+                    'size-7 border-2 border-transparent rounded-full cursor-pointer transition-all hover:scale-115',
                     color === c && 'border-white shadow-[0_0_0_2px_rgba(255,255,255,0.3)] scale-110'
                   )}
                   style={{ backgroundColor: c }}
@@ -313,15 +306,12 @@ const SpaceModal = memo(function SpaceModal({
 
         {/* Description */}
         <div className="mb-5 last:mb-0 mt-5">
-          <label
-            htmlFor="space-description"
-            className="block text-sm font-semibold text-[var(--text-primary)] mb-2"
-          >
+          <Label htmlFor="space-description" className="mb-2">
             Beschreibung
-            <span className="font-normal text-[var(--text-muted)] text-xs ml-2">
+            <span className="font-normal text-muted-foreground text-xs ml-2">
               (wird für intelligentes Routing genutzt)
             </span>
-          </label>
+          </Label>
           <Textarea
             id="space-description"
             value={description}
@@ -330,7 +320,7 @@ const SpaceModal = memo(function SpaceModal({
             rows={8}
             className="resize-y min-h-[150px] font-mono leading-relaxed"
           />
-          <p className="mt-2 text-xs text-[var(--text-muted)] italic m-0">
+          <p className="mt-2 text-xs text-muted-foreground italic m-0">
             Je präziser die Beschreibung, desto besser findet die KI relevante Dokumente.
           </p>
         </div>

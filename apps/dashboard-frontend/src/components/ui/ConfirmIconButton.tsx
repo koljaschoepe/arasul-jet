@@ -1,6 +1,7 @@
 import React, { memo, useState, useRef, useEffect, type ReactNode } from 'react';
 import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/shadcn/button';
 
 interface ConfirmIconButtonProps {
   icon: ReactNode;
@@ -14,19 +15,19 @@ interface ConfirmIconButtonProps {
 
 const variantStyles = {
   danger: {
-    button: 'hover:bg-red-500/20 hover:text-red-400',
-    popup: 'border-red-500/30 bg-red-500/10',
-    confirm: 'bg-red-500/20 text-red-400 hover:bg-red-500/30',
+    trigger: 'hover:bg-destructive/10 hover:text-destructive',
+    popup: 'border-destructive/30 bg-destructive/10',
+    confirm: 'hover:bg-destructive/20 text-destructive',
   },
   warning: {
-    button: 'hover:bg-yellow-500/20 hover:text-yellow-400',
-    popup: 'border-yellow-500/30 bg-yellow-500/10',
-    confirm: 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30',
+    trigger: 'hover:bg-amber-500/10 hover:text-amber-500',
+    popup: 'border-amber-500/30 bg-amber-500/10',
+    confirm: 'hover:bg-amber-500/20 text-amber-500',
   },
   primary: {
-    button: 'hover:bg-primary/20 hover:text-primary',
+    trigger: 'hover:bg-primary/10 hover:text-primary',
     popup: 'border-primary/30 bg-primary/10',
-    confirm: 'bg-primary/20 text-primary hover:bg-primary/30',
+    confirm: 'hover:bg-primary/20 text-primary',
   },
 };
 
@@ -88,12 +89,13 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
   return (
     <div className="confirm-btn-wrapper relative inline-flex" ref={wrapperRef}>
       {!showConfirm ? (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           className={cn(
-            'btn-icon-square flex items-center justify-center size-8 rounded-md bg-transparent text-muted-foreground transition-colors',
             `btn-icon-${variant}`,
-            styles.button,
+            'text-muted-foreground',
+            styles.trigger,
             (disabled || loading) && 'opacity-50 cursor-not-allowed'
           )}
           onClick={handleButtonClick}
@@ -102,7 +104,7 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
           aria-label={label}
         >
           {icon}
-        </button>
+        </Button>
       ) : (
         <div
           className={cn(
@@ -112,27 +114,26 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
           )}
         >
           <span className="confirm-text text-sm font-medium whitespace-nowrap">{confirmText}</span>
-          <button
-            type="button"
-            className={cn(
-              'confirm-yes flex items-center justify-center size-7 rounded transition-colors',
-              styles.confirm
-            )}
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className={cn('confirm-yes', styles.confirm)}
             onClick={handleConfirm}
             title="Bestätigen"
             aria-label="Bestätigen"
           >
             <Check className="size-4" />
-          </button>
-          <button
-            type="button"
-            className="confirm-no flex items-center justify-center size-7 rounded bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="confirm-no text-muted-foreground"
             onClick={handleCancel}
             title="Abbrechen"
             aria-label="Abbrechen"
           >
             <X className="size-4" />
-          </button>
+          </Button>
         </div>
       )}
     </div>

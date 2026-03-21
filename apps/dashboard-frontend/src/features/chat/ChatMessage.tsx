@@ -31,11 +31,11 @@ const ChatMessage = memo(function ChatMessage({
         : 0;
     return (
       <div
-        className="compaction-banner flex items-center justify-center gap-2 py-2 px-4 my-2 rounded-lg bg-[color-mix(in_srgb,var(--primary-color)_10%,transparent)] border border-[color-mix(in_srgb,var(--primary-color)_30%,transparent)] text-xs text-[var(--text-muted)]"
+        className="compaction-banner flex items-center justify-center gap-2 py-2 px-4 my-2 rounded-lg bg-primary/10 border border-primary/30 text-xs text-muted-foreground"
         role="status"
         aria-label="Kontext zusammengefasst"
       >
-        <span className="text-base text-[var(--primary-color)]" aria-hidden="true">
+        <span className="text-base text-primary" aria-hidden="true">
           &#x2702;
         </span>
         <span>
@@ -56,7 +56,7 @@ const ChatMessage = memo(function ChatMessage({
     <article
       key={message.id || message.jobId || `${chatId}-msg-${index}`}
       className={cn(
-        'message flex flex-col gap-2 py-5 border-b border-[var(--border-color)] last:border-b-0',
+        'message flex flex-col gap-2 py-5 border-b border-border last:border-b-0',
         message.role === 'user' ? 'user' : 'assistant'
       )}
       aria-label={message.role === 'user' ? 'Deine Nachricht' : 'AI Antwort'}
@@ -64,7 +64,7 @@ const ChatMessage = memo(function ChatMessage({
       <div
         className={cn(
           'message-label text-xs font-semibold uppercase tracking-wide pl-0.5',
-          message.role === 'user' ? 'text-[var(--primary-color)]' : 'text-[var(--text-muted)]'
+          message.role === 'user' ? 'text-primary' : 'text-muted-foreground'
         )}
         aria-hidden="true"
       >
@@ -75,18 +75,18 @@ const ChatMessage = memo(function ChatMessage({
       {message.hasThinking && message.thinking && (
         <div
           className={cn(
-            'thinking-block rounded-lg overflow-hidden bg-[var(--bg-card)] border border-[var(--border-color)] transition-all duration-300',
+            'thinking-block rounded-lg overflow-hidden bg-card border border-border transition-all duration-300',
             message.thinkingCollapsed && 'collapsed',
             message.thinkingCollapsing && 'collapsing opacity-70'
           )}
         >
           <button
             type="button"
-            className="thinking-header flex items-center gap-2 py-3 px-4 cursor-pointer select-none text-[var(--text-muted)] transition-colors duration-150 text-sm w-full border-none bg-transparent text-left font-[inherit] hover:bg-[var(--bg-card-hover)]"
+            className="thinking-header flex items-center gap-2 py-3 px-4 cursor-pointer select-none text-muted-foreground transition-colors duration-150 text-sm w-full border-none bg-transparent text-left font-[inherit] hover:bg-accent"
             onClick={() => onToggleThinking(index)}
             aria-expanded={!message.thinkingCollapsed}
           >
-            <Cpu className="w-[18px] h-[18px] shrink-0" aria-hidden="true" />
+            <Cpu className="size-[18px] shrink-0" aria-hidden="true" />
             <span className="flex-1">Gedankengang</span>
             {message.thinkingCollapsed ? (
               <ChevronDown aria-hidden="true" />
@@ -94,7 +94,7 @@ const ChatMessage = memo(function ChatMessage({
               <ChevronUp aria-hidden="true" />
             )}
           </button>
-          <div className="thinking-content py-4 px-[18px] text-sm leading-relaxed text-[var(--text-secondary)] whitespace-pre-wrap border-t border-[var(--border-color)] bg-[var(--bg-dark)] max-h-[350px] overflow-y-auto">
+          <div className="thinking-content py-4 px-[18px] text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap border-t border-border bg-background max-h-[350px] overflow-y-auto">
             {message.thinking}
           </div>
         </div>
@@ -104,9 +104,8 @@ const ChatMessage = memo(function ChatMessage({
       {message.content && (
         <div
           className={cn(
-            'message-body text-[var(--text-secondary)] text-[1.05rem] leading-[1.8] py-5 px-6 bg-[var(--bg-card)] rounded-xl',
-            message.role === 'user' &&
-              'bg-[var(--primary-alpha-8)] border-l-[3px] border-l-[var(--primary-color)]'
+            'message-body text-muted-foreground text-[1.05rem] leading-[1.8] py-5 px-6 bg-card rounded-xl',
+            message.role === 'user' && 'bg-primary/[0.08] border-l-[3px] border-l-primary'
           )}
         >
           <ReactMarkdown
@@ -141,15 +140,15 @@ const ChatMessage = memo(function ChatMessage({
           aria-label="AI antwortet..."
         >
           <span
-            className="w-2 h-2 bg-[var(--primary-color)] rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both]"
+            className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both]"
             aria-hidden="true"
           />
           <span
-            className="w-2 h-2 bg-[var(--primary-color)] rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:150ms]"
+            className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:150ms]"
             aria-hidden="true"
           />
           <span
-            className="w-2 h-2 bg-[var(--primary-color)] rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:300ms]"
+            className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:300ms]"
             aria-hidden="true"
           />
         </div>
@@ -157,25 +156,25 @@ const ChatMessage = memo(function ChatMessage({
 
       {/* Matched Spaces Display */}
       {message.matchedSpaces && message.matchedSpaces.length > 0 && (
-        <div className="matched-spaces-block flex flex-wrap items-center gap-2 py-2.5 px-3.5 bg-[var(--primary-alpha-5)] border border-[var(--primary-alpha-15)] rounded-lg mt-3 text-sm">
-          <span className="matched-spaces-label flex items-center text-[var(--text-muted)] text-xs whitespace-nowrap">
-            <Folder className="mr-1.5 w-4 h-4" />
+        <div className="matched-spaces-block flex flex-wrap items-center gap-2 py-2.5 px-3.5 bg-primary/5 border border-primary/15 rounded-lg mt-3 text-sm">
+          <span className="matched-spaces-label flex items-center text-muted-foreground text-xs whitespace-nowrap">
+            <Folder className="mr-1.5 size-4" />
             Durchsuchte Bereiche:
           </span>
           <div className="matched-spaces-chips flex flex-wrap gap-1.5">
             {message.matchedSpaces.map((space: any, i: number) => (
               <span
                 key={space.id || i}
-                className="matched-space-chip inline-flex items-center py-1 px-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] border-l-[3px] rounded-md text-xs text-[var(--text-secondary)] transition-all duration-200 hover:bg-[var(--bg-hover)] hover:border-[var(--primary-color)]"
-                style={{ borderLeftColor: space.color || 'var(--primary-color)' }}
+                className="matched-space-chip inline-flex items-center py-1 px-2.5 bg-card border border-border border-l-[3px] rounded-md text-xs text-muted-foreground transition-all duration-200 hover:bg-[var(--bg-hover)] hover:border-primary"
+                style={{ borderLeftColor: space.color || 'var(--primary)' }}
                 title={`Relevanz: ${((space.score || 0) * 100).toFixed(0)}%`}
               >
                 <Folder
-                  className="w-3.5 h-3.5 mr-1"
-                  style={{ color: space.color || 'var(--primary-color)' }}
+                  className="size-3.5 mr-1"
+                  style={{ color: space.color || 'var(--primary)' }}
                 />
                 {space.name}
-                <span className="space-score ml-1.5 py-px px-1.5 bg-[var(--primary-alpha-15)] rounded text-[0.7rem] text-[var(--primary-color)]">
+                <span className="space-score ml-1.5 py-px px-1.5 bg-primary/15 rounded text-[0.7rem] text-primary">
                   {((space.score || 0) * 100).toFixed(0)}%
                 </span>
               </span>
@@ -188,17 +187,17 @@ const ChatMessage = memo(function ChatMessage({
       {message.sources && message.sources.length > 0 && (
         <div
           className={cn(
-            'sources-block rounded-lg overflow-hidden bg-[var(--bg-card)] border border-[var(--border-color)] mt-3',
+            'sources-block rounded-lg overflow-hidden bg-card border border-border mt-3',
             message.sourcesCollapsed && 'collapsed'
           )}
         >
           <button
             type="button"
-            className="sources-header flex items-center gap-2 py-3 px-4 cursor-pointer select-none text-[var(--text-muted)] transition-colors duration-150 text-sm w-full border-none bg-transparent text-left font-[inherit] hover:bg-[var(--bg-card-hover)]"
+            className="sources-header flex items-center gap-2 py-3 px-4 cursor-pointer select-none text-muted-foreground transition-colors duration-150 text-sm w-full border-none bg-transparent text-left font-[inherit] hover:bg-accent"
             onClick={() => onToggleSources(index)}
             aria-expanded={!message.sourcesCollapsed}
           >
-            <BookOpen className="w-[18px] h-[18px] shrink-0" aria-hidden="true" />
+            <BookOpen className="size-[18px] shrink-0" aria-hidden="true" />
             <span className="flex-1">Quellen ({message.sources.length})</span>
             {message.sourcesCollapsed ? (
               <ChevronDown aria-hidden="true" />
@@ -207,38 +206,38 @@ const ChatMessage = memo(function ChatMessage({
             )}
           </button>
           {!message.sourcesCollapsed && (
-            <div className="sources-content py-4 px-[18px] text-sm leading-relaxed text-[var(--text-secondary)] whitespace-pre-wrap border-t border-[var(--border-color)] bg-[var(--bg-dark)] max-h-[350px] overflow-y-auto">
+            <div className="sources-content py-4 px-[18px] text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap border-t border-border bg-background max-h-[350px] overflow-y-auto">
               {message.sources.map((source: any, sourceIndex: number) => (
                 <div
                   key={sourceIndex}
-                  className="source-item py-3.5 px-4 bg-[var(--bg-card)] rounded-lg mb-2.5 border-l-[3px] border-l-[var(--primary-color)] last:mb-0"
+                  className="source-item py-3.5 px-4 bg-card rounded-lg mb-2.5 border-l-[3px] border-l-primary last:mb-0"
                 >
-                  <div className="source-name text-sm font-semibold text-[var(--text-primary)] mb-2">
-                    <span className="source-index font-semibold text-[var(--primary-color)] mr-1.5">
+                  <div className="source-name text-sm font-semibold text-foreground mb-2">
+                    <span className="source-index font-semibold text-primary mr-1.5">
                       [{sourceIndex + 1}]
                     </span>
                     {source.document_name}
                     {source.space_name && (
-                      <span className="source-space-badge text-xs bg-[color-mix(in_srgb,var(--primary-color)_15%,transparent)] text-[var(--primary-color)] py-px px-2 rounded-lg ml-2">
+                      <span className="source-space-badge text-xs bg-primary/15 text-primary py-px px-2 rounded-lg ml-2">
                         {source.space_name}
                       </span>
                     )}
                   </div>
-                  <div className="source-preview text-sm text-[var(--text-muted)] leading-relaxed mb-2">
+                  <div className="source-preview text-sm text-muted-foreground leading-relaxed mb-2">
                     {source.text_preview}
                   </div>
                   <div className="source-scores flex gap-3 items-center">
                     {source.rerank_score != null ? (
                       <>
-                        <span className="text-xs text-[var(--primary-color)] font-medium">
+                        <span className="text-xs text-primary font-medium">
                           Rerank: {(source.rerank_score * 100).toFixed(0)}%
                         </span>
-                        <span className="text-xs text-[var(--text-muted)]">
+                        <span className="text-xs text-muted-foreground">
                           Vektor: {(source.score * 100).toFixed(0)}%
                         </span>
                       </>
                     ) : (
-                      <span className="text-xs text-[var(--primary-color)] font-medium">
+                      <span className="text-xs text-primary font-medium">
                         Relevanz: {(source.score * 100).toFixed(0)}%
                       </span>
                     )}

@@ -63,7 +63,7 @@ function ChatInputArea({
       setUseThinking(true);
       setSelectedSpaceId(null);
     }
-  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chatId, chatSettings]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -211,31 +211,28 @@ function ChatInputArea({
     >
       {error && (
         <div
-          className="error-banner flex items-center gap-3 w-full max-w-[800px] py-3 px-4 bg-[var(--danger-alpha-10)] border border-[rgba(239,68,68,0.25)] rounded-lg text-[var(--text-secondary)] text-sm mb-4"
+          className="error-banner flex items-center gap-3 w-full max-w-[800px] py-3 px-4 bg-destructive/10 border border-destructive/25 rounded-lg text-muted-foreground text-sm mb-4"
           role="alert"
         >
-          <AlertCircle
-            className="shrink-0 w-[18px] h-[18px] text-[var(--error-color)]"
-            aria-hidden="true"
-          />
+          <AlertCircle className="shrink-0 size-[18px] text-destructive" aria-hidden="true" />
           <span className="flex-1">{error}</span>
           <button
             type="button"
-            className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer p-1 rounded flex hover:bg-[var(--danger-alpha-20)] hover:text-[var(--error-color)]"
+            className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 rounded flex hover:bg-destructive/20 hover:text-destructive"
             onClick={onClearError}
             aria-label="Fehlermeldung schließen"
           >
-            <X className="w-4 h-4" aria-hidden="true" />
+            <X className="size-4" aria-hidden="true" />
           </button>
         </div>
       )}
 
       {(showThinkWarning || showRagWarning) && (
         <div
-          className="capability-warning flex items-center gap-2.5 w-full max-w-[800px] py-2.5 px-3.5 bg-[var(--warning-alpha-10)] border border-[rgba(245,158,11,0.25)] rounded-lg text-[var(--text-secondary)] text-xs mb-3"
+          className="capability-warning flex items-center gap-2.5 w-full max-w-[800px] py-2.5 px-3.5 bg-amber-500/10 border border-amber-500/25 rounded-lg text-muted-foreground text-xs mb-3"
           role="status"
         >
-          <AlertCircle className="w-4 h-4 text-[var(--warning-color)] shrink-0" />
+          <AlertCircle className="size-4 text-amber-500 shrink-0" />
           <span className="flex-1">
             {showThinkWarning && showRagWarning
               ? `"${currentModel.name}" ist weder für Think-Mode noch RAG optimiert.`
@@ -246,42 +243,40 @@ function ChatInputArea({
         </div>
       )}
 
-      <div className="chat-input-card w-full max-w-[800px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-visible transition-all duration-200 relative focus-within:border-[var(--primary-color)] focus-within:shadow-[0_0_0_2px_var(--primary-alpha-10)]">
+      <div className="chat-input-card w-full max-w-[800px] bg-card border border-border rounded-xl overflow-visible transition-all duration-200 relative focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
         <div
-          className="chat-toolbar flex items-center gap-2 py-2 px-4 border-b border-[var(--border-color)] bg-[var(--bg-dark)] rounded-t-[var(--radius-lg)]"
+          className="chat-toolbar flex items-center gap-2 py-2 px-4 border-b border-border bg-background rounded-t-[var(--radius-lg)]"
           role="toolbar"
           aria-label="Chat-Einstellungen"
         >
           <button
             type="button"
             className={cn(
-              'chat-toolbar-btn think-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-[var(--text-muted)] text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 hover:bg-[var(--primary-alpha-5)] hover:text-[var(--text-primary)]',
-              useThinking &&
-                'active bg-[var(--primary-alpha-15)] text-[var(--primary-hover)] border-[var(--primary-alpha-20)]'
+              'chat-toolbar-btn think-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 hover:bg-primary/5 hover:text-foreground',
+              useThinking && 'active bg-primary/15 text-primary border-primary/20'
             )}
             onClick={handleThinkToggle}
             aria-pressed={useThinking}
             aria-label={useThinking ? 'Thinking deaktivieren' : 'Thinking aktivieren'}
           >
-            <Cpu className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <Cpu className="size-4 shrink-0" aria-hidden="true" />
             <span className="toolbar-btn-label uppercase tracking-wide text-xs">Think</span>
           </button>
 
-          <div className="chat-toolbar-divider w-px h-6 bg-[var(--border-color)] shrink-0" />
+          <div className="chat-toolbar-divider w-px h-6 bg-border shrink-0" />
 
           <div className="toolbar-popup-container relative" ref={ragPopupRef}>
             <button
               type="button"
               className={cn(
-                'chat-toolbar-btn rag-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-[var(--text-muted)] text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 hover:bg-[var(--primary-alpha-5)] hover:text-[var(--text-primary)]',
-                useRAG &&
-                  'active bg-[var(--primary-alpha-15)] text-[var(--primary-color)] border-[var(--primary-alpha-20)]'
+                'chat-toolbar-btn rag-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 hover:bg-primary/5 hover:text-foreground',
+                useRAG && 'active bg-primary/15 text-primary border-primary/20'
               )}
               onClick={handleRAGClick}
               aria-pressed={useRAG}
               aria-label={useRAG ? 'RAG deaktivieren' : 'RAG aktivieren'}
             >
-              <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <Search className="size-4 shrink-0" aria-hidden="true" />
               <span
                 className={cn(
                   'toolbar-btn-label text-xs',
@@ -294,7 +289,7 @@ function ChatInputArea({
               {useRAG && (
                 <ChevronUp
                   className={cn(
-                    'w-3 h-3 transition-transform duration-200',
+                    'size-3 transition-transform duration-200',
                     showRAGPopup && 'rotate-180'
                   )}
                 />
@@ -302,29 +297,29 @@ function ChatInputArea({
             </button>
             {showRAGPopup && spaces.length > 0 && (
               <div
-                className="toolbar-popup rag-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-lg z-[100] animate-[slideUpFadeIn_200ms_ease-out]"
+                className="toolbar-popup rag-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card border border-border rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
                 role="listbox"
                 aria-label="RAG-Bereich auswählen"
               >
-                <div className="toolbar-popup-header py-2.5 px-3.5 pb-1.5 text-[0.7rem] font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+                <div className="toolbar-popup-header py-2.5 px-3.5 pb-1.5 text-[0.7rem] font-semibold text-muted-foreground uppercase tracking-wide">
                   Bereich:
                 </div>
                 <div
                   className={cn(
-                    'popup-option flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]',
-                    !selectedSpaceId && 'selected bg-[var(--primary-alpha-10)]'
+                    'popup-option flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-foreground hover:bg-accent',
+                    !selectedSpaceId && 'selected bg-primary/10'
                   )}
                   onClick={() => handleSelectSpace(null)}
                   role="option"
                   aria-selected={!selectedSpaceId}
                 >
-                  <span className="w-4 text-center text-[var(--text-muted)] shrink-0 text-sm">
+                  <span className="w-4 text-center text-muted-foreground shrink-0 text-sm">
                     {!selectedSpaceId ? '◉' : '○'}
                   </span>
                   <span
                     className={cn(
                       'popup-option-name flex-1 font-medium',
-                      !selectedSpaceId && 'text-[var(--primary-color)]'
+                      !selectedSpaceId && 'text-primary'
                     )}
                   >
                     Auto-Routing
@@ -334,8 +329,8 @@ function ChatInputArea({
                   <div
                     key={space.id}
                     className={cn(
-                      'popup-option flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]',
-                      selectedSpaceId === space.id && 'selected bg-[var(--primary-alpha-10)]'
+                      'popup-option flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-foreground hover:bg-accent',
+                      selectedSpaceId === space.id && 'selected bg-primary/10'
                     )}
                     onClick={() => handleSelectSpace(space.id)}
                     role="option"
@@ -344,9 +339,7 @@ function ChatInputArea({
                     <span
                       className={cn(
                         'w-4 text-center shrink-0 text-sm',
-                        selectedSpaceId === space.id
-                          ? 'text-[var(--primary-color)]'
-                          : 'text-[var(--text-muted)]'
+                        selectedSpaceId === space.id ? 'text-primary' : 'text-muted-foreground'
                       )}
                     >
                       {selectedSpaceId === space.id ? '◉' : '○'}
@@ -354,12 +347,12 @@ function ChatInputArea({
                     <span
                       className={cn(
                         'popup-option-name flex-1 font-medium flex items-center gap-1.5',
-                        selectedSpaceId === space.id && 'text-[var(--primary-color)]'
+                        selectedSpaceId === space.id && 'text-primary'
                       )}
                     >
                       {space.name}
                     </span>
-                    <span className="popup-option-count text-xs text-[var(--text-muted)] bg-[var(--primary-alpha-10)] py-0.5 px-1.5 rounded shrink-0">
+                    <span className="popup-option-count text-xs text-muted-foreground bg-primary/10 py-0.5 px-1.5 rounded shrink-0">
                       {space.document_count || 0} Dok.
                     </span>
                   </div>
@@ -370,34 +363,33 @@ function ChatInputArea({
 
           {availableModels.length > 0 && (
             <>
-              <div className="chat-toolbar-divider w-px h-6 bg-[var(--border-color)] shrink-0" />
+              <div className="chat-toolbar-divider w-px h-6 bg-border shrink-0" />
               <div className="toolbar-popup-container relative" ref={modelPopupRef}>
                 <button
                   type="button"
                   className={cn(
-                    'chat-toolbar-btn model-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-[var(--text-muted)] text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 max-w-[160px] hover:bg-[var(--primary-alpha-5)] hover:text-[var(--text-primary)]',
-                    selectedModel &&
-                      'active bg-[var(--primary-alpha-15)] text-[var(--primary-color)] border-[var(--primary-alpha-20)]'
+                    'chat-toolbar-btn model-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 max-w-[160px] hover:bg-primary/5 hover:text-foreground',
+                    selectedModel && 'active bg-primary/15 text-primary border-primary/20'
                   )}
                   onClick={() => setShowModelPopup(v => !v)}
                   aria-expanded={showModelPopup}
                   aria-haspopup="listbox"
                   aria-label="Modell auswählen"
                 >
-                  <Box className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <Box className="size-4 shrink-0" aria-hidden="true" />
                   <span className="model-name-short max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap text-xs normal-case tracking-normal">
                     {modelDisplayName}
                   </span>
                   <ChevronUp
                     className={cn(
-                      'w-3 h-3 transition-transform duration-200',
+                      'size-3 transition-transform duration-200',
                       showModelPopup && 'rotate-180'
                     )}
                   />
                 </button>
                 {showModelPopup && (
                   <div
-                    className="toolbar-popup model-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-lg z-[100] animate-[slideUpFadeIn_200ms_ease-out]"
+                    className="toolbar-popup model-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card border border-border rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
                     role="listbox"
                     aria-label="Modell auswählen"
                   >
@@ -408,25 +400,23 @@ function ChatInputArea({
                         <div
                           key={model.id}
                           className={cn(
-                            'popup-option flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]',
-                            isSelected && 'selected bg-[var(--primary-alpha-10)]'
+                            'popup-option flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-foreground hover:bg-accent',
+                            isSelected && 'selected bg-primary/10'
                           )}
                           onClick={() => handleSelectModel(model.id)}
                           role="option"
                           aria-selected={isSelected}
                         >
-                          {isSelected && (
-                            <Check className="w-3.5 h-3.5 text-[var(--primary-color)] shrink-0" />
-                          )}
+                          {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
                           <span
                             className={cn(
                               'popup-option-name flex-1 font-medium flex items-center gap-1.5',
-                              isSelected && 'text-[var(--primary-color)]'
+                              isSelected && 'text-primary'
                             )}
                           >
                             {model.name}
                             {isDefault && (
-                              <span className="text-[0.65rem] bg-[var(--primary-alpha-10)] text-[var(--primary-color)] py-px px-1.5 rounded font-normal">
+                              <span className="text-[0.65rem] bg-primary/10 text-primary py-px px-1.5 rounded font-normal">
                                 Standard
                               </span>
                             )}
@@ -436,9 +426,9 @@ function ChatInputArea({
                     })}
                     {selectedModel && selectedModel !== defaultModel && (
                       <>
-                        <div className="h-px bg-[var(--border-color)] my-1" />
+                        <div className="h-px bg-border my-1" />
                         <div
-                          className="popup-option popup-action flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-xs text-[var(--text-muted)] hover:text-[var(--primary-color)] hover:bg-[var(--bg-card-hover)]"
+                          className="popup-option popup-action flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-muted-foreground hover:text-primary hover:bg-accent"
                           onClick={() => {
                             setModelAsDefault(selectedModel);
                             setShowModelPopup(false);
@@ -459,11 +449,11 @@ function ChatInputArea({
           <div className="flex-1" />
 
           {queuePosition > 0 && (
-            <span className="chat-status-pill inline-flex items-center gap-1.5 text-xs py-1 px-2.5 rounded-full bg-[var(--primary-alpha-5)] text-[var(--text-muted)] shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary-color)] animate-[queue-pulse_1.5s_ease-in-out_infinite] shrink-0" />
+            <span className="chat-status-pill inline-flex items-center gap-1.5 text-xs py-1 px-2.5 rounded-full bg-primary/5 text-muted-foreground shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-[queue-pulse_1.5s_ease-in-out_infinite] shrink-0" />
               <span>#{queuePosition}</span>
               {globalQueue.pending_count > 1 && (
-                <span className="text-[var(--text-disabled)] text-[0.65rem]">
+                <span className="text-muted-foreground/60 text-[0.65rem]">
                   von {globalQueue.pending_count}
                 </span>
               )}
@@ -474,7 +464,7 @@ function ChatInputArea({
         <div className="chat-input-row flex items-end gap-3 py-3 px-4">
           <textarea
             ref={inputRef}
-            className="flex-1 bg-transparent border-none py-2 px-1 text-[var(--text-primary)] text-[1.05rem] font-[inherit] leading-relaxed min-w-0 min-h-[40px] max-h-[200px] resize-none overflow-y-auto focus:outline-none placeholder:text-[var(--text-muted)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-transparent border-none py-2 px-1 text-foreground text-[1.05rem] font-[inherit] leading-relaxed min-w-0 min-h-[40px] max-h-[200px] resize-none overflow-y-auto focus:outline-none placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
@@ -487,23 +477,23 @@ function ChatInputArea({
           {isStreaming ? (
             <button
               type="button"
-              className="cancel-btn w-10 h-10 min-w-[40px] bg-[var(--danger-alpha-15)] border-none rounded-full text-[var(--danger-color)] cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-[var(--danger-alpha-20)] hover:scale-105"
+              className="cancel-btn size-10 min-w-[40px] bg-destructive/15 border-none rounded-full text-destructive cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-destructive/20 hover:scale-105"
               onClick={handleCancel}
               title="Abbrechen"
               aria-label="Abbrechen"
             >
-              <X className="w-5 h-5" />
+              <X className="size-5" />
             </button>
           ) : (
             <button
               type="button"
-              className="send-btn w-10 h-10 min-w-[40px] bg-[var(--primary-color)] border-none rounded-full text-white cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-[var(--primary-hover)] hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-[var(--border-color)]"
+              className="send-btn size-10 min-w-[40px] bg-primary border-none rounded-full text-white cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-primary/80 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-border"
               onClick={handleSend}
               disabled={!input.trim() || disabled || isLoading}
               title="Senden"
               aria-label="Senden"
             >
-              <ArrowUp className="w-5 h-5" />
+              <ArrowUp className="size-5" />
             </button>
           )}
         </div>

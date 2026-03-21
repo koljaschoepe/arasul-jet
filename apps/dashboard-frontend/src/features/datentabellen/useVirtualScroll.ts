@@ -25,7 +25,7 @@ interface UseVirtualScrollReturn {
  */
 export default function useVirtualScroll(
   totalItems: number,
-  containerRef: RefObject<HTMLElement>,
+  containerRef: RefObject<HTMLElement | null>,
   itemHeight: number = DEFAULT_ROW_HEIGHT,
   overscan: number = DEFAULT_OVERSCAN
 ): UseVirtualScrollReturn {
