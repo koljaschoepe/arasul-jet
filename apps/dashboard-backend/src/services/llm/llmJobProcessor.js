@@ -289,6 +289,9 @@ async function streamFromOllama(
     return flushPromise;
   };
 
+  // LEAK-001: Track response stream for cleanup
+  let responseStream = null;
+
   try {
     const abortController = new AbortController();
     llmJobService.registerStream(jobId, abortController);
@@ -336,8 +339,20 @@ async function streamFromOllama(
       httpAgent: ollamaAgent,
     });
 
+    responseStream = response.data;
     let buffer = '';
     let inThinkBlock = false;
+
+    // LEAK-001: Helper to clean up stream listeners and destroy stream
+    const cleanupStream = () => {
+      if (responseStream) {
+        responseStream.removeAllListeners();
+        if (!responseStream.destroyed) {
+          responseStream.destroy();
+        }
+        responseStream = null;
+      }
+    };
 
     // TIMEOUT-001: Inactivity timeout (2 minutes)
     // If no data received for 2 minutes, abort the stream to prevent deadlock
@@ -373,7 +388,7 @@ async function streamFromOllama(
     // Start the inactivity timer
     resetInactivityTimer();
 
-    response.data.on('data', async chunk => {
+    responseStream.on('data', async chunk => {
       // Reset inactivity timer on each chunk
       resetInactivityTimer();
       buffer += chunk.toString();
@@ -475,7 +490,8 @@ async function streamFromOllama(
               `[QUEUE] Job ${jobId} stream complete - ${tokenCount} tokens in ${totalDuration}ms (${tokensPerSecond} tok/s)` +
                 (promptTokens ? ` [prompt: ${promptTokens}, completion: ${completionTokens}]` : '')
             );
-            clearInactivityTimer(); // Clear timeout on completion
+            clearInactivityTimer();
+            cleanupStream(); // LEAK-001: Remove listeners and destroy stream
             await flushToDatabase(true);
             await llmJobService.completeJob(jobId);
 
@@ -541,8 +557,9 @@ async function streamFromOllama(
       }
     });
 
-    response.data.on('error', async error => {
-      clearInactivityTimer(); // Clear timeout on error
+    responseStream.on('error', async error => {
+      clearInactivityTimer();
+      cleanupStream(); // LEAK-001: Remove listeners and destroy stream
       logger.error(`[QUEUE] Stream error for job ${jobId}: ${error.message}`);
       await flushToDatabase(true);
       await llmJobService.errorJob(jobId, error.message);
@@ -551,8 +568,9 @@ async function streamFromOllama(
       onJobComplete(ctx, jobId);
     });
 
-    response.data.on('end', async () => {
-      clearInactivityTimer(); // Clear timeout on stream end
+    responseStream.on('end', async () => {
+      clearInactivityTimer();
+      cleanupStream(); // LEAK-001: Remove listeners and destroy stream
       if (contentBuffer || thinkingBuffer) {
         await flushToDatabase(true);
       }
@@ -578,6 +596,14 @@ async function streamFromOllama(
       }
     });
   } catch (error) {
+    // LEAK-001: Ensure stream is cleaned up on connection errors
+    if (responseStream) {
+      responseStream.removeAllListeners();
+      if (!responseStream.destroyed) {
+        responseStream.destroy();
+      }
+      responseStream = null;
+    }
     logger.error(`[QUEUE] Error streaming for job ${jobId}: ${error.message}`);
     await llmJobService.errorJob(jobId, error.message);
 
@@ -622,4 +648,6 @@ module.exports = {
   processRAGJob,
   streamFromOllama,
   onJobComplete,
+  // LEAK-001: Export for cleanup on shutdown
+  destroyOllamaAgent: () => ollamaAgent.destroy(),
 };

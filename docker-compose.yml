@@ -21,6 +21,7 @@ name: arasul-platform
 # ==============================================================================
 
 include:
+  - path: ./compose/compose.secrets.yaml
   - path: ./compose/compose.core.yaml
   - path: ./compose/compose.ai.yaml
   - path: ./compose/compose.app.yaml

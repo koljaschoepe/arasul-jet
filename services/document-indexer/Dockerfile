@@ -24,14 +24,20 @@ RUN python -m spacy download de_core_news_lg || \
     python -m spacy download de_core_news_sm || \
     echo "WARNING: No spaCy German model available - entity extraction disabled"
 
+# Create non-root user
+RUN useradd -m -u 1000 -s /bin/bash indexer
+
 # Copy application code
 COPY *.py ./
 
 # Create directories for BM25 index persistence
-RUN mkdir -p /data/bm25_index
+RUN mkdir -p /data/bm25_index && \
+    chown -R indexer:indexer /app /data
 
 # Expose API port
 EXPOSE 9102
+
+USER indexer
 
 # Health check via API
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \

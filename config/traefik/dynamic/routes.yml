@@ -1,18 +1,11 @@
 # Traefik Dynamic Configuration - Routes
-# HTTP routers and services
+# All HTTP traffic is redirected to HTTPS via entrypoint config in traefik.yml
+# All routers below use the 'websecure' entrypoint only
 
 http:
   routers:
-    # Dashboard Frontend (catch-all, lowest priority) - HTTP only
+    # Dashboard Frontend (catch-all, lowest priority)
     dashboard-frontend:
-      rule: 'PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)'
-      service: dashboard-frontend-service
-      priority: 1
-      entryPoints:
-        - web
-
-    # Dashboard Frontend (catch-all, lowest priority) - HTTPS
-    dashboard-frontend-secure:
       rule: 'PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)'
       service: dashboard-frontend-service
       priority: 1
@@ -20,7 +13,7 @@ http:
         - websecure
       tls: {}
 
-    # Dashboard Backend API - HTTP
+    # Dashboard Backend API
     dashboard-api:
       rule: 'PathPrefix(`/api`)'
       service: dashboard-backend-service
@@ -30,22 +23,10 @@ http:
         - rate-limit-api
         - compress
       entryPoints:
-        - web
-
-    # Dashboard Backend API - HTTPS
-    dashboard-api-secure:
-      rule: 'PathPrefix(`/api`)'
-      service: dashboard-backend-service
-      priority: 10
-      middlewares:
-        - security-headers
-        - rate-limit-api
-        - compress
-      entryPoints:
         - websecure
       tls: {}
 
-    # Auth endpoints (with stricter rate limiting) - HTTP
+    # Auth endpoints (with stricter rate limiting)
     auth-api:
       rule: 'PathPrefix(`/api/auth`)'
       service: dashboard-backend-service
@@ -54,21 +35,10 @@ http:
         - security-headers
         - rate-limit-auth
       entryPoints:
-        - web
-
-    # Auth endpoints - HTTPS
-    auth-api-secure:
-      rule: 'PathPrefix(`/api/auth`)'
-      service: dashboard-backend-service
-      priority: 20
-      middlewares:
-        - security-headers
-        - rate-limit-auth
-      entryPoints:
         - websecure
       tls: {}
 
-    # Metrics API (with rate limiting) - HTTP
+    # Metrics API (with rate limiting)
     metrics-api:
       rule: 'PathPrefix(`/api/metrics`)'
       service: dashboard-backend-service
@@ -78,84 +48,67 @@ http:
         - rate-limit-metrics
         - compress
       entryPoints:
-        - web
-
-    # Metrics API - HTTPS
-    metrics-api-secure:
-      rule: 'PathPrefix(`/api/metrics`)'
-      service: dashboard-backend-service
-      priority: 15
-      middlewares:
-        - security-headers
-        - rate-limit-metrics
-        - compress
-      entryPoints:
         - websecure
       tls: {}
 
-    # MinIO Console
-    # Accessible from any IP address in the network via HTTP and HTTPS
+    # MinIO Console (requires dashboard login)
     minio-console:
       rule: 'PathPrefix(`/minio`)'
       service: minio-console-service
       priority: 100
       middlewares:
+        - forward-auth
         - minio-headers
         - rate-limit-api
       entryPoints:
-        - web
         - websecure
       tls: {}
 
-    # MinIO S3 API
-    # Accessible from any IP address in the network via HTTP and HTTPS
+    # MinIO S3 API (requires dashboard login)
     minio-api:
       rule: 'PathPrefix(`/minio-api`)'
       service: minio-api-service
       priority: 30
       middlewares:
+        - forward-auth
         - strip-minio-api-prefix
         - security-headers
         - cors-headers
         - rate-limit-api
       entryPoints:
-        - web
         - websecure
       tls: {}
 
-    # LLM Service Direct Access
-    # Accessible from any IP address in the network via HTTP and HTTPS
+    # LLM Service Direct Access (requires dashboard login)
     llm-direct:
       rule: 'PathPrefix(`/models`)'
       service: llm-service
       priority: 25
       middlewares:
+        - forward-auth
         - strip-models-prefix
         - rate-limit-llm
         - security-headers
       entryPoints:
-        - web
         - websecure
       tls: {}
 
-    # Embeddings Service Direct Access
-    # Accessible from any IP address in the network via HTTP and HTTPS
+    # Embeddings Service Direct Access (requires dashboard login)
     embeddings-direct:
       rule: 'PathPrefix(`/embeddings`)'
       service: embeddings-service
       priority: 25
       middlewares:
+        - forward-auth
         - strip-embeddings-prefix
         - rate-limit-llm
         - security-headers
       entryPoints:
-        - web
         - websecure
       tls: {}
 
-    # Claude Code Web Terminal - HTTP
+    # Claude Code Web Terminal
     # Protected by forward-auth (requires dashboard login)
-    # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
     claude-terminal:
       rule: 'PathPrefix(`/claude-terminal`)'
       service: claude-terminal-service
@@ -163,42 +116,12 @@ http:
       middlewares:
         - forward-auth
       entryPoints:
-        - web
-
-    # Claude Code Web Terminal - HTTPS
-    # Note: No strip-prefix middleware - ttyd uses --base-path /claude-terminal
-    claude-terminal-secure:
-      rule: 'PathPrefix(`/claude-terminal`)'
-      service: claude-terminal-service
-      priority: 100
-      middlewares:
-        - forward-auth
-      entryPoints:
         - websecure
       tls: {}
 
-    # n8n Root Redirect - REMOVED
-    # With N8N_PATH=/n8n, n8n handles root path redirect internally
-    # No Traefik redirect middleware needed - n8n serves /n8n/ directly
-
-    # n8n Workflow Engine - HTTP
-    # N8N_PATH=/n8n/ makes frontend generate paths with /n8n prefix
-    # But n8n server still serves files at root, so we must strip the prefix
+    # n8n Workflow Engine
     # basicAuth-n8n: additional layer on top of n8n's own authentication
-    n8n-http:
-      rule: 'PathPrefix(`/n8n`)'
-      service: n8n-service
-      priority: 100
-      middlewares:
-        - basicAuth-n8n
-        - strip-n8n-prefix
-        - security-headers
-      entryPoints:
-        - web
-
-    # n8n Workflow Engine - HTTPS
-    # basicAuth-n8n: additional layer on top of n8n's own authentication
-    n8n-https:
+    n8n:
       rule: 'PathPrefix(`/n8n`)'
       service: n8n-service
       priority: 100
@@ -210,31 +133,8 @@ http:
         - websecure
       tls: {}
 
-    # n8n SPA routes - REMOVED
-    # These root-level routes (/signin, /workflows, etc.) conflicted with the dashboard
-    # All n8n access should go through /n8n/* which strips prefix and forwards to n8n
-    # n8n handles its own internal routing via client-side SPA
-    #
-    # If needed in future, add routes like:
-    # n8n-spa-http:
-    #   rule: "PathPrefix(`/n8n/signin`) || PathPrefix(`/n8n/workflows`)"
-    #   ... (but this is handled by the general /n8n route already)
-
-    # n8n Assets - REMOVED
-    # With N8N_PATH=/n8n, n8n now serves assets at /n8n/assets/* (handled by main /n8n route)
-    # Root-level /assets route no longer needed
-
-    # Dashboard Frontend Static Files - HTTP
-    # These must have higher priority than n8n-static to serve React bundles
-    dashboard-static-http:
-      rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'
-      service: dashboard-frontend-service
-      priority: 65
-      entryPoints:
-        - web
-
-    # Dashboard Frontend Static Files - HTTPS
-    dashboard-static-https:
+    # Dashboard Frontend Static Files
+    dashboard-static:
       rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'
       service: dashboard-frontend-service
       priority: 65
@@ -242,25 +142,8 @@ http:
         - websecure
       tls: {}
 
-    # n8n Static files - REMOVED
-    # With N8N_PATH=/n8n, n8n now serves static files at /n8n/static/* (handled by main /n8n route)
-    # Root-level /static route no longer needed (dashboard has its own /static/js, /static/css routes)
-
-    # n8n REST API - REMOVED
-    # With N8N_PATH=/n8n, n8n REST API is at /n8n/rest/* (handled by main /n8n route)
-    # Root-level /rest route no longer needed
-
-    # n8n favicon - HTTP
-    # No forward-auth: favicon must load publicly
-    n8n-favicon-http:
-      rule: 'Path(`/favicon.ico`)'
-      service: n8n-service
-      priority: 85
-      entryPoints:
-        - web
-
-    # n8n favicon - HTTPS
-    n8n-favicon-https:
+    # n8n favicon (public, no auth)
+    n8n-favicon:
       rule: 'Path(`/favicon.ico`)'
       service: n8n-service
       priority: 85
@@ -269,7 +152,6 @@ http:
       tls: {}
 
     # n8n Webhooks (with rate limiting)
-    # Accessible from any IP address in the network via HTTP and HTTPS
     n8n-webhooks:
       rule: 'PathPrefix(`/webhook`)'
       service: n8n-service
@@ -278,12 +160,10 @@ http:
         - rate-limit-n8n
         - security-headers
       entryPoints:
-        - web
         - websecure
       tls: {}
 
     # Traefik Dashboard (secured with Basic Auth)
-    # Accessible from any IP address in the network via HTTP and HTTPS
     traefik-dashboard:
       rule: '(PathPrefix(`/api/traefik`) || PathPrefix(`/dashboard`))'
       service: api@internal
@@ -293,7 +173,6 @@ http:
         - security-headers
         - rate-limit-auth
       entryPoints:
-        - web
         - websecure
       tls: {}
 
@@ -362,8 +241,6 @@ http:
           timeout: 5s
 
     # n8n
-    # Note: API endpoints (like /healthz) are NOT prefixed with N8N_PATH
-    # Only the frontend UI uses the /n8n/ prefix
     n8n-service:
       loadBalancer:
         servers:

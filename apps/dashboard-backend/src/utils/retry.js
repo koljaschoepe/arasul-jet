@@ -235,25 +235,34 @@ async function retryDatabaseQuery(queryFn, options = {}) {
 }
 
 /**
- * Circuit breaker state
+ * Circuit breaker - prevents cascading failures by fast-failing when a service is down.
+ * States: CLOSED (normal) → OPEN (fast-fail) → HALF_OPEN (test one request)
  */
 class CircuitBreaker {
   constructor(options = {}) {
+    this.name = options.name || 'unknown';
     this.failureThreshold = options.failureThreshold || 5;
     this.successThreshold = options.successThreshold || 2;
-    this.timeout = options.timeout || 60000; // 1 minute
+    this.timeout = options.timeout || 30000; // 30s before retry
     this.state = 'CLOSED'; // CLOSED, OPEN, HALF_OPEN
     this.failureCount = 0;
     this.successCount = 0;
     this.nextAttempt = Date.now();
+    this.lastError = null;
+    this.lastStateChange = Date.now();
   }
 
   async execute(fn) {
     if (this.state === 'OPEN') {
       if (Date.now() < this.nextAttempt) {
-        throw new Error('Circuit breaker is OPEN');
+        const err = new Error(`Service "${this.name}" unavailable (circuit breaker OPEN)`);
+        err.code = 'CIRCUIT_OPEN';
+        err.serviceName = this.name;
+        throw err;
       }
       this.state = 'HALF_OPEN';
+      this.lastStateChange = Date.now();
+      logger.info(`[CB:${this.name}] Half-open - testing one request`);
     }
 
     try {
@@ -261,45 +270,93 @@ class CircuitBreaker {
       this.onSuccess();
       return result;
     } catch (error) {
-      this.onFailure();
+      this.onFailure(error);
       throw error;
     }
   }
 
   onSuccess() {
     this.failureCount = 0;
+    this.lastError = null;
 
     if (this.state === 'HALF_OPEN') {
       this.successCount++;
       if (this.successCount >= this.successThreshold) {
         this.state = 'CLOSED';
         this.successCount = 0;
-        logger.info('Circuit breaker closed');
+        this.lastStateChange = Date.now();
+        logger.info(`[CB:${this.name}] Closed - service recovered`);
       }
     }
   }
 
-  onFailure() {
+  onFailure(error) {
     this.failureCount++;
     this.successCount = 0;
+    this.lastError = error?.message || 'Unknown error';
 
-    if (this.failureCount >= this.failureThreshold) {
+    if (this.state === 'HALF_OPEN' || this.failureCount >= this.failureThreshold) {
       this.state = 'OPEN';
       this.nextAttempt = Date.now() + this.timeout;
-      logger.warn(`Circuit breaker opened. Will retry in ${this.timeout}ms`);
+      this.lastStateChange = Date.now();
+      logger.warn(
+        `[CB:${this.name}] OPEN - ${this.failureCount} failures, retry in ${this.timeout}ms`
+      );
     }
   }
 
   getState() {
     return this.state;
   }
+
+  getStatus() {
+    return {
+      name: this.name,
+      state: this.state,
+      failureCount: this.failureCount,
+      lastError: this.lastError,
+      lastStateChange: new Date(this.lastStateChange).toISOString(),
+    };
+  }
 }
+
+/**
+ * Circuit Breaker Registry - manages circuit breakers for all external services.
+ * Usage: const cb = circuitBreakers.get('ollama'); await cb.execute(() => axios.get(...));
+ */
+const circuitBreakers = {
+  _breakers: new Map(),
+
+  /** Get or create a circuit breaker for a service */
+  get(name, options = {}) {
+    if (!this._breakers.has(name)) {
+      this._breakers.set(name, new CircuitBreaker({ name, ...options }));
+    }
+    return this._breakers.get(name);
+  },
+
+  /** Get status of all circuit breakers (for /api/health) */
+  getAllStatus() {
+    const status = {};
+    for (const [name, cb] of this._breakers) {
+      status[name] = cb.getStatus();
+    }
+    return status;
+  },
+};
+
+// Pre-register circuit breakers for known services
+circuitBreakers.get('ollama', { failureThreshold: 3, timeout: 30000 });
+circuitBreakers.get('qdrant', { failureThreshold: 5, timeout: 30000 });
+circuitBreakers.get('embedding', { failureThreshold: 5, timeout: 30000 });
+circuitBreakers.get('minio', { failureThreshold: 5, timeout: 30000 });
 
 module.exports = {
   retry,
   retryDatabaseQuery,
   addRetryToAxios,
   CircuitBreaker,
+  circuitBreakers,
   calculateDelay,
   sleep,
 };

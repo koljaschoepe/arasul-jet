@@ -19,8 +19,12 @@ ping:
 entryPoints:
   web:
     address: ':80'
-    # HTTP access enabled for external network access (no redirect)
-    # Users can access services via http://<jetson-ip>
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
 
   websecure:
     address: ':443'

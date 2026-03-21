@@ -3,10 +3,10 @@
  * Monitors Docker events, n8n workflows, and system boot for proactive notifications
  */
 
-const Docker = require('dockerode');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const telegramService = require('../telegram/telegramNotificationService');
+const { docker: dockerClient } = require('./docker');
 
 // Service name mappings (from docker.js)
 const SERVICE_NAMES = {
@@ -39,7 +39,7 @@ const STATUS_SEVERITY = {
 
 class EventListenerService {
   constructor() {
-    this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+    this.docker = dockerClient;
     this.eventStream = null;
     this.isListening = false;
     this.startTime = Date.now();

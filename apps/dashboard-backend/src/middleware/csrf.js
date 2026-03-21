@@ -18,6 +18,8 @@ const logger = require('../utils/logger');
 const CSRF_COOKIE = 'arasul_csrf';
 const CSRF_HEADER = 'x-csrf-token';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+// Routes that are exempt from CSRF (login creates the token, so it can't require one)
+const EXEMPT_PATHS = ['/api/auth/login'];
 
 /**
  * Generate a cryptographically random CSRF token
@@ -34,6 +36,11 @@ function generateCsrfToken() {
 function csrfProtection(req, res, next) {
   // Safe methods don't change state - skip
   if (SAFE_METHODS.has(req.method)) {
+    return next();
+  }
+
+  // Login endpoint is exempt - it creates the CSRF token
+  if (EXEMPT_PATHS.includes(req.originalUrl || req.url)) {
     return next();
   }
 

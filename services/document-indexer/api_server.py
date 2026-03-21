@@ -619,12 +619,31 @@ def run_indexer_background():
 
 
 if __name__ == '__main__':
+    import signal
+    import sys
+    import time
+
+    # Graceful shutdown handler - stops indexer thread cleanly
+    def graceful_shutdown(signum, frame):
+        sig_name = signal.Signals(signum).name
+        logger.info(f"{sig_name} received - shutting down gracefully...")
+        # Stop the indexer if it's running
+        if indexer and hasattr(indexer, 'stop'):
+            try:
+                indexer.stop()
+                logger.info("Indexer stopped")
+            except Exception as e:
+                logger.warning(f"Error stopping indexer: {e}")
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, graceful_shutdown)
+    signal.signal(signal.SIGINT, graceful_shutdown)
+
     # Start indexer in background thread
     indexer_thread = threading.Thread(target=run_indexer_background, daemon=True)
     indexer_thread.start()
 
     # Give indexer time to initialize
-    import time
     time.sleep(5)
 
     # Run API server in main thread

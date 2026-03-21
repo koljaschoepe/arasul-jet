@@ -59,8 +59,8 @@ LLM_SERVICE_URL = f"http://{os.getenv('LLM_SERVICE_HOST', 'llm-service')}:{os.ge
 N8N_URL = f"http://{os.getenv('N8N_HOST', 'n8n')}:5678"
 
 # Thresholds
-DISK_WARNING = int(os.getenv('DISK_WARNING_PERCENT', '80'))
-DISK_CLEANUP = int(os.getenv('DISK_CLEANUP_PERCENT', '90'))
+DISK_WARNING = int(os.getenv('DISK_WARNING_PERCENT', '75'))
+DISK_CLEANUP = int(os.getenv('DISK_CLEANUP_PERCENT', '85'))
 DISK_CRITICAL = int(os.getenv('DISK_CRITICAL_PERCENT', '95'))
 DISK_REBOOT = int(os.getenv('DISK_REBOOT_PERCENT', '97'))
 
@@ -69,6 +69,9 @@ RAM_OVERLOAD_THRESHOLD = 90
 GPU_OVERLOAD_THRESHOLD = 95
 TEMP_THROTTLE_THRESHOLD = 83
 TEMP_RESTART_THRESHOLD = 85
+TEMP_THROTTLE_REARM = 78   # Re-arm throttle action below this temp
+TEMP_RESTART_REARM = 78    # Re-arm restart action below this temp
+TEMP_HISTORY_SIZE = 5      # Sliding window size for temperature averaging
 
 # Failure tracking windows
 FAILURE_WINDOW_MINUTES = 10
@@ -125,6 +128,11 @@ class SelfHealingEngine:
 
         # State tracking for metrics failure
         self.metrics_down_since = None
+
+        # Temperature hysteresis state
+        self._temp_history = []  # Sliding window for averaging (last 5 readings)
+        self._temp_throttle_armed = True   # Disarmed when throttle triggers, re-armed at TEMP_THROTTLE_REARM
+        self._temp_restart_armed = True    # Disarmed when restart triggers, re-armed at TEMP_RESTART_REARM
 
         # Cooldown for critical actions
         self.last_critical_action_time = 0
@@ -613,14 +621,31 @@ class SelfHealingEngine:
                 )
                 self.last_overload_actions[action_key] = current_time
 
-        # Temperature Management
-        if temp > TEMP_RESTART_THRESHOLD:
-            # Critical temperature: restart LLM service
+        # Temperature Management with hysteresis and sliding window average
+        # Update sliding window
+        self._temp_history.append(temp)
+        if len(self._temp_history) > TEMP_HISTORY_SIZE:
+            self._temp_history.pop(0)
+        avg_temp = sum(self._temp_history) / len(self._temp_history)
+
+        # Re-arm hysteresis when temperature drops below re-arm thresholds
+        if avg_temp < TEMP_RESTART_REARM:
+            if not self._temp_restart_armed:
+                logger.info(f"Temperature dropped to {avg_temp:.1f}°C - restart action re-armed")
+                self._temp_restart_armed = True
+        if avg_temp < TEMP_THROTTLE_REARM:
+            if not self._temp_throttle_armed:
+                logger.info(f"Temperature dropped to {avg_temp:.1f}°C - throttle action re-armed")
+                self._temp_throttle_armed = True
+
+        if avg_temp > TEMP_RESTART_THRESHOLD and self._temp_restart_armed:
+            # Critical temperature: restart LLM service (with hysteresis)
             action_key = 'temp_critical'
             last_action = self.last_overload_actions.get(action_key, 0)
 
             if current_time - last_action > 600:  # 10 minutes cooldown
-                logger.critical(f"Critical temperature: {temp}°C - restarting LLM service")
+                logger.critical(f"Critical temperature: {avg_temp:.1f}°C (raw: {temp}°C) - restarting LLM service")
+                self._temp_restart_armed = False  # Disarm until temp drops below TEMP_RESTART_REARM
                 try:
                     container = self.docker_client.containers.get('llm-service')
                     container.restart()
@@ -632,38 +657,39 @@ class SelfHealingEngine:
                 self.log_event(
                     'thermal_critical',
                     'CRITICAL',
-                    f'System temperature at {temp}°C (threshold: {TEMP_RESTART_THRESHOLD}°C)',
+                    f'System temperature at {avg_temp:.1f}°C avg (threshold: {TEMP_RESTART_THRESHOLD}°C)',
                     'Restarted LLM service' if success else 'Failed to restart service',
                     'llm-service',
                     success
                 )
                 self.record_recovery_action(
                     'service_restart', 'llm-service',
-                    f'Critical temperature: {temp}°C',
+                    f'Critical temperature: {avg_temp:.1f}°C',
                     success
                 )
                 self.last_overload_actions[action_key] = current_time
 
-        elif temp > TEMP_THROTTLE_THRESHOLD:
-            # High temperature: throttle GPU
+        elif avg_temp > TEMP_THROTTLE_THRESHOLD and self._temp_throttle_armed:
+            # High temperature: throttle GPU (with hysteresis)
             action_key = 'temp_throttle'
             last_action = self.last_overload_actions.get(action_key, 0)
 
             if current_time - last_action > 300:
-                logger.warning(f"High temperature: {temp}°C - throttling GPU")
+                logger.warning(f"High temperature: {avg_temp:.1f}°C (raw: {temp}°C) - throttling GPU")
+                self._temp_throttle_armed = False  # Disarm until temp drops below TEMP_THROTTLE_REARM
                 success = self.throttle_gpu()
 
                 self.log_event(
                     'thermal_warning',
                     'WARNING',
-                    f'System temperature at {temp}°C (threshold: {TEMP_THROTTLE_THRESHOLD}°C)',
+                    f'System temperature at {avg_temp:.1f}°C avg (threshold: {TEMP_THROTTLE_THRESHOLD}°C)',
                     'Applied GPU throttling' if success else 'Failed to throttle GPU',
                     None,
                     success
                 )
                 self.record_recovery_action(
                     'gpu_throttle', None,
-                    f'High temperature: {temp}°C',
+                    f'High temperature: {avg_temp:.1f}°C',
                     success
                 )
                 self.last_overload_actions[action_key] = current_time
@@ -934,6 +960,22 @@ class SelfHealingEngine:
             logger.error(f"Failed to save reboot state: {e}")
             return None
 
+    def _pause_active_jobs_for_reboot(self, reason: str):
+        """Cancel or mark active LLM jobs as failed before reboot"""
+        try:
+            result = self.execute_query(
+                """UPDATE llm_jobs SET status = 'failed', error = %s, updated_at = NOW()
+                   WHERE status IN ('processing', 'pending')
+                   RETURNING id""",
+                (f'System reboot: {reason}',),
+                fetch=True
+            )
+            count = len(result) if result else 0
+            if count > 0:
+                logger.info(f"Marked {count} active LLM jobs as failed before reboot")
+        except Exception as e:
+            logger.warning(f"Failed to pause active jobs before reboot: {e}")
+
     def handle_category_d_reboot(self, reason: str):
         """Category D: System Reboot - ultima ratio"""
         logger.critical(f"SYSTEM REBOOT TRIGGERED: {reason}")
@@ -954,6 +996,9 @@ class SelfHealingEngine:
 
         # Save pre-reboot state
         reboot_id = self.save_reboot_state(reason)
+
+        # Pause active LLM jobs before reboot
+        self._pause_active_jobs_for_reboot(reason)
 
         if REBOOT_ENABLED:
             logger.critical("Initiating system reboot in 10 seconds...")

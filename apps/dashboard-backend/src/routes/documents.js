@@ -123,6 +123,24 @@ const { getEmbedding } = require('../services/embeddingService');
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
+/**
+ * Check if bucket has enough space (quota enforcement)
+ * Returns { ok, usedBytes, message } or null if quota check not available
+ */
+async function checkBucketQuota(minio, bucket) {
+  try {
+    // Sum object sizes in the bucket
+    let totalSize = 0;
+    const stream = minio.listObjectsV2(bucket, '', true);
+    for await (const obj of stream) {
+      totalSize += obj.size || 0;
+    }
+    return { usedBytes: totalSize };
+  } catch {
+    return null; // Quota check not available, allow upload
+  }
+}
+
 // MinIO client
 let minioClient = null;
 
@@ -439,12 +457,26 @@ router.post(
       throw new ConflictError('Dokument existiert bereits');
     }
 
+    // Check bucket quota before upload (200GB default, configurable via MinIO)
+    const minio = getMinioClient();
+    const BUCKET_QUOTA_BYTES =
+      parseInt(process.env.MINIO_DOCUMENTS_QUOTA_BYTES || '0') || 200 * 1024 * 1024 * 1024;
+    if (BUCKET_QUOTA_BYTES > 0) {
+      const usage = await checkBucketQuota(minio, MINIO_BUCKET);
+      if (usage && usage.usedBytes + file.size > BUCKET_QUOTA_BYTES) {
+        const usedGB = (usage.usedBytes / 1024 ** 3).toFixed(1);
+        const limitGB = (BUCKET_QUOTA_BYTES / 1024 ** 3).toFixed(0);
+        throw new ValidationError(
+          `Speicherlimit erreicht (${usedGB} GB / ${limitGB} GB). Bitte löschen Sie nicht benötigte Dokumente.`
+        );
+      }
+    }
+
     // Generate unique path in MinIO
     const timestamp = Date.now();
     const objectName = `${timestamp}_${filename}`;
 
     // Upload to MinIO
-    const minio = getMinioClient();
     await minio.putObject(MINIO_BUCKET, objectName, file.buffer, file.size, {
       'Content-Type': file.mimetype,
     });
@@ -1208,6 +1240,36 @@ router.post(
       },
       message: 'Markdown-Dokument erstellt.',
       timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/documents/storage
+ * Get document storage usage statistics
+ */
+router.get(
+  '/storage',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const minio = getMinioClient();
+    const usage = await checkBucketQuota(minio, MINIO_BUCKET);
+
+    const quotaBytes =
+      parseInt(process.env.MINIO_DOCUMENTS_QUOTA_BYTES || '0') || 200 * 1024 * 1024 * 1024;
+
+    // Get document count from DB
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as total, COALESCE(SUM(file_size), 0) as total_size FROM documents WHERE deleted_at IS NULL'
+    );
+
+    const { total, total_size } = countResult.rows[0];
+
+    res.json({
+      documents: parseInt(total),
+      used_bytes: usage ? usage.usedBytes : parseInt(total_size),
+      quota_bytes: quotaBytes,
+      usage_percent: usage ? Math.round((usage.usedBytes / quotaBytes) * 100) : null,
     });
   })
 );

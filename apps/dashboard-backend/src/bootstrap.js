@@ -63,6 +63,10 @@ async function ensureAdminUser() {
     );
 
     logger.info(`Bootstrap: Created initial admin user "${DEFAULT_USERNAME}"`);
+
+    // Remove plaintext password from process environment
+    delete process.env.ADMIN_PASSWORD;
+    logger.info('Bootstrap: ADMIN_PASSWORD removed from process environment');
   } catch (error) {
     // Table might not exist yet on very first run - don't crash
     if (error.message && error.message.includes('does not exist')) {

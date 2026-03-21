@@ -35,8 +35,12 @@ RUN pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-ins
 # Copy application code
 COPY . .
 
-# Create models directory
-RUN mkdir -p /models
+# Create models directory and non-root user
+RUN mkdir -p /models && \
+    groupadd -r appuser && useradd -r -g appuser -d /app appuser && \
+    chown -R appuser:appuser /app /models
+
+USER appuser
 
 # Expose service port
 EXPOSE 11435

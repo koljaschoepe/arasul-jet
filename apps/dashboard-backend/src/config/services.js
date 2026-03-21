@@ -37,6 +37,20 @@ const SELF_HEALING_PORT = process.env.SELF_HEALING_PORT || '9200';
 const N8N_HOST = process.env.N8N_HOST || 'n8n';
 const N8N_PORT = process.env.N8N_PORT || '5678';
 
+// TIMEOUT-002: Default timeouts per service type (ms)
+// Individual axios calls can override these, but this ensures nothing hangs forever
+const timeouts = {
+  health: 5000, // Health/readiness checks
+  query: 15000, // DB/search queries
+  upload: 30000, // File uploads
+  embed: 30000, // Single embedding
+  embedBatch: 120000, // Batch embedding
+  generate: 600000, // LLM generation (streaming)
+  pull: 3600000, // Model download (1h)
+  webhook: 10000, // External webhooks (Telegram, etc.)
+  default: 30000, // Fallback for anything unspecified
+};
+
 // Constructed URLs
 const services = {
   // LLM Service
@@ -111,3 +125,4 @@ const services = {
 };
 
 module.exports = services;
+module.exports.timeouts = timeouts;

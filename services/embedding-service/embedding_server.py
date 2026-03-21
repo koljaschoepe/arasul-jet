@@ -420,6 +420,9 @@ def info():
 
 def main():
     """Main entry point"""
+    import signal
+    import sys
+
     logger.info("Starting Arasul Embedding Service")
     logger.info(f"Port: {SERVICE_PORT}")
     logger.info(f"Model: {MODEL_NAME}")
@@ -429,6 +432,16 @@ def main():
     if not load_model():
         logger.error("Failed to load model, exiting")
         exit(1)
+
+    # Graceful shutdown handler
+    def graceful_shutdown(signum, frame):
+        sig_name = signal.Signals(signum).name
+        logger.info(f"{sig_name} received - shutting down gracefully...")
+        # Flask dev server will stop when we exit
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, graceful_shutdown)
+    signal.signal(signal.SIGINT, graceful_shutdown)
 
     # Start Flask server
     app.run(

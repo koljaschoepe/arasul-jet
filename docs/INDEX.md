@@ -4,13 +4,26 @@ Quick navigation to all Arasul Platform documentation.
 
 ---
 
-## Getting Started
+## Reading Paths (New Developer Onboarding)
 
-| Document                                 | Description                                     |
-| ---------------------------------------- | ----------------------------------------------- |
-| [GETTING_STARTED.md](GETTING_STARTED.md) | Developer onboarding & first change walkthrough |
-| [README.md](../README.md)                | Project overview                                |
-| [CLAUDE.md](../CLAUDE.md)                | Claude Code instructions (compact)              |
+### Day 1-2: Understand the System
+
+1. [GETTING_STARTED.md](GETTING_STARTED.md) - Setup, first change, deployment workflow
+2. [ARCHITECTURE.md](ARCHITECTURE.md) - 17 services, data flows, file locations
+3. [DEVELOPMENT.md](DEVELOPMENT.md) - Patterns, hooks, debugging cheatsheet
+
+### Day 3-4: Deep Dive
+
+4. [API_REFERENCE.md](API_REFERENCE.md) - All endpoints with request/response examples
+5. [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) - Tables, relationships, migrations
+6. [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) - **Mandatory** frontend guidelines
+7. [TESTING.md](TESTING.md) - Backend (Jest) + Frontend (Vitest) + E2E (Playwright)
+
+### Day 5: Operations
+
+8. [DEPLOYMENT.md](DEPLOYMENT.md) - Docker Compose, rebuild workflow
+9. [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) - All config variables
+10. [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues & solutions
 
 ---
 
@@ -31,6 +44,7 @@ Quick navigation to all Arasul Platform documentation.
 
 | Document                                  | Description                                       |
 | ----------------------------------------- | ------------------------------------------------- |
+| [GETTING_STARTED.md](GETTING_STARTED.md)  | Developer onboarding & first change walkthrough   |
 | [DEVELOPMENT.md](DEVELOPMENT.md)          | Workflows, backend patterns, API usage, debugging |
 | [TESTING.md](TESTING.md)                  | Test framework & procedures                       |
 | [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md) | Bug tracking & resolutions                        |
@@ -41,8 +55,9 @@ Quick navigation to all Arasul Platform documentation.
 
 | Document                                       | Description                                      |
 | ---------------------------------------------- | ------------------------------------------------ |
-| [FRESH_DEPLOY_GUIDE.md](FRESH_DEPLOY_GUIDE.md) | Fresh Jetson deployment (3 methods, German)      |
 | [DEPLOYMENT.md](DEPLOYMENT.md)                 | Installation, deployment, pre-shipping checklist |
+| [FRESH_DEPLOY_GUIDE.md](FRESH_DEPLOY_GUIDE.md) | Fresh Jetson deployment (3 methods, German)      |
+| [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)   | DR runbooks, backup/restore procedures           |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md)       | Problem resolution & support                     |
 | [BACKUP_SYSTEM.md](BACKUP_SYSTEM.md)           | Automated backup documentation                   |
 | [UPDATE_SYSTEM.md](UPDATE_SYSTEM.md)           | Update mechanism                                 |
@@ -71,7 +86,7 @@ Quick navigation to all Arasul Platform documentation.
 | Service            | README                                         | Description                |
 | ------------------ | ---------------------------------------------- | -------------------------- |
 | Dashboard Backend  | [README](../apps/dashboard-backend/README.md)  | REST API + WebSocket + SSE |
-| Dashboard Frontend | [README](../apps/dashboard-frontend/README.md) | React SPA                  |
+| Dashboard Frontend | [README](../apps/dashboard-frontend/README.md) | React 19 SPA (Vite 6)      |
 
 ### AI Services
 
@@ -112,4 +127,4 @@ Quick navigation to all Arasul Platform documentation.
 
 ## Archive
 
-Deprecated and historical documents: [docs/archive/](archive/)
+Completed plans and historical documents: [docs/archive/](archive/)

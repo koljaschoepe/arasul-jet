@@ -25,6 +25,9 @@ RUN pip3 install --no-cache-dir \
     requests==2.31.0 \
     psutil==5.9.6
 
+# Create non-root user for running Ollama and Management API
+RUN useradd -m -u 1000 -s /bin/bash ollama
+
 # Copy Management API Server (for Model Download/Delete/List)
 COPY api_server.py /app/api_server.py
 COPY entrypoint.sh /app/entrypoint.sh
@@ -35,8 +38,12 @@ RUN chmod +x /app/entrypoint.sh /healthcheck.sh
 EXPOSE 11434
 EXPOSE 11436
 
-# Models will be stored in persistent volume (see docker-compose.yml)
-VOLUME ["/root/.ollama"]
+# Models stored in ollama home dir (persistent volume via compose)
+RUN mkdir -p /home/ollama/.ollama && \
+    chown -R ollama:ollama /app /home/ollama/.ollama
+VOLUME ["/home/ollama/.ollama"]
+
+USER ollama
 
 # Health check
 # CRITICAL-FIX: Increased start-period from 60s to 300s to prevent container restart loops

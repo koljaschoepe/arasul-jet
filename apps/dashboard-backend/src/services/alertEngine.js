@@ -471,6 +471,15 @@ function createAlertEngine(deps = {}) {
         // Temperature - prefer GPU temp, fallback to CPU temp
         const temp = metrics.temperature?.gpu || metrics.temperature?.cpu;
         await this.checkMetric('temperature', temp, thresholds, settings);
+
+        // Network connectivity check
+        if (metrics.network && metrics.network.online === false) {
+          const canFire = await this.canFireAlert('network');
+          if (canFire) {
+            await this.fireAlert('network', 'warning', 0, 1, { warning: 1, critical: 1 }, settings);
+            logger.warn('Network offline detected - alert fired');
+          }
+        }
       } catch (error) {
         logger.error(`Alert check failed: ${error.message}`);
       }

@@ -54,6 +54,7 @@ n8n_data/
 *.key
 admin.hash
 config/secrets/
+!config/secrets/.example/
 config/.traefik-credentials
 config/certs/
 config/ssh/

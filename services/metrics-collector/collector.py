@@ -264,6 +264,40 @@ class MetricsCollector:
             logger.error(f"Error reading disk: {e}")
             return {'total': 0, 'used': 0, 'free': 0, 'percent': 0.0}
 
+    def check_self_healing_health(self) -> Optional[Dict]:
+        """Check self-healing agent heartbeat via HTTP endpoint"""
+        import urllib.request
+        try:
+            url = f"http://{os.getenv('SELF_HEALING_HOST', 'self-healing-agent')}:9200/health"
+            req = urllib.request.Request(url, method='GET')
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                age = data.get('seconds_since_heartbeat', 0)
+                if age and age > 60:
+                    logger.warning(f"Self-healing agent heartbeat stale: {age:.0f}s old")
+                return {
+                    'healthy': data.get('healthy', False),
+                    'seconds_since_heartbeat': age,
+                    'status': data.get('status', 'unknown'),
+                }
+        except Exception:
+            return {'healthy': False, 'seconds_since_heartbeat': -1, 'status': 'unreachable'}
+
+    def check_network_connectivity(self) -> Dict:
+        """Check internet connectivity via DNS lookup"""
+        import socket
+        try:
+            socket.setdefaulttimeout(3)
+            socket.getaddrinfo('dns.google', 443)
+            return {'online': True}
+        except (socket.gaierror, socket.timeout, OSError):
+            try:
+                # Fallback: try Cloudflare DNS
+                socket.getaddrinfo('one.one.one.one', 443)
+                return {'online': True}
+            except (socket.gaierror, socket.timeout, OSError):
+                return {'online': False}
+
     def collect_all(self) -> Dict:
         """Collect all metrics"""
         return {
@@ -272,6 +306,8 @@ class MetricsCollector:
             'gpu': self.get_gpu_percent(),
             'temperature': self.get_temperature(),
             'disk': self.get_disk_usage(),
+            'self_healing': self.check_self_healing_health(),
+            'network': self.check_network_connectivity(),
             'timestamp': datetime.utcnow().isoformat()
         }
 

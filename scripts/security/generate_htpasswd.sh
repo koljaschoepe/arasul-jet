@@ -71,15 +71,21 @@ echo ""
 
 # Optionally auto-apply to middlewares.yml
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MIDDLEWARES_FILE="$(dirname "$SCRIPT_DIR")/../config/traefik/dynamic/middlewares.yml"
+MIDDLEWARES_FILE="${SCRIPT_DIR}/../../config/traefik/dynamic/middlewares.yml"
 
-if [ -f "$MIDDLEWARES_FILE" ] && grep -q "PLACEHOLDER" "$MIDDLEWARES_FILE" 2>/dev/null; then
-  read -p "Apply to middlewares.yml automatically? [y/N] " APPLY
-  if [[ "$APPLY" =~ ^[yYjJ]$ ]]; then
-    FULL_HASH="$USERNAME:$ESCAPED_HASH"
-    sed -i "s|'admin:\$apr1\$PLACEHOLDER\$REPLACE_WITH_GENERATED_HASH'|'${FULL_HASH}'|" "$MIDDLEWARES_FILE"
-    sed -i "s|'admin:\$\$2y\$\$05\$\$PLACEHOLDER_REPLACE_WITH_GENERATED_HASH'|'${FULL_HASH}'|" "$MIDDLEWARES_FILE"
-    echo "Applied to $MIDDLEWARES_FILE"
-    echo "Restart Traefik: docker compose restart traefik"
+if [ -f "$MIDDLEWARES_FILE" ]; then
+  FULL_HASH="$USERNAME:$ESCAPED_HASH"
+
+  if grep -q "__BASIC_AUTH_HASH__" "$MIDDLEWARES_FILE" 2>/dev/null; then
+    read -p "Platzhalter in middlewares.yml ersetzen? [y/N] " APPLY
+    if [[ "$APPLY" =~ ^[yYjJ]$ ]]; then
+      sed -i "s|'__BASIC_AUTH_HASH__'|'${FULL_HASH}'|g" "$MIDDLEWARES_FILE"
+      echo "Applied to $MIDDLEWARES_FILE"
+      echo "Restart Traefik: docker compose restart reverse-proxy"
+    fi
+  else
+    echo ""
+    echo "Hinweis: middlewares.yml enthaelt keine Platzhalter."
+    echo "Bestehende Hashes muessen manuell ersetzt werden."
   fi
 fi

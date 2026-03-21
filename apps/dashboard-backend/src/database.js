@@ -18,9 +18,9 @@ const poolConfig = {
   max: parseInt(process.env.POSTGRES_POOL_MAX || '20'),
   min: parseInt(process.env.POSTGRES_POOL_MIN || '2'),
 
-  // Timeout configuration
+  // Timeout configuration (POOL-001: reduced connection timeout for faster fail)
   idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT || '30000'),
-  connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT || '10000'),
+  connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT || '5000'),
 
   // Application name for PostgreSQL monitoring
   application_name: 'arasul-dashboard-backend',
@@ -40,8 +40,13 @@ const poolStats = {
   slowQueries: 0,
   connectionErrors: 0,
   queryErrors: 0,
+  leakWarnings: 0,
   startTime: Date.now(),
 };
+
+// POOL-001: Connection leak detection - track checked-out connections
+const checkedOutConnections = new Map(); // client → { acquiredAt, stack }
+const LEAK_WARN_MS = 60000; // Warn if connection checked out > 60s
 
 // Event: New connection established
 // BUG-005 FIX: Handle promise rejections from client.query()
@@ -75,12 +80,16 @@ pool.on('error', (err, client) => {
 
 // Event: Connection removed from pool
 pool.on('remove', client => {
+  checkedOutConnections.delete(client);
   logger.debug('Database connection removed from pool');
 });
 
 // Event: Connection acquired from pool
 // PERFORMANCE FIX: Warn when pool utilization is high
 pool.on('acquire', client => {
+  // POOL-001: Track checkout time for leak detection
+  checkedOutConnections.set(client, { acquiredAt: Date.now() });
+
   const utilization = pool.totalCount / poolConfig.max;
   if (utilization >= 0.8) {
     logger.warn(
@@ -92,6 +101,20 @@ pool.on('acquire', client => {
   }
   logger.debug('Database connection acquired from pool');
 });
+
+// POOL-001: Periodic leak detection (every 30s)
+const leakCheckInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [client, info] of checkedOutConnections) {
+    const elapsed = now - info.acquiredAt;
+    if (elapsed > LEAK_WARN_MS) {
+      poolStats.leakWarnings++;
+      logger.warn(
+        `Possible connection leak: connection checked out for ${Math.round(elapsed / 1000)}s`
+      );
+    }
+  }
+}, 30000);
 
 async function initialize() {
   return retryDatabaseQuery(
@@ -117,6 +140,13 @@ async function initialize() {
 async function query(text, params) {
   const start = Date.now();
   poolStats.totalQueries++;
+
+  // POOL-001: Fast-fail when pool is saturated (prevents cascading hangs)
+  if (pool.waitingCount > 10) {
+    const err = new Error('Database pool saturated - too many waiting connections');
+    err.statusCode = 503;
+    throw err;
+  }
 
   return retryDatabaseQuery(
     async () => {
@@ -177,6 +207,7 @@ async function transaction(callback) {
   } finally {
     // BUG-010 FIX: Only release client if it was successfully acquired
     if (client) {
+      checkedOutConnections.delete(client);
       client.release();
     }
   }
@@ -208,6 +239,7 @@ function getPoolStats() {
     slowQueries: poolStats.slowQueries,
     connectionErrors: poolStats.connectionErrors,
     queryErrors: poolStats.queryErrors,
+    leakWarnings: poolStats.leakWarnings,
 
     // Performance metrics
     queriesPerSecond: uptimeSeconds > 0 ? (poolStats.totalQueries / uptimeSeconds).toFixed(2) : 0,
@@ -257,6 +289,8 @@ async function healthCheck() {
 }
 
 async function close() {
+  clearInterval(leakCheckInterval);
+  checkedOutConnections.clear();
   await pool.end();
   logger.info('Database pool closed');
 }

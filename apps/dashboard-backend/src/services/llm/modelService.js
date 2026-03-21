@@ -411,7 +411,7 @@ function createModelService(deps = {}) {
 
       if (catalogResult.rows.length > 0) {
         const catalogId = catalogResult.rows[0].id;
-        await database.query(
+        const result = await database.query(
           `
             INSERT INTO llm_installed_models (id, status, download_progress, downloaded_at)
             VALUES ($1, 'available', 100, NOW())
@@ -419,10 +419,15 @@ function createModelService(deps = {}) {
                 status = 'available',
                 download_progress = 100,
                 error_message = NULL
+            WHERE llm_installed_models.status != 'available'
+               OR llm_installed_models.download_progress != 100
+               OR llm_installed_models.error_message IS NOT NULL
           `,
           [catalogId]
         );
-        logger.debug(`[SYNC] Model ${catalogId} marked as available`);
+        if (result.rowCount > 0) {
+          logger.debug(`[SYNC] Model ${catalogId} marked as available`);
+        }
       }
     }
   }
@@ -586,6 +591,53 @@ function createModelService(deps = {}) {
     }
 
     /**
+     * Evict least-recently-used models if MAX_STORED_MODELS limit is reached.
+     * Deletes oldest unused models (by last_used_at) that are not the default model.
+     * @param {string} excludeModelId - Model being installed (don't count it yet)
+     */
+    async evictModelsIfNeeded(excludeModelId) {
+      const maxModels = parseInt(process.env.MAX_STORED_MODELS || '0');
+      if (maxModels <= 0) {return;} // 0 = no limit
+
+      const installedResult = await database.query(
+        `SELECT i.id, i.last_used_at, i.is_default,
+                COALESCE(c.ollama_name, c.id) as effective_ollama_name
+         FROM llm_installed_models i
+         JOIN llm_model_catalog c ON i.id = c.id
+         WHERE i.status = 'available' AND i.id != $1
+         ORDER BY i.is_default ASC, i.last_used_at ASC NULLS FIRST`,
+        [excludeModelId]
+      );
+
+      const installed = installedResult.rows;
+      // +1 because we're about to install a new model
+      const modelsToRemove = installed.length + 1 - maxModels;
+
+      if (modelsToRemove <= 0) {return;}
+
+      // Remove oldest non-default models
+      let removed = 0;
+      for (const model of installed) {
+        if (removed >= modelsToRemove) {break;}
+        if (model.is_default) {continue;} // Never evict default model
+
+        logger.info(
+          `[LRU-EVICT] Removing model ${model.id} (last used: ${model.last_used_at || 'never'})`
+        );
+        try {
+          await this.deleteModel(model.id);
+          removed++;
+        } catch (err) {
+          logger.warn(`[LRU-EVICT] Failed to remove ${model.id}: ${err.message}`);
+        }
+      }
+
+      if (removed > 0) {
+        logger.info(`[LRU-EVICT] Removed ${removed} model(s) to stay within limit of ${maxModels}`);
+      }
+    }
+
+    /**
      * Download a model with progress callback
      * @param {string} modelId - Model ID to download
      * @param {function} progressCallback - Callback for progress updates (progress, status)
@@ -605,6 +657,9 @@ function createModelService(deps = {}) {
 
       // P1-001: Check disk space before download
       await _validateDiskSpace(this, catalogModel.size_bytes || 0);
+
+      // LRU eviction: remove oldest models if limit is reached
+      await this.evictModelsIfNeeded(modelId);
 
       // Use effective_ollama_name for Ollama API calls
       const ollamaName = catalogModel.effective_ollama_name;

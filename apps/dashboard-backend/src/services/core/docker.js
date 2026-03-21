@@ -1,12 +1,25 @@
 /**
  * Docker service module
- * Interacts with Docker daemon to get service statuses
+ * Interacts with Docker daemon to get service statuses.
+ * Connects via Docker Socket Proxy (DOCKER_HOST) or direct socket fallback.
  */
 
 const Docker = require('dockerode');
 const logger = require('../../utils/logger');
 
-const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+// Create Docker client: prefer DOCKER_HOST (tcp://docker-proxy:2375), fallback to socket
+function createDockerClient() {
+  const dockerHost = process.env.DOCKER_HOST;
+  if (dockerHost && dockerHost.startsWith('tcp://')) {
+    const stripped = dockerHost.replace('tcp://', '');
+    const [host, port] = stripped.split(':');
+    logger.info(`Docker client connecting via proxy: ${host}:${port}`);
+    return new Docker({ host, port: parseInt(port || '2375') });
+  }
+  return new Docker({ socketPath: dockerHost || '/var/run/docker.sock' });
+}
+
+const docker = createDockerClient();
 
 // Service name mappings
 const SERVICE_NAMES = {
@@ -156,6 +169,7 @@ async function startContainer(containerName) {
 }
 
 module.exports = {
+  docker,
   getAllServicesStatus,
   getContainerInfo,
   restartContainer,

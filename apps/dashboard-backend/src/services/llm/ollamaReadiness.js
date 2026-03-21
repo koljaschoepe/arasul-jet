@@ -27,7 +27,7 @@ const METRICS_COLLECTOR_URL = services.metrics.url;
 // Configuration
 const OLLAMA_READY_TIMEOUT = parseInt(process.env.OLLAMA_READY_TIMEOUT || '300000'); // 5 min default
 const OLLAMA_RETRY_INTERVAL = parseInt(process.env.OLLAMA_RETRY_INTERVAL || '5000'); // 5 sec
-const SYNC_INTERVAL = parseInt(process.env.MODEL_SYNC_INTERVAL || '60000'); // 1 min
+const SYNC_INTERVAL = parseInt(process.env.MODEL_SYNC_INTERVAL || '300000'); // 5 min
 const INACTIVITY_THRESHOLD = parseInt(process.env.MODEL_INACTIVITY_THRESHOLD || '1800000'); // 30 min
 const RAM_CRITICAL_THRESHOLD = parseFloat(process.env.RAM_CRITICAL_THRESHOLD || '95'); // 95%
 const LONG_REQUEST_THRESHOLD = parseInt(process.env.LONG_REQUEST_THRESHOLD || '180000'); // 3 min

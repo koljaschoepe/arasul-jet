@@ -3,12 +3,9 @@
  * Handles app installation, uninstallation, dependency checking, and system app sync.
  */
 
-const Docker = require('dockerode');
 const db = require('../../database');
 const logger = require('../../utils/logger');
-
-// Docker client - uses socket for communication
-const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+const { docker } = require('../core/docker');
 
 /**
  * Install an app

@@ -4,12 +4,9 @@
  * Handles container configuration, image management, and Traefik label generation.
  */
 
-const Docker = require('dockerode');
 const db = require('../../database');
 const logger = require('../../utils/logger');
-
-// Docker client - uses socket for communication
-const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+const { docker } = require('../core/docker');
 
 // Docker Compose prefixes network names with project name
 // The project name is derived from the directory name: arasul-jet

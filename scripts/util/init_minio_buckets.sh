@@ -52,21 +52,25 @@ fi
 log_info "Configuring MinIO client..."
 mc alias set local http://${MINIO_HOST}:${MINIO_PORT} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
 
+# Configurable quotas (override via environment)
+DOCUMENTS_QUOTA="${MINIO_DOCUMENTS_QUOTA:-200GB}"
+BACKUPS_QUOTA="${MINIO_BACKUPS_QUOTA:-50GB}"
+
 # List of buckets to create
-# Format: "bucket_name:policy:description:versioning:lifecycle_days"
+# Format: "bucket_name:policy:description:versioning:lifecycle_days:quota"
 BUCKETS=(
-    "documents:private:Document storage for user uploads:enabled:0"
-    "workflow-data:private:n8n workflow execution data:enabled:30"
-    "llm-cache:private:LLM model caching:disabled:7"
-    "embeddings-cache:private:Embedding model caching:disabled:7"
-    "backups:private:System backups:enabled:90"
-    "updates:private:System update packages:enabled:0"
-    "quotes:private:PDF-Angebote und Dokumentvorlagen:enabled:365"
+    "documents:private:Document storage for user uploads:enabled:0:${DOCUMENTS_QUOTA}"
+    "workflow-data:private:n8n workflow execution data:enabled:30:0"
+    "llm-cache:private:LLM model caching:disabled:7:0"
+    "embeddings-cache:private:Embedding model caching:disabled:7:0"
+    "backups:private:System backups:enabled:30:${BACKUPS_QUOTA}"
+    "updates:private:System update packages:enabled:0:0"
+    "quotes:private:PDF-Angebote und Dokumentvorlagen:enabled:365:0"
 )
 
 # Create buckets
 for bucket_spec in "${BUCKETS[@]}"; do
-    IFS=':' read -r bucket_name policy description versioning lifecycle_days <<< "$bucket_spec"
+    IFS=':' read -r bucket_name policy description versioning lifecycle_days quota <<< "$bucket_spec"
 
     log_info "Creating bucket: $bucket_name"
 
@@ -151,6 +155,43 @@ EOF
         rm -f "$LIFECYCLE_FILE"
     fi
 
+    # Set bucket quota if specified
+    if [ -n "$quota" ] && [ "$quota" != "0" ]; then
+        log_info "Setting quota for bucket: $bucket_name ($quota)"
+        if mc quota set local/${bucket_name} --size "$quota" 2>/dev/null; then
+            log_success "Quota set for '$bucket_name': $quota"
+        else
+            log_warning "Failed to set quota for '$bucket_name' (MinIO version may not support quotas)"
+        fi
+    fi
+
+    # Expire old noncurrent versions after 30 days (for versioned buckets)
+    if [ "$versioning" = "enabled" ] && [ "$lifecycle_days" -eq 0 ] 2>/dev/null; then
+        log_info "Setting noncurrent version expiration for bucket: $bucket_name (30 days)"
+        NONCURRENT_JSON=$(cat <<EOF
+{
+    "Rules": [
+        {
+            "ID": "ExpireNoncurrentVersions",
+            "Status": "Enabled",
+            "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 30
+            }
+        }
+    ]
+}
+EOF
+)
+        NONCURRENT_FILE="/tmp/noncurrent_${bucket_name}.json"
+        echo "$NONCURRENT_JSON" > "$NONCURRENT_FILE"
+        if mc ilm import local/${bucket_name} < "$NONCURRENT_FILE" 2>/dev/null; then
+            log_success "Noncurrent version expiration set for '$bucket_name' (30 days)"
+        else
+            log_warning "Failed to set noncurrent version expiration for '$bucket_name'"
+        fi
+        rm -f "$NONCURRENT_FILE"
+    fi
+
     # Add tags for metadata
     log_info "Setting metadata tags for bucket: $bucket_name"
     mc tag set local/${bucket_name} "description=$description" &> /dev/null || true
@@ -198,7 +239,7 @@ log_info "Bucket Summary:"
 echo "─────────────────────────────────────────────────────────────────"
 
 for bucket_spec in "${BUCKETS[@]}"; do
-    IFS=':' read -r bucket_name policy description versioning lifecycle_days <<< "$bucket_spec"
+    IFS=':' read -r bucket_name policy description versioning lifecycle_days quota <<< "$bucket_spec"
 
     # Check if bucket exists
     if mc ls local/${bucket_name} &> /dev/null; then

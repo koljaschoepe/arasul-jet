@@ -476,7 +476,7 @@ describe('Retry Utility', () => {
             } catch (e) {}
 
             await expect(cb.execute(() => Promise.resolve('success')))
-                .rejects.toThrow('Circuit breaker is OPEN');
+                .rejects.toThrow('circuit breaker OPEN');
         });
 
         test('wechselt zu HALF_OPEN nach Timeout', async () => {
