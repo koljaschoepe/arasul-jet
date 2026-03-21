@@ -3,7 +3,7 @@
 sentence-transformers==3.0.1
 flask==3.0.0
 numpy==1.26.3
-transformers==4.44.2
+transformers==5.2.0
 einops==0.7.0
 protobuf>=3.20
 # Reranking support
