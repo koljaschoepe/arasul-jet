@@ -43,11 +43,13 @@ services:
       interval: 10s
       timeout: 2s
       retries: 3
+      start_period: 60s
     <<: *default-security
     deploy:
       resources:
         limits:
           memory: ${RAM_LIMIT_POSTGRES:-4G}
+          cpus: '4.0'
     logging: *default-logging
 
   # 2. MinIO - Object Storage
@@ -61,6 +63,8 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_BROWSER: ${MINIO_BROWSER}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - arasul-minio:/data
     healthcheck:
@@ -68,12 +72,14 @@ services:
       interval: 10s
       timeout: 1s
       retries: 3
+      start_period: 30s
     logging: *default-logging
     <<: *default-security
     deploy:
       resources:
         limits:
           memory: ${RAM_LIMIT_MINIO:-4G}
+          cpus: '2.0'
 
   # 3. Docker Socket Proxy - Restricts Docker API access for backend services
   docker-proxy:
@@ -111,12 +117,19 @@ services:
     tmpfs:
       - /run:size=8M
       - /tmp:noexec,nosuid,size=8M
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:2375/_ping || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     <<: *default-security
     cap_drop:
       - ALL
     deploy:
       resources:
         limits:
+          cpus: '0.5'
           memory: ${RAM_LIMIT_DOCKER_PROXY:-128M}
     logging: *default-logging
 
@@ -144,8 +157,10 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      docker-proxy:
+        condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -q --spider http://localhost:8080/ping || exit 1']
+      test: ['CMD', 'traefik', 'healthcheck', '--ping']
       interval: 10s
       timeout: 3s
       retries: 3
@@ -164,6 +179,7 @@ services:
       resources:
         limits:
           memory: ${RAM_LIMIT_REVERSE_PROXY:-512M}
+          cpus: '2.0'
 
 networks:
   arasul-frontend:

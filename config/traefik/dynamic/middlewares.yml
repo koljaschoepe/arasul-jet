@@ -164,15 +164,7 @@ http:
         realm: 'Traefik Dashboard'
         removeHeader: true
 
-    # Basic Auth for n8n
-    # Hash wird beim Bootstrap generiert: ./arasul bootstrap
-    # Manuell: scripts/security/generate_htpasswd.sh admin
-    basicAuth-n8n:
-      basicAuth:
-        users:
-          - '__BASIC_AUTH_HASH__'
-        realm: 'n8n Workflow Engine'
-        removeHeader: true
+    # n8n now uses forward-auth (dashboard session) instead of basicAuth
 
   # Servers transports for SSE streams (extended timeout)
   serversTransports:

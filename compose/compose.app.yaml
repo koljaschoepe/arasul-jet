@@ -83,7 +83,7 @@ services:
       minio:
         condition: service_healthy
       docker-proxy:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -117,10 +117,13 @@ services:
     restart: always
     networks:
       - arasul-frontend
+    depends_on:
+      dashboard-backend:
+        condition: service_healthy
     healthcheck:
-      test: ['CMD', 'test', '-f', '/usr/share/nginx/html/index.html']
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:3000/ || exit 1']
       interval: 10s
-      timeout: 1s
+      timeout: 3s
       retries: 3
       start_period: 15s
     read_only: true
@@ -142,6 +145,7 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '1.0'
           memory: ${RAM_LIMIT_FRONTEND:-256M}
 
   # 3. n8n Workflow Engine
@@ -159,7 +163,7 @@ services:
       N8N_PORT: ${N8N_PORT}
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
       N8N_SECURE_COOKIE: '${N8N_SECURE_COOKIE:-false}'
-      N8N_EDITOR_BASE_URL: ${N8N_EXTERNAL_URL:-http://localhost:5678}
+      N8N_EDITOR_BASE_URL: ${N8N_EXTERNAL_URL:-/n8n}
       N8N_PATH: '/n8n/'
       N8N_BASIC_AUTH_ACTIVE: 'false'
       WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
@@ -194,10 +198,12 @@ services:
       interval: 15s
       timeout: 2s
       retries: 3
+      start_period: 60s
     <<: *default-security
     deploy:
       resources:
         limits:
+          cpus: '2.0'
           memory: ${RAM_LIMIT_N8N:-2G}
     labels:
       - 'traefik.enable=true'

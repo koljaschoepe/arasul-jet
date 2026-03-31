@@ -28,9 +28,9 @@ COPY apps/dashboard-frontend/nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built application
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Health check
-HEALTHCHECK --interval=10s --timeout=1s --retries=3 \
-    CMD test -f /usr/share/nginx/html/index.html || exit 1
+# Health check - verify nginx is serving (wget available in alpine)
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD wget --spider -q http://localhost:3000/ || exit 1
 
 # Expose port
 EXPOSE 3000

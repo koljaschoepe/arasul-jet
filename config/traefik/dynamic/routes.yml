@@ -119,14 +119,13 @@ http:
         - websecure
       tls: {}
 
-    # n8n Workflow Engine
-    # basicAuth-n8n: additional layer on top of n8n's own authentication
+    # n8n Workflow Engine (protected by dashboard session auth)
     n8n:
       rule: 'PathPrefix(`/n8n`)'
       service: n8n-service
       priority: 100
       middlewares:
-        - basicAuth-n8n
+        - forward-auth
         - strip-n8n-prefix
         - security-headers
       entryPoints:
@@ -197,8 +196,10 @@ http:
           interval: 10s
           timeout: 2s
         responseForwarding:
-          flushInterval: 100ms
+          # Flush SSE/streaming chunks immediately (was 100ms - caused visible latency)
+          flushInterval: 1ms
         passHostHeader: true
+        serversTransport: sse-transport
 
     # MinIO Console
     minio-console-service:

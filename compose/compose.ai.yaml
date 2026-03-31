@@ -26,23 +26,28 @@ services:
       QDRANT__SERVICE__GRPC_PORT: '6334'
       QDRANT__SERVICE__HTTP_PORT: '6333'
     healthcheck:
-      test: ['CMD', 'test', '-f', '/qdrant/storage/raft_state.json']
+      test:
+        [
+          'CMD-SHELL',
+          'curl -sf http://localhost:6333/healthz || test -f /qdrant/storage/raft_state.json',
+        ]
       interval: 10s
       timeout: 3s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     logging: *default-logging
     <<: *default-security
     deploy:
       resources:
         limits:
           memory: ${RAM_LIMIT_QDRANT:-6G}
+          cpus: '4.0'
 
   # 2. LLM Service (Ollama)
   llm-service:
     build:
-      context: ../services/llm-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/llm-service/Dockerfile
     container_name: llm-service
     hostname: llm-service
     restart: always
@@ -51,20 +56,22 @@ services:
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
       LLM_MODEL: ${LLM_MODEL:-qwen3:14b-q8}
-      LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-300}
+      LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-3600}
       OLLAMA_STARTUP_TIMEOUT: ${OLLAMA_STARTUP_TIMEOUT:-120}
       OLLAMA_FLASH_ATTENTION: '1'
       OLLAMA_KV_CACHE_TYPE: 'q8_0'
       OLLAMA_NUM_PARALLEL: '1'
       OLLAMA_MAX_LOADED_MODELS: '1'
+      # CUDA/Tegra library paths for JetPack 6 GPU acceleration
+      LD_LIBRARY_PATH: /usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu:/usr/lib/ollama/cuda_jetpack6
     volumes:
       - arasul-llm-models:/home/ollama/.ollama
       - ../services/llm-service/healthcheck.sh:/healthcheck.sh:ro
       - ../data/models:/host-models:ro
+      # Mount host CUDA toolkit (cuBLAS, cuDNN, cuDart) for GPU inference
+      - /usr/local/cuda/lib64:/usr/local/cuda/lib64:ro
     runtime: nvidia
     <<: *default-security
-    cap_drop:
-      - ALL
     deploy:
       resources:
         limits:
@@ -81,7 +88,7 @@ services:
     healthcheck:
       test: ['CMD', '/bin/bash', '/healthcheck.sh']
       interval: 30s
-      timeout: 5s
+      timeout: 15s
       retries: 3
       start_period: 300s
     logging: *default-logging
@@ -89,8 +96,8 @@ services:
   # 3. Embedding Service
   embedding-service:
     build:
-      context: ../services/embedding-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/embedding-service/Dockerfile
       args:
         L4T_PYTORCH_TAG: ${L4T_PYTORCH_TAG:-r36.4.0}
         CUDA_ARCH_LIST: ${TORCH_CUDA_ARCH_LIST:-8.7}
@@ -111,6 +118,7 @@ services:
       ENABLE_RERANKING: 'true'
       FLASHRANK_MODEL: ms-marco-MiniLM-L-12-v2
       BGE_RERANKER_MODEL: BAAI/bge-reranker-v2-m3
+      EMBEDDING_USE_FP16: 'true'
       CUDA_VISIBLE_DEVICES: 0
       TORCH_CUDA_ARCH_LIST: '${TORCH_CUDA_ARCH_LIST:-8.7}'
     volumes:
@@ -136,14 +144,14 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 300s
+      start_period: 600s
     logging: *default-logging
 
   # 4. Document Indexer - Automatic document indexing for RAG
   document-indexer:
     build:
-      context: ../services/document-indexer
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/document-indexer/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.11.12}
     container_name: document-indexer
@@ -211,6 +219,7 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '2.0'
           memory: ${RAM_LIMIT_DOCUMENT_INDEXER:-2G}
 
 volumes:
