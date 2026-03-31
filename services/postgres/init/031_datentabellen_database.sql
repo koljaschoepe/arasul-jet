@@ -37,3 +37,7 @@ CREATE TRIGGER trigger_datentabellen_config_updated_at
 -- Comment on table
 COMMENT ON TABLE datentabellen_config IS
     'Configuration for the separate arasul_data_db used by the Datentabellen feature';
+
+-- GRANT PERMISSIONS
+GRANT ALL PRIVILEGES ON TABLE datentabellen_config TO arasul;
+GRANT ALL PRIVILEGES ON SEQUENCE datentabellen_config_id_seq TO arasul;

@@ -85,3 +85,9 @@ BEGIN
     DELETE FROM compaction_log WHERE created_at < NOW() - INTERVAL '30 days';
 END;
 $$ LANGUAGE plpgsql;
+
+-- GRANT PERMISSIONS
+GRANT ALL PRIVILEGES ON TABLE ai_memories TO arasul;
+GRANT ALL PRIVILEGES ON TABLE compaction_log TO arasul;
+GRANT ALL PRIVILEGES ON SEQUENCE compaction_log_id_seq TO arasul;
+GRANT EXECUTE ON FUNCTION cleanup_old_compaction_logs() TO arasul;

@@ -171,7 +171,7 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO arasul;
 -- Insert initial record
 INSERT INTO update_events (version_from, version_to, status, source, components_updated)
 VALUES ('0.0.0', '1.0.0', 'completed', 'initial_install', '[]'::jsonb)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- Success message
 DO $$

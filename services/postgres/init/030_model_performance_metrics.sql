@@ -105,3 +105,9 @@ $$ LANGUAGE plpgsql;
 -- Comment on table
 COMMENT ON TABLE model_performance_metrics IS
     'Tracks LLM performance metrics (tokens/s, latency) for each model and request type';
+
+-- GRANT PERMISSIONS
+GRANT ALL PRIVILEGES ON TABLE model_performance_metrics TO arasul;
+GRANT ALL PRIVILEGES ON SEQUENCE model_performance_metrics_id_seq TO arasul;
+GRANT EXECUTE ON FUNCTION record_model_performance(VARCHAR, UUID, VARCHAR, INTEGER, INTEGER, INTEGER, BOOLEAN, INTEGER) TO arasul;
+GRANT EXECUTE ON FUNCTION cleanup_old_performance_metrics() TO arasul;

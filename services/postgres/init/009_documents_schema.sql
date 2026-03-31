@@ -214,8 +214,8 @@ BEGIN
         COUNT(*) FILTER (WHERE status = 'indexed'),
         COUNT(*) FILTER (WHERE status = 'pending'),
         COUNT(*) FILTER (WHERE status = 'failed'),
-        COALESCE(SUM(chunk_count) FILTER (WHERE status = 'indexed'), 0),
-        COALESCE(SUM(file_size) FILTER (WHERE status != 'deleted'), 0),
+        COALESCE(SUM(chunk_count) FILTER (WHERE status = 'indexed'), 0)::bigint,
+        COALESCE(SUM(file_size) FILTER (WHERE status != 'deleted'), 0)::bigint,
         (
             SELECT jsonb_object_agg(
                 COALESCE(dc.name, 'Unkategorisiert'),
