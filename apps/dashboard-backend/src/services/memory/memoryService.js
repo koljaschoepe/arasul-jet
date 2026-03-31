@@ -247,8 +247,7 @@ async function extractMemories(messages, model) {
     .map(m => `${m.role === 'user' ? 'Benutzer' : 'Assistent'}: ${m.content}`)
     .join('\n\n');
 
-  const prompt = `/no_think
-Extrahiere wichtige Fakten aus diesem Gespraech.
+  const prompt = `Extrahiere wichtige Fakten aus diesem Gespraech.
 
 Kategorien:
 - FAKT: Konkrete Information (Name, Zahl, Datum, Pfad)
@@ -287,6 +286,7 @@ ${formattedMessages}`;
         model: ollamaName,
         prompt,
         stream: false,
+        think: false,
         keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),
         options: { temperature: 0.2, num_predict: 512 },
       }),
@@ -297,7 +297,7 @@ ${formattedMessages}`;
       return [];
     }
     const data = await response.json();
-    const text = (data.response || '').replace(/<think>[\s\S]*?<\/think>/g, '');
+    const text = data.response || '';
 
     if (text.includes('KEINE_MEMORIES')) {
       return [];

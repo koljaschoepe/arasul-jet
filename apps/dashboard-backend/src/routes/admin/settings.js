@@ -43,13 +43,13 @@ async function verifyCurrentDashboardPassword(userId, currentPassword) {
   const result = await db.query('SELECT password_hash FROM admin_users WHERE id = $1', [userId]);
 
   if (result.rows.length === 0) {
-    throw new Error('User not found');
+    throw new UnauthorizedError('User not found');
   }
 
   const isValid = await verifyPassword(currentPassword, result.rows[0].password_hash);
 
   if (!isValid) {
-    throw new Error('Current password is incorrect');
+    throw new UnauthorizedError('Current password is incorrect');
   }
 
   return true;
@@ -63,7 +63,7 @@ async function restartService(serviceName) {
   // SECURITY: Validate service name against whitelist to prevent command injection
   if (!ALLOWED_RESTART_SERVICES.includes(serviceName)) {
     logger.error(`Attempted to restart non-whitelisted service: ${serviceName}`);
-    throw new Error(`Service '${serviceName}' is not allowed to be restarted`);
+    throw new ValidationError(`Service '${serviceName}' is not allowed to be restarted`);
   }
 
   const composeDir = process.env.COMPOSE_PROJECT_DIR || '/opt/arasul';
@@ -86,7 +86,9 @@ async function restartService(serviceName) {
     return true;
   } catch (error) {
     logger.error(`Failed to restart service ${serviceName}: ${error.message}`);
-    throw new Error(`Failed to restart ${serviceName} service`);
+    const err = new Error(`Failed to restart ${serviceName} service`);
+    err.statusCode = 503;
+    throw err;
   }
 }
 

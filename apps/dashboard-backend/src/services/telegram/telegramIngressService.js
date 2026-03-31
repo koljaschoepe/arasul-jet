@@ -31,6 +31,9 @@ const { decryptToken } = require('../../utils/tokenCrypto');
 // Telegram API
 const TELEGRAM_API = 'https://api.telegram.org/bot';
 
+// Mask bot tokens for safe logging (show first 8 chars only)
+const maskToken = token => (token ? token.substring(0, 8) + '***' : 'null');
+
 // Validation constants
 const MAX_MESSAGE_LENGTH = parseInt(process.env.TELEGRAM_MAX_MESSAGE_LENGTH) || 4096;
 
@@ -224,6 +227,7 @@ async function sendMessage(token, chatId, text, options = {}) {
           parse_mode: options.parseMode || 'HTML',
           ...options,
         }),
+        signal: AbortSignal.timeout(30000),
       });
 
       const data = await response.json();
@@ -275,6 +279,11 @@ async function sendMessage(token, chatId, text, options = {}) {
     } catch (error) {
       lastError = error;
 
+      // Mask token in error messages to prevent credential leaks in logs
+      const safeErrorMsg = error.message
+        ? error.message.replace(token, maskToken(token))
+        : error.message;
+
       // Network errors are retryable
       const isNetworkError =
         error.code === 'ECONNREFUSED' ||
@@ -288,7 +297,7 @@ async function sendMessage(token, chatId, text, options = {}) {
         logger.warn(
           `Network error (attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1}), retrying in ${delay}ms:`,
           {
-            error: error.message,
+            error: safeErrorMsg,
             chatId,
           }
         );
@@ -302,8 +311,11 @@ async function sendMessage(token, chatId, text, options = {}) {
   }
 
   // All retries failed
+  const safeLastMsg = lastError?.message
+    ? lastError.message.replace(token, maskToken(token))
+    : lastError?.message;
   logger.error('Error sending Telegram message after all retries:', {
-    error: lastError?.message,
+    error: safeLastMsg,
     chatId,
     maxRetries: RETRY_CONFIG.maxRetries,
   });
@@ -324,6 +336,7 @@ async function sendTypingAction(token, chatId) {
         chat_id: chatId,
         action: 'typing',
       }),
+      signal: AbortSignal.timeout(30000),
     });
   } catch (error) {
     // Ignore typing action errors
@@ -691,6 +704,11 @@ function formatTelegramMessage(text) {
   result = result.replace(/(?<![<\w])\*([^*]+)\*(?![>\w])/g, '<i>$1</i>');
   // Blockquotes: > text → <blockquote>text</blockquote>
   result = result.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Unordered lists: - item or * item → • item
+  result = result.replace(/^[-*] (.+)$/gm, '• $1');
+  // Numbered lists: 1. item → 1. item (keep as-is, already readable)
+  // Links: [text](url) → <a href="url">text</a>
+  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
   return result;
 }
@@ -750,6 +768,7 @@ async function handleTextMessage(bot, token, message) {
   // Show typing indicator and keep it alive during LLM processing
   await sendTypingAction(token, chatId);
   const typingInterval = setInterval(() => {
+    // fire-and-forget: typing indicator is cosmetic, failure is non-critical
     sendTypingAction(token, chatId).catch(() => {});
   }, 4000);
 
@@ -791,6 +810,7 @@ async function handleApiKeyCommand(bot, token, message, args) {
           chat_id: chatId,
           message_id: message.message_id,
         }),
+        signal: AbortSignal.timeout(30000),
       });
     } catch (error) {
       logger.warn('Could not delete message with API key:', error.message);
@@ -936,9 +956,9 @@ async function handleVoiceMessage(bot, token, message) {
   // Show typing while processing
   await sendTypingAction(token, chatId);
 
-  // Check if voice is enabled
-  if (!telegramIntegrationService.isVoiceEnabled()) {
-    await sendMessage(token, chatId, '🎤 Sprachnachrichten sind deaktiviert.');
+  // Check if voice is enabled (per-bot setting takes priority over global)
+  if (bot.voice_enabled === false || !telegramIntegrationService.isVoiceEnabled()) {
+    await sendMessage(token, chatId, '🎤 Sprachnachrichten sind für diesen Bot deaktiviert.');
     return;
   }
 
@@ -1028,13 +1048,23 @@ async function processUpdate(botId, update) {
   // Get bot token
   const token = await telegramBotService.getBotToken(botId);
   if (!token) {
-    logger.error(`No token found for bot ${botId}`);
+    logger.error(`Token decryption failed for bot ${botId} - check encryption key`);
+    try {
+      const telegramWebSocketService = require('./telegramWebSocketService');
+      telegramWebSocketService.broadcast({
+        type: 'bot_error',
+        botId,
+        error: 'Token-Entschlüsselung fehlgeschlagen. Bitte Token neu setzen.',
+      });
+    } catch (wsErr) {
+      /* ignore ws errors */
+    }
     return false;
   }
 
-  // Get bot info
+  // Get bot info (including capabilities for voice/tools checks)
   const botResult = await database.query(
-    `SELECT id, name, is_active FROM telegram_bots WHERE id = $1`,
+    `SELECT id, name, is_active, voice_enabled, tools_enabled FROM telegram_bots WHERE id = $1`,
     [botId]
   );
 
@@ -1153,6 +1183,22 @@ async function processUpdate(botId, update) {
       await handleVoiceMessage(bot, token, message);
     }
 
+    // Handle unsupported media types
+    if (
+      !message.text &&
+      !message.voice &&
+      (message.document || message.photo || message.video || message.sticker)
+    ) {
+      const chatId = message.chat?.id;
+      if (chatId) {
+        await sendMessage(
+          token,
+          chatId,
+          'Datei-Uploads werden noch nicht unterstützt. Bitte sende mir eine Textnachricht.'
+        );
+      }
+    }
+
     // Update last message timestamp
     await telegramBotService.updateLastMessage(botId);
 
@@ -1184,6 +1230,7 @@ async function setWebhook(botId, webhookUrl) {
         url: webhookUrl,
         allowed_updates: ['message', 'callback_query'],
       }),
+      signal: AbortSignal.timeout(30000),
     });
 
     const data = await response.json();
@@ -1220,6 +1267,7 @@ async function deleteWebhook(botId) {
   try {
     const response = await fetch(`${TELEGRAM_API}${token}/deleteWebhook`, {
       method: 'POST',
+      signal: AbortSignal.timeout(30000),
     });
 
     const data = await response.json();
@@ -1251,7 +1299,9 @@ async function getWebhookInfo(botId) {
   }
 
   try {
-    const response = await fetch(`${TELEGRAM_API}${token}/getWebhookInfo`);
+    const response = await fetch(`${TELEGRAM_API}${token}/getWebhookInfo`, {
+      signal: AbortSignal.timeout(30000),
+    });
     const data = await response.json();
 
     if (!data.ok) {
@@ -1350,7 +1400,9 @@ async function startPolling(botId) {
 
   // Verify token is valid before starting polling loop
   try {
-    const meResponse = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const meResponse = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+      signal: AbortSignal.timeout(30000),
+    });
     const meData = await meResponse.json();
     if (!meData.ok) {
       logger.error(`Bot token invalid for bot ${botId}: ${meData.description}`);
@@ -1358,7 +1410,8 @@ async function startPolling(botId) {
     }
     logger.info(`Token verified for bot ${botId} (@${meData.result.username}), starting polling`);
   } catch (err) {
-    logger.error(`Cannot verify bot token for bot ${botId}: ${err.message}`);
+    const safeMessage = err.message ? err.message.replace(token, maskToken(token)) : err.message;
+    logger.error(`Cannot verify bot token for bot ${botId}: ${safeMessage}`);
     return;
   }
 
@@ -1368,6 +1421,7 @@ async function startPolling(botId) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ drop_pending_updates: false }),
+      signal: AbortSignal.timeout(30000),
     });
     const data = await response.json();
     if (data.ok) {
@@ -1376,8 +1430,9 @@ async function startPolling(botId) {
       logger.warn(`deleteWebhook returned ok=false for bot ${botId}: ${data.description}`);
     }
   } catch (err) {
+    const safeMessage = err.message ? err.message.replace(token, maskToken(token)) : err.message;
     logger.error(
-      `Could not delete webhook for bot ${botId}: ${err.message} - polling may fail with 409 Conflict`
+      `Could not delete webhook for bot ${botId}: ${safeMessage} - polling may fail with 409 Conflict`
     );
   }
 
@@ -1457,7 +1512,10 @@ async function pollLoop(botId, token, state) {
         continue;
       }
 
-      logger.error(`Polling error for bot ${botId}: ${error.message}`);
+      const safeMessage = error.message
+        ? error.message.replace(token, maskToken(token))
+        : error.message;
+      logger.error(`Polling error for bot ${botId}: ${safeMessage}`);
       await sleep(RESTART_DELAY_MS);
     }
   }
@@ -1563,7 +1621,8 @@ async function startSetupPolling(setupToken) {
       `Webhook deleted for @${session.rows[0].bot_username} to enable getUpdates polling`
     );
   } catch (err) {
-    logger.warn(`Could not delete webhook: ${err.message}`);
+    const safeMsg = err.message ? err.message.replace(botToken, maskToken(botToken)) : err.message;
+    logger.warn(`Could not delete webhook: ${safeMsg}`);
   }
 
   const state = { intervalId: null, timeoutId: null, offset: 0 };
@@ -1576,7 +1635,10 @@ async function startSetupPolling(setupToken) {
     try {
       await setupPollUpdates(setupToken, botToken, state, telegramWebSocketService);
     } catch (err) {
-      logger.error(`Polling error for ${setupToken.slice(0, 8)}...: ${err.message}`);
+      const safeMsg = err.message
+        ? err.message.replace(botToken, maskToken(botToken))
+        : err.message;
+      logger.error(`Polling error for ${setupToken.slice(0, 8)}...: ${safeMsg}`);
     }
   }, SETUP_POLL_INTERVAL_MS);
 
@@ -1684,7 +1746,10 @@ async function setupPollUpdates(setupToken, botToken, state, telegramWebSocketSe
         { timeout: 10000 }
       );
     } catch (sendErr) {
-      logger.warn(`Could not send confirmation message: ${sendErr.message}`);
+      const safeMsg = sendErr.message
+        ? sendErr.message.replace(botToken, maskToken(botToken))
+        : sendErr.message;
+      logger.warn(`Could not send confirmation message: ${safeMsg}`);
     }
 
     // Stop polling -- setup is done
@@ -1731,6 +1796,46 @@ function getSetupActiveCount() {
   return activeSetupSessions.size;
 }
 
+/**
+ * Get bot health status
+ * @param {number} botId - Bot ID
+ * @returns {Promise<Object>} Health status
+ */
+async function getBotHealth(botId) {
+  const result = await database.query(
+    `SELECT is_active, is_polling, last_message_at FROM telegram_bots WHERE id = $1`,
+    [botId]
+  );
+
+  if (result.rows.length === 0) {
+    return { status: 'not_found' };
+  }
+
+  const bot = result.rows[0];
+
+  if (!bot.is_active) {
+    return { status: 'inactive', isActive: false, isPolling: false };
+  }
+
+  const pollingActive = activePolls.has(botId);
+  const lastMsg = bot.last_message_at ? new Date(bot.last_message_at) : null;
+  const hoursAgo = lastMsg ? (Date.now() - lastMsg.getTime()) / (1000 * 60 * 60) : null;
+
+  let status = 'healthy';
+  if (!pollingActive && !bot.is_polling) {
+    status = 'error';
+  } else if (hoursAgo !== null && hoursAgo > 24) {
+    status = 'degraded';
+  }
+
+  return {
+    status,
+    isActive: bot.is_active,
+    isPolling: pollingActive,
+    lastMessageAt: bot.last_message_at,
+  };
+}
+
 // =============================================================================
 // Exports
 // =============================================================================
@@ -1762,6 +1867,9 @@ module.exports = {
   stopSetupPolling,
   isSetupPolling,
   getSetupActiveCount,
+
+  // --- Health ---
+  getBotHealth,
 
   // Backward-compat aliases (setup polling used startPolling/stopPolling etc.)
   // Consumers that used telegramSetupPollingService.startPolling() will get the

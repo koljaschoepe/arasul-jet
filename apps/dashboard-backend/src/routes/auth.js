@@ -15,7 +15,11 @@ const {
 const { verifyPassword } = require('../utils/password');
 const { changeDashboardPassword } = require('../services/auth/passwordService');
 const { requireAuth } = require('../middleware/auth');
-const { loginLimiter, createUserRateLimiter } = require('../middleware/rateLimit');
+const {
+  loginLimiter,
+  generalAuthLimiter,
+  createUserRateLimiter,
+} = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const { generateCsrfToken, CSRF_COOKIE } = require('../middleware/csrf');
@@ -147,6 +151,7 @@ router.post(
 // POST /api/auth/logout
 router.post(
   '/logout',
+  generalAuthLimiter,
   requireAuth,
   asyncHandler(async (req, res) => {
     // Get token from header or cookie

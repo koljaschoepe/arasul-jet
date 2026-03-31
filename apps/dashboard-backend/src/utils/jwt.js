@@ -19,6 +19,24 @@ if (!JWT_SECRET) {
 
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '4h';
 
+// PERF: In-memory cache for verified tokens to avoid 3 DB queries per request
+// Key: token JTI, Value: { decoded, expiresAt }
+const verifiedTokenCache = new Map();
+const TOKEN_CACHE_TTL = 60_000; // 60 seconds - balance between performance and security
+const TOKEN_CACHE_MAX = 100; // Max cached tokens
+
+// Activity update throttle: only update DB once per minute per session
+const lastActivityUpdate = new Map();
+const ACTIVITY_UPDATE_INTERVAL = 60_000; // 1 minute
+
+/**
+ * Invalidate a token from cache (called on logout/blacklist)
+ */
+function invalidateTokenCache(jti) {
+  verifiedTokenCache.delete(jti);
+  lastActivityUpdate.delete(jti);
+}
+
 /**
  * Generate JWT token for user
  */
@@ -34,6 +52,7 @@ async function generateToken(user, ipAddress, userAgent) {
     };
 
     const token = jwt.sign(payload, JWT_SECRET, {
+      algorithm: 'HS256',
       expiresIn: JWT_EXPIRY,
       issuer: 'arasul-platform',
       subject: user.id.toString(),
@@ -65,35 +84,67 @@ async function generateToken(user, ipAddress, userAgent) {
 
 /**
  * Verify JWT token
+ * PERF: Uses in-memory cache to avoid 3 DB queries per request.
+ * Cache entries expire after TOKEN_CACHE_TTL (60s).
+ * Blacklisting invalidates the cache immediately.
  */
 async function verifyToken(token) {
   try {
-    // Verify signature and expiry
+    // Verify signature and expiry (always - crypto check is fast)
     const decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
       issuer: 'arasul-platform',
     });
 
-    // Check if token is blacklisted
+    // PERF: Check cache first
+    const cached = verifiedTokenCache.get(decoded.jti);
+    if (cached && Date.now() < cached.expiresAt) {
+      // Throttled activity update - don't hit DB on every request
+      const lastUpdate = lastActivityUpdate.get(decoded.jti) || 0;
+      if (Date.now() - lastUpdate > ACTIVITY_UPDATE_INTERVAL) {
+        lastActivityUpdate.set(decoded.jti, Date.now());
+        // fire-and-forget: session activity update is non-critical, don't block the request
+        db.query('SELECT update_session_activity($1)', [decoded.jti]).catch(() => {});
+      }
+      return cached.decoded;
+    }
+
+    // Cache miss or expired - do full DB verification
     const blacklistCheck = await db.query('SELECT id FROM token_blacklist WHERE token_jti = $1', [
       decoded.jti,
     ]);
 
     if (blacklistCheck.rows.length > 0) {
+      verifiedTokenCache.delete(decoded.jti);
       throw new Error('Token is blacklisted');
     }
 
-    // Check if session exists and is active
     const sessionCheck = await db.query(
       'SELECT id FROM active_sessions WHERE token_jti = $1 AND expires_at > NOW()',
       [decoded.jti]
     );
 
     if (sessionCheck.rows.length === 0) {
+      verifiedTokenCache.delete(decoded.jti);
       throw new Error('Session not found or expired');
     }
 
-    // Update session activity
-    await db.query('SELECT update_session_activity($1)', [decoded.jti]);
+    // BH9 FIX: Set timestamp before async DB call to prevent duplicate concurrent updates
+    lastActivityUpdate.set(decoded.jti, Date.now());
+    // fire-and-forget: session activity update is non-critical, consistent with cached path
+    db.query('SELECT update_session_activity($1)', [decoded.jti]).catch(() => {});
+
+    // Store in cache
+    if (verifiedTokenCache.size >= TOKEN_CACHE_MAX) {
+      // Evict oldest entry
+      const firstKey = verifiedTokenCache.keys().next().value;
+      verifiedTokenCache.delete(firstKey);
+      lastActivityUpdate.delete(firstKey);
+    }
+    verifiedTokenCache.set(decoded.jti, {
+      decoded,
+      expiresAt: Date.now() + TOKEN_CACHE_TTL,
+    });
 
     return decoded;
   } catch (error) {
@@ -131,6 +182,9 @@ async function blacklistToken(token) {
     // Remove active session
     await db.query('DELETE FROM active_sessions WHERE token_jti = $1', [decoded.jti]);
 
+    // Invalidate cache immediately
+    invalidateTokenCache(decoded.jti);
+
     logger.info(`Token blacklisted (JTI: ${decoded.jti})`);
 
     return true;
@@ -163,6 +217,11 @@ async function blacklistAllUserTokens(userId) {
 
     // Delete all active sessions
     await db.query('DELETE FROM active_sessions WHERE user_id = $1', [userId]);
+
+    // Invalidate all cached tokens for this user
+    for (const session of sessions.rows) {
+      invalidateTokenCache(session.token_jti);
+    }
 
     logger.info(`All tokens blacklisted for user ${userId}`);
 

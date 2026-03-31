@@ -31,11 +31,11 @@ async function updateEnvVariable(key, value) {
   try {
     let content = await readEnvFile();
 
-    // Escape special characters in value for regex
-    const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // BH11 FIX: Escape regex special characters in key to prevent injection
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     // Pattern to match: KEY=value (with or without quotes)
-    const pattern = new RegExp(`^${key}=.*$`, 'm');
+    const pattern = new RegExp(`^${escapedKey}=.*$`, 'm');
 
     if (pattern.test(content)) {
       // Update existing variable
@@ -64,7 +64,9 @@ async function updateEnvVariables(updates) {
     let content = await readEnvFile();
 
     for (const [key, value] of Object.entries(updates)) {
-      const pattern = new RegExp(`^${key}=.*$`, 'm');
+      // BH11 FIX: Escape regex special characters in key
+      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`^${escapedKey}=.*$`, 'm');
 
       if (pattern.test(content)) {
         content = content.replace(pattern, `${key}=${value}`);
@@ -89,7 +91,9 @@ async function updateEnvVariables(updates) {
 async function getEnvVariable(key) {
   try {
     const content = await readEnvFile();
-    const pattern = new RegExp(`^${key}=(.*)$`, 'm');
+    // BH11 FIX: Escape regex special characters in key
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escapedKey}=(.*)$`, 'm');
     const match = content.match(pattern);
 
     if (match) {

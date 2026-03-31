@@ -4,7 +4,7 @@
  *
  * Features:
  *  - Incremental compaction (existing summary + new messages → updated summary)
- *  - /no_think prefix to disable thinking mode during compaction
+ *  - think: false in Ollama payload to disable thinking during compaction
  *  - Low temperature (0.3) for factual summaries
  *  - Stores summary in chat_conversations table
  *  - Logs compaction stats in compaction_log table
@@ -112,7 +112,7 @@ async function compactMessages({
       ]
     );
   } catch (logErr) {
-    logger.debug(`[Compaction] Failed to log stats: ${logErr.message}`);
+    logger.warn(`[Compaction] Failed to log stats: ${logErr.message}`);
   }
 
   return {
@@ -131,8 +131,7 @@ function buildCompactionPrompt(formattedMessages, existingSummary, targetTokens)
     ? `Bisherige Zusammenfassung:\n${existingSummary}\n\nNeue Nachrichten:\n`
     : '';
 
-  return `/no_think
-Fasse das folgende Gespraech praezise zusammen.
+  return `Fasse das folgende Gespraech praezise zusammen.
 
 BEHALTE:
 - Hauptthema und Ziel
@@ -180,6 +179,7 @@ async function callOllamaNonStreaming(model, prompt, maxTokens) {
       model: ollamaName,
       prompt,
       stream: false,
+      think: false,
       keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),
       options: {
         temperature: 0.3,

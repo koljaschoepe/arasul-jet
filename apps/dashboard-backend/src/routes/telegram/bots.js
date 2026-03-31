@@ -30,6 +30,7 @@
 
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const logger = require('../../utils/logger');
 const { requireAuth } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
@@ -39,6 +40,9 @@ const telegramLLMService = require('../../services/telegram/telegramLLMService')
 const telegramWebhookService = require('../../services/telegram/telegramWebhookService');
 const telegramPollingManager = require('../../services/telegram/telegramPollingManager');
 const database = require('../../database');
+
+// Mask bot tokens for safe logging (show first 8 chars only)
+const maskToken = token => (token ? token.substring(0, 8) + '***' : 'null');
 
 // ============================================================================
 // WEBHOOK ENDPOINT (No auth - called by Telegram)
@@ -54,35 +58,47 @@ router.post(
     const startTime = Date.now();
 
     const updateId = req.body?.update_id;
-    const messageType = req.body?.message?.text
-      ? 'text'
-      : req.body?.message?.voice
-        ? 'voice'
-        : req.body?.callback_query
-          ? 'callback'
-          : req.body?.message
-            ? 'other'
-            : 'unknown';
 
-    logger.info(`Webhook received for bot ${botId}`, {
-      updateId,
-      messageType,
-      hasMessage: !!req.body?.message,
-      chatId: req.body?.message?.chat?.id,
-      textPreview: req.body?.message?.text?.substring(0, 30),
-    });
+    // Before validation: only log botId and updateId (no message content)
+    logger.info(`Webhook received for bot ${botId}`, { updateId });
 
     try {
-      // Verify webhook secret
+      // Verify webhook secret using timing-safe comparison to prevent timing attacks
       const bot = await telegramBotService.getBotByWebhookSecret(parseInt(botId), secret);
 
-      if (!bot) {
+      // Perform timing-safe comparison of the webhook secret
+      const isValidSecret =
+        secret &&
+        bot?.webhook_secret &&
+        secret.length === bot.webhook_secret.length &&
+        crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(bot.webhook_secret));
+
+      if (!bot || !isValidSecret) {
         logger.warn(`Invalid webhook attempt for bot ${botId} - secret mismatch`, {
           updateId,
           secretLength: secret?.length,
         });
         return res.status(200).send('OK');
       }
+
+      // After validation succeeds: log message type and text preview
+      const messageType = req.body?.message?.text
+        ? 'text'
+        : req.body?.message?.voice
+          ? 'voice'
+          : req.body?.callback_query
+            ? 'callback'
+            : req.body?.message
+              ? 'other'
+              : 'unknown';
+
+      logger.info(`Webhook authenticated for bot ${botId}`, {
+        updateId,
+        messageType,
+        hasMessage: !!req.body?.message,
+        chatId: req.body?.message?.chat?.id,
+        textPreview: req.body?.message?.text?.substring(0, 30),
+      });
 
       // Process update
       const success = await telegramWebhookService.processUpdate(parseInt(botId), req.body);
@@ -108,7 +124,6 @@ router.post(
         stack: error.stack?.split('\n').slice(0, 3).join('\n'),
         updateId,
         duration,
-        messageType,
         requestBodyKeys: Object.keys(req.body || {}),
       });
     }
@@ -119,8 +134,15 @@ router.post(
 );
 
 // ============================================================================
-// MODELS (Public endpoints)
+// AUTHENTICATED ROUTES
 // ============================================================================
+
+// Apply auth to all routes below
+router.use(requireAuth);
+
+// ----------------------------------------------------------------------------
+// MODELS (requires auth)
+// ----------------------------------------------------------------------------
 
 router.get(
   '/models/ollama',
@@ -137,13 +159,6 @@ router.get(
     res.json({ models });
   })
 );
-
-// ============================================================================
-// AUTHENTICATED ROUTES
-// ============================================================================
-
-// Apply auth to all routes below
-router.use(requireAuth);
 
 // ----------------------------------------------------------------------------
 // BOT CRUD
@@ -177,6 +192,14 @@ router.post(
 
     if (!name || !token) {
       throw new ValidationError('Name und Token sind erforderlich');
+    }
+
+    // Input validation
+    if (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 100) {
+      throw new ValidationError('Name muss ein String mit 1-100 Zeichen sein');
+    }
+    if (typeof token !== 'string' || !/^\d+:[A-Za-z0-9_-]{35,}$/.test(token.trim())) {
+      throw new ValidationError('Ungültiges Telegram-Bot-Token-Format');
     }
 
     const bot = await telegramBotService.createBot(req.user.id, {
@@ -215,6 +238,17 @@ router.post(
       } catch (chatErr) {
         logger.warn(`Could not register chat from setup session: ${chatErr.message}`);
       }
+
+      // Auto-activate bot created via zero-config wizard
+      try {
+        await telegramBotService.activateBot(bot.id, req.user.id);
+        bot.isActive = true;
+        await telegramPollingManager.startPolling(bot.id);
+        bot.mode = 'polling';
+        logger.info(`Bot ${bot.id} auto-activated from zero-config setup`);
+      } catch (activateErr) {
+        logger.warn(`Auto-activation failed for bot ${bot.id}: ${activateErr.message}`);
+      }
     }
 
     res.status(201).json({ bot });
@@ -225,6 +259,9 @@ router.post(
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
+    if (isNaN(parseInt(req.params.id))) {
+      throw new ValidationError('Ungültige Bot-ID');
+    }
     const bot = await telegramBotService.getBotById(parseInt(req.params.id), req.user.id);
 
     if (!bot) {
@@ -239,6 +276,9 @@ router.get(
 router.put(
   '/:id',
   asyncHandler(async (req, res) => {
+    if (isNaN(parseInt(req.params.id))) {
+      throw new ValidationError('Ungültige Bot-ID');
+    }
     const {
       name,
       llmProvider,
@@ -249,6 +289,13 @@ router.put(
       ragEnabled,
       ragSpaceIds,
       ragShowSources,
+      toolsEnabled,
+      voiceEnabled,
+      maxContextTokens,
+      maxResponseTokens,
+      rateLimitPerMinute,
+      allowedUsers,
+      restrictUsers,
     } = req.body;
 
     const bot = await telegramBotService.updateBot(parseInt(req.params.id), req.user.id, {
@@ -261,6 +308,13 @@ router.put(
       ragEnabled,
       ragSpaceIds,
       ragShowSources,
+      toolsEnabled,
+      voiceEnabled,
+      maxContextTokens,
+      maxResponseTokens,
+      rateLimitPerMinute,
+      allowedUsers,
+      restrictUsers,
     });
 
     res.json({ bot });
@@ -271,6 +325,9 @@ router.put(
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
+    if (isNaN(parseInt(req.params.id))) {
+      throw new ValidationError('Ungültige Bot-ID');
+    }
     await telegramBotService.deleteBot(parseInt(req.params.id), req.user.id);
     res.json({ success: true });
   })
@@ -329,13 +386,19 @@ router.post(
               }),
             });
           } catch (sendErr) {
+            const safeMsg = sendErr.message
+              ? sendErr.message.replace(botToken, maskToken(botToken))
+              : sendErr.message;
             logger.warn(
-              `Could not send welcome to chat ${chat.chatId || chat.chat_id}: ${sendErr.message}`
+              `Could not send welcome to chat ${chat.chatId || chat.chat_id}: ${safeMsg}`
             );
           }
         }
       } catch (chatErr) {
-        logger.warn(`Could not send welcome messages: ${chatErr.message}`);
+        const safeMsg = chatErr.message
+          ? chatErr.message.replace(botToken, maskToken(botToken))
+          : chatErr.message;
+        logger.warn(`Could not send welcome messages: ${safeMsg}`);
       }
     }
 
@@ -626,6 +689,22 @@ router.post(
 // ----------------------------------------------------------------------------
 // DEBUG
 // ----------------------------------------------------------------------------
+
+// Get bot health status
+router.get(
+  '/:id/health',
+  asyncHandler(async (req, res) => {
+    const botId = parseInt(req.params.id);
+    const bot = await telegramBotService.getBotById(botId, req.user.id);
+    if (!bot) {
+      throw new NotFoundError('Bot nicht gefunden');
+    }
+
+    const telegramIngressService = require('../../services/telegram/telegramIngressService');
+    const health = await telegramIngressService.getBotHealth(botId);
+    res.json({ health });
+  })
+);
 
 // Get bot debug info (polling status, webhook status, token validity)
 router.get(

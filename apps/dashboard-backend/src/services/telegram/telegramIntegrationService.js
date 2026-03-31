@@ -7,11 +7,11 @@
  * - Telegram App lifecycle (dashboard icon, settings)
  * - Per-chat rate limiting
  *
- * Merged from:
+ * Consolidated from (now deleted):
  *   telegramLLMService.js       - LLM integration
- *   telegramVoiceService.js     - voice message handling
+ *   telegramVoiceService.js     - voice message handling (deleted)
  *   telegramAppService.js       - app integration
- *   telegramRateLimitService.js - rate limiting
+ *   telegramRateLimitService.js - rate limiting (deleted)
  */
 
 // =============================================================================
@@ -69,7 +69,7 @@ const rateLimitCache = new Map();
 const CACHE_TTL = 60000; // 1 minute cache TTL
 
 // =============================================================================
-// Rate Limit Section (from telegramRateLimitService.js)
+// Rate Limit Section
 // =============================================================================
 
 /**
@@ -409,6 +409,7 @@ async function chatWithOllama(bot, messages, systemPrompt, options = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(90000),
     });
 
     if (!response.ok) {
@@ -443,6 +444,7 @@ async function chatWithOllama(bot, messages, systemPrompt, options = {}) {
           stream: false,
           options: { num_predict: MAX_RESPONSE_TOKENS },
         }),
+        signal: AbortSignal.timeout(90000),
       });
 
       if (!followUpResponse.ok) {
@@ -457,6 +459,12 @@ async function chatWithOllama(bot, messages, systemPrompt, options = {}) {
 
     return msg?.content || 'Keine Antwort erhalten.';
   } catch (error) {
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+      logger.error(`Ollama timeout for bot ${bot.id} model ${bot.llm_model}`);
+      throw new Error(
+        'LLM-Zeitüberschreitung (90s). Bitte versuche es erneut oder wähle ein kleineres Modell.'
+      );
+    }
     logger.error('Ollama chat error:', error);
     throw new Error(`LLM-Fehler: ${error.message}`);
   }
@@ -490,6 +498,7 @@ async function chatWithClaude(bot, messages, systemPrompt, apiKey) {
           content: m.content,
         })),
       }),
+      signal: AbortSignal.timeout(60000),
     });
 
     if (!response.ok) {
@@ -506,6 +515,10 @@ async function chatWithClaude(bot, messages, systemPrompt, apiKey) {
     const data = await response.json();
     return data.content?.[0]?.text || 'Keine Antwort erhalten.';
   } catch (error) {
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+      logger.error(`Claude timeout for bot ${bot.id}`);
+      throw new Error('Claude-Zeitüberschreitung (60s). Bitte versuche es erneut.');
+    }
     logger.error('Claude chat error:', error);
     throw error;
   }
@@ -537,7 +550,7 @@ async function buildSystemPrompt(basePrompt) {
  * @returns {Promise<string>} Assistant's response
  */
 async function chat(botId, chatId, userMessage, options = {}) {
-  const { enableTools = true, skipRateLimit = false } = options;
+  const { enableTools: enableToolsOverride, skipRateLimit = false } = options;
 
   // Check rate limit
   if (!skipRateLimit) {
@@ -548,10 +561,11 @@ async function chat(botId, chatId, userMessage, options = {}) {
     }
   }
 
-  // Get bot configuration (including RAG fields)
+  // Get bot configuration (including RAG fields and capabilities)
   const botResult = await database.query(
     `SELECT id, name, llm_provider, llm_model, system_prompt,
-            rag_enabled, rag_space_ids, rag_show_sources, rag_context_limit
+            rag_enabled, rag_space_ids, rag_show_sources, rag_context_limit,
+            tools_enabled, voice_enabled, max_context_tokens, max_response_tokens
      FROM telegram_bots WHERE id = $1`,
     [botId]
   );
@@ -561,6 +575,8 @@ async function chat(botId, chatId, userMessage, options = {}) {
   }
 
   const bot = botResult.rows[0];
+  const enableTools =
+    enableToolsOverride !== undefined ? enableToolsOverride : bot.tools_enabled !== false;
   const baseSystemPrompt = bot.system_prompt || 'Du bist ein hilfreicher Assistent.';
 
   // RAG enrichment: inject document context into system prompt
@@ -748,7 +764,7 @@ async function executeTool(toolName, params = {}, context = {}) {
 }
 
 // =============================================================================
-// Voice Section (from telegramVoiceService.js)
+// Voice Section
 // =============================================================================
 
 /**
@@ -863,6 +879,7 @@ async function transcribeWithWhisper(filePath, apiKey) {
     });
 
     if (!response.ok) {
+      // fire-and-forget: error response may not be valid JSON; fallback to empty object
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error?.message || `Whisper API error: ${response.status}`);
     }
@@ -1309,7 +1326,7 @@ module.exports = {
   toolRegistry,
   estimateTokens,
 
-  // --- Voice (from telegramVoiceService) ---
+  // --- Voice ---
   isVoiceEnabled,
   processVoiceMessage,
   cleanupOldFiles,
@@ -1325,7 +1342,7 @@ module.exports = {
   recordActivity: userId => telegramAppServiceInstance.recordActivity(userId),
   getGlobalStats: () => telegramAppServiceInstance.getGlobalStats(),
 
-  // --- Rate Limit (from telegramRateLimitService) ---
+  // --- Rate Limit ---
   checkRateLimit,
   resetRateLimit,
   getRateLimitStatus,

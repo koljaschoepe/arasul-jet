@@ -44,7 +44,7 @@ function createModelService(deps = {}) {
 
   // In-memory state (per-instance for testability)
   let lastSwitchTime = 0;
-  let switchInProgress = false;
+  let switchLock = null; // Promise that resolves when current switch completes
 
   // Model availability cache (TTL-based)
   const MODEL_AVAILABILITY_TTL = 60 * 1000; // 60 seconds
@@ -93,8 +93,25 @@ function createModelService(deps = {}) {
     return new Promise((resolve, reject) => {
       let lastProgress = 0;
       let buffer = '';
+      let lastActivityTime = Date.now();
+      const STALL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes without progress = stalled
+
+      // Stall detection: check every 60s if progress has stalled
+      const stallCheckInterval = setInterval(async () => {
+        if (Date.now() - lastActivityTime > STALL_TIMEOUT_MS) {
+          clearInterval(stallCheckInterval);
+          logger.error(`[DOWNLOAD] Model ${modelId} download stalled (no progress for 5min)`);
+          response.data.destroy();
+          await database.query(
+            'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
+            ['error', 'Download stagniert - bitte erneut versuchen', modelId]
+          );
+          reject(new Error('Download stagniert (keine Aktivität seit 5 Minuten)'));
+        }
+      }, 60000);
 
       response.data.on('data', async chunk => {
+        lastActivityTime = Date.now();
         buffer += chunk.toString();
         const lines = buffer.split('\n');
         buffer = lines.pop(); // Keep incomplete line in buffer
@@ -122,6 +139,7 @@ function createModelService(deps = {}) {
               if (progressCallback) {
                 progressCallback(0, errorMsg);
               }
+              clearInterval(stallCheckInterval);
               reject(new Error(errorMsg));
               return;
             }
@@ -195,6 +213,7 @@ function createModelService(deps = {}) {
       });
 
       response.data.on('end', async () => {
+        clearInterval(stallCheckInterval);
         // Ensure final state is set
         const finalResult = await database.query(
           'SELECT status FROM llm_installed_models WHERE id = $1',
@@ -234,6 +253,7 @@ function createModelService(deps = {}) {
       });
 
       response.data.on('error', async err => {
+        clearInterval(stallCheckInterval);
         logger.error(`Model ${modelId} download error: ${err.message}`);
         await database.query(
           'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
@@ -312,9 +332,25 @@ function createModelService(deps = {}) {
     if (requiredRamGb <= 0) {
       return;
     }
+
+    // Static check: does model fit in configured LLM RAM allocation?
+    const envLimit = process.env.RAM_LIMIT_LLM;
+    if (envLimit) {
+      const llmRamGB = parseInt(envLimit, 10);
+      if (!isNaN(llmRamGB) && requiredRamGb > llmRamGB) {
+        const errorMsg =
+          `Modell "${modelId}" benötigt ${requiredRamGb}GB RAM, ` +
+          `aber nur ${llmRamGB}GB sind für LLM zugewiesen (RAM_LIMIT_LLM). ` +
+          `Bitte ein kleineres Modell wählen.`;
+        logger.error(`[ACTIVATE] ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+    }
+
+    // Dynamic check: actual GPU/RAM availability
     const gpuMemory = await service.getGpuMemory();
     const requiredRamMb = requiredRamGb * 1024;
-    const bufferMb = 2048; // 2GB buffer for system
+    const bufferMb = 1024; // 1GB buffer for system (Jetson unified memory is more predictable)
 
     // Check if there's enough memory (considering currently loaded model will be unloaded)
     const currentLoaded = await service.getLoadedModel();
@@ -405,7 +441,7 @@ function createModelService(deps = {}) {
     for (const ollamaModelName of ollamaModels) {
       const catalogResult = await database.query(
         `SELECT id FROM llm_model_catalog
-         WHERE ollama_name = $1 OR (ollama_name IS NULL AND id = $1)`,
+         WHERE ollama_name = $1 OR id = $1`,
         [ollamaModelName]
       );
 
@@ -444,8 +480,12 @@ function createModelService(deps = {}) {
       WHERE i.status = 'available'
     `);
 
+    // Check both effective_ollama_name AND catalog id against Ollama models
+    // This handles locally imported models (id matches) vs registry-pulled models (ollama_name matches)
     const missingIds = catalogWithOllama.rows
-      .filter(row => !ollamaModels.includes(row.effective_ollama_name))
+      .filter(
+        row => !ollamaModels.includes(row.effective_ollama_name) && !ollamaModels.includes(row.id)
+      )
       .map(row => row.id);
 
     if (missingIds.length > 0) {
@@ -481,7 +521,7 @@ function createModelService(deps = {}) {
 
     let staleCount = 0;
     for (const row of downloadingResult.rows) {
-      if (ollamaModels.includes(row.effective_ollama_name)) {
+      if (ollamaModels.includes(row.effective_ollama_name) || ollamaModels.includes(row.id)) {
         // Model is actually in Ollama - mark as available
         await database.query(
           `
@@ -597,7 +637,9 @@ function createModelService(deps = {}) {
      */
     async evictModelsIfNeeded(excludeModelId) {
       const maxModels = parseInt(process.env.MAX_STORED_MODELS || '0');
-      if (maxModels <= 0) {return;} // 0 = no limit
+      if (maxModels <= 0) {
+        return;
+      } // 0 = no limit
 
       const installedResult = await database.query(
         `SELECT i.id, i.last_used_at, i.is_default,
@@ -613,13 +655,19 @@ function createModelService(deps = {}) {
       // +1 because we're about to install a new model
       const modelsToRemove = installed.length + 1 - maxModels;
 
-      if (modelsToRemove <= 0) {return;}
+      if (modelsToRemove <= 0) {
+        return;
+      }
 
       // Remove oldest non-default models
       let removed = 0;
       for (const model of installed) {
-        if (removed >= modelsToRemove) {break;}
-        if (model.is_default) {continue;} // Never evict default model
+        if (removed >= modelsToRemove) {
+          break;
+        }
+        if (model.is_default) {
+          continue;
+        } // Never evict default model
 
         logger.info(
           `[LRU-EVICT] Removing model ${model.id} (last used: ${model.last_used_at || 'never'})`
@@ -642,7 +690,7 @@ function createModelService(deps = {}) {
      * @param {string} modelId - Model ID to download
      * @param {function} progressCallback - Callback for progress updates (progress, status)
      */
-    async downloadModel(modelId, progressCallback = null) {
+    async downloadModel(modelId, progressCallback = null, { signal } = {}) {
       // Verify model is in catalog and get ollama_name
       const catalogResult = await database.query(
         `SELECT *, COALESCE(ollama_name, id) as effective_ollama_name
@@ -654,9 +702,6 @@ function createModelService(deps = {}) {
       }
 
       const catalogModel = catalogResult.rows[0];
-
-      // P1-001: Check disk space before download
-      await _validateDiskSpace(this, catalogModel.size_bytes || 0);
 
       // LRU eviction: remove oldest models if limit is reached
       await this.evictModelsIfNeeded(modelId);
@@ -691,38 +736,112 @@ function createModelService(deps = {}) {
 
       logger.info(`Starting download of model ${modelId} (Ollama: ${ollamaName})`);
 
-      try {
-        // Start pull with streaming - use ollamaName for the API call
-        const response = await axios({
-          method: 'post',
-          url: `${LLM_SERVICE_URL}/api/pull`,
-          data: { name: ollamaName, stream: true },
-          responseType: 'stream',
-          timeout: 3600000, // 1 hour for large models
-        });
+      const MAX_RETRIES = 3;
+      const RETRY_CODES = [
+        'ECONNRESET',
+        'ECONNREFUSED',
+        'ETIMEDOUT',
+        'ESOCKETTIMEDOUT',
+        'EPIPE',
+        'EAI_AGAIN',
+      ];
 
-        return _streamModelDownload(modelId, ollamaName, response, progressCallback);
-      } catch (err) {
-        logger.error(`Model ${modelId} (Ollama: ${ollamaName}) download failed: ${err.message}`);
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          // BH4: Validate disk space right before download to avoid TOCTOU race
+          await _validateDiskSpace(this, catalogModel.size_bytes || 0);
 
-        // User-friendly error messages based on error type
-        let errorMessage = err.message;
+          // BH4: Re-verify model isn't already downloading (another request may have started)
+          const statusCheck = await database.query(
+            'SELECT status FROM llm_installed_models WHERE id = $1',
+            [modelId]
+          );
+          if (
+            statusCheck.rows.length > 0 &&
+            statusCheck.rows[0].status === 'downloading' &&
+            attempt === 1
+          ) {
+            // On first attempt, we just set it to downloading above, so this is expected.
+            // On retries, we should not hit this because we own the download.
+          } else if (statusCheck.rows.length > 0 && statusCheck.rows[0].status === 'available') {
+            logger.info(`[DOWNLOAD] Model ${modelId} is already available, skipping download`);
+            return { success: true, modelId };
+          }
 
-        if (err.response?.data?.error?.includes('not found')) {
-          errorMessage = `Model "${ollamaName}" nicht in Ollama Registry gefunden. Bitte Modell-Konfiguration prüfen.`;
-        } else if (err.code === 'ECONNREFUSED') {
-          errorMessage = 'LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.';
-        } else if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
-          errorMessage = 'Download-Timeout. Bitte erneut versuchen.';
-        } else if (err.message.includes('ENOSPC')) {
-          errorMessage = 'Nicht genügend Speicherplatz für den Download.';
+          // Start pull with streaming - use ollamaName for the API call
+          const response = await axios({
+            method: 'post',
+            url: `${LLM_SERVICE_URL}/api/pull`,
+            data: { name: ollamaName, stream: true },
+            responseType: 'stream',
+            timeout: 7200000, // 2 hours for very large models (70B+ over slow connection)
+            signal,
+          });
+
+          return await _streamModelDownload(modelId, ollamaName, response, progressCallback);
+        } catch (err) {
+          // Handle abort (client disconnect) - never retry
+          const isAborted =
+            err.name === 'AbortError' || err.name === 'CanceledError' || signal?.aborted;
+          if (isAborted) {
+            logger.info(`[DOWNLOAD] Model ${modelId} download aborted by client`);
+            await database.query(
+              'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
+              ['error', 'Download abgebrochen - bitte erneut versuchen', modelId]
+            );
+            throw new Error('Download abgebrochen');
+          }
+
+          // Non-retryable errors (model not found, disk full)
+          const isNotFound = err.response?.data?.error?.includes('not found');
+          const isDiskFull = err.message?.includes('ENOSPC');
+          const isRetryable =
+            !isNotFound &&
+            !isDiskFull &&
+            (RETRY_CODES.includes(err.code) || err.message?.includes('stagniert'));
+
+          if (isRetryable && attempt < MAX_RETRIES) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000); // 1s, 2s, 4s... max 30s
+            logger.warn(
+              `[DOWNLOAD] Model ${modelId} attempt ${attempt}/${MAX_RETRIES} failed (${err.code || err.message}), retrying in ${delay}ms...`
+            );
+            if (progressCallback) {
+              progressCallback(0, `Verbindungsfehler - Versuch ${attempt + 1}/${MAX_RETRIES}...`);
+            }
+            // Reset download progress for retry
+            await database.query(
+              'UPDATE llm_installed_models SET download_progress = 0, error_message = NULL WHERE id = $1',
+              [modelId]
+            );
+            await new Promise(r => {
+              setTimeout(r, delay);
+            });
+            continue;
+          }
+
+          logger.error(
+            `Model ${modelId} (Ollama: ${ollamaName}) download failed after ${attempt} attempt(s): ${err.message}`
+          );
+
+          // User-friendly error messages based on error type
+          let errorMessage = err.message;
+
+          if (isNotFound) {
+            errorMessage = `Model "${ollamaName}" nicht in Ollama Registry gefunden. Bitte Modell-Konfiguration prüfen.`;
+          } else if (err.code === 'ECONNREFUSED') {
+            errorMessage = 'LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.';
+          } else if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+            errorMessage = 'Download-Timeout nach mehreren Versuchen. Bitte erneut versuchen.';
+          } else if (isDiskFull) {
+            errorMessage = 'Nicht genügend Speicherplatz für den Download.';
+          }
+
+          await database.query(
+            'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
+            ['error', errorMessage, modelId]
+          );
+          throw new Error(errorMessage);
         }
-
-        await database.query(
-          'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
-          ['error', errorMessage, modelId]
-        );
-        throw new Error(errorMessage);
       }
     }
 
@@ -851,17 +970,22 @@ function createModelService(deps = {}) {
         });
       }
 
-      // Prevent concurrent switches
-      if (switchInProgress) {
-        logger.warn('Model switch already in progress, waiting...');
-        while (switchInProgress) {
-          await new Promise(resolve => {
-            setTimeout(resolve, 100);
-          });
+      // Wait for any in-progress switch to complete
+      if (switchLock) {
+        logger.info(`[SWITCH] Waiting for in-progress model switch to complete...`);
+        try {
+          await switchLock;
+        } catch {
+          // Previous switch failed, we can proceed
         }
       }
 
-      switchInProgress = true;
+      // Create new lock
+      let releaseLock;
+      switchLock = new Promise(resolve => {
+        releaseLock = resolve;
+      });
+
       const startTime = Date.now();
 
       try {
@@ -919,7 +1043,8 @@ function createModelService(deps = {}) {
           toModel: modelId,
         };
       } finally {
-        switchInProgress = false;
+        releaseLock();
+        switchLock = null;
       }
     }
 
@@ -951,13 +1076,20 @@ function createModelService(deps = {}) {
      * Get model status summary (for dashboard)
      */
     async getStatus() {
-      const [loaded, installedResult, queueByModelResult, switchStatsResult] = await Promise.all([
-        this.getLoadedModel(),
-        database.query('SELECT COUNT(*) as count FROM llm_installed_models WHERE status = $1', [
-          'available',
-        ]),
-        database.query('SELECT * FROM get_queue_status_by_model()'),
-        database.query(`
+      // Check Ollama reachability and loaded model in parallel
+      let ollamaReachable = false;
+      let loaded = null;
+
+      const [loadedResult, tagsResult, installedResult, queueByModelResult, switchStatsResult] =
+        await Promise.all([
+          this.getLoadedModel(),
+          // fire-and-forget: Ollama may be unavailable; null signals "unreachable"
+          axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 3000 }).catch(() => null),
+          database.query('SELECT COUNT(*) as count FROM llm_installed_models WHERE status = $1', [
+            'available',
+          ]),
+          database.query('SELECT * FROM get_queue_status_by_model()'),
+          database.query(`
                     SELECT
                         COUNT(*) as total_switches,
                         AVG(switch_duration_ms)::INTEGER as avg_switch_ms,
@@ -965,14 +1097,18 @@ function createModelService(deps = {}) {
                     FROM llm_model_switches
                     WHERE switched_at > NOW() - INTERVAL '1 hour'
                 `),
-      ]);
+        ]);
+
+      loaded = loadedResult;
+      ollamaReachable = tagsResult !== null;
 
       return {
         loaded_model: loaded,
+        ollama_reachable: ollamaReachable,
         installed_count: parseInt(installedResult.rows[0].count),
         queue_by_model: queueByModelResult.rows,
         switch_stats: switchStatsResult.rows[0] || {},
-        switch_in_progress: switchInProgress,
+        switch_in_progress: switchLock !== null,
         timestamp: new Date().toISOString(),
       };
     }
@@ -1190,9 +1326,13 @@ function createModelService(deps = {}) {
             throw new Error('MemAvailable not found');
           }
           const availableKb = parseInt(match[1]);
-          // On Jetson, GPU shares RAM - estimate 80% available for GPU
-          const estimatedGpuMb = Math.floor((availableKb / 1024) * 0.8);
-          return { free_mb: estimatedGpuMb, total_mb: 64000, used_mb: 64000 - estimatedGpuMb };
+          // On Jetson, GPU shares unified RAM - 92% usable (kernel/drivers reserve ~8%)
+          const estimatedGpuMb = Math.floor((availableKb / 1024) * 0.92);
+          const totalMb = (() => {
+            const totalMatch = memInfo.match(/MemTotal:\s+(\d+)\s+kB/);
+            return totalMatch ? Math.floor(parseInt(totalMatch[1]) / 1024) : 64000;
+          })();
+          return { free_mb: estimatedGpuMb, total_mb: totalMb, used_mb: totalMb - estimatedGpuMb };
         } catch {
           logger.warn(`Could not get GPU memory info: ${err.message}`);
           // Assume 64GB Jetson AGX Orin with plenty of memory
@@ -1223,14 +1363,14 @@ function createModelService(deps = {}) {
         throw new Error('_resetForTesting is only available in test environment');
       }
       lastSwitchTime = 0;
-      switchInProgress = false;
+      switchLock = null;
     }
 
     /**
      * Get switch state for testing
      */
     _getSwitchState() {
-      return { lastSwitchTime, switchInProgress };
+      return { lastSwitchTime, switchInProgress: switchLock !== null };
     }
   }
 

@@ -60,9 +60,30 @@ const PORT = process.env.PORT || 3001;
 // Security headers via helmet
 app.use(
   helmet({
-    contentSecurityPolicy: false, // SPA serves own CSP via meta tag
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: [
+          "'self'",
+          'ws:',
+          'wss:',
+          'http://localhost:*',
+          'https://localhost:*',
+          'http://192.168.*:*',
+          'https://192.168.*:*',
+          'http://10.*:*',
+          'https://10.*:*',
+        ],
+        fontSrc: ["'self'", 'data:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'self'"],
+      },
+    },
     crossOriginEmbedderPolicy: false, // Allow LAN resource loading
-    hsts: false, // HSTS handled by Traefik reverse proxy
+    hsts: { maxAge: 63072000, includeSubDomains: false }, // Defense in depth (also set by Traefik)
   })
 );
 
@@ -78,11 +99,15 @@ const corsOptions = {
       : [];
 
     // Check if origin is from a local/private network (RFC 1918) or mDNS
+    // Use strict regex to prevent bypass via crafted domains (e.g. attacker-10.example.com)
+    const isPrivateIP =
+      origin &&
+      /^https?:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(
+        origin
+      );
     const isLocalNetwork =
       origin &&
-      (origin.includes('://192.168.') ||
-        origin.includes('://10.') ||
-        /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./.test(origin) ||
+      (isPrivateIP ||
         origin.includes('://localhost') ||
         origin.includes('://127.0.0.1') ||
         origin.includes('://dashboard-frontend') ||
@@ -127,14 +152,75 @@ app.use('/api', csrfProtection);
 app.use('/api', require('./routes'));
 
 // Health check endpoint (public, no auth required)
-app.get('/api/health', (req, res) => {
+// ?detail=true returns full dependency status
+app.get('/api/health', async (req, res) => {
   const { circuitBreakers } = require('./utils/retry');
-  res.json({
-    status: 'OK',
+  const showDetail = req.query.detail === 'true';
+
+  if (!showDetail) {
+    // Fast path for Traefik/Docker health checks
+    return res.json({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      service: 'dashboard-backend',
+      version: process.env.SYSTEM_VERSION || '1.0.0',
+    });
+  }
+
+  // Detailed health check - verify all dependencies
+  const db = require('./database');
+  const axios = require('axios');
+  const services = require('./config/services');
+  const checks = {};
+
+  // Database
+  try {
+    const dbHealth = await db.healthCheck();
+    checks.database = { status: dbHealth.healthy ? 'ok' : 'error', latencyMs: dbHealth.latency };
+  } catch {
+    checks.database = { status: 'error' };
+  }
+
+  // Ollama (LLM)
+  try {
+    const llmRes = await axios.get(`${services.llm.url}/api/tags`, { timeout: 5000 });
+    const modelCount = (llmRes.data.models || []).length;
+    checks.ollama = { status: 'ok', models: modelCount };
+  } catch {
+    checks.ollama = { status: 'unreachable' };
+  }
+
+  // Embeddings
+  try {
+    await axios.get(`http://${services.embedding.host}:${services.embedding.port}/health`, {
+      timeout: 3000,
+    });
+    checks.embeddings = { status: 'ok' };
+  } catch {
+    checks.embeddings = { status: 'unreachable' };
+  }
+
+  // MinIO
+  try {
+    await axios.get(
+      `http://${process.env.MINIO_HOST || 'minio'}:${process.env.MINIO_PORT || '9000'}/minio/health/live`,
+      { timeout: 3000 }
+    );
+    checks.minio = { status: 'ok' };
+  } catch {
+    checks.minio = { status: 'unreachable' };
+  }
+
+  const allOk = Object.values(checks).every(c => c.status === 'ok');
+  const hasCritical = checks.database?.status === 'error';
+
+  res.status(hasCritical ? 503 : 200).json({
+    status: hasCritical ? 'CRITICAL' : allOk ? 'OK' : 'DEGRADED',
     timestamp: new Date().toISOString(),
     service: 'dashboard-backend',
     version: process.env.SYSTEM_VERSION || '1.0.0',
     build_hash: process.env.BUILD_HASH || 'dev',
+    checks,
     circuitBreakers: circuitBreakers.getAllStatus(),
   });
 });
@@ -263,10 +349,22 @@ process.on('uncaughtException', error => {
   setTimeout(() => process.exit(1), 1000);
 });
 
+let unhandledRejectionCount = 0;
+const MAX_UNHANDLED_REJECTIONS = 10;
+
 process.on('unhandledRejection', reason => {
+  unhandledRejectionCount++;
   const message = reason instanceof Error ? reason.message : String(reason);
   const stack = reason instanceof Error ? reason.stack : undefined;
-  logger.error(`Unhandled rejection: ${message}`, { stack });
+  logger.error(
+    `Unhandled rejection (${unhandledRejectionCount}/${MAX_UNHANDLED_REJECTIONS}): ${message}`,
+    { stack }
+  );
+
+  if (unhandledRejectionCount >= MAX_UNHANDLED_REJECTIONS) {
+    logger.error('Max unhandled rejections reached, initiating graceful shutdown');
+    gracefulShutdown('MAX_REJECTIONS');
+  }
 });
 
 // ROBUST-002: Graceful shutdown handler
@@ -277,6 +375,13 @@ async function gracefulShutdown(signal) {
   }
   shuttingDown = true;
   logger.info(`${signal} received - starting graceful shutdown...`);
+
+  // Safety-net: force exit if graceful shutdown takes too long
+  const shutdownTimer = setTimeout(() => {
+    logger.error('Graceful shutdown timeout (30s) - forcing exit');
+    process.exit(1);
+  }, 30000);
+  shutdownTimer.unref(); // Don't prevent process exit
 
   // 1. Stop accepting new connections
   server.close(() => {
@@ -343,6 +448,7 @@ async function gracefulShutdown(signal) {
   }
 
   logger.info('Graceful shutdown complete');
+  clearTimeout(shutdownTimer);
   process.exit(0);
 }
 
@@ -376,9 +482,37 @@ if (require.main === module) {
       const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
       if (pathname === '/api/metrics/live-stream') {
-        wss.handleUpgrade(request, socket, head, ws => {
-          wss.emit('connection', ws, request);
-        });
+        // SEC: Verify JWT before allowing WebSocket upgrade
+        const { verifyToken } = require('./utils/jwt');
+        const url = new URL(request.url, `http://${request.headers.host}`);
+        const tokenFromQuery = url.searchParams.get('token');
+        const authHeader = request.headers['authorization'];
+        const cookieHeader = request.headers['cookie'];
+        let token = tokenFromQuery;
+        if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+          token = authHeader.slice(7);
+        }
+        if (!token && cookieHeader) {
+          const match = cookieHeader.match(/arasul_token=([^;]+)/);
+          if (match) {token = match[1];}
+        }
+        if (!token) {
+          logger.warn('WebSocket upgrade rejected: no auth token');
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+        verifyToken(token)
+          .then(() => {
+            wss.handleUpgrade(request, socket, head, ws => {
+              wss.emit('connection', ws, request);
+            });
+          })
+          .catch(err => {
+            logger.warn(`WebSocket upgrade rejected: ${err.message}`);
+            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+            socket.destroy();
+          });
       } else if (pathname === '/api/telegram-app/ws' && telegramWebSocketService.wss) {
         telegramWebSocketService.wss.handleUpgrade(request, socket, head, ws => {
           telegramWebSocketService.wss.emit('connection', ws, request);
@@ -472,6 +606,32 @@ if (require.main === module) {
       logger.info('Alert Engine initialized successfully');
     } catch (err) {
       logger.error(`Failed to initialize Alert Engine: ${err.message}`);
+    }
+
+    // Startup readiness summary
+    try {
+      const { detectDevice, getGpuInfo, getLlmRamGB } = require('./utils/hardware');
+      const [device, gpu] = await Promise.all([detectDevice(), getGpuInfo()]);
+      // fire-and-forget: DB health check failure just reports false, non-critical for startup summary
+      const dbHealth = await pool
+        .query('SELECT 1')
+        .then(() => true)
+        .catch(() => false);
+      const llmRamGB = getLlmRamGB();
+
+      logger.info('=== SYSTEM READINESS ===');
+      logger.info(
+        `Device: ${device.name} | ${device.totalMemoryGB}GB RAM | ${device.cpuCores} cores`
+      );
+      logger.info(
+        `GPU: ${gpu.available ? gpu.name : 'NOT AVAILABLE (CPU only)'} | CUDA: ${gpu.cudaVersion || 'N/A'}`
+      );
+      logger.info(
+        `LLM RAM: ${llmRamGB}GB | DB: ${dbHealth ? 'OK' : 'ERROR'} | Ollama: ${ollamaReadiness.isReady() ? 'READY' : 'WAITING'}`
+      );
+      logger.info('========================');
+    } catch (err) {
+      logger.warn(`Startup summary failed: ${err.message}`);
     }
   });
 }

@@ -16,6 +16,7 @@ const fs = require('fs').promises;
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
 const { ValidationError } = require('../../utils/errors');
+const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
 
 const execFileAsync = promisify(execFile);
 
@@ -36,6 +37,7 @@ router.get(
 // GET /api/system/status
 router.get(
   '/status',
+  requireAuth,
   asyncHandler(async (req, res) => {
     // Get service statuses from Docker
     const services = await dockerService.getAllServicesStatus();
@@ -99,14 +101,28 @@ router.get(
       status = 'WARNING';
     }
 
+    // GPU availability check
+    const gpu = await getGpuInfo();
+    if (!gpu.available) {
+      warnings.push('GPU not available - LLM inference will be slow (CPU only)');
+    }
+
+    // Re-evaluate status after GPU check
+    if (criticals.length > 0) {
+      status = 'CRITICAL';
+    } else if (warnings.length > 0) {
+      status = 'WARNING';
+    }
+
     res.json({
       status,
       llm: services.llm?.status || 'unknown',
-      embeddings: services.embeddings?.status || 'unknown',
+      embeddings: services.embedding?.status || 'unknown',
       n8n: services.n8n?.status || 'unknown',
       minio: services.minio?.status || 'unknown',
       postgres: services.postgres?.status || 'unknown',
       self_healing_active: services.self_healing?.status === 'healthy',
+      gpu_available: gpu.available,
       last_self_healing_event: lastHealingEvent ? lastHealingEvent.description : null,
       warnings,
       criticals,
@@ -118,6 +134,7 @@ router.get(
 // GET /api/system/info
 router.get(
   '/info',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const uptime = os.uptime();
     const hostname = os.hostname();
@@ -140,12 +157,18 @@ router.get(
       // JetPack version not available
     }
 
+    // Detect device and GPU
+    const [device, gpu] = await Promise.all([detectDevice(), getGpuInfo()]);
+
     res.json({
       version: process.env.SYSTEM_VERSION || '1.0.0',
       build_hash: process.env.BUILD_HASH || 'dev',
       jetpack_version: jetpackVersion,
       uptime_seconds: Math.floor(uptime),
       hostname: hostname,
+      device,
+      gpu,
+      llmRamGB: getLlmRamGB(),
       timestamp: new Date().toISOString(),
     });
   })
@@ -154,6 +177,7 @@ router.get(
 // GET /api/system/network
 router.get(
   '/network',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const networkInterfaces = os.networkInterfaces();
     const ipAddresses = [];
@@ -201,6 +225,7 @@ router.get(
 // GET /api/system/thresholds - Get device-specific thresholds
 router.get(
   '/thresholds',
+  requireAuth,
   asyncHandler(async (req, res) => {
     // Detect device type
     let deviceType = 'generic';
@@ -211,6 +236,7 @@ router.get(
     // Try to detect Jetson device
     try {
       // SECURITY: Use fs.readFile instead of exec('cat ...') to prevent shell injection
+      // fire-and-forget: files may not exist on non-Jetson devices; empty string = not found
       const tegrastats = await fs.readFile('/etc/nv_tegra_release', 'utf8').catch(() => '');
       if (tegrastats.includes('TEGRA')) {
         // It's a Jetson device
@@ -352,6 +378,7 @@ router.get(
 // POST /api/system/reload-config - Reload configuration without restart
 router.post(
   '/reload-config',
+  requireAuth,
   asyncHandler(async (req, res) => {
     logger.info('Configuration reload requested');
 

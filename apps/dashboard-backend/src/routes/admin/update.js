@@ -35,7 +35,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 * 1024, // 10 GB max
+    fileSize: 2 * 1024 * 1024 * 1024, // 2 GB max
   },
   fileFilter: (req, file, cb) => {
     // BUG-002 FIX: Allow both .araupdate files and .sig files
@@ -73,6 +73,7 @@ router.post(
     if (!req.files.signature || !req.files.signature[0]) {
       // Signature is required for security
       logger.warn('Signature file not uploaded');
+      // fire-and-forget: best-effort cleanup, file may not exist
       await fs.unlink(filePath).catch(() => {});
       throw new ValidationError('Signature file is required for update validation');
     }
@@ -92,7 +93,7 @@ router.post(
     const validation = await updateService.validateUpdate(permanentPath);
 
     if (!validation.valid) {
-      // Clean up file
+      // fire-and-forget: best-effort cleanup of invalid update files
       await fs.unlink(permanentPath).catch(() => {});
       await fs.unlink(`${permanentPath}.sig`).catch(() => {});
       throw new ValidationError(validation.error || 'Update validation failed');
@@ -132,11 +133,22 @@ router.post(
   '/apply',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { file_path } = req.body;
+    const { file_path: rawFilePath } = req.body;
 
-    if (!file_path) {
+    if (!rawFilePath) {
       throw new ValidationError('Update file path is required');
     }
+
+    // Prevent path traversal - only allow files within /arasul/updates/ or /tmp/updates/
+    const allowedDirs = ['/arasul/updates', '/tmp/updates'];
+    const resolvedPath = path.resolve(rawFilePath);
+    const isAllowed = allowedDirs.some(dir =>
+      resolvedPath.startsWith(path.resolve(dir) + path.sep)
+    );
+    if (!isAllowed) {
+      throw new ValidationError('Update file must be within the updates directory');
+    }
+    const file_path = resolvedPath;
 
     // Check if update is already in progress
     const currentState = await updateService.getUpdateState();
@@ -282,7 +294,7 @@ router.post(
       await fs.access(sigPath);
       await fs.copyFile(sigPath, `${permanentPath}.sig`);
     } catch {
-      // Clean up and reject - signature required
+      // fire-and-forget: best-effort cleanup, file may not exist
       await fs.unlink(permanentPath).catch(() => {});
       throw new ValidationError(
         'Signature file (.sig) not found alongside update package on USB device'
@@ -293,6 +305,7 @@ router.post(
     const validation = await updateService.validateUpdate(permanentPath);
 
     if (!validation.valid) {
+      // fire-and-forget: best-effort cleanup of invalid update files
       await fs.unlink(permanentPath).catch(() => {});
       await fs.unlink(`${permanentPath}.sig`).catch(() => {});
       throw new ValidationError(validation.error || 'Update validation failed');

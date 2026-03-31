@@ -8,6 +8,7 @@
  * - GET /api/store/info            - Get system info for recommendations
  */
 
+const os = require('os');
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../../middleware/auth');
@@ -16,17 +17,20 @@ const appService = require('../../services/app/appService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { cacheMiddleware } = require('../../services/core/cacheService');
+const { getLlmRamGB } = require('../../utils/hardware');
 
 // Featured apps (always recommended)
 const FEATURED_APPS = ['n8n', 'telegram-bot', 'claude-code'];
 
-// Model recommendations based on RAM
+// Model recommendations based on LLM RAM allocation
 const MODEL_RECOMMENDATIONS = {
-  // 64GB+ RAM (Jetson AGX Orin 64GB)
-  large: ['qwen3:32b-q4', 'llama3.1:70b-q4', 'qwen3:14b-q8', 'mistral:7b-q8'],
-  // 32GB RAM
+  // 80GB+ LLM RAM (Thor 128GB)
+  xlarge: ['qwen3:32b-q4', 'llama3.1:70b-q4', 'qwen3:14b-q8', 'mistral:7b-q8'],
+  // 32-79GB LLM RAM (Orin 64GB = ~38GB LLM allocation)
+  large: ['qwen3:32b-q4', 'qwen3:14b-q8', 'mistral:7b-q8', 'gemma2:9b-q8'],
+  // 16-31GB LLM RAM
   medium: ['qwen3:14b-q8', 'mistral:7b-q8', 'deepseek-coder:6.7b', 'gemma2:9b-q8'],
-  // 8-16GB RAM
+  // 4-15GB LLM RAM
   small: ['qwen3:7b-q8', 'mistral:7b-q8', 'gemma2:9b-q8', 'deepseek-coder:6.7b'],
 };
 
@@ -52,22 +56,17 @@ router.get(
   asyncHandler(async (req, res) => {
     logger.debug('[Store] Recommendations request');
 
-    // Get system RAM
-    let availableRamGB = 64; // Default to Jetson AGX Orin 64GB
-    try {
-      const diskInfo = await modelService.getDiskSpace();
-      // For now, assume 64GB Jetson Orin
-      // In future, get actual RAM from system info
-      availableRamGB = 64;
-    } catch (err) {
-      logger.warn('[Store] Failed to get system info, using defaults');
-    }
+    // Get LLM RAM allocation (from env or system detection)
+    const llmRamGB = getLlmRamGB();
+    logger.debug(`[Store] LLM RAM allocation: ${llmRamGB}GB`);
 
-    // Determine which models to recommend
+    // Determine which models to recommend based on LLM RAM
     let recommendedModelIds;
-    if (availableRamGB >= 48) {
+    if (llmRamGB >= 80) {
+      recommendedModelIds = MODEL_RECOMMENDATIONS.xlarge;
+    } else if (llmRamGB >= 32) {
       recommendedModelIds = MODEL_RECOMMENDATIONS.large;
-    } else if (availableRamGB >= 24) {
+    } else if (llmRamGB >= 16) {
       recommendedModelIds = MODEL_RECOMMENDATIONS.medium;
     } else {
       recommendedModelIds = MODEL_RECOMMENDATIONS.small;
@@ -117,7 +116,8 @@ router.get(
       models: recommendedModels,
       apps: recommendedApps,
       systemInfo: {
-        availableRamGB,
+        llmRamGB,
+        totalRamGB: Math.round(os.totalmem() / (1024 * 1024 * 1024)),
       },
     });
   })
@@ -201,12 +201,12 @@ router.get(
       logger.warn('[Store] Failed to get disk space:', err.message);
     }
 
-    // For now, assume 64GB Jetson Orin
-    // In future, get actual RAM from system info
-    const availableRamGB = 64;
+    const llmRamGB = getLlmRamGB();
+    const totalRamGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
 
     res.json({
-      availableRamGB,
+      llmRamGB,
+      totalRamGB,
       availableDiskGB: Math.floor((diskInfo.free || 0) / (1024 * 1024 * 1024)),
       totalDiskGB: Math.floor((diskInfo.total || 0) / (1024 * 1024 * 1024)),
     });

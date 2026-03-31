@@ -25,6 +25,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
+const { getLlmRamGB } = require('../../utils/hardware');
 
 // Cache keys
 const CACHE_KEYS = {
@@ -145,6 +146,12 @@ router.post(
       throw new ValidationError('model_id ist erforderlich');
     }
 
+    if (typeof model_id !== 'string' || model_id.length > 200 || /[/\\;|&`$(){}]/.test(model_id)) {
+      throw new ValidationError(
+        'Ungültige model_id (max 200 Zeichen, keine Pfad- oder Shell-Metazeichen)'
+      );
+    }
+
     // Check if model exists in catalog
     const modelInfo = await modelService.getModelInfo(model_id);
     if (!modelInfo) {
@@ -183,11 +190,38 @@ router.post(
       return;
     }
 
+    // RAM validation: warn if model size exceeds LLM RAM allocation
+    if (modelInfo.size_bytes) {
+      const modelSizeGB = modelInfo.size_bytes / (1024 * 1024 * 1024);
+      const llmRamGB = getLlmRamGB();
+
+      if (!isNaN(llmRamGB) && modelSizeGB > llmRamGB) {
+        initSSE(res);
+        res.write(
+          `data: ${JSON.stringify({
+            status: 'ram_warning',
+            model_id,
+            modelSizeGB: Math.round(modelSizeGB),
+            llmRamGB,
+            message: `Modell benötigt ~${Math.round(modelSizeGB)}GB RAM, aber nur ${llmRamGB}GB für LLM verfügbar. Das Modell kann möglicherweise nicht geladen werden.`,
+            proceed: true,
+          })}\n\n`
+        );
+      }
+    }
+
     // Set up SSE for progress
     initSSE(res);
 
-    // DL-003: Track client connection
+    // DL-003: Track client connection + abort controller for cancellation
     const connection = trackConnection(res);
+    const abortController = new AbortController();
+
+    // Abort Ollama pull when client disconnects
+    connection.onClose(() => {
+      logger.info(`[Download] Client disconnected during ${model_id} download - aborting pull`);
+      abortController.abort();
+    });
 
     // Send initial event
     res.write(`data: ${JSON.stringify({ status: 'starting', model_id, progress: 0 })}\n\n`);
@@ -204,15 +238,19 @@ router.post(
     }, 10000);
 
     try {
-      await modelService.downloadModel(model_id, (progress, status) => {
-        if (connection.isConnected()) {
-          try {
-            res.write(`data: ${JSON.stringify({ progress, status, model_id })}\n\n`);
-          } catch {
-            // connection lost - trackConnection handles state
+      await modelService.downloadModel(
+        model_id,
+        (progress, status) => {
+          if (connection.isConnected()) {
+            try {
+              res.write(`data: ${JSON.stringify({ progress, status, model_id })}\n\n`);
+            } catch {
+              // connection lost - trackConnection handles state
+            }
           }
-        }
-      });
+        },
+        { signal: abortController.signal }
+      );
 
       // Invalidate model caches after successful download
       cacheService.invalidatePattern('models:*');
@@ -221,9 +259,19 @@ router.post(
         res.write(`data: ${JSON.stringify({ done: true, success: true, model_id })}\n\n`);
       }
     } catch (error) {
-      logger.error(`Error downloading model ${model_id}: ${error.message}`);
+      const isAborted =
+        error.name === 'AbortError' ||
+        error.name === 'CanceledError' ||
+        abortController.signal.aborted;
+      if (isAborted) {
+        logger.info(`[Download] Model ${model_id} download aborted (client disconnected)`);
+      } else {
+        logger.error(`Error downloading model ${model_id}: ${error.message}`);
+      }
       if (connection.isConnected()) {
-        res.write(`data: ${JSON.stringify({ error: error.message, done: true, model_id })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({ error: isAborted ? 'Download abgebrochen' : error.message, done: true, model_id })}\n\n`
+        );
       }
     } finally {
       clearInterval(heartbeatInterval);
@@ -402,6 +450,12 @@ router.post(
 
     if (!model_id) {
       throw new ValidationError('model_id ist erforderlich');
+    }
+
+    if (typeof model_id !== 'string' || model_id.length > 200 || /[/\\;|&`$(){}]/.test(model_id)) {
+      throw new ValidationError(
+        'Ungültige model_id (max 200 Zeichen, keine Pfad- oder Shell-Metazeichen)'
+      );
     }
 
     // Check if model is installed

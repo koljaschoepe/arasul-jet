@@ -48,8 +48,10 @@ const GRAPH_MAX_ENTITIES = parseInt(process.env.RAG_GRAPH_MAX_ENTITIES || '3');
 const GRAPH_TRAVERSAL_DEPTH = parseInt(process.env.RAG_GRAPH_TRAVERSAL_DEPTH || '2');
 
 // RAG 4.0: Smart relevance filtering
-const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.3');
-const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.4');
+// Reranker (BGE CrossEncoder) logits: good matches ~0.05-0.3, threshold must be low
+// RRF fusion scores: ~0.01-0.03, completely different scale from cosine similarity
+const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.05');
+const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.005');
 
 /**
  * Get embedding vector for text.
@@ -68,7 +70,9 @@ async function getEmbedding(text) {
  * Throws on failure (RAG pipeline requires embeddings to proceed).
  */
 async function getEmbeddings(texts) {
-  if (texts.length === 0) {return [];}
+  if (texts.length === 0) {
+    return [];
+  }
   const vectors = await embeddingService.getEmbeddings(texts);
   if (!vectors) {
     throw new Error('Failed to generate embeddings');

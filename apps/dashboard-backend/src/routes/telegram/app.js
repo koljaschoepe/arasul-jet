@@ -63,6 +63,7 @@ router.get(
 
     // Record activity
     if (appData) {
+      // fire-and-forget: activity recording is non-critical
       telegramAppService.recordActivity(userId).catch(() => {});
     }
 

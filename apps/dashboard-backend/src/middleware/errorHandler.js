@@ -111,11 +111,22 @@ const errorHandler = (err, req, res, next) => {
     logger.error('Headers already sent, cannot send error response', { path: req.originalUrl });
     return;
   }
-  res.status(statusCode).json({
-    error: message,
-    ...(details && { details }),
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    // BH6: Never include stack traces or internal details in client response.
+    // Only send safe, user-facing error info. Stack is logged server-side above.
+    const responseBody = {
+      error: message,
+      timestamp: new Date().toISOString(),
+    };
+    // Only include details for client errors (4xx) where details are explicitly set
+    if (details && statusCode >= 400 && statusCode < 500) {
+      responseBody.details = details;
+    }
+    res.status(statusCode).json(responseBody);
+  } catch (jsonErr) {
+    logger.error(`Failed to serialize error response: ${jsonErr.message}`);
+    res.status(500).end('Internal Server Error');
+  }
 };
 
 module.exports = {

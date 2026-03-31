@@ -30,6 +30,25 @@ function generateCsrfToken() {
 }
 
 /**
+ * Rotate the CSRF token by generating a new one and setting it as a cookie.
+ * Used after successful state-changing requests for defense in depth.
+ * @param {import('express').Response} res
+ * @returns {string} The new token
+ */
+function rotateCsrfToken(res) {
+  const newToken = crypto.randomBytes(32).toString('hex');
+  const isSecure = process.env.NODE_ENV === 'production' || process.env.FORCE_HTTPS === 'true';
+  res.cookie(CSRF_COOKIE, newToken, {
+    httpOnly: false,
+    secure: isSecure,
+    sameSite: isSecure ? 'strict' : 'lax',
+    maxAge: 4 * 60 * 60 * 1000,
+    path: '/',
+  });
+  return newToken;
+}
+
+/**
  * CSRF validation middleware
  * Place on /api routes after cookieParser
  */
@@ -47,6 +66,13 @@ function csrfProtection(req, res, next) {
   // API key requests are not cookie-based - skip
   // Check header directly so middleware works regardless of mount order
   if (req.headers['x-api-key']) {
+    return next();
+  }
+
+  // Bearer token in Authorization header means the request is not CSRF-vulnerable:
+  // an attacker cannot set custom headers in a cross-origin request.
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
     return next();
   }
 
@@ -74,11 +100,21 @@ function csrfProtection(req, res, next) {
     throw new ForbiddenError('CSRF token invalid');
   }
 
+  // BH10 FIX: Rotate CSRF token with error handling — don't block the request on failure
+  if (!SAFE_METHODS.has(req.method)) {
+    try {
+      rotateCsrfToken(res);
+    } catch (rotateErr) {
+      logger.warn(`CSRF token rotation failed: ${rotateErr.message}`);
+    }
+  }
+
   next();
 }
 
 module.exports = {
   generateCsrfToken,
+  rotateCsrfToken,
   csrfProtection,
   CSRF_COOKIE,
 };

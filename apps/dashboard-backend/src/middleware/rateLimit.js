@@ -40,11 +40,11 @@ function createLimiter(name, windowMs, max, errorMessage, extraOptions = {}) {
   });
 }
 
-/** Login rate limiter - 30 attempts per 5 minutes per IP */
+/** Login rate limiter - 10 attempts per 15 minutes per IP */
 const loginLimiter = createLimiter(
   'Login',
-  5 * 60 * 1000,
-  30,
+  15 * 60 * 1000,
+  10,
   'Too many login attempts from this IP, please try again after 15 minutes'
 );
 
@@ -132,23 +132,42 @@ function createUserRateLimiter(maxRequests, windowMs) {
 setInterval(
   () => {
     const now = Date.now();
-    let cleanedCount = 0;
 
+    // BH7 FIX: Collect keys first, then delete — avoids Map iteration race
+    const keysToDelete = [];
     for (const [userId, userData] of userRateLimitStore.entries()) {
-      // Remove users with no activity in the last hour
       if (now - userData.lastUsed > USER_TIMEOUT) {
-        userRateLimitStore.delete(userId);
-        cleanedCount++;
+        keysToDelete.push(userId);
       }
     }
+    keysToDelete.forEach(key => userRateLimitStore.delete(key));
 
-    if (cleanedCount > 0) {
-      logger.info(`Rate limit cleanup: removed ${cleanedCount} inactive user entries`);
+    if (keysToDelete.length > 0) {
+      logger.info(`Rate limit cleanup: removed ${keysToDelete.length} inactive user entries`);
     }
     logger.debug(`Rate limit store size: ${userRateLimitStore.size} users`);
   },
   60 * 60 * 1000
 ); // Every hour
+
+/** General auth rate limiter - 30 requests per minute per IP (for authenticated endpoints) */
+const generalAuthLimiter = createLimiter(
+  'GeneralAuth',
+  60 * 1000,
+  30,
+  'Too many requests, please try again later'
+);
+
+/** Tailscale rate limiter - 5 requests per minute (install/connect are heavy) */
+const tailscaleLimiter = createLimiter(
+  'Tailscale',
+  60 * 1000,
+  5,
+  'Zu viele Tailscale-Anfragen, bitte kurz warten'
+);
+
+/** Upload rate limiter - 20 uploads per minute per IP */
+const uploadLimiter = createLimiter('Upload', 60 * 1000, 20, 'Zu viele Uploads, bitte kurz warten');
 
 module.exports = {
   loginLimiter,
@@ -156,5 +175,8 @@ module.exports = {
   llmLimiter,
   metricsLimiter,
   webhookLimiter,
+  generalAuthLimiter,
+  tailscaleLimiter,
+  uploadLimiter,
   createUserRateLimiter,
 };

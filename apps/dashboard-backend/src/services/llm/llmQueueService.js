@@ -17,6 +17,7 @@ const { processChatJob, processRAGJob, onJobComplete } = require('./llmJobProces
 const MODEL_BATCHING_ENABLED = process.env.MODEL_BATCHING_ENABLED !== 'false';
 const DEFAULT_MAX_WAIT_SECONDS = parseInt(process.env.MODEL_MAX_WAIT_SECONDS || '120');
 const MAX_QUEUE_SIZE = parseInt(process.env.LLM_MAX_QUEUE_SIZE || '20');
+const MAX_JOB_SUBSCRIBERS = 500;
 
 /**
  * Factory function to create LLMQueueService with injected dependencies
@@ -64,7 +65,6 @@ function createLLMQueueService(deps = {}) {
     constructor() {
       super();
       this.processingJobId = null;
-      this.isProcessing = false;
       this.jobSubscribers = new Map(); // jobId -> Set of callbacks
       this.jobSubscriberTimestamps = new Map(); // jobId -> timestamp for cleanup
       this.initialized = false;
@@ -88,31 +88,56 @@ function createLLMQueueService(deps = {}) {
     /**
      * Clean up subscribers for jobs that are no longer active
      * Prevents memory leak from disconnected clients or failed jobs
+     * BE5: Reduced max lifetime to 10min and always evict expired entries first
      */
     async cleanupStaleSubscribers() {
       const now = Date.now();
-      const maxAge = 30 * 60 * 1000; // 30 minutes max subscriber lifetime
+      const maxAge = 10 * 60 * 1000; // 10 minutes max subscriber lifetime (reduced from 30min)
 
       for (const [jobId, timestamp] of this.jobSubscriberTimestamps.entries()) {
+        // BE5: Always remove entries older than maxAge, regardless of job status
         if (now - timestamp > maxAge) {
-          // Check if job is still active
-          try {
-            const result = await database.query(`SELECT status FROM llm_jobs WHERE id = $1`, [
-              jobId,
-            ]);
+          this.jobSubscribers.delete(jobId);
+          this.jobSubscriberTimestamps.delete(jobId);
+          logger.debug(
+            `Cleaned up stale subscribers for job ${jobId} (age: ${Math.round((now - timestamp) / 1000)}s)`
+          );
+          continue;
+        }
 
-            const job = result.rows[0];
-            if (!job || ['completed', 'error', 'cancelled'].includes(job.status)) {
-              // Job is done or doesn't exist, clean up subscribers
-              this.jobSubscribers.delete(jobId);
-              this.jobSubscriberTimestamps.delete(jobId);
-              logger.debug(`Cleaned up stale subscribers for job ${jobId}`);
-            }
-          } catch (err) {
-            // On error, still clean up to prevent memory leak
+        // For entries within maxAge, still clean up if job is finished
+        try {
+          const result = await database.query(`SELECT status FROM llm_jobs WHERE id = $1`, [jobId]);
+
+          const job = result.rows[0];
+          if (!job || ['completed', 'error', 'cancelled'].includes(job.status)) {
             this.jobSubscribers.delete(jobId);
             this.jobSubscriberTimestamps.delete(jobId);
+            logger.debug(`Cleaned up finished job subscribers for job ${jobId}`);
           }
+        } catch (err) {
+          // On error, still clean up to prevent memory leak
+          this.jobSubscribers.delete(jobId);
+          this.jobSubscriberTimestamps.delete(jobId);
+        }
+      }
+
+      // BE5: Hard cap enforcement - if still over limit after cleanup, evict oldest
+      while (this.jobSubscribers.size > MAX_JOB_SUBSCRIBERS) {
+        let oldestKey = null;
+        let oldestTime = Infinity;
+        for (const [jobId, timestamp] of this.jobSubscriberTimestamps.entries()) {
+          if (timestamp < oldestTime) {
+            oldestTime = timestamp;
+            oldestKey = jobId;
+          }
+        }
+        if (oldestKey) {
+          this.jobSubscribers.delete(oldestKey);
+          this.jobSubscriberTimestamps.delete(oldestKey);
+          logger.warn(`Evicted oldest subscriber entry ${oldestKey} to enforce cap`);
+        } else {
+          break;
         }
       }
     }
@@ -238,6 +263,16 @@ function createLLMQueueService(deps = {}) {
      * @param {function} callback - Called with each event
      */
     subscribeToJob(jobId, callback) {
+      // Evict oldest subscriber entry if map is at capacity
+      if (this.jobSubscribers.size >= MAX_JOB_SUBSCRIBERS && !this.jobSubscribers.has(jobId)) {
+        const oldestKey = this.jobSubscribers.keys().next().value;
+        this.jobSubscribers.delete(oldestKey);
+        this.jobSubscriberTimestamps.delete(oldestKey);
+        logger.warn(
+          `Job subscriber limit reached (${MAX_JOB_SUBSCRIBERS}), evicted oldest: ${oldestKey}`
+        );
+      }
+
       if (!this.jobSubscribers.has(jobId)) {
         this.jobSubscribers.set(jobId, new Set());
         this.jobSubscriberTimestamps.set(jobId, Date.now());
@@ -278,10 +313,13 @@ function createLLMQueueService(deps = {}) {
      * Uses smart model batching to minimize model switches
      */
     async processNext() {
-      if (this.isProcessing) {
-        logger.debug('Already processing a job, skipping processNext');
+      if (this.processingJobId) {
+        logger.debug(`Already processing job ${this.processingJobId}, skipping processNext`);
         return;
       }
+
+      // Set a sentinel value immediately to prevent race condition between mutex release and setImmediate
+      this.processingJobId = '__acquiring__';
 
       try {
         let nextJobInfo;
@@ -299,6 +337,7 @@ function createLLMQueueService(deps = {}) {
 
           if (batchResult.rows.length === 0 || !batchResult.rows[0].job_id) {
             logger.debug('No pending jobs in queue');
+            this.processingJobId = null;
             return;
           }
 
@@ -315,6 +354,7 @@ function createLLMQueueService(deps = {}) {
 
           if (result.rows.length === 0) {
             logger.debug('No pending jobs in queue');
+            this.processingJobId = null;
             return;
           }
           nextJobInfo = result.rows[0];
@@ -327,12 +367,12 @@ function createLLMQueueService(deps = {}) {
 
         if (jobResult.rows.length === 0) {
           logger.error(`Job ${jobId} not found`);
+          this.processingJobId = null;
           return;
         }
 
         const job = jobResult.rows[0];
 
-        this.isProcessing = true;
         this.processingJobId = job.id;
 
         // Model switch if needed - P2-006: With retry logic
@@ -348,6 +388,21 @@ function createLLMQueueService(deps = {}) {
             reason: switch_reason,
           });
 
+          // Notify job subscribers to keep SSE alive during model loading
+          this.notifySubscribers(jobId, {
+            type: 'status',
+            status: 'model_loading',
+            message: `Modell "${requested_model}" wird geladen...`,
+          });
+
+          // Heartbeat: send periodic events to prevent frontend 90s timeout during model load
+          const heartbeatInterval = setInterval(() => {
+            this.notifySubscribers(jobId, {
+              type: 'heartbeat',
+              status: 'model_loading',
+            });
+          }, 15000); // Every 15 seconds
+
           // P2-006: Retry logic for transient failures
           const MAX_SWITCH_RETRIES = 2;
           const RETRY_DELAY_MS = 5000;
@@ -357,6 +412,7 @@ function createLLMQueueService(deps = {}) {
           for (let attempt = 1; attempt <= MAX_SWITCH_RETRIES; attempt++) {
             try {
               await modelService.activateModel(requested_model, 'queue');
+              clearInterval(heartbeatInterval);
               this.emit('model:switched', { model: requested_model });
               switchSuccess = true;
               break;
@@ -373,6 +429,7 @@ function createLLMQueueService(deps = {}) {
 
               if (isPermanentError || attempt === MAX_SWITCH_RETRIES) {
                 // Final failure - don't retry
+                clearInterval(heartbeatInterval);
                 break;
               }
 
@@ -393,6 +450,7 @@ function createLLMQueueService(deps = {}) {
           }
 
           if (!switchSuccess) {
+            clearInterval(heartbeatInterval);
             // All retries failed - classify error for better UX
             let userMessage;
             const errMsg = lastError?.message?.toLowerCase() || '';
@@ -421,7 +479,6 @@ function createLLMQueueService(deps = {}) {
               errorCode: 'MODEL_SWITCH_FAILED',
               done: true,
             });
-            this.isProcessing = false;
             this.processingJobId = null;
             setImmediate(() => this.processNext());
             return;
@@ -484,7 +541,6 @@ function createLLMQueueService(deps = {}) {
             );
           }
         }
-        this.isProcessing = false;
         this.processingJobId = null;
         // Try processing next job
         setImmediate(() => this.processNext());
@@ -579,7 +635,7 @@ function createLLMQueueService(deps = {}) {
         errors_per_minute: parseInt(metrics.errors_last_minute) || 0,
         avg_wait_seconds: parseInt(metrics.avg_wait_seconds) || 0,
         queue_depth: parseInt(metrics.max_queue_position) || 0,
-        is_processing: this.isProcessing,
+        is_processing: !!this.processingJobId,
         subscriber_count: this._getSubscriberCount(),
         timestamp: new Date().toISOString(),
       };
@@ -666,7 +722,6 @@ function createLLMQueueService(deps = {}) {
               });
               // If the timed-out job was the one being processed, reset state
               if (this.processingJobId === row.id) {
-                this.isProcessing = false;
                 this.processingJobId = null;
                 setImmediate(() => this.processNext());
               }
@@ -690,7 +745,6 @@ function createLLMQueueService(deps = {}) {
       this.jobSubscribers.clear();
       this.jobSubscriberTimestamps.clear();
       this.processingJobId = null;
-      this.isProcessing = false;
       this.initialized = false;
 
       // Clear intervals

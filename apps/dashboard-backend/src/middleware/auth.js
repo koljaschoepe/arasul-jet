@@ -7,6 +7,11 @@ const { verifyToken } = require('../utils/jwt');
 const logger = require('../utils/logger');
 const db = require('../database');
 
+// PERF: Cache user lookups - userId → { user, expiresAt }
+const userCache = new Map();
+const USER_CACHE_TTL = 60_000; // 60 seconds
+const USER_CACHE_MAX = 50;
+
 /**
  * Require authentication middleware
  * Validates JWT token from Authorization header
@@ -68,35 +73,68 @@ async function requireAuth(req, res, next) {
     }
   }
 
-  // PHASE1-FIX: Separate try-catch for database query with explicit error handling
-  let result;
-  try {
-    result = await db.query(
-      'SELECT id, username, email, is_active FROM admin_users WHERE id = $1',
-      [decoded.userId]
-    );
-  } catch (dbError) {
-    // Log database errors as they indicate infrastructure issues
-    logger.error(`Auth middleware database error: ${dbError.message}`, {
-      userId: decoded.userId,
-      stack: dbError.stack,
-    });
-    return res.status(503).json({
-      error: 'Service temporarily unavailable',
-      timestamp: new Date().toISOString(),
-    });
-  }
+  // PERF: Check user cache first
+  let user;
+  const cached = userCache.get(decoded.userId);
+  if (cached && Date.now() < cached.expiresAt) {
+    user = cached.user;
+  } else {
+    // Cache miss - query DB
+    let result;
+    try {
+      result = await db.query(
+        'SELECT id, username, email, is_active FROM admin_users WHERE id = $1',
+        [decoded.userId]
+      );
+    } catch (dbError) {
+      logger.error(`Auth middleware database error: ${dbError.message}`, {
+        userId: decoded.userId,
+        stack: dbError.stack,
+      });
+      return res.status(503).json({
+        error: 'Service temporarily unavailable',
+        timestamp: new Date().toISOString(),
+      });
+    }
 
-  if (result.rows.length === 0) {
-    return res.status(401).json({
-      error: 'User not found',
-      timestamp: new Date().toISOString(),
-    });
-  }
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        error: 'User not found',
+        timestamp: new Date().toISOString(),
+      });
+    }
 
-  const user = result.rows[0];
+    user = result.rows[0];
+
+    // Store in cache (BE8: TTL-based eviction instead of FIFO)
+    if (userCache.size >= USER_CACHE_MAX) {
+      // First pass: remove all expired entries
+      const now = Date.now();
+      let evicted = false;
+      for (const [key, entry] of userCache.entries()) {
+        if (now >= entry.expiresAt) {
+          userCache.delete(key);
+          evicted = true;
+        }
+      }
+      // If no expired entries found, evict the oldest by timestamp
+      if (!evicted && userCache.size >= USER_CACHE_MAX) {
+        let oldestKey = null;
+        let oldestExpiry = Infinity;
+        for (const [key, entry] of userCache.entries()) {
+          if (entry.expiresAt < oldestExpiry) {
+            oldestExpiry = entry.expiresAt;
+            oldestKey = key;
+          }
+        }
+        if (oldestKey) {userCache.delete(oldestKey);}
+      }
+    }
+    userCache.set(decoded.userId, { user, expiresAt: Date.now() + USER_CACHE_TTL });
+  }
 
   if (!user.is_active) {
+    userCache.delete(decoded.userId);
     return res.status(403).json({
       error: 'User account is disabled',
       timestamp: new Date().toISOString(),

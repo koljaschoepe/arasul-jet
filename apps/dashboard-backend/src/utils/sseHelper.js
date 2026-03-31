@@ -14,10 +14,13 @@ function initSSE(res) {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
+  // Flush headers immediately so the browser opens the stream without delay
+  res.flushHeaders();
 }
 
 /**
  * Track client connection state via res close/error events
+ * BE7: Properly remove event listeners after cleanup to prevent memory leaks
  * @param {import('express').Response} res - Express response object
  * @returns {{ isConnected: () => boolean, onClose: (callback: Function) => void }}
  */
@@ -26,17 +29,23 @@ function trackConnection(res) {
   let closeCallback = null;
 
   const cleanup = () => {
+    if (!connected) {return;} // Prevent double cleanup
     connected = false;
-    if (closeCallback) {
-      closeCallback();
+    res.removeListener('close', cleanup);
+    res.removeListener('error', onError);
+    if (closeCallback) {closeCallback();}
+  };
+
+  const onError = error => {
+    logger.debug(`SSE connection error: ${error.message}`);
+    cleanup();
+    if (!res.writableEnded) {
+      res.end();
     }
   };
 
   res.on('close', cleanup);
-  res.on('error', error => {
-    logger.debug(`SSE response error: ${error.message}`);
-    cleanup();
-  });
+  res.on('error', onError);
 
   return {
     isConnected: () => connected,

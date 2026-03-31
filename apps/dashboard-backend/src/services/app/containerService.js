@@ -13,11 +13,25 @@ const { docker } = require('../core/docker');
 const NETWORK_NAME = process.env.DOCKER_NETWORK || 'arasul-jet_arasul-backend';
 
 /**
+ * Validate app ID format to prevent container name injection.
+ * Only allows lowercase alphanumeric, hyphens, and underscores (3-64 chars).
+ */
+const VALID_APP_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,63}$/;
+function validateAppId(appId) {
+  if (!appId || typeof appId !== 'string' || !VALID_APP_ID_PATTERN.test(appId)) {
+    throw new Error(
+      `Invalid app ID: ${appId}. Only lowercase alphanumeric, hyphens, and underscores allowed (3-64 chars).`
+    );
+  }
+}
+
+/**
  * Start an installed app
  * @param {string} appId - App ID to start
  * @returns {Promise<Object>} Start result
  */
 async function startApp(appId) {
+  validateAppId(appId);
   const result = await db.query('SELECT * FROM app_installations WHERE app_id = $1', [appId]);
 
   if (result.rows.length === 0) {
@@ -95,6 +109,7 @@ async function startApp(appId) {
  * @returns {Promise<Object>} Stop result
  */
 async function stopApp(appId) {
+  validateAppId(appId);
   const result = await db.query('SELECT * FROM app_installations WHERE app_id = $1', [appId]);
 
   if (result.rows.length === 0) {
@@ -142,7 +157,16 @@ async function stopApp(appId) {
 
   try {
     const container = docker.getContainer(installation.container_name || appId);
-    await container.stop({ t: 10 });
+    try {
+      await container.stop({ t: 10 });
+    } catch (stopErr) {
+      if (stopErr.statusCode === 304) {
+        // Container already stopped between inspect and stop - this is fine
+        logger.debug(`Container ${containerName} already stopped`);
+      } else {
+        throw stopErr;
+      }
+    }
 
     await db.query(
       `
@@ -192,6 +216,7 @@ async function stopApp(appId) {
  * @returns {Promise<Object>} Restart result
  */
 async function restartApp(appId, applyConfig = false) {
+  validateAppId(appId);
   const result = await db.query('SELECT * FROM app_installations WHERE app_id = $1', [appId]);
 
   if (result.rows.length === 0) {
@@ -257,6 +282,7 @@ async function restartApp(appId, applyConfig = false) {
  * @returns {Promise<Object>} Recreate result
  */
 async function recreateAppWithConfig(appId, asyncMode = false) {
+  validateAppId(appId);
   const manifestService = require('./manifestService');
   const manifests = await manifestService.loadManifests();
   const manifest = manifests[appId];
@@ -386,6 +412,7 @@ async function _doRecreateContainer(appId, manifest, configOverrides) {
  * @returns {Promise<string>} Log output
  */
 async function getAppLogs(appId, tail = 100) {
+  validateAppId(appId);
   const result = await db.query('SELECT container_name FROM app_installations WHERE app_id = $1', [
     appId,
   ]);

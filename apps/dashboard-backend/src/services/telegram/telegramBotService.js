@@ -18,6 +18,9 @@ const crypto = require('crypto');
 // Telegram API base URL
 const TELEGRAM_API = 'https://api.telegram.org/bot';
 
+// Mask bot tokens for safe logging (show first 8 chars only)
+const maskToken = token => (token ? token.substring(0, 8) + '***' : 'null');
+
 /**
  * Validate a Telegram bot token by calling getMe API
  * @param {string} token - Bot token to validate
@@ -40,7 +43,11 @@ async function validateBotToken(token) {
     }
     return null;
   } catch (error) {
-    logger.error('Error validating bot token:', error);
+    // Mask token in error message/stack to prevent leaking credentials in logs
+    const safeMessage = error.message
+      ? error.message.replace(token, maskToken(token))
+      : error.message;
+    logger.error(`Error validating bot token (${maskToken(token)}): ${safeMessage}`);
     return null;
   }
 }
@@ -56,6 +63,7 @@ async function getBotsByUser(userId) {
       b.id, b.name, b.bot_username, b.llm_provider, b.llm_model,
       b.is_active, b.created_at, b.updated_at, b.last_message_at,
       b.system_prompt, b.rag_enabled, b.rag_space_ids, b.rag_show_sources, b.rag_context_limit,
+      b.tools_enabled, b.voice_enabled, b.restrict_users,
       (SELECT COUNT(*) FROM telegram_bot_commands WHERE bot_id = b.id AND is_enabled = true) as command_count,
       (SELECT COUNT(*) FROM telegram_bot_chats WHERE bot_id = b.id AND is_active = true) as chat_count
     FROM telegram_bots b
@@ -76,6 +84,9 @@ async function getBotsByUser(userId) {
     ragSpaceIds: bot.rag_space_ids || null,
     ragShowSources: bot.rag_show_sources ?? true,
     ragContextLimit: bot.rag_context_limit || 2000,
+    toolsEnabled: bot.tools_enabled ?? true,
+    voiceEnabled: bot.voice_enabled ?? true,
+    restrictUsers: bot.restrict_users || false,
     commandCount: parseInt(bot.command_count) || 0,
     chatCount: parseInt(bot.chat_count) || 0,
     createdAt: bot.created_at,
@@ -128,6 +139,13 @@ async function getBotById(botId, userId) {
     ragSpaceIds: bot.rag_space_ids || null,
     ragShowSources: bot.rag_show_sources ?? true,
     ragContextLimit: bot.rag_context_limit || 2000,
+    toolsEnabled: bot.tools_enabled ?? true,
+    voiceEnabled: bot.voice_enabled ?? true,
+    maxContextTokens: bot.max_context_tokens || 4096,
+    maxResponseTokens: bot.max_response_tokens || 1024,
+    rateLimitPerMinute: bot.rate_limit_per_minute || 10,
+    allowedUsers: bot.allowed_users || [],
+    restrictUsers: bot.restrict_users || false,
     commandCount: parseInt(bot.command_count) || 0,
     chatCount: parseInt(bot.chat_count) || 0,
     createdAt: bot.created_at,
@@ -251,6 +269,13 @@ async function updateBot(botId, userId, updates) {
     ragEnabled,
     ragSpaceIds,
     ragShowSources,
+    toolsEnabled,
+    voiceEnabled,
+    maxContextTokens,
+    maxResponseTokens,
+    rateLimitPerMinute,
+    allowedUsers,
+    restrictUsers,
   } = updates;
 
   // Build dynamic update query
@@ -292,6 +317,42 @@ async function updateBot(botId, userId, updates) {
   if (ragShowSources !== undefined) {
     setClauses.push(`rag_show_sources = $${paramIndex++}`);
     values.push(ragShowSources);
+  }
+
+  // Handle capability fields
+  if (toolsEnabled !== undefined) {
+    setClauses.push(`tools_enabled = $${paramIndex++}`);
+    values.push(toolsEnabled);
+  }
+
+  if (voiceEnabled !== undefined) {
+    setClauses.push(`voice_enabled = $${paramIndex++}`);
+    values.push(voiceEnabled);
+  }
+
+  if (maxContextTokens !== undefined) {
+    setClauses.push(`max_context_tokens = $${paramIndex++}`);
+    values.push(Math.max(1024, Math.min(8192, maxContextTokens)));
+  }
+
+  if (maxResponseTokens !== undefined) {
+    setClauses.push(`max_response_tokens = $${paramIndex++}`);
+    values.push(Math.max(256, Math.min(4096, maxResponseTokens)));
+  }
+
+  if (rateLimitPerMinute !== undefined) {
+    setClauses.push(`rate_limit_per_minute = $${paramIndex++}`);
+    values.push(Math.max(1, Math.min(60, rateLimitPerMinute)));
+  }
+
+  if (allowedUsers !== undefined) {
+    setClauses.push(`allowed_users = $${paramIndex++}`);
+    values.push(JSON.stringify(allowedUsers));
+  }
+
+  if (restrictUsers !== undefined) {
+    setClauses.push(`restrict_users = $${paramIndex++}`);
+    values.push(restrictUsers);
   }
 
   // Handle Claude API key update
@@ -347,7 +408,9 @@ async function updateBot(botId, userId, updates) {
     SET ${setClauses.join(', ')}, updated_at = NOW()
     WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
     RETURNING id, name, bot_username, llm_provider, llm_model, system_prompt, is_active,
-              rag_enabled, rag_space_ids, rag_show_sources`,
+              rag_enabled, rag_space_ids, rag_show_sources,
+              tools_enabled, voice_enabled, max_context_tokens, max_response_tokens,
+              rate_limit_per_minute, allowed_users, restrict_users`,
     values
   );
 
@@ -369,6 +432,13 @@ async function updateBot(botId, userId, updates) {
     ragEnabled: bot.rag_enabled || false,
     ragSpaceIds: bot.rag_space_ids || null,
     ragShowSources: bot.rag_show_sources ?? true,
+    toolsEnabled: bot.tools_enabled ?? true,
+    voiceEnabled: bot.voice_enabled ?? true,
+    maxContextTokens: bot.max_context_tokens || 4096,
+    maxResponseTokens: bot.max_response_tokens || 1024,
+    rateLimitPerMinute: bot.rate_limit_per_minute || 10,
+    allowedUsers: bot.allowed_users || [],
+    restrictUsers: bot.restrict_users || false,
   };
 }
 
@@ -422,6 +492,28 @@ async function activateBot(botId, userId) {
  * @returns {Promise<Object>} Updated bot
  */
 async function deactivateBot(botId, userId) {
+  // Try to delete webhook when deactivating
+  try {
+    const botRow = await database.query(
+      `SELECT bot_token_encrypted, bot_token_iv, bot_token_tag FROM telegram_bots WHERE id = $1 AND user_id = $2`,
+      [botId, userId]
+    );
+    if (botRow.rows.length > 0) {
+      const { bot_token_encrypted, bot_token_iv, bot_token_tag } = botRow.rows[0];
+      const token = cryptoService.decrypt(
+        bot_token_encrypted.toString('hex'),
+        bot_token_iv,
+        bot_token_tag
+      );
+      await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(10000),
+      });
+    }
+  } catch (webhookErr) {
+    logger.warn(`Failed to delete webhook for bot ${botId}: ${webhookErr.message}`);
+  }
+
   const result = await database.query(
     `UPDATE telegram_bots
     SET is_active = false, is_polling = false, updated_at = NOW()
@@ -714,11 +806,13 @@ async function removeChat(chatRowId, botId) {
  * @returns {Promise<Object|null>} Bot if valid, null otherwise
  */
 async function getBotByWebhookSecret(botId, secret) {
+  // Fetch bot by ID only - secret comparison is done in the route layer
+  // using crypto.timingSafeEqual to prevent timing attacks
   const result = await database.query(
-    `SELECT id, name, bot_username, llm_provider, llm_model, system_prompt, is_active
+    `SELECT id, name, bot_username, llm_provider, llm_model, system_prompt, is_active, webhook_secret
     FROM telegram_bots
-    WHERE id = $1 AND webhook_secret = $2 AND is_active = true`,
-    [botId, secret]
+    WHERE id = $1 AND is_active = true`,
+    [botId]
   );
 
   return result.rows[0] || null;

@@ -774,9 +774,15 @@ router.patch(
 
       const result = await dataDb.transaction(async client => {
         // ALTER COLUMN TYPE on the physical table
-        await client.query(
-          `ALTER TABLE ${escapeTableName(slug)} ALTER COLUMN ${escapeIdentifier(fieldSlug)} TYPE ${pgType} USING ${escapeIdentifier(fieldSlug)}::${pgType}`
-        );
+        try {
+          await client.query(
+            `ALTER TABLE ${escapeTableName(slug)} ALTER COLUMN ${escapeIdentifier(fieldSlug)} TYPE ${pgType} USING ${escapeIdentifier(fieldSlug)}::${pgType}`
+          );
+        } catch (castErr) {
+          throw new ValidationError(
+            `Typänderung nicht möglich: Bestehende Daten können nicht zu „${field_type}" konvertiert werden`
+          );
+        }
 
         // Update dt_fields metadata
         params.push(tableId, fieldSlug);

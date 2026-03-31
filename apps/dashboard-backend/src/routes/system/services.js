@@ -66,7 +66,7 @@ router.get(
         gpu_load: llmGpuLoad,
       },
       embeddings: {
-        status: services.embeddings?.status || 'unknown',
+        status: services.embedding?.status || 'unknown',
         load: 0.0, // Placeholder
       },
       n8n: {
@@ -139,7 +139,7 @@ router.get(
 
     // Try to get embedding service details
     const embeddingDetails = {
-      status: services.embeddings?.status || 'unknown',
+      status: services.embedding?.status || 'unknown',
       load: 0.0,
       model_loaded: false,
     };

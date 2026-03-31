@@ -7,7 +7,16 @@ const db = require('../database');
 const logger = require('../utils/logger');
 
 // Endpoints to exclude from audit logging (high-frequency, low-value)
-const EXCLUDED_ENDPOINTS = ['/api/health', '/api/metrics/live', '/api/metrics/live-stream'];
+const EXCLUDED_ENDPOINTS = [
+  '/api/health',
+  '/api/metrics/live',
+  '/api/metrics/live-stream',
+  '/api/models/status', // Polled every few seconds by chat UI
+  '/api/models/loaded', // Polled frequently by chat top bar
+  '/api/store/info', // Cached system info
+  '/api/system/status', // Health monitoring
+  '/api/chats', // Chat list polling (GET only excluded below)
+];
 
 // Sensitive fields to mask in request payloads
 const SENSITIVE_FIELDS = [
@@ -91,24 +100,20 @@ async function writeAuditLog(logEntry) {
       `
             INSERT INTO api_audit_logs (
                 user_id,
-                username,
                 action_type,
                 target_endpoint,
-                request_method,
                 request_payload,
                 response_status,
                 duration_ms,
                 ip_address,
                 user_agent,
                 error_message
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
       [
         logEntry.user_id,
-        logEntry.username,
         logEntry.action_type,
         logEntry.target_endpoint,
-        logEntry.request_method,
         JSON.stringify(logEntry.request_payload),
         logEntry.response_status,
         logEntry.duration_ms,
@@ -143,6 +148,17 @@ function createAuditMiddleware() {
       return next();
     }
 
+    // Skip GET requests to polling endpoints (only mutations are interesting)
+    if (
+      req.method === 'GET' &&
+      (req.path.startsWith('/api/store/recommendations') ||
+        req.path.startsWith('/api/models/catalog') ||
+        req.path.startsWith('/api/models/installed') ||
+        req.path.startsWith('/api/models/default'))
+    ) {
+      return next();
+    }
+
     const startTime = Date.now();
 
     // Capture original end method to intercept response
@@ -173,8 +189,13 @@ function createAuditMiddleware() {
         error_message: res.statusCode >= 400 ? res.statusMessage || null : null,
       };
 
-      // Write audit log asynchronously (don't block response)
-      writeAuditLog(logEntry);
+      // BH8 FIX: Write audit log asynchronously with visible error logging
+      writeAuditLog(logEntry).catch(err => {
+        logger.warn(`Audit log write failed (fire-and-forget): ${err.message}`, {
+          endpoint: logEntry.target_endpoint,
+          status: logEntry.response_status,
+        });
+      });
 
       // Call original end
       return originalEnd.call(this, chunk, encoding);

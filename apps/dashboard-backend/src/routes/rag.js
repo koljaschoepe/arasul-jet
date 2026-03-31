@@ -184,9 +184,18 @@ router.post(
       // Step 5: Rerank results (2-stage: FlashRank → BGE-reranker)
       const rerankedResults = await rerankResults(query, searchResults, top_k);
 
-      // Step 5b: RAG 4.0 - Filter by relevance score
+      // Step 5b: RAG 4.0 - Filter by relevance score with smart fallback
       const wasReranked = ENABLE_RERANKING && rerankedResults.some(r => r.rerankScore != null);
-      const { relevant: relevantResults } = filterByRelevance(rerankedResults, wasReranked);
+      let { relevant: relevantResults } = filterByRelevance(rerankedResults, wasReranked);
+
+      // Smart fallback: if threshold filtered ALL results but documents exist,
+      // use the top results anyway (better to show something than nothing)
+      if (relevantResults.length === 0 && rerankedResults.length > 0) {
+        logger.info(
+          `RAG fallback: relevance filter removed all ${rerankedResults.length} results, using top ${Math.min(top_k, rerankedResults.length)} unfiltered`
+        );
+        relevantResults = rerankedResults.slice(0, top_k);
+      }
 
       // Step 6: Load parent chunks for richer LLM context
       const parentChunks = await getParentChunks(relevantResults);

@@ -52,6 +52,7 @@ async function getModelContextSize(modelName) {
   // Check cache
   const cached = cache.get(modelName);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    cached.lastAccessed = Date.now();
     return cached.contextWindow;
   }
 
@@ -76,6 +77,7 @@ async function getModelContextSize(modelName) {
           info['context_length'] ||
           info['llama.context_length'] ||
           info['qwen2.context_length'] ||
+          info['qwen3.context_length'] ||
           info['gemma.context_length'] ||
           null;
       }
@@ -114,11 +116,21 @@ async function getModelContextSize(modelName) {
 
   // Cache the result
   if (cache.size >= MAX_CACHE_ENTRIES) {
-    // Remove oldest entry
-    const oldestKey = cache.keys().next().value;
-    cache.delete(oldestKey);
+    // LRU eviction: remove entry with oldest lastAccessed time
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    for (const [key, entry] of cache.entries()) {
+      const accessTime = entry.lastAccessed || entry.timestamp;
+      if (accessTime < oldestTime) {
+        oldestTime = accessTime;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey) {
+      cache.delete(oldestKey);
+    }
   }
-  cache.set(modelName, { contextWindow, timestamp: Date.now() });
+  cache.set(modelName, { contextWindow, timestamp: Date.now(), lastAccessed: Date.now() });
 
   logger.info(`[ModelContext] ${modelName}: context_window = ${contextWindow}`);
   return contextWindow;
@@ -144,8 +156,8 @@ async function getRecommendedCtx(modelName) {
   }
 
   const contextWindow = await getModelContextSize(modelName);
-  // Default: use half of max context for VRAM safety, at least 4096
-  return Math.max(4096, Math.min(contextWindow, 16384));
+  // Cap at 32768 - safe for 64GB+ Jetson (KV cache ~2.7GB at 32K for 14B model)
+  return Math.max(4096, Math.min(contextWindow, 32768));
 }
 
 /**
@@ -184,7 +196,8 @@ function getResponseReserve(contextWindow) {
  * @returns {Promise<Object>}
  */
 async function getTokenBudget(modelName) {
-  const contextWindow = await getModelContextSize(modelName);
+  // Use recommendedCtx (actual num_ctx sent to Ollama) for budget consistency
+  const contextWindow = await getRecommendedCtx(modelName);
   const responseReserve = getResponseReserve(contextWindow);
 
   // Scale memory tiers based on context window

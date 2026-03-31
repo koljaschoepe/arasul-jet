@@ -7,14 +7,15 @@ const logger = require('./logger');
 
 const SALT_ROUNDS = 12;
 
-// Password complexity requirements for production deployment
-const PASSWORD_MIN_LENGTH = 8;
+// Password requirements — kept minimal for edge-device usability.
+// Customers set their own password during setup; complexity is their choice.
+const PASSWORD_MIN_LENGTH = 4;
 const PASSWORD_REQUIREMENTS = {
   minLength: PASSWORD_MIN_LENGTH,
-  requireUppercase: true,
-  requireLowercase: true,
-  requireNumbers: true,
-  requireSpecialChars: false, // Avoid lockout on edge device
+  requireUppercase: false,
+  requireLowercase: false,
+  requireNumbers: false,
+  requireSpecialChars: false,
 };
 
 /**

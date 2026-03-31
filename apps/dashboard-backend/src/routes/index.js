@@ -18,7 +18,7 @@ const express = require('express');
 const router = express.Router();
 
 // Rate limiters
-const { metricsLimiter, llmLimiter } = require('../middleware/rateLimit');
+const { metricsLimiter, llmLimiter, tailscaleLimiter } = require('../middleware/rateLimit');
 
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
@@ -40,6 +40,7 @@ router.use('/services', require('./system/services'));
 router.use('/metrics', metricsLimiter, require('./system/metrics'));
 router.use('/logs', require('./system/logs'));
 router.use('/database', require('./system/database'));
+router.use('/tailscale', tailscaleLimiter, require('./system/tailscale'));
 
 // --- Admin ---
 router.use('/settings', require('./admin/settings'));

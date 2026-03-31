@@ -8,12 +8,26 @@ const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
 
 /**
+ * Validate app ID format to prevent container name injection.
+ * Only allows lowercase alphanumeric, hyphens, and underscores (3-64 chars).
+ */
+const VALID_APP_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,63}$/;
+function validateAppId(appId) {
+  if (!appId || typeof appId !== 'string' || !VALID_APP_ID_PATTERN.test(appId)) {
+    throw new Error(
+      `Invalid app ID: ${appId}. Only lowercase alphanumeric, hyphens, and underscores allowed (3-64 chars).`
+    );
+  }
+}
+
+/**
  * Install an app
  * @param {string} appId - App ID to install
  * @param {Object} config - Optional configuration overrides
  * @returns {Promise<Object>} Installation result
  */
 async function installApp(appId, config = {}) {
+  validateAppId(appId);
   const manifestService = require('./manifestService');
   const containerService = require('./containerService');
   const configService = require('./configService');
@@ -178,6 +192,7 @@ async function installApp(appId, config = {}) {
  * @returns {Promise<Object>} Uninstall result
  */
 async function uninstallApp(appId, removeVolumes = false) {
+  validateAppId(appId);
   const manifestService = require('./manifestService');
   const configService = require('./configService');
 

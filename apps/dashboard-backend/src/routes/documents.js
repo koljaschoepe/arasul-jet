@@ -23,6 +23,8 @@ const { requireAuth } = require('../middleware/auth');
 const pool = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
+const { uploadLimiter } = require('../middleware/rateLimit');
+const { retry } = require('../utils/retry');
 const { buildSetClauses } = require('../utils/queryBuilder');
 const services = require('../config/services');
 
@@ -408,6 +410,7 @@ router.get(
 router.post(
   '/upload',
   requireAuth,
+  uploadLimiter,
   (req, res, next) => {
     // Handle multer errors (file type, size) and return 400 instead of 500
     upload.single('file')(req, res, err => {
@@ -495,27 +498,38 @@ router.post(
       '.yml': 'text/yaml',
     };
 
-    await pool.query(
-      `INSERT INTO documents (
-            id, filename, original_filename, file_path, file_size,
-            mime_type, file_extension, content_hash, file_hash,
-            status, uploaded_by, space_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [
-        docId,
-        filename,
-        filename,
-        objectName,
-        file.size,
-        mimeTypes[fileExt] || 'application/octet-stream',
-        fileExt,
-        contentHash,
-        fileHash,
-        'pending',
-        req.user?.username || 'admin',
-        spaceId,
-      ]
-    );
+    try {
+      await pool.query(
+        `INSERT INTO documents (
+              id, filename, original_filename, file_path, file_size,
+              mime_type, file_extension, content_hash, file_hash,
+              status, uploaded_by, space_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          docId,
+          filename,
+          filename,
+          objectName,
+          file.size,
+          mimeTypes[fileExt] || 'application/octet-stream',
+          fileExt,
+          contentHash,
+          fileHash,
+          'pending',
+          req.user?.username || 'admin',
+          spaceId,
+        ]
+      );
+    } catch (dbError) {
+      // Cleanup MinIO file if database insert fails to prevent orphaned files
+      try {
+        await minio.removeObject(MINIO_BUCKET, objectName);
+        logger.info(`Cleaned up orphaned MinIO file after DB error: ${objectName}`);
+      } catch (cleanupError) {
+        logger.warn(`Failed to cleanup MinIO file ${objectName}: ${cleanupError.message}`);
+      }
+      throw dbError;
+    }
 
     // Update space statistics if assigned to a space (non-critical)
     if (spaceId) {
@@ -536,6 +550,7 @@ router.post(
         space_id: spaceId,
       },
       message: 'Dokument erfolgreich hochgeladen. Indexierung wird gestartet.',
+      indexing_interval_seconds: parseInt(process.env.DOCUMENT_INDEXER_INTERVAL || '120', 10),
       timestamp: new Date().toISOString(),
     });
   })
@@ -578,25 +593,35 @@ router.delete(
       logger.warn(`Failed to delete from MinIO: ${e.message}`);
     }
 
-    // Delete from Qdrant (non-critical)
+    // Delete from Qdrant (non-critical, with retry)
     try {
-      await axios.post(
-        `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
-        {
-          filter: {
-            must: [
-              {
-                key: 'document_id',
-                match: { value: id },
+      await retry(
+        () =>
+          axios.post(
+            `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
+            {
+              filter: {
+                must: [
+                  {
+                    key: 'document_id',
+                    match: { value: id },
+                  },
+                ],
               },
-            ],
+            },
+            { timeout: 10000 }
+          ),
+        {
+          maxAttempts: 3,
+          initialDelay: 500,
+          onRetry: (attempt, err) => {
+            logger.warn(`Qdrant delete retry ${attempt} for doc ${id}: ${err.message}`);
           },
-        },
-        { timeout: 10000 }
+        }
       );
       logger.info(`Deleted document from Qdrant: ${id}`);
     } catch (e) {
-      logger.warn(`Failed to delete from Qdrant: ${e.message}`);
+      logger.warn(`Failed to delete from Qdrant after retries: ${e.message}`);
     }
 
     // Soft delete in database
@@ -1270,6 +1295,300 @@ router.get(
       used_bytes: usage ? usage.usedBytes : parseInt(total_size),
       quota_bytes: quotaBytes,
       usage_percent: usage ? Math.round((usage.usedBytes / quotaBytes) * 100) : null,
+    });
+  })
+);
+
+/**
+ * POST /api/documents/cleanup-orphaned
+ * Detect and clean up orphaned files (MinIO files without DB record, DB records without MinIO file)
+ * Admin-only operation - requires authentication
+ */
+router.post(
+  '/cleanup-orphaned',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const dryRun = req.query.dry_run === 'true';
+    const minio = getMinioClient();
+
+    // 1. Get all file_paths from DB (non-deleted documents)
+    const dbResult = await pool.query(
+      'SELECT id, filename, file_path, file_size, status FROM documents WHERE deleted_at IS NULL'
+    );
+    const dbPaths = new Set(dbResult.rows.map(r => r.file_path));
+    const dbPathToDoc = new Map(dbResult.rows.map(r => [r.file_path, r]));
+
+    // 2. List all objects in MinIO bucket
+    const minioPaths = new Set();
+    try {
+      const stream = minio.listObjectsV2(MINIO_BUCKET, '', true);
+      for await (const obj of stream) {
+        minioPaths.add(obj.name);
+      }
+    } catch (err) {
+      logger.error(`Cleanup: Failed to list MinIO objects: ${err.message}`);
+      throw new ValidationError('MinIO nicht erreichbar — Bereinigung nicht möglich');
+    }
+
+    // 3. Find orphaned MinIO files (in MinIO but not in DB)
+    const orphanedInMinio = [];
+    for (const minioPath of minioPaths) {
+      if (!dbPaths.has(minioPath)) {
+        orphanedInMinio.push(minioPath);
+      }
+    }
+
+    // 4. Find orphaned DB records (in DB but file missing from MinIO)
+    const orphanedInDb = [];
+    for (const [dbPath, doc] of dbPathToDoc) {
+      if (!minioPaths.has(dbPath)) {
+        orphanedInDb.push({
+          id: doc.id,
+          filename: doc.filename,
+          file_path: dbPath,
+          status: doc.status,
+        });
+      }
+    }
+
+    // 5. Clean up if not dry run
+    let deletedFromMinio = 0;
+    let markedInDb = 0;
+
+    if (!dryRun) {
+      // Remove orphaned files from MinIO
+      for (const orphanPath of orphanedInMinio) {
+        if (!isValidMinioPath(orphanPath)) {
+          logger.warn(`Cleanup: Skipping invalid path: ${orphanPath}`);
+          continue;
+        }
+        try {
+          await minio.removeObject(MINIO_BUCKET, orphanPath);
+          deletedFromMinio++;
+          logger.info(`Cleanup: Removed orphaned MinIO file: ${orphanPath}`);
+        } catch (err) {
+          logger.warn(`Cleanup: Failed to remove ${orphanPath}: ${err.message}`);
+        }
+      }
+
+      // Mark orphaned DB records as failed
+      for (const orphan of orphanedInDb) {
+        try {
+          await pool.query(
+            `UPDATE documents SET status = 'failed', error_message = 'Datei in MinIO nicht gefunden (Bereinigung)' WHERE id = $1`,
+            [orphan.id]
+          );
+          markedInDb++;
+          logger.info(
+            `Cleanup: Marked orphaned DB record as failed: ${orphan.id} (${orphan.filename})`
+          );
+        } catch (err) {
+          logger.warn(`Cleanup: Failed to update DB record ${orphan.id}: ${err.message}`);
+        }
+      }
+    }
+
+    // Also clean up soft-deleted documents older than 30 days
+    let purgedCount = 0;
+    if (!dryRun) {
+      const purgeResult = await pool.query(
+        `DELETE FROM documents WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days' RETURNING id, file_path`
+      );
+      for (const row of purgeResult.rows) {
+        if (row.file_path && isValidMinioPath(row.file_path)) {
+          try {
+            await minio.removeObject(MINIO_BUCKET, row.file_path);
+          } catch {
+            /* already gone */
+          }
+        }
+        purgedCount++;
+      }
+      if (purgedCount > 0) {
+        logger.info(`Cleanup: Purged ${purgedCount} soft-deleted documents older than 30 days`);
+      }
+    }
+
+    res.json({
+      dry_run: dryRun,
+      orphaned_in_minio: orphanedInMinio.length,
+      orphaned_in_db: orphanedInDb.length,
+      purge_candidates: purgedCount || undefined,
+      cleaned: dryRun
+        ? undefined
+        : {
+            deleted_from_minio: deletedFromMinio,
+            marked_failed_in_db: markedInDb,
+            purged_soft_deleted: purgedCount,
+          },
+      details: {
+        minio_files: orphanedInMinio,
+        db_records: orphanedInDb.map(o => ({ id: o.id, filename: o.filename, status: o.status })),
+      },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/documents/batch/delete
+ * Bulk delete multiple documents
+ */
+router.post(
+  '/batch/delete',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new ValidationError('Mindestens eine Dokument-ID erforderlich');
+    }
+    if (ids.length > 100) {
+      throw new ValidationError('Maximal 100 Dokumente gleichzeitig');
+    }
+
+    const minio = getMinioClient();
+    let deleted = 0;
+    const errors = [];
+
+    for (const id of ids) {
+      try {
+        const docResult = await pool.query(
+          'SELECT file_path FROM documents WHERE id = $1 AND deleted_at IS NULL',
+          [id]
+        );
+        if (docResult.rows.length === 0) {continue;}
+
+        const filePath = docResult.rows[0].file_path;
+
+        // Delete from MinIO
+        if (filePath && isValidMinioPath(filePath)) {
+          try {
+            await minio.removeObject(MINIO_BUCKET, filePath);
+          } catch (e) {
+            logger.warn(`Batch delete: Failed to remove MinIO file ${filePath}: ${e.message}`);
+          }
+        }
+
+        // Delete from Qdrant
+        try {
+          await axios.post(
+            `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
+            { filter: { must: [{ key: 'document_id', match: { value: id } }] } },
+            { timeout: 5000 }
+          );
+        } catch (e) {
+          logger.warn(`Batch delete: Failed to remove from Qdrant: ${e.message}`);
+        }
+
+        // Soft delete in DB
+        await pool.query(
+          "UPDATE documents SET deleted_at = NOW(), status = 'deleted' WHERE id = $1",
+          [id]
+        );
+        deleted++;
+      } catch (err) {
+        errors.push({ id, error: err.message });
+      }
+    }
+
+    logger.info(`Batch delete: ${deleted}/${ids.length} documents deleted`);
+
+    res.json({
+      deleted,
+      requested: ids.length,
+      errors: errors.length > 0 ? errors : undefined,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/documents/batch/reindex
+ * Bulk reindex multiple documents
+ */
+router.post(
+  '/batch/reindex',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new ValidationError('Mindestens eine Dokument-ID erforderlich');
+    }
+    if (ids.length > 100) {
+      throw new ValidationError('Maximal 100 Dokumente gleichzeitig');
+    }
+
+    const result = await pool.query(
+      `UPDATE documents SET status = 'pending', retry_count = 0
+       WHERE id = ANY($1) AND deleted_at IS NULL
+       RETURNING id`,
+      [ids]
+    );
+
+    logger.info(`Batch reindex: ${result.rowCount}/${ids.length} documents queued`);
+
+    res.json({
+      queued: result.rowCount,
+      requested: ids.length,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/documents/batch/move
+ * Bulk move multiple documents to a space
+ */
+router.post(
+  '/batch/move',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { ids, space_id } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new ValidationError('Mindestens eine Dokument-ID erforderlich');
+    }
+    if (ids.length > 100) {
+      throw new ValidationError('Maximal 100 Dokumente gleichzeitig');
+    }
+
+    const newSpaceId = space_id || null;
+
+    // Validate space
+    if (newSpaceId) {
+      const spaceCheck = await pool.query(
+        'SELECT id, name, slug FROM knowledge_spaces WHERE id = $1',
+        [newSpaceId]
+      );
+      if (spaceCheck.rows.length === 0) {
+        throw new ValidationError('Ungültiger Wissensbereich');
+      }
+    }
+
+    const result = await pool.query(
+      `UPDATE documents SET space_id = $1, updated_at = NOW()
+       WHERE id = ANY($2) AND deleted_at IS NULL
+       RETURNING id`,
+      [newSpaceId, ids]
+    );
+
+    // Update space statistics (non-critical)
+    if (newSpaceId) {
+      try {
+        await pool.query('SELECT update_space_statistics($1)', [newSpaceId]);
+      } catch (e) {
+        logger.warn(`Batch move: Failed to update space statistics: ${e.message}`);
+      }
+    }
+
+    logger.info(
+      `Batch move: ${result.rowCount}/${ids.length} documents moved to space ${newSpaceId}`
+    );
+
+    res.json({
+      moved: result.rowCount,
+      requested: ids.length,
+      space_id: newSpaceId,
+      timestamp: new Date().toISOString(),
     });
   })
 );
