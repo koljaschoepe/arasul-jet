@@ -1,5 +1,21 @@
 import React, { memo, useState, useEffect } from 'react';
-import { Folder, Save, AlertCircle, Check, Trash2 } from 'lucide-react';
+import {
+  Folder,
+  Briefcase,
+  FileText,
+  Users,
+  Settings,
+  DollarSign,
+  ShoppingCart,
+  Wrench,
+  BookOpen,
+  Archive,
+  Save,
+  AlertCircle,
+  Check,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import useConfirm from '../../hooks/useConfirm';
 import Modal from '../../components/ui/Modal';
@@ -8,6 +24,20 @@ import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { cn } from '@/lib/utils';
+
+// Icon mapping for space icons
+const ICON_MAP: Record<string, LucideIcon> = {
+  folder: Folder,
+  briefcase: Briefcase,
+  'file-text': FileText,
+  users: Users,
+  settings: Settings,
+  'dollar-sign': DollarSign,
+  'shopping-cart': ShoppingCart,
+  tool: Wrench,
+  book: BookOpen,
+  archive: Archive,
+};
 
 // Available icons for spaces
 const SPACE_ICONS = [
@@ -137,8 +167,9 @@ const SpaceModal = memo(function SpaceModal({
         onSave(data.space || data);
         onClose();
       }, 500);
-    } catch (err: any) {
-      setError(err.data?.error || err.message);
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || 'Unbekannter Fehler');
     } finally {
       setSaving(false);
     }
@@ -166,8 +197,9 @@ const SpaceModal = memo(function SpaceModal({
         onSave(null); // Signal deletion
         onClose();
       }, 500);
-    } catch (err: any) {
-      setError(err.data?.error || err.message);
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || 'Unbekannter Fehler');
     } finally {
       setSaving(false);
     }
@@ -177,12 +209,15 @@ const SpaceModal = memo(function SpaceModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        <>
-          <Folder style={{ color }} />
-          {mode === 'edit' ? ' Bereich bearbeiten' : ' Neuen Wissensbereich erstellen'}
-        </>
-      }
+      title={(() => {
+        const TitleIcon = ICON_MAP[icon] || Folder;
+        return (
+          <>
+            <TitleIcon style={{ color }} />
+            {mode === 'edit' ? ' Bereich bearbeiten' : ' Neuen Wissensbereich erstellen'}
+          </>
+        );
+      })()}
       size="medium"
       className="space-modal-wrapper"
       footer={
@@ -264,22 +299,25 @@ const SpaceModal = memo(function SpaceModal({
           <div className="mb-0">
             <Label className="mb-2">Icon</Label>
             <div className="flex flex-wrap gap-2">
-              {SPACE_ICONS.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={cn(
-                    'size-9 bg-background border-2 border-border rounded-md text-muted-foreground cursor-pointer flex items-center justify-center transition-all hover:border-[var(--border-input-focus)] hover:text-muted-foreground',
-                    icon === opt.value && 'bg-primary/10 border-primary text-primary'
-                  )}
-                  onClick={() => setIcon(opt.value)}
-                  title={opt.label}
-                  aria-label={opt.label}
-                  aria-pressed={icon === opt.value}
-                >
-                  <Folder className="size-4" />
-                </button>
-              ))}
+              {SPACE_ICONS.map(opt => {
+                const IconComp = ICON_MAP[opt.value] || Folder;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={cn(
+                      'size-9 bg-background border-2 border-border rounded-md text-muted-foreground cursor-pointer flex items-center justify-center transition-all hover:border-[var(--border-input-focus)] hover:text-muted-foreground',
+                      icon === opt.value && 'bg-primary/10 border-primary text-primary'
+                    )}
+                    onClick={() => setIcon(opt.value)}
+                    title={opt.label}
+                    aria-label={opt.label}
+                    aria-pressed={icon === opt.value}
+                  >
+                    <IconComp className="size-4" />
+                  </button>
+                );
+              })}
             </div>
           </div>
 

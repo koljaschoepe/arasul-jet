@@ -5,7 +5,6 @@ import {
   Check,
   AlertCircle,
   X,
-  AlertTriangle,
   Database,
   HardDrive,
   Search,
@@ -18,12 +17,10 @@ import {
   BarChart3,
   Wrench,
   Archive,
-  Info,
   type LucideIcon,
 } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/shadcn/card';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import {
@@ -34,7 +31,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/shadcn/dialog';
-import { Badge } from '@/components/ui/shadcn/badge';
 import { cn } from '@/lib/utils';
 
 interface Service {
@@ -44,16 +40,13 @@ interface Service {
   canRestart?: boolean;
 }
 
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; dot: string }
-> = {
-  healthy: { label: 'Aktiv', variant: 'default', dot: 'bg-primary' },
-  starting: { label: 'Startet...', variant: 'secondary', dot: 'bg-primary animate-pulse' },
-  restarting: { label: 'Neustart...', variant: 'secondary', dot: 'bg-primary animate-pulse' },
-  failed: { label: 'Fehler', variant: 'destructive', dot: 'bg-foreground/40' },
-  unhealthy: { label: 'Fehler', variant: 'destructive', dot: 'bg-foreground/40' },
-  exited: { label: 'Beendet', variant: 'destructive', dot: 'bg-foreground/40' },
+const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
+  healthy: { label: 'Aktiv', dot: 'bg-primary' },
+  starting: { label: 'Startet...', dot: 'bg-primary animate-pulse' },
+  restarting: { label: 'Neustart...', dot: 'bg-primary animate-pulse' },
+  failed: { label: 'Fehler', dot: 'bg-foreground/40' },
+  unhealthy: { label: 'Fehler', dot: 'bg-foreground/40' },
+  exited: { label: 'Beendet', dot: 'bg-foreground/40' },
 };
 
 const SERVICE_INFO: Record<string, { icon: LucideIcon; displayName: string }> = {
@@ -89,7 +82,7 @@ export function ServicesSettings() {
       try {
         const data = await api.get('/services/all', { signal, showError: false });
         setServices(data.services || []);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (signal?.aborted) return;
         console.error('Error fetching services:', error);
       } finally {
@@ -131,17 +124,17 @@ export function ServicesSettings() {
           text: data.message || 'Fehler beim Neustart des Service',
         });
       }
-    } catch (error: any) {
-      if (error.status === 429) {
+    } catch (error: unknown) {
+      const err = error as { status?: number; data?: { message?: string }; message?: string };
+      if (err.status === 429) {
         setMessage({
           type: 'error',
-          text:
-            error.data?.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
+          text: err.data?.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
         });
       } else {
         setMessage({
           type: 'error',
-          text: error.data?.message || error.message || 'Netzwerkfehler beim Neustart des Service',
+          text: err.data?.message || err.message || 'Netzwerkfehler beim Neustart des Service',
         });
       }
     } finally {
@@ -155,14 +148,7 @@ export function ServicesSettings() {
         <div className="mb-8 pb-6 border-b border-border">
           <h1 className="text-2xl font-bold text-foreground mb-2">Services</h1>
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-          <SkeletonCard hasAvatar={false} lines={2} />
-          <SkeletonCard hasAvatar={false} lines={2} />
-          <SkeletonCard hasAvatar={false} lines={2} />
-          <SkeletonCard hasAvatar={false} lines={2} />
-          <SkeletonCard hasAvatar={false} lines={2} />
-          <SkeletonCard hasAvatar={false} lines={2} />
-        </div>
+        <SkeletonCard hasAvatar={false} lines={6} />
       </div>
     );
   }
@@ -199,125 +185,68 @@ export function ServicesSettings() {
         </Alert>
       )}
 
-      <div className="flex flex-col gap-6">
-        {/* Service Cards Grid */}
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-          {services.map(service => {
-            const config = STATUS_CONFIG[service.status] || {
-              label: 'Unbekannt',
-              variant: 'outline' as const,
-              dot: 'bg-muted-foreground',
-            };
-            const info = getServiceInfo(service.name);
-            const ServiceIcon = info.icon;
-            const isRestarting = restartingService === service.name;
+      {/* Service List */}
+      <div className="border border-border/50 rounded-lg divide-y divide-border/50">
+        {services.map(service => {
+          const config = STATUS_CONFIG[service.status] || {
+            label: 'Unbekannt',
+            dot: 'bg-muted-foreground',
+          };
+          const info = getServiceInfo(service.name);
+          const ServiceIcon = info.icon;
+          const isRestarting = restartingService === service.name;
 
-            return (
-              <Card key={service.id} className="relative overflow-hidden">
-                <CardContent className="pt-5 pb-4 px-5 flex flex-col gap-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <ServiceIcon className="size-4.5 text-primary" />
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-semibold text-foreground leading-tight">
-                          {info.displayName}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground/70 font-mono">
-                          {service.name}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+          return (
+            <div
+              key={service.id}
+              className="flex items-center justify-between px-4 py-3 group transition-colors hover:bg-muted/30"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <ServiceIcon className="size-4 shrink-0 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground truncate">
+                  {info.displayName}
+                </span>
+              </div>
 
-                  <div className="flex items-center justify-between mt-1">
-                    <div className="flex items-center gap-2">
-                      <div className={cn('size-2 rounded-full', config.dot)} />
-                      <Badge variant={config.variant} className="text-xs">
-                        {config.label}
-                      </Badge>
-                    </div>
-
-                    {service.canRestart && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => {
-                          setConfirmRestart(service);
-                          setMessage(null);
-                        }}
-                        disabled={isRestarting}
-                      >
-                        <RefreshCw className={cn('size-3.5', isRestarting && 'animate-spin')} />
-                        {isRestarting ? 'Neustart...' : 'Neustart'}
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Hints Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Hinweise</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex flex-col gap-3">
-              {[
-                {
-                  icon: AlertTriangle,
-                  color: 'warning' as const,
-                  title: 'Downtime beachten',
-                  desc: 'Während des Neustarts ist der Dienst kurzzeitig nicht verfügbar',
-                },
-                {
-                  icon: AlertCircle,
-                  color: 'warning' as const,
-                  title: 'Rate Limit',
-                  desc: 'Jeder Dienst kann maximal einmal pro Minute neugestartet werden',
-                },
-                {
-                  icon: Info,
-                  color: 'primary' as const,
-                  title: 'Audit-Log',
-                  desc: 'Alle Neustarts werden im Self-Healing Event-Log protokolliert',
-                },
-              ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div
-                    className={cn(
-                      'flex size-7 shrink-0 items-center justify-center rounded-full',
-                      item.color === 'warning'
-                        ? 'bg-warning/20 text-warning'
-                        : 'bg-primary/10 text-primary'
-                    )}
-                  >
-                    <item.icon className="size-3.5" />
-                  </div>
-                  <div className="flex flex-col">
-                    <strong className="text-sm text-foreground">{item.title}</strong>
-                    <span className="text-xs text-muted-foreground">{item.desc}</span>
-                  </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className={cn('size-2 rounded-full', config.dot)} />
+                  <span className="text-xs text-muted-foreground">{config.label}</span>
                 </div>
-              ))}
+
+                {service.canRestart && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setConfirmRestart(service);
+                      setMessage(null);
+                    }}
+                    disabled={isRestarting}
+                  >
+                    <RefreshCw className={cn('size-3.5', isRestarting && 'animate-spin')} />
+                    {isRestarting ? 'Neustart...' : 'Neustart'}
+                  </Button>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          );
+        })}
       </div>
+
+      {/* Hints */}
+      <p className="mt-4 text-xs text-muted-foreground leading-relaxed">
+        Während eines Neustarts ist der Dienst kurzzeitig nicht verfügbar. Jeder Dienst kann maximal
+        einmal pro Minute neugestartet werden. Alle Neustarts werden im Self-Healing Event-Log
+        protokolliert.
+      </p>
 
       {/* Confirmation Dialog */}
       <Dialog open={!!confirmRestart} onOpenChange={open => !open && setConfirmRestart(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-5 text-warning" />
-              Service neustarten?
-            </DialogTitle>
+            <DialogTitle>Service neustarten?</DialogTitle>
             <DialogDescription>
               Möchten Sie den Service{' '}
               <strong>

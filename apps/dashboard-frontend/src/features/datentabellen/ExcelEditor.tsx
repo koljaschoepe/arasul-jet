@@ -31,6 +31,7 @@ import type {
   CellPosition,
   ColumnMenuState,
   ContextMenuState,
+  Field,
   Row,
 } from './types';
 import { ROW_HEIGHT } from './utils';
@@ -168,7 +169,7 @@ function ExcelEditor({ tableSlug, tableName }: ExcelEditorProps) {
   );
 
   // --- Column resize ---
-  const { columnWidths, resizingColumn, handleResizeStart } = useColumnResize();
+  const { columnWidths, resizingColumn, handleResizeStart } = useColumnResize(tableSlug);
 
   // --- Cell navigation ---
   const moveToCell = useCallback(
@@ -253,7 +254,7 @@ function ExcelEditor({ tableSlug, tableName }: ExcelEditorProps) {
   );
 
   // --- Column menu open handler ---
-  const handleColumnMenuOpen = useCallback((field: any, rect: DOMRect) => {
+  const handleColumnMenuOpen = useCallback((field: Field, rect: DOMRect) => {
     setColumnMenu({
       field,
       position: { top: rect.bottom + 4, left: rect.left },

@@ -20,7 +20,7 @@ import { getCsrfToken } from '../utils/csrf';
 interface User {
   id: number;
   username: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface LoginData {

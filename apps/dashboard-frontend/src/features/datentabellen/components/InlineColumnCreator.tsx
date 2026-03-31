@@ -69,8 +69,9 @@ const InlineColumnCreator = memo(function InlineColumnCreator({
       );
       onColumnAdded();
       resetState();
-    } catch (err: any) {
-      setError(err.data?.error || err.message);
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || 'Unbekannter Fehler');
       setMode('name');
     } finally {
       setLoading(false);
@@ -176,7 +177,7 @@ const InlineColumnCreator = memo(function InlineColumnCreator({
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1 py-1 px-2 bg-primary border border-primary rounded text-primary-foreground text-[0.6875rem] cursor-pointer"
+            className="inline-flex items-center gap-1 py-1 px-2 bg-secondary border border-border rounded text-primary text-[0.6875rem] cursor-pointer hover:bg-secondary/80"
             onClick={() => handleCreateColumn(unit.trim())}
             disabled={loading}
           >

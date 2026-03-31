@@ -114,10 +114,10 @@ function StoreModels() {
         api.get('/models/default', opts).catch(() => ({})),
       ]);
       return {
-        catalog: (catalogData as any).models || [],
-        loadedModel: (statusData as any).loaded_model || null,
-        defaultModel: (defaultData as any).default_model || null,
-        queueByModel: (statusData as any).queue_by_model || [],
+        catalog: (catalogData as { models?: CatalogModel[] }).models || [],
+        loadedModel: (statusData as { loaded_model?: LoadedModel | null }).loaded_model || null,
+        defaultModel: (defaultData as { default_model?: string | null }).default_model || null,
+        queueByModel: (statusData as { queue_by_model?: QueueEntry[] }).queue_by_model || [],
       } as ModelData;
     },
     [api]
@@ -148,6 +148,14 @@ function StoreModels() {
 
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
   const activatingRef = useRef(false);
+  const activateAbortRef = useRef<AbortController | null>(null);
+
+  // Cleanup activation stream on unmount
+  useEffect(() => {
+    return () => {
+      activateAbortRef.current?.abort();
+    };
+  }, []);
 
   // Poll for status updates every 15 seconds
   useEffect(() => {
@@ -181,6 +189,10 @@ function StoreModels() {
     if (activatingRef.current) return;
     activatingRef.current = true;
 
+    activateAbortRef.current?.abort();
+    const controller = new AbortController();
+    activateAbortRef.current = controller;
+
     setActivating(modelId);
     setActivatingProgress('Initialisiere...');
     setActivatingPercent(0);
@@ -189,6 +201,7 @@ function StoreModels() {
       const response = await api.post(`/models/${modelId}/activate?stream=true`, null, {
         raw: true,
         showError: false,
+        signal: controller.signal,
       });
 
       const reader = response.body.getReader();
@@ -196,6 +209,10 @@ function StoreModels() {
       let buffer = '';
 
       while (true) {
+        if (controller.signal.aborted) {
+          reader.cancel();
+          break;
+        }
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -216,8 +233,11 @@ function StoreModels() {
                 await new Promise(resolve => setTimeout(resolve, 800));
                 await loadData();
               }
-            } catch (parseErr: any) {
-              if (parseErr.message !== 'Unexpected end of JSON input') {
+            } catch (parseErr: unknown) {
+              if (
+                !(parseErr instanceof Error) ||
+                parseErr.message !== 'Unexpected end of JSON input'
+              ) {
                 console.error('SSE parse error:', parseErr);
               }
             }
@@ -225,6 +245,7 @@ function StoreModels() {
         }
       }
     } catch (err) {
+      if (controller.signal.aborted) return;
       console.error('Activation error:', err);
       const model = catalog.find(m => m.id === modelId);
       const name = model?.name || modelId;
@@ -423,7 +444,7 @@ function StoreModels() {
               loadedModel?.model_id === model.id ||
               loadedModel?.model_id === model.effective_ollama_name;
             const modelIsDownloading = isDownloading(model.id);
-            const downloadState: DownloadState | undefined = getDownloadState(model.id);
+            const downloadState = getDownloadState(model.id);
             const isActivating = activating === model.id;
             const isDefault = defaultModel === model.id;
             const pendingJobs = getQueueCount(model.id);
@@ -590,13 +611,28 @@ function StoreModels() {
                   onClick={e => e.stopPropagation()}
                 >
                   {!isInstalled && !modelIsDownloading && (
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleDownload(model.id, model.name)}
-                    >
-                      <Download className="size-4" /> Herunterladen
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleDownload(model.id, model.name)}
+                      >
+                        <Download className="size-4" /> Herunterladen
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        className={cn(
+                          'text-muted-foreground hover:text-primary',
+                          isDefault && 'text-primary'
+                        )}
+                        onClick={() => handleSetDefault(model.id)}
+                        title={isDefault ? 'Standard-Modell' : 'Als Standard setzen'}
+                        aria-label={isDefault ? 'Standard-Modell' : 'Als Standard setzen'}
+                      >
+                        <Star className={cn('size-4', isDefault && 'fill-primary')} />
+                      </Button>
+                    </>
                   )}
 
                   {isInstalled && !isLoaded && (
@@ -625,20 +661,23 @@ function StoreModels() {
                           </>
                         )}
                       </Button>
-                      {!isDefault && (
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
-                          onClick={() => handleSetDefault(model.id)}
-                          title="Als Standard setzen"
-                          aria-label="Als Standard setzen"
-                        >
-                          <Star className="size-4" />
-                        </Button>
-                      )}
                       <Button
                         size="icon-sm"
-                        variant="destructive"
+                        variant="ghost"
+                        className={cn(
+                          'text-muted-foreground hover:text-primary',
+                          isDefault && 'text-primary'
+                        )}
+                        onClick={() => handleSetDefault(model.id)}
+                        title={isDefault ? 'Standard-Modell' : 'Als Standard setzen'}
+                        aria-label={isDefault ? 'Standard-Modell' : 'Als Standard setzen'}
+                      >
+                        <Star className={cn('size-4', isDefault && 'fill-primary')} />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-foreground"
                         onClick={() => handleDelete(model.id)}
                         title="Löschen"
                         aria-label="Löschen"
@@ -653,17 +692,19 @@ function StoreModels() {
                       <Button size="sm" className="flex-1" disabled>
                         <Check className="size-4" /> Aktiv
                       </Button>
-                      {!isDefault && (
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
-                          onClick={() => handleSetDefault(model.id)}
-                          title="Als Standard setzen"
-                          aria-label="Als Standard setzen"
-                        >
-                          <Star className="size-4" />
-                        </Button>
-                      )}
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        className={cn(
+                          'text-muted-foreground hover:text-primary',
+                          isDefault && 'text-primary'
+                        )}
+                        onClick={() => handleSetDefault(model.id)}
+                        title={isDefault ? 'Standard-Modell' : 'Als Standard setzen'}
+                        aria-label={isDefault ? 'Standard-Modell' : 'Als Standard setzen'}
+                      >
+                        <Star className={cn('size-4', isDefault && 'fill-primary')} />
+                      </Button>
                     </>
                   )}
                 </div>

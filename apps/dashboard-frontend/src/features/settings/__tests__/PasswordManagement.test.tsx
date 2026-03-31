@@ -24,10 +24,10 @@ vi.mock('../../../contexts/AuthContext', () => ({
 
 describe('PasswordManagement Component', () => {
   const mockRequirements = {
-    minLength: 8,
-    requireUppercase: true,
-    requireLowercase: true,
-    requireNumbers: true,
+    minLength: 4,
+    requireUppercase: false,
+    requireLowercase: false,
+    requireNumbers: false,
     requireSpecialChars: false,
   };
 
@@ -330,7 +330,7 @@ describe('PasswordManagement Component', () => {
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'test');
 
-      expect(screen.getByText(/Mindestens 8 Zeichen/)).toBeInTheDocument();
+      expect(screen.getByText(/Mindestens 4 Zeichen/)).toBeInTheDocument();
     });
 
     test('zeigt Übereinstimmungs-Anforderung', async () => {
@@ -520,10 +520,10 @@ describe('PasswordManagement Component', () => {
           json: () =>
             Promise.resolve({
               requirements: {
-                minLength: 8,
-                requireUppercase: true,
-                requireLowercase: true,
-                requireNumbers: true,
+                minLength: 4,
+                requireUppercase: false,
+                requireLowercase: false,
+                requireNumbers: false,
                 requireSpecialChars: false,
               },
             }),
@@ -567,10 +567,10 @@ describe('PasswordManagement Component', () => {
           json: () =>
             Promise.resolve({
               requirements: {
-                minLength: 8,
-                requireUppercase: true,
-                requireLowercase: true,
-                requireNumbers: true,
+                minLength: 4,
+                requireUppercase: false,
+                requireLowercase: false,
+                requireNumbers: false,
                 requireSpecialChars: false,
               },
             }),

@@ -26,6 +26,10 @@ import {
   Settings,
   Table,
   Grid3x3,
+  CheckSquare,
+  Square,
+  Minus,
+  FolderInput,
 } from 'lucide-react';
 import { TableBadge, StatusBadge, TableStatusBadge, CategoryBadge, SpaceBadge } from './Badges';
 import MarkdownEditor from '../../components/editor/MarkdownEditor';
@@ -43,25 +47,35 @@ import useDocumentUpload from './useDocumentUpload';
 import useDocumentActions from './useDocumentActions';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/shadcn/button';
+import type {
+  Document,
+  DocumentSpace,
+  DocumentCategory,
+  DocumentStatistics,
+  DataTable,
+  DocumentSource,
+} from '../../types';
 
 function DocumentManager() {
   // State
   const api = useApi();
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [tables, setTables] = useState<any[]>([]); // PostgreSQL Datentabellen
-  const [categories, setCategories] = useState<any[]>([]);
-  const [statistics, setStatistics] = useState<any>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [tables, setTables] = useState<DataTable[]>([]); // PostgreSQL Datentabellen
+  const [categories, setCategories] = useState<DocumentCategory[]>([]);
+  const [statistics, setStatistics] = useState<DocumentStatistics | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingTables, setLoadingTables] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState(false);
+  const [spacesError, setSpacesError] = useState(false);
 
   // Knowledge Spaces (RAG 2.0)
-  const [spaces, setSpaces] = useState<any[]>([]);
+  const [spaces, setSpaces] = useState<DocumentSpace[]>([]);
   const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null); // null = all spaces
   const [showSpaceModal, setShowSpaceModal] = useState(false);
-  const [editingSpace, setEditingSpace] = useState<any>(null);
+  const [editingSpace, setEditingSpace] = useState<DocumentSpace | null>(null);
   const [uploadSpaceId, setUploadSpaceId] = useState<string | null>(null);
 
   // Filters & Pagination
@@ -78,15 +92,18 @@ function DocumentManager() {
 
   // Editor state
   const [showEditor, setShowEditor] = useState(false);
-  const [editingDocument, setEditingDocument] = useState<any>(null);
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null);
 
   // Table Editor state (ExcelEditor popup)
   const [showTableEditor, setShowTableEditor] = useState(false);
-  const [editingTable, setEditingTable] = useState<any>(null);
+  const [editingTable, setEditingTable] = useState<DataTable | null>(null);
 
   // Create dialog state
   const [showMarkdownCreate, setShowMarkdownCreate] = useState(false);
   const [showSimpleTableCreate, setShowSimpleTableCreate] = useState(false);
+
+  // Multi-select for batch operations
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,24 +112,24 @@ function DocumentManager() {
   const getAuthToken = () => getValidToken();
 
   // Check if file is editable (markdown or text)
-  const isEditable = (doc: any) => {
+  const isEditable = (doc: Document) => {
     const editableExtensions = ['.md', '.markdown', '.txt'];
-    return editableExtensions.includes(doc.file_extension?.toLowerCase());
+    return editableExtensions.includes(doc.file_extension?.toLowerCase() ?? '');
   };
 
   // Check if any type of editing is supported
-  const canEdit = (doc: any) => {
+  const canEdit = (doc: Document) => {
     return isEditable(doc);
   };
 
   // Get file type icon
-  const getFileIcon = (doc: any) => {
+  const getFileIcon = (doc: Document) => {
     if (isEditable(doc)) return FileText;
     return File;
   };
 
   // Get document type label
-  const getDocumentType = (doc: any) => {
+  const getDocumentType = (_doc: Document) => {
     return 'Dokument';
   };
 
@@ -135,7 +152,7 @@ function DocumentManager() {
         setDocuments(data.documents || []);
         setTotalDocuments(data.total || 0);
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (signal?.aborted) return;
         console.error('Error loading documents:', err);
         setError('Fehler beim Laden der Dokumente');
@@ -151,7 +168,7 @@ function DocumentManager() {
     try {
       const data = await api.get('/documents/categories', { signal, showError: false });
       setCategories(data.categories || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (signal?.aborted) return;
       console.error('Error loading categories:', err);
     }
@@ -168,9 +185,11 @@ function DocumentManager() {
 
         const data = await api.get(`/documents/statistics?${params}`, { signal, showError: false });
         setStatistics(data);
-      } catch (err: any) {
+        setStatsError(false);
+      } catch (err: unknown) {
         if (signal?.aborted) return;
         console.error('Error loading statistics:', err);
+        setStatsError(true);
       }
     },
     [api, activeSpaceId, statusFilter, categoryFilter]
@@ -181,9 +200,11 @@ function DocumentManager() {
     try {
       const data = await api.get('/spaces', { signal, showError: false });
       setSpaces(data.spaces || []);
-    } catch (err: any) {
+      setSpacesError(false);
+    } catch (err: unknown) {
       if (signal?.aborted) return;
       console.error('Error loading spaces:', err);
+      setSpacesError(true);
     }
   };
 
@@ -216,7 +237,7 @@ function DocumentManager() {
         const allTables = data.tables || data.data || [];
         setTables(allTables);
         setTotalTables(data.total || allTables.length);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (signal?.aborted) return;
         console.error('Error loading tables:', err);
       } finally {
@@ -238,14 +259,14 @@ function DocumentManager() {
   };
 
   // Handle space modal save
-  const handleSpaceSave = (savedSpace: any) => {
+  const handleSpaceSave = (_savedSpace: DocumentSpace | null) => {
     loadSpaces();
     loadStatistics();
     loadDocuments();
   };
 
   // Edit space
-  const handleEditSpace = (space: any, e: React.MouseEvent) => {
+  const handleEditSpace = (space: DocumentSpace, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingSpace(space);
     setShowSpaceModal(true);
@@ -262,8 +283,147 @@ function DocumentManager() {
       toast.success(`Dokument verschoben nach: ${newSpaceName || 'Kein Bereich'}`);
       loadDocuments();
       loadStatistics();
-    } catch (err: any) {
-      toast.error('Fehler beim Verschieben: ' + err.message);
+    } catch (err: unknown) {
+      toast.error(
+        'Fehler beim Verschieben: ' + (err instanceof Error ? err.message : 'Unbekannter Fehler')
+      );
+    }
+  };
+
+  // Cleanup orphaned files (admin action)
+  const [cleaningUp, setCleaningUp] = useState(false);
+  const handleCleanup = async () => {
+    const confirmed = await confirm({
+      title: 'Bereinigung starten?',
+      message:
+        'Verwaiste Dateien (ohne Datenbankeintrag) werden gelöscht und fehlende Dateien markiert. Soft-gelöschte Dokumente älter als 30 Tage werden endgültig entfernt.',
+      confirmText: 'Bereinigen',
+      confirmVariant: 'warning',
+    });
+    if (!confirmed) return;
+
+    setCleaningUp(true);
+    try {
+      const result = await api.post('/documents/cleanup-orphaned', {}, { showError: false });
+      const cleaned = result.cleaned;
+      if (
+        cleaned.deleted_from_minio + cleaned.marked_failed_in_db + cleaned.purged_soft_deleted ===
+        0
+      ) {
+        toast.success('Keine verwaisten Dateien gefunden — alles sauber!');
+      } else {
+        toast.success(
+          `Bereinigt: ${cleaned.deleted_from_minio} MinIO-Dateien, ${cleaned.marked_failed_in_db} DB-Einträge, ${cleaned.purged_soft_deleted} alte Löschungen`
+        );
+      }
+      loadDocuments();
+      loadStatistics();
+    } catch (err: unknown) {
+      toast.error(
+        'Bereinigung fehlgeschlagen: ' + (err instanceof Error ? err.message : 'Unbekannter Fehler')
+      );
+    } finally {
+      setCleaningUp(false);
+    }
+  };
+
+  // Batch operations
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allDocsSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(docIds));
+    }
+  };
+
+  // Clear selection when documents change (filter, pagination)
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeSpaceId, statusFilter, categoryFilter, searchQuery, currentPage]);
+
+  const handleBatchDelete = async () => {
+    const count = selectedIds.size;
+    const confirmed = await confirm({
+      title: `${count} Dokumente löschen?`,
+      message: `${count} ausgewählte Dokumente werden unwiderruflich gelöscht.`,
+    });
+    if (!confirmed) return;
+
+    try {
+      const result = await api.post(
+        '/documents/batch/delete',
+        { ids: Array.from(selectedIds) },
+        { showError: false }
+      );
+      if (result.errors?.length > 0) {
+        toast.warning(`${result.deleted} gelöscht, ${result.errors.length} fehlgeschlagen`);
+      } else {
+        toast.success(`${result.deleted} Dokumente gelöscht`);
+      }
+      setSelectedIds(new Set());
+      loadDocuments();
+      loadStatistics();
+      loadSpaces();
+    } catch (err: unknown) {
+      toast.error(
+        'Batch-Löschung fehlgeschlagen: ' +
+          (err instanceof Error ? err.message : 'Unbekannter Fehler')
+      );
+    }
+  };
+
+  const handleBatchReindex = async () => {
+    try {
+      const result = await api.post(
+        '/documents/batch/reindex',
+        { ids: Array.from(selectedIds) },
+        { showError: false }
+      );
+      if (result.errors?.length > 0) {
+        toast.warning(`${result.queued} eingeplant, ${result.errors.length} fehlgeschlagen`);
+      } else {
+        toast.success(`${result.queued} Dokumente zur Neuindexierung eingeplant`);
+      }
+      setSelectedIds(new Set());
+      loadDocuments();
+    } catch (err: unknown) {
+      toast.error(
+        'Batch-Reindex fehlgeschlagen: ' +
+          (err instanceof Error ? err.message : 'Unbekannter Fehler')
+      );
+    }
+  };
+
+  const handleBatchMove = async (spaceId: string | null, spaceName: string) => {
+    try {
+      const result = await api.post(
+        '/documents/batch/move',
+        { ids: Array.from(selectedIds), space_id: spaceId },
+        { showError: false }
+      );
+      if (result.errors?.length > 0) {
+        toast.warning(`${result.moved} verschoben, ${result.errors.length} fehlgeschlagen`);
+      } else {
+        toast.success(`${result.moved} Dokumente verschoben nach: ${spaceName}`);
+      }
+      setSelectedIds(new Set());
+      loadDocuments();
+      loadStatistics();
+      loadSpaces();
+    } catch (err: unknown) {
+      toast.error(
+        'Batch-Verschiebung fehlgeschlagen: ' +
+          (err instanceof Error ? err.message : 'Unbekannter Fehler')
+      );
     }
   };
 
@@ -286,27 +446,72 @@ function DocumentManager() {
     loadTablesRef.current = loadTables;
   }, [loadTables]);
 
-  // Initial load - empty dependency array for mount-only
+  // Adaptive polling: 5s when documents are pending/processing, 30s otherwise
+  const POLL_FAST = 5000;
+  const POLL_IDLE = 30000;
+  const prevStatusesRef = useRef<Map<string, string>>(new Map());
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  // Detect status transitions and show toasts
+  useEffect(() => {
+    const prev = prevStatusesRef.current;
+    for (const doc of documents) {
+      const oldStatus = prev.get(doc.id);
+      if (oldStatus && oldStatus !== doc.status) {
+        if (doc.status === 'indexed') {
+          toast.success(`„${doc.original_name || doc.filename}" erfolgreich indexiert`);
+        } else if (doc.status === 'failed') {
+          toast.error(`Indexierung fehlgeschlagen: „${doc.original_name || doc.filename}"`);
+        }
+      }
+    }
+    // Update ref with current statuses
+    const next = new Map<string, string>();
+    for (const doc of documents) {
+      next.set(doc.id, doc.status);
+    }
+    prevStatusesRef.current = next;
+  }, [documents, toast]);
+
+  // Compute current poll interval based on document statuses
+  const hasPending = documents.some(
+    d => d.status === 'pending' || d.status === 'processing' || d.status === 'uploaded'
+  );
+  const pollInterval = hasPending ? POLL_FAST : POLL_IDLE;
+
+  // Initial load + adaptive polling interval
   useEffect(() => {
     const controller = new AbortController();
+    controllerRef.current = controller;
     loadDocumentsRef.current(controller.signal);
     loadCategories(controller.signal);
     loadStatisticsRef.current(controller.signal);
     loadSpaces(controller.signal);
     loadTablesRef.current(controller.signal);
 
-    // Refresh every 30 seconds - uses refs so interval is only created once
-    const interval = setInterval(() => {
-      loadDocumentsRef.current(controller.signal);
-      loadStatisticsRef.current(controller.signal);
-      loadTablesRef.current(controller.signal);
-    }, 30000);
-
     return () => {
       controller.abort();
-      clearInterval(interval);
+      controllerRef.current = null;
     };
   }, []); // Empty array - only run on mount
+
+  // Dynamic polling interval - recreated when pollInterval changes
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    intervalRef.current = setInterval(() => {
+      const signal = controllerRef.current?.signal;
+      if (signal?.aborted) return;
+      loadDocumentsRef.current(signal);
+      loadStatisticsRef.current(signal);
+      loadTablesRef.current(signal);
+    }, pollInterval);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [pollInterval]);
 
   // Reload all data when filters change
   useEffect(() => {
@@ -321,6 +526,7 @@ function DocumentManager() {
   const {
     uploading,
     uploadProgress,
+    fileStatuses,
     dragActive,
     handleFileUpload,
     handleDrag,
@@ -365,7 +571,7 @@ function DocumentManager() {
   // --- Inline handlers that remain in component (editor, table-related) ---
 
   // Open editor for a document
-  const handleEdit = (doc: any) => {
+  const handleEdit = (doc: Document) => {
     if (isEditable(doc)) {
       setEditingDocument(doc);
       setShowEditor(true);
@@ -385,7 +591,7 @@ function DocumentManager() {
   };
 
   // Handle Markdown document creation
-  const handleMarkdownCreated = (newDoc: any) => {
+  const handleMarkdownCreated = (newDoc: Document | null) => {
     setShowMarkdownCreate(false);
     loadDocuments();
     loadStatistics();
@@ -398,7 +604,7 @@ function DocumentManager() {
   };
 
   // Handle Datentabelle (PostgreSQL) creation
-  const handleDataTableCreated = (newTable: any) => {
+  const handleDataTableCreated = (newTable: DataTable | null) => {
     setShowSimpleTableCreate(false);
     loadTables(); // Refresh tables list
     // Open the new table in the editor popup
@@ -409,7 +615,7 @@ function DocumentManager() {
   };
 
   // Handle table edit
-  const handleTableEdit = (table: any) => {
+  const handleTableEdit = (table: DataTable) => {
     setEditingTable(table);
     setShowTableEditor(true);
   };
@@ -422,38 +628,46 @@ function DocumentManager() {
   };
 
   // Delete table
-  const handleDeleteTable = async (table: any) => {
+  const handleDeleteTable = async (table: DataTable) => {
     if (!(await confirm({ message: `Tabelle "${table.name}" wirklich löschen?` }))) return;
 
     try {
       await api.del(`/v1/datentabellen/tables/${table.slug}`, { showError: false });
       loadTables();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Fehler beim Löschen der Tabelle');
     }
   };
 
   // Get space name for a table
-  const getTableSpaceName = (table: any) => {
-    const space = spaces.find((s: any) => s.id === table.space_id);
+  const getTableSpaceName = (table: DataTable) => {
+    const space = spaces.find(s => s.id === table.space_id);
     return space?.name || 'Allgemein';
   };
 
-  const getTableSpaceColor = (table: any) => {
-    const space = spaces.find((s: any) => s.id === table.space_id);
+  const getTableSpaceColor = (table: DataTable) => {
+    const space = spaces.find(s => s.id === table.space_id);
     return space?.color || 'var(--primary-color)';
   };
 
   // Combine documents and tables into a unified list for display
-  const combinedItems = [
+  type TaggedDocument = Document & { _type: 'document' };
+  type TaggedTable = DataTable & { _type: 'table' };
+  type CombinedItem = TaggedDocument | TaggedTable;
+  const combinedItems: CombinedItem[] = [
     // Tables first (marked as type 'table')
-    ...tables.map((t: any) => ({ ...t, _type: 'table' })),
+    ...tables.map(t => ({ ...t, _type: 'table' as const })),
     // Then documents (marked as type 'document')
-    ...documents.map((d: any) => ({ ...d, _type: 'document' })),
+    ...documents.map(d => ({ ...d, _type: 'document' as const })),
   ];
 
   // Server already filters - no client-side filtering needed
   const filteredItems = combinedItems;
+
+  // Batch selection helpers (must be after filteredItems declaration)
+  const docIds = filteredItems.filter(i => i._type === 'document').map(i => i.id);
+  const allDocsSelected = docIds.length > 0 && docIds.every((id: string) => selectedIds.has(id));
+  const someDocsSelected = docIds.some((id: string) => selectedIds.has(id));
 
   const totalPages = Math.ceil((totalDocuments + totalTables) / itemsPerPage);
 
@@ -465,8 +679,28 @@ function DocumentManager() {
     >
       {/* Header with statistics */}
       <header className="mb-6" aria-label="Dokumenten-Statistiken">
+        {statsError && (
+          <div
+            className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-md py-2 px-3 mb-3 text-destructive text-sm"
+            role="alert"
+          >
+            <AlertCircle size={14} className="shrink-0" />
+            <span>Statistiken konnten nicht geladen werden</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-destructive h-7 px-2"
+              onClick={() => loadStatistics()}
+            >
+              <RefreshCw size={12} className="mr-1" /> Erneut versuchen
+            </Button>
+          </div>
+        )}
         <div
-          className="dm-stats-row grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-[clamp(0.75rem,1.5vw,1rem)]"
+          className={cn(
+            'dm-stats-row grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-[clamp(0.75rem,1.5vw,1rem)]',
+            statsError && 'opacity-50'
+          )}
           role="group"
           aria-label="Übersicht"
         >
@@ -532,6 +766,23 @@ function DocumentManager() {
 
       {/* Knowledge Spaces Tabs (RAG 2.0) */}
       <nav className="mb-4 overflow-hidden" aria-label="Wissensbereiche">
+        {spacesError && (
+          <div
+            className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-md py-2 px-3 mb-2 text-destructive text-sm"
+            role="alert"
+          >
+            <AlertCircle size={14} className="shrink-0" />
+            <span>Wissensbereiche nicht verfügbar</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-destructive h-7 px-2"
+              onClick={() => loadSpaces()}
+            >
+              <RefreshCw size={12} className="mr-1" /> Laden
+            </Button>
+          </div>
+        )}
         <div
           className="flex gap-2 overflow-x-auto py-1"
           role="tablist"
@@ -556,7 +807,7 @@ function DocumentManager() {
               {statistics?.total_documents || 0}
             </span>
           </button>
-          {spaces.map((space: any) => (
+          {spaces.map(space => (
             <button
               type="button"
               key={space.id}
@@ -606,13 +857,11 @@ function DocumentManager() {
       </nav>
 
       {/* Active Space Description (if a space is selected) */}
-      {activeSpaceId && spaces.find((s: any) => s.id === activeSpaceId) && (
+      {activeSpaceId && spaces.find(s => s.id === activeSpaceId) && (
         <div className="bg-muted border border-border rounded-md py-4 px-5 mb-4">
           <div>
-            <h4>{spaces.find((s: any) => s.id === activeSpaceId)?.name}</h4>
-            <p>
-              {spaces.find((s: any) => s.id === activeSpaceId)?.description?.substring(0, 200)}...
-            </p>
+            <h4>{spaces.find(s => s.id === activeSpaceId)?.name}</h4>
+            <p>{spaces.find(s => s.id === activeSpaceId)?.description?.substring(0, 200)}...</p>
           </div>
         </div>
       )}
@@ -638,26 +887,71 @@ function DocumentManager() {
         <input
           type="file"
           ref={fileInputRef}
-          onChange={e => handleFileUpload((e.target as HTMLInputElement).files)}
+          onChange={e => {
+            handleFileUpload((e.target as HTMLInputElement).files);
+            // Reset so same file can be re-selected
+            (e.target as HTMLInputElement).value = '';
+          }}
           multiple
           accept=".pdf,.docx,.md,.markdown,.txt,.yaml,.yml"
           style={{ display: 'none' }}
           aria-label="Datei auswählen"
         />
 
-        {uploading ? (
-          <div
-            className="flex flex-col items-center gap-2"
-            role="progressbar"
-            aria-valuenow={uploadProgress}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <div
-              className="h-1.5 bg-primary rounded-sm max-w-[200px] transition-[width]"
-              style={{ width: `${uploadProgress}%` }}
-            />
-            <span aria-live="polite">{uploadProgress}% hochgeladen</span>
+        {uploading || fileStatuses.length > 0 ? (
+          <div className="w-full max-w-md mx-auto space-y-2" onClick={e => e.stopPropagation()}>
+            {/* Overall progress */}
+            {uploading && (
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex-1 h-1.5 bg-muted rounded-sm overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-sm transition-[width] duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                    role="progressbar"
+                    aria-valuenow={uploadProgress}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  />
+                </div>
+                <span
+                  className="text-sm text-muted-foreground whitespace-nowrap"
+                  aria-live="polite"
+                >
+                  {uploadProgress}%
+                </span>
+              </div>
+            )}
+            {/* Per-file status */}
+            {fileStatuses.map(fs => (
+              <div key={fs.name} className="flex items-center gap-2 text-sm">
+                {fs.status === 'success' && <Check size={14} className="text-green-500 shrink-0" />}
+                {fs.status === 'error' && (
+                  <AlertCircle size={14} className="text-destructive shrink-0" />
+                )}
+                {fs.status === 'uploading' && (
+                  <RefreshCw size={14} className="text-primary shrink-0 animate-spin" />
+                )}
+                {fs.status === 'pending' && (
+                  <Clock size={14} className="text-muted-foreground shrink-0" />
+                )}
+                <span className="truncate flex-1" title={fs.name}>
+                  {fs.name}
+                </span>
+                {fs.status === 'uploading' && (
+                  <span className="text-muted-foreground text-xs whitespace-nowrap">
+                    {fs.progress}%
+                  </span>
+                )}
+                {fs.status === 'error' && (
+                  <span
+                    className="text-destructive text-xs truncate max-w-[150px]"
+                    title={fs.error}
+                  >
+                    {fs.error}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         ) : (
           <>
@@ -667,8 +961,7 @@ function DocumentManager() {
               {(uploadSpaceId || activeSpaceId) && spaces.length > 0 && (
                 <span className="text-primary font-medium">
                   {' \u2192 '}
-                  {spaces.find((s: any) => s.id === (uploadSpaceId || activeSpaceId))?.name ||
-                    'Allgemein'}
+                  {spaces.find(s => s.id === (uploadSpaceId || activeSpaceId))?.name || 'Allgemein'}
                 </span>
               )}
             </p>
@@ -759,15 +1052,15 @@ function DocumentManager() {
               </div>
             ) : (
               <ul className="max-h-[300px] overflow-y-auto" aria-labelledby="search-results-title">
-                {searchResults.results.map((result: any, idx: number) => (
+                {searchResults.results.map((result, idx) => (
                   <li key={idx} className="py-3 px-4 border-b border-border/50 last:border-b-0">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-primary font-medium">{result.document_name}</span>
                       <span
                         className="bg-primary/10 text-primary py-0.5 px-2 rounded-xs text-xs"
-                        aria-label={`Relevanz: ${(result.score * 100).toFixed(0)} Prozent`}
+                        aria-label={`Relevanz: ${((result.score ?? 0) * 100).toFixed(0)} Prozent`}
                       >
-                        {(result.score * 100).toFixed(0)}%
+                        {((result.score ?? 0) * 100).toFixed(0)}%
                       </span>
                     </div>
                     <p className="text-muted-foreground text-sm leading-snug m-0">
@@ -863,7 +1156,7 @@ function DocumentManager() {
             >
               Alle Kategorien
             </option>
-            {categories.map((cat: any) => (
+            {categories.map(cat => (
               <option
                 key={cat.id}
                 value={cat.id}
@@ -889,24 +1182,76 @@ function DocumentManager() {
 
         <Button
           variant="ghost"
-          className="border border-primary/25 bg-primary/[0.06] text-primary hover:bg-primary/15 hover:text-primary"
-          onClick={() => setShowSimpleTableCreate(true)}
-          aria-label="Neue Tabelle erstellen"
+          size="icon"
+          onClick={handleCleanup}
+          disabled={cleaningUp}
+          aria-label="Verwaiste Dateien bereinigen"
+          title="Bereinigung: Verwaiste Dateien aufräumen"
         >
+          <Trash2 className={cleaningUp ? 'animate-pulse' : ''} aria-hidden="true" size={16} />
+        </Button>
+
+        <Button onClick={() => setShowSimpleTableCreate(true)} aria-label="Neue Tabelle erstellen">
           <Table aria-hidden="true" size={16} />
           <span>Neue Tabelle</span>
         </Button>
 
-        <Button
-          variant="ghost"
-          className="border border-primary/25 bg-primary/[0.06] text-primary hover:bg-primary/15 hover:text-primary"
-          onClick={() => setShowMarkdownCreate(true)}
-          aria-label="Neues Dokument erstellen"
-        >
+        <Button onClick={() => setShowMarkdownCreate(true)} aria-label="Neues Dokument erstellen">
           <FileText aria-hidden="true" size={16} />
           <span>Neues Dokument</span>
         </Button>
       </div>
+
+      {/* Batch Action Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-lg py-2.5 px-4 mb-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          <span className="text-sm font-medium text-primary">{selectedIds.size} ausgewählt</span>
+          <div className="h-4 w-px bg-primary/30" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7"
+            onClick={handleBatchDelete}
+          >
+            <Trash2 size={14} className="mr-1" /> Löschen
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7" onClick={handleBatchReindex}>
+            <RefreshCw size={14} className="mr-1" /> Neu indexieren
+          </Button>
+          <div className="relative group">
+            <Button variant="ghost" size="sm" className="h-7">
+              <FolderInput size={14} className="mr-1" /> Verschieben
+            </Button>
+            <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[160px] hidden group-hover:block z-50">
+              <button
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent text-foreground"
+                onClick={() => handleBatchMove(null, 'Kein Bereich')}
+              >
+                Kein Bereich
+              </button>
+              {spaces.map(s => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent text-foreground"
+                  onClick={() => handleBatchMove(s.id, s.name)}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-7 text-muted-foreground"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X size={14} className="mr-1" /> Auswahl aufheben
+          </Button>
+        </div>
+      )}
 
       {/* Documents and Tables List */}
       <section
@@ -917,12 +1262,22 @@ function DocumentManager() {
           <SkeletonDocumentList count={6} />
         ) : filteredItems.length === 0 ? (
           <EmptyState
-            icon={<Database />}
-            title="Keine Einträge gefunden"
+            icon={
+              searchQuery || statusFilter || categoryFilter || activeSpaceId ? (
+                <Search />
+              ) : (
+                <Database />
+              )
+            }
+            title={
+              searchQuery || statusFilter || categoryFilter || activeSpaceId
+                ? 'Keine Ergebnisse'
+                : 'Noch keine Dokumente'
+            }
             description={
               searchQuery || statusFilter || categoryFilter || activeSpaceId
-                ? 'Keine Ergebnisse für die aktuelle Filterung.'
-                : 'Laden Sie Dateien hoch oder erstellen Sie eine neue Tabelle.'
+                ? `Keine Einträge für die aktuelle Filterung gefunden.${searchQuery ? ` Suchbegriff: "${searchQuery}"` : ''}`
+                : 'Laden Sie Ihre ersten Dokumente hoch oder erstellen Sie eine Tabelle, um loszulegen.'
             }
             action={
               searchQuery || statusFilter || categoryFilter || activeSpaceId ? (
@@ -939,14 +1294,24 @@ function DocumentManager() {
                   Filter zurücksetzen
                 </Button>
               ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="bg-primary/15 text-primary border border-primary/25 hover:bg-primary/25 hover:text-primary"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="size-4 mr-1" /> Datei hochladen
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="bg-primary/15 text-primary border border-primary/25 hover:bg-primary/25 hover:text-primary"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="size-4 mr-1" /> Datei hochladen
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="border border-border text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowMarkdownCreate(true)}
+                  >
+                    <FileText className="size-4 mr-1" /> Dokument erstellen
+                  </Button>
+                </div>
               )
             }
           />
@@ -954,6 +1319,25 @@ function DocumentManager() {
           <table className="w-full border-collapse" aria-label={`${filteredItems.length} Einträge`}>
             <thead>
               <tr>
+                <th
+                  scope="col"
+                  className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-2 text-center border-b border-[var(--border-table)] w-10"
+                >
+                  <button
+                    type="button"
+                    className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                    onClick={toggleSelectAll}
+                    aria-label={allDocsSelected ? 'Alle abwählen' : 'Alle auswählen'}
+                  >
+                    {allDocsSelected ? (
+                      <CheckSquare size={16} className="text-primary" />
+                    ) : someDocsSelected ? (
+                      <Minus size={16} className="text-primary" />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                  </button>
+                </th>
                 <th
                   scope="col"
                   className="bg-[var(--bg-table-header)] text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3 px-4 text-left border-b border-[var(--border-table)]"
@@ -1000,8 +1384,8 @@ function DocumentManager() {
             <tbody>
               {/* Render Tables */}
               {filteredItems
-                .filter((item: any) => item._type === 'table')
-                .map((table: any) => (
+                .filter((item): item is TaggedTable => item._type === 'table')
+                .map(table => (
                   <tr
                     key={`table-${table.id}`}
                     className="cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2"
@@ -1010,6 +1394,11 @@ function DocumentManager() {
                     onKeyDown={e => e.key === 'Enter' && handleTableEdit(table)}
                     aria-label={`Tabelle: ${table.name}`}
                   >
+                    <td className="py-3 px-2 text-center border-b border-border/50 text-sm w-10">
+                      <span className="inline-flex items-center justify-center size-6 text-muted-foreground/40">
+                        <Square size={14} />
+                      </span>
+                    </td>
                     <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
                       <span className="inline-flex items-center justify-center size-6 text-primary opacity-60">
                         <Grid3x3 aria-hidden="true" size={16} />
@@ -1076,19 +1465,37 @@ function DocumentManager() {
                 ))}
               {/* Render Documents */}
               {filteredItems
-                .filter((item: any) => item._type === 'document')
-                .map((doc: any) => (
+                .filter((item): item is TaggedDocument => item._type === 'document')
+                .map(doc => (
                   <tr
                     key={`doc-${doc.id}`}
                     className={cn(
                       'cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2',
-                      doc.is_favorite && 'bg-primary/5'
+                      doc.is_favorite && 'bg-primary/5',
+                      selectedIds.has(doc.id) && 'bg-primary/10'
                     )}
                     onClick={() => viewDocumentDetails(doc)}
                     tabIndex={0}
                     onKeyDown={e => e.key === 'Enter' && viewDocumentDetails(doc)}
                     aria-label={`${doc.title || doc.filename}, Typ: ${getDocumentType(doc)}, Status: ${doc.status}`}
                   >
+                    <td
+                      className="py-3 px-2 text-center border-b border-border/50 text-sm w-10"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => toggleSelect(doc.id)}
+                        aria-label={selectedIds.has(doc.id) ? 'Abwählen' : 'Auswählen'}
+                      >
+                        {selectedIds.has(doc.id) ? (
+                          <CheckSquare size={16} className="text-primary" />
+                        ) : (
+                          <Square size={16} />
+                        )}
+                      </button>
+                    </td>
                     <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
                       <button
                         type="button"
@@ -1218,7 +1625,10 @@ function DocumentManager() {
           role="navigation"
           aria-label="Seitennavigation"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <span className="text-muted-foreground text-sm">
+              {totalDocuments + totalTables} Einträge
+            </span>
             <label
               htmlFor="dm-page-size"
               className="text-muted-foreground text-sm whitespace-nowrap"
@@ -1452,7 +1862,7 @@ function DocumentManager() {
                 <p className="text-muted-foreground italic">Keine ähnlichen Dokumente gefunden</p>
               ) : (
                 <div className="flex flex-col gap-2" aria-label="Ähnliche Dokumente">
-                  {similarDocuments.map((sim: any, idx: number) => (
+                  {similarDocuments.map((sim, idx) => (
                     <div
                       key={idx}
                       className="flex items-center gap-3 py-2 px-3 bg-[var(--bg-code)] rounded-sm"

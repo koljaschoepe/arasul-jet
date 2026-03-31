@@ -2,7 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowDown, X } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
-import { useChatContext } from '../../contexts/ChatContext';
+import {
+  useChatContext,
+  type ChatMessage as ChatMessageType,
+  type ChatSettings,
+} from '../../contexts/ChatContext';
 import { useToast } from '../../contexts/ToastContext';
 import ChatTopBar from './ChatTopBar';
 import ChatInputArea from './ChatInputArea';
@@ -32,12 +36,14 @@ export default function ChatView() {
 
   const chatId = parseInt(chatIdParam!, 10);
 
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
-  const [currentProject, setCurrentProject] = useState<any>(null);
-  const [chatSettings, setChatSettings] = useState<any>(null);
+  const [currentProject, setCurrentProject] = useState<{ name: string; color: string } | null>(
+    null
+  );
+  const [chatSettings, setChatSettings] = useState<ChatSettings | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -187,7 +193,7 @@ export default function ChatView() {
       if (!oldestId) return;
       const result = await loadMessages(chatId, { before: oldestId });
       if (result.messages.length > 0) {
-        setMessages((prev: any[]) => [...result.messages, ...prev]);
+        setMessages((prev: ChatMessageType[]) => [...result.messages, ...prev]);
         setHasMoreMessages(result.hasMore);
       } else {
         setHasMoreMessages(false);
@@ -229,7 +235,7 @@ export default function ChatView() {
         aria-live="polite"
       >
         {loadingMessages ? (
-          <div className="skeleton-messages flex flex-col max-w-[800px] mx-auto py-6 px-4">
+          <div className="skeleton-messages flex flex-col max-w-[960px] mx-auto py-6 px-4">
             {[
               { label: true, body: 'short' },
               { label: true, body: 'long' },
@@ -271,7 +277,7 @@ export default function ChatView() {
             )}
           </div>
         ) : (
-          <div className="messages-wrapper max-w-[800px] mx-auto py-6 px-4 flex flex-col">
+          <div className="messages-wrapper max-w-[960px] mx-auto py-6 px-4 flex flex-col">
             {hasMoreMessages && (
               <Button
                 variant="outline"
@@ -283,13 +289,13 @@ export default function ChatView() {
                 {loadingMore ? 'Laden...' : 'Ältere Nachrichten laden'}
               </Button>
             )}
-            {messages.map((message: any, index: number) => (
+            {messages.map((message: ChatMessageType, index: number) => (
               <ChatMessage
                 key={message.id || message.jobId || `${chatId}-msg-${index}`}
                 message={message}
                 index={index}
                 chatId={chatId}
-                isLoading={isLoading}
+                isLoading={isLoading && index === messages.length - 1}
                 onToggleThinking={toggleThinking}
                 onToggleSources={toggleSources}
               />
@@ -312,7 +318,7 @@ export default function ChatView() {
       </div>
 
       {error && (
-        <div className="mx-auto max-w-[800px] px-4 py-2">
+        <div className="mx-auto max-w-[960px] px-4 py-2">
           <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm flex items-center justify-between">
             <span>{error}</span>
             <Button

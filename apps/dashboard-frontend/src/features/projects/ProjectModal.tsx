@@ -25,7 +25,7 @@ interface Space {
 }
 
 interface Project {
-  id: string;
+  id: string | number;
   name: string;
   description?: string;
   system_prompt?: string;
@@ -38,7 +38,7 @@ interface Project {
 interface ProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (project: any) => void;
+  onSave: (project: Project | null) => void;
   project?: Project | null;
   mode?: 'create' | 'edit';
 }
@@ -65,8 +65,8 @@ const ProjectModal = memo(function ProjectModal({
     if (!isOpen) return;
     const controller = new AbortController();
     api
-      .get('/spaces', { signal: controller.signal, showError: false })
-      .then((data: any) => setSpaces(data.spaces || []))
+      .get<{ spaces?: Space[] }>('/spaces', { signal: controller.signal, showError: false })
+      .then(data => setSpaces(data.spaces || []))
       .catch(() => {});
     return () => controller.abort();
   }, [isOpen, api]);
@@ -114,11 +114,13 @@ const ProjectModal = memo(function ProjectModal({
       }
       setSuccess(mode === 'edit' ? 'Projekt aktualisiert' : 'Projekt erstellt');
       setTimeout(() => {
-        onSave(data.project || data);
+        const result = (data as { project?: Project }).project || (data as Project);
+        onSave(result);
         onClose();
       }, 500);
-    } catch (err: any) {
-      setError(err.data?.error || err.message);
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || String(err));
     } finally {
       setSaving(false);
     }
@@ -142,8 +144,9 @@ const ProjectModal = memo(function ProjectModal({
         onSave(null);
         onClose();
       }, 500);
-    } catch (err: any) {
-      setError(err.data?.error || err.message);
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || String(err));
     } finally {
       setSaving(false);
     }

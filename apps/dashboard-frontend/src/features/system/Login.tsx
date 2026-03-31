@@ -6,8 +6,13 @@ import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
 import { PLATFORM_NAME, PLATFORM_DESCRIPTION, SUPPORT_EMAIL } from '@/config/branding';
 
+interface LoginResponseData {
+  token: string;
+  user: { id: number; username: string; [key: string]: unknown };
+}
+
 interface LoginProps {
-  onLoginSuccess: (data: any) => void;
+  onLoginSuccess: (data: LoginResponseData) => void;
 }
 
 function Login({ onLoginSuccess }: LoginProps) {
@@ -23,7 +28,11 @@ function Login({ onLoginSuccess }: LoginProps) {
     setLoading(true);
 
     try {
-      const data = await api.post('/auth/login', { username, password }, { showError: false });
+      const data = await api.post<LoginResponseData>(
+        '/auth/login',
+        { username, password },
+        { showError: false }
+      );
 
       // Store token in localStorage
       localStorage.setItem('arasul_token', data.token);
@@ -31,12 +40,13 @@ function Login({ onLoginSuccess }: LoginProps) {
 
       // Call success callback
       onLoginSuccess(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
+      const e = err as { data?: { error?: string }; message?: string };
       setError(
-        err.data?.error ||
-          err.message ||
-          'Login failed. Please check your credentials and try again.'
+        e.data?.error ||
+          e.message ||
+          'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.'
       );
     } finally {
       setLoading(false);
@@ -103,6 +113,7 @@ function Login({ onLoginSuccess }: LoginProps) {
 
             <Button
               type="submit"
+              variant="solid"
               disabled={loading || !username || !password}
               className="w-full py-4 h-auto text-base font-bold uppercase tracking-wide hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 transition-all max-md:min-h-12 max-md:text-sm"
             >

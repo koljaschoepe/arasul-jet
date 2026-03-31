@@ -9,16 +9,18 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/85 active:bg-primary/75',
+        default:
+          'bg-secondary text-primary border border-border hover:bg-secondary/80 active:bg-secondary/70',
+        solid: 'bg-primary text-primary-foreground hover:bg-primary/85 active:bg-primary/75',
         destructive:
-          'border-2 border-foreground/25 bg-foreground/5 text-foreground hover:bg-foreground/10 hover:border-foreground/40 focus-visible:ring-foreground/20',
+          'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive dark:hover:bg-destructive/90',
         outline:
-          'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
+          'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
         success:
-          'bg-success text-success-foreground hover:bg-success/85 active:bg-success/75 focus-visible:ring-success/20',
+          'bg-secondary text-primary border border-primary/30 hover:bg-secondary/80 active:bg-secondary/70 focus-visible:ring-success/20',
         warning:
           'bg-warning text-warning-foreground hover:bg-warning/85 active:bg-warning/75 focus-visible:ring-warning/20',
         'outline-danger':

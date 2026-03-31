@@ -9,7 +9,7 @@
  */
 
 /* --- Markdown in Messages --- */
-.message-body p { margin: 0 0 12px 0; }
+.message-body p { margin: 0 0 16px 0; }
 .message-body p:last-child { margin-bottom: 0; }
 
 .message-body code {
@@ -36,12 +36,12 @@
 }
 
 .message-body ul, .message-body ol {
-  margin: 10px 0;
+  margin: 12px 0;
   padding-left: 24px;
 }
 
-.message-body li { margin: 6px 0; }
-.message-body strong { color: var(--text-primary); font-weight: 600; }
+.message-body li { margin: 4px 0; line-height: 1.65; }
+.message-body strong { font-weight: 600; }
 .message-body a { color: var(--primary-color); text-decoration: underline; }
 
 .message-body blockquote {
@@ -54,12 +54,11 @@
 .message-body h1, .message-body h2, .message-body h3, .message-body h4 {
   color: var(--text-primary);
   font-weight: 600;
-  margin: 16px 0 8px 0;
 }
 
-.message-body h1 { font-size: 1.3rem; }
-.message-body h2 { font-size: 1.15rem; }
-.message-body h3 { font-size: 1.05rem; }
+.message-body h1 { font-size: 1.5rem; margin: 24px 0 12px 0; }
+.message-body h2 { font-size: 1.25rem; margin: 20px 0 10px 0; }
+.message-body h3 { font-size: 1.1rem; margin: 16px 0 8px 0; }
 
 /* --- Tables (GFM markdown) --- */
 .message-body table {
@@ -134,11 +133,6 @@
 
 /* --- Custom Keyframe Animations --- */
 /* loading-dot and fadeIn defined globally in index.css */
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(69, 173, 255, 0.4); }
-  50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(69, 173, 255, 0); }
-}
 
 @keyframes chat-fadeIn {
   from { opacity: 0.7; }
@@ -228,7 +222,7 @@
 .light-mode .thinking-content, .light-mode .sources-content { background: var(--bg-elevated); }
 .light-mode .source-item { background: var(--bg-card); }
 .light-mode .chat-input-card { box-shadow: var(--shadow-sm); }
-.light-mode .chat-input-card:focus-within { box-shadow: 0 0 0 2px var(--primary-alpha-15); }
+.light-mode .chat-input-card:focus-within { border-color: var(--border-color); }
 .light-mode .chat-toolbar { background: var(--bg-elevated); }
 .light-mode .chat-toolbar-btn:hover { background: var(--border-color); }
 .light-mode .chat-toolbar-btn.rag-toggle.active,

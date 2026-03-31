@@ -115,7 +115,7 @@ const SidebarNav = React.memo(function SidebarNav({
                 aria-current={isCurrent('/data') ? 'page' : undefined}
                 onMouseEnter={preloadDocuments}
               >
-                <Database aria-hidden="true" /> <span>Data</span>
+                <Database aria-hidden="true" /> <span>Daten</span>
               </Link>
             </li>
             <li role="none">

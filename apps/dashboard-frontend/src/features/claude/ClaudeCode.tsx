@@ -34,6 +34,7 @@ import Modal from '../../components/ui/Modal';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
+import type { ClaudeCodeConfig, ClaudeAppStatus, ClaudeAuthStatus, ApiError } from '../../types';
 import './claude.css';
 
 interface Workspace {
@@ -100,8 +101,9 @@ function WorkspaceManager({
       setNewPath('');
       setNewDescription('');
       setShowCreateForm(false);
-    } catch (err: any) {
-      setError(err.data?.error || err.message || 'Fehler beim Erstellen');
+    } catch (err: unknown) {
+      const e = err as ApiError;
+      setError((e.data?.error as string) || e.message || 'Fehler beim Erstellen');
     } finally {
       setCreating(false);
     }
@@ -116,8 +118,9 @@ function WorkspaceManager({
       await api.del(`/workspaces/${workspace.id}`, { showError: false });
       onWorkspaceDeleted(workspace.id);
       toast.success('Workspace gelöscht');
-    } catch (err: any) {
-      setError(err.data?.error || err.message || 'Fehler beim Löschen');
+    } catch (err: unknown) {
+      const e = err as ApiError;
+      setError((e.data?.error as string) || e.message || 'Fehler beim Löschen');
     }
   };
 
@@ -126,8 +129,9 @@ function WorkspaceManager({
       await api.post(`/workspaces/${workspace.id}/default`, {}, { showError: false });
       onSetDefault(workspace.id);
       toast.success('Standard-Workspace geändert');
-    } catch (err: any) {
-      setError(err.data?.error || err.message || 'Fehler beim Setzen des Standards');
+    } catch (err: unknown) {
+      const e = err as ApiError;
+      setError((e.data?.error as string) || e.message || 'Fehler beim Setzen des Standards');
     }
   };
 
@@ -296,7 +300,7 @@ function WorkspaceManager({
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-2 py-2.5 px-5 bg-[var(--gradient-primary)] border-none rounded-lg text-white text-sm font-medium cursor-pointer transition-all hover:enabled:shadow-[var(--shadow-md)] disabled:opacity-60 disabled:cursor-not-allowed max-sm:w-full max-sm:justify-center"
+              className="inline-flex items-center gap-2 py-2.5 px-5 bg-primary border-transparent rounded-lg text-white text-sm font-medium cursor-pointer transition-all hover:enabled:bg-primary/85 disabled:opacity-60 disabled:cursor-not-allowed max-sm:w-full max-sm:justify-center"
               disabled={creating}
             >
               {creating ? (
@@ -326,8 +330,8 @@ function WorkspaceManager({
 
 // Setup Wizard Component
 interface SetupWizardProps {
-  config: any;
-  setConfig: (config: any) => void;
+  config: ClaudeCodeConfig;
+  setConfig: (config: ClaudeCodeConfig) => void;
   onComplete: () => void;
   onSkip: () => void;
   workspaces: Workspace[];
@@ -409,10 +413,13 @@ function SetupWizard({
       }
 
       onComplete();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Setup error:', err);
+      const e = err as ApiError;
       setError(
-        err.data?.error || err.message || 'Fehler bei der Einrichtung. Bitte versuche es erneut.'
+        (e.data?.error as string) ||
+          e.message ||
+          'Fehler bei der Einrichtung. Bitte versuche es erneut.'
       );
       setSaving(false);
     }
@@ -632,7 +639,7 @@ function SetupWizard({
             {step < totalSteps ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-primary)] border-transparent border rounded-lg text-white text-sm font-medium cursor-pointer transition-all hover:shadow-[var(--shadow-md)]"
+                className="inline-flex items-center gap-2 py-2.5 px-4 bg-primary border-transparent rounded-lg text-white text-sm font-medium cursor-pointer transition-all hover:bg-primary/85"
                 onClick={nextStep}
               >
                 Weiter <ChevronRight className="size-4" />
@@ -640,7 +647,7 @@ function SetupWizard({
             ) : (
               <button
                 type="button"
-                className="inline-flex items-center gap-2 py-2.5 px-5 bg-[var(--gradient-primary)] border-transparent border rounded-lg text-white text-sm font-medium cursor-pointer transition-all hover:shadow-[var(--shadow-md)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 py-2.5 px-5 bg-primary border-transparent rounded-lg text-white text-sm font-medium cursor-pointer transition-all hover:bg-primary/85 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={completeSetup}
                 disabled={saving}
               >
@@ -665,8 +672,8 @@ function SetupWizard({
 function ClaudeCode() {
   const api = useApi();
   const navigate = useNavigate();
-  const [appStatus, setAppStatus] = useState<any>(null);
-  const [config, setConfig] = useState<any>({});
+  const [appStatus, setAppStatus] = useState<ClaudeAppStatus | null>(null);
+  const [config, setConfig] = useState<ClaudeCodeConfig>({});
   const { confirm: showConfirm, ConfirmDialog } = useConfirm();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [showSettings, setShowSettings] = useState(false);
@@ -679,17 +686,17 @@ function ClaudeCode() {
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<{ type: string; text: string } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [authStatus, setAuthStatus] = useState<any>(null);
+  const [authStatus, setAuthStatus] = useState<ClaudeAuthStatus | null>(null);
   const [authRefreshing, setAuthRefreshing] = useState(false);
-  const setupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const setupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadWorkspaces = useCallback(
     async (signal?: AbortSignal) => {
       try {
         const data = await api.get('/workspaces', { signal, showError: false });
         setWorkspaces(data.workspaces || []);
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         console.error('Error loading workspaces:', err);
         setWorkspaces([
           {
@@ -723,8 +730,8 @@ function ClaudeCode() {
       try {
         const data = await api.get('/apps/claude-code/auth-status', { signal, showError: false });
         setAuthStatus(data);
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         console.error('Error loading auth status:', err);
         setAuthStatus(null);
       }
@@ -742,11 +749,12 @@ function ClaudeCode() {
       } else {
         setSaveMessage({ type: 'error', text: data.message });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error refreshing auth:', err);
+      const e = err as ApiError;
       setSaveMessage({
         type: 'error',
-        text: err.data?.message || err.message || 'Token-Refresh fehlgeschlagen',
+        text: (e.data?.message as string) || e.message || 'Token-Refresh fehlgeschlagen',
       });
     } finally {
       setAuthRefreshing(false);
@@ -778,8 +786,8 @@ function ClaudeCode() {
         } else {
           setTerminalUrl('');
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         console.error('Error loading Claude Code:', err);
         setError('Fehler beim Laden der App-Daten.');
       } finally {
@@ -797,8 +805,8 @@ function ClaudeCode() {
 
     return () => {
       controller.abort();
-      if (setupPollRef.current) {
-        clearInterval(setupPollRef.current);
+      if (setupTimeoutRef.current) {
+        clearTimeout(setupTimeoutRef.current);
       }
     };
   }, [loadAppData, loadWorkspaces, loadAuthStatus]);
@@ -817,13 +825,32 @@ function ClaudeCode() {
   useEffect(() => {
     if (actionLoading) {
       const controller = new AbortController();
-      const interval = setInterval(() => loadAppData(controller.signal), 2000);
+      const interval = setInterval(async () => {
+        try {
+          const res = await api.get('/apps/claude-code', {
+            signal: controller.signal,
+            showError: false,
+          });
+          const app = res.app || res;
+          setAppStatus(app);
+          if (app.status === 'running') {
+            setActionLoading(false);
+            if (setupTimeoutRef.current) {
+              clearTimeout(setupTimeoutRef.current);
+              setupTimeoutRef.current = null;
+            }
+            loadAppData(controller.signal);
+          }
+        } catch {
+          // Continue polling
+        }
+      }, 2000);
       return () => {
         controller.abort();
         clearInterval(interval);
       };
     }
-  }, [actionLoading, loadAppData]);
+  }, [actionLoading, api, loadAppData]);
 
   useEffect(() => {
     if (loading) {
@@ -835,34 +862,15 @@ function ClaudeCode() {
 
   const handleSetupComplete = () => {
     setShowSetupWizard(false);
+    // actionLoading=true triggers the polling useEffect (line 821-830) which
+    // already polls /apps/claude-code every 2s with proper AbortController cleanup
     setActionLoading(true);
 
-    if (setupPollRef.current) {
-      clearInterval(setupPollRef.current);
-    }
-
-    setupPollRef.current = setInterval(async () => {
-      try {
-        const res = await api.get('/apps/claude-code', { showError: false });
-        if (res.status === 'running' || res.app?.status === 'running') {
-          clearInterval(setupPollRef.current!);
-          setupPollRef.current = null;
-          setActionLoading(false);
-          loadAppData();
-        }
-      } catch {
-        // Continue polling
-      }
-    }, 2000);
-
-    setTimeout(() => {
-      if (setupPollRef.current) {
-        clearInterval(setupPollRef.current);
-        setupPollRef.current = null;
-        setActionLoading(false);
-        setError('Setup dauert länger als erwartet. Bitte prüfe den Status manuell.');
-        loadAppData();
-      }
+    setupTimeoutRef.current = setTimeout(() => {
+      setActionLoading(false);
+      setError('Setup dauert länger als erwartet. Bitte prüfe den Status manuell.');
+      loadAppData();
+      setupTimeoutRef.current = null;
     }, 60000);
   };
 
@@ -889,9 +897,10 @@ function ClaudeCode() {
 
       try {
         await api.post('/apps/claude-code/config', { config }, { showError: false });
-      } catch (configErr: any) {
+      } catch (configErr: unknown) {
         console.error('Config save error:', configErr);
-        const errorMsg = configErr.data?.error || configErr.message || 'Unbekannter Fehler';
+        const e = configErr as ApiError;
+        const errorMsg = (e.data?.error as string) || e.message || 'Unbekannter Fehler';
         setSaveMessage({ type: 'error', text: `Fehler beim Speichern: ${errorMsg}` });
         return;
       }
@@ -970,9 +979,10 @@ function ClaudeCode() {
               text: 'Container erfolgreich mit neuer Konfiguration neu erstellt!',
             });
           }
-        } catch (restartErr: any) {
+        } catch (restartErr: unknown) {
           console.error('Restart error:', restartErr);
-          const restartErrorMsg = restartErr.message || 'Unbekannter Fehler';
+          const restartErrorMsg =
+            restartErr instanceof Error ? restartErr.message : 'Unbekannter Fehler';
           setSaveMessage({
             type: 'warning',
             text: `Konfiguration gespeichert, aber Neustart fehlgeschlagen: ${restartErrorMsg}`,
@@ -995,9 +1005,9 @@ function ClaudeCode() {
         setSaveMessage(null);
         setShowSettings(false);
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving config:', err);
-      const errorMsg = err.message || 'Unbekannter Fehler';
+      const errorMsg = err instanceof Error ? err.message : 'Unbekannter Fehler';
       setSaveMessage({
         type: 'error',
         text: `Fehler beim Speichern der Konfiguration: ${errorMsg}`,

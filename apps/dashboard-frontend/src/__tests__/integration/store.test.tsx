@@ -128,7 +128,7 @@ function renderStore(route = '/store') {
 function setupDefaultApiResponses() {
   mockApi.get.mockImplementation((path: string) => {
     if (path === '/store/info') {
-      return Promise.resolve({ availableRamGB: 64, availableDiskGB: 200 });
+      return Promise.resolve({ llmRamGB: 38, totalRamGB: 64, availableDiskGB: 200 });
     }
     if (path === '/store/recommendations') {
       return Promise.resolve(sampleRecommendations);
@@ -303,7 +303,7 @@ describe('Store integration', () => {
 
   it('shows no-model banner when no model is loaded', async () => {
     mockApi.get.mockImplementation((path: string) => {
-      if (path === '/store/info') return Promise.resolve({ availableRamGB: 64 });
+      if (path === '/store/info') return Promise.resolve({ llmRamGB: 38, totalRamGB: 64 });
       if (path === '/store/recommendations') return Promise.resolve(sampleRecommendations);
       if (path === '/models/status') return Promise.resolve({});
       return Promise.resolve({});

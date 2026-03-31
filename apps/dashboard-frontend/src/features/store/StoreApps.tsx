@@ -185,10 +185,12 @@ function StoreApps() {
 
   // Refresh every 15 seconds
   useEffect(() => {
-    const controller = new AbortController();
-    const interval = setInterval(() => loadApps(controller.signal), 15000);
+    let active = true;
+    const interval = setInterval(() => {
+      if (active) loadApps();
+    }, 15000);
     return () => {
-      controller.abort();
+      active = false;
       clearInterval(interval);
     };
   }, [loadApps]);
@@ -302,35 +304,32 @@ function StoreApps() {
         }}
       >
         <div className="app-card-header flex items-start justify-between gap-3">
-          <div className="app-icon size-12 bg-muted rounded-lg flex items-center justify-center text-primary text-2xl">
+          <div className="app-icon size-12 bg-muted rounded-lg flex items-center justify-center text-primary text-2xl shrink-0">
             {getIcon(app.icon)}
           </div>
-          <div className="app-badges flex flex-wrap gap-1.5">
+          <div className="app-badges flex flex-wrap gap-1.5 justify-end">
             {isFeatured && (
               <Badge
                 variant="outline"
-                className="badge badge-featured border-primary/30 bg-primary/10 text-primary gap-1"
+                className="border-primary/30 bg-primary/10 text-primary gap-1"
               >
                 <Star className="size-3" /> Empfohlen
               </Badge>
             )}
             {isSystem && (
-              <Badge variant="secondary" className="badge badge-system">
+              <Badge variant="outline" className="bg-muted border-border text-foreground/60">
                 System
               </Badge>
             )}
             <Badge
               variant="outline"
               className={cn(
-                'badge badge-status gap-1',
-                app.status === 'running' &&
-                  'badge-running border-primary/30 bg-primary/10 text-primary',
-                app.status === 'installed' &&
-                  'badge-installed border-border bg-muted text-foreground/60',
-                app.status === 'available' &&
-                  'badge-available border-border bg-muted text-foreground/60',
+                'gap-1',
+                app.status === 'running' && 'border-primary/30 bg-primary/10 text-primary',
+                app.status === 'installed' && 'border-border bg-muted text-foreground/60',
+                app.status === 'available' && 'border-border bg-muted text-foreground/60',
                 app.status === 'error' &&
-                  'badge-error border-destructive/30 bg-destructive/10 text-destructive',
+                  'border-destructive/30 bg-destructive/10 text-destructive',
                 (app.status === 'installing' ||
                   app.status === 'starting' ||
                   app.status === 'stopping' ||
@@ -348,23 +347,32 @@ function StoreApps() {
           </div>
         </div>
 
-        <h3 className="app-name text-lg font-semibold text-foreground m-0">{app.name}</h3>
-        <p className="app-description text-sm text-muted-foreground leading-relaxed m-0 line-clamp-2">
+        <h3 className="app-name text-base font-semibold text-foreground">{app.name}</h3>
+        <p className="app-description text-sm text-muted-foreground line-clamp-2">
           {app.description}
         </p>
 
-        <div className="app-meta flex gap-3 flex-wrap">
-          <span className="app-version text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-            v{app.version}
-          </span>
-          <span className="app-category text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-            {categoryLabels[app.category] || app.category}
-          </span>
+        <div className="app-specs flex gap-4 text-sm">
+          <div className="spec flex flex-col">
+            <span className="spec-label text-xs text-muted-foreground">Version</span>
+            <span className="spec-value font-medium text-foreground">v{app.version}</span>
+          </div>
+          <div className="spec flex flex-col">
+            <span className="spec-label text-xs text-muted-foreground">Kategorie</span>
+            <span className="spec-value font-medium text-foreground">
+              {categoryLabels[app.category] || app.category}
+            </span>
+          </div>
         </div>
 
         <div className="app-actions flex gap-2 mt-auto pt-2" onClick={e => e.stopPropagation()}>
           {app.status === 'available' && (
-            <Button onClick={() => handleAction(app.id, 'install')} disabled={!!isLoading}>
+            <Button
+              size="sm"
+              className="flex-1"
+              onClick={() => handleAction(app.id, 'install')}
+              disabled={!!isLoading}
+            >
               {isLoading === 'install' ? (
                 <RefreshCw className="size-4 animate-spin" />
               ) : (
@@ -377,7 +385,8 @@ function StoreApps() {
           {app.status === 'installed' && (
             <>
               <Button
-                variant="success"
+                size="sm"
+                className="flex-1"
                 onClick={() => handleAction(app.id, 'start')}
                 disabled={!!isLoading}
               >
@@ -389,8 +398,9 @@ function StoreApps() {
                 Starten
               </Button>
               <Button
-                variant="destructive"
-                size="icon"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-foreground"
                 onClick={() => openUninstallDialog(app.id, app.name)}
                 disabled={!!isLoading}
                 title="Deinstallieren"
@@ -404,13 +414,13 @@ function StoreApps() {
           {app.status === 'running' && (
             <>
               {app.hasCustomPage && app.customPageRoute ? (
-                <Button asChild>
+                <Button size="sm" className="flex-1" asChild>
                   <Link to={app.customPageRoute}>
                     <ExternalLink className="size-4" /> Öffnen
                   </Link>
                 </Button>
               ) : (
-                <Button asChild>
+                <Button size="sm" className="flex-1" asChild>
                   <a href={getAppUrl(app)} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="size-4" /> Öffnen
                   </a>
@@ -429,12 +439,18 @@ function StoreApps() {
 
           {app.status === 'error' && (
             <>
-              <Button onClick={() => handleAction(app.id, 'start')} disabled={!!isLoading}>
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() => handleAction(app.id, 'start')}
+                disabled={!!isLoading}
+              >
                 <RefreshCw className="size-4" /> Erneut starten
               </Button>
               <Button
-                variant="destructive"
-                size="icon"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-foreground"
                 onClick={() => openUninstallDialog(app.id, app.name)}
                 disabled={!!isLoading}
                 title="Deinstallieren"
@@ -449,7 +465,7 @@ function StoreApps() {
             app.status === 'starting' ||
             app.status === 'stopping' ||
             app.status === 'uninstalling') && (
-            <Button disabled>
+            <Button size="sm" className="flex-1" disabled>
               <RefreshCw className="size-4 animate-spin" /> {status.label}
             </Button>
           )}

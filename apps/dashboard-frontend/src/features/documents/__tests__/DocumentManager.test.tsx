@@ -143,17 +143,10 @@ describe('DocumentManager Component', () => {
       });
     });
 
-    // TODO: Fix selector for search field - component structure might differ
-    test.skip('zeigt Suchfeld', async () => {
-      const { container } = renderWithProviders(<DocumentManager />);
-
+    test('zeigt Suchfeld', async () => {
+      renderWithProviders(<DocumentManager />);
       await waitFor(() => {
-        const searchField =
-          screen.queryByPlaceholderText(/such/i) ||
-          screen.queryByRole('searchbox') ||
-          container.querySelector('input[type="search"]') ||
-          container.querySelector('[class*="search"] input');
-        expect(searchField).toBeTruthy();
+        expect(screen.getByLabelText('Nach Namen suchen')).toBeInTheDocument();
       });
     });
 
@@ -168,17 +161,10 @@ describe('DocumentManager Component', () => {
   });
 
   describe('Document Status Display', () => {
-    // TODO: Fix status badge selector - component uses different pattern
-    test.skip('zeigt "Indexiert" Badge für indexed Status', async () => {
-      const { container } = renderWithProviders(<DocumentManager />);
-
+    test('zeigt "Indexiert" Badge für indexed Status', async () => {
+      renderWithProviders(<DocumentManager />);
       await waitFor(() => {
-        const indexedBadge =
-          screen.queryByText(/indexiert/i) ||
-          screen.queryByText(/indexed/i) ||
-          container.querySelector('[class*="indexed"]') ||
-          container.querySelector('[class*="success"]');
-        expect(indexedBadge).toBeTruthy();
+        expect(screen.getByRole('status', { name: 'Status: Indexiert' })).toBeInTheDocument();
       });
     });
 
@@ -204,66 +190,44 @@ describe('DocumentManager Component', () => {
   });
 
   describe('Document Filtering', () => {
-    // TODO: Fix filter tests - need to match actual component structure
-    test.skip('Filter nach Status funktioniert', async () => {
+    test('Filter nach Status funktioniert', async () => {
       const user = userEvent.setup();
-      const { container } = renderWithProviders(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
-      // Finde Filter-Buttons - using flexible selector
-      const filterButton =
-        screen.queryByText(/filter/i) ||
-        screen.queryByRole('button', { name: /filter/i }) ||
-        container.querySelector('[class*="filter"]');
+      const statusSelect = screen.getByLabelText('Nach Status filtern');
+      await user.selectOptions(statusSelect, 'indexed');
 
-      if (filterButton) {
-        await user.click(filterButton);
-
-        // Nach Status filtern - look for any status filter option
-        const indexedFilter =
-          screen.queryByText(/indexiert/i) ||
-          screen.queryByText(/indexed/i) ||
-          container.querySelector('[class*="indexed"]');
-        if (indexedFilter) {
-          await user.click(indexedFilter);
-
-          await waitFor(() => {
-            // Test should pass if main doc is still visible
-            expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
-          });
-        }
-      }
-      // Test passes even if filter button doesn't exist (feature might not be implemented)
-      expect(true).toBe(true);
+      // Verify the filter was applied (API called with status param)
+      await waitFor(() => {
+        expect(mockApi.get).toHaveBeenCalledWith(
+          expect.stringContaining('status='),
+          expect.anything()
+        );
+      });
     });
 
-    // TODO: Fix search tests - need to match actual component structure
-    test.skip('Suche filtert Dokumente', async () => {
+    test('Suche filtert Dokumente', async () => {
       const user = userEvent.setup();
-      const { container } = renderWithProviders(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
-      const searchInput =
-        screen.queryByPlaceholderText(/such/i) ||
-        screen.queryByRole('searchbox') ||
-        container.querySelector('input[type="search"]') ||
-        container.querySelector('input[type="text"]');
+      const searchInput = screen.getByLabelText('Nach Namen suchen');
+      await user.type(searchInput, 'manual');
 
-      if (searchInput) {
-        await user.type(searchInput, 'manual');
-
-        await waitFor(() => {
-          expect(screen.getByText('manual.docx')).toBeInTheDocument();
-        });
-      }
-      // Test passes even if search input doesn't exist (feature might not be fully implemented)
-      expect(true).toBe(true);
+      // API should be called with search param
+      await waitFor(() => {
+        expect(mockApi.get).toHaveBeenCalledWith(
+          expect.stringContaining('search=manual'),
+          expect.anything()
+        );
+      });
     });
   });
 
@@ -324,19 +288,16 @@ describe('DocumentManager Component', () => {
       }
     });
 
-    // TODO: Fix error display test - component might handle errors differently
-    test.skip('Upload Error wird angezeigt', async () => {
+    test('Upload Error wird angezeigt', async () => {
       mockApi.post.mockRejectedValue(new Error('File too large'));
-
       const user = userEvent.setup();
-      const { container } = renderWithProviders(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
-        expect(screen.getByText('Dokumente')).toBeInTheDocument();
+        expect(screen.getByRole('main', { name: 'Dokumentenverwaltung' })).toBeInTheDocument();
       });
 
       const fileInput = document.querySelector('input[type="file"]');
-
       if (fileInput) {
         const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' });
         await user.upload(fileInput, file);
@@ -344,46 +305,34 @@ describe('DocumentManager Component', () => {
         await waitFor(
           () => {
             const errorElement =
-              screen.queryByText(/error/i) ||
+              document.querySelector('.dm-error') ||
               screen.queryByText(/fehler/i) ||
-              container.querySelector('[class*="error"]');
+              screen.queryByText(/error/i);
             expect(errorElement).toBeTruthy();
           },
           { timeout: 3000 }
         );
-      } else {
-        // Test passes if file input doesn't exist (component structure different)
-        expect(true).toBe(true);
       }
     });
   });
 
   describe('Document Deletion', () => {
-    // TODO: Fix delete dialog test - component might use different pattern
-    test.skip('Lösch-Dialog wird angezeigt', async () => {
+    test('Lösch-Dialog wird angezeigt', async () => {
       const user = userEvent.setup();
-      const { container } = renderWithProviders(<DocumentManager />);
+      renderWithProviders(<DocumentManager />);
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
-      // Finde Delete-Button für erstes Dokument - use more flexible selectors
-      const deleteButtons = container.querySelectorAll(
-        '[class*="delete"], [title*="Delete"], [title*="Löschen"], [aria-label*="delete"], [aria-label*="löschen"]'
-      );
+      // Delete buttons have aria-label "FILENAME löschen"
+      const deleteButton = screen.getByLabelText('test-document.pdf löschen');
+      await user.click(deleteButton);
 
-      if (deleteButtons.length > 0) {
-        await user.click(deleteButtons[0]);
-
-        await waitFor(() => {
-          expect(
-            screen.queryByText(/löschen/i) ||
-              screen.queryByText(/delete/i) ||
-              screen.queryByText(/bestätigen/i)
-          ).toBeInTheDocument();
-        });
-      }
+      // useConfirm hook shows a confirmation dialog with message and button
+      await waitFor(() => {
+        expect(screen.getByText(/wirklich löschen/i)).toBeInTheDocument();
+      });
     });
 
     test('Dokument wird nach Bestätigung gelöscht', async () => {

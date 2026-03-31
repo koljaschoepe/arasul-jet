@@ -2,13 +2,6 @@ import { LogOut, MonitorOff } from 'lucide-react';
 import PasswordManagement from './PasswordManagement';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Button } from '@/components/ui/shadcn/button';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/ui/shadcn/card';
 
 interface SecuritySettingsProps {
   handleLogout: () => void;
@@ -28,33 +21,29 @@ export function SecuritySettings({
         <p className="text-sm text-muted-foreground">Passwörter verwalten und Sitzungen beenden</p>
       </div>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8">
         <ComponentErrorBoundary componentName="Passwortverwaltung">
           <PasswordManagement />
         </ComponentErrorBoundary>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <LogOut className="size-5" />
-              Sitzungen
-            </CardTitle>
-            <CardDescription>
-              Beenden Sie Ihre aktuelle Sitzung oder melden Sie sich auf allen Geräten ab.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="size-4" /> Abmelden
-              </Button>
-              <Button variant="destructive" onClick={onLogoutAll} disabled={loggingOutAll}>
-                <MonitorOff className="size-4" />
-                {loggingOutAll ? 'Wird abgemeldet...' : 'Von allen Geräten abmelden'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="pt-6 border-t border-border">
+          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+            <LogOut className="size-4 text-muted-foreground" />
+            Sitzungen
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Beenden Sie Ihre aktuelle Sitzung oder melden Sie sich auf allen Geräten ab.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="size-4" /> Abmelden
+            </Button>
+            <Button variant="outline" onClick={onLogoutAll} disabled={loggingOutAll}>
+              <MonitorOff className="size-4" />
+              {loggingOutAll ? 'Wird abgemeldet...' : 'Von allen Geräten abmelden'}
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useState, memo, useCallback } from 'react';
 import { Plus, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Field, Row } from '../types';
+import type { CellValue, Field, Row } from '../types';
 import { formatCellValue } from '../utils';
 import RecordDetailSheet from './RecordDetailSheet';
 
@@ -9,7 +9,7 @@ interface MobileRecordListProps {
   rows: Row[];
   fields: Field[];
   selectedRows: Set<string>;
-  onCellSave: (rowId: string, fieldSlug: string, value: any) => void;
+  onCellSave: (rowId: string, fieldSlug: string, value: CellValue) => void;
   onToggleSelection: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
 }

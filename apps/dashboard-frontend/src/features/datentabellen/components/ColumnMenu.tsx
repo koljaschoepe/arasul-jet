@@ -50,7 +50,7 @@ const ColumnMenu = memo(function ColumnMenu({
   }, [mode]);
 
   const handlePatch = useCallback(
-    async (body: Record<string, any>) => {
+    async (body: Record<string, unknown>) => {
       setLoading(true);
       try {
         await api.patch(`/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`, body, {
@@ -58,8 +58,9 @@ const ColumnMenu = memo(function ColumnMenu({
         });
         onFieldUpdated();
         onClose();
-      } catch (err: any) {
-        setError(err.data?.error || err.message);
+      } catch (err: unknown) {
+        const e = err as { data?: { error?: string }; message?: string };
+        setError(e.data?.error || e.message || String(err));
       } finally {
         setLoading(false);
       }
@@ -101,8 +102,9 @@ const ColumnMenu = memo(function ColumnMenu({
       });
       onFieldUpdated();
       onClose();
-    } catch (err: any) {
-      setError(err.data?.error || err.message);
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || String(err));
     } finally {
       setLoading(false);
     }

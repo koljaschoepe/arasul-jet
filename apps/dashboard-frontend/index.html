@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" class="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -26,7 +26,20 @@
       }
     </style>
   </head>
-  <body>
+  <body class="dark-mode">
+    <script>
+      // Apply saved theme BEFORE React loads to prevent white flash.
+      // Default is dark (set via HTML classes above). Only switch if user explicitly chose light.
+      (function() {
+        var t = localStorage.getItem('arasul_theme');
+        if (t === 'light') {
+          document.documentElement.classList.remove('dark');
+          document.body.classList.remove('dark-mode');
+          document.body.classList.add('light-mode');
+          document.body.style.background = '#FFFFFF';
+        }
+      })();
+    </script>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root">
       <div class="loading">Arasul Platform wird geladen...</div>

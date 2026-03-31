@@ -103,7 +103,17 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
   const connectWebSocket = useCallback(() => {
     if (!isAuthenticated || isIntentionallyClosedRef.current) return;
 
+    // Close any existing connection before creating a new one
+    if (wsRef.current) {
+      const old = wsRef.current;
+      wsRef.current = null;
+      old.onclose = null; // Prevent onclose from triggering reconnect
+      old.close();
+    }
+
     try {
+      // SEC-FIX: Don't send token in query string (visible in logs/proxies)
+      // The arasul_session cookie is sent automatically with the WebSocket upgrade request
       const ws = new WebSocket(`${WS_BASE}/metrics/live-stream`);
 
       ws.onopen = () => {

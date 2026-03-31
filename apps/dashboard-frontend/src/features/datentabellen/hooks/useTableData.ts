@@ -1,8 +1,33 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, type MutableRefObject } from 'react';
 import { useApi } from '../../../hooks/useApi';
 import { useToast } from '../../../contexts/ToastContext';
 import useExcelHistory from '../useExcelHistory';
-import type { Field, Row, TableData } from '../types';
+import type { CellValue, Field, Row, TableData } from '../types';
+
+type CellSaveFn = (
+  rowId: string,
+  fieldSlug: string,
+  value: unknown,
+  extra: null,
+  skipUndo: boolean
+) => Promise<void>;
+
+interface TableApiResponse {
+  data: TableData & { fields: Field[] };
+}
+
+interface RowsApiResponse {
+  data: Row[];
+  meta?: { total?: number };
+}
+
+interface RowPatchResponse {
+  data: Row;
+}
+
+interface BulkInsertResponse {
+  data?: { inserted?: number };
+}
 
 interface UseTableDataParams {
   tableSlug: string;
@@ -40,7 +65,7 @@ export default function useTableData({
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const handleCellSaveRef = useRef<any>(null);
+  const handleCellSaveRef = useRef<CellSaveFn>(null) as MutableRefObject<CellSaveFn>;
 
   // History (undo/redo)
   const {
@@ -71,8 +96,8 @@ export default function useTableData({
       setLoading(true);
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
       const [tableData, rowsData] = await Promise.all([
-        api.get<any>(`/v1/datentabellen/tables/${tableSlug}`, { showError: false }),
-        api.get<any>(
+        api.get<TableApiResponse>(`/v1/datentabellen/tables/${tableSlug}`, { showError: false }),
+        api.get<RowsApiResponse>(
           `/v1/datentabellen/tables/${tableSlug}/rows?limit=${pageSize}&page=${page}&sort=${sortField}&order=${sortOrder}${searchParam}`,
           { showError: false }
         ),
@@ -82,8 +107,8 @@ export default function useTableData({
       setRows(rowsData.data || []);
       setTotalRows(rowsData.meta?.total ?? rowsData.data?.length ?? 0);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -93,7 +118,7 @@ export default function useTableData({
 
   const loadTableSchema = useCallback(async () => {
     try {
-      const tableData = await api.get<any>(`/v1/datentabellen/tables/${tableSlug}`, {
+      const tableData = await api.get<TableApiResponse>(`/v1/datentabellen/tables/${tableSlug}`, {
         showError: false,
       });
       setTable(tableData.data);
@@ -106,11 +131,11 @@ export default function useTableData({
   // --- Ghost row handling ---
 
   const handleGhostRowEdit = useCallback(
-    async (fieldSlug: string, value: any) => {
+    async (fieldSlug: string, value: CellValue) => {
       if (!value && value !== false) return;
       try {
         setSaving(true);
-        await api.post<any>(
+        await api.post<RowPatchResponse>(
           `/v1/datentabellen/tables/${tableSlug}/rows`,
           { [fieldSlug]: value },
           { showError: false }
@@ -119,8 +144,8 @@ export default function useTableData({
         await loadTable();
         setSaveStatus('success');
         setTimeout(() => setSaveStatus(null), 2000);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : String(err));
         setSaveStatus('error');
       } finally {
         setSaving(false);
@@ -132,7 +157,13 @@ export default function useTableData({
   // --- Cell save ---
 
   const handleCellSave = useCallback(
-    async (rowId: string, fieldSlug: string, value: any, direction?: string, skipUndo = false) => {
+    async (
+      rowId: string,
+      fieldSlug: string,
+      value: CellValue,
+      direction?: string,
+      skipUndo = false
+    ) => {
       setEditingCell(null);
 
       if (rowId === '__ghost__') {
@@ -149,12 +180,12 @@ export default function useTableData({
       try {
         setSaving(true);
         const data = await api
-          .patch<any>(
+          .patch<RowPatchResponse>(
             `/v1/datentabellen/tables/${tableSlug}/rows/${rowId}`,
             { [fieldSlug]: value, _expected_updated_at: oldRow?._updated_at },
             { showError: false }
           )
-          .catch((err: any) => {
+          .catch((err: { status?: number; message?: string }) => {
             if (err.status === 409) {
               setError('Konflikt: Daten wurden geändert. Neu laden.');
               clearStacks();
@@ -180,19 +211,23 @@ export default function useTableData({
     [rows, tableSlug, loadTable, handleGhostRowEdit, pushUndo, clearStacks]
   );
 
-  handleCellSaveRef.current = handleCellSave;
+  handleCellSaveRef.current = handleCellSave as unknown as CellSaveFn;
 
   // --- Add row ---
 
   const handleAddRow = useCallback(async () => {
     try {
       setSaving(true);
-      await api.post<any>(`/v1/datentabellen/tables/${tableSlug}/rows`, {}, { showError: false });
+      await api.post<RowPatchResponse>(
+        `/v1/datentabellen/tables/${tableSlug}/rows`,
+        {},
+        { showError: false }
+      );
       await loadTable();
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 2000);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
       setSaveStatus('error');
     } finally {
       setSaving(false);
@@ -216,8 +251,9 @@ export default function useTableData({
         setSelectedRows(new Set());
         await loadTable();
         setSaveStatus('success');
-      } catch (err: any) {
-        setError(err.data?.error || err.message);
+      } catch (err: unknown) {
+        const e = err as { data?: { error?: string }; message?: string };
+        setError(e.data?.error || e.message || String(err));
         setSaveStatus('error');
       } finally {
         setSaving(false);
@@ -239,8 +275,9 @@ export default function useTableData({
         });
         await loadTable();
         setSaveStatus('success');
-      } catch (err: any) {
-        setError(err.data?.error || err.message);
+      } catch (err: unknown) {
+        const e = err as { data?: { error?: string }; message?: string };
+        setError(e.data?.error || e.message || String(err));
         setSaveStatus('error');
       } finally {
         setSaving(false);
@@ -258,7 +295,7 @@ export default function useTableData({
 
         if (exportAll && totalRows > rows.length) {
           // Fetch all rows for full export
-          const allData = await api.get<any>(
+          const allData = await api.get<RowsApiResponse>(
             `/v1/datentabellen/tables/${tableSlug}/rows?limit=10000&sort=${sortField}&order=${sortOrder}`,
             { showError: false }
           );
@@ -288,8 +325,8 @@ export default function useTableData({
         URL.revokeObjectURL(url);
 
         toast.success('CSV exportiert');
-      } catch (err: any) {
-        toast.error(`Export fehlgeschlagen: ${err.message}`);
+      } catch (err: unknown) {
+        toast.error(`Export fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
     [rows, fields, table, toast, totalRows, tableSlug, sortField, sortOrder]
@@ -361,16 +398,31 @@ export default function useTableData({
           return;
         }
 
+        // Type coercion for CSV values
+        const coerceValue = (val: string, fieldType: string): CellValue => {
+          switch (fieldType) {
+            case 'number':
+            case 'currency': {
+              const n = Number(val.replace(',', '.'));
+              return isNaN(n) ? null : n;
+            }
+            case 'boolean':
+              return ['true', '1', 'ja', 'yes'].includes(val.toLowerCase());
+            default:
+              return val;
+          }
+        };
+
         // Parse data rows
-        const importRows: Record<string, any>[] = [];
+        const importRows: Record<string, CellValue>[] = [];
         for (let i = 1; i < lines.length; i++) {
           const values = parseCSVLine(lines[i]);
-          const rowData: Record<string, any> = {};
+          const rowData: Record<string, CellValue> = {};
           let hasData = false;
           values.forEach((val, idx) => {
             const field = fieldMap[idx];
             if (field && val !== '') {
-              rowData[field.slug] = val;
+              rowData[field.slug] = coerceValue(val, field.field_type);
               hasData = true;
             }
           });
@@ -387,7 +439,7 @@ export default function useTableData({
         let totalInserted = 0;
         for (let i = 0; i < importRows.length; i += 1000) {
           const batch = importRows.slice(i, i + 1000);
-          const result = await api.post<any>(
+          const result = await api.post<BulkInsertResponse>(
             `/v1/datentabellen/tables/${tableSlug}/rows/bulk`,
             { rows: batch },
             { showError: false }
@@ -399,8 +451,8 @@ export default function useTableData({
         toast.success(`${totalInserted} Zeile(n) importiert`);
         setSaveStatus('success');
         setTimeout(() => setSaveStatus(null), 2000);
-      } catch (err: any) {
-        toast.error(`Import fehlgeschlagen: ${err.message}`);
+      } catch (err: unknown) {
+        toast.error(`Import fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
         setSaveStatus('error');
       } finally {
         setSaving(false);

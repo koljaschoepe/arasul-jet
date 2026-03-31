@@ -87,10 +87,10 @@ describe('Settings integration', () => {
       if (path === '/settings/password-requirements') {
         return Promise.resolve({
           requirements: {
-            minLength: 8,
-            requireUppercase: true,
-            requireLowercase: true,
-            requireNumbers: true,
+            minLength: 4,
+            requireUppercase: false,
+            requireLowercase: false,
+            requireNumbers: false,
             requireSpecialChars: false,
           },
         });

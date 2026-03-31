@@ -15,11 +15,42 @@ import { formatRelativeTime } from './utils';
 import { cn } from '@/lib/utils';
 import './chat.css';
 
+interface Conversation {
+  id: number;
+  title?: string;
+  updated_at?: string;
+  project_id?: number;
+}
+
+interface Project {
+  id: number;
+  name: string;
+  color?: string;
+  description?: string;
+  system_prompt?: string;
+  space_name?: string;
+  is_default?: boolean;
+  conversation_count?: number;
+  conversations?: Conversation[];
+}
+
+interface RecentChat {
+  id: number;
+  title?: string;
+  project_id?: number;
+  updated_at?: string;
+}
+
+interface LandingData {
+  projects: Project[];
+  recentChats: RecentChat[];
+}
+
 export default function ChatLanding() {
   const api = useApi();
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
-  const { activeJobIds } = useChatContext();
+  const { activeJobIds, cleanupChat } = useChatContext();
 
   const fetcher = useCallback(
     async (signal: AbortSignal) => {
@@ -28,8 +59,8 @@ export default function ChatLanding() {
         api.get('/chats/recent', { signal, showError: false }),
       ]);
       return {
-        projects: (projData as any).projects || [],
-        recentChats: (recentData as any).chats || [],
+        projects: (projData as { projects?: Project[] }).projects || [],
+        recentChats: (recentData as { chats?: RecentChat[] }).chats || [],
       };
     },
     [api]
@@ -41,18 +72,18 @@ export default function ChatLanding() {
     loading,
     refetch: loadData,
   } = useFetchData(fetcher, {
-    initialData: { projects: [] as any[], recentChats: [] as any[] },
+    initialData: { projects: [] as Project[], recentChats: [] as RecentChat[] } as LandingData,
     errorMessage: 'Error loading chat landing data',
   });
 
   // Helpers to update projects/recentChats individually
   const setProjects = useCallback(
-    (updater: (prev: any[]) => any[]) =>
+    (updater: (prev: Project[]) => Project[]) =>
       setData(prev => ({ ...prev, projects: updater(prev.projects) })),
     [setData]
   );
   const setRecentChats = useCallback(
-    (updater: (prev: any[]) => any[]) =>
+    (updater: (prev: RecentChat[]) => RecentChat[]) =>
       setData(prev => ({ ...prev, recentChats: updater(prev.recentChats) })),
     [setData]
   );
@@ -68,13 +99,13 @@ export default function ChatLanding() {
   });
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [editingProject, setEditingProject] = useState<any>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   const chatSearcher = useCallback(
     async (q: string, signal: AbortSignal) => {
       const params = new URLSearchParams({ q });
       if (selectedFilter) params.append('project_id', String(selectedFilter));
-      const data = await api.get<{ chats: any[] }>(`/chats/search?${params}`, {
+      const data = await api.get<{ chats: RecentChat[] }>(`/chats/search?${params}`, {
         signal,
         showError: false,
       });
@@ -83,11 +114,9 @@ export default function ChatLanding() {
     [api, selectedFilter]
   );
 
-  const { results: searchResults, searching: searchLoading } = useDebouncedSearch<any[] | null>(
-    searchQuery,
-    chatSearcher,
-    { initialResults: null, deps: [selectedFilter] }
-  );
+  const { results: searchResults, searching: searchLoading } = useDebouncedSearch<
+    RecentChat[] | null
+  >(searchQuery, chatSearcher, { initialResults: null, deps: [selectedFilter] });
 
   const toggleProject = useCallback((projectId: number) => {
     setExpandedProjects(prev => {
@@ -109,14 +138,14 @@ export default function ChatLanding() {
     setShowModal(true);
   }, []);
 
-  const openEditProject = useCallback((project: any) => {
+  const openEditProject = useCallback((project: Project) => {
     setModalMode('edit');
     setEditingProject(project);
     setShowModal(true);
   }, []);
 
   const handleProjectSave = useCallback(
-    (savedProject: any) => {
+    (savedProject: Project | null) => {
       if (!savedProject) {
         setProjects(prev => prev.filter(p => p.id !== editingProject?.id));
       } else if (modalMode === 'create') {
@@ -135,7 +164,7 @@ export default function ChatLanding() {
   );
 
   const handleDeleteProject = useCallback(
-    async (project: any) => {
+    async (project: Project) => {
       const chatCount = project.conversation_count || project.conversations?.length || 0;
       const ok = await confirm({
         title: `Projekt "${project.name}" löschen?`,
@@ -172,14 +201,16 @@ export default function ChatLanding() {
       if (!ok) return;
       try {
         await api.del(`/chats/${chatId}`);
+        // FH2: Clean up all context refs (callbacks, abort controllers, background state)
+        cleanupChat(String(chatId));
         setProjects(prev =>
           prev.map(p => ({
             ...p,
-            conversations: p.conversations?.filter((c: any) => c.id !== chatId),
+            conversations: p.conversations?.filter((c: Conversation) => c.id !== chatId),
             conversation_count: Math.max(
               0,
               (p.conversation_count || 0) -
-                (p.conversations?.some((c: any) => c.id === chatId) ? 1 : 0)
+                (p.conversations?.some((c: Conversation) => c.id === chatId) ? 1 : 0)
             ),
           }))
         );
@@ -190,7 +221,7 @@ export default function ChatLanding() {
         toast.error('Löschen fehlgeschlagen');
       }
     },
-    [api, confirm, toast, activeJobIds]
+    [api, confirm, toast, activeJobIds, cleanupChat]
   );
 
   const handleRenameChat = useCallback(
@@ -198,7 +229,7 @@ export default function ChatLanding() {
       // Save original titles for rollback
       const origProjects = projects.map(p => ({
         id: p.id,
-        conversations: p.conversations?.map((c: any) => ({ id: c.id, title: c.title })),
+        conversations: p.conversations?.map((c: Conversation) => ({ id: c.id, title: c.title })),
       }));
       const origRecentChats = recentChats.map(c => ({ id: c.id, title: c.title }));
 
@@ -206,7 +237,7 @@ export default function ChatLanding() {
       setProjects(prev =>
         prev.map(p => ({
           ...p,
-          conversations: p.conversations?.map((c: any) =>
+          conversations: p.conversations?.map((c: Conversation) =>
             c.id === chatId ? { ...c, title: newTitle } : c
           ),
         }))
@@ -225,8 +256,10 @@ export default function ChatLanding() {
             if (!orig) return p;
             return {
               ...p,
-              conversations: p.conversations?.map((c: any) => {
-                const origConv = orig.conversations?.find((oc: any) => oc.id === c.id);
+              conversations: p.conversations?.map((c: Conversation) => {
+                const origConv = orig.conversations?.find(
+                  (oc: { id: number; title?: string }) => oc.id === c.id
+                );
                 return origConv ? { ...c, title: origConv.title } : c;
               }),
             };
@@ -421,7 +454,7 @@ export default function ChatLanding() {
       <ProjectModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        onSave={handleProjectSave}
+        onSave={p => handleProjectSave(p as Project | null)}
         project={editingProject}
         mode={modalMode}
       />

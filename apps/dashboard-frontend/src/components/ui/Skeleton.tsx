@@ -64,7 +64,7 @@ export function SkeletonCard({
   lines?: number;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4" aria-hidden="true">
+    <div className="rounded-lg border border-border p-4" aria-hidden="true">
       <div className="flex items-center gap-3 mb-3">
         {hasAvatar && <SkeletonAvatar size="32px" />}
         <Skeleton height="1rem" width="60%" />

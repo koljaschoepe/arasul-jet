@@ -20,6 +20,11 @@ import {
   ExternalLink,
   BookOpen,
   X,
+  Mic,
+  Wrench,
+  Shield,
+  Gauge,
+  Zap,
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
@@ -36,12 +41,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/shadcn/select';
+import { Switch } from '@/components/ui/shadcn/switch';
 import { cn } from '@/lib/utils';
+import type {
+  TelegramBot,
+  TelegramCommand,
+  TelegramChat,
+  OllamaModel,
+  DocumentSpace,
+} from '../../types';
 
 interface BotDetailsModalProps {
-  bot: any;
+  bot: TelegramBot;
   onClose: () => void;
-  onUpdate: (bot: any) => void;
+  onUpdate: (bot: TelegramBot) => void;
 }
 
 interface Tab {
@@ -58,6 +71,13 @@ interface FormData {
   ragSpaceIds: string[] | null;
   ragShowSources: boolean;
   token: string;
+  toolsEnabled: boolean;
+  voiceEnabled: boolean;
+  maxContextTokens: number;
+  maxResponseTokens: number;
+  rateLimitPerMinute: number;
+  restrictUsers: boolean;
+  allowedUsers: string;
 }
 
 interface Message {
@@ -67,6 +87,7 @@ interface Message {
 
 const TABS: Tab[] = [
   { id: 'settings', label: 'Übersicht', icon: Settings },
+  { id: 'capabilities', label: 'Fähigkeiten', icon: Zap },
   { id: 'commands', label: 'Befehle', icon: Terminal },
   { id: 'chats', label: 'Chats', icon: Users },
   { id: 'advanced', label: 'Erweitert', icon: SlidersHorizontal },
@@ -84,14 +105,21 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
     ragSpaceIds: bot.ragSpaceIds || bot.rag_space_ids || null,
     ragShowSources: bot.ragShowSources ?? bot.rag_show_sources ?? true,
     token: '',
+    toolsEnabled: bot.toolsEnabled ?? bot.tools_enabled ?? true,
+    voiceEnabled: bot.voiceEnabled ?? bot.voice_enabled ?? true,
+    maxContextTokens: bot.maxContextTokens || bot.max_context_tokens || 4096,
+    maxResponseTokens: bot.maxResponseTokens || bot.max_response_tokens || 1024,
+    rateLimitPerMinute: bot.rateLimitPerMinute || bot.rate_limit_per_minute || 10,
+    restrictUsers: bot.restrictUsers || bot.restrict_users || false,
+    allowedUsers: (bot.allowedUsers || bot.allowed_users || []).join(', '),
   });
   const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
-  const [ollamaModels, setOllamaModels] = useState<any[]>([]);
-  const [spaces, setSpaces] = useState<any[]>([]);
-  const [commands, setCommands] = useState<any[]>([]);
-  const [chats, setChats] = useState<any[]>([]);
+  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
+  const [spaces, setSpaces] = useState<DocumentSpace[]>([]);
+  const [commands, setCommands] = useState<TelegramCommand[]>([]);
+  const [chats, setChats] = useState<TelegramChat[]>([]);
   const [loadingCommands, setLoadingCommands] = useState(false);
   const [loadingChats, setLoadingChats] = useState(false);
 
@@ -121,7 +149,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
       setLoadingCommands(true);
       api
         .get(`/telegram-bots/${bot.id}/commands`, { showError: false })
-        .then((data: any) => setCommands(data.commands || []))
+        .then(data => setCommands((data as { commands?: TelegramCommand[] }).commands || []))
         .catch(() => toast.error('Fehler beim Laden der Befehle'))
         .finally(() => setLoadingCommands(false));
     }
@@ -133,7 +161,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
       setLoadingChats(true);
       api
         .get(`/telegram-bots/${bot.id}/chats`, { showError: false })
-        .then((data: any) => setChats(data.chats || []))
+        .then(data => setChats((data as { chats?: TelegramChat[] }).chats || []))
         .catch(() => toast.error('Fehler beim Laden der Chats'))
         .finally(() => setLoadingChats(false));
     }
@@ -145,7 +173,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
     setMessage(null);
 
     try {
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         name: formData.name,
         llmProvider: 'ollama',
         llmModel: formData.llmModel,
@@ -153,6 +181,18 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         ragEnabled: formData.ragEnabled,
         ragSpaceIds: formData.ragSpaceIds,
         ragShowSources: formData.ragShowSources,
+        toolsEnabled: formData.toolsEnabled,
+        voiceEnabled: formData.voiceEnabled,
+        maxContextTokens: formData.maxContextTokens,
+        maxResponseTokens: formData.maxResponseTokens,
+        rateLimitPerMinute: formData.rateLimitPerMinute,
+        restrictUsers: formData.restrictUsers,
+        allowedUsers: formData.allowedUsers
+          ? formData.allowedUsers
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean)
+          : [],
       };
 
       if (formData.token) payload.token = formData.token;
@@ -161,14 +201,15 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
       setMessage({ type: 'success', text: 'Einstellungen gespeichert' });
       setFormData(prev => ({ ...prev, token: '' }));
       if (onUpdate) onUpdate(data.bot);
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.data?.error || 'Fehler beim Speichern' });
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string } };
+      setMessage({ type: 'error', text: e.data?.error || 'Fehler beim Speichern' });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCommandsChange = (updatedCommands: any[]) => setCommands(updatedCommands);
+  const handleCommandsChange = (updatedCommands: TelegramCommand[]) => setCommands(updatedCommands);
 
   const handleRemoveChat = async (chatRowId: string) => {
     try {
@@ -354,7 +395,11 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
       {loadingCommands ? (
         <SkeletonList count={3} hasAvatar={false} />
       ) : (
-        <CommandsEditor botId={bot.id} commands={commands} onChange={handleCommandsChange} />
+        <CommandsEditor
+          botId={Number(bot.id)}
+          commands={commands}
+          onChange={handleCommandsChange}
+        />
       )}
     </div>
   );
@@ -401,7 +446,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
               <div className="flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
                 <span>{chat.messageCount || chat.message_count || 0} Nachrichten</span>
                 <span>
-                  {new Date(chat.lastMessageAt || chat.last_message_at).toLocaleDateString('de-DE')}
+                  {new Date(chat.lastMessageAt || chat.last_message_at || '').toLocaleDateString(
+                    'de-DE'
+                  )}
                 </span>
               </div>
               <Button
@@ -484,7 +531,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
               </span>
               <span className="text-sm text-foreground">
                 {bot.createdAt || bot.created_at
-                  ? new Date(bot.createdAt || bot.created_at).toLocaleDateString('de-DE')
+                  ? new Date((bot.createdAt || bot.created_at)!).toLocaleDateString('de-DE')
                   : '–'}
               </span>
             </div>
@@ -516,6 +563,172 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
             </Button>
           </div>
         )}
+      </div>
+    </div>
+  );
+
+  // Tab: Fähigkeiten (Capabilities)
+  const renderCapabilities = () => (
+    <div className="space-y-4">
+      {message && activeTab === 'capabilities' && (
+        <div
+          className={cn(
+            'flex items-center gap-2 py-2.5 px-3.5 rounded-lg text-sm',
+            message.type === 'success' && 'bg-primary/10 text-primary border border-primary/20',
+            message.type === 'error' &&
+              'bg-destructive/10 text-destructive border border-destructive/20'
+          )}
+        >
+          {message.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
+          {message.text}
+        </div>
+      )}
+
+      {/* Voice */}
+      <div className="border border-border rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Mic size={18} className="text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Sprachnachrichten</p>
+              <p className="text-xs text-muted-foreground">
+                Empfange und transkribiere Voice-Nachrichten via Whisper
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={formData.voiceEnabled}
+            onCheckedChange={v => setFormData(prev => ({ ...prev, voiceEnabled: v }))}
+          />
+        </div>
+      </div>
+
+      {/* Tools */}
+      <div className="border border-border rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Wrench size={18} className="text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Tool-Zugriff</p>
+              <p className="text-xs text-muted-foreground">
+                Bot kann System-Status, Services, Logs und Workflows abfragen
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={formData.toolsEnabled}
+            onCheckedChange={v => setFormData(prev => ({ ...prev, toolsEnabled: v }))}
+          />
+        </div>
+      </div>
+
+      {/* User Access */}
+      <div className="border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Shield size={18} className="text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Nutzerzugriff einschränken</p>
+              <p className="text-xs text-muted-foreground">
+                Nur bestimmte Telegram-Nutzer dürfen den Bot verwenden
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={formData.restrictUsers}
+            onCheckedChange={v => setFormData(prev => ({ ...prev, restrictUsers: v }))}
+          />
+        </div>
+        {formData.restrictUsers && (
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1.5">
+              Erlaubte Telegram-User-IDs (komma-getrennt)
+            </label>
+            <Input
+              value={formData.allowedUsers}
+              onChange={e => setFormData(prev => ({ ...prev, allowedUsers: e.target.value }))}
+              placeholder="123456789, 987654321"
+              className="text-sm"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Context Settings */}
+      <div className="border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-3 mb-1">
+          <Gauge size={18} className="text-muted-foreground" />
+          <p className="text-sm font-medium">Kontext & Limits</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1.5">
+              Kontext-Tokens (max)
+            </label>
+            <Input
+              type="number"
+              min={1024}
+              max={8192}
+              step={512}
+              value={formData.maxContextTokens}
+              onChange={e =>
+                setFormData(prev => ({
+                  ...prev,
+                  maxContextTokens: parseInt(e.target.value) || 4096,
+                }))
+              }
+              className="text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1.5">
+              Antwort-Tokens (max)
+            </label>
+            <Input
+              type="number"
+              min={256}
+              max={4096}
+              step={256}
+              value={formData.maxResponseTokens}
+              onChange={e =>
+                setFormData(prev => ({
+                  ...prev,
+                  maxResponseTokens: parseInt(e.target.value) || 1024,
+                }))
+              }
+              className="text-sm"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1.5">
+            Rate Limit (Anfragen/Minute)
+          </label>
+          <Input
+            type="number"
+            min={1}
+            max={60}
+            value={formData.rateLimitPerMinute}
+            onChange={e =>
+              setFormData(prev => ({ ...prev, rateLimitPerMinute: parseInt(e.target.value) || 10 }))
+            }
+            className="text-sm w-32"
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? (
+            <>
+              <RefreshCw size={16} className="animate-spin" /> Speichern...
+            </>
+          ) : (
+            <>
+              <Save size={16} /> Fähigkeiten speichern
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );
@@ -558,6 +771,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
 
       <div className="px-4 pb-4 overflow-y-auto max-h-[60vh]">
         {activeTab === 'settings' && renderSettings()}
+        {activeTab === 'capabilities' && renderCapabilities()}
         {activeTab === 'commands' && renderCommands()}
         {activeTab === 'chats' && renderChats()}
         {activeTab === 'advanced' && renderAdvanced()}

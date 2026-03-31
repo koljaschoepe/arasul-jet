@@ -30,7 +30,8 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import StoreDetailModal from './StoreDetailModal';
 
 interface SystemInfo {
-  availableRamGB: number;
+  llmRamGB: number;
+  totalRamGB: number;
   availableDiskGB: number;
 }
 
@@ -44,7 +45,8 @@ interface Model {
   install_status: string;
   is_default?: boolean;
   effective_ollama_name?: string;
-  category?: string;
+  category: string;
+  [key: string]: unknown;
 }
 
 interface App {
@@ -55,6 +57,7 @@ interface App {
   category: string;
   status: string;
   featured?: boolean;
+  [key: string]: unknown;
 }
 
 interface StoreHomeProps {
@@ -63,8 +66,7 @@ interface StoreHomeProps {
 
 interface SelectedItem {
   type: 'model' | 'app';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  item: any;
+  item: Model | App;
 }
 
 interface LoadedModel {
@@ -192,6 +194,45 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
     }
   };
 
+  // Handle model deletion
+  const handleModelDelete = async (modelId: string) => {
+    setActionLoading(prev => ({ ...prev, [modelId]: 'deleting' }));
+    try {
+      await api.del(`/models/${modelId}`, { showError: false });
+      toast.success('Modell gelöscht');
+      await loadRecommendations();
+    } catch {
+      toast.error('Fehler beim Löschen des Modells');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [modelId]: null }));
+    }
+  };
+
+  // Handle setting default model
+  const handleSetDefault = async (modelId: string) => {
+    try {
+      await api.post('/models/default', { model_id: modelId }, { showError: false });
+      toast.success('Standard-Modell gesetzt');
+      await loadRecommendations();
+    } catch {
+      toast.error('Fehler beim Setzen des Standard-Modells');
+    }
+  };
+
+  // Handle app uninstall
+  const handleAppUninstall = async (appId: string, appName: string) => {
+    setActionLoading(prev => ({ ...prev, [appId]: 'uninstall' }));
+    try {
+      await api.post(`/apps/${appId}/uninstall`, null, { showError: false });
+      toast.success(`„${appName}" deinstalliert`);
+      await loadRecommendations();
+    } catch {
+      toast.error(`Deinstallation von „${appName}" fehlgeschlagen`);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [appId]: null }));
+    }
+  };
+
   if (loading) {
     return (
       <div className="store-home flex flex-col gap-8 animate-in fade-in">
@@ -258,7 +299,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
           </Link>
         </div>
         <p className="section-subtitle text-sm text-muted-foreground mb-4">
-          Empfohlen für {systemInfo?.availableRamGB || 64} GB RAM
+          Empfohlen für {systemInfo?.totalRamGB || 64} GB RAM ({systemInfo?.llmRamGB || 32} GB LLM)
         </p>
 
         <div className="model-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
@@ -286,56 +327,56 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                   }
                 }}
               >
-                <div className="model-card-header flex items-start justify-between">
+                <div className="model-card-header flex items-start justify-between gap-3">
                   <div className="model-icon size-12 bg-muted rounded-lg flex items-center justify-center text-primary text-2xl shrink-0">
                     <Cpu className="size-6" />
                   </div>
-                  <div className="model-badges flex gap-2 flex-wrap">
+                  <div className="model-badges flex flex-wrap gap-1.5 justify-end">
                     {model.is_default && (
-                      <Badge variant="secondary" className="badge badge-default">
+                      <Badge
+                        variant="outline"
+                        className="bg-primary/10 border-primary/30 text-primary"
+                      >
                         <Star className="size-3" /> Standard
                       </Badge>
                     )}
                     {isLoaded && (
-                      <Badge className="badge badge-loaded bg-primary/20 text-primary border-primary/30">
+                      <Badge
+                        variant="outline"
+                        className="bg-primary/10 border-primary text-primary"
+                      >
                         <Zap className="size-3" /> Aktiv
                       </Badge>
                     )}
                   </div>
                 </div>
 
-                <h3 className="model-name text-lg font-semibold text-foreground m-0">
-                  {model.name}
-                </h3>
-                <p className="model-description text-sm text-muted-foreground leading-relaxed m-0 line-clamp-2">
+                <h3 className="model-name text-base font-semibold text-foreground">{model.name}</h3>
+                <p className="model-description text-sm text-muted-foreground line-clamp-2">
                   {model.description}
                 </p>
 
-                <div className="model-specs flex gap-6">
-                  <div className="spec flex flex-col gap-1">
-                    <span className="spec-label text-xs text-muted-foreground uppercase tracking-wider">
-                      Größe
-                    </span>
-                    <span className="spec-value text-sm text-foreground font-medium">
+                <div className="model-specs flex gap-4 text-sm">
+                  <div className="spec flex flex-col">
+                    <span className="spec-label text-xs text-muted-foreground">Größe</span>
+                    <span className="spec-value font-medium text-foreground">
                       {formatSize(model.size_bytes)}
                     </span>
                   </div>
-                  <div className="spec flex flex-col gap-1">
-                    <span className="spec-label text-xs text-muted-foreground uppercase tracking-wider">
-                      RAM
-                    </span>
-                    <span className="spec-value text-sm text-foreground font-medium">
+                  <div className="spec flex flex-col">
+                    <span className="spec-label text-xs text-muted-foreground">RAM-Bedarf</span>
+                    <span className="spec-value font-medium text-foreground">
                       {model.ram_required_gb} GB
                     </span>
                   </div>
                 </div>
 
-                {model.capabilities && (
+                {model.capabilities && model.capabilities.length > 0 && (
                   <div className="model-capabilities flex flex-wrap gap-1.5">
-                    {model.capabilities.slice(0, 3).map(cap => (
+                    {model.capabilities.slice(0, 4).map(cap => (
                       <span
                         key={cap}
-                        className="capability-tag text-xs bg-muted text-foreground/60 rounded-full px-2.5 py-0.5"
+                        className="capability-tag text-xs bg-muted text-foreground/60 px-2 py-0.5 rounded-full"
                       >
                         {cap}
                       </span>
@@ -393,7 +434,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                     </Button>
                   )}
                   {isLoaded && (
-                    <Button size="sm" variant="secondary" className="flex-1" disabled>
+                    <Button size="sm" className="flex-1" disabled>
                       <Check className="size-4" /> Aktiv
                     </Button>
                   )}
@@ -441,48 +482,46 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                   }
                 }}
               >
-                <div className="model-card-header flex items-start justify-between">
+                <div className="model-card-header flex items-start justify-between gap-3">
                   <div className="model-icon size-12 bg-muted rounded-lg flex items-center justify-center text-primary text-2xl shrink-0">
                     <Package className="size-6" />
                   </div>
-                  <div className="model-badges flex gap-2 flex-wrap">
-                    <Badge variant="outline" className="badge badge-category">
-                      App
-                    </Badge>
+                  <div className="model-badges flex flex-wrap gap-1.5 justify-end">
                     {app.featured && (
-                      <Badge variant="secondary" className="badge badge-featured">
+                      <Badge
+                        variant="outline"
+                        className="border-primary/30 bg-primary/10 text-primary gap-1"
+                      >
                         <Star className="size-3" /> Empfohlen
                       </Badge>
                     )}
                     {isRunning && (
-                      <Badge className="badge badge-running bg-primary/20 text-primary border-primary/30">
+                      <Badge
+                        variant="outline"
+                        className="bg-primary/10 border-primary text-primary"
+                      >
                         <Zap className="size-3" /> Aktiv
                       </Badge>
                     )}
+                    <Badge variant="outline" className="bg-muted border-border text-foreground/60">
+                      App
+                    </Badge>
                   </div>
                 </div>
 
-                <h3 className="model-name text-lg font-semibold text-foreground m-0">{app.name}</h3>
-                <p className="model-description text-sm text-muted-foreground leading-relaxed m-0 line-clamp-2">
+                <h3 className="model-name text-base font-semibold text-foreground">{app.name}</h3>
+                <p className="model-description text-sm text-muted-foreground line-clamp-2">
                   {app.description}
                 </p>
 
-                <div className="model-specs flex gap-6">
-                  <div className="spec flex flex-col gap-1">
-                    <span className="spec-label text-xs text-muted-foreground uppercase tracking-wider">
-                      Version
-                    </span>
-                    <span className="spec-value text-sm text-foreground font-medium">
-                      v{app.version}
-                    </span>
+                <div className="model-specs flex gap-4 text-sm">
+                  <div className="spec flex flex-col">
+                    <span className="spec-label text-xs text-muted-foreground">Version</span>
+                    <span className="spec-value font-medium text-foreground">v{app.version}</span>
                   </div>
-                  <div className="spec flex flex-col gap-1">
-                    <span className="spec-label text-xs text-muted-foreground uppercase tracking-wider">
-                      Kategorie
-                    </span>
-                    <span className="spec-value text-sm text-foreground font-medium">
-                      {app.category}
-                    </span>
+                  <div className="spec flex flex-col">
+                    <span className="spec-label text-xs text-muted-foreground">Kategorie</span>
+                    <span className="spec-value font-medium text-foreground">{app.category}</span>
                   </div>
                 </div>
 
@@ -527,7 +566,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                     </Button>
                   )}
                   {isRunning && (
-                    <Button size="sm" variant="secondary" className="flex-1" disabled>
+                    <Button size="sm" className="flex-1" disabled>
                       <Check className="size-4" /> Aktiv
                     </Button>
                   )}
@@ -548,7 +587,10 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
           isDownloading={isDownloading}
           onDownload={handleModelDownload}
           onActivate={handleModelActivate}
+          onDelete={handleModelDelete}
+          onSetDefault={handleSetDefault}
           onAction={handleAppAction}
+          onUninstall={handleAppUninstall}
           actionLoading={actionLoading}
         />
       )}

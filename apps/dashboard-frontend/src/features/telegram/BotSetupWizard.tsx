@@ -21,6 +21,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
+import { API_BASE } from '../../config/api';
 import { useToast } from '../../contexts/ToastContext';
 import { sanitizeUrl } from '../../utils/sanitizeUrl';
 import { Button } from '@/components/ui/shadcn/button';
@@ -35,9 +36,10 @@ import {
 } from '@/components/ui/shadcn/select';
 import { cn } from '@/lib/utils';
 import type { LucideIcon } from 'lucide-react';
+import type { TelegramBot } from '../../types';
 
 interface BotSetupWizardProps {
-  onComplete: (bot: any) => void;
+  onComplete: (bot: TelegramBot) => void;
   onCancel: () => void;
 }
 
@@ -82,13 +84,15 @@ interface ChatInfo {
 
 interface OllamaModel {
   name: string;
-  [key: string]: any;
+  size?: number;
+  modified_at?: string;
 }
 
 interface Space {
   id: string;
   name: string;
-  [key: string]: any;
+  description?: string;
+  color?: string;
 }
 
 const STEPS: Step[] = [
@@ -201,8 +205,10 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
 
   // WebSocket connection for chat detection
   const connectWebSocket = useCallback((token: string) => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/telegram-app/ws`;
+    // Derive WS URL from API_BASE (supports both direct and reverse-proxied setups)
+    const apiUrl = new URL(API_BASE, window.location.origin);
+    const protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${apiUrl.host}${apiUrl.pathname}/telegram-app/ws`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -316,7 +322,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
-      let data: any;
+      let data: { valid?: boolean; botInfo?: BotInfo; error?: string };
       try {
         data = await api.post(
           '/telegram-bots/validate-token',
@@ -327,22 +333,23 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
         clearTimeout(timeout);
       }
 
-      if (data.valid) {
+      if (data.valid && data.botInfo) {
         setValidated(true);
         setBotInfo(data.botInfo);
         setFormData(prev => ({
           ...prev,
-          name: data.botInfo.first_name || prev.name,
+          name: data.botInfo!.first_name || prev.name,
           token: tokenTrimmed,
         }));
       } else {
         setError(data.error || 'Token konnte nicht validiert werden');
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         setError('Zeitüberschreitung bei der Token-Validierung');
       } else {
-        setError(err.data?.error || err.message || 'Fehler bei der Token-Validierung');
+        const e = err as { data?: { error?: string }; message?: string };
+        setError(e.data?.error || e.message || 'Fehler bei der Token-Validierung');
       }
     } finally {
       setValidating(false);
@@ -404,11 +411,12 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       );
 
       setVerificationTimeout(5 * 60);
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         setError('Verbindungs-Timeout. Bitte prüfe deine Internetverbindung.');
       } else {
-        setError(err.data?.error || err.message || 'Fehler bei der Chat-Verifizierung');
+        const e = err as { data?: { error?: string }; message?: string };
+        setError(e.data?.error || e.message || 'Fehler bei der Chat-Verifizierung');
       }
       setWaitingForChat(false);
     }
@@ -490,18 +498,27 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       );
 
       if (data.bot) {
-        // Activate
-        try {
-          await api.post(`/telegram-bots/${data.bot.id}/activate`, undefined, { showError: false });
-          data.bot.isActive = true;
-        } catch (activationErr: any) {
-          console.error('Bot activation failed:', activationErr);
-          toast.warning('Bot erstellt, aber Aktivierung fehlgeschlagen. Bitte manuell aktivieren.');
+        // Bot is auto-activated by backend for zero-config flow
+        // Fallback: try explicit activation if not yet active
+        if (!data.bot.isActive) {
+          try {
+            await api.post(`/telegram-bots/${data.bot.id}/activate`, undefined, {
+              showError: false,
+            });
+            data.bot.isActive = true;
+          } catch (activationErr: unknown) {
+            const ae = activationErr as { data?: { error?: string }; message?: string };
+            const reason = ae.data?.error || ae.message || 'Unbekannter Fehler';
+            toast.warning(
+              `Bot erstellt, aber Aktivierung fehlgeschlagen: ${reason}. Bitte in den Bot-Einstellungen aktivieren.`
+            );
+          }
         }
         onComplete(data.bot);
       }
-    } catch (err: any) {
-      setError(err.data?.error || err.message || 'Fehler beim Erstellen des Bots');
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || 'Fehler beim Erstellen des Bots');
     } finally {
       setCreating(false);
     }

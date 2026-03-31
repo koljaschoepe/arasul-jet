@@ -16,6 +16,8 @@ import React, {
   type ReactNode,
 } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
+import { useApi } from '../hooks/useApi';
+import type { CatalogModel } from '../types';
 
 // --- Types ---
 
@@ -77,6 +79,8 @@ const interpretDownloadStatus = (status: string): StatusInterpretation => {
 
 // Provider Component
 export function DownloadProvider({ children }: DownloadProviderProps) {
+  const api = useApi();
+
   // Active downloads: { modelId: { progress, status, phase, error } }
   const [activeDownloads, setActiveDownloads] = useState<Record<string, DownloadState>>({});
 
@@ -100,33 +104,30 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
     const controller = new AbortController();
     const checkExistingDownloads = async () => {
       try {
-        const response = await fetch(`${API_BASE}/models/catalog`, {
-          headers: getAuthHeaders(),
+        const data = await api.get<{ models?: CatalogModel[] }>('/models/catalog', {
+          showError: false,
           signal: controller.signal,
         });
+        const models = data.models || [];
 
-        if (response.ok) {
-          const data = await response.json();
-          const models = data.models || [];
+        // Find models that are downloading
+        const downloading = models.filter(m => m.install_status === 'downloading');
 
-          // Find models that are downloading
-          const downloading = models.filter((m: any) => m.install_status === 'downloading');
-
-          if (downloading.length > 0) {
-            const newDownloads: Record<string, DownloadState> = {};
-            downloading.forEach((m: any) => {
-              newDownloads[m.id] = {
-                progress: m.download_progress || 0,
-                status: 'Download läuft...',
-                phase: 'download',
-                error: null,
-                modelName: m.name,
-              };
-            });
-            setActiveDownloads(prev => ({ ...prev, ...newDownloads }));
-          }
+        if (downloading.length > 0) {
+          const newDownloads: Record<string, DownloadState> = {};
+          downloading.forEach(m => {
+            newDownloads[m.id] = {
+              progress: m.download_progress || 0,
+              status: 'Download läuft...',
+              phase: 'download',
+              error: null,
+              modelName: m.name,
+            };
+          });
+          setActiveDownloads(prev => ({ ...prev, ...newDownloads }));
         }
-      } catch (err) {
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         if (controller.signal.aborted) return;
         console.error('[DownloadContext] Error checking existing downloads:', err);
       }
@@ -142,54 +143,51 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
       if (currentDownloads.length === 0) return;
 
       try {
-        const response = await fetch(`${API_BASE}/models/catalog`, {
-          headers: getAuthHeaders(),
+        const data = await api.get<{ models?: CatalogModel[] }>('/models/catalog', {
+          showError: false,
           signal: controller.signal,
         });
+        const models = data.models || [];
 
-        if (response.ok) {
-          const data = await response.json();
-          const models = data.models || [];
+        setActiveDownloads(prev => {
+          const updated = { ...prev };
+          let hasChanges = false;
 
-          setActiveDownloads(prev => {
-            const updated = { ...prev };
-            let hasChanges = false;
-
-            for (const modelId of Object.keys(prev)) {
-              const model = models.find((m: any) => m.id === modelId);
-              if (model) {
-                if (model.install_status === 'available') {
-                  // Download completed
-                  delete updated[modelId];
-                  hasChanges = true;
-                  // Notify callbacks
-                  onCompleteCallbacksRef.current.forEach(cb => cb(modelId, true));
-                } else if (model.install_status === 'error') {
-                  // Download failed
+          for (const modelId of Object.keys(prev)) {
+            const model = models.find(m => m.id === modelId);
+            if (model) {
+              if (model.install_status === 'available') {
+                // Download completed
+                delete updated[modelId];
+                hasChanges = true;
+                // Notify callbacks
+                onCompleteCallbacksRef.current.forEach(cb => cb(modelId, true));
+              } else if (model.install_status === 'error') {
+                // Download failed
+                updated[modelId] = {
+                  ...prev[modelId],
+                  progress: 0,
+                  phase: 'error',
+                  error: model.install_error || 'Download fehlgeschlagen',
+                };
+                hasChanges = true;
+              } else if (model.install_status === 'downloading') {
+                // Update progress from DB
+                if (prev[modelId].progress !== model.download_progress) {
                   updated[modelId] = {
                     ...prev[modelId],
-                    progress: 0,
-                    phase: 'error',
-                    error: model.install_error || 'Download fehlgeschlagen',
+                    progress: model.download_progress || 0,
                   };
                   hasChanges = true;
-                } else if (model.install_status === 'downloading') {
-                  // Update progress from DB
-                  if (prev[modelId].progress !== model.download_progress) {
-                    updated[modelId] = {
-                      ...prev[modelId],
-                      progress: model.download_progress || 0,
-                    };
-                    hasChanges = true;
-                  }
                 }
               }
             }
+          }
 
-            return hasChanges ? updated : prev;
-          });
-        }
-      } catch (err) {
+          return hasChanges ? updated : prev;
+        });
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         if (controller.signal.aborted) return;
         console.debug('[DownloadContext] Poll error:', err);
       }
@@ -199,7 +197,8 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
       controller.abort();
       clearInterval(pollInterval);
     };
-  }, []); // RC-004 FIX: Empty dependency array - only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // RC-004 FIX: Empty dependency array - only run on mount (api is stable via useMemo)
 
   // Start a download
   // DL-FE-001: Use ref instead of state in dependency array to prevent
@@ -227,6 +226,8 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
       abortControllersRef.current[modelId] = abortController;
 
       try {
+        // FH5: raw fetch() required here — response is an SSE stream that must be read
+        // incrementally via reader.read(), which useApi() does not support.
         const response = await fetch(`${API_BASE}/models/download`, {
           method: 'POST',
           headers: {
@@ -335,8 +336,11 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                       onCompleteCallbacksRef.current.forEach(cb => cb(modelId, data.success));
                     }, 2000);
                   }
-                } catch (e: any) {
-                  console.debug('[DownloadContext] SSE parse error:', e.message);
+                } catch (e: unknown) {
+                  console.debug(
+                    '[DownloadContext] SSE parse error:',
+                    e instanceof Error ? e.message : e
+                  );
                 }
               }
             }
@@ -344,8 +348,8 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         } finally {
           clearInterval(inactivityCheck);
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') {
           // Check if this was an inactivity timeout vs intentional cancel
           const downloadState = activeDownloadsRef.current[modelId];
           if (
@@ -370,7 +374,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
             [modelId]: {
               ...prev[modelId],
               phase: 'error',
-              error: err.message,
+              error: err instanceof Error ? err.message : 'Unbekannter Fehler',
             },
           }));
         }

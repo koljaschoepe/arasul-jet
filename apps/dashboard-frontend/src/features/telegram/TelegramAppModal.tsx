@@ -18,6 +18,9 @@ import {
   EyeOff,
   BookOpen,
   Cpu,
+  Mic,
+  Wrench,
+  Shield,
 } from 'lucide-react';
 import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
@@ -47,6 +50,9 @@ interface Bot {
   messageCount?: number;
   ragEnabled?: boolean;
   ragSpaceIds?: string[];
+  toolsEnabled?: boolean;
+  voiceEnabled?: boolean;
+  restrictUsers?: boolean;
 }
 
 interface AppStatus {
@@ -66,12 +72,12 @@ interface SystemMessage {
 
 interface AuditLog {
   id: string;
-  created_at: string;
-  bot_name?: string;
-  user_name?: string;
+  timestamp: string;
+  username?: string;
   chat_id?: string;
   command?: string;
-  message_type?: string;
+  message_text?: string;
+  interaction_type?: string;
   success: boolean;
 }
 
@@ -169,8 +175,8 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
             enabled: data.enabled || false,
           });
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         if (isMountedRef.current)
           setSystemMessage({ type: 'error', text: 'Fehler beim Laden der Konfiguration' });
       } finally {
@@ -219,13 +225,16 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
     setTogglingBot(botId);
     try {
       const endpoint = currentActive ? 'deactivate' : 'activate';
-      await api.post(`/telegram-bots/${botId}/${endpoint}`, undefined, { showError: false });
-      setBots(prev =>
-        prev.map(bot => (bot.id === botId ? { ...bot, isActive: !currentActive } : bot))
-      );
+      const data = await api.post(`/telegram-bots/${botId}/${endpoint}`, undefined, {
+        showError: false,
+      });
+      // Update with server response if available, otherwise toggle locally
+      const newActive = data?.bot?.isActive ?? !currentActive;
+      setBots(prev => prev.map(bot => (bot.id === botId ? { ...bot, isActive: newActive } : bot)));
       toast.success(currentActive ? 'Bot deaktiviert' : 'Bot aktiviert');
     } catch {
       toast.error('Fehler beim Umschalten des Bots');
+      // No optimistic update was made — nothing to roll back
     } finally {
       setTogglingBot(null);
     }
@@ -260,14 +269,14 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
     setSystemSaving(true);
     setSystemMessage(null);
     try {
-      const payload: Record<string, any> = {
+      const payload: Record<string, string | boolean> = {
         chat_id: systemConfig.chat_id,
         enabled: systemConfig.enabled,
       };
       if (systemConfig.bot_token) payload.bot_token = systemConfig.bot_token;
       const data = await api.post('/telegram/config', payload, { showError: false });
       if (!isMountedRef.current) return;
-      setHasToken(data.has_token || data.success || false);
+      setHasToken(data.has_token === true || (systemConfig.bot_token !== '' && data.success));
       setSystemConfig(prev => ({ ...prev, bot_token: '' }));
       setOriginalSystemConfig({
         bot_token: '',
@@ -275,9 +284,10 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
         enabled: systemConfig.enabled,
       });
       setSystemMessage({ type: 'success', text: 'Konfiguration gespeichert' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (!isMountedRef.current) return;
-      setSystemMessage({ type: 'error', text: err.data?.error || 'Netzwerkfehler beim Speichern' });
+      const e = err as { data?: { error?: string } };
+      setSystemMessage({ type: 'error', text: e.data?.error || 'Netzwerkfehler beim Speichern' });
     } finally {
       if (isMountedRef.current) setSystemSaving(false);
     }
@@ -298,9 +308,10 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
           ? 'System-Benachrichtigungen aktiviert'
           : 'System-Benachrichtigungen deaktiviert',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (!isMountedRef.current) return;
-      setSystemMessage({ type: 'error', text: err.data?.error || 'Netzwerkfehler' });
+      const e = err as { data?: { error?: string } };
+      setSystemMessage({ type: 'error', text: e.data?.error || 'Netzwerkfehler' });
     } finally {
       if (isMountedRef.current) setSystemSaving(false);
     }
@@ -313,9 +324,10 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
       await api.post('/telegram/test', undefined, { showError: false });
       if (!isMountedRef.current) return;
       setSystemMessage({ type: 'success', text: 'Test-Nachricht erfolgreich gesendet!' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (!isMountedRef.current) return;
-      setSystemMessage({ type: 'error', text: err.data?.error || 'Netzwerkfehler beim Test' });
+      const e = err as { data?: { error?: string } };
+      setSystemMessage({ type: 'error', text: e.data?.error || 'Netzwerkfehler beim Test' });
     } finally {
       if (isMountedRef.current) setSystemTesting(false);
     }
@@ -344,7 +356,7 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
             <Send className="text-primary text-xl" size={20} />
             <h2 className="m-0 text-xl text-foreground">Telegram Bot</h2>
             {activeBots > 0 && (
-              <span className="bg-primary text-primary-foreground text-[0.7rem] font-semibold px-2 py-0.5 rounded-full">
+              <span className="bg-primary/10 text-primary border border-primary/20 text-[0.7rem] font-semibold px-2 py-0.5 rounded-full">
                 {activeBots} aktiv
               </span>
             )}
@@ -602,6 +614,9 @@ function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCar
   const ragEnabled = bot.ragEnabled || false;
   const ragSpaceIds = bot.ragSpaceIds;
   const isMaster = ragEnabled && !ragSpaceIds;
+  const voiceEnabled = bot.voiceEnabled ?? true;
+  const toolsEnabled = bot.toolsEnabled ?? true;
+  const restrictUsers = bot.restrictUsers || false;
 
   return (
     <div
@@ -615,7 +630,7 @@ function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCar
           <div className="flex items-center gap-2">
             <h4 className="m-0 mb-1 text-foreground text-base">{bot.name}</h4>
             {isMaster && (
-              <span className="bg-gradient-to-br from-primary to-[#6366f1] text-white text-[0.65rem] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide">
+              <span className="bg-primary/15 text-primary text-[0.65rem] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide">
                 Master
               </span>
             )}
@@ -625,7 +640,7 @@ function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCar
         <span
           className={cn(
             'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium',
-            isActive ? 'bg-primary/10 text-primary' : 'bg-slate-400/10 text-muted-foreground'
+            isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
           )}
         >
           <span
@@ -650,6 +665,30 @@ function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCar
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70">
           <Cpu size={14} /> {model ? model.split(':')[0] : provider}
         </span>
+        {voiceEnabled && (
+          <span
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70"
+            title="Sprachnachrichten aktiv"
+          >
+            <Mic size={14} />
+          </span>
+        )}
+        {toolsEnabled && (
+          <span
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70"
+            title="Tool-Zugriff aktiv"
+          >
+            <Wrench size={14} />
+          </span>
+        )}
+        {restrictUsers && (
+          <span
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70"
+            title="Zugriff eingeschränkt"
+          >
+            <Shield size={14} />
+          </span>
+        )}
         {messageCount > 0 && (
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70">
             <Send size={14} /> {messageCount} Nachr.
@@ -664,7 +703,7 @@ function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCar
         <button
           type="button"
           className={cn(
-            'flex items-center justify-center size-9 border-none rounded-lg bg-background cursor-pointer transition-all hover:bg-primary hover:text-white disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
+            'flex items-center justify-center size-9 border border-border rounded-lg bg-background cursor-pointer transition-all hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
             isActive ? 'text-muted-foreground' : 'text-primary'
           )}
           onClick={onToggle}
@@ -701,7 +740,6 @@ interface StatusSectionProps {
 
 function StatusSection({ appStatus, bots, loading }: StatusSectionProps) {
   const totalChats = bots.reduce((sum, b) => sum + (b.chatCount || 0), 0);
-  const totalMessages = bots.reduce((sum, b) => sum + (b.messageCount || 0), 0);
   const activeBots = bots.filter(b => b.isActive).length;
   const ragBots = bots.filter(b => b.ragEnabled).length;
 
@@ -734,12 +772,6 @@ function StatusSection({ appStatus, bots, loading }: StatusSectionProps) {
             Verbundene Chats
           </span>
           <span className="text-2xl font-semibold text-foreground">{totalChats}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 p-4 bg-card border border-border rounded-xl transition-colors hover:border-primary/30">
-          <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wider">
-            Nachrichten
-          </span>
-          <span className="text-2xl font-semibold text-foreground">{totalMessages}</span>
         </div>
         <div className="flex flex-col gap-1.5 p-4 bg-card border border-border rounded-xl transition-colors hover:border-primary/30">
           <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wider">
@@ -803,7 +835,7 @@ function StatusSection({ appStatus, bots, loading }: StatusSectionProps) {
                           'text-xs font-medium px-2 py-0.5 rounded-full',
                           bot.isActive
                             ? 'bg-primary/10 text-primary'
-                            : 'bg-slate-400/10 text-muted-foreground'
+                            : 'bg-muted text-muted-foreground'
                         )}
                       >
                         {bot.isActive ? 'Aktiv' : 'Inaktiv'}
@@ -1054,10 +1086,10 @@ function LogsSection({ logs, loading, onRefresh }: LogsSectionProps) {
                   Zeitpunkt
                 </th>
                 <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                  Bot
+                  Benutzer
                 </th>
                 <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                  Benutzer
+                  Chat-ID
                 </th>
                 <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
                   Befehl
@@ -1070,17 +1102,17 @@ function LogsSection({ logs, loading, onRefresh }: LogsSectionProps) {
             <tbody>
               {logs.map(log => (
                 <tr key={log.id} className="hover:bg-primary/5">
-                  <td className="py-3 px-4 text-sm text-muted-foreground text-sm border-b border-border">
-                    {new Date(log.created_at).toLocaleString('de-DE')}
+                  <td className="py-3 px-4 text-sm text-muted-foreground border-b border-border">
+                    {new Date(log.timestamp).toLocaleString('de-DE')}
                   </td>
                   <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                    {log.bot_name || '\u2014'}
+                    {log.username || '\u2014'}
                   </td>
                   <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                    {log.user_name || log.chat_id || '\u2014'}
+                    {log.chat_id || '\u2014'}
                   </td>
                   <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                    <code>{log.command || log.message_type || '\u2014'}</code>
+                    <code>{log.command || log.interaction_type || '\u2014'}</code>
                   </td>
                   <td className="py-3 px-4 text-sm text-foreground border-b border-border">
                     <span

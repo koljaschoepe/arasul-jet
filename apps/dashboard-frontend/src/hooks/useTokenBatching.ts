@@ -40,7 +40,7 @@ interface UseTokenBatchingReturn {
  */
 export default function useTokenBatching(
   setMessages: Dispatch<SetStateAction<TokenCountableMessage[]>>,
-  batchIntervalMs: number = 50
+  batchIntervalMs: number = 16
 ): UseTokenBatchingReturn {
   const tokenBatchRef = useRef<TokenBatch>({
     content: '',

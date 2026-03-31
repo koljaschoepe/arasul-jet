@@ -39,6 +39,10 @@ interface EditingCommandData extends BotCommand {
   command: string;
 }
 
+interface CommandApiResponse {
+  command: BotCommand;
+}
+
 function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
   const api = useApi();
   const toast = useToast();
@@ -86,7 +90,7 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
     setError(null);
 
     try {
-      const data = await api.post(
+      const data = await api.post<CommandApiResponse>(
         `/telegram-bots/${botId}/commands`,
         {
           command: newCommand.command.replace(/^\//, ''),
@@ -99,9 +103,10 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
       onChange([...commands, data.command]);
       toast.success('Befehl erstellt');
       setNewCommand(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Befehl erstellen fehlgeschlagen:', err);
-      setError(err.data?.error || 'Fehler beim Erstellen des Befehls');
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || 'Fehler beim Erstellen des Befehls');
     } finally {
       setSaving(false);
     }
@@ -118,7 +123,7 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
     setError(null);
 
     try {
-      const data = await api.put(
+      const data = await api.put<CommandApiResponse>(
         `/telegram-bots/${botId}/commands/${editingCommand.id}`,
         {
           command: editingCommand.command.replace(/^\//, ''),
@@ -132,9 +137,10 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
       onChange(commands.map(c => (c.id === data.command.id ? data.command : c)));
       toast.success('Befehl gespeichert');
       setEditingCommand(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Befehl speichern fehlgeschlagen:', err);
-      setError(err.data?.error || 'Fehler beim Speichern des Befehls');
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || 'Fehler beim Speichern des Befehls');
     } finally {
       setSaving(false);
     }
@@ -149,7 +155,7 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
 
       onChange(commands.filter(c => c.id !== cmdId));
       toast.success('Befehl gelöscht');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Befehl löschen fehlgeschlagen:', err);
       toast.error('Fehler beim Löschen des Befehls');
     }
@@ -158,7 +164,7 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
   // Toggle command enabled/disabled
   const handleToggleEnabled = async (cmd: BotCommand) => {
     try {
-      const data = await api.put(
+      const data = await api.put<CommandApiResponse>(
         `/telegram-bots/${botId}/commands/${cmd.id}`,
         {
           isEnabled: !(cmd.isEnabled ?? cmd.is_enabled ?? true),
@@ -167,7 +173,7 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
       );
 
       onChange(commands.map(c => (c.id === data.command.id ? data.command : c)));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Befehl aktualisieren fehlgeschlagen:', err);
       toast.error('Fehler beim Aktualisieren des Befehls');
     }

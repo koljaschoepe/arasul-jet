@@ -32,7 +32,7 @@ export function getColumnLetter(index: number): string {
 }
 
 /** Format cell value for display */
-export function formatCellValue(value: any, fieldType: string): string {
+export function formatCellValue(value: unknown, fieldType: string): string {
   if (value === null || value === undefined || value === '') return '';
   return formatValue(value, fieldType);
 }

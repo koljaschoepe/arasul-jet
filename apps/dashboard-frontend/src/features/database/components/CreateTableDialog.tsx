@@ -62,8 +62,9 @@ const CreateTableDialog = memo(function CreateTableDialog({
       setColor('#45ADFF');
       onCreated();
       onClose();
-    } catch (err: any) {
-      setError(err.data?.error || err.message || 'Fehler beim Erstellen der Tabelle');
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || 'Fehler beim Erstellen der Tabelle');
     } finally {
       setLoading(false);
     }

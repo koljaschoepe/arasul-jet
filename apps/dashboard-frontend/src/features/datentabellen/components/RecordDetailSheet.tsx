@@ -3,14 +3,14 @@ import { X, Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { cn } from '@/lib/utils';
-import type { Field, Row } from '../types';
+import type { CellValue, Field, Row } from '../types';
 import { FIELD_LABELS, formatCellValue } from '../utils';
 
 interface RecordDetailSheetProps {
   row: Row;
   fields: Field[];
   onClose: () => void;
-  onCellSave: (rowId: string, fieldSlug: string, value: any) => void;
+  onCellSave: (rowId: string, fieldSlug: string, value: CellValue) => void;
   onDelete: (rowId: string) => void;
   rowIndex: number;
 }

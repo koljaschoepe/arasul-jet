@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE } from '../../config/api';
+import { getCsrfToken } from '../../utils/csrf';
 import { useApi } from '../../hooks/useApi';
 import {
   Package,
@@ -14,7 +15,6 @@ import {
 import { formatDate } from '../../utils/formatting';
 import EmptyState from '../../components/ui/EmptyState';
 import { Button } from '@/components/ui/shadcn/button';
-import { Badge } from '@/components/ui/shadcn/badge';
 import { cn } from '@/lib/utils';
 
 interface ValidationResult {
@@ -63,7 +63,6 @@ type UploadStatus =
 
 const UpdatePage = () => {
   const api = useApi();
-  // RC-003: AbortController for polling cleanup
   const pollingAbortRef = useRef<AbortController | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
@@ -75,16 +74,21 @@ const UpdatePage = () => {
   const [updateHistory, setUpdateHistory] = useState<HistoryEntry[]>([]);
   const [usbDevices, setUsbDevices] = useState<UsbDevice[]>([]);
   const [usbScanning, setUsbScanning] = useState(false);
+  const [systemInfo, setSystemInfo] = useState<{
+    version?: string;
+    build_hash?: string;
+    jetpack_version?: string;
+    uptime?: number;
+  } | null>(null);
 
-  // Fetch update history on mount
   useEffect(() => {
     const controller = new AbortController();
     fetchUpdateHistory(controller.signal);
+    fetchSystemInfo(controller.signal);
     scanUsbDevices();
     return () => controller.abort();
   }, []);
 
-  // Poll update status when applying (RC-003: AbortController prevents post-unmount updates)
   useEffect(() => {
     if (uploadStatus !== 'applying') return;
 
@@ -102,12 +106,21 @@ const UpdatePage = () => {
     };
   }, [uploadStatus]);
 
+  const fetchSystemInfo = async (signal?: AbortSignal) => {
+    try {
+      const data = await api.get('/system/info', { signal, showError: false });
+      setSystemInfo(data);
+    } catch {
+      // ignore
+    }
+  };
+
   const fetchUpdateHistory = async (signal?: AbortSignal) => {
     try {
       const data = await api.get('/update/history', { signal, showError: false });
       setUpdateHistory(data.updates || []);
-    } catch (error: any) {
-      if (error.name === 'AbortError') return;
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Failed to fetch update history:', error);
     }
   };
@@ -124,8 +137,8 @@ const UpdatePage = () => {
         setUploadStatus('error');
         setErrorMessage(data.error || 'Update fehlgeschlagen');
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError') return;
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Failed to fetch update status:', error);
     }
   };
@@ -217,11 +230,15 @@ const UpdatePage = () => {
         xhr.addEventListener('error', () => reject(new Error('Netzwerkfehler beim Upload')));
         xhr.open('POST', `${API_BASE}/update/upload`);
         if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        const csrfToken = getCsrfToken();
+        if (csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken);
         xhr.send(formData);
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       setUploadStatus('error');
-      setErrorMessage(error.message || 'Upload fehlgeschlagen. Bitte erneut versuchen.');
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Upload fehlgeschlagen. Bitte erneut versuchen.'
+      );
       setUploadProgress(0);
     }
   };
@@ -244,10 +261,11 @@ const UpdatePage = () => {
       if (data.status === 'started') {
         fetchUpdateStatus();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setUploadStatus('error');
+      const err = error as { data?: { error?: string }; message?: string };
       setErrorMessage(
-        error.data?.error || error.message || 'Update-Prozess konnte nicht gestartet werden'
+        err.data?.error || err.message || 'Update-Prozess konnte nicht gestartet werden'
       );
     }
   };
@@ -266,11 +284,10 @@ const UpdatePage = () => {
       setUploadStatus('validated');
       setValidationResult(data);
       setUploadProgress(100);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setUploadStatus('error');
-      setErrorMessage(
-        error.data?.error || error.message || 'USB-Update konnte nicht geladen werden'
-      );
+      const err = error as { data?: { error?: string }; message?: string };
+      setErrorMessage(err.data?.error || err.message || 'USB-Update konnte nicht geladen werden');
       setUploadProgress(0);
     }
   };
@@ -285,63 +302,20 @@ const UpdatePage = () => {
     setErrorMessage('');
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<
-      string,
-      {
-        variant: 'default' | 'secondary' | 'destructive' | 'outline';
-        label: string;
-        className?: string;
-      }
-    > = {
-      completed: {
-        variant: 'secondary',
-        label: 'Abgeschlossen',
-        className: 'bg-primary/15 text-primary border-primary/20',
-      },
-      failed: { variant: 'destructive', label: 'Fehlgeschlagen' },
-      in_progress: {
-        variant: 'secondary',
-        label: 'In Bearbeitung',
-        className: 'bg-muted-foreground/15 text-muted-foreground border-muted-foreground/20',
-      },
-      validated: {
-        variant: 'secondary',
-        label: 'Validiert',
-        className: 'bg-primary/15 text-primary border-primary/20',
-      },
-      rolled_back: {
-        variant: 'secondary',
-        label: 'Zurückgesetzt',
-        className: 'bg-muted-foreground/15 text-muted-foreground border-muted-foreground/20',
-      },
-      signature_verified: {
-        variant: 'secondary',
-        label: 'Signatur OK',
-        className: 'bg-primary/15 text-primary border-primary/20',
-      },
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, { text: string; className: string }> = {
+      completed: { text: 'Abgeschlossen', className: 'text-primary' },
+      failed: { text: 'Fehlgeschlagen', className: 'text-foreground' },
+      in_progress: { text: 'In Bearbeitung', className: 'text-muted-foreground' },
+      validated: { text: 'Validiert', className: 'text-primary' },
+      rolled_back: { text: 'Zurückgesetzt', className: 'text-muted-foreground' },
+      signature_verified: { text: 'Signatur OK', className: 'text-primary' },
     };
-
-    const config = statusConfig[status];
-
-    if (!config) {
-      return (
-        <Badge variant="outline" className="badge badge-neutral">
-          {status}
-        </Badge>
-      );
-    }
-
-    return (
-      <Badge
-        variant={config.variant}
-        className={cn(
-          `badge badge-${status === 'completed' ? 'success' : status === 'failed' ? 'error' : status === 'in_progress' || status === 'rolled_back' ? 'warning' : 'info'}`,
-          config.className
-        )}
-      >
-        {config.label}
-      </Badge>
+    const config = labels[status];
+    return config ? (
+      <span className={cn('text-xs font-medium', config.className)}>{config.text}</span>
+    ) : (
+      <span className="text-xs text-muted-foreground">{status}</span>
     );
   };
 
@@ -349,12 +323,11 @@ const UpdatePage = () => {
     const steps: Record<string, string> = {
       backup: 'Backup wird erstellt...',
       loading_images: 'Docker-Images werden geladen...',
-      migrations: 'Datenbank-Migrationen werden ausgefuehrt...',
+      migrations: 'Datenbank-Migrationen werden ausgeführt...',
       updating_services: 'Services werden aktualisiert...',
-      healthchecks: 'Gesundheitspruefungen laufen...',
+      healthchecks: 'Gesundheitsprüfungen laufen...',
       done: 'Update abgeschlossen!',
     };
-
     return steps[step] || `Verarbeitung: ${step}`;
   };
 
@@ -365,45 +338,47 @@ const UpdatePage = () => {
   };
 
   return (
-    <div className="update-page animate-[fadeIn_0.3s_ease]">
-      <div className="update-header mb-8 pb-6 border-b border-border/50">
-        <h2 className="text-3xl font-bold text-foreground mb-2">System-Updates</h2>
+    <div className="animate-in fade-in">
+      {/* Header */}
+      <div className="mb-8 pb-6 border-b border-border">
+        <h1 className="text-2xl font-bold text-foreground mb-2">System-Updates</h1>
         <p className="text-sm text-muted-foreground">Updates sicher hochladen und installieren</p>
       </div>
 
       {/* USB Device Detection */}
       {uploadStatus === 'idle' && (
-        <div className="update-section bg-card/80 backdrop-blur-sm border border-border rounded-xl p-8 mb-6 shadow-md transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5">
-          <div className="section-header-row flex items-center justify-between mb-5">
-            <h3 className="!m-0 text-foreground text-lg font-semibold">
-              <HardDrive className="inline-block mr-2 align-middle" size={18} />
+        <div className="pb-6 border-b border-border mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <HardDrive className="size-4 text-muted-foreground" />
               USB-Update erkennen
             </h3>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={scanUsbDevices}
               disabled={usbScanning}
-              className="btn-icon bg-primary/10 border border-primary/20 rounded-md p-2 cursor-pointer text-muted-foreground transition-all flex items-center justify-center hover:bg-primary/20 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Erneut scannen"
+              className="h-7 w-7 p-0"
             >
-              <RefreshCw className={cn('size-4', usbScanning && 'animate-spin')} />
-            </button>
+              <RefreshCw className={cn('size-3.5', usbScanning && 'animate-spin')} />
+            </Button>
           </div>
 
           {usbDevices.length > 0 ? (
-            <div className="flex flex-col gap-3">
+            <div className="border border-border/50 rounded-lg divide-y divide-border/50">
               {usbDevices.map((device, idx) => (
-                <div
-                  key={idx}
-                  className="usb-device-card flex items-center justify-between p-4 px-5 bg-primary/5 border border-primary/15 rounded-md transition-all hover:bg-primary/10 hover:border-primary/30"
-                >
-                  <div className="flex flex-col gap-1">
-                    <span className="text-foreground font-semibold text-sm">{device.name}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {device.device} &middot; {formatFileSize(device.size)}
-                    </span>
+                <div key={idx} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-foreground">{device.name}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {device.device} · {formatFileSize(device.size)}
+                    </p>
                   </div>
-                  <Button type="button" onClick={() => handleUsbInstall(device)} size="sm">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => handleUsbInstall(device)}
+                  >
                     Installieren
                   </Button>
                 </div>
@@ -422,57 +397,59 @@ const UpdatePage = () => {
       )}
 
       {/* Upload Section */}
-      <div className="update-section bg-card/80 backdrop-blur-sm border border-border rounded-xl p-8 mb-6 shadow-md transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5">
-        <h3 className="mb-6 text-foreground text-lg font-semibold">Update-Paket hochladen</h3>
+      <div className="pb-6 border-b border-border mb-6">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Package className="size-4 text-muted-foreground" />
+          Update-Paket hochladen
+        </h3>
 
         {uploadStatus === 'idle' && (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col">
-              <label
-                htmlFor="update-file"
-                className="file-label flex items-center gap-4 p-5 px-6 bg-primary/5 border-2 border-dashed border-primary/20 rounded-xl cursor-pointer transition-all relative overflow-hidden hover:bg-primary/[0.12] hover:border-primary/40 hover:-translate-y-1 hover:shadow-lg"
-              >
-                <Package className="text-primary" size={24} />
-                <span className="flex-1 text-muted-foreground font-medium text-sm">
-                  {selectedFile ? selectedFile.name : '.araupdate Datei auswählen'}
-                </span>
-              </label>
-              <input
-                id="update-file"
-                type="file"
-                accept=".araupdate"
-                onChange={handleFileSelect}
-                className="file-input hidden"
-              />
-            </div>
+          <div className="flex flex-col gap-3">
+            <label
+              htmlFor="update-file"
+              className="flex items-center gap-3 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer transition-colors hover:bg-muted/30"
+            >
+              <Package className="size-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                {selectedFile ? selectedFile.name : '.araupdate Datei auswählen'}
+              </span>
+            </label>
+            <input
+              id="update-file"
+              type="file"
+              accept=".araupdate"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
 
-            <div className="flex flex-col">
-              <label
-                htmlFor="signature-file"
-                className="file-label secondary flex items-center gap-4 p-5 px-6 bg-muted/50 border-2 border-dashed border-primary/20 rounded-xl cursor-pointer transition-all relative overflow-hidden hover:bg-muted hover:border-primary/40 hover:-translate-y-1 hover:shadow-lg"
-              >
-                <Lock className="text-primary" size={24} />
-                <span className="flex-1 text-muted-foreground font-medium text-sm">
-                  {signatureFile
-                    ? signatureFile.name
-                    : '.sig Signaturdatei auswählen (erforderlich)'}
-                </span>
-              </label>
-              <input
-                id="signature-file"
-                type="file"
-                accept=".sig"
-                onChange={handleSignatureSelect}
-                className="file-input hidden"
-              />
-            </div>
+            <label
+              htmlFor="signature-file"
+              className="flex items-center gap-3 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer transition-colors hover:bg-muted/30"
+            >
+              <Lock className="size-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                {signatureFile ? signatureFile.name : '.sig Signaturdatei auswählen (erforderlich)'}
+              </span>
+            </label>
+            <input
+              id="signature-file"
+              type="file"
+              accept=".sig"
+              onChange={handleSignatureSelect}
+              className="hidden"
+            />
+
+            {errorMessage && (
+              <p className="text-sm text-foreground flex items-center gap-2">
+                <AlertCircle className="size-4 shrink-0" />
+                {errorMessage}
+              </p>
+            )}
 
             <Button
-              type="button"
               onClick={handleUpload}
               disabled={!selectedFile || !signatureFile}
-              className="w-full py-4 text-sm font-semibold shadow-md"
-              size="lg"
+              className="w-full"
             >
               Hochladen & Validieren
             </Button>
@@ -480,74 +457,68 @@ const UpdatePage = () => {
         )}
 
         {uploadStatus === 'uploading' && (
-          <div className="text-center py-8 px-6">
-            <p className="mb-5 text-muted-foreground font-medium text-sm">
-              Update-Paket wird hochgeladen...
-            </p>
-            <div className="progress-bar h-2 bg-primary/10 rounded-sm overflow-hidden relative my-5">
+          <div className="py-6">
+            <p className="text-sm text-muted-foreground mb-3">Upload läuft...</p>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="progress-fill h-full bg-gradient-to-r from-primary to-primary/80 rounded-sm transition-[width] duration-300 relative overflow-hidden"
+                className="h-full bg-primary rounded-full transition-[width] duration-300"
                 style={{ width: `${uploadProgress}%` }}
-              ></div>
+              />
             </div>
-            <p className="mt-3 text-base font-semibold text-primary">{uploadProgress}%</p>
+            <p className="text-sm font-medium text-foreground mt-2">{uploadProgress}%</p>
           </div>
         )}
 
         {uploadStatus === 'validated' && validationResult && (
-          <div className="validation-result p-6 bg-primary/5 border border-primary/20 rounded-md">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="result-icon success size-10 flex items-center justify-center rounded-full bg-muted text-primary shrink-0">
-                <CheckCircle size={20} />
-              </div>
-              <h4 className="text-foreground text-lg font-semibold">Update-Paket validiert</h4>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="size-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">Update-Paket validiert</span>
             </div>
 
-            <div className="flex flex-col gap-3 mb-6">
-              <div className="flex justify-between p-3.5 px-4 bg-primary/5 border border-primary/10 rounded-md transition-all hover:bg-primary/[0.08] hover:border-primary/25 hover:translate-x-1">
-                <span className="font-semibold text-muted-foreground text-sm">Version:</span>
-                <span className="text-foreground font-medium text-sm">
+            <div className="border border-border/50 rounded-lg divide-y divide-border/50">
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">Version</span>
+                <span className="text-sm font-medium text-foreground">
                   {validationResult.version}
                 </span>
               </div>
               {validationResult.size && (
-                <div className="flex justify-between p-3.5 px-4 bg-primary/5 border border-primary/10 rounded-md transition-all hover:bg-primary/[0.08] hover:border-primary/25 hover:translate-x-1">
-                  <span className="font-semibold text-muted-foreground text-sm">Größe:</span>
-                  <span className="text-foreground font-medium text-sm">
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-xs text-muted-foreground">Größe</span>
+                  <span className="text-sm text-foreground">
                     {formatFileSize(validationResult.size)}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between p-3.5 px-4 bg-primary/5 border border-primary/10 rounded-md transition-all hover:bg-primary/[0.08] hover:border-primary/25 hover:translate-x-1">
-                <span className="font-semibold text-muted-foreground text-sm">Komponenten:</span>
-                <span className="text-foreground font-medium text-sm">
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">Komponenten</span>
+                <span className="text-sm text-foreground">
                   {validationResult.components?.length || 0}
                 </span>
               </div>
-              <div className="flex justify-between p-3.5 px-4 bg-primary/5 border border-primary/10 rounded-md transition-all hover:bg-primary/[0.08] hover:border-primary/25 hover:translate-x-1">
-                <span className="font-semibold text-muted-foreground text-sm">
-                  Neustart erforderlich:
-                </span>
-                <span className="text-foreground font-medium text-sm">
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">Neustart erforderlich</span>
+                <span className="text-sm text-foreground">
                   {validationResult.requires_reboot ? 'Ja' : 'Nein'}
                 </span>
               </div>
               {validationResult.source === 'usb' && (
-                <div className="flex justify-between p-3.5 px-4 bg-primary/5 border border-primary/10 rounded-md transition-all hover:bg-primary/[0.08] hover:border-primary/25 hover:translate-x-1">
-                  <span className="font-semibold text-muted-foreground text-sm">Quelle:</span>
-                  <span className="text-foreground font-medium text-sm">USB-Gerät</span>
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-xs text-muted-foreground">Quelle</span>
+                  <span className="text-sm text-foreground">USB-Gerät</span>
                 </div>
               )}
             </div>
 
             {validationResult.components && validationResult.components.length > 0 && (
-              <div className="my-5 p-5 bg-primary/5 border border-primary/10 rounded-md">
-                <h5 className="mb-4 text-foreground text-sm font-semibold">
+              <div className="border-l-2 border-primary/30 pl-4">
+                <p className="text-xs font-medium text-foreground mb-2">
                   Aktualisierte Komponenten:
-                </h5>
-                <ul className="m-0 pl-6">
-                  {validationResult.components.map((comp: any, idx: number) => (
-                    <li key={idx} className="my-2 text-muted-foreground text-sm">
+                </p>
+                <ul className="space-y-1">
+                  {validationResult.components.map((comp, idx) => (
+                    <li key={idx} className="text-xs text-muted-foreground">
                       {typeof comp === 'string' ? comp : comp.name || String(comp)}{' '}
                       {typeof comp !== 'string' && comp.version_to && `(v${comp.version_to})`}
                     </li>
@@ -556,22 +527,11 @@ const UpdatePage = () => {
               </div>
             )}
 
-            <div className="flex gap-4 mt-6 max-md:flex-col">
-              <Button
-                type="button"
-                onClick={handleApplyUpdate}
-                className="flex-1 py-4 font-semibold shadow-md"
-                size="lg"
-              >
+            <div className="flex gap-3">
+              <Button onClick={handleApplyUpdate} className="flex-1">
                 Update installieren
               </Button>
-              <Button
-                type="button"
-                onClick={handleReset}
-                variant="outline"
-                className="flex-1 py-4 font-semibold"
-                size="lg"
-              >
+              <Button variant="outline" onClick={handleReset} className="flex-1">
                 Abbrechen
               </Button>
             </div>
@@ -579,28 +539,30 @@ const UpdatePage = () => {
         )}
 
         {uploadStatus === 'applying' && updateStatus && (
-          <div className="text-center py-8 px-6">
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <Settings className="text-primary animate-spin" size={28} />
-              <h4 className="text-foreground text-lg font-semibold">Update wird installiert...</h4>
+          <div className="py-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Settings className="size-4 text-primary animate-spin" />
+              <span className="text-sm font-medium text-foreground">
+                Update wird installiert...
+              </span>
             </div>
 
-            <div className="my-5 py-4 px-5 bg-primary/[0.08] border-l-[3px] border-l-primary rounded-sm">
-              <p className="!m-0 text-primary font-medium text-sm">
+            <div className="border-l-2 border-primary/30 pl-4">
+              <p className="text-sm text-primary">
                 {getCurrentStepDescription(updateStatus.currentStep || '')}
               </p>
             </div>
 
-            <div className="progress-bar animated h-2 bg-primary/10 rounded-sm overflow-hidden relative my-5">
-              <div className="progress-fill h-full bg-gradient-to-r from-primary to-primary/80 rounded-sm w-full animate-[progressSlide_2s_ease-in-out_infinite]"></div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full w-full animate-pulse" />
             </div>
 
-            <p className="mt-6 text-muted-foreground font-medium text-sm">
+            <p className="text-xs text-muted-foreground">
               Bitte diese Seite nicht schließen und das Gerät nicht ausschalten.
             </p>
 
             {updateStatus.startTime && (
-              <p className="mt-3 text-muted-foreground text-sm">
+              <p className="text-xs text-muted-foreground">
                 Gestartet: {formatDate(updateStatus.startTime)}
               </p>
             )}
@@ -608,48 +570,34 @@ const UpdatePage = () => {
         )}
 
         {uploadStatus === 'success' && (
-          <div className="update-result success text-center p-10 px-6 rounded-md bg-muted border border-border">
-            <div className="result-icon w-[60px] h-[60px] flex items-center justify-center rounded-full bg-muted text-primary mx-auto mb-4">
-              <CheckCircle size={32} />
-            </div>
-            <h4 className="text-foreground text-xl font-semibold mb-3">
+          <div className="py-6 text-center space-y-3">
+            <CheckCircle className="size-8 text-primary mx-auto" />
+            <h4 className="text-sm font-semibold text-foreground">
               Update erfolgreich installiert!
             </h4>
-            <p className="text-muted-foreground text-sm my-3">
+            <p className="text-sm text-muted-foreground">
               Das System wurde auf Version {validationResult?.version} aktualisiert.
             </p>
             {validationResult?.requires_reboot && (
-              <p className="mt-6 py-4 px-5 bg-muted-foreground/10 border-2 border-muted-foreground/30 rounded-md text-muted-foreground font-medium text-sm">
-                <AlertCircle className="inline mr-2" size={16} />
-                Systemneustart erforderlich. Bitte starten Sie das System neu.
-              </p>
+              <div className="border-l-2 border-primary/30 pl-4 text-left">
+                <p className="text-xs text-muted-foreground">
+                  <AlertCircle className="size-3.5 inline mr-1" />
+                  Systemneustart erforderlich. Bitte starten Sie das System neu.
+                </p>
+              </div>
             )}
-            <Button
-              type="button"
-              onClick={handleReset}
-              className="mt-6 px-8 py-4 font-semibold shadow-md"
-              size="lg"
-            >
+            <Button variant="outline" size="sm" onClick={handleReset}>
               Weiteres Update hochladen
             </Button>
           </div>
         )}
 
         {uploadStatus === 'error' && errorMessage && (
-          <div className="update-result error text-center p-10 px-6 rounded-md bg-destructive/[0.08] border border-destructive/20">
-            <div className="result-icon w-[60px] h-[60px] flex items-center justify-center rounded-full bg-destructive/15 text-destructive mx-auto mb-4">
-              <XCircle size={32} />
-            </div>
-            <h4 className="text-foreground text-xl font-semibold mb-3">Update fehlgeschlagen</h4>
-            <p className="error-message font-medium text-base text-destructive my-3">
-              {errorMessage}
-            </p>
-            <Button
-              type="button"
-              onClick={handleReset}
-              className="mt-6 px-8 py-4 font-semibold shadow-md"
-              size="lg"
-            >
+          <div className="py-6 text-center space-y-3">
+            <XCircle className="size-8 text-foreground mx-auto" />
+            <h4 className="text-sm font-semibold text-foreground">Update fehlgeschlagen</h4>
+            <p className="text-sm text-muted-foreground">{errorMessage}</p>
+            <Button variant="outline" size="sm" onClick={handleReset}>
               Erneut versuchen
             </Button>
           </div>
@@ -657,85 +605,67 @@ const UpdatePage = () => {
       </div>
 
       {/* Update History */}
-      <div className="update-section bg-card/80 backdrop-blur-sm border border-border rounded-xl p-8 mb-6 shadow-md transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5">
-        <h3 className="mb-6 text-foreground text-lg font-semibold">Update-Verlauf</h3>
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <RefreshCw className="size-4 text-muted-foreground" />
+          Update-Verlauf
+        </h3>
 
         {updateHistory.length === 0 ? (
-          <EmptyState icon={<Package />} title="Kein Update-Verlauf vorhanden" />
+          <div className="border border-border/50 rounded-lg">
+            <div className="px-4 py-3 border-b border-border/50">
+              <span className="text-xs font-medium text-muted-foreground">Aktueller Stand</span>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-border/50">
+              <div className="bg-background px-4 py-3">
+                <span className="text-xs text-muted-foreground block">Version</span>
+                <span className="text-sm font-medium text-foreground">
+                  {systemInfo?.version || '1.0.0'}
+                </span>
+              </div>
+              <div className="bg-background px-4 py-3">
+                <span className="text-xs text-muted-foreground block">Build</span>
+                <span className="text-sm font-mono text-foreground">
+                  {systemInfo?.build_hash ? systemInfo.build_hash.substring(0, 7) : '—'}
+                </span>
+              </div>
+              <div className="bg-background px-4 py-3">
+                <span className="text-xs text-muted-foreground block">JetPack</span>
+                <span className="text-sm font-medium text-foreground">
+                  {systemInfo?.jetpack_version || '—'}
+                </span>
+              </div>
+              <div className="bg-background px-4 py-3">
+                <span className="text-xs text-muted-foreground block">Letztes Update</span>
+                <span className="text-sm text-muted-foreground">Noch kein Update durchgeführt</span>
+              </div>
+            </div>
+          </div>
         ) : (
-          <div className="history-table overflow-x-auto mt-2">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
-                    Datum
-                  </th>
-                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
-                    Von Version
-                  </th>
-                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
-                    Auf Version
-                  </th>
-                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
-                    Quelle
-                  </th>
-                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
-                    Status
-                  </th>
-                  <th className="p-4 text-left bg-muted text-foreground/60 font-semibold uppercase tracking-wide text-xs">
-                    Dauer
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {updateHistory.map(update => (
-                  <tr key={update.id} className="hover:bg-primary/[0.03]">
-                    <td
-                      data-label="Datum"
-                      className="p-4 text-left border-b border-border/50 text-sm text-muted-foreground"
-                    >
-                      {formatDate(update.started_at || update.timestamp || '')}
-                    </td>
-                    <td
-                      data-label="Von"
-                      className="p-4 text-left border-b border-border/50 text-sm text-muted-foreground"
-                    >
-                      {update.version_from}
-                    </td>
-                    <td
-                      data-label="Auf"
-                      className="p-4 text-left border-b border-border/50 text-sm text-muted-foreground"
-                    >
-                      {update.version_to}
-                    </td>
-                    <td
-                      data-label="Quelle"
-                      className="p-4 text-left border-b border-border/50 text-sm text-muted-foreground"
-                    >
-                      {update.source === 'usb'
-                        ? 'USB'
-                        : update.source === 'dashboard'
-                          ? 'Dashboard'
-                          : update.source}
-                    </td>
-                    <td
-                      data-label="Status"
-                      className="p-4 text-left border-b border-border/50 text-sm text-muted-foreground"
-                    >
-                      {getStatusBadge(update.status)}
-                    </td>
-                    <td
-                      data-label="Dauer"
-                      className="p-4 text-left border-b border-border/50 text-sm text-muted-foreground"
-                    >
-                      {update.duration_seconds
-                        ? `${Math.round(update.duration_seconds / 60)}m`
-                        : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="border border-border/50 rounded-lg divide-y divide-border/50">
+            {updateHistory.map(update => (
+              <div key={update.id} className="px-4 py-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-foreground">
+                    {update.version_from} → {update.version_to}
+                  </span>
+                  {getStatusLabel(update.status)}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>{formatDate(update.started_at || update.timestamp || '')}</span>
+                  <span>
+                    {update.source === 'usb'
+                      ? 'USB'
+                      : update.source === 'dashboard'
+                        ? 'Dashboard'
+                        : update.source}
+                  </span>
+                  {update.duration_seconds && (
+                    <span>{Math.round(update.duration_seconds / 60)}m</span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

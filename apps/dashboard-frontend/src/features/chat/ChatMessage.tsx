@@ -1,18 +1,67 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChevronDown, ChevronUp, Cpu, BookOpen, Folder } from 'lucide-react';
 import MermaidDiagram from '../../components/editor/MermaidDiagram';
 import { cn } from '@/lib/utils';
+import type { ChatMessage as ChatMessageType } from '../../contexts/ChatContext';
+import type { MatchedSpace, DocumentSource } from '../../types';
 import './chat.css';
 
+// PERF: Stable reference - avoid recreating on every render
+const remarkPlugins = [remarkGfm];
+
+interface CodeProps {
+  node?: unknown;
+  inline?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+  [key: string]: unknown;
+}
+
+// ReactMarkdown component overrides - typed as Record to satisfy the `components` prop
+const markdownComponents: Record<string, React.ComponentType<CodeProps>> = {
+  code({ node, inline, className, children, ...props }: CodeProps) {
+    const match = /language-(\w+)/.exec(className || '');
+    const language = match ? match[1] : '';
+
+    if (!inline && language === 'mermaid') {
+      return <MermaidDiagram content={String(children).replace(/\n$/, '')} />;
+    }
+
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  },
+};
+
 interface ChatMessageProps {
-  message: any;
+  message: ChatMessageType;
   index: number;
   chatId: number | string;
   isLoading: boolean;
   onToggleThinking: (index: number) => void;
   onToggleSources: (index: number) => void;
+}
+
+// PERF: Custom comparison - only re-render when message content actually changes
+function arePropsEqual(prev: ChatMessageProps, next: ChatMessageProps) {
+  if (prev.isLoading !== next.isLoading) return false;
+  if (prev.index !== next.index) return false;
+  const pm = prev.message;
+  const nm = next.message;
+  return (
+    pm.content === nm.content &&
+    pm.thinking === nm.thinking &&
+    pm.hasThinking === nm.hasThinking &&
+    pm.thinkingCollapsed === nm.thinkingCollapsed &&
+    pm.sourcesCollapsed === nm.sourcesCollapsed &&
+    pm.role === nm.role &&
+    pm.sources === nm.sources &&
+    pm.matchedSpaces === nm.matchedSpaces
+  );
 }
 
 const ChatMessage = memo(function ChatMessage({
@@ -40,11 +89,11 @@ const ChatMessage = memo(function ChatMessage({
         </span>
         <span>
           Kontext zusammengefasst
-          {message.tokensBefore > 0 && (
+          {(message.tokensBefore ?? 0) > 0 && (
             <>
               {' '}
-              &mdash; {message.tokensBefore.toLocaleString('de-DE')} &rarr;{' '}
-              {message.tokensAfter.toLocaleString('de-DE')} Tokens ({saved}% Einsparung)
+              &mdash; {message.tokensBefore!.toLocaleString('de-DE')} &rarr;{' '}
+              {message.tokensAfter!.toLocaleString('de-DE')} Tokens ({saved}% Einsparung)
             </>
           )}
         </span>
@@ -56,7 +105,7 @@ const ChatMessage = memo(function ChatMessage({
     <article
       key={message.id || message.jobId || `${chatId}-msg-${index}`}
       className={cn(
-        'message flex flex-col gap-2 py-5 border-b border-border last:border-b-0',
+        'message flex flex-col gap-1.5 py-4 border-b border-border last:border-b-0',
         message.role === 'user' ? 'user' : 'assistant'
       )}
       aria-label={message.role === 'user' ? 'Deine Nachricht' : 'AI Antwort'}
@@ -94,8 +143,10 @@ const ChatMessage = memo(function ChatMessage({
               <ChevronUp aria-hidden="true" />
             )}
           </button>
-          <div className="thinking-content py-4 px-[18px] text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap border-t border-border bg-background max-h-[350px] overflow-y-auto">
-            {message.thinking}
+          <div className="thinking-content py-4 px-[18px] text-sm leading-relaxed text-muted-foreground border-t border-border bg-background max-h-[350px] overflow-y-auto">
+            <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>
+              {message.thinking}
+            </ReactMarkdown>
           </div>
         </div>
       )}
@@ -104,29 +155,11 @@ const ChatMessage = memo(function ChatMessage({
       {message.content && (
         <div
           className={cn(
-            'message-body text-muted-foreground text-[1.05rem] leading-[1.8] py-5 px-6 bg-card rounded-xl',
+            'message-body text-foreground text-base leading-[1.7] py-4 px-5 bg-card rounded-xl',
             message.role === 'user' && 'bg-primary/[0.08] border-l-[3px] border-l-primary'
           )}
         >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code({ node, inline, className, children, ...props }: any) {
-                const match = /language-(\w+)/.exec(className || '');
-                const language = match ? match[1] : '';
-
-                if (!inline && language === 'mermaid') {
-                  return <MermaidDiagram content={String(children).replace(/\n$/, '')} />;
-                }
-
-                return (
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                );
-              },
-            }}
-          >
+          <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>
             {message.content}
           </ReactMarkdown>
         </div>
@@ -135,7 +168,7 @@ const ChatMessage = memo(function ChatMessage({
       {/* Loading indicator */}
       {message.role === 'assistant' && !message.content && !message.thinking && isLoading && (
         <div
-          className="message-loading flex gap-1.5 py-5 px-6"
+          className="message-loading flex gap-1.5 py-4 px-5"
           role="status"
           aria-label="AI antwortet..."
         >
@@ -162,7 +195,7 @@ const ChatMessage = memo(function ChatMessage({
             Durchsuchte Bereiche:
           </span>
           <div className="matched-spaces-chips flex flex-wrap gap-1.5">
-            {message.matchedSpaces.map((space: any, i: number) => (
+            {message.matchedSpaces.map((space: MatchedSpace, i: number) => (
               <span
                 key={space.id || i}
                 className="matched-space-chip inline-flex items-center py-1 px-2.5 bg-card border border-border border-l-[3px] rounded-md text-xs text-muted-foreground transition-all duration-200 hover:bg-[var(--bg-hover)] hover:border-primary"
@@ -207,7 +240,7 @@ const ChatMessage = memo(function ChatMessage({
           </button>
           {!message.sourcesCollapsed && (
             <div className="sources-content py-4 px-[18px] text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap border-t border-border bg-background max-h-[350px] overflow-y-auto">
-              {message.sources.map((source: any, sourceIndex: number) => (
+              {message.sources.map((source: DocumentSource, sourceIndex: number) => (
                 <div
                   key={sourceIndex}
                   className="source-item py-3.5 px-4 bg-card rounded-lg mb-2.5 border-l-[3px] border-l-primary last:mb-0"
@@ -233,12 +266,12 @@ const ChatMessage = memo(function ChatMessage({
                           Rerank: {(source.rerank_score * 100).toFixed(0)}%
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          Vektor: {(source.score * 100).toFixed(0)}%
+                          Vektor: {((source.score ?? 0) * 100).toFixed(0)}%
                         </span>
                       </>
                     ) : (
                       <span className="text-xs text-primary font-medium">
-                        Relevanz: {(source.score * 100).toFixed(0)}%
+                        Relevanz: {((source.score ?? 0) * 100).toFixed(0)}%
                       </span>
                     )}
                   </div>
@@ -250,6 +283,6 @@ const ChatMessage = memo(function ChatMessage({
       )}
     </article>
   );
-});
+}, arePropsEqual);
 
 export default ChatMessage;

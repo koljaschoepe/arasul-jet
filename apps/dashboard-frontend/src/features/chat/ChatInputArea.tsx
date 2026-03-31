@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { Search, Cpu, Box, Check, AlertCircle, ArrowUp, X, ChevronUp } from 'lucide-react';
-import { useChatContext } from '../../contexts/ChatContext';
+import { useChatContext, type ChatMessage, type ChatSettings } from '../../contexts/ChatContext';
 import { useApi } from '../../hooks/useApi';
+import type { InstalledModel, DocumentSpace, QueueJob } from '../../types';
 import { cn } from '@/lib/utils';
 import './chat.css';
 
 interface ChatInputAreaProps {
   chatId: number;
-  chatSettings: any;
-  messagesRef: React.MutableRefObject<any[]>;
+  chatSettings: ChatSettings | null;
+  messagesRef: React.MutableRefObject<ChatMessage[]>;
   hasMessages: boolean;
   isLoading: boolean;
   error: string | null;
@@ -63,20 +64,26 @@ function ChatInputArea({
       setUseThinking(true);
       setSelectedSpaceId(null);
     }
-  }, [chatId, chatSettings]);
+  }, [chatId, chatSettings, setSelectedModel]);
 
+  // FH4: Only attach listener when a popup is open, ensuring proper cleanup on each toggle
   useEffect(() => {
+    if (!showModelPopup && !showRAGPopup) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (modelPopupRef.current && !modelPopupRef.current.contains(e.target as Node)) {
+      if (
+        showModelPopup &&
+        modelPopupRef.current &&
+        !modelPopupRef.current.contains(e.target as Node)
+      ) {
         setShowModelPopup(false);
       }
-      if (ragPopupRef.current && !ragPopupRef.current.contains(e.target as Node)) {
+      if (showRAGPopup && ragPopupRef.current && !ragPopupRef.current.contains(e.target as Node)) {
         setShowRAGPopup(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [showModelPopup, showRAGPopup]);
 
   useEffect(() => {
     if (!isLoading && !disabled && inputRef.current) {
@@ -85,7 +92,7 @@ function ChatInputArea({
   }, [isLoading, disabled, chatId]);
 
   const saveSettings = useCallback(
-    (updates: Record<string, any>) => {
+    (updates: Record<string, unknown>) => {
       if (!chatId) return;
       api.patch(`/chats/${chatId}/settings`, updates, { showError: false });
     },
@@ -95,7 +102,7 @@ function ChatInputArea({
   const queuePosition = (() => {
     if (!activeJobIds[chatId]) return 0;
     const jobId = activeJobIds[chatId];
-    const idx = globalQueue.queue?.findIndex((j: any) => j.id === jobId);
+    const idx = globalQueue.queue?.findIndex((j: QueueJob) => j.id === jobId);
     return idx >= 0 ? idx + 1 : 0;
   })();
 
@@ -186,32 +193,34 @@ function ChatInputArea({
   );
 
   const availableModels = installedModels.filter(
-    (m: any) => m.install_status === 'available' || m.status === 'available'
+    (m: InstalledModel) => m.install_status === 'available' || m.status === 'available'
   );
 
   const currentModel = selectedModel
-    ? installedModels.find((m: any) => m.id === selectedModel)
-    : installedModels.find((m: any) => m.id === defaultModel);
+    ? installedModels.find((m: InstalledModel) => m.id === selectedModel)
+    : installedModels.find((m: InstalledModel) => m.id === defaultModel);
   const showThinkWarning = useThinking && currentModel && currentModel.supports_thinking === false;
   const showRagWarning = useRAG && currentModel && currentModel.rag_optimized === false;
 
   const modelDisplayName = selectedModel
-    ? installedModels.find((m: any) => m.id === selectedModel)?.name?.split(' ')[0] ||
+    ? installedModels.find((m: InstalledModel) => m.id === selectedModel)?.name?.split(' ')[0] ||
       selectedModel.split(':')[0]
     : 'Standard';
 
-  const selectedSpace = selectedSpaceId ? spaces.find((s: any) => s.id === selectedSpaceId) : null;
+  const selectedSpace = selectedSpaceId
+    ? spaces.find((s: DocumentSpace) => s.id === selectedSpaceId)
+    : null;
 
   return (
     <div
       className={cn(
-        'chat-input-section flex flex-col items-center py-5 px-8 pb-7 w-full shrink-0',
+        'chat-input-section flex flex-col items-center py-3 px-5 pb-5 w-full shrink-0',
         !hasMessages && 'centered justify-center flex-1'
       )}
     >
       {error && (
         <div
-          className="error-banner flex items-center gap-3 w-full max-w-[800px] py-3 px-4 bg-destructive/10 border border-destructive/25 rounded-lg text-muted-foreground text-sm mb-4"
+          className="error-banner flex items-center gap-3 w-full max-w-[960px] py-3 px-4 bg-destructive/10 border border-destructive/25 rounded-lg text-muted-foreground text-sm mb-4"
           role="alert"
         >
           <AlertCircle className="shrink-0 size-[18px] text-destructive" aria-hidden="true" />
@@ -229,7 +238,7 @@ function ChatInputArea({
 
       {(showThinkWarning || showRagWarning) && (
         <div
-          className="capability-warning flex items-center gap-2.5 w-full max-w-[800px] py-2.5 px-3.5 bg-muted/50 border border-border rounded-lg text-muted-foreground text-xs mb-3"
+          className="capability-warning flex items-center gap-2.5 w-full max-w-[960px] py-2.5 px-3.5 bg-muted/50 border border-border rounded-lg text-muted-foreground text-xs mb-3"
           role="status"
         >
           <AlertCircle className="size-4 text-muted-foreground shrink-0" />
@@ -243,9 +252,9 @@ function ChatInputArea({
         </div>
       )}
 
-      <div className="chat-input-card w-full max-w-[800px] bg-card border border-border rounded-xl overflow-visible transition-all duration-200 relative focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
+      <div className="chat-input-card w-full max-w-[960px] bg-card border border-border rounded-xl overflow-visible transition-all duration-200 relative focus-within:border-foreground/25">
         <div
-          className="chat-toolbar flex items-center gap-2 py-2 px-4 border-b border-border bg-background rounded-t-[var(--radius-lg)]"
+          className="chat-toolbar flex items-center gap-2 py-2 px-4 border-b border-border bg-background rounded-t-xl"
           role="toolbar"
           aria-label="Chat-Einstellungen"
         >
@@ -325,7 +334,7 @@ function ChatInputArea({
                     Auto-Routing
                   </span>
                 </div>
-                {spaces.map((space: any) => (
+                {spaces.map(space => (
                   <div
                     key={space.id}
                     className={cn(
@@ -393,7 +402,7 @@ function ChatInputArea({
                     role="listbox"
                     aria-label="Modell auswählen"
                   >
-                    {availableModels.map((model: any) => {
+                    {availableModels.map(model => {
                       const isSelected = selectedModel === model.id;
                       const isDefault = model.id === defaultModel;
                       return (

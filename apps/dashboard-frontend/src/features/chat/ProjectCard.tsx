@@ -17,13 +17,31 @@ import { Button } from '@/components/ui/shadcn/button';
 import { formatRelativeTime } from './utils';
 import { cn } from '@/lib/utils';
 
+interface ProjectConversation {
+  id: number;
+  title?: string;
+  updated_at?: string;
+}
+
+interface ProjectData {
+  id: number;
+  name: string;
+  color?: string;
+  description?: string;
+  system_prompt?: string;
+  space_name?: string;
+  is_default?: boolean;
+  conversation_count?: number;
+  conversations?: ProjectConversation[];
+}
+
 interface ProjectCardProps {
-  project: any;
-  activeJobIds: Record<string, any>;
+  project: ProjectData;
+  activeJobIds: Record<string, string | undefined>;
   expanded: boolean;
   onToggle: (projectId: number) => void;
-  onEdit: (project: any) => void;
-  onDelete: (project: any) => void;
+  onEdit: (project: ProjectData) => void;
+  onDelete: (project: ProjectData) => void;
   onDeleteChat: (chatId: number, title: string) => void;
   onRenameChat: (chatId: number, title: string) => Promise<void>;
 }
@@ -51,7 +69,7 @@ export default function ProjectCard({
       if (creating) return;
       setCreating(true);
       try {
-        const data = await api.post('/chats', { project_id: project.id });
+        const data = await api.post<{ chat: { id: number } }>('/chats', { project_id: project.id });
         navigate(`/chat/${data.chat.id}`);
       } catch (err) {
         console.error('Error creating chat:', err);
@@ -207,8 +225,8 @@ export default function ProjectCard({
 
       {expanded && (
         <div className="project-card-chats py-1 px-2 pb-2 pl-[var(--space-xl)] border-t border-border/50 bg-primary/[0.03]">
-          {project.conversations?.length > 0 ? (
-            project.conversations.map((c: any) => (
+          {(project.conversations?.length ?? 0) > 0 ? (
+            project.conversations!.map((c: ProjectConversation) => (
               <div
                 key={c.id}
                 className="chat-list-item-wrapper group flex items-center rounded-md transition-colors duration-150 hover:bg-primary/[0.08]"
@@ -271,7 +289,7 @@ export default function ProjectCard({
                       onClick={e => {
                         e.preventDefault();
                         e.stopPropagation();
-                        startRename(c.id, c.title);
+                        startRename(c.id, c.title || '');
                       }}
                       title="Chat umbenennen"
                       aria-label="Chat umbenennen"
@@ -281,11 +299,11 @@ export default function ProjectCard({
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      className="opacity-0 shrink-0 mr-2 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                      className="opacity-0 shrink-0 mr-2 group-hover:opacity-100 focus-visible:opacity-100 hover:text-destructive"
                       onClick={e => {
                         e.preventDefault();
                         e.stopPropagation();
-                        onDeleteChat(c.id, c.title);
+                        onDeleteChat(c.id, c.title || '');
                       }}
                       title="Chat löschen"
                       aria-label="Chat löschen"

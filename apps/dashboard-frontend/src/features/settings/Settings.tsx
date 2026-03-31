@@ -5,9 +5,9 @@ import {
   Wrench,
   Lock,
   Info,
-  ChevronRight,
   Server,
   User,
+  Globe,
 } from 'lucide-react';
 import UpdatePage from '../system/UpdatePage';
 import SelfHealingEvents from '../system/SelfHealingEvents';
@@ -19,6 +19,7 @@ import { GeneralSettings } from './GeneralSettings';
 import { AIProfileSettings } from './AIProfileSettings';
 import { ServicesSettings } from './ServicesSettings';
 import { SecuritySettings } from './SecuritySettings';
+import { RemoteAccessSettings } from './RemoteAccessSettings';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -57,6 +58,12 @@ const sections: Section[] = [
     label: 'Services',
     icon: <Server className="size-5" />,
     description: 'Dienste verwalten und neustarten',
+  },
+  {
+    id: 'remote-access',
+    label: 'Fernzugriff',
+    icon: <Globe className="size-5" />,
+    description: 'Tailscale VPN und Remote-Zugriff',
   },
   {
     id: 'updates',
@@ -120,6 +127,12 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
             <ServicesSettings />
           </ComponentErrorBoundary>
         );
+      case 'remote-access':
+        return (
+          <ComponentErrorBoundary componentName="Fernzugriff">
+            <RemoteAccessSettings />
+          </ComponentErrorBoundary>
+        );
       case 'updates':
         return (
           <ComponentErrorBoundary componentName="Updates">
@@ -144,8 +157,8 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   return (
     <div className="flex flex-col md:grid md:grid-cols-[280px_1fr] h-full animate-in fade-in">
       {/* Sidebar Navigation - horizontal tabs on mobile, vertical sidebar on md+ */}
-      <div className="bg-card border-b md:border-b-0 md:border-r border-border flex flex-col animate-in slide-in-from-left">
-        <div className="hidden md:flex p-6 pb-4 border-b border-border bg-gradient-to-b from-primary/5 to-transparent items-center gap-3">
+      <div className="border-b md:border-b-0 md:border-r border-border flex flex-col animate-in slide-in-from-left">
+        <div className="hidden md:flex p-6 pb-4 border-b border-border items-center gap-3">
           <SettingsIcon className="size-7 text-primary shrink-0" />
           <div>
             <h2 className="text-xl font-bold text-foreground leading-tight">Einstellungen</h2>
@@ -155,20 +168,22 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
 
         {/* Mobile: horizontal scrollable tabs */}
         <div className="md:hidden overflow-x-auto scrollbar-none">
-          <nav className="flex gap-1 p-2">
+          <nav className="flex gap-0.5 p-2">
             {sections.map(section => (
               <button
                 key={section.id}
                 type="button"
                 className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-full border border-transparent text-nowrap text-sm font-medium transition-all duration-200 shrink-0',
+                  'flex items-center gap-2 px-3 py-2 text-nowrap text-sm shrink-0 rounded-md transition-colors',
                   activeSection === section.id
-                    ? 'bg-primary/10 border-primary/20 text-primary'
-                    : 'text-muted-foreground hover:bg-primary/5'
+                    ? 'text-foreground font-semibold bg-muted'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
                 onClick={() => setActiveSection(section.id)}
               >
-                <div className="shrink-0">{section.icon}</div>
+                <div className={cn('shrink-0', activeSection === section.id && 'text-primary')}>
+                  {section.icon}
+                </div>
                 <span>{section.label}</span>
               </button>
             ))}
@@ -177,52 +192,35 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
 
         {/* Desktop: vertical sidebar */}
         <ScrollArea className="hidden md:flex flex-1 min-h-0">
-          <nav className="p-3 flex flex-col gap-1">
+          <nav className="p-3 flex flex-col gap-0.5">
             {sections.map(section => (
               <button
                 key={section.id}
                 type="button"
                 className={cn(
-                  'flex items-center justify-between px-3 py-3 rounded-lg border border-transparent text-left transition-all duration-200 group',
+                  'flex items-center gap-3 px-3 py-2.5 text-left rounded-md transition-colors',
                   activeSection === section.id
-                    ? 'active bg-primary/10 border-primary/20 text-primary'
-                    : 'text-muted-foreground hover:bg-primary/5 hover:border-primary/10 hover:pl-4'
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
                 onClick={() => setActiveSection(section.id)}
               >
-                <div className="flex items-center gap-3 flex-1">
-                  <div
+                <div className={cn('shrink-0', activeSection === section.id && 'text-primary')}>
+                  {section.icon}
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span
                     className={cn(
-                      'shrink-0 transition-all duration-200',
-                      activeSection === section.id
-                        ? 'text-primary scale-110'
-                        : 'group-hover:text-primary group-hover:scale-110'
+                      'text-sm leading-tight',
+                      activeSection === section.id ? 'font-semibold' : 'font-medium'
                     )}
                   >
-                    {section.icon}
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-semibold leading-tight">{section.label}</span>
-                    <span
-                      className={cn(
-                        'text-xs leading-snug transition-colors duration-200',
-                        activeSection === section.id
-                          ? 'text-muted-foreground'
-                          : 'text-muted-foreground/70'
-                      )}
-                    >
-                      {section.description}
-                    </span>
-                  </div>
+                    {section.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground leading-snug">
+                    {section.description}
+                  </span>
                 </div>
-                <ChevronRight
-                  className={cn(
-                    'size-4 shrink-0 transition-all duration-200',
-                    activeSection === section.id
-                      ? 'opacity-100 text-primary translate-x-0.5'
-                      : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5'
-                  )}
-                />
               </button>
             ))}
           </nav>
@@ -230,7 +228,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
       </div>
 
       {/* Main Content Area */}
-      <ScrollArea className="bg-background flex-1">
+      <ScrollArea className="flex-1">
         <div className="max-w-[900px] p-6">{renderContent()}</div>
       </ScrollArea>
     </div>

@@ -39,7 +39,7 @@ interface UseModalFormReturn<T> {
   reset: () => void;
 }
 
-export function useModalForm<T extends Record<string, any>>(
+export function useModalForm<T extends Record<string, unknown>>(
   isOpen: boolean,
   options: UseModalFormOptions<T>
 ): UseModalFormReturn<T> {
@@ -80,8 +80,9 @@ export function useModalForm<T extends Record<string, any>>(
       setError(null);
       try {
         await submitFn();
-      } catch (err: any) {
-        setError(err.data?.error || err.message || 'Fehler');
+      } catch (err: unknown) {
+        const e = err as { data?: { error?: string }; message?: string };
+        setError(e.data?.error || e.message || 'Fehler');
       } finally {
         setSaving(false);
       }

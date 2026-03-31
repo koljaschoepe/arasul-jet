@@ -62,17 +62,19 @@ export function useFetchData<T>(
           setData(result);
           setError(null);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (signal.aborted) return;
         // Check for abort-like errors (some fetch implementations throw these)
-        if (
-          err.name === 'AbortError' ||
-          err.name === 'CanceledError' ||
-          err.code === 'ERR_CANCELED'
-        )
+        const e = err as {
+          name?: string;
+          code?: string;
+          data?: { error?: string };
+          message?: string;
+        };
+        if (e.name === 'AbortError' || e.name === 'CanceledError' || e.code === 'ERR_CANCELED')
           return;
         console.error(errorMessage, err);
-        setError(err.data?.error || err.message || errorMessage);
+        setError(e.data?.error || e.message || errorMessage);
       } finally {
         if (!signal.aborted) {
           setLoading(false);

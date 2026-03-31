@@ -27,6 +27,17 @@ interface HistoryItem {
   response_time_ms?: number;
 }
 
+interface ClaudeTerminalStatus {
+  available: boolean;
+  error?: string;
+  llm?: { available: boolean };
+  config?: {
+    defaultModel?: string;
+    defaultTimeout: number;
+    rateLimit: string;
+  };
+}
+
 interface Stats {
   tokens: number;
   time: number;
@@ -38,7 +49,7 @@ function ClaudeTerminal() {
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<ClaudeTerminalStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -47,10 +58,14 @@ function ClaudeTerminal() {
   const [stats, setStats] = useState<Stats | null>(null);
   const responseRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     checkStatus();
     loadHistory();
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -102,6 +117,10 @@ function ClaudeTerminal() {
     e.preventDefault();
     if (!query.trim() || actionLoading) return;
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setActionLoading(true);
     setResponse('');
     setError(null);
@@ -114,7 +133,7 @@ function ClaudeTerminal() {
           query: query.trim(),
           includeContext,
         },
-        { raw: true, showError: false }
+        { raw: true, showError: false, signal: controller.signal }
       );
 
       const reader = res.body.getReader();
@@ -122,6 +141,10 @@ function ClaudeTerminal() {
       let buffer = '';
 
       while (true) {
+        if (controller.signal.aborted) {
+          reader.cancel();
+          break;
+        }
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -149,8 +172,10 @@ function ClaudeTerminal() {
           }
         }
       }
-    } catch (err: any) {
-      setError(err.data?.error || err.message || 'Network error');
+    } catch (err: unknown) {
+      if (controller.signal.aborted) return;
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || 'Network error');
     } finally {
       setActionLoading(false);
     }

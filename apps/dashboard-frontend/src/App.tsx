@@ -267,8 +267,13 @@ function AppContent(): React.JSX.Element | null {
 
   // Sidebar collapsed state - persisted in localStorage
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    const saved = localStorage.getItem('arasul_sidebar_collapsed');
-    return saved ? JSON.parse(saved) : false;
+    try {
+      const saved = localStorage.getItem('arasul_sidebar_collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      localStorage.removeItem('arasul_sidebar_collapsed');
+      return false;
+    }
   });
 
   // Theme: useTheme hook handles localStorage, system preference, and DOM classes
@@ -517,7 +522,7 @@ function AppContent(): React.JSX.Element | null {
 
             {/* Update available banner */}
             {updateAvailable && (
-              <div className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
+              <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
                 <span>Update verfügbar — Seite neu laden</span>
                 <button
                   className="underline font-semibold hover:opacity-80"
@@ -766,6 +771,14 @@ const DashboardHome = React.memo(function DashboardHome({
   }, [chartTimeRange]);
   const timeRangeOptions: number[] = [1, 6, 12, 24];
 
+  // Tick interval in ms per time range
+  const tickIntervalMs: Record<number, number> = {
+    1: 10 * 60 * 1000, // 10 min
+    6: 60 * 60 * 1000, // 1h
+    12: 2 * 60 * 60 * 1000, // 2h
+    24: 4 * 60 * 60 * 1000, // 4h
+  };
+
   // Memoized chart data - only recalculate when data or timeRange changes
   const chartData = useMemo((): ChartDataPoint[] => {
     const allData = formatChartData();
@@ -775,6 +788,21 @@ const DashboardHome = React.memo(function DashboardHome({
     const cutoff = now - chartTimeRange * 60 * 60 * 1000;
     return allData.filter(d => d.timestamp >= cutoff);
   }, [formatChartData, chartTimeRange]);
+
+  // Generate clean tick values aligned to round intervals
+  const chartTicks = useMemo((): number[] => {
+    if (!chartData.length) return [];
+    const interval = tickIntervalMs[chartTimeRange] || 60 * 60 * 1000;
+    const now = Date.now();
+    const cutoff = now - chartTimeRange * 60 * 60 * 1000;
+    // Start from first round interval after cutoff
+    const firstTick = Math.ceil(cutoff / interval) * interval;
+    const ticks: number[] = [];
+    for (let t = firstTick; t <= now; t += interval) {
+      ticks.push(t);
+    }
+    return ticks;
+  }, [chartData, chartTimeRange]);
 
   // Icon mapping for apps
   const getAppIcon = (iconName: string): React.JSX.Element => {
@@ -993,17 +1021,21 @@ const DashboardHome = React.memo(function DashboardHome({
             <LineChart
               data={chartData}
               role="img"
-              aria-label={`Performance-Diagramm der letzten ${chartTimeRange} Stunden: CPU, RAM, GPU und Temperatur`}
+              aria-label={`Performance-Diagramm der letzten ${chartTimeRange} Stunden: CPU, RAM und GPU`}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-alpha-10)" />
               <XAxis
-                dataKey="time"
+                dataKey="timestamp"
+                type="number"
+                domain={['dataMin', 'dataMax']}
+                ticks={chartTicks}
+                tickFormatter={(ts: number) =>
+                  new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                }
                 stroke="var(--text-muted)"
                 tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
                 axisLine={{ stroke: 'var(--text-muted)' }}
                 tickLine={{ stroke: 'var(--text-muted)' }}
-                interval="preserveStartEnd"
-                minTickGap={60}
               />
               <YAxis
                 stroke="var(--text-muted)"
@@ -1021,9 +1053,11 @@ const DashboardHome = React.memo(function DashboardHome({
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
                 }}
                 labelStyle={{ color: 'var(--primary-color)', fontWeight: 600 }}
+                labelFormatter={(ts: number) =>
+                  new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                }
                 formatter={(value: any, name: string) => {
-                  const unit = name === 'Temp' ? '°C' : '%';
-                  return [`${value?.toFixed(1)}${unit}`, name];
+                  return [`${value?.toFixed(1)}%`, name];
                 }}
               />
               <Legend />
@@ -1051,14 +1085,6 @@ const DashboardHome = React.memo(function DashboardHome({
                 dot={false}
                 activeDot={{ r: 5 }}
               />
-              <Line
-                type="monotone"
-                dataKey="Temp"
-                stroke="var(--warning-color)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
             </LineChart>
           </ResponsiveContainer>
           {/* Screen-reader summary for chart data */}
@@ -1066,97 +1092,9 @@ const DashboardHome = React.memo(function DashboardHome({
             {metrics && (
               <>
                 CPU: {metrics.cpu?.toFixed(1)}%, RAM: {metrics.ram?.toFixed(1)}%, GPU:{' '}
-                {metrics.gpu?.toFixed(1)}%, Temp: {metrics.temp?.toFixed(1)}°C
+                {metrics.gpu?.toFixed(1)}%
               </>
             )}
-          </div>
-        </div>
-
-        {/* AI Services Status */}
-        <div className="dashboard-card">
-          <h3 className="dashboard-card-title">AI Services</h3>
-          <div className="services-list">
-            {!services ? (
-              <>
-                {[1, 2, 3].map((i: number) => (
-                  <div key={i} className="service-item-modern">
-                    <div
-                      className="skeleton"
-                      style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0 }}
-                    />
-                    <div className="service-info">
-                      <div
-                        className="skeleton"
-                        style={{ width: '60%', height: '0.85rem', borderRadius: 4 }}
-                      />
-                      <div
-                        className="skeleton"
-                        style={{ width: '40%', height: '0.75rem', borderRadius: 4, marginTop: 4 }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <>
-                <div className="service-item-modern">
-                  <div
-                    className={`service-indicator ${services?.llm?.status === 'healthy' ? 'service-healthy' : 'service-error'}`}
-                  />
-                  <div className="service-info">
-                    <div className="service-name">LLM Service</div>
-                    <div className="service-status">{services?.llm?.status || 'unknown'}</div>
-                  </div>
-                </div>
-                <div className="service-item-modern">
-                  <div
-                    className={`service-indicator ${services?.embeddings?.status === 'healthy' ? 'service-healthy' : 'service-error'}`}
-                  />
-                  <div className="service-info">
-                    <div className="service-name">Embeddings</div>
-                    <div className="service-status">
-                      {services?.embeddings?.status || 'unknown'}
-                    </div>
-                  </div>
-                </div>
-                <div className="service-item-modern">
-                  <div
-                    className={`service-indicator ${networkInfo?.internet_reachable ? 'service-healthy' : 'service-error'}`}
-                  />
-                  <div className="service-info">
-                    <div className="service-name">Internet</div>
-                    <div className="service-status">
-                      {networkInfo?.internet_reachable ? 'Connected' : 'Offline'}
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* System Info */}
-        <div className="dashboard-card">
-          <h3 className="dashboard-card-title">System Info</h3>
-          <div className="info-list-modern">
-            <div className="info-item-modern">
-              <span className="info-label-modern">Device</span>
-              <span className="info-value-modern">{deviceInfo?.name || 'Detecting...'}</span>
-            </div>
-            <div className="info-item-modern">
-              <span className="info-label-modern">Uptime</span>
-              <span className="info-value-modern">
-                {systemInfo?.uptime_seconds ? formatUptime(systemInfo.uptime_seconds) : 'N/A'}
-              </span>
-            </div>
-            <div className="info-item-modern">
-              <span className="info-label-modern">Version</span>
-              <span className="info-value-modern">{systemInfo?.version || '1.0.0'}</span>
-            </div>
-            <div className="info-item-modern">
-              <span className="info-label-modern">Hostname</span>
-              <span className="info-value-modern">{systemInfo?.hostname || 'arasul'}</span>
-            </div>
           </div>
         </div>
       </div>

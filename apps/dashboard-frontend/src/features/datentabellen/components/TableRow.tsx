@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import GridCellEditor from '../../../components/editor/GridEditor/CellEditor';
-import type { Field, Row } from '../types';
+import type { CellValue, Field, Row } from '../types';
 import { ROW_HEIGHT, formatCellValue } from '../utils';
 
 interface TableRowProps {
@@ -16,7 +16,7 @@ interface TableRowProps {
   editingCell: { rowId: string; fieldSlug: string } | null;
   onCellClick: (rowIdx: number, colIdx: number, rowId: string, fieldSlug: string) => void;
   onContextMenu: (e: React.MouseEvent, rowIdx: number, colIdx: number) => void;
-  onCellSave: (rowId: string, fieldSlug: string, value: any, direction?: string) => void;
+  onCellSave: (rowId: string, fieldSlug: string, value: CellValue, direction?: string) => void;
   onCancelEdit: () => void;
   onToggleSelection: (rowId: string) => void;
 }
@@ -65,7 +65,9 @@ const TableRow = memo(function TableRow({
                 <GridCellEditor
                   value={row[field.slug]}
                   field={field}
-                  onSave={(val: any, dir: any) => onCellSave(row._id, field.slug, val, dir)}
+                  onSave={(val: CellValue, dir?: string) =>
+                    onCellSave(row._id, field.slug, val, dir)
+                  }
                   onCancel={onCancelEdit}
                   classPrefix="excel"
                   validate={false}
@@ -116,7 +118,7 @@ const TableRow = memo(function TableRow({
               <GridCellEditor
                 value={row[field.slug]}
                 field={field}
-                onSave={(val: any, dir: any) => onCellSave(row._id, field.slug, val, dir)}
+                onSave={(val: CellValue, dir?: string) => onCellSave(row._id, field.slug, val, dir)}
                 onCancel={onCancelEdit}
                 classPrefix="excel"
                 validate={false}

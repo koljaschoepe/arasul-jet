@@ -14,13 +14,6 @@ import {
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import useConfirm from '../../hooks/useConfirm';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/ui/shadcn/card';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
@@ -147,7 +140,6 @@ function PasswordManagement() {
         if (!confirmed) return;
       }
 
-      // Clear fields for the old service and switch
       setPasswords(prev => ({
         ...prev,
         [activeService]: { current: '', new: '', confirm: '' },
@@ -209,14 +201,12 @@ function PasswordManagement() {
           window.location.href = '/';
         }, 2000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { data?: { error?: string; message?: string }; message?: string };
       setMessage({
         type: 'error',
         text:
-          error.data?.error ||
-          error.data?.message ||
-          error.message ||
-          'Fehler beim Ändern des Passworts',
+          err.data?.error || err.data?.message || err.message || 'Fehler beim Ändern des Passworts',
       });
     } finally {
       setLoading(false);
@@ -264,165 +254,160 @@ function PasswordManagement() {
   return (
     <div>
       {ConfirmDialog}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="size-5" />
-            Passwortverwaltung
-          </CardTitle>
-          <CardDescription>Ändern Sie die Passwörter für Dashboard, MinIO und n8n</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Service Selector */}
-          <Tabs value={activeService} onValueChange={handleServiceSwitch}>
-            <TabsList className="w-full">
-              {SERVICES.map(service => (
-                <TabsTrigger key={service.id} value={service.id} className="flex-1">
-                  {service.icon}
-                  <span>{service.label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
 
-          {/* Password Change Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {renderPasswordField(
-              'current',
-              'Aktuelles Dashboard-Passwort',
-              'Aktuelles Passwort eingeben',
-              'Zur Sicherheit wird Ihr aktuelles Dashboard-Passwort benötigt'
-            )}
-            {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
-            {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
+      <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+        <Lock className="size-4 text-muted-foreground" />
+        Passwortverwaltung
+      </h3>
+      <p className="text-xs text-muted-foreground mb-6">
+        Ändern Sie die Passwörter für Dashboard, MinIO und n8n
+      </p>
 
-            {/* Password Requirements */}
-            {requirements && passwords[activeService].new && (
-              <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
-                <ul className="space-y-1">
+      <div className="space-y-6">
+        {/* Service Selector */}
+        <Tabs value={activeService} onValueChange={handleServiceSwitch}>
+          <TabsList variant="line" className="w-full">
+            {SERVICES.map(service => (
+              <TabsTrigger key={service.id} value={service.id} className="flex-1">
+                {service.icon}
+                <span>{service.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        {/* Password Change Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {renderPasswordField(
+            'current',
+            `Aktuelles ${SERVICES.find(s => s.id === activeService)?.label ?? 'Dashboard'}-Passwort`,
+            'Aktuelles Passwort eingeben',
+            `Zur Sicherheit wird Ihr aktuelles ${SERVICES.find(s => s.id === activeService)?.label ?? 'Dashboard'}-Passwort benötigt`
+          )}
+          {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
+          {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
+
+          {/* Password Requirements */}
+          {requirements && passwords[activeService].new && (
+            <div className="border-l-2 border-primary/30 pl-4 space-y-2">
+              <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
+              <ul className="space-y-1">
+                <li
+                  className={cn(
+                    'flex items-center gap-2 text-xs',
+                    validations.minLength ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {validations.minLength ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <X className="size-3.5" />
+                  )}
+                  Mindestens {requirements.minLength} Zeichen
+                </li>
+                {requirements.requireUppercase && (
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.minLength ? 'text-primary' : 'text-foreground/50'
+                      validations.uppercase ? 'text-primary' : 'text-muted-foreground'
                     )}
                   >
-                    {validations.minLength ? (
+                    {validations.uppercase ? (
                       <Check className="size-3.5" />
                     ) : (
                       <X className="size-3.5" />
                     )}
-                    Mindestens {requirements.minLength} Zeichen
+                    Mindestens ein Großbuchstabe
                   </li>
-                  {requirements.requireUppercase && (
-                    <li
-                      className={cn(
-                        'flex items-center gap-2 text-xs',
-                        validations.uppercase ? 'text-primary' : 'text-foreground/50'
-                      )}
-                    >
-                      {validations.uppercase ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <X className="size-3.5" />
-                      )}
-                      Mindestens ein Großbuchstabe
-                    </li>
-                  )}
-                  {requirements.requireLowercase && (
-                    <li
-                      className={cn(
-                        'flex items-center gap-2 text-xs',
-                        validations.lowercase ? 'text-primary' : 'text-foreground/50'
-                      )}
-                    >
-                      {validations.lowercase ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <X className="size-3.5" />
-                      )}
-                      Mindestens ein Kleinbuchstabe
-                    </li>
-                  )}
-                  {requirements.requireNumbers && (
-                    <li
-                      className={cn(
-                        'flex items-center gap-2 text-xs',
-                        validations.number ? 'text-primary' : 'text-foreground/50'
-                      )}
-                    >
-                      {validations.number ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <X className="size-3.5" />
-                      )}
-                      Mindestens eine Zahl
-                    </li>
-                  )}
-                  {requirements.requireSpecialChars && (
-                    <li
-                      className={cn(
-                        'flex items-center gap-2 text-xs',
-                        validations.special ? 'text-primary' : 'text-foreground/50'
-                      )}
-                    >
-                      {validations.special ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <X className="size-3.5" />
-                      )}
-                      Mindestens ein Sonderzeichen
-                    </li>
-                  )}
+                )}
+                {requirements.requireLowercase && (
                   <li
                     className={cn(
                       'flex items-center gap-2 text-xs',
-                      validations.match ? 'text-primary' : 'text-foreground/50'
+                      validations.lowercase ? 'text-primary' : 'text-muted-foreground'
                     )}
                   >
-                    {validations.match ? (
+                    {validations.lowercase ? (
                       <Check className="size-3.5" />
                     ) : (
                       <X className="size-3.5" />
                     )}
-                    Passwörter stimmen überein
+                    Mindestens ein Kleinbuchstabe
                   </li>
-                </ul>
-              </div>
-            )}
-
-            {/* Message */}
-            {message && (
-              <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-                <AlertCircle className="size-4" />
-                <AlertDescription>{message.text}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Submit Button */}
-            <div className="flex justify-end">
-              <Button type="submit" disabled={!isFormValid() || loading}>
-                {loading ? 'Wird geändert...' : 'Passwort ändern'}
-              </Button>
+                )}
+                {requirements.requireNumbers && (
+                  <li
+                    className={cn(
+                      'flex items-center gap-2 text-xs',
+                      validations.number ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  >
+                    {validations.number ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
+                    Mindestens eine Zahl
+                  </li>
+                )}
+                {requirements.requireSpecialChars && (
+                  <li
+                    className={cn(
+                      'flex items-center gap-2 text-xs',
+                      validations.special ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  >
+                    {validations.special ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
+                    Mindestens ein Sonderzeichen
+                  </li>
+                )}
+                <li
+                  className={cn(
+                    'flex items-center gap-2 text-xs',
+                    validations.match ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {validations.match ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                  Passwörter stimmen überein
+                </li>
+              </ul>
             </div>
+          )}
 
-            {activeService === 'dashboard' && (
-              <p className="text-xs text-warning text-center">
-                <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des
-                Dashboard-Passworts werden Sie automatisch abgemeldet.
-              </p>
-            )}
+          {/* Message */}
+          {message && (
+            <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
+              <AlertCircle className="size-4" />
+              <AlertDescription>{message.text}</AlertDescription>
+            </Alert>
+          )}
 
-            {(activeService === 'minio' || activeService === 'n8n') && (
-              <p className="text-xs text-muted-foreground text-center">
-                <Info className="size-3.5 inline" /> Der{' '}
-                {activeService === 'minio' ? 'MinIO' : 'n8n'}-Service wird nach der Passwortänderung
-                automatisch neu gestartet.
-              </p>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+          {/* Submit Button */}
+          <div className="flex justify-end">
+            <Button type="submit" disabled={!isFormValid() || loading}>
+              {loading ? 'Wird geändert...' : 'Passwort ändern'}
+            </Button>
+          </div>
+
+          {activeService === 'dashboard' && (
+            <p className="text-xs text-muted-foreground text-center">
+              <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des Dashboard-Passworts
+              werden Sie automatisch abgemeldet.
+            </p>
+          )}
+
+          {(activeService === 'minio' || activeService === 'n8n') && (
+            <p className="text-xs text-muted-foreground text-center">
+              <Info className="size-3.5 inline" /> Der {activeService === 'minio' ? 'MinIO' : 'n8n'}
+              -Service wird nach der Passwortänderung automatisch neu gestartet.
+            </p>
+          )}
+        </form>
+      </div>
     </div>
   );
 }

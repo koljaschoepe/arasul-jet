@@ -12,7 +12,8 @@ function getSystemTheme(): Theme {
 function getInitialTheme(): Theme {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved === 'dark' || saved === 'light') return saved;
-  return getSystemTheme();
+  // Default to dark — this is a Jetson edge device dashboard designed for dark mode
+  return 'dark';
 }
 
 export function useTheme() {

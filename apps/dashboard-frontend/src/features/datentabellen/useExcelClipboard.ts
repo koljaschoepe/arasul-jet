@@ -1,20 +1,5 @@
 import { useState, useCallback } from 'react';
-
-interface Field {
-  slug: string;
-  field_type: string;
-  [key: string]: any;
-}
-
-interface DataRow {
-  _id: string;
-  [key: string]: unknown;
-}
-
-interface CellPosition {
-  row: number;
-  col: number;
-}
+import type { CellPosition, CellValue, Field, Row } from './types';
 
 interface ClipboardEntry {
   value: unknown;
@@ -24,10 +9,10 @@ interface ClipboardEntry {
 
 interface UseExcelClipboardParams {
   activeCell: CellPosition;
-  displayRows: DataRow[];
+  displayRows: Row[];
   fields: Field[];
-  handleCellSave: (rowId: string, fieldSlug: string, value: unknown) => void;
-  setSaveStatus: (status: any) => void;
+  handleCellSave: (rowId: string, fieldSlug: string, value: CellValue) => void;
+  setSaveStatus: (status: 'success' | 'error' | null) => void;
 }
 
 interface UseExcelClipboardReturn {
@@ -84,7 +69,7 @@ export default function useExcelClipboard({
     }
 
     if (value !== undefined) {
-      handleCellSave(displayRows[row]._id, fields[col].slug, value);
+      handleCellSave(displayRows[row]._id, fields[col].slug, value as CellValue);
     }
   }, [activeCell, displayRows, fields, clipboard, handleCellSave]);
 

@@ -38,6 +38,7 @@ import {
   Info,
 } from 'lucide-react';
 import { useDownloads } from '../../contexts/DownloadContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useApi } from '../../hooks/useApi';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
@@ -79,6 +80,47 @@ interface AnswerStyleOption {
 interface ModelCategoryInfo {
   title: string;
   desc: string;
+}
+
+interface NetworkInfo {
+  ip_addresses?: string[];
+  internet_reachable?: boolean;
+  mdns?: string;
+  error?: boolean;
+}
+
+interface SetupCatalogModel {
+  id: string;
+  name: string;
+  description?: string;
+  size_bytes?: number;
+  ram_required_gb?: number;
+  category?: string;
+  model_type?: string;
+  install_status?: string;
+  download_progress?: number;
+  performance_tier?: number;
+}
+
+interface SystemInfo {
+  hostname?: string;
+  uptime?: number;
+  platform?: string;
+  version?: string;
+  [key: string]: unknown;
+}
+
+interface DeviceInfo {
+  model?: string;
+  name?: string;
+  ram_total_gb?: number;
+  storage_total_gb?: number;
+  [key: string]: unknown;
+}
+
+interface LoginResponse {
+  token: string;
+  user: Record<string, unknown>;
 }
 
 const STEPS: Step[] = [
@@ -150,6 +192,7 @@ const formatModelSize = (bytes: number | null | undefined): string => {
 
 function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   const api = useApi();
+  const { user, login } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -174,17 +217,17 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   const [passwordTouched, setPasswordTouched] = useState(false);
 
   // Step 4: Network
-  const [networkInfo, setNetworkInfo] = useState<any>(null);
+  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [networkLoading, setNetworkLoading] = useState(false);
 
   // Step 5: AI Models
-  const [models, setModels] = useState<any[]>([]);
+  const [models, setModels] = useState<SetupCatalogModel[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [modelsLoading, setModelsLoading] = useState(false);
 
   // Step 6: System info
-  const [systemInfo, setSystemInfo] = useState<any>(null);
-  const [deviceInfo, setDeviceInfo] = useState<any>(null);
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
 
   // Downloads (DownloadContext)
   const { startDownload, getDownloadState } = useDownloads();
@@ -248,7 +291,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
       }
       // Trigger model download when leaving step 5
       if (currentStep === 5 && selectedModel) {
-        const model = models.find((m: any) => m.id === selectedModel);
+        const model = models.find((m: SetupCatalogModel) => m.id === selectedModel);
         if (model && model.install_status !== 'available') {
           startDownload(selectedModel, model.name);
         }
@@ -258,7 +301,15 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
       setError('');
       saveStepProgress(nextStep);
     }
-  }, [currentStep, saveStepProgress, profileSaved, selectedModel, models, startDownload]);
+  }, [
+    currentStep,
+    saveStepProgress,
+    profileSaved,
+    selectedModel,
+    models,
+    startDownload,
+    saveProfile,
+  ]);
 
   const goBack = useCallback(() => {
     if (currentStep > 1) {
@@ -281,6 +332,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
       return;
     }
 
+    // Match backend requirements: 4+ chars, no complexity requirements
     if (newPassword.length < 4) {
       setPasswordError('Passwort muss mindestens 4 Zeichen lang sein');
       return;
@@ -294,21 +346,24 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
         { showError: false }
       );
 
-      setPasswordChanged(true);
-      // Re-login with new password
+      // Re-login immediately — backend blacklists all tokens after password change
+      const username = user?.username || 'admin';
       try {
-        const loginData = await api.post(
+        const loginData = await api.post<LoginResponse>(
           '/auth/login',
-          { username: 'admin', password: newPassword },
+          { username, password: newPassword },
           { showError: false }
         );
         localStorage.setItem('arasul_token', loginData.token);
         localStorage.setItem('arasul_user', JSON.stringify(loginData.user));
+        login(loginData as Parameters<typeof login>[0]);
       } catch {
-        // Re-login failure is non-critical
+        // If re-login fails, at least store that password was changed
       }
-    } catch (err: any) {
-      setPasswordError(err.data?.error || err.data?.message || err.message);
+      setPasswordChanged(true);
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string; message?: string }; message?: string };
+      setPasswordError(e.data?.error || e.data?.message || e.message || String(err));
     } finally {
       setLoading(false);
     }
@@ -318,7 +373,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   const fetchNetworkInfo = useCallback(async () => {
     setNetworkLoading(true);
     try {
-      const data = await api.get('/system/network', { showError: false });
+      const data = await api.get<NetworkInfo>('/system/network', { showError: false });
       setNetworkInfo(data);
     } catch {
       setNetworkInfo({ ip_addresses: [], internet_reachable: false, error: true });
@@ -331,8 +386,12 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   const fetchModels = useCallback(async () => {
     setModelsLoading(true);
     try {
-      const data = await api.get('/models/catalog', { showError: false });
-      const llmModels = (data.models || []).filter((m: any) => (m.model_type || 'llm') === 'llm');
+      const data = await api.get<{ models?: SetupCatalogModel[] }>('/models/catalog', {
+        showError: false,
+      });
+      const llmModels = (data.models || []).filter(
+        (m: SetupCatalogModel) => (m.model_type || 'llm') === 'llm'
+      );
       setModels(llmModels);
       if (!selectedModel) {
         setSelectedModel(RECOMMENDED_MODEL);
@@ -342,18 +401,20 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     } finally {
       setModelsLoading(false);
     }
-  }, [api, selectedModel]);
+  }, [api]);
 
   // Step 6: Fetch system info
   const fetchSystemInfo = useCallback(async () => {
     try {
       const [infoData, thresholdData] = await Promise.all([
-        api.get('/system/info', { showError: false }).catch(() => null),
-        api.get('/system/thresholds', { showError: false }).catch(() => null),
+        api.get<SystemInfo>('/system/info', { showError: false }).catch(() => null),
+        api
+          .get<{ device?: DeviceInfo }>('/system/thresholds', { showError: false })
+          .catch(() => null),
       ]);
 
       if (infoData) setSystemInfo(infoData);
-      if (thresholdData) setDeviceInfo(thresholdData.device);
+      if (thresholdData) setDeviceInfo(thresholdData.device ?? null);
     } catch {
       // Non-critical
     }
@@ -374,7 +435,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     try {
       // Set default model if already installed
       if (selectedModel) {
-        const model = models.find((m: any) => m.id === selectedModel);
+        const model = models.find((m: SetupCatalogModel) => m.id === selectedModel);
         if (model?.install_status === 'available') {
           await api
             .post('/models/default', { model_id: selectedModel }, { showError: false })
@@ -393,8 +454,9 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
       );
 
       onComplete();
-    } catch (err: any) {
-      setError(err.data?.error || err.message);
+    } catch (err: unknown) {
+      const e = err as { data?: { error?: string }; message?: string };
+      setError(e.data?.error || e.message || String(err));
     } finally {
       setLoading(false);
     }
@@ -757,7 +819,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     />
                     {passwordTooShort && (
                       <p className="text-xs text-destructive mt-1">
-                        Passwort muss mindestens 4 Zeichen lang sein
+                        Mindestens 4 Zeichen erforderlich
                       </p>
                     )}
                   </div>
@@ -789,6 +851,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   </div>
 
                   <Button
+                    variant="solid"
                     onClick={handlePasswordChange}
                     disabled={loading || !currentPassword || !newPassword || !confirmPassword}
                   >
@@ -928,7 +991,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               ) : models.length > 0 ? (
                 <>
                   {(['small', 'medium', 'large', 'xlarge'] as const).map((cat: string) => {
-                    const catModels = models.filter((m: any) => m.category === cat);
+                    const catModels = models.filter((m: SetupCatalogModel) => m.category === cat);
                     if (catModels.length === 0) return null;
                     const catInfo = MODEL_CATEGORIES[cat];
                     return (
@@ -941,7 +1004,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                             {catInfo.desc}
                           </span>
                         </div>
-                        {catModels.map((model: any) => {
+                        {catModels.map((model: SetupCatalogModel) => {
                           const isSelected = selectedModel === model.id;
                           const isRecommended = model.id === RECOMMENDED_MODEL;
                           const isInstalled = model.install_status === 'available';
@@ -1098,7 +1161,8 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   <span className="text-foreground font-semibold text-sm">
                     {selectedModel ? (
                       <>
-                        {models.find((m: any) => m.id === selectedModel)?.name || selectedModel}
+                        {models.find((m: SetupCatalogModel) => m.id === selectedModel)?.name ||
+                          selectedModel}
                         {(() => {
                           const dlState = getDownloadState(selectedModel);
                           if (!dlState) return null;
@@ -1178,11 +1242,11 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
             </Button>
 
             {currentStep < 6 ? (
-              <Button onClick={goNext} disabled={!canAdvance()}>
+              <Button variant="solid" onClick={goNext} disabled={!canAdvance()}>
                 Weiter <ChevronRight className="size-4" />
               </Button>
             ) : (
-              <Button onClick={handleComplete} disabled={loading}>
+              <Button variant="solid" onClick={handleComplete} disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="size-4 animate-spin" /> Wird abgeschlossen...

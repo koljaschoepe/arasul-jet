@@ -26,50 +26,65 @@ import React, {
 import useTokenBatching from '../hooks/useTokenBatching';
 import { useApi } from '../hooks/useApi';
 import { API_BASE, getAuthHeaders } from '../config/api';
+import type { DocumentSource, MatchedSpace, QueueJob, SSEData } from '../types';
 
 // --- Types ---
 
-interface ChatMessage {
+export interface ChatMessage {
   id?: number;
   role: string;
   content: string;
   thinking?: string;
   hasThinking?: boolean;
   thinkingCollapsed?: boolean;
-  sources?: any[];
+  thinkingCollapsing?: boolean;
+  sources?: DocumentSource[];
   sourcesCollapsed?: boolean;
   status?: string;
   jobId?: string;
   jobStatus?: string;
-  matchedSpaces?: string[];
+  matchedSpaces?: MatchedSpace[];
   type?: string;
   tokensBefore?: number;
   tokensAfter?: number;
   messagesCompacted?: number;
 }
 
+export interface ChatSettings {
+  use_rag?: boolean;
+  use_thinking?: boolean;
+  preferred_space_id?: string | null;
+  preferred_model?: string;
+}
+
 interface QueueState {
   pending_count: number;
-  processing: any;
-  queue: any[];
+  processing: QueueJob | null;
+  queue: QueueJob[];
 }
 
 interface InstalledModel {
   id: string;
   name: string;
-  [key: string]: any;
+  install_status?: string;
+  status?: string;
+  supports_thinking?: boolean;
+  rag_optimized?: boolean;
 }
 
 interface Space {
   id: string;
   name: string;
-  [key: string]: any;
+  description?: string;
+  color?: string;
+  document_count?: number;
 }
 
 interface ActiveJob {
   id: string;
   status: string;
-  [key: string]: any;
+  model?: string;
+  chat_id?: string;
 }
 
 interface MessageCallbacks {
@@ -111,7 +126,7 @@ interface ChatContextValue {
   // Functions
   sendMessage: (chatId: string, input: string, options?: SendMessageOptions) => Promise<void>;
   reconnectToJob: (jobId: string, targetChatId: string) => Promise<void>;
-  cancelJob: (chatId: string) => void;
+  cancelJob: (chatId: string) => Promise<void>;
   abortExistingStream: (chatId: string) => void;
   checkActiveJobs: (chatId: string) => Promise<ActiveJob | null>;
   loadModels: () => Promise<void>;
@@ -127,6 +142,8 @@ interface ChatContextValue {
   getBackgroundLoading: (chatId: string) => boolean;
   clearBackgroundState: (chatId: string) => void;
   hasActiveStream: (chatId: string) => boolean;
+  // Cleanup
+  cleanupChat: (chatId: string) => void;
 }
 
 interface ChatProviderProps {
@@ -139,9 +156,9 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   const api = useApi();
 
-  // --- State ---
+  // === JOB QUEUE ===
+  // Background job tracking and queue state
 
-  // Background job tracking
   const [activeJobIds, setActiveJobIds] = useState<Record<string, string>>({}); // chatId -> jobId
   const [globalQueue, setGlobalQueue] = useState<QueueState>({
     pending_count: 0,
@@ -149,7 +166,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     queue: [],
   });
 
-  // Model state
+  // === MODEL MANAGEMENT ===
+  // Model selection, defaults, favorites, and installed model list
+
   const [selectedModel, setSelectedModel] = useState('');
   const [installedModels, setInstalledModels] = useState<InstalledModel[]>([]);
   const [defaultModel, setDefaultModel] = useState('');
@@ -162,7 +181,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     }
   });
 
-  // Knowledge Spaces
+  // === KNOWLEDGE SPACES ===
+  // RAG knowledge spaces for document-grounded answers
+
   const [spaces, setSpaces] = useState<Space[]>([]);
 
   // --- Refs ---
@@ -211,7 +232,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   // Route setMessages to the active streaming chat's callback (used by useTokenBatching)
   // Falls back to background accumulation when ChatView is not mounted.
   const routedSetMessages = useCallback(
-    (updater: any) => {
+    (updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
       const chatId = activeStreamChatIdRef.current;
       if (!chatId) return;
       const cb = messageCallbacksRef.current.get(chatId);
@@ -263,7 +284,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     if (cb?.setError) cb.setError(value);
   }, []);
 
-  // --- Background State Accessors ---
+  // === BACKGROUND MESSAGES ===
+  // Background message accumulation when ChatView is not mounted
 
   const getBackgroundMessages = useCallback((chatId: string) => {
     return backgroundMessagesRef.current.get(chatId) || null;
@@ -282,9 +304,38 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     return !!abortControllersRef.current[chatId];
   }, []);
 
+  // FH2: Full cleanup when a chat is deleted — prevents memory leaks
+  const cleanupChat = useCallback((chatId: string) => {
+    // Abort any active stream
+    const controller = abortControllersRef.current[chatId];
+    if (controller) {
+      controller.abort();
+      delete abortControllersRef.current[chatId];
+    }
+    // Remove callback entry
+    messageCallbacksRef.current.delete(chatId);
+    // Clear background state
+    backgroundMessagesRef.current.delete(chatId);
+    backgroundLoadingRef.current.delete(chatId);
+    // Clear active job
+    setActiveJobIds(prev => {
+      if (!(chatId in prev)) return prev;
+      const next = { ...prev };
+      delete next[chatId];
+      return next;
+    });
+    // Clear active stream ref if it was this chat
+    if (activeStreamChatIdRef.current === chatId) {
+      activeStreamChatIdRef.current = null;
+    }
+  }, []);
+
   // --- Token Batching ---
-  const { tokenBatchRef, flushTokenBatch, addTokenToBatch, resetTokenBatch } =
-    useTokenBatching(routedSetMessages);
+  // Cast needed: ChatMessage is structurally compatible with TokenCountableMessage
+  // but TypeScript can't verify this due to contravariance in function parameter position
+  const { tokenBatchRef, flushTokenBatch, addTokenToBatch, resetTokenBatch } = useTokenBatching(
+    routedSetMessages as React.Dispatch<React.SetStateAction<ChatMessage[]>>
+  );
 
   // --- Data Loading ---
 
@@ -312,18 +363,18 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     }
   }, [api]);
 
-  const mapMessage = (msg: any): ChatMessage => ({
-    id: msg.id,
-    role: msg.role,
-    content: msg.content || '',
-    thinking: msg.thinking || '',
-    hasThinking: !!(msg.thinking && msg.thinking.length > 0),
+  const mapMessage = (msg: Record<string, unknown>): ChatMessage => ({
+    id: msg.id as number | undefined,
+    role: msg.role as string,
+    content: (msg.content as string) || '',
+    thinking: (msg.thinking as string) || '',
+    hasThinking: !!(msg.thinking && (msg.thinking as string).length > 0),
     thinkingCollapsed: true,
-    sources: msg.sources || [],
+    sources: (msg.sources as DocumentSource[]) || [],
     sourcesCollapsed: true,
-    status: msg.status || 'completed',
-    jobId: msg.job_id,
-    jobStatus: msg.job_status,
+    status: (msg.status as string) || 'completed',
+    jobId: msg.job_id as string | undefined,
+    jobStatus: msg.job_status as string | undefined,
   });
 
   const loadMessages = useCallback(
@@ -381,7 +432,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       try {
         const data = await api.get(`/chats/${chatId}/jobs`, { showError: false });
         const jobs = data.jobs || [];
-        const activeJob = jobs.find((j: any) => j.status === 'streaming' || j.status === 'pending');
+        const activeJob = jobs.find(
+          (j: QueueJob) => j.status === 'streaming' || j.status === 'pending'
+        );
         if (activeJob) {
           setActiveJobIds(prev => ({ ...prev, [chatId]: activeJob.id }));
           return activeJob;
@@ -396,26 +449,33 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   );
 
   const cancelJob = useCallback(
-    (chatId: string) => {
+    async (chatId: string) => {
       // Get the jobId before clearing state
       const jobId = activeJobIds[chatId];
 
+      // 1. Abort the local stream first (this is instant)
       const controller = abortControllersRef.current[chatId];
       if (controller) {
         controller.abort();
         delete abortControllersRef.current[chatId];
       }
+
+      // 2. Cancel on server — await so we confirm cancellation before updating state
+      if (jobId) {
+        try {
+          await api.del(`/llm/jobs/${jobId}`, { showError: false });
+        } catch {
+          // Job may already be complete — ignore
+        }
+      }
+
+      // 3. Update state AFTER API call completes
       setActiveJobIds(prev => {
         const next = { ...prev };
         delete next[chatId];
         return next;
       });
       updateIsLoading(chatId, false);
-
-      // Call backend to abort GPU stream
-      if (jobId) {
-        api.del(`/llm/jobs/${jobId}`, { showError: false }).catch(() => {});
-      }
     },
     [activeJobIds, updateIsLoading, api]
   );
@@ -470,7 +530,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     }
   }, [isAuthenticated, resetTokenBatch]);
 
-  // --- Streaming: Reconnect ---
+  // === MESSAGE STREAMING ===
+  // SSE streaming for chat responses (reconnect + send)
 
   const reconnectToJob = useCallback(
     async (jobId: string, targetChatId: string) => {
@@ -488,9 +549,32 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         const reader = response.body!.getReader();
         const decoder = new TextDecoder();
+        // FH8: Use longer initial timeout for reconnect — the model may still be loading
+        // after a page refresh. Subsequent reads use a shorter timeout.
+        const RECONNECT_INITIAL_TIMEOUT = 180_000; // 3min for first chunk (model may be loading)
+        const RECONNECT_READ_TIMEOUT = 90_000; // 90s for subsequent reads
+        let isFirstReconnectRead = true;
 
         while (true) {
-          const { done, value } = await reader.read();
+          const readPromise = reader.read();
+          const currentTimeout = isFirstReconnectRead
+            ? RECONNECT_INITIAL_TIMEOUT
+            : RECONNECT_READ_TIMEOUT;
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    isFirstReconnectRead
+                      ? 'Reconnect-Timeout: Keine Antwort nach 3 Minuten. Bitte Systemstatus prüfen.'
+                      : 'Stream-Timeout: Keine Daten seit 90 Sekunden'
+                  )
+                ),
+              currentTimeout
+            )
+          );
+          const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+          isFirstReconnectRead = false;
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
@@ -543,8 +627,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             }
           }
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         console.error('Reconnect error:', err);
         updateIsLoading(targetChatId, false);
         setActiveJobIds(prev => {
@@ -614,10 +698,11 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       activeStreamChatIdRef.current = chatId;
       resetTokenBatch();
 
+      let currentJobId: string | null = null;
+      let streamDone = false;
       try {
         let streamError = false;
-        let currentJobId: string | null = null;
-        let ragSources: any[] = [];
+        let ragSources: DocumentSource[] = [];
 
         // Build endpoint and payload
         const endpoint = isRAG ? `${API_BASE}/rag/query` : `${API_BASE}/llm/chat`;
@@ -652,9 +737,29 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         const reader = response.body!.getReader();
         const decoder = new TextDecoder();
+        // First read timeout is longer to account for model loading (large models need minutes)
+        const INITIAL_READ_TIMEOUT = 300_000; // 5min for initial response (model may need to load)
+        const STREAM_READ_TIMEOUT = 90_000; // 90s for subsequent reads
+        let isFirstRead = true;
 
         while (true) {
-          const { done, value } = await reader.read();
+          const readPromise = reader.read();
+          const currentTimeout = isFirstRead ? INITIAL_READ_TIMEOUT : STREAM_READ_TIMEOUT;
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    isFirstRead
+                      ? 'Timeout: Modell konnte nicht geladen werden (5 Min). Bitte Systemstatus prüfen.'
+                      : 'Stream-Timeout: Keine Daten seit 90 Sekunden'
+                  )
+                ),
+              currentTimeout
+            )
+          );
+          const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+          isFirstRead = false;
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
@@ -717,7 +822,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                       ...u[assistantMessageIndex],
                       sources: ragSources,
                       sourcesCollapsed: ragSources.length > 0,
-                      matchedSpaces,
+                      // Legacy fallback: matchedSpaces from options are plain IDs, wrap as MatchedSpace
+                      matchedSpaces: matchedSpaces.map(id => ({ name: id })),
                     };
                   }
                   return u;
@@ -772,18 +878,22 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                   delete n[chatId];
                   return n;
                 });
+                streamDone = true;
                 break;
               }
             } catch (e) {
               console.error('Error parsing SSE data:', e);
             }
           }
-          if (streamError) break;
+          if (streamError || streamDone) break;
         }
 
-        // Final consistency: mark streaming messages as completed (no DB reload needed)
+        // FH3: Save final batch values BEFORE reset to avoid race condition
+        // resetTokenBatch() zeroes out the ref, so we must capture values first
         const { content: fullResponse, thinking: fullThinking } = tokenBatchRef.current;
+        resetTokenBatch();
 
+        // Final consistency: mark streaming messages as completed (no DB reload needed)
         if (fullResponse || fullThinking) {
           updateMessages(chatId, prev =>
             prev.map(msg => (msg.status === 'streaming' ? { ...msg, status: 'completed' } : msg))
@@ -795,12 +905,19 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             isRAG ? 'Keine Antwort vom RAG-System erhalten' : 'Keine Antwort vom LLM erhalten'
           );
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        if (streamDone) return; // Ignore post-done errors (e.g. timeout after successful stream)
         console.error(`${isRAG ? 'RAG' : 'Chat'} error:`, err);
+
+        // Cancel orphaned backend job to free GPU resources
+        if (currentJobId) {
+          api.del(`/llm/jobs/${currentJobId}`, { showError: false }).catch(() => {});
+        }
+
         updateError(
           chatId,
-          err.message ||
+          (err instanceof Error ? err.message : null) ||
             (isRAG ? 'Fehler bei der RAG-Anfrage.' : 'Fehler beim Senden der Nachricht.')
         );
         updateIsLoading(chatId, false);
@@ -812,6 +929,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         });
       } finally {
         delete abortControllersRef.current[chatId];
+        // FH3: Reset in finally as safety net (idempotent if already reset in try block)
         resetTokenBatch();
         if (activeStreamChatIdRef.current === chatId) activeStreamChatIdRef.current = null;
       }
@@ -864,6 +982,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       getBackgroundLoading,
       clearBackgroundState,
       hasActiveStream,
+      // Cleanup
+      cleanupChat,
     }),
     [
       activeJobIds,
@@ -891,6 +1011,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       getBackgroundLoading,
       clearBackgroundState,
       hasActiveStream,
+      cleanupChat,
     ]
   );
 

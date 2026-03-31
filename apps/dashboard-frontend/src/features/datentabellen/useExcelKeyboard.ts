@@ -1,20 +1,5 @@
 import { useCallback, useEffect, type RefObject } from 'react';
-
-interface Field {
-  slug: string;
-  field_type: string;
-  [key: string]: any;
-}
-
-interface DataRow {
-  _id: string;
-  [key: string]: unknown;
-}
-
-interface CellPosition {
-  row: number;
-  col: number;
-}
+import type { CellPosition, CellValue, Field, Row } from './types';
 
 interface EditingCell {
   rowId: string;
@@ -27,7 +12,7 @@ interface UseExcelKeyboardParams {
   setActiveCell: (cell: CellPosition) => void;
   editingCell: EditingCell | null;
   setEditingCell: (cell: EditingCell | null) => void;
-  displayRows: DataRow[];
+  displayRows: Row[];
   fields: Field[];
   moveToCell: (direction: 'prev' | 'next') => void;
   handleCopy: () => void;
@@ -35,7 +20,7 @@ interface UseExcelKeyboardParams {
   handlePaste: () => void;
   handleUndo: () => void;
   handleRedo: () => void;
-  handleCellSave: (rowId: string, fieldSlug: string, value: unknown) => void;
+  handleCellSave: (rowId: string, fieldSlug: string, value: CellValue) => void;
   scrollToRow?: (index: number) => void;
 }
 

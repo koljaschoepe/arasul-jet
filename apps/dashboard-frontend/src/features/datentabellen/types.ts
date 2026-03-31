@@ -7,7 +7,7 @@ export interface Field {
   name: string;
   field_type: string;
   unit?: string;
-  options?: any;
+  options?: Record<string, unknown>;
 }
 
 export interface TableData {
@@ -16,12 +16,15 @@ export interface TableData {
   fields: Field[];
 }
 
+/** CellValue represents the possible types stored in a single cell. */
+export type CellValue = string | number | boolean | null | undefined;
+
 export interface Row {
   _id: string;
   _isGhost?: boolean;
   _created_at?: string;
   _updated_at?: string;
-  [key: string]: any;
+  [key: string]: CellValue | boolean | undefined;
 }
 
 export interface CellPosition {

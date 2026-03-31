@@ -32,7 +32,8 @@ interface SearchResults {
 }
 
 interface SystemInfo {
-  availableRamGB: number;
+  llmRamGB: number;
+  totalRamGB: number;
   availableDiskGB: number;
 }
 
@@ -44,7 +45,8 @@ function Store() {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
-    availableRamGB: 64,
+    llmRamGB: 32,
+    totalRamGB: 64,
     availableDiskGB: 100,
   });
 
@@ -59,7 +61,7 @@ function Store() {
       }
     };
     loadSystemInfo();
-  }, []);
+  }, [api, toast]);
 
   // Debounced search with AbortController for race condition prevention (STORE-003)
   const storeSearcher = useCallback(
