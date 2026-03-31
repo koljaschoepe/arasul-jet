@@ -17,7 +17,10 @@ from collections import deque
 from typing import List, Dict, Optional, Tuple
 
 import psycopg2
+import psycopg2.errors
+import psycopg2.extensions
 import psycopg2.extras
+import psycopg2.pool
 import requests
 
 logger = logging.getLogger(__name__)
@@ -35,13 +38,24 @@ RELATION_BATCH_SIZE = int(os.getenv('KG_REFINE_RELATION_BATCH', '20'))
 # Minimum trigram similarity for entity resolution candidates
 MIN_SIMILARITY = float(os.getenv('KG_REFINE_MIN_SIMILARITY', '0.4'))
 
+
+# Resolve Docker secrets (_FILE env vars -> regular env vars)
+def _resolve_secrets(*var_names):
+    for var in var_names:
+        file_path = os.environ.get(f'{var}_FILE')
+        if file_path and os.path.isfile(file_path):
+            with open(file_path) as f:
+                os.environ[var] = f.read().strip()
+
+_resolve_secrets('POSTGRES_PASSWORD')
+
 # Database connection
 POSTGRES_DSN = (
     f"host={os.getenv('POSTGRES_HOST', 'postgres-db')} "
     f"port={os.getenv('POSTGRES_PORT', '5432')} "
     f"dbname={os.getenv('POSTGRES_DB', 'arasul_db')} "
     f"user={os.getenv('POSTGRES_USER', 'arasul')} "
-    f"password={os.getenv('POSTGRES_PASSWORD', 'arasul')}"
+    f"password={os.getenv('POSTGRES_PASSWORD', '')}"
 )
 
 
@@ -53,11 +67,28 @@ class GraphRefiner:
         self._running = False
         self._lock = threading.Lock()
         self._last_result = None
+        self._pool = psycopg2.pool.SimpleConnectionPool(1, 5, POSTGRES_DSN)
 
     def _get_conn(self):
-        conn = psycopg2.connect(POSTGRES_DSN)
+        conn = self._pool.getconn()
         conn.autocommit = False
         return conn
+
+    def _put_conn(self, conn):
+        self._pool.putconn(conn)
+
+    def close(self):
+        """Close all connections in the pool."""
+        if self._pool:
+            self._pool.closeall()
+            logger.info("GraphRefiner connection pool closed")
+
+    def __del__(self):
+        """Ensure pool is closed on garbage collection."""
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def _llm_generate(self, prompt: str, system_prompt: str = None,
                       temperature: float = 0.1) -> Optional[str]:
@@ -150,7 +181,7 @@ class GraphRefiner:
                 """, (MIN_SIMILARITY, batch_size))
                 return [dict(row) for row in cur.fetchall()]
         finally:
-            conn.close()
+            self._put_conn(conn)
 
     def resolve_entities_via_llm(self, similar_pairs: List[Dict]) -> List[Dict]:
         """
@@ -251,6 +282,7 @@ JSON-Array:"""
             return 0
 
         conn = self._get_conn()
+        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
         merged_count = 0
         try:
             with conn.cursor() as cur:
@@ -389,12 +421,16 @@ JSON-Array:"""
             conn.commit()
             return merged_count
 
+        except psycopg2.errors.SerializationFailure:
+            conn.rollback()
+            logger.warning("Serialization conflict during entity merge, will retry on next cycle")
+            return 0
         except Exception as e:
             conn.rollback()
             logger.error(f"Entity merge failed: {e}")
             return 0
         finally:
-            conn.close()
+            self._put_conn(conn)
 
     # ── Relation Refinement ───────────────────────────────────
 
@@ -419,7 +455,7 @@ JSON-Array:"""
                 """, (batch_size,))
                 return [dict(row) for row in cur.fetchall()]
         finally:
-            conn.close()
+            self._put_conn(conn)
 
     def refine_relations_via_llm(self, relations: List[Dict]) -> List[Dict]:
         """
@@ -522,7 +558,7 @@ JSON-Array:"""
             logger.error(f"Relation refinement failed: {e}")
             return 0
         finally:
-            conn.close()
+            self._put_conn(conn)
 
     def mark_relations_refined(self, relation_ids: List[int]):
         """Mark relations as refined even if no change was made."""
@@ -540,7 +576,7 @@ JSON-Array:"""
             conn.rollback()
             logger.error(f"Failed to mark relations as refined: {e}")
         finally:
-            conn.close()
+            self._put_conn(conn)
 
     # ── Main Entry Point ──────────────────────────────────────
 
@@ -642,7 +678,7 @@ JSON-Array:"""
             conn.rollback()
             logger.error(f"Failed to mark entities as refined: {e}")
         finally:
-            conn.close()
+            self._put_conn(conn)
 
     def get_refinement_stats(self) -> Dict:
         """Get current refinement status/statistics."""
@@ -678,7 +714,7 @@ JSON-Array:"""
                     'last_result': self._last_result,
                 }
         finally:
-            conn.close()
+            self._put_conn(conn)
 
 
 # Singleton

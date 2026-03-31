@@ -21,7 +21,7 @@ ENV TORCH_CUDA_ARCH_LIST=${CUDA_ARCH_LIST}
 WORKDIR /app
 
 # Copy requirements
-COPY requirements.txt ./
+COPY services/embedding-service/requirements.txt ./
 
 # Install Python dependencies WITHOUT torch (already in base image with CUDA)
 # CRITICAL: sentence-transformers depends on torch, so install it without dependencies first
@@ -32,8 +32,11 @@ RUN pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-ins
     tqdm scikit-learn scipy nltk sentencepiece huggingface-hub Pillow safetensors \
     flashrank==0.2.5
 
+# Copy shared logging module
+COPY services/shared-python/structured_logging.py ./
+
 # Copy application code
-COPY . .
+COPY services/embedding-service/ .
 
 # Create models directory and non-root user
 RUN mkdir -p /models && \

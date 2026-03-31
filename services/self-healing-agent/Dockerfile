@@ -36,13 +36,16 @@ RUN echo 'arasul ALL=(ALL) NOPASSWD: /sbin/reboot' > /etc/sudoers.d/arasul-reboo
 WORKDIR /app
 
 # Copy requirements
-COPY requirements.txt .
+COPY services/self-healing-agent/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy shared logging module
+COPY services/shared-python/structured_logging.py ./
+
 # Copy application code
-COPY . .
+COPY services/self-healing-agent/ .
 
 # Create logs directory and set ownership
 RUN mkdir -p /arasul/logs && \

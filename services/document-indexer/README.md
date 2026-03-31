@@ -4,12 +4,12 @@ Automatic document indexing service for RAG (Retrieval Augmented Generation).
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Port | 8080 (internal) |
-| Framework | Flask |
-| Runtime | Python 3.10+ |
-| Scan Interval | 30 seconds |
+| Property      | Value           |
+| ------------- | --------------- |
+| Port          | 8080 (internal) |
+| Framework     | Flask           |
+| Runtime       | Python 3.10+    |
+| Scan Interval | 30 seconds      |
 
 ## Architecture
 
@@ -60,12 +60,12 @@ document-indexer/
 
 ## Supported Formats
 
-| Format | Extension | Parser |
-|--------|-----------|--------|
-| PDF | .pdf | PyPDF2 |
-| Word | .docx | python-docx |
-| Text | .txt | Native |
-| Markdown | .md | markdown |
+| Format   | Extension | Parser      |
+| -------- | --------- | ----------- |
+| PDF      | .pdf      | PyPDF2      |
+| Word     | .docx     | python-docx |
+| Text     | .txt      | Native      |
+| Markdown | .md       | markdown    |
 
 ## Indexing Pipeline
 
@@ -78,35 +78,35 @@ document-indexer/
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Health check |
-| GET | `/status` | Indexing status |
-| POST | `/reindex` | Force reindex of all documents |
-| GET | `/documents` | List indexed documents |
+| Method | Path         | Description                    |
+| ------ | ------------ | ------------------------------ |
+| GET    | `/health`    | Health check                   |
+| GET    | `/status`    | Indexing status                |
+| POST   | `/reindex`   | Force reindex of all documents |
+| GET    | `/documents` | List indexed documents         |
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| DOCUMENT_INDEXER_INTERVAL | 30 | Scan interval (seconds) |
-| DOCUMENT_INDEXER_CHUNK_SIZE | 500 | Chunk size (characters) |
-| DOCUMENT_INDEXER_CHUNK_OVERLAP | 50 | Overlap (characters) |
-| DOCUMENT_INDEXER_MINIO_BUCKET | documents | MinIO bucket name |
-| MINIO_HOST | minio | MinIO hostname |
-| MINIO_PORT | 9000 | MinIO port |
-| MINIO_ROOT_USER | (required) | MinIO access key |
-| MINIO_ROOT_PASSWORD | (required) | MinIO secret key |
-| EMBEDDING_SERVICE_HOST | embedding-service | Embedding service host |
-| EMBEDDING_SERVICE_PORT | 11435 | Embedding service port |
-| QDRANT_HOST | qdrant | Qdrant hostname |
-| QDRANT_PORT | 6333 | Qdrant HTTP port |
-| QDRANT_COLLECTION_NAME | documents | Collection name |
-| EMBEDDING_VECTOR_SIZE | 768 | Vector dimension |
-| POSTGRES_HOST | postgres-db | Database host |
-| POSTGRES_PORT | 5432 | Database port |
-| POSTGRES_USER | arasul | Database user |
-| POSTGRES_DB | arasul_db | Database name |
+| Variable                       | Default           | Description             |
+| ------------------------------ | ----------------- | ----------------------- |
+| DOCUMENT_INDEXER_INTERVAL      | 120               | Scan interval (seconds) |
+| DOCUMENT_INDEXER_CHUNK_SIZE    | 500               | Chunk size (characters) |
+| DOCUMENT_INDEXER_CHUNK_OVERLAP | 50                | Overlap (characters)    |
+| DOCUMENT_INDEXER_MINIO_BUCKET  | documents         | MinIO bucket name       |
+| MINIO_HOST                     | minio             | MinIO hostname          |
+| MINIO_PORT                     | 9000              | MinIO port              |
+| MINIO_ROOT_USER                | (required)        | MinIO access key        |
+| MINIO_ROOT_PASSWORD            | (required)        | MinIO secret key        |
+| EMBEDDING_SERVICE_HOST         | embedding-service | Embedding service host  |
+| EMBEDDING_SERVICE_PORT         | 11435             | Embedding service port  |
+| QDRANT_HOST                    | qdrant            | Qdrant hostname         |
+| QDRANT_PORT                    | 6333              | Qdrant HTTP port        |
+| QDRANT_COLLECTION_NAME         | documents         | Collection name         |
+| EMBEDDING_VECTOR_SIZE          | 768               | Vector dimension        |
+| POSTGRES_HOST                  | postgres-db       | Database host           |
+| POSTGRES_PORT                  | 5432              | Database port           |
+| POSTGRES_USER                  | arasul            | Database user           |
+| POSTGRES_DB                    | arasul_db         | Database name           |
 
 ## Chunking Strategy
 

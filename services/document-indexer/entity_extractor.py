@@ -10,25 +10,58 @@ from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-# Try to load spaCy with German model
+# Lazy-load spaCy to save ~880MB RAM when not actively extracting entities.
+# The model is only loaded on first call to _get_nlp().
 SPACY_AVAILABLE = False
-nlp = None
+_nlp = None
+_nlp_checked = False
 
 try:
     import spacy
-    try:
-        nlp = spacy.load("de_core_news_lg")
-        SPACY_AVAILABLE = True
-        logger.info("spaCy de_core_news_lg loaded successfully")
-    except OSError:
-        try:
-            nlp = spacy.load("de_core_news_sm")
-            SPACY_AVAILABLE = True
-            logger.warning("Using de_core_news_sm (smaller model)")
-        except OSError:
-            logger.warning("No German spaCy model found - entity extraction disabled")
+    SPACY_AVAILABLE = True
+    logger.info("spaCy installed - model will be lazy-loaded on first use")
 except ImportError:
     logger.warning("spaCy not installed - entity extraction disabled")
+
+
+def _get_nlp():
+    """Lazy-load the spaCy NLP model on first use. Returns nlp or None."""
+    global _nlp, _nlp_checked, SPACY_AVAILABLE
+
+    if _nlp is not None:
+        return _nlp
+
+    if _nlp_checked or not SPACY_AVAILABLE:
+        return None
+
+    _nlp_checked = True
+
+    try:
+        _nlp = spacy.load("de_core_news_lg")
+        logger.info("spaCy de_core_news_lg loaded (lazy)")
+        return _nlp
+    except OSError:
+        logger.warning("spaCy model 'de_core_news_lg' not found - trying smaller model. Install with: python -m spacy download de_core_news_lg")
+
+    try:
+        _nlp = spacy.load("de_core_news_sm")
+        logger.warning("Using de_core_news_sm (smaller model, lazy)")
+        return _nlp
+    except OSError:
+        logger.warning("No German spaCy model found - entity extraction disabled")
+        SPACY_AVAILABLE = False
+        return None
+
+
+def unload_model():
+    """Unload the spaCy model to free ~880MB of RAM."""
+    global _nlp, _nlp_checked
+    if _nlp is not None:
+        logger.info("Unloading spaCy model to free memory")
+        _nlp = None
+        _nlp_checked = False
+        import gc
+        gc.collect()
 
 # Map spaCy NER labels to our Knowledge Graph entity types
 ENTITY_TYPE_MAP = {
@@ -55,7 +88,8 @@ def extract_entities(text: str) -> List[Dict]:
 
     Returns list of dicts: {name, type, label, start, end}
     """
-    if not SPACY_AVAILABLE or not text:
+    nlp = _get_nlp()
+    if nlp is None or not text:
         return []
 
     # Truncate very long texts
@@ -95,7 +129,8 @@ def extract_relations(text: str, entities: List[Dict]) -> List[Dict]:
     Extract relations based on entity co-occurrence within sentences.
     Entities appearing in the same sentence are assumed to be related.
     """
-    if not SPACY_AVAILABLE or not text or not entities:
+    nlp = _get_nlp()
+    if nlp is None or not text or not entities:
         return []
 
     proc_text = text[:MAX_TEXT_LENGTH] if len(text) > MAX_TEXT_LENGTH else text

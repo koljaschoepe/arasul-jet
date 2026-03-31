@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY services/document-indexer/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -27,8 +27,11 @@ RUN python -m spacy download de_core_news_lg || \
 # Create non-root user
 RUN useradd -m -u 1000 -s /bin/bash indexer
 
+# Copy shared logging module
+COPY services/shared-python/structured_logging.py ./
+
 # Copy application code
-COPY *.py ./
+COPY services/document-indexer/*.py ./
 
 # Create directories for BM25 index persistence
 RUN mkdir -p /data/bm25_index && \

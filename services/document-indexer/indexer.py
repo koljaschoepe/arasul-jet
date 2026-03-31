@@ -27,11 +27,7 @@ from psycopg2.extras import RealDictCursor
 from document_parsers import parse_pdf, parse_docx, parse_txt, parse_markdown
 from text_chunker import chunk_text
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Logger inherits structured JSON formatting from api_server.py entry point
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +59,7 @@ EMBEDDING_VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '768'))
 
 CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHUNK_SIZE', '500'))
 CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
-INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '30'))
+INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '120'))
 
 # PostgreSQL configuration (RAG 2.0)
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'postgres-db')
@@ -445,9 +441,11 @@ class DocumentIndexer:
                 try:
                     # Download object
                     response = self.minio_client.get_object(MINIO_BUCKET, obj.object_name)
-                    data = response.read()
-                    response.close()
-                    response.release_conn()
+                    try:
+                        data = response.read()
+                    finally:
+                        response.close()
+                        response.release_conn()
 
                     # Index document
                     self.index_document(obj.object_name, data)

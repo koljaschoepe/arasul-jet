@@ -16,13 +16,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements
-COPY requirements.txt .
+COPY services/metrics-collector/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy shared logging module
+COPY services/shared-python/structured_logging.py ./
+
 # Copy application code
-COPY . .
+COPY services/metrics-collector/ .
 
 # Create cache directory
 RUN mkdir -p /cache

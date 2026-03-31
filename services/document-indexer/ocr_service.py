@@ -186,7 +186,7 @@ def pdf_page_to_image(pdf_reader, page_num: int, dpi: int = 150) -> Optional[byt
     Falls back to None if conversion fails.
 
     Args:
-        pdf_reader: PyPDF2 reader object
+        pdf_reader: PDF reader object
         page_num: Page number (0-indexed)
         dpi: Resolution for rendering
 
@@ -291,11 +291,12 @@ def ocr_pdf_full(pdf_bytes: bytes, max_pages: int = 100) -> OCRResult:
 
     try:
         from pdf2image import convert_from_bytes
-        import PyPDF2
+        import fitz  # PyMuPDF
 
         # Get page count
-        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
-        total_pages = min(len(pdf_reader.pages), max_pages)
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        total_pages = min(len(doc), max_pages)
+        doc.close()
 
         logger.info(f"Starting OCR for PDF with {total_pages} pages using {engine}")
 
@@ -376,18 +377,20 @@ def parse_pdf_with_ocr_fallback(file_obj: IO[bytes]) -> Tuple[str, bool]:
     Returns:
         Tuple of (extracted_text, used_ocr)
     """
-    import PyPDF2
+    import fitz  # PyMuPDF
 
-    # First, try standard text extraction
+    # First, try standard text extraction using PyMuPDF
     file_obj.seek(0)
-    pdf_reader = PyPDF2.PdfReader(file_obj)
+    pdf_bytes = file_obj.read()
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     text_parts = []
 
-    for page in pdf_reader.pages:
-        text = page.extract_text()
-        if text:
-            text_parts.append(text)
+    for page in doc:
+        text = page.get_text("text")
+        if text and text.strip():
+            text_parts.append(text.strip())
 
+    doc.close()
     standard_text = "\n\n".join(text_parts).strip()
 
     # Check if we got meaningful text

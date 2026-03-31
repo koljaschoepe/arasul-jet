@@ -20,7 +20,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import subprocess
-import logging
 import psutil
 import os
 import re
@@ -30,14 +29,14 @@ import time
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for Dashboard
+CORS(app, origins=[
+    'http://dashboard-backend:3001',
+    'http://localhost:3001',
+])  # Restrict CORS to internal backend only
 
-# Logging configuration
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Structured JSON logging
+from structured_logging import setup_logging
+logger = setup_logging("llm-service")
 
 # Configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
@@ -190,11 +189,13 @@ def pull_model():
         if not model_name:
             return jsonify({"error": "model parameter required"}), 400
 
-        # Input validation - prevent injection and limit length
+        # Input validation - prevent injection, path traversal, and limit length
         if len(model_name) > 255:
             return jsonify({"error": "Model name too long (max 255 chars)"}), 400
-        if not re.match(r'^[a-zA-Z0-9_:./-]+$', model_name):
+        if not re.match(r'^[a-zA-Z0-9_:.\-]+$', model_name):
             return jsonify({"error": "Invalid model name format"}), 400
+        if '..' in model_name or model_name.startswith('/'):
+            return jsonify({"error": "Invalid model name"}), 400
 
         logger.info(f"Pulling model: {model_name}")
 
@@ -550,6 +551,17 @@ def info():
 
 
 if __name__ == '__main__':
+    import signal
+    import sys
+
+    def graceful_shutdown(signum, frame):
+        sig_name = signal.Signals(signum).name
+        logger.info(f"{sig_name} received - shutting down LLM Management API...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, graceful_shutdown)
+    signal.signal(signal.SIGINT, graceful_shutdown)
+
     logger.info("Starting LLM Management API on port 11436...")
     # Run on port 11436 (not 11434, that's Ollama itself)
     # Note: Port 11435 is used by embedding-service

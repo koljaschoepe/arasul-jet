@@ -7,7 +7,6 @@ Includes /rerank endpoint for 2-stage reranking (FlashRank + CrossEncoder)
 """
 
 import os
-import logging
 import time
 import threading
 from flask import Flask, request, jsonify
@@ -15,12 +14,9 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import torch
 
-# Configure logging
-logging.basicConfig(
-    level=os.getenv('LOG_LEVEL', 'INFO'),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('embedding-service')
+# Structured JSON logging
+from structured_logging import setup_logging
+logger = setup_logging("embedding-service")
 
 # Configuration
 MODEL_NAME = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-m3')
@@ -223,7 +219,15 @@ def embed():
 
         # Generate embeddings
         start_time = time.time()
-        embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+        try:
+            embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+        except Exception as e:
+            # Free GPU memory on failure
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                logger.warning("Cleared CUDA cache after encode failure")
+            raise
         latency = (time.time() - start_time) * 1000
 
         # Convert to list for JSON serialization

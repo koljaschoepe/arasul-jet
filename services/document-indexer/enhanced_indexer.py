@@ -40,11 +40,7 @@ from sparse_encoder import compute_sparse_vector
 from entity_extractor import extract_from_document, SPACY_AVAILABLE
 from graph_store import GraphStore
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Logger inherits structured JSON formatting from api_server.py entry point
 logger = logging.getLogger(__name__)
 
 
@@ -56,7 +52,7 @@ def _resolve_secrets(*var_names):
             with open(file_path) as f:
                 os.environ[var] = f.read().strip()
 
-_resolve_secrets('POSTGRES_PASSWORD', 'MINIO_ROOT_PASSWORD')
+_resolve_secrets('POSTGRES_PASSWORD', 'MINIO_ROOT_USER', 'MINIO_ROOT_PASSWORD')
 
 
 # Environment variables
@@ -80,7 +76,7 @@ CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
 PARENT_CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_PARENT_CHUNK_SIZE', '2000'))
 CHILD_CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHILD_CHUNK_SIZE', '400'))
 CHILD_CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP', '50'))
-INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '30'))
+INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '120'))
 
 # CRITICAL-FIX: Maximum file size limit to prevent OOM (default: 100MB)
 MAX_FILE_SIZE_MB = int(os.getenv('DOCUMENT_MAX_SIZE_MB', '100'))
@@ -113,9 +109,18 @@ class EnhancedDocumentIndexer:
         self.qdrant_client = self._init_qdrant()
         self.db = DatabaseManager()
 
+        # Crash recovery: reset any documents stuck in 'processing' from a previous crash
+        self.db.recover_stuck_processing()
+
         # Initialize AI services
         self.ai_services = AIServices()
         self.analyzer = DocumentAnalyzer(self.ai_services)
+
+        # Verify embedding service is reachable
+        if not self._check_embedding_service():
+            logger.warning("Embedding service is not reachable at startup - embeddings will fail until service is available")
+        else:
+            logger.info("Embedding service health check passed")
 
         # Initialize Knowledge Graph store
         self.graph_store = GraphStore(POSTGRES_DSN) if ENABLE_KNOWLEDGE_GRAPH and SPACY_AVAILABLE else None
@@ -255,12 +260,20 @@ class EnhancedDocumentIndexer:
                 else:
                     raise
 
+    def _check_embedding_service(self) -> bool:
+        """Verify embedding service is reachable."""
+        try:
+            resp = requests.get(f"http://{EMBEDDING_HOST}:{EMBEDDING_PORT}/health", timeout=5)
+            return resp.status_code == 200
+        except Exception:
+            return False
+
     def get_embedding(self, text: str) -> Optional[List[float]]:
         """Get embedding vector from embedding service"""
         try:
             response = requests.post(
                 f"http://{EMBEDDING_HOST}:{EMBEDDING_PORT}/embed",
-                json={"texts": text},
+                json={"texts": [text]},
                 timeout=30
             )
             response.raise_for_status()
@@ -558,6 +571,7 @@ class EnhancedDocumentIndexer:
         Returns:
             Document ID if successful, None otherwise
         """
+        doc_id = None  # Initialize for safe exception handling
         filename = os.path.basename(object_name)
         file_ext = os.path.splitext(filename.lower())[1]
 
@@ -604,11 +618,12 @@ class EnhancedDocumentIndexer:
             if existing['status'] == 'indexed':
                 logger.info(f"Document already indexed (content match): {filename}")
                 return existing['id']
-            elif existing['status'] == 'pending':
-                # Document exists but not yet indexed - continue processing
-                logger.info(f"Found pending document, will index: {filename}")
-                # Use existing doc_id for indexing
+            elif existing['status'] in ('pending', 'failed'):
+                # Document exists but not yet indexed or previously failed - reprocess
+                logger.info(f"Found {existing['status']} document, will index: {filename}")
                 doc_id = existing['id']
+                if existing['status'] == 'failed':
+                    self.db.update_document(doc_id, {'retry_count': 0})
                 return self._index_existing_document(doc_id, data, filename, content_hash, file_hash)
 
         # Check by file hash for re-indexing
@@ -709,9 +724,14 @@ class EnhancedDocumentIndexer:
                 **space_info  # RAG 2.0: Include space metadata
             })
 
-            # Mark as indexed
-            self.db.update_document_status(doc_id, 'indexed', chunk_count=chunk_count)
-            self.db.update_document(doc_id, {'embedding_model': EMBEDDING_MODEL})
+            # Mark as indexed (only if chunks were actually created)
+            if chunk_count and chunk_count > 0:
+                self.db.update_document_status(doc_id, 'indexed', chunk_count=chunk_count)
+                self.db.update_document(doc_id, {'embedding_model': EMBEDDING_MODEL})
+            else:
+                self.db.update_document_status(doc_id, 'failed', 'No chunks created — document may be empty or unparseable')
+                logger.warning(f"Document {filename} produced 0 chunks, marked as failed")
+                return doc_id
 
             with self._status_lock:
                 self.status['documents_processed'] += 1
@@ -739,8 +759,11 @@ class EnhancedDocumentIndexer:
 
         except Exception as e:
             logger.error(f"Error processing {filename}: {e}", exc_info=True)
-            if 'doc_id' in locals():
-                self.db.update_document_status(doc_id, 'failed', str(e))
+            if doc_id:
+                try:
+                    self.db.update_document_status(doc_id, 'failed', str(e))
+                except Exception as status_err:
+                    logger.error(f"Failed to update status to 'failed' for {doc_id}: {status_err}")
             with self._status_lock:
                 self.status['documents_failed'] += 1
                 self.status['errors'].append({
@@ -837,9 +860,14 @@ class EnhancedDocumentIndexer:
                 **space_info  # RAG 2.0: Include space metadata
             })
 
-            # Mark as indexed
-            self.db.update_document_status(doc_id, 'indexed', chunk_count=chunk_count)
-            self.db.update_document(doc_id, {'embedding_model': EMBEDDING_MODEL})
+            # Mark as indexed (only if chunks were actually created)
+            if chunk_count and chunk_count > 0:
+                self.db.update_document_status(doc_id, 'indexed', chunk_count=chunk_count)
+                self.db.update_document(doc_id, {'embedding_model': EMBEDDING_MODEL})
+            else:
+                self.db.update_document_status(doc_id, 'failed', 'No chunks created — document may be empty or unparseable')
+                logger.warning(f"Document {filename} produced 0 chunks, marked as failed")
+                return doc_id
 
             with self._status_lock:
                 self.status['documents_processed'] += 1
@@ -919,19 +947,20 @@ class EnhancedDocumentIndexer:
             else:
                 query_vector = raw_vector  # Legacy unnamed vector
 
-            # Search using named "dense" vector
-            similar = self.qdrant_client.search(
+            # Search using named "dense" vector (qdrant-client >= 1.17 uses query_points)
+            from qdrant_client.models import NamedVector
+            similar = self.qdrant_client.query_points(
                 collection_name=QDRANT_COLLECTION,
-                query_vector=("dense", query_vector),
+                query=query_vector,
+                using="dense",
                 limit=15,
                 score_threshold=SIMILARITY_THRESHOLD,
                 with_payload=True
             )
 
             # Group by document and calculate max similarity
-            # Use dict comprehension for slight performance improvement
             doc_similarities = {}
-            for result in similar:
+            for result in similar.points:
                 other_doc_id = result.payload.get('document_id')
                 if other_doc_id and other_doc_id != doc_id:
                     current_score = doc_similarities.get(other_doc_id, 0)
@@ -1008,27 +1037,40 @@ class EnhancedDocumentIndexer:
         """Scan MinIO bucket and index new documents"""
         try:
             objects = self.minio_client.list_objects(MINIO_BUCKET, recursive=True)
-            pending_count = 0
 
             for obj in objects:
                 try:
-                    # Download object
+                    # Quick check: skip download if file hash (name:size) already indexed
+                    file_hash = self.calculate_file_hash(obj.object_name, obj.size or 0)
+                    existing = self.db.get_document_by_file_hash(file_hash)
+                    if existing and existing['status'] == 'indexed':
+                        logger.info(f"Document already indexed (content match): {os.path.basename(obj.object_name)}")
+                        continue
+
+                    # Download object only if not yet indexed
                     response = self.minio_client.get_object(MINIO_BUCKET, obj.object_name)
-                    data = response.read()
-                    response.close()
-                    response.release_conn()
+                    try:
+                        data = response.read()
+                    finally:
+                        response.close()
+                        response.release_conn()
 
                     # Process document
-                    result = self.process_new_document(obj.object_name, data)
-                    if result is None:
-                        pending_count += 1
+                    self.process_new_document(obj.object_name, data)
 
                 except Exception as e:
                     logger.error(f"Error processing {obj.object_name}: {e}")
                     continue
 
+            # Get actual pending count from database (not local counter)
+            try:
+                stats = self.db.get_statistics()
+                db_pending = stats.get('pending_documents', 0) or 0
+            except Exception:
+                db_pending = 0
+
             with self._status_lock:
-                self.status['documents_pending'] = pending_count
+                self.status['documents_pending'] = db_pending
                 self.status['last_scan'] = datetime.now().isoformat()
 
             logger.info("Scan and index cycle completed")

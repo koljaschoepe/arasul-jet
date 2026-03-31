@@ -186,7 +186,10 @@ class DatabaseManager:
         'processing_started_at', 'processing_completed_at', 'indexed_at',
         'summary', 'keywords', 'category_id', 'space_id', 'metadata',
         'key_topics', 'category_confidence', 'embedding_model', 'retry_count',
-        'parent_chunk_id', 'child_index'
+        'parent_chunk_id', 'child_index',
+        # Document metadata fields (needed by indexer when reprocessing)
+        'filename', 'original_filename', 'file_path', 'file_size',
+        'mime_type', 'file_extension', 'content_hash', 'file_hash',
     })
 
     def update_document(self, doc_id: str, updates: Dict[str, Any]) -> bool:
@@ -323,6 +326,21 @@ class DatabaseManager:
                 documents = [dict(row) for row in cur.fetchall()]
 
         return documents, total
+
+    def recover_stuck_processing(self) -> int:
+        """Reset documents stuck in 'processing' back to 'pending' (crash recovery)"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE documents
+                    SET status = 'pending', processing_started_at = NULL
+                    WHERE status = 'processing'
+                    RETURNING id
+                """)
+                recovered = cur.rowcount
+                if recovered > 0:
+                    logger.info(f"Recovered {recovered} stuck 'processing' document(s) back to 'pending'")
+                return recovered
 
     def get_pending_documents(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get documents pending processing"""

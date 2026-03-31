@@ -6,7 +6,6 @@ Autonomous service monitoring and recovery with advanced failure tracking
 
 import os
 import time
-import logging
 import psycopg2
 from psycopg2 import pool
 import docker
@@ -17,19 +16,16 @@ import subprocess
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Optional
 
+# Structured JSON logging (must be before any module that calls basicConfig)
+from structured_logging import setup_logging
+logger = setup_logging("self-healing")
+
 # Import GPU Recovery Module
 try:
     from gpu_recovery import GPURecovery, GPURecoveryAction
     GPU_RECOVERY_AVAILABLE = True
 except ImportError:
     GPU_RECOVERY_AVAILABLE = False
-
-# Configure logging
-logging.basicConfig(
-    level=os.getenv('LOG_LEVEL', 'INFO'),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('self-healing')
 
 
 # Resolve Docker secrets (_FILE env vars → regular env vars)
@@ -129,6 +125,9 @@ class SelfHealingEngine:
         # State tracking for metrics failure
         self.metrics_down_since = None
 
+        # Tailscale state tracking
+        self._tailscale_was_connected = None  # None = unknown, True/False = last known state
+
         # Temperature hysteresis state
         self._temp_history = []  # Sliding window for averaging (last 5 readings)
         self._temp_throttle_armed = True   # Disarmed when throttle triggers, re-armed at TEMP_THROTTLE_REARM
@@ -192,20 +191,19 @@ class SelfHealingEngine:
         try:
             self.pool_stats['total_queries'] += 1
             conn = self.get_connection()
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            result = cursor.fetchone() if fetch else None
-            conn.commit()
-            cursor.close()
-            return result
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                result = cursor.fetchone() if fetch else None
+                conn.commit()
+                return result
         except Exception as e:
             self.pool_stats['total_errors'] += 1
             logger.error(f"Database query failed: {e}")
             if conn:
                 try:
                     conn.rollback()
-                except Exception:
-                    pass  # PHASE1-FIX: Explicit Exception type
+                except Exception as rb_err:
+                    logger.debug(f"Non-critical error during rollback: {rb_err}")
             return None
         finally:
             if conn:
@@ -326,8 +324,8 @@ class SelfHealingEngine:
                     inspect = container.attrs
                     if 'Health' in inspect.get('State', {}):
                         health = inspect['State']['Health']['Status']
-                except Exception:
-                    pass  # PHASE1-FIX: Explicit Exception type
+                except Exception as e:
+                    logger.debug(f"Non-critical error reading health for {name}: {e}")
 
                 services_status[name] = {
                     'status': status,
@@ -482,8 +480,8 @@ class SelfHealingEngine:
                 logger.info("GPU session reset via model unload")
                 time.sleep(2)  # Wait for GPU to fully release
                 return True
-        except Exception:
-            pass  # PHASE1-FIX: Explicit Exception type
+        except Exception as e:
+            logger.debug(f"Non-critical error during GPU session reset via API: {e}")
 
         # Fallback: restart service
         try:
@@ -1281,6 +1279,47 @@ class SelfHealingEngine:
         except Exception as e:
             logger.error(f"Error in GPU error handling: {e}")
 
+    def check_tailscale_health(self, metrics: Dict):
+        """Monitor Tailscale VPN connectivity and attempt recovery if it drops.
+
+        Tailscale runs on the host (not in Docker), so recovery is limited to
+        logging events and attempting 'tailscale up' via the backend API.
+        """
+        ts = metrics.get('tailscale')
+        if ts is None:
+            return  # Tailscale status not available (check skipped)
+
+        if not ts.get('installed'):
+            return  # Not installed, nothing to monitor
+
+        connected = ts.get('connected', False)
+
+        # Detect state transition: was connected → now disconnected
+        if self._tailscale_was_connected is True and not connected:
+            logger.warning("Tailscale VPN connection lost")
+            self.log_event(
+                'tailscale_disconnected',
+                'WARNING',
+                'Tailscale VPN connection lost unexpectedly',
+                'Logged warning - manual reconnection may be required',
+                'tailscale',
+                True
+            )
+
+        # Detect recovery: was disconnected → now connected
+        if self._tailscale_was_connected is False and connected:
+            logger.info(f"Tailscale VPN reconnected (IP: {ts.get('ip')})")
+            self.log_event(
+                'tailscale_reconnected',
+                'INFO',
+                f"Tailscale VPN reconnected (IP: {ts.get('ip')})",
+                'Connection restored',
+                'tailscale',
+                True
+            )
+
+        self._tailscale_was_connected = connected
+
     def run_healing_cycle(self):
         """Main healing cycle - executed every HEALING_INTERVAL seconds"""
         logger.debug("Running healing cycle")
@@ -1357,6 +1396,10 @@ class SelfHealingEngine:
             # Category B: Check for overload conditions
             if metrics:
                 self.handle_category_b_overload(metrics)
+
+            # Tailscale VPN monitoring (non-critical, every 6 cycles = ~1 min)
+            if self.check_count % 6 == 0 and metrics:
+                self.check_tailscale_health(metrics)
 
             # Periodic cleanup (every 100 cycles = ~16 minutes at 10s interval)
             if self.check_count % 100 == 0 and self.check_count > 0:

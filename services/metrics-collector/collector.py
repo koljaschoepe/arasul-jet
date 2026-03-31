@@ -17,21 +17,17 @@ from aiohttp import web
 from typing import Dict, Optional
 import json
 
+# Structured JSON logging (must be before any logger usage)
+from structured_logging import setup_logging
+logger = setup_logging("metrics-collector")
+
 # Import GPU Monitor
 try:
     from gpu_monitor import GPUMonitor, GPUHealth, GPUError
     GPU_MONITOR_AVAILABLE = True
 except ImportError:
     GPU_MONITOR_AVAILABLE = False
-    logger = logging.getLogger('metrics-collector')
     logger.warning("GPU Monitor module not available")
-
-# Configure logging
-logging.basicConfig(
-    level=os.getenv('LOG_LEVEL', 'INFO'),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('metrics-collector')
 
 
 # Resolve Docker secrets (_FILE env vars → regular env vars)
@@ -166,10 +162,11 @@ class MetricsCollector:
                                         self._cached_gpu_thermal_path = temp_path
                                         logger.info(f"GPU thermal zone: {zone_type} -> {temp_path}")
                                         return temp_path
-                    except Exception:
+                    except Exception as e:
+                        logger.debug(f"Non-critical error reading thermal zone type: {e}")
                         continue
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Non-critical error scanning thermal zones: {e}")
 
         # Fallback: try common zone paths
         fallback_paths = [
@@ -219,8 +216,8 @@ class MetricsCollector:
             try:
                 with open(gpu_load_path, 'r') as f:
                     return int(f.read().strip()) / 10.0
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Non-critical error reading GPU load from sysfs: {e}")
 
         return 0.0
 
@@ -298,6 +295,25 @@ class MetricsCollector:
             except (socket.gaierror, socket.timeout, OSError):
                 return {'online': False}
 
+    def check_tailscale_status(self) -> Optional[Dict]:
+        """Check Tailscale VPN connection status (host-level service)"""
+        import urllib.request
+        try:
+            # Tailscale status is exposed via the dashboard-backend API
+            url = f"http://{os.getenv('DASHBOARD_BACKEND_HOST', 'dashboard-backend')}:3001/api/tailscale/status"
+            req = urllib.request.Request(url, method='GET')
+            req.add_header('Content-Type', 'application/json')
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode())
+                return {
+                    'installed': data.get('installed', False),
+                    'connected': data.get('connected', False),
+                    'ip': data.get('ip'),
+                    'peers_online': len([p for p in data.get('peers', []) if p.get('online')]),
+                }
+        except Exception:
+            return None  # Tailscale check is optional, don't fail on error
+
     def collect_all(self) -> Dict:
         """Collect all metrics"""
         return {
@@ -308,6 +324,7 @@ class MetricsCollector:
             'disk': self.get_disk_usage(),
             'self_healing': self.check_self_healing_health(),
             'network': self.check_network_connectivity(),
+            'tailscale': self.check_tailscale_status(),
             'timestamp': datetime.utcnow().isoformat()
         }
 
@@ -408,8 +425,8 @@ class MetricsCollector:
             if self.nvml_available:
                 try:
                     self.pynvml.nvmlShutdown()
-                except Exception:
-                    pass  # PHASE1-FIX: Explicit Exception type
+                except Exception as e:
+                    logger.debug(f"Non-critical error shutting down NVML: {e}")
 
             # Wait a moment
             time.sleep(2)
@@ -546,8 +563,8 @@ class DatabaseWriter:
             if conn:
                 try:
                     conn.rollback()
-                except Exception:
-                    pass  # PHASE1-FIX: Explicit Exception type
+                except Exception as e:
+                    logger.debug(f"Non-critical error during rollback: {e}")
         finally:
             if conn:
                 self.release_connection(conn)
@@ -567,8 +584,8 @@ class DatabaseWriter:
             if conn:
                 try:
                     conn.rollback()
-                except Exception:
-                    pass  # PHASE1-FIX: Explicit Exception type
+                except Exception as e:
+                    logger.debug(f"Non-critical error during rollback: {e}")
         finally:
             if conn:
                 self.release_connection(conn)
@@ -648,12 +665,15 @@ async def start_http_server():
     logger.info("HTTP server started on port 9100")
 
 
+_db_writer_instance = None
+
 async def collect_metrics_loop():
     """Main metrics collection loop"""
-    global current_metrics, metrics_buffer
+    global current_metrics, metrics_buffer, _db_writer_instance
 
     collector = MetricsCollector()
     db_writer = DatabaseWriter()
+    _db_writer_instance = db_writer
 
     persist_counter = 0
     cleanup_counter = 0
@@ -703,11 +723,31 @@ async def main():
     logger.info("Starting Arasul Metrics Collector")
     logger.info(f"Live interval: {METRICS_INTERVAL_LIVE}s, Persist interval: {METRICS_INTERVAL_PERSIST}s")
 
+    loop = asyncio.get_event_loop()
+    shutdown_event = asyncio.Event()
+
+    def _signal_handler():
+        logger.info("Shutdown signal received - stopping metrics collector...")
+        shutdown_event.set()
+
+    for sig in (asyncio.unix_events.signal.SIGTERM, asyncio.unix_events.signal.SIGINT):
+        loop.add_signal_handler(sig, _signal_handler)
+
     # Start HTTP server and metrics collection concurrently
-    await asyncio.gather(
+    tasks = asyncio.gather(
         start_http_server(),
         collect_metrics_loop()
     )
+
+    # Wait until shutdown signal
+    await shutdown_event.wait()
+    tasks.cancel()
+
+    # Ensure connection pool is closed on shutdown
+    if _db_writer_instance is not None:
+        _db_writer_instance.close()
+
+    logger.info("Metrics Collector shutdown complete")
 
 
 if __name__ == '__main__':
