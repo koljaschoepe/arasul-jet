@@ -619,13 +619,11 @@ describe('LLMQueueService', () => {
     });
 
     describe('onJobComplete()', () => {
-        test('setzt isProcessing zurück', () => {
-            service.isProcessing = true;
+        test('setzt processingJobId zurück', () => {
             service.processingJobId = 'job-123';
 
             service.onJobComplete('job-123');
 
-            expect(service.isProcessing).toBe(false);
             expect(service.processingJobId).toBeNull();
         });
 
@@ -633,7 +631,6 @@ describe('LLMQueueService', () => {
             const callback = jest.fn();
             service.subscribeToJob('job-123', callback);
 
-            service.isProcessing = true;
             service.processingJobId = 'job-123';
 
             service.onJobComplete('job-123');
@@ -668,12 +665,10 @@ describe('LLMQueueService', () => {
         test('_resetForTesting clears all state', () => {
             service.subscribeToJob('job-1', jest.fn());
             service.subscribeToJob('job-2', jest.fn());
-            service.isProcessing = true;
             service.processingJobId = 'job-1';
 
             service._resetForTesting();
 
-            expect(service.isProcessing).toBe(false);
             expect(service.processingJobId).toBeNull();
             // Subscribers should be cleared
             const callback = jest.fn();

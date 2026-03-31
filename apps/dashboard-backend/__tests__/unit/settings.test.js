@@ -162,10 +162,10 @@ describe('Settings Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('requirements');
       expect(res.body.requirements).toMatchObject({
-        minLength: 8,
-        requireUppercase: true,
-        requireLowercase: true,
-        requireNumbers: true,
+        minLength: 4,
+        requireUppercase: false,
+        requireLowercase: false,
+        requireNumbers: false,
         requireSpecialChars: false
       });
       expect(res.body).toHaveProperty('timestamp');

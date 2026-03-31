@@ -1,12 +1,12 @@
 /**
  * Unit tests for System Routes
  *
- * Tests all system endpoints (all public, no auth required):
- * - GET /api/system/status
- * - GET /api/system/info
- * - GET /api/system/network
- * - GET /api/system/thresholds
- * - POST /api/system/reload-config
+ * Tests system endpoints:
+ * - GET /api/system/status (public)
+ * - GET /api/system/info (public)
+ * - GET /api/system/network (public)
+ * - GET /api/system/thresholds (public)
+ * - POST /api/system/reload-config (requires auth)
  */
 
 const request = require('supertest');
@@ -24,6 +24,14 @@ jest.mock('dockerode', () => {
     listContainers: jest.fn().mockResolvedValue([])
   }));
 });
+
+// Mock auth middleware - reload-config requires auth
+jest.mock('../../src/middleware/auth', () => ({
+  requireAuth: (req, res, next) => {
+    req.user = { id: 1, username: 'admin', role: 'admin' };
+    next();
+  }
+}));
 
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
