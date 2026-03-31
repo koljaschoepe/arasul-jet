@@ -17,7 +17,7 @@ EnvironmentFile=-/opt/arasul/.env
 
 # Start command - ordered startup for post-reboot reliability
 ExecStart=/opt/arasul/scripts/system/ordered-startup.sh --skip-pull
-ExecStop=/usr/bin/docker compose down
+ExecStop=/bin/bash -c 'cd /opt/arasul && docker compose down'
 
 # Restart policy
 Restart=on-failure

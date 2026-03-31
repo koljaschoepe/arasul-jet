@@ -16,7 +16,9 @@
     "test": "./scripts/test/run-tests.sh --all",
     "test:backend": "./scripts/test/run-tests.sh --backend",
     "test:frontend": "./scripts/test/run-tests.sh --frontend",
-    "typecheck": "./scripts/test/run-typecheck.sh"
+    "typecheck": "./scripts/test/run-typecheck.sh",
+    "audit": "npm audit --production",
+    "audit:fix": "npm audit fix --production"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

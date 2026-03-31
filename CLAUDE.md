@@ -1,128 +1,163 @@
-# CLAUDE.md
+# CLAUDE.md — Arasul Platform
 
-Instructions for Claude Code working in the Arasul Platform repository.
+## Vision
 
----
-
-## Quick Navigation
-
-| Looking for...              | Go to...                                                       |
-| --------------------------- | -------------------------------------------------------------- |
-| All documentation           | [docs/INDEX.md](docs/INDEX.md)                                 |
-| **Getting started**         | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)             |
-| **Architecture & Services** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   |
-| **Development Guide**       | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                     |
-| **Frontend Design System**  | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)                 |
-| API endpoints               | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)                 |
-| Database schema             | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)             |
-| Environment variables       | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) |
+Arasul ist eine autonome Edge-AI-Plattform für NVIDIA Jetson. Sie wird als kommerzielles Produkt an Unternehmen verkauft — eine Plug-&-Play-Box, die KI-Funktionen (Chat, RAG, Dokumentenanalyse, Automatisierung) komplett lokal und datenschutzkonform bereitstellt. Ziel: 5 Jahre autonomer Betrieb ohne manuellen Eingriff.
 
 ---
 
-## Project Overview
+## Architektur auf einen Blick
 
-**Arasul Platform** - Autonomous Edge AI appliance for NVIDIA Jetson AGX Orin.
+```
+Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
+                         → Dashboard-Backend (Express API :3001)
+                              ├─ PostgreSQL 16 (102 Tabellen, 52 Migrationen)
+                              ├─ MinIO (S3-kompatibler Object Storage)
+                              ├─ Ollama/LLM-Service (:11434/:11436) [GPU]
+                              ├─ Embedding-Service (:11435) [GPU]
+                              ├─ Qdrant Vector DB (:6333)
+                              ├─ Document-Indexer (:9102)
+                              ├─ n8n Workflow Engine (:5678)
+                              └─ Docker-Proxy → Self-Healing, Metrics, Backup
+```
 
-| Property  | Value                                              |
-| --------- | -------------------------------------------------- |
-| Hardware  | Jetson AGX Orin (12-Core ARM, 64GB DDR5)           |
-| Runtime   | Docker Compose V2 + NVIDIA Container Runtime       |
-| Frontend  | React 19 SPA + Vite 6 (`apps/dashboard-frontend/`) |
-| Backend   | Node.js/Express (`apps/dashboard-backend/`)        |
-| Database  | PostgreSQL 16                                      |
-| AI        | Ollama (LLM) + Sentence Transformers (Embeddings)  |
-| Vector DB | Qdrant                                             |
-| Storage   | MinIO (S3-compatible)                              |
-| Services  | 17 Docker containers                               |
+| Schicht  | Technologie                                                  | Ort                                                           |
+| -------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
+| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript     | `apps/dashboard-frontend/`                                    |
+| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                 | `apps/dashboard-backend/`                                     |
+| AI       | Ollama (LLM) + BGE-M3 (Embeddings) + Qdrant (Vektoren)       | `services/llm-service/`, `services/embedding-service/`        |
+| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11 | `compose/`, `config/traefik/`                                 |
+| Ops      | Self-Healing Agent + Metrics Collector + Backup Service      | `services/self-healing-agent/`, `services/metrics-collector/` |
+| DB       | PostgreSQL 16 (54 Migrationen, nächste: `055_*.sql`)         | `services/postgres/init/`                                     |
+| Hardware | Jetson AGX Orin / Thor (ARM64, 32-128GB, CUDA 8.7-10.0)      | Erkennung: `scripts/setup/detect-jetson.sh`                   |
 
 ---
 
-## Critical Rules
+## Unverhandelbare Regeln
 
-### 1. Always Test Before Commit
+### 1. Backend: asyncHandler + Custom Errors
+
+```javascript
+const { asyncHandler } = require('../middleware/errorHandler');
+const { ValidationError } = require('../utils/errors');
+router.post(
+  '/endpoint',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!req.body.name) throw new ValidationError('Name ist erforderlich');
+    // ... Logik
+    res.json({ data: result });
+  })
+);
+```
+
+- **Immer**: `asyncHandler()` Wrapper, Errors aus `utils/errors.js`
+- **Nie**: try-catch auf Route-Level, raw `fetch()` im Frontend
+
+### 2. Frontend: useApi + TypeScript + CSS Variables
+
+```typescript
+const api = useApi();
+const data = await api.get<MyType>('/endpoint');
+```
+
+- **Immer**: `useApi()` Hook, TypeScript (`.tsx`/`.ts`), `var(--primary-color)` statt Hex
+- **Nie**: raw `fetch()`, `.js`-Dateien, hardcoded Farben in JSX
+
+### 3. Testen vor Commit
 
 ```bash
-./scripts/test/run-tests.sh --backend
+./scripts/test/run-tests.sh --backend    # Jest (44 Suites)
+./scripts/test/run-tests.sh --frontend   # Vitest (18 Suites)
 ```
 
-### 2. Follow Design System for Frontend
-
-- Primary color: `#45ADFF`, Background: `#101923` / `#1A2330`
-- Always use CSS variables (`var(--primary-color)`) - never hardcoded hex in JSX
-- See [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
-
-### 3. Backend Patterns
-
-- **Always**: `asyncHandler()` wrapper + custom errors from `utils/errors.js`
-- **Always**: `useApi()` hook for frontend REST calls
-- **Never**: manual try-catch at route level, raw `fetch()` in components
-- See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
-
-### 4. Update Documentation
-
-| Change Type      | Update These Files              |
-| ---------------- | ------------------------------- |
-| New API endpoint | `docs/API_REFERENCE.md`         |
-| Database schema  | `docs/DATABASE_SCHEMA.md`       |
-| New env variable | `docs/ENVIRONMENT_VARIABLES.md` |
-| Bug fix          | `BUGS_AND_FIXES.md`             |
-
-### 5. Git Commit Convention
-
-```
-feat|fix|docs|refactor|test|chore: Description
-```
-
----
-
-## Essential Commands
+### 4. Deployment: Docker Rebuild nach Code-Änderungen
 
 ```bash
-docker compose up -d                          # Start all services
-docker compose logs -f <service-name>         # View logs
-docker compose up -d --build <service-name>   # Rebuild service
-docker exec -it postgres-db psql -U arasul -d arasul_db  # Database shell
-./scripts/test/run-tests.sh --backend         # Run tests
-npm run lint:fix                              # Lint code
+docker compose up -d --build dashboard-backend dashboard-frontend
 ```
 
----
+Es gibt keinen lokalen Dev-Server — der User testet im Browser erst nach Container-Rebuild.
 
-## Key Entry Points
+### 5. Dokumentation aktualisieren
 
-| Domain      | Entry Point                           | Pattern Reference                  |
-| ----------- | ------------------------------------- | ---------------------------------- |
-| Backend API | `apps/dashboard-backend/src/index.js` | `routes/index.js` (central router) |
-| Frontend    | `apps/dashboard-frontend/src/App.tsx` | `features/chat/ChatRouter.tsx`     |
-| Database    | `services/postgres/init/`             | Next: `050_*.sql`                  |
-| AI Services | `services/llm-service/api_server.py`  | -                                  |
-| Setup       | `scripts/interactive_setup.sh`        | Deutsche Terminal-UI               |
-| Bootstrap   | `arasul` (cmd_bootstrap)              | 15-Schritte Produktions-Flow       |
-| HW-Detect   | `scripts/setup/detect-jetson.sh`      | 5-Stufen Thor/Orin-Erkennung       |
-| Factory     | `scripts/deploy/factory-install.sh`   | Offline-Installation via USB       |
+| Änderung           | Aktualisiere                    |
+| ------------------ | ------------------------------- |
+| Neuer API-Endpoint | `docs/API_REFERENCE.md`         |
+| DB-Schema          | `docs/DATABASE_SCHEMA.md`       |
+| Neue Env-Variable  | `docs/ENVIRONMENT_VARIABLES.md` |
+
+### 6. Git Convention: `feat|fix|docs|refactor|test|chore: Beschreibung`
 
 ---
 
-## Quick Debugging
+## Task-Router: Welchen Kontext laden?
 
-| Problem             | Command                                        |
-| ------------------- | ---------------------------------------------- |
-| Service won't start | `docker compose logs <service>`                |
-| Database issues     | `docker exec postgres-db pg_isready -U arasul` |
-| LLM not responding  | `docker compose logs llm-service`              |
-| Check all services  | `docker compose ps`                            |
+Lade den passenden Kontext aus `.claude/context/` je nach Aufgabe:
 
-Full debugging guide: [docs/DEVELOPMENT.md#6-debugging-cheatsheet](docs/DEVELOPMENT.md#6-debugging-cheatsheet)
+| Wenn du...                      | Lade diesen Kontext              |
+| ------------------------------- | -------------------------------- |
+| Backend-Route/Service schreibst | `backend.md`                     |
+| React-Component baust           | `frontend.md` + `component.md`   |
+| DB-Migration erstellst          | `database.md` + `migration.md`   |
+| API-Endpoint hinzufügst         | `api-endpoint.md` + `backend.md` |
+| Docker/Compose/Traefik änderst  | `infra.md`                       |
+| Python-Service bearbeitest      | `python-services.md`             |
+| Telegram-Bot entwickelst        | `telegram.md`                    |
+| n8n-Workflow/Custom Node baust  | `n8n-workflow.md`                |
+| Service debuggst                | `debug.md`                       |
+| Architektur-Überblick brauchst  | `base.md`                        |
 
 ---
 
-## Context Templates
+## Quick Reference
 
-For task-specific context, see `.claude/context/`:
+### Entry Points
 
-- `base.md` - Project overview
-- `backend.md` - Node.js/Express patterns
-- `frontend.md` - React component patterns
-- `database.md` - PostgreSQL migrations
-- `api-endpoint.md` - Adding new endpoints
-- `component.md` - Adding React components
+| Domain      | Datei                                                      |
+| ----------- | ---------------------------------------------------------- |
+| Backend API | `apps/dashboard-backend/src/index.js` → `routes/index.js`  |
+| Frontend    | `apps/dashboard-frontend/src/App.tsx`                      |
+| Database    | `services/postgres/init/` (nächste Migration: `055_*.sql`) |
+| LLM Service | `services/llm-service/api_server.py`                       |
+| Setup       | `scripts/interactive_setup.sh`                             |
+| Bootstrap   | `./arasul bootstrap`                                       |
+
+### Befehle
+
+```bash
+docker compose up -d                              # Alle Services starten
+docker compose up -d --build <service>             # Service neu bauen
+docker compose logs -f <service>                   # Logs streamen
+docker compose ps                                  # Service-Status
+docker exec -it postgres-db psql -U arasul -d arasul_db  # DB-Shell
+make build s=dashboard-frontend                    # Makefile-Shortcut
+make logs s=dashboard-backend                      # Logs via Make
+./scripts/test/run-tests.sh --all                  # Alle Tests
+```
+
+### Debugging
+
+| Problem               | Befehl                                                   |
+| --------------------- | -------------------------------------------------------- |
+| Service startet nicht | `docker compose logs <service>`                          |
+| DB-Problem            | `docker exec postgres-db pg_isready -U arasul`           |
+| LLM antwortet nicht   | `docker compose logs llm-service`                        |
+| GPU-Status            | `docker exec llm-service nvidia-smi` (oder `tegrastats`) |
+
+---
+
+## Dokumentation
+
+| Thema                  | Datei                                                          |
+| ---------------------- | -------------------------------------------------------------- |
+| Architektur & Services | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   |
+| API-Referenz           | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)                 |
+| Datenbank-Schema       | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)             |
+| Design System          | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)                 |
+| Entwicklung            | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                     |
+| Environment Vars       | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) |
+| Jetson-Kompatibilität  | [docs/JETSON_COMPATIBILITY.md](docs/JETSON_COMPATIBILITY.md)   |
+| Admin-Handbuch         | [docs/ADMIN_HANDBUCH.md](docs/ADMIN_HANDBUCH.md)               |
+| Troubleshooting        | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)             |
+| Alle Docs              | [docs/INDEX.md](docs/INDEX.md)                                 |

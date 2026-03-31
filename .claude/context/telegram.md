@@ -2,210 +2,116 @@
 
 ## Quick Reference
 
-**Service:** `services/telegram-bot/`
-**Entry Point:** `bot.py`
-**Health:** Port 8090 (`/health`)
-**Config:** `.env` → `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS`
+**Backend-managed** — Telegram-Bots werden komplett über das Dashboard-Backend verwaltet (kein separater Python-Service mehr).
+
+**Routes:** `apps/dashboard-backend/src/routes/telegram/`
+**Services:** `apps/dashboard-backend/src/services/telegram/`
+**DB-Tabellen:** `telegram_bots`, `telegram_bot_commands`, `telegram_bot_chats`, `telegram_bot_sessions`
 
 ---
 
-## Architecture
+## Architektur (Multi-Bot v3)
 
 ```
 Telegram API
      │
      ▼
-telegram-bot (8090)
-├── bot.py          # Main bot + handlers
-├── health.py       # Flask health endpoint
-├── config.py       # Environment config
-├── commands/       # Command modules
-│   ├── disk.py
-│   ├── logs.py
-│   ├── services.py
-│   └── status.py
-└── src/
-    ├── handlers/   # Callback handlers
-    ├── middleware/ # Audit middleware
-    └── services/   # Business logic
+Dashboard-Backend (:3001)
+├── routes/telegram/
+│   ├── telegram.js        # Legacy config, token encryption
+│   ├── telegramApp.js     # Setup wizard + WebSocket
+│   └── bots.js            # Bot CRUD, commands, chats
+├── services/telegram/
+│   ├── telegramBotService.js        # Bot DB operations
+│   ├── telegramOrchestratorService.js  # Master orchestrator (thinking mode)
+│   ├── telegramPollingManager.js    # getUpdates polling (no webhook)
+│   ├── telegramWebhookService.js    # Webhook callback handling
+│   ├── telegramLLMService.js        # Routes messages to LLM queue
+│   ├── telegramRAGService.js        # Document retrieval for bots
+│   ├── telegramNotificationService.js  # System notifications
+│   ├── telegramRateLimitService.js  # Per-user/chat rate limiting
+│   ├── telegramVoiceService.js      # Audio message handling
+│   └── telegramWebSocketService.js  # Setup progress updates
 ```
 
 ---
 
-## Add New Command
+## Datenbank-Tabellen
 
-### 1. Create Command Module
-
-```python
-# commands/example.py
-from telegram import Update
-from telegram.ext import ContextTypes
-import logging
-
-logger = logging.getLogger(__name__)
-
-async def example_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /example command"""
-    chat_id = update.effective_chat.id
-    user = update.effective_user
-
-    logger.info(f"Example command from {user.username} (chat: {chat_id})")
-
-    try:
-        # Your logic here
-        result = "Example response"
-
-        await update.message.reply_text(
-            f"📋 *Example Result*\n\n{result}",
-            parse_mode='Markdown'
-        )
-    except Exception as e:
-        logger.error(f"Example command error: {e}")
-        await update.message.reply_text(f"❌ Error: {str(e)}")
-```
-
-### 2. Register in bot.py
-
-```python
-# bot.py
-from commands.example import example_command
-
-# In setup_handlers():
-application.add_handler(CommandHandler("example", example_command))
-```
+| Tabelle                       | Zweck                                                                            |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| `telegram_bots`               | Bot-Konfiguration (Token AES-256-GCM verschlüsselt, LLM-Provider, System-Prompt) |
+| `telegram_bot_commands`       | Custom Commands pro Bot (command, description, prompt)                           |
+| `telegram_bot_chats`          | Bekannte Chats pro Bot (chat_id, title, type)                                    |
+| `telegram_bot_sessions`       | Conversation-History pro Chat (messages JSONB, token_count)                      |
+| `telegram_setup_sessions`     | Setup-Wizard State (setup_token, status, expires_at)                             |
+| `telegram_notification_rules` | Benachrichtigungsregeln (event_source, trigger_condition, cooldown)              |
+| `telegram_rate_limits`        | Rate-Limiting pro Bot+Chat (requests/min, requests/hour)                         |
+| `telegram_app_status`         | App-Aktivierung pro User (icon_visible, settings)                                |
 
 ---
 
-## Send Notification from Backend
+## Bot erstellen (Setup-Wizard Flow)
 
-### Backend API Call
+1. User klickt "Telegram Bot einrichten" im Dashboard
+2. Frontend öffnet WebSocket zu `/api/telegram-app/ws`
+3. User gibt Bot-Token ein → Backend validiert via Telegram API
+4. Backend sendet `/start`-Nachricht an Bot → User bestätigt im Telegram
+5. Setup abgeschlossen → Bot startet Polling
 
-```javascript
-// apps/dashboard-backend/src/routes/telegram.js
-router.post(
-  '/send',
-  auth,
-  asyncHandler(async (req, res) => {
-    const { message, chatId } = req.body;
+## Key Features
 
-    await axios.post(`${TELEGRAM_BOT_URL}/send`, {
-      chat_id: chatId || process.env.TELEGRAM_ALLOWED_CHAT_IDS.split(',')[0],
-      message: message,
-    });
+- **Multi-Bot**: Mehrere Bots pro User möglich
+- **LLM-Provider**: Ollama (lokal) oder Claude API
+- **Voice**: Audio-Nachrichten via OpenAI Whisper API
+- **RAG**: Bots können Knowledge Spaces durchsuchen (`rag_enabled`, `rag_space_ids`)
+- **Custom Commands**: Pro Bot definierbar mit eigenem Prompt
+- **User-Whitelist**: `allowed_users` JSONB + `restrict_users` Boolean
+- **Rate-Limiting**: Per Bot+Chat, konfigurierbare Limits/min und /hour
 
-    res.json({ success: true, timestamp: new Date().toISOString() });
-  })
-);
-```
+## Token-Verschlüsselung
 
-### Direct Telegram API
+Bot-Tokens werden AES-256-GCM verschlüsselt in der DB gespeichert:
 
-```python
-# From any Python service
-import requests
-
-def send_telegram_message(message: str, chat_id: str = None):
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    chat_id = chat_id or os.getenv('TELEGRAM_ALLOWED_CHAT_IDS').split(',')[0]
-
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "HTML"
-    }
-    requests.post(url, json=payload)
-```
+- `bot_token_encrypted` (BYTEA)
+- `bot_token_iv` (Initialization Vector)
+- `bot_token_tag` (Auth Tag)
 
 ---
 
-## Message Formatting
+## API-Endpoints
 
-```python
-# HTML format (recommended)
-message = """
-<b>🚨 Alert</b>
+### Bot-Management (`/api/telegram-bots/`)
 
-<b>Service:</b> dashboard-backend
-<b>Status:</b> Down
-<b>Time:</b> 2026-01-25 10:30:00
+- `GET /` — Alle Bots des Users
+- `POST /` — Bot erstellen
+- `GET /:id` — Bot-Details
+- `PUT /:id` — Bot aktualisieren
+- `DELETE /:id` — Bot löschen
+- `POST /:id/toggle` — Bot aktivieren/deaktivieren
+- `GET /:id/commands` — Commands auflisten
+- `POST /:id/commands` — Command erstellen
+- `PUT /:id/commands/:cmdId` — Command ändern
+- `DELETE /:id/commands/:cmdId` — Command löschen
 
-<i>Auto-recovery initiated</i>
-"""
+### Setup (`/api/telegram-app/`)
 
-await update.message.reply_text(message, parse_mode='HTML')
+- `POST /setup/start` — Setup starten (Token validieren)
+- `POST /setup/complete` — Setup abschließen
+- `WS /ws` — WebSocket für Setup-Fortschritt
 
-# Markdown format
-message = """
-*🚨 Alert*
+### Benachrichtigungen (`/api/telegram/`)
 
-*Service:* dashboard-backend
-*Status:* Down
-*Time:* 2026-01-25 10:30:00
-
-_Auto-recovery initiated_
-"""
-
-await update.message.reply_text(message, parse_mode='Markdown')
-```
+- `POST /send` — Nachricht senden
+- `GET /notification-rules` — Regeln auflisten
+- `POST /notification-rules` — Regel erstellen
 
 ---
 
-## Inline Keyboards
+## Checklist: Neuen Bot-Feature hinzufügen
 
-```python
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-keyboard = [
-    [
-        InlineKeyboardButton("✅ Approve", callback_data='approve'),
-        InlineKeyboardButton("❌ Reject", callback_data='reject')
-    ],
-    [InlineKeyboardButton("📋 Details", callback_data='details')]
-]
-reply_markup = InlineKeyboardMarkup(keyboard)
-
-await update.message.reply_text(
-    "Choose an action:",
-    reply_markup=reply_markup
-)
-```
-
----
-
-## Environment Variables
-
-```bash
-# Required
-TELEGRAM_BOT_TOKEN=<from @BotFather>
-TELEGRAM_ALLOWED_CHAT_IDS=123456789,987654321
-
-# Optional
-TELEGRAM_WEBHOOK_URL=https://your-domain.com/webhook
-```
-
----
-
-## Testing Locally
-
-```bash
-# Check bot health
-curl http://localhost:8090/health
-
-# View logs
-docker compose logs -f telegram-bot
-
-# Restart bot
-docker compose restart telegram-bot
-```
-
----
-
-## Checklist
-
-- [ ] Command module created in `commands/`
-- [ ] Handler registered in `bot.py`
-- [ ] Error handling implemented
-- [ ] Logging added
-- [ ] Message uses proper formatting (HTML/Markdown)
-- [ ] Chat ID validation (if needed)
+- [ ] Service-Logik in `services/telegram/` (richtige Service-Datei wählen)
+- [ ] Route in `routes/telegram/bots.js` hinzufügen
+- [ ] DB-Migration falls neues Feld (nächste: `053_*.sql`)
+- [ ] Tests in `__tests__/unit/telegram*.test.js`
+- [ ] Frontend-Komponente in `features/telegram/` aktualisieren

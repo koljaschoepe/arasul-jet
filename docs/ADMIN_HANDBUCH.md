@@ -319,24 +319,38 @@ Das System ist ueber das lokale Netzwerk erreichbar:
 - **Web:** `http://<jetson-ip>`
 - **SSH:** `ssh -p 2222 arasul@<jetson-ip>`
 
-### Externer Zugriff (optional)
+### Fernzugriff mit Tailscale (empfohlen)
 
-Fuer Fernwartung kann ein SSH-Tunnel eingerichtet werden:
+Tailscale ermoeglicht sicheren Zugriff von ueberall - ohne Port-Forwarding oder VPN-Server.
 
-```bash
-# Auf dem Jetson:
-ssh -R 0:localhost:2222 serveo.net
+**Einrichtung:**
 
-# Oder mit Cloudflare Tunnel:
-# Siehe docs/REMOTE_MAINTENANCE.md
-```
+1. Kostenloses Konto auf [tailscale.com](https://login.tailscale.com) erstellen
+2. Tailscale-App auf Ihrem Laptop/Handy installieren
+3. Auth-Key erstellen unter Admin > Settings > Keys
+4. Im Dashboard unter **Einstellungen > Fernzugriff** den Key eingeben
+
+**Nach der Einrichtung:**
+
+- Dashboard: `http://<tailscale-ip>` (von ueberall erreichbar)
+- SSH: `ssh arasul@<tailscale-ip>`
+
+**Status pruefen:** Im Dashboard unter Einstellungen > Fernzugriff werden angezeigt:
+
+- Verbindungsstatus und Tailscale-IP
+- Alle verbundenen Geraete im Netzwerk
+- Schritt-fuer-Schritt Einrichtungsanleitung
+
+Detaillierte Dokumentation: [REMOTE_MAINTENANCE.md](REMOTE_MAINTENANCE.md)
 
 ### Netzwerk-Anforderungen
 
-| Port | Dienst | Richtung  |
-| ---- | ------ | --------- |
-| 80   | HTTP   | Eingehend |
-| 443  | HTTPS  | Eingehend |
-| 2222 | SSH    | Eingehend |
+| Port | Dienst    | Richtung  |
+| ---- | --------- | --------- |
+| 80   | HTTP      | Eingehend |
+| 443  | HTTPS     | Eingehend |
+| 2222 | SSH       | Eingehend |
+| -    | Tailscale | Ausgehend |
 
+Tailscale benoetigt nur ausgehende Verbindungen (UDP Port 41641) - keine eingehenden Ports.
 Alle anderen Ports sind durch die Firewall gesperrt.

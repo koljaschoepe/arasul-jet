@@ -30,6 +30,8 @@ All variables are defined in `.env` file at repository root.
 | JWT_EXPIRY             | 24h        | Token expiration time                               |
 | LOGIN_LOCKOUT_ATTEMPTS | 5          | Failed attempts before lockout                      |
 | LOGIN_LOCKOUT_MINUTES  | 15         | Lockout duration                                    |
+| FORCE_HTTPS            | false      | HTTPS erzwingen                                     |
+| FORCE_SECURE_COOKIES   | false      | Secure-Flag für Cookies                             |
 
 ---
 
@@ -69,31 +71,38 @@ All variables are defined in `.env` file at repository root.
 
 ## MinIO (Object Storage)
 
-| Variable            | Default    | Description        |
-| ------------------- | ---------- | ------------------ |
-| MINIO_HOST          | minio      | MinIO hostname     |
-| MINIO_PORT          | 9000       | MinIO API port     |
-| MINIO_CONSOLE_PORT  | 9001       | MinIO console port |
-| MINIO_ROOT_USER     | (required) | MinIO access key   |
-| MINIO_ROOT_PASSWORD | (required) | MinIO secret key   |
-| MINIO_BROWSER       | true       | Enable web console |
+| Variable                    | Default     | Description                            |
+| --------------------------- | ----------- | -------------------------------------- |
+| MINIO_HOST                  | minio       | MinIO hostname                         |
+| MINIO_PORT                  | 9000        | MinIO API port                         |
+| MINIO_CONSOLE_PORT          | 9001        | MinIO console port                     |
+| MINIO_ROOT_USER             | (required)  | MinIO access key                       |
+| MINIO_ROOT_PASSWORD         | (required)  | MinIO secret key                       |
+| MINIO_BROWSER               | true        | Enable web console                     |
+| MINIO_DOCUMENTS_QUOTA_BYTES | 10737418240 | Dokument-Bucket Quota (Default: 10 GB) |
 
 ---
 
 ## LLM Service
 
-| Variable               | Default      | Description                      |
-| ---------------------- | ------------ | -------------------------------- |
-| LLM_HOST               | llm-service  | LLM service hostname             |
-| LLM_PORT               | 11434        | Ollama API port                  |
-| LLM_MANAGEMENT_PORT    | 11436        | Management API port              |
-| LLM_MODEL              | qwen3:14b-q8 | Default LLM model                |
-| LLM_MAX_TOKENS         | 2048         | Max response tokens              |
-| LLM_CONTEXT_SIZE       | 4096         | Context window size              |
-| LLM_MAX_RAM_GB         | 40           | Max RAM allocation (GB)          |
-| LLM_GPU_LAYERS         | 33           | GPU layers                       |
-| LLM_KEEP_ALIVE_SECONDS | 300          | Model unload timeout             |
-| OLLAMA_STARTUP_TIMEOUT | 120          | Ollama startup timeout (seconds) |
+> **Hinweis:** `LLM_HOST`, `LLM_PORT` und `LLM_MANAGEMENT_PORT` sind **deprecated**. Der interne Code verwendet `LLM_SERVICE_HOST`, `LLM_SERVICE_PORT` und `LLM_SERVICE_MANAGEMENT_PORT`. Die alten Namen werden noch als Fallback akzeptiert, sollten aber in neuen Konfigurationen nicht mehr verwendet werden.
+
+| Variable                    | Default      | Description                                            |
+| --------------------------- | ------------ | ------------------------------------------------------ |
+| LLM_SERVICE_HOST            | llm-service  | Hostname des LLM-Service                               |
+| LLM_SERVICE_PORT            | 11434        | Port des LLM-Service                                   |
+| LLM_SERVICE_MANAGEMENT_PORT | 11436        | Management-Port des LLM-Service                        |
+| LLM_HOST                    | llm-service  | _(deprecated)_ Alias für `LLM_SERVICE_HOST`            |
+| LLM_PORT                    | 11434        | _(deprecated)_ Alias für `LLM_SERVICE_PORT`            |
+| LLM_MANAGEMENT_PORT         | 11436        | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT` |
+| LLM_MODEL                   | qwen3:14b-q8 | Default LLM model                                      |
+| LLM_MAX_TOKENS              | 2048         | Max response tokens                                    |
+| LLM_CONTEXT_SIZE            | 4096         | Context window size                                    |
+| LLM_MAX_RAM_GB              | 40           | Max RAM allocation (GB)                                |
+| LLM_GPU_LAYERS              | 33           | GPU layers                                             |
+| LLM_KEEP_ALIVE_SECONDS      | 300          | Model unload timeout                                   |
+| OLLAMA_STARTUP_TIMEOUT      | 120          | Ollama startup timeout (seconds)                       |
+| MAX_STORED_MODELS           | 10           | Maximale Anzahl gespeicherter Modelle                  |
 
 ---
 
@@ -165,27 +174,33 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## Document Indexer
 
-| Variable                             | Default          | Description                                    |
-| ------------------------------------ | ---------------- | ---------------------------------------------- |
-| DOCUMENT_INDEXER_INTERVAL            | 30               | Scan interval (seconds)                        |
-| DOCUMENT_INDEXER_CHUNK_SIZE          | 500              | Chunk size (chars)                             |
-| DOCUMENT_INDEXER_CHUNK_OVERLAP       | 50               | Chunk overlap (chars)                          |
-| DOCUMENT_INDEXER_PARENT_CHUNK_SIZE   | 2000             | Parent chunk size in tokens                    |
-| DOCUMENT_INDEXER_CHILD_CHUNK_SIZE    | 400              | Child chunk size in tokens                     |
-| DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP | 50               | Child chunk overlap in tokens                  |
-| DOCUMENT_INDEXER_MINIO_BUCKET        | documents        | Source bucket                                  |
-| DOCUMENT_MAX_SIZE_MB                 | 100              | Maximum file size (MB)                         |
-| BM25_INDEX_PATH                      | /data/bm25_index | Path for BM25 index persistence                |
-| RAG_HYBRID_SEARCH                    | true             | Enable hybrid keyword+vector search            |
-| RAG_ENABLE_MULTI_QUERY               | true             | Enable multi-query generation                  |
-| RAG_ENABLE_HYDE                      | true             | Enable HyDE query expansion                    |
-| RAG_ENABLE_DECOMPOUND                | true             | Enable German word decompounding               |
-| RAG_ENABLE_RERANKING                 | true             | Enable 2-stage reranking in RAG pipeline       |
-| RAG_QUERY_OPTIMIZER_MODEL            | ""               | Model for query optimization (empty = default) |
-| SPACE_ROUTING_THRESHOLD              | 0.4              | Space routing confidence threshold             |
-| SPACE_ROUTING_MAX_SPACES             | 3                | Max spaces to search in RAG                    |
-| RAG_RELEVANCE_THRESHOLD              | 0.5              | Min rerank score to include document (0-1)     |
-| RAG_VECTOR_SCORE_THRESHOLD           | 0.55             | Min vector score when reranker is off (0-1)    |
+| Variable                             | Default                      | Description                                    |
+| ------------------------------------ | ---------------------------- | ---------------------------------------------- |
+| DOCUMENT_INDEXER_HOST                | document-indexer             | Hostname des Document-Indexer                  |
+| DOCUMENT_INDEXER_API_PORT            | 9102                         | API-Port des Document-Indexer                  |
+| DOCUMENT_INDEXER_URL                 | http://document-indexer:9102 | Vollständige URL des Document-Indexer          |
+| DOCUMENT_INDEXER_INTERVAL            | 120                          | Scan interval (seconds)                        |
+| DOCUMENT_INDEXER_CHUNK_SIZE          | 500                          | Chunk size (chars)                             |
+| DOCUMENT_INDEXER_CHUNK_OVERLAP       | 50                           | Chunk overlap (chars)                          |
+| DOCUMENT_INDEXER_PARENT_CHUNK_SIZE   | 2000                         | Parent chunk size in tokens                    |
+| DOCUMENT_INDEXER_CHILD_CHUNK_SIZE    | 400                          | Child chunk size in tokens                     |
+| DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP | 50                           | Child chunk overlap in tokens                  |
+| DOCUMENT_INDEXER_MINIO_BUCKET        | documents                    | Source bucket                                  |
+| DOCUMENT_MAX_SIZE_MB                 | 100                          | Maximum file size (MB)                         |
+| BM25_INDEX_PATH                      | /data/bm25_index             | Path for BM25 index persistence                |
+| RAG_HYBRID_SEARCH                    | true                         | Enable hybrid keyword+vector search            |
+| RAG_ENABLE_MULTI_QUERY               | true                         | Enable multi-query generation                  |
+| RAG_ENABLE_HYDE                      | true                         | Enable HyDE query expansion                    |
+| RAG_ENABLE_DECOMPOUND                | true                         | Enable German word decompounding               |
+| RAG_ENABLE_RERANKING                 | true                         | Enable 2-stage reranking in RAG pipeline       |
+| RAG_QUERY_OPTIMIZER_MODEL            | ""                           | Model for query optimization (empty = default) |
+| SPACE_ROUTING_THRESHOLD              | 0.4                          | Space routing confidence threshold             |
+| SPACE_ROUTING_MAX_SPACES             | 3                            | Max spaces to search in RAG                    |
+| RAG_RELEVANCE_THRESHOLD              | 0.5                          | Min rerank score to include document (0-1)     |
+| RAG_VECTOR_SCORE_THRESHOLD           | 0.55                         | Min vector score when reranker is off (0-1)    |
+| RAG_ENABLE_GRAPH                     | false                        | Knowledge Graph für RAG aktivieren             |
+| RAG_GRAPH_MAX_ENTITIES               | 50                           | Max Entities pro Graph-Traversal               |
+| RAG_GRAPH_TRAVERSAL_DEPTH            | 2                            | Traversal-Tiefe im Knowledge Graph             |
 
 ---
 
@@ -234,6 +249,34 @@ See [CUSTOMER_OAUTH_SETUP.md](./CUSTOMER_OAUTH_SETUP.md) for detailed instructio
 
 ---
 
+## Tailscale (Remote Access VPN)
+
+Tailscale provides secure remote access via WireGuard mesh VPN. Configured during setup wizard.
+
+| Variable           | Default          | Description                                        |
+| ------------------ | ---------------- | -------------------------------------------------- |
+| TAILSCALE_ENABLED  | false            | Enable Tailscale during bootstrap                  |
+| TAILSCALE_AUTH_KEY | (optional)       | Auth key from Tailscale admin (starts with tskey-) |
+| TAILSCALE_HOSTNAME | (SETUP_HOSTNAME) | Hostname for the device in the Tailnet             |
+
+### Setup
+
+1. Create account at [tailscale.com](https://login.tailscale.com)
+2. Generate auth key at Admin > Settings > Keys (reusable recommended)
+3. Set environment variables in `.env`:
+   ```bash
+   TAILSCALE_ENABLED=true
+   TAILSCALE_AUTH_KEY=tskey-auth-...
+   TAILSCALE_HOSTNAME=mein-arasul
+   ```
+4. Run bootstrap: `./arasul bootstrap` (or configure during interactive setup)
+
+Tailscale runs on the host (not in Docker). Status is available via `GET /api/tailscale/status`.
+
+See [REMOTE_MAINTENANCE.md](./REMOTE_MAINTENANCE.md) for detailed remote access documentation.
+
+---
+
 ## Metrics
 
 | Variable                 | Default                       | Description              |
@@ -248,12 +291,14 @@ See [CUSTOMER_OAUTH_SETUP.md](./CUSTOMER_OAUTH_SETUP.md) for detailed instructio
 
 ## Self-Healing
 
-| Variable                    | Default | Description                 |
-| --------------------------- | ------- | --------------------------- |
-| SELF_HEALING_INTERVAL       | 10      | Check interval (seconds)    |
-| SELF_HEALING_ENABLED        | true    | Enable healing actions      |
-| SELF_HEALING_REBOOT_ENABLED | false   | Enable system reboot        |
-| SELF_HEALING_HEARTBEAT_PORT | 9200    | Self-healing heartbeat port |
+| Variable                    | Default            | Description                     |
+| --------------------------- | ------------------ | ------------------------------- |
+| SELF_HEALING_HOST           | self-healing-agent | Hostname des Self-Healing-Agent |
+| SELF_HEALING_PORT           | 8085               | Port des Self-Healing-Agent     |
+| SELF_HEALING_INTERVAL       | 10                 | Check interval (seconds)        |
+| SELF_HEALING_ENABLED        | true               | Enable healing actions          |
+| SELF_HEALING_REBOOT_ENABLED | false              | Enable system reboot            |
+| SELF_HEALING_HEARTBEAT_PORT | 9200               | Self-healing heartbeat port     |
 
 ### Thresholds
 

@@ -76,7 +76,6 @@ src/
 │   └── cryptoService.js  # Encryption utilities
 └── utils/
     ├── logger.js         # Winston logger
-    ├── fileLogger.js     # File-based logging
     ├── jwt.js            # JWT token utilities
     ├── password.js       # Password hashing (bcrypt)
     ├── errors.js         # Error class definitions

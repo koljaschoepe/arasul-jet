@@ -2,32 +2,34 @@
 
 ## Quick Reference
 
-**Service:** `services/n8n/`
-**UI:** Port 5678 (via Traefik: `/n8n/`)
-**Custom Nodes:** `custom-nodes/n8n-nodes-arasul-*`
-**Database:** PostgreSQL (schema: n8n)
+**Service:** n8n Container (Docker, Port 5678)
+**UI:** Via Traefik unter `/n8n/` (Basic Auth geschützt)
+**Custom Nodes:** `services/n8n/custom-nodes/n8n-nodes-arasul-*`
+**Database:** PostgreSQL (Schema: `n8n`)
+**Dockerfile:** `services/n8n/Dockerfile` (Multi-Stage: Build Custom Nodes → n8n Base Image)
 
 ---
 
-## Architecture
+## Architektur
 
 ```
 n8n (5678)
-├── Core n8n Engine
-├── Custom Nodes:
-│   ├── n8n-nodes-arasul-llm      # Ollama LLM integration
+├── Core n8n Engine (v1.121.1)
+├── Custom Nodes (TypeScript, compiled at Docker build):
+│   ├── n8n-nodes-arasul-llm        # Ollama LLM integration
 │   └── n8n-nodes-arasul-embeddings # Text vectorization
-├── Database: PostgreSQL
-└── Traefik Routes: /n8n/*
+├── Database: PostgreSQL (schema: n8n)
+├── Traefik Route: /n8n/* (Basic Auth + Forward Auth)
+└── Depends on: postgres-db, llm-service, embedding-service, minio
 ```
 
 ---
 
-## Custom Nodes
+## Custom Arasul Nodes
 
 ### Arasul LLM Node
 
-Connects to Ollama for LLM inference.
+Connects to Ollama for LLM inference (non-streaming).
 
 **Parameters:**
 
@@ -40,220 +42,121 @@ Connects to Ollama for LLM inference.
 **Output:**
 
 ```json
-{
-  "response": "LLM response text",
-  "model": "qwen3:14b-q8",
-  "tokens": 150
-}
+{ "response": "LLM response text", "model": "qwen3:14b-q8", "tokens": 150 }
 ```
 
 ### Arasul Embeddings Node
 
-Generates text embeddings.
+Generates text embeddings via embedding-service.
 
 **Parameters:**
 
 - `text`: Text to embed
-- `model`: Embedding model (default: `nomic-embed-text-v1.5`)
+- `model`: Embedding model (default: `BAAI/bge-m3`)
 
 **Output:**
 
 ```json
-{
-  "embedding": [0.123, -0.456, ...],
-  "dimensions": 768
-}
+{ "embedding": [0.123, -0.456, ...], "dimensions": 1024 }
 ```
 
 ---
 
-## Common Workflow Patterns
+## External LLM API (für n8n HTTP-Node)
+
+Das Dashboard-Backend bietet einen vereinfachten LLM-Endpoint für n8n:
+
+```
+POST /api/v1/external/llm/chat
+Header: X-API-Key: aras_<32-char-hex>
+
+Body: { "messages": [...], "model": "qwen3:14b-q8" }
+Response: { "response": "...", "model": "...", "tokens": ... }
+```
+
+Dieser Endpoint ist API-Key-authentifiziert (nicht JWT) und non-streaming.
+
+---
+
+## Workflow-Patterns
 
 ### Webhook → LLM → Response
 
-```json
-{
-  "nodes": [
-    {
-      "name": "Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "parameters": {
-        "path": "chat",
-        "httpMethod": "POST"
-      }
-    },
-    {
-      "name": "Arasul LLM",
-      "type": "n8n-nodes-arasul-llm",
-      "parameters": {
-        "model": "qwen3:14b-q8",
-        "prompt": "={{ $json.body.message }}",
-        "systemPrompt": "You are a helpful assistant."
-      }
-    },
-    {
-      "name": "Respond",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ { response: $json.response } }}"
-      }
-    }
-  ]
-}
+```
+Webhook (POST /webhook/chat)
+  → Arasul LLM Node (prompt from body)
+  → Respond to Webhook (JSON response)
 ```
 
-### Scheduled Task → Database
+### Scheduled Task → Database → Notification
 
-```json
-{
-  "nodes": [
-    {
-      "name": "Schedule",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "parameters": {
-        "rule": {
-          "interval": [{ "field": "hours", "hour": 3 }]
-        }
-      }
-    },
-    {
-      "name": "PostgreSQL",
-      "type": "n8n-nodes-base.postgres",
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "VACUUM ANALYZE; SELECT COUNT(*) FROM documents;"
-      }
-    },
-    {
-      "name": "Telegram",
-      "type": "n8n-nodes-base.telegram",
-      "parameters": {
-        "operation": "sendMessage",
-        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
-        "text": "DB Maintenance: {{ $json.count }} documents"
-      }
-    }
-  ]
-}
+```
+Schedule Trigger (daily at 3:00)
+  → PostgreSQL (VACUUM ANALYZE)
+  → Telegram (send maintenance report)
 ```
 
----
+### Document Processing Pipeline
 
-## API Integration
-
-### Trigger Workflow via API
-
-```bash
-# Webhook trigger
-curl -X POST http://localhost:5678/webhook/your-path \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Hello"}'
 ```
-
-### From Backend
-
-```javascript
-// apps/dashboard-backend/src/routes/workflows.js
-const axios = require('axios');
-
-async function triggerWorkflow(webhookPath, data) {
-  const response = await axios.post(`http://n8n:5678/webhook/${webhookPath}`, data);
-  return response.data;
-}
+Webhook (file upload)
+  → HTTP Request (POST to MinIO)
+  → Wait (indexing)
+  → HTTP Request (POST to document-indexer /search)
+  → Arasul LLM (summarize results)
 ```
 
 ---
 
 ## Custom Node Development
 
-### Structure
+### Verzeichnis-Struktur
 
 ```
-custom-nodes/n8n-nodes-arasul-llm/
+services/n8n/custom-nodes/n8n-nodes-arasul-llm/
 ├── package.json
 ├── tsconfig.json
-├── src/
-│   └── nodes/
-│       └── ArasulLlm/
-│           ├── ArasulLlm.node.ts    # Node implementation
-│           └── ArasulLlm.node.json  # Node definition
-└── index.ts                          # Export
+├── src/nodes/ArasulLlm/
+│   ├── ArasulLlm.node.ts     # Node-Implementierung
+│   └── ArasulLlm.node.json   # UI-Definition
+└── index.ts                    # Export
 ```
 
-### Node Implementation
+### Build-Prozess
 
-```typescript
-// src/nodes/ArasulLlm/ArasulLlm.node.ts
-import { IExecuteFunctions, INodeType, INodeTypeDescription } from 'n8n-workflow';
+Custom Nodes werden im Dockerfile Multi-Stage Build kompiliert:
 
-export class ArasulLlm implements INodeType {
-  description: INodeTypeDescription = {
-    displayName: 'Arasul LLM',
-    name: 'arasulLlm',
-    group: ['transform'],
-    version: 1,
-    description: 'Interact with Arasul LLM service',
-    inputs: ['main'],
-    outputs: ['main'],
-    properties: [
-      {
-        displayName: 'Prompt',
-        name: 'prompt',
-        type: 'string',
-        default: '',
-        required: true,
-      },
-    ],
-  };
+1. Stage 1: `npm install && npm run build` für jeden Custom Node
+2. Stage 2: Kopiere kompilierte Nodes nach `/custom-nodes/` im n8n-Container
 
-  async execute(this: IExecuteFunctions) {
-    const items = this.getInputData();
-    const results = [];
+### Lokaler Test
 
-    for (let i = 0; i < items.length; i++) {
-      const prompt = this.getNodeParameter('prompt', i) as string;
-
-      const response = await this.helpers.request({
-        method: 'POST',
-        url: 'http://llm-service:11434/api/generate',
-        body: { model: 'qwen3:14b-q8', prompt },
-        json: true,
-      });
-
-      results.push({ json: { response: response.response } });
-    }
-
-    return [results];
-  }
-}
+```bash
+docker compose up -d --build n8n
+docker compose logs -f n8n
 ```
 
 ---
 
-## Environment Variables
+## Umgebungsvariablen
 
-```bash
-N8N_ENCRYPTION_KEY=<32+ random chars>
-N8N_HOST=0.0.0.0
-N8N_PORT=5678
-N8N_PROTOCOL=http
-N8N_PATH=/n8n
-DB_TYPE=postgresdb
-DB_POSTGRESDB_HOST=postgres-db
-DB_POSTGRESDB_DATABASE=arasul_db
-DB_POSTGRESDB_USER=arasul
-DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
-DB_POSTGRESDB_SCHEMA=n8n
-```
+| Variable            | Default       | Beschreibung                |
+| ------------------- | ------------- | --------------------------- |
+| N8N_HOST            | 0.0.0.0       | Listen-Adresse              |
+| N8N_PORT            | 5678          | Port                        |
+| N8N_PATH            | /n8n          | Base-Path (Traefik)         |
+| N8N_ENCRYPTION_KEY  | (Secret)      | Credentials-Verschlüsselung |
+| N8N_PUSH_BACKEND    | websocket     | WebSocket für Live-Updates  |
+| N8N_RUNNERS_ENABLED | true          | Task Runner                 |
+| GENERIC_TIMEZONE    | Europe/Berlin | Zeitzone für Schedules      |
 
 ---
 
 ## Checklist
 
-- [ ] Workflow created and tested
-- [ ] Webhook path is unique
-- [ ] Error handling nodes added
-- [ ] Credentials configured securely
-- [ ] Rate limits considered
-- [ ] Logging/notifications added
+- [ ] Workflow erstellt und getestet
+- [ ] Webhook-Path ist eindeutig
+- [ ] Error-Handling Nodes hinzugefügt
+- [ ] Credentials sicher konfiguriert
+- [ ] Rate-Limits berücksichtigt
+- [ ] Bei Custom Node: Dockerfile neu bauen (`docker compose up -d --build n8n`)

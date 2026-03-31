@@ -576,10 +576,14 @@ init_database() {
 
     # Wait for PostgreSQL to be ready
     log_info "Waiting for PostgreSQL to be ready..."
-    for i in {1..30}; do
+    for i in {1..60}; do
         if docker compose exec -T postgres-db pg_isready -U arasul &> /dev/null; then
             log_success "PostgreSQL is ready"
             break
+        fi
+        if [ $i -eq 60 ]; then
+            log_error "PostgreSQL did not become ready within 120s"
+            return 1
         fi
         sleep 2
     done
@@ -758,6 +762,12 @@ validate_basic_auth_hash() {
         else
             log_warning "Kein ADMIN_HASH in .env - Basic Auth bleibt unkonfiguriert"
         fi
+        # SEC-FIX: If placeholder still exists after all attempts, replace with
+        # an impossible-to-match hash to lock down the dashboard/n8n
+        if grep -q '__BASIC_AUTH_HASH__' config/traefik/dynamic/middlewares.yml 2>/dev/null; then
+            log_warning "Ersetze Platzhalter durch gesperrten Hash - Dashboard/n8n erfordern erneutes Setup"
+            sed -i "s|'__BASIC_AUTH_HASH__'|'LOCKED:no-valid-hash-configured'|g" config/traefik/dynamic/middlewares.yml
+        fi
     else
         log_success "Basic-Auth-Hash in Traefik-Config: OK"
     fi
@@ -851,7 +861,9 @@ start_services() {
 
     docker compose up -d minio
     log_info "Waiting for MinIO..."
-    wait_for_healthy minio 60 "docker compose exec -T minio curl -sf http://localhost:9000/minio/health/live" || true
+    if ! wait_for_healthy minio 60 "docker compose exec -T minio curl -sf http://localhost:9000/minio/health/live"; then
+        log_warning "MinIO may not be ready yet - continuing with caution"
+    fi
 
     # Layer 2: Monitoring
     docker compose up -d metrics-collector
@@ -1083,6 +1095,13 @@ show_completion_summary() {
     echo ""
     echo -e "  Dashboard:    ${BLUE}https://${hostname:-arasul}.local${NC}"
     echo -e "  n8n:          ${BLUE}https://${hostname:-arasul}.local/n8n${NC}"
+
+    # Tailscale-Info anzeigen (wenn verbunden)
+    local ts_ip
+    ts_ip=$(tailscale ip -4 2>/dev/null || echo "")
+    if [ -n "$ts_ip" ]; then
+        echo -e "  Remote:       ${BLUE}http://${ts_ip}${NC} (via Tailscale)"
+    fi
     echo ""
     echo "  ┌─────────────────────────────────────────────┐"
     echo "  │  Benutzername:  ${admin_user:-admin}"
@@ -1121,6 +1140,51 @@ redact_plaintext_password() {
         log_success "Klartext-Passwort aus .env entfernt (Sicherheit)"
     else
         log_warning "Konnte Klartext-Passwort nicht aus .env entfernen"
+    fi
+}
+
+# Tailscale Remote-Zugriff (optional)
+# Non-critical: failures warn but don't block bootstrap
+setup_tailscale() {
+    local ts_enabled
+    ts_enabled=$(grep "^TAILSCALE_ENABLED=" .env 2>/dev/null | cut -d'=' -f2)
+
+    if [ "$ts_enabled" != "true" ]; then
+        log_info "Tailscale deaktiviert (TAILSCALE_ENABLED != true)"
+        return 0
+    fi
+
+    log_info "Konfiguriere Tailscale Remote-Zugriff..."
+
+    local setup_script="${SCRIPT_DIR}/scripts/setup/setup-tailscale.sh"
+    if [ ! -f "$setup_script" ]; then
+        log_warning "setup-tailscale.sh nicht gefunden"
+        return 0
+    fi
+
+    # Auth-Key aus .env laden
+    local auth_key hostname
+    auth_key=$(grep "^TAILSCALE_AUTH_KEY=" .env 2>/dev/null | cut -d'=' -f2)
+    hostname=$(grep "^TAILSCALE_HOSTNAME=" .env 2>/dev/null | cut -d'=' -f2)
+
+    export TAILSCALE_AUTH_KEY="$auth_key"
+    export TAILSCALE_HOSTNAME="$hostname"
+
+    if bash "$setup_script" setup; then
+        local ts_ip
+        ts_ip=$(tailscale ip -4 2>/dev/null || echo "")
+        if [ -n "$ts_ip" ]; then
+            log_success "Tailscale verbunden: ${ts_ip}"
+        else
+            log_success "Tailscale installiert (manuelle Authentifizierung noetig)"
+        fi
+    else
+        local exit_code=$?
+        if [ $exit_code -eq 2 ]; then
+            log_info "Tailscale installiert, Auth-Key spaeter via Dashboard eintragen"
+        else
+            log_warning "Tailscale-Setup fehlgeschlagen (nicht kritisch)"
+        fi
     fi
 }
 
@@ -1281,10 +1345,16 @@ cmd_bootstrap() {
 
     # 12. Warten auf Stabilisierung (MinIO muss bereit sein fuer Bucket-Init)
     log_info "Warte auf Service-Stabilisierung..."
-    wait_for_healthy minio 30 "docker compose exec -T minio curl -sf http://localhost:9000/minio/health/live" || true
+    if ! wait_for_healthy minio 120 "docker compose exec -T minio curl -sf http://localhost:9000/minio/health/live"; then
+        log_warning "MinIO may not be ready yet - continuing with caution"
+    fi
 
     # 13. MinIO-Buckets erstellen
-    init_minio_buckets
+    if ! init_minio_buckets; then
+        log_error "MinIO bucket initialization failed"
+        # Don't exit - log error but continue (non-fatal for bootstrap)
+        log_warning "MinIO buckets can be created manually later"
+    fi
 
     # 14. Admin-Benutzer anlegen
     init_admin_user
@@ -1298,10 +1368,13 @@ cmd_bootstrap() {
         # 17. Systemd-Timer installieren
         install_systemd_timers
 
+        # 18. Tailscale Remote-Zugriff (optional, nicht kritisch)
+        setup_tailscale
+
         generate_error_report 0 "completed"
         show_completion_summary
 
-        # 18. Klartext-Passwort aus .env entfernen (Sicherheit)
+        # 19. Klartext-Passwort aus .env entfernen (Sicherheit)
         redact_plaintext_password
     else
         generate_error_report 1 "smoke_tests"

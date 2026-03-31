@@ -75,6 +75,13 @@ detect_jetson_model() {
     fi
 
     # Stufe 5: RAM-basierter Fallback (nur wenn Jetson-Marker vorhanden)
+    # Only use fallback detection on ARM64
+    local arch=$(uname -m)
+    if [ "$arch" != "aarch64" ] && [ "$arch" != "arm64" ]; then
+        echo "unknown"
+        return 0
+    fi
+
     if [ -f /etc/nv_tegra_release ] || [ -d /sys/devices/platform/tegra-pmc ]; then
         local ram=$(detect_ram_total)
         if [ "$ram" -ge 120 ]; then

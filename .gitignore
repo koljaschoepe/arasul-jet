@@ -64,6 +64,10 @@ config/device/
 config/profiles/
 config/dev/
 
+# Environment backups
+.env.backup.*
+*.backup
+
 # Local tool configuration
 .mcp.json
 .claude/plans/

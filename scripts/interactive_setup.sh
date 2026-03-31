@@ -83,11 +83,18 @@ print_err() {
     echo -e "  ${RED}✗${NC} $1"
 }
 
-# Passwort-Komplexitaet pruefen
-# Gibt Fehlermeldung zurueck (leer = OK)
+log_debug() {
+    [ "${LOG_LEVEL:-}" = "debug" ] && echo -e "  ${DIM}[DEBUG]${NC} $1" >&2 || true
+}
+
+log_warn() {
+    echo -e "  ${YELLOW}[WARN]${NC} $1" >&2
+}
+
+# Passwort-Validierung (nur Mindestlaenge)
 validate_password() {
     local pw="$1"
-    local min_length="${2:-12}"
+    local min_length="${2:-4}"
 
     # Laenge
     if [ ${#pw} -lt "$min_length" ]; then
@@ -95,42 +102,13 @@ validate_password() {
         return 1
     fi
 
-    # Grossbuchstabe
-    if ! echo "$pw" | grep -q '[A-Z]'; then
-        echo "Mindestens ein Grossbuchstabe erforderlich (A-Z)"
-        return 1
-    fi
-
-    # Kleinbuchstabe
-    if ! echo "$pw" | grep -q '[a-z]'; then
-        echo "Mindestens ein Kleinbuchstabe erforderlich (a-z)"
-        return 1
-    fi
-
-    # Ziffer
-    if ! echo "$pw" | grep -q '[0-9]'; then
-        echo "Mindestens eine Ziffer erforderlich (0-9)"
-        return 1
-    fi
-
-    # Schwache Passwoerter ablehnen (case-insensitive)
-    local pw_lower
-    pw_lower=$(echo "$pw" | tr '[:upper:]' '[:lower:]')
-    local weak_passwords="password passwd admin administrator letmein welcome qwerty 123456 12345678 123456789 1234567890 abcdefgh changeme master trustno1 iloveyou dragon monkey shadow"
-    for weak in $weak_passwords; do
-        if [ "$pw_lower" = "$weak" ]; then
-            echo "Dieses Passwort ist zu einfach und leicht zu erraten"
-            return 1
-        fi
-    done
-
     return 0
 }
 
 # Passwort-Eingabe mit Validierung
 prompt_password() {
     local prompt="$1"
-    local min_length="${2:-12}"
+    local min_length="${2:-4}"
 
     while true; do
         echo -n -e "  ${BLUE}${prompt}:${NC} "
@@ -239,30 +217,55 @@ generate_bcrypt_hash() {
     local password="$1"
 
     # Methode 1: htpasswd (am haeufigsten verfuegbar)
+    log_debug "Trying bcrypt hash with htpasswd..."
     if command -v htpasswd &>/dev/null; then
-        htpasswd -nbB "" "$password" 2>/dev/null | cut -d: -f2
-        return
+        local result
+        result=$(htpasswd -nbB "" "$password" 2>/dev/null | cut -d: -f2)
+        if [ -n "$result" ]; then
+            echo "$result"
+            return
+        fi
     fi
+    log_debug "htpasswd not available or failed"
 
     # Methode 2: Python3 bcrypt (Passwort via stdin, keine Shell-Interpolation)
+    log_debug "Trying bcrypt hash with python3 bcrypt..."
     if command -v python3 &>/dev/null && python3 -c "import bcrypt" 2>/dev/null; then
-        printf '%s' "$password" | python3 -c "import sys,bcrypt; pw=sys.stdin.buffer.read(); print(bcrypt.hashpw(pw, bcrypt.gensalt(12)).decode())" 2>/dev/null
-        return
+        local result
+        result=$(printf '%s' "$password" | python3 -c "import sys,bcrypt; pw=sys.stdin.buffer.read(); print(bcrypt.hashpw(pw, bcrypt.gensalt(12)).decode())" 2>/dev/null)
+        if [ -n "$result" ]; then
+            echo "$result"
+            return
+        fi
     fi
+    log_debug "python3 bcrypt not available or failed"
 
     # Methode 3: node.js mit bcryptjs
+    log_debug "Trying bcrypt hash with node bcryptjs..."
     if command -v node &>/dev/null; then
-        node -e "try{const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],12))}catch(e){process.exit(1)}" "$password" 2>/dev/null
-        return
+        local result
+        result=$(node -e "try{const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],12))}catch(e){process.exit(1)}" "$password" 2>/dev/null)
+        if [ -n "$result" ]; then
+            echo "$result"
+            return
+        fi
     fi
+    log_debug "node bcryptjs not available or failed"
 
     # Methode 4: Docker mit node (bcryptjs installieren, dann hashen)
+    log_debug "Trying bcrypt hash with docker node..."
     if command -v docker &>/dev/null; then
-        docker run --rm node:20-alpine sh -c "npm install --no-fund --no-audit bcryptjs 2>/dev/null && node -e \"const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],12))\" '$password'" 2>/dev/null
-        return
+        local result
+        result=$(docker run --rm node:20-alpine sh -c "npm install --no-fund --no-audit bcryptjs 2>/dev/null && node -e \"const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],12))\" '$password'" 2>/dev/null)
+        if [ -n "$result" ]; then
+            echo "$result"
+            return
+        fi
     fi
+    log_debug "docker node not available or failed"
 
     # Fallback: Hash wird vom Backend beim ersten Start generiert
+    log_warn "All bcrypt hash methods failed - hash will be generated on first start"
     echo "GENERATE_ON_FIRST_START"
 }
 
@@ -330,7 +333,7 @@ main() {
     # Schritt 1: Hardware-Erkennung
     # =========================================================================
 
-    print_step 1 5 "Hardware-Erkennung"
+    print_step 1 6 "Hardware-Erkennung"
 
     detect_hardware
 
@@ -345,7 +348,7 @@ main() {
     # Schritt 2: Administrator-Konto
     # =========================================================================
 
-    print_step 2 5 "Administrator-Konto"
+    print_step 2 6 "Administrator-Konto"
 
     if [ "$NON_INTERACTIVE" = true ]; then
         ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
@@ -355,7 +358,7 @@ main() {
             exit 1
         fi
         local pw_error
-        pw_error=$(validate_password "$ADMIN_PASSWORD" 12)
+        pw_error=$(validate_password "$ADMIN_PASSWORD" 4)
         if [ $? -ne 0 ]; then
             print_err "ADMIN_PASSWORD ungueltig: ${pw_error}"
             exit 1
@@ -365,8 +368,10 @@ main() {
         print_ok "Passwort: gesetzt"
     else
         ADMIN_USERNAME=$(prompt_with_default "Benutzername" "admin")
-        ADMIN_PASSWORD=$(prompt_password "Passwort (min. 12 Zeichen)" 12)
+        ADMIN_PASSWORD=$(prompt_password "Passwort (min. 4 Zeichen)" 4)
         ADMIN_EMAIL=$(prompt_with_default "E-Mail" "admin@arasul.local")
+        echo ""
+        echo -e "  ${DIM}Passwort kann spaeter im Dashboard geaendert werden.${NC}"
     fi
 
     # bcrypt-Hash generieren
@@ -378,7 +383,7 @@ main() {
     # Schritt 3: Netzwerk
     # =========================================================================
 
-    print_step 3 5 "Netzwerk"
+    print_step 3 6 "Netzwerk"
 
     if [ "$NON_INTERACTIVE" = true ]; then
         SETUP_HOSTNAME="${HOSTNAME:-arasul}"
@@ -407,10 +412,52 @@ main() {
     fi
 
     # =========================================================================
-    # Schritt 4: KI-Modell
+    # Schritt 4: Fernzugriff (Tailscale)
     # =========================================================================
 
-    print_step 4 5 "KI-Modell"
+    print_step 4 6 "Fernzugriff"
+
+    TAILSCALE_ENABLED=false
+    TAILSCALE_AUTH_KEY_VALUE=""
+
+    if [ "$NON_INTERACTIVE" = true ]; then
+        if [ "${TAILSCALE_ENABLED_INPUT:-false}" = "true" ] || [ -n "${TAILSCALE_AUTH_KEY:-}" ]; then
+            TAILSCALE_ENABLED=true
+            TAILSCALE_AUTH_KEY_VALUE="${TAILSCALE_AUTH_KEY:-}"
+            print_ok "Tailscale: aktiviert"
+        else
+            print_ok "Tailscale: deaktiviert"
+        fi
+    else
+        echo -e "  ${DIM}Tailscale ermoeglicht sicheren Remote-Zugriff auf dein${NC}"
+        echo -e "  ${DIM}Geraet von ueberall - wie ein privates VPN.${NC}"
+        echo -e "  ${DIM}Kostenlos fuer bis zu 100 Geraete.${NC}"
+        echo ""
+        if prompt_confirm "Tailscale Remote-Zugriff aktivieren?" "n"; then
+            TAILSCALE_ENABLED=true
+            echo ""
+            echo -e "  ${DIM}Erstelle einen Auth-Key auf:${NC}"
+            echo -e "  ${BLUE}https://login.tailscale.com/admin/settings/keys${NC}"
+            echo -e "  ${DIM}(Reusable + kann spaeter eingegeben werden)${NC}"
+            echo ""
+            echo -n -e "  ${BLUE}Auth-Key${NC} [Enter = spaeter]: "
+            read ts_key
+            if [ -n "$ts_key" ]; then
+                TAILSCALE_AUTH_KEY_VALUE="$ts_key"
+                print_ok "Tailscale: aktiviert (Auth-Key gesetzt)"
+            else
+                print_ok "Tailscale: aktiviert (Auth-Key spaeter via Dashboard)"
+            fi
+        else
+            print_ok "Tailscale: deaktiviert (kann spaeter aktiviert werden)"
+        fi
+    fi
+
+    # =========================================================================
+    # Schritt 5: KI-Modell
+    # =========================================================================
+
+    print_step 5 6 "KI-Modell"
 
     # Parse empfohlene Modelle
     IFS=',' read -ra MODEL_LIST <<< "$RECOMMENDED_MODELS_STR"
@@ -453,7 +500,7 @@ main() {
     # Schritt 5: Zusammenfassung & Bestaetigung
     # =========================================================================
 
-    print_step 5 5 "Zusammenfassung"
+    print_step 6 6 "Zusammenfassung"
 
     # Secrets generieren
     JWT_SECRET=$(generate_secret 32)
@@ -471,6 +518,7 @@ main() {
     echo -e "  Hostname:       ${GREEN}${SETUP_HOSTNAME}.local${NC}"
     echo -e "  KI-Modell:      ${GREEN}${LLM_MODEL}${NC}"
     echo -e "  Auto-Reboot:    $([ "$UNATTENDED_MODE" = true ] && echo "${GREEN}aktiviert${NC}" || echo "deaktiviert")"
+    echo -e "  Tailscale:      $([ "$TAILSCALE_ENABLED" = true ] && echo "${GREEN}aktiviert${NC}" || echo "deaktiviert")"
     echo -e "  Profil:         ${DEVICE_PROFILE}"
     echo ""
     echo -e "  ${BOLD}Generierte Secrets:${NC}"
@@ -587,6 +635,11 @@ DISK_REBOOT_PERCENT=95
 
 # --- Netzwerk ---
 MDNS_NAME=${SETUP_HOSTNAME}
+
+# --- Tailscale (Remote-Zugriff) ---
+TAILSCALE_ENABLED=${TAILSCALE_ENABLED}
+TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY_VALUE}
+TAILSCALE_HOSTNAME=${SETUP_HOSTNAME}
 ENVEOF
 
     # Jetson-Profil: Inline aus bereits geladenen Funktionen generieren

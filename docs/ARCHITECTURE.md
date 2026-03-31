@@ -6,25 +6,36 @@ Complete architecture overview of the Arasul Platform.
 
 ## 1. Service Overview (17 Services)
 
-| #   | Service            | Port      | Technology          | Entry Point           | Purpose                    |
-| --- | ------------------ | --------- | ------------------- | --------------------- | -------------------------- |
-| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                     |
-| 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket |
-| 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database        |
-| 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference              |
-| 5   | embedding-service  | 11435     | Flask               | `embedding_server.py` | Text vectorization         |
-| 6   | document-indexer   | 9102      | Flask               | `api_server.py`       | RAG document processing    |
-| 7   | qdrant             | 6333      | Qdrant              | -                     | Vector database            |
-| 8   | minio              | 9000/9001 | MinIO               | -                     | S3-compatible storage      |
-| 9   | metrics-collector  | 9100      | aiohttp             | `collector.py`        | System metrics             |
-| 10  | self-healing-agent | 9200      | Python              | `healing_engine.py`   | Autonomous recovery        |
-| 11  | telegram-bot       | 8090      | python-telegram-bot | `bot.py`              | Notifications & commands   |
-| 12  | n8n                | 5678      | n8n                 | -                     | Workflow automation        |
-| 13  | reverse-proxy      | 80/443    | Traefik             | `routes.yml`          | Reverse proxy + SSL        |
-| 14  | backup-service     | -         | Alpine + cron       | `backup.sh`           | Automated backups          |
-| 15  | loki               | 3100      | Grafana Loki        | -                     | Log aggregation            |
-| 16  | promtail           | 9080      | Grafana Promtail    | -                     | Log collector              |
-| 17  | cloudflared        | -         | Cloudflare Tunnel   | -                     | OAuth & webhook gateway    |
+14 core services + 3 optional services. Telegram-Bot-Funktionalität ist in dashboard-backend integriert (kein separater Container).
+
+| #   | Service            | Port      | Technology          | Entry Point           | Purpose                                   |
+| --- | ------------------ | --------- | ------------------- | --------------------- | ----------------------------------------- |
+| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                                    |
+| 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket + Telegram Bot |
+| 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database                       |
+| 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference                             |
+| 5   | embedding-service  | 11435     | Flask               | `embedding_server.py` | Text vectorization                        |
+| 6   | document-indexer   | 9102      | Flask               | `api_server.py`       | RAG document processing                   |
+| 7   | qdrant             | 6333      | Qdrant              | -                     | Vector database                           |
+| 8   | minio              | 9000/9001 | MinIO               | -                     | S3-compatible storage                     |
+| 9   | metrics-collector  | 9100      | aiohttp             | `collector.py`        | System metrics                            |
+| 10  | self-healing-agent | 9200      | Python              | `healing_engine.py`   | Autonomous recovery                       |
+| 11  | docker-proxy       | -         | Docker Socket Proxy | -                     | Secure Docker API access                  |
+| 12  | n8n                | 5678      | n8n                 | -                     | Workflow automation                       |
+| 13  | reverse-proxy      | 80/443    | Traefik             | `routes.yml`          | Reverse proxy + SSL                       |
+| 14  | backup-service     | -         | Alpine + cron       | `backup.sh`           | Automated backups                         |
+| 15  | loki               | 3100      | Grafana Loki        | -                     | Log aggregation (optional)                |
+| 16  | promtail           | 9080      | Grafana Promtail    | -                     | Log collector (optional)                  |
+| 17  | cloudflared        | -         | Cloudflare Tunnel   | -                     | OAuth & webhook gateway (optional)        |
+
+### Host-Level Services
+
+| Service   | Technology    | Purpose                     | Config                             |
+| --------- | ------------- | --------------------------- | ---------------------------------- |
+| Tailscale | WireGuard VPN | Secure remote access (mesh) | `scripts/setup/setup-tailscale.sh` |
+
+Tailscale runs directly on the host (not in Docker) to provide VPN access to all services.
+Managed via Dashboard UI (Einstellungen > Fernzugriff) and backend API (`/api/tailscale/*`).
 
 ---
 
@@ -58,9 +69,9 @@ Complete architecture overview of the Arasul Platform.
 │  │   Port: 5432    │  │  Port: 9000/01  │  │   Port: 9100    │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │  Reverse Proxy  │  │  Self-Healing   │  │  Telegram Bot   │  │
-│  │   (Traefik)     │  │     Agent       │  │  (Notifications)│  │
-│  │  Port: 80/443   │  │   Port: 9200    │  │   Port: 8090    │  │
+│  │  Reverse Proxy  │  │  Self-Healing   │  │  Docker Proxy   │  │
+│  │   (Traefik)     │  │     Agent       │  │ (Socket Proxy)  │  │
+│  │  Port: 80/443   │  │   Port: 9200    │  │  Port: 2375     │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
 │                        CORE RUNTIME                              │
@@ -131,8 +142,8 @@ Complete architecture overview of the Arasul Platform.
 | document-indexer   | 9102          | -                    | HTTP       |
 | metrics-collector  | 9100          | -                    | HTTP       |
 | self-healing-agent | 9200          | -                    | HTTP       |
+| docker-proxy       | 2375          | -                    | TCP        |
 | n8n                | 5678          | 5678                 | HTTP       |
-| telegram-bot       | 8090          | -                    | HTTP       |
 
 ---
 
@@ -168,10 +179,10 @@ Critical dependency chain (enforced via Docker Compose `depends_on` with `condit
 
 ### Tier 6: Auxiliary Services
 
-- **telegram-bot** (8090) - Notifications
 - **backup-service** - Automated backups (cron)
-- **loki** (3100) - Log aggregation
-- **promtail** (9080) - Log collector (depends on loki)
+- **docker-proxy** - Secure Docker socket access (for self-healing, metrics)
+- **loki** (3100) - Log aggregation (optional)
+- **promtail** (9080) - Log collector (depends on loki, optional)
 - **cloudflared** - OAuth tunnel (depends on reverse-proxy, optional)
 
 ### Tier 7: Self-Healing (LAST)
@@ -344,8 +355,8 @@ services/postgres/init/
 ├── 001_init_schema.sql       # metrics, metric_history
 ├── 002_auth_schema.sql       # admin_users, sessions
 ├── ...
-└── 049_*.sql
-# Next migration: 050_*.sql
+└── 055_*.sql
+# Next migration: 056_*.sql
 ```
 
 ---
@@ -397,7 +408,7 @@ services/postgres/init/
 | n8n                | `wget --spider -q http://localhost:5678/healthz`  | 15s      | 2s      | 3       | -            |
 | reverse-proxy      | `wget -q --spider http://localhost:8080/ping`     | 10s      | 3s      | 3       | 30s          |
 | self-healing-agent | `python3 /app/heartbeat.py --test`                | 30s      | 3s      | 3       | 10s          |
-| telegram-bot       | `curl -f http://localhost:8090/health`            | 30s      | 3s      | 3       | 10s          |
+| docker-proxy       | socket connectivity check                         | 10s      | 3s      | 3       | 5s           |
 
 ### Validation
 

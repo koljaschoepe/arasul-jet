@@ -82,11 +82,11 @@ General system events including:
 **Usage in Node.js:**
 
 ```javascript
-const { systemLogger } = require('./utils/fileLogger');
+const logger = require('./utils/logger');
 
-systemLogger.serverStart(3001);
-systemLogger.apiRequest('GET', '/api/status', 200, 15);
-systemLogger.apiError('POST', '/api/data', new Error('Validation failed'));
+logger.info(`Server started on port 3001`);
+logger.info(`GET /api/status 200 15ms`);
+logger.error('POST /api/data failed: Validation failed');
 ```
 
 ## Self-Healing Log (`self_healing.log`)
@@ -156,13 +156,12 @@ System update events including upload, validation, application, and rollback.
 **Usage:**
 
 ```javascript
-const { updateLogger } = require('./utils/fileLogger');
+const logger = require('./utils/logger');
 
-updateLogger.uploadStarted('update-1.2.0.araupdate', 52428800);
-updateLogger.validationPassed('update-1.2.0.araupdate', '1.2.0');
-updateLogger.applyStarted('1.2.0');
-updateLogger.applyStep('backup', 'Creating system backup');
-updateLogger.applyCompleted('1.2.0', 310333);
+logger.info('Update upload started: update-1.2.0.araupdate (52428800 bytes)');
+logger.info('Validation passed: update-1.2.0.araupdate (version 1.2.0)');
+logger.info('Applying update to version 1.2.0');
+logger.info('Update completed: version 1.2.0 (310333ms)');
 ```
 
 ## Service Logs (`service/*.log`)
@@ -172,9 +171,7 @@ Per-service logs for detailed debugging.
 **Usage:**
 
 ```javascript
-const { createServiceLogger } = require('./utils/fileLogger');
-
-const logger = createServiceLogger('dashboard-backend');
+const logger = require('./utils/logger');
 
 logger.info('WebSocket connection established', { client_id: '123' });
 logger.warn('High memory usage', { memory_mb: 512 });
@@ -286,27 +283,20 @@ jq 'select(.event_type=="service_restart") | .service_name' \
 **Dashboard Backend:**
 
 ```javascript
-// In app.js or server.js
-const { systemLogger } = require('./utils/fileLogger');
+// In index.js
+const logger = require('./utils/logger');
 
 // Log server start
-systemLogger.serverStart(PORT);
+logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
 
-// Log API requests (middleware)
+// Log API requests (middleware, dev only)
 app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    systemLogger.apiRequest(req.method, req.path, res.statusCode, duration);
-  });
+  logger.debug(`${req.method} ${req.path}`);
   next();
 });
 
-// Error handler
-app.use((err, req, res, next) => {
-  systemLogger.apiError(req.method, req.path, err);
-  // ... send error response
-});
+// Error handler (via middleware/errorHandler.js)
+app.use(errorHandler);
 ```
 
 **Self-Healing Agent:**

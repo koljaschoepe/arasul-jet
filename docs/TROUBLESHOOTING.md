@@ -215,7 +215,7 @@ Bot empfaengt oder sendet keine Nachrichten.
 **Schritt 2: Webhook pruefen**
 
 - Internetverbindung am Jetson pruefen
-- Telegram benoetigt eine erreichbare URL (Cloudflare Tunnel oder ngrok)
+- Telegram benoetigt eine erreichbare URL (Cloudflare Tunnel)
 
 **Schritt 3: Service pruefen**
 

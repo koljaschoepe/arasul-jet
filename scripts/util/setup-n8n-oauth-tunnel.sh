@@ -144,26 +144,23 @@ update_env_var() {
 select_tunnel_type() {
     echo -e "${BOLD}Welchen Tunnel-Typ möchtest du verwenden?${NC}"
     echo ""
-    echo "  1) ${GREEN}Cloudflare Tunnel${NC} (Empfohlen)"
+    echo "  1) ${GREEN}Cloudflare Tunnel${NC} (Empfohlen für OAuth)"
     echo "     - Kostenlos, unbegrenzte Bandbreite"
     echo "     - Stabile URLs mit eigener Domain"
-    echo "     - Beste Sicherheit"
+    echo "     - Benötigt für Google OAuth (öffentliche HTTPS-URL)"
     echo ""
-    echo "  2) ${YELLOW}ngrok${NC} (Schnellstart)"
-    echo "     - Einfachstes Setup"
-    echo "     - 1 GB/Monat Bandbreite (Free)"
-    echo "     - Gut für Tests"
-    echo ""
-    echo "  3) ${CYAN}Manuell${NC}"
+    echo "  2) ${CYAN}Manuell${NC}"
     echo "     - Nur Umgebungsvariablen konfigurieren"
     echo ""
+    echo -e "  ${YELLOW}Hinweis:${NC} Für Fernzugriff (SSH, Dashboard) nutze Tailscale"
+    echo "  statt eines Tunnels. Siehe: Einstellungen > Fernzugriff"
+    echo ""
 
-    read -p "Auswahl [1-3]: " choice
+    read -p "Auswahl [1-2]: " choice
 
     case $choice in
         1) setup_cloudflare ;;
-        2) setup_ngrok ;;
-        3) setup_manual ;;
+        2) setup_manual ;;
         *) log_error "Ungültige Auswahl"; exit 1 ;;
     esac
 }
@@ -239,71 +236,6 @@ setup_cloudflare() {
     echo ""
 }
 
-# ngrok Setup
-setup_ngrok() {
-    echo ""
-    echo -e "${CYAN}═══ ngrok Setup ═══${NC}"
-    echo ""
-
-    # Prüfe ob Token bereits existiert
-    if grep -q "^NGROK_AUTHTOKEN=" "$ENV_FILE" && \
-       ! grep -q "^NGROK_AUTHTOKEN=$" "$ENV_FILE"; then
-        log_success "NGROK_AUTHTOKEN bereits konfiguriert"
-    else
-        echo -e "${YELLOW}So erhältst du einen ngrok Token:${NC}"
-        echo ""
-        echo "  1. Erstelle Account: ${BLUE}https://dashboard.ngrok.com/signup${NC}"
-        echo "  2. Getting Started → Your Authtoken kopieren"
-        echo ""
-
-        read -p "ngrok Authtoken eingeben: " token
-
-        if [ -n "$token" ]; then
-            update_env_var "NGROK_AUTHTOKEN" "$token"
-            log_success "Token gespeichert"
-        else
-            log_warning "Token übersprungen"
-        fi
-    fi
-
-    echo ""
-
-    # Domain
-    echo -e "${YELLOW}Statische ngrok Domain:${NC}"
-    echo "  Gehe zu: https://dashboard.ngrok.com/domains"
-    echo "  Klicke 'New Domain' (1 gratis Domain verfügbar)"
-    echo "  z.B.: your-name.ngrok-free.app"
-    echo ""
-
-    read -p "ngrok Domain eingeben: " domain
-
-    if [ -n "$domain" ]; then
-        update_env_var "NGROK_DOMAIN" "$domain"
-        update_env_var "N8N_EXTERNAL_URL" "https://$domain"
-        update_env_var "N8N_PROTOCOL" "https"
-        update_env_var "N8N_SECURE_COOKIE" "true"
-        log_success "Domain konfiguriert: $domain"
-    fi
-
-    echo ""
-    echo -e "${GREEN}═══ ngrok Setup abgeschlossen ═══${NC}"
-    echo ""
-    echo "Nächste Schritte:"
-    echo ""
-    echo "  1. Service starten:"
-    echo "     ${CYAN}docker compose -f docker-compose.yml \\"
-    echo "       -f services/ngrok/docker-compose.override.yml \\"
-    echo "       up -d ngrok${NC}"
-    echo ""
-    echo "     ${CYAN}docker compose up -d --force-recreate n8n${NC}"
-    echo ""
-    echo "  2. Inspection UI öffnen: ${BLUE}http://localhost:4040${NC}"
-    echo ""
-    echo "  3. In Google Cloud Console Redirect URI eintragen:"
-    echo "     ${BLUE}https://$domain/rest/oauth2-credential/callback${NC}"
-    echo ""
-}
-
 # Manuelle Konfiguration
 setup_manual() {
     echo ""
@@ -312,15 +244,9 @@ setup_manual() {
 
     echo "Trage folgende Variablen in .env ein:"
     echo ""
-    echo "  # Für Cloudflare:"
+    echo "  # Cloudflare Tunnel (für OAuth):"
     echo "  CLOUDFLARE_TUNNEL_TOKEN=dein-token"
     echo "  N8N_PUBLIC_DOMAIN=n8n.example.com"
-    echo ""
-    echo "  # ODER für ngrok:"
-    echo "  NGROK_AUTHTOKEN=dein-token"
-    echo "  NGROK_DOMAIN=name.ngrok-free.app"
-    echo ""
-    echo "  # Gemeinsam:"
     echo "  N8N_EXTERNAL_URL=https://deine-domain"
     echo "  N8N_PROTOCOL=https"
     echo "  N8N_SECURE_COOKIE=true"
@@ -368,9 +294,9 @@ print_summary() {
 
     echo "Aktuelle Konfiguration (.env):"
     echo "───────────────────────────────────"
-    grep -E "^(N8N_|CLOUDFLARE_|NGROK_|JETSON_)" "$ENV_FILE" 2>/dev/null | while read line; do
+    grep -E "^(N8N_|CLOUDFLARE_|JETSON_)" "$ENV_FILE" 2>/dev/null | while read line; do
         # Token maskieren
-        if [[ $line == *"TOKEN="* ]] || [[ $line == *"AUTHTOKEN="* ]]; then
+        if [[ $line == *"TOKEN="* ]]; then
             key=$(echo "$line" | cut -d= -f1)
             echo "  $key=***masked***"
         else

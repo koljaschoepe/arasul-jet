@@ -13,7 +13,65 @@
 
 ---
 
-## Option 1: SSH-Reverse-Tunnel (empfohlen)
+## Option 1: Tailscale VPN (empfohlen)
+
+Tailscale ist ein WireGuard-basiertes Mesh-VPN, das ohne offene Ports funktioniert.
+Es ist in die Arasul-Plattform integriert und kann ueber das Dashboard konfiguriert werden.
+
+### Vorteile
+
+- **Kein Port-Forwarding noetig:** Funktioniert hinter NAT und Firewalls
+- **Zero-Config Mesh-VPN:** Geraete verbinden sich automatisch
+- **Ende-zu-Ende verschluesselt:** WireGuard-basiert
+- **SSH integriert:** Tailscale SSH ohne separate Konfiguration
+- **Dashboard-Integration:** Status und Verwaltung direkt in der Web-Oberflaeche
+
+### Einrichtung
+
+Tailscale wird waehrend des Setup-Wizards konfiguriert (`scripts/interactive_setup.sh`).
+Nachtraeglich kann es manuell eingerichtet werden:
+
+```bash
+# Installieren:
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Verbinden (Auth-Key von https://login.tailscale.com/admin/settings/keys):
+sudo tailscale up --authkey tskey-auth-... --ssh --accept-routes
+
+# Status pruefen:
+tailscale status
+```
+
+### Zugriff nach Einrichtung
+
+```bash
+# Dashboard:
+http://<tailscale-ip>
+
+# SSH:
+ssh arasul@<tailscale-ip>
+
+# Tailscale SSH (ohne SSH-Keys):
+ssh arasul@<hostname>
+```
+
+### Dashboard-Verwaltung
+
+Im Dashboard unter **Einstellungen > Fernzugriff**:
+
+- Verbindungsstatus und IP anzeigen
+- Verbundene Geraete im Tailnet sehen
+- Auth-Key eingeben und verbinden/trennen
+
+### Monitoring
+
+- Tailscale-Status wird alle 30s im Dashboard aktualisiert
+- Self-Healing-Agent ueberwacht die VPN-Verbindung
+- Verbindungsabbrueche werden im Event-Log protokolliert
+
+---
+
+## Option 2: SSH-Reverse-Tunnel
 
 Kein offener Port beim Kunden noetig. Der Jetson baut eine ausgehende Verbindung auf.
 
@@ -38,9 +96,10 @@ ssh -p <zugewiesener-port> arasul@localhost
 
 ---
 
-## Option 2: Cloudflare Tunnel
+## Option 3: Cloudflare Tunnel
 
-Fuer dauerhafte Fernwartung ohne eigenen Server.
+Wird primaer fuer Google OAuth und externe Webhooks verwendet (erfordert oeffentliche HTTPS-URL).
+Fuer reinen Fernzugriff ist Tailscale (Option 1) besser geeignet.
 
 ### Einrichtung
 
@@ -63,9 +122,10 @@ Fuer dauerhafte Fernwartung ohne eigenen Server.
 
 ---
 
-## Option 3: VPN (WireGuard)
+## Option 4: VPN (WireGuard manuell)
 
-Fuer Kunden mit VPN-Infrastruktur.
+Fuer Kunden mit eigener VPN-Infrastruktur. Tailscale (Option 1) nutzt WireGuard
+automatisch - diese Option ist nur fuer manuelle Konfiguration.
 
 ### WireGuard installieren
 
