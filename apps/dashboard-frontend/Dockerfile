@@ -16,7 +16,7 @@ COPY apps/dashboard-frontend/ .
 RUN npm run build
 
 # Production stage
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 
 LABEL maintainer="Arasul Platform"
 LABEL description="Dashboard Frontend - Single Page Application"
