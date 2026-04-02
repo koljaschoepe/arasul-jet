@@ -165,27 +165,51 @@ const ChatMessage = memo(function ChatMessage({
         </div>
       )}
 
+      {/* Status indicator for model loading / queue */}
+      {message.role === 'assistant' &&
+        !message.content &&
+        !message.thinking &&
+        message.streamStatus && (
+          <div
+            className="flex items-center gap-2 py-3 px-5 text-sm"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <span
+              className="inline-block size-2 rounded-full animate-pulse"
+              style={{ backgroundColor: 'var(--primary-color)' }}
+            />
+            <span>
+              {message.statusMessage ||
+                (message.streamStatus === 'model_loading' ? 'Lade Modell...' : 'Verarbeite...')}
+            </span>
+          </div>
+        )}
+
       {/* Loading indicator */}
-      {message.role === 'assistant' && !message.content && !message.thinking && isLoading && (
-        <div
-          className="message-loading flex gap-1.5 py-4 px-5"
-          role="status"
-          aria-label="AI antwortet..."
-        >
-          <span
-            className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both]"
-            aria-hidden="true"
-          />
-          <span
-            className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:150ms]"
-            aria-hidden="true"
-          />
-          <span
-            className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:300ms]"
-            aria-hidden="true"
-          />
-        </div>
-      )}
+      {message.role === 'assistant' &&
+        !message.content &&
+        !message.thinking &&
+        isLoading &&
+        !message.streamStatus && (
+          <div
+            className="message-loading flex gap-1.5 py-4 px-5"
+            role="status"
+            aria-label="AI antwortet..."
+          >
+            <span
+              className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both]"
+              aria-hidden="true"
+            />
+            <span
+              className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:150ms]"
+              aria-hidden="true"
+            />
+            <span
+              className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:300ms]"
+              aria-hidden="true"
+            />
+          </div>
+        )}
 
       {/* Matched Spaces Display */}
       {message.matchedSpaces && message.matchedSpaces.length > 0 && (

@@ -55,13 +55,14 @@ services:
       - arasul-backend
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
-      LLM_MODEL: ${LLM_MODEL:-qwen3:14b-q8}
+      LLM_MODEL: ${LLM_MODEL:-qwen3:14b}
       LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-3600}
       OLLAMA_STARTUP_TIMEOUT: ${OLLAMA_STARTUP_TIMEOUT:-120}
       OLLAMA_FLASH_ATTENTION: '1'
-      OLLAMA_KV_CACHE_TYPE: 'q8_0'
+      OLLAMA_KV_CACHE_TYPE: 'q4_0'
       OLLAMA_NUM_PARALLEL: '1'
       OLLAMA_MAX_LOADED_MODELS: '1'
+      OLLAMA_NUM_GPU: '99'
       # CUDA/Tegra library paths for JetPack 6 GPU acceleration
       LD_LIBRARY_PATH: /usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu:/usr/lib/ollama/cuda_jetpack6
     volumes:

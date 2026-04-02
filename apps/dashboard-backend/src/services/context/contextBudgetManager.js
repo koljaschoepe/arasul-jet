@@ -132,11 +132,21 @@ async function buildOptimizedPrompt({
     );
   }
 
+  // Dynamic num_ctx: size KV cache to actual prompt + response reserve, not fixed maximum.
+  // Smaller num_ctx = faster prefill, less GPU memory. Round up to next power of 2.
+  const dynamicNumCtx = Math.max(
+    4096, // Minimum for KV cache efficiency
+    Math.min(
+      Math.pow(2, Math.ceil(Math.log2(totalUsed + budget.responseReserve))),
+      recommendedCtx // Never exceed model's recommended maximum
+    )
+  );
+
   return {
     prompt,
     systemPrompt,
     messages: includedMessages,
-    numCtx: recommendedCtx,
+    numCtx: dynamicNumCtx,
     compactionNeeded: false, // Already handled
     compactionResult,
     droppedMessages: droppedCount,

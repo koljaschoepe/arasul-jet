@@ -279,7 +279,7 @@ async function rerankResults(query, results, topK = 5) {
         query,
         passages,
         top_k: topK,
-        stage1_top_k: Math.min(20, results.length),
+        stage1_top_k: Math.min(10, results.length),
       },
       { timeout: 45000 }
     );
@@ -589,7 +589,7 @@ function buildHierarchicalContext(
 async function hybridSearch(query, embedding, limit = 5, spaceIds = null, options = {}) {
   const { additionalEmbeddings = [], decompoundedQuery = null } = options;
 
-  const fetchLimit = ENABLE_RERANKING ? Math.min(limit * 10, 50) : limit * 2;
+  const fetchLimit = ENABLE_RERANKING ? Math.min(limit * 5, 25) : limit * 2;
 
   const sparseQuery = decompoundedQuery || query;
   const sparseVector = HYBRID_SEARCH_ENABLED ? await getSparseVector(sparseQuery) : null;

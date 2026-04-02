@@ -8,9 +8,9 @@
 
 const http = require('http');
 
-// Content batching configuration
-const BATCH_INTERVAL_MS = 500;
-const BATCH_SIZE_CHARS = 100;
+// Content batching configuration — low latency for livestream feel
+const BATCH_INTERVAL_MS = 50;
+const BATCH_SIZE_CHARS = 20;
 
 // Shared HTTP agent for Ollama connections (keep-alive + connection pooling)
 const ollamaAgent = new http.Agent({
@@ -48,8 +48,16 @@ async function processChatJob(ctx, job) {
     }
   }
 
-  // Enable thinking only if requested AND model supports it
-  const enableThinking = thinking !== false && modelSupportsThinking;
+  // Smart Think Mode: auto-disable for trivial/simple queries to save GPU time
+  const { classifyQueryComplexity } = require('./queryComplexityAnalyzer');
+  const lastUserMsg = messages.filter(m => m.role === 'user').pop()?.content || '';
+  const complexity = classifyQueryComplexity(lastUserMsg);
+
+  let enableThinking = thinking !== false && modelSupportsThinking;
+  if (enableThinking && (complexity.level === 'trivial' || complexity.level === 'simple')) {
+    enableThinking = false;
+    logger.info(`[JOB ${jobId}] Think auto-disabled: ${complexity.level} (${complexity.reason})`);
+  }
 
   // Notify if thinking was requested but model doesn't support it
   if (thinking !== false && !modelSupportsThinking) {
@@ -64,8 +72,10 @@ async function processChatJob(ctx, job) {
   }
 
   // Build layered system prompt (global base + AI profile + company context + project prompt)
+  // Skip tools section for trivial/simple queries to reduce prefill overhead
+  const includeTools = complexity.level !== 'trivial' && complexity.level !== 'simple';
   const { buildSystemPrompt } = require('./systemPromptBuilder');
-  const systemPrompt = await buildSystemPrompt(database, job.conversation_id);
+  const systemPrompt = await buildSystemPrompt(database, job.conversation_id, { includeTools });
 
   // Context Management: Build optimized prompt within token budget
   const contextBudgetManager = require('../context/contextBudgetManager');
@@ -344,6 +354,7 @@ async function streamFromOllama(
     const ollamaOptions = {
       temperature: temperature || 0.7,
       num_predict: maxTokens || 32768,
+      num_batch: 512, // Optimal for Jetson Orin's 2048 CUDA cores
     };
 
     // Context Management: Set num_ctx from budget manager
@@ -365,22 +376,53 @@ async function streamFromOllama(
       ollamaPayload.system = systemPrompt;
     }
 
-    const response = await axios({
-      method: 'post',
-      url: `${LLM_SERVICE_URL}/api/generate`,
-      data: ollamaPayload,
-      responseType: 'stream',
-      timeout: 600000,
-      signal: abortController.signal,
-      httpAgent: ollamaAgent,
+    // Use native http.request instead of axios for streaming to avoid buffering issues
+    const ollamaUrl = new URL(`${LLM_SERVICE_URL}/api/generate`);
+    responseStream = await new Promise((resolve, reject) => {
+      const payload = JSON.stringify(ollamaPayload);
+      const req = http.request(
+        {
+          hostname: ollamaUrl.hostname,
+          port: ollamaUrl.port,
+          path: ollamaUrl.pathname,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+          },
+          agent: ollamaAgent,
+          timeout: 600000,
+        },
+        res => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
+            return;
+          }
+          // Pause immediately to prevent data loss before handlers are registered
+          res.pause();
+          resolve(res);
+        }
+      );
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Ollama request timeout'));
+      });
+      // Support abort via AbortController
+      abortController.signal.addEventListener('abort', () => req.destroy());
+      req.write(payload);
+      req.end();
     });
-
-    responseStream = response.data;
     let buffer = '';
     let inThinkBlock = false;
 
     // LEAK-001: Helper to clean up stream listeners and destroy stream
+    let streamHeartbeat = null; // Forward declaration for cleanup
     const cleanupStream = () => {
+      if (streamHeartbeat) {
+        clearInterval(streamHeartbeat);
+        streamHeartbeat = null;
+      }
       if (responseStream) {
         responseStream.removeAllListeners();
         if (!responseStream.destroyed) {
@@ -390,9 +432,10 @@ async function streamFromOllama(
       }
     };
 
-    // TIMEOUT-001: Inactivity timeout (2 minutes)
-    // If no data received for 2 minutes, abort the stream to prevent deadlock
-    const INACTIVITY_TIMEOUT_MS = 120000; // 2 minutes
+    // TIMEOUT-001: Inactivity timeout (5 minutes)
+    // If no data received for 5 minutes, abort the stream to prevent deadlock
+    // Increased from 2min to 5min: think mode on Jetson can pause 2-3min between blocks
+    const INACTIVITY_TIMEOUT_MS = 300000; // 5 minutes
     let inactivityTimer = null;
 
     const resetInactivityTimer = () => {
@@ -424,196 +467,226 @@ async function streamFromOllama(
     // Start the inactivity timer
     resetInactivityTimer();
 
-    responseStream.on('data', async chunk => {
-      try {
-        // Reset inactivity timer on each chunk
-        resetInactivityTimer();
-        buffer += chunk.toString();
+    // Streaming heartbeat: send periodic events to prevent frontend timeout during long think pauses
+    const HEARTBEAT_INTERVAL_MS = 20000; // 20s heartbeat
+    streamHeartbeat = setInterval(() => {
+      service.notifySubscribers(jobId, {
+        type: 'heartbeat',
+        status: 'generating',
+      });
+    }, HEARTBEAT_INTERVAL_MS);
 
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
+    // CRITICAL: Wrap stream consumption in a Promise so the try block stays alive.
+    // Without this, the finally block runs immediately after resume() and destroys
+    // the stream before any data events can fire — the root cause of the timeout bug.
+    await new Promise((resolveStream, rejectStream) => {
+      responseStream.on('data', async chunk => {
+        try {
+          // Reset inactivity timer on each chunk
+          resetInactivityTimer();
+          buffer += chunk.toString();
 
-        for (const line of lines) {
-          if (!line.trim()) {
-            continue;
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.trim()) {
+              continue;
+            }
+
+            try {
+              const data = JSON.parse(line);
+
+              // Native Ollama thinking: separate `thinking` and `response` fields
+              if (data.thinking) {
+                if (firstTokenTime === null) {
+                  firstTokenTime = Date.now();
+                }
+                tokenCount++;
+                if (!inThinkBlock) {
+                  inThinkBlock = true;
+                }
+                thinkingBuffer += data.thinking;
+                service.notifySubscribers(jobId, { type: 'thinking', token: data.thinking });
+                flushToDatabase();
+              }
+
+              if (data.response) {
+                if (firstTokenTime === null) {
+                  firstTokenTime = Date.now();
+                }
+                tokenCount++;
+                if (inThinkBlock) {
+                  inThinkBlock = false;
+                  service.notifySubscribers(jobId, { type: 'thinking_end' });
+                }
+                contentBuffer += data.response;
+                service.notifySubscribers(jobId, { type: 'response', token: data.response });
+                flushToDatabase();
+              }
+
+              if (data.done) {
+                const streamEndTime = Date.now();
+                const totalDuration = streamEndTime - streamStartTime;
+                const ttft = firstTokenTime ? firstTokenTime - streamStartTime : null;
+                const tokensPerSecond =
+                  totalDuration > 0 ? ((tokenCount * 1000) / totalDuration).toFixed(2) : 0;
+
+                // Context Management: Capture Ollama token metadata
+                const promptTokens = data.prompt_eval_count || null;
+                const completionTokens = data.eval_count || null;
+
+                logger.info(
+                  `[QUEUE] Job ${jobId} stream complete - ${tokenCount} tokens in ${totalDuration}ms (${tokensPerSecond} tok/s)` +
+                    (promptTokens
+                      ? ` [prompt: ${promptTokens}, completion: ${completionTokens}]`
+                      : '')
+                );
+                clearInactivityTimer();
+                cleanupStream(); // LEAK-001: Remove listeners and destroy stream
+                await flushToDatabase(true);
+                await llmJobService.completeJob(jobId);
+
+                // Context Management: Store token counts and context window in llm_jobs
+                if (promptTokens || completionTokens || numCtx) {
+                  try {
+                    await database.query(
+                      `UPDATE llm_jobs SET prompt_tokens = $1, completion_tokens = $2, context_window_used = $3 WHERE id = $4`,
+                      [promptTokens, completionTokens, numCtx, jobId]
+                    );
+                  } catch (tokenErr) {
+                    logger.debug(`[QUEUE] Failed to store token counts: ${tokenErr.message}`);
+                  }
+                }
+
+                // P4-002: Record performance metrics
+                try {
+                  // Get job type from database
+                  const jobResult = await database.query(
+                    `SELECT job_type FROM llm_jobs WHERE id = $1`,
+                    [jobId]
+                  );
+                  const jobType = jobResult.rows[0]?.job_type || 'chat';
+
+                  await database.query(
+                    `SELECT record_model_performance($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [
+                      catalogModelId,
+                      jobId,
+                      jobType,
+                      tokenCount,
+                      totalDuration,
+                      ttft,
+                      enableThinking,
+                      prompt.length,
+                    ]
+                  );
+                } catch (metricsError) {
+                  logger.warn(
+                    `[QUEUE] Failed to record performance metrics: ${metricsError.message}`
+                  );
+                }
+
+                service.notifySubscribers(jobId, {
+                  done: true,
+                  model: data.model || catalogModelId || 'unknown',
+                  jobId,
+                  timestamp: new Date().toISOString(),
+                  // P4-002: Include performance stats in response
+                  performance: {
+                    tokens: tokenCount,
+                    duration_ms: totalDuration,
+                    tokens_per_second: parseFloat(tokensPerSecond),
+                    ttft_ms: ttft,
+                    prompt_tokens: promptTokens,
+                    completion_tokens: completionTokens,
+                  },
+                });
+
+                onJobComplete(ctx, jobId);
+                resolveStream(); // Signal that stream processing is complete
+              }
+            } catch (parseError) {
+              // Ignore parse errors for incomplete JSON
+            }
+          }
+        } catch (err) {
+          logger.error(`Stream data handler error for job ${jobId}: ${err.message}`);
+        }
+      });
+
+      responseStream.on('error', async error => {
+        try {
+          clearInactivityTimer();
+          cleanupStream(); // LEAK-001: Remove listeners and destroy stream
+
+          // STREAM-002: Emit thinking_end on error if mid-think
+          if (inThinkBlock) {
+            inThinkBlock = false;
+            service.notifySubscribers(jobId, { type: 'thinking_end' });
           }
 
+          logger.error(`[QUEUE] Stream error for job ${jobId}: ${error.message}`);
+          await flushToDatabase(true);
+          await llmJobService.errorJob(jobId, error.message);
+
+          service.notifySubscribers(jobId, { error: error.message, done: true });
+          onJobComplete(ctx, jobId);
+          resolveStream(); // Resolve (not reject) — error handling is done above
+        } catch (err) {
+          logger.error(`Stream error handler error for job ${jobId}: ${err.message}`);
+          onJobComplete(ctx, jobId);
+          resolveStream();
+        }
+      });
+
+      responseStream.on('end', async () => {
+        try {
+          clearInactivityTimer();
+          cleanupStream(); // LEAK-001: Remove listeners and destroy stream
+
+          // STREAM-002: If stream ends mid-thinking, emit thinking_end so frontend exits thinking state
+          if (inThinkBlock) {
+            inThinkBlock = false;
+            service.notifySubscribers(jobId, { type: 'thinking_end' });
+            logger.warn(`[QUEUE] Job ${jobId} stream ended mid-think block - emitted thinking_end`);
+          }
+
+          if (contentBuffer || thinkingBuffer) {
+            await flushToDatabase(true);
+          }
+
+          // CRITICAL FIX (QUEUE-001): Complete job if stream ended without done signal
+          // This prevents permanent deadlock when Ollama closes stream unexpectedly
           try {
-            const data = JSON.parse(line);
-
-            // Native Ollama thinking: separate `thinking` and `response` fields
-            if (data.thinking) {
-              if (firstTokenTime === null) {firstTokenTime = Date.now();}
-              tokenCount++;
-              if (!inThinkBlock) {inThinkBlock = true;}
-              thinkingBuffer += data.thinking;
-              service.notifySubscribers(jobId, { type: 'thinking', token: data.thinking });
-              flushToDatabase();
-            }
-
-            if (data.response) {
-              if (firstTokenTime === null) {firstTokenTime = Date.now();}
-              tokenCount++;
-              if (inThinkBlock) {
-                inThinkBlock = false;
-                service.notifySubscribers(jobId, { type: 'thinking_end' });
-              }
-              contentBuffer += data.response;
-              service.notifySubscribers(jobId, { type: 'response', token: data.response });
-              flushToDatabase();
-            }
-
-            if (data.done) {
-              const streamEndTime = Date.now();
-              const totalDuration = streamEndTime - streamStartTime;
-              const ttft = firstTokenTime ? firstTokenTime - streamStartTime : null;
-              const tokensPerSecond =
-                totalDuration > 0 ? ((tokenCount * 1000) / totalDuration).toFixed(2) : 0;
-
-              // Context Management: Capture Ollama token metadata
-              const promptTokens = data.prompt_eval_count || null;
-              const completionTokens = data.eval_count || null;
-
-              logger.info(
-                `[QUEUE] Job ${jobId} stream complete - ${tokenCount} tokens in ${totalDuration}ms (${tokensPerSecond} tok/s)` +
-                  (promptTokens
-                    ? ` [prompt: ${promptTokens}, completion: ${completionTokens}]`
-                    : '')
-              );
-              clearInactivityTimer();
-              cleanupStream(); // LEAK-001: Remove listeners and destroy stream
-              await flushToDatabase(true);
+            const job = await llmJobService.getJob(jobId);
+            if (job && job.status === 'streaming') {
+              logger.warn(`[QUEUE] Job ${jobId} stream ended without done signal - completing`);
               await llmJobService.completeJob(jobId);
-
-              // Context Management: Store token counts and context window in llm_jobs
-              if (promptTokens || completionTokens || numCtx) {
-                try {
-                  await database.query(
-                    `UPDATE llm_jobs SET prompt_tokens = $1, completion_tokens = $2, context_window_used = $3 WHERE id = $4`,
-                    [promptTokens, completionTokens, numCtx, jobId]
-                  );
-                } catch (tokenErr) {
-                  logger.debug(`[QUEUE] Failed to store token counts: ${tokenErr.message}`);
-                }
-              }
-
-              // P4-002: Record performance metrics
-              try {
-                // Get job type from database
-                const jobResult = await database.query(
-                  `SELECT job_type FROM llm_jobs WHERE id = $1`,
-                  [jobId]
-                );
-                const jobType = jobResult.rows[0]?.job_type || 'chat';
-
-                await database.query(
-                  `SELECT record_model_performance($1, $2, $3, $4, $5, $6, $7, $8)`,
-                  [
-                    catalogModelId,
-                    jobId,
-                    jobType,
-                    tokenCount,
-                    totalDuration,
-                    ttft,
-                    enableThinking,
-                    prompt.length,
-                  ]
-                );
-              } catch (metricsError) {
-                logger.warn(
-                  `[QUEUE] Failed to record performance metrics: ${metricsError.message}`
-                );
-              }
-
               service.notifySubscribers(jobId, {
                 done: true,
-                model: data.model || catalogModelId || 'unknown',
+                model: catalogModelId || 'unknown',
                 jobId,
                 timestamp: new Date().toISOString(),
-                // P4-002: Include performance stats in response
-                performance: {
-                  tokens: tokenCount,
-                  duration_ms: totalDuration,
-                  tokens_per_second: parseFloat(tokensPerSecond),
-                  ttft_ms: ttft,
-                  prompt_tokens: promptTokens,
-                  completion_tokens: completionTokens,
-                },
               });
-
               onJobComplete(ctx, jobId);
             }
-          } catch (parseError) {
-            // Ignore parse errors for incomplete JSON
+          } catch (endError) {
+            logger.error(`[QUEUE] Error in end handler for job ${jobId}: ${endError.message}`);
+            onJobComplete(ctx, jobId); // Prevent permanent deadlock
           }
+          resolveStream();
+        } catch (err) {
+          logger.error(`Stream end handler error for job ${jobId}: ${err.message}`);
+          onJobComplete(ctx, jobId);
+          resolveStream();
         }
-      } catch (err) {
-        logger.error(`Stream data handler error for job ${jobId}: ${err.message}`);
-      }
-    });
+      });
 
-    responseStream.on('error', async error => {
-      try {
-        clearInactivityTimer();
-        cleanupStream(); // LEAK-001: Remove listeners and destroy stream
-
-        // STREAM-002: Emit thinking_end on error if mid-think
-        if (inThinkBlock) {
-          inThinkBlock = false;
-          service.notifySubscribers(jobId, { type: 'thinking_end' });
-        }
-
-        logger.error(`[QUEUE] Stream error for job ${jobId}: ${error.message}`);
-        await flushToDatabase(true);
-        await llmJobService.errorJob(jobId, error.message);
-
-        service.notifySubscribers(jobId, { error: error.message, done: true });
-        onJobComplete(ctx, jobId);
-      } catch (err) {
-        logger.error(`Stream error handler error for job ${jobId}: ${err.message}`);
-        onJobComplete(ctx, jobId);
-      }
-    });
-
-    responseStream.on('end', async () => {
-      try {
-        clearInactivityTimer();
-        cleanupStream(); // LEAK-001: Remove listeners and destroy stream
-
-        // STREAM-002: If stream ends mid-thinking, emit thinking_end so frontend exits thinking state
-        if (inThinkBlock) {
-          inThinkBlock = false;
-          service.notifySubscribers(jobId, { type: 'thinking_end' });
-          logger.warn(`[QUEUE] Job ${jobId} stream ended mid-think block - emitted thinking_end`);
-        }
-
-        if (contentBuffer || thinkingBuffer) {
-          await flushToDatabase(true);
-        }
-
-        // CRITICAL FIX (QUEUE-001): Complete job if stream ended without done signal
-        // This prevents permanent deadlock when Ollama closes stream unexpectedly
-        try {
-          const job = await llmJobService.getJob(jobId);
-          if (job && job.status === 'streaming') {
-            logger.warn(`[QUEUE] Job ${jobId} stream ended without done signal - completing`);
-            await llmJobService.completeJob(jobId);
-            service.notifySubscribers(jobId, {
-              done: true,
-              model: catalogModelId || 'unknown',
-              jobId,
-              timestamp: new Date().toISOString(),
-            });
-            onJobComplete(ctx, jobId);
-          }
-        } catch (endError) {
-          logger.error(`[QUEUE] Error in end handler for job ${jobId}: ${endError.message}`);
-          onJobComplete(ctx, jobId); // Prevent permanent deadlock
-        }
-      } catch (err) {
-        logger.error(`Stream end handler error for job ${jobId}: ${err.message}`);
-        onJobComplete(ctx, jobId);
-      }
+      // Resume stream after ALL handlers (data, error, end) are registered
+      // This is critical: if Ollama responds very fast, data may already be buffered
+      // in the readable stream. Without pause/resume, the data events would be lost.
+      responseStream.resume();
     });
   } catch (error) {
     logger.error(`[QUEUE] Error streaming for job ${jobId}: ${error.message}`);

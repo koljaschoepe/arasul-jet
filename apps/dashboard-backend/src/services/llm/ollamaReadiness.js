@@ -60,6 +60,9 @@ class OllamaReadinessService {
     // Initial sync
     await this.performSync();
 
+    // Preload default model so first user request is instant (no cold-start)
+    await this.preloadDefaultModel();
+
     // Start periodic sync
     this.startPeriodicSync();
 
@@ -68,6 +71,51 @@ class OllamaReadinessService {
 
     logger.info('[OllamaReadiness] Initialization complete');
     return { success: true };
+  }
+
+  /**
+   * Preload default model into GPU memory on startup
+   * Eliminates 30-50s cold-start on first user request
+   */
+  async preloadDefaultModel() {
+    try {
+      const defaultModel = await this.modelService.getDefaultModel();
+      if (!defaultModel) {
+        logger.info('[OllamaReadiness] No default model set, skipping preload');
+        return;
+      }
+
+      // Resolve ollama name from catalog
+      let ollamaName = defaultModel;
+      try {
+        const result = await database.query(
+          `SELECT COALESCE(ollama_name, id) as name FROM llm_model_catalog WHERE id = $1`,
+          [defaultModel]
+        );
+        if (result.rows.length > 0) {ollamaName = result.rows[0].name;}
+      } catch (e) {
+        /* use defaultModel as-is */
+      }
+
+      logger.info(`[OllamaReadiness] Preloading default model: ${ollamaName}`);
+      const keepAlive = parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '3600');
+
+      await axios.post(
+        `${LLM_SERVICE_URL}/api/generate`,
+        {
+          model: ollamaName,
+          prompt: 'hello',
+          stream: false,
+          keep_alive: keepAlive,
+          options: { num_predict: 1 },
+        },
+        { timeout: 300000 }
+      );
+
+      logger.info(`[OllamaReadiness] Default model preloaded successfully: ${ollamaName}`);
+    } catch (err) {
+      logger.warn(`[OllamaReadiness] Model preload failed (non-critical): ${err.message}`);
+    }
   }
 
   /**

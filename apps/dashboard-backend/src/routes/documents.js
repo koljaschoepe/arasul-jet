@@ -880,7 +880,7 @@ router.post(
     const searchResponse = await axios.post(
       `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/search`,
       {
-        vector: queryVector,
+        vector: { name: 'dense', vector: queryVector },
         limit: top_k * 2, // Get more to dedupe
         with_payload: true,
         filter,
@@ -1456,7 +1456,9 @@ router.post(
           'SELECT file_path FROM documents WHERE id = $1 AND deleted_at IS NULL',
           [id]
         );
-        if (docResult.rows.length === 0) {continue;}
+        if (docResult.rows.length === 0) {
+          continue;
+        }
 
         const filePath = docResult.rows[0].file_path;
 

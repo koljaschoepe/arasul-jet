@@ -352,21 +352,39 @@ def rerank():
             stage1_latency = 0
 
         # Stage 2: CrossEncoder (GPU) - precise scoring
+        # Skip Stage 2 if Stage 1 top result has high confidence (saves 10-20s on Jetson)
+        STAGE2_CONFIDENCE_THRESHOLD = 0.85
         stage2_start = time.time()
-        try:
-            cross_encoder = _get_cross_encoder()
-            pairs = [[query, p.get('text', '')] for p in stage1_scored]
-            scores = cross_encoder.predict(pairs)
-            stage2_latency = (time.time() - stage2_start) * 1000
 
-            # Combine and sort
-            for i, score in enumerate(scores):
-                stage1_scored[i]['_stage2_score'] = float(score)
-            stage1_scored.sort(key=lambda x: x['_stage2_score'], reverse=True)
-        except Exception as e:
-            logger.warning(f"CrossEncoder stage failed, using stage1 scores: {e}")
-            stage1_scored.sort(key=lambda x: x.get('_stage1_score', 0), reverse=True)
+        if stage1_scored and stage1_scored[0].get('_stage1_score', 0) > STAGE2_CONFIDENCE_THRESHOLD:
+            logger.info(f"High-confidence Stage 1 ({stage1_scored[0]['_stage1_score']:.2f}), skipping Stage 2")
+            for p in stage1_scored:
+                p['_stage2_score'] = p.get('_stage1_score', 0)
             stage2_latency = 0
+        else:
+            try:
+                cross_encoder = _get_cross_encoder()
+                pairs = [[query, p.get('text', '')] for p in stage1_scored]
+                # Batch predict for better GPU utilization
+                batch_size = 8
+                all_scores = []
+                for bi in range(0, len(pairs), batch_size):
+                    batch = pairs[bi:bi+batch_size]
+                    batch_scores = cross_encoder.predict(batch)
+                    if hasattr(batch_scores, '__iter__'):
+                        all_scores.extend(batch_scores)
+                    else:
+                        all_scores.append(batch_scores)
+                stage2_latency = (time.time() - stage2_start) * 1000
+
+                # Combine and sort
+                for i, score in enumerate(all_scores):
+                    stage1_scored[i]['_stage2_score'] = float(score)
+                stage1_scored.sort(key=lambda x: x['_stage2_score'], reverse=True)
+            except Exception as e:
+                logger.warning(f"CrossEncoder stage failed, using stage1 scores: {e}")
+                stage1_scored.sort(key=lambda x: x.get('_stage1_score', 0), reverse=True)
+                stage2_latency = 0
 
         # Build final results
         results = []

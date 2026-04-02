@@ -48,6 +48,8 @@ export interface ChatMessage {
   tokensBefore?: number;
   tokensAfter?: number;
   messagesCompacted?: number;
+  streamStatus?: string;
+  statusMessage?: string;
 }
 
 export interface ChatSettings {
@@ -552,28 +554,36 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         // FH8: Use longer initial timeout for reconnect — the model may still be loading
         // after a page refresh. Subsequent reads use a shorter timeout.
         const RECONNECT_INITIAL_TIMEOUT = 180_000; // 3min for first chunk (model may be loading)
-        const RECONNECT_READ_TIMEOUT = 90_000; // 90s for subsequent reads
+        const RECONNECT_READ_TIMEOUT = 120_000; // 120s for subsequent reads (heartbeats reset this)
         let isFirstReconnectRead = true;
+        let reconnectTimeoutId: ReturnType<typeof setTimeout>;
+        let reconnectTimeoutReject: ((reason: Error) => void) | null = null;
+
+        const resetReconnectTimeout = () => {
+          if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
+          const ms = isFirstReconnectRead ? RECONNECT_INITIAL_TIMEOUT : RECONNECT_READ_TIMEOUT;
+          reconnectTimeoutId = setTimeout(() => {
+            if (reconnectTimeoutReject)
+              reconnectTimeoutReject(
+                new Error(
+                  isFirstReconnectRead
+                    ? 'Reconnect-Timeout: Keine Antwort nach 3 Minuten. Bitte Systemstatus prüfen.'
+                    : 'Stream-Timeout: Keine Daten seit 120 Sekunden'
+                )
+              );
+          }, ms);
+        };
+
+        resetReconnectTimeout();
 
         while (true) {
           const readPromise = reader.read();
-          const currentTimeout = isFirstReconnectRead
-            ? RECONNECT_INITIAL_TIMEOUT
-            : RECONNECT_READ_TIMEOUT;
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    isFirstReconnectRead
-                      ? 'Reconnect-Timeout: Keine Antwort nach 3 Minuten. Bitte Systemstatus prüfen.'
-                      : 'Stream-Timeout: Keine Daten seit 90 Sekunden'
-                  )
-                ),
-              currentTimeout
-            )
-          );
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            reconnectTimeoutReject = reject;
+          });
           const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+          // Reset timeout on EVERY successful read (including heartbeat chunks)
+          resetReconnectTimeout();
           isFirstReconnectRead = false;
           if (done) break;
 
@@ -583,6 +593,23 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           for (const line of lines) {
             try {
               const data = JSON.parse(line.replace(/^data:\s*/, ''));
+
+              // Heartbeat/retry: no UI update, just keep connection alive
+              if (data.type === 'heartbeat' || data.type === 'retry') {
+                continue;
+              }
+
+              // Status events: show model loading / queue status to user
+              if (data.type === 'status') {
+                updateMessages(targetChatId, prev =>
+                  prev.map(msg =>
+                    msg.jobId === jobId
+                      ? { ...msg, streamStatus: data.status, statusMessage: data.message || '' }
+                      : msg
+                  )
+                );
+                continue;
+              }
 
               if (data.type === 'reconnect' || data.type === 'update') {
                 updateMessages(targetChatId, prev =>
@@ -627,7 +654,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             }
           }
         }
+        clearTimeout(reconnectTimeoutId);
       } catch (err: unknown) {
+        clearTimeout(reconnectTimeoutId);
         if (err instanceof Error && err.name === 'AbortError') return;
         console.error('Reconnect error:', err);
         updateIsLoading(targetChatId, false);
@@ -739,26 +768,36 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         const decoder = new TextDecoder();
         // First read timeout is longer to account for model loading (large models need minutes)
         const INITIAL_READ_TIMEOUT = 300_000; // 5min for initial response (model may need to load)
-        const STREAM_READ_TIMEOUT = 90_000; // 90s for subsequent reads
+        const STREAM_READ_TIMEOUT = 120_000; // 120s for subsequent reads (heartbeats reset this)
         let isFirstRead = true;
+        let streamTimeoutId: ReturnType<typeof setTimeout>;
+        let streamTimeoutReject: ((reason: Error) => void) | null = null;
+
+        const resetStreamTimeout = () => {
+          if (streamTimeoutId) clearTimeout(streamTimeoutId);
+          const ms = isFirstRead ? INITIAL_READ_TIMEOUT : STREAM_READ_TIMEOUT;
+          streamTimeoutId = setTimeout(() => {
+            if (streamTimeoutReject)
+              streamTimeoutReject(
+                new Error(
+                  isFirstRead
+                    ? 'Timeout: Modell konnte nicht geladen werden (5 Min). Bitte Systemstatus prüfen.'
+                    : 'Stream-Timeout: Keine Daten seit 120 Sekunden'
+                )
+              );
+          }, ms);
+        };
+
+        resetStreamTimeout();
 
         while (true) {
           const readPromise = reader.read();
-          const currentTimeout = isFirstRead ? INITIAL_READ_TIMEOUT : STREAM_READ_TIMEOUT;
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    isFirstRead
-                      ? 'Timeout: Modell konnte nicht geladen werden (5 Min). Bitte Systemstatus prüfen.'
-                      : 'Stream-Timeout: Keine Daten seit 90 Sekunden'
-                  )
-                ),
-              currentTimeout
-            )
-          );
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            streamTimeoutReject = reject;
+          });
           const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+          // Reset timeout on EVERY successful read (including heartbeat chunks)
+          resetStreamTimeout();
           isFirstRead = false;
           if (done) break;
 
@@ -782,6 +821,27 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                   }
                   return u;
                 });
+              }
+
+              // Heartbeat/retry: no UI update, just keep connection alive
+              if (data.type === 'heartbeat' || data.type === 'retry') {
+                continue;
+              }
+
+              // Status events: show model loading / queue status to user
+              if (data.type === 'status') {
+                updateMessages(chatId, prev => {
+                  const u = [...prev];
+                  if (u[assistantMessageIndex]) {
+                    u[assistantMessageIndex] = {
+                      ...u[assistantMessageIndex],
+                      streamStatus: data.status,
+                      statusMessage: data.message || '',
+                    };
+                  }
+                  return u;
+                });
+                continue;
               }
 
               if (data.error) {
@@ -887,6 +947,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           }
           if (streamError || streamDone) break;
         }
+        clearTimeout(streamTimeoutId);
 
         // FH3: Save final batch values BEFORE reset to avoid race condition
         // resetTokenBatch() zeroes out the ref, so we must capture values first

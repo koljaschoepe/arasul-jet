@@ -115,7 +115,7 @@ router.post(
 
       const { decompounded, queryVariants, hydeText, details: queryOptDetails } = queryOptResult;
 
-      // Step 2: Embed multi-query variants and HyDE text (batch)
+      // Steps 2+3: Embed variants AND resolve space routing IN PARALLEL
       const additionalTexts = [];
       if (queryVariants.length > 1) {
         additionalTexts.push(...queryVariants.slice(1));
@@ -124,52 +124,62 @@ router.post(
         additionalTexts.push(hydeText);
       }
 
-      const additionalEmbeddings =
-        additionalTexts.length > 0 ? await getEmbeddings(additionalTexts) : [];
+      const [additionalEmbeddings, spaceRouting] = await Promise.all([
+        // Step 2: Embed multi-query variants and HyDE text (batch)
+        additionalTexts.length > 0 ? getEmbeddings(additionalTexts) : Promise.resolve([]),
+        // Step 3: Space routing (runs in parallel with embedding)
+        (async () => {
+          let _targetSpaces = [];
+          let _routingMethod = 'none';
+          let _targetSpaceIds = space_ids;
 
-      // Step 3: Space routing
-      let targetSpaces = [];
-      let routingMethod = 'none';
-      let targetSpaceIds = space_ids;
-
-      // Project-level space override: if conversation belongs to a project with a knowledge_space_id
-      if (!space_ids && conversation_id) {
-        try {
-          const projSpace = await db.query(
-            `SELECT p.knowledge_space_id FROM projects p
-             JOIN chat_conversations c ON c.project_id = p.id
-             WHERE c.id = $1 AND p.knowledge_space_id IS NOT NULL`,
-            [conversation_id]
-          );
-          if (projSpace.rows.length > 0) {
-            targetSpaceIds = [projSpace.rows[0].knowledge_space_id];
-            logger.debug(`Project space override: ${targetSpaceIds[0]}`);
+          if (!space_ids && conversation_id) {
+            try {
+              const projSpace = await db.query(
+                `SELECT p.knowledge_space_id FROM projects p
+                 JOIN chat_conversations c ON c.project_id = p.id
+                 WHERE c.id = $1 AND p.knowledge_space_id IS NOT NULL`,
+                [conversation_id]
+              );
+              if (projSpace.rows.length > 0) {
+                _targetSpaceIds = [projSpace.rows[0].knowledge_space_id];
+                logger.debug(`Project space override: ${_targetSpaceIds[0]}`);
+              }
+            } catch (projErr) {
+              logger.debug(`Project space lookup failed: ${projErr.message}`);
+            }
           }
-        } catch (projErr) {
-          logger.debug(`Project space lookup failed: ${projErr.message}`);
-        }
-      }
 
-      if (targetSpaceIds && targetSpaceIds.length > 0) {
-        const spacesResult = await db.query(
-          'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',
-          [targetSpaceIds]
-        );
-        targetSpaces = spacesResult.rows;
-        routingMethod = 'manual';
-        logger.debug(`Using ${targetSpaces.length} pre-selected spaces`);
-      } else if (auto_routing) {
-        const routingResult = await routeToSpaces(queryEmbedding);
-        targetSpaces = routingResult.spaces;
-        routingMethod = routingResult.method;
+          if (_targetSpaceIds && _targetSpaceIds.length > 0) {
+            const spacesResult = await db.query(
+              'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',
+              [_targetSpaceIds]
+            );
+            _targetSpaces = spacesResult.rows;
+            _routingMethod = 'manual';
+            logger.debug(`Using ${_targetSpaces.length} pre-selected spaces`);
+          } else if (auto_routing) {
+            const routingResult = await routeToSpaces(queryEmbedding);
+            _targetSpaces = routingResult.spaces;
+            _routingMethod = routingResult.method;
 
-        if (routingMethod === 'error' || routingMethod === 'all') {
-          targetSpaceIds = null;
-        } else {
-          targetSpaceIds = targetSpaces.map(s => s.id);
-        }
-        logger.debug(`Auto-routing: ${routingMethod}, ${targetSpaces.length} spaces`);
-      }
+            if (_routingMethod === 'error' || _routingMethod === 'all') {
+              _targetSpaceIds = null;
+            } else {
+              _targetSpaceIds = _targetSpaces.map(s => s.id);
+            }
+            logger.debug(`Auto-routing: ${_routingMethod}, ${_targetSpaces.length} spaces`);
+          }
+
+          return {
+            targetSpaces: _targetSpaces,
+            routingMethod: _routingMethod,
+            targetSpaceIds: _targetSpaceIds,
+          };
+        })(),
+      ]);
+
+      const { targetSpaces, routingMethod, targetSpaceIds } = spaceRouting;
 
       // Step 4: Hybrid search + Graph enrichment IN PARALLEL
       const spaceFilter = targetSpaceIds && targetSpaceIds.length > 0 ? targetSpaceIds : null;

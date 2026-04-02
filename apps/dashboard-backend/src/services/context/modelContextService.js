@@ -35,7 +35,7 @@ const FALLBACK_CONTEXT_WINDOWS = {
 const DEFAULT_CONTEXT_WINDOW = 4096;
 
 // Budget allocation constants
-const SYSTEM_PROMPT_TOKENS = 200;
+const SYSTEM_PROMPT_TOKENS = 350;
 const TIER1_PROFILE_TOKENS = 150;
 
 /**

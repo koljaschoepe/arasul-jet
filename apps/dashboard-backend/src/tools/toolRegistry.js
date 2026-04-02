@@ -98,20 +98,22 @@ class ToolRegistry {
       return '';
     }
 
-    const toolDescriptions = available.map(tool => tool.toPromptDescription()).join('\n');
+    // Compact format: ~120 tokens instead of ~420 tokens
+    const toolLines = available
+      .map(tool => {
+        const params = tool.parameters;
+        const paramStr =
+          Object.keys(params).length > 0
+            ? ' ' +
+              Object.entries(params)
+                .map(([k, info]) => `${k}${info.required ? '' : '?'}`)
+                .join(' ')
+            : '';
+        return `${tool.name}${paramStr} — ${tool.description}`;
+      })
+      .join('\n');
 
-    return `
-Du hast Zugriff auf folgende System-Tools. Um ein Tool zu nutzen, antworte mit dem Format:
-[TOOL: toolname param1=wert1 param2=wert2]
-
-Verfuegbare Tools:
-${toolDescriptions}
-
-Wichtig:
-- Nutze Tools nur wenn der Nutzer explizit nach System-Informationen fragt
-- Zeige die Tool-Ausgabe formatiert an
-- Bei Fehlern erklaere das Problem
-`;
+    return `## Tools\nFormat: [TOOL: name param=wert]\n${toolLines}`;
   }
 
   /**

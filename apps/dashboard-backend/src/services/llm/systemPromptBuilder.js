@@ -154,12 +154,14 @@ async function loadProjectPrompt(database, conversationId) {
 }
 
 /**
- * Build the combined system prompt from all 4 layers.
+ * Build the combined system prompt from all layers.
  * @param {Object} database - Database instance
  * @param {string|null} conversationId - Current conversation ID
+ * @param {Object} [options] - Options
+ * @param {boolean} [options.includeTools=true] - Whether to include tools section
  * @returns {Promise<string>} Combined system prompt
  */
-async function buildSystemPrompt(database, conversationId) {
+async function buildSystemPrompt(database, conversationId, { includeTools = true } = {}) {
   const parts = [GLOBAL_BASE_PROMPT];
 
   // Layer 2: AI Profile
@@ -179,6 +181,19 @@ async function buildSystemPrompt(database, conversationId) {
   const projectPrompt = await loadProjectPrompt(database, conversationId);
   if (projectPrompt) {
     parts.push(`## Projektanweisungen\n${projectPrompt}`);
+  }
+
+  // Layer 5: Available Tools (only for medium/complex queries)
+  if (includeTools) {
+    try {
+      const toolRegistry = require('../../tools');
+      const toolsPrompt = await toolRegistry.generateToolsPrompt();
+      if (toolsPrompt) {
+        parts.push(toolsPrompt);
+      }
+    } catch {
+      // Tools not available - ignore
+    }
   }
 
   return parts.join('\n\n');
