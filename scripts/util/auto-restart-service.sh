@@ -5,7 +5,7 @@
 # Called by Claude Code PostToolUse hook after Edit/Write operations
 # =============================================================================
 
-set -e
+set -euo pipefail
 
 # Configuration
 DEBOUNCE_SECONDS=5

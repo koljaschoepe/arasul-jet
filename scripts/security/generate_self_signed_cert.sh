@@ -2,7 +2,7 @@
 # Generate Self-Signed Certificate for Arasul Platform
 # Used when Let's Encrypt is not available (offline/local development)
 
-set -e
+set -euo pipefail
 
 CERT_DIR="${1:-/arasul/config/traefik/certs}"
 DOMAIN="${2:-arasul.local}"

@@ -4,7 +4,7 @@
 # Automates the setup of the local development environment
 ###############################################################################
 
-set -e
+set -euo pipefail
 
 # Colors
 GREEN='\033[0;32m'

@@ -3,7 +3,7 @@
 # Usage: ./generate_htpasswd.sh [username]
 # Supports: htpasswd (apache2-utils) or python3+bcrypt as fallback
 
-set -e
+set -euo pipefail
 
 USERNAME="${1:-admin}"
 

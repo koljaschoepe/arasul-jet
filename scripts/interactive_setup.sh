@@ -9,7 +9,7 @@
 #   ADMIN_PASSWORD=... ./scripts/interactive_setup.sh --non-interactive
 ###############################################################################
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"

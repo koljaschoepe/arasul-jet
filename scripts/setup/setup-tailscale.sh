@@ -13,7 +13,7 @@
 #   2 = Uebersprungen (Benutzer hat abgelehnt oder kein Auth-Key)
 ###############################################################################
 
-set -e
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'

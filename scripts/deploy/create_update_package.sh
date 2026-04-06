@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # ARASUL Update Package Creator
 # Creates signed .araupdate packages for offline deployment
