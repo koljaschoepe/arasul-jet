@@ -149,14 +149,16 @@ class N8nLogger {
         MIN(duration_ms) FILTER (WHERE duration_ms IS NOT NULL) as min_duration_ms,
         MAX(duration_ms) FILTER (WHERE duration_ms IS NOT NULL) as max_duration_ms
       FROM workflow_activity
-      WHERE timestamp >= NOW() - INTERVAL '${interval}'
+      WHERE timestamp >= NOW() - $1::interval
     `;
 
-    const values = [];
+    const values = [interval];
+    let paramIndex = 2;
 
     if (workflow_name) {
-      query += ` AND workflow_name = $1`;
+      query += ` AND workflow_name = $${paramIndex}`;
       values.push(workflow_name);
+      paramIndex++;
     }
 
     try {
@@ -236,13 +238,13 @@ class N8nLogger {
 
     const query = `
       DELETE FROM workflow_activity
-      WHERE timestamp < NOW() - INTERVAL '${days} days'
+      WHERE timestamp < NOW() - $1::interval
       RETURNING id
     `;
 
     try {
       // BUG-004 FIX: Use centralized db.query()
-      const result = await db.query(query);
+      const result = await db.query(query, [`${days} days`]);
       const deletedCount = result.rowCount;
       require('../utils/logger').info(
         `Cleaned up ${deletedCount} old workflow execution records (older than ${days} days)`

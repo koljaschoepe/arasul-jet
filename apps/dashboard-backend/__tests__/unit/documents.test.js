@@ -10,6 +10,12 @@ const request = require('supertest');
 const express = require('express');
 const crypto = require('crypto');
 
+// Valid magic-byte test buffers for file content validation
+const PDF_BUFFER = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34]); // %PDF-1.4
+const DOCX_BUFFER = Buffer.from([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]); // PK (ZIP)
+const TEXT_BUFFER = Buffer.from('# Markdown content\nHello World');
+const TXT_BUFFER = Buffer.from('Plain text content');
+
 // Mock dependencies before requiring the routes
 jest.mock('../../src/database');
 jest.mock('../../src/utils/logger');
@@ -35,6 +41,13 @@ jest.mock('../../src/middleware/auth', () => ({
         req.tokenData = { userId: 1, username: 'testuser', jti: 'test-jti', type: 'access' };
         next();
     }
+}));
+
+// Mock rate limiter to avoid 429 in tests
+jest.mock('../../src/middleware/rateLimit', () => ({
+    uploadLimiter: (req, res, next) => next(),
+    generalLimiter: (req, res, next) => next(),
+    generalAuthLimiter: (req, res, next) => next(),
 }));
 
 // Mock MinIO client
@@ -303,7 +316,7 @@ describe('Documents Routes', () => {
 
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('PDF content'), 'test.pdf');
+                .attach('file', PDF_BUFFER, 'test.pdf');
 
             expect(response.status).toBe(201);
             expect(response.body.status).toBe('uploaded');
@@ -318,7 +331,7 @@ describe('Documents Routes', () => {
 
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('DOCX content'), 'test.docx');
+                .attach('file', DOCX_BUFFER, 'test.docx');
 
             expect(response.status).toBe(201);
         });
@@ -330,7 +343,7 @@ describe('Documents Routes', () => {
 
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('# Markdown'), 'test.md');
+                .attach('file', TEXT_BUFFER, 'test.md');
 
             expect(response.status).toBe(201);
         });
@@ -346,7 +359,7 @@ describe('Documents Routes', () => {
         test('lehnt ungültigen Dateityp ab', async () => {
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('EXE content'), 'virus.exe');
+                .attach('file', Buffer.from('EXE'), 'virus.exe');
 
             expect(response.status).toBe(400);
         });
@@ -358,7 +371,7 @@ describe('Documents Routes', () => {
 
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('PDF content'), 'test.pdf');
+                .attach('file', PDF_BUFFER, 'test.pdf');
 
             expect(response.status).toBe(409);
             expect(response.body.error).toBe('Dokument existiert bereits');
@@ -372,7 +385,7 @@ describe('Documents Routes', () => {
             const response = await request(app)
                 .post('/api/documents/upload')
                 .field('space_id', 'invalid-space')
-                .attach('file', Buffer.from('PDF content'), 'test.pdf');
+                .attach('file', PDF_BUFFER, 'test.pdf');
 
             expect(response.status).toBe(400);
             expect(response.body.error).toBe('Ungültiger Wissensbereich');
@@ -388,7 +401,7 @@ describe('Documents Routes', () => {
             const response = await request(app)
                 .post('/api/documents/upload')
                 .field('space_id', 'space-1')
-                .attach('file', Buffer.from('PDF content'), 'test.pdf');
+                .attach('file', PDF_BUFFER, 'test.pdf');
 
             expect(response.status).toBe(201);
             expect(response.body.document.space_id).toBe('space-1');
@@ -401,7 +414,7 @@ describe('Documents Routes', () => {
 
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('content'), '../../../etc/passwd.pdf');
+                .attach('file', PDF_BUFFER, '../../../etc/passwd.pdf');
 
             expect(response.status).toBe(201);
             // Filename should be sanitized
@@ -932,7 +945,7 @@ describe('Documents Routes', () => {
 
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('content'), '../../etc/passwd.pdf');
+                .attach('file', PDF_BUFFER, '../../etc/passwd.pdf');
 
             expect(response.status).toBe(201);
             expect(response.body.document.filename).toBe('passwd.pdf');
@@ -945,7 +958,7 @@ describe('Documents Routes', () => {
 
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('content'), '...hidden.md');
+                .attach('file', TEXT_BUFFER, '...hidden.md');
 
             expect(response.status).toBe(201);
             expect(response.body.document.filename).not.toMatch(/^\./);
@@ -960,7 +973,7 @@ describe('Documents Routes', () => {
             // Use a simpler set of forbidden characters that work with supertest
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('content'), 'file_test<name>.pdf');
+                .attach('file', PDF_BUFFER, 'file_test<name>.pdf');
 
             expect(response.status).toBe(201);
             const filename = response.body.document.filename;
@@ -975,7 +988,7 @@ describe('Documents Routes', () => {
             const longName = 'a'.repeat(300) + '.pdf';
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('content'), longName);
+                .attach('file', PDF_BUFFER, longName);
 
             expect(response.status).toBe(201);
             expect(response.body.document.filename.length).toBeLessThanOrEqual(200);
@@ -1000,7 +1013,7 @@ describe('File Type Validation', () => {
 
         const response = await request(app)
             .post('/api/documents/upload')
-            .attach('file', Buffer.from('PDF'), 'test.pdf');
+            .attach('file', PDF_BUFFER, 'test.pdf');
 
         expect(response.status).toBe(201);
     });
@@ -1012,7 +1025,7 @@ describe('File Type Validation', () => {
 
         const response = await request(app)
             .post('/api/documents/upload')
-            .attach('file', Buffer.from('DOCX'), 'test.docx');
+            .attach('file', DOCX_BUFFER, 'test.docx');
 
         expect(response.status).toBe(201);
     });
@@ -1024,7 +1037,7 @@ describe('File Type Validation', () => {
 
         const response = await request(app)
             .post('/api/documents/upload')
-            .attach('file', Buffer.from('MD'), 'test.md');
+            .attach('file', TEXT_BUFFER, 'test.md');
 
         expect(response.status).toBe(201);
     });
@@ -1036,7 +1049,7 @@ describe('File Type Validation', () => {
 
         const response = await request(app)
             .post('/api/documents/upload')
-            .attach('file', Buffer.from('TXT'), 'test.txt');
+            .attach('file', TXT_BUFFER, 'test.txt');
 
         expect(response.status).toBe(201);
     });
@@ -1063,6 +1076,43 @@ describe('File Type Validation', () => {
             .attach('file', Buffer.from('HTML'), 'page.html');
 
         expect(response.status).toBe(400);
+    });
+});
+
+// =====================================================
+// Magic Byte Validation Tests
+// =====================================================
+describe('Magic Byte Validation', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        pool.query.mockReset();
+    });
+
+    test('lehnt PDF mit falschem Inhalt ab', async () => {
+        const response = await request(app)
+            .post('/api/documents/upload')
+            .attach('file', Buffer.from('This is not a PDF'), 'fake.pdf');
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toContain('Dateityp');
+    });
+
+    test('lehnt DOCX mit falschem Inhalt ab', async () => {
+        const response = await request(app)
+            .post('/api/documents/upload')
+            .attach('file', Buffer.from('Not a DOCX file'), 'fake.docx');
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toContain('Dateityp');
+    });
+
+    test('lehnt Text-Datei mit Null-Bytes ab', async () => {
+        const response = await request(app)
+            .post('/api/documents/upload')
+            .attach('file', Buffer.from([0x48, 0x65, 0x6C, 0x00, 0x6C, 0x6F]), 'binary.txt');
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toContain('Dateityp');
     });
 });
 

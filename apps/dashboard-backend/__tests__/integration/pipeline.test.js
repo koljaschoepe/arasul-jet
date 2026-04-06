@@ -690,7 +690,7 @@ describe('Document Upload Pipeline', () => {
     const response = await request(app)
       .post('/api/documents/upload')
       .set('Authorization', `Bearer ${authToken}`)
-      .attach('file', Buffer.from('fake pdf content'), 'test.pdf');
+      .attach('file', Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34]), 'test.pdf');
 
     // Upload should either succeed (200/201) or fail with a service error (not 401/400 for file type)
     // The exact status depends on MinIO integration but auth + file type validation should pass
@@ -760,7 +760,7 @@ describe('Document Upload Pipeline', () => {
     const response = await request(app)
       .post('/api/documents/upload')
       .set('Authorization', `Bearer ${authToken}`)
-      .attach('file', Buffer.from('duplicate content'), 'duplicate.pdf');
+      .attach('file', Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x35]), 'duplicate.pdf');
 
     // Should return 409 conflict or handle duplicate gracefully
     // Depends on route implementation — could be 409 or 200 with warning

@@ -219,14 +219,19 @@ router.post(
 router.post(
   '/webhook/n8n',
   asyncHandler(async (req, res) => {
-    // Validate webhook secret if configured
+    // SEC-FIX: Validate webhook secret (required for security)
+    // Without this, any request to this endpoint is accepted unauthenticated
     const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const providedSecret = req.headers['x-webhook-secret'] || req.query.secret;
-      if (providedSecret !== webhookSecret) {
-        logger.warn('Invalid n8n webhook secret');
-        throw new UnauthorizedError('Invalid webhook secret');
-      }
+    if (!webhookSecret) {
+      logger.warn('N8N_WEBHOOK_SECRET not configured - rejecting webhook request');
+      throw new UnauthorizedError(
+        'Webhook secret not configured. Set N8N_WEBHOOK_SECRET env variable.'
+      );
+    }
+    const providedSecret = req.headers['x-webhook-secret'] || req.query.secret;
+    if (providedSecret !== webhookSecret) {
+      logger.warn('Invalid n8n webhook secret');
+      throw new UnauthorizedError('Invalid webhook secret');
     }
 
     const { workflow_id, workflow_name, execution_id, status, error, duration_ms } = req.body;
@@ -259,11 +264,36 @@ router.post(
 router.post(
   '/webhook/self-healing',
   asyncHandler(async (req, res) => {
+    // Defense-in-depth: shared secret validation (if configured)
+    const webhookSecret = process.env.SELF_HEALING_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const providedSecret = req.headers['x-webhook-secret'];
+      if (providedSecret !== webhookSecret) {
+        logger.warn('Invalid self-healing webhook secret');
+        throw new UnauthorizedError('Invalid webhook secret');
+      }
+    }
+
     // Validate internal request (from self-healing container)
     const clientIp = req.ip || req.connection.remoteAddress;
-    // Allow localhost, Docker network IPs, and configured sources
-    const allowedSources = ['127.0.0.1', '::1', '172.', '192.168.'];
-    const isAllowed = allowedSources.some(src => clientIp.includes(src));
+    // IP-FIX: Use proper prefix matching instead of includes() to prevent
+    // false matches (e.g. '192.172.1.1' would incorrectly match '172.')
+    const isAllowed =
+      clientIp === '127.0.0.1' ||
+      clientIp === '::1' ||
+      clientIp === '::ffff:127.0.0.1' ||
+      clientIp.startsWith('172.16.') ||
+      clientIp.startsWith('172.17.') ||
+      clientIp.startsWith('172.18.') ||
+      clientIp.startsWith('172.19.') ||
+      clientIp.startsWith('172.2') ||
+      clientIp.startsWith('172.30.') ||
+      clientIp.startsWith('172.31.') ||
+      clientIp.startsWith('192.168.') ||
+      clientIp.startsWith('10.') ||
+      clientIp.startsWith('::ffff:172.') ||
+      clientIp.startsWith('::ffff:192.168.') ||
+      clientIp.startsWith('::ffff:10.');
 
     if (!isAllowed && process.env.NODE_ENV === 'production') {
       logger.warn(`Blocked self-healing webhook from: ${clientIp}`);

@@ -38,6 +38,36 @@ const documentService = require('../services/documents/documentService');
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
+// Magic byte signatures for binary file types
+const MAGIC_BYTES = {
+  '.pdf': { bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 }, // %PDF
+  '.docx': { bytes: [0x50, 0x4b, 0x03, 0x04], offset: 0 }, // PK (ZIP archive)
+  '.png': { bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0 }, // PNG
+  '.jpg': { bytes: [0xff, 0xd8, 0xff], offset: 0 }, // JPEG
+  '.jpeg': { bytes: [0xff, 0xd8, 0xff], offset: 0 }, // JPEG
+  '.gif': { bytes: [0x47, 0x49, 0x46], offset: 0 }, // GIF
+  '.webp': { bytes: [0x52, 0x49, 0x46, 0x46], offset: 0 }, // RIFF (WebP)
+};
+
+/**
+ * Validate file content matches expected type via magic bytes.
+ * Binary formats (PDF, DOCX) must match their signature.
+ * Text formats (.md, .txt, .yaml) are validated as valid UTF-8 with no null bytes.
+ */
+function validateFileContent(buffer, ext) {
+  const magic = MAGIC_BYTES[ext];
+  if (magic) {
+    if (buffer.length < magic.offset + magic.bytes.length) {return false;}
+    return magic.bytes.every((b, i) => buffer[magic.offset + i] === b);
+  }
+  // Text formats: reject files containing null bytes (binary content)
+  if (['.md', '.markdown', '.txt', '.yaml', '.yml', '.svg'].includes(ext)) {
+    const sample = buffer.subarray(0, Math.min(buffer.length, 8192));
+    return !sample.includes(0x00);
+  }
+  return true;
+}
+
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -255,6 +285,11 @@ router.post(
     const file = req.file;
     const filename = minioService.sanitizeFilename(file.originalname);
     const fileExt = '.' + filename.split('.').pop().toLowerCase();
+
+    // Validate file content matches extension (magic byte check)
+    if (!validateFileContent(file.buffer, fileExt)) {
+      throw new ValidationError('Dateiinhalt stimmt nicht mit dem Dateityp überein');
+    }
 
     // Get space_id from form data (RAG 2.0)
     const spaceId = req.body.space_id || null;
@@ -1128,6 +1163,13 @@ router.post(
     }
 
     const filename = minioService.sanitizeFilename(file.originalname);
+    const imageExt = '.' + filename.split('.').pop().toLowerCase();
+
+    // Validate image content matches extension (magic byte check)
+    if (!validateFileContent(file.buffer, imageExt)) {
+      throw new ValidationError('Bildinhalt stimmt nicht mit dem Dateityp überein');
+    }
+
     const timestamp = Date.now();
     const objectName = `images/${timestamp}_${filename}`;
 
