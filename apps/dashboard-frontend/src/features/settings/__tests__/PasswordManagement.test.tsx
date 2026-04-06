@@ -85,9 +85,9 @@ describe('PasswordManagement Component', () => {
         </ToastProvider>
       );
 
-      // Lock icon is rendered inside the CardTitle
+      // Lock icon is rendered inside the h3 header alongside the title
       const title = screen.getByText('Passwortverwaltung');
-      const svg = title.closest('[data-slot="card-title"]')?.querySelector('svg');
+      const svg = title.closest('h3')?.querySelector('svg');
       expect(svg).toBeInTheDocument();
     });
 
@@ -384,7 +384,8 @@ describe('PasswordManagement Component', () => {
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       await user.type(newField, 'ab');
 
-      const invalidItems = container.querySelectorAll('li.text-foreground\\/50');
+      // Unfulfilled requirements use text-muted-foreground class
+      const invalidItems = container.querySelectorAll('li.text-muted-foreground');
       expect(invalidItems.length).toBeGreaterThan(0);
     });
   });

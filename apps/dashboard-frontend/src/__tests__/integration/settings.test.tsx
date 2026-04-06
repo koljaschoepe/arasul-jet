@@ -148,7 +148,7 @@ describe('Settings integration', () => {
       expect(screen.getByText('Erscheinungsbild')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/dark mode/i)).toBeInTheDocument();
+    expect(screen.getByText(/Dunkler Modus/)).toBeInTheDocument();
   });
 
   it('calls onToggleTheme when theme switch is clicked', async () => {
@@ -169,7 +169,7 @@ describe('Settings integration', () => {
     renderSettings({ theme: 'light' });
 
     await waitFor(() => {
-      expect(screen.getByText(/light mode/i)).toBeInTheDocument();
+      expect(screen.getByText(/Heller Modus/)).toBeInTheDocument();
     });
   });
 

@@ -211,7 +211,7 @@ describe('App Component', () => {
       await waitFor(() => {
         expect(screen.getByText('Dashboard')).toBeInTheDocument();
         expect(screen.getByText('Chat')).toBeInTheDocument();
-        expect(screen.getByText('Data')).toBeInTheDocument();
+        expect(screen.getByText('Daten')).toBeInTheDocument();
         expect(screen.getByText('Einstellungen')).toBeInTheDocument();
       });
     });
@@ -239,15 +239,15 @@ describe('App Component', () => {
       });
     });
 
-    test('Navigation zu Data funktioniert', async () => {
+    test('Navigation zu Daten funktioniert', async () => {
       const user = userEvent.setup();
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByText('Data')).toBeInTheDocument();
+        expect(screen.getByText('Daten')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText('Data'));
+      await user.click(screen.getByText('Daten'));
 
       await waitFor(() => {
         expect(screen.getByTestId('document-manager')).toBeInTheDocument();

@@ -263,7 +263,7 @@ describe('Settings Component', () => {
       await user.click(screen.getAllByText('KI-Profil')[0]);
 
       await waitFor(() => {
-        expect(screen.getByText('Unternehmensinformationen')).toBeInTheDocument();
+        expect(screen.getByText('Firmenprofil')).toBeInTheDocument();
       });
     });
 
@@ -277,25 +277,25 @@ describe('Settings Component', () => {
         </ToastProvider>
       );
 
-      // Initial - Allgemein should be active (find the desktop sidebar button with 'active' class)
+      // Initial - Allgemein should be active (find the desktop sidebar button with 'bg-muted' class)
       const allgemeinButtons = screen.getAllByText('Allgemein').map(el => el.closest('button'));
-      const allgemeinButton = allgemeinButtons.find(btn => btn?.classList.contains('active'));
+      const allgemeinButton = allgemeinButtons.find(btn => btn?.classList.contains('bg-muted'));
       expect(allgemeinButton).toBeTruthy();
 
-      // Click Updates (use desktop sidebar button which has 'active' class support)
+      // Click Updates (use desktop sidebar button which has 'text-left' class)
       const updatesButtons = screen.getAllByText('Updates').map(el => el.closest('button'));
       await user.click(
         updatesButtons.find(btn => btn?.classList.contains('text-left')) ||
           updatesButtons[updatesButtons.length - 1]
       );
 
-      // After clicking, the desktop sidebar Updates button should be active
+      // After clicking, the desktop sidebar Updates button should be active (bg-muted)
       const updatesButtonsAfter = screen.getAllByText('Updates').map(el => el.closest('button'));
       const activeUpdatesButton = updatesButtonsAfter.find(btn =>
-        btn?.classList.contains('active')
+        btn?.classList.contains('bg-muted')
       );
       expect(activeUpdatesButton).toBeTruthy();
-      expect(allgemeinButton).not.toHaveClass('active');
+      expect(allgemeinButton).not.toHaveClass('bg-muted');
     });
   });
 
@@ -827,8 +827,8 @@ describe('Settings Component', () => {
       });
     });
 
-    describe('Info Display', () => {
-      test('zeigt Info-Karte zur Profil-Nutzung', async () => {
+    describe('KI-Verhalten Display', () => {
+      test('zeigt KI-Verhalten Sektion mit Optionen', async () => {
         const user = userEvent.setup();
         mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
@@ -841,14 +841,8 @@ describe('Settings Component', () => {
 
         await waitFor(() => {
           expect(screen.getByText('KI-Verhalten')).toBeInTheDocument();
-        });
-        await user.click(screen.getByText('KI-Verhalten'));
-
-        await waitFor(() => {
-          expect(screen.getByText('Wie wird das Profil genutzt?')).toBeInTheDocument();
-          expect(screen.getByText('Automatischer Kontext')).toBeInTheDocument();
-          expect(screen.getByText('Bessere Antworten')).toBeInTheDocument();
-          expect(screen.getByText('Projekt-Prompts')).toBeInTheDocument();
+          expect(screen.getByText('Antwortlänge')).toBeInTheDocument();
+          expect(screen.getByText('Formalität')).toBeInTheDocument();
         });
       });
     });
@@ -914,7 +908,7 @@ describe('Settings Component', () => {
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
         await waitFor(() => {
-          expect(screen.getByText('Unternehmensinformationen')).toBeInTheDocument();
+          expect(screen.getByText('Firmenprofil')).toBeInTheDocument();
         });
 
         expect(screen.queryByText('Teamgröße')).not.toBeInTheDocument();

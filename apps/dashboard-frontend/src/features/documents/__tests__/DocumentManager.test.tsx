@@ -16,8 +16,8 @@ import userEvent from '@testing-library/user-event';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import DocumentManager from '../DocumentManager';
 
-vi.mock('../../../components/editor/MarkdownEditor', () => ({
-  default: function MockMarkdownEditor({ value, onChange }) {
+vi.mock('../../../components/editor/tiptap/TipTapEditor', () => ({
+  default: function MockTipTapEditor({ value, onChange }) {
     const React = require('react');
     return React.createElement('textarea', {
       'data-testid': 'markdown-editor',
@@ -374,9 +374,9 @@ describe('DocumentManager Component', () => {
         expect(statCards.length).toBeGreaterThan(0);
       });
 
-      // Check for stat labels
+      // Check for stat labels — stats show Dokumente, Indexierte Chunks, Wartend, Tabellen
       await waitFor(() => {
-        expect(screen.getByText(/Gesamt/)).toBeInTheDocument();
+        expect(screen.getByText(/Dokumente/)).toBeInTheDocument();
       });
     });
   });

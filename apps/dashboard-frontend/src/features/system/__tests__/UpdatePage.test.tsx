@@ -20,7 +20,7 @@ import UpdatePage from '../UpdatePage';
 // Mock AuthContext - useApi now requires AuthProvider
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ logout: vi.fn() }),
-  AuthProvider: ({ children }) => children,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // Mock formatDate
@@ -37,6 +37,11 @@ vi.mock('../../../config/api', () => ({
 // Mock token utility (used by getAuthHeaders)
 vi.mock('../../../utils/token', () => ({
   getValidToken: () => 'test-token',
+}));
+
+// Mock csrf utility
+vi.mock('../../../utils/csrf', () => ({
+  getCsrfToken: () => 'mock-csrf-token',
 }));
 
 const mockHistory = [
@@ -60,70 +65,58 @@ const mockHistory = [
   },
 ];
 
-// Helper to create a fetch mock
-const createFetchMock = (overrides = {}) => {
-  return vi.fn((url, options) => {
-    if (url.includes('/update/history')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ updates: overrides.history || mockHistory }),
-      });
-    }
-    if (url.includes('/update/status')) {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve(overrides.status || { status: 'idle', message: 'No update in progress' }),
-      });
-    }
-    if (url.includes('/update/usb-devices')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ devices: overrides.usbDevices || [], count: 0 }),
-      });
-    }
-    if (url.includes('/update/apply')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(overrides.apply || { status: 'started' }),
-      });
-    }
-    if (url.includes('/update/install-from-usb')) {
-      if (overrides.usbInstallError) {
-        return Promise.resolve({
-          ok: false,
-          json: () => Promise.resolve({ error: overrides.usbInstallError }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve(
-            overrides.usbInstall || {
-              status: 'validated',
-              version: '1.2.0',
-              components: [],
-              file_path: '/arasul/updates/test.araupdate',
-              source: 'usb',
-            }
-          ),
-      });
-    }
-    return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-  });
+// Mock useApi — the component uses useApi(), not raw fetch
+const mockApi = {
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  patch: vi.fn(),
+  del: vi.fn(),
+  request: vi.fn(),
 };
 
-describe('UpdatePage Component', () => {
-  let originalFetch;
+vi.mock('../../../hooks/useApi', () => ({
+  useApi: () => mockApi,
+  default: () => mockApi,
+}));
 
+/**
+ * Configure mock API responses based on URL patterns.
+ */
+function setupMockApi(
+  overrides: {
+    history?: typeof mockHistory;
+    usbDevices?: Array<{
+      path: string;
+      name: string;
+      size: number;
+      device: string;
+      modified?: string;
+    }>;
+    systemInfo?: Record<string, unknown>;
+  } = {}
+) {
+  mockApi.get.mockImplementation((url: string) => {
+    if (url.includes('/update/history')) {
+      return Promise.resolve({ updates: overrides.history ?? mockHistory });
+    }
+    if (url.includes('/update/usb-devices')) {
+      return Promise.resolve({ devices: overrides.usbDevices ?? [] });
+    }
+    if (url.includes('/system/info')) {
+      return Promise.resolve(overrides.systemInfo ?? { version: '1.0.0' });
+    }
+    if (url.includes('/update/status')) {
+      return Promise.resolve({ status: 'idle' });
+    }
+    return Promise.resolve({});
+  });
+}
+
+describe('UpdatePage Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    originalFetch = global.fetch;
-    global.fetch = createFetchMock();
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
+    setupMockApi();
   });
 
   // =====================================================
@@ -234,7 +227,7 @@ describe('UpdatePage Component', () => {
         type: 'application/octet-stream',
       });
       const input = document.getElementById('update-file');
-      await user.upload(input, file);
+      await user.upload(input!, file);
 
       expect(screen.getByText('update-1.2.0.araupdate')).toBeInTheDocument();
     });
@@ -249,7 +242,7 @@ describe('UpdatePage Component', () => {
 
       const file = new File(['signature'], 'update.sig', { type: 'application/octet-stream' });
       const input = document.getElementById('signature-file');
-      await user.upload(input, file);
+      await user.upload(input!, file);
 
       expect(screen.getByText('update.sig')).toBeInTheDocument();
     });
@@ -266,7 +259,7 @@ describe('UpdatePage Component', () => {
         type: 'application/octet-stream',
       });
       const input = document.getElementById('update-file');
-      await user.upload(input, file);
+      await user.upload(input!, file);
 
       // Button still disabled because signature is required
       const button = screen.getByText('Hochladen & Validieren');
@@ -286,8 +279,8 @@ describe('UpdatePage Component', () => {
       });
       const sigFile = new File(['sig'], 'update.sig', { type: 'application/octet-stream' });
 
-      await user.upload(document.getElementById('update-file'), updateFile);
-      await user.upload(document.getElementById('signature-file'), sigFile);
+      await user.upload(document.getElementById('update-file')!, updateFile);
+      await user.upload(document.getElementById('signature-file')!, sigFile);
 
       const button = screen.getByText('Hochladen & Validieren');
       expect(button).not.toBeDisabled();
@@ -298,13 +291,18 @@ describe('UpdatePage Component', () => {
   // USB Device Detection
   // =====================================================
   describe('USB Device Detection', () => {
-    test('zeigt Scan-Button', async () => {
+    test('zeigt Scan-Button (ghost icon button)', async () => {
       render(
         <ToastProvider>
           <UpdatePage />
         </ToastProvider>
       );
-      expect(screen.getByTitle('Erneut scannen')).toBeInTheDocument();
+      // The USB scan button is a ghost variant icon-only button with a RefreshCw icon
+      const buttons = screen.getAllByRole('button');
+      const scanButton = buttons.find(
+        btn => btn.getAttribute('data-variant') === 'ghost' && btn.querySelector('svg')
+      );
+      expect(scanButton).toBeDefined();
     });
 
     test('zeigt Keine-Geräte-Nachricht', async () => {
@@ -319,7 +317,7 @@ describe('UpdatePage Component', () => {
     });
 
     test('zeigt gefundene USB-Geräte', async () => {
-      global.fetch = createFetchMock({
+      setupMockApi({
         usbDevices: [
           {
             path: '/media/usb/update-1.2.0.araupdate',
@@ -343,7 +341,7 @@ describe('UpdatePage Component', () => {
       });
     });
 
-    test('ruft fetch für USB-Scan auf', async () => {
+    test('ruft api.get für USB-Scan auf', async () => {
       render(
         <ToastProvider>
           <UpdatePage />
@@ -351,9 +349,9 @@ describe('UpdatePage Component', () => {
       );
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          '/api/update/usb-devices',
-          expect.objectContaining({ headers: expect.objectContaining({}) })
+        expect(mockApi.get).toHaveBeenCalledWith(
+          '/update/usb-devices',
+          expect.objectContaining({ showError: false })
         );
       });
     });
@@ -371,11 +369,14 @@ describe('UpdatePage Component', () => {
       );
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith('/api/update/history', expect.any(Object));
+        expect(mockApi.get).toHaveBeenCalledWith(
+          '/update/history',
+          expect.objectContaining({ showError: false })
+        );
       });
     });
 
-    test('zeigt History-Tabelle', async () => {
+    test('zeigt History-Einträge als div-basierte Liste', async () => {
       render(
         <ToastProvider>
           <UpdatePage />
@@ -383,37 +384,21 @@ describe('UpdatePage Component', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByRole('table')).toBeInTheDocument();
+        // History uses div-based layout: "version_from → version_to"
+        expect(screen.getAllByText(/→/).length).toBeGreaterThanOrEqual(1);
       });
     });
 
-    test('zeigt deutsche Tabellen-Header', async () => {
+    test('zeigt Versionen in History-Einträgen', async () => {
       render(
         <ToastProvider>
           <UpdatePage />
         </ToastProvider>
       );
 
+      // version_from and version_to displayed together: "1.0.0 → 1.1.0"
       await waitFor(() => {
-        expect(screen.getByText('Datum')).toBeInTheDocument();
-        expect(screen.getByText('Von Version')).toBeInTheDocument();
-        expect(screen.getByText('Auf Version')).toBeInTheDocument();
-        expect(screen.getByText('Quelle')).toBeInTheDocument();
-        expect(screen.getByText('Status')).toBeInTheDocument();
-        expect(screen.getByText('Dauer')).toBeInTheDocument();
-      });
-    });
-
-    test('zeigt History-Eintraege', async () => {
-      render(
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      );
-
-      await waitFor(() => {
-        expect(screen.getAllByText('1.0.0').length).toBeGreaterThanOrEqual(1);
-        expect(screen.getByText('1.1.0')).toBeInTheDocument();
+        expect(screen.getByText(/1\.0\.0 → 1\.1\.0/)).toBeInTheDocument();
       });
     });
 
@@ -456,8 +441,8 @@ describe('UpdatePage Component', () => {
       });
     });
 
-    test('zeigt Keine-Daten-Nachricht', async () => {
-      global.fetch = createFetchMock({ history: [] });
+    test('zeigt Aktueller-Stand-Info wenn keine History vorhanden', async () => {
+      setupMockApi({ history: [] });
 
       render(
         <ToastProvider>
@@ -466,40 +451,44 @@ describe('UpdatePage Component', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Kein Update-Verlauf vorhanden')).toBeInTheDocument();
+        // When no history, shows system info card with "Aktueller Stand"
+        expect(screen.getByText('Aktueller Stand')).toBeInTheDocument();
+        expect(screen.getByText('Noch kein Update durchgeführt')).toBeInTheDocument();
       });
     });
   });
 
   // =====================================================
-  // CSS Classes
+  // Layout Structure (Tailwind classes, no BEM)
   // =====================================================
-  describe('CSS Classes', () => {
-    test('hat update-page Container', () => {
+  describe('Layout Structure', () => {
+    test('hat animate-in fade-in Container', () => {
       const { container } = render(
         <ToastProvider>
           <UpdatePage />
         </ToastProvider>
       );
-      expect(container.querySelector('.update-page')).toBeInTheDocument();
+      expect(container.querySelector('.animate-in.fade-in')).toBeInTheDocument();
     });
 
-    test('hat update-header', () => {
+    test('hat header section mit border-b', () => {
       const { container } = render(
         <ToastProvider>
           <UpdatePage />
         </ToastProvider>
       );
-      expect(container.querySelector('.update-header')).toBeInTheDocument();
+      expect(container.querySelector('.border-b.border-border')).toBeInTheDocument();
     });
 
-    test('hat update-sections (USB + Upload + History)', () => {
+    test('hat multiple sections mit border-b (USB + Upload + History)', () => {
       const { container } = render(
         <ToastProvider>
           <UpdatePage />
         </ToastProvider>
       );
-      expect(container.querySelectorAll('.update-section').length).toBe(3);
+      // Header, USB section, Upload section all have border-b
+      const borderedSections = container.querySelectorAll('.border-b');
+      expect(borderedSections.length).toBeGreaterThanOrEqual(3);
     });
   });
 });

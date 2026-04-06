@@ -96,7 +96,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Selbstheilungs-Ereignisse')).toBeInTheDocument();
+        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
       });
     });
 
@@ -120,7 +120,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Auto-Aktualisierung (15s)')).toBeInTheDocument();
+        expect(screen.getByText('Auto (15s)')).toBeInTheDocument();
       });
     });
   });
@@ -134,15 +134,19 @@ describe('SelfHealingEvents Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Gesamt')).toBeInTheDocument();
-        expect(screen.getByText('3')).toBeInTheDocument();
       });
+
+      // Stats section: total count is rendered as a separate span
+      const gesamtLabel = screen.getByText('Gesamt');
+      const statsContainer = gesamtLabel.closest('div');
+      expect(statsContainer).toHaveTextContent('3');
     });
 
     test('zeigt Info Count', async () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        // Info appears in both stat card and filter button
+        // Info appears in both stat section and filter button
         expect(screen.getAllByText('Info').length).toBeGreaterThanOrEqual(1);
       });
     });
@@ -151,7 +155,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        // Warnungen appears in both stat card and filter button
+        // Warnungen appears in both stat section and filter button
         expect(screen.getAllByText('Warnungen').length).toBeGreaterThanOrEqual(1);
       });
     });
@@ -160,7 +164,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        // Kritisch appears in both stat card and filter button
+        // Kritisch appears in both stat section and filter button
         expect(screen.getAllByText('Kritisch').length).toBeGreaterThanOrEqual(1);
       });
     });
@@ -180,12 +184,12 @@ describe('SelfHealingEvents Component', () => {
       });
     });
 
-    test('Alle Filter ist initial aktiv', async () => {
+    test('Alle Filter ist initial aktiv (aria-pressed)', async () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
         const allButton = screen.getByRole('button', { name: 'Alle' });
-        expect(allButton).toHaveClass('active');
+        expect(allButton).toHaveAttribute('aria-pressed', 'true');
       });
     });
 
@@ -194,18 +198,19 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Selbstheilungs-Ereignisse')).toBeInTheDocument();
+        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
       });
 
-      // Find filter button (not stat label)
+      // Find filter buttons by aria-pressed attribute
       const filterButtons = screen.getAllByRole('button');
       const infoFilter = filterButtons.find(
-        btn => btn.textContent === 'Info' && btn.classList.contains('filter-btn')
+        btn => btn.textContent === 'Info' && btn.hasAttribute('aria-pressed')
       );
 
+      expect(infoFilter).toBeDefined();
       if (infoFilter) {
         await user.click(infoFilter);
-        expect(infoFilter).toHaveClass('active');
+        expect(infoFilter).toHaveAttribute('aria-pressed', 'true');
       }
     });
 
@@ -214,17 +219,18 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Selbstheilungs-Ereignisse')).toBeInTheDocument();
+        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
       });
 
       const filterButtons = screen.getAllByRole('button');
       const warningFilter = filterButtons.find(
-        btn => btn.textContent === 'Warnungen' && btn.classList.contains('filter-btn')
+        btn => btn.textContent === 'Warnungen' && btn.hasAttribute('aria-pressed')
       );
 
+      expect(warningFilter).toBeDefined();
       if (warningFilter) {
         await user.click(warningFilter);
-        expect(warningFilter).toHaveClass('active');
+        expect(warningFilter).toHaveAttribute('aria-pressed', 'true');
       }
     });
 
@@ -233,13 +239,19 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Selbstheilungs-Ereignisse')).toBeInTheDocument();
+        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
       });
 
-      const criticalFilter = screen.getByRole('button', { name: 'Kritisch' });
-      await user.click(criticalFilter);
+      const filterButtons = screen.getAllByRole('button');
+      const criticalFilter = filterButtons.find(
+        btn => btn.textContent === 'Kritisch' && btn.hasAttribute('aria-pressed')
+      );
 
-      expect(criticalFilter).toHaveClass('active');
+      expect(criticalFilter).toBeDefined();
+      if (criticalFilter) {
+        await user.click(criticalFilter);
+        expect(criticalFilter).toHaveAttribute('aria-pressed', 'true');
+      }
     });
   });
 
@@ -255,37 +267,42 @@ describe('SelfHealingEvents Component', () => {
       });
     });
 
-    test('zeigt Event-Types formatiert', async () => {
+    test('zeigt Event-Types formatiert (underscores replaced with spaces)', async () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('SERVICE RESTART')).toBeInTheDocument();
+        // Component replaces underscores: event_type.replace(/_/g, ' ')
+        expect(screen.getByText('service restart')).toBeInTheDocument();
       });
     });
 
-    test('zeigt Severity-Badges', async () => {
-      const { container } = render(<SelfHealingEvents />);
-
-      await waitFor(() => {
-        // Component uses class "badge badge-{severity}" not "severity-badge"
-        expect(container.querySelector('.badge')).toBeInTheDocument();
-      });
-    });
-
-    test('zeigt Maßnahme wenn vorhanden', async () => {
+    test('zeigt Severity als Text', async () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Maßnahme:')).toBeInTheDocument();
+        // Severity is rendered as text spans (INFO, WARNING, CRITICAL)
+        expect(screen.getByText('INFO')).toBeInTheDocument();
+        expect(screen.getByText('WARNING')).toBeInTheDocument();
+        expect(screen.getByText('CRITICAL')).toBeInTheDocument();
+      });
+    });
+
+    test('zeigt Massnahme wenn vorhanden', async () => {
+      render(<SelfHealingEvents />);
+
+      await waitFor(() => {
         expect(screen.getByText('Docker container restart')).toBeInTheDocument();
       });
+
+      // "Massnahme:" is rendered as a <strong> inside a span
+      expect(screen.getByText(/Maßnahme:/)).toBeInTheDocument();
     });
 
     test('zeigt Service-Name wenn vorhanden', async () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getAllByText('Service:').length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Service:/).length).toBeGreaterThan(0);
         expect(screen.getByText('llm-service')).toBeInTheDocument();
       });
     });
@@ -294,7 +311,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Fehler:')).toBeInTheDocument();
+        // Error message is rendered directly in a span (no "Fehler:" prefix)
         expect(screen.getByText('Connection refused')).toBeInTheDocument();
       });
     });
@@ -323,14 +340,18 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Selbstheilungs-Ereignisse')).toBeInTheDocument();
+        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
       });
 
       // Click on Kritisch filter
-      const criticalFilter = screen.getByRole('button', { name: 'Kritisch' });
-      await user.click(criticalFilter);
+      const filterButtons = screen.getAllByRole('button');
+      const criticalFilter = filterButtons.find(
+        btn => btn.textContent === 'Kritisch' && btn.hasAttribute('aria-pressed')
+      );
+      expect(criticalFilter).toBeDefined();
+      await user.click(criticalFilter!);
 
-      // No critical events
+      // No critical events — component shows "Keine CRITICAL-Ereignisse"
       expect(screen.getByText('Keine CRITICAL-Ereignisse')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Alle anzeigen' })).toBeInTheDocument();
     });
@@ -354,7 +375,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Selbstheilungs-Ereignisse')).toBeInTheDocument();
+        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
       });
 
       const checkbox = screen.getByRole('checkbox');
@@ -450,38 +471,41 @@ describe('SelfHealingEvents Component', () => {
   });
 
   // =====================================================
-  // CSS Classes
+  // Layout structure (Tailwind classes, no BEM)
   // =====================================================
-  describe('CSS Classes', () => {
-    test('hat self-healing-events Container', async () => {
+  describe('Layout Structure', () => {
+    test('hat animate-in fade-in Container', async () => {
       const { container } = render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(container.querySelector('.self-healing-events')).toBeInTheDocument();
+        expect(container.querySelector('.animate-in.fade-in')).toBeInTheDocument();
       });
     });
 
-    test('hat events-header', async () => {
+    test('hat header section mit border-b', async () => {
       const { container } = render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(container.querySelector('.events-header')).toBeInTheDocument();
+        expect(container.querySelector('.border-b.border-border')).toBeInTheDocument();
       });
     });
 
-    test('hat events-stats', async () => {
+    test('hat stats section', async () => {
       const { container } = render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(container.querySelector('.events-stats')).toBeInTheDocument();
+        // Stats: flex gap-6 mb-6 text-sm
+        expect(container.querySelector('.flex.gap-6.mb-6')).toBeInTheDocument();
       });
     });
 
-    test('hat events-filters', async () => {
+    test('hat filter section', async () => {
       const { container } = render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(container.querySelector('.events-filters')).toBeInTheDocument();
+        // Filters: flex gap-1.5 mb-6
+        const filterSection = container.querySelector('.flex.mb-6');
+        expect(filterSection).toBeInTheDocument();
       });
     });
   });

@@ -70,7 +70,7 @@ describe('Sidebar navigation integration', () => {
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Chat')).toBeInTheDocument();
-    expect(screen.getByText('Data')).toBeInTheDocument();
+    expect(screen.getByText('Daten')).toBeInTheDocument();
     expect(screen.getByText('Store')).toBeInTheDocument();
   });
 

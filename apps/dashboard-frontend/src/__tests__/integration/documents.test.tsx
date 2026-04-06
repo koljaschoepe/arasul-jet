@@ -55,7 +55,7 @@ vi.mock('../../utils/token', () => ({
 }));
 
 // Mock the editor components to avoid complex setup
-vi.mock('../../components/editor/MarkdownEditor', () => ({
+vi.mock('../../components/editor/tiptap/TipTapEditor', () => ({
   default: () => <div data-testid="markdown-editor">Editor</div>,
 }));
 
@@ -184,10 +184,10 @@ describe('DocumentManager integration', () => {
     renderDocumentManager();
 
     await waitFor(() => {
-      expect(screen.getByText('Gesamt')).toBeInTheDocument();
-      // "Indexiert" appears in both stats header and status filter dropdown
-      const indexiertElements = screen.getAllByText('Indexiert');
-      expect(indexiertElements.length).toBeGreaterThanOrEqual(1);
+      // Stats cards show labels: Dokumente, Indexierte Chunks, Wartend, Tabellen
+      const statsHeader = screen.getByLabelText('Dokumenten-Statistiken');
+      expect(statsHeader).toBeInTheDocument();
+      expect(screen.getByText('Indexierte Chunks')).toBeInTheDocument();
     });
   });
 
@@ -303,8 +303,8 @@ describe('DocumentManager integration', () => {
     await waitFor(() => {
       // Statistics header has aria-label "Dokumenten-Statistiken"
       const statsHeader = screen.getByLabelText('Dokumenten-Statistiken');
-      // "Indexiert" appears inside the statistics section
-      expect(within(statsHeader).getByText('Indexiert')).toBeInTheDocument();
+      // "Indexierte Chunks" appears inside the statistics section
+      expect(within(statsHeader).getByText('Indexierte Chunks')).toBeInTheDocument();
     });
   });
 
