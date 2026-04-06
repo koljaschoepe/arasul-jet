@@ -9,155 +9,34 @@
  * - Semantic search across documents
  * - Similar document detection
  * - Category management
+ *
+ * Business logic is delegated to service files:
+ * - services/documents/minioService.js — MinIO operations
+ * - services/documents/qdrantService.js — Qdrant vector operations
+ * - services/documents/documentService.js — Orchestration (DB + MinIO + Qdrant)
  */
 
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const axios = require('axios');
 const crypto = require('crypto');
-const path = require('path');
-const Minio = require('minio');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const pool = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
 const { uploadLimiter } = require('../middleware/rateLimit');
-const { retry } = require('../utils/retry');
 const { buildSetClauses } = require('../utils/queryBuilder');
-const services = require('../config/services');
-
-/**
- * SECURITY: Sanitize filename to prevent path traversal attacks
- * - Removes directory components (../, ./, /)
- * - Removes dangerous characters
- * - Limits length
- */
-function sanitizeFilename(filename) {
-  if (!filename || typeof filename !== 'string') {
-    return 'unnamed_file';
-  }
-
-  // Get only the basename (removes directory traversal attempts)
-  let sanitized = path.basename(filename);
-
-  // Remove any remaining path separators and dangerous characters
-  sanitized = sanitized
-    .replace(/[/\\]/g, '_') // Replace slashes with underscores
-    .replace(/\.\./g, '_') // Replace double dots
-    // eslint-disable-next-line no-control-regex
-    .replace(/[<>:"|?*\x00-\x1F]/g, '') // Remove Windows forbidden chars and control chars
-    .replace(/^\.+/, '') // Remove leading dots (hidden files)
-    .trim();
-
-  // Limit length (preserve extension)
-  const maxLength = 200;
-  if (sanitized.length > maxLength) {
-    const ext = path.extname(sanitized);
-    const nameWithoutExt = sanitized.slice(0, -(ext.length || 0));
-    sanitized = nameWithoutExt.slice(0, maxLength - ext.length) + ext;
-  }
-
-  // Fallback if empty after sanitization
-  if (!sanitized || sanitized === '') {
-    sanitized = 'unnamed_file';
-  }
-
-  return sanitized;
-}
-
-/**
- * PHASE2-FIX: Validate file path from database before MinIO operations
- * Prevents path traversal attacks from manipulated database entries
- * @param {string} filePath - The file path to validate
- * @returns {boolean} - True if path is safe, false otherwise
- */
-function isValidMinioPath(filePath) {
-  if (!filePath || typeof filePath !== 'string') {
-    return false;
-  }
-
-  // Check for path traversal sequences
-  if (filePath.includes('..') || filePath.includes('./')) {
-    return false;
-  }
-
-  // Must not start with slash (absolute path)
-  if (filePath.startsWith('/')) {
-    return false;
-  }
-
-  // Must not contain backslashes (Windows path)
-  if (filePath.includes('\\')) {
-    return false;
-  }
-
-  // Must not contain null bytes
-  if (filePath.includes('\x00')) {
-    return false;
-  }
-
-  return true;
-}
-
-// Configuration (using centralized service config)
-const MINIO_HOST = services.minio.host;
-const MINIO_PORT = services.minio.port;
-const MINIO_ROOT_USER = process.env.MINIO_ROOT_USER;
-const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD;
-
-if (!MINIO_ROOT_USER || !MINIO_ROOT_PASSWORD) {
-  logger.error('MINIO_ROOT_USER and MINIO_ROOT_PASSWORD must be set in environment');
-}
-const MINIO_BUCKET = process.env.DOCUMENT_INDEXER_MINIO_BUCKET || 'documents';
-
-const DOCUMENT_INDEXER_HOST = services.documentIndexer.host;
-const DOCUMENT_INDEXER_PORT = services.documentIndexer.port;
-
-const QDRANT_HOST = services.qdrant.host;
-const QDRANT_PORT = services.qdrant.port;
-const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
-
 const { getEmbedding } = require('../services/embeddingService');
+
+// Document services
+const minioService = require('../services/documents/minioService');
+const qdrantService = require('../services/documents/qdrantService');
+const documentService = require('../services/documents/documentService');
 
 // Allowed file types and size limits
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-
-/**
- * Check if bucket has enough space (quota enforcement)
- * Returns { ok, usedBytes, message } or null if quota check not available
- */
-async function checkBucketQuota(minio, bucket) {
-  try {
-    // Sum object sizes in the bucket
-    let totalSize = 0;
-    const stream = minio.listObjectsV2(bucket, '', true);
-    for await (const obj of stream) {
-      totalSize += obj.size || 0;
-    }
-    return { usedBytes: totalSize };
-  } catch {
-    return null; // Quota check not available, allow upload
-  }
-}
-
-// MinIO client
-let minioClient = null;
-
-function getMinioClient() {
-  if (!minioClient) {
-    minioClient = new Minio.Client({
-      endPoint: MINIO_HOST,
-      port: MINIO_PORT,
-      useSSL: false,
-      accessKey: MINIO_ROOT_USER,
-      secretKey: MINIO_ROOT_PASSWORD,
-    });
-  }
-  return minioClient;
-}
 
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
@@ -277,68 +156,10 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { space_id, status, category_id } = req.query;
-
-    // Use filter-aware function if any filter is provided, otherwise use original
-    const hasFilters = space_id || status || category_id;
-    let stats;
-
-    if (hasFilters) {
-      const result = await pool.query(
-        'SELECT * FROM get_filtered_document_statistics($1, $2, $3)',
-        [space_id || null, status || null, category_id ? parseInt(category_id, 10) : null]
-      );
-      stats = result.rows[0];
-    } else {
-      const result = await pool.query('SELECT * FROM get_document_statistics()');
-      stats = result.rows[0];
-    }
-
-    // Get table count from data-db (cross-db) with matching filters
-    let tableCount = 0;
-    try {
-      const dataDb = require('../dataDatabase');
-      const tableConditions = [];
-      const tableParams = [];
-      let tParamIndex = 1;
-
-      if (space_id) {
-        tableConditions.push(`space_id = $${tParamIndex++}`);
-        tableParams.push(space_id);
-      }
-      if (status) {
-        // Map document status to table status
-        const statusMap = { indexed: 'active', pending: 'draft', failed: 'archived' };
-        const tableStatus = statusMap[status] || status;
-        tableConditions.push(`status = $${tParamIndex++}`);
-        tableParams.push(tableStatus);
-      }
-
-      const tableWhere = tableConditions.length > 0 ? `WHERE ${tableConditions.join(' AND ')}` : '';
-      const tcResult = await dataDb.query(
-        `SELECT COUNT(*)::int as count FROM dt_tables ${tableWhere}`,
-        tableParams
-      );
-      tableCount = tcResult.rows[0].count;
-    } catch (e) {
-      logger.warn(`Failed to get table count from data-db: ${e.message}`);
-    }
-
-    // Get indexer status (non-critical, use fallback on error)
-    let indexerStatus = { status: 'unknown' };
-    try {
-      const indexerResponse = await axios.get(
-        `http://${DOCUMENT_INDEXER_HOST}:${DOCUMENT_INDEXER_PORT}/status`,
-        { timeout: 5000 }
-      );
-      indexerStatus = indexerResponse.data;
-    } catch (e) {
-      logger.warn(`Failed to get indexer status: ${e.message}`);
-    }
+    const stats = await documentService.getStatistics({ space_id, status, category_id });
 
     res.json({
       ...stats,
-      table_count: tableCount,
-      indexer: indexerStatus,
       timestamp: new Date().toISOString(),
     });
   })
@@ -406,6 +227,9 @@ router.get(
 /**
  * POST /api/documents/upload
  * Upload a new document
+ *
+ * NOTE: The compensating transaction (delete MinIO object if DB insert fails)
+ * is kept inline here intentionally — it must stay tightly coupled with the upload flow.
  */
 router.post(
   '/upload',
@@ -429,8 +253,7 @@ router.post(
     }
 
     const file = req.file;
-    // SECURITY FIX: Sanitize filename to prevent path traversal attacks
-    const filename = sanitizeFilename(file.originalname);
+    const filename = minioService.sanitizeFilename(file.originalname);
     const fileExt = '.' + filename.split('.').pop().toLowerCase();
 
     // Get space_id from form data (RAG 2.0)
@@ -460,31 +283,17 @@ router.post(
       throw new ConflictError('Dokument existiert bereits');
     }
 
-    // Check bucket quota before upload (200GB default, configurable via MinIO)
-    const minio = getMinioClient();
-    const BUCKET_QUOTA_BYTES =
-      parseInt(process.env.MINIO_DOCUMENTS_QUOTA_BYTES || '0') || 200 * 1024 * 1024 * 1024;
-    if (BUCKET_QUOTA_BYTES > 0) {
-      const usage = await checkBucketQuota(minio, MINIO_BUCKET);
-      if (usage && usage.usedBytes + file.size > BUCKET_QUOTA_BYTES) {
-        const usedGB = (usage.usedBytes / 1024 ** 3).toFixed(1);
-        const limitGB = (BUCKET_QUOTA_BYTES / 1024 ** 3).toFixed(0);
-        throw new ValidationError(
-          `Speicherlimit erreicht (${usedGB} GB / ${limitGB} GB). Bitte löschen Sie nicht benötigte Dokumente.`
-        );
-      }
-    }
+    // Check bucket quota before upload
+    await minioService.enforceQuota(file.size);
 
     // Generate unique path in MinIO
     const timestamp = Date.now();
     const objectName = `${timestamp}_${filename}`;
 
     // Upload to MinIO
-    await minio.putObject(MINIO_BUCKET, objectName, file.buffer, file.size, {
+    await minioService.uploadObject(objectName, file.buffer, file.size, {
       'Content-Type': file.mimetype,
     });
-
-    logger.info(`Uploaded file to MinIO: ${objectName}`);
 
     // Create document record in pending state
     const docId = crypto.randomUUID();
@@ -521,9 +330,10 @@ router.post(
         ]
       );
     } catch (dbError) {
-      // Cleanup MinIO file if database insert fails to prevent orphaned files
+      // Compensating transaction: cleanup MinIO file if database insert fails
       try {
-        await minio.removeObject(MINIO_BUCKET, objectName);
+        const minio = minioService.getMinioClient();
+        await minio.removeObject(minioService.MINIO_BUCKET, objectName);
         logger.info(`Cleaned up orphaned MinIO file after DB error: ${objectName}`);
       } catch (cleanupError) {
         logger.warn(`Failed to cleanup MinIO file ${objectName}: ${cleanupError.message}`);
@@ -533,11 +343,7 @@ router.post(
 
     // Update space statistics if assigned to a space (non-critical)
     if (spaceId) {
-      try {
-        await pool.query('SELECT update_space_statistics($1)', [spaceId]);
-      } catch (e) {
-        logger.warn(`Failed to update space statistics: ${e.message}`);
-      }
+      await documentService.updateSpaceStatistics(spaceId);
     }
 
     res.status(201).json({
@@ -576,58 +382,7 @@ router.delete(
       throw new NotFoundError('Dokument nicht gefunden');
     }
 
-    const filePath = docResult.rows[0].file_path;
-
-    // PHASE2-FIX: Validate file path before MinIO delete
-    if (!isValidMinioPath(filePath)) {
-      logger.error(`Invalid file path detected for deletion: ${filePath}`);
-      throw new ValidationError('Ungültiger Dateipfad');
-    }
-
-    // Delete from MinIO (non-critical)
-    try {
-      const minio = getMinioClient();
-      await minio.removeObject(MINIO_BUCKET, filePath);
-      logger.info(`Deleted file from MinIO: ${filePath}`);
-    } catch (e) {
-      logger.warn(`Failed to delete from MinIO: ${e.message}`);
-    }
-
-    // Delete from Qdrant (non-critical, with retry)
-    try {
-      await retry(
-        () =>
-          axios.post(
-            `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
-            {
-              filter: {
-                must: [
-                  {
-                    key: 'document_id',
-                    match: { value: id },
-                  },
-                ],
-              },
-            },
-            { timeout: 10000 }
-          ),
-        {
-          maxAttempts: 3,
-          initialDelay: 500,
-          onRetry: (attempt, err) => {
-            logger.warn(`Qdrant delete retry ${attempt} for doc ${id}: ${err.message}`);
-          },
-        }
-      );
-      logger.info(`Deleted document from Qdrant: ${id}`);
-    } catch (e) {
-      logger.warn(`Failed to delete from Qdrant after retries: ${e.message}`);
-    }
-
-    // Soft delete in database
-    await pool.query(`UPDATE documents SET deleted_at = NOW(), status = 'deleted' WHERE id = $1`, [
-      id,
-    ]);
+    await documentService.deleteDocument(id, docResult.rows[0].file_path);
 
     res.json({
       status: 'deleted',
@@ -731,9 +486,9 @@ router.put(
     }
 
     const oldSpaceId = docResult.rows[0].space_id;
+    const newSpaceId = space_id || null;
 
     // Validate new space_id if provided
-    const newSpaceId = space_id || null;
     if (newSpaceId) {
       const spaceCheck = await pool.query('SELECT id FROM knowledge_spaces WHERE id = $1', [
         newSpaceId,
@@ -743,70 +498,7 @@ router.put(
       }
     }
 
-    // Get new space details for Qdrant payload
-    let newSpaceName = '';
-    let newSpaceSlug = '';
-    if (newSpaceId) {
-      const spaceDetails = await pool.query(
-        'SELECT name, slug FROM knowledge_spaces WHERE id = $1',
-        [newSpaceId]
-      );
-      if (spaceDetails.rows.length > 0) {
-        newSpaceName = spaceDetails.rows[0].name;
-        newSpaceSlug = spaceDetails.rows[0].slug;
-      }
-    }
-
-    // Update document's space
-    await pool.query(`UPDATE documents SET space_id = $1, updated_at = NOW() WHERE id = $2`, [
-      newSpaceId,
-      id,
-    ]);
-
-    // Update Qdrant payloads for all chunks of this document (non-critical)
-    try {
-      await axios.post(
-        `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/payload`,
-        {
-          payload: {
-            space_id: newSpaceId || null,
-            space_name: newSpaceName,
-            space_slug: newSpaceSlug,
-          },
-          filter: {
-            must: [
-              {
-                key: 'document_id',
-                match: { value: id },
-              },
-            ],
-          },
-        },
-        { timeout: 10000 }
-      );
-      logger.info(`Updated Qdrant payloads for document ${id} (space: ${newSpaceName || 'none'})`);
-    } catch (e) {
-      logger.warn(`Failed to update Qdrant payloads for document ${id}: ${e.message}`);
-    }
-
-    // Update statistics for both old and new spaces (non-critical)
-    if (oldSpaceId) {
-      try {
-        await pool.query('SELECT update_space_statistics($1)', [oldSpaceId]);
-      } catch (e) {
-        logger.warn(`Failed to update old space statistics: ${e.message}`);
-      }
-    }
-
-    if (newSpaceId) {
-      try {
-        await pool.query('SELECT update_space_statistics($1)', [newSpaceId]);
-      } catch (e) {
-        logger.warn(`Failed to update new space statistics: ${e.message}`);
-      }
-    }
-
-    logger.info(`Document ${id} moved from space ${oldSpaceId} to ${newSpaceId}`);
+    await documentService.moveDocument(id, oldSpaceId, newSpaceId);
 
     res.json({
       status: 'moved',
@@ -877,22 +569,13 @@ router.post(
       : undefined;
 
     // Search Qdrant
-    const searchResponse = await axios.post(
-      `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/search`,
-      {
-        vector: { name: 'dense', vector: queryVector },
-        limit: top_k * 2, // Get more to dedupe
-        with_payload: true,
-        filter,
-      },
-      { timeout: 10000 }
-    );
+    const searchResults = await qdrantService.searchDocuments(queryVector, top_k * 2, filter);
 
     // Deduplicate by document
     const seenDocs = new Set();
     const results = [];
 
-    for (const result of searchResponse.data.result || []) {
+    for (const result of searchResults) {
       const docId = result.payload?.document_id;
       if (docId && !seenDocs.has(docId)) {
         seenDocs.add(docId);
@@ -961,15 +644,13 @@ router.get(
       throw new ValidationError('Dieser Dateityp kann nicht bearbeitet werden');
     }
 
-    // PHASE2-FIX: Validate file path before MinIO access
-    if (!isValidMinioPath(doc.file_path)) {
+    if (!minioService.isValidMinioPath(doc.file_path)) {
       logger.error(`Invalid file path detected: ${doc.file_path}`);
       throw new ValidationError('Ungültiger Dateipfad');
     }
 
     // Get file from MinIO
-    const minio = getMinioClient();
-    const dataStream = await minio.getObject(MINIO_BUCKET, doc.file_path);
+    const dataStream = await minioService.getObject(doc.file_path);
 
     // Collect the stream data
     const chunks = [];
@@ -1038,8 +719,7 @@ router.put(
     const newContentHash = crypto.createHash('sha256').update(contentBuffer).digest('hex');
 
     // Upload new content to MinIO
-    const minio = getMinioClient();
-    await minio.putObject(MINIO_BUCKET, doc.file_path, contentBuffer, contentBuffer.length, {
+    await minioService.uploadObject(doc.file_path, contentBuffer, contentBuffer.length, {
       'Content-Type': doc.mime_type,
     });
 
@@ -1107,15 +787,13 @@ router.get(
 
     const doc = docResult.rows[0];
 
-    // PHASE2-FIX: Validate file path before MinIO access
-    if (!isValidMinioPath(doc.file_path)) {
+    if (!minioService.isValidMinioPath(doc.file_path)) {
       logger.error(`Invalid file path detected for download: ${doc.file_path}`);
       throw new ValidationError('Ungültiger Dateipfad');
     }
 
     // Get file from MinIO
-    const minio = getMinioClient();
-    const dataStream = await minio.getObject(MINIO_BUCKET, doc.file_path);
+    const dataStream = await minioService.getObject(doc.file_path);
 
     // Log download (non-critical)
     try {
@@ -1202,8 +880,7 @@ router.post(
     const objectName = `${timestamp}_${sanitizedName}`;
 
     // Upload to MinIO
-    const minio = getMinioClient();
-    await minio.putObject(MINIO_BUCKET, objectName, contentBuffer, contentBuffer.length, {
+    await minioService.uploadObject(objectName, contentBuffer, contentBuffer.length, {
       'Content-Type': 'text/markdown',
     });
 
@@ -1244,11 +921,7 @@ router.post(
 
     // Update space statistics if assigned
     if (spaceId) {
-      try {
-        await pool.query('SELECT update_space_statistics($1)', [spaceId]);
-      } catch (e) {
-        logger.warn(`Failed to update space statistics: ${e.message}`);
-      }
+      await documentService.updateSpaceStatistics(spaceId);
     }
 
     logger.info(`Created new markdown document: ${docId}`);
@@ -1277,153 +950,41 @@ router.get(
   '/storage',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const minio = getMinioClient();
-    const usage = await checkBucketQuota(minio, MINIO_BUCKET);
-
-    const quotaBytes =
-      parseInt(process.env.MINIO_DOCUMENTS_QUOTA_BYTES || '0') || 200 * 1024 * 1024 * 1024;
-
-    // Get document count from DB
-    const countResult = await pool.query(
-      'SELECT COUNT(*) as total, COALESCE(SUM(file_size), 0) as total_size FROM documents WHERE deleted_at IS NULL'
-    );
-
-    const { total, total_size } = countResult.rows[0];
-
-    res.json({
-      documents: parseInt(total),
-      used_bytes: usage ? usage.usedBytes : parseInt(total_size),
-      quota_bytes: quotaBytes,
-      usage_percent: usage ? Math.round((usage.usedBytes / quotaBytes) * 100) : null,
-    });
+    const storageInfo = await documentService.getStorageInfo();
+    res.json(storageInfo);
   })
 );
 
 /**
  * POST /api/documents/cleanup-orphaned
- * Detect and clean up orphaned files (MinIO files without DB record, DB records without MinIO file)
- * Admin-only operation - requires authentication
+ * Detect and clean up orphaned files
  */
 router.post(
   '/cleanup-orphaned',
   requireAuth,
   asyncHandler(async (req, res) => {
     const dryRun = req.query.dry_run === 'true';
-    const minio = getMinioClient();
-
-    // 1. Get all file_paths from DB (non-deleted documents)
-    const dbResult = await pool.query(
-      'SELECT id, filename, file_path, file_size, status FROM documents WHERE deleted_at IS NULL'
-    );
-    const dbPaths = new Set(dbResult.rows.map(r => r.file_path));
-    const dbPathToDoc = new Map(dbResult.rows.map(r => [r.file_path, r]));
-
-    // 2. List all objects in MinIO bucket
-    const minioPaths = new Set();
-    try {
-      const stream = minio.listObjectsV2(MINIO_BUCKET, '', true);
-      for await (const obj of stream) {
-        minioPaths.add(obj.name);
-      }
-    } catch (err) {
-      logger.error(`Cleanup: Failed to list MinIO objects: ${err.message}`);
-      throw new ValidationError('MinIO nicht erreichbar — Bereinigung nicht möglich');
-    }
-
-    // 3. Find orphaned MinIO files (in MinIO but not in DB)
-    const orphanedInMinio = [];
-    for (const minioPath of minioPaths) {
-      if (!dbPaths.has(minioPath)) {
-        orphanedInMinio.push(minioPath);
-      }
-    }
-
-    // 4. Find orphaned DB records (in DB but file missing from MinIO)
-    const orphanedInDb = [];
-    for (const [dbPath, doc] of dbPathToDoc) {
-      if (!minioPaths.has(dbPath)) {
-        orphanedInDb.push({
-          id: doc.id,
-          filename: doc.filename,
-          file_path: dbPath,
-          status: doc.status,
-        });
-      }
-    }
-
-    // 5. Clean up if not dry run
-    let deletedFromMinio = 0;
-    let markedInDb = 0;
-
-    if (!dryRun) {
-      // Remove orphaned files from MinIO
-      for (const orphanPath of orphanedInMinio) {
-        if (!isValidMinioPath(orphanPath)) {
-          logger.warn(`Cleanup: Skipping invalid path: ${orphanPath}`);
-          continue;
-        }
-        try {
-          await minio.removeObject(MINIO_BUCKET, orphanPath);
-          deletedFromMinio++;
-          logger.info(`Cleanup: Removed orphaned MinIO file: ${orphanPath}`);
-        } catch (err) {
-          logger.warn(`Cleanup: Failed to remove ${orphanPath}: ${err.message}`);
-        }
-      }
-
-      // Mark orphaned DB records as failed
-      for (const orphan of orphanedInDb) {
-        try {
-          await pool.query(
-            `UPDATE documents SET status = 'failed', error_message = 'Datei in MinIO nicht gefunden (Bereinigung)' WHERE id = $1`,
-            [orphan.id]
-          );
-          markedInDb++;
-          logger.info(
-            `Cleanup: Marked orphaned DB record as failed: ${orphan.id} (${orphan.filename})`
-          );
-        } catch (err) {
-          logger.warn(`Cleanup: Failed to update DB record ${orphan.id}: ${err.message}`);
-        }
-      }
-    }
-
-    // Also clean up soft-deleted documents older than 30 days
-    let purgedCount = 0;
-    if (!dryRun) {
-      const purgeResult = await pool.query(
-        `DELETE FROM documents WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days' RETURNING id, file_path`
-      );
-      for (const row of purgeResult.rows) {
-        if (row.file_path && isValidMinioPath(row.file_path)) {
-          try {
-            await minio.removeObject(MINIO_BUCKET, row.file_path);
-          } catch {
-            /* already gone */
-          }
-        }
-        purgedCount++;
-      }
-      if (purgedCount > 0) {
-        logger.info(`Cleanup: Purged ${purgedCount} soft-deleted documents older than 30 days`);
-      }
-    }
+    const result = await documentService.cleanupOrphaned(dryRun);
 
     res.json({
-      dry_run: dryRun,
-      orphaned_in_minio: orphanedInMinio.length,
-      orphaned_in_db: orphanedInDb.length,
-      purge_candidates: purgedCount || undefined,
-      cleaned: dryRun
+      dry_run: result.dryRun,
+      orphaned_in_minio: result.orphanedInMinio.length,
+      orphaned_in_db: result.orphanedInDb.length,
+      purge_candidates: result.purgedCount || undefined,
+      cleaned: result.dryRun
         ? undefined
         : {
-            deleted_from_minio: deletedFromMinio,
-            marked_failed_in_db: markedInDb,
-            purged_soft_deleted: purgedCount,
+            deleted_from_minio: result.deletedFromMinio,
+            marked_failed_in_db: result.markedInDb,
+            purged_soft_deleted: result.purgedCount,
           },
       details: {
-        minio_files: orphanedInMinio,
-        db_records: orphanedInDb.map(o => ({ id: o.id, filename: o.filename, status: o.status })),
+        minio_files: result.orphanedInMinio,
+        db_records: result.orphanedInDb.map(o => ({
+          id: o.id,
+          filename: o.filename,
+          status: o.status,
+        })),
       },
       timestamp: new Date().toISOString(),
     });
@@ -1446,59 +1007,12 @@ router.post(
       throw new ValidationError('Maximal 100 Dokumente gleichzeitig');
     }
 
-    const minio = getMinioClient();
-    let deleted = 0;
-    const errors = [];
-
-    for (const id of ids) {
-      try {
-        const docResult = await pool.query(
-          'SELECT file_path FROM documents WHERE id = $1 AND deleted_at IS NULL',
-          [id]
-        );
-        if (docResult.rows.length === 0) {
-          continue;
-        }
-
-        const filePath = docResult.rows[0].file_path;
-
-        // Delete from MinIO
-        if (filePath && isValidMinioPath(filePath)) {
-          try {
-            await minio.removeObject(MINIO_BUCKET, filePath);
-          } catch (e) {
-            logger.warn(`Batch delete: Failed to remove MinIO file ${filePath}: ${e.message}`);
-          }
-        }
-
-        // Delete from Qdrant
-        try {
-          await axios.post(
-            `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
-            { filter: { must: [{ key: 'document_id', match: { value: id } }] } },
-            { timeout: 5000 }
-          );
-        } catch (e) {
-          logger.warn(`Batch delete: Failed to remove from Qdrant: ${e.message}`);
-        }
-
-        // Soft delete in DB
-        await pool.query(
-          "UPDATE documents SET deleted_at = NOW(), status = 'deleted' WHERE id = $1",
-          [id]
-        );
-        deleted++;
-      } catch (err) {
-        errors.push({ id, error: err.message });
-      }
-    }
-
-    logger.info(`Batch delete: ${deleted}/${ids.length} documents deleted`);
+    const result = await documentService.batchDelete(ids);
 
     res.json({
-      deleted,
+      deleted: result.deleted,
       requested: ids.length,
-      errors: errors.length > 0 ? errors : undefined,
+      errors: result.errors.length > 0 ? result.errors : undefined,
       timestamp: new Date().toISOString(),
     });
   })
@@ -1520,17 +1034,10 @@ router.post(
       throw new ValidationError('Maximal 100 Dokumente gleichzeitig');
     }
 
-    const result = await pool.query(
-      `UPDATE documents SET status = 'pending', retry_count = 0
-       WHERE id = ANY($1) AND deleted_at IS NULL
-       RETURNING id`,
-      [ids]
-    );
-
-    logger.info(`Batch reindex: ${result.rowCount}/${ids.length} documents queued`);
+    const result = await documentService.batchReindex(ids);
 
     res.json({
-      queued: result.rowCount,
+      queued: result.queued,
       requested: ids.length,
       timestamp: new Date().toISOString(),
     });
@@ -1566,32 +1073,105 @@ router.post(
       }
     }
 
-    const result = await pool.query(
-      `UPDATE documents SET space_id = $1, updated_at = NOW()
-       WHERE id = ANY($2) AND deleted_at IS NULL
-       RETURNING id`,
-      [newSpaceId, ids]
-    );
-
-    // Update space statistics (non-critical)
-    if (newSpaceId) {
-      try {
-        await pool.query('SELECT update_space_statistics($1)', [newSpaceId]);
-      } catch (e) {
-        logger.warn(`Batch move: Failed to update space statistics: ${e.message}`);
-      }
-    }
-
-    logger.info(
-      `Batch move: ${result.rowCount}/${ids.length} documents moved to space ${newSpaceId}`
-    );
+    const result = await documentService.batchMove(ids, newSpaceId);
 
     res.json({
-      moved: result.rowCount,
+      moved: result.moved,
       requested: ids.length,
       space_id: newSpaceId,
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+// ==========================================
+// IMAGE UPLOAD for inline document images
+// ==========================================
+
+const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_IMAGE_SIZE },
+  fileFilter: (req, file, cb) => {
+    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
+    if (ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Ungültiger Bildtyp. Erlaubt: ${ALLOWED_IMAGE_EXTENSIONS.join(', ')}`));
+    }
+  },
+});
+
+/**
+ * POST /images/upload — Upload an image for inline use in documents
+ */
+router.post(
+  '/images/upload',
+  requireAuth,
+  (req, res, next) => {
+    imageUpload.single('image')(req, res, err => {
+      if (err) {
+        if (err instanceof multer.MulterError) {
+          return res.status(400).json({ error: err.message });
+        }
+        return res.status(400).json({ error: err.message });
+      }
+      next();
+    });
+  },
+  asyncHandler(async (req, res) => {
+    const file = req.file;
+    if (!file) {
+      throw new ValidationError('Kein Bild hochgeladen');
+    }
+
+    const filename = minioService.sanitizeFilename(file.originalname);
+    const timestamp = Date.now();
+    const objectName = `images/${timestamp}_${filename}`;
+
+    await minioService.uploadObject(objectName, file.buffer, file.size, {
+      'Content-Type': file.mimetype,
+    });
+
+    logger.info(`Image uploaded: ${objectName} (${file.size} bytes)`);
+
+    res.json({
+      url: `/api/documents/images/${encodeURIComponent(objectName.replace('images/', ''))}`,
+      objectName,
+      size: file.size,
+    });
+  })
+);
+
+/**
+ * GET /images/:filename — Serve an uploaded image from MinIO
+ */
+router.get(
+  '/images/:filename',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { filename } = req.params;
+    const objectName = `images/${filename}`;
+
+    if (!minioService.isValidMinioPath(objectName)) {
+      throw new ValidationError('Ungültiger Dateipfad');
+    }
+
+    try {
+      const stat = await minioService.statObject(objectName);
+      res.set('Content-Type', stat.metaData?.['content-type'] || 'application/octet-stream');
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+
+      const stream = await minioService.getObject(objectName);
+      stream.pipe(res);
+    } catch (err) {
+      if (err.code === 'NotFound' || err.code === 'NoSuchKey') {
+        throw new NotFoundError('Bild nicht gefunden');
+      }
+      throw err;
+    }
   })
 );
 
