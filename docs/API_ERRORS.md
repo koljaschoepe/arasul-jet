@@ -28,6 +28,7 @@ All error responses follow this consistent structure:
 ```
 
 **Fields:**
+
 - `error` (string, required): Brief, human-readable error description
 - `details` (string, optional): Additional context or technical details
 - `timestamp` (string, required): ISO8601 timestamp of the error
@@ -36,16 +37,17 @@ All error responses follow this consistent structure:
 
 ## HTTP Status Codes
 
-| Code | Name | Description | Common Causes |
-|------|------|-------------|---------------|
-| 200 | OK | Success | Request processed successfully |
-| 400 | Bad Request | Invalid input | Malformed JSON, missing required fields |
-| 401 | Unauthorized | Authentication required | Missing/invalid/expired JWT token |
-| 403 | Forbidden | Insufficient permissions | Valid token but lacks required permissions |
-| 404 | Not Found | Resource doesn't exist | Invalid endpoint or resource ID |
-| 429 | Too Many Requests | Rate limit exceeded | Too many requests in time window |
-| 500 | Internal Server Error | Server-side error | Database error, unexpected exception |
-| 503 | Service Unavailable | Service temporarily down | Service starting, maintenance mode |
+| Code | Name                  | Description              | Common Causes                              |
+| ---- | --------------------- | ------------------------ | ------------------------------------------ |
+| 200  | OK                    | Success                  | Request processed successfully             |
+| 400  | Bad Request           | Invalid input            | Malformed JSON, missing required fields    |
+| 401  | Unauthorized          | Authentication required  | Missing/invalid/expired JWT token          |
+| 403  | Forbidden             | Insufficient permissions | Valid token but lacks required permissions |
+| 404  | Not Found             | Resource doesn't exist   | Invalid endpoint or resource ID            |
+| 409  | Conflict              | Resource conflict        | Duplicate entry, state conflict            |
+| 429  | Too Many Requests     | Rate limit exceeded      | Too many requests in time window           |
+| 500  | Internal Server Error | Server-side error        | Database error, unexpected exception       |
+| 503  | Service Unavailable   | Service temporarily down | Service starting, maintenance mode         |
 
 ---
 
@@ -56,15 +58,18 @@ All error responses follow this consistent structure:
 Returned when authentication is required but not provided, or authentication credentials are invalid.
 
 #### Missing Token
+
 ```json
 {
   "error": "No token provided",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: Request to protected endpoint without `Authorization` header
 
 **Solution**: Include JWT token in request:
+
 ```
 Authorization: Bearer <your-jwt-token>
 ```
@@ -72,13 +77,16 @@ Authorization: Bearer <your-jwt-token>
 ---
 
 #### Invalid Token
+
 ```json
 {
   "error": "Invalid token",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Causes**:
+
 - Malformed JWT
 - Token signed with wrong secret
 - Token tampered with
@@ -88,12 +96,14 @@ Authorization: Bearer <your-jwt-token>
 ---
 
 #### Expired Token
+
 ```json
 {
   "error": "Token expired",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: JWT token has exceeded its 24-hour validity period
 
 **Solution**: Obtain a new token via `/api/auth/login`
@@ -101,12 +111,14 @@ Authorization: Bearer <your-jwt-token>
 ---
 
 #### Invalid Credentials (Login)
+
 ```json
 {
   "error": "Invalid credentials",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: Incorrect username or password
 
 **Endpoint**: `POST /api/auth/login`
@@ -116,6 +128,7 @@ Authorization: Bearer <your-jwt-token>
 ---
 
 #### Account Locked
+
 ```json
 {
   "error": "Account locked due to multiple failed login attempts",
@@ -123,6 +136,7 @@ Authorization: Bearer <your-jwt-token>
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: 5 or more failed login attempts within 15 minutes
 
 **Endpoint**: `POST /api/auth/login`
@@ -138,12 +152,14 @@ Authorization: Bearer <your-jwt-token>
 Returned when API rate limits are exceeded.
 
 #### Auth Endpoint Rate Limit
+
 ```json
 {
   "error": "Too many login attempts. Please try again in 15 minutes.",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Limit**: 5 requests per 15 minutes
 **Endpoint**: `POST /api/auth/login`
 **Solution**: Wait for rate limit window to reset
@@ -151,6 +167,7 @@ Returned when API rate limits are exceeded.
 ---
 
 #### LLM API Rate Limit
+
 ```json
 {
   "error": "Rate limit exceeded for LLM API",
@@ -158,6 +175,7 @@ Returned when API rate limits are exceeded.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Limit**: 10 requests per second
 **Endpoints**: `/api/llm/*`, `/api/embeddings/*`
 **Solution**: Reduce request frequency or implement client-side queueing
@@ -165,6 +183,7 @@ Returned when API rate limits are exceeded.
 ---
 
 #### Metrics API Rate Limit
+
 ```json
 {
   "error": "Rate limit exceeded for Metrics API",
@@ -172,6 +191,7 @@ Returned when API rate limits are exceeded.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Limit**: 20 requests per second
 **Endpoints**: `/api/metrics/*`
 **Solution**: Use WebSocket endpoint for real-time data instead
@@ -179,6 +199,7 @@ Returned when API rate limits are exceeded.
 ---
 
 #### General API Rate Limit
+
 ```json
 {
   "error": "Rate limit exceeded",
@@ -186,6 +207,7 @@ Returned when API rate limits are exceeded.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Limit**: 100 requests per minute
 **Endpoints**: Most API endpoints
 **Solution**: Implement exponential backoff
@@ -199,12 +221,14 @@ Returned when API rate limits are exceeded.
 Returned when request data is invalid or malformed.
 
 #### Missing Required Field
+
 ```json
 {
   "error": "Missing required field: username",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Common Endpoints**: `POST /api/auth/login`, `POST /api/auth/change-password`
 
 **Solution**: Include all required fields in request body
@@ -212,6 +236,7 @@ Returned when request data is invalid or malformed.
 ---
 
 #### Invalid JSON
+
 ```json
 {
   "error": "Invalid JSON in request body",
@@ -219,11 +244,13 @@ Returned when request data is invalid or malformed.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Solution**: Validate JSON syntax before sending
 
 ---
 
 #### Password Validation Failed
+
 ```json
 {
   "error": "Password does not meet complexity requirements",
@@ -231,9 +258,11 @@ Returned when request data is invalid or malformed.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Endpoint**: `POST /api/auth/change-password`
 
 **Requirements**:
+
 - Minimum 12 characters
 - At least one uppercase letter
 - At least one lowercase letter
@@ -243,6 +272,7 @@ Returned when request data is invalid or malformed.
 ---
 
 #### Invalid Query Parameters
+
 ```json
 {
   "error": "Invalid query parameter: range",
@@ -250,6 +280,7 @@ Returned when request data is invalid or malformed.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Common Endpoints**: `GET /api/metrics/history`, `GET /api/logs`
 
 ---
@@ -261,12 +292,14 @@ Returned when request data is invalid or malformed.
 Returned when a requested resource doesn't exist.
 
 #### Endpoint Not Found
+
 ```json
 {
   "error": "Endpoint not found",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: Invalid URL path
 
 **Solution**: Check API documentation for correct endpoint
@@ -274,6 +307,7 @@ Returned when a requested resource doesn't exist.
 ---
 
 #### Resource Not Found
+
 ```json
 {
   "error": "Service not found",
@@ -281,6 +315,7 @@ Returned when a requested resource doesn't exist.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Common Endpoints**: Service management endpoints
 
 **Solution**: Verify resource ID/name
@@ -288,6 +323,7 @@ Returned when a requested resource doesn't exist.
 ---
 
 #### Log File Not Found
+
 ```json
 {
   "error": "Log file not found",
@@ -295,6 +331,7 @@ Returned when a requested resource doesn't exist.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Endpoint**: `GET /api/logs`
 
 **Solution**: Check available log files via `GET /api/logs/list`
@@ -308,6 +345,7 @@ Returned when a requested resource doesn't exist.
 Returned when an unexpected error occurs on the server.
 
 #### Database Connection Failed
+
 ```json
 {
   "error": "Database connection failed",
@@ -315,6 +353,7 @@ Returned when an unexpected error occurs on the server.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: PostgreSQL service unavailable
 
 **Solution**: Check service status via `GET /api/system/status`
@@ -322,6 +361,7 @@ Returned when an unexpected error occurs on the server.
 ---
 
 #### Query Failed
+
 ```json
 {
   "error": "Failed to execute query",
@@ -329,6 +369,7 @@ Returned when an unexpected error occurs on the server.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: Database schema issue or migration not run
 
 **Solution**: Run database migrations
@@ -340,6 +381,7 @@ Returned when an unexpected error occurs on the server.
 Returned when a dependent service is unavailable.
 
 #### Service Unavailable
+
 ```json
 {
   "error": "LLM service unavailable",
@@ -347,6 +389,7 @@ Returned when a dependent service is unavailable.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: LLM service not ready or crashed
 
 **Solution**: Wait for service to become healthy, check `/api/system/status`
@@ -354,6 +397,7 @@ Returned when a dependent service is unavailable.
 ---
 
 #### Database Unhealthy
+
 ```json
 {
   "error": "Database health check failed",
@@ -361,6 +405,7 @@ Returned when a dependent service is unavailable.
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
+
 **Cause**: Database connection pool saturated
 
 **Solution**: Check database pool stats via `GET /api/database/pool`
@@ -410,8 +455,8 @@ async function makeRequestWithRetry(url, maxRetries = 3) {
 async function apiCall(endpoint) {
   let response = await fetch(endpoint, {
     headers: {
-      'Authorization': `Bearer ${getToken()}`
-    }
+      Authorization: `Bearer ${getToken()}`,
+    },
   });
 
   if (response.status === 401) {
@@ -421,8 +466,8 @@ async function apiCall(endpoint) {
     // Retry request with new token
     response = await fetch(endpoint, {
       headers: {
-        'Authorization': `Bearer ${getToken()}`
-      }
+        Authorization: `Bearer ${getToken()}`,
+      },
     });
   }
 
@@ -441,7 +486,7 @@ try {
     error: error.message,
     endpoint: '/api/metrics/live',
     timestamp: new Date().toISOString(),
-    stack: error.stack
+    stack: error.stack,
   });
 }
 ```
@@ -452,10 +497,10 @@ try {
 function getErrorMessage(error) {
   const messages = {
     401: 'Your session has expired. Please log in again.',
-    403: 'You don\'t have permission to perform this action.',
+    403: "You don't have permission to perform this action.",
     429: 'Too many requests. Please wait a moment and try again.',
     500: 'Something went wrong. Please try again later.',
-    503: 'Service temporarily unavailable. Please try again in a few minutes.'
+    503: 'Service temporarily unavailable. Please try again in a few minutes.',
   };
 
   return messages[error.status] || 'An unexpected error occurred.';
@@ -482,6 +527,7 @@ When implementing error handling, ensure you handle these status codes:
 ## Support
 
 For additional help with API errors:
+
 - Check system logs: `./arasul logs dashboard-backend`
 - View system status: `GET /api/system/status`
 - Check service health: `GET /api/services`

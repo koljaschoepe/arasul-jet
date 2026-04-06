@@ -1,26 +1,42 @@
 # Arasul Platform - Bug Analysis & Fix Plan
 
 **Generated**: 2025-11-14
-**Last Updated**: 2026-01-13
+**Last Updated**: 2026-04-06
 **Analysis Scope**: Complete codebase audit
 **Total Issues Found**: 51
 
+## Verification Status (2026-04-06)
+
+> **Audit-Ergebnis:** ~45 von 51 Issues sind BEHOBEN. Die Detailbeschreibungen unten spiegeln den
+> Originalzustand wider (Nov 2025). Aktueller Status siehe diese Tabelle.
+
+| Status              | Anzahl | Details                                                                        |
+| ------------------- | ------ | ------------------------------------------------------------------------------ |
+| BEHOBEN             | ~45    | Security, Bugs, High-Priority — alle in Production Hardening Phases 1-5 gefixt |
+| NOCH OFFEN          | 1      | **SEC-001**: SQL Injection in n8nLogger.js (INTERVAL String-Interpolation)     |
+| UNKLAR              | 1      | **HIGH-017**: 401 Interceptor Loop — Frontend-Fix nicht verifiziert            |
+| NICHT MEHR RELEVANT | ~4     | Überholt durch Architekturänderungen                                           |
+
+### Verbleibende Aktion: SEC-001 fixen
+
+`apps/dashboard-backend/src/services/n8nLogger.js` Zeilen 152, 239 — INTERVAL mit String-Interpolation statt parametrisierter Query.
+
 ---
 
-## Quick Reference: Top 10 Critical Issues
+## Quick Reference: Top 10 Critical Issues (Originalzustand Nov 2025)
 
-| ID       | Issue                            | Severity | Impact                                   | Fix Priority |
-| -------- | -------------------------------- | -------- | ---------------------------------------- | ------------ |
-| SEC-001  | SQL Injection in n8nLogger       | CRITICAL | Data exfiltration, DB corruption         | 🔴 IMMEDIATE |
-| SEC-002  | SQL Injection in Logs Route      | CRITICAL | Data exfiltration                        | 🔴 IMMEDIATE |
-| SEC-003  | SQL Injection in Self-Healing    | CRITICAL | Data exfiltration                        | 🔴 IMMEDIATE |
-| SEC-004  | No Auth on LLM Endpoint          | CRITICAL | Resource exhaustion, unauthorized access | 🔴 IMMEDIATE |
-| SEC-006  | Weak JWT Secret Default          | CRITICAL | Authentication bypass                    | 🔴 IMMEDIATE |
-| BUG-001  | Missing multer Dependency        | CRITICAL | App won't start                          | 🔴 IMMEDIATE |
-| BUG-002  | Signature Validation Broken      | CRITICAL | Unsigned updates accepted                | 🔴 IMMEDIATE |
-| BUG-003  | Memory Leak in Rate Limiter      | CRITICAL | OOM crash                                | 🔴 IMMEDIATE |
-| BUG-004  | Duplicate DB Connection Pools    | HIGH     | Connection exhaustion                    | 🟡 URGENT    |
-| HIGH-001 | Missing WebSocket Implementation | HIGH     | No live dashboard updates                | 🟡 URGENT    |
+| ID       | Issue                            | Severity | Status (Apr 2026)         |
+| -------- | -------------------------------- | -------- | ------------------------- | ------------ |
+| SEC-001  | SQL Injection in n8nLogger       | CRITICAL | **NOCH OFFEN**            |
+| SEC-002  | SQL Injection in Logs Route      | CRITICAL | BEHOBEN                   |
+| SEC-003  | SQL Injection in Self-Healing    | CRITICAL | BEHOBEN                   |
+| SEC-004  | No Auth on LLM Endpoint          | CRITICAL | BEHOBEN                   |
+| SEC-006  | Weak JWT Secret Default          | CRITICAL | BEHOBEN                   |
+| BUG-001  | Missing multer Dependency        | CRITICAL | BEHOBEN                   |
+| BUG-002  | Signature Validation Broken      | CRITICAL | BEHOBEN                   |
+| BUG-003  | Memory Leak in Rate Limiter      | CRITICAL | OOM crash                 | 🔴 IMMEDIATE |
+| BUG-004  | Duplicate DB Connection Pools    | HIGH     | Connection exhaustion     | 🟡 URGENT    |
+| HIGH-001 | Missing WebSocket Implementation | HIGH     | No live dashboard updates | 🟡 URGENT    |
 
 ---
 

@@ -1168,6 +1168,289 @@ Introduces the `system_settings` singleton table that persists the state of the 
 
 ---
 
+### 039_parent_chunks_schema.sql - Hierarchical Document Chunks
+
+Supports hierarchical chunking: parent chunks (~2000 tokens) for LLM context, child chunks (~400 tokens) for precise vector retrieval.
+
+#### document_parent_chunks
+
+| Column       | Type        | Description               |
+| ------------ | ----------- | ------------------------- |
+| id           | uuid        | Primary key (generated)   |
+| document_id  | uuid        | FK to documents (CASCADE) |
+| parent_index | integer     | Parent chunk sequence     |
+| chunk_text   | text        | Parent chunk text         |
+| char_start   | integer     | Start character offset    |
+| char_end     | integer     | End character offset      |
+| word_count   | integer     | Word count                |
+| token_count  | integer     | Token count               |
+| created_at   | timestamptz | Creation time             |
+
+**Constraints:**
+
+- `UNIQUE(document_id, parent_index)`
+
+**Columns added to `document_chunks`:**
+
+| Column          | Type    | Description                           |
+| --------------- | ------- | ------------------------------------- |
+| parent_chunk_id | uuid    | FK to document_parent_chunks          |
+| child_index     | integer | Child chunk index within parent chunk |
+
+**Indexes:**
+
+- `idx_document_chunks_parent` on document_chunks(parent_chunk_id)
+- `idx_parent_chunks_document` on document_parent_chunks(document_id)
+
+---
+
+### 040_filter_aware_statistics.sql - Document Statistics Function
+
+**Function:** `get_filtered_document_statistics(p_space_id, p_status, p_category_id) RETURNS TABLE`
+
+Filter-aware document statistics function. All parameters are optional (NULL = no filter).
+
+Returns: `total_documents`, `indexed_documents`, `pending_documents`, `failed_documents`, `total_chunks`, `total_size_bytes`, `documents_by_category` (JSONB).
+
+---
+
+### 041_context_management_schema.sql - Context Management System
+
+Compaction, memory, token-tracking, and model context window management.
+
+**Columns added to `chat_conversations`:**
+
+| Column                   | Type        | Description                     |
+| ------------------------ | ----------- | ------------------------------- |
+| compaction_summary       | text        | Summary from context compaction |
+| compaction_token_count   | integer     | Token count after compaction    |
+| compaction_message_count | integer     | Messages compacted              |
+| last_compacted_at        | timestamptz | Last compaction time            |
+
+**Columns added to `llm_jobs`:**
+
+| Column              | Type    | Description            |
+| ------------------- | ------- | ---------------------- |
+| prompt_tokens       | integer | Prompt token count     |
+| completion_tokens   | integer | Completion token count |
+| context_window_used | integer | Context window used    |
+
+**Columns added to `llm_model_catalog`:**
+
+| Column          | Type    | Description                         |
+| --------------- | ------- | ----------------------------------- |
+| context_window  | integer | Model context window size           |
+| recommended_ctx | integer | Recommended context (default: 8192) |
+
+**Columns added to `system_settings`:**
+
+| Column                | Type        | Description                 |
+| --------------------- | ----------- | --------------------------- |
+| ai_profile_yaml       | text        | AI profile YAML config      |
+| ai_profile_updated_at | timestamptz | AI profile last update time |
+
+#### ai_memories
+
+| Column                 | Type         | Description                         |
+| ---------------------- | ------------ | ----------------------------------- |
+| id                     | uuid         | Primary key (generated)             |
+| type                   | varchar(20)  | fact/decision/preference            |
+| content                | text         | Memory content                      |
+| source_conversation_id | bigint       | FK to chat_conversations (SET NULL) |
+| qdrant_point_id        | uuid         | Qdrant vector point ID              |
+| importance             | decimal(3,2) | Importance score (default: 0.5)     |
+| created_at             | timestamptz  | Creation time                       |
+| updated_at             | timestamptz  | Last update                         |
+| is_active              | boolean      | Active flag (default: true)         |
+
+**Indexes:**
+
+- `idx_ai_memories_type` on type
+- `idx_ai_memories_active` on is_active WHERE is_active = TRUE
+- `idx_ai_memories_created` on created_at DESC
+
+#### compaction_log
+
+| Column             | Type         | Description                          |
+| ------------------ | ------------ | ------------------------------------ |
+| id                 | serial       | Primary key                          |
+| conversation_id    | bigint       | FK to chat_conversations (CASCADE)   |
+| messages_compacted | integer      | Number of messages compacted         |
+| tokens_before      | integer      | Token count before compaction        |
+| tokens_after       | integer      | Token count after compaction         |
+| compression_ratio  | decimal(5,2) | Compression ratio                    |
+| memories_extracted | integer      | Memories extracted during compaction |
+| model_used         | varchar(100) | Model used for compaction            |
+| duration_ms        | integer      | Compaction duration in ms            |
+| created_at         | timestamptz  | Record creation time                 |
+
+**Functions:**
+
+- `cleanup_old_compaction_logs()` - Remove records older than 30 days
+
+**Retention:** 30 days
+
+---
+
+### 042_projects_schema.sql - Project System
+
+Adds project system for grouping conversations with system prompts and knowledge spaces.
+
+#### projects
+
+| Column             | Type         | Description                         |
+| ------------------ | ------------ | ----------------------------------- |
+| id                 | uuid         | Primary key (generated)             |
+| name               | varchar(100) | Project name                        |
+| description        | text         | Project description                 |
+| system_prompt      | text         | System prompt for project chats     |
+| icon               | varchar(50)  | Icon identifier (default: 'folder') |
+| color              | varchar(7)   | Hex color (default: '#45ADFF')      |
+| knowledge_space_id | uuid         | FK to knowledge_spaces (SET NULL)   |
+| sort_order         | integer      | Display order                       |
+| created_at         | timestamptz  | Creation time                       |
+| updated_at         | timestamptz  | Last update                         |
+
+**Column added to `chat_conversations`:**
+
+| Column     | Type | Description    |
+| ---------- | ---- | -------------- |
+| project_id | uuid | FK to projects |
+
+**Indexes:**
+
+- `idx_conversations_project` on chat_conversations(project_id)
+- `idx_projects_sort` on projects(sort_order, created_at DESC)
+
+---
+
+### 043_default_project_and_constraints.sql - Default Project
+
+Ensures every chat belongs to a project. Creates "Allgemein" as the default project.
+
+**Column added to `projects`:**
+
+| Column     | Type    | Description          |
+| ---------- | ------- | -------------------- |
+| is_default | boolean | Default project flag |
+
+**Data:** Inserts "Allgemein" default project (icon: inbox, color: #94A3B8).
+
+**Constraint:** `chat_conversations.project_id` changed to NOT NULL.
+
+**Indexes:**
+
+- `idx_conversations_updated` on chat_conversations(updated_at DESC) WHERE deleted_at IS NULL
+
+---
+
+### 044_knowledge_graph_schema.sql - Knowledge Graph
+
+Stores entities and relations extracted from documents for graph-enriched RAG.
+
+**Extension:** `pg_trgm` (trigram similarity)
+
+#### kg_entities
+
+| Column        | Type        | Description                      |
+| ------------- | ----------- | -------------------------------- |
+| id            | serial      | Primary key                      |
+| name          | text        | Entity name                      |
+| entity_type   | text        | Person/Organisation/Produkt/etc. |
+| properties    | jsonb       | Additional properties            |
+| mention_count | integer     | Number of mentions (default: 1)  |
+| created_at    | timestamptz | Creation time                    |
+| updated_at    | timestamptz | Last update (auto-trigger)       |
+
+**Constraints:**
+
+- `UNIQUE(name, entity_type)`
+
+#### kg_entity_documents
+
+| Column        | Type        | Description                            |
+| ------------- | ----------- | -------------------------------------- |
+| entity_id     | integer     | FK to kg_entities (CASCADE), PK part   |
+| document_id   | uuid        | FK to documents (CASCADE), PK part     |
+| mention_count | integer     | Mentions in this document (default: 1) |
+| created_at    | timestamptz | Creation time                          |
+
+**Primary Key:** (entity_id, document_id)
+
+#### kg_relations
+
+| Column             | Type        | Description                    |
+| ------------------ | ----------- | ------------------------------ |
+| id                 | serial      | Primary key                    |
+| source_entity_id   | integer     | FK to kg_entities (CASCADE)    |
+| target_entity_id   | integer     | FK to kg_entities (CASCADE)    |
+| relation_type      | text        | Relation label                 |
+| context            | text        | Contextual snippet             |
+| properties         | jsonb       | Additional properties          |
+| weight             | real        | Relation weight (default: 1.0) |
+| source_document_id | uuid        | FK to documents (SET NULL)     |
+| created_at         | timestamptz | Creation time                  |
+
+**Constraints:**
+
+- `UNIQUE(source_entity_id, target_entity_id, relation_type)`
+
+**Indexes:**
+
+- `idx_kg_entities_type` on kg_entities(entity_type)
+- `idx_kg_entities_name_trgm` GIN index on kg_entities(name) for trigram similarity
+- `idx_kg_relations_source` on kg_relations(source_entity_id)
+- `idx_kg_relations_target` on kg_relations(target_entity_id)
+- `idx_kg_relations_type` on kg_relations(relation_type)
+- `idx_kg_entity_documents_doc` on kg_entity_documents(document_id)
+
+**Triggers:**
+
+- `kg_entities_updated` - Auto-updates `updated_at` on kg_entities changes
+
+---
+
+### 045_knowledge_graph_refinement.sql - Knowledge Graph Refinement
+
+Adds entity resolution tracking for LLM-based graph refinement.
+
+**Columns added to `kg_entities`:**
+
+| Column       | Type    | Description                                      |
+| ------------ | ------- | ------------------------------------------------ |
+| refined      | boolean | Whether entity has been refined (default: false) |
+| canonical_id | integer | Self-FK for entity resolution/merging            |
+
+**Columns added to `kg_relations`:**
+
+| Column  | Type    | Description                                        |
+| ------- | ------- | -------------------------------------------------- |
+| refined | boolean | Whether relation has been refined (default: false) |
+
+**Indexes:**
+
+- `idx_kg_entities_unrefined` on kg_entities(refined) WHERE refined = FALSE
+- `idx_kg_relations_unrefined` on kg_relations(refined) WHERE refined = FALSE AND relation_type = 'VERWANDT_MIT'
+- `idx_kg_entities_canonical` on kg_entities(canonical_id) WHERE canonical_id IS NOT NULL
+- `idx_kg_entities_name_lower` on kg_entities(LOWER(name))
+
+---
+
+### 046_chat_settings.sql - Per-Chat Settings
+
+Persists per-chat preferences (RAG, thinking mode, model, knowledge space) across sessions.
+
+**Columns added to `chat_conversations`:**
+
+| Column             | Type         | Default | Description               |
+| ------------------ | ------------ | ------- | ------------------------- |
+| use_rag            | boolean      | false   | RAG enabled for this chat |
+| use_thinking       | boolean      | true    | Thinking mode enabled     |
+| preferred_model    | varchar(100) | NULL    | Preferred LLM model       |
+| preferred_space_id | uuid         | NULL    | Preferred knowledge space |
+
+---
+
 ### 047_telegram_rag.sql - Telegram Bot RAG Configuration
 
 Adds RAG (Retrieval-Augmented Generation) settings to `telegram_bots`:
@@ -1183,6 +1466,30 @@ Adds RAG (Retrieval-Augmented Generation) settings to `telegram_bots`:
 
 - Master Bot: `rag_space_ids = NULL` means access to all spaces
 - Custom Bots: `rag_space_ids = '{uuid1,uuid2}'` restricts to specific spaces
+
+---
+
+### 048_fix_project_id_constraint.sql - Project FK Fix
+
+Fixes constraint conflict between 042 (ON DELETE SET NULL) and 043 (NOT NULL).
+
+Changes `chat_conversations.project_id` FK to ON DELETE RESTRICT. The backend handles reassigning conversations before deleting a project.
+
+**Constraint:** `fk_conversations_project` FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT
+
+---
+
+### 049_cleanup_stale_tables.sql - Remove Stale Objects
+
+Removes unused tables, views, and functions from the old singleton Telegram notification system (migration 022), superseded by the multi-bot architecture (032+).
+
+**Dropped Views:** `v_telegram_stats_24h`, `v_telegram_active_cooldowns`, `v_telegram_recent_messages`
+
+**Dropped Functions:** `check_telegram_rate_limit()`, `check_telegram_alert_cooldown()`, `log_telegram_message()`, `cleanup_telegram_rate_limits()`, `cleanup_telegram_message_logs()`
+
+**Dropped Tables:** `telegram_alert_cooldowns`, `telegram_message_log`
+
+---
 
 ### 050_scheduled_cleanup_and_fk_fixes.sql - Consolidated Cleanup & FK Fixes
 
@@ -1224,59 +1531,198 @@ SELECT run_all_cleanups();
 
 ---
 
+### 051_fix_model_catalog_ollama_names.sql - Fix Ollama Registry Names
+
+Corrects `ollama_name` mappings and `size_bytes` values in `llm_model_catalog`. The original migration 027 used incorrect quantization suffixes (e.g., `qwen3:14b` instead of `qwen3:14b-q8_0`).
+
+**Corrections:**
+
+| Model ID        | Old ollama_name | Corrected ollama_name | Corrected Size |
+| --------------- | --------------- | --------------------- | -------------- |
+| qwen3:14b-q8    | qwen3:14b       | qwen3:14b-q8_0        | 15 GB          |
+| qwen3:7b-q8     | qwen3:8b        | qwen3:8b-q8_0         | 8 GB           |
+| mistral:7b-q8   | mistral:7b      | mistral:7b            | 4.1 GB         |
+| gemma2:9b-q8    | gemma2:9b       | gemma2:9b             | 5.4 GB         |
+| qwen3:32b-q4    | qwen3:32b       | qwen3:32b             | 20 GB          |
+| llama3.1:70b-q4 | llama3.1:70b    | llama3.1:70b          | 40 GB          |
+| llama3.1:8b     | (unchanged)     | (unchanged)           | 4.9 GB         |
+
+---
+
+### 052_document_unique_content_hash.sql - Document Deduplication
+
+Adds a partial unique constraint on `content_hash` to prevent duplicate documents.
+
+**Index:** `idx_documents_unique_content_hash` UNIQUE on documents(content_hash) WHERE deleted_at IS NULL AND status <> 'deleted'
+
+---
+
+### 053_update_thinking_models.sql - Update Thinking Model Catalog
+
+Updates `supports_thinking = true` for newly supported thinking-capable models (Ollama 0.9.0+).
+
+**Models updated:** DeepSeek-R1 variants, QwQ, DeepSeek-v3.1, Qwen3.5, Magistral, Nemotron, GLM-4.7
+
+---
+
+### 054_schema_hardening.sql - Schema Hardening
+
+Adds missing FK constraints and indexes identified in schema audit.
+
+**FK Constraints Added:**
+
+- `fk_app_configurations_app_id` on app_configurations(app_id) REFERENCES app_installations(app_id) ON DELETE CASCADE
+- `fk_app_dependencies_app_id` on app_dependencies(app_id) REFERENCES app_installations(app_id) ON DELETE CASCADE
+
+**Indexes Added:**
+
+- `idx_kg_entity_documents_entity_id` on kg_entity_documents(entity_id)
+- `idx_llm_jobs_status_created` on llm_jobs(status, created_at DESC)
+
+---
+
+### 055_telegram_bot_capabilities.sql - Telegram Bot Capabilities
+
+Adds per-bot capability columns for tools, context limits, and rate limiting.
+
+**Columns added to `telegram_bots`:**
+
+| Column                | Type    | Default | Description                          |
+| --------------------- | ------- | ------- | ------------------------------------ |
+| tools_enabled         | boolean | true    | Enable tool use for this bot         |
+| max_context_tokens    | integer | 4096    | Per-bot context window limit         |
+| max_response_tokens   | integer | 1024    | Per-bot max response token limit     |
+| rate_limit_per_minute | integer | 10      | Per-bot rate limit (requests/minute) |
+
+---
+
+### 056_schema_cleanup.sql - Schema Cleanup
+
+Cleanup and maintenance migration.
+
+**Dropped:** `idx_documents_content_hash` (superseded by `idx_documents_unique_content_hash` from 052)
+
+**Indexes Added:**
+
+- `idx_app_configurations_app_id` on app_configurations(app_id)
+
+**Functions:**
+
+- `update_updated_at_column()` - Canonical trigger function for auto-updating `updated_at`
+- `cleanup_telegram_sessions()` - Removes stale bot sessions (30 days) and setup sessions (1 day)
+
+---
+
+### 057_model_lifecycle_views.sql - Model Usage Profile Views
+
+Provides hourly usage aggregation from `llm_jobs` for adaptive keep-alive scheduling.
+
+**Views:**
+
+- `v_llm_hourly_usage` - Hourly request counts by day-of-week (7-day window)
+- `v_llm_usage_profile` - Aggregated hourly usage profile (avg/peak requests, active days)
+
+---
+
+### 058_add_matched_spaces.sql - RAG Matched Spaces
+
+Persists RAG knowledge space metadata so it survives page reload.
+
+**Columns added to `chat_messages`:**
+
+| Column         | Type  | Description                                             |
+| -------------- | ----- | ------------------------------------------------------- |
+| matched_spaces | jsonb | RAG matched knowledge spaces [{name, color, score, id}] |
+
+**Columns added to `llm_jobs`:**
+
+| Column         | Type  | Description                                   |
+| -------------- | ----- | --------------------------------------------- |
+| matched_spaces | jsonb | RAG matched knowledge spaces during streaming |
+
+---
+
 ## Indexes Summary
 
-| Table                     | Index                                  | Columns                                     |
-| ------------------------- | -------------------------------------- | ------------------------------------------- |
-| chat_conversations        | idx_conversations_updated              | updated_at DESC                             |
-| chat_conversations        | idx_conversations_deleted              | deleted_at                                  |
-| chat_messages             | idx_messages_conversation              | conversation_id, created_at                 |
-| documents                 | idx_documents_status                   | status                                      |
-| documents                 | idx_documents_created                  | created_at DESC                             |
-| document_chunks           | idx_chunks_document                    | document_id                                 |
-| telegram_config           | idx_telegram_config_enabled            | enabled                                     |
-| api_audit_logs            | idx_api_audit_logs_timestamp           | timestamp DESC                              |
-| api_audit_logs            | idx_api_audit_logs_user_id             | user_id, timestamp DESC                     |
-| api_audit_logs            | idx_api_audit_logs_action_type         | action_type, timestamp DESC                 |
-| api_audit_logs            | idx_api_audit_logs_response_status     | response_status, timestamp DESC             |
-| api_audit_logs            | idx_api_audit_logs_timestamp_action    | timestamp DESC, action_type                 |
-| api_audit_logs            | idx_api_audit_logs_endpoint            | target_endpoint, timestamp DESC             |
-| api_audit_logs            | idx_api_audit_logs_errors              | timestamp DESC (WHERE >= 400)               |
-| telegram_rate_limits      | idx_telegram_rate_limits_chat          | chat_id, window_start DESC                  |
-| telegram_rate_limits      | idx_telegram_rate_limits_cleanup       | window_start                                |
-| telegram_message_log      | idx_telegram_message_log_chat          | chat_id, sent_at DESC                       |
-| telegram_message_log      | idx_telegram_message_log_type          | message_type, sent_at DESC                  |
-| telegram_message_log      | idx_telegram_message_log_severity      | severity, sent_at DESC                      |
-| telegram_message_log      | idx_telegram_message_log_sent          | sent_at DESC                                |
-| telegram_message_log      | idx_telegram_message_log_failed        | delivered (WHERE FALSE)                     |
-| telegram_alert_cooldowns  | idx_telegram_alert_cooldowns_lookup    | alert_type, chat_id, last_alert_at          |
-| llm_model_catalog         | idx_llm_catalog_capabilities           | supports_thinking, rag_optimized            |
-| model_performance_metrics | idx_perf_model_id                      | model_id                                    |
-| model_performance_metrics | idx_perf_created_at                    | created_at DESC                             |
-| model_performance_metrics | idx_perf_job_type                      | job_type                                    |
-| llm_model_catalog         | idx_model_catalog_type                 | model_type                                  |
-| document_chunks           | idx_document_chunks_text_search_de     | to_tsvector('german', chunk_text) GIN       |
-| documents                 | idx_documents_space_status             | space_id, status (WHERE deleted_at IS NULL) |
-| chat_messages             | idx_chat_messages_conversation_created | conversation_id, created_at                 |
-| documents                 | idx_documents_space_id                 | space_id                                    |
-| documents                 | idx_documents_status_uploaded          | status, uploaded_at                         |
+| Table                     | Index                                  | Columns                                     | Source |
+| ------------------------- | -------------------------------------- | ------------------------------------------- | ------ |
+| chat_conversations        | idx_conversations_updated              | updated_at DESC (WHERE deleted_at IS NULL)  | 043    |
+| chat_conversations        | idx_conversations_deleted              | deleted_at                                  | 005    |
+| chat_conversations        | idx_conversations_project              | project_id                                  | 042    |
+| chat_messages             | idx_messages_conversation              | conversation_id, created_at                 | 005    |
+| chat_messages             | idx_chat_messages_conversation_created | conversation_id, created_at                 | 037    |
+| documents                 | idx_documents_status                   | status                                      | 009    |
+| documents                 | idx_documents_created                  | created_at DESC                             | 009    |
+| documents                 | idx_documents_space_status             | space_id, status (WHERE deleted_at IS NULL) | 036    |
+| documents                 | idx_documents_space_id                 | space_id                                    | 037    |
+| documents                 | idx_documents_status_uploaded          | status, uploaded_at                         | 037    |
+| documents                 | idx_documents_unique_content_hash      | content_hash (UNIQUE, partial)              | 052    |
+| document_chunks           | idx_chunks_document                    | document_id                                 | 009    |
+| document_chunks           | idx_document_chunks_text_search_de     | to_tsvector('german', chunk_text) GIN       | 036    |
+| document_chunks           | idx_document_chunks_parent             | parent_chunk_id                             | 039    |
+| document_parent_chunks    | idx_parent_chunks_document             | document_id                                 | 039    |
+| telegram_config           | idx_telegram_config_enabled            | enabled                                     | 020    |
+| telegram_rate_limits      | idx_telegram_rate_limits_chat          | chat_id, window_start DESC                  | 022    |
+| telegram_rate_limits      | idx_telegram_rate_limits_cleanup       | window_start                                | 022    |
+| api_audit_logs            | idx_api_audit_logs_timestamp           | timestamp DESC                              | 021    |
+| api_audit_logs            | idx_api_audit_logs_user_id             | user_id, timestamp DESC                     | 021    |
+| api_audit_logs            | idx_api_audit_logs_action_type         | action_type, timestamp DESC                 | 021    |
+| api_audit_logs            | idx_api_audit_logs_response_status     | response_status, timestamp DESC             | 021    |
+| api_audit_logs            | idx_api_audit_logs_timestamp_action    | timestamp DESC, action_type                 | 021    |
+| api_audit_logs            | idx_api_audit_logs_endpoint            | target_endpoint, timestamp DESC             | 021    |
+| api_audit_logs            | idx_api_audit_logs_errors              | timestamp DESC (WHERE >= 400)               | 021    |
+| llm_model_catalog         | idx_llm_catalog_capabilities           | supports_thinking, rag_optimized            | 029    |
+| llm_model_catalog         | idx_model_catalog_type                 | model_type                                  | 035    |
+| llm_model_catalog         | idx_llm_model_catalog_ollama_name      | ollama_name                                 | 027    |
+| model_performance_metrics | idx_perf_model_id                      | model_id                                    | 030    |
+| model_performance_metrics | idx_perf_created_at                    | created_at DESC                             | 030    |
+| model_performance_metrics | idx_perf_job_type                      | job_type                                    | 030    |
+| llm_jobs                  | idx_llm_jobs_status_created            | status, created_at DESC                     | 054    |
+| ai_memories               | idx_ai_memories_type                   | type                                        | 041    |
+| ai_memories               | idx_ai_memories_active                 | is_active (WHERE TRUE)                      | 041    |
+| ai_memories               | idx_ai_memories_created                | created_at DESC                             | 041    |
+| compaction_log            | idx_compaction_log_conversation        | conversation_id                             | 041    |
+| projects                  | idx_projects_sort                      | sort_order, created_at DESC                 | 042    |
+| kg_entities               | idx_kg_entities_type                   | entity_type                                 | 044    |
+| kg_entities               | idx_kg_entities_name_trgm              | name (GIN trigram)                          | 044    |
+| kg_entities               | idx_kg_entities_unrefined              | refined (WHERE FALSE)                       | 045    |
+| kg_entities               | idx_kg_entities_canonical              | canonical_id (WHERE NOT NULL)               | 045    |
+| kg_entities               | idx_kg_entities_name_lower             | LOWER(name)                                 | 045    |
+| kg_relations              | idx_kg_relations_source                | source_entity_id                            | 044    |
+| kg_relations              | idx_kg_relations_target                | target_entity_id                            | 044    |
+| kg_relations              | idx_kg_relations_type                  | relation_type                               | 044    |
+| kg_relations              | idx_kg_relations_unrefined             | refined (WHERE FALSE AND VERWANDT_MIT)      | 045    |
+| kg_entity_documents       | idx_kg_entity_documents_doc            | document_id                                 | 044    |
+| kg_entity_documents       | idx_kg_entity_documents_entity_id      | entity_id                                   | 054    |
+| app_configurations        | idx_app_configurations_app_id          | app_id                                      | 056    |
 
 ---
 
 ## Data Retention
 
-| Data Type             | Retention             |
-| --------------------- | --------------------- |
-| Metrics               | 7 days                |
-| Self-healing events   | 7 days                |
-| Workflow activity     | 7 days                |
-| Deleted conversations | 30 days (soft delete) |
-| Update history        | Permanent             |
-| User accounts         | Permanent             |
-| Telegram config       | Permanent (singleton) |
-| Telegram message log  | 30 days               |
-| Telegram rate limits  | 1 hour                |
-| API audit logs        | 90 days               |
+| Data Type                  | Retention                 |
+| -------------------------- | ------------------------- |
+| Metrics (CPU/RAM/GPU/etc.) | 7 days                    |
+| Self-healing events        | 30 days                   |
+| Workflow activity          | 7 days                    |
+| Deleted conversations      | 30 days (soft delete)     |
+| Update files               | 90 days (keep latest 10)  |
+| Update events              | 180 days (keep latest 20) |
+| Login attempts             | 7 days                    |
+| Document access logs       | 30 days                   |
+| Alert history              | Configurable              |
+| App store events           | 30 days                   |
+| Audit logs                 | 90 days                   |
+| Notification events        | 30 days                   |
+| API audit logs             | 90 days                   |
+| Telegram bot sessions      | 30 days                   |
+| Telegram setup sessions    | 1 day                     |
+| Model performance metrics  | 30 days                   |
+| Compaction log             | 30 days                   |
+| LLM jobs (completed)       | 1 hour                    |
+| User accounts              | Permanent                 |
+| Telegram config            | Permanent (singleton)     |
+| System settings            | Permanent (singleton)     |
 
 ---
 

@@ -36,7 +36,7 @@ apps/dashboard-frontend/src/
   components/
     layout/                  # Sidebar (with ScrollArea)
     ui/                      # Modal, Skeleton, LoadingSpinner, EmptyState, ErrorBoundary, ConfirmIconButton
-    ui/shadcn/               # 21 shadcn components (Button, Card, Dialog, Input, ...)
+    ui/shadcn/               # 19 shadcn components (alert, badge, button, card, dialog, dropdown-menu, input, label, popover, radio-group, scroll-area, select, separator, skeleton, switch, table, tabs, textarea, tooltip)
     editor/                  # MarkdownEditor, MermaidDiagram, GridEditor/
 
   hooks/                     # Reusable hooks (useApi, useTheme, useFetchData, ...)
@@ -467,6 +467,17 @@ import {
 } from '@/components/ui/shadcn/select';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { Separator } from '@/components/ui/shadcn/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/shadcn/alert';
+import { Textarea } from '@/components/ui/shadcn/textarea';
+import { Skeleton } from '@/components/ui/shadcn/skeleton';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/shadcn/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,

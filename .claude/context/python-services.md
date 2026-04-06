@@ -332,6 +332,44 @@ Self-Healing-Agent
 
 ---
 
+## Shared Python Library (`services/shared-python/`)
+
+Gemeinsame Utilities für alle Python-Services (8 Module):
+
+| Module                  | Purpose                                                   |
+| ----------------------- | --------------------------------------------------------- |
+| `structured_logging.py` | JSON-Logging (stdout) — von ALLEN Services genutzt        |
+| `db_pool.py`            | Thread-safe Connection Pool, Retry-Logik, Context Manager |
+| `health_check.py`       | Health-Check Endpoint Factory                             |
+| `http_client.py`        | HTTP Client mit Retry + Exponential Backoff               |
+| `service_config.py`     | Service Discovery Konfiguration                           |
+
+### Usage Pattern (alle Services):
+
+```python
+from structured_logging import setup_logging
+logger = setup_logging("service-name")
+logger.info("Message", extra={"key": "value"})
+# Output: {"timestamp": "...", "level": "INFO", "service": "service-name", "message": "Message", "key": "value"}
+```
+
+### Secrets Resolution (alle Services):
+
+```python
+# _FILE Pattern: POSTGRES_PASSWORD_FILE → /run/secrets/postgres_password
+password = os.environ.get('POSTGRES_PASSWORD') or \
+           open(os.environ.get('POSTGRES_PASSWORD_FILE')).read().strip()
+```
+
+---
+
+## MCP Remote Bash (`services/mcp-remote-bash/`)
+
+**Port:** 8765
+**Role:** Claude Code CLI Proxy für Remote-Bash/Docker-Commands
+
+---
+
 ## Debugging
 
 ```bash

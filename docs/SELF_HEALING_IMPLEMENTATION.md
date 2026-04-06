@@ -1,8 +1,12 @@
-# Self-Healing Engine - Vollständige Implementierung ✅
+# Self-Healing Engine - Vollständige Implementierung
 
-**Status**: 100% Abgeschlossen
-**Datum**: 2025-11-11
+**Status**: Produktiv, kontinuierlich erweitert
+**Erstellt**: 2025-11-11 | **Letzte Verifizierung**: 2026-04-06
 **PRD Referenz**: §28
+**Quellcode**: `services/self-healing-agent/healing_engine.py` (3.720 Zeilen)
+
+> **Hinweis**: Die Zeilennummern in diesem Dokument beziehen sich auf den Stand vom November 2025.
+> Die Datei wurde seitdem erweitert (Hardening Phase 2+5). Für aktuelle Positionen direkt in der Datei suchen.
 
 ---
 
@@ -21,13 +25,13 @@ Die Self-Healing Engine ist **vollständig implementiert** und produktionsreif. 
 
 **Status**: 100% Komplett
 
-| Feature | Zeile | Beschreibung |
-|---------|-------|--------------|
-| Service Restart (Versuch 1) | 245-261 | Einfacher Container-Restart |
-| Stop + Start (Versuch 2) | 263-283 | Container Stop, Wait, Start |
-| Failure Counter | 133-150 | PostgreSQL-basiertes Tracking |
-| Zeitfenster-Tracking | 143 | 3 Fehler in 10min Window |
-| Eskalation zu Kategorie C | 285-298 | Bei 3+ Failures |
+| Feature                     | Zeile   | Beschreibung                  |
+| --------------------------- | ------- | ----------------------------- |
+| Service Restart (Versuch 1) | 245-261 | Einfacher Container-Restart   |
+| Stop + Start (Versuch 2)    | 263-283 | Container Stop, Wait, Start   |
+| Failure Counter             | 133-150 | PostgreSQL-basiertes Tracking |
+| Zeitfenster-Tracking        | 143     | 3 Fehler in 10min Window      |
+| Eskalation zu Kategorie C   | 285-298 | Bei 3+ Failures               |
 
 **Akzeptanzkriterien**: ✅ Alle erfüllt
 
@@ -37,13 +41,13 @@ Die Self-Healing Engine ist **vollständig implementiert** und produktionsreif. 
 
 **Status**: 100% Komplett
 
-| Trigger | Action | Zeile | Cooldown |
-|---------|--------|-------|----------|
-| CPU > 90% | LLM Cache Clear | 321, 408-430 | 5 min |
-| RAM > 90% | n8n Restart | 384, 433-454 | 5 min |
-| GPU > 95% | GPU Session Reset | 343, 457-478 | 5 min |
-| Temp > 83°C | GPU Throttling | 365, 511-533 | 5 min |
-| Temp > 85°C | LLM Service Restart | 481-509 | 10 min |
+| Trigger     | Action              | Zeile        | Cooldown |
+| ----------- | ------------------- | ------------ | -------- |
+| CPU > 90%   | LLM Cache Clear     | 321, 408-430 | 5 min    |
+| RAM > 90%   | n8n Restart         | 384, 433-454 | 5 min    |
+| GPU > 95%   | GPU Session Reset   | 343, 457-478 | 5 min    |
+| Temp > 83°C | GPU Throttling      | 365, 511-533 | 5 min    |
+| Temp > 85°C | LLM Service Restart | 481-509      | 10 min   |
 
 **Akzeptanzkriterien**: ✅ Alle erfüllt
 
@@ -53,14 +57,15 @@ Die Self-Healing Engine ist **vollständig implementiert** und produktionsreif. 
 
 **Status**: 100% Komplett
 
-| Action | Zeile | Details |
-|--------|-------|---------|
-| Hard Restart Services | 539-562 | Alle Application Services |
-| Disk Cleanup | 564-610 | Docker Prune + Old Logs + Cache |
-| Database VACUUM | 612-653 | `VACUUM ANALYZE` forced |
-| GPU Reset | 655-689 | `nvidia-smi --gpu-reset` |
+| Action                | Zeile   | Details                         |
+| --------------------- | ------- | ------------------------------- |
+| Hard Restart Services | 539-562 | Alle Application Services       |
+| Disk Cleanup          | 564-610 | Docker Prune + Old Logs + Cache |
+| Database VACUUM       | 612-653 | `VACUUM ANALYZE` forced         |
+| GPU Reset             | 655-689 | `nvidia-smi --gpu-reset`        |
 
 **Trigger**:
+
 - 3+ Service Failures in 10min
 - Database Lost
 - MinIO Corruption
@@ -74,14 +79,15 @@ Die Self-Healing Engine ist **vollständig implementiert** und produktionsreif. 
 
 **Status**: 100% Komplett
 
-| Feature | Zeile/Datei | Beschreibung |
-|---------|-------------|--------------|
-| Pre-Reboot State Save | 734-773 | Services, Metrics, Reason in DB |
-| Reboot Command | 797 | `sudo reboot` (privileged) |
-| Post-Reboot Validation | `post_reboot_validation.py` | Automatisch beim Start |
-| ENV Control | `.env.template:75` | `SELF_HEALING_REBOOT_ENABLED` |
+| Feature                | Zeile/Datei                 | Beschreibung                    |
+| ---------------------- | --------------------------- | ------------------------------- |
+| Pre-Reboot State Save  | 734-773                     | Services, Metrics, Reason in DB |
+| Reboot Command         | 797                         | `sudo reboot` (privileged)      |
+| Post-Reboot Validation | `post_reboot_validation.py` | Automatisch beim Start          |
+| ENV Control            | `.env.template:75`          | `SELF_HEALING_REBOOT_ENABLED`   |
 
 **Trigger**:
+
 - Disk > 97%
 - 3+ Critical Events in 30min
 
@@ -97,23 +103,23 @@ Alle Schema-Definitionen in: `services/postgres/init/003_self_healing_schema.sql
 
 ### Tabellen
 
-| Tabelle | Zweck | Retention |
-|---------|-------|-----------|
-| `service_failures` | Failure Tracking mit Zeitfenstern | 1 Stunde |
-| `recovery_actions` | Alle Recovery Actions | 7 Tage |
-| `reboot_events` | Pre/Post Reboot State | 30 Tage |
-| `self_healing_events` | Alle Events (INFO→EMERGENCY) | 30 Tage |
+| Tabelle               | Zweck                             | Retention |
+| --------------------- | --------------------------------- | --------- |
+| `service_failures`    | Failure Tracking mit Zeitfenstern | 1 Stunde  |
+| `recovery_actions`    | Alle Recovery Actions             | 7 Tage    |
+| `reboot_events`       | Pre/Post Reboot State             | 30 Tage   |
+| `self_healing_events` | Alle Events (INFO→EMERGENCY)      | 30 Tage   |
 
 ### Helper Functions
 
-| Function | Zweck |
-|----------|-------|
-| `get_service_failure_count(service, minutes)` | Failure Count im Zeitfenster |
-| `is_service_in_cooldown(service, minutes)` | Cooldown-Check |
-| `get_critical_events_count(minutes)` | Critical Events im Fenster |
-| `record_service_failure(service, type, status)` | Failure Recording |
-| `record_recovery_action(...)` | Action Recording |
-| `cleanup_service_failures()` | Auto-Cleanup alter Daten |
+| Function                                        | Zweck                        |
+| ----------------------------------------------- | ---------------------------- |
+| `get_service_failure_count(service, minutes)`   | Failure Count im Zeitfenster |
+| `is_service_in_cooldown(service, minutes)`      | Cooldown-Check               |
+| `get_critical_events_count(minutes)`            | Critical Events im Fenster   |
+| `record_service_failure(service, type, status)` | Failure Recording            |
+| `record_recovery_action(...)`                   | Action Recording             |
+| `cleanup_service_failures()`                    | Auto-Cleanup alter Daten     |
 
 ---
 
@@ -156,21 +162,21 @@ MAX_CRITICAL_EVENTS = 3                 # Max Critical Events vor Reboot
 
 ### Neu Erstellt
 
-| Datei | Zeilen | Beschreibung |
-|-------|--------|--------------|
-| `post_reboot_validation.py` | 334 | Post-Reboot State Validation |
-| `verify_healing.py` | 342 | Feature Verification Script |
+| Datei                       | Zeilen | Beschreibung                 |
+| --------------------------- | ------ | ---------------------------- |
+| `post_reboot_validation.py` | 334    | Post-Reboot State Validation |
+| `verify_healing.py`         | 342    | Feature Verification Script  |
 
 ### Geändert
 
-| Datei | Änderungen |
-|-------|------------|
-| `healing_engine.py` | +7 Zeilen (Post-Reboot Integration) |
-| `Dockerfile` | +13 Zeilen (sudo, nvidia-smi) |
-| `arasul` | +68 Zeilen (Admin User Creation) |
-| `.env.template` | +1 Zeile (REBOOT_ENABLED) |
-| `DEPLOYMENT.md` | +248 Zeilen (Schritt 9 Dokumentation) |
-| `TODO.md` | Status Update auf 100% |
+| Datei               | Änderungen                            |
+| ------------------- | ------------------------------------- |
+| `healing_engine.py` | +7 Zeilen (Post-Reboot Integration)   |
+| `Dockerfile`        | +13 Zeilen (sudo, nvidia-smi)         |
+| `arasul`            | +68 Zeilen (Admin User Creation)      |
+| `.env.template`     | +1 Zeile (REBOOT_ENABLED)             |
+| `DEPLOYMENT.md`     | +248 Zeilen (Schritt 9 Dokumentation) |
+| `TODO.md`           | Status Update auf 100%                |
 
 ### Bereits Vorhanden (Keine Änderung)
 
@@ -194,6 +200,7 @@ python3 verify_healing.py
 ### Manuelle Tests
 
 **Test 1: Service Recovery**
+
 ```bash
 # Service stoppen
 docker stop llm-service
@@ -206,6 +213,7 @@ docker-compose ps llm-service
 ```
 
 **Test 2: Disk Cleanup**
+
 ```bash
 # Aktueller Disk Usage
 df -h /
@@ -220,6 +228,7 @@ engine.perform_disk_cleanup()
 ```
 
 **Test 3: Database Queries**
+
 ```bash
 # Letzte 20 Events
 docker-compose exec postgres-db psql -U arasul -d arasul_db -c \
@@ -278,6 +287,7 @@ SELECT * FROM v_recent_healing_events;
 ### Problem: Self-Healing Agent startet nicht
 
 **Lösung**:
+
 ```bash
 # Logs prüfen
 docker-compose logs self-healing-agent
@@ -291,6 +301,7 @@ docker-compose logs self-healing-agent
 ### Problem: Recovery Actions schlagen fehl
 
 **Lösung**:
+
 ```bash
 # Privileged Mode prüfen
 docker inspect self-healing-agent | grep -i privileged
@@ -304,6 +315,7 @@ docker inspect self-healing-agent | grep docker.sock
 ### Problem: Reboot funktioniert nicht
 
 **Lösung**:
+
 ```bash
 # 1. ENV Variable prüfen
 grep REBOOT_ENABLED .env
@@ -379,4 +391,4 @@ docker-compose exec self-healing-agent sudo reboot
 
 **Ende der Dokumentation**
 
-*Generiert am 2025-11-11 | Self-Healing Engine v2.0*
+_Generiert am 2025-11-11 | Self-Healing Engine v2.0_

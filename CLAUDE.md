@@ -11,7 +11,7 @@ Arasul ist eine autonome Edge-AI-Plattform für NVIDIA Jetson. Sie wird als komm
 ```
 Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                          → Dashboard-Backend (Express API :3001)
-                              ├─ PostgreSQL 16 (102 Tabellen, 52 Migrationen)
+                              ├─ PostgreSQL 16 (84 Tabellen, 58 Migrationen)
                               ├─ MinIO (S3-kompatibler Object Storage)
                               ├─ Ollama/LLM-Service (:11434/:11436) [GPU]
                               ├─ Embedding-Service (:11435) [GPU]
@@ -28,7 +28,7 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
 | AI       | Ollama (LLM) + BGE-M3 (Embeddings) + Qdrant (Vektoren)       | `services/llm-service/`, `services/embedding-service/`        |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11 | `compose/`, `config/traefik/`                                 |
 | Ops      | Self-Healing Agent + Metrics Collector + Backup Service      | `services/self-healing-agent/`, `services/metrics-collector/` |
-| DB       | PostgreSQL 16 (54 Migrationen, nächste: `055_*.sql`)         | `services/postgres/init/`                                     |
+| DB       | PostgreSQL 16 (58 Migrationen, nächste: `059_*.sql`)         | `services/postgres/init/`                                     |
 | Hardware | Jetson AGX Orin / Thor (ARM64, 32-128GB, CUDA 8.7-10.0)      | Erkennung: `scripts/setup/detect-jetson.sh`                   |
 
 ---
@@ -67,8 +67,8 @@ const data = await api.get<MyType>('/endpoint');
 ### 3. Testen vor Commit
 
 ```bash
-./scripts/test/run-tests.sh --backend    # Jest (44 Suites)
-./scripts/test/run-tests.sh --frontend   # Vitest (18 Suites)
+./scripts/test/run-tests.sh --backend    # Jest (50 Test-Files)
+./scripts/test/run-tests.sh --frontend   # Vitest (35 Test-Files)
 ```
 
 ### 4. Deployment: Docker Rebuild nach Code-Änderungen
@@ -101,11 +101,13 @@ Lade den passenden Kontext aus `.claude/context/` je nach Aufgabe:
 | React-Component baust           | `frontend.md` + `component.md`   |
 | DB-Migration erstellst          | `database.md` + `migration.md`   |
 | API-Endpoint hinzufügst         | `api-endpoint.md` + `backend.md` |
-| Docker/Compose/Traefik änderst  | `infra.md`                       |
+| Docker/Compose/Traefik änderst  | `infra.md` + `deployment.md`     |
 | Python-Service bearbeitest      | `python-services.md`             |
 | Telegram-Bot entwickelst        | `telegram.md`                    |
 | n8n-Workflow/Custom Node baust  | `n8n-workflow.md`                |
-| Service debuggst                | `debug.md`                       |
+| Tests schreibst/debuggst        | `testing.md`                     |
+| Security/Auth bearbeitest       | `security.md`                    |
+| Service deployst/debuggst       | `deployment.md` + `debug.md`     |
 | Architektur-Überblick brauchst  | `base.md`                        |
 
 ---
@@ -118,7 +120,7 @@ Lade den passenden Kontext aus `.claude/context/` je nach Aufgabe:
 | ----------- | ---------------------------------------------------------- |
 | Backend API | `apps/dashboard-backend/src/index.js` → `routes/index.js`  |
 | Frontend    | `apps/dashboard-frontend/src/App.tsx`                      |
-| Database    | `services/postgres/init/` (nächste Migration: `055_*.sql`) |
+| Database    | `services/postgres/init/` (nächste Migration: `059_*.sql`) |
 | LLM Service | `services/llm-service/api_server.py`                       |
 | Setup       | `scripts/interactive_setup.sh`                             |
 | Bootstrap   | `./arasul bootstrap`                                       |
