@@ -8,58 +8,11 @@ const dataDb = require('../../dataDatabase');
 const logger = require('../../utils/logger');
 const axios = require('axios');
 const services = require('../../config/services');
+const { isValidSlug, escapeTableName, escapeIdentifier } = require('../../utils/sqlIdentifier');
 
 // LLM Service configuration
 const LLM_HOST = services.llm?.host || 'llm-service';
 const LLM_PORT = services.llm?.port || 11434;
-
-/**
- * SQL Reserved Keywords - blocked from use in identifiers
- */
-const SQL_RESERVED_KEYWORDS = new Set([
-  'select',
-  'insert',
-  'update',
-  'delete',
-  'drop',
-  'create',
-  'alter',
-  'truncate',
-  'table',
-  'index',
-  'view',
-  'database',
-  'schema',
-  'union',
-  'where',
-  'from',
-  'join',
-  'cascade',
-  'grant',
-  'revoke',
-  'exec',
-  'execute',
-  'declare',
-]);
-
-/**
- * Helper: Validate slug format - strict validation
- */
-function isValidSlug(slug) {
-  if (!slug || typeof slug !== 'string') {
-    return false;
-  }
-  if (slug.length > 100) {
-    return false;
-  }
-  if (!/^[a-z][a-z0-9_]*$/.test(slug)) {
-    return false;
-  }
-  if (SQL_RESERVED_KEYWORDS.has(slug)) {
-    return false;
-  }
-  return true;
-}
 
 /**
  * Available data functions for LLM tool calls
@@ -359,7 +312,7 @@ const DATA_FUNCTIONS = {
       }
 
       // Build query with filters
-      let query = `SELECT * FROM data_${tableSlug}`;
+      let query = `SELECT * FROM ${escapeTableName(tableSlug)}`;
       const params = [];
       const conditions = [];
 
@@ -367,10 +320,13 @@ const DATA_FUNCTIONS = {
       let paramIndex = 1;
       for (const [field, value] of Object.entries(filters)) {
         // Validate field name format (strict validation)
-        if (isValidSlug(field) || field.startsWith('_')) {
+        if (isValidSlug(field)) {
+          conditions.push(`${escapeIdentifier(field)} = $${paramIndex}`);
+          params.push(value);
+          paramIndex++;
+        } else if (field.startsWith('_') && /^_[a-z_]+$/.test(field)) {
           // Allow system fields (_id, _created_at, etc.)
-          const safeField = field.startsWith('_') && /^_[a-z_]+$/.test(field) ? field : field;
-          conditions.push(`${safeField} = $${paramIndex}`);
+          conditions.push(`"${field.replace(/"/g, '""')}" = $${paramIndex}`);
           params.push(value);
           paramIndex++;
         }
@@ -612,7 +568,7 @@ async function getTableSchema(tableSlug) {
     let sampleData = [];
     try {
       const sampleResult = await dataDb.query(
-        `SELECT * FROM data_${tableSlug} ORDER BY _created_at DESC LIMIT 3`
+        `SELECT * FROM ${escapeTableName(tableSlug)} ORDER BY _created_at DESC LIMIT 3`
       );
       sampleData = sampleResult.rows;
     } catch (e) {

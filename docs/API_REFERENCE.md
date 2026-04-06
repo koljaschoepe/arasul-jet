@@ -353,6 +353,49 @@ Conversations belonging to the deleted project are ungrouped (`project_id` set t
 }
 ```
 
+### Document Analysis (Chat Upload + OCR)
+
+| Method | Endpoint                         | Description                               |
+| ------ | -------------------------------- | ----------------------------------------- |
+| POST   | `/api/document-analysis/analyze` | Upload + OCR extract + LLM analysis (SSE) |
+| POST   | `/api/document-analysis/extract` | Pure text extraction without LLM (JSON)   |
+
+**POST /api/document-analysis/analyze:**
+
+Upload a document, extract text (OCR if needed), and analyze with the LLM. Returns SSE stream.
+
+Request: `multipart/form-data`
+
+| Field             | Type   | Required | Description                                 |
+| ----------------- | ------ | -------- | ------------------------------------------- |
+| `file`            | File   | Yes      | PDF, DOCX, TXT, MD, PNG, JPG, TIFF, BMP     |
+| `conversation_id` | number | Yes      | Chat conversation ID                        |
+| `prompt`          | string | No       | Custom analysis prompt (default: summarize) |
+| `model`           | string | No       | Model to use (default: system default)      |
+| `temperature`     | number | No       | Sampling temperature (default: 0.7)         |
+
+SSE events: `job_started`, `thinking`, `response`, `done` (same format as `/api/llm/chat`).
+
+**POST /api/document-analysis/extract:**
+
+Pure text extraction without LLM. Used by n8n and internal tools.
+
+Request: `multipart/form-data` with `file` field.
+
+```json
+// Response:
+{
+  "text": "Extracted document text...",
+  "filename": "invoice.pdf",
+  "metadata": {
+    "char_count": 4521,
+    "word_count": 812,
+    "ocr_used": true,
+    "language": "deu"
+  }
+}
+```
+
 ### Documents (Data Tab)
 
 | Method | Endpoint                     | Description                   |
@@ -1539,6 +1582,85 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 }
 ```
 
+### Document Processing
+
+| Method | Endpoint                                       | Auth    | Permission         | Description                          |
+| ------ | ---------------------------------------------- | ------- | ------------------ | ------------------------------------ |
+| POST   | `/api/v1/external/document/extract`            | API Key | `document:extract` | Pure text extraction (OCR if needed) |
+| POST   | `/api/v1/external/document/analyze`            | API Key | `document:analyze` | Extract text + LLM analysis          |
+| POST   | `/api/v1/external/document/extract-structured` | API Key | `document:extract` | Extract + structured JSON output     |
+
+All endpoints accept `multipart/form-data` with a `file` field.
+
+Supported file types: PDF, DOCX, TXT, MD, YAML, PNG, JPG, TIFF, BMP (max 50 MB).
+
+**POST /api/v1/external/document/extract:**
+
+Request: `multipart/form-data` with `file` field only.
+
+```json
+// Response:
+{
+  "success": true,
+  "text": "Extracted document text...",
+  "filename": "invoice.pdf",
+  "char_count": 4521,
+  "metadata": { "ocr_used": true, "language": "deu" },
+  "processing_time_ms": 1234
+}
+```
+
+**POST /api/v1/external/document/analyze:**
+
+| Field             | Type   | Required | Description                            |
+| ----------------- | ------ | -------- | -------------------------------------- |
+| `file`            | File   | Yes      | Document to analyze                    |
+| `prompt`          | string | No       | Analysis prompt (default: summarize)   |
+| `model`           | string | No       | Model to use (default: system default) |
+| `temperature`     | string | No       | Sampling temperature (default: "0.7")  |
+| `max_tokens`      | string | No       | Max tokens (default: "4096")           |
+| `timeout_seconds` | string | No       | Max wait time (default: "300")         |
+
+```json
+// Response:
+{
+  "success": true,
+  "response": "AI analysis of the document...",
+  "extracted_text": "Raw extracted text...",
+  "filename": "invoice.pdf",
+  "model": "qwen3:14b-q8",
+  "processing_time_ms": 5678
+}
+```
+
+**POST /api/v1/external/document/extract-structured:**
+
+| Field             | Type   | Required | Description                           |
+| ----------------- | ------ | -------- | ------------------------------------- |
+| `file`            | File   | Yes      | Document to extract from              |
+| `schema`          | string | Yes      | JSON schema describing desired output |
+| `instructions`    | string | No       | Additional extraction instructions    |
+| `model`           | string | No       | Model to use                          |
+| `timeout_seconds` | string | No       | Max wait time (default: "300")        |
+
+```json
+// Response:
+{
+  "success": true,
+  "data": {
+    "invoice_number": "RE-2026-0412",
+    "date": "2026-04-01",
+    "vendor": "Muster GmbH",
+    "total_gross": 1190.0
+  },
+  "raw_response": "{ ... LLM raw text ... }",
+  "extracted_text": "Raw extracted text...",
+  "filename": "invoice.pdf",
+  "model": "qwen3:14b-q8",
+  "processing_time_ms": 8901
+}
+```
+
 ### API Key Management
 
 | Method | Endpoint                           | Auth | Description        |
@@ -1554,7 +1676,7 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
   "name": "n8n-integration",
   "description": "API key for n8n workflows",
   "rate_limit_per_minute": 60,
-  "allowed_endpoints": ["llm:chat", "llm:status"],
+  "allowed_endpoints": ["llm:chat", "llm:status", "document:extract", "document:analyze"],
   "expires_at": "2025-12-31T23:59:59Z"
 }
 ```

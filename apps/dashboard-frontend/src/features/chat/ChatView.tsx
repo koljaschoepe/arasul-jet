@@ -85,7 +85,8 @@ export default function ChatView() {
     }
 
     registerMessageCallback(chatId, { setMessages, setIsLoading, setError });
-    clearBackgroundState(chatId);
+    // Don't clear background state yet — wait until DB messages are loaded
+    // This prevents losing streaming content if DB hasn't persisted yet
 
     const init = async () => {
       try {
@@ -108,9 +109,35 @@ export default function ChatView() {
         setTitle(chatData.chat.title || '');
         setCurrentProject(chatData.project || null);
         setChatSettings(chatData.chat.settings || null);
-        setMessages(msgResult.messages);
+
+        // Merge strategy: prefer DB messages, but keep background content if DB is stale
+        // This handles the case where completeJob() hasn't finished yet
+        if (bgMessages && bgMessages.length > 0) {
+          const lastBgAssistant = [...bgMessages].reverse().find(m => m.role === 'assistant');
+          const lastDbAssistant = [...msgResult.messages]
+            .reverse()
+            .find(m => m.role === 'assistant');
+          const bgHasContent =
+            lastBgAssistant && (lastBgAssistant.content || lastBgAssistant.thinking);
+          const dbHasContent =
+            lastDbAssistant && (lastDbAssistant.content || lastDbAssistant.thinking);
+
+          if (bgHasContent && !dbHasContent) {
+            // Background has content but DB doesn't yet — keep background messages
+            // DB-SYNC will eventually update from the inline recovery
+            setMessages(bgMessages);
+          } else {
+            setMessages(msgResult.messages);
+          }
+        } else {
+          setMessages(msgResult.messages);
+        }
+
         setHasMoreMessages(msgResult.hasMore);
         setLoadingMessages(false);
+
+        // Now safe to clear background state
+        clearBackgroundState(chatId);
 
         if (activeJob) {
           setIsLoading(true);

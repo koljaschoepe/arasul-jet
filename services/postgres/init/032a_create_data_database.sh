@@ -7,24 +7,34 @@ set -e
 # Variables from environment (set in docker-compose)
 DATA_DB_NAME="${ARASUL_DATA_DB_NAME:-arasul_data_db}"
 DATA_DB_USER="${ARASUL_DATA_DB_USER:-arasul_data}"
-DATA_DB_PASSWORD="${ARASUL_DATA_DB_PASSWORD:-$POSTGRES_PASSWORD}"
+
+# Prefer Docker secret file for password (same source as dashboard-backend)
+if [ -f "/run/secrets/postgres_password" ]; then
+    DATA_DB_PASSWORD="$(cat /run/secrets/postgres_password | tr -d '[:space:]')"
+elif [ -n "$ARASUL_DATA_DB_PASSWORD" ]; then
+    DATA_DB_PASSWORD="$ARASUL_DATA_DB_PASSWORD"
+else
+    DATA_DB_PASSWORD="$POSTGRES_PASSWORD"
+fi
 
 echo "=== Creating Datentabellen Database ==="
 echo "Database: $DATA_DB_NAME"
 echo "User: $DATA_DB_USER"
 
-# Create user if not exists
+# Create user if not exists, always sync password
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     DO \$\$
     BEGIN
         IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$DATA_DB_USER') THEN
             CREATE ROLE $DATA_DB_USER WITH LOGIN PASSWORD '$DATA_DB_PASSWORD';
+        ELSE
+            ALTER ROLE $DATA_DB_USER WITH PASSWORD '$DATA_DB_PASSWORD';
         END IF;
     END
     \$\$;
 EOSQL
 
-echo "User $DATA_DB_USER created/verified"
+echo "User $DATA_DB_USER created/password synced"
 
 # Check if database exists
 DB_EXISTS=$(psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -tAc "SELECT 1 FROM pg_database WHERE datname='$DATA_DB_NAME'" || echo "0")

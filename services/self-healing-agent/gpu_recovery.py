@@ -43,10 +43,10 @@ class GPURecovery:
         self.metrics_url = f"http://{os.getenv('METRICS_COLLECTOR_HOST', 'metrics-collector')}:9100"
         self.last_gpu_stats = None
 
-        # Thresholds (matching GPU Monitor - percentage-based for device-agnostic support)
-        self.TEMP_WARNING = 83.0
-        self.TEMP_CRITICAL = 85.0
-        self.TEMP_SHUTDOWN = 90.0
+        # Thresholds from central config (matching GPU Monitor)
+        self.TEMP_WARNING = float(os.getenv('TEMP_THROTTLE_THRESHOLD', '83'))
+        self.TEMP_CRITICAL = float(os.getenv('TEMP_RESTART_THRESHOLD', '85'))
+        self.TEMP_SHUTDOWN = float(os.getenv('TEMP_SHUTDOWN_THRESHOLD', '90'))
         self.MEMORY_WARNING_PERCENT = float(os.getenv('GPU_MEMORY_WARNING_PERCENT', '85'))
         self.MEMORY_CRITICAL_PERCENT = float(os.getenv('GPU_MEMORY_CRITICAL_PERCENT', '92'))
         self.MEMORY_MAX_PERCENT = float(os.getenv('GPU_MEMORY_MAX_PERCENT', '97'))

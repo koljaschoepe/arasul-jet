@@ -325,6 +325,23 @@ class TelegramWebSocketService {
       wsServerClients: this.wss ? this.wss.clients.size : 0,
     };
   }
+
+  /**
+   * Graceful shutdown — clear heartbeat interval and close all connections
+   */
+  shutdown() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    if (this.wss) {
+      this.wss.clients.forEach(ws => ws.terminate());
+      this.wss.close();
+    }
+    this.clients.clear();
+    this.initialized = false;
+    logger.info('TelegramWebSocketService shut down');
+  }
 }
 
 // =============================================================================
@@ -1018,3 +1035,4 @@ module.exports.getClientCount = token => webSocketService.getClientCount(token);
 module.exports.getStats = () => webSocketService.getStats();
 module.exports.subscribeClient = (ws, token) => webSocketService.subscribeClient(ws, token);
 module.exports.unsubscribeClient = ws => webSocketService.unsubscribeClient(ws);
+module.exports.shutdown = () => webSocketService.shutdown();

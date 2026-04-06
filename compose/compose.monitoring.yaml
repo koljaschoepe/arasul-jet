@@ -31,8 +31,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      METRICS_INTERVAL_LIVE: ${METRICS_INTERVAL_LIVE}
-      METRICS_INTERVAL_PERSIST: ${METRICS_INTERVAL_PERSIST}
+      METRICS_INTERVAL_LIVE: ${METRICS_INTERVAL_LIVE:-5}
+      METRICS_INTERVAL_PERSIST: ${METRICS_INTERVAL_PERSIST:-60}
       LOG_LEVEL: ${LOG_LEVEL}
     volumes:
       - /sys:/host/sys:ro
@@ -132,7 +132,7 @@ services:
       dockerfile: Dockerfile
     container_name: backup-service
     hostname: backup-service
-    restart: unless-stopped
+    restart: always # RELIABILITY-FIX: was unless-stopped — ensures backups resume after crash
     networks:
       - arasul-backend
       - arasul-monitoring

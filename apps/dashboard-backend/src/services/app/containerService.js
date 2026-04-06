@@ -10,7 +10,7 @@ const { docker } = require('../core/docker');
 
 // Docker Compose prefixes network names with project name
 // The project name is derived from the directory name: arasul-jet
-const NETWORK_NAME = process.env.DOCKER_NETWORK || 'arasul-jet_arasul-backend';
+const NETWORK_NAME = process.env.DOCKER_NETWORK || 'arasul-platform_arasul-backend';
 
 /**
  * Validate app ID format to prevent container name injection.

@@ -16,6 +16,7 @@ import React, {
 } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { getCsrfToken } from '../utils/csrf';
+import { getTokenExpiration } from '../utils/token';
 
 interface User {
   id: number;
@@ -144,6 +145,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const setLoadingComplete = useCallback(() => {
     setLoading(false);
   }, []);
+
+  // Token expiration warning — check every 60s, warn 5 min before expiry
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let warningShown = false;
+    const checkExpiration = () => {
+      const exp = getTokenExpiration();
+      if (!exp) return;
+
+      const remaining = exp.getTime() - Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+
+      if (remaining <= 0) {
+        logout();
+      } else if (remaining < fiveMinutes && !warningShown) {
+        warningShown = true;
+        // Dispatch custom event — ToastContext picks it up without circular import
+        window.dispatchEvent(
+          new CustomEvent('arasul:token-expiring', {
+            detail: { minutesLeft: Math.ceil(remaining / 60000) },
+          })
+        );
+      }
+    };
+
+    checkExpiration();
+    const interval = setInterval(checkExpiration, 60000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, logout]);
 
   const value = useMemo(
     () => ({

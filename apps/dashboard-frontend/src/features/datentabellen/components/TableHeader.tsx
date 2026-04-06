@@ -1,4 +1,4 @@
-import { memo, type RefObject } from 'react';
+import { memo, useState, useRef, useEffect, useCallback, type RefObject } from 'react';
 import { ChevronUp, ChevronDown, MoreVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -7,8 +7,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/shadcn/tooltip';
+import { useApi } from '@/hooks/useApi';
 import type { Field } from '../types';
-import { FIELD_LABELS } from '../utils';
+import { FIELD_LABELS, columnNameInputCls } from '../utils';
 import InlineColumnCreator from './InlineColumnCreator';
 
 interface TableHeaderProps {
@@ -24,6 +25,102 @@ interface TableHeaderProps {
   onColumnMenuOpen: (field: Field, rect: DOMRect) => void;
   onColumnAdded: () => void;
   onToggleSelectAll: () => void;
+}
+
+/** Inline-editable column header cell */
+function EditableColumnName({
+  field,
+  tableSlug,
+  onSort,
+  sortField,
+  sortOrder,
+  onFieldUpdated,
+}: {
+  field: Field;
+  tableSlug: string;
+  onSort: (slug: string) => void;
+  sortField: string;
+  sortOrder: 'asc' | 'desc';
+  onFieldUpdated: () => void;
+}) {
+  const api = useApi();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(field.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  // Sync if field name changes externally
+  useEffect(() => {
+    setName(field.name);
+  }, [field.name]);
+
+  const save = useCallback(async () => {
+    const trimmed = name.trim();
+    setEditing(false);
+    if (!trimmed || trimmed === field.name) {
+      setName(field.name);
+      return;
+    }
+    try {
+      await api.patch(
+        `/v1/datentabellen/tables/${tableSlug}/fields/${field.slug}`,
+        { name: trimmed },
+        { showError: false }
+      );
+      onFieldUpdated();
+    } catch {
+      setName(field.name);
+    }
+  }, [name, field.name, field.slug, api, tableSlug, onFieldUpdated]);
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') {
+            setName(field.name);
+            setEditing(false);
+          }
+          e.stopPropagation();
+        }}
+        onBlur={save}
+        className={cn(
+          columnNameInputCls,
+          'w-full !py-0 !px-0 !border-0 !bg-transparent !text-xs !font-medium'
+        )}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="flex items-center gap-1.5 text-xs font-medium text-foreground cursor-pointer leading-tight hover:text-primary truncate flex-1 min-w-0"
+      onClick={() => onSort(field.slug)}
+      onDoubleClick={e => {
+        e.stopPropagation();
+        setEditing(true);
+      }}
+      title="Doppelklick zum Umbenennen"
+    >
+      <span className="truncate">{field.name}</span>
+      {sortField === field.slug &&
+        (sortOrder === 'asc' ? (
+          <ChevronUp className="size-3 shrink-0" />
+        ) : (
+          <ChevronDown className="size-3 shrink-0" />
+        ))}
+    </div>
+  );
 }
 
 const TableHeader = memo(function TableHeader({
@@ -66,17 +163,15 @@ const TableHeader = memo(function TableHeader({
               >
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div
-                      className="flex items-center gap-1.5 text-xs font-medium text-foreground cursor-pointer leading-tight hover:text-primary truncate flex-1 min-w-0"
-                      onClick={() => onSort(field.slug)}
-                    >
-                      <span className="truncate">{field.name}</span>
-                      {sortField === field.slug &&
-                        (sortOrder === 'asc' ? (
-                          <ChevronUp className="size-3 shrink-0" />
-                        ) : (
-                          <ChevronDown className="size-3 shrink-0" />
-                        ))}
+                    <div className="flex-1 min-w-0">
+                      <EditableColumnName
+                        field={field}
+                        tableSlug={tableSlug}
+                        onSort={onSort}
+                        sortField={sortField}
+                        sortOrder={sortOrder}
+                        onFieldUpdated={onColumnAdded}
+                      />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">

@@ -25,6 +25,7 @@ router.use('/auth', require('./auth'));
 router.use('/chats', require('./chats'));
 router.use('/projects', require('./projects'));
 router.use('/documents', require('./documents'));
+router.use('/document-analysis', require('./documentAnalysis'));
 router.use('/llm', llmLimiter, require('./llm'));
 router.use('/rag', require('./rag'));
 router.use('/docs', require('./docs'));

@@ -66,6 +66,7 @@ const ClaudeCode = lazy(() => import('./features/claude/ClaudeCode'));
 const TelegramAppModal = lazy(() => import('./features/telegram/TelegramAppModal'));
 const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
+const ModelStatusBar = lazy(() => import('./features/dashboard/ModelStatusBar'));
 
 // ---- Type definitions ----
 
@@ -1097,6 +1098,11 @@ const DashboardHome = React.memo(function DashboardHome({
             )}
           </div>
         </div>
+
+        {/* Model Status Bar - 40% width */}
+        <Suspense fallback={<div className="dashboard-card" style={{ minHeight: 280 }} />}>
+          <ModelStatusBar />
+        </Suspense>
       </div>
     </>
   );

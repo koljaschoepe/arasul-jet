@@ -3,10 +3,11 @@
  * All internal service URLs defined in one place
  */
 
-// LLM Service (Ollama)
-const LLM_SERVICE_HOST = process.env.LLM_SERVICE_HOST || 'llm-service';
-const LLM_SERVICE_PORT = process.env.LLM_SERVICE_PORT || '11434';
-const LLM_MANAGEMENT_PORT = process.env.LLM_SERVICE_MANAGEMENT_PORT || '11436';
+// LLM Service (Ollama) — supports deprecated LLM_HOST/LLM_PORT for backward compat
+const LLM_SERVICE_HOST = process.env.LLM_SERVICE_HOST || process.env.LLM_HOST || 'llm-service';
+const LLM_SERVICE_PORT = process.env.LLM_SERVICE_PORT || process.env.LLM_PORT || '11434';
+const LLM_MANAGEMENT_PORT =
+  process.env.LLM_SERVICE_MANAGEMENT_PORT || process.env.LLM_MANAGEMENT_PORT || '11436';
 
 // Embedding Service
 const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service';

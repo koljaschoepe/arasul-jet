@@ -231,6 +231,7 @@ router.get(
         content: job.content || '',
         thinking: job.thinking || '',
         sources: job.sources,
+        matchedSpaces: job.matched_spaces,
         status: job.status,
         queuePosition: job.queue_position,
       })}\n\n`
@@ -348,6 +349,8 @@ router.get(
                 type: 'update',
                 content: currentJob.content || '',
                 thinking: currentJob.thinking || '',
+                sources: currentJob.sources,
+                matchedSpaces: currentJob.matched_spaces,
                 done: true,
                 status: 'completed',
               })}\n\n`

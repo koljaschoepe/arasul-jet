@@ -85,7 +85,9 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       const elapsed = Date.now() - lastDataTimeRef.current;
-      if (lastDataTimeRef.current > 0 && elapsed > 15000) {
+      // HEARTBEAT-FIX: Increased from 15s to 20s — server heartbeat is 15s,
+      // so 15s stale check races with heartbeat arrival
+      if (lastDataTimeRef.current > 0 && elapsed > 20000) {
         // Connection is stale - force close to trigger reconnect
         ws.close();
       }

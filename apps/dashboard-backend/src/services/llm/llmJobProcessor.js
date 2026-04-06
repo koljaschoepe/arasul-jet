@@ -1,3 +1,4 @@
+/* eslint-disable no-promise-executor-return */
 /**
  * LLM Job Processor
  * Handles the actual processing of chat and RAG jobs, including Ollama streaming.
@@ -130,7 +131,7 @@ async function processRAGJob(ctx, job) {
   const service = ctx.service;
 
   const { id: jobId, request_data: requestData, requested_model } = job;
-  const { query, context, thinking, sources, noRelevantDocs } = requestData;
+  const { query, context, thinking, sources, matchedSpaces, noRelevantDocs } = requestData;
   const enableThinking = thinking !== false;
 
   // German system prompt with citation rules (RAG 4.0: dual-mode)
@@ -189,9 +190,9 @@ ${ragRules}`;
 
   const prompt = `${ragSystemPrompt}\n\n${truncatedContext}\n\nFrage: ${query}`;
 
-  // Store sources in job (don't notify - rag.js already sent sources event)
-  if (sources) {
-    await llmJobService.updateJobContent(jobId, null, null, sources);
+  // Store sources and matched spaces in job (don't notify - rag.js already sent sources event)
+  if (sources || matchedSpaces) {
+    await llmJobService.updateJobContent(jobId, null, null, sources || null, matchedSpaces || null);
   }
 
   await streamFromOllama(
@@ -281,10 +282,13 @@ async function streamFromOllama(
       lastDbWrite = now;
 
       if (flushInProgress) {
-        // A flush is already running - merge into next queued flush
+        // A flush is already running - queue for next flush (atomic swap, no concat)
+        // RACE-FIX: Use atomic swap instead of concatenation to prevent data duplication
         if (flushQueued) {
-          flushQueued.content += contentToFlush;
-          flushQueued.thinking += thinkingToFlush;
+          flushQueued = {
+            content: flushQueued.content + contentToFlush,
+            thinking: flushQueued.thinking + thinkingToFlush,
+          };
         } else {
           flushQueued = { content: contentToFlush, thinking: thinkingToFlush };
         }
@@ -299,38 +303,53 @@ async function streamFromOllama(
 
   const runFlush = async (content, thinking) => {
     flushInProgress = true;
+    // RACE-FIX: Iterative loop instead of recursive calls to prevent stack overflow
+    // and ensure queued flushes are processed in order without deep promise chains
+    let currentContent = content;
+    let currentThinking = thinking;
     try {
-      // QUEUE-002: Retry logic for DB errors (2 attempts with backoff)
-      const maxRetries = 2;
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          await llmJobService.updateJobContent(jobId, content || null, thinking || null);
-          break; // Success, exit retry loop
-        } catch (dbError) {
-          if (attempt < maxRetries) {
-            logger.warn(
-              `DB write attempt ${attempt} failed for job ${jobId}, retrying in ${attempt * 100}ms: ${dbError.message}`
+      while (true) {
+        // QUEUE-002: Retry logic for DB errors (2 attempts with backoff)
+        const maxRetries = 2;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            await llmJobService.updateJobContent(
+              jobId,
+              currentContent || null,
+              currentThinking || null
             );
-            await new Promise(r => {
-              setTimeout(r, attempt * 100);
-            });
-          } else {
-            logger.error(
-              `Failed to flush content to DB for job ${jobId} after ${maxRetries} attempts: ${dbError.message}`
-            );
+            break; // Success, exit retry loop
+          } catch (dbError) {
+            if (attempt < maxRetries) {
+              logger.warn(
+                `DB write attempt ${attempt} failed for job ${jobId}, retrying in ${attempt * 100}ms: ${dbError.message}`
+              );
+              await new Promise(r => {
+                setTimeout(r, attempt * 100);
+              });
+            } else {
+              logger.error(
+                `Failed to flush content to DB for job ${jobId} after ${maxRetries} attempts: ${dbError.message}`
+              );
+            }
           }
+        }
+
+        // Check for queued flush (atomic swap)
+        if (flushQueued) {
+          const next = flushQueued;
+          flushQueued = null;
+          currentContent = next.content;
+          currentThinking = next.thinking;
+          // Continue loop to process queued flush
+        } else {
+          break; // No more queued flushes
         }
       }
     } catch (err) {
       logger.error(`Flush error for job ${jobId}: ${err.message}`);
     } finally {
       flushInProgress = false;
-      // Process queued flush if any
-      if (flushQueued) {
-        const next = flushQueued;
-        flushQueued = null;
-        lastFlushResult = runFlush(next.content, next.thinking);
-      }
     }
   };
 
@@ -362,12 +381,22 @@ async function streamFromOllama(
       ollamaOptions.num_ctx = numCtx;
     }
 
+    // Dynamic keep-alive from lifecycle service
+    let keepAlive;
+    try {
+      const modelLifecycleService = require('./modelLifecycleService');
+      const lifecycle = await modelLifecycleService.getCurrentKeepAlive();
+      keepAlive = lifecycle.keepAliveSeconds;
+    } catch {
+      keepAlive = parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300');
+    }
+
     const ollamaPayload = {
       model: ollamaName,
       prompt: prompt,
       stream: true,
       think: enableThinking,
-      keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),
+      keep_alive: keepAlive,
       options: ollamaOptions,
     };
 
@@ -377,44 +406,72 @@ async function streamFromOllama(
     }
 
     // Use native http.request instead of axios for streaming to avoid buffering issues
+    // RETRY-FIX: Retry transient failures (ECONNREFUSED, 500, 503) with exponential backoff
     const ollamaUrl = new URL(`${LLM_SERVICE_URL}/api/generate`);
-    responseStream = await new Promise((resolve, reject) => {
-      const payload = JSON.stringify(ollamaPayload);
-      const req = http.request(
-        {
-          hostname: ollamaUrl.hostname,
-          port: ollamaUrl.port,
-          path: ollamaUrl.pathname,
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(payload),
-          },
-          agent: ollamaAgent,
-          timeout: 600000,
-        },
-        res => {
-          if (res.statusCode !== 200) {
-            reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
-            return;
-          }
-          // Pause immediately to prevent data loss before handlers are registered
-          res.pause();
-          resolve(res);
+    const MAX_OLLAMA_RETRIES = 3;
+    for (let ollamaAttempt = 1; ollamaAttempt <= MAX_OLLAMA_RETRIES; ollamaAttempt++) {
+      try {
+        responseStream = await new Promise((resolve, reject) => {
+          const payload = JSON.stringify(ollamaPayload);
+          const req = http.request(
+            {
+              hostname: ollamaUrl.hostname,
+              port: ollamaUrl.port,
+              path: ollamaUrl.pathname,
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+              },
+              agent: ollamaAgent,
+              timeout: 600000,
+            },
+            res => {
+              if (res.statusCode >= 500) {
+                reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
+                return;
+              }
+              if (res.statusCode !== 200) {
+                reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
+                return;
+              }
+              // Pause immediately to prevent data loss before handlers are registered
+              res.pause();
+              resolve(res);
+            }
+          );
+          req.on('error', reject);
+          req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Ollama request timeout'));
+          });
+          // Support abort via AbortController
+          abortController.signal.addEventListener('abort', () => req.destroy());
+          req.write(payload);
+          req.end();
+        });
+        break; // Success, exit retry loop
+      } catch (ollamaErr) {
+        const isRetryable =
+          ollamaErr.message.includes('ECONNREFUSED') ||
+          ollamaErr.message.includes('HTTP 500') ||
+          ollamaErr.message.includes('HTTP 502') ||
+          ollamaErr.message.includes('HTTP 503') ||
+          ollamaErr.message.includes('ECONNRESET');
+        if (isRetryable && ollamaAttempt < MAX_OLLAMA_RETRIES) {
+          const delay = ollamaAttempt * 2000; // 2s, 4s
+          logger.warn(
+            `[JOB ${jobId}] Ollama connection attempt ${ollamaAttempt}/${MAX_OLLAMA_RETRIES} failed: ${ollamaErr.message}, retrying in ${delay}ms`
+          );
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          throw ollamaErr;
         }
-      );
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Ollama request timeout'));
-      });
-      // Support abort via AbortController
-      abortController.signal.addEventListener('abort', () => req.destroy());
-      req.write(payload);
-      req.end();
-    });
+      }
+    } // end retry loop
     let buffer = '';
     let inThinkBlock = false;
+    let thinkingEndEmitted = false; // STREAM-002 FIX: Guard against double thinking_end emission
 
     // LEAK-001: Helper to clean up stream listeners and destroy stream
     let streamHeartbeat = null; // Forward declaration for cleanup
@@ -432,10 +489,10 @@ async function streamFromOllama(
       }
     };
 
-    // TIMEOUT-001: Inactivity timeout (5 minutes)
-    // If no data received for 5 minutes, abort the stream to prevent deadlock
-    // Increased from 2min to 5min: think mode on Jetson can pause 2-3min between blocks
-    const INACTIVITY_TIMEOUT_MS = 300000; // 5 minutes
+    // TIMEOUT-001: Inactivity timeout (10 minutes)
+    // If no data received for this period, abort the stream to prevent deadlock
+    // 10min: think mode on Jetson can pause 2-3min between blocks, large models need more headroom
+    const INACTIVITY_TIMEOUT_MS = parseInt(process.env.LLM_INACTIVITY_TIMEOUT_MS, 10) || 600000; // 10 minutes
     let inactivityTimer = null;
 
     const resetInactivityTimer = () => {
@@ -507,7 +564,7 @@ async function streamFromOllama(
                   inThinkBlock = true;
                 }
                 thinkingBuffer += data.thinking;
-                service.notifySubscribers(jobId, { type: 'thinking', token: data.thinking });
+                service.notifySubscribersBatched(jobId, { type: 'thinking', token: data.thinking });
                 flushToDatabase();
               }
 
@@ -521,7 +578,7 @@ async function streamFromOllama(
                   service.notifySubscribers(jobId, { type: 'thinking_end' });
                 }
                 contentBuffer += data.response;
-                service.notifySubscribers(jobId, { type: 'response', token: data.response });
+                service.notifySubscribersBatched(jobId, { type: 'response', token: data.response });
                 flushToDatabase();
               }
 
@@ -545,7 +602,25 @@ async function streamFromOllama(
                 clearInactivityTimer();
                 cleanupStream(); // LEAK-001: Remove listeners and destroy stream
                 await flushToDatabase(true);
-                await llmJobService.completeJob(jobId);
+                let persistenceSuccess = false;
+                try {
+                  persistenceSuccess = await llmJobService.completeJob(jobId);
+                } catch (completeErr) {
+                  logger.error(
+                    `[JOB ${jobId}] completeJob failed after stream done ` +
+                      `(tokens: ${tokenCount}, duration: ${totalDuration}ms): ${completeErr.message}`
+                  );
+                  // Retry once more after 2 seconds
+                  try {
+                    await new Promise(r => setTimeout(r, 2000));
+                    persistenceSuccess = await llmJobService.completeJob(jobId);
+                    logger.info(`[JOB ${jobId}] completeJob retry in processor succeeded`);
+                  } catch (retryErr) {
+                    logger.error(
+                      `[JOB ${jobId}] completeJob processor retry also failed: ${retryErr.message}`
+                    );
+                  }
+                }
 
                 // Context Management: Store token counts and context window in llm_jobs
                 if (promptTokens || completionTokens || numCtx) {
@@ -589,6 +664,7 @@ async function streamFromOllama(
 
                 service.notifySubscribers(jobId, {
                   done: true,
+                  persisted: persistenceSuccess,
                   model: data.model || catalogModelId || 'unknown',
                   jobId,
                   timestamp: new Date().toISOString(),
@@ -620,9 +696,10 @@ async function streamFromOllama(
           clearInactivityTimer();
           cleanupStream(); // LEAK-001: Remove listeners and destroy stream
 
-          // STREAM-002: Emit thinking_end on error if mid-think
-          if (inThinkBlock) {
+          // STREAM-002 FIX: Emit thinking_end on error if mid-think (guarded)
+          if (inThinkBlock && !thinkingEndEmitted) {
             inThinkBlock = false;
+            thinkingEndEmitted = true;
             service.notifySubscribers(jobId, { type: 'thinking_end' });
           }
 
@@ -645,9 +722,10 @@ async function streamFromOllama(
           clearInactivityTimer();
           cleanupStream(); // LEAK-001: Remove listeners and destroy stream
 
-          // STREAM-002: If stream ends mid-thinking, emit thinking_end so frontend exits thinking state
-          if (inThinkBlock) {
+          // STREAM-002 FIX: If stream ends mid-thinking, emit thinking_end (guarded against double emission)
+          if (inThinkBlock && !thinkingEndEmitted) {
             inThinkBlock = false;
+            thinkingEndEmitted = true;
             service.notifySubscribers(jobId, { type: 'thinking_end' });
             logger.warn(`[QUEUE] Job ${jobId} stream ended mid-think block - emitted thinking_end`);
           }

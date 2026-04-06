@@ -264,9 +264,11 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         const decoder = new TextDecoder();
         let buffer = '';
 
-        // DL-FE-002: Inactivity timeout - abort if no data for 60 seconds
+        // DL-FE-002: Inactivity timeout - abort if no data for 5 minutes
+        // TIMEOUT-FIX: Increased from 60s to 300s — large models (70GB+) can take
+        // several minutes for Ollama to resolve the manifest before streaming begins
         let lastDataTime = Date.now();
-        const INACTIVITY_TIMEOUT_MS = 60000;
+        const INACTIVITY_TIMEOUT_MS = 300000;
         const inactivityCheck = setInterval(() => {
           if (Date.now() - lastDataTime > INACTIVITY_TIMEOUT_MS) {
             clearInterval(inactivityCheck);

@@ -31,8 +31,15 @@ import {
   Minus,
   FolderInput,
 } from 'lucide-react';
-import { TableBadge, StatusBadge, TableStatusBadge, CategoryBadge, SpaceBadge } from './Badges';
-import MarkdownEditor from '../../components/editor/MarkdownEditor';
+import {
+  TableBadge,
+  StatusBadge,
+  TableStatusBadge,
+  IndexStatusBadge,
+  CategoryBadge,
+  SpaceBadge,
+} from './Badges';
+import TipTapEditor from '../../components/editor/tiptap/TipTapEditor';
 import CreateDocumentDialog from '../../components/editor/CreateDocumentDialog';
 import ExcelEditor from '../datentabellen/ExcelEditor';
 import SpaceModal from './SpaceModal';
@@ -706,29 +713,29 @@ function DocumentManager() {
         >
           <div
             className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
-            aria-label={`${(statistics?.total_documents || 0) + (statistics?.table_count || 0)} Einträge insgesamt`}
+            aria-label={`${statistics?.total_documents || 0} Dokumente`}
           >
             <Database className="text-3xl text-primary opacity-80 shrink-0" aria-hidden="true" />
             <div>
               <span className="dm-stat-value text-2xl font-bold text-foreground block">
-                {(statistics?.total_documents || 0) + (statistics?.table_count || 0)}
+                {statistics?.total_documents || 0}
               </span>
               <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                Gesamt{activeSpaceId || statusFilter || categoryFilter ? ' (gefiltert)' : ''}
+                Dokumente{activeSpaceId || statusFilter || categoryFilter ? ' (gefiltert)' : ''}
               </span>
             </div>
           </div>
           <div
             className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
-            aria-label={`${statistics?.indexed_documents || 0} Dokumente indexiert`}
+            aria-label={`${statistics?.total_chunks || 0} indexierte Chunks`}
           >
             <Check className="text-3xl text-primary opacity-80 shrink-0" aria-hidden="true" />
             <div>
               <span className="dm-stat-value text-2xl font-bold text-foreground block">
-                {statistics?.indexed_documents || 0}
+                {statistics?.total_chunks || 0}
               </span>
               <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                Indexiert
+                Indexierte Chunks
               </span>
             </div>
           </div>
@@ -1433,7 +1440,13 @@ function DocumentManager() {
                       />
                     </td>
                     <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      <TableStatusBadge status={table.status || 'active'} />
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <TableStatusBadge status={table.status || 'active'} />
+                        <IndexStatusBadge
+                          needsReindex={table.needs_reindex}
+                          lastIndexedAt={table.last_indexed_at}
+                        />
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-muted-foreground border-b border-border/50 text-sm">
                       <span>{table.field_count || 0} Spalten</span>
@@ -1914,7 +1927,7 @@ function DocumentManager() {
 
       {/* Markdown Editor */}
       {showEditor && editingDocument && (
-        <MarkdownEditor
+        <TipTapEditor
           documentId={editingDocument.id}
           filename={editingDocument.filename}
           onClose={handleEditorClose}

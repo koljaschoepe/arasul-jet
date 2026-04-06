@@ -244,6 +244,10 @@ router.get(
                 WHEN m.status = 'streaming' AND j.id IS NOT NULL THEN j.sources
                 ELSE m.sources
             END as sources,
+            CASE
+                WHEN m.status = 'streaming' AND j.id IS NOT NULL THEN j.matched_spaces
+                ELSE m.matched_spaces
+            END as matched_spaces,
             m.created_at,
             COALESCE(m.status, 'completed') as status,
             m.job_id,
@@ -260,6 +264,65 @@ router.get(
     // Reverse to get chronological order (we fetched DESC for cursor pagination)
     const messages = result.rows.reverse();
     const hasMore = result.rows.length === limit;
+
+    // Inline recovery: fix orphaned streaming messages on read
+    // If a message is stuck in 'streaming' but its job is completed/error/gone,
+    // recover content from the job or mark as error — prevents permanently invisible messages
+    const orphanedMessages = messages.filter(
+      m =>
+        m.status === 'streaming' &&
+        (!m.job_id ||
+          !m.job_status ||
+          m.job_status === 'completed' ||
+          m.job_status === 'error' ||
+          m.job_status === 'cancelled')
+    );
+
+    if (orphanedMessages.length > 0) {
+      for (const msg of orphanedMessages) {
+        try {
+          if (
+            msg.job_id &&
+            (msg.job_status === 'completed' ||
+              msg.job_status === 'error' ||
+              msg.job_status === 'cancelled')
+          ) {
+            // Job exists with terminal status — transfer content if available
+            const jobData = await db.query(
+              `SELECT content, thinking, sources, matched_spaces FROM llm_jobs WHERE id = $1`,
+              [msg.job_id]
+            );
+            if (jobData.rows.length > 0 && (jobData.rows[0].content || jobData.rows[0].thinking)) {
+              const j = jobData.rows[0];
+              await db.query(
+                `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
+                [j.content || '', j.thinking, j.sources, j.matched_spaces, msg.id]
+              );
+              // Update in-memory for this response
+              msg.content = j.content || '';
+              msg.thinking = j.thinking;
+              msg.sources = j.sources;
+              msg.matched_spaces = j.matched_spaces;
+              msg.status = 'completed';
+            } else {
+              // Job has no content — mark message as error
+              await db.query(`UPDATE chat_messages SET status = 'error' WHERE id = $1`, [msg.id]);
+              msg.status = 'error';
+            }
+          } else if (!msg.job_id || !msg.job_status) {
+            // No job at all — mark as error if older than 5 minutes
+            const msgAge = Date.now() - new Date(msg.created_at).getTime();
+            if (msgAge > 5 * 60 * 1000) {
+              await db.query(`UPDATE chat_messages SET status = 'error' WHERE id = $1`, [msg.id]);
+              msg.status = 'error';
+            }
+          }
+        } catch (recoveryErr) {
+          // Non-critical — log and continue
+          logger.warn(`Inline recovery failed for message ${msg.id}: ${recoveryErr.message}`);
+        }
+      }
+    }
 
     res.json({
       messages,
@@ -480,7 +543,7 @@ router.get(
 
     // Get all messages for the chat
     const messagesResult = await db.query(
-      `SELECT role, content, thinking, sources, created_at
+      `SELECT role, content, thinking, sources, matched_spaces, created_at
          FROM chat_messages
          WHERE conversation_id = $1
          ORDER BY created_at ASC`,
@@ -514,6 +577,15 @@ router.get(
         // Add content
         if (msg.content && msg.content.trim()) {
           markdown += `${msg.content}\n\n`;
+        }
+
+        // Add matched spaces if present
+        if (
+          msg.matched_spaces &&
+          Array.isArray(msg.matched_spaces) &&
+          msg.matched_spaces.length > 0
+        ) {
+          markdown += `**Durchsuchte Bereiche:** ${msg.matched_spaces.map(s => s.name).join(', ')}\n\n`;
         }
 
         // Add sources if present
@@ -554,6 +626,7 @@ router.get(
           content: msg.content,
           thinking: msg.thinking || null,
           sources: msg.sources || [],
+          matched_spaces: msg.matched_spaces || [],
           created_at: msg.created_at,
         })),
         export_info: {

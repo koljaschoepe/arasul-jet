@@ -396,9 +396,9 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       if (!tokenData.deepLink) throw new Error('Deep-Link konnte nicht generiert werden');
       setDeepLink(tokenData.deepLink);
 
-      // Always start polling as backup alongside WebSocket
-      // This ensures detection even if WebSocket drops silently
-      startPolling(token);
+      // PERF-FIX: Don't start polling alongside WebSocket — onerror/onclose handlers
+      // already start polling as fallback. Running both doubles backend load.
+      // Polling starts automatically when WebSocket fails or disconnects.
 
       timeoutRef.current = setTimeout(
         () => {

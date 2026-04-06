@@ -25,9 +25,16 @@ const { buildSetClauses } = require('../../utils/queryBuilder');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { generateSlug } = require('../../utils/slugGenerator');
 const { getEmbedding } = require('../../services/embeddingService');
+const axios = require('axios');
+const services = require('../../config/services');
 
 // Cache configuration
 const CACHE_KEY_SPACES = 'spaces:list';
+
+// Qdrant configuration for space-deletion vector sync
+const QDRANT_HOST = services.qdrant.host;
+const QDRANT_PORT = services.qdrant.port;
+const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
 const CACHE_TTL_SPACES = 30000; // 30 seconds
 
 /**
@@ -317,6 +324,31 @@ router.delete(
 
     logger.info(`Deleted knowledge space: ${id}, moved ${movedCount} documents`);
 
+    // QDRANT-SYNC: Update Qdrant payloads for documents moved from deleted space
+    if (movedCount > 0) {
+      const defaultResult = await pool.query(
+        'SELECT id, name, slug FROM knowledge_spaces WHERE is_default = TRUE'
+      );
+      const defaultSpace = defaultResult.rows[0];
+      try {
+        await axios.post(
+          `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/payload`,
+          {
+            payload: {
+              space_id: defaultSpace?.id || null,
+              space_name: defaultSpace?.name || '',
+              space_slug: defaultSpace?.slug || '',
+            },
+            filter: { must: [{ key: 'space_id', match: { value: id } }] },
+          },
+          { timeout: 15000 }
+        );
+        logger.info(`Updated Qdrant payloads for ${movedCount} docs from deleted space ${id}`);
+      } catch (e) {
+        logger.error(`Failed to update Qdrant payloads after space deletion ${id}: ${e.message}`);
+      }
+    }
+
     // Invalidate spaces cache
     cacheService.invalidate(CACHE_KEY_SPACES);
 
@@ -348,25 +380,39 @@ router.post(
       throw new NotFoundError('Wissensbereich nicht gefunden');
     }
 
-    // Update status to indicate regeneration is pending
+    // Reset indexing status for all documents in this space so the
+    // document-indexer will re-process them on its next polling cycle.
+    const resetResult = await pool.query(
+      `
+        UPDATE documents
+        SET indexing_status = 'pending',
+            content_hash = NULL
+        WHERE space_id = $1 AND indexing_status = 'completed'
+        RETURNING id
+      `,
+      [id]
+    );
+
+    // Mark space auto-generation as pending
     await pool.query(
       `
         UPDATE knowledge_spaces
         SET auto_generation_status = 'pending',
             auto_generation_error = NULL
         WHERE id = $1
-    `,
+      `,
       [id]
     );
 
-    // TODO: In Phase 3, this will trigger the actual context generator
-    // For now, just mark as pending and return
-
-    logger.info(`Regeneration requested for space: ${id}`);
+    const docCount = resetResult.rows.length;
+    logger.info(
+      `Regeneration requested for space ${id}: ${docCount} documents queued for re-indexing`
+    );
 
     res.json({
       status: 'queued',
-      message: 'Kontextgenerierung wurde eingeplant',
+      documents_queued: docCount,
+      message: `${docCount} Dokument(e) werden neu indexiert`,
       timestamp: new Date().toISOString(),
     });
   })

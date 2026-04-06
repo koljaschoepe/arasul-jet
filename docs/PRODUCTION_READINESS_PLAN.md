@@ -1,274 +1,368 @@
-# Production Readiness Plan - Arasul Platform
+# Arasul Production Readiness Plan
 
-> Ergebnis einer umfassenden Codebase-Analyse (15 parallele Audits) am 30.03.2026.
-> Ziel: Erstes Deployment auf Jetson AGX Thor und Auslieferung an Kunden.
-
----
-
-## Zusammenfassung
-
-| Severity | Anzahl | Status                               |
-| -------- | ------ | ------------------------------------ |
-| CRITICAL | 38     | Muss vor Deployment behoben werden   |
-| HIGH     | 52     | Sollte vor Deployment behoben werden |
-| MEDIUM   | 67     | Nächste Iteration                    |
-| LOW      | 41     | Backlog                              |
+**Erstellt:** 2026-04-04
+**Methode:** Vollanalyse mit 10+ parallelen Agents - Frontend, Backend, Store, LLM-Pipeline, RAG, Datentabellen, Telegram, Docker/Infra, WebSocket/SSE, Auth/Security, N8N, DB-Migrationen
+**Scope:** Keine Architektur-Umbauten - nur Bugfixes, fehlende Verbindungen, und Blocker beseitigen
 
 ---
 
-## Phase 1: CRITICAL Fixes (Blocker vor Deployment)
+## Gesamtbewertung
 
-### 1.1 Security - Sofort beheben
+| Bereich               | Status            | Score |
+| --------------------- | ----------------- | ----- |
+| Frontend (React/TS)   | Sehr gut          | 90%   |
+| Backend (Express API) | Gut               | 80%   |
+| Store / App Install   | Gut mit Lücken    | 75%   |
+| LLM/Chat Pipeline     | Kritische Bugs    | 65%   |
+| Document/RAG          | Feature-Lücke     | 70%   |
+| Datentabellen         | Gut mit Lücken    | 80%   |
+| Telegram Bot          | Gut               | 80%   |
+| Docker/Infra          | Sehr gut          | 85%   |
+| WebSocket/SSE         | Sicherheitslücke  | 70%   |
+| Auth/Security         | Gut mit 1 Blocker | 80%   |
+| N8N Integration       | Gut               | 80%   |
+| DB-Migrationen        | 1 Blocker         | 85%   |
 
-| #   | Issue                             | Datei(en)                                                                           | Beschreibung                                                                                     |
-| --- | --------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| S1  | Setup: Minimaler Kundenzugang     | `interactive_setup.sh`                                                              | Setup fragt Benutzername + Passwort (min 4 Zeichen) ab, keine Auto-Generierung. Später änderbar. |
-| S2  | Bot-Token in Logs                 | `telegramBotService.js:28-43`, `telegramIngressService.js:1376,1390`, `bots.js:364` | Telegram Bot-Tokens werden in Error-Logs via fetch-URLs geleakt                                  |
-| S3  | Webhook-Secret nicht timing-safe  | `bots.js:77-85`                                                                     | String-Vergleich statt `crypto.timingSafeEqual()` - Timing-Attack-Vektor                         |
-| S4  | MinIO Root-Credentials in Prozess | `routes/documents.js:107-108`                                                       | Root-Credentials im Klartext in process.env, keine STS/temporary Credentials                     |
-| S5  | CORS-Check zu permissiv           | `index.js:85-110`                                                                   | `origin.includes('://10.')` matcht auch `https://attacker-10.example.com`                        |
-| S6  | Self-Healing Sudoers              | `self-healing-agent/Dockerfile:32-33`                                               | Passwordless sudo für reboot ohne zusätzliche Autorisierung                                      |
-
-**Geschätzter Aufwand: 1-2 Tage**
-
-### 1.2 Bootstrap & Setup - Deployment-Blocker
-
-| #   | Issue                         | Datei(en)                      | Beschreibung                                                                            |
-| --- | ----------------------------- | ------------------------------ | --------------------------------------------------------------------------------------- | ---------------- | --------------------------- | --- | ---------------------------------------- |
-| B1  | MinIO-Init nicht geprüft      | `arasul:1345`                  | `init_minio_buckets` Return-Status nicht geprüft - Bootstrap meldet Erfolg trotz Fehler |
-| B2  | Service-Startup `             |                                | true`                                                                                   | `arasul:858-860` | `wait_for_healthy minio ... |     | true` verschluckt Fehler bei MinIO-Start |
-| B3  | .env nicht idempotent         | `interactive_setup.sh:310-327` | Re-run nach Fehler generiert neue Passwörter, DB-Credentials passen nicht mehr          |
-| B4  | DB-Init Race Condition        | `arasul:570-588`               | 60s Timeout für PostgreSQL-Init kann auf Thor zu kurz sein (56 Migrations)              |
-| B5  | Docker Compose Inkonsistenz   | `arasul:832-833`               | Systemd-Timer nutzt `/usr/bin/docker compose` statt Plugin-kompatiblen Pfad             |
-| B6  | pgcrypto Extension fehlt      | DB-Init                        | `gen_salt()`/`crypt()` aus TROUBLESHOOTING.md funktionieren nicht                       |
-| B7  | WAL-Archive Verzeichnis fehlt | `postgresql.conf:15`           | `archive_command` referenziert `/backups/wal/` - nicht gemountet in Docker              |
-
-**Geschätzter Aufwand: 2-3 Tage**
-
-### 1.3 Backend - Kritische Bugs
-
-| #   | Issue                          | Datei(en)                             | Beschreibung                                                                             |
-| --- | ------------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------------- |
-| BE1 | Stream Resource Leak           | `llmJobProcessor.js:313-376`          | HTTP-Stream-Objekte leaken bei Ollama-Verbindungsfehlern                                 |
-| BE2 | LLM Queue Race Condition       | `llmQueueService.js:295-296`          | Boolean-Flag `isProcessing` statt atomarer Job-ID-Vergleich - parallele GPU-Jobs möglich |
-| BE3 | Promise-Chain Memory Leak      | `llmJobProcessor.js:254-309`          | Flush-Promise-Chain wächst unbegrenzt (~50MB pro 10-min Stream)                          |
-| BE4 | Unhandled Rejection in Polling | `telegramIngressService.js:1598-1616` | `setInterval` mit async ohne try-catch - crasht bei DB-Ausfall                           |
-| BE5 | Unbounded Map Growth           | `llmQueueService.js:69-72`            | `jobSubscribers` Map wächst unbegrenzt unter Burst-Traffic                               |
-| BE6 | Ollama Agent nicht destroyed   | `llmJobProcessor.js:16-21`            | HTTP-Agent mit keepAlive wird bei Shutdown nie geschlossen                               |
-| BE7 | SSE Memory Leak                | `sseHelper.js:26-52`                  | Event-Listener werden nach Auslösung nicht entfernt                                      |
-| BE8 | Auth Cache FIFO statt TTL      | `auth.js:110-113`                     | Naive FIFO-Eviction kann deaktivierte User im Cache halten                               |
-
-**Geschätzter Aufwand: 3-4 Tage**
-
-### 1.4 Python Services - Kritische Bugs
-
-| #   | Issue                       | Datei(en)                       | Beschreibung                                                     |
-| --- | --------------------------- | ------------------------------- | ---------------------------------------------------------------- |
-| PY1 | DB-Pool nicht geschlossen   | `graph_refiner.py:57-65`        | `SimpleConnectionPool.closeall()` wird nie aufgerufen            |
-| PY2 | Cursor ohne Context Manager | `healing_engine.py:188-215`     | `cursor.close()` nicht in finally-Block - Leak bei Exceptions    |
-| PY3 | Hardcoded DB-Password       | `graph_refiner.py:40-46`        | Default-Password `'arasul'` im Code statt secret resolution      |
-| PY4 | Model-Name erlaubt Pfade    | `llm-service/api_server.py:199` | Regex erlaubt `/` - Pfadtraversal möglich (`../../system-model`) |
-
-**Geschätzter Aufwand: 1-2 Tage**
-
-### 1.5 Infrastructure - Deployment-Blocker
-
-| #   | Issue                            | Datei(en)               | Beschreibung                                                              |
-| --- | -------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| I1  | Fehlende CPU-Limits              | 8 Services in compose   | dashboard-frontend, n8n, metrics-collector, etc. ohne CPU-Limits          |
-| I2  | PostgreSQL zu klein konfiguriert | `postgresql.conf:19-35` | `shared_buffers=1GB` bei 32-128GB RAM - massive Unternutzung              |
-| I3  | Traefik Healthcheck wget         | `compose.core.yaml:152` | `wget` möglicherweise nicht im Alpine-Image                               |
-| I4  | Embedding Start-Period zu kurz   | `compose.ai.yaml:143`   | 300s kann für BGE-M3 auf ARM64 zu knapp sein                              |
-| I5  | --destructive CSS-Farbe          | `index.css:134`         | `--destructive: #F0F4F8` ist hellgrau statt rot - Error-States unsichtbar |
-
-**Geschätzter Aufwand: 1 Tag**
-
-### 1.6 Datenbank - Kritische Schema-Issues
-
-| #   | Issue                         | Datei(en)                                 | Beschreibung                                                |
-| --- | ----------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
-| DB1 | Non-idempotentes Insert       | `004_update_schema.sql:174`               | `ON CONFLICT DO NOTHING` ohne Constraint-Spezifikation      |
-| DB2 | Destructive DROP ohne Backup  | `032_telegram_multi_bot_schema.sql:21-24` | `DROP TABLE IF EXISTS` löscht Daten bei Re-Run              |
-| DB3 | Fehlende GRANTs               | Migration 030, 031, 041                   | Tables ohne `GRANT` für `arasul` User - Permission Denied   |
-| DB4 | Orphaned telegram_bot_configs | Migration 032                             | Alte Tabelle nicht gelöscht nach Migration zu telegram_bots |
-
-**Geschätzter Aufwand: 1-2 Tage**
+**Gesamt: ~78% Production Ready** - 8 kritische Fixes nötig, danach solide 90%+
 
 ---
 
-## Phase 2: HIGH Fixes (Sollte vor Deployment)
+## Phase 1: KRITISCHE BLOCKER (Muss vor Production)
 
-### 2.1 Backend Robustheit
+### 1.1 Migration 057 schlägt fehl - Spalte fehlt
 
-| #    | Issue                              | Datei(en)                        |
-| ---- | ---------------------------------- | -------------------------------- |
-| BH1  | Compaction-Log Silent Failure      | `compactionService.js:98-116`    |
-| BH2  | Container Inspect Race             | `containerService.js:134-152`    |
-| BH3  | Model Context Cache LRU fehlt      | `modelContextService.js:117-122` |
-| BH4  | Model Download ohne Transaction    | `modelService.js:62-82`          |
-| BH5  | Stall-Check Interval nicht cleared | `modelService.js:100-111`        |
-| BH6  | API Key Cache unbounded            | `apiKeyAuth.js:14-15`            |
-| BH7  | Rate Limiter Map Iteration Race    | `rateLimit.js:132-151`           |
-| BH8  | Audit Log Fire-and-Forget          | `audit.js:192-195`               |
-| BH9  | JWT Token Cache Race               | `jwt.js:91-158`                  |
-| BH10 | CSRF Rotation nicht atomar         | `csrf.js:103-106`                |
-| BH11 | Error Handler leakt Interna        | `errorHandler.js:102-107`        |
+- **Datei:** `services/postgres/init/057_model_lifecycle_views.sql:26-27`
+- **Problem:** `INSERT INTO schema_migrations (version, description)` referenziert Spalte `description`, die in der `schema_migrations`-Tabelle nicht existiert (definiert in Migration 000)
+- **Fix:** INSERT umschreiben auf existierende Spalten: `(version, filename, success)`
+- **Aufwand:** 5 Min
 
-**Geschätzter Aufwand: 3-4 Tage**
+### 1.2 Password-Change in Settings blacklistet Tokens nicht
 
-### 2.2 Frontend Qualität
+- **Datei:** `apps/dashboard-backend/src/routes/admin/settings.js:99-131`
+- **Problem:** `POST /api/settings/password/dashboard` ändert Passwort, ruft aber NICHT `blacklistAllUserTokens()` auf. Nach Passwort-Änderung bleiben alte Sessions gültig - Sicherheitslücke.
+- **Fix:** `await blacklistAllUserTokens(req.user.id)` nach Passwort-Update einfügen
+- **Aufwand:** 10 Min
 
-| #   | Issue                          | Datei(en)                                            |
-| --- | ------------------------------ | ---------------------------------------------------- |
-| FH1 | Extensive `any` Types          | ChatView, ChatMessage, DocumentManager, ChatContext  |
-| FH2 | Memory Leaks in Callbacks      | ChatContext messageCallbacksRef, abortControllersRef |
-| FH3 | Token Batching Race Condition  | ChatContext:813                                      |
-| FH4 | Missing Event Listener Cleanup | ChatInputArea:77-79                                  |
-| FH5 | Direct fetch() statt useApi()  | ChatContext:636, DownloadContext:103,145,230         |
-| FH6 | Missing useEffect Dependency   | ChatInputArea:66 (setSelectedModel)                  |
-| FH7 | ChatContext Monolith (940 LOC) | ChatContext.tsx - sollte gesplittet werden           |
-| FH8 | Reconnect Timeout zu kurz      | ChatContext:498 - 90s statt 300s für Model-Loading   |
+### 1.3 Telegram WebSocket ohne Authentifizierung
 
-**Geschätzter Aufwand: 3-4 Tage**
+- **Datei:** `config/traefik/dynamic/websockets.yml:30-39` + `apps/dashboard-backend/src/index.js:516-519`
+- **Problem:** `/api/telegram-app/ws` hat weder Traefik forward-auth noch Backend JWT-Prüfung. Jeder mit Netzwerkzugang kann sich verbinden und Setup-Tokens abfangen.
+- **Fix:** Forward-auth Middleware in websockets.yml hinzufügen ODER JWT-Verifikation im Backend-Upgrade-Handler (wie bei Metrics-WebSocket, index.js:485-515)
+- **Aufwand:** 30 Min
 
-### 2.3 Python Services
+### 1.4 Fehlender Batch-Move-Endpoint für Dokumente
 
-| #   | Issue                          | Datei(en)                                      |
-| --- | ------------------------------ | ---------------------------------------------- |
-| PH1 | GPU Memory Leak bei Exception  | `embedding_server.py:224-227`                  |
-| PH2 | Embedding Health Check fehlt   | `enhanced_indexer.py` - kein Check vor Nutzung |
-| PH3 | Pool nicht bei Shutdown closed | `collector.py:615`                             |
-| PH4 | Entity Merge Race Condition    | `graph_refiner.py:270-300`                     |
-| PH5 | Model Name Regex erlaubt `/`   | `api_server.py:199`                            |
-| PH6 | BM25 Rebuild ohne Pagination   | `api_server.py:567` - lädt alle Chunks in RAM  |
+- **Datei:** Frontend: `apps/dashboard-frontend/src/features/documents/DocumentManager.tsx:406-428`
+- **Problem:** Frontend ruft `POST /documents/batch/move` auf - dieser Endpoint existiert NICHT im Backend. Batch-Delete und Batch-Reindex existieren, aber Batch-Move fehlt. Silent fail wegen `showError: false`.
+- **Fix:** Neuen Endpoint in `apps/dashboard-backend/src/routes/documents.js` implementieren (analog zu batch/delete + Qdrant-Payload-Update)
+- **Aufwand:** 1-2 Std
 
-**Geschätzter Aufwand: 2-3 Tage**
+### 1.5 LLM Flush-Merging Race Condition - Datenverlust
 
-### 2.4 Setup & Telegram
+- **Datei:** `apps/dashboard-backend/src/services/llm/llmJobProcessor.js:283-290`
+- **Problem:** Schnelle aufeinanderfolgende Flushes werden unsicher konkateniert. Content kann dupliziert, abgeschnitten oder in falscher Reihenfolge ankommen.
+- **Fix:** Single-Buffer-Swap statt Concat: `flushQueued` durch atomaren Swap ersetzen, nicht kumulieren
+- **Aufwand:** 1 Std
 
-| #   | Issue                           | Datei(en)                                                      |
-| --- | ------------------------------- | -------------------------------------------------------------- |
-| SH1 | Tailscale ohne Offline-Fallback | `setup-tailscale.sh:80`                                        |
-| SH2 | Jetson-Detection Fallback-Loop  | `detect-jetson.sh:24-91`                                       |
-| SH3 | Hash-Generierung Silent Failure | `interactive_setup.sh:238-267`                                 |
-| SH4 | Webhook Secret Log-Order        | `bots.js:67-85` - Content geloggt vor Validierung              |
-| SH5 | Telegram API ohne Timeout       | `telegramIngressService.js:218-227` - fetch() ohne AbortSignal |
-| SH6 | Bot Deaktivierung incomplete    | `telegramBotService.js:487-502` - Webhook nicht gelöscht       |
+### 1.6 Doppelte thinking_end Emission - UI-Deadlock
 
-**Geschätzter Aufwand: 2-3 Tage**
+- **Datei:** `apps/dashboard-backend/src/services/llm/llmJobProcessor.js:641-644, 667-670`
+- **Problem:** Bei Stream-Error + Stream-End kann `thinking_end` zweimal emittiert werden. Frontend-State-Machine toleriert das nicht - Think-Block-Toggle wird unresponsive.
+- **Fix:** Guard-Variable `thinkingEndEmitted` einführen, die doppelte Emission verhindert
+- **Aufwand:** 15 Min
 
-### 2.5 Dokumentation & Config
+### 1.7 Traefik Dashboard Auth-Placeholder nicht gesetzt
 
-| #   | Issue                         | Datei(en)                                          |
-| --- | ----------------------------- | -------------------------------------------------- |
-| DC1 | 26+ undokumentierte Env-Vars  | ENVIRONMENT_VARIABLES.md                           |
-| DC2 | Variable Naming Inkonsistenz  | `LLM_HOST` vs `LLM_SERVICE_HOST` in Docs vs Code   |
-| DC3 | DATABASE_SCHEMA.md veraltet   | 15+ Tables nach Migration 030 nicht dokumentiert   |
-| DC4 | Nginx fehlt CSP-Header        | `nginx.conf`                                       |
-| DC5 | ARCHITECTURE.md Service-Count | Telegram-Bot Service in Docs aber nicht in Compose |
+- **Datei:** `config/traefik/dynamic/middlewares.yml:157-164`
+- **Problem:** `__BASIC_AUTH_HASH__` Placeholder nie ersetzt - Dashboard entweder offen oder kaputt
+- **Fix:** Echten bcrypt-Hash generieren und einsetzen, oder Dashboard-Route deaktivieren
+- **Aufwand:** 15 Min
 
-**Geschätzter Aufwand: 2 Tage**
+### 1.8 EventListenerService nicht initialisiert
+
+- **Datei:** `apps/dashboard-backend/src/index.js:256`
+- **Problem:** Service importiert aber nie gestartet. Docker-Events, Workflow-Events, Self-Healing-Events werden nie an WebSocket-Clients gebroadcastet.
+- **Fix:** `eventListenerService.start()` nach Server-Start aufrufen + `registerWsClient(ws)` im Connection-Handler
+- **Aufwand:** 30 Min
 
 ---
 
-## Phase 3: Code Cleanup & Quality (Nächste Iteration)
+## Phase 2: HOHE PRIORITÄT (Erste Woche)
 
-### 3.1 Dead Code entfernen (~15 min)
+### 2.1 Qdrant-Sync bei Dokument-Move
 
-| Datei                                           | Grund                                             | Status                       |
-| ----------------------------------------------- | ------------------------------------------------- | ---------------------------- |
-| `services/telegram/telegramVoiceService.js`     | Toter Shim - re-exportiert nur                    | ERLEDIGT (gelöscht)          |
-| `services/telegram/telegramRateLimitService.js` | Toter Shim - re-exportiert nur                    | ERLEDIGT (gelöscht)          |
-| `utils/fileLogger.js`                           | Nirgends importiert, Winston wird genutzt         | ERLEDIGT (gelöscht)          |
-| `components/ui/shadcn/form.tsx`                 | Nie importiert oder genutzt                       | ERLEDIGT (gelöscht)          |
-| `components/ui/shadcn/sonner.tsx`               | Nie importiert oder genutzt                       | ERLEDIGT (gelöscht)          |
-| `.gitignore` Update                             | `.env.backup.*` und `*.backup` Pattern hinzufügen | ERLEDIGT (bereits vorhanden) |
-| `@hookform/resolvers`                           | Frontend-Dependency entfernen (unused)            |                              |
+- **Datei:** `apps/dashboard-backend/src/routes/documents.js:766-790`
+- **Problem:** Document-Move aktualisiert PostgreSQL, aber Qdrant-Update ist non-critical try-catch ohne Retry. RAG-Queries finden verschobene Dokumente nicht im neuen Space.
+- **Fix:** Retry mit Exponential Backoff (3 Versuche), bei Fehlschlag `qdrant_sync_pending`-Flag setzen
+- **Aufwand:** 1 Std
 
-### 3.2 Dependency Updates
+### 2.2 Qdrant-Cleanup bei Space-Deletion
 
-| Package          | Aktuell     | Empfohlen      | Grund                       |
-| ---------------- | ----------- | -------------- | --------------------------- |
-| axios            | ^1.6.2      | ^1.8.0+        | 2 Jahre veraltet            |
-| psycopg2-binary  | 2.9.9       | >=2.9.10       | Bekannte CVEs               |
-| asyncio (Python) | 3.4.3       | ENTFERNEN      | Stdlib, unnötige Dependency |
-| multer           | 1.4.5-lts.1 | Evaluieren 2.x | Legacy LTS Branch           |
+- **Datei:** `apps/dashboard-backend/src/routes/ai/spaces.js:272-330`
+- **Problem:** Space löschen verschiebt Dokumente in PostgreSQL zu Default-Space, aber Qdrant-Payloads behalten alte `space_id`. Verwaiste Vektoren.
+- **Fix:** Nach DB-Move Qdrant-Payload-Update für alle betroffenen Chunks
+- **Aufwand:** 1 Std
 
-### 3.3 Test-Coverage erhöhen
+### 2.3 Qdrant-Verwaiste Vektoren bei Dokument-Delete
 
-**Untestete kritische Bereiche:**
+- **Datei:** `apps/dashboard-backend/src/routes/documents.js:596-625`
+- **Problem:** Qdrant-Delete hat 3 Retries, kann aber trotzdem fehlschlagen. Verwaiste Vektoren verbrauchen Speicher und verlangsamen Suche.
+- **Fix:** `qdrant_deleted=false` Flag + periodischer Cleanup-Job (z.B. in run_all_cleanups)
+- **Aufwand:** 2 Std
 
-- `datentabellen/` (rows, tables, quotes) - 0% Coverage
-- `ai/knowledge-graph.js` (535 LOC) - 0% Coverage
-- `telegram/bots.js`, `telegram/app.js` - 0% Coverage
-- 40+ Frontend-Komponenten ohne Tests
-- Coverage-Threshold von 30% auf 60%+ erhöhen
+### 2.4 AsyncMutex Race Condition
 
-### 3.4 Datenbank-Schema Bereinigung
+- **Datei:** `apps/dashboard-backend/src/services/llm/AsyncMutex.js:22-28`
+- **Problem:** Zwischen `_waiting.length` Check und `_locked = false` können neue Acquires die Queue umgehen. Jobs werden in falscher Reihenfolge verarbeitet.
+- **Fix:** Atomaren Zustandswechsel: `_locked` erst auf false setzen NACHDEM nächster Waiter gestartet
+- **Aufwand:** 30 Min
 
-- Duplicate Indexes konsolidieren (content_hash)
-- Orphaned Tables entfernen (telegram_bot_configs)
-- Fehlende FK-Indexes hinzufügen (app_configurations.app_id)
-- Cleanup-Functions batch-fähig machen (statt vollständiger Table-Lock)
-- Timestamp-Trigger vereinheitlichen
+### 2.5 Subscriber-Eviction nach Insertion Order statt Timestamp
 
----
+- **Datei:** `apps/dashboard-backend/src/services/llm/llmQueueService.js:268-275`
+- **Problem:** `keys().next().value` gibt Insertion-Order zurück, nicht ältesten Timestamp. Memory Leak bei Burst-Traffic.
+- **Fix:** Eviction anhand `jobSubscriberTimestamps` statt Map-Insertion-Order
+- **Aufwand:** 20 Min
 
-## Phase 4: Hardening & Optimierung (Post-Launch)
+### 2.6 N8N Webhook Secret nicht verpflichtend
 
-### 4.1 Infrastruktur
+- **Datei:** `apps/dashboard-backend/src/routes/external/events.js:224`
+- **Problem:** Wenn `N8N_WEBHOOK_SECRET` nicht gesetzt, werden ALLE Webhook-Requests ohne Validierung akzeptiert.
+- **Fix:** Secret als Required markieren oder Default-Secret generieren bei Bootstrap
+- **Aufwand:** 30 Min
 
-- Qdrant Backup-Pipeline einrichten
-- Docker Image Digest-Pinning
-- PostgreSQL-Config dynamisch basierend auf Hardware
-- GPU-Reservierungen für LLM/Embedding Services
-- Circuit-Breaker Pattern für externe Services
+### 2.7 Model-Activation: Fake Progress ersetzen
 
-### 4.2 Monitoring & Observability
+- **Datei:** `apps/dashboard-backend/src/routes/ai/models.js:420-439`
+- **Problem:** SSE-Progress bei Model-Activation ist simuliert (5% alle X ms). Stalls bei 95%, dann plötzlich 100%.
+- **Fix:** Echten Ollama-Loading-Status abfragen oder ehrliche "Indeterminate"-Anzeige
+- **Aufwand:** 1-2 Std
 
-- Structured JSON Logging in allen Python Services
-- Logger File-Rotation im Backend (aktuell nur Console)
-- Request-Correlation-IDs über Service-Grenzen
-- npm audit / pip-compile in CI/CD
+### 2.8 SSE Inactivity Timeout zu kurz für große Models
 
-### 4.3 Frontend-Architektur
+- **Dateien:** Frontend `DownloadContext.tsx:268-275`, Backend `models.js:301-352`
+- **Problem:** 60s Inactivity-Timeout. Bei großen Model-Manifests (70GB+) kann Ollama >60s für den Manifest-Download brauchen.
+- **Fix:** Timeout auf 300s erhöhen oder Heartbeat-basiertes Keep-Alive
+- **Aufwand:** 30 Min
 
-- ChatContext in 4 kleinere Contexts aufteilen
-- `any` Types durch proper Interfaces ersetzen
-- Accessibility (ARIA Labels, Keyboard Navigation)
-- Standardisierte Error-Messages
+### 2.9 Ollama-Retry bei transienten Fehlern
 
----
+- **Datei:** `apps/dashboard-backend/src/services/llm/llmJobProcessor.js:389-425`
+- **Problem:** Kein Retry bei HTTP 500/503/ECONNREFUSED. Ollama-Restart = sofortiges Job-Failure.
+- **Fix:** 3 Retries mit Exponential Backoff (2s, 4s, 8s) für transiente HTTP-Fehler
+- **Aufwand:** 1 Std
 
-## Implementierungsreihenfolge (Empfehlung)
+### 2.10 Backup-Service restart policy
 
-```
-Woche 1:  Phase 1.1 (Security) + Phase 1.2 (Bootstrap)
-Woche 2:  Phase 1.3 (Backend Bugs) + Phase 1.4 (Python Bugs)
-Woche 3:  Phase 1.5 (Infra) + Phase 1.6 (DB Schema) + Phase 3.1 (Cleanup)
-Woche 4:  Phase 2.1-2.2 (Backend/Frontend HIGH)
-Woche 5:  Phase 2.3-2.5 (Python/Setup/Docs HIGH)
-Woche 6:  Phase 3.2-3.4 (Dependencies, Tests, DB Cleanup)
-          + Erster Test-Deployment auf Jetson AGX Thor
-```
-
-**Gesamtschätzung: ~6 Wochen bei Vollzeit-Fokus**
+- **Datei:** `compose/compose.monitoring.yaml:135`
+- **Problem:** `restart: unless-stopped` statt `restart: always`. Bei Crash werden Backups nicht mehr ausgeführt.
+- **Fix:** Auf `restart: always` ändern
+- **Aufwand:** 5 Min
 
 ---
 
-## Quick Wins (Sofort machbar, hoher Impact)
+## Phase 3: MITTLERE PRIORITÄT (Zweite Woche)
 
-1. **Setup: Minimaler Kundenzugang** - Benutzername + Passwort (min 4 Zeichen) im Setup-Wizard abfragen
-2. **`--destructive` CSS-Farbe fixen** in index.css (1 min, UI CRITICAL)
-3. **Dead Code entfernen** - 5 Dateien löschen (15 min, Code Quality)
-4. **`.gitignore` updaten** für Backup-Dateien (2 min, Hygiene)
-5. **Telegram Token Masking** in Logs (30 min, Security CRITICAL)
-6. **`|| true` entfernen** bei MinIO wait_for_healthy (1 min, Bootstrap CRITICAL)
-7. **pgcrypto Extension** in DB-Init hinzufügen (1 min, DB CRITICAL)
-8. **CPU-Limits** für 8 Services hinzufügen (15 min, Infra CRITICAL)
-9. **`asyncio` aus requirements.txt** entfernen (1 min, Dependency)
-10. **Missing useEffect deps** in ChatInputArea fixen (2 min, Frontend)
+### 3.1 Frontend Stream-Timeout Race
+
+- **Datei:** `apps/dashboard-frontend/src/contexts/ChatContext.tsx:815-825`
+- **Problem:** `streamTimeoutReject` wird pro Iteration überschrieben. Alter Timeout kann stale reject() auslösen - User sieht falschen "Stream-Timeout" Fehler.
+- **Fix:** Timeout-State in useRef speichern + clearTimeout() bei jeder Iteration
+- **Aufwand:** 30 Min
+
+### 3.2 Stale WebSocket Connection Race
+
+- **Datei:** `apps/dashboard-frontend/src/hooks/useWebSocketMetrics.ts:82-93`
+- **Problem:** 15s Stale-Detection vs 15s Server-Heartbeat = Race Condition.
+- **Fix:** Stale-Timeout auf 20s erhöhen (5s Puffer über Heartbeat-Interval)
+- **Aufwand:** 5 Min
+
+### 3.3 Datentabellen AI-Tool filtert nicht
+
+- **Datei:** `apps/dashboard-backend/src/tools/datentabellenTool.js:43-81`
+- **Problem:** `query_data` gibt immer TOP 20 Rows zurück, ignoriert Query-Parameter komplett.
+- **Fix:** Basic Field-Matching implementieren (WHERE clause basierend auf Query-Keywords)
+- **Aufwand:** 2-3 Std
+
+### 3.4 Datentabellen-Suche nur im Primary Field
+
+- **Datei:** `apps/dashboard-backend/src/routes/datentabellen/rows.js:179-188`
+- **Problem:** Search durchsucht nur `is_primary_display` Feld, nicht alle Text-Felder.
+- **Fix:** Alle Text-Felder per ILIKE durchsuchen (OR-Verknüpfung)
+- **Aufwand:** 1 Std
+
+### 3.5 Typ-Konvertierung ohne Sicherheitscheck
+
+- **Datei:** `apps/dashboard-backend/src/routes/datentabellen/tables.js:778-800`
+- **Problem:** `ALTER COLUMN TYPE ... USING ::type` kann Daten verlieren.
+- **Fix:** Vor Konvertierung prüfen: `SELECT COUNT(*) WHERE field !~ pattern` und warnen
+- **Aufwand:** 1-2 Std
+
+### 3.6 Telegram Polling Fallback läuft immer
+
+- **Datei:** `apps/dashboard-frontend/src/features/telegram/BotSetupWizard.tsx:401`
+- **Problem:** Polling startet IMMER neben WebSocket - doppelte Backend-Last.
+- **Fix:** Polling nur starten wenn WebSocket fehlschlägt (in onError/onClose)
+- **Aufwand:** 15 Min
+
+### 3.7 Rate Limit Fail-Open bei DB-Fehler (Telegram)
+
+- **Datei:** `apps/dashboard-backend/src/services/telegram/telegramIntegrationService.js:150-166`
+- **Problem:** Bei DB-Fehler wird Rate Limit komplett umgangen (fail-open).
+- **Fix:** Bei Connection-Error ablehnen (fail-closed), nur bei "table not exist" durchlassen
+- **Aufwand:** 30 Min
+
+### 3.8 IP-Validierung bei Self-Healing Webhook
+
+- **Datei:** `apps/dashboard-backend/src/routes/external/events.js:264-266`
+- **Problem:** `clientIp.includes('172.')` matched auch ungültige IPs.
+- **Fix:** Proper CIDR-Matching oder IP-Range-Bibliothek verwenden
+- **Aufwand:** 30 Min
+
+### 3.9 External API hardcoded user_id=1
+
+- **Datei:** `apps/dashboard-backend/src/routes/external/externalApi.js:80-89`
+- **Problem:** Alle External-API-Conversations werden User 1 zugeordnet.
+- **Fix:** API-Key-Owner-ID aus `api_keys` Tabelle verwenden
+- **Aufwand:** 30 Min
+
+### 3.10 Hybrid Search: Chunk-Deduplizierung
+
+- **Datei:** `apps/dashboard-backend/src/services/rag/ragCore.js:589-674`
+- **Problem:** Mehrere Chunks desselben Dokuments können alle top_k Slots belegen.
+- **Fix:** Nach Reranking: Max 2-3 Chunks pro document_id, dann auffüllen
+- **Aufwand:** 1 Std
+
+### 3.11 Deep Promise Chain in Flush (Stack Overflow Risiko)
+
+- **Datei:** `apps/dashboard-backend/src/services/llm/llmJobProcessor.js:300-335`
+- **Problem:** Unbegrenztes `runFlush()` → `runFlush()` Chaining bei hohen Token-Raten.
+- **Fix:** Iteration statt Rekursion: while-Loop mit await statt rekursivem Aufruf
+- **Aufwand:** 1 Std
+
+### 3.12 Env-Variable Defaults für Metrics
+
+- **Datei:** `compose/compose.monitoring.yaml:34-35`
+- **Problem:** `METRICS_INTERVAL_LIVE` und `METRICS_INTERVAL_PERSIST` ohne Defaults.
+- **Fix:** `${METRICS_INTERVAL_LIVE:-5}` und `${METRICS_INTERVAL_PERSIST:-60}`
+- **Aufwand:** 5 Min
 
 ---
 
-_Erstellt am 30.03.2026 durch umfassende automatisierte Code-Analyse._
+## Phase 4: NIEDRIGE PRIORITÄT (Sprint 3+)
+
+### 4.1 Typing-Indicator Memory Leak (Telegram)
+
+- **Datei:** `apps/dashboard-backend/src/services/telegram/telegramIngressService.js:770-784`
+- **Problem:** `setInterval` für Typing nicht in `finally` Block aufgeräumt.
+- **Fix:** try-catch-finally Pattern mit clearInterval
+- **Aufwand:** 10 Min
+
+### 4.2 Ollama HTTP Agent Cleanup bei Shutdown
+
+- **Datei:** `apps/dashboard-backend/src/services/llm/llmJobProcessor.js:763`
+- **Problem:** `destroyOllamaAgent()` exportiert aber nie aufgerufen bei Server-Shutdown.
+- **Fix:** In graceful-shutdown Handler aufrufen
+- **Aufwand:** 10 Min
+
+### 4.3 Telegram WebSocket Heartbeat Leak
+
+- **Datei:** `apps/dashboard-backend/src/services/telegram/telegramOrchestratorService.js:86-99`
+- **Problem:** `heartbeatInterval` nur bei WSS close gelöscht, nicht bei Service-Shutdown.
+- **Fix:** `shutdown()` Method mit `clearInterval()` hinzufügen
+- **Aufwand:** 10 Min
+
+### 4.4 Token-Expiration UI-Warnung
+
+- **Datei:** `apps/dashboard-frontend/src/utils/token.ts:51-55`
+- **Problem:** Warnung nur in Console, nicht sichtbar für User.
+- **Fix:** Toast-Notification 5 Min vor Ablauf
+- **Aufwand:** 30 Min
+
+### 4.5 Subscriber Notify Rate-Limiting
+
+- **Datei:** `apps/dashboard-backend/src/services/llm/llmQueueService.js:299-310`
+- **Problem:** Jeder Token löst synchrone Notification für alle Subscribers aus. CPU-Spike bei vielen Tabs.
+- **Fix:** Debounce/Batch: Tokens sammeln und alle 50ms flushen
+- **Aufwand:** 1 Std
+
+### 4.6 Password Requirements zentralisieren
+
+- **Problem:** SetupWizard, PasswordManagement, Backend haben unterschiedliche Anforderungen.
+- **Fix:** Alle von `/settings/password-requirements` Endpoint beziehen
+- **Aufwand:** 1 Std
+
+### 4.7 Space Regenerate Endpoint implementieren
+
+- **Datei:** `apps/dashboard-backend/src/routes/ai/spaces.js:336-373`
+- **Problem:** TODO Phase 3 - Endpoint akzeptiert Request aber macht nichts.
+- **Fix:** document-indexer Endpoint triggern oder Endpoint entfernen
+- **Aufwand:** 1-2 Std
+
+### 4.8 Ghost Row verschwindet nach Erstellung (Datentabellen)
+
+- **Datei:** `apps/dashboard-frontend/src/features/datentabellen/hooks/useTableData.ts:144`
+- **Problem:** `loadTable()` nach Row-Create springt zu Seite 1.
+- **Fix:** Aktuelle Seite beibehalten bei loadTable
+- **Aufwand:** 30 Min
+
+### 4.9 CSV Export Limit für große Tabellen
+
+- **Datei:** `apps/dashboard-frontend/src/features/datentabellen/hooks/useTableData.ts:297-303`
+- **Problem:** Holt bis zu 10.000 Rows auf einmal - kann Browser crashen.
+- **Fix:** Warnung ab 5.000 Rows, Chunked Download oder Backend-seitiger CSV-Export
+- **Aufwand:** 2 Std
+
+### 4.10 CSRF Rotation Failure Handling
+
+- **Datei:** `apps/dashboard-backend/src/middleware/csrf.js:103-110`
+- **Problem:** Rotation-Fehler wird geloggt aber nicht kommuniziert.
+- **Fix:** Header `X-CSRF-Token-Rotated: false` setzen bei Fehler
+- **Aufwand:** 15 Min
+
+---
+
+## Zusammenfassung: Aufwandschätzung
+
+| Phase             | Items        | Geschätzter Aufwand | Priorität |
+| ----------------- | ------------ | ------------------- | --------- |
+| Phase 1 (Blocker) | 8 Items      | ~6-8 Stunden        | SOFORT    |
+| Phase 2 (Hoch)    | 10 Items     | ~8-10 Stunden       | Woche 1   |
+| Phase 3 (Mittel)  | 12 Items     | ~10-12 Stunden      | Woche 2   |
+| Phase 4 (Niedrig) | 10 Items     | ~8-10 Stunden       | Sprint 3+ |
+| **Gesamt**        | **40 Items** | **~32-40 Stunden**  |           |
+
+---
+
+## Nicht-Probleme (Bewusst so designed)
+
+Diese Punkte wurden analysiert und sind **korrekt implementiert**:
+
+- Claude Code Endpoints nutzen `:id` Parameter - Express matched `/apps/claude-code/start` korrekt zu `/:id/start`
+- CSRF Cookie ohne httpOnly - Double-Submit Cookie Pattern erfordert JS-Zugriff
+- Setup-Status Endpoint ohne Auth - Nötig für Frontend-Entscheidung vor Login
+- Self-signed TLS - Korrekt für LAN-Deployment, Tailscale für Remote
+- Docker Socket via Proxy - Excellent Security mit feingranularen Permissions
+- Alle Health Checks konfiguriert - Vollständige Abdeckung aller Services
+- Startup-Order mit `service_healthy` - Korrekte Dependency Chain
+- Frontend: Alle 7 Navigations-Items korrekt geroutet und funktional
+- 302 Backend-Endpoints über 34 Route-Files - konsistentes Error-Handling
+- Dashboard Home, Updates, Self-Healing Events, Model Control - alles production-ready
+
+---
+
+## Checkliste vor Go-Live
+
+- [ ] Phase 1 komplett abgearbeitet
+- [ ] Phase 2 komplett abgearbeitet
+- [ ] `./scripts/test/run-tests.sh --all` grün
+- [ ] `docker compose up -d --build` erfolgreich
+- [ ] Model-Download getestet (kleines Model ~1GB)
+- [ ] App-Install getestet (n8n)
+- [ ] Chat mit RAG getestet
+- [ ] Dokument-Upload + Indexierung getestet
+- [ ] Dokument Batch-Move getestet
+- [ ] Passwort-Änderung getestet (beide Wege: Auth + Settings)
+- [ ] Telegram Bot Setup getestet
+- [ ] Self-Healing Events sichtbar
+- [ ] Backup-Service läuft (`docker compose logs backup-service`)

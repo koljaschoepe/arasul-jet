@@ -17,6 +17,7 @@ const util = require('util');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, UnauthorizedError } = require('../../utils/errors');
 const { getEmbedding } = require('../../services/embeddingService');
+const { blacklistAllUserTokens } = require('../../utils/jwt');
 
 // SECURITY: Use execFile (not exec) to prevent shell injection
 const execFilePromise = util.promisify(execFile);
@@ -122,9 +123,14 @@ router.post(
       ADMIN_HASH: newPasswordHash,
     });
 
+    // SEC-FIX: Invalidate all existing sessions after password change
+    // Without this, old tokens remain valid even after password change
+    await blacklistAllUserTokens(req.user.id);
+
     res.json({
       success: true,
       message: 'Dashboard password changed successfully',
+      requireRelogin: true,
       timestamp: new Date().toISOString(),
     });
   })
@@ -252,7 +258,7 @@ router.post(
  */
 router.get(
   '/password-requirements',
-  requireAuth,
+  // No auth required — password rules are not sensitive and needed during setup
   asyncHandler(async (req, res) => {
     const { PASSWORD_REQUIREMENTS } = require('../../utils/password');
 

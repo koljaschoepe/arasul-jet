@@ -763,10 +763,16 @@ validate_basic_auth_hash() {
             log_warning "Kein ADMIN_HASH in .env - Basic Auth bleibt unkonfiguriert"
         fi
         # SEC-FIX: If placeholder still exists after all attempts, replace with
-        # an impossible-to-match hash to lock down the dashboard/n8n
+        # a valid but impossible-to-guess bcrypt hash to lock down the dashboard/n8n.
+        # Using a bcrypt hash of a random 64-char string ensures Traefik can parse
+        # the YAML without errors while effectively blocking all access.
         if grep -q '__BASIC_AUTH_HASH__' config/traefik/dynamic/middlewares.yml 2>/dev/null; then
             log_warning "Ersetze Platzhalter durch gesperrten Hash - Dashboard/n8n erfordern erneutes Setup"
-            sed -i "s|'__BASIC_AUTH_HASH__'|'LOCKED:no-valid-hash-configured'|g" config/traefik/dynamic/middlewares.yml
+            local locked_hash
+            locked_hash=$(python3 -c "import bcrypt,os; print(bcrypt.hashpw(os.urandom(32), bcrypt.gensalt(12)).decode())" 2>/dev/null \
+                || openssl passwd -6 -salt "$(openssl rand -hex 8)" "$(openssl rand -hex 32)" 2>/dev/null \
+                || echo '$2b$12$LOCKED.LOCKED.LOCKED.LOCKED.LOCKED.LOCKED.LOCKED.LO')
+            sed -i "s|'__BASIC_AUTH_HASH__'|'admin:${locked_hash}'|g" config/traefik/dynamic/middlewares.yml
         fi
     else
         log_success "Basic-Auth-Hash in Traefik-Config: OK"
@@ -882,7 +888,10 @@ start_services() {
     # Layer 5: Application layer
     docker compose up -d dashboard-backend dashboard-frontend
     log_info "Waiting for Dashboard..."
-    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:80/api/health" || true
+    local dash_port
+    dash_port=$(grep "^DASHBOARD_PORT=" .env 2>/dev/null | cut -d'=' -f2)
+    dash_port=${dash_port:-80}
+    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:${dash_port}/api/health" || true
 
     # Layer 6: Workflow engine
     docker compose up -d n8n
@@ -926,14 +935,19 @@ run_smoke_tests() {
         warnings=1
     fi
 
+    # Read configured port (default 80)
+    local smoke_port
+    smoke_port=$(grep "^DASHBOARD_PORT=" .env 2>/dev/null | cut -d'=' -f2)
+    smoke_port=${smoke_port:-80}
+
     # Wait for services to be fully ready
     log_info "Waiting for services to stabilize..."
-    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:80/api/health" || true
+    wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:${smoke_port}/api/health" || true
     wait_for_healthy llm-service 60 "docker compose exec -T llm-service curl -sf http://localhost:11434/api/tags" || true
 
     # Test Dashboard Backend
     log_info "Testing Dashboard Backend..."
-    if curl -f http://localhost:80/api/health &> /dev/null; then
+    if curl -f http://localhost:${smoke_port}/api/health &> /dev/null; then
         log_success "Dashboard Backend: OK"
     else
         log_error "Dashboard Backend: FAILED"
@@ -942,7 +956,7 @@ run_smoke_tests() {
 
     # Test Dashboard Frontend
     log_info "Testing Dashboard Frontend..."
-    if curl -f http://localhost:80 &> /dev/null; then
+    if curl -f http://localhost:${smoke_port} &> /dev/null; then
         log_success "Dashboard Frontend: OK"
     else
         log_error "Dashboard Frontend: FAILED"
@@ -1356,26 +1370,44 @@ cmd_bootstrap() {
         log_warning "MinIO buckets can be created manually later"
     fi
 
-    # 14. Admin-Benutzer anlegen
+    # 14. Verify database schema is ready (migrations via docker-entrypoint-initdb.d)
+    log_info "Verifying database schema..."
+    local schema_ready=false
+    for i in {1..30}; do
+        if docker compose exec -T postgres-db psql -U arasul -d arasul_db -c "SELECT 1 FROM admin_users LIMIT 0" &> /dev/null; then
+            schema_ready=true
+            break
+        fi
+        sleep 2
+    done
+    if [ "$schema_ready" = false ]; then
+        log_error "Database schema not ready after 60s — admin_users table missing"
+        log_error "Check: docker compose logs postgres-db"
+        return 1
+    fi
+    log_success "Database schema verified"
+
+    # 15. Admin-Benutzer anlegen
     init_admin_user
 
-    # 15. Smoke Tests & Ergebnis
+    # 15b. Immediately redact plaintext password after admin user creation
+    # This prevents password exposure if bootstrap fails in later steps
+    redact_plaintext_password
+
+    # 16. Smoke Tests & Ergebnis
     if run_smoke_tests; then
 
-        # 16. Production-Haertung (nicht kritisch - Fehler blockieren Bootstrap nicht)
+        # 17. Production-Haertung (nicht kritisch - Fehler blockieren Bootstrap nicht)
         harden_production_security
 
-        # 17. Systemd-Timer installieren
+        # 18. Systemd-Timer installieren
         install_systemd_timers
 
-        # 18. Tailscale Remote-Zugriff (optional, nicht kritisch)
+        # 19. Tailscale Remote-Zugriff (optional, nicht kritisch)
         setup_tailscale
 
         generate_error_report 0 "completed"
         show_completion_summary
-
-        # 19. Klartext-Passwort aus .env entfernen (Sicherheit)
-        redact_plaintext_password
     else
         generate_error_report 1 "smoke_tests"
         exit 1

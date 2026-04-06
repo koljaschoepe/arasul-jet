@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/errorHandler');
 const router = express.Router();
 
 // Require authentication for all docs routes
@@ -66,22 +67,28 @@ router.use('/', swaggerUi.serve);
 router.get('/', swaggerUi.setup(swaggerDocument, swaggerOptions));
 
 // Serve raw OpenAPI spec as JSON
-router.get('/openapi.json', (req, res) => {
-  res.json(swaggerDocument);
-});
+router.get(
+  '/openapi.json',
+  asyncHandler(async (req, res) => {
+    res.json(swaggerDocument);
+  })
+);
 
 // Serve raw OpenAPI spec as YAML
-router.get('/openapi.yaml', (req, res) => {
-  const yamlPath = path.join(__dirname, '../../openapi.yaml');
-  res.sendFile(yamlPath, err => {
-    if (err) {
-      logger.error(`Failed to serve openapi.yaml: ${err.message}`);
-      res.status(404).json({
-        error: 'OpenAPI specification not found',
-        timestamp: new Date().toISOString(),
-      });
-    }
-  });
-});
+router.get(
+  '/openapi.yaml',
+  asyncHandler(async (req, res) => {
+    const yamlPath = path.join(__dirname, '../../openapi.yaml');
+    res.sendFile(yamlPath, err => {
+      if (err) {
+        logger.error(`Failed to serve openapi.yaml: ${err.message}`);
+        res.status(404).json({
+          error: 'OpenAPI specification not found',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+  })
+);
 
 module.exports = router;

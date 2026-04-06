@@ -640,6 +640,97 @@ def refine_graph_status():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/extract-text', methods=['POST'])
+def extract_text():
+    """
+    Extract text from a file without indexing.
+    Used by dashboard-backend for chat document analysis and n8n workflows.
+
+    Input (JSON): { "minio_path": "timestamp_filename.pdf", "filename": "original.pdf" }
+    Input (multipart): file field with the document
+
+    Returns: { "text": "...", "metadata": { "pages": N, "language": "de", "ocr_used": bool, "char_count": N } }
+    """
+    from document_processor import parse_document, PARSERS
+    from metadata_extractor import extract_metadata
+    import io
+
+    try:
+        text = None
+        filename = None
+
+        # Option 1: File uploaded directly (multipart)
+        if 'file' in request.files:
+            uploaded = request.files['file']
+            filename = uploaded.filename or 'unknown'
+            data = uploaded.read()
+            text = parse_document(data, filename)
+
+        # Option 2: File in MinIO (JSON body)
+        elif request.is_json:
+            body = request.get_json()
+            minio_path = body.get('minio_path')
+            filename = body.get('filename', minio_path or 'unknown')
+
+            if not minio_path:
+                return jsonify({'error': 'minio_path is required'}), 400
+
+            idx = get_safe_indexer()
+            if not idx:
+                return jsonify({'error': 'Indexer not initialized'}), 503
+
+            response = idx.minio_client.get_object(
+                os.getenv('DOCUMENT_INDEXER_MINIO_BUCKET', 'documents'),
+                minio_path
+            )
+            data = response.read()
+            response.close()
+            response.release_conn()
+            text = parse_document(data, filename)
+        else:
+            return jsonify({'error': 'Provide file upload or JSON with minio_path'}), 400
+
+        if text is None:
+            ext = os.path.splitext(filename.lower())[1] if filename else ''
+            if ext not in PARSERS:
+                return jsonify({'error': f'Unsupported file type: {ext}'}), 400
+            return jsonify({'error': 'Text extraction failed'}), 500
+
+        # Extract basic metadata
+        metadata = {
+            'char_count': len(text),
+            'word_count': len(text.split()),
+            'language': 'de',
+            'ocr_used': False,
+        }
+
+        # Detect if OCR was likely used (image files or scanned PDFs with minimal text)
+        ext = os.path.splitext(filename.lower())[1] if filename else ''
+        if ext in ('.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp'):
+            metadata['ocr_used'] = True
+
+        try:
+            doc_metadata = extract_metadata(text, filename)
+            if doc_metadata:
+                metadata['language'] = doc_metadata.get('language', 'de')
+                metadata['pages'] = doc_metadata.get('page_count')
+                metadata['title'] = doc_metadata.get('title')
+        except Exception:
+            pass
+
+        logger.info(f"Extracted text from {filename}: {len(text)} chars (OCR: {metadata['ocr_used']})")
+
+        return jsonify({
+            'text': text,
+            'filename': filename,
+            'metadata': metadata,
+        })
+
+    except Exception as e:
+        logger.error(f"Text extraction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 def run_api():
     """Run the Flask API server"""
     logger.info(f"Starting Document Indexer API on port {API_PORT}")

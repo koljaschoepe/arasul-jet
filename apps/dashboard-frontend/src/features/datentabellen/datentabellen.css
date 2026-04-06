@@ -1,6 +1,88 @@
 /**
- * Datentabellen - Minimal CSS for CellEditor (classPrefix="excel")
+ * Datentabellen - Styles for ExcelEditor overlay + CellEditor
  */
+
+/* --- Overlay (matches markdown-editor-overlay pattern) --- */
+.excel-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width, 260px);
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal-backdrop);
+  padding: 32px;
+  padding-left: 48px;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.sidebar-collapsed .excel-editor-overlay {
+  left: var(--sidebar-width-collapsed, 72px);
+  padding-left: 32px;
+}
+
+.excel-editor-container {
+  background: var(--bg-dark);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: min(1400px, calc(100% - 32px));
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+}
+
+/* Light mode */
+.light-mode .excel-editor-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.light-mode .excel-editor-container {
+  background: var(--bg-card);
+  box-shadow: var(--shadow-xl);
+}
+
+/* Responsive - Tablet */
+@media (max-width: 1279px) and (min-width: 1025px) {
+  .excel-editor-overlay {
+    left: var(--sidebar-width-tablet, 220px);
+    padding-left: 40px;
+  }
+
+  body.sidebar-collapsed .excel-editor-overlay {
+    left: var(--sidebar-width-collapsed, 72px);
+    padding-left: 32px;
+  }
+}
+
+/* Responsive - Mobile/Small Tablet */
+@media (max-width: 1024px) {
+  .excel-editor-overlay {
+    left: 0;
+    top: 60px;
+    padding: 24px;
+  }
+
+  body.sidebar-collapsed .excel-editor-overlay {
+    left: 0;
+    top: 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .excel-editor-overlay {
+    padding: 0;
+  }
+
+  .excel-editor-container {
+    height: 100vh;
+    border-radius: 0;
+  }
+}
 
 /* --- CellEditor (classPrefix="excel") --- */
 .excel-cell-editor-wrapper {

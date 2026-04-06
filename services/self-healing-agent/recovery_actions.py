@@ -146,16 +146,20 @@ class RecoveryActionsMixin:
             )
             logger.info("Old logs cleaned")
 
-            logger.info("Running Docker system prune (without volumes)")
+            # Prune only dangling (untagged) images and stopped containers.
+            # SAFETY: Use --filter to exclude images used by running/stopped
+            # containers. Never use 'docker system prune -af' which can remove
+            # images of temporarily stopped services, breaking restarts.
+            logger.info("Running Docker container prune (stopped containers only)")
             result = subprocess.run(
-                ['docker', 'system', 'prune', '-af'],
+                ['docker', 'container', 'prune', '-f'],
                 capture_output=True, timeout=120
             )
-            logger.info(f"Docker cleanup: {result.stdout.decode()}")
+            logger.info(f"Container cleanup: {result.stdout.decode()}")
 
-            logger.info("Pruning old unused images")
+            logger.info("Pruning dangling images only (tagged images preserved)")
             subprocess.run(
-                ['docker', 'image', 'prune', '-af', '--filter', 'until=168h'],
+                ['docker', 'image', 'prune', '-f'],
                 capture_output=True, timeout=60
             )
 

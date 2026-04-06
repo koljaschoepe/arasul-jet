@@ -179,12 +179,13 @@ class SelfHealingLogger:
 
     def temperature_warning(self, temp_celsius: float, action_taken: str):
         """Log temperature warning"""
+        from config import TEMP_RESTART_THRESHOLD
         self.warning(
             "temperature_warning",
-            f"Temperature at {temp_celsius}°C (threshold: 85°C)",
+            f"Temperature at {temp_celsius}°C (threshold: {TEMP_RESTART_THRESHOLD}°C)",
             action_taken=action_taken,
             temperature=temp_celsius,
-            threshold=85.0
+            threshold=float(TEMP_RESTART_THRESHOLD)
         )
 
     def disk_warning(

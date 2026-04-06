@@ -215,6 +215,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   const [passwordChanged, setPasswordChanged] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordTouched, setPasswordTouched] = useState(false);
+  const [pwMinLength, setPwMinLength] = useState(4); // default fallback
 
   // Step 4: Network
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
@@ -332,9 +333,8 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
       return;
     }
 
-    // Match backend requirements: 4+ chars, no complexity requirements
-    if (newPassword.length < 4) {
-      setPasswordError('Passwort muss mindestens 4 Zeichen lang sein');
+    if (newPassword.length < pwMinLength) {
+      setPasswordError(`Passwort muss mindestens ${pwMinLength} Zeichen lang sein`);
       return;
     }
 
@@ -427,6 +427,18 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     if (currentStep === 6) fetchSystemInfo();
   }, [currentStep, fetchNetworkInfo, fetchModels, fetchSystemInfo]);
 
+  // Fetch password requirements from backend (no auth required)
+  useEffect(() => {
+    api
+      .get<{ requirements: { minLength: number } }>('/settings/password-requirements', {
+        showError: false,
+      })
+      .then(data => {
+        if (data?.requirements?.minLength) setPwMinLength(data.requirements.minLength);
+      })
+      .catch(() => {});
+  }, [api]);
+
   // Complete setup
   const handleComplete = async () => {
     setLoading(true);
@@ -484,7 +496,8 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   // Inline validation hints for password step
   const passwordMismatch =
     passwordTouched && confirmPassword.length > 0 && newPassword !== confirmPassword;
-  const passwordTooShort = passwordTouched && newPassword.length > 0 && newPassword.length < 4;
+  const passwordTooShort =
+    passwordTouched && newPassword.length > 0 && newPassword.length < pwMinLength;
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-background p-4">
@@ -819,7 +832,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     />
                     {passwordTooShort && (
                       <p className="text-xs text-destructive mt-1">
-                        Mindestens 4 Zeichen erforderlich
+                        Mindestens {pwMinLength} Zeichen erforderlich
                       </p>
                     )}
                   </div>

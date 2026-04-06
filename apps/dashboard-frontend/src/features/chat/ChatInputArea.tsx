@@ -1,5 +1,16 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { Search, Cpu, Box, Check, AlertCircle, ArrowUp, X, ChevronUp } from 'lucide-react';
+import {
+  Search,
+  Cpu,
+  Box,
+  Check,
+  AlertCircle,
+  ArrowUp,
+  X,
+  ChevronUp,
+  Paperclip,
+  FileText,
+} from 'lucide-react';
 import { useChatContext, type ChatMessage, type ChatSettings } from '../../contexts/ChatContext';
 import { useApi } from '../../hooks/useApi';
 import type { InstalledModel, DocumentSpace, QueueJob } from '../../types';
@@ -47,7 +58,10 @@ function ChatInputArea({
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
   const [showModelPopup, setShowModelPopup] = useState(false);
   const [showRAGPopup, setShowRAGPopup] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const modelPopupRef = useRef<HTMLDivElement>(null);
   const ragPopupRef = useRef<HTMLDivElement>(null);
 
@@ -113,21 +127,76 @@ function ChatInputArea({
     el.style.height = Math.min(el.scrollHeight, 200) + 'px';
   }, []);
 
+  const ALLOWED_FILE_TYPES =
+    '.pdf,.docx,.txt,.md,.markdown,.yaml,.yml,.png,.jpg,.jpeg,.tiff,.tif,.bmp';
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+  const handleFileSelect = useCallback((file: File) => {
+    if (file.size > MAX_FILE_SIZE) {
+      return; // silently reject oversized files
+    }
+    setAttachedFile(file);
+    inputRef.current?.focus();
+  }, []);
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) handleFileSelect(file);
+      // Reset so same file can be re-selected
+      e.target.value = '';
+    },
+    [handleFileSelect]
+  );
+
+  const handleRemoveFile = useCallback(() => {
+    setAttachedFile(null);
+    inputRef.current?.focus();
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const file = e.dataTransfer.files?.[0];
+      if (file) handleFileSelect(file);
+    },
+    [handleFileSelect]
+  );
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const handleSend = useCallback(() => {
-    if (!input.trim() || isLoading || disabled) return;
-    const msg = input;
+    const hasInput = input.trim() || attachedFile;
+    if (!hasInput || isLoading || disabled) return;
+
+    const msg = input.trim() || (attachedFile ? `Dokument: ${attachedFile.name}` : '');
+    const file = attachedFile;
     setInput('');
+    setAttachedFile(null);
     if (inputRef.current) inputRef.current.style.height = 'auto';
+
     sendMessage(chatId, msg, {
-      useRAG,
+      useRAG: file ? false : useRAG, // file upload uses its own pipeline
       useThinking,
       selectedSpaces: selectedSpaceId ? [selectedSpaceId] : [],
       matchedSpaces: [],
       messages: messagesRef?.current || [],
       model: selectedModel || undefined,
+      file: file || undefined,
     });
   }, [
     input,
+    attachedFile,
     isLoading,
     disabled,
     chatId,
@@ -193,7 +262,8 @@ function ChatInputArea({
   );
 
   const availableModels = installedModels.filter(
-    (m: InstalledModel) => m.install_status === 'available' || m.status === 'available'
+    (m: InstalledModel) =>
+      (m.install_status === 'available' || m.status === 'available') && m.model_type !== 'ocr'
   );
 
   const currentModel = selectedModel
@@ -470,7 +540,55 @@ function ChatInputArea({
           )}
         </div>
 
-        <div className="chat-input-row flex items-end gap-3 py-3 px-4">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ALLOWED_FILE_TYPES}
+          onChange={handleFileInputChange}
+          className="hidden"
+          aria-hidden="true"
+        />
+
+        {/* File preview chip */}
+        {attachedFile && (
+          <div className="flex items-center gap-2 mx-4 mt-3 mb-0 py-2 px-3 bg-primary/5 border border-primary/15 rounded-lg text-sm">
+            <FileText className="size-4 text-primary shrink-0" />
+            <span className="flex-1 truncate text-foreground font-medium">{attachedFile.name}</span>
+            <span className="text-muted-foreground text-xs shrink-0">
+              {formatFileSize(attachedFile.size)}
+            </span>
+            <button
+              type="button"
+              onClick={handleRemoveFile}
+              className="bg-transparent border-none text-muted-foreground cursor-pointer p-0.5 rounded hover:text-destructive hover:bg-destructive/10 transition-colors"
+              aria-label="Datei entfernen"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
+
+        <div
+          className="chat-input-row flex items-end gap-3 py-3 px-4"
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Paperclip button */}
+          <button
+            type="button"
+            className={cn(
+              'size-10 min-w-[40px] bg-transparent border-none rounded-full text-muted-foreground cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-accent hover:text-foreground',
+              attachedFile && 'text-primary'
+            )}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || isStreaming}
+            title="Datei anhängen"
+            aria-label="Datei anhängen"
+          >
+            <Paperclip className="size-5" />
+          </button>
+
           <textarea
             ref={inputRef}
             className="flex-1 bg-transparent border-none py-2 px-1 text-foreground text-[1.05rem] font-[inherit] leading-relaxed min-w-0 min-h-[40px] max-h-[200px] resize-none overflow-y-auto focus:outline-none placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
@@ -498,7 +616,7 @@ function ChatInputArea({
               type="button"
               className="send-btn size-10 min-w-[40px] bg-primary border-none rounded-full text-white cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-primary/80 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-border"
               onClick={handleSend}
-              disabled={!input.trim() || disabled || isLoading}
+              disabled={(!input.trim() && !attachedFile) || disabled || isLoading}
               title="Senden"
               aria-label="Senden"
             >

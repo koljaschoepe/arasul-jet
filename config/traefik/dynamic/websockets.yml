@@ -28,11 +28,14 @@ http:
       tls: {}
 
     # Telegram Bot Setup WebSocket
+    # SEC-FIX: Added forward-auth to prevent unauthenticated access to setup tokens.
+    # Browsers send cookies on same-origin WebSocket upgrade, so cookie-based JWT works.
     telegram-websocket:
       rule: 'PathPrefix(`/api/telegram-app/ws`) && Headers(`Upgrade`, `websocket`)'
       service: dashboard-backend-service
       priority: 50
       middlewares:
+        - forward-auth
         - security-headers
       entryPoints:
         - websecure

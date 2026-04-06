@@ -388,20 +388,20 @@ class MetricsCollector:
 
         logger.warning(f"GPU Error detected: {error_type.value} - {error_msg}")
 
-        if error_type == GPUError.CUDA_OOM:
+        if error_type == GPUError.OOM:
             logger.critical("CUDA Out of Memory detected - requires external intervention")
             # Self-Healing Agent will handle this via GPU recovery module
 
-        elif error_type == GPUError.GPU_HANG:
+        elif error_type == GPUError.HANG:
             logger.critical("GPU Hang detected - requires reset")
             # Self-Healing Agent will handle GPU reset
 
-        elif error_type == GPUError.THERMAL_THROTTLE:
+        elif error_type == GPUError.THERMAL:
             logger.warning("GPU thermal throttling detected")
             # Self-Healing Agent will handle throttling
 
-        elif error_type == GPUError.NVML_ERROR:
-            logger.error("NVML Error - attempting recovery")
+        elif error_type == GPUError.UNKNOWN:
+            logger.error("GPU Error - attempting recovery")
             self._recover_nvml()
 
     def _recover_from_nvml_error(self, error: Exception):

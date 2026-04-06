@@ -240,12 +240,21 @@ class CategoryHandlersMixin:
 
         logger.critical("Executing critical recovery sequence")
 
-        self.hard_restart_application_services()
-        time.sleep(5)
-        self.perform_disk_cleanup()
+        # Step 1: Restart application services
+        if not self.hard_restart_application_services():
+            logger.error("Application restart failed — skipping disk cleanup to preserve images")
+        else:
+            time.sleep(5)
+            # Step 2: Disk cleanup — only if restart succeeded (images are intact)
+            self.perform_disk_cleanup()
+
+        # Step 3: DB vacuum — run with statement timeout to avoid long locks
         self.perform_db_vacuum()
 
+        # Step 4: GPU reset — only if the issue is GPU-related
         if 'gpu' in reason.lower() or 'llm' in reason.lower():
+            # Wait for services to stabilize before resetting GPU
+            time.sleep(10)
             self.perform_gpu_reset()
 
         self.last_critical_action_time = time.time()

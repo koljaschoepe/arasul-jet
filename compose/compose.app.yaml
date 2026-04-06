@@ -53,7 +53,7 @@ services:
       ARASUL_DATA_DB_PORT: ${ARASUL_DATA_DB_PORT:-5432}
       ARASUL_DATA_DB_NAME: ${ARASUL_DATA_DB_NAME:-arasul_data_db}
       ARASUL_DATA_DB_USER: ${ARASUL_DATA_DB_USER:-arasul_data}
-      ARASUL_DATA_DB_PASSWORD: ${ARASUL_DATA_DB_PASSWORD:-${POSTGRES_PASSWORD}}
+      # ARASUL_DATA_DB_PASSWORD resolved via Docker secret (compose.secrets.yaml)
       JWT_EXPIRY: ${JWT_EXPIRY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       SYSTEM_VERSION: ${SYSTEM_VERSION}
@@ -67,6 +67,7 @@ services:
       ENV_FILE_PATH: /arasul/config/.env
       COMPOSE_PROJECT_DIR: ${COMPOSE_PROJECT_DIR:-.}
       DOCKER_HOST: tcp://docker-proxy:2375
+      DOCKER_NETWORK: arasul-platform_arasul-backend
     volumes:
       - ../.env:/arasul/config/.env
       - ../config:/config:ro

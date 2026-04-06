@@ -35,6 +35,13 @@ const DOCUMENT_INDEXER_URL = services.documentIndexer.url;
 // Hybrid search configuration
 const HYBRID_SEARCH_ENABLED = process.env.RAG_HYBRID_SEARCH !== 'false';
 
+// Timeout configuration (ms) — tuned for Jetson ARM64 latency
+const RAG_TIMEOUT_SPARSE = parseInt(process.env.RAG_TIMEOUT_SPARSE_MS, 10) || 5000;
+const RAG_TIMEOUT_RERANK = parseInt(process.env.RAG_TIMEOUT_RERANK_MS, 10) || 45000;
+const RAG_TIMEOUT_ENTITY = parseInt(process.env.RAG_TIMEOUT_ENTITY_MS, 10) || 5000;
+const RAG_TIMEOUT_SEARCH = parseInt(process.env.RAG_TIMEOUT_SEARCH_MS, 10) || 15000;
+const RAG_TIMEOUT_FALLBACK = parseInt(process.env.RAG_TIMEOUT_FALLBACK_MS, 10) || 10000;
+
 // RAG 2.0: Space routing configuration
 const SPACE_ROUTING_THRESHOLD = parseFloat(process.env.SPACE_ROUTING_THRESHOLD || '0.4');
 const SPACE_ROUTING_MAX_SPACES = parseInt(process.env.SPACE_ROUTING_MAX_SPACES || '3');
@@ -89,7 +96,7 @@ async function getSparseVector(text) {
     const response = await axios.post(
       `${DOCUMENT_INDEXER_URL}/sparse-encode`,
       { text },
-      { timeout: 5000 }
+      { timeout: RAG_TIMEOUT_SPARSE }
     );
     const { indices, values } = response.data;
     if (indices && indices.length > 0) {
@@ -281,7 +288,7 @@ async function rerankResults(query, results, topK = 5) {
         top_k: topK,
         stage1_top_k: Math.min(10, results.length),
       },
-      { timeout: 45000 }
+      { timeout: RAG_TIMEOUT_RERANK }
     );
 
     if (!response.data.results) {
@@ -341,6 +348,53 @@ function filterByRelevance(results, reranked = true) {
   return { relevant, filtered };
 }
 
+/**
+ * Deduplicate results by document_id (RAG 4.1)
+ * Prevents a single document from dominating all result slots.
+ * Keeps max `maxPerDoc` chunks per document, then backfills remaining
+ * slots from other documents in rank order.
+ *
+ * @param {Object[]} results - Ranked results (reranked or filtered)
+ * @param {number} topK - Desired total result count
+ * @param {number} maxPerDoc - Max chunks per document (default: 3)
+ * @returns {Object[]} Deduplicated results
+ */
+function deduplicateByDocument(results, topK = 5, maxPerDoc = 3) {
+  if (results.length <= topK) {return results;}
+
+  const docCounts = new Map();
+  const selected = [];
+  const overflow = [];
+
+  for (const r of results) {
+    const docId = r.payload?.document_id || r.id;
+    const count = docCounts.get(docId) || 0;
+
+    if (count < maxPerDoc) {
+      selected.push(r);
+      docCounts.set(docId, count + 1);
+    } else {
+      overflow.push(r);
+    }
+
+    if (selected.length >= topK) {break;}
+  }
+
+  // Backfill from overflow if we haven't reached topK
+  if (selected.length < topK) {
+    const remaining = topK - selected.length;
+    selected.push(...overflow.slice(0, remaining));
+  }
+
+  if (overflow.length > 0) {
+    logger.info(
+      `Document dedup: ${results.length} → ${selected.length} (max ${maxPerDoc}/doc, ${docCounts.size} docs)`
+    );
+  }
+
+  return selected;
+}
+
 // =============================================================================
 // RAG 5.0: KNOWLEDGE GRAPH ENRICHMENT
 // =============================================================================
@@ -386,7 +440,7 @@ async function graphEnrichedRetrieval(query) {
     const entityResponse = await axios.post(
       `${DOCUMENT_INDEXER_URL}/extract-entities`,
       { text: query },
-      { timeout: 5000 }
+      { timeout: RAG_TIMEOUT_ENTITY }
     );
 
     const queryEntities = entityResponse.data.entities || [];
@@ -637,7 +691,7 @@ async function hybridSearch(query, embedding, limit = 5, spaceIds = null, option
         limit: fetchLimit,
         with_payload: true,
       },
-      { timeout: 15000 }
+      { timeout: RAG_TIMEOUT_SEARCH }
     );
 
     const points = response.data.result?.points || [];
@@ -663,7 +717,7 @@ async function hybridSearch(query, embedding, limit = 5, spaceIds = null, option
           with_payload: true,
           ...(filter ? { filter } : {}),
         },
-        { timeout: 10000 }
+        { timeout: RAG_TIMEOUT_FALLBACK }
       );
       return fallbackResponse.data.result || [];
     } catch (fallbackErr) {
@@ -684,6 +738,7 @@ module.exports = {
   hybridSearch,
   rerankResults,
   filterByRelevance,
+  deduplicateByDocument,
   graphEnrichedRetrieval,
   formatGraphContext,
   getParentChunks,

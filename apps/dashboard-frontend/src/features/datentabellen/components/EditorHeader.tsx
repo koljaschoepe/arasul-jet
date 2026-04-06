@@ -1,5 +1,7 @@
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/shadcn/button';
 import type { TableData } from '../types';
 import Breadcrumb from './Breadcrumb';
 
@@ -10,6 +12,7 @@ interface EditorHeaderProps {
   saveStatus: 'success' | 'error' | null;
   rows: number;
   fields: number;
+  onClose?: () => void;
 }
 
 const EditorHeader = memo(function EditorHeader({
@@ -19,6 +22,7 @@ const EditorHeader = memo(function EditorHeader({
   saveStatus,
   rows,
   fields,
+  onClose,
 }: EditorHeaderProps) {
   return (
     <header className="flex items-center justify-between py-2 px-6 max-md:px-4 bg-card border-b border-border shrink-0">
@@ -45,9 +49,22 @@ const EditorHeader = memo(function EditorHeader({
         />
       </div>
 
-      <span className="text-xs text-muted-foreground">
-        {rows} Zeilen, {fields} Spalten
-      </span>
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-muted-foreground">
+          {rows} Zeilen, {fields} Spalten
+        </span>
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="size-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+            title="Schließen"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </Button>
+        )}
+      </div>
     </header>
   );
 });

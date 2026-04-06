@@ -60,7 +60,9 @@ function arePropsEqual(prev: ChatMessageProps, next: ChatMessageProps) {
     pm.sourcesCollapsed === nm.sourcesCollapsed &&
     pm.role === nm.role &&
     pm.sources === nm.sources &&
-    pm.matchedSpaces === nm.matchedSpaces
+    pm.matchedSpaces === nm.matchedSpaces &&
+    pm.streamStatus === nm.streamStatus &&
+    pm.statusMessage === nm.statusMessage
   );
 }
 

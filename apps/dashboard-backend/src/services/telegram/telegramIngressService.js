@@ -774,12 +774,12 @@ async function handleTextMessage(bot, token, message) {
 
   try {
     const response = await telegramIntegrationService.chat(bot.id, chatId, text);
-    clearInterval(typingInterval);
     await sendFormattedMessage(token, chatId, response);
   } catch (error) {
-    clearInterval(typingInterval);
     logger.error('LLM chat error:', error);
-    await sendMessage(token, chatId, `❌ Fehler: ${error.message}`);
+    await sendMessage(token, chatId, `❌ Fehler: ${error.message}`).catch(() => {});
+  } finally {
+    clearInterval(typingInterval);
   }
 }
 
@@ -1207,6 +1207,29 @@ async function processUpdate(botId, update) {
     logger.info(`Update ${update.update_id} processed for bot ${botId} in ${duration}ms`);
   }
 
+  // Handle callback queries (inline button presses)
+  if (update.callback_query) {
+    const cbQuery = update.callback_query;
+    const chatId = cbQuery.message?.chat?.id;
+    const callbackData = cbQuery.data;
+
+    logger.info(`Callback query from chat ${chatId}: ${callbackData}`, {
+      botId,
+      userId: cbQuery.from?.id,
+    });
+
+    // Answer callback query to remove the loading indicator on the button
+    try {
+      await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callback_query_id: cbQuery.id }),
+      });
+    } catch (err) {
+      logger.warn(`Failed to answer callback query: ${err.message}`);
+    }
+  }
+
   return true;
 }
 
@@ -1245,7 +1268,9 @@ async function setWebhook(botId, webhookUrl) {
       botId,
     ]);
 
-    logger.info(`Webhook set for bot ${botId}: ${webhookUrl}`);
+    // Log webhook URL with secret masked to prevent credential exposure in logs
+    const maskedUrl = webhookUrl.replace(/\/[^/]+$/, '/***');
+    logger.info(`Webhook set for bot ${botId}: ${maskedUrl}`);
     return true;
   } catch (error) {
     logger.error('Error setting webhook:', error);

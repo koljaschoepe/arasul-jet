@@ -50,7 +50,7 @@ END $$;
 
 -- Drop old version (from 022) that lacks bot_id, then recreate with full schema
 DROP TABLE IF EXISTS telegram_rate_limits CASCADE;
-CREATE TABLE telegram_rate_limits (
+CREATE TABLE IF NOT EXISTS telegram_rate_limits (
     id SERIAL PRIMARY KEY,
     bot_id INTEGER REFERENCES telegram_bots(id) ON DELETE CASCADE NOT NULL,
     chat_id BIGINT NOT NULL,

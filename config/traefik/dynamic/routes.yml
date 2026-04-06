@@ -162,13 +162,15 @@ http:
         - websecure
       tls: {}
 
-    # Traefik Dashboard (secured with Basic Auth)
+    # Traefik Dashboard (secured with dashboard session auth)
+    # SEC-FIX: Use forward-auth (dashboard session) instead of basicAuth with unset placeholder.
+    # The dashboard API on port 8080 is already restricted to localhost in traefik.yml.
     traefik-dashboard:
       rule: '(PathPrefix(`/api/traefik`) || PathPrefix(`/dashboard`))'
       service: api@internal
       priority: 35
       middlewares:
-        - basicAuth-traefik
+        - forward-auth
         - security-headers
         - rate-limit-auth
       entryPoints:

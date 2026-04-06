@@ -94,13 +94,15 @@ router.get(
             t.id, t.name, t.slug, t.description, t.icon, t.color,
             t.is_system, t.created_at, t.updated_at, t.created_by,
             t.space_id, t.status, t.category,
+            t.needs_reindex, t.last_indexed_at, t.index_row_count,
             COUNT(DISTINCT f.id)::int as field_count
         FROM dt_tables t
         LEFT JOIN dt_fields f ON f.table_id = t.id
         ${whereClause}
         GROUP BY t.id, t.name, t.slug, t.description, t.icon, t.color,
                  t.is_system, t.created_at, t.updated_at, t.created_by,
-                 t.space_id, t.status, t.category
+                 t.space_id, t.status, t.category,
+                 t.needs_reindex, t.last_indexed_at, t.index_row_count
         ORDER BY t.created_at DESC
         LIMIT $${paramIndex++} OFFSET $${paramIndex}
     `,
@@ -271,8 +273,12 @@ router.post(
       }
     }
 
-    // Start transaction
+    // Start transaction with advisory lock to prevent slug race conditions
     const result = await dataDb.transaction(async client => {
+      // Advisory lock on slug hash prevents concurrent creation of same table
+      const slugHash = Buffer.from(slug).reduce((h, b) => ((h << 5) - h + b) | 0, 0);
+      await client.query('SELECT pg_advisory_xact_lock($1)', [slugHash]);
+
       // Check if slug exists
       const existingResult = await client.query('SELECT id FROM dt_tables WHERE slug = $1', [slug]);
 
@@ -569,20 +575,24 @@ router.post(
       );
       const fieldOrder = orderResult.rows[0].next_order;
 
-      // Check for duplicate field slug
-      const existingField = await client.query(
-        `
-            SELECT id FROM dt_fields WHERE table_id = $1 AND slug = $2
-        `,
-        [tableId, fieldSlug]
-      );
-
-      if (existingField.rows.length > 0) {
-        throw new ConflictError('Ein Feld mit diesem Namen existiert bereits');
+      // Auto-increment slug if duplicate exists
+      let finalSlug = fieldSlug;
+      let counter = 1;
+      while (true) {
+        const existingField = await client.query(
+          'SELECT id FROM dt_fields WHERE table_id = $1 AND slug = $2',
+          [tableId, finalSlug]
+        );
+        if (existingField.rows.length === 0) {break;}
+        counter++;
+        finalSlug = `${fieldSlug}_${counter}`;
       }
 
+      // Auto-increment display name if slug was incremented
+      const finalName = counter > 1 ? `${name.trim()} ${counter}` : name.trim();
+
       // Add column to physical table
-      let columnDef = `${escapeIdentifier(fieldSlug)} ${pgType}`;
+      let columnDef = `${escapeIdentifier(finalSlug)} ${pgType}`;
       if (is_required) {
         columnDef += ' NOT NULL';
       }
@@ -604,8 +614,8 @@ router.post(
         `,
         [
           tableId,
-          name.trim(),
-          fieldSlug,
+          finalName,
+          finalSlug,
           field_type,
           fieldOrder,
           is_required || false,
@@ -618,7 +628,7 @@ router.post(
         ]
       );
 
-      logger.info(`[Datentabellen] Added field ${fieldSlug} to ${slug}`);
+      logger.info(`[Datentabellen] Added field ${finalSlug} to ${slug}`);
 
       return fieldResult.rows[0];
     });
@@ -771,6 +781,25 @@ router.patch(
     // Use transaction if field_type change requires ALTER TABLE
     if (field_type !== undefined) {
       const pgType = pgTypeMap[field_type];
+
+      // TYPE-SAFETY: Pre-check how many rows would fail conversion
+      const numericTypes = ['NUMERIC', 'INTEGER', 'BIGINT', 'DOUBLE PRECISION'];
+      if (numericTypes.includes(pgType.toUpperCase())) {
+        try {
+          const checkResult = await dataDb.query(
+            `SELECT COUNT(*)::int as bad_rows FROM ${escapeTableName(slug)} WHERE ${escapeIdentifier(fieldSlug)} IS NOT NULL AND ${escapeIdentifier(fieldSlug)}::text !~ '^-?[0-9]+(\\.[0-9]+)?$'`
+          );
+          const badRows = checkResult.rows[0]?.bad_rows || 0;
+          if (badRows > 0) {
+            throw new ValidationError(
+              `Typänderung nicht möglich: ${badRows} Zeile(n) enthalten nicht-numerische Werte die nicht konvertiert werden können`
+            );
+          }
+        } catch (err) {
+          if (err instanceof ValidationError) {throw err;}
+          // Pre-check failed, let ALTER TABLE handle it
+        }
+      }
 
       const result = await dataDb.transaction(async client => {
         // ALTER COLUMN TYPE on the physical table

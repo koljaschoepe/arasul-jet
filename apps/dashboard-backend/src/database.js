@@ -6,6 +6,13 @@ const { Pool } = require('pg');
 const logger = require('./utils/logger');
 const { retryDatabaseQuery } = require('./utils/retry');
 
+// Validate required database credentials
+if (!process.env.POSTGRES_PASSWORD) {
+  logger.error('FATAL: POSTGRES_PASSWORD environment variable is not set');
+  logger.error('Run ./arasul bootstrap or set POSTGRES_PASSWORD in /arasul/config/.env');
+  process.exit(1);
+}
+
 // Pool configuration with advanced settings
 const poolConfig = {
   host: process.env.POSTGRES_HOST || 'postgres-db',

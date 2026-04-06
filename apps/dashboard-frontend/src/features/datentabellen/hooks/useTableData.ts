@@ -36,6 +36,7 @@ interface UseTableDataParams {
   sortField?: string;
   sortOrder?: 'asc' | 'desc';
   search?: string;
+  onRowCreated?: () => void;
 }
 
 export default function useTableData({
@@ -45,6 +46,7 @@ export default function useTableData({
   sortField = '_created_at',
   sortOrder = 'desc',
   search = '',
+  onRowCreated,
 }: UseTableDataParams) {
   const api = useApi();
   const toast = useToast();
@@ -140,7 +142,8 @@ export default function useTableData({
           { [fieldSlug]: value },
           { showError: false }
         );
-        // Reload current page to show the new row
+        // Navigate to page 1 (where new row appears with default desc sort)
+        if (onRowCreated) onRowCreated();
         await loadTable();
         setSaveStatus('success');
         setTimeout(() => setSaveStatus(null), 2000);
@@ -151,7 +154,7 @@ export default function useTableData({
         setSaving(false);
       }
     },
-    [tableSlug, loadTable]
+    [tableSlug, loadTable, onRowCreated]
   );
 
   // --- Cell save ---
@@ -294,7 +297,15 @@ export default function useTableData({
         let exportRows = rows;
 
         if (exportAll && totalRows > rows.length) {
-          // Fetch all rows for full export
+          // Warn for very large exports that may slow down the browser
+          if (totalRows > 5000) {
+            const confirmed = window.confirm(
+              `Diese Tabelle hat ${totalRows.toLocaleString('de-DE')} Zeilen. ` +
+                'Der Export kann einige Sekunden dauern und viel Arbeitsspeicher benötigen. Fortfahren?'
+            );
+            if (!confirmed) return;
+          }
+          // Fetch all rows for full export (cap at 10000)
           const allData = await api.get<RowsApiResponse>(
             `/v1/datentabellen/tables/${tableSlug}/rows?limit=10000&sort=${sortField}&order=${sortOrder}`,
             { showError: false }

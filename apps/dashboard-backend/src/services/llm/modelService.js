@@ -1,7 +1,7 @@
 /**
  * LLM Model Service
  * Manages model catalog, installation, activation, and smart queue batching
- * for Jetson AGX Orin with single-model-in-RAM constraint
+ * for Jetson AGX Orin with multi-model memory budget
  *
  * Supports Dependency Injection for testing:
  *   const { createModelService } = require('./modelService');
@@ -334,41 +334,72 @@ function createModelService(deps = {}) {
     }
 
     // Static check: does model fit in configured LLM RAM allocation?
+    // Fallback: if RAM_LIMIT_LLM is not set, detect total system memory and use 80%
     const envLimit = process.env.RAM_LIMIT_LLM;
+    let llmRamGB;
     if (envLimit) {
-      const llmRamGB = parseInt(envLimit, 10);
-      if (!isNaN(llmRamGB) && requiredRamGb > llmRamGB) {
+      llmRamGB = parseInt(envLimit, 10);
+    } else {
+      const os = require('os');
+      llmRamGB = Math.floor((os.totalmem() / 1024 ** 3) * 0.8);
+      logger.debug(`[ACTIVATE] RAM_LIMIT_LLM not set — using ${llmRamGB}GB (80% of system RAM)`);
+    }
+    if (!isNaN(llmRamGB) && llmRamGB > 0 && requiredRamGb > llmRamGB) {
+      const errorMsg =
+        `Modell "${modelId}" benötigt ${requiredRamGb}GB RAM, ` +
+        `aber nur ${llmRamGB}GB sind für LLM zugewiesen` +
+        `${envLimit ? ' (RAM_LIMIT_LLM)' : ' (auto-detected)'}. ` +
+        `Bitte ein kleineres Modell wählen.`;
+      logger.error(`[ACTIVATE] ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+
+    // Multi-model budget check: use getMemoryBudget() for available space
+    const budget = await service.getMemoryBudget();
+    const requiredRamMb = requiredRamGb * 1024;
+
+    if (budget.availableMb < requiredRamMb) {
+      // Try LRU eviction: find least recently used loaded model
+      const ollamaReadiness = require('./ollamaReadiness');
+      const tracker = ollamaReadiness.getModelUsageTracker();
+      const evictable = budget.loadedModels
+        .filter(m => {
+          const usage = tracker.get(m.ollamaName);
+          return !usage?.activeRequests || usage.activeRequests === 0;
+        })
+        .sort((a, b) => {
+          const usageA = tracker.get(a.ollamaName);
+          const usageB = tracker.get(b.ollamaName);
+          const timeA = usageA?.lastUsed?.getTime() || 0;
+          const timeB = usageB?.lastUsed?.getTime() || 0;
+          return timeA - timeB; // oldest first
+        });
+
+      // Evict LRU models until enough space or no more evictable
+      let freedMb = 0;
+      for (const model of evictable) {
+        if (budget.availableMb + freedMb >= requiredRamMb) {break;}
+        logger.info(
+          `[ACTIVATE] Evicting LRU model ${model.ollamaName} (${model.ramMb}MB) to make room`
+        );
+        await service.unloadModel(model.ollamaName);
+        tracker.delete(model.ollamaName);
+        freedMb += model.ramMb;
+      }
+
+      if (budget.availableMb + freedMb < requiredRamMb) {
         const errorMsg =
-          `Modell "${modelId}" benötigt ${requiredRamGb}GB RAM, ` +
-          `aber nur ${llmRamGB}GB sind für LLM zugewiesen (RAM_LIMIT_LLM). ` +
-          `Bitte ein kleineres Modell wählen.`;
+          `Nicht genügend Speicher für Modell "${modelId}". ` +
+          `Benötigt: ${requiredRamGb}GB, ` +
+          `Verfügbar: ${((budget.availableMb + freedMb) / 1024).toFixed(1)}GB. ` +
+          `Bitte erst ein geladenes Modell entladen.`;
         logger.error(`[ACTIVATE] ${errorMsg}`);
         throw new Error(errorMsg);
       }
     }
 
-    // Dynamic check: actual GPU/RAM availability
-    const gpuMemory = await service.getGpuMemory();
-    const requiredRamMb = requiredRamGb * 1024;
-    const bufferMb = 1024; // 1GB buffer for system (Jetson unified memory is more predictable)
-
-    // Check if there's enough memory (considering currently loaded model will be unloaded)
-    const currentLoaded = await service.getLoadedModel();
-    const currentRamMb = currentLoaded?.ram_usage_mb || 0;
-    const effectiveFreeRam = gpuMemory.free_mb + currentRamMb; // Add back RAM from model to be unloaded
-
-    if (effectiveFreeRam < requiredRamMb + bufferMb) {
-      const errorMsg =
-        `Nicht genügend GPU-Speicher für Modell "${modelId}". ` +
-        `Benötigt: ${requiredRamGb}GB, ` +
-        `Verfügbar: ${(effectiveFreeRam / 1024).toFixed(1)}GB. ` +
-        `Bitte ein kleineres Modell wählen oder System neu starten.`;
-      logger.error(`[ACTIVATE] ${errorMsg}`);
-      throw new Error(errorMsg);
-    }
-
     logger.info(
-      `[ACTIVATE] GPU memory check passed: ${(effectiveFreeRam / 1024).toFixed(1)}GB available, ${requiredRamGb}GB required`
+      `[ACTIVATE] Memory budget check passed: ${(budget.availableMb / 1024).toFixed(1)}GB available, ${requiredRamGb}GB required`
     );
   }
 
@@ -380,18 +411,20 @@ function createModelService(deps = {}) {
    * @param {string|null} fromModel - Currently loaded model's Ollama name (or null)
    */
   async function _executeModelSwitch(service, modelId, ollamaName, fromModel) {
-    logger.info(`Switching model: ${fromModel || 'none'} -> ${modelId} (Ollama: ${ollamaName})`);
+    logger.info(`Loading model: ${modelId} (Ollama: ${ollamaName})`);
 
-    // Unload current model if different
-    if (fromModel) {
-      await service.unloadModel(fromModel);
-    }
+    // Multi-model: do NOT automatically unload other models.
+    // Memory budget check + LRU eviction in _checkMemoryRequirements handles this.
 
-    // Load new model by making a minimal request using ollamaName
+    // Get dynamic keep-alive from lifecycle service
+    const modelLifecycleService = require('./modelLifecycleService');
+    const { keepAliveSeconds } = await modelLifecycleService.getCurrentKeepAlive();
+
+    // Load model by making a minimal request using ollamaName
     // This triggers Ollama to load the model into RAM
     // Large models (30-70B) can take 10+ minutes on Jetson AGX Orin
     logger.info(
-      `Loading model ${modelId} (Ollama: ${ollamaName}) into RAM (this may take several minutes)...`
+      `Loading model ${modelId} (Ollama: ${ollamaName}) into RAM (keep_alive: ${keepAliveSeconds}s)...`
     );
     await axios.post(
       `${LLM_SERVICE_URL}/api/generate`,
@@ -399,7 +432,7 @@ function createModelService(deps = {}) {
         model: ollamaName,
         prompt: 'hello',
         stream: false,
-        keep_alive: DEFAULT_KEEP_ALIVE,
+        keep_alive: keepAliveSeconds,
         options: {
           num_predict: 1, // Minimal generation
         },
@@ -583,7 +616,7 @@ function createModelService(deps = {}) {
     }
 
     /**
-     * Get installed models only
+     * Get installed models only (LLMs + OCR with running status)
      */
     async getInstalledModels() {
       const result = await database.query(`
@@ -596,13 +629,39 @@ function createModelService(deps = {}) {
                     c.capabilities,
                     c.recommended_for,
                     c.performance_tier,
-                    COALESCE(c.ollama_name, c.id) as effective_ollama_name
+                    c.model_type,
+                    COALESCE(c.ollama_name, c.id) as effective_ollama_name,
+                    FALSE as is_running
                 FROM llm_installed_models i
                 JOIN llm_model_catalog c ON i.id = c.id
                 WHERE i.status = 'available'
                 ORDER BY i.is_default DESC, i.last_used_at DESC NULLS LAST
             `);
-      return result.rows;
+
+      // Also fetch OCR models with container running status
+      const ocrResult = await database.query(`
+                SELECT
+                    c.id,
+                    c.name,
+                    c.description,
+                    c.ram_required_gb,
+                    c.category,
+                    c.capabilities,
+                    c.recommended_for,
+                    c.performance_tier,
+                    c.model_type,
+                    c.size_bytes,
+                    COALESCE(c.ollama_name, c.id) as effective_ollama_name,
+                    'available' as status,
+                    'available' as install_status,
+                    COALESCE(a.status = 'running', FALSE) as is_running
+                FROM llm_model_catalog c
+                LEFT JOIN app_installations a ON a.app_id = SPLIT_PART(c.id, ':', 1)
+                WHERE c.model_type = 'ocr'
+                ORDER BY c.performance_tier ASC
+            `);
+
+      return [...result.rows, ...ocrResult.rows];
     }
 
     /**
@@ -628,6 +687,85 @@ function createModelService(deps = {}) {
         logger.error(`Error getting loaded model: ${err.message}`);
         return null;
       }
+    }
+
+    /**
+     * Get ALL currently loaded models from Ollama (multi-model support)
+     * @returns {Array} Array of loaded model objects
+     */
+    async getLoadedModels() {
+      try {
+        const response = await axios.get(`${LLM_SERVICE_URL}/api/ps`, { timeout: 5000 });
+        const models = response.data.models || [];
+
+        return models.map(m => ({
+          model_id: m.name,
+          ram_usage_mb: Math.round((m.size_vram || m.size || 0) / 1024 / 1024),
+          expires_at: m.expires_at,
+        }));
+      } catch (err) {
+        logger.debug(`Error getting loaded models: ${err.message}`);
+        return [];
+      }
+    }
+
+    /**
+     * Get memory budget status for loaded models.
+     * Shows total budget, used, available, and per-model breakdown.
+     */
+    async getMemoryBudget() {
+      const SAFETY_BUFFER_MB = parseInt(process.env.MODEL_MEMORY_SAFETY_BUFFER_MB || '2048');
+
+      // Parse RAM_LIMIT_LLM (e.g. "32G" → 32768 MB)
+      const envLimit = process.env.RAM_LIMIT_LLM || '32G';
+      const limitMatch = envLimit.match(/^(\d+)([GM]?)$/i);
+      let totalBudgetMb = 32768; // default 32G
+      if (limitMatch) {
+        const val = parseInt(limitMatch[1]);
+        const unit = (limitMatch[2] || 'G').toUpperCase();
+        totalBudgetMb = unit === 'G' ? val * 1024 : val;
+      }
+
+      const loadedModels = await this.getLoadedModels();
+      const usedMb = loadedModels.reduce((sum, m) => sum + m.ram_usage_mb, 0);
+      const availableMb = Math.max(0, totalBudgetMb - usedMb - SAFETY_BUFFER_MB);
+
+      // Enrich with catalog info (name, id mapping)
+      const enriched = [];
+      for (const m of loadedModels) {
+        let catalogId = m.model_id;
+        let name = m.model_id;
+        try {
+          const result = await database.query(
+            `SELECT c.id, c.name FROM llm_model_catalog c
+             WHERE c.id = $1 OR COALESCE(c.ollama_name, c.id) = $1 LIMIT 1`,
+            [m.model_id]
+          );
+          if (result.rows.length > 0) {
+            catalogId = result.rows[0].id;
+            name = result.rows[0].name;
+          }
+        } catch {
+          /* use raw name */
+        }
+
+        enriched.push({
+          id: catalogId,
+          ollamaName: m.model_id,
+          name,
+          ramMb: m.ram_usage_mb,
+          expiresAt: m.expires_at,
+        });
+      }
+
+      return {
+        totalBudgetMb,
+        usedMb,
+        availableMb,
+        safetyBufferMb: SAFETY_BUFFER_MB,
+        loadedModels: enriched,
+        canLoadMore: availableMb > 0,
+      };
     }
 
     /**
@@ -1015,17 +1153,18 @@ function createModelService(deps = {}) {
           throw new Error(validation.error);
         }
 
-        // Get currently loaded model for comparison
-        const loadedModelInfo = await this.getLoadedModel();
-        const fromModel = loadedModelInfo?.model_id;
+        // Check if model is already among loaded models (multi-model support)
+        const loadedModels = await this.getLoadedModels();
+        const alreadyLoaded = loadedModels.some(m => m.model_id === ollamaName);
 
-        // Compare using ollamaName since getLoadedModel returns Ollama names
-        if (fromModel === ollamaName) {
+        if (alreadyLoaded) {
           logger.debug(`Model ${modelId} (Ollama: ${ollamaName}) already loaded`);
           return { success: true, alreadyLoaded: true, model: modelId };
         }
 
-        // Execute the model switch (unload old, load new)
+        const fromModel = loadedModels.length > 0 ? loadedModels[0].model_id : null;
+
+        // Load the model (LRU eviction handled by _checkMemoryRequirements)
         await _executeModelSwitch(this, modelId, ollamaName, fromModel);
 
         const switchDuration = Date.now() - startTime;

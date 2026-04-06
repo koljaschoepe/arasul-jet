@@ -112,17 +112,124 @@ router.get(
 
 /**
  * GET /api/models/loaded
- * Get currently loaded model
+ * Get all currently loaded models (multi-model support)
  */
 router.get(
   '/loaded',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const loaded = await modelService.getLoadedModel();
+    const loadedModels = await modelService.getLoadedModels();
+    // Backwards-compatible: also include single loaded_model for existing consumers
     res.json({
-      loaded_model: loaded,
+      loaded_model: loadedModels.length > 0 ? loadedModels[0] : null,
+      loaded_models: loadedModels,
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+/**
+ * GET /api/models/lifecycle
+ * Get adaptive lifecycle status (phase, keep-alive, usage profile)
+ */
+router.get(
+  '/lifecycle',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const modelLifecycleService = require('../../services/llm/modelLifecycleService');
+    const status = await modelLifecycleService.getLifecycleStatus();
+    res.json(status);
+  })
+);
+
+/**
+ * GET /api/models/memory-budget
+ * Get memory budget status (total, used, available, loaded models)
+ */
+router.get(
+  '/memory-budget',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const budget = await modelService.getMemoryBudget();
+    res.json(budget);
+  })
+);
+
+/**
+ * POST /api/models/:modelId/load
+ * Load a model into RAM (LLM) or start container (OCR)
+ */
+router.post(
+  '/:modelId/load',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { modelId } = req.params;
+    const database = require('../../database');
+
+    // Check model type
+    const typeResult = await database.query(
+      'SELECT model_type FROM llm_model_catalog WHERE id = $1',
+      [modelId]
+    );
+
+    if (typeResult.rows.length === 0) {
+      throw new NotFoundError(`Modell "${modelId}" nicht im Katalog gefunden`);
+    }
+
+    if (typeResult.rows[0].model_type === 'ocr') {
+      // OCR: Start Docker container
+      const containerService = require('../../services/app/containerService');
+      const appId = modelId.split(':')[0];
+      const result = await containerService.startApp(appId);
+      cacheService.invalidate(CACHE_KEYS.STATUS);
+      cacheService.invalidate(CACHE_KEYS.INSTALLED);
+      res.json({ message: `OCR-Modell ${modelId} wird gestartet`, ...result });
+    } else {
+      // LLM: Load into VRAM via Ollama
+      const result = await modelService.activateModel(modelId, 'user');
+      cacheService.invalidate(CACHE_KEYS.STATUS);
+      res.json(result);
+    }
+  })
+);
+
+/**
+ * POST /api/models/:modelId/unload
+ * Unload model from RAM (LLM) or stop container (OCR)
+ */
+router.post(
+  '/:modelId/unload',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { modelId } = req.params;
+    const database = require('../../database');
+
+    // Check model type
+    const typeResult = await database.query(
+      'SELECT model_type, COALESCE(ollama_name, id) as ollama_name, name FROM llm_model_catalog WHERE id = $1',
+      [modelId]
+    );
+
+    if (typeResult.rows.length === 0) {
+      throw new NotFoundError(`Modell "${modelId}" nicht im Katalog gefunden`);
+    }
+
+    if (typeResult.rows[0].model_type === 'ocr') {
+      // OCR: Stop Docker container
+      const containerService = require('../../services/app/containerService');
+      const appId = modelId.split(':')[0];
+      const result = await containerService.stopApp(appId);
+      cacheService.invalidate(CACHE_KEYS.STATUS);
+      cacheService.invalidate(CACHE_KEYS.INSTALLED);
+      res.json({ message: `OCR-Modell ${modelId} wurde gestoppt`, ...result, model: modelId });
+    } else {
+      // LLM: Unload from VRAM via Ollama
+      const ollamaName = typeResult.rows[0].ollama_name;
+      const result = await modelService.unloadModel(ollamaName);
+      cacheService.invalidate(CACHE_KEYS.STATUS);
+      cacheService.invalidate(CACHE_KEYS.INSTALLED);
+      res.json({ ...result, model: modelId });
+    }
   })
 );
 
@@ -347,26 +454,32 @@ router.post(
         })}\n\n`
       );
 
-      // Simulate progress updates while activation runs
-      let progress = 0;
+      // UX-FIX: Send honest indeterminate progress with heartbeat instead of fake percentages.
+      // Real Ollama loading time is unpredictable — fake progress misleads users.
+      let elapsedSeconds = 0;
       const progressInterval = setInterval(() => {
-        progress = Math.min(progress + 5, 95);
+        elapsedSeconds++;
         const messages = [
           'Modell wird vorbereitet...',
-          'Lade Modell-Gewichte...',
+          'Lade Modell-Gewichte in GPU-Speicher...',
           'Initialisiere GPU-Speicher...',
           'Optimiere für Inferenz...',
-          'Fast fertig...',
         ];
-        const messageIndex = Math.floor(progress / 20);
+        const messageIndex = Math.min(
+          Math.floor(elapsedSeconds / Math.max(estimatedSeconds / 4, 3)),
+          messages.length - 1
+        );
         res.write(
           `data: ${JSON.stringify({
             status: 'loading',
-            progress,
-            message: messages[Math.min(messageIndex, messages.length - 1)],
+            progress: -1,
+            indeterminate: true,
+            elapsed: elapsedSeconds,
+            estimatedSeconds,
+            message: messages[messageIndex],
           })}\n\n`
         );
-      }, estimatedSeconds * 50); // Update every ~5% of estimated time
+      }, 1000); // Heartbeat every second
 
       try {
         const result = await modelService.activateModel(modelId, 'user');

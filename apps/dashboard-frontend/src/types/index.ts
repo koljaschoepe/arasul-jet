@@ -53,8 +53,11 @@ export interface DocumentStatistics {
 export interface DocumentSource {
   document_name: string;
   space_name?: string;
+  space_id?: string;
+  document_id?: string;
   score?: number;
   rerank_score?: number;
+  hybrid_score?: number;
   content?: string;
   text_preview?: string;
   chunk_text?: string;
@@ -81,6 +84,10 @@ export interface InstalledModel {
   rag_optimized?: boolean;
   size_bytes?: number;
   ram_required_gb?: number;
+  category?: string;
+  performance_tier?: number;
+  model_type?: string;
+  is_running?: boolean;
 }
 
 export interface CatalogModel {
@@ -99,6 +106,41 @@ export interface CatalogModel {
   effective_ollama_name?: string;
   performance_tier?: number;
   ollama_library_url?: string;
+}
+
+// --- Model Lifecycle ---
+
+export interface LoadedModelInfo {
+  id: string;
+  ollamaName: string;
+  name: string;
+  ramMb: number;
+  expiresAt?: string;
+}
+
+export interface MemoryBudget {
+  totalBudgetMb: number;
+  usedMb: number;
+  availableMb: number;
+  safetyBufferMb: number;
+  loadedModels: LoadedModelInfo[];
+  canLoadMore: boolean;
+}
+
+export interface UsageProfileHour {
+  hour: number;
+  avgRequests: number;
+  phase: 'peak' | 'normal' | 'idle';
+}
+
+export interface ModelLifecycle {
+  enabled: boolean;
+  currentPhase: 'peak' | 'normal' | 'idle';
+  keepAliveMinutes: number;
+  nextPhaseChange: string;
+  nextPhase: string;
+  currentHour: number;
+  usageProfile: UsageProfileHour[];
 }
 
 // --- Telegram ---
@@ -214,6 +256,9 @@ export interface DataTable {
   status?: string;
   row_count?: number;
   field_count?: number;
+  needs_reindex?: boolean;
+  last_indexed_at?: string | null;
+  index_row_count?: number;
   created_at?: string;
   updated_at?: string;
 }

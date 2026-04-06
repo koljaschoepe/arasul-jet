@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/shadcn/label';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
+import { N8nIntegrationGuide } from './N8nIntegrationGuide';
 
 interface SystemInfo {
   version: string;
@@ -185,6 +186,9 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
             </p>
           </div>
         </div>
+
+        {/* n8n KI-Integration Guide */}
+        <N8nIntegrationGuide />
       </div>
     </div>
   );

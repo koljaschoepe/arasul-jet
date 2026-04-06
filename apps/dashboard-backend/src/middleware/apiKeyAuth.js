@@ -81,7 +81,7 @@ async function validateApiKey(apiKey) {
     // Get key data by prefix
     const result = await database.query(
       `
-            SELECT id, key_hash, name, rate_limit_per_minute, allowed_endpoints, expires_at, is_active
+            SELECT id, key_hash, name, rate_limit_per_minute, allowed_endpoints, expires_at, is_active, created_by
             FROM api_keys
             WHERE key_prefix = $1
         `,
@@ -192,6 +192,7 @@ async function requireApiKey(req, res, next) {
     id: keyData.id,
     prefix: keyPrefix,
     name: keyData.name,
+    userId: keyData.created_by,
     allowedEndpoints: keyData.allowed_endpoints,
   };
 

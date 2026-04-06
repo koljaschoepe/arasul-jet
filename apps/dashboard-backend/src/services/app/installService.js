@@ -6,6 +6,7 @@
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
+const { ConflictError } = require('../../utils/errors');
 
 /**
  * Validate app ID format to prevent container name injection.
@@ -43,8 +44,27 @@ async function installApp(appId, config = {}) {
   const existing = await db.query('SELECT status FROM app_installations WHERE app_id = $1', [
     appId,
   ]);
-  if (existing.rows.length > 0 && existing.rows[0].status !== 'available') {
-    throw new Error(`App ${appId} is already installed`);
+  const reinstallableStatuses = ['available', 'error'];
+  if (existing.rows.length > 0 && !reinstallableStatuses.includes(existing.rows[0].status)) {
+    throw new ConflictError(
+      `App ${appId} ist bereits installiert (Status: ${existing.rows[0].status})`
+    );
+  }
+
+  // Cleanup zombie container from previous failed install
+  if (existing.rows.length > 0 && existing.rows[0].status === 'error') {
+    try {
+      const container = docker.getContainer(appId);
+      try {
+        await container.stop({ t: 5 });
+      } catch (e) {
+        /* ignore - may not be running */
+      }
+      await container.remove();
+      logger.info(`Cleaned up zombie container for ${appId}`);
+    } catch (e) {
+      logger.debug(`No zombie container to clean for ${appId}: ${e.message}`);
+    }
   }
 
   // Check dependencies

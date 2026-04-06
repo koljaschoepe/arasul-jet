@@ -34,6 +34,7 @@ const crypto = require('crypto');
 const logger = require('../../utils/logger');
 const { requireAuth } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { webhookLimiter } = require('../../middleware/rateLimit');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
 const telegramBotService = require('../../services/telegram/telegramBotService');
 const telegramLLMService = require('../../services/telegram/telegramLLMService');
@@ -53,6 +54,7 @@ const maskToken = token => (token ? token.substring(0, 8) + '***' : 'null');
 // to the global error handler (which would return non-200 status codes).
 router.post(
   '/webhook/:botId/:secret',
+  webhookLimiter,
   asyncHandler(async (req, res) => {
     const { botId, secret } = req.params;
     const startTime = Date.now();

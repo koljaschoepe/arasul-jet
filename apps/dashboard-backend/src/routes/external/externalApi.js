@@ -14,14 +14,45 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const logger = require('../../utils/logger');
 const { requireApiKey, requireEndpoint, generateApiKey } = require('../../middleware/apiKeyAuth');
 const { requireAuth } = require('../../middleware/auth');
 const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
+const extractionService = require('../../services/documents/extractionService');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
+
+// Multer for document upload endpoints (50MB limit)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      '.pdf',
+      '.docx',
+      '.txt',
+      '.md',
+      '.markdown',
+      '.yaml',
+      '.yml',
+      '.png',
+      '.jpg',
+      '.jpeg',
+      '.tiff',
+      '.tif',
+      '.bmp',
+    ];
+    const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new ValidationError(`File type ${ext} not supported`));
+    }
+  },
+});
 
 /**
  * POST /api/v1/external/llm/chat - LLM chat via queue (for n8n, automations)
@@ -76,14 +107,15 @@ router.post(
     }
 
     // Create a temporary conversation for this request
-    // (External API requests don't have a conversation context)
+    // USER-FIX: Use API key owner's user_id instead of hardcoded 1
+    const apiKeyUserId = req.apiKey.userId || 1;
     const conversationResult = await require('../../database').query(
       `
         INSERT INTO chat_conversations (title, user_id, created_at)
-        VALUES ($1, 1, NOW())
+        VALUES ($1, $2, NOW())
         RETURNING id
     `,
-      [`External API: ${req.apiKey.name} - ${new Date().toISOString()}`]
+      [`External API: ${req.apiKey.name} - ${new Date().toISOString()}`, apiKeyUserId]
     );
 
     const conversationId = conversationResult.rows[0].id;
@@ -247,7 +279,12 @@ router.post(
 
     const result = await generateApiKey(name, description || '', req.user.id, {
       rateLimitPerMinute: rate_limit_per_minute || 60,
-      allowedEndpoints: allowed_endpoints || ['llm:chat', 'llm:status'],
+      allowedEndpoints: allowed_endpoints || [
+        'llm:chat',
+        'llm:status',
+        'document:extract',
+        'document:analyze',
+      ],
       expiresAt: expires_at || null,
     });
 
@@ -327,6 +364,323 @@ router.delete(
     res.json({
       success: true,
       message: 'API key revoked',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// ────────────────────────────────────────────────────────────────────────────
+// Document Processing Endpoints
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/external/document/extract - Pure text extraction (OCR if needed)
+ *
+ * Upload a file and get extracted text back. No LLM involved.
+ * Supports: PDF, DOCX, TXT, MD, images (PNG, JPG, TIFF, BMP)
+ *
+ * Request: multipart/form-data with field "file"
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "text": "Extracted text content...",
+ *   "filename": "invoice.pdf",
+ *   "char_count": 4521,
+ *   "metadata": { "ocr_used": true, "language": "deu", ... },
+ *   "processing_time_ms": 1234
+ * }
+ */
+router.post(
+  '/document/extract',
+  requireApiKey,
+  requireEndpoint('document:extract'),
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    const startTime = Date.now();
+
+    if (!req.file) {
+      throw new ValidationError('file is required (multipart/form-data)');
+    }
+
+    const file = req.file;
+    const filename = file.originalname;
+
+    logger.info(
+      `[External API] Document extract: ${filename} (${file.size} bytes) by ${req.apiKey.name}`
+    );
+
+    const result = await extractionService.extractFromBuffer(file.buffer, filename);
+
+    res.json({
+      success: true,
+      text: result.text,
+      filename,
+      char_count: result.text.length,
+      metadata: result.metadata,
+      processing_time_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/v1/external/document/analyze - Extract text + LLM analysis
+ *
+ * Upload a file, extract text, then send to LLM with a prompt.
+ * Waits for LLM completion (synchronous).
+ *
+ * Request: multipart/form-data
+ *   - file: The document to analyze
+ *   - prompt: (optional) What to do with the document. Default: summarize.
+ *   - model: (optional) Which model to use
+ *   - temperature: (optional) Default 0.7
+ *   - max_tokens: (optional) Default 4096
+ *   - timeout_seconds: (optional) Max wait time. Default 300.
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "response": "AI analysis result...",
+ *   "extracted_text": "Raw extracted text...",
+ *   "filename": "invoice.pdf",
+ *   "model": "qwen3:14b-q8",
+ *   "processing_time_ms": 5678
+ * }
+ */
+router.post(
+  '/document/analyze',
+  requireApiKey,
+  requireEndpoint('document:analyze'),
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    const startTime = Date.now();
+
+    if (!req.file) {
+      throw new ValidationError('file is required (multipart/form-data)');
+    }
+
+    const file = req.file;
+    const filename = file.originalname;
+    const {
+      prompt,
+      model,
+      temperature = '0.7',
+      max_tokens = '4096',
+      timeout_seconds = '300',
+    } = req.body;
+
+    logger.info(
+      `[External API] Document analyze: ${filename} (${file.size} bytes) by ${req.apiKey.name}`
+    );
+
+    // 1. Extract text
+    const extraction = await extractionService.extractFromBuffer(file.buffer, filename);
+    const extractedText = extraction.text;
+
+    // Truncate for LLM context (30k chars ~ 10k tokens)
+    const truncatedText =
+      extractedText.length > 30000
+        ? extractedText.substring(0, 30000) + '\n\n[... text truncated ...]'
+        : extractedText;
+
+    // 2. Build LLM prompt
+    const analysisPrompt = prompt
+      ? `Document: "${filename}"\n\nExtracted text:\n---\n${truncatedText}\n---\n\nUser request: ${prompt}`
+      : `Document: "${filename}"\n\nExtracted text:\n---\n${truncatedText}\n---\n\nPlease analyze this document and summarize the key contents.`;
+
+    // 3. Create temp conversation and enqueue LLM job
+    const apiKeyUserId = req.apiKey.userId || 1;
+    const conversationResult = await require('../../database').query(
+      `INSERT INTO chat_conversations (title, user_id, created_at)
+       VALUES ($1, $2, NOW()) RETURNING id`,
+      [`External API Document: ${req.apiKey.name} - ${filename}`, apiKeyUserId]
+    );
+    const conversationId = conversationResult.rows[0].id;
+
+    const messages = [{ role: 'user', content: analysisPrompt }];
+    const { jobId, model: resolvedModel } = await llmQueueService.enqueue(
+      conversationId,
+      'chat',
+      {
+        messages,
+        temperature: parseFloat(temperature) || 0.7,
+        max_tokens: parseInt(max_tokens) || 4096,
+        thinking: false,
+      },
+      { model: model || null, priority: 0 }
+    );
+
+    // 4. Wait for result
+    const timeoutMs = Math.min(parseInt(timeout_seconds) * 1000 || 300000, 600000);
+    const result = await waitForJobCompletion(jobId, timeoutMs);
+
+    if (result.error) {
+      return res.status(500).json({
+        success: false,
+        error: result.error,
+        job_id: jobId,
+        processing_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    res.json({
+      success: true,
+      response: result.content,
+      extracted_text: extractedText,
+      filename,
+      char_count: extractedText.length,
+      metadata: extraction.metadata,
+      model: resolvedModel,
+      job_id: jobId,
+      processing_time_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/v1/external/document/extract-structured - Extract + structured output
+ *
+ * Upload a document and get structured JSON data via LLM.
+ * Designed for invoice processing, form extraction, etc.
+ *
+ * Request: multipart/form-data
+ *   - file: The document
+ *   - schema: JSON schema describing desired output structure
+ *   - instructions: (optional) Additional extraction instructions
+ *   - model: (optional) Which model to use
+ *   - timeout_seconds: (optional) Default 300
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "data": { ... structured JSON ... },
+ *   "raw_response": "LLM raw text",
+ *   "filename": "invoice.pdf",
+ *   "model": "qwen3:14b-q8"
+ * }
+ */
+router.post(
+  '/document/extract-structured',
+  requireApiKey,
+  requireEndpoint('document:extract'),
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    const startTime = Date.now();
+
+    if (!req.file) {
+      throw new ValidationError('file is required (multipart/form-data)');
+    }
+
+    const file = req.file;
+    const filename = file.originalname;
+    const { schema, instructions, model, timeout_seconds = '300' } = req.body;
+
+    if (!schema) {
+      throw new ValidationError('schema is required — JSON schema describing desired output');
+    }
+
+    // Validate schema is valid JSON
+    let parsedSchema;
+    try {
+      parsedSchema = typeof schema === 'string' ? JSON.parse(schema) : schema;
+    } catch {
+      throw new ValidationError('schema must be valid JSON');
+    }
+
+    logger.info(`[External API] Structured extract: ${filename} by ${req.apiKey.name}`);
+
+    // 1. Extract text
+    const extraction = await extractionService.extractFromBuffer(file.buffer, filename);
+    const extractedText = extraction.text;
+
+    const truncatedText =
+      extractedText.length > 30000
+        ? extractedText.substring(0, 30000) + '\n\n[... text truncated ...]'
+        : extractedText;
+
+    // 2. Build structured extraction prompt
+    const schemaStr = JSON.stringify(parsedSchema, null, 2);
+    const structuredPrompt = `You are a precise data extraction assistant. Extract structured data from the following document.
+
+Document: "${filename}"
+
+Extracted text:
+---
+${truncatedText}
+---
+
+${instructions ? `Additional instructions: ${instructions}\n\n` : ''}Output MUST be valid JSON matching this schema:
+\`\`\`json
+${schemaStr}
+\`\`\`
+
+Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
+
+    // 3. Enqueue LLM job
+    const apiKeyUserId = req.apiKey.userId || 1;
+    const conversationResult = await require('../../database').query(
+      `INSERT INTO chat_conversations (title, user_id, created_at)
+       VALUES ($1, $2, NOW()) RETURNING id`,
+      [`External API Structured: ${req.apiKey.name} - ${filename}`, apiKeyUserId]
+    );
+    const conversationId = conversationResult.rows[0].id;
+
+    const messages = [{ role: 'user', content: structuredPrompt }];
+    const { jobId, model: resolvedModel } = await llmQueueService.enqueue(
+      conversationId,
+      'chat',
+      {
+        messages,
+        temperature: 0.1, // Low temperature for structured extraction
+        max_tokens: 4096,
+        thinking: false,
+      },
+      { model: model || null, priority: 0 }
+    );
+
+    // 4. Wait for result
+    const timeoutMs = Math.min(parseInt(timeout_seconds) * 1000 || 300000, 600000);
+    const result = await waitForJobCompletion(jobId, timeoutMs);
+
+    if (result.error) {
+      return res.status(500).json({
+        success: false,
+        error: result.error,
+        job_id: jobId,
+        processing_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // 5. Parse structured response
+    let structuredData = null;
+    const rawResponse = result.content || '';
+    try {
+      // Strip markdown code fences if present
+      const cleaned = rawResponse
+        .replace(/^```(?:json)?\s*\n?/m, '')
+        .replace(/\n?\s*```\s*$/m, '')
+        .trim();
+      structuredData = JSON.parse(cleaned);
+    } catch {
+      // LLM didn't return valid JSON — return raw response for client to handle
+      logger.warn(`[External API] Structured extract: LLM returned non-JSON for ${filename}`);
+    }
+
+    res.json({
+      success: true,
+      data: structuredData,
+      raw_response: rawResponse,
+      extracted_text: extractedText,
+      filename,
+      char_count: extractedText.length,
+      metadata: extraction.metadata,
+      model: resolvedModel,
+      job_id: jobId,
+      processing_time_ms: Date.now() - startTime,
       timestamp: new Date().toISOString(),
     });
   })

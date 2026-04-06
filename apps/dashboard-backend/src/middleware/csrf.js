@@ -8,7 +8,7 @@
  * Skipped for:
  * - Safe methods (GET, HEAD, OPTIONS)
  * - API key authenticated requests (no cookie-based session)
- * - Bearer-only requests (no session cookie present)
+ * - Requests without session cookie (Bearer-only / programmatic clients)
  */
 
 const crypto = require('crypto');
@@ -69,15 +69,9 @@ function csrfProtection(req, res, next) {
     return next();
   }
 
-  // Bearer token in Authorization header means the request is not CSRF-vulnerable:
-  // an attacker cannot set custom headers in a cross-origin request.
-  const authHeader = req.headers['authorization'];
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return next();
-  }
-
-  // If there's no session cookie, the request is using Bearer-only auth
-  // (e.g. programmatic client). These are not vulnerable to CSRF.
+  // If there's no session cookie, the request is using Bearer-only or API-key auth
+  // (e.g. programmatic client). These are not vulnerable to CSRF because
+  // cross-origin requests cannot set custom Authorization headers.
   if (!req.cookies || !req.cookies.arasul_session) {
     return next();
   }
@@ -106,6 +100,7 @@ function csrfProtection(req, res, next) {
       rotateCsrfToken(res);
     } catch (rotateErr) {
       logger.warn(`CSRF token rotation failed: ${rotateErr.message}`);
+      res.setHeader('X-CSRF-Token-Rotated', 'false');
     }
   }
 

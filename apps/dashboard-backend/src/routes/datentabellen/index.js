@@ -5,8 +5,6 @@
 
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
-const crypto = require('crypto');
 const tablesRouter = require('./tables');
 const rowsRouter = require('./rows');
 const quotesRouter = require('./quotes');
@@ -14,34 +12,43 @@ const dataDb = require('../../dataDatabase');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
 const logger = require('../../utils/logger');
-const services = require('../../config/services');
 const llmDataAccess = require('../../services/context/llmDataAccessService');
 const { isValidSlug, escapeTableName } = require('../../utils/sqlIdentifier');
 const { ValidationError } = require('../../utils/errors');
-
-const { getEmbeddings } = require('../../services/embeddingService');
-
-// RAG/Embedding configuration
-const QDRANT_HOST = services.qdrant?.host || 'qdrant';
-const QDRANT_PORT = services.qdrant?.port || 6333;
-const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
+const indexingService = require('../../services/datentabellen/indexingService');
 
 /**
  * Middleware: Check if data database is initialized
- * Returns 503 Service Unavailable if not ready
+ * Attempts lazy re-initialization with cooldown if not ready
  */
-const checkDataDbInitialized = (req, res, next) => {
-  if (!dataDb.isInitialized()) {
-    logger.warn(`[Datentabellen] Request to ${req.path} rejected - database not initialized`);
-    return res.status(503).json({
-      success: false,
-      error:
-        'Datendatenbank wird initialisiert. Bitte warten Sie einen Moment und versuchen Sie es erneut.',
-      code: 'DATA_DB_NOT_INITIALIZED',
-      timestamp: new Date().toISOString(),
-    });
+let lastRetryAt = 0;
+const RETRY_COOLDOWN_MS = 30000; // 30s between retry attempts
+
+const checkDataDbInitialized = async (req, res, next) => {
+  if (dataDb.isInitialized()) {return next();}
+
+  // Attempt lazy re-initialization (max once per cooldown period)
+  const now = Date.now();
+  if (now - lastRetryAt > RETRY_COOLDOWN_MS) {
+    lastRetryAt = now;
+    logger.info('[Datentabellen] Attempting lazy re-initialization of data database...');
+    const success = await dataDb.initialize();
+    if (success) {
+      logger.info('[Datentabellen] Lazy re-initialization successful');
+      return next();
+    }
   }
-  next();
+
+  const retryAfter = Math.max(0, Math.ceil((RETRY_COOLDOWN_MS - (now - lastRetryAt)) / 1000));
+  logger.warn(`[Datentabellen] Request to ${req.path} rejected - database not initialized`);
+  return res.status(503).json({
+    success: false,
+    error:
+      'Datendatenbank wird initialisiert. Bitte warten Sie einen Moment und versuchen Sie es erneut.',
+    code: 'DATA_DB_NOT_INITIALIZED',
+    retryAfter,
+    timestamp: new Date().toISOString(),
+  });
 };
 
 // Apply initialization check to ALL datentabellen routes
@@ -129,7 +136,6 @@ router.get(
 /**
  * POST /api/v1/datentabellen/tables/:slug/index
  * Index table data for RAG/LLM queries
- * Creates embeddings for each row and stores in Qdrant
  */
 router.post(
   '/tables/:slug/index',
@@ -142,140 +148,14 @@ router.post(
     }
 
     logger.info(`[Datentabellen] Starting RAG indexing for table: ${slug}`);
-
-    // Get table metadata
-    const tableResult = await dataDb.query('SELECT * FROM dt_tables WHERE slug = $1', [slug]);
-
-    if (tableResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Tabelle nicht gefunden',
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    const table = tableResult.rows[0];
-
-    // Get fields
-    const fieldsResult = await dataDb.query(
-      'SELECT * FROM dt_fields WHERE table_id = $1 ORDER BY field_order',
-      [table.id]
-    );
-    const fields = fieldsResult.rows;
-
-    // Get all rows
-    const rowsResult = await dataDb.query(`SELECT * FROM ${escapeTableName(slug)}`);
-    const rows = rowsResult.rows;
-
-    if (rows.length === 0) {
-      return res.json({
-        success: true,
-        message: 'Keine Daten zum Indexieren',
-        indexed: 0,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Convert rows to text for embedding
-    const rowTexts = rows.map(row => {
-      const parts = [`Tabelle: ${table.name}`];
-      fields.forEach(field => {
-        const value = row[field.slug];
-        if (value !== null && value !== undefined && value !== '') {
-          parts.push(`${field.name}: ${value}`);
-        }
-      });
-      return parts.join('\n');
-    });
-
-    // Batch embed (10 at a time)
-    const batchSize = 10;
-    const allPoints = [];
-
-    for (let i = 0; i < rowTexts.length; i += batchSize) {
-      const batch = rowTexts.slice(i, i + batchSize);
-      const batchRows = rows.slice(i, i + batchSize);
-
-      try {
-        // Get embeddings
-        const vectors = await getEmbeddings(batch);
-        if (!vectors) {
-          logger.warn(`[Datentabellen] Embedding batch failed, skipping ${batch.length} rows`);
-          continue;
-        }
-
-        // Create points for Qdrant
-        vectors.forEach((vector, idx) => {
-          const row = batchRows[idx];
-          const pointId = crypto
-            .createHash('md5')
-            .update(`datentabelle:${table.id}:${row._id}`)
-            .digest('hex');
-
-          allPoints.push({
-            id: pointId,
-            vector: vector,
-            payload: {
-              source_type: 'datentabelle',
-              table_id: table.id,
-              table_slug: slug,
-              table_name: table.name,
-              row_id: row._id,
-              text: batch[idx],
-              indexed_at: Date.now() / 1000,
-              // Include key field values for display
-              preview: fields
-                .slice(0, 3)
-                .map(f => row[f.slug])
-                .filter(v => v)
-                .join(' | '),
-            },
-          });
-        });
-      } catch (err) {
-        logger.error(`[Datentabellen] Embedding failed for batch ${i}: ${err.message}`);
-        throw err;
-      }
-    }
-
-    // Delete old points for this table first
-    try {
-      await axios.post(
-        `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
-        {
-          filter: {
-            must: [
-              { key: 'source_type', match: { value: 'datentabelle' } },
-              { key: 'table_id', match: { value: table.id } },
-            ],
-          },
-        },
-        { timeout: 30000 }
-      );
-    } catch (err) {
-      // Ignore delete errors (might not exist)
-      logger.warn(`[Datentabellen] Delete old vectors failed: ${err.message}`);
-    }
-
-    // Upsert to Qdrant
-    try {
-      await axios.put(
-        `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points`,
-        { points: allPoints },
-        { timeout: 60000 }
-      );
-    } catch (err) {
-      logger.error(`[Datentabellen] Qdrant upsert failed: ${err.message}`);
-      throw err;
-    }
-
-    logger.info(`[Datentabellen] Indexed ${allPoints.length} rows for table ${slug}`);
+    const result = await indexingService.indexTable(slug);
+    logger.info(`[Datentabellen] Indexed ${result.indexed} rows for table ${slug}`);
 
     res.json({
       success: true,
-      message: `${allPoints.length} Datensätze indexiert`,
-      indexed: allPoints.length,
-      table: table.name,
+      message: `${result.indexed} Datensätze indexiert`,
+      indexed: result.indexed,
+      table: result.tableName,
       timestamp: new Date().toISOString(),
     });
   })
@@ -295,46 +175,13 @@ router.delete(
       throw new ValidationError('Ungültiger Tabellenname');
     }
 
-    // Get table metadata
-    const tableResult = await dataDb.query('SELECT id, name FROM dt_tables WHERE slug = $1', [
-      slug,
-    ]);
-
-    if (tableResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Tabelle nicht gefunden',
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    const table = tableResult.rows[0];
-
-    // Delete from Qdrant
-    try {
-      await axios.post(
-        `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
-        {
-          filter: {
-            must: [
-              { key: 'source_type', match: { value: 'datentabelle' } },
-              { key: 'table_id', match: { value: table.id } },
-            ],
-          },
-        },
-        { timeout: 30000 }
-      );
-    } catch (err) {
-      logger.error(`[Datentabellen] Delete from Qdrant failed: ${err.message}`);
-      throw err;
-    }
-
+    const result = await indexingService.removeTableIndex(slug);
     logger.info(`[Datentabellen] Removed RAG index for table ${slug}`);
 
     res.json({
       success: true,
       message: 'Index erfolgreich entfernt',
-      table: table.name,
+      table: result.tableName,
       timestamp: new Date().toISOString(),
     });
   })
@@ -354,70 +201,13 @@ router.get(
       throw new ValidationError('Ungültiger Tabellenname');
     }
 
-    // Get table metadata
-    const tableResult = await dataDb.query('SELECT id, name FROM dt_tables WHERE slug = $1', [
-      slug,
-    ]);
+    const status = await indexingService.getIndexStatus(slug);
 
-    if (tableResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Tabelle nicht gefunden',
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    const table = tableResult.rows[0];
-
-    // Count vectors in Qdrant
-    try {
-      const countResponse = await axios.post(
-        `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/count`,
-        {
-          filter: {
-            must: [
-              { key: 'source_type', match: { value: 'datentabelle' } },
-              { key: 'table_id', match: { value: table.id } },
-            ],
-          },
-        },
-        { timeout: 10000 }
-      );
-
-      const indexedCount = countResponse.data.result?.count || 0;
-
-      // Get total row count
-      const rowCountResult = await dataDb.query(
-        `SELECT COUNT(*)::int as count FROM ${escapeTableName(slug)}`
-      );
-      const totalRows = rowCountResult.rows[0].count;
-
-      res.json({
-        success: true,
-        data: {
-          table: table.name,
-          indexed_rows: indexedCount,
-          total_rows: totalRows,
-          is_indexed: indexedCount > 0,
-          is_complete: indexedCount === totalRows,
-        },
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      // Qdrant might not be available
-      res.json({
-        success: true,
-        data: {
-          table: table.name,
-          indexed_rows: 0,
-          total_rows: 0,
-          is_indexed: false,
-          is_complete: false,
-          error: 'Qdrant nicht erreichbar',
-        },
-        timestamp: new Date().toISOString(),
-      });
-    }
+    res.json({
+      success: true,
+      data: status,
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 

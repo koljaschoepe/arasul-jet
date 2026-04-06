@@ -8,6 +8,7 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import useConfirm from '../../hooks/useConfirm';
 import useMediaQuery from '../../hooks/useMediaQuery';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import useExcelKeyboard from './useExcelKeyboard';
@@ -39,9 +40,17 @@ import './datentabellen.css';
 
 const TABLET_ROW_HEIGHT = 44;
 
-function ExcelEditor({ tableSlug, tableName }: ExcelEditorProps) {
+function ExcelEditor({ tableSlug, tableName, onClose }: ExcelEditorProps) {
   const { confirm: showConfirm, ConfirmDialog } = useConfirm();
+  const api = useApi();
   const toast = useToast();
+
+  // Auto-index on close: trigger re-index then call parent onClose
+  const handleClose = useCallback(() => {
+    // Fire-and-forget: index in background, don't block close
+    api.post(`/v1/datentabellen/tables/${tableSlug}/index`).catch(() => {});
+    onClose?.();
+  }, [api, tableSlug, onClose]);
   const isMobile = useMediaQuery('(max-width: 767px)');
   const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1023px)');
   const effectiveRowHeight = isTablet ? TABLET_ROW_HEIGHT : ROW_HEIGHT;
@@ -110,6 +119,7 @@ function ExcelEditor({ tableSlug, tableName }: ExcelEditorProps) {
     sortField,
     sortOrder,
     search,
+    onRowCreated: () => pagination.setPage(1),
   });
 
   // Sync totalRows from useTableData into usePagination
@@ -230,6 +240,15 @@ function ExcelEditor({ tableSlug, tableName }: ExcelEditorProps) {
     scrollToRow,
   });
 
+  // --- Body scroll lock for overlay ---
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   // --- Load data on mount and when params change ---
   useEffect(() => {
     loadTable();
@@ -296,157 +315,166 @@ function ExcelEditor({ tableSlug, tableName }: ExcelEditorProps) {
 
   if (loading && !table) {
     return (
-      <div className="flex flex-col h-full w-full">
-        <LoadingSpinner message="Tabelle wird geladen..." />
+      <div className="excel-editor-overlay" onClick={handleClose}>
+        <div className="excel-editor-container" onClick={e => e.stopPropagation()}>
+          <LoadingSpinner message="Tabelle wird geladen..." />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full w-full">
-      <EditorHeader
-        table={table}
-        tableName={tableName}
-        saving={saving}
-        saveStatus={saveStatus}
-        rows={rows.length}
-        fields={fields.length}
-      />
-
-      {/* Error bar */}
-      {error && (
-        <div className="flex items-center gap-3 py-3 px-4 md:px-6 bg-destructive/10 border-b border-destructive/30 text-destructive text-sm shrink-0">
-          <AlertCircle className="size-4 shrink-0" /> <span className="flex-1">{error}</span>
-          <button
-            type="button"
-            className="bg-transparent border-none text-inherit cursor-pointer p-1 shrink-0"
-            onClick={() => setError(null)}
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Toolbar: Mobile vs Desktop */}
-      {isMobile ? <MobileToolbar {...toolbarProps} /> : <TableToolbar {...toolbarProps} />}
-
-      {/* Content: Mobile card list vs Desktop grid */}
-      {isMobile ? (
-        <MobileRecordList
-          rows={displayRows}
-          fields={fields}
-          selectedRows={selectedRows}
-          onCellSave={handleCellSave}
-          onToggleSelection={toggleRowSelection}
-          onDeleteRow={handleDeleteRowConfirm}
+    <div className="excel-editor-overlay" onClick={handleClose}>
+      <div className="excel-editor-container" onClick={e => e.stopPropagation()}>
+        <EditorHeader
+          table={table}
+          tableName={tableName}
+          saving={saving}
+          saveStatus={saveStatus}
+          rows={rows.length}
+          fields={fields.length}
+          onClose={handleClose}
         />
-      ) : (
-        <>
-          {/* Grid */}
-          <div
-            className="flex-1 flex flex-col min-h-0 outline-none relative focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-[-2px]"
-            ref={tableRef}
-            tabIndex={0}
-          >
-            <TableHeader
-              fields={fields}
-              columnWidths={columnWidths}
-              sortField={sortField}
-              sortOrder={sortOrder}
-              resizingColumn={resizingColumn}
-              headerScrollRef={headerScrollRef}
-              tableSlug={tableSlug}
-              onSort={handleSort}
-              onResizeStart={handleResizeStart}
-              onColumnMenuOpen={handleColumnMenuOpen}
-              onColumnAdded={loadTable}
-              onToggleSelectAll={toggleSelectAll}
-            />
 
-            {/* Virtualized body */}
-            <div className="flex-1 overflow-auto min-h-0" ref={bodyRef} onScroll={handleBodyScroll}>
-              <div className="relative min-w-max" style={{ height: totalHeight }}>
-                <div
-                  className="will-change-transform"
-                  style={{ transform: `translateY(${offsetTop}px)` }}
-                >
-                  {visibleRows.map((row, i) => {
-                    const rowIdx = startIndex + i;
-                    return (
-                      <TableRow
-                        key={row._id}
-                        row={row}
-                        rowIdx={rowIdx}
-                        fields={fields}
-                        columnWidths={columnWidths}
-                        isSelected={selectedRows.has(row._id)}
-                        activeRow={activeCell.row}
-                        activeCol={activeCell.col}
-                        editingCell={editingCell}
-                        onCellClick={handleCellClick}
-                        onContextMenu={handleContextMenu}
-                        onCellSave={handleCellSave}
-                        onCancelEdit={() => setEditingCell(null)}
-                        onToggleSelection={toggleRowSelection}
-                      />
-                    );
-                  })}
+        {/* Error bar */}
+        {error && (
+          <div className="flex items-center gap-3 py-3 px-4 md:px-6 bg-destructive/10 border-b border-destructive/30 text-destructive text-sm shrink-0">
+            <AlertCircle className="size-4 shrink-0" /> <span className="flex-1">{error}</span>
+            <button
+              type="button"
+              className="bg-transparent border-none text-inherit cursor-pointer p-1 shrink-0"
+              onClick={() => setError(null)}
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Toolbar: Mobile vs Desktop */}
+        {isMobile ? <MobileToolbar {...toolbarProps} /> : <TableToolbar {...toolbarProps} />}
+
+        {/* Content: Mobile card list vs Desktop grid */}
+        {isMobile ? (
+          <MobileRecordList
+            rows={displayRows}
+            fields={fields}
+            selectedRows={selectedRows}
+            onCellSave={handleCellSave}
+            onToggleSelection={toggleRowSelection}
+            onDeleteRow={handleDeleteRowConfirm}
+          />
+        ) : (
+          <>
+            {/* Grid */}
+            <div
+              className="flex-1 flex flex-col min-h-0 outline-none relative focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-[-2px]"
+              ref={tableRef}
+              tabIndex={0}
+            >
+              <TableHeader
+                fields={fields}
+                columnWidths={columnWidths}
+                sortField={sortField}
+                sortOrder={sortOrder}
+                resizingColumn={resizingColumn}
+                headerScrollRef={headerScrollRef}
+                tableSlug={tableSlug}
+                onSort={handleSort}
+                onResizeStart={handleResizeStart}
+                onColumnMenuOpen={handleColumnMenuOpen}
+                onColumnAdded={loadTable}
+                onToggleSelectAll={toggleSelectAll}
+              />
+
+              {/* Virtualized body */}
+              <div
+                className="flex-1 overflow-auto min-h-0"
+                ref={bodyRef}
+                onScroll={handleBodyScroll}
+              >
+                <div className="relative min-w-max" style={{ height: totalHeight }}>
+                  <div
+                    className="will-change-transform"
+                    style={{ transform: `translateY(${offsetTop}px)` }}
+                  >
+                    {visibleRows.map((row, i) => {
+                      const rowIdx = startIndex + i;
+                      return (
+                        <TableRow
+                          key={row._id}
+                          row={row}
+                          rowIdx={rowIdx}
+                          fields={fields}
+                          columnWidths={columnWidths}
+                          isSelected={selectedRows.has(row._id)}
+                          activeRow={activeCell.row}
+                          activeCol={activeCell.col}
+                          editingCell={editingCell}
+                          onCellClick={handleCellClick}
+                          onContextMenu={handleContextMenu}
+                          onCellSave={handleCellSave}
+                          onCancelEdit={() => setEditingCell(null)}
+                          onToggleSelection={toggleRowSelection}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <Pagination
-            page={pagination.page}
-            totalPages={pagination.totalPages}
-            pageSize={pagination.pageSize}
-            totalRows={totalRows}
-            onPrevPage={pagination.prevPage}
-            onNextPage={pagination.nextPage}
-            onPageSizeChange={pagination.setPageSize}
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              pageSize={pagination.pageSize}
+              totalRows={totalRows}
+              onPrevPage={pagination.prevPage}
+              onNextPage={pagination.nextPage}
+              onPageSizeChange={pagination.setPageSize}
+            />
+          </>
+        )}
+
+        {/* Column Menu */}
+        {columnMenu && (
+          <ColumnMenu
+            field={columnMenu.field}
+            tableSlug={tableSlug}
+            position={columnMenu.position}
+            onClose={() => setColumnMenu(null)}
+            onFieldUpdated={loadTable}
           />
-        </>
-      )}
+        )}
 
-      {/* Column Menu */}
-      {columnMenu && (
-        <ColumnMenu
-          field={columnMenu.field}
-          tableSlug={tableSlug}
-          position={columnMenu.position}
-          onClose={() => setColumnMenu(null)}
-          onFieldUpdated={loadTable}
-        />
-      )}
-
-      {/* Context Menu (desktop only) */}
-      {contextMenu && !isMobile && (
-        <CellContextMenu
-          position={contextMenu.position}
-          onClose={() => setContextMenu(null)}
-          onCopy={() => {
-            handleCopy();
-            setContextMenu(null);
-          }}
-          onCut={() => {
-            handleCut();
-            setContextMenu(null);
-          }}
-          onPaste={() => {
-            handlePaste();
-            setContextMenu(null);
-          }}
-          onDelete={() => {
-            const { row, col } = activeCell;
-            if (displayRows[row] && fields[col] && displayRows[row]._id !== '__ghost__') {
-              handleCellSave(displayRows[row]._id, fields[col].slug, null);
-            }
-            setContextMenu(null);
-          }}
-          hasClipboard={!!clipboard?.value}
-        />
-      )}
-      {ConfirmDialog}
+        {/* Context Menu (desktop only) */}
+        {contextMenu && !isMobile && (
+          <CellContextMenu
+            position={contextMenu.position}
+            onClose={() => setContextMenu(null)}
+            onCopy={() => {
+              handleCopy();
+              setContextMenu(null);
+            }}
+            onCut={() => {
+              handleCut();
+              setContextMenu(null);
+            }}
+            onPaste={() => {
+              handlePaste();
+              setContextMenu(null);
+            }}
+            onDelete={() => {
+              const { row, col } = activeCell;
+              if (displayRows[row] && fields[col] && displayRows[row]._id !== '__ghost__') {
+                handleCellSave(displayRows[row]._id, fields[col].slug, null);
+              }
+              setContextMenu(null);
+            }}
+            hasClipboard={!!clipboard?.value}
+          />
+        )}
+        {ConfirmDialog}
+      </div>
     </div>
   );
 }

@@ -110,21 +110,28 @@ All variables are defined in `.env` file at repository root.
 
 Dynamic LLM model management with smart batching for Jetson devices.
 
-| Variable                      | Default | Description                                     |
-| ----------------------------- | ------- | ----------------------------------------------- |
-| MODEL_BATCHING_ENABLED        | true    | Enable smart model batching                     |
-| MODEL_MAX_WAIT_SECONDS        | 120     | Max wait before forcing model switch            |
-| MODEL_SWITCH_COOLDOWN_SECONDS | 5       | Cooldown between model switches                 |
-| JETSON_TOTAL_RAM_GB           | 64      | Total Jetson RAM (GB)                           |
-| JETSON_RESERVED_RAM_GB        | 10      | RAM reserved for system (GB)                    |
-| OLLAMA_READY_TIMEOUT          | 300000  | Ollama startup timeout (ms, 5 min)              |
-| OLLAMA_RETRY_INTERVAL         | 5000    | Retry interval for Ollama connection (ms)       |
-| MODEL_SYNC_INTERVAL           | 60000   | Sync models with DB interval (ms, 1 min)        |
-| MODEL_INACTIVITY_THRESHOLD    | 1800000 | Auto-unload model after inactivity (ms, 30 min) |
-| RAM_CRITICAL_THRESHOLD        | 95      | RAM threshold for auto model unload (%)         |
-| LONG_REQUEST_THRESHOLD        | 180000  | Long request threshold (ms, 3 min)              |
-| LLM_BURST_WINDOW_MS           | 1000    | Burst window for rate limiting (ms)             |
-| LLM_MAX_CONCURRENT_ENQUEUE    | 10      | Max parallel enqueue operations                 |
+| Variable                        | Default | Description                                     |
+| ------------------------------- | ------- | ----------------------------------------------- |
+| MODEL_BATCHING_ENABLED          | true    | Enable smart model batching                     |
+| MODEL_MAX_WAIT_SECONDS          | 120     | Max wait before forcing model switch            |
+| MODEL_SWITCH_COOLDOWN_SECONDS   | 5       | Cooldown between model switches                 |
+| JETSON_TOTAL_RAM_GB             | 64      | Total Jetson RAM (GB)                           |
+| JETSON_RESERVED_RAM_GB          | 10      | RAM reserved for system (GB)                    |
+| OLLAMA_READY_TIMEOUT            | 300000  | Ollama startup timeout (ms, 5 min)              |
+| OLLAMA_RETRY_INTERVAL           | 5000    | Retry interval for Ollama connection (ms)       |
+| MODEL_SYNC_INTERVAL             | 60000   | Sync models with DB interval (ms, 1 min)        |
+| MODEL_INACTIVITY_THRESHOLD      | 1800000 | Auto-unload model after inactivity (ms, 30 min) |
+| RAM_CRITICAL_THRESHOLD          | 95      | RAM threshold for auto model unload (%)         |
+| LONG_REQUEST_THRESHOLD          | 180000  | Long request threshold (ms, 3 min)              |
+| LLM_BURST_WINDOW_MS             | 1000    | Burst window for rate limiting (ms)             |
+| LLM_MAX_CONCURRENT_ENQUEUE      | 10      | Max parallel enqueue operations                 |
+| OLLAMA_MAX_LOADED_MODELS        | 3       | Max models loaded simultaneously in RAM         |
+| MODEL_LIFECYCLE_ENABLED         | true    | Enable adaptive model lifecycle management      |
+| MODEL_PEAK_KEEP_ALIVE_MINUTES   | 30      | Keep-alive during peak usage hours (minutes)    |
+| MODEL_NORMAL_KEEP_ALIVE_MINUTES | 10      | Keep-alive during normal usage hours (minutes)  |
+| MODEL_IDLE_KEEP_ALIVE_MINUTES   | 2       | Keep-alive during idle hours (minutes)          |
+| MODEL_PEAK_THRESHOLD            | 2       | Avg requests/hour to classify as peak           |
+| MODEL_MEMORY_SAFETY_BUFFER_MB   | 2048    | Safety buffer for model memory budget (MB)      |
 
 ### Smart Batching
 

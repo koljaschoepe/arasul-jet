@@ -103,6 +103,49 @@ export const TableStatusBadge: React.FC<TableStatusBadgeProps> = ({ status }) =>
   );
 };
 
+// -- IndexStatusBadge --
+
+type IndexStatus = 'indexed' | 'stale' | 'not_indexed';
+
+interface IndexStatusBadgeProps {
+  needsReindex?: boolean;
+  lastIndexedAt?: string | null;
+}
+
+export const IndexStatusBadge: React.FC<IndexStatusBadgeProps> = ({
+  needsReindex,
+  lastIndexedAt,
+}) => {
+  let status: IndexStatus = 'not_indexed';
+  if (lastIndexedAt && !needsReindex) status = 'indexed';
+  else if (lastIndexedAt && needsReindex) status = 'stale';
+
+  const config: Record<IndexStatus, StatusConfig> = {
+    indexed: { icon: Check, label: 'Indexiert', badge: 'success' },
+    stale: { icon: RefreshCw, label: 'Veraltet', badge: 'warning' },
+    not_indexed: { icon: Clock, label: 'Nicht indexiert', badge: 'neutral' },
+  };
+
+  const c = config[status];
+  const Icon = c.icon;
+
+  return (
+    <span
+      className={cn(badgeBase, badgeVariants[c.badge])}
+      role="status"
+      aria-label={`Index: ${c.label}`}
+      title={
+        lastIndexedAt
+          ? `Zuletzt indexiert: ${new Date(lastIndexedAt).toLocaleString('de-DE')}`
+          : 'Noch nie indexiert'
+      }
+    >
+      <Icon className="size-3.5" aria-hidden="true" />
+      {c.label}
+    </span>
+  );
+};
+
 // -- CategoryBadge --
 
 interface CategoryBadgeProps {

@@ -102,6 +102,7 @@ interface SendMessageOptions {
   matchedSpaces?: string[];
   messages?: ChatMessage[];
   model?: string;
+  file?: File;
 }
 
 interface LoadMessagesOptions {
@@ -374,6 +375,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     thinkingCollapsed: true,
     sources: (msg.sources as DocumentSource[]) || [],
     sourcesCollapsed: true,
+    matchedSpaces: (msg.matched_spaces as MatchedSpace[]) || undefined,
     status: (msg.status as string) || 'completed',
     jobId: msg.job_id as string | undefined,
     jobStatus: msg.job_status as string | undefined,
@@ -537,6 +539,13 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
   const reconnectToJob = useCallback(
     async (jobId: string, targetChatId: string) => {
+      // Abort ALL existing streams — token batching only supports one active stream
+      for (const id of Object.keys(abortControllersRef.current)) {
+        if (id !== targetChatId) {
+          abortControllersRef.current[id]?.abort();
+          delete abortControllersRef.current[id];
+        }
+      }
       abortExistingStream(targetChatId);
       const abortController = new AbortController();
       abortControllersRef.current[targetChatId] = abortController;
@@ -623,6 +632,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                           hasThinking: !!(data.thinking || msg.thinking),
                           status: data.status || msg.status,
                           jobId,
+                          ...(data.sources
+                            ? { sources: data.sources, sourcesCollapsed: true }
+                            : {}),
+                          ...(data.matchedSpaces ? { matchedSpaces: data.matchedSpaces } : {}),
                         }
                       : msg
                   )
@@ -684,22 +697,30 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         matchedSpaces = [],
         messages = [],
         model,
+        file,
       } = options;
-      if (!input.trim() || !chatId) return;
+      if ((!input.trim() && !file) || !chatId) return;
 
       const userMessage = input.trim();
-      const isRAG = useRAG;
+      const isRAG = useRAG && !file; // file uploads use their own pipeline
+      const isFileUpload = !!file;
       const effectiveModel = model !== undefined ? model : selectedModelRef.current;
 
-      // Save user message to DB
-      try {
-        await api.post(
-          `/chats/${chatId}/messages`,
-          { role: 'user', content: userMessage },
-          { showError: false }
-        );
-      } catch (err) {
-        console.error('Error saving message:', err);
+      // Save user message to DB (skip for file uploads — backend handles it)
+      if (!isFileUpload) {
+        try {
+          await api.post(
+            `/chats/${chatId}/messages`,
+            { role: 'user', content: userMessage },
+            { showError: false }
+          );
+        } catch (err) {
+          console.error('Error saving user message:', err);
+          updateError(
+            chatId,
+            'Warnung: Nachricht konnte nicht gespeichert werden. Bei Seitenaktualisierung könnte sie verloren gehen.'
+          );
+        }
       }
 
       // Update UI with user message + empty assistant message
@@ -721,6 +742,15 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         },
       ]);
 
+      // Abort ALL existing streams — token batching only supports one active stream at a time.
+      // If Chat A is streaming and user starts Chat B, Chat A's batched tokens would route
+      // to Chat B via activeStreamChatIdRef. Prevent this by aborting all other streams first.
+      for (const id of Object.keys(abortControllersRef.current)) {
+        if (id !== chatId) {
+          abortControllersRef.current[id]?.abort();
+          delete abortControllersRef.current[id];
+        }
+      }
       abortExistingStream(chatId);
       const abortController = new AbortController();
       abortControllersRef.current[chatId] = abortController;
@@ -734,9 +764,29 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         let ragSources: DocumentSource[] = [];
 
         // Build endpoint and payload
-        const endpoint = isRAG ? `${API_BASE}/rag/query` : `${API_BASE}/llm/chat`;
-        const payload = isRAG
-          ? {
+        let endpoint: string;
+        let fetchOptions: RequestInit;
+
+        if (isFileUpload) {
+          // Document analysis: FormData upload with SSE response
+          endpoint = `${API_BASE}/document-analysis/analyze`;
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('conversation_id', String(chatId));
+          if (userMessage) formData.append('prompt', userMessage);
+          if (effectiveModel) formData.append('model', effectiveModel);
+          fetchOptions = {
+            method: 'POST',
+            headers: { ...getAuthHeaders() }, // No Content-Type — browser sets multipart boundary
+            body: formData,
+            signal: abortController.signal,
+          };
+        } else if (isRAG) {
+          endpoint = `${API_BASE}/rag/query`;
+          fetchOptions = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({
               query: userMessage,
               top_k: 10,
               thinking: useThinking,
@@ -745,8 +795,15 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
               ...(selectedSpaces.length > 0
                 ? { space_ids: selectedSpaces, auto_routing: false }
                 : { auto_routing: true }),
-            }
-          : {
+            }),
+            signal: abortController.signal,
+          };
+        } else {
+          endpoint = `${API_BASE}/llm/chat`;
+          fetchOptions = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({
               messages: newMessages.map(m => ({ role: m.role, content: m.content })),
               temperature: 0.7,
               max_tokens: 32768,
@@ -754,14 +811,12 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
               thinking: useThinking,
               conversation_id: chatId,
               model: effectiveModel || undefined,
-            };
+            }),
+            signal: abortController.signal,
+          };
+        }
 
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify(payload),
-          signal: abortController.signal,
-        });
+        const response = await fetch(endpoint, fetchOptions);
         if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
         const reader = response.body!.getReader();
@@ -792,11 +847,16 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         while (true) {
           const readPromise = reader.read();
+          // TIMEOUT-FIX: Create fresh reject ref per iteration and clear old timeout
+          // before setting new one to prevent stale rejection
           const timeoutPromise = new Promise<never>((_, reject) => {
             streamTimeoutReject = reject;
           });
           const { done, value } = await Promise.race([readPromise, timeoutPromise]);
-          // Reset timeout on EVERY successful read (including heartbeat chunks)
+          // RACE-FIX: Immediately nullify reject ref so a stale timeout callback
+          // (that fires between Promise.race resolution and clearTimeout) is a no-op
+          streamTimeoutReject = null;
+          if (streamTimeoutId) clearTimeout(streamTimeoutId);
           resetStreamTimeout();
           isFirstRead = false;
           if (done) break;
@@ -954,11 +1014,40 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         const { content: fullResponse, thinking: fullThinking } = tokenBatchRef.current;
         resetTokenBatch();
 
-        // Final consistency: mark streaming messages as completed (no DB reload needed)
+        // Final consistency: mark streaming messages as completed
         if (fullResponse || fullThinking) {
           updateMessages(chatId, prev =>
             prev.map(msg => (msg.status === 'streaming' ? { ...msg, status: 'completed' } : msg))
           );
+        }
+
+        // DB-SYNC: Reload messages from database to ensure persistence
+        // Backend completeJob() runs async — give it time, then verify
+        // Extended retry: 1.5s initial + 5 retries × 2s = 11.5s max total wait
+        if (fullResponse || fullThinking) {
+          const syncChatId = chatId;
+          const verifyPersistence = async (retriesLeft: number) => {
+            try {
+              const result = await loadMessages(syncChatId);
+              if (result.messages.length > 0) {
+                const lastDbAssistant = [...result.messages]
+                  .reverse()
+                  .find(m => m.role === 'assistant');
+                if (lastDbAssistant?.content || lastDbAssistant?.thinking) {
+                  // DB has content — sync local state with persisted data
+                  updateMessages(syncChatId, () => result.messages);
+                } else if (retriesLeft > 0) {
+                  // DB not yet updated — backend may still be writing, retry
+                  setTimeout(() => verifyPersistence(retriesLeft - 1), 2000);
+                }
+                // If all retries exhausted: keep local messages as-is (don't discard)
+                // The inline recovery in GET /messages will fix it on next load
+              }
+            } catch {
+              // Non-critical — streaming content is already displayed locally
+            }
+          };
+          setTimeout(() => verifyPersistence(5), 1500);
         }
 
         if (!streamError && !fullResponse && !fullThinking) {

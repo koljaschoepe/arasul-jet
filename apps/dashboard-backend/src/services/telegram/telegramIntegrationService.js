@@ -57,6 +57,29 @@ if (!fs.existsSync(TEMP_DIR)) {
   fs.mkdirSync(TEMP_DIR, { recursive: true });
 }
 
+// Periodic cleanup of stale voice files (every 15 minutes)
+setInterval(
+  () => {
+    try {
+      if (!fs.existsSync(TEMP_DIR)) {return;}
+      const files = fs.readdirSync(TEMP_DIR);
+      const now = Date.now();
+      const maxAge = 30 * 60 * 1000; // 30 minutes
+      for (const file of files) {
+        const filePath = path.join(TEMP_DIR, file);
+        const stats = fs.statSync(filePath);
+        if (now - stats.mtimeMs > maxAge) {
+          fs.unlinkSync(filePath);
+          logger.debug(`[Voice cleanup] Removed stale file: ${file}`);
+        }
+      }
+    } catch (err) {
+      logger.warn('[Voice cleanup] Error during periodic cleanup:', err.message);
+    }
+  },
+  15 * 60 * 1000
+);
+
 // =============================================================================
 // Rate Limit Constants
 // =============================================================================
@@ -158,10 +181,11 @@ async function checkRateLimit(botId, chatId, userId = null) {
     }
 
     logger.error('Rate limit check error:', error);
-    // On error, allow the request (fail open)
+    // SEC-FIX: Fail closed on DB connection errors to prevent abuse.
+    // Only fail open for missing table (new installation).
     return {
-      allowed: true,
-      remaining: DEFAULT_MAX_PER_MINUTE,
+      allowed: false,
+      remaining: 0,
       resetAt: new Date(now + 60000),
     };
   }
@@ -583,6 +607,11 @@ async function chat(botId, chatId, userMessage, options = {}) {
   let ragResult = { context: null, sources: [], sourceText: null };
   if (bot.rag_enabled) {
     ragResult = await telegramRagService.enrichWithRAG(userMessage, bot);
+    if (ragResult.ragError) {
+      logger.warn(
+        `[TG] Bot ${botId}: RAG enrichment failed, answering without context: ${ragResult.ragError}`
+      );
+    }
   }
 
   // Build system prompt: base + RAG context + tools

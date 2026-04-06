@@ -67,14 +67,17 @@ async function enrichWithRAG(userQuery, bot) {
       return { context: null, sources: [], sourceText: null };
     }
 
+    // 5b. Deduplicate by document (max 3 chunks per document)
+    const deduplicated = ragCore.deduplicateByDocument(relevant, 5, 3);
+
     // 6. Load parent chunks for richer context
-    const parentChunks = await ragCore.getParentChunks(relevant);
+    const parentChunks = await ragCore.getParentChunks(deduplicated);
 
     // 7. Get company context
     const companyContext = await ragCore.getCompanyContext();
 
     // 8. Build hierarchical context
-    const chunks = relevant.map(r => ({
+    const chunks = deduplicated.map(r => ({
       document_name: r.payload.document_name,
       text: r.payload.text,
       space_name: r.payload.space_name,
@@ -96,7 +99,7 @@ async function enrichWithRAG(userQuery, bot) {
     }
 
     // 10. Extract sources for display
-    const sources = relevant.map(r => ({
+    const sources = deduplicated.map(r => ({
       name: r.payload.document_name,
       space: r.payload.space_name || '',
       preview: (r.payload.text || '').substring(0, 100),
@@ -118,8 +121,13 @@ async function enrichWithRAG(userQuery, bot) {
     return { context, sources, sourceText };
   } catch (error) {
     logger.error(`[TG-RAG] Enrichment failed for bot ${bot.id}: ${error.message}`);
-    // Non-fatal: return empty context, bot still answers without RAG
-    return { context: null, sources: [], sourceText: null };
+    // Non-fatal: return empty context with warning, bot still answers without RAG
+    return {
+      context: null,
+      sources: [],
+      sourceText: null,
+      ragError: `RAG-Suche fehlgeschlagen: ${error.message}`,
+    };
   }
 }
 

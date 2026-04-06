@@ -21,34 +21,34 @@ BEGIN
     SELECT
         COUNT(*) FILTER (WHERE d.status != 'deleted'
             AND (p_space_id IS NULL OR d.space_id = p_space_id)
-            AND (p_status IS NULL OR d.status = p_status)
+            AND (p_status IS NULL OR d.status = p_status::document_status)
             AND (p_category_id IS NULL OR d.category_id = p_category_id)
         ),
         COUNT(*) FILTER (WHERE d.status = 'indexed'
             AND (p_space_id IS NULL OR d.space_id = p_space_id)
-            AND (p_status IS NULL OR 'indexed' = p_status)
+            AND (p_status IS NULL OR p_status = 'indexed')
             AND (p_category_id IS NULL OR d.category_id = p_category_id)
         ),
         COUNT(*) FILTER (WHERE d.status = 'pending'
             AND (p_space_id IS NULL OR d.space_id = p_space_id)
-            AND (p_status IS NULL OR 'pending' = p_status)
+            AND (p_status IS NULL OR p_status = 'pending')
             AND (p_category_id IS NULL OR d.category_id = p_category_id)
         ),
         COUNT(*) FILTER (WHERE d.status = 'failed'
             AND (p_space_id IS NULL OR d.space_id = p_space_id)
-            AND (p_status IS NULL OR 'failed' = p_status)
+            AND (p_status IS NULL OR p_status = 'failed')
             AND (p_category_id IS NULL OR d.category_id = p_category_id)
         ),
         COALESCE(SUM(d.chunk_count) FILTER (WHERE d.status = 'indexed'
             AND (p_space_id IS NULL OR d.space_id = p_space_id)
-            AND (p_status IS NULL OR 'indexed' = p_status)
+            AND (p_status IS NULL OR p_status = 'indexed')
             AND (p_category_id IS NULL OR d.category_id = p_category_id)
         ), 0),
         COALESCE(SUM(d.file_size) FILTER (WHERE d.status != 'deleted'
             AND (p_space_id IS NULL OR d.space_id = p_space_id)
-            AND (p_status IS NULL OR d.status = p_status)
+            AND (p_status IS NULL OR d.status = p_status::document_status)
             AND (p_category_id IS NULL OR d.category_id = p_category_id)
-        ), 0),
+        ), 0)::bigint,
         (
             SELECT jsonb_object_agg(
                 COALESCE(dc.name, 'Unkategorisiert'),
@@ -59,7 +59,7 @@ BEGIN
                 FROM documents
                 WHERE status != 'deleted'
                     AND (p_space_id IS NULL OR space_id = p_space_id)
-                    AND (p_status IS NULL OR status = p_status)
+                    AND (p_status IS NULL OR status = p_status::document_status)
                     AND (p_category_id IS NULL OR category_id = p_category_id)
                 GROUP BY category_id
             ) sub

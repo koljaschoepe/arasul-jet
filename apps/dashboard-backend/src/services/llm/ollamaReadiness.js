@@ -4,23 +4,18 @@
  * Handles:
  * - Waiting for Ollama to be ready with retry logic
  * - Periodic sync to keep DB in sync with Ollama
- * - Smart model unloading based on RAM and inactivity
+ * - Adaptive model unloading via modelLifecycleService
  * - Auto-reload of models on new requests
- *
- * User Requirements:
- * - Unload model if request > 3 min AND RAM > 95%
- * - Unload model if inactive > 30 min
- * - Auto-reload model when request comes via n8n or Dashboard
+ * - Multi-model tracking (multiple models can be loaded)
  */
 
 const axios = require('axios');
 const logger = require('../../utils/logger');
 const database = require('../../database');
 const services = require('../../config/services');
+const modelLifecycleService = require('./modelLifecycleService');
 
 // Service URLs (from centralized config)
-const LLM_SERVICE_HOST = services.llm.host;
-const LLM_SERVICE_PORT = services.llm.port;
 const LLM_SERVICE_URL = services.llm.url;
 const METRICS_COLLECTOR_URL = services.metrics.url;
 
@@ -28,9 +23,6 @@ const METRICS_COLLECTOR_URL = services.metrics.url;
 const OLLAMA_READY_TIMEOUT = parseInt(process.env.OLLAMA_READY_TIMEOUT || '300000'); // 5 min default
 const OLLAMA_RETRY_INTERVAL = parseInt(process.env.OLLAMA_RETRY_INTERVAL || '5000'); // 5 sec
 const SYNC_INTERVAL = parseInt(process.env.MODEL_SYNC_INTERVAL || '300000'); // 5 min
-const INACTIVITY_THRESHOLD = parseInt(process.env.MODEL_INACTIVITY_THRESHOLD || '1800000'); // 30 min
-const RAM_CRITICAL_THRESHOLD = parseFloat(process.env.RAM_CRITICAL_THRESHOLD || '95'); // 95%
-const LONG_REQUEST_THRESHOLD = parseInt(process.env.LONG_REQUEST_THRESHOLD || '180000'); // 3 min
 
 // In-memory state
 let isOllamaReady = false;
@@ -60,13 +52,13 @@ class OllamaReadinessService {
     // Initial sync
     await this.performSync();
 
-    // Preload default model so first user request is instant (no cold-start)
+    // Preload default model (respects lifecycle phases)
     await this.preloadDefaultModel();
 
     // Start periodic sync
     this.startPeriodicSync();
 
-    // Start smart unload checker
+    // Start adaptive unload checker
     this.startUnloadChecker();
 
     logger.info('[OllamaReadiness] Initialization complete');
@@ -74,14 +66,23 @@ class OllamaReadinessService {
   }
 
   /**
-   * Preload default model into GPU memory on startup
-   * Eliminates 30-50s cold-start on first user request
+   * Preload default model into GPU memory on startup.
+   * Respects lifecycle phases: skips preload during idle (e.g. night reboot).
    */
   async preloadDefaultModel() {
     try {
       const defaultModel = await this.modelService.getDefaultModel();
       if (!defaultModel) {
         logger.info('[OllamaReadiness] No default model set, skipping preload');
+        return;
+      }
+
+      // Check if lifecycle says we should skip preload
+      const shouldPreload = await modelLifecycleService.shouldPreloadOnStartup();
+      if (!shouldPreload) {
+        logger.info(
+          '[OllamaReadiness] Skipping preload — lifecycle phase is idle (will load on first request)'
+        );
         return;
       }
 
@@ -92,13 +93,19 @@ class OllamaReadinessService {
           `SELECT COALESCE(ollama_name, id) as name FROM llm_model_catalog WHERE id = $1`,
           [defaultModel]
         );
-        if (result.rows.length > 0) {ollamaName = result.rows[0].name;}
+        if (result.rows.length > 0) {
+          ollamaName = result.rows[0].name;
+        }
       } catch (e) {
         /* use defaultModel as-is */
       }
 
-      logger.info(`[OllamaReadiness] Preloading default model: ${ollamaName}`);
-      const keepAlive = parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '3600');
+      // Get dynamic keep-alive from lifecycle service
+      const { keepAliveSeconds } = await modelLifecycleService.getCurrentKeepAlive();
+
+      logger.info(
+        `[OllamaReadiness] Preloading default model: ${ollamaName} (keep_alive: ${keepAliveSeconds}s)`
+      );
 
       await axios.post(
         `${LLM_SERVICE_URL}/api/generate`,
@@ -106,11 +113,14 @@ class OllamaReadinessService {
           model: ollamaName,
           prompt: 'hello',
           stream: false,
-          keep_alive: keepAlive,
+          keep_alive: keepAliveSeconds,
           options: { num_predict: 1 },
         },
         { timeout: 300000 }
       );
+
+      // Track model as loaded
+      modelUsageTracker.set(ollamaName, { lastUsed: new Date(), activeRequests: 0 });
 
       logger.info(`[OllamaReadiness] Default model preloaded successfully: ${ollamaName}`);
     } catch (err) {
@@ -197,7 +207,7 @@ class OllamaReadinessService {
   }
 
   /**
-   * Start smart unload checker
+   * Start adaptive unload checker (delegates to modelLifecycleService)
    */
   startUnloadChecker() {
     if (unloadCheckIntervalId) {
@@ -209,68 +219,30 @@ class OllamaReadinessService {
       await this.checkSmartUnload();
     }, 30000);
 
-    logger.info('[OllamaReadiness] Smart unload checker started (every 30s)');
+    logger.info('[OllamaReadiness] Adaptive unload checker started (every 30s)');
   }
 
   /**
-   * Check if models should be unloaded based on RAM and inactivity
+   * Delegate unload checks to modelLifecycleService
    */
   async checkSmartUnload() {
-    try {
-      const loadedModel = await this.modelService.getLoadedModel();
-      if (!loadedModel) {
-        return; // No model loaded, nothing to unload
-      }
-
-      const modelId = loadedModel.model_id;
-      const usage = modelUsageTracker.get(modelId);
-      const now = Date.now();
-
-      // Check 1: Inactivity > 30 min
-      if (usage?.lastUsed) {
-        const inactiveTime = now - usage.lastUsed.getTime();
-        if (
-          inactiveTime > INACTIVITY_THRESHOLD &&
-          (!usage.activeRequests || usage.activeRequests === 0)
-        ) {
-          logger.info(
-            `[OllamaReadiness] Unloading model ${modelId} due to inactivity (${Math.round(inactiveTime / 60000)} min)`
-          );
-          await this.unloadModelWithTracking(modelId, 'inactivity');
-          return;
-        }
-      }
-
-      // Check 2: Long-running request (>3 min) + RAM > 95%
-      const ramUsage = await this.getCurrentRAMUsage();
-      if (ramUsage > RAM_CRITICAL_THRESHOLD) {
-        // Check for long-running requests
-        for (const [requestId, request] of activeRequests.entries()) {
-          const requestDuration = now - request.startTime;
-          if (requestDuration > LONG_REQUEST_THRESHOLD) {
-            logger.warn(
-              `[OllamaReadiness] RAM critical (${ramUsage.toFixed(1)}%) with long request (${Math.round(requestDuration / 60000)} min)`
-            );
-            // Don't unload during active request, but log warning
-            // The request will complete and model will be unloaded due to inactivity
-          }
-        }
-      }
-    } catch (err) {
-      logger.error(`[OllamaReadiness] Smart unload check error: ${err.message}`);
-    }
+    await modelLifecycleService.checkAndUnload({
+      getLoadedModels: () => this._getLoadedModelsFromOllama(),
+      modelUsageTracker,
+      unloadModel: (modelId, reason) => this.unloadModelWithTracking(modelId, reason),
+    });
   }
 
   /**
-   * Get current RAM usage percentage
+   * Get all currently loaded models from Ollama /api/ps
    */
-  async getCurrentRAMUsage() {
+  async _getLoadedModelsFromOllama() {
     try {
-      const response = await axios.get(`${METRICS_COLLECTOR_URL}/metrics`, { timeout: 3000 });
-      return response.data?.ram?.percent || 0;
+      const response = await axios.get(`${LLM_SERVICE_URL}/api/ps`, { timeout: 5000 });
+      return response.data?.models || [];
     } catch (err) {
-      logger.debug(`[OllamaReadiness] Could not get RAM metrics: ${err.message}`);
-      return 0;
+      logger.debug(`[OllamaReadiness] Could not query loaded models: ${err.message}`);
+      return [];
     }
   }
 
@@ -282,13 +254,11 @@ class OllamaReadinessService {
       await this.modelService.unloadModel(modelId);
       modelUsageTracker.delete(modelId);
 
-      // Log to database for monitoring
+      // Log to database for monitoring (to_model = 'unloaded' since column is NOT NULL)
       await database.query(
-        `
-                INSERT INTO llm_model_switches (from_model, to_model, reason, switch_duration_ms)
-                VALUES ($1, NULL, $2, 0)
-            `,
-        [modelId, `auto_unload_${reason}`]
+        `INSERT INTO llm_model_switches (from_model, to_model, reason, switch_duration_ms)
+         VALUES ($1, $2, $3, 0)`,
+        [modelId, 'unloaded', `auto_unload_${reason}`]
       );
 
       logger.info(`[OllamaReadiness] Model ${modelId} unloaded (reason: ${reason})`);
@@ -348,20 +318,19 @@ class OllamaReadinessService {
     }
 
     try {
-      const loaded = await this.modelService.getLoadedModel();
+      const loadedModels = await this._getLoadedModelsFromOllama();
 
       // Get ollama_name for comparison
       const catalogResult = await database.query(
         `SELECT COALESCE(ollama_name, id) as effective_ollama_name
-                 FROM llm_model_catalog WHERE id = $1`,
+         FROM llm_model_catalog WHERE id = $1`,
         [modelId]
       );
       const ollamaName = catalogResult.rows[0]?.effective_ollama_name || modelId;
 
-      if (loaded && loaded.model_id === ollamaName) {
-        // Model already loaded
-        return true;
-      }
+      // Check if model is among loaded models
+      const isLoaded = loadedModels.some(m => (m.name || m.model) === ollamaName);
+      if (isLoaded) {return true;}
 
       // Auto-reload the model
       logger.info(`[OllamaReadiness] Auto-loading model ${modelId} for incoming request`);
@@ -374,6 +343,13 @@ class OllamaReadinessService {
   }
 
   /**
+   * Get the usage tracker map (for lifecycle service and API)
+   */
+  getModelUsageTracker() {
+    return modelUsageTracker;
+  }
+
+  /**
    * Check if Ollama is ready
    */
   isReady() {
@@ -383,13 +359,13 @@ class OllamaReadinessService {
   /**
    * Get current status
    */
-  getStatus() {
+  async getStatus() {
+    const lifecycleStatus = await modelLifecycleService.getLifecycleStatus();
+
     return {
       ollamaReady: isOllamaReady,
       syncIntervalMs: SYNC_INTERVAL,
-      inactivityThresholdMs: INACTIVITY_THRESHOLD,
-      ramCriticalThreshold: RAM_CRITICAL_THRESHOLD,
-      longRequestThresholdMs: LONG_REQUEST_THRESHOLD,
+      lifecycle: lifecycleStatus,
       trackedModels: Array.from(modelUsageTracker.entries()).map(([id, usage]) => ({
         modelId: id,
         lastUsed: usage.lastUsed,

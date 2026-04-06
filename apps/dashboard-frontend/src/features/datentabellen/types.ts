@@ -14,6 +14,9 @@ export interface TableData {
   name: string;
   description?: string;
   fields: Field[];
+  needs_reindex?: boolean;
+  last_indexed_at?: string | null;
+  index_row_count?: number;
 }
 
 /** CellValue represents the possible types stored in a single cell. */
@@ -46,4 +49,5 @@ export interface ContextMenuState {
 export interface ExcelEditorProps {
   tableSlug: string;
   tableName?: string;
+  onClose?: () => void;
 }

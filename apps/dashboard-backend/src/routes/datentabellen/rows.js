@@ -13,6 +13,20 @@ const { ValidationError, NotFoundError, ConflictError } = require('../../utils/e
 const { isValidSlug, escapeIdentifier, escapeTableName } = require('../../utils/sqlIdentifier');
 
 /**
+ * Helper: Mark table as needing re-index after data changes
+ */
+async function markNeedsReindex(slug) {
+  try {
+    await dataDb.query(
+      'UPDATE dt_tables SET needs_reindex = TRUE, updated_at = NOW() WHERE slug = $1',
+      [slug]
+    );
+  } catch (err) {
+    logger.warn(`[Datentabellen] Failed to set needs_reindex for ${slug}: ${err.message}`);
+  }
+}
+
+/**
  * Helper: Get table and fields metadata
  */
 async function getTableMeta(slug) {
@@ -56,6 +70,26 @@ function buildWhereClause(filters, fields, startParamIndex = 1) {
   let paramIndex = startParamIndex;
 
   for (const filter of filters) {
+    // SEARCH-FIX: Support _or groups for multi-field search
+    if (filter._or && Array.isArray(filter._or)) {
+      const orConditions = [];
+      for (const subFilter of filter._or) {
+        if (!validFields.has(subFilter.field)) {continue;}
+        const SYSTEM_FIELDS = new Set(['_id', '_created_at', '_updated_at', '_created_by']);
+        const escapedField = SYSTEM_FIELDS.has(subFilter.field)
+          ? `"${subFilter.field}"`
+          : escapeIdentifier(subFilter.field);
+        if (subFilter.operator === 'like') {
+          orConditions.push(`${escapedField}::text ILIKE $${paramIndex++}`);
+          params.push(`%${subFilter.value}%`);
+        }
+      }
+      if (orConditions.length > 0) {
+        conditions.push(`(${orConditions.join(' OR ')})`);
+      }
+      continue;
+    }
+
     const { field, operator, value } = filter;
 
     if (!validFields.has(field)) {
@@ -162,15 +196,29 @@ router.get(
       }
     }
 
-    // Add search filter if provided
+    // SEARCH-FIX: Search across all text-like fields, not just primary display field
     if (search && search.trim()) {
-      const primaryField = fields.find(f => f.is_primary_display) || fields[0];
-      if (primaryField) {
+      const searchableTypes = ['text', 'textarea', 'email', 'url', 'phone', 'select'];
+      const searchableFields = fields.filter(f => searchableTypes.includes(f.field_type));
+      if (searchableFields.length > 0) {
+        // Use OR-group: match if ANY searchable field contains the term
         parsedFilters.push({
-          field: primaryField.slug,
-          operator: 'like',
-          value: search.trim(),
+          _or: searchableFields.map(f => ({
+            field: f.slug,
+            operator: 'like',
+            value: search.trim(),
+          })),
         });
+      } else {
+        // Fallback: search first field
+        const fallbackField = fields[0];
+        if (fallbackField) {
+          parsedFilters.push({
+            field: fallbackField.slug,
+            operator: 'like',
+            value: search.trim(),
+          });
+        }
       }
     }
 
@@ -321,6 +369,7 @@ router.post(
       values
     );
 
+    await markNeedsReindex(slug);
     logger.info(`[Datentabellen] Created row in ${slug}: ${result.rows[0]._id}`);
 
     res.status(201).json({
@@ -409,6 +458,7 @@ router.patch(
       params
     );
 
+    await markNeedsReindex(slug);
     logger.info(`[Datentabellen] Updated row in ${slug}: ${rowId}`);
 
     res.json({
@@ -451,6 +501,7 @@ router.delete(
       throw new NotFoundError('Datensatz nicht gefunden');
     }
 
+    await markNeedsReindex(slug);
     logger.info(`[Datentabellen] Deleted row from ${slug}: ${rowId}`);
 
     res.json({
@@ -527,6 +578,7 @@ router.post(
       return { inserted: insertedRows.length, errors: errorCount };
     });
 
+    if (result.inserted > 0) {await markNeedsReindex(slug);}
     logger.info(
       `[Datentabellen] Bulk import to ${slug}: ${result.inserted} inserted, ${result.errors} errors`
     );
@@ -579,6 +631,7 @@ router.delete(
       ids
     );
 
+    if (result.rows.length > 0) {await markNeedsReindex(slug);}
     logger.info(`[Datentabellen] Bulk delete from ${slug}: ${result.rows.length} deleted`);
 
     res.json({

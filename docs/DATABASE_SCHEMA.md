@@ -1642,6 +1642,36 @@ Persists RAG knowledge space metadata so it survives page reload.
 
 ---
 
+### 059_chat_attachments.sql - Chat Attachments
+
+Enables file uploads in chat messages for document analysis.
+
+#### chat_attachments
+
+| Column              | Type          | Description                             |
+| ------------------- | ------------- | --------------------------------------- |
+| id                  | uuid          | Primary key (generated)                 |
+| message_id          | bigint        | FK to chat_messages (CASCADE)           |
+| conversation_id     | bigint        | FK to chat_conversations (CASCADE)      |
+| filename            | varchar(500)  | Sanitized filename                      |
+| original_filename   | varchar(500)  | Original upload filename                |
+| file_path           | varchar(1000) | MinIO storage path                      |
+| file_size           | bigint        | File size in bytes                      |
+| mime_type           | varchar(100)  | MIME type                               |
+| file_extension      | varchar(20)   | File extension (e.g. .pdf)              |
+| extracted_text      | text          | OCR/extracted text content              |
+| extraction_status   | varchar(20)   | pending/extracting/done/failed          |
+| extraction_metadata | jsonb         | Extraction details (OCR used, language) |
+| created_at          | timestamptz   | Creation time                           |
+
+**Indexes:**
+
+- `idx_chat_attachments_message` on message_id
+- `idx_chat_attachments_conversation` on conversation_id
+- `idx_chat_attachments_status` on extraction_status (WHERE extraction_status != 'done')
+
+---
+
 ## Indexes Summary
 
 | Table                     | Index                                  | Columns                                     | Source |
@@ -1661,6 +1691,9 @@ Persists RAG knowledge space metadata so it survives page reload.
 | document_chunks           | idx_document_chunks_text_search_de     | to_tsvector('german', chunk_text) GIN       | 036    |
 | document_chunks           | idx_document_chunks_parent             | parent_chunk_id                             | 039    |
 | document_parent_chunks    | idx_parent_chunks_document             | document_id                                 | 039    |
+| chat_attachments          | idx_chat_attachments_message           | message_id                                  | 059    |
+| chat_attachments          | idx_chat_attachments_conversation      | conversation_id                             | 059    |
+| chat_attachments          | idx_chat_attachments_status            | extraction_status (WHERE != 'done')         | 059    |
 | telegram_config           | idx_telegram_config_enabled            | enabled                                     | 020    |
 | telegram_rate_limits      | idx_telegram_rate_limits_chat          | chat_id, window_start DESC                  | 022    |
 | telegram_rate_limits      | idx_telegram_rate_limits_cleanup       | window_start                                | 022    |

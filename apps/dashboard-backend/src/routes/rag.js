@@ -39,6 +39,7 @@ const {
   hybridSearch,
   rerankResults,
   filterByRelevance,
+  deduplicateByDocument,
   graphEnrichedRetrieval,
   getParentChunks,
   buildHierarchicalContext,
@@ -124,7 +125,7 @@ router.post(
         additionalTexts.push(hydeText);
       }
 
-      const [additionalEmbeddings, spaceRouting] = await Promise.all([
+      const [additionalEmbeddingsRaw, spaceRouting] = await Promise.all([
         // Step 2: Embed multi-query variants and HyDE text (batch)
         additionalTexts.length > 0 ? getEmbeddings(additionalTexts) : Promise.resolve([]),
         // Step 3: Space routing (runs in parallel with embedding)
@@ -180,6 +181,8 @@ router.post(
       ]);
 
       const { targetSpaces, routingMethod, targetSpaceIds } = spaceRouting;
+      // Null-safe: getEmbeddings() may return null on embedding service failure
+      const additionalEmbeddings = additionalEmbeddingsRaw || [];
 
       // Step 4: Hybrid search + Graph enrichment IN PARALLEL
       const spaceFilter = targetSpaceIds && targetSpaceIds.length > 0 ? targetSpaceIds : null;
@@ -206,6 +209,9 @@ router.post(
         );
         relevantResults = rerankedResults.slice(0, top_k);
       }
+
+      // Step 5c: Deduplicate by document (max 3 chunks per document)
+      relevantResults = deduplicateByDocument(relevantResults, top_k, 3);
 
       // Step 6: Load parent chunks for richer LLM context
       const parentChunks = await getParentChunks(relevantResults);
@@ -275,7 +281,19 @@ router.post(
       const { jobId, messageId, queuePosition } = await llmQueueService.enqueue(
         conversation_id,
         'rag',
-        { query, context, thinking: enableThinking, sources, noRelevantDocs },
+        {
+          query,
+          context,
+          thinking: enableThinking,
+          sources,
+          matchedSpaces: targetSpaces.map(s => ({
+            id: s.id,
+            name: s.name,
+            color: s.color,
+            score: s.score,
+          })),
+          noRelevantDocs,
+        },
         { model }
       );
 

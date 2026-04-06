@@ -263,6 +263,9 @@ wss.on('connection', ws => {
 
   let intervalId = null;
 
+  // Register client for Docker/system event broadcasting
+  eventListenerService.registerWsClient(ws);
+
   // WS-001: Heartbeat to detect dead connections
   ws.isAlive = true;
   ws.on('pong', () => {
@@ -438,6 +441,13 @@ async function gracefulShutdown(signal) {
   } catch (e) {
     /* ignore */
   }
+  // LEAK-002: Shutdown Telegram WebSocket heartbeat
+  try {
+    const telegramOrchestrator = require('./services/telegram/telegramOrchestratorService');
+    telegramOrchestrator.shutdown();
+  } catch (e) {
+    /* ignore */
+  }
 
   // 5. Close database pool
   try {
@@ -494,7 +504,9 @@ if (require.main === module) {
         }
         if (!token && cookieHeader) {
           const match = cookieHeader.match(/arasul_token=([^;]+)/);
-          if (match) {token = match[1];}
+          if (match) {
+            token = match[1];
+          }
         }
         if (!token) {
           logger.warn('WebSocket upgrade rejected: no auth token');
@@ -588,6 +600,18 @@ if (require.main === module) {
     globalTimeouts.push(dbCleanupTimeout);
     globalIntervals.push(setInterval(runDbCleanup, DB_CLEANUP_INTERVAL));
 
+    // Initialize Datentabellen Re-index Service (periodic Qdrant sync)
+    if (dataDatabase.isInitialized()) {
+      try {
+        const reindexService = require('./services/datentabellen/reindexService');
+        reindexService.initialize({ intervalMs: 300000 }); // 5 minutes
+        globalIntervals.push(reindexService.getIntervalId());
+        logger.info('Datentabellen Re-index Service initialized (5 min interval)');
+      } catch (err) {
+        logger.warn(`Datentabellen Re-index Service failed to start: ${err.message}`);
+      }
+    }
+
     // Initialize Alert Engine with WebSocket broadcast support
     try {
       // Create broadcast function for alert notifications
@@ -606,6 +630,15 @@ if (require.main === module) {
       logger.info('Alert Engine initialized successfully');
     } catch (err) {
       logger.error(`Failed to initialize Alert Engine: ${err.message}`);
+    }
+
+    // Initialize Event Listener Service (Docker events, self-healing, workflow events)
+    // SEC-FIX: Was imported but never started — Docker events were not broadcast to WebSocket clients
+    try {
+      await eventListenerService.start();
+      logger.info('Event Listener Service initialized successfully');
+    } catch (err) {
+      logger.error(`Failed to initialize Event Listener Service: ${err.message}`);
     }
 
     // Startup readiness summary

@@ -15,6 +15,7 @@ WORKDIR /build
 # Copy custom node packages
 COPY custom-nodes/n8n-nodes-arasul-llm /build/n8n-nodes-arasul-llm
 COPY custom-nodes/n8n-nodes-arasul-embeddings /build/n8n-nodes-arasul-embeddings
+COPY custom-nodes/n8n-nodes-arasul-documents /build/n8n-nodes-arasul-documents
 
 # Build LLM node
 WORKDIR /build/n8n-nodes-arasul-llm
@@ -25,6 +26,13 @@ RUN npm install && \
 
 # Build Embeddings node
 WORKDIR /build/n8n-nodes-arasul-embeddings
+RUN npm install && \
+    npm run build && \
+    rm -rf node_modules && \
+    npm install --omit=dev
+
+# Build Documents node
+WORKDIR /build/n8n-nodes-arasul-documents
 RUN npm install && \
     npm run build && \
     rm -rf node_modules && \
@@ -50,6 +58,10 @@ COPY --from=builder /build/n8n-nodes-arasul-llm/node_modules /custom-nodes/n8n-n
 COPY --from=builder /build/n8n-nodes-arasul-embeddings/dist /custom-nodes/n8n-nodes-arasul-embeddings/dist
 COPY --from=builder /build/n8n-nodes-arasul-embeddings/package.json /custom-nodes/n8n-nodes-arasul-embeddings/package.json
 COPY --from=builder /build/n8n-nodes-arasul-embeddings/node_modules /custom-nodes/n8n-nodes-arasul-embeddings/node_modules
+
+COPY --from=builder /build/n8n-nodes-arasul-documents/dist /custom-nodes/n8n-nodes-arasul-documents/dist
+COPY --from=builder /build/n8n-nodes-arasul-documents/package.json /custom-nodes/n8n-nodes-arasul-documents/package.json
+COPY --from=builder /build/n8n-nodes-arasul-documents/node_modules /custom-nodes/n8n-nodes-arasul-documents/node_modules
 
 # Set ownership
 RUN chown -R node:node /custom-nodes

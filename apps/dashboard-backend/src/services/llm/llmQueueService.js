@@ -153,7 +153,8 @@ function createLLMQueueService(deps = {}) {
 
       logger.info('LLM Queue Service: Initializing...');
 
-      // 1. Cleanup stale streaming jobs
+      // 1. Recover orphaned messages, then cleanup stale jobs
+      await llmJobService.recoverOrphanedMessages();
       await llmJobService.cleanupStaleJobs();
 
       // 2. Recalculate queue positions for pending jobs
@@ -263,14 +264,23 @@ function createLLMQueueService(deps = {}) {
      * @param {function} callback - Called with each event
      */
     subscribeToJob(jobId, callback) {
-      // Evict oldest subscriber entry if map is at capacity
+      // EVICTION-FIX: Evict subscriber with oldest timestamp (not insertion order)
       if (this.jobSubscribers.size >= MAX_JOB_SUBSCRIBERS && !this.jobSubscribers.has(jobId)) {
-        const oldestKey = this.jobSubscribers.keys().next().value;
-        this.jobSubscribers.delete(oldestKey);
-        this.jobSubscriberTimestamps.delete(oldestKey);
-        logger.warn(
-          `Job subscriber limit reached (${MAX_JOB_SUBSCRIBERS}), evicted oldest: ${oldestKey}`
-        );
+        let oldestKey = null;
+        let oldestTime = Infinity;
+        for (const [key, ts] of this.jobSubscriberTimestamps.entries()) {
+          if (ts < oldestTime) {
+            oldestTime = ts;
+            oldestKey = key;
+          }
+        }
+        if (oldestKey) {
+          this.jobSubscribers.delete(oldestKey);
+          this.jobSubscriberTimestamps.delete(oldestKey);
+          logger.warn(
+            `Job subscriber limit reached (${MAX_JOB_SUBSCRIBERS}), evicted oldest by timestamp: ${oldestKey}`
+          );
+        }
       }
 
       if (!this.jobSubscribers.has(jobId)) {
@@ -305,6 +315,43 @@ function createLLMQueueService(deps = {}) {
             logger.debug(`Error notifying subscriber for job ${jobId}: ${err.message}`);
           }
         }
+      }
+    }
+
+    /**
+     * Batch-notify subscribers for streaming tokens (response/thinking).
+     * Collects tokens for 50ms then sends a single concatenated event.
+     * Non-token events are forwarded immediately via notifySubscribers().
+     */
+    notifySubscribersBatched(jobId, event) {
+      // Only batch token events; pass everything else through immediately
+      if (event.type !== 'response' && event.type !== 'thinking') {
+        return this.notifySubscribers(jobId, event);
+      }
+
+      if (!this._tokenBatch) {
+        this._tokenBatch = new Map();
+      }
+
+      const key = `${jobId}:${event.type}`;
+      const existing = this._tokenBatch.get(key);
+
+      if (existing) {
+        existing.tokens += event.token;
+      } else {
+        this._tokenBatch.set(key, { jobId, type: event.type, tokens: event.token });
+
+        // Schedule flush after 50ms
+        setTimeout(() => {
+          const batch = this._tokenBatch.get(key);
+          this._tokenBatch.delete(key);
+          if (batch) {
+            this.notifySubscribers(batch.jobId, {
+              type: batch.type,
+              token: batch.tokens,
+            });
+          }
+        }, 50);
       }
     }
 
@@ -693,25 +740,71 @@ function createLLMQueueService(deps = {}) {
     startTimeoutChecker() {
       this.timeoutInterval = setInterval(async () => {
         try {
-          const result = await database.query(`
-                        UPDATE llm_jobs
-                        SET status = 'error',
-                            error_message = CASE
-                              WHEN status = 'pending' THEN 'Job timed out in queue (30 minutes)'
-                              ELSE 'Job timed out during streaming (10 minutes without update)'
-                            END,
-                            completed_at = NOW()
+          // First: try to recover orphaned messages periodically
+          await llmJobService.recoverOrphanedMessages();
+
+          // Then: find timed-out jobs and try to recover before marking as error
+          const timedOutJobs = await database.query(`
+                        SELECT j.id, j.status as old_status, j.content, j.thinking, j.sources, j.matched_spaces, j.message_id
+                        FROM llm_jobs j
                         WHERE (
-                          (status = 'pending' AND queued_at < NOW() - INTERVAL '30 minutes')
+                          (j.status = 'pending' AND j.queued_at < NOW() - INTERVAL '30 minutes')
                           OR
-                          (status = 'streaming' AND last_update_at < NOW() - INTERVAL '10 minutes')
+                          (j.status = 'streaming' AND j.last_update_at < NOW() - INTERVAL '10 minutes')
                         )
-                        RETURNING id, status as old_status
                     `);
 
-          if (result.rows.length > 0) {
-            logger.warn(`Timed out ${result.rows.length} jobs`);
-            for (const row of result.rows) {
+          if (timedOutJobs.rows.length > 0) {
+            logger.warn(`Found ${timedOutJobs.rows.length} timed-out jobs`);
+            for (const row of timedOutJobs.rows) {
+              // Try to recover content before marking as error
+              if (row.message_id && (row.content || row.thinking)) {
+                try {
+                  await database.query(
+                    `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5 AND status = 'streaming'`,
+                    [
+                      row.content || '',
+                      row.thinking,
+                      row.sources,
+                      row.matched_spaces,
+                      row.message_id,
+                    ]
+                  );
+                  await database.query(
+                    `UPDATE llm_jobs SET status = 'completed', completed_at = NOW(),
+                     error_message = 'Auto-recovered from timeout' WHERE id = $1`,
+                    [row.id]
+                  );
+                  logger.info(`Recovered timed-out job ${row.id} with content`);
+                } catch (recoverErr) {
+                  logger.error(`Failed to recover timed-out job ${row.id}: ${recoverErr.message}`);
+                  await database.query(
+                    `UPDATE llm_jobs SET status = 'error', error_message = $2, completed_at = NOW() WHERE id = $1`,
+                    [
+                      row.id,
+                      row.old_status === 'pending'
+                        ? 'Job timed out in queue (30 minutes)'
+                        : 'Job timed out during streaming (10 minutes without update)',
+                    ]
+                  );
+                }
+              } else {
+                // No content to recover — mark as error
+                await database.query(
+                  `UPDATE llm_jobs SET status = 'error',
+                   error_message = CASE WHEN $2 = 'pending' THEN 'Job timed out in queue (30 minutes)'
+                   ELSE 'Job timed out during streaming (10 minutes without update)' END,
+                   completed_at = NOW() WHERE id = $1`,
+                  [row.id, row.old_status]
+                );
+                if (row.message_id) {
+                  await database.query(
+                    `UPDATE chat_messages SET status = 'error' WHERE id = $1 AND status = 'streaming'`,
+                    [row.message_id]
+                  );
+                }
+              }
+
               this.notifySubscribers(row.id, {
                 type: 'error',
                 error:
@@ -720,7 +813,6 @@ function createLLMQueueService(deps = {}) {
                     : 'Job timed out in queue',
                 done: true,
               });
-              // If the timed-out job was the one being processed, reset state
               if (this.processingJobId === row.id) {
                 this.processingJobId = null;
                 setImmediate(() => this.processNext());
