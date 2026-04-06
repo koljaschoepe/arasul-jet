@@ -37,6 +37,7 @@ jest.mock('../../src/services/llm/modelService', () => ({
   getInstalledModels: jest.fn(),
   getStatus: jest.fn(),
   getLoadedModel: jest.fn(),
+  getLoadedModels: jest.fn(),
   getModelInfo: jest.fn(),
   downloadModel: jest.fn(),
   deleteModel: jest.fn(),
@@ -149,7 +150,7 @@ describe('Models Routes', () => {
   // ============================================================================
   describe('GET /api/models/loaded', () => {
     test('should return loaded model', async () => {
-      modelService.getLoadedModel.mockResolvedValue({ model_id: 'llama3:8b' });
+      modelService.getLoadedModels.mockResolvedValue([{ model_id: 'llama3:8b' }]);
 
       const response = await request(app)
         .get('/api/models/loaded')
@@ -158,6 +159,8 @@ describe('Models Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('loaded_model');
       expect(response.body.loaded_model.model_id).toBe('llama3:8b');
+      expect(response.body).toHaveProperty('loaded_models');
+      expect(response.body.loaded_models).toHaveLength(1);
       expect(response.body).toHaveProperty('timestamp');
     });
   });

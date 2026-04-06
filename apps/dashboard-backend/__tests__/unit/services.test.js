@@ -147,7 +147,7 @@ describe('LLMJobService (Legacy)', () => {
             await service.completeJob('nonexistent');
 
             expect(mockLogger.warn).toHaveBeenCalledWith(
-                expect.stringContaining('not found during completion')
+                expect.stringContaining('Not found during completion')
             );
         });
     });
@@ -209,7 +209,7 @@ describe('LLMJobService (Legacy)', () => {
 
             expect(count).toBe(2);
             expect(mockLogger.info).toHaveBeenCalledWith(
-                expect.stringContaining('Cleaned up 2 stale jobs')
+                expect.stringContaining('Stale job cleanup: 0 recovered, 2 marked as error')
             );
         });
 
@@ -312,7 +312,10 @@ describe('ModelService', () => {
             const mockInstalled = [
                 { id: 'llama3:8b', status: 'available', is_default: true }
             ];
-            mockDb.query.mockResolvedValueOnce({ rows: mockInstalled });
+            // First query: installed LLM models, second query: OCR models
+            mockDb.query
+                .mockResolvedValueOnce({ rows: mockInstalled })
+                .mockResolvedValueOnce({ rows: [] });
 
             const installed = await service.getInstalledModels();
 
@@ -434,13 +437,18 @@ describe('ModelService', () => {
 
     describe('getStatus()', () => {
         test('gibt Model-Status-Zusammenfassung zurück', async () => {
+            // 1st axios.get: getLoadedModel() -> /api/ps
+            mockAxios.get.mockResolvedValueOnce({
+                data: { models: [{ name: 'qwen3:14b-q8', size_vram: 14 * 1024 * 1024 * 1024 }] }
+            });
+            // 2nd axios.get: /api/tags (Ollama reachability check)
             mockAxios.get.mockResolvedValueOnce({
                 data: { models: [{ name: 'qwen3:14b-q8' }] }
             });
             mockDb.query
-                .mockResolvedValueOnce({ rows: [{ count: '3' }] })
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [{ total_switches: 5 }] });
+                .mockResolvedValueOnce({ rows: [{ count: '3' }] })       // installed count
+                .mockResolvedValueOnce({ rows: [] })                      // queue status by model
+                .mockResolvedValueOnce({ rows: [{ total_switches: 5 }] }); // switch stats
 
             const status = await service.getStatus();
 

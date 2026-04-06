@@ -59,7 +59,7 @@ describe('SystemPromptBuilder', () => {
       memoryService.getProfile.mockResolvedValue(null);
       mockDatabase.query.mockResolvedValue({ rows: [] });
 
-      const result = await buildSystemPrompt(mockDatabase, null);
+      const result = await buildSystemPrompt(mockDatabase, null, { includeTools: false });
 
       expect(result).toBe(GLOBAL_BASE_PROMPT);
     });
@@ -124,7 +124,7 @@ describe('SystemPromptBuilder', () => {
       memoryService.getProfile.mockResolvedValue('');
       mockDatabase.query.mockResolvedValue({ rows: [] });
 
-      const result = await buildSystemPrompt(mockDatabase, null);
+      const result = await buildSystemPrompt(mockDatabase, null, { includeTools: false });
 
       expect(result).toBe(GLOBAL_BASE_PROMPT);
       expect(result).not.toContain('## KI-Profil');
@@ -156,7 +156,7 @@ describe('SystemPromptBuilder', () => {
       memoryService.getProfile.mockRejectedValue(new Error('MinIO unavailable'));
       mockDatabase.query.mockRejectedValue(new Error('DB connection lost'));
 
-      const result = await buildSystemPrompt(mockDatabase, 'conv-err');
+      const result = await buildSystemPrompt(mockDatabase, 'conv-err', { includeTools: false });
 
       expect(result).toBe(GLOBAL_BASE_PROMPT);
     });

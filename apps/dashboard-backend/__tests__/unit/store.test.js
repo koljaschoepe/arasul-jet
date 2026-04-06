@@ -89,15 +89,17 @@ describe('Store Routes', () => {
       expect(Array.isArray(res.body.apps)).toBe(true);
     });
 
-    it('returns systemInfo with availableRamGB', async () => {
+    it('returns systemInfo with llmRamGB and totalRamGB', async () => {
       const res = await request(app)
         .get('/api/store/recommendations')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('systemInfo');
-      expect(res.body.systemInfo).toHaveProperty('availableRamGB');
-      expect(typeof res.body.systemInfo.availableRamGB).toBe('number');
+      expect(res.body.systemInfo).toHaveProperty('llmRamGB');
+      expect(res.body.systemInfo).toHaveProperty('totalRamGB');
+      expect(typeof res.body.systemInfo.llmRamGB).toBe('number');
+      expect(typeof res.body.systemInfo.totalRamGB).toBe('number');
     });
 
     it('includes featured apps from catalog', async () => {
@@ -162,16 +164,18 @@ describe('Store Routes', () => {
   });
 
   describe('GET /api/store/info', () => {
-    it('returns availableRamGB and disk info', async () => {
+    it('returns llmRamGB, totalRamGB and disk info', async () => {
       const res = await request(app)
         .get('/api/store/info')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('availableRamGB');
+      expect(res.body).toHaveProperty('llmRamGB');
+      expect(res.body).toHaveProperty('totalRamGB');
       expect(res.body).toHaveProperty('availableDiskGB');
       expect(res.body).toHaveProperty('totalDiskGB');
-      expect(res.body.availableRamGB).toBe(64);
+      expect(typeof res.body.llmRamGB).toBe('number');
+      expect(typeof res.body.totalRamGB).toBe('number');
       expect(res.body.availableDiskGB).toBe(100);
       expect(res.body.totalDiskGB).toBe(200);
     });

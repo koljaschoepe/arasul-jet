@@ -40,6 +40,7 @@ function createMockJobService() {
   return {
     createJob: jest.fn().mockResolvedValue({ jobId: 'job-123', messageId: 456 }),
     cleanupStaleJobs: jest.fn().mockResolvedValue(0),
+    recoverOrphanedMessages: jest.fn().mockResolvedValue(0),
     errorJob: jest.fn().mockResolvedValue(true),
     cancelJob: jest.fn().mockResolvedValue(true),
     getJob: jest.fn(),

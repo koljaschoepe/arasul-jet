@@ -285,38 +285,42 @@ describe('Events Routes', () => {
   // POST /api/events/webhook/n8n
   // ============================================================================
   describe('POST /api/events/webhook/n8n', () => {
-    test('should accept valid webhook event without secret configured', async () => {
+    test('should return 401 when webhook secret is not configured', async () => {
       delete process.env.N8N_WEBHOOK_SECRET;
-      eventListenerService.handleWorkflowEvent.mockResolvedValue({ success: true });
 
       const response = await request(app)
         .post('/api/events/webhook/n8n')
         .send({ workflow_id: 'wf-1', status: 'success' });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('received', true);
-      expect(response.body).toHaveProperty('processed', true);
-      expect(response.body).toHaveProperty('timestamp');
+      expect(response.status).toBe(401);
     });
 
     test('should return 400 if workflow_id is missing', async () => {
-      delete process.env.N8N_WEBHOOK_SECRET;
+      process.env.N8N_WEBHOOK_SECRET = 'test-secret';
+      eventListenerService.handleWorkflowEvent.mockResolvedValue({ success: true });
 
       const response = await request(app)
         .post('/api/events/webhook/n8n')
+        .set('X-Webhook-Secret', 'test-secret')
         .send({ status: 'success' });
 
       expect(response.status).toBe(400);
+
+      delete process.env.N8N_WEBHOOK_SECRET;
     });
 
     test('should return 400 if status is missing', async () => {
-      delete process.env.N8N_WEBHOOK_SECRET;
+      process.env.N8N_WEBHOOK_SECRET = 'test-secret';
+      eventListenerService.handleWorkflowEvent.mockResolvedValue({ success: true });
 
       const response = await request(app)
         .post('/api/events/webhook/n8n')
+        .set('X-Webhook-Secret', 'test-secret')
         .send({ workflow_id: 'wf-1' });
 
       expect(response.status).toBe(400);
+
+      delete process.env.N8N_WEBHOOK_SECRET;
     });
 
     test('should return 401 if webhook secret is wrong', async () => {

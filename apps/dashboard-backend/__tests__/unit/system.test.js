@@ -51,6 +51,14 @@ jest.mock('../../src/services/core/docker', () => ({
   getAllServicesStatus: jest.fn()
 }));
 
+// Mock hardware utils - getGpuInfo returns unavailable GPU by default in test env,
+// which adds a warning and changes status from OK to WARNING
+jest.mock('../../src/utils/hardware', () => ({
+  detectDevice: jest.fn().mockResolvedValue({ type: 'generic', name: 'Generic Linux' }),
+  getGpuInfo: jest.fn().mockResolvedValue({ available: true, name: 'Test GPU' }),
+  getLlmRamGB: jest.fn().mockReturnValue(32)
+}));
+
 // Mock axios
 jest.mock('axios', () => ({
   get: jest.fn()
@@ -95,7 +103,7 @@ const { app } = require('../../src/server');
 function mockHealthyServices() {
   dockerService.getAllServicesStatus.mockResolvedValue({
     llm: { status: 'healthy' },
-    embeddings: { status: 'healthy' },
+    embedding: { status: 'healthy' },
     n8n: { status: 'healthy' },
     minio: { status: 'healthy' },
     postgres: { status: 'healthy' },
@@ -174,7 +182,7 @@ describe('System Routes', () => {
     test('should return CRITICAL when a service is down', async () => {
       dockerService.getAllServicesStatus.mockResolvedValue({
         llm: { status: 'exited' },
-        embeddings: { status: 'healthy' },
+        embedding: { status: 'healthy' },
         n8n: { status: 'healthy' },
         minio: { status: 'healthy' },
         postgres: { status: 'healthy' },
@@ -193,7 +201,7 @@ describe('System Routes', () => {
     test('should return WARNING when a service is restarting', async () => {
       dockerService.getAllServicesStatus.mockResolvedValue({
         llm: { status: 'restarting' },
-        embeddings: { status: 'healthy' },
+        embedding: { status: 'healthy' },
         n8n: { status: 'healthy' },
         minio: { status: 'healthy' },
         postgres: { status: 'healthy' },
@@ -239,7 +247,7 @@ describe('System Routes', () => {
     test('should report self_healing_active as false when self_healing service is not healthy', async () => {
       dockerService.getAllServicesStatus.mockResolvedValue({
         llm: { status: 'healthy' },
-        embeddings: { status: 'healthy' },
+        embedding: { status: 'healthy' },
         n8n: { status: 'healthy' },
         minio: { status: 'healthy' },
         postgres: { status: 'healthy' },

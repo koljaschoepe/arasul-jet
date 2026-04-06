@@ -63,6 +63,9 @@ jest.mock('../../src/middleware/rateLimit', () => ({
   loginLimiter: (req, res, next) => next(),
   llmLimiter: (req, res, next) => next(),
   webhookLimiter: (req, res, next) => next(),
+  generalAuthLimiter: (req, res, next) => next(),
+  tailscaleLimiter: (req, res, next) => next(),
+  uploadLimiter: (req, res, next) => next(),
   createUserRateLimiter: () => (req, res, next) => next()
 }));
 
@@ -123,9 +126,9 @@ describe('Settings Routes', () => {
   // AUTH: 401 without token
   // ============================================================================
   describe('Authentication', () => {
-    test('GET /api/settings/password-requirements returns 401 without token', async () => {
+    test('GET /api/settings/password-requirements returns 200 without token (public endpoint)', async () => {
       const res = await request(app).get('/api/settings/password-requirements');
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
     });
 
     test('POST /api/settings/password/dashboard returns 401 without token', async () => {

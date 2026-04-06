@@ -458,11 +458,14 @@ describe('Datentabellen Tables Routes', () => {
       expect(response.status).toBe(404);
     });
 
-    test('returns 409 for duplicate field name', async () => {
+    test('auto-increments slug for duplicate field name', async () => {
       const mockClient = {
         query: jest.fn()
-          .mockResolvedValueOnce({ rows: [{ next_order: 1 }] })
-          .mockResolvedValueOnce({ rows: [{ id: 'existing-field' }] }), // Duplicate found
+          .mockResolvedValueOnce({ rows: [{ next_order: 1 }] }) // Next order
+          .mockResolvedValueOnce({ rows: [{ id: 'existing-field' }] }) // First slug check: duplicate found
+          .mockResolvedValueOnce({ rows: [] }) // Second slug check (preis_2): no duplicate
+          .mockResolvedValueOnce({ rows: [] }) // ALTER TABLE ADD COLUMN
+          .mockResolvedValueOnce({ rows: [{ ...MOCK_FIELD, slug: 'preis_2', name: 'Preis 2' }] }), // Insert field meta
       };
 
       dataDb.query.mockResolvedValueOnce({ rows: [{ id: 'table-uuid-1' }] });
@@ -472,7 +475,8 @@ describe('Datentabellen Tables Routes', () => {
         .post('/api/v1/datentabellen/tables/produkte/fields')
         .send({ name: 'Preis', field_type: 'number' });
 
-      expect(response.status).toBe(409);
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
     });
 
     test('supports all valid field types', async () => {

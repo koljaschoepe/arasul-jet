@@ -546,13 +546,13 @@ describe('memoryService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should strip <think> tags from response', async () => {
+    it('should parse response that contains <think> tags on separate lines', async () => {
       database.query.mockResolvedValue({ rows: [] });
 
       global.fetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({
-          response: '<think>Some internal reasoning</think>FAKT: Wichtiger Fakt über das System und seine Konfiguration',
+          response: '<think>Some internal reasoning</think>\nFAKT: Wichtiger Fakt über das System und seine Konfiguration',
         }),
       });
 

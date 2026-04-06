@@ -172,7 +172,7 @@ describe('LLMJobService (DI)', () => {
                 expect.stringContaining("status = 'completed'"),
                 expect.arrayContaining(['job-123'])
             );
-            expect(mockLogger.info).toHaveBeenCalledWith('Completed LLM job job-123');
+            expect(mockLogger.info).toHaveBeenCalledWith('Completed LLM job job-123 (content: 13 chars, thinking: 9 chars)');
         });
 
         test('should handle job not found gracefully', async () => {
@@ -181,7 +181,7 @@ describe('LLMJobService (DI)', () => {
             await service.completeJob('nonexistent');
 
             expect(mockLogger.warn).toHaveBeenCalledWith(
-                'Job nonexistent not found during completion'
+                '[JOB nonexistent] Not found during completion'
             );
             // Should not attempt to update message
             expect(mockClient.query).toHaveBeenCalledTimes(1);
@@ -377,13 +377,13 @@ describe('LLMJobService (DI)', () => {
         test('should clean up stale jobs older than 10 minutes', async () => {
             mockDatabase.query
                 .mockResolvedValueOnce({ rows: [{ id: 'stale-1' }, { id: 'stale-2' }] })
-                .mockResolvedValueOnce({ rows: [] });
+                .mockResolvedValue({ rows: [] });
 
             const count = await service.cleanupStaleJobs();
 
             expect(count).toBe(2);
             expect(mockLogger.info).toHaveBeenCalledWith(
-                expect.stringContaining('Cleaned up 2 stale jobs')
+                expect.stringContaining('Stale job cleanup: 0 recovered, 2 marked as error')
             );
         });
 
@@ -396,16 +396,16 @@ describe('LLMJobService (DI)', () => {
             expect(mockLogger.info).not.toHaveBeenCalled();
         });
 
-        test('should update associated messages to error status', async () => {
+        test('should update job status to error for stale jobs without content', async () => {
             mockDatabase.query
                 .mockResolvedValueOnce({ rows: [{ id: 'stale-1' }] })
-                .mockResolvedValueOnce({ rows: [] });
+                .mockResolvedValue({ rows: [] });
 
             await service.cleanupStaleJobs();
 
             expect(mockDatabase.query).toHaveBeenCalledWith(
-                expect.stringContaining('chat_messages'),
-                expect.arrayContaining([['stale-1']])
+                expect.stringContaining("status = 'error'"),
+                expect.arrayContaining(['stale-1'])
             );
         });
     });
@@ -415,6 +415,9 @@ describe('LLMJobService (DI)', () => {
     // =====================================================
     describe('cleanupOldJobs()', () => {
         test('should delete completed jobs older than 1 hour', async () => {
+            // First query: pre-cleanup recovery check (unrecovered messages)
+            mockDatabase.query.mockResolvedValueOnce({ rows: [] });
+            // Second query: DELETE old jobs
             mockDatabase.query.mockResolvedValueOnce({
                 rows: [{ id: 'old-1' }, { id: 'old-2' }, { id: 'old-3' }]
             });

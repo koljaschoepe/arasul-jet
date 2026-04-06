@@ -456,8 +456,9 @@ describe('Documents Routes', () => {
 
         test('behandelt Qdrant-Löschfehler graceful', async () => {
             pool.query
-                .mockResolvedValueOnce({ rows: [{ file_path: 'path/to/file.pdf' }] })
-                .mockResolvedValueOnce({ rows: [] });
+                .mockResolvedValueOnce({ rows: [{ file_path: 'path/to/file.pdf' }] }) // Get doc
+                .mockResolvedValueOnce({ rows: [] })  // qdrant_cleanup_pending update
+                .mockResolvedValueOnce({ rows: [] }); // Soft delete
 
             axios.post.mockRejectedValueOnce(new Error('Qdrant error'));
 
@@ -465,7 +466,9 @@ describe('Documents Routes', () => {
                 .delete('/api/documents/doc-123');
 
             expect(response.status).toBe(200);
-            expect(logger.warn).toHaveBeenCalled();
+            expect(logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to delete from Qdrant')
+            );
         });
     });
 

@@ -42,6 +42,22 @@ const {
   generateTestToken
 } = require('../helpers/authMock');
 
+/**
+ * Helper to create a pattern-based mock that handles both auth and route queries.
+ * This avoids issues with JWT token caching causing sequential mocks to misalign.
+ */
+function mockWithRouteQueries(routeHandler) {
+  db.query.mockImplementation((query, params) => {
+    // Auth queries (pattern matching)
+    if (query.includes('token_blacklist')) return Promise.resolve({ rows: [] });
+    if (query.includes('active_sessions') && query.includes('SELECT')) return Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] });
+    if (query.includes('update_session_activity')) return Promise.resolve({ rows: [] });
+    if (query.includes('admin_users')) return Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] });
+    // Delegate to route-specific handler
+    return routeHandler(query, params);
+  });
+}
+
 describe('Self-Healing Routes', () => {
   let authToken;
 
@@ -63,26 +79,20 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should return self-healing events', async () => {
-      // Mock auth middleware queries (handled by setupAuthMocks)
-      // Then mock the route-specific queries
-      db.query
-        .mockImplementationOnce((query) => {
-          // Auth: blacklist check
-          if (query.includes('token_blacklist')) {
-            return Promise.resolve({ rows: [] });
-          }
-          return Promise.resolve({ rows: [] });
-        })
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] })) // Session
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] })) // Activity
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] })) // User
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [
-            { id: 1, event_type: 'service_restart', severity: 'WARNING', timestamp: new Date() },
-            { id: 2, event_type: 'disk_cleanup', severity: 'INFO', timestamp: new Date() }
-          ]
-        })) // Events query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '2' }] })); // Count query
+      mockWithRouteQueries((query) => {
+        if (query.includes('self_healing_events') && query.includes('COUNT')) {
+          return Promise.resolve({ rows: [{ count: '2' }] });
+        }
+        if (query.includes('self_healing_events')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, event_type: 'service_restart', severity: 'WARNING', timestamp: new Date() },
+              { id: 2, event_type: 'disk_cleanup', severity: 'INFO', timestamp: new Date() }
+            ]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/events')
@@ -96,13 +106,15 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should support filtering by severity', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] })) // Blacklist
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '0' }] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('self_healing_events') && query.includes('COUNT')) {
+          return Promise.resolve({ rows: [{ count: '0' }] });
+        }
+        if (query.includes('self_healing_events')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/events?severity=CRITICAL')
@@ -116,13 +128,15 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should support filtering by event_type', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '0' }] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('self_healing_events') && query.includes('COUNT')) {
+          return Promise.resolve({ rows: [{ count: '0' }] });
+        }
+        if (query.includes('self_healing_events')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/events?event_type=service_restart')
@@ -132,13 +146,15 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should support pagination', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '50' }] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('self_healing_events') && query.includes('COUNT')) {
+          return Promise.resolve({ rows: [{ count: '50' }] });
+        }
+        if (query.includes('self_healing_events')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/events?limit=10&offset=20')
@@ -172,34 +188,31 @@ describe('Self-Healing Routes', () => {
         }
       });
 
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
+      mockWithRouteQueries((query) => {
         // Statistics query
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [{
-            total_events: '50',
-            info_count: '30',
-            warning_count: '15',
-            critical_count: '5',
-            last_hour: '3',
-            last_24h: '50'
-          }]
-        }))
+        if (query.includes('total_events') && query.includes('FILTER')) {
+          return Promise.resolve({
+            rows: [{
+              total_events: '50',
+              info_count: '30',
+              warning_count: '15',
+              critical_count: '5',
+              last_hour: '3',
+              last_24h: '50'
+            }]
+          });
+        }
         // Event types query
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [
-            { event_type: 'service_restart', count: '10', last_occurrence: new Date() }
-          ]
-        }))
-        // Recovery actions query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        // Service failures query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        // Last reboot query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }));
+        if (query.includes('event_type') && query.includes('GROUP BY')) {
+          return Promise.resolve({
+            rows: [{ event_type: 'service_restart', count: '10', last_occurrence: new Date() }]
+          });
+        }
+        if (query.includes('recovery_actions')) return Promise.resolve({ rows: [] });
+        if (query.includes('service_failures')) return Promise.resolve({ rows: [] });
+        if (query.includes('reboot_events')) return Promise.resolve({ rows: [] });
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/status')
@@ -219,25 +232,27 @@ describe('Self-Healing Routes', () => {
       // Mock axios to fail
       axios.get.mockRejectedValue(new Error('Connection refused'));
 
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [{
-            total_events: '0',
-            info_count: '0',
-            warning_count: '0',
-            critical_count: '0',
-            last_hour: '0',
-            last_24h: '0'
-          }]
-        }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('total_events') && query.includes('FILTER')) {
+          return Promise.resolve({
+            rows: [{
+              total_events: '0',
+              info_count: '0',
+              warning_count: '0',
+              critical_count: '0',
+              last_hour: '0',
+              last_24h: '0'
+            }]
+          });
+        }
+        if (query.includes('event_type') && query.includes('GROUP BY')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('recovery_actions')) return Promise.resolve({ rows: [] });
+        if (query.includes('service_failures')) return Promise.resolve({ rows: [] });
+        if (query.includes('reboot_events')) return Promise.resolve({ rows: [] });
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/status')
@@ -261,18 +276,20 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should return recovery actions', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [
-            { id: 1, action_type: 'restart_service', target: 'llm-service', success: true, timestamp: new Date() },
-            { id: 2, action_type: 'clear_cache', target: 'docker', success: true, timestamp: new Date() }
-          ]
-        }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '2' }] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('COUNT') && query.includes('recovery_actions')) {
+          return Promise.resolve({ rows: [{ count: '2' }] });
+        }
+        if (query.includes('recovery_actions')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, action_type: 'restart_service', target: 'llm-service', success: true, timestamp: new Date() },
+              { id: 2, action_type: 'clear_cache', target: 'docker', success: true, timestamp: new Date() }
+            ]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/recovery-actions')
@@ -286,13 +303,15 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should support pagination', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '100' }] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('COUNT') && query.includes('recovery_actions')) {
+          return Promise.resolve({ rows: [{ count: '100' }] });
+        }
+        if (query.includes('recovery_actions')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/recovery-actions?limit=5&offset=10')
@@ -316,17 +335,19 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should return service failures', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [
-            { id: 1, service_name: 'llm-service', failure_reason: 'OOM', timestamp: new Date() }
-          ]
-        }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '1' }] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('COUNT') && query.includes('service_failures')) {
+          return Promise.resolve({ rows: [{ count: '1' }] });
+        }
+        if (query.includes('service_failures')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, service_name: 'llm-service', failure_reason: 'OOM', timestamp: new Date() }
+            ]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/service-failures')
@@ -339,13 +360,15 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should support filtering by service_name', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '0' }] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('COUNT') && query.includes('service_failures')) {
+          return Promise.resolve({ rows: [{ count: '0' }] });
+        }
+        if (query.includes('service_failures')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/service-failures?service_name=llm-service')
@@ -367,17 +390,19 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should return reboot history', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [
-            { id: 1, reason: 'critical_disk_usage', initiated_by: 'self-healing-agent', timestamp: new Date() }
-          ]
-        }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ count: '1' }] }));
+      mockWithRouteQueries((query) => {
+        if (query.includes('COUNT') && query.includes('reboot_events')) {
+          return Promise.resolve({ rows: [{ count: '1' }] });
+        }
+        if (query.includes('reboot_events')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, reason: 'critical_disk_usage', initiated_by: 'self-healing-agent', timestamp: new Date() }
+            ]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/reboot-history')
@@ -403,29 +428,33 @@ describe('Self-Healing Routes', () => {
     });
 
     test('should return self-healing metrics', async () => {
-      db.query
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [] }))
-        .mockImplementationOnce(() => Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] }))
+      mockWithRouteQueries((query) => {
         // Uptime query
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [
-            { service_name: 'llm-service', failure_count: '2', downtime_seconds: '120', uptime_percent: '99.97' }
-          ]
-        }))
+        if (query.includes('service_downtime') || query.includes('uptime_percent')) {
+          return Promise.resolve({
+            rows: [
+              { service_name: 'llm-service', failure_count: '2', downtime_seconds: '120', uptime_percent: '99.97' }
+            ]
+          });
+        }
         // Recovery success query
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [
-            { action_type: 'restart_service', successful: '8', failed: '2', success_rate: '80.00' }
-          ]
-        }))
+        if (query.includes('action_type') && query.includes('success_rate')) {
+          return Promise.resolve({
+            rows: [
+              { action_type: 'restart_service', successful: '8', failed: '2', success_rate: '80.00' }
+            ]
+          });
+        }
         // Event trends query
-        .mockImplementationOnce(() => Promise.resolve({
-          rows: [
-            { date: '2026-01-22', total_events: '10', critical_events: '1', warning_events: '3' }
-          ]
-        }));
+        if (query.includes('DATE(timestamp)') && query.includes('critical_events')) {
+          return Promise.resolve({
+            rows: [
+              { date: '2026-01-22', total_events: '10', critical_events: '1', warning_events: '3' }
+            ]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
 
       const response = await request(app)
         .get('/api/self-healing/metrics')

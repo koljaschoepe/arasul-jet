@@ -43,6 +43,7 @@ jest.mock('../../src/services/rag/ragCore', () => ({
   hybridSearch: jest.fn().mockResolvedValue([]),
   rerankResults: jest.fn().mockResolvedValue([]),
   filterByRelevance: jest.fn().mockImplementation((results) => ({ relevant: results, filtered: [] })),
+  deduplicateByDocument: jest.fn().mockImplementation((results) => results),
   graphEnrichedRetrieval: jest.fn().mockResolvedValue({ graphContext: '', graphEntities: [] }),
   getParentChunks: jest.fn().mockResolvedValue([]),
   buildHierarchicalContext: jest.fn().mockReturnValue('No documents found.'),
@@ -192,6 +193,7 @@ describe('RAG Routes', () => {
     ragCore.rerankResults.mockResolvedValue([]);
     ragCore.filterByRelevance.mockImplementation((results) => ({ relevant: results, filtered: [] }));
     ragCore.buildHierarchicalContext.mockReturnValue('No documents found.');
+    ragCore.deduplicateByDocument.mockImplementation((results) => results);
     ragCore.graphEnrichedRetrieval.mockResolvedValue({ graphContext: '', graphEntities: [] });
     ragCore.getParentChunks.mockResolvedValue([]);
     llmJobService.createJob.mockReset();

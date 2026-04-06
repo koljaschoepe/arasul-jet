@@ -252,10 +252,8 @@ describe('Audit Middleware', () => {
                 expect.stringContaining('INSERT INTO api_audit_logs'),
                 expect.arrayContaining([
                     1,                      // user_id
-                    'admin',                // username
                     'POST',                 // action_type
                     '/api/chats',           // target_endpoint
-                    'POST',                 // request_method
                     expect.any(String),     // request_payload (JSON string)
                     201,                    // response_status
                     50,                     // duration_ms
@@ -394,14 +392,14 @@ describe('Audit Middleware', () => {
             setTimeout(() => {
                 expect(db.query).toHaveBeenCalled();
                 const callArgs = db.query.mock.calls[0][1];
-                expect(callArgs[6]).toBe(404); // response_status
+                expect(callArgs[4]).toBe(404); // response_status
                 done();
             }, 50);
         });
 
         test('should capture user info from req.user', (done) => {
-            mockReq.path = '/api/chats';
-            mockReq.originalUrl = '/api/chats';
+            mockReq.path = '/api/test';
+            mockReq.originalUrl = '/api/test';
             mockReq.user = { id: 42, username: 'testuser' };
 
             middleware(mockReq, mockRes, mockNext);
@@ -411,7 +409,6 @@ describe('Audit Middleware', () => {
                 expect(db.query).toHaveBeenCalled();
                 const callArgs = db.query.mock.calls[0][1];
                 expect(callArgs[0]).toBe(42);       // user_id
-                expect(callArgs[1]).toBe('testuser'); // username
                 done();
             }, 50);
         });
@@ -431,7 +428,7 @@ describe('Audit Middleware', () => {
             setTimeout(() => {
                 expect(db.query).toHaveBeenCalled();
                 const callArgs = db.query.mock.calls[0][1];
-                const payload = JSON.parse(callArgs[5]); // request_payload
+                const payload = JSON.parse(callArgs[3]); // request_payload
                 expect(payload.username).toBe('admin');
                 expect(payload.password).toBe('***REDACTED***');
                 done();
@@ -449,7 +446,7 @@ describe('Audit Middleware', () => {
             setTimeout(() => {
                 expect(db.query).toHaveBeenCalled();
                 const callArgs = db.query.mock.calls[0][1];
-                expect(callArgs[8]).toBe('10.0.0.100'); // ip_address
+                expect(callArgs[6]).toBe('10.0.0.100'); // ip_address
                 done();
             }, 50);
         });
