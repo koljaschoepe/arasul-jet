@@ -50,6 +50,7 @@ export interface ChatMessage {
   messagesCompacted?: number;
   streamStatus?: string;
   statusMessage?: string;
+  images?: string[]; // Base64-encoded images for vision models
 }
 
 export interface ChatSettings {
@@ -72,6 +73,8 @@ interface InstalledModel {
   status?: string;
   supports_thinking?: boolean;
   rag_optimized?: boolean;
+  supports_vision_input?: boolean;
+  model_type?: string;
 }
 
 interface Space {
@@ -103,6 +106,7 @@ interface SendMessageOptions {
   messages?: ChatMessage[];
   model?: string;
   file?: File;
+  images?: string[]; // Base64-encoded images for vision models
 }
 
 interface LoadMessagesOptions {
@@ -709,6 +713,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         messages = [],
         model,
         file,
+        images,
       } = options;
       if ((!input.trim() && !file) || !chatId) return;
 
@@ -735,7 +740,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       }
 
       // Update UI with user message + empty assistant message
-      const newMessages: ChatMessage[] = [...messages, { role: 'user', content: userMessage }];
+      const newMessages: ChatMessage[] = [
+        ...messages,
+        { role: 'user', content: userMessage, ...(images && images.length > 0 ? { images } : {}) },
+      ];
       updateMessages(chatId, () => newMessages);
       updateIsLoading(chatId, true);
 
@@ -817,6 +825,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             body: JSON.stringify({
               messages: newMessages.map(m => ({ role: m.role, content: m.content })),
               temperature: 0.7,
+              ...(images && images.length > 0 ? { images } : {}),
               max_tokens: 32768,
               stream: true,
               thinking: useThinking,

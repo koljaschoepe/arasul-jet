@@ -82,6 +82,7 @@ export interface InstalledModel {
   status?: string;
   supports_thinking?: boolean;
   rag_optimized?: boolean;
+  supports_vision_input?: boolean;
   size_bytes?: number;
   ram_required_gb?: number;
   category?: string;

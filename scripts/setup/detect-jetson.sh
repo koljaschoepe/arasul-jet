@@ -300,7 +300,7 @@ EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=200
 
 # Recommended Models (in order of capability)
-RECOMMENDED_MODELS="qwen3:32b-q8,llama3.1:70b-q4,codellama:70b,mixtral:8x7b,deepseek-coder:33b"
+RECOMMENDED_MODELS="qwen3:32b-q8,gemma4:31b,gemma4:26b,llama3.1:70b-q4,codellama:70b,mixtral:8x7b,deepseek-coder:33b"
 EOF
             ;;
 
@@ -347,7 +347,7 @@ EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=100
 
 # Recommended Models
-RECOMMENDED_MODELS="qwen3:14b-q8,llama3.1:70b-q4,codellama:34b,mixtral:8x7b"
+RECOMMENDED_MODELS="qwen3:14b-q8,gemma4:31b,gemma4:26b,llama3.1:70b-q4,codellama:34b,mixtral:8x7b"
 EOF
             ;;
 
@@ -394,7 +394,7 @@ EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=100
 
 # Recommended Models (in order of capability)
-RECOMMENDED_MODELS="qwen3:14b-q8,llama3.1:70b-q4,codellama:34b,mixtral:8x7b"
+RECOMMENDED_MODELS="qwen3:14b-q8,gemma4:26b,gemma4:31b,llama3.1:70b-q4,codellama:34b,mixtral:8x7b"
 EOF
             ;;
 
@@ -441,7 +441,7 @@ EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=50
 
 # Recommended Models
-RECOMMENDED_MODELS="qwen3:8b-q8,llama3.1:8b,codellama:13b,mistral:7b"
+RECOMMENDED_MODELS="qwen3:8b-q8,gemma4:e4b,llama3.1:8b,codellama:13b,mistral:7b"
 EOF
             ;;
 
@@ -486,7 +486,7 @@ EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=25
 
 # Recommended Models
-RECOMMENDED_MODELS="llama3.1:8b,mistral:7b,phi3:mini,gemma:7b"
+RECOMMENDED_MODELS="gemma4:e4b,gemma4:e2b,llama3.1:8b,mistral:7b,phi3:mini"
 EOF
             ;;
 
@@ -824,53 +824,58 @@ show_recommendations() {
     case "$profile" in
         "thor_128gb")
             echo -e "${GREEN}Maximum Performance:${NC}"
+            echo "  - gemma4:31b-q8     (34GB) - Multimodal, Thinking, Near-Lossless"
+            echo "  - gemma4:31b        (20GB) - Multimodal, Thinking, Vision"
             echo "  - qwen3:32b-q8      (32GB) - Beste Qualitaet"
             echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
-            echo "  - codellama:70b     (38GB) - Bester Code-Assistent"
             echo ""
             echo -e "${YELLOW}Auch unterstuetzt:${NC}"
+            echo "  - gemma4:26b        (18GB) - MoE, Vision, schnelle Inferenz"
+            echo "  - codellama:70b     (38GB) - Bester Code-Assistent"
             echo "  - mixtral:8x7b      (26GB) - MoE Architektur"
-            echo "  - deepseek-coder:33b (18GB) - Code-Spezialist"
-            echo "  - qwen3:14b-q8      (15GB) - Schnell & hochwertig"
             ;;
         "thor_64gb")
             echo -e "${GREEN}Empfohlen:${NC}"
+            echo "  - gemma4:31b        (20GB) - Multimodal, Thinking, Vision"
+            echo "  - gemma4:26b        (18GB) - MoE, Vision, schnelle Inferenz"
             echo "  - qwen3:14b-q8      (15GB) - Beste Balance"
-            echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
-            echo "  - codellama:34b     (19GB) - Best fuer Coding"
             echo ""
             echo -e "${YELLOW}Auch unterstuetzt:${NC}"
+            echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
+            echo "  - codellama:34b     (19GB) - Best fuer Coding"
             echo "  - mixtral:8x7b      (26GB) - MoE Architektur"
-            echo "  - deepseek-coder:33b (18GB) - Code-Spezialist"
             ;;
         "agx_orin_64gb")
             echo -e "${GREEN}Best Performance:${NC}"
+            echo "  - gemma4:26b        (18GB) - Multimodal, MoE, Vision"
+            echo "  - gemma4:31b        (20GB) - Multimodal, Thinking, Vision"
             echo "  - qwen3:14b-q8      (15GB) - Excellent quality"
-            echo "  - llama3.1:70b-q4   (40GB) - Maximum capability"
-            echo "  - codellama:34b     (19GB) - Best for coding"
             echo ""
             echo -e "${YELLOW}Also Supported:${NC}"
+            echo "  - llama3.1:70b-q4   (40GB) - Maximum capability"
+            echo "  - codellama:34b     (19GB) - Best for coding"
             echo "  - mixtral:8x7b      (26GB) - MoE architecture"
-            echo "  - deepseek-coder:33b (18GB) - Code specialist"
             ;;
         "agx_orin_32gb"|"xavier_agx"*)
             echo -e "${GREEN}Recommended:${NC}"
+            echo "  - gemma4:e4b        (10GB) - Multimodal (Vision+Audio)"
             echo "  - qwen3:8b-q8       (8GB)  - Great balance"
             echo "  - llama3.1:8b       (5GB)  - Fast & capable"
-            echo "  - codellama:13b     (7GB)  - Good for coding"
             echo ""
             echo -e "${YELLOW}Also Supported:${NC}"
+            echo "  - gemma4:e2b        (7GB)  - Ultra-light, Vision+Audio"
+            echo "  - codellama:13b     (7GB)  - Good for coding"
             echo "  - mistral:7b        (4GB)  - Efficient"
-            echo "  - gemma:7b          (5GB)  - Google's model"
             ;;
         "orin_nx_16gb")
             echo -e "${GREEN}Recommended:${NC}"
+            echo "  - gemma4:e4b        (10GB) - Multimodal (Vision+Audio)"
+            echo "  - gemma4:e2b        (7GB)  - Ultra-light, Vision+Audio"
             echo "  - llama3.1:8b       (5GB)  - Best balance"
-            echo "  - mistral:7b        (4GB)  - Fast responses"
             echo ""
             echo -e "${YELLOW}Also Supported:${NC}"
+            echo "  - mistral:7b        (4GB)  - Fast responses"
             echo "  - phi3:mini         (2GB)  - Very efficient"
-            echo "  - gemma:7b          (5GB)  - Good quality"
             ;;
         "orin_8gb"|"xavier_nx"*)
             echo -e "${GREEN}Recommended:${NC}"

@@ -40,6 +40,7 @@ router.post(
       model, // Optional: explicit model to use
       model_sequence, // Optional: for workflows, e.g. ['qwen3:7b', 'qwen3:32b']
       priority, // Optional: 0=normal, 1=high
+      images, // Optional: base64-encoded images for vision models
     } = req.body;
     const enableThinking = thinking !== false;
 
@@ -52,6 +53,22 @@ router.post(
     }
 
     try {
+      // Validate images if provided (must be array of base64 strings, max 5)
+      let validatedImages = null;
+      if (images && Array.isArray(images) && images.length > 0) {
+        if (images.length > 5) {
+          throw new ValidationError('Maximal 5 Bilder pro Nachricht erlaubt');
+        }
+        validatedImages = images
+          .filter(img => typeof img === 'string' && img.length > 0)
+          .map(img => {
+            // Strip data URI prefix if present (e.g. "data:image/png;base64,...")
+            const base64Match = img.match(/^data:image\/[^;]+;base64,(.+)$/);
+            return base64Match ? base64Match[1] : img;
+          });
+        if (validatedImages.length === 0) {validatedImages = null;}
+      }
+
       // Add job to queue with model options
       const {
         jobId,
@@ -61,7 +78,7 @@ router.post(
       } = await llmQueueService.enqueue(
         conversation_id,
         'chat',
-        { messages, temperature, max_tokens, thinking: enableThinking },
+        { messages, temperature, max_tokens, thinking: enableThinking, images: validatedImages },
         { model, modelSequence: model_sequence, priority: priority || 0 }
       );
 

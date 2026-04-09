@@ -31,7 +31,7 @@ async function processChatJob(ctx, job) {
   const service = ctx.service;
 
   const { id: jobId, request_data: requestData, requested_model } = job;
-  const { messages, temperature, max_tokens, thinking } = requestData;
+  const { messages, temperature, max_tokens, thinking, images } = requestData;
 
   // P2-001: Check if model supports thinking mode
   let modelSupportsThinking = true; // Default to true for backwards compatibility
@@ -108,6 +108,33 @@ async function processChatJob(ctx, job) {
 
   const prompt = optimized.prompt;
 
+  // Check if model supports vision and images are provided
+  let visionImages = null;
+  if (images && Array.isArray(images) && images.length > 0) {
+    try {
+      const visionResult = await database.query(
+        `SELECT supports_vision_input FROM llm_model_catalog WHERE id = $1`,
+        [requested_model]
+      );
+      const supportsVision = visionResult.rows[0]?.supports_vision_input === true;
+      if (supportsVision) {
+        visionImages = images;
+        logger.info(`[JOB ${jobId}] Vision mode: ${images.length} image(s) attached`);
+      } else {
+        logger.info(
+          `[JOB ${jobId}] Images provided but model ${requested_model} doesn't support vision - ignoring`
+        );
+        service.notifySubscribers(jobId, {
+          type: 'warning',
+          message: `Modell "${requested_model}" unterstützt keine Bildverarbeitung. Bilder werden ignoriert.`,
+          code: 'VISION_NOT_SUPPORTED',
+        });
+      }
+    } catch (visionErr) {
+      logger.debug(`Could not check vision capability: ${visionErr.message}`);
+    }
+  }
+
   await streamFromOllama(
     ctx,
     jobId,
@@ -117,7 +144,8 @@ async function processChatJob(ctx, job) {
     max_tokens,
     requested_model,
     optimized.systemPrompt,
-    optimized.numCtx
+    optimized.numCtx,
+    visionImages
   );
 }
 
@@ -219,6 +247,7 @@ ${ragRules}`;
  * @param {string|null} model - Model to use (null = default)
  * @param {string} systemPrompt - Optional system prompt (e.g., company context)
  * @param {number|null} numCtx - Context window size (from budget manager)
+ * @param {string[]|null} images - Base64-encoded images for vision models
  */
 async function streamFromOllama(
   ctx,
@@ -229,7 +258,8 @@ async function streamFromOllama(
   maxTokens,
   model = null,
   systemPrompt = '',
-  numCtx = null
+  numCtx = null,
+  images = null
 ) {
   const { database, logger, llmJobService, modelService, axios, getOllamaReadiness } = ctx.deps;
   const { LLM_SERVICE_URL } = ctx.config;
@@ -399,6 +429,12 @@ async function streamFromOllama(
       keep_alive: keepAlive,
       options: ollamaOptions,
     };
+
+    // Add images for vision models (Ollama expects array of base64 strings)
+    if (images && images.length > 0) {
+      ollamaPayload.images = images;
+      logger.info(`[JOB ${jobId}] Sending ${images.length} image(s) to Ollama vision model`);
+    }
 
     // Add system prompt if provided (for company context injection)
     if (systemPrompt) {

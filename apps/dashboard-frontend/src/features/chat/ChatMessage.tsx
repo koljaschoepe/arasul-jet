@@ -62,7 +62,8 @@ function arePropsEqual(prev: ChatMessageProps, next: ChatMessageProps) {
     pm.sources === nm.sources &&
     pm.matchedSpaces === nm.matchedSpaces &&
     pm.streamStatus === nm.streamStatus &&
-    pm.statusMessage === nm.statusMessage
+    pm.statusMessage === nm.statusMessage &&
+    pm.images === nm.images
   );
 }
 
@@ -150,6 +151,25 @@ const ChatMessage = memo(function ChatMessage({
               {message.thinking}
             </ReactMarkdown>
           </div>
+        </div>
+      )}
+
+      {/* Attached Images (Vision) */}
+      {message.images && message.images.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-1">
+          {message.images.map((img, i) => (
+            <div
+              key={i}
+              className="relative rounded-lg overflow-hidden border border-border max-w-[200px] max-h-[200px]"
+            >
+              <img
+                src={img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}`}
+                alt={`Bild ${i + 1}`}
+                className="max-w-[200px] max-h-[200px] object-contain"
+                loading="lazy"
+              />
+            </div>
+          ))}
         </div>
       )}
 

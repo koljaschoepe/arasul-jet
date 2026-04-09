@@ -378,7 +378,9 @@ function createModelService(deps = {}) {
       // Evict LRU models until enough space or no more evictable
       let freedMb = 0;
       for (const model of evictable) {
-        if (budget.availableMb + freedMb >= requiredRamMb) {break;}
+        if (budget.availableMb + freedMb >= requiredRamMb) {
+          break;
+        }
         logger.info(
           `[ACTIVATE] Evicting LRU model ${model.ollamaName} (${model.ramMb}MB) to make room`
         );
@@ -630,6 +632,9 @@ function createModelService(deps = {}) {
                     c.recommended_for,
                     c.performance_tier,
                     c.model_type,
+                    c.supports_thinking,
+                    c.rag_optimized,
+                    c.supports_vision_input,
                     COALESCE(c.ollama_name, c.id) as effective_ollama_name,
                     FALSE as is_running
                 FROM llm_installed_models i

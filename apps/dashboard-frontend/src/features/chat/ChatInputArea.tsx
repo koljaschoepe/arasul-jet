@@ -10,6 +10,7 @@ import {
   ChevronUp,
   Paperclip,
   FileText,
+  ImageIcon,
 } from 'lucide-react';
 import { useChatContext, type ChatMessage, type ChatSettings } from '../../contexts/ChatContext';
 import { useApi } from '../../hooks/useApi';
@@ -59,9 +60,11 @@ function ChatInputArea({
   const [showModelPopup, setShowModelPopup] = useState(false);
   const [showRAGPopup, setShowRAGPopup] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const modelPopupRef = useRef<HTMLDivElement>(null);
   const ragPopupRef = useRef<HTMLDivElement>(null);
 
@@ -154,6 +157,48 @@ function ChatInputArea({
     inputRef.current?.focus();
   }, []);
 
+  // Vision: Check if selected model supports image input
+  const supportsVision =
+    currentModel?.supports_vision_input === true || currentModel?.model_type === 'vision';
+
+  const handleImageSelect = useCallback(
+    async (files: FileList | File[]) => {
+      const MAX_IMAGES = 5;
+      const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB per image
+      const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+
+      const remaining = MAX_IMAGES - attachedImages.length;
+      const filesToProcess = Array.from(files).slice(0, remaining);
+
+      for (const file of filesToProcess) {
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) continue;
+        if (file.size > MAX_IMAGE_SIZE) continue;
+
+        const base64 = await new Promise<string>(resolve => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+
+        setAttachedImages(prev => [...prev, { file, base64 }]);
+      }
+      inputRef.current?.focus();
+    },
+    [attachedImages.length]
+  );
+
+  const handleImageInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) handleImageSelect(e.target.files);
+      e.target.value = '';
+    },
+    [handleImageSelect]
+  );
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setAttachedImages(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -163,10 +208,19 @@ function ChatInputArea({
     (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const file = e.dataTransfer.files?.[0];
-      if (file) handleFileSelect(file);
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+
+      // If vision model is active and dropped file is an image, use image handler
+      const firstFile = files[0];
+      const isImage = firstFile.type.startsWith('image/');
+      if (isImage && supportsVision) {
+        handleImageSelect(files);
+      } else {
+        handleFileSelect(firstFile);
+      }
     },
-    [handleFileSelect]
+    [handleFileSelect, handleImageSelect, supportsVision]
   );
 
   const formatFileSize = (bytes: number) => {
@@ -176,13 +230,21 @@ function ChatInputArea({
   };
 
   const handleSend = useCallback(() => {
-    const hasInput = input.trim() || attachedFile;
+    const hasInput = input.trim() || attachedFile || attachedImages.length > 0;
     if (!hasInput || isLoading || disabled) return;
 
-    const msg = input.trim() || (attachedFile ? `Dokument: ${attachedFile.name}` : '');
+    const msg =
+      input.trim() ||
+      (attachedFile
+        ? `Dokument: ${attachedFile.name}`
+        : attachedImages.length > 0
+          ? `[${attachedImages.length} Bild${attachedImages.length > 1 ? 'er' : ''}]`
+          : '');
     const file = attachedFile;
+    const imageBase64s = attachedImages.map(img => img.base64);
     setInput('');
     setAttachedFile(null);
+    setAttachedImages([]);
     if (inputRef.current) inputRef.current.style.height = 'auto';
 
     sendMessage(chatId, msg, {
@@ -193,10 +255,12 @@ function ChatInputArea({
       messages: messagesRef?.current || [],
       model: selectedModel || undefined,
       file: file || undefined,
+      images: imageBase64s.length > 0 ? imageBase64s : undefined,
     });
   }, [
     input,
     attachedFile,
+    attachedImages,
     isLoading,
     disabled,
     chatId,
@@ -550,6 +614,49 @@ function ChatInputArea({
           aria-hidden="true"
         />
 
+        {/* Hidden image input for vision models */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          multiple
+          onChange={handleImageInputChange}
+          className="hidden"
+          aria-hidden="true"
+        />
+
+        {/* Image preview thumbnails */}
+        {attachedImages.length > 0 && (
+          <div className="flex flex-wrap gap-2 mx-4 mt-3 mb-0">
+            {attachedImages.map((img, index) => (
+              <div
+                key={index}
+                className="relative group size-20 rounded-lg overflow-hidden border border-primary/20 bg-primary/5"
+              >
+                <img src={img.base64} alt={img.file.name} className="size-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage(index)}
+                  className="absolute top-0.5 right-0.5 size-5 bg-background/80 border-none rounded-full text-muted-foreground cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive hover:bg-destructive/20"
+                  aria-label="Bild entfernen"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            ))}
+            {attachedImages.length < 5 && (
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="size-20 rounded-lg border-2 border-dashed border-border bg-transparent text-muted-foreground cursor-pointer flex items-center justify-center hover:border-primary/40 hover:text-primary transition-colors"
+                aria-label="Weiteres Bild hinzufuegen"
+              >
+                <span className="text-xl">+</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* File preview chip */}
         {attachedFile && (
           <div className="flex items-center gap-2 mx-4 mt-3 mb-0 py-2 px-3 bg-primary/5 border border-primary/15 rounded-lg text-sm">
@@ -574,6 +681,23 @@ function ChatInputArea({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
+          {/* Vision image button — only visible when model supports vision */}
+          {supportsVision && (
+            <button
+              type="button"
+              className={cn(
+                'size-10 min-w-[40px] bg-transparent border-none rounded-full text-muted-foreground cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-accent hover:text-foreground',
+                attachedImages.length > 0 && 'text-primary'
+              )}
+              onClick={() => imageInputRef.current?.click()}
+              disabled={disabled || isStreaming || attachedImages.length >= 5}
+              title={`Bild anhängen (${attachedImages.length}/5)`}
+              aria-label="Bild für Vision-Modell anhängen"
+            >
+              <ImageIcon className="size-5" />
+            </button>
+          )}
+
           {/* Paperclip button */}
           <button
             type="button"
@@ -616,7 +740,11 @@ function ChatInputArea({
               type="button"
               className="send-btn size-10 min-w-[40px] bg-primary border-none rounded-full text-white cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-primary/80 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-border"
               onClick={handleSend}
-              disabled={(!input.trim() && !attachedFile) || disabled || isLoading}
+              disabled={
+                (!input.trim() && !attachedFile && attachedImages.length === 0) ||
+                disabled ||
+                isLoading
+              }
               title="Senden"
               aria-label="Senden"
             >
