@@ -22,7 +22,6 @@ services:
     container_name: dashboard-backend
     hostname: dashboard-backend
     restart: always
-    pids_limit: 256
     networks:
       - arasul-frontend
       - arasul-backend
@@ -103,6 +102,7 @@ services:
         limits:
           cpus: '${CPU_LIMIT_DASHBOARD:-4}'
           memory: ${RAM_LIMIT_BACKEND:-1G}
+          pids: 256
     stop_grace_period: 35s
     labels:
       - 'traefik.enable=false'
@@ -118,7 +118,6 @@ services:
     container_name: dashboard-frontend
     hostname: dashboard-frontend
     restart: always
-    pids_limit: 64
     networks:
       - arasul-frontend
     depends_on:
@@ -151,6 +150,7 @@ services:
         limits:
           cpus: '1.0'
           memory: ${RAM_LIMIT_FRONTEND:-256M}
+          pids: 64
 
   # 3. n8n Workflow Engine
   n8n:
@@ -160,7 +160,6 @@ services:
     container_name: n8n
     hostname: n8n
     restart: always
-    pids_limit: 256
     networks:
       - arasul-backend
     environment:
@@ -210,6 +209,7 @@ services:
         limits:
           cpus: '2.0'
           memory: ${RAM_LIMIT_N8N:-2G}
+          pids: 256
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.services.n8n-docker.loadbalancer.server.port=5678'
