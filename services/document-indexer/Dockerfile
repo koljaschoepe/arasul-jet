@@ -28,7 +28,7 @@ RUN python -m spacy download de_core_news_lg || \
 RUN useradd -m -u 1000 -s /bin/bash indexer
 
 # Copy shared logging module
-COPY services/shared-python/structured_logging.py ./
+COPY libs/shared-python/structured_logging.py ./
 
 # Copy application code
 COPY services/document-indexer/*.py ./

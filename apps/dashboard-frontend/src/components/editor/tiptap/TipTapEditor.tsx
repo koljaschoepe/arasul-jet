@@ -44,16 +44,14 @@ const TipTapEditor = memo(function TipTapEditor({
       const formData = new FormData();
       formData.append('image', file);
       try {
-        const result = await api.post<{ url: string }>(
-          '/documents/images/upload',
-          formData as any,
-          {
-            showError: false,
-          }
-        );
+        const result = await api.post<{ url: string }>('/documents/images/upload', formData, {
+          showError: false,
+        });
         return result.url;
-      } catch (err: any) {
-        setError(`Bild-Upload fehlgeschlagen: ${err.message}`);
+      } catch (err: unknown) {
+        setError(
+          `Bild-Upload fehlgeschlagen: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`
+        );
         return null;
       }
     },
@@ -139,8 +137,8 @@ const TipTapEditor = memo(function TipTapEditor({
         originalContentRef.current = md;
         editor.commands.setContent(md);
         setHasChanges(false);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
       } finally {
         setLoading(false);
       }
@@ -172,8 +170,8 @@ const TipTapEditor = memo(function TipTapEditor({
       originalContentRef.current = markdown;
       setHasChanges(false);
       onSave?.();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
     } finally {
       setSaving(false);
     }

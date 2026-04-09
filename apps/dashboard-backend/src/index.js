@@ -49,9 +49,15 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const http = require('http');
+const crypto = require('crypto');
 const WebSocket = require('ws');
+const { monitorEventLoopDelay } = require('perf_hooks');
 
 const helmet = require('helmet');
+
+// PERF-001: Event loop delay monitoring (detects blocked event loop over months of uptime)
+const eventLoopMonitor = monitorEventLoopDelay({ resolution: 20 });
+eventLoopMonitor.enable();
 
 const app = express();
 const server = http.createServer(app);
@@ -87,8 +93,25 @@ app.use(
   })
 );
 
-// Trust reverse proxy (Traefik) for rate limiting and client IP detection
-app.set('trust proxy', true);
+// Trust single reverse proxy hop (Traefik) — prevents IP spoofing via X-Forwarded-For
+app.set('trust proxy', 1);
+
+// TRACE-001: Request correlation IDs for distributed tracing
+app.use((req, res, next) => {
+  req.id = req.headers['x-request-id'] || crypto.randomUUID();
+  res.setHeader('x-request-id', req.id);
+  next();
+});
+
+// TIMEOUT-001: 60s request timeout safety net (prevents indefinitely hanging requests)
+app.use((req, res, next) => {
+  res.setTimeout(60000, () => {
+    if (!res.headersSent) {
+      res.status(408).json({ error: 'Request timeout' });
+    }
+  });
+  next();
+});
 
 // SEC-007 FIX: Restrict CORS to specific origins + allow local network access
 const corsOptions = {
@@ -167,6 +190,15 @@ app.get('/api/health', async (req, res) => {
     });
   }
 
+  // PERF-001: Event loop delay metrics (milliseconds)
+  const eventLoop = {
+    min: +(eventLoopMonitor.min / 1e6).toFixed(2),
+    max: +(eventLoopMonitor.max / 1e6).toFixed(2),
+    mean: +(eventLoopMonitor.mean / 1e6).toFixed(2),
+    p99: +(eventLoopMonitor.percentile(99) / 1e6).toFixed(2),
+    stddev: +(eventLoopMonitor.stddev / 1e6).toFixed(2),
+  };
+
   // Detailed health check - verify all dependencies
   const db = require('./database');
   const axios = require('axios');
@@ -221,6 +253,7 @@ app.get('/api/health', async (req, res) => {
     version: process.env.SYSTEM_VERSION || '1.0.0',
     build_hash: process.env.BUILD_HASH || 'dev',
     checks,
+    eventLoop,
     circuitBreakers: circuitBreakers.getAllStatus(),
   });
 });
@@ -277,19 +310,22 @@ wss.on('connection', ws => {
       // Get live metrics from metrics collector
       const response = await axios.get(services.metrics.metricsEndpoint, { timeout: 2000 });
 
-      if (ws.readyState === WebSocket.OPEN) {
+      // WS-BACKPRESSURE: Skip send if client can't keep up (>64KB buffered)
+      if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) {
         ws.send(
           JSON.stringify({
             ...response.data,
             timestamp: new Date().toISOString(),
           })
         );
+      } else if (ws.bufferedAmount >= 65536) {
+        logger.debug('WebSocket backpressure: skipping metrics send');
       }
     } catch (error) {
       logger.error(`Error sending metrics via WebSocket: ${error.message}`);
 
       // Fallback: send error state
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) {
         ws.send(
           JSON.stringify({
             error: 'Metrics temporarily unavailable',

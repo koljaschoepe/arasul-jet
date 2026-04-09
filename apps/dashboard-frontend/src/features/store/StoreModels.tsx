@@ -584,7 +584,7 @@ function StoreModels() {
                     <div className="progress-bar h-2 bg-border rounded overflow-hidden mb-2">
                       <div
                         className={cn(
-                          'progress-fill h-full bg-gradient-to-r from-primary to-primary/80 rounded transition-all duration-300',
+                          'progress-fill h-full bg-linear-to-r from-primary to-primary/80 rounded transition-all duration-300',
                           downloadState.phase === 'verify' &&
                             'pulsing animate-pulse from-muted-foreground to-muted-foreground/80',
                           downloadState.phase === 'complete' && 'from-primary to-primary/80'

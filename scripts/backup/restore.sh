@@ -65,10 +65,34 @@ list_backups() {
 
     echo ""
     echo "=== Available MinIO Backups ==="
-    if ls "${BACKUP_DIR}/minio/"*.tar.gz 1>/dev/null 2>&1; then
-        ls -lh "${BACKUP_DIR}/minio/"*.tar.gz | awk '{print $9, "(" $5 ")"}'
+    if ls "${BACKUP_DIR}/minio/"*.tar.gz* 1>/dev/null 2>&1; then
+        ls -lh "${BACKUP_DIR}/minio/"*.tar.gz* | awk '{print $9, "(" $5 ")"}'
     else
         echo "  No MinIO backups found"
+    fi
+
+    echo ""
+    echo "=== Available Qdrant Backups ==="
+    if ls "${BACKUP_DIR}/qdrant/"*.tar.gz* 1>/dev/null 2>&1; then
+        ls -lh "${BACKUP_DIR}/qdrant/"*.tar.gz* | awk '{print $9, "(" $5 ")"}'
+    else
+        echo "  No Qdrant backups found"
+    fi
+
+    echo ""
+    echo "=== Available n8n Backups ==="
+    if ls "${BACKUP_DIR}/n8n/"*.json* 1>/dev/null 2>&1; then
+        ls -lh "${BACKUP_DIR}/n8n/"*.json* | awk '{print $9, "(" $5 ")"}'
+    else
+        echo "  No n8n backups found"
+    fi
+
+    echo ""
+    echo "=== Available Config Backups ==="
+    if ls "${BACKUP_DIR}/config/"config_*.tar.gz* 1>/dev/null 2>&1; then
+        ls -lh "${BACKUP_DIR}/config/"config_*.tar.gz* | awk '{print $9, "(" $5 ")"}'
+    else
+        echo "  No config backups found"
     fi
 
     echo ""
@@ -240,17 +264,196 @@ restore_minio() {
     fi
 }
 
+# Decrypt a .gpg file if needed (returns path to usable file)
+decrypt_if_needed() {
+    local file="$1"
+
+    # If file doesn't exist, check for .gpg variant
+    if [[ ! -f "${file}" ]] && [[ -f "${file}.gpg" ]]; then
+        file="${file}.gpg"
+    fi
+
+    if [[ "${file}" =~ \.gpg$ ]]; then
+        local key_file="${BACKUP_ENCRYPTION_KEY_FILE:-/run/secrets/backup_key}"
+        if [[ ! -f "${key_file}" ]]; then
+            log "ERROR" "Encrypted backup but key file not found: ${key_file}"
+            log "ERROR" "Set BACKUP_ENCRYPTION_KEY_FILE to the decryption key path"
+            return 1
+        fi
+
+        local decrypted="${file%.gpg}"
+        log "INFO" "Decrypting: $(basename "${file}")"
+        if gpg --batch --yes --decrypt \
+            --passphrase-file "${key_file}" \
+            --output "${decrypted}" \
+            "${file}" 2>/dev/null; then
+            echo "${decrypted}"
+            return 0
+        else
+            log "ERROR" "Decryption failed for: ${file}"
+            return 1
+        fi
+    fi
+
+    echo "${file}"
+    return 0
+}
+
+# Restore Qdrant vector database
+restore_qdrant() {
+    local backup_file="$1"
+
+    backup_file=$(decrypt_if_needed "${backup_file}") || exit 1
+
+    if [[ ! -f "$backup_file" ]]; then
+        log "ERROR" "Backup file not found: $backup_file"
+        exit 1
+    fi
+
+    if [[ ! "$backup_file" =~ \.tar\.gz$ ]]; then
+        log "ERROR" "Invalid backup file format. Expected .tar.gz"
+        exit 1
+    fi
+
+    if ! docker ps --format '{{.Names}}' | grep -q "^qdrant$"; then
+        log "ERROR" "Qdrant container is not running"
+        exit 1
+    fi
+
+    confirm "This will restore the Qdrant vector database from backup."
+
+    log "INFO" "Starting Qdrant restore from: $backup_file"
+
+    local temp_dir=$(mktemp -d)
+    tar -xzf "$backup_file" -C "$temp_dir"
+
+    # Find snapshot file
+    local snapshot_file
+    snapshot_file=$(find "$temp_dir" -name "*.snapshot" -type f | head -1)
+
+    if [[ -z "$snapshot_file" ]]; then
+        log "ERROR" "No .snapshot file found in backup archive"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    # Upload snapshot to Qdrant via API
+    local snapshot_name
+    snapshot_name=$(basename "$snapshot_file")
+    docker cp "${snapshot_file}" "qdrant:/qdrant/snapshots/${snapshot_name}"
+
+    if docker exec qdrant curl -sf -X POST \
+        "http://localhost:6333/snapshots/${snapshot_name}/recover" \
+        -H "Content-Type: application/json" > /dev/null 2>&1; then
+        log "INFO" "Qdrant restore completed successfully"
+        rm -rf "$temp_dir"
+        return 0
+    else
+        log "ERROR" "Qdrant snapshot recovery failed"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+}
+
+# Restore n8n workflows
+restore_n8n() {
+    local backup_file="$1"
+
+    backup_file=$(decrypt_if_needed "${backup_file}") || exit 1
+
+    if [[ ! -f "$backup_file" ]]; then
+        log "ERROR" "Backup file not found: $backup_file"
+        exit 1
+    fi
+
+    if [[ ! "$backup_file" =~ \.json$ ]]; then
+        log "ERROR" "Invalid backup file format. Expected .json"
+        exit 1
+    fi
+
+    if ! docker ps --format '{{.Names}}' | grep -q "^n8n$"; then
+        log "ERROR" "n8n container is not running"
+        exit 1
+    fi
+
+    confirm "This will import workflows into n8n. Existing workflows with same IDs will be updated."
+
+    log "INFO" "Starting n8n workflow restore from: $backup_file"
+
+    # Copy backup into container
+    docker cp "$backup_file" "n8n:/tmp/workflows_restore.json"
+
+    if docker exec n8n n8n import:workflow --input=/tmp/workflows_restore.json 2>/dev/null; then
+        docker exec n8n rm -f /tmp/workflows_restore.json 2>/dev/null || true
+        log "INFO" "n8n workflow restore completed successfully"
+        return 0
+    else
+        docker exec n8n rm -f /tmp/workflows_restore.json 2>/dev/null || true
+        log "ERROR" "n8n workflow restore failed"
+        return 1
+    fi
+}
+
+# Restore platform configuration
+restore_config() {
+    local backup_file="$1"
+
+    backup_file=$(decrypt_if_needed "${backup_file}") || exit 1
+
+    if [[ ! -f "$backup_file" ]]; then
+        log "ERROR" "Backup file not found: $backup_file"
+        exit 1
+    fi
+
+    if [[ ! "$backup_file" =~ \.tar\.gz$ ]]; then
+        log "ERROR" "Invalid backup file format. Expected .tar.gz"
+        exit 1
+    fi
+
+    confirm "This will OVERWRITE current configuration files (.env, certs, traefik config)!"
+
+    log "INFO" "Starting config restore from: $backup_file"
+
+    # Pre-restore: backup current config
+    local config_backup="${BACKUP_DIR}/config/pre_restore_config_${TIMESTAMP}.tar.gz"
+    if [[ -f "${PROJECT_DIR}/.env" ]]; then
+        tar -czf "${config_backup}" -C "${PROJECT_DIR}" .env config/ 2>/dev/null || true
+        log "INFO" "Current config backed up to: ${config_backup}"
+    fi
+
+    # Extract config to project dir
+    if tar -xzf "$backup_file" -C "${PROJECT_DIR}" 2>/dev/null; then
+        log "INFO" "Config restore completed successfully"
+        log "WARN" "Restart services to apply restored configuration: docker compose up -d"
+        return 0
+    else
+        log "ERROR" "Config restore failed"
+        log "WARN" "Current config backup available at: ${config_backup}"
+        return 1
+    fi
+}
+
 # Find backup by date
 find_backup_by_date() {
     local backup_type="$1"
     local date="$2"
 
+    local file=""
     case "$backup_type" in
         postgres)
-            local file=$(ls "${BACKUP_DIR}/postgres/arasul_db_${date}"*.sql.gz 2>/dev/null | head -1)
+            file=$(ls "${BACKUP_DIR}/postgres/arasul_db_${date}"*.sql.gz* 2>/dev/null | head -1)
             ;;
         minio)
-            local file=$(ls "${BACKUP_DIR}/minio/documents_${date}"*.tar.gz 2>/dev/null | head -1)
+            file=$(ls "${BACKUP_DIR}/minio/documents_${date}"*.tar.gz* 2>/dev/null | head -1)
+            ;;
+        qdrant)
+            file=$(ls "${BACKUP_DIR}/qdrant/qdrant_${date}"*.tar.gz* 2>/dev/null | head -1)
+            ;;
+        n8n)
+            file=$(ls "${BACKUP_DIR}/n8n/workflows_${date}"*.json* 2>/dev/null | head -1)
+            ;;
+        config)
+            file=$(ls "${BACKUP_DIR}/config/config_${date}"*.tar.gz* 2>/dev/null | head -1)
             ;;
     esac
 
@@ -264,9 +467,14 @@ usage() {
     echo "Usage:"
     echo "  $0 --postgres <backup_file>    Restore PostgreSQL from specific backup"
     echo "  $0 --minio <backup_file>       Restore MinIO from specific backup"
-    echo "  $0 --all --date YYYYMMDD       Restore both from specific date"
+    echo "  $0 --qdrant <backup_file>      Restore Qdrant vectors from specific backup"
+    echo "  $0 --n8n <backup_file>         Restore n8n workflows from specific backup"
+    echo "  $0 --config <backup_file>      Restore platform config (.env, certs)"
+    echo "  $0 --all --date YYYYMMDD       Restore everything from specific date"
     echo "  $0 --latest                    Restore from latest backups"
     echo "  $0 --list                      List available backups"
+    echo ""
+    echo "Encrypted backups (.gpg) are auto-decrypted if BACKUP_ENCRYPTION_KEY_FILE is set."
     echo ""
     echo "Examples:"
     echo "  $0 --list"
@@ -314,10 +522,40 @@ main() {
             restore_minio "$2"
             ;;
 
+        --qdrant)
+            if [[ -z "${2:-}" ]]; then
+                log "ERROR" "Please specify a backup file"
+                usage
+                exit 1
+            fi
+            restore_qdrant "$2"
+            ;;
+
+        --n8n)
+            if [[ -z "${2:-}" ]]; then
+                log "ERROR" "Please specify a backup file"
+                usage
+                exit 1
+            fi
+            restore_n8n "$2"
+            ;;
+
+        --config)
+            if [[ -z "${2:-}" ]]; then
+                log "ERROR" "Please specify a backup file"
+                usage
+                exit 1
+            fi
+            restore_config "$2"
+            ;;
+
         --latest)
             log "INFO" "Restoring from latest backups..."
             local pg_latest="${BACKUP_DIR}/postgres/arasul_db_latest.sql.gz"
             local minio_latest="${BACKUP_DIR}/minio/documents_latest.tar.gz"
+            local qdrant_latest="${BACKUP_DIR}/qdrant/qdrant_latest.tar.gz"
+            local n8n_latest="${BACKUP_DIR}/n8n/workflows_latest.json"
+            local config_latest="${BACKUP_DIR}/config/config_latest.tar.gz"
 
             if [[ -L "$pg_latest" ]]; then
                 restore_postgres "$(readlink -f "$pg_latest")"
@@ -329,6 +567,24 @@ main() {
                 restore_minio "$(readlink -f "$minio_latest")"
             else
                 log "WARN" "No latest MinIO backup found"
+            fi
+
+            if [[ -L "$qdrant_latest" ]]; then
+                restore_qdrant "$(readlink -f "$qdrant_latest")"
+            else
+                log "WARN" "No latest Qdrant backup found"
+            fi
+
+            if [[ -L "$n8n_latest" ]]; then
+                restore_n8n "$(readlink -f "$n8n_latest")"
+            else
+                log "WARN" "No latest n8n backup found"
+            fi
+
+            if [[ -L "$config_latest" ]]; then
+                restore_config "$(readlink -f "$config_latest")"
+            else
+                log "WARN" "No latest config backup found"
             fi
             ;;
 
@@ -344,6 +600,9 @@ main() {
 
             local pg_backup=$(find_backup_by_date "postgres" "$date")
             local minio_backup=$(find_backup_by_date "minio" "$date")
+            local qdrant_backup=$(find_backup_by_date "qdrant" "$date")
+            local n8n_backup=$(find_backup_by_date "n8n" "$date")
+            local config_backup=$(find_backup_by_date "config" "$date")
 
             if [[ -n "$pg_backup" ]]; then
                 restore_postgres "$pg_backup"
@@ -355,6 +614,24 @@ main() {
                 restore_minio "$minio_backup"
             else
                 log "WARN" "No MinIO backup found for date: $date"
+            fi
+
+            if [[ -n "$qdrant_backup" ]]; then
+                restore_qdrant "$qdrant_backup"
+            else
+                log "WARN" "No Qdrant backup found for date: $date"
+            fi
+
+            if [[ -n "$n8n_backup" ]]; then
+                restore_n8n "$n8n_backup"
+            else
+                log "WARN" "No n8n backup found for date: $date"
+            fi
+
+            if [[ -n "$config_backup" ]]; then
+                restore_config "$config_backup"
+            else
+                log "WARN" "No config backup found for date: $date"
             fi
             ;;
 

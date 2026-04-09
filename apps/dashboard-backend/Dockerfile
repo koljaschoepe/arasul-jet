@@ -24,4 +24,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 
 USER node
 
-CMD ["npm", "start"]
+CMD ["node", "--max-old-space-size=512", "src/index.js"]

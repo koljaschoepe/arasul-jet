@@ -59,14 +59,14 @@ TOTAL_TIME=0
 run_request() {
     local endpoint="$1"
     local idx="$2"
-    local auth_header=""
-    [ -n "$AUTH_TOKEN" ] && auth_header="-H 'Authorization: Bearer ${AUTH_TOKEN}'"
+    local auth_args=()
+    [ -n "$AUTH_TOKEN" ] && auth_args=(-H "Authorization: Bearer ${AUTH_TOKEN}")
 
     local start=$(date +%s%N)
     local status
-    status=$(eval curl -sf -o /dev/null -w '%{http_code}' \
+    status=$(curl -sf -o /dev/null -w '%{http_code}' \
         --connect-timeout 5 --max-time 30 \
-        $auth_header \
+        "${auth_args[@]}" \
         "${BASE_URL}${endpoint}" 2>/dev/null) || status="000"
     local end=$(date +%s%N)
     local duration_ms=$(( (end - start) / 1000000 ))

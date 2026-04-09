@@ -248,18 +248,72 @@ class MetricsCollector:
             return 0.0
 
     def get_disk_usage(self) -> Dict:
-        """Get disk usage statistics"""
+        """Get disk usage statistics including NVMe/SSD health"""
         try:
             disk = psutil.disk_usage('/')
-            return {
+            result = {
                 'total': disk.total,
                 'used': disk.used,
                 'free': disk.free,
                 'percent': disk.percent
             }
+            # NVMe/SSD health via sysfs (no smartctl dependency needed)
+            health = self._get_nvme_health()
+            if health:
+                result['nvme_health'] = health
+            return result
         except Exception as e:
             logger.error(f"Error reading disk: {e}")
             return {'total': 0, 'used': 0, 'free': 0, 'percent': 0.0}
+
+    def _get_nvme_health(self) -> Optional[Dict]:
+        """Read NVMe health from sysfs (works without smartctl/root)"""
+        try:
+            import subprocess
+            # Try smartctl first (most reliable)
+            result = subprocess.run(
+                ['smartctl', '-A', '/dev/nvme0n1', '--json'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                attrs = data.get('nvme_smart_health_information_log', {})
+                health = {
+                    'percentage_used': attrs.get('percentage_used', -1),
+                    'available_spare': attrs.get('available_spare', -1),
+                    'temperature': attrs.get('temperature', -1),
+                    'media_errors': attrs.get('media_errors', 0),
+                    'power_on_hours': attrs.get('power_on_hours', 0),
+                    'critical_warning': attrs.get('critical_warning', 0),
+                }
+                # Alert thresholds
+                if health['available_spare'] != -1 and health['available_spare'] < 10:
+                    logger.warning(f"NVMe available spare LOW: {health['available_spare']}%")
+                if health['percentage_used'] != -1 and health['percentage_used'] > 80:
+                    logger.warning(f"NVMe wear HIGH: {health['percentage_used']}% used")
+                if health['critical_warning'] != 0:
+                    logger.error(f"NVMe CRITICAL WARNING: {health['critical_warning']}")
+                return health
+        except FileNotFoundError:
+            pass  # smartctl not installed
+        except Exception as e:
+            logger.debug(f"smartctl failed: {e}")
+
+        # Fallback: read from sysfs (limited info, no root needed)
+        try:
+            for prefix in self.SYSFS_PREFIXES:
+                nvme_path = os.path.join(prefix, 'class/nvme/nvme0')
+                if os.path.isdir(nvme_path):
+                    model = ''
+                    model_file = os.path.join(nvme_path, 'model')
+                    if os.path.exists(model_file):
+                        with open(model_file) as f:
+                            model = f.read().strip()
+                    return {'model': model, 'source': 'sysfs'}
+        except Exception:
+            pass
+
+        return None
 
     def check_self_healing_health(self) -> Optional[Dict]:
         """Check self-healing agent heartbeat via HTTP endpoint"""

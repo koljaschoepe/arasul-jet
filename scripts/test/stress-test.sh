@@ -91,8 +91,8 @@ db_pool_test() {
     echo -e "${BLUE}=== Test 2: DB Pool Stress ===${NC}"
     echo -e "  Sending 50 concurrent requests to DB-heavy endpoints..."
 
-    local auth_header=""
-    [ -n "$AUTH_TOKEN" ] && auth_header="-H 'Authorization: Bearer ${AUTH_TOKEN}'"
+    local auth_args=()
+    [ -n "$AUTH_TOKEN" ] && auth_args=(-H "Authorization: Bearer ${AUTH_TOKEN}")
 
     local ok=0
     local fail=0
@@ -103,9 +103,9 @@ db_pool_test() {
     for i in $(seq 1 50); do
         (
             local status
-            status=$(eval curl -sf -o /dev/null -w '%{http_code}' \
+            status=$(curl -sf -o /dev/null -w '%{http_code}' \
                 --connect-timeout 10 --max-time 30 \
-                $auth_header \
+                "${auth_args[@]}" \
                 "${BASE_URL}/api/health" 2>/dev/null) || status="000"
             echo "$status" > "${RESULTS_DIR}/${i}.result"
         ) &
@@ -142,20 +142,20 @@ memory_test() {
     echo -e "${BLUE}=== Test 3: Memory Stability ===${NC}"
     echo -e "  Sending 200 sequential requests, checking for memory leaks..."
 
-    local auth_header=""
-    [ -n "$AUTH_TOKEN" ] && auth_header="-H 'Authorization: Bearer ${AUTH_TOKEN}'"
+    local auth_args=()
+    [ -n "$AUTH_TOKEN" ] && auth_args=(-H "Authorization: Bearer ${AUTH_TOKEN}")
 
     # Get initial memory usage from health endpoint
     local initial_health
-    initial_health=$(eval curl -sf $auth_header "${BASE_URL}/api/health" 2>/dev/null || echo "{}")
+    initial_health=$(curl -sf "${auth_args[@]}" "${BASE_URL}/api/health" 2>/dev/null || echo "{}")
 
     # Send 200 requests
     local ok=0
     for i in $(seq 1 200); do
         local status
-        status=$(eval curl -sf -o /dev/null -w '%{http_code}' \
+        status=$(curl -sf -o /dev/null -w '%{http_code}' \
             --connect-timeout 5 --max-time 10 \
-            $auth_header \
+            "${auth_args[@]}" \
             "${BASE_URL}/api/health" 2>/dev/null) || status="000"
         [ "$status" = "200" ] && ok=$((ok + 1))
     done

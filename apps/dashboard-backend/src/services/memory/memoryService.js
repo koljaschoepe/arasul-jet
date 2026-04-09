@@ -23,12 +23,12 @@ const { getEmbedding } = require('../embeddingService');
 const QDRANT_URL = services.qdrant.url;
 const LLM_SERVICE_URL = services.llm.url;
 
-// Memory limits
-const MAX_MEMORIES = 500;
+// Memory limits (configurable for different deployment sizes)
+const MAX_MEMORIES = parseInt(process.env.MEMORY_MAX_ENTRIES || '500');
 const MAX_TIER2_SNIPPETS = 3;
 const MAX_TIER2_TOKENS = 400;
-const MAX_PROFILE_BYTES = 2048;
-const DEDUP_THRESHOLD = 0.9;
+const MAX_PROFILE_BYTES = parseInt(process.env.MEMORY_MAX_PROFILE_BYTES || '2048');
+const DEDUP_THRESHOLD = parseFloat(process.env.MEMORY_DEDUP_THRESHOLD || '0.9');
 const MEMORY_COLLECTION = 'memories';
 const MEMORY_BUCKET = 'memory';
 

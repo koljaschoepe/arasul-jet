@@ -16,6 +16,16 @@ function initSSE(res) {
   res.setHeader('X-Accel-Buffering', 'no');
   // Flush headers immediately so the browser opens the stream without delay
   res.flushHeaders();
+
+  // SSE-KEEPALIVE: Send comment every 15s to prevent proxy idle-timeout kills (Traefik default: 60s)
+  const keepaliveId = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(': keepalive\n\n');
+    } else {
+      clearInterval(keepaliveId);
+    }
+  }, 15000);
+  res.on('close', () => clearInterval(keepaliveId));
 }
 
 /**
@@ -29,11 +39,15 @@ function trackConnection(res) {
   let closeCallback = null;
 
   const cleanup = () => {
-    if (!connected) {return;} // Prevent double cleanup
+    if (!connected) {
+      return;
+    } // Prevent double cleanup
     connected = false;
     res.removeListener('close', cleanup);
     res.removeListener('error', onError);
-    if (closeCallback) {closeCallback();}
+    if (closeCallback) {
+      closeCallback();
+    }
   };
 
   const onError = error => {

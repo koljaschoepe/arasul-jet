@@ -435,11 +435,16 @@ def _index_to_qdrant(
 
                     domain_texts.append(orig_text)
 
-        # Upsert to Qdrant
-        qdrant_manager.upsert_points(all_points)
-        if all_points:
+        # Upsert to Qdrant in batches to prevent OOM on large documents
+        UPSERT_BATCH_SIZE = 100
+        total_points = len(all_points)
+        for i in range(0, total_points, UPSERT_BATCH_SIZE):
+            batch = all_points[i:i + UPSERT_BATCH_SIZE]
+            qdrant_manager.upsert_points(batch)
+        all_points.clear()  # Free memory immediately
+        if total_points:
             logger.info(
-                f"Indexed {len(all_points)} child chunks for document "
+                f"Indexed {total_points} child chunks for document "
                 f"{doc_id} (dense + sparse)"
             )
 

@@ -12,6 +12,7 @@ const { changeDashboardPassword } = require('../../services/auth/passwordService
 const { updateEnvVariables, backupEnvFile } = require('../../utils/envManager');
 const db = require('../../database');
 const logger = require('../../utils/logger');
+const { logSecurityEvent } = require('../../utils/auditLog');
 const { execFile } = require('child_process');
 const util = require('util');
 const { asyncHandler } = require('../../middleware/errorHandler');
@@ -127,6 +128,14 @@ router.post(
     // Without this, old tokens remain valid even after password change
     await blacklistAllUserTokens(req.user.id);
 
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'password_change',
+      details: { target: 'dashboard' },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
     res.json({
       success: true,
       message: 'Dashboard password changed successfully',
@@ -186,6 +195,14 @@ router.post(
 
     logger.info(`MinIO password changed successfully by ${req.user.username}`);
 
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'password_change',
+      details: { target: 'minio' },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
     res.json({
       success: true,
       message: 'MinIO password changed successfully. Service restarted.',
@@ -243,6 +260,14 @@ router.post(
     await restartService('n8n');
 
     logger.info(`n8n password changed successfully by ${req.user.username}`);
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'password_change',
+      details: { target: 'n8n' },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
 
     res.json({
       success: true,

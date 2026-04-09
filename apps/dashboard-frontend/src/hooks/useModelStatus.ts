@@ -135,9 +135,9 @@ export default function useModelStatus(): ModelStatusData {
             }
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!controller.signal.aborted) {
-          setError(err?.message || 'Fehler beim Laden');
+          setError(err instanceof Error ? err.message : 'Fehler beim Laden');
         }
       } finally {
         delete abortRefs.current[modelId];
@@ -163,8 +163,8 @@ export default function useModelStatus(): ModelStatusData {
       try {
         await api.post(`/models/${modelId}/load`);
         await fetchData();
-      } catch (err: any) {
-        setError(err?.message || 'Fehler beim Starten');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Fehler beim Starten');
       } finally {
         setLoadingModels(prev => {
           const next = new Set(prev);
@@ -183,8 +183,8 @@ export default function useModelStatus(): ModelStatusData {
       try {
         await api.post(`/models/${modelId}/unload`);
         await fetchData();
-      } catch (err: any) {
-        setError(err?.message || 'Fehler beim Entladen');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Fehler beim Entladen');
       } finally {
         setLoadingModels(prev => {
           const next = new Set(prev);

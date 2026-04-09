@@ -325,9 +325,9 @@ function AppContent(): React.JSX.Element | null {
           api.get('/system/thresholds', opts),
         ]);
 
-        const val = (i: number): any =>
+        const val = (i: number): unknown =>
           results[i].status === 'fulfilled'
-            ? (results[i] as PromiseFulfilledResult<any>).value
+            ? (results[i] as PromiseFulfilledResult<unknown>).value
             : null;
 
         if (val(0)) setMetrics(val(0));
@@ -352,10 +352,10 @@ function AppContent(): React.JSX.Element | null {
           setError(null);
         }
         setLoading(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (signal?.aborted) return;
         console.error('Error fetching data:', err);
-        setError(err.message);
+        setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
         setLoading(false);
       }
     },
@@ -396,7 +396,7 @@ function AppContent(): React.JSX.Element | null {
         if (!isComplete) {
           setShowSetupWizard(true);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (controller.signal.aborted) return;
         // If endpoint doesn't exist (old backend), assume setup is complete
         setSetupComplete(true);
@@ -431,7 +431,7 @@ function AppContent(): React.JSX.Element | null {
 
   // Handle login success - called from Login component
   const handleLoginSuccess = useCallback(
-    (data: any) => {
+    (data: { user: { id: number; username: string }; token?: string }) => {
       login(data);
       setLoading(true);
     },
@@ -1057,7 +1057,7 @@ const DashboardHome = React.memo(function DashboardHome({
                 labelFormatter={(ts: number) =>
                   new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
                 }
-                formatter={(value: any, name: string) => {
+                formatter={(value: number, name: string) => {
                   return [`${value?.toFixed(1)}%`, name];
                 }}
               />

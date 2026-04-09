@@ -107,8 +107,9 @@ async function writeAuditLog(logEntry) {
                 duration_ms,
                 ip_address,
                 user_agent,
-                error_message
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                error_message,
+                request_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `,
       [
         logEntry.user_id,
@@ -120,6 +121,7 @@ async function writeAuditLog(logEntry) {
         logEntry.ip_address,
         logEntry.user_agent,
         logEntry.error_message,
+        logEntry.request_id,
       ]
     );
   } catch (error) {
@@ -187,6 +189,7 @@ function createAuditMiddleware() {
         ip_address: getClientIP(req),
         user_agent: req.headers['user-agent'] || null,
         error_message: res.statusCode >= 400 ? res.statusMessage || null : null,
+        request_id: req.headers['x-request-id'] || null,
       };
 
       // BH8 FIX: Write audit log asynchronously with visible error logging

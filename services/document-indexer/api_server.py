@@ -133,8 +133,15 @@ def list_documents():
         search = request.args.get('search')
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
+        ALLOWED_ORDER_BY = {'uploaded_at', 'title', 'file_size', 'status', 'file_name', 'created_at'}
+        ALLOWED_ORDER_DIR = {'ASC', 'DESC'}
         order_by = request.args.get('order_by', 'uploaded_at')
         order_dir = request.args.get('order_dir', 'DESC')
+        if order_by not in ALLOWED_ORDER_BY:
+            return jsonify({'error': f'Invalid order_by. Allowed: {", ".join(sorted(ALLOWED_ORDER_BY))}'}), 400
+        if order_dir.upper() not in ALLOWED_ORDER_DIR:
+            return jsonify({'error': 'Invalid order_dir. Allowed: ASC, DESC'}), 400
+        order_dir = order_dir.upper()
 
         documents, total = idx.db.list_documents(
             status=status_filter,

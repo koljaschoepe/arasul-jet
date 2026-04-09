@@ -59,17 +59,19 @@ if (!fs.existsSync(TEMP_DIR)) {
 
 // Periodic cleanup of stale voice files (every 15 minutes)
 setInterval(
-  () => {
+  async () => {
     try {
-      if (!fs.existsSync(TEMP_DIR)) {return;}
-      const files = fs.readdirSync(TEMP_DIR);
+      if (!fs.existsSync(TEMP_DIR)) {
+        return;
+      }
+      const files = await fs.promises.readdir(TEMP_DIR);
       const now = Date.now();
       const maxAge = 30 * 60 * 1000; // 30 minutes
       for (const file of files) {
         const filePath = path.join(TEMP_DIR, file);
-        const stats = fs.statSync(filePath);
+        const stats = await fs.promises.stat(filePath);
         if (now - stats.mtimeMs > maxAge) {
-          fs.unlinkSync(filePath);
+          await fs.promises.unlink(filePath);
           logger.debug(`[Voice cleanup] Removed stale file: ${file}`);
         }
       }
@@ -869,7 +871,7 @@ async function downloadVoiceFile(token, fileId) {
 
     // Save to temp file
     const localPath = path.join(TEMP_DIR, `voice_${Date.now()}_${fileId}.ogg`);
-    fs.writeFileSync(localPath, Buffer.from(buffer));
+    await fs.promises.writeFile(localPath, Buffer.from(buffer));
 
     logger.debug(`Voice file downloaded: ${localPath}`);
     return localPath;
@@ -888,7 +890,7 @@ async function downloadVoiceFile(token, fileId) {
 async function transcribeWithWhisper(filePath, apiKey) {
   try {
     // Read file
-    const fileBuffer = fs.readFileSync(filePath);
+    const fileBuffer = await fs.promises.readFile(filePath);
     const fileName = path.basename(filePath);
 
     // Create form data
@@ -1009,22 +1011,22 @@ async function processVoiceMessage(botId, token, voice) {
  * Clean up old voice files (for cron job)
  * @param {number} maxAgeMinutes - Max age in minutes
  */
-function cleanupOldFiles(maxAgeMinutes = 30) {
+async function cleanupOldFiles(maxAgeMinutes = 30) {
   try {
     if (!fs.existsSync(TEMP_DIR)) {
       return;
     }
 
-    const files = fs.readdirSync(TEMP_DIR);
+    const files = await fs.promises.readdir(TEMP_DIR);
     const now = Date.now();
     const maxAge = maxAgeMinutes * 60 * 1000;
 
     for (const file of files) {
       const filePath = path.join(TEMP_DIR, file);
-      const stats = fs.statSync(filePath);
+      const stats = await fs.promises.stat(filePath);
 
       if (now - stats.mtimeMs > maxAge) {
-        fs.unlinkSync(filePath);
+        await fs.promises.unlink(filePath);
         logger.debug(`Cleaned up old voice file: ${file}`);
       }
     }

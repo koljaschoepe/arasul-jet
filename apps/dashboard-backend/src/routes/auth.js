@@ -24,6 +24,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError, UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const { generateCsrfToken, CSRF_COOKIE } = require('../middleware/csrf');
 const logger = require('../utils/logger');
+const { logSecurityEvent } = require('../utils/auditLog');
 
 // Cookie security: enable secure flag in production or when explicitly forced
 const isSecure =
@@ -114,6 +115,14 @@ router.post(
 
     logger.info(`Successful login for user: ${username} from ${ipAddress}`);
 
+    logSecurityEvent({
+      userId: user.id,
+      action: 'login',
+      details: { username },
+      ipAddress,
+      requestId: req.headers['x-request-id'],
+    });
+
     // Set HttpOnly cookie for LAN access support (session persists across IP/hostname changes)
     res.cookie('arasul_session', tokenData.token, {
       httpOnly: true,
@@ -180,6 +189,13 @@ router.post(
 
     logger.info(`User ${req.user.username} logged out`);
 
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'logout',
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
     res.json({
       success: true,
       message: 'Logged out successfully',
@@ -197,6 +213,13 @@ router.post(
     await blacklistAllUserTokens(req.user.id);
 
     logger.info(`User ${req.user.username} logged out from all sessions`);
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'logout_all_sessions',
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
 
     res.json({
       success: true,
@@ -222,6 +245,14 @@ router.post(
     // Invalidate all existing sessions (force re-login) - outside transaction
     // since token blacklisting may use different storage
     await blacklistAllUserTokens(req.user.id);
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'password_change',
+      details: { method: 'dashboard' },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
 
     res.json({
       success: true,

@@ -11,14 +11,16 @@ Architecture: Composed via mixins from:
 
 import time
 import json
+import ssl
+import subprocess
 import requests
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 from config import (
     HEALING_INTERVAL, ENABLED, REBOOT_ENABLED, EXCLUDED_CONTAINERS,
     FAILURE_WINDOW_MINUTES, MAX_FAILURES_IN_WINDOW, CRITICAL_WINDOW_MINUTES,
-    METRICS_COLLECTOR_URL, logger
+    METRICS_COLLECTOR_URL, HEARTBEAT_URL, HEARTBEAT_INTERVAL_CYCLES, logger
 )
 from db import DatabaseMixin
 from recovery_actions import RecoveryActionsMixin
@@ -64,6 +66,12 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         self._temp_throttle_armed = True
         self._temp_restart_armed = True
         self.last_critical_action_time = 0
+
+        # MEM-TREND: Per-container memory samples for leak detection
+        # Key: container_name, Value: list of (timestamp, rss_mb) tuples
+        # Rolling 7-day window at 5-min intervals = max 2016 samples per container
+        self._memory_samples: Dict = {}
+        self._memory_max_samples = 2016  # 7 days at 5-min intervals
 
         logger.info("Self-Healing Engine initialized")
 
@@ -214,6 +222,206 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
     # MAIN HEALING CYCLE
     # ========================================================================
 
+    def sample_container_memory(self):
+        """MEM-TREND: Sample RSS memory for all running containers"""
+        try:
+            now = time.time()
+            containers = self.docker_client.containers.list()
+
+            for container in containers:
+                name = container.name
+                try:
+                    stats = container.stats(stream=False)
+                    mem_stats = stats.get('memory_stats', {})
+                    rss_bytes = mem_stats.get('usage', 0) - mem_stats.get('stats', {}).get('cache', 0)
+                    rss_mb = max(0, rss_bytes / (1024 * 1024))
+
+                    if name not in self._memory_samples:
+                        self._memory_samples[name] = []
+
+                    samples = self._memory_samples[name]
+                    samples.append((now, rss_mb))
+
+                    # Trim to rolling window
+                    if len(samples) > self._memory_max_samples:
+                        self._memory_samples[name] = samples[-self._memory_max_samples:]
+
+                except Exception:
+                    pass  # Container may have stopped between list and stats
+
+            # Clean up samples for containers that no longer exist
+            running_names = {c.name for c in containers}
+            for name in list(self._memory_samples.keys()):
+                if name not in running_names:
+                    # Keep data for 1 hour after container stops (may restart)
+                    samples = self._memory_samples[name]
+                    if samples and (now - samples[-1][0]) > 3600:
+                        del self._memory_samples[name]
+
+        except Exception as e:
+            logger.error(f"Memory sampling failed: {e}")
+
+    def check_memory_trends(self):
+        """MEM-TREND: Detect rising memory trends (potential leaks) over 24h+"""
+        min_samples = 288  # At least 24h of data (at 5-min intervals)
+
+        for name, samples in self._memory_samples.items():
+            if len(samples) < min_samples:
+                continue
+
+            try:
+                # Simple linear regression on the last 24h of samples
+                recent = samples[-min_samples:]
+                n = len(recent)
+                t0 = recent[0][0]
+
+                # Normalize timestamps to hours
+                xs = [(s[0] - t0) / 3600 for s in recent]
+                ys = [s[1] for s in recent]
+
+                mean_x = sum(xs) / n
+                mean_y = sum(ys) / n
+
+                num = sum((xs[i] - mean_x) * (ys[i] - mean_y) for i in range(n))
+                den = sum((xs[i] - mean_x) ** 2 for i in range(n))
+
+                if den == 0:
+                    continue
+
+                slope_mb_per_hour = num / den
+
+                # Alert if memory grows > 10 MB/hour sustained over 24h
+                # and current usage is > 50% of what it started at
+                if slope_mb_per_hour > 10 and ys[-1] > ys[0] * 1.5:
+                    projected_24h = ys[-1] + slope_mb_per_hour * 24
+                    logger.warning(
+                        f"MEM-TREND: {name} leaking ~{slope_mb_per_hour:.1f} MB/h "
+                        f"(now: {ys[-1]:.0f} MB, 24h projection: {projected_24h:.0f} MB)"
+                    )
+                    self.log_event(
+                        'memory_trend', 'WARNING',
+                        f'{name}: +{slope_mb_per_hour:.1f} MB/h over 24h '
+                        f'(current: {ys[-1]:.0f} MB)',
+                        'Potential memory leak — consider restart if trend continues',
+                        name, False
+                    )
+
+            except Exception as e:
+                logger.debug(f"Memory trend analysis failed for {name}: {e}")
+
+    def send_external_heartbeat(self):
+        """HEARTBEAT: POST to external Dead Man's Switch endpoint"""
+        if not HEARTBEAT_URL:
+            return
+
+        try:
+            import socket
+            payload = {
+                'device': socket.gethostname(),
+                'timestamp': datetime.now().isoformat(),
+                'check_count': self.check_count,
+                'uptime_hours': round((time.time() - self.pool_stats['start_time']) / 3600, 1),
+            }
+            response = requests.post(
+                HEARTBEAT_URL,
+                json=payload,
+                timeout=10,
+                headers={'Content-Type': 'application/json'}
+            )
+            if response.status_code < 300:
+                logger.debug(f"External heartbeat sent to {HEARTBEAT_URL}")
+            else:
+                logger.warning(f"External heartbeat returned {response.status_code}")
+        except Exception as e:
+            logger.warning(f"External heartbeat failed: {e}")
+
+    def check_database_health(self):
+        """DB-MON: Check PostgreSQL connection saturation and table bloat"""
+        try:
+            # Check active connections vs max_connections
+            rows = self.execute_query(
+                "SELECT count(*) AS active, "
+                "(SELECT setting::int FROM pg_settings WHERE name='max_connections') AS max_conn "
+                "FROM pg_stat_activity WHERE backend_type='client backend'",
+                fetch=True
+            )
+            if rows:
+                active, max_conn = rows[0][0], rows[0][1]
+                utilization = active / max_conn if max_conn > 0 else 0
+                if utilization > 0.8:
+                    logger.warning(f"DB connection saturation: {active}/{max_conn} ({utilization:.0%})")
+                    self.log_event(
+                        'db_connections', 'WARNING',
+                        f'Connection utilization {utilization:.0%} ({active}/{max_conn})',
+                        'Monitor - may need max_connections increase',
+                        'postgres-db', False
+                    )
+                # Check for long-running idle-in-transaction connections (>5 min)
+                idle_rows = self.execute_query(
+                    "SELECT count(*) FROM pg_stat_activity "
+                    "WHERE state='idle in transaction' "
+                    "AND state_change < now() - interval '5 minutes'",
+                    fetch=True
+                )
+                if idle_rows and idle_rows[0][0] > 0:
+                    logger.warning(f"DB: {idle_rows[0][0]} idle-in-transaction connections > 5 min")
+
+            # Check table bloat (dead tuples > 50% of live)
+            bloat_rows = self.execute_query(
+                "SELECT schemaname || '.' || relname AS tbl, n_dead_tup, n_live_tup "
+                "FROM pg_stat_user_tables "
+                "WHERE n_live_tup > 0 AND n_dead_tup > 10000 "
+                "AND (n_dead_tup::float / (n_live_tup + n_dead_tup)) > 0.5 "
+                "ORDER BY n_dead_tup DESC LIMIT 5",
+                fetch=True
+            )
+            if bloat_rows:
+                tables = [f"{r[0]}({r[1]} dead)" for r in bloat_rows]
+                logger.warning(f"DB table bloat detected: {', '.join(tables)}")
+                self.log_event(
+                    'db_bloat', 'WARNING',
+                    f'High dead tuple ratio in: {", ".join(tables)}',
+                    'Autovacuum may be falling behind',
+                    'postgres-db', False
+                )
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+
+    def check_tls_cert_expiry(self):
+        """Check TLS certificate expiry and warn/renew if needed"""
+        try:
+            cert_pem = ssl.get_server_certificate(('reverse-proxy', 443))
+            x509 = ssl.PEM_cert_to_DER_cert(cert_pem)
+            # Use openssl to parse expiry date
+            result = subprocess.run(
+                ['openssl', 'x509', '-enddate', '-noout'],
+                input=cert_pem, capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                # Format: notAfter=Mar 15 12:00:00 2036 GMT
+                expiry_str = result.stdout.strip().replace('notAfter=', '')
+                expiry = datetime.strptime(expiry_str, '%b %d %H:%M:%S %Y %Z')
+                days_left = (expiry - datetime.utcnow()).days
+
+                if days_left < 30:
+                    logger.error(f"TLS certificate expires in {days_left} days!")
+                    self.log_event(
+                        'tls_cert_expiry', 'CRITICAL',
+                        f'TLS certificate expires in {days_left} days',
+                        'Certificate renewal required', 'reverse-proxy', False
+                    )
+                elif days_left < 90:
+                    logger.warning(f"TLS certificate expires in {days_left} days")
+                    self.log_event(
+                        'tls_cert_expiry', 'WARNING',
+                        f'TLS certificate expires in {days_left} days',
+                        'Consider renewing certificate', 'reverse-proxy', True
+                    )
+                else:
+                    logger.debug(f"TLS certificate valid for {days_left} more days")
+        except Exception as e:
+            logger.debug(f"TLS cert check skipped: {e}")
+
     def run_healing_cycle(self):
         """Main healing cycle - executed every HEALING_INTERVAL seconds"""
         logger.debug("Running healing cycle")
@@ -275,9 +483,29 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             if metrics:
                 self.handle_category_b_overload(metrics)
 
+            # External heartbeat / Dead Man's Switch
+            if self.check_count % HEARTBEAT_INTERVAL_CYCLES == 0:
+                self.send_external_heartbeat()
+
             # Tailscale VPN monitoring (every 6 cycles = ~1 min)
             if self.check_count % 6 == 0 and metrics:
                 self.check_tailscale_health(metrics)
+
+            # MEM-TREND: Sample container memory (every 30 cycles = ~5 minutes)
+            if self.check_count % 30 == 0:
+                self.sample_container_memory()
+
+            # MEM-TREND: Analyze trends (every 360 cycles = ~1 hour)
+            if self.check_count % 360 == 0 and self.check_count > 0:
+                self.check_memory_trends()
+
+            # Database health monitoring (every 60 cycles = ~10 minutes)
+            if self.check_count % 60 == 0:
+                self.check_database_health()
+
+            # TLS certificate expiry check (every 720 cycles = ~2 hours)
+            if self.check_count % 720 == 0:
+                self.check_tls_cert_expiry()
 
             # Periodic cleanup (every 100 cycles = ~16 minutes)
             if self.check_count % 100 == 0 and self.check_count > 0:

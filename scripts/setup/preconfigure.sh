@@ -82,7 +82,7 @@ log_warn()    { echo -e "  ${YELLOW}⚠${NC} $1"; }
 log_error()   { echo -e "  ${RED}✗${NC} $1"; }
 log_skip()    { echo -e "  ${YELLOW}→${NC} Übersprungen: $1"; }
 
-TOTAL_STEPS=15
+TOTAL_STEPS=16
 
 ###############################################################################
 # Helper functions
@@ -843,6 +843,146 @@ EOF
     log_warn "Kein sudo-Zugriff. Manuell einrichten: sudo systemctl enable arasul"
   fi
 fi
+
+###############################################################################
+# Step 16: System hardening for long-term autonomous operation
+###############################################################################
+log_step 16 "System-Haertung fuer Langzeitbetrieb"
+
+if sudo -n true 2>/dev/null; then
+
+  # --- 16a: Kernel sysctl tuning ---
+  SYSCTL_CONF="/etc/sysctl.d/99-arasul.conf"
+  if [ ! -f "$SYSCTL_CONF" ]; then
+    sudo tee "$SYSCTL_CONF" > /dev/null << 'SYSCTL_EOF'
+# Arasul Platform - Kernel tuning for 3-5 year autonomous operation
+
+# Auto-reboot after kernel panic (10 seconds)
+kernel.panic = 10
+kernel.panic_on_oops = 1
+
+# Filesystem: reduce disk writes for NVMe/eMMC longevity
+vm.dirty_ratio = 10
+vm.dirty_background_ratio = 5
+
+# Docker needs more inotify watches
+fs.inotify.max_user_watches = 524288
+fs.inotify.max_user_instances = 512
+
+# Network tuning for Docker
+net.core.somaxconn = 1024
+net.ipv4.ip_local_port_range = 1024 65535
+
+# Prevent OOM from silently killing services
+vm.panic_on_oom = 0
+vm.overcommit_memory = 0
+SYSCTL_EOF
+    sudo sysctl -p "$SYSCTL_CONF" >/dev/null 2>&1
+    log_info "Kernel-Parameter optimiert ($SYSCTL_CONF)"
+  else
+    log_info "Kernel-Parameter bereits konfiguriert"
+  fi
+
+  # --- 16b: Hardware watchdog (Tegra WDT on Jetson) ---
+  WATCHDOG_CONF="/etc/systemd/system.conf.d/watchdog.conf"
+  if [ ! -f "$WATCHDOG_CONF" ]; then
+    sudo mkdir -p /etc/systemd/system.conf.d
+    sudo tee "$WATCHDOG_CONF" > /dev/null << 'WDT_EOF'
+[Manager]
+RuntimeWatchdogSec=30
+ShutdownWatchdogSec=10min
+WDT_EOF
+    log_info "Hardware-Watchdog aktiviert (30s Timeout)"
+  else
+    log_info "Hardware-Watchdog bereits konfiguriert"
+  fi
+
+  # --- 16c: Boot loop guard service ---
+  BOOT_GUARD_SERVICE="/etc/systemd/system/arasul-boot-guard.service"
+  BOOT_GUARD_SCRIPT="${PROJECT_ROOT}/scripts/system/boot-guard.sh"
+  if [ ! -f "$BOOT_GUARD_SERVICE" ] && [ -f "$BOOT_GUARD_SCRIPT" ]; then
+    sudo tee "$BOOT_GUARD_SERVICE" > /dev/null << EOF
+[Unit]
+Description=Arasul Boot Loop Guard
+Before=arasul.service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=${BOOT_GUARD_SCRIPT}
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable arasul-boot-guard.service >/dev/null 2>&1
+    log_info "Boot-Loop-Guard installiert (max 5 Reboots/Stunde)"
+  else
+    log_info "Boot-Loop-Guard bereits installiert"
+  fi
+
+  # --- 16d: Docker daemon hardening ---
+  DOCKER_DAEMON="/etc/docker/daemon.json"
+  if [ ! -f "$DOCKER_DAEMON" ] || ! grep -q "max-size" "$DOCKER_DAEMON" 2>/dev/null; then
+    # Only write if file doesn't exist or is missing log rotation
+    if [ ! -f "$DOCKER_DAEMON" ]; then
+      sudo tee "$DOCKER_DAEMON" > /dev/null << 'DOCKER_EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "50m",
+    "max-file": "5"
+  },
+  "storage-driver": "overlay2",
+  "live-restore": true
+}
+DOCKER_EOF
+      sudo systemctl reload docker 2>/dev/null || true
+      log_info "Docker-Daemon Log-Rotation konfiguriert"
+    else
+      log_info "Docker-Daemon bereits konfiguriert"
+    fi
+  else
+    log_info "Docker-Daemon Log-Rotation bereits aktiv"
+  fi
+
+  # --- 16e: NTP (chrony) for offline resilience ---
+  if ! command -v chronyd >/dev/null 2>&1; then
+    sudo apt-get install -y -qq chrony >/dev/null 2>&1 && \
+      log_info "chrony installiert fuer Zeitsynchronisation" || \
+      log_warn "chrony konnte nicht installiert werden"
+  fi
+  CHRONY_ARASUL="/etc/chrony/conf.d/arasul.conf"
+  if command -v chronyd >/dev/null 2>&1 && [ ! -f "$CHRONY_ARASUL" ]; then
+    sudo mkdir -p /etc/chrony/conf.d
+    sudo tee "$CHRONY_ARASUL" > /dev/null << 'CHRONY_EOF'
+# Arasul: Allow large time jumps after offline periods
+makestep 1 -1
+# Use RTC as fallback when no NTP servers reachable
+rtcsync
+CHRONY_EOF
+    sudo systemctl restart chrony 2>/dev/null || true
+    log_info "chrony konfiguriert (Offline-resistent)"
+  elif command -v chronyd >/dev/null 2>&1; then
+    log_info "chrony bereits konfiguriert"
+  fi
+
+  # --- 16f: Filesystem mount optimization ---
+  # Add noatime to root partition if not already set
+  if ! grep -q "noatime" /etc/fstab 2>/dev/null; then
+    log_warn "Empfehlung: 'noatime' zu /etc/fstab hinzufuegen fuer NVMe-Langlebigkeit"
+    log_warn "  Manuell: sudo sed -i 's/defaults/defaults,noatime/' /etc/fstab"
+  else
+    log_info "Filesystem bereits mit noatime konfiguriert"
+  fi
+
+else
+  log_warn "Kein sudo-Zugriff. System-Haertung uebersprungen."
+  log_warn "Manuell ausfuehren mit sudo: $0"
+fi
+
+TOTAL_STEPS=16
 
 ###############################################################################
 # Summary

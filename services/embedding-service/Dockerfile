@@ -33,7 +33,7 @@ RUN pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-ins
     flashrank==0.2.5
 
 # Copy shared logging module
-COPY services/shared-python/structured_logging.py ./
+COPY libs/shared-python/structured_logging.py ./
 
 # Copy application code
 COPY services/embedding-service/ .

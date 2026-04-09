@@ -4,7 +4,7 @@
 # Main entry point for system initialization and management
 ###############################################################################
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -152,8 +152,8 @@ wait_for_healthy() {
 
     while [ "$elapsed" -lt "$timeout" ]; do
         if [ -n "$check_cmd" ]; then
-            # Use custom check command
-            if eval "$check_cmd" &>/dev/null; then
+            # Use custom check command (word-split execution, no eval needed)
+            if $check_cmd &>/dev/null; then
                 return 0
             fi
         else

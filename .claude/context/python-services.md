@@ -332,7 +332,7 @@ Self-Healing-Agent
 
 ---
 
-## Shared Python Library (`services/shared-python/`)
+## Shared Python Library (`libs/shared-python/`)
 
 Gemeinsame Utilities für alle Python-Services (8 Module):
 

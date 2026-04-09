@@ -18,6 +18,7 @@ services:
     container_name: postgres-db
     hostname: postgres-db
     restart: always
+    pids_limit: 200
     networks:
       - arasul-backend
     environment:
@@ -58,6 +59,7 @@ services:
     container_name: minio
     hostname: minio
     restart: always
+    pids_limit: 256
     networks:
       - arasul-backend
     command: server /data --console-address ":9001"
@@ -83,10 +85,11 @@ services:
 
   # 3. Docker Socket Proxy - Restricts Docker API access for backend services
   docker-proxy:
-    image: tecnativa/docker-socket-proxy:latest
+    image: tecnativa/docker-socket-proxy:0.3.0
     container_name: docker-proxy
     hostname: docker-proxy
     restart: always
+    pids_limit: 50
     networks:
       - arasul-backend
     environment:
@@ -139,6 +142,7 @@ services:
     container_name: reverse-proxy
     hostname: reverse-proxy
     restart: always
+    pids_limit: 100
     networks:
       - arasul-frontend
       - arasul-backend

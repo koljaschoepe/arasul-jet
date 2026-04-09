@@ -67,6 +67,8 @@ config/dev/
 # Environment backups
 .env.backup.*
 *.backup
+*.backup.*
+*.bak
 
 # Local tool configuration
 .mcp.json

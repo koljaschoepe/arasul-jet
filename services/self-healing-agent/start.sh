@@ -2,7 +2,7 @@
 # Self-Healing Agent Startup Script
 # Starts both healing engine and USB monitor
 
-set -e
+set -euo pipefail
 
 echo "=================================="
 echo "ARASUL Self-Healing Agent Starting"

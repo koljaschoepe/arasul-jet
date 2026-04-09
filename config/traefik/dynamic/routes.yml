@@ -9,6 +9,8 @@ http:
       rule: 'PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)'
       service: dashboard-frontend-service
       priority: 1
+      middlewares:
+        - compress
       entryPoints:
         - websecure
       tls: {}
@@ -137,6 +139,8 @@ http:
       rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'
       service: dashboard-frontend-service
       priority: 65
+      middlewares:
+        - compress
       entryPoints:
         - websecure
       tls: {}

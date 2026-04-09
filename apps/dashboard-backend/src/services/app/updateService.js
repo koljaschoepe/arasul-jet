@@ -14,9 +14,13 @@ const dockerService = require('../core/docker');
 
 const execFileAsync = promisify(execFile);
 
+const axios = require('axios');
+
 const UPDATE_STATE_FILE = '/arasul/updates/update_state.json';
 const BACKUP_DIR = '/arasul/backups';
 const UPDATES_DIR = '/arasul/updates';
+const UPDATE_SERVER_URL = process.env.UPDATE_SERVER_URL || 'https://updates.arasul.de';
+const UPDATE_CHANNEL = process.env.UPDATE_CHANNEL || 'stable';
 
 /**
  * Helper: Run a command and write stdout to a file (replaces exec with shell redirection)
@@ -933,6 +937,125 @@ class UpdateService {
       // Permission denied or other error
     }
     return files;
+  }
+
+  /**
+   * Check remote update server for available updates (OTA manifest check).
+   * Fetches the release manifest for the configured channel and compares versions.
+   * @returns {{ available: boolean, currentVersion: string, latestVersion?: string, releaseNotes?: string, downloadUrl?: string, size?: number, channel: string }}
+   */
+  async checkForUpdates() {
+    const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
+
+    // Collect device info for update server (helps serve correct architecture/JetPack builds)
+    let deviceInfo = {};
+    try {
+      const modelData = await fs.readFile('/proc/device-tree/model', 'utf8').catch(() => '');
+      deviceInfo = {
+        arch: process.arch,
+        platform: process.platform,
+        model: modelData.replace(/\0/g, '').trim() || 'unknown',
+      };
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const response = await axios.get(`${UPDATE_SERVER_URL}/api/v1/releases/latest`, {
+        params: {
+          channel: UPDATE_CHANNEL,
+          current_version: currentVersion,
+          arch: deviceInfo.arch,
+          model: deviceInfo.model,
+        },
+        timeout: 15_000,
+        headers: { 'User-Agent': `Arasul/${currentVersion}` },
+      });
+
+      const release = response.data;
+
+      if (!release || !release.version) {
+        return { available: false, currentVersion, channel: UPDATE_CHANNEL };
+      }
+
+      const isNewer = this.compareVersions(release.version, currentVersion) > 0;
+
+      // Persist check result
+      await this.saveUpdateState({
+        lastCheck: new Date().toISOString(),
+        lastCheckResult: {
+          available: isNewer,
+          latestVersion: release.version,
+          channel: UPDATE_CHANNEL,
+        },
+      });
+
+      return {
+        available: isNewer,
+        currentVersion,
+        latestVersion: release.version,
+        releaseNotes: release.release_notes || null,
+        downloadUrl: release.download_url || null,
+        size: release.size || null,
+        minVersion: release.min_version || null,
+        requiresReboot: release.requires_reboot || false,
+        channel: UPDATE_CHANNEL,
+      };
+    } catch (error) {
+      logger.warn(`Update check failed: ${error.message}`);
+      return {
+        available: false,
+        currentVersion,
+        channel: UPDATE_CHANNEL,
+        error:
+          error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND'
+            ? 'Update server not reachable (offline operation)'
+            : error.message,
+      };
+    }
+  }
+
+  /**
+   * Download update package from remote server.
+   * @param {string} downloadUrl - URL to download from
+   * @param {string} version - Expected version for filename
+   * @returns {{ success: boolean, filePath?: string, error?: string }}
+   */
+  async downloadUpdate(downloadUrl, version) {
+    try {
+      const fileName = `ota_update_${version}_${Date.now()}.araupdate`;
+      const filePath = path.join(UPDATES_DIR, fileName);
+      await fs.mkdir(UPDATES_DIR, { recursive: true });
+
+      logger.info(`Downloading update ${version} from ${downloadUrl}`);
+
+      const response = await axios.get(downloadUrl, {
+        responseType: 'stream',
+        timeout: 3600_000, // 1h for large packages
+        headers: { 'User-Agent': `Arasul/${process.env.SYSTEM_VERSION || '1.0.0'}` },
+      });
+
+      const writer = require('fs').createWriteStream(filePath);
+      response.data.pipe(writer);
+
+      await new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+      });
+
+      // Also download signature
+      const sigResponse = await axios.get(`${downloadUrl}.sig`, {
+        responseType: 'arraybuffer',
+        timeout: 30_000,
+      });
+      await fs.writeFile(`${filePath}.sig`, sigResponse.data);
+
+      logger.info(`Update downloaded: ${filePath}`);
+      return { success: true, filePath };
+    } catch (error) {
+      logger.error(`Update download failed: ${error.message}`);
+      return { success: false, error: error.message };
+    }
   }
 
   /**

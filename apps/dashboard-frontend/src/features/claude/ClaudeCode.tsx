@@ -461,7 +461,7 @@ function SetupWizard({
         <div className="p-8">
           {step === 1 && (
             <div className="text-center">
-              <div className="size-16 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
+              <div className="size-16 rounded-full bg-linear-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
                 <Zap className="size-8 text-primary" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -510,7 +510,7 @@ function SetupWizard({
 
           {step === 2 && (
             <div className="text-center">
-              <div className="size-16 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
+              <div className="size-16 rounded-full bg-linear-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
                 <Folder className="size-8 text-primary" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">Workspace auswählen</h2>
@@ -568,7 +568,7 @@ function SetupWizard({
 
           {step === 3 && (
             <div className="text-center">
-              <div className="size-16 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
+              <div className="size-16 rounded-full bg-linear-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-6">
                 <Check className="size-8 text-primary" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">Bereit zum Starten!</h2>
@@ -1467,7 +1467,7 @@ function ClaudeCode() {
       >
         {!config.ANTHROPIC_API_KEY_set ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-            <div className="size-20 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-6">
+            <div className="size-20 rounded-full bg-linear-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-6">
               <KeyRound className="size-8 text-primary" />
             </div>
             <h3 className="text-xl font-semibold text-foreground mb-2">API-Key erforderlich</h3>
@@ -1485,7 +1485,7 @@ function ClaudeCode() {
           </div>
         ) : appStatus?.status !== 'running' ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-            <div className="size-20 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-6">
+            <div className="size-20 rounded-full bg-linear-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-6">
               <Terminal className="size-8 text-primary" />
             </div>
             <h3 className="text-xl font-semibold text-foreground mb-2">

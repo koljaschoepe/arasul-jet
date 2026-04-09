@@ -12,10 +12,12 @@ interface FieldDefinition {
   options?: { choices?: (string | FieldOption)[] } | (string | FieldOption)[];
 }
 
+type CellValue = string | number | boolean | null;
+
 interface CellEditorProps {
-  value: any;
+  value: CellValue;
   field: FieldDefinition;
-  onSave: (value: any, direction?: 'prev' | 'next') => void;
+  onSave: (value: CellValue, direction?: 'prev' | 'next') => void;
   onCancel: () => void;
   validate?: boolean;
   classPrefix?: string;
@@ -29,7 +31,7 @@ const CellEditor = memo(function CellEditor({
   validate = true,
   classPrefix = 'grid',
 }: CellEditorProps) {
-  const [editValue, setEditValue] = useState<any>(value ?? '');
+  const [editValue, setEditValue] = useState<CellValue>(value ?? '');
   const [validationError, setValidationError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
 
@@ -44,7 +46,7 @@ const CellEditor = memo(function CellEditor({
     }
   }, []);
 
-  const handleSave = (val: any, direction?: 'prev' | 'next') => {
+  const handleSave = (val: CellValue, direction?: 'prev' | 'next') => {
     if (validate) {
       const fieldType = field.field_type || field.type;
       const error = validateValue(val, fieldType || 'text');

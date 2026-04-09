@@ -73,6 +73,12 @@ APPLICATION_SERVICES = [
     'dashboard-frontend'
 ]
 
+# External heartbeat / Dead Man's Switch
+# If set, POST to this URL every HEARTBEAT_INTERVAL_CYCLES cycles
+# External monitoring service alerts operator if heartbeat stops
+HEARTBEAT_URL = os.getenv('HEARTBEAT_URL', '')  # e.g. https://uptime.arasul.de/ping/<device-id>
+HEARTBEAT_INTERVAL_CYCLES = int(os.getenv('HEARTBEAT_INTERVAL_CYCLES', '30'))  # ~5 min at 10s interval
+
 # Containers to exclude from monitoring
 EXCLUDED_CONTAINERS = set(
     c.strip() for c in os.getenv('EXCLUDED_CONTAINERS', '').split(',') if c.strip()

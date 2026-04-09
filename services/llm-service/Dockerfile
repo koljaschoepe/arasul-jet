@@ -42,7 +42,7 @@ RUN apt-get update && \
 RUN useradd -m -u 1000 -s /bin/bash ollama
 
 # Copy shared logging module
-COPY services/shared-python/structured_logging.py /app/structured_logging.py
+COPY libs/shared-python/structured_logging.py /app/structured_logging.py
 
 # Copy Management API Server (for Model Download/Delete/List)
 COPY services/llm-service/api_server.py /app/api_server.py

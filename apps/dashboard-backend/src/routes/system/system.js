@@ -17,8 +17,13 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
 const { ValidationError } = require('../../utils/errors');
 const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
+const { logSecurityEvent } = require('../../utils/auditLog');
 
+const path = require('path');
 const execFileAsync = promisify(execFile);
+
+const PROJECT_ROOT = path.resolve(__dirname, '../../../../..');
+const DIAGNOSTICS_SCRIPT = path.join(PROJECT_ROOT, 'scripts/system/diagnostics.sh');
 
 // GET /api/system/heartbeat
 // Public endpoint (no auth) for remote monitoring and health checks
@@ -382,6 +387,13 @@ router.post(
   asyncHandler(async (req, res) => {
     logger.info('Configuration reload requested');
 
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'config_reload',
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
     // Reload environment variables (if changed)
     // Note: This only works for non-critical config that doesn't require restart
 
@@ -406,6 +418,143 @@ router.post(
       message: 'Configuration reload completed',
       reloaded: ['rate_limits', 'logging_config'],
       note: 'Some changes require a restart (database credentials, ports, etc.)',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// =============================================================================
+// DIAGNOSTICS
+// =============================================================================
+
+/**
+ * POST /api/system/diagnostics
+ * Collect system diagnostics and return the archive for download.
+ * Requires auth. Optionally pass { days: N, includeLogs: bool }.
+ */
+router.post(
+  '/diagnostics',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { days = 3, includeLogs = true } = req.body;
+
+    // Validate
+    const logDays = Math.min(Math.max(Math.round(Number(days)), 1), 14);
+
+    const args = [DIAGNOSTICS_SCRIPT, '--days', String(logDays)];
+    if (!includeLogs) {args.push('--no-logs');}
+
+    logger.info(
+      `Diagnostics export requested by user ${req.user.username} (days=${logDays}, logs=${includeLogs})`
+    );
+
+    const { stdout, stderr } = await execFileAsync('bash', args, {
+      timeout: 120_000,
+      env: { ...process.env, PATH: process.env.PATH },
+    });
+
+    // Parse JSON result from script output
+    const jsonMatch = stdout.match(/---JSON---\n(.+)/);
+    if (!jsonMatch) {
+      logger.error('Diagnostics script output:', {
+        stdout: stdout.slice(-500),
+        stderr: stderr.slice(-500),
+      });
+      throw new Error('Diagnostics collection failed — no result');
+    }
+
+    const result = JSON.parse(jsonMatch[1]);
+    const archivePath = result.archive;
+
+    // Stream the file as download
+    const archiveName = path.basename(archivePath);
+    res.setHeader('Content-Type', 'application/gzip');
+    res.setHeader('Content-Disposition', `attachment; filename="${archiveName}"`);
+
+    const { createReadStream } = require('fs');
+    const stream = createReadStream(archivePath);
+    stream.pipe(res);
+    stream.on('error', err => {
+      logger.error('Diagnostics file stream error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to stream diagnostics archive' });
+      }
+    });
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'diagnostics_export',
+      details: { days: logDays, includeLogs, size: result.size },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+  })
+);
+
+/**
+ * GET /api/system/diagnostics/quick
+ * Quick diagnostics summary (no archive, just JSON).
+ * Useful for dashboard display.
+ */
+router.get(
+  '/diagnostics/quick',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [systemInfo, dockerInfo, dbInfo] = await Promise.all([
+      // System
+      (async () => {
+        const loadavg = os.loadavg();
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        return {
+          hostname: os.hostname(),
+          platform: os.platform(),
+          arch: os.arch(),
+          uptime_seconds: Math.floor(os.uptime()),
+          cpus: os.cpus().length,
+          load_average: { '1m': loadavg[0], '5m': loadavg[1], '15m': loadavg[2] },
+          memory: {
+            total_gb: +(totalMem / 1073741824).toFixed(1),
+            used_gb: +((totalMem - freeMem) / 1073741824).toFixed(1),
+            percent: +((1 - freeMem / totalMem) * 100).toFixed(1),
+          },
+        };
+      })(),
+      // Docker containers
+      dockerService.getAllServicesStatus().catch(() => ({})),
+      // Database
+      db
+        .query(
+          `
+        SELECT
+          (SELECT count(*) FROM pg_stat_activity) AS connections,
+          (SELECT pg_size_pretty(pg_database_size('arasul_db'))) AS db_size,
+          (SELECT count(*) FROM self_healing_events WHERE timestamp > NOW() - INTERVAL '24 hours') AS healing_events_24h,
+          (SELECT count(*) FROM service_failures WHERE detected_at > NOW() - INTERVAL '24 hours') AS failures_24h
+      `
+        )
+        .catch(() => ({ rows: [{}] })),
+    ]);
+
+    // Disk usage via df
+    let diskInfo = {};
+    try {
+      const { stdout } = await execFileAsync('df', ['-h', '/']);
+      const lines = stdout.trim().split('\n');
+      if (lines.length >= 2) {
+        const parts = lines[1].split(/\s+/);
+        diskInfo = { total: parts[1], used: parts[2], available: parts[3], percent: parts[4] };
+      }
+    } catch {
+      /* ignore */
+    }
+
+    res.json({
+      system: systemInfo,
+      services: dockerInfo,
+      database: dbInfo.rows[0] || {},
+      disk: diskInfo,
+      version: process.env.SYSTEM_VERSION || '1.0.0',
       timestamp: new Date().toISOString(),
     });
   })
@@ -470,6 +619,14 @@ router.post(
     );
 
     logger.info(`Setup wizard completed by user ${req.user.username}`);
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'setup_complete',
+      details: { companyName: companyName || null },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
 
     res.json({
       success: true,

@@ -61,9 +61,9 @@ const MermaidDiagram = memo(function MermaidDiagram({ content }: MermaidDiagramP
       const { svg: renderedSvg } = await mermaid.render(idRef.current, diagramCode);
       const sanitizedSvg = DOMPurify.sanitize(renderedSvg, { USE_PROFILES: { svg: true } });
       setSvg(sanitizedSvg);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Mermaid rendering error:', err);
-      setError(err.message || 'Failed to render diagram');
+      setError(err instanceof Error ? err.message : 'Failed to render diagram');
       setSvg(null);
     }
   }, [content]);

@@ -4,7 +4,7 @@
 # Starts Ollama server and Management API in parallel
 ###############################################################################
 
-set -e
+set -euo pipefail
 
 echo "================================================================"
 echo "Arasul LLM Service Starting..."

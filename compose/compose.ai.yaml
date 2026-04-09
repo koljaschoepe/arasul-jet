@@ -18,6 +18,7 @@ services:
     container_name: qdrant
     hostname: qdrant
     restart: always
+    pids_limit: 128
     networks:
       - arasul-backend
     volumes:
@@ -86,6 +87,7 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
+    stop_grace_period: 30s
     healthcheck:
       test: ['CMD', '/bin/bash', '/healthcheck.sh']
       interval: 30s
@@ -140,6 +142,7 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
+    stop_grace_period: 30s
     healthcheck:
       test: ['CMD', 'curl', '-sf', 'http://localhost:11435/health']
       interval: 30s
@@ -158,6 +161,7 @@ services:
     container_name: document-indexer
     hostname: document-indexer
     restart: always
+    pids_limit: 128
     networks:
       - arasul-backend
     environment:

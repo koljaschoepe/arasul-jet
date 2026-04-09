@@ -194,6 +194,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   const abortControllersRef = useRef<Record<string, AbortController>>({});
   const messageCallbacksRef = useRef(new Map<string, MessageCallbacks>());
   const activeStreamChatIdRef = useRef<string | null>(null);
+  // RACE-001: Mutex to prevent concurrent reconnectToJob calls
+  const reconnectMutexRef = useRef<Promise<void>>(Promise.resolve());
   // Background accumulation: stores messages/loading when ChatView is not mounted
   // LEAK-002: LRU eviction - max 10 chats in background to prevent unbounded growth
   const MAX_BACKGROUND_CHATS = 10;
@@ -539,6 +541,14 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
   const reconnectToJob = useCallback(
     async (jobId: string, targetChatId: string) => {
+      // RACE-001: Serialize reconnect calls via mutex to prevent concurrent streams
+      const prevMutex = reconnectMutexRef.current;
+      let releaseMutex: () => void;
+      reconnectMutexRef.current = new Promise<void>(resolve => {
+        releaseMutex = resolve;
+      });
+      await prevMutex;
+
       // Abort ALL existing streams — token batching only supports one active stream
       for (const id of Object.keys(abortControllersRef.current)) {
         if (id !== targetChatId) {
@@ -681,6 +691,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       } finally {
         delete abortControllersRef.current[targetChatId];
         if (activeStreamChatIdRef.current === targetChatId) activeStreamChatIdRef.current = null;
+        releaseMutex!();
       }
     },
     [abortExistingStream, loadMessages, updateMessages, updateIsLoading, updateError]

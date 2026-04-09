@@ -42,7 +42,7 @@ COPY services/self-healing-agent/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy shared logging module
-COPY services/shared-python/structured_logging.py ./
+COPY libs/shared-python/structured_logging.py ./
 
 # Copy application code
 COPY services/self-healing-agent/ .

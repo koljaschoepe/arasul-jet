@@ -22,6 +22,7 @@ services:
     container_name: dashboard-backend
     hostname: dashboard-backend
     restart: always
+    pids_limit: 256
     networks:
       - arasul-frontend
       - arasul-backend
@@ -102,6 +103,7 @@ services:
         limits:
           cpus: '${CPU_LIMIT_DASHBOARD:-4}'
           memory: ${RAM_LIMIT_BACKEND:-1G}
+    stop_grace_period: 35s
     labels:
       - 'traefik.enable=false'
     logging: *default-logging
@@ -116,6 +118,7 @@ services:
     container_name: dashboard-frontend
     hostname: dashboard-frontend
     restart: always
+    pids_limit: 64
     networks:
       - arasul-frontend
     depends_on:
@@ -157,6 +160,7 @@ services:
     container_name: n8n
     hostname: n8n
     restart: always
+    pids_limit: 256
     networks:
       - arasul-backend
     environment:

@@ -48,6 +48,8 @@ router.use('/settings', require('./admin/settings'));
 router.use('/audit', require('./admin/audit'));
 router.use('/update', require('./admin/update'));
 router.use('/self-healing', require('./admin/selfhealing'));
+router.use('/license', require('./admin/license'));
+router.use('/gdpr', require('./admin/gdpr'));
 
 // --- AI ---
 router.use('/models', require('./ai/models'));

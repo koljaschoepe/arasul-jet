@@ -14,6 +14,7 @@ const { requireAuth } = require('../../middleware/auth');
 const updateService = require('../../services/app/updateService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const { logSecurityEvent } = require('../../utils/auditLog');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -165,6 +166,14 @@ router.post(
 
     // Start update process asynchronously
     logger.info(`Starting update application for: ${file_path}`);
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'update_apply',
+      details: { file_path },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
 
     // Return immediately and process update in background
     res.json({
@@ -331,6 +340,86 @@ router.post(
       message: 'USB update package validated. Use /api/update/apply to install.',
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+// GET /api/update/check - Check for available OTA updates
+router.get(
+  '/check',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const result = await updateService.checkForUpdates();
+
+    res.json({
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// POST /api/update/download - Download update from remote server
+router.post(
+  '/download',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { downloadUrl, version } = req.body;
+
+    if (!downloadUrl || !version) {
+      throw new ValidationError('downloadUrl and version are required');
+    }
+
+    // Only allow HTTPS downloads
+    if (!downloadUrl.startsWith('https://')) {
+      throw new ValidationError('Only HTTPS download URLs are allowed');
+    }
+
+    logger.info(`OTA download requested by ${req.user.username}: ${version}`);
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'ota_download',
+      details: { version, url: downloadUrl },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    // Start download and return immediately
+    res.json({
+      status: 'downloading',
+      version,
+      message: 'Download started. Use /api/update/status to monitor progress.',
+      timestamp: new Date().toISOString(),
+    });
+
+    // Download in background
+    updateService
+      .downloadUpdate(downloadUrl, version)
+      .then(async result => {
+        if (result.success) {
+          logger.info(`OTA download completed: ${version}`);
+          // Auto-validate the downloaded package
+          const validation = await updateService.validateUpdate(result.filePath);
+          if (validation.valid) {
+            const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
+            await db.query(
+              `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [
+                currentVersion,
+                version,
+                'downloaded',
+                'ota',
+                JSON.stringify(validation.manifest?.components || []),
+              ]
+            );
+          }
+        } else {
+          logger.error(`OTA download failed: ${result.error}`);
+        }
+      })
+      .catch(err => {
+        logger.error(`OTA download error: ${err.message}`);
+      });
   })
 );
 
