@@ -157,10 +157,6 @@ function ChatInputArea({
     inputRef.current?.focus();
   }, []);
 
-  // Vision: Check if selected model supports image input
-  const supportsVision =
-    currentModel?.supports_vision_input === true || currentModel?.model_type === 'vision';
-
   const handleImageSelect = useCallback(
     async (files: FileList | File[]) => {
       const MAX_IMAGES = 5;
@@ -198,6 +194,20 @@ function ChatInputArea({
   const handleRemoveImage = useCallback((index: number) => {
     setAttachedImages(prev => prev.filter((_, i) => i !== index));
   }, []);
+
+  // Model state needed by handleDrop and render — must be declared before callbacks that reference it
+  const availableModels = installedModels.filter(
+    (m: InstalledModel) =>
+      (m.install_status === 'available' || m.status === 'available') && m.model_type !== 'ocr'
+  );
+
+  const currentModel = selectedModel
+    ? installedModels.find((m: InstalledModel) => m.id === selectedModel)
+    : installedModels.find((m: InstalledModel) => m.id === defaultModel);
+
+  // Vision: Check if selected model supports image input
+  const supportsVision =
+    currentModel?.supports_vision_input === true || currentModel?.model_type === 'vision';
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -325,14 +335,6 @@ function ChatInputArea({
     [setSelectedModel, saveSettings]
   );
 
-  const availableModels = installedModels.filter(
-    (m: InstalledModel) =>
-      (m.install_status === 'available' || m.status === 'available') && m.model_type !== 'ocr'
-  );
-
-  const currentModel = selectedModel
-    ? installedModels.find((m: InstalledModel) => m.id === selectedModel)
-    : installedModels.find((m: InstalledModel) => m.id === defaultModel);
   const showThinkWarning = useThinking && currentModel && currentModel.supports_thinking === false;
   const showRagWarning = useRAG && currentModel && currentModel.rag_optimized === false;
 

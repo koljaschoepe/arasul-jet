@@ -565,21 +565,24 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       abortControllersRef.current[targetChatId] = abortController;
       activeStreamChatIdRef.current = targetChatId;
 
+      // Declared outside try so catch/finally can clear the timeout
+      let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
       try {
         const response = await fetch(`${API_BASE}/llm/jobs/${jobId}/stream`, {
           headers: getAuthHeaders(),
           signal: abortController.signal,
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.body) throw new Error('Stream body ist null');
 
-        const reader = response.body!.getReader();
+        const reader = response.body.getReader();
         const decoder = new TextDecoder();
         // FH8: Use longer initial timeout for reconnect — the model may still be loading
         // after a page refresh. Subsequent reads use a shorter timeout.
         const RECONNECT_INITIAL_TIMEOUT = 180_000; // 3min for first chunk (model may be loading)
         const RECONNECT_READ_TIMEOUT = 120_000; // 120s for subsequent reads (heartbeats reset this)
         let isFirstReconnectRead = true;
-        let reconnectTimeoutId: ReturnType<typeof setTimeout>;
         let reconnectTimeoutReject: ((reason: Error) => void) | null = null;
 
         const resetReconnectTimeout = () => {
@@ -838,14 +841,15 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         const response = await fetch(endpoint, fetchOptions);
         if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.body) throw new Error('Stream body ist null');
 
-        const reader = response.body!.getReader();
+        const reader = response.body.getReader();
         const decoder = new TextDecoder();
         // First read timeout is longer to account for model loading (large models need minutes)
         const INITIAL_READ_TIMEOUT = 300_000; // 5min for initial response (model may need to load)
         const STREAM_READ_TIMEOUT = 120_000; // 120s for subsequent reads (heartbeats reset this)
         let isFirstRead = true;
-        let streamTimeoutId: ReturnType<typeof setTimeout>;
+        let streamTimeoutId: ReturnType<typeof setTimeout> | null = null;
         let streamTimeoutReject: ((reason: Error) => void) | null = null;
 
         const resetStreamTimeout = () => {

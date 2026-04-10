@@ -349,9 +349,18 @@ class MetricsCollector:
             except (socket.gaierror, socket.timeout, OSError):
                 return {'online': False}
 
+    _tailscale_cache: Optional[Dict] = None
+    _tailscale_cache_time: float = 0
+    _TAILSCALE_CACHE_TTL: int = 60  # seconds — Tailscale status changes rarely
+
     def check_tailscale_status(self) -> Optional[Dict]:
-        """Check Tailscale VPN connection status (host-level service)"""
+        """Check Tailscale VPN connection status (host-level service).
+        Cached for 60s to avoid hitting the backend rate limiter (5 req/min).
+        """
         import urllib.request
+        now = time.time()
+        if now - self._tailscale_cache_time < self._TAILSCALE_CACHE_TTL:
+            return self._tailscale_cache
         try:
             # Tailscale status is exposed via the dashboard-backend API
             url = f"http://{os.getenv('DASHBOARD_BACKEND_HOST', 'dashboard-backend')}:3001/api/tailscale/status"
@@ -359,13 +368,17 @@ class MetricsCollector:
             req.add_header('Content-Type', 'application/json')
             with urllib.request.urlopen(req, timeout=3) as resp:
                 data = json.loads(resp.read().decode())
-                return {
+                self._tailscale_cache = {
                     'installed': data.get('installed', False),
                     'connected': data.get('connected', False),
                     'ip': data.get('ip'),
                     'peers_online': len([p for p in data.get('peers', []) if p.get('online')]),
                 }
+                self._tailscale_cache_time = now
+                return self._tailscale_cache
         except Exception:
+            self._tailscale_cache_time = now  # Cache the failure too to avoid hammering
+            self._tailscale_cache = None
             return None  # Tailscale check is optional, don't fail on error
 
     def collect_all(self) -> Dict:

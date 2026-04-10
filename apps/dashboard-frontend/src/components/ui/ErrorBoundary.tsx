@@ -183,6 +183,7 @@ export function RouteErrorBoundary({ children, routeName }: RouteErrorBoundaryPr
       title={`${routeName || 'Seite'} Fehler`}
       message={`${routeName || 'Diese Seite'} konnte nicht geladen werden.`}
       hint="Versuchen Sie es erneut oder kehren Sie zum Dashboard zurück."
+      showDetails
     >
       {children}
     </ErrorBoundary>

@@ -42,8 +42,49 @@
     </script>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root">
-      <div class="loading">Arasul Platform wird geladen...</div>
+      <div class="loading" id="loading-msg">Arasul Platform wird geladen...</div>
     </div>
+    <script>
+      // Debug: catch ALL errors including ES module errors
+      var _errs = [];
+      function showErr(msg) {
+        _errs.push(msg);
+        var el = document.getElementById('loading-msg');
+        if (el) {
+          el.style.fontSize = '0.9rem';
+          el.style.textAlign = 'left';
+          el.style.padding = '20px';
+          el.style.whiteSpace = 'pre-wrap';
+          el.innerHTML = 'Errors:\n' + _errs.join('\n');
+        }
+      }
+      window.onerror = function(msg, url, line) {
+        showErr('onerror: ' + msg + ' @ ' + (url||'').split('/').pop() + ':' + line);
+      };
+      window.addEventListener('error', function(e) {
+        if (e.target && e.target.tagName === 'SCRIPT') {
+          showErr('Script load failed: ' + (e.target.src || 'inline'));
+        } else if (e.target && e.target.tagName === 'LINK') {
+          showErr('Link load failed: ' + (e.target.href || ''));
+        } else {
+          showErr('error event: ' + (e.message || e.error || JSON.stringify(e)));
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(e) {
+        showErr('promise: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason || 'unknown'));
+      });
+      // Timeout: if React hasn't mounted after 10s, show diagnostic
+      setTimeout(function() {
+        var root = document.getElementById('root');
+        var loading = document.getElementById('loading-msg');
+        if (loading && root && root.children.length <= 2) {
+          showErr('TIMEOUT: React did not mount after 10s. Errors above (if any) may explain why.');
+          // Check if scripts loaded
+          var scripts = document.querySelectorAll('script[type=module]');
+          scripts.forEach(function(s) { showErr('Module script: ' + s.src); });
+        }
+      }, 10000);
+    </script>
     <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>

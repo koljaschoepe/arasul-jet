@@ -204,7 +204,9 @@ function StoreModels() {
         signal: controller.signal,
       });
 
-      const reader = response.body.getReader();
+      const body = (response as unknown as Response).body;
+      if (!body) throw new Error('Streaming nicht verfügbar');
+      const reader = body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
 
