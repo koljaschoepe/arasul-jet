@@ -90,6 +90,10 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
   // Callbacks to notify when download completes (for ModelStore to refresh)
   const onCompleteCallbacksRef = useRef(new Set<(modelId: string, success: boolean) => void>());
 
+  // Track downloads whose onComplete has already fired to prevent duplicate callbacks
+  // from racing SSE completion (2s delay) vs polling (3s interval)
+  const completedRef = useRef(new Set<string>());
+
   // RC-004 FIX: Use ref to track activeDownloads for polling
   // This prevents the useEffect from re-running when activeDownloads changes
   const activeDownloadsRef = useRef(activeDownloads);
@@ -154,14 +158,20 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
           let hasChanges = false;
 
           for (const modelId of Object.keys(prev)) {
+            // Skip downloads already completed by SSE — prevents duplicate callbacks
+            if (prev[modelId]?.phase === 'complete') continue;
+
             const model = models.find(m => m.id === modelId);
             if (model) {
               if (model.install_status === 'available') {
-                // Download completed
+                // Download completed (detected by polling — SSE wasn't active)
                 delete updated[modelId];
                 hasChanges = true;
-                // Notify callbacks
-                onCompleteCallbacksRef.current.forEach(cb => cb(modelId, true));
+                // Notify callbacks only if not already fired
+                if (!completedRef.current.has(modelId)) {
+                  completedRef.current.add(modelId);
+                  onCompleteCallbacksRef.current.forEach(cb => cb(modelId, true));
+                }
               } else if (model.install_status === 'error') {
                 // Download failed
                 updated[modelId] = {
@@ -209,6 +219,9 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
       if (activeDownloadsRef.current[modelId]) {
         return;
       }
+
+      // Clear dedup guard for re-downloads
+      completedRef.current.delete(modelId);
 
       // Set initial state
       setActiveDownloads(prev => ({
@@ -328,14 +341,17 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
 
                   // Handle completion
                   if (data.done) {
+                    // Fire callbacks immediately (deduped), then clean up after 2s visual delay
+                    if (!completedRef.current.has(modelId)) {
+                      completedRef.current.add(modelId);
+                      onCompleteCallbacksRef.current.forEach(cb => cb(modelId, data.success));
+                    }
                     setTimeout(() => {
                       setActiveDownloads(prev => {
                         const updated = { ...prev };
                         delete updated[modelId];
                         return updated;
                       });
-                      // Notify callbacks
-                      onCompleteCallbacksRef.current.forEach(cb => cb(modelId, data.success));
                     }, 2000);
                   }
                 } catch (e: unknown) {

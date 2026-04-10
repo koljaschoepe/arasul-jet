@@ -7,7 +7,7 @@
 # Without this fix, Ollama falls back to CPU-only inference.
 
 # Stage 1: Extract Ollama binary and CUDA runners from official image
-ARG OLLAMA_VERSION=0.9.0
+ARG OLLAMA_VERSION=0.20.5
 FROM ollama/ollama:${OLLAMA_VERSION} AS ollama-source
 
 # Stage 2: JetPack 6 compatible runtime (GLIBC 2.35)

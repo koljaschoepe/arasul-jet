@@ -309,7 +309,7 @@ function StoreModels() {
 
   return (
     <DataStateRenderer
-      loading={loading}
+      loading={loading && catalog.length === 0}
       error={initialError}
       empty={false}
       onRetry={() => loadData()}

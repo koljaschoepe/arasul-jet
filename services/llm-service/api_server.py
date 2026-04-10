@@ -14,7 +14,7 @@ Endpoints:
   - GET  /api/stats               - GPU/Memory statistics
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import requests
 from requests.adapters import HTTPAdapter
@@ -177,14 +177,15 @@ def list_models():
 @app.route('/api/models/pull', methods=['POST'])
 def pull_model():
     """
-    Download a model (called from Dashboard)
-    Body: {"model": "llama3.1:8b"}
+    Download a model with streaming progress (called from Dashboard backend)
+    Body: {"model": "llama3.1:8b"} or {"name": "llama3.1:8b", "stream": true}
 
-    HIGH-PRIORITY-FIX 2.3: Added retry logic and input validation
+    Streams NDJSON progress lines from Ollama back to the caller.
+    Supports both "model" and "name" fields for backwards compatibility.
     """
     try:
         data = request.get_json()
-        model_name = data.get("model")
+        model_name = data.get("model") or data.get("name")
 
         if not model_name:
             return jsonify({"error": "model parameter required"}), 400
@@ -199,38 +200,37 @@ def pull_model():
 
         logger.info(f"Pulling model: {model_name}")
 
-        # Use retry session for transient network failures
-        # This will automatically retry up to 3 times with exponential backoff
-        response = _http_session.post(
-            f"{OLLAMA_BASE_URL}/api/pull",
-            json={"name": model_name},
-            stream=False,
-            timeout=3600  # 1 hour timeout for large models
-        )
+        # Stream progress from Ollama to caller
+        def generate():
+            try:
+                response = _http_session.post(
+                    f"{OLLAMA_BASE_URL}/api/pull",
+                    json={"name": model_name},
+                    stream=True,
+                    timeout=3600  # 1 hour timeout for large models
+                )
+                response.raise_for_status()
 
-        if response.status_code == 200:
-            logger.info(f"Model {model_name} pulled successfully")
-            # MEDIUM-PRIORITY-FIX 3.2: Invalidate model cache after pull
-            global _model_cache, _model_cache_time
-            with _model_cache_lock:
-                _model_cache = None
-                _model_cache_time = 0
-            return jsonify({
-                "status": "success",
-                "message": f"Model {model_name} pulled successfully"
-            }), 200
-        else:
-            logger.error(f"Model pull failed: {response.text}")
-            return jsonify({
-                "status": "error",
-                "message": response.text
-            }), 500
+                for line in response.iter_lines():
+                    if line:
+                        yield line + b'\n'
 
-    except requests.exceptions.RetryError as e:
-        logger.error(f"Model pull failed after retries: {e}")
-        return jsonify({
-            "error": "Download failed after multiple retries. Please check network connection."
-        }), 503
+                # Invalidate model cache after successful pull
+                global _model_cache, _model_cache_time
+                with _model_cache_lock:
+                    _model_cache = None
+                    _model_cache_time = 0
+
+                logger.info(f"Model {model_name} pulled successfully")
+            except requests.exceptions.RetryError as e:
+                logger.error(f"Model pull failed after retries: {e}")
+                yield json.dumps({"error": "Download failed after multiple retries"}).encode() + b'\n'
+            except Exception as e:
+                logger.error(f"Pull model error: {e}")
+                yield json.dumps({"error": str(e)}).encode() + b'\n'
+
+        return Response(generate(), mimetype='application/x-ndjson')
+
     except Exception as e:
         logger.error(f"Pull model error: {e}")
         return jsonify({"error": str(e)}), 500
