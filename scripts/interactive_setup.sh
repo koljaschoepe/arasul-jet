@@ -299,8 +299,8 @@ detect_hardware() {
         DEFAULT_LLM_MODEL=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^LLM_MODEL=" | cut -d= -f2)
         RECOMMENDED_MODELS_STR=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^RECOMMENDED_MODELS=" | cut -d= -f2 | tr -d '"')
     fi
-    DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-mistral:7b}"
-    RECOMMENDED_MODELS_STR="${RECOMMENDED_MODELS_STR:-mistral:7b,phi3:mini}"
+    DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-gemma4:e4b-q4}"
+    RECOMMENDED_MODELS_STR="${RECOMMENDED_MODELS_STR:-gemma4:e4b-q4,gemma4:e2b-q4,mistral:7b}"
 }
 
 # =============================================================================

@@ -1092,7 +1092,19 @@ function createModelService(deps = {}) {
         return process.env.LLM_MODEL;
       }
 
-      // 5. No model available - return null (let caller handle the error)
+      // 5. Fallback to hardware-profile-based recommendation
+      try {
+        const { getRecommendedModel } = require('../../utils/hardware');
+        const recommendation = await getRecommendedModel();
+        logger.debug(
+          `Using hardware-recommended model as default: ${recommendation.model} (profile: ${recommendation.profile})`
+        );
+        return recommendation.model;
+      } catch (e) {
+        logger.warn(`Failed to get hardware recommendation: ${e.message}`);
+      }
+
+      // 6. No model available - return null (let caller handle the error)
       logger.warn('No default model available - no models installed');
       return null;
     }

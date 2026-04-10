@@ -120,7 +120,7 @@ Marks the setup wizard as completed and persists the provided settings.
 {
   "companyName": "Muster GmbH",
   "hostname": "arasul-device",
-  "selectedModel": "qwen3:14b-q8"
+  "selectedModel": "gemma4:26b-q4"
 }
 ```
 
@@ -178,7 +178,7 @@ Marks the setup wizard as skipped. The wizard will not be shown again, but setti
 {
   "message": "Your question here",
   "conversation_id": "uuid", // optional
-  "model": "qwen3:14b-q8", // optional
+  "model": "gemma4:26b-q4", // optional
   "system_prompt": "..." // optional
 }
 ```
@@ -577,7 +577,7 @@ Request: `multipart/form-data` with `file` field.
 Response: SSE stream with events:
 
 ```
-data: {"type": "start", "queryId": 123, "model": "qwen3:14b-q8"}
+data: {"type": "start", "queryId": 123, "model": "gemma4:26b-q4"}
 data: {"type": "content", "content": "The system is..."}
 data: {"type": "complete", "totalTokens": 150, "responseTimeMs": 2500}
 data: {"done": true, "status": "completed"}
@@ -591,11 +591,11 @@ data: {"done": true, "status": "completed"}
   "available": true,
   "llm": {
     "available": true,
-    "models": ["qwen3:14b-q8"],
+    "models": ["gemma4:26b-q4"],
     "error": null
   },
   "config": {
-    "defaultModel": "qwen3:14b-q8",
+    "defaultModel": "gemma4:26b-q4",
     "defaultTimeout": 60000,
     "maxQueryLength": 5000,
     "rateLimit": "5 requests per minute"
@@ -613,7 +613,7 @@ data: {"done": true, "status": "completed"}
       "id": 1,
       "query": "What is the system status?",
       "response": "The system is running...",
-      "model_used": "qwen3:14b-q8",
+      "model_used": "gemma4:26b-q4",
       "tokens_used": 150,
       "response_time_ms": 2500,
       "status": "completed",
@@ -1307,7 +1307,7 @@ Response (same as POST /upload):
 
 ```json
 {
-  "loaded_model": "qwen3:14b-q8",
+  "loaded_model": "gemma4:26b-q4",
   "ram_used_gb": 20,
   "pending_by_model": {
     "qwen3:7b-q8": 2,
@@ -1387,7 +1387,7 @@ Returns models recommended for the system's RAM capacity and featured apps.
 ```json
 {
   "models": [
-    { "id": "qwen3:14b-q8", "name": "Qwen 3 14B", ... }
+    { "id": "gemma4:26b-q4", "name": "Qwen 3 14B", ... }
   ],
   "apps": [
     { "id": "n8n", "name": "n8n", "featured": true, ... }
@@ -1561,7 +1561,7 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 ```json
 {
   "prompt": "Your question here",
-  "model": "qwen3:14b-q8", // Optional
+  "model": "gemma4:26b-q4", // Optional
   "temperature": 0.7, // Optional
   "max_tokens": 2048, // Optional
   "thinking": false, // Optional
@@ -1576,7 +1576,7 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 {
   "success": true,
   "response": "AI generated text...",
-  "model": "qwen3:14b-q8",
+  "model": "gemma4:26b-q4",
   "job_id": "uuid",
   "processing_time_ms": 1234
 }
@@ -1628,7 +1628,7 @@ Request: `multipart/form-data` with `file` field only.
   "response": "AI analysis of the document...",
   "extracted_text": "Raw extracted text...",
   "filename": "invoice.pdf",
-  "model": "qwen3:14b-q8",
+  "model": "gemma4:26b-q4",
   "processing_time_ms": 5678
 }
 ```
@@ -1656,7 +1656,7 @@ Request: `multipart/form-data` with `file` field only.
   "raw_response": "{ ... LLM raw text ... }",
   "extracted_text": "Raw extracted text...",
   "filename": "invoice.pdf",
-  "model": "qwen3:14b-q8",
+  "model": "gemma4:26b-q4",
   "processing_time_ms": 8901
 }
 ```

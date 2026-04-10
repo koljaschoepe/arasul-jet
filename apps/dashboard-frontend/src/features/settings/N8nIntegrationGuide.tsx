@@ -156,7 +156,7 @@ export function N8nIntegrationGuide() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Model Name</span>
-                        <span className="font-mono text-foreground">qwen3:14b-q8</span>
+                        <span className="font-mono text-foreground">gemma4:26b-q4</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Temperature</span>
@@ -199,7 +199,7 @@ export function N8nIntegrationGuide() {
                 <h4 className="text-xs font-semibold text-foreground mb-2">3. Beispiel-Ausgabe</h4>
                 <CodeBlock>
                   {`{
-  "model": "qwen3:14b-q8",
+  "model": "gemma4:26b-q4",
   "message": {
     "role": "assistant",
     "content": "Die Antwort des KI-Modells..."
@@ -450,7 +450,7 @@ export function N8nIntegrationGuide() {
                 </p>
                 <CodeBlock>
                   {`{
-  "model": "qwen3:14b-q8",
+  "model": "gemma4:26b-q4",
   "messages": [
     { "role": "system", "content": "Du bist ein hilfreicher Assistent." },
     { "role": "user", "content": "{{ $json.message }}" }
@@ -488,7 +488,7 @@ export function N8nIntegrationGuide() {
                 <CodeBlock>
                   {`{
   "prompt": "{{ $json.frage }}",
-  "model": "qwen3:14b-q8",
+  "model": "gemma4:26b-q4",
   "temperature": 0.7,
   "max_tokens": 2048,
   "wait_for_result": true,

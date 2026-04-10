@@ -87,22 +87,22 @@ All variables are defined in `.env` file at repository root.
 
 > **Hinweis:** `LLM_HOST`, `LLM_PORT` und `LLM_MANAGEMENT_PORT` sind **deprecated**. Der interne Code verwendet `LLM_SERVICE_HOST`, `LLM_SERVICE_PORT` und `LLM_SERVICE_MANAGEMENT_PORT`. Die alten Namen werden noch als Fallback akzeptiert, sollten aber in neuen Konfigurationen nicht mehr verwendet werden.
 
-| Variable                    | Default      | Description                                            |
-| --------------------------- | ------------ | ------------------------------------------------------ |
-| LLM_SERVICE_HOST            | llm-service  | Hostname des LLM-Service                               |
-| LLM_SERVICE_PORT            | 11434        | Port des LLM-Service                                   |
-| LLM_SERVICE_MANAGEMENT_PORT | 11436        | Management-Port des LLM-Service                        |
-| LLM_HOST                    | llm-service  | _(deprecated)_ Alias für `LLM_SERVICE_HOST`            |
-| LLM_PORT                    | 11434        | _(deprecated)_ Alias für `LLM_SERVICE_PORT`            |
-| LLM_MANAGEMENT_PORT         | 11436        | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT` |
-| LLM_MODEL                   | qwen3:14b-q8 | Default LLM model                                      |
-| LLM_MAX_TOKENS              | 2048         | Max response tokens                                    |
-| LLM_CONTEXT_SIZE            | 4096         | Context window size                                    |
-| LLM_MAX_RAM_GB              | 40           | Max RAM allocation (GB)                                |
-| LLM_GPU_LAYERS              | 33           | GPU layers                                             |
-| LLM_KEEP_ALIVE_SECONDS      | 300          | Model unload timeout                                   |
-| OLLAMA_STARTUP_TIMEOUT      | 120          | Ollama startup timeout (seconds)                       |
-| MAX_STORED_MODELS           | 10           | Maximale Anzahl gespeicherter Modelle                  |
+| Variable                    | Default       | Description                                            |
+| --------------------------- | ------------- | ------------------------------------------------------ |
+| LLM_SERVICE_HOST            | llm-service   | Hostname des LLM-Service                               |
+| LLM_SERVICE_PORT            | 11434         | Port des LLM-Service                                   |
+| LLM_SERVICE_MANAGEMENT_PORT | 11436         | Management-Port des LLM-Service                        |
+| LLM_HOST                    | llm-service   | _(deprecated)_ Alias für `LLM_SERVICE_HOST`            |
+| LLM_PORT                    | 11434         | _(deprecated)_ Alias für `LLM_SERVICE_PORT`            |
+| LLM_MANAGEMENT_PORT         | 11436         | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT` |
+| LLM_MODEL                   | gemma4:26b-q4 | Default LLM model (Gemma 4, hardware-abhängig)         |
+| LLM_MAX_TOKENS              | 2048          | Max response tokens                                    |
+| LLM_CONTEXT_SIZE            | 4096          | Context window size                                    |
+| LLM_MAX_RAM_GB              | 40            | Max RAM allocation (GB)                                |
+| LLM_GPU_LAYERS              | 33            | GPU layers                                             |
+| LLM_KEEP_ALIVE_SECONDS      | 300           | Model unload timeout                                   |
+| OLLAMA_STARTUP_TIMEOUT      | 120           | Ollama startup timeout (seconds)                       |
+| MAX_STORED_MODELS           | 10            | Maximale Anzahl gespeicherter Modelle                  |
 
 ---
 
@@ -574,18 +574,18 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 
 Pre-configured profiles for common Jetson devices:
 
-| Device           | RAM   | LLM Limit | Embedding | Qdrant | Recommended Model |
-| ---------------- | ----- | --------- | --------- | ------ | ----------------- |
-| Thor 128GB       | 128GB | 92G       | 8G        | 4G     | qwen3:32b-q8      |
-| Thor 64GB        | 64GB  | 38G       | 6G        | 3G     | qwen3:14b-q8      |
-| AGX Orin 64GB    | 64GB  | 48G       | 8G        | 4G     | qwen3:14b-q8      |
-| AGX Orin 32GB    | 32GB  | 24G       | 4G        | 2G     | qwen3:8b-q8       |
-| Orin NX 16GB     | 16GB  | 10G       | 2G        | 1G     | llama3.1:8b       |
-| Orin NX/Nano 8GB | 8GB   | 5G        | 1G        | 512M   | phi3:mini         |
-| Orin Nano 4GB    | 4GB   | 2G        | 512M      | 256M   | tinyllama:1.1b    |
-| Xavier AGX 32GB  | 32GB  | 24G       | 4G        | 2G     | llama3.1:8b       |
-| Xavier NX 8GB    | 8GB   | 5G        | 1G        | 512M   | phi3:mini         |
-| Jetson Nano 4GB  | 4GB   | 2G        | 512M      | 256M   | tinyllama:1.1b    |
+| Device           | RAM   | LLM Limit | Embedding | Qdrant | Default Model  |
+| ---------------- | ----- | --------- | --------- | ------ | -------------- |
+| Thor 128GB       | 128GB | 88G       | 8G        | 4G     | gemma4:31b-q8  |
+| Thor 64GB        | 64GB  | 34G       | 6G        | 2G     | gemma4:31b-q4  |
+| AGX Orin 64GB    | 64GB  | 38G       | 6G        | 2G     | gemma4:26b-q4  |
+| AGX Orin 32GB    | 32GB  | 20G       | 3G        | 1G     | gemma4:e4b-q8  |
+| Orin NX 16GB     | 16GB  | 10G       | 2G        | 1G     | gemma4:e4b-q4  |
+| Orin NX/Nano 8GB | 8GB   | 5G        | 1G        | 512M   | phi3:mini      |
+| Orin Nano 4GB    | 4GB   | 2G        | 512M      | 256M   | tinyllama:1.1b |
+| Xavier AGX       | 32GB  | 20G       | 3G        | 2G     | gemma4:e4b-q4  |
+| Xavier NX 8GB    | 8GB   | 5G        | 1G        | 512M   | phi3:mini      |
+| Jetson Nano 4GB  | 4GB   | 2G        | 512M      | 256M   | tinyllama:1.1b |
 
 ### Auto-Detection
 
@@ -656,7 +656,7 @@ MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=YourMinioPassword123!
 
 # LLM
-LLM_MODEL=qwen3:14b-q8
+LLM_MODEL=gemma4:26b-q4
 LLM_KEEP_ALIVE_SECONDS=300
 
 # n8n

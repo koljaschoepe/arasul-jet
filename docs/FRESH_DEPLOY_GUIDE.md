@@ -19,12 +19,12 @@ Schritt-fuer-Schritt-Anleitung zur Erstinstallation der Arasul Platform auf eine
 
 ### Hardware
 
-| Geraet               | RAM    | Empfohlenes KI-Modell | Status            |
-| -------------------- | ------ | --------------------- | ----------------- |
-| Jetson Thor 128GB    | 128 GB | qwen3:32b-q8          | Voll unterstuetzt |
-| Jetson Thor 64GB     | 64 GB  | qwen3:14b-q8          | Voll unterstuetzt |
-| Jetson AGX Orin 64GB | 64 GB  | qwen3:14b-q8          | Voll unterstuetzt |
-| Jetson AGX Orin 32GB | 32 GB  | qwen3:8b-q8           | Voll unterstuetzt |
+| Geraet               | RAM    | Standard KI-Modell | Status            |
+| -------------------- | ------ | ------------------ | ----------------- |
+| Jetson Thor 128GB    | 128 GB | gemma4:31b-q8      | Voll unterstuetzt |
+| Jetson Thor 64GB     | 64 GB  | gemma4:31b-q4      | Voll unterstuetzt |
+| Jetson AGX Orin 64GB | 64 GB  | gemma4:26b-q4      | Voll unterstuetzt |
+| Jetson AGX Orin 32GB | 32 GB  | gemma4:e4b-q8      | Voll unterstuetzt |
 
 Minimale Hardware-Anforderungen:
 
@@ -210,7 +210,7 @@ ADMIN_PASSWORD="SicheresPasswort123" \
 | `ADMIN_PASSWORD` | **(Pflicht)**        | Administrator-Passwort (mind. 12 Zeichen) |
 | `ADMIN_USERNAME` | `admin`              | Administrator-Benutzername                |
 | `ADMIN_EMAIL`    | `admin@arasul.local` | Administrator-E-Mail                      |
-| `LLM_MODEL`      | geraeteabhaengig     | KI-Modell (z.B. `qwen3:14b-q8`)           |
+| `LLM_MODEL`      | geraeteabhaengig     | KI-Modell (z.B. `gemma4:26b-q4`)          |
 | `HOSTNAME`       | `arasul`             | Netzwerk-Hostname                         |
 
 ### Passwort-Anforderungen

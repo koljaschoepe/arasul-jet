@@ -182,7 +182,7 @@ const MODEL_CATEGORIES: Record<string, ModelCategoryInfo> = {
   xlarge: { title: 'Maximum', desc: '45+ GB RAM' },
 };
 
-const RECOMMENDED_MODEL = 'qwen3:14b-q8';
+const RECOMMENDED_MODEL_FALLBACK = 'gemma4:e4b-q4';
 
 const formatModelSize = (bytes: number | null | undefined): string => {
   if (!bytes) return 'N/A';
@@ -224,6 +224,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   // Step 5: AI Models
   const [models, setModels] = useState<SetupCatalogModel[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
+  const [recommendedModel, setRecommendedModel] = useState(RECOMMENDED_MODEL_FALLBACK);
   const [modelsLoading, setModelsLoading] = useState(false);
 
   // Step 6: System info
@@ -382,19 +383,26 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     }
   }, [api]);
 
-  // Step 5: Fetch model catalog
+  // Step 5: Fetch model catalog + hardware-based recommendation
   const fetchModels = useCallback(async () => {
     setModelsLoading(true);
     try {
-      const data = await api.get<{ models?: SetupCatalogModel[] }>('/models/catalog', {
-        showError: false,
-      });
-      const llmModels = (data.models || []).filter(
+      const [catalogData, recData] = await Promise.all([
+        api.get<{ models?: SetupCatalogModel[] }>('/models/catalog', { showError: false }),
+        api
+          .get<{ recommended_model?: string }>('/models/recommended', { showError: false })
+          .catch(() => null),
+      ]);
+      const llmModels = (catalogData.models || []).filter(
         (m: SetupCatalogModel) => (m.model_type || 'llm') === 'llm'
       );
       setModels(llmModels);
+
+      // Use hardware-recommended model, with fallback
+      const hwRecommended = recData?.recommended_model || RECOMMENDED_MODEL_FALLBACK;
+      setRecommendedModel(hwRecommended);
       if (!selectedModel) {
-        setSelectedModel(RECOMMENDED_MODEL);
+        setSelectedModel(hwRecommended);
       }
     } catch {
       setModels([]);
@@ -1019,7 +1027,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                         </div>
                         {catModels.map((model: SetupCatalogModel) => {
                           const isSelected = selectedModel === model.id;
-                          const isRecommended = model.id === RECOMMENDED_MODEL;
+                          const isRecommended = model.id === recommendedModel;
                           const isInstalled = model.install_status === 'available';
                           const dlState = getDownloadState(model.id);
                           return (

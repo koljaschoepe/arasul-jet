@@ -45,52 +45,55 @@ fi
 # BUG-001 FIX: Auto-import GGUF models from /host-models if not already imported
 echo "[2.5/3] Checking for models to import..."
 
-# Check if GGUF model exists and needs to be imported (configurable via env vars)
-GGUF_FILE="${GGUF_MODEL_PATH:-/host-models/Qwen3-14B-Q8_0.gguf}"
-MODEL_NAME="${LLM_MODEL:-qwen3:14b-q8}"
+MODEL_NAME="${LLM_MODEL:-gemma4:26b-q4}"
+HOST_MODELS_DIR="/host-models"
 
-if [ -f "$GGUF_FILE" ]; then
-    echo "Found GGUF file: $GGUF_FILE"
+# Support two modes:
+# 1. Explicit GGUF file via GGUF_MODEL_PATH env var
+# 2. Auto-scan /host-models/ directory for any .gguf files
+if [ -n "${GGUF_MODEL_PATH:-}" ] && [ -f "$GGUF_MODEL_PATH" ]; then
+    GGUF_FILES=("$GGUF_MODEL_PATH")
+elif [ -d "$HOST_MODELS_DIR" ]; then
+    GGUF_FILES=()
+    while IFS= read -r -d '' f; do
+        GGUF_FILES+=("$f")
+    done < <(find "$HOST_MODELS_DIR" -maxdepth 1 -name "*.gguf" -print0 2>/dev/null)
+else
+    GGUF_FILES=()
+fi
 
-    # PHASE1-FIX (HIGH-P04): Use -F (fixed string) instead of regex with variable
-    # This prevents potential issues if MODEL_NAME ever contains regex special chars
-    MODEL_EXISTS=$(curl -s http://localhost:11434/api/tags | grep -F "\"name\":\"${MODEL_NAME}\"" || true)
+if [ ${#GGUF_FILES[@]} -gt 0 ]; then
+    for GGUF_FILE in "${GGUF_FILES[@]}"; do
+        echo "Found GGUF file: $GGUF_FILE"
 
-    if [ -z "$MODEL_EXISTS" ]; then
-        echo "Importing model (this will take ~30 seconds)..."
+        # PHASE1-FIX (HIGH-P04): Use -F (fixed string) instead of regex with variable
+        MODEL_EXISTS=$(curl -s http://localhost:11434/api/tags | grep -F "\"name\":\"${MODEL_NAME}\"" || true)
 
-        # Create Modelfile
-        cat > /tmp/Modelfile <<EOF
+        if [ -z "$MODEL_EXISTS" ]; then
+            echo "Importing model (this will take ~30 seconds)..."
+
+            # Create Modelfile (generic template, works for most GGUF models)
+            cat > /tmp/Modelfile <<EOF
 FROM ${GGUF_FILE}
 
-TEMPLATE """{{- if .System }}
-<|im_start|>system
-{{ .System }}<|im_end|>
-{{- end }}
-<|im_start|>user
-{{ .Prompt }}<|im_end|>
-<|im_start|>assistant
-"""
-
-PARAMETER stop <|im_start|>
-PARAMETER stop <|im_end|>
 PARAMETER temperature 0.7
 PARAMETER top_p 0.8
 PARAMETER top_k 40
 PARAMETER repeat_penalty 1.05
 EOF
 
-        # Import model
-        if ollama create ${MODEL_NAME} -f /tmp/Modelfile; then
-            echo "✓ Model imported successfully: ${MODEL_NAME}"
+            if ollama create "${MODEL_NAME}" -f /tmp/Modelfile; then
+                echo "✓ Model imported successfully: ${MODEL_NAME}"
+            else
+                echo "ERROR: Failed to import model from ${GGUF_FILE}"
+            fi
         else
-            echo "ERROR: Failed to import model"
+            echo "✓ Model already imported: ${MODEL_NAME}"
         fi
-    else
-        echo "✓ Model already imported: ${MODEL_NAME}"
-    fi
+        break  # Only import the first GGUF file found
+    done
 else
-    echo "No GGUF file found at ${GGUF_FILE}"
+    echo "No GGUF files found in ${HOST_MODELS_DIR}"
 fi
 
 # Model is NOT pre-loaded - will load on-demand at first request

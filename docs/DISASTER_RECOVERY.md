@@ -101,7 +101,7 @@ cd /opt/arasul
 ./scripts/recovery/restore-from-backup.sh
 
 # 4. Modelle erneut pullen
-docker exec llm-service ollama pull qwen3:14b-q8
+docker exec llm-service ollama pull gemma4:26b-q4
 ```
 
 **Erwartete Recovery-Zeit**: 1-2 Stunden (inkl. Model-Download)

@@ -151,7 +151,7 @@ Edit `.env` as needed:
 
 ```bash
 # LLM Configuration
-LLM_MODEL=qwen3:14b-q8
+LLM_MODEL=gemma4:26b-q4
 LLM_MAX_TOKENS=2048
 LLM_MAX_RAM_GB=40
 
@@ -175,7 +175,7 @@ Full reference: [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 2. **Configure n8n** - `http://<jetson-ip>/n8n` (credentials from `.env`)
 3. **Load LLM models** (if not auto-loaded):
    ```bash
-   docker compose exec llm-service ollama pull qwen3:14b-q8
+   docker compose exec llm-service ollama pull gemma4:26b-q4
    ```
 
 ---

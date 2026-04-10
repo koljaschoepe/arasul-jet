@@ -22,7 +22,9 @@ const GPU_CACHE_TTL = 30_000; // 30s - GPU memory changes as models load/unload
  * @returns {Promise<{type: string, name: string, cpuCores: number, totalMemoryGB: number}>}
  */
 async function detectDevice() {
-  if (cachedDeviceInfo) {return cachedDeviceInfo;}
+  if (cachedDeviceInfo) {
+    return cachedDeviceInfo;
+  }
 
   const cpuCores = os.cpus().length;
   const totalMemoryGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
@@ -81,7 +83,9 @@ async function detectDevice() {
  * @returns {Promise<{available: boolean, name?: string, cudaVersion?: string, memoryTotalMB?: number, memoryFreeMB?: number}>}
  */
 async function getGpuInfo() {
-  if (cachedGpuInfo && Date.now() < gpuInfoExpiresAt) {return cachedGpuInfo;}
+  if (cachedGpuInfo && Date.now() < gpuInfoExpiresAt) {
+    return cachedGpuInfo;
+  }
 
   try {
     // Try tegrastats-style detection first (Jetson unified memory)
@@ -102,7 +106,9 @@ async function getGpuInfo() {
         try {
           const versionTxt = await fs.readFile('/usr/local/cuda/version.txt', 'utf8');
           const match = versionTxt.match(/CUDA Version (\d+\.\d+)/);
-          if (match) {cudaVersion = match[1];}
+          if (match) {
+            cudaVersion = match[1];
+          }
         } catch {
           // CUDA version not available
         }
@@ -159,14 +165,75 @@ function getLlmRamGB() {
   const envLimit = process.env.RAM_LIMIT_LLM;
   if (envLimit) {
     const num = parseInt(envLimit, 10);
-    if (!isNaN(num) && num > 0) {return num;}
+    if (!isNaN(num) && num > 0) {
+      return num;
+    }
   }
   const totalGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
   return Math.max(4, Math.floor(totalGB * 0.6));
+}
+
+/**
+ * Get recommended default model based on device profile
+ * Uses JETSON_PROFILE env var (set by detect-jetson.sh) with fallback to detectDevice()
+ * @returns {Promise<{model: string, profile: string, models: string[]}>}
+ */
+async function getRecommendedModel() {
+  // Profile → default model mapping (mirrors detect-jetson.sh)
+  const PROFILE_MODELS = {
+    thor_128gb: {
+      model: 'gemma4:31b-q8',
+      models: ['gemma4:31b-q8', 'gemma4:26b-q4', 'qwen3:32b-q8'],
+    },
+    thor_64gb: {
+      model: 'gemma4:31b-q4',
+      models: ['gemma4:31b-q4', 'gemma4:26b-q4', 'qwen3:14b-q8'],
+    },
+    agx_orin_64gb: {
+      model: 'gemma4:26b-q4',
+      models: ['gemma4:26b-q4', 'gemma4:31b-q4', 'qwen3:14b-q8'],
+    },
+    agx_orin_32gb: {
+      model: 'gemma4:e4b-q8',
+      models: ['gemma4:e4b-q8', 'gemma4:e4b-q4', 'qwen3:8b-q8'],
+    },
+    orin_nx_16gb: {
+      model: 'gemma4:e4b-q4',
+      models: ['gemma4:e4b-q4', 'gemma4:e2b-q8', 'llama3.1:8b'],
+    },
+    xavier_agx: { model: 'gemma4:e4b-q4', models: ['gemma4:e4b-q4', 'llama3.1:8b', 'mistral:7b'] },
+    xavier_nx_8gb: { model: 'phi3:mini', models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'] },
+    orin_8gb: { model: 'phi3:mini', models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'] },
+    minimal_4gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b', 'qwen:0.5b'] },
+    nano_4gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b', 'qwen:0.5b'] },
+    nano_2gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b'] },
+    generic: { model: 'gemma4:e4b-q4', models: ['gemma4:e4b-q4', 'gemma4:e2b-q4', 'mistral:7b'] },
+  };
+
+  // 1. Try JETSON_PROFILE env var (set by setup scripts)
+  let profile = process.env.JETSON_PROFILE;
+
+  // 2. Fallback: detect from hardware
+  if (!profile) {
+    const device = await detectDevice();
+    // Map hardware.js device types to profile names
+    const DEVICE_TYPE_MAP = {
+      thor_128gb: 'thor_128gb',
+      jetson_agx_orin_64gb: 'agx_orin_64gb',
+      jetson_agx_orin_32gb: 'agx_orin_32gb',
+      jetson_orin_nx: 'orin_nx_16gb',
+      jetson_orin_nano: 'orin_8gb',
+    };
+    profile = DEVICE_TYPE_MAP[device.type] || 'generic';
+  }
+
+  const recommendation = PROFILE_MODELS[profile] || PROFILE_MODELS.generic;
+  return { ...recommendation, profile };
 }
 
 module.exports = {
   detectDevice,
   getGpuInfo,
   getLlmRamGB,
+  getRecommendedModel,
 };

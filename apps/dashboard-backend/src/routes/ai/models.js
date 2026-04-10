@@ -11,6 +11,7 @@
  * - DELETE /api/models/:modelId  - Delete a model
  * - POST /api/models/:modelId/activate   - Load model into RAM
  * - POST /api/models/:modelId/deactivate - Unload model from RAM
+ * - GET  /api/models/recommended  - Get recommended model for device profile
  * - POST /api/models/default     - Set default model
  * - GET  /api/models/default     - Get default model
  * - POST /api/models/sync        - Sync with Ollama
@@ -547,6 +548,27 @@ router.post(
     res.json({
       ...result,
       message: `Modell ${modelId} wurde entladen`,
+    });
+  })
+);
+
+/**
+ * GET /api/models/recommended
+ * Get recommended model for this device based on hardware profile
+ * Used by Setup Wizard to pre-select the optimal model
+ */
+router.get(
+  '/recommended',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { getRecommendedModel } = require('../../utils/hardware');
+    const recommendation = await getRecommendedModel();
+
+    res.json({
+      recommended_model: recommendation.model,
+      recommended_models: recommendation.models,
+      device_profile: recommendation.profile,
+      timestamp: new Date().toISOString(),
     });
   })
 );
