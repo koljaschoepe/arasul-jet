@@ -274,7 +274,7 @@ def embed_batch():
 
     try:
         data = request.get_json()
-        if not data:
+        if data is None:
             return jsonify({'error': 'Invalid or missing JSON body', 'timestamp': time.time()}), 400
         texts = data.get('texts', [])
 
@@ -328,7 +328,7 @@ def rerank():
 
     try:
         data = request.get_json()
-        if not data:
+        if data is None:
             return jsonify({'error': 'Invalid or missing JSON body', 'timestamp': time.time()}), 400
         query = data.get('query', '')
         passages = data.get('passages', [])
