@@ -21,10 +21,10 @@ Schritt-fuer-Schritt-Anleitung zur Erstinstallation der Arasul Platform auf eine
 
 | Geraet               | RAM    | Standard KI-Modell | Status            |
 | -------------------- | ------ | ------------------ | ----------------- |
-| Jetson Thor 128GB    | 128 GB | gemma4:31b-q8      | Voll unterstuetzt |
+| Jetson Thor 128GB    | 128 GB | gemma4:31b-q4      | Voll unterstuetzt |
 | Jetson Thor 64GB     | 64 GB  | gemma4:31b-q4      | Voll unterstuetzt |
 | Jetson AGX Orin 64GB | 64 GB  | gemma4:26b-q4      | Voll unterstuetzt |
-| Jetson AGX Orin 32GB | 32 GB  | gemma4:e4b-q8      | Voll unterstuetzt |
+| Jetson AGX Orin 32GB | 32 GB  | gemma4:e4b-q4      | Voll unterstuetzt |
 
 Minimale Hardware-Anforderungen:
 
@@ -205,21 +205,20 @@ ADMIN_PASSWORD="SicheresPasswort123" \
 
 ### Optionale Umgebungsvariablen
 
-| Variable         | Standard             | Beschreibung                              |
-| ---------------- | -------------------- | ----------------------------------------- |
-| `ADMIN_PASSWORD` | **(Pflicht)**        | Administrator-Passwort (mind. 12 Zeichen) |
-| `ADMIN_USERNAME` | `admin`              | Administrator-Benutzername                |
-| `ADMIN_EMAIL`    | `admin@arasul.local` | Administrator-E-Mail                      |
-| `LLM_MODEL`      | geraeteabhaengig     | KI-Modell (z.B. `gemma4:26b-q4`)          |
-| `HOSTNAME`       | `arasul`             | Netzwerk-Hostname                         |
+| Variable         | Standard             | Beschreibung                                            |
+| ---------------- | -------------------- | ------------------------------------------------------- |
+| `ADMIN_PASSWORD` | **(Pflicht)**        | Administrator-Passwort (mind. 8 Zeichen, A-Z, a-z, 0-9) |
+| `ADMIN_USERNAME` | `admin`              | Administrator-Benutzername                              |
+| `ADMIN_EMAIL`    | `admin@arasul.local` | Administrator-E-Mail                                    |
+| `LLM_MODEL`      | geraeteabhaengig     | KI-Modell (z.B. `gemma4:26b-q4`)                        |
+| `HOSTNAME`       | `arasul`             | Netzwerk-Hostname                                       |
 
 ### Passwort-Anforderungen
 
-- Mindestens 12 Zeichen
+- Mindestens 8 Zeichen
 - Mindestens ein Grossbuchstabe (A-Z)
 - Mindestens ein Kleinbuchstabe (a-z)
 - Mindestens eine Ziffer (0-9)
-- Keine schwachen Passwoerter (z.B. `password`, `admin`, `12345678`)
 
 ### Bootstrap-Flags
 

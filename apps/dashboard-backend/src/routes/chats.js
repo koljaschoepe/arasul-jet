@@ -19,6 +19,17 @@ function isValidConversationId(id) {
   return !isNaN(parsed) && parsed > 0 && parsed <= 2147483647 && String(parsed) === String(id);
 }
 
+// Helper: verify conversation belongs to requesting user
+async function verifyOwnership(conversationId, userId) {
+  const { rows } = await db.query(
+    'SELECT id FROM chat_conversations WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
+    [conversationId, userId]
+  );
+  if (!rows.length) {
+    throw new NotFoundError('Chat not found');
+  }
+}
+
 // Helper: get default project ID
 async function getDefaultProjectId() {
   const { rows } = await db.query('SELECT id FROM projects WHERE is_default = TRUE LIMIT 1');
@@ -37,8 +48,8 @@ router.get(
 
     let query = `SELECT id, title, project_id, created_at, updated_at, message_count
          FROM chat_conversations
-         WHERE deleted_at IS NULL`;
-    const params = [];
+         WHERE deleted_at IS NULL AND user_id = $1`;
+    const params = [req.user.id];
 
     if (project_id) {
       params.push(project_id);
@@ -66,9 +77,10 @@ router.get(
               p.name as project_name, p.color as project_color
        FROM chat_conversations c
        LEFT JOIN projects p ON c.project_id = p.id
-       WHERE c.deleted_at IS NULL
+       WHERE c.deleted_at IS NULL AND c.user_id = $1
        ORDER BY c.updated_at DESC
-       LIMIT 10`
+       LIMIT 10`,
+      [req.user.id]
     );
 
     res.json({
@@ -93,9 +105,9 @@ router.get(
                         p.name as project_name, p.color as project_color
                  FROM chat_conversations c
                  LEFT JOIN projects p ON c.project_id = p.id
-                 WHERE c.deleted_at IS NULL
-                   AND c.title ILIKE $1`;
-    const params = [`%${q.trim()}%`];
+                 WHERE c.deleted_at IS NULL AND c.user_id = $1
+                   AND c.title ILIKE $2`;
+    const params = [req.user.id, `%${q.trim()}%`];
 
     if (project_id) {
       params.push(project_id);
@@ -132,8 +144,8 @@ router.get(
               p.color as project_color, p.knowledge_space_id as project_space_id
        FROM chat_conversations c
        LEFT JOIN projects p ON c.project_id = p.id
-       WHERE c.id = $1 AND c.deleted_at IS NULL`,
-      [id]
+       WHERE c.id = $1 AND c.deleted_at IS NULL AND c.user_id = $2`,
+      [id, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -187,10 +199,10 @@ router.post(
     const resolvedProjectId = project_id || (await getDefaultProjectId());
 
     const result = await db.query(
-      `INSERT INTO chat_conversations (title, project_id, created_at, updated_at)
-         VALUES ($1, $2, NOW(), NOW())
+      `INSERT INTO chat_conversations (title, project_id, user_id, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())
          RETURNING id, title, project_id, created_at, updated_at, message_count`,
-      [title || 'Neuer Chat', resolvedProjectId]
+      [title || 'Neuer Chat', resolvedProjectId, req.user.id]
     );
 
     res.json({
@@ -214,6 +226,8 @@ router.get(
     if (!isValidConversationId(id)) {
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
     }
+
+    await verifyOwnership(id, req.user.id);
 
     const limit = Math.min(Math.max(parseInt(limitParam) || 50, 1), 100);
 
@@ -344,6 +358,8 @@ router.get(
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
     }
 
+    await verifyOwnership(id, req.user.id);
+
     const jobs = await llmJobService.getActiveJobsForConversation(parseInt(id));
 
     res.json({
@@ -365,6 +381,8 @@ router.post(
     if (!isValidConversationId(id)) {
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
     }
+
+    await verifyOwnership(id, req.user.id);
 
     if (!role || !content) {
       throw new ValidationError('Role and content are required');
@@ -409,11 +427,11 @@ router.patch(
       project_id: project_id !== undefined ? project_id || null : undefined,
     });
 
-    params.push(id);
+    params.push(id, req.user.id);
     const result = await db.query(
       `UPDATE chat_conversations
          SET ${setClauses.join(', ')}
-         WHERE id = $${paramIndex} AND deleted_at IS NULL
+         WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1} AND deleted_at IS NULL
          RETURNING id, title, project_id, created_at, updated_at, message_count`,
       params
     );
@@ -482,11 +500,11 @@ router.patch(
       preferred_space_id: preferred_space_id !== undefined ? preferred_space_id || null : undefined,
     });
 
-    params.push(id);
+    params.push(id, req.user.id);
     const result = await db.query(
       `UPDATE chat_conversations
          SET ${setClauses.join(', ')}
-         WHERE id = $${paramIndex} AND deleted_at IS NULL
+         WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1} AND deleted_at IS NULL
          RETURNING use_rag, use_thinking, preferred_model, preferred_space_id`,
       params
     );
@@ -527,12 +545,12 @@ router.get(
       throw new ValidationError('Invalid format: must be json, markdown, or md');
     }
 
-    // Get conversation details
+    // Get conversation details (user-scoped)
     const chatResult = await db.query(
       `SELECT id, title, created_at, updated_at
          FROM chat_conversations
-         WHERE id = $1 AND deleted_at IS NULL`,
-      [id]
+         WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+      [id, req.user.id]
     );
 
     if (chatResult.rows.length === 0) {
@@ -658,14 +676,14 @@ router.delete(
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
     }
 
-    // Atomic: soft-delete + cancel active jobs in one transaction
+    // Atomic: soft-delete + cancel active jobs in one transaction (user-scoped)
     const result = await db.transaction(async client => {
       const deleteResult = await client.query(
         `UPDATE chat_conversations
            SET deleted_at = NOW()
-           WHERE id = $1 AND deleted_at IS NULL
+           WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
            RETURNING id`,
-        [id]
+        [id, req.user.id]
       );
 
       if (deleteResult.rows.length === 0) {

@@ -91,14 +91,32 @@ log_warn() {
     echo -e "  ${YELLOW}[WARN]${NC} $1" >&2
 }
 
-# Passwort-Validierung (nur Mindestlaenge)
+# Passwort-Validierung (Laenge + Komplexitaet)
 validate_password() {
     local pw="$1"
-    local min_length="${2:-4}"
+    local min_length="${2:-8}"
 
     # Laenge
     if [ ${#pw} -lt "$min_length" ]; then
         echo "Mindestens ${min_length} Zeichen erforderlich (aktuell: ${#pw})"
+        return 1
+    fi
+
+    # Grossbuchstabe
+    if ! echo "$pw" | grep -q '[A-Z]'; then
+        echo "Mindestens ein Grossbuchstabe (A-Z) erforderlich"
+        return 1
+    fi
+
+    # Kleinbuchstabe
+    if ! echo "$pw" | grep -q '[a-z]'; then
+        echo "Mindestens ein Kleinbuchstabe (a-z) erforderlich"
+        return 1
+    fi
+
+    # Zahl
+    if ! echo "$pw" | grep -q '[0-9]'; then
+        echo "Mindestens eine Ziffer (0-9) erforderlich"
         return 1
     fi
 
@@ -300,7 +318,7 @@ detect_hardware() {
         RECOMMENDED_MODELS_STR=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^RECOMMENDED_MODELS=" | cut -d= -f2 | tr -d '"')
     fi
     DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-gemma4:e4b-q4}"
-    RECOMMENDED_MODELS_STR="${RECOMMENDED_MODELS_STR:-gemma4:e4b-q4,gemma4:e2b-q4,mistral:7b}"
+    RECOMMENDED_MODELS_STR="${RECOMMENDED_MODELS_STR:-gemma4:e4b-q4,mistral:7b}"
 }
 
 # =============================================================================
@@ -358,7 +376,7 @@ main() {
             exit 1
         fi
         local pw_error
-        pw_error=$(validate_password "$ADMIN_PASSWORD" 4)
+        pw_error=$(validate_password "$ADMIN_PASSWORD" 8)
         if [ $? -ne 0 ]; then
             print_err "ADMIN_PASSWORD ungueltig: ${pw_error}"
             exit 1
@@ -368,7 +386,7 @@ main() {
         print_ok "Passwort: gesetzt"
     else
         ADMIN_USERNAME=$(prompt_with_default "Benutzername" "admin")
-        ADMIN_PASSWORD=$(prompt_password "Passwort (min. 4 Zeichen)" 4)
+        ADMIN_PASSWORD=$(prompt_password "Passwort (min. 8 Zeichen, A-Z, a-z, 0-9)" 8)
         ADMIN_EMAIL=$(prompt_with_default "E-Mail" "admin@arasul.local")
         echo ""
         echo -e "  ${DIM}Passwort kann spaeter im Dashboard geaendert werden.${NC}"
