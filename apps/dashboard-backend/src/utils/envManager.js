@@ -86,28 +86,6 @@ async function updateEnvVariables(updates) {
 }
 
 /**
- * Get value of an environment variable from .env file
- */
-async function getEnvVariable(key) {
-  try {
-    const content = await readEnvFile();
-    // BH11 FIX: Escape regex special characters in key
-    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`^${escapedKey}=(.*)$`, 'm');
-    const match = content.match(pattern);
-
-    if (match) {
-      return match[1].trim();
-    }
-
-    return null;
-  } catch (error) {
-    logger.error(`Failed to get environment variable ${key}: ${error.message}`);
-    throw new Error(`Failed to read ${key} from environment configuration`);
-  }
-}
-
-/**
  * Backup .env file before making changes
  */
 async function backupEnvFile() {
@@ -125,26 +103,8 @@ async function backupEnvFile() {
   }
 }
 
-/**
- * Restore .env file from backup
- */
-async function restoreEnvFile(backupPath) {
-  try {
-    await fs.copyFile(backupPath, ENV_FILE_PATH);
-    logger.info(`Restored .env from backup: ${backupPath}`);
-
-    return true;
-  } catch (error) {
-    logger.error(`Failed to restore .env file: ${error.message}`);
-    throw new Error('Failed to restore environment configuration');
-  }
-}
-
 module.exports = {
-  readEnvFile,
   updateEnvVariable,
   updateEnvVariables,
-  getEnvVariable,
   backupEnvFile,
-  restoreEnvFile,
 };

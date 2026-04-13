@@ -79,27 +79,6 @@ export const formatUptime = (seconds: number | null | undefined): string => {
 };
 
 /**
- * Format a number with German locale
- * @param num - Number to format
- * @returns Formatted number
- */
-export const formatNumber = (num: number | null | undefined): string => {
-  if (num === null || num === undefined) return '-';
-  return num.toLocaleString('de-DE');
-};
-
-/**
- * Format percentage
- * @param value - Value (0-100)
- * @param decimals - Decimal places
- * @returns Formatted percentage
- */
-export const formatPercent = (value: number | null | undefined, decimals: number = 0): string => {
-  if (value === null || value === undefined) return '-';
-  return `${value.toFixed(decimals)}%`;
-};
-
-/**
  * Format date as relative time (e.g., "5m ago", "2h ago")
  * @param dateString - ISO date string
  * @returns Relative time string

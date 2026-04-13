@@ -53,7 +53,6 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:11435/health || exit 1
 
 # Start the embedding service with gunicorn (production WSGI server)
-# --preload: load model once in master, workers share via fork (saves GPU memory)
-# -w 2: 2 workers for concurrency
+# -w 1 --threads 4: single worker with threads (CUDA cannot fork — threads share GPU context)
 # --timeout 300: long timeout for large document embeddings
-CMD ["gunicorn", "--bind", "0.0.0.0:11435", "--workers", "2", "--timeout", "300", "--preload", "wsgi:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:11435", "--workers", "1", "--threads", "4", "--timeout", "300", "wsgi:app"]

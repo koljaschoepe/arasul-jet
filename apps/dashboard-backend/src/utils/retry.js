@@ -140,61 +140,6 @@ async function retry(fn, options = {}) {
 }
 
 /**
- * Create a retryable version of an axios instance
- * @param {Object} axiosInstance - Axios instance
- * @param {RetryOptions} options - Retry options
- * @returns {Object} Axios instance with retry interceptor
- */
-function addRetryToAxios(axiosInstance, options = {}) {
-  const opts = { ...DEFAULT_OPTIONS, ...options };
-
-  // Add response interceptor for retries
-  axiosInstance.interceptors.response.use(
-    response => response,
-    async error => {
-      const config = error.config;
-
-      // Initialize retry count
-      if (!config.__retryCount) {
-        config.__retryCount = 0;
-      }
-
-      // Check if we should retry
-      if (config.__retryCount >= opts.maxAttempts || !opts.shouldRetry(error)) {
-        return Promise.reject(error);
-      }
-
-      // Increment retry count
-      config.__retryCount += 1;
-
-      // Calculate delay
-      const delay = calculateDelay(config.__retryCount - 1, opts);
-
-      logger.warn(
-        `Axios request retry ${config.__retryCount}/${opts.maxAttempts} for ${config.url}. Delay: ${delay}ms`
-      );
-
-      // Call onRetry callback if provided
-      if (opts.onRetry) {
-        try {
-          opts.onRetry(config.__retryCount, error, delay);
-        } catch (callbackError) {
-          logger.error(`onRetry callback failed: ${callbackError.message}`);
-        }
-      }
-
-      // Wait before retrying
-      await sleep(delay);
-
-      // Retry the request
-      return axiosInstance(config);
-    }
-  );
-
-  return axiosInstance;
-}
-
-/**
  * Retry wrapper for database queries
  * Specialized for PostgreSQL connection errors
  * @param {Function} queryFn - Async query function
@@ -354,7 +299,6 @@ circuitBreakers.get('minio', { failureThreshold: 5, timeout: 30000 });
 module.exports = {
   retry,
   retryDatabaseQuery,
-  addRetryToAxios,
   CircuitBreaker,
   circuitBreakers,
   calculateDelay,

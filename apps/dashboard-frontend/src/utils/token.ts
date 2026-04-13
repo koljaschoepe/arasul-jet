@@ -76,22 +76,6 @@ export const setToken = (token: string): void => {
 };
 
 /**
- * Remove the authentication token
- */
-export const removeToken = (): void => {
-  localStorage.removeItem(TOKEN_KEY);
-};
-
-/**
- * Check if a valid token exists
- *
- * @returns True if a valid token exists
- */
-export const hasValidToken = (): boolean => {
-  return getValidToken() !== null;
-};
-
-/**
  * Get token expiration time
  *
  * @returns Expiration date or null if not available
@@ -119,6 +103,3 @@ export const getTokenExpiration = (): Date | null => {
     return null;
   }
 };
-
-// Export token key for consistency
-export const TOKEN_STORAGE_KEY: string = TOKEN_KEY;

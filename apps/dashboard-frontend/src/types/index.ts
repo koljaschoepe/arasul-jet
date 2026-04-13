@@ -128,22 +128,6 @@ export interface MemoryBudget {
   canLoadMore: boolean;
 }
 
-export interface UsageProfileHour {
-  hour: number;
-  avgRequests: number;
-  phase: 'peak' | 'normal' | 'idle';
-}
-
-export interface ModelLifecycle {
-  enabled: boolean;
-  currentPhase: 'peak' | 'normal' | 'idle';
-  keepAliveMinutes: number;
-  nextPhaseChange: string;
-  nextPhase: string;
-  currentHour: number;
-  usageProfile: UsageProfileHour[];
-}
-
 // --- Telegram ---
 
 export interface TelegramBot {

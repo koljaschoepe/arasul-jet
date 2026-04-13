@@ -342,14 +342,3 @@ class SelfHealingLogger:
         )
 
 
-# Global logger instance
-_logger_instance = None
-
-
-def get_logger() -> SelfHealingLogger:
-    """Get global logger instance"""
-    global _logger_instance
-    if _logger_instance is None:
-        log_dir = os.getenv('LOG_DIR', '/arasul/logs')
-        _logger_instance = SelfHealingLogger(log_dir)
-    return _logger_instance
