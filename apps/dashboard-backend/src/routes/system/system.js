@@ -33,7 +33,6 @@ router.get(
     res.json({
       status: 'ok',
       uptime: Math.floor(os.uptime()),
-      version: process.env.SYSTEM_VERSION || '1.0.0',
       timestamp: new Date().toISOString(),
     });
   })
@@ -442,7 +441,9 @@ router.post(
     const logDays = Math.min(Math.max(Math.round(Number(days)), 1), 14);
 
     const args = [DIAGNOSTICS_SCRIPT, '--days', String(logDays)];
-    if (!includeLogs) {args.push('--no-logs');}
+    if (!includeLogs) {
+      args.push('--no-logs');
+    }
 
     logger.info(
       `Diagnostics export requested by user ${req.user.username} (days=${logDays}, logs=${includeLogs})`

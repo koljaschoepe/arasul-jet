@@ -47,17 +47,21 @@ class CategoryHandlersMixin:
             if failure_count == 1:
                 logger.info(f"Attempting restart of {service_name} (attempt 1/3)")
                 container.restart()
+                # Wait for container to stabilize after restart
+                time.sleep(10)
+                container.reload()
+                is_running = container.status == 'running'
                 duration_ms = int((time.time() - start_time) * 1000)
 
                 self.log_event(
                     'service_restart', 'WARNING',
-                    f'{service_name} unhealthy, performing restart',
-                    'container.restart()', service_name, True
+                    f'{service_name} unhealthy, performing restart (running={is_running})',
+                    'container.restart()', service_name, is_running
                 )
                 self.record_recovery_action(
                     'service_restart', service_name,
                     f'Health check failed (1/{MAX_FAILURES_IN_WINDOW})',
-                    True, duration_ms
+                    is_running, duration_ms
                 )
 
             elif failure_count == 2:
@@ -65,6 +69,10 @@ class CategoryHandlersMixin:
                 container.stop(timeout=10)
                 time.sleep(2)
                 container.start()
+                # Wait for container to stabilize after start
+                time.sleep(10)
+                container.reload()
+                is_running = container.status == 'running'
                 duration_ms = int((time.time() - start_time) * 1000)
 
                 self.log_event(

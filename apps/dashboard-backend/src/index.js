@@ -539,7 +539,7 @@ if (require.main === module) {
           token = authHeader.slice(7);
         }
         if (!token && cookieHeader) {
-          const match = cookieHeader.match(/arasul_token=([^;]+)/);
+          const match = cookieHeader.match(/arasul_session=([^;]+)/);
           if (match) {
             token = match[1];
           }
@@ -562,9 +562,39 @@ if (require.main === module) {
             socket.destroy();
           });
       } else if (pathname === '/api/telegram-app/ws' && telegramWebSocketService.wss) {
-        telegramWebSocketService.wss.handleUpgrade(request, socket, head, ws => {
-          telegramWebSocketService.wss.emit('connection', ws, request);
-        });
+        // SEC: Verify JWT before allowing Telegram WebSocket upgrade
+        const { verifyToken: verifyTgToken } = require('./utils/jwt');
+        const tgUrl = new URL(request.url, `http://${request.headers.host}`);
+        const tgTokenFromQuery = tgUrl.searchParams.get('token');
+        const tgAuthHeader = request.headers['authorization'];
+        const tgCookieHeader = request.headers['cookie'];
+        let tgToken = tgTokenFromQuery;
+        if (!tgToken && tgAuthHeader && tgAuthHeader.startsWith('Bearer ')) {
+          tgToken = tgAuthHeader.slice(7);
+        }
+        if (!tgToken && tgCookieHeader) {
+          const tgMatch = tgCookieHeader.match(/arasul_session=([^;]+)/);
+          if (tgMatch) {
+            tgToken = tgMatch[1];
+          }
+        }
+        if (!tgToken) {
+          logger.warn('Telegram WebSocket upgrade rejected: no auth token');
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+        verifyTgToken(tgToken)
+          .then(() => {
+            telegramWebSocketService.wss.handleUpgrade(request, socket, head, ws => {
+              telegramWebSocketService.wss.emit('connection', ws, request);
+            });
+          })
+          .catch(err => {
+            logger.warn(`Telegram WebSocket upgrade rejected: ${err.message}`);
+            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+            socket.destroy();
+          });
       } else {
         socket.destroy();
       }
@@ -629,6 +659,14 @@ if (require.main === module) {
         logger.info('Database cleanup completed', { report });
       } catch (err) {
         logger.warn(`Database cleanup failed (non-critical): ${err.message}`);
+      }
+      // Also clean up old n8n workflow activity records (7 day retention)
+      try {
+        const n8nLogger = require('./services/n8nLogger');
+        const deleted = await n8nLogger.cleanupOldRecords(7);
+        if (deleted > 0) {logger.info(`n8n workflow cleanup: ${deleted} old records removed`);}
+      } catch (err) {
+        logger.warn(`n8n workflow cleanup failed (non-critical): ${err.message}`);
       }
     };
     // Initial cleanup after 60s delay (let migrations finish)

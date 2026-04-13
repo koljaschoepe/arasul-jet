@@ -853,6 +853,14 @@ router.get(
       `attachment; filename="${encodeURIComponent(doc.filename)}"`
     );
 
+    dataStream.on('error', err => {
+      logger.error(`Document download stream error: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Download failed' });
+      } else {
+        res.destroy();
+      }
+    });
     dataStream.pipe(res);
   })
 );

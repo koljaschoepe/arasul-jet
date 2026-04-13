@@ -13,7 +13,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ForbiddenError } = require('../../utils/errors');
 
 // Base log directory
-const LOG_DIR = '/arasul/logs';
+const LOG_DIR = process.env.LOG_DIR || '/arasul/logs';
 
 // Available log files and their paths
 const LOG_FILES = {

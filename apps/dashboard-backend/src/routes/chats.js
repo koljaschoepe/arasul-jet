@@ -695,10 +695,12 @@ router.delete(
 
     // Cancel active jobs outside transaction (involves external abort operations)
     const activeJobs = await llmJobService.getActiveJobsForConversation(parseInt(id));
-    for (const job of activeJobs) {
-      await llmJobService.cancelJob(job.id);
-      logger.info(`Cancelled active job ${job.id} for deleted chat ${id}`);
-    }
+    await Promise.all(
+      activeJobs.map(async job => {
+        await llmJobService.cancelJob(job.id);
+        logger.info(`Cancelled active job ${job.id} for deleted chat ${id}`);
+      })
+    );
 
     res.json({
       success: true,

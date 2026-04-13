@@ -93,6 +93,16 @@ const DEFAULT_MAX_PER_HOUR = parseInt(process.env.TELEGRAM_RATE_LIMIT_PER_HOUR) 
 const rateLimitCache = new Map();
 const CACHE_TTL = 60000; // 1 minute cache TTL
 
+// Periodic eviction of expired cache entries to prevent memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitCache.entries()) {
+    if (entry.expiresAt <= now) {
+      rateLimitCache.delete(key);
+    }
+  }
+}, CACHE_TTL);
+
 // =============================================================================
 // Rate Limit Section
 // =============================================================================
@@ -327,6 +337,8 @@ async function getOrCreateSession(botId, chatId) {
  * @param {string} content - Message content
  * @returns {Promise<void>}
  */
+const MAX_SESSION_MESSAGES = 100;
+
 async function addMessageToSession(botId, chatId, role, content) {
   const tokens = estimateTokens(content);
 
@@ -336,13 +348,21 @@ async function addMessageToSession(botId, chatId, role, content) {
     timestamp: new Date().toISOString(),
   };
 
+  // Append new message and trim to last MAX_SESSION_MESSAGES entries to prevent unbounded growth
   await database.query(
     `UPDATE telegram_bot_sessions
-    SET messages = messages || $3::jsonb,
+    SET messages = (
+      SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+      FROM (
+        SELECT elem FROM jsonb_array_elements(messages || $3::jsonb) AS elem
+        ORDER BY elem->>'timestamp' ASC
+        OFFSET GREATEST(0, jsonb_array_length(messages || $3::jsonb) - $5)
+      ) sub
+    ),
         token_count = token_count + $4,
         updated_at = NOW()
     WHERE bot_id = $1 AND chat_id = $2`,
-    [botId, chatId, JSON.stringify(message), tokens]
+    [botId, chatId, JSON.stringify(message), tokens, MAX_SESSION_MESSAGES]
   );
 }
 

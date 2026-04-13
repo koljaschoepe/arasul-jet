@@ -30,7 +30,7 @@ RUN pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-ins
     pip3 install --no-cache-dir --index-url https://pypi.org/simple --ignore-installed blinker \
     flask==3.0.0 numpy==1.26.3 transformers==4.44.2 einops==0.7.0 "protobuf>=3.20" \
     tqdm scikit-learn scipy nltk sentencepiece huggingface-hub Pillow safetensors \
-    flashrank==0.2.5
+    flashrank==0.2.5 gunicorn==22.0.0
 
 # Copy shared logging module
 COPY libs/shared-python/structured_logging.py ./
@@ -52,5 +52,8 @@ EXPOSE 11435
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:11435/health || exit 1
 
-# Start the embedding service
-CMD ["python3", "-u", "embedding_server.py"]
+# Start the embedding service with gunicorn (production WSGI server)
+# --preload: load model once in master, workers share via fork (saves GPU memory)
+# -w 2: 2 workers for concurrency
+# --timeout 300: long timeout for large document embeddings
+CMD ["gunicorn", "--bind", "0.0.0.0:11435", "--workers", "2", "--timeout", "300", "--preload", "wsgi:app"]

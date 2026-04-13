@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 
+MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_LOG_BACKUPS = 3
+
+
 class SelfHealingLogger:
     """Logger for self-healing events with structured JSON output"""
 
@@ -58,10 +62,35 @@ class SelfHealingLogger:
             event.update(metadata)
 
         try:
+            self._rotate_if_needed()
             with open(self.log_file, 'a') as f:
                 f.write(json.dumps(event) + '\n')
         except Exception as e:
             self.console_logger.error(f"Failed to write to log file: {e}")
+
+    def _rotate_if_needed(self):
+        """Rotate log file if it exceeds MAX_LOG_SIZE"""
+        try:
+            if not self.log_file.exists():
+                return
+            if self.log_file.stat().st_size < MAX_LOG_SIZE:
+                return
+
+            # Rotate: .log.3 -> delete, .log.2 -> .log.3, .log.1 -> .log.2, .log -> .log.1
+            for i in range(MAX_LOG_BACKUPS, 0, -1):
+                src = self.log_dir / f"self_healing.log.{i}"
+                if i == MAX_LOG_BACKUPS:
+                    if src.exists():
+                        src.unlink()
+                else:
+                    dst = self.log_dir / f"self_healing.log.{i + 1}"
+                    if src.exists():
+                        src.rename(dst)
+
+            self.log_file.rename(self.log_dir / "self_healing.log.1")
+            self.console_logger.info("Log file rotated")
+        except Exception as e:
+            self.console_logger.warning(f"Log rotation failed: {e}")
 
     def info(self, event_type: str, description: str, **metadata):
         """Log INFO level event"""

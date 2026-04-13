@@ -8,3 +8,5 @@ einops==0.7.0
 protobuf>=3.20
 # Reranking support
 flashrank==0.2.5
+# Production WSGI server
+gunicorn==22.0.0

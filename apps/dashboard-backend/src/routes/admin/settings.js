@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { createUserRateLimiter } = require('../../middleware/rateLimit');
 const { verifyPassword, validatePasswordComplexity } = require('../../utils/password');
 const { changeDashboardPassword } = require('../../services/auth/passwordService');
@@ -101,6 +101,7 @@ async function restartService(serviceName) {
 router.post(
   '/password/dashboard',
   requireAuth,
+  requireAdmin,
   passwordChangeLimiter,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
@@ -152,6 +153,7 @@ router.post(
 router.post(
   '/password/minio',
   requireAuth,
+  requireAdmin,
   passwordChangeLimiter,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
@@ -218,6 +220,7 @@ router.post(
 router.post(
   '/password/n8n',
   requireAuth,
+  requireAdmin,
   passwordChangeLimiter,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
@@ -305,6 +308,7 @@ router.get(
 router.get(
   '/company-context',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const result = await db.query(`
         SELECT content, updated_at, updated_by
@@ -352,6 +356,7 @@ router.get(
 router.put(
   '/company-context',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { content } = req.body;
 

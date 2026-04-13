@@ -81,9 +81,32 @@ export default function useModelStatus(): ModelStatusData {
 
   useEffect(() => {
     fetchData();
-    pollRef.current = setInterval(fetchData, POLL_INTERVAL);
+
+    // Only poll when tab is visible to save resources on Jetson
+    const startPolling = () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchData();
+        }
+      }, POLL_INTERVAL);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData(); // Immediate refresh when tab becomes visible
+        startPolling();
+      } else {
+        if (pollRef.current) clearInterval(pollRef.current);
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchData]);
 

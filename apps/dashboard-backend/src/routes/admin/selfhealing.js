@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../database');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const axios = require('axios');
 const { asyncHandler } = require('../../middleware/errorHandler');
 
@@ -18,6 +18,7 @@ const boundOffset = val => Math.max(0, parseInt(val) || 0);
 router.get(
   '/events',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { limit = 20, offset = 0, severity = null, event_type = null, since = null } = req.query;
 
@@ -94,6 +95,7 @@ router.get(
 router.get(
   '/status',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     // Get heartbeat status from Self-Healing Agent
     let heartbeatStatus = {
@@ -213,6 +215,7 @@ router.get(
 router.get(
   '/recovery-actions',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { limit = 20, offset = 0 } = req.query;
 
@@ -244,6 +247,7 @@ router.get(
 router.get(
   '/service-failures',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { service_name = null, limit = 50, offset = 0 } = req.query;
 
@@ -288,6 +292,7 @@ router.get(
 router.get(
   '/reboot-history',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { limit = 10, offset = 0 } = req.query;
 
@@ -319,6 +324,7 @@ router.get(
 router.get(
   '/metrics',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     // Calculate uptime percentages per service (last 7 days)
     const uptimeQuery = `

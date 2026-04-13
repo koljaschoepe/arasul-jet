@@ -14,7 +14,7 @@ from io import BytesIO
 from typing import Dict, List, Optional, Any
 
 from document_parsers import (
-    parse_pdf, parse_docx, parse_txt, parse_markdown,
+    parse_pdf, parse_pdf_streaming, parse_docx, parse_txt, parse_markdown,
     parse_yaml_table, parse_image
 )
 from metadata_extractor import extract_metadata, extract_key_topics
@@ -30,9 +30,28 @@ from config import (
 logger = logging.getLogger(__name__)
 
 
+STREAMING_PDF_THRESHOLD = 50  # Use streaming parser for PDFs with more than 50 pages
+
+
+def parse_pdf_smart(file_obj):
+    """Use streaming parser for large PDFs (>50 pages) to reduce memory usage."""
+    import fitz
+    file_obj.seek(0)
+    pdf_bytes = file_obj.read()
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    page_count = len(doc)
+    doc.close()
+
+    file_obj.seek(0)
+    if page_count > STREAMING_PDF_THRESHOLD:
+        logger.info(f"Large PDF ({page_count} pages), using streaming parser")
+        return "\n\n".join(parse_pdf_streaming(file_obj))
+    return parse_pdf(file_obj)
+
+
 # File parsers registry
 PARSERS = {
-    '.pdf': parse_pdf,
+    '.pdf': parse_pdf_smart,
     '.txt': parse_txt,
     '.md': parse_markdown,
     '.markdown': parse_markdown,

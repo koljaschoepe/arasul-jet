@@ -108,34 +108,40 @@ async function batchDelete(ids) {
   let deleted = 0;
   const errors = [];
 
+  // Batch fetch all documents in one query
+  const docResult = await pool.query(
+    'SELECT id, file_path FROM documents WHERE id = ANY($1) AND deleted_at IS NULL',
+    [ids]
+  );
+  const docsById = new Map(docResult.rows.map(r => [r.id, r]));
+
   for (const id of ids) {
+    const doc = docsById.get(id);
+    if (!doc) {continue;}
+
     try {
-      const docResult = await pool.query(
-        'SELECT file_path FROM documents WHERE id = $1 AND deleted_at IS NULL',
-        [id]
-      );
-      if (docResult.rows.length === 0) {
-        continue;
-      }
-
-      const filePath = docResult.rows[0].file_path;
-
       // Delete from MinIO
-      if (filePath && minioService.isValidMinioPath(filePath)) {
-        await minioService.removeObject(filePath);
+      if (doc.file_path && minioService.isValidMinioPath(doc.file_path)) {
+        await minioService.removeObject(doc.file_path);
       }
 
       // Delete from Qdrant
       await qdrantService.deleteDocumentVectorsSimple(id);
 
-      // Soft delete in DB
-      await pool.query(
-        "UPDATE documents SET deleted_at = NOW(), status = 'deleted' WHERE id = $1",
-        [id]
-      );
       deleted++;
     } catch (err) {
       errors.push({ id, error: err.message });
+    }
+  }
+
+  // Batch soft delete in DB
+  if (deleted > 0 || docResult.rows.length > 0) {
+    const successIds = ids.filter(id => docsById.has(id) && !errors.some(e => e.id === id));
+    if (successIds.length > 0) {
+      await pool.query(
+        "UPDATE documents SET deleted_at = NOW(), status = 'deleted' WHERE id = ANY($1)",
+        [successIds]
+      );
     }
   }
 
@@ -205,7 +211,9 @@ async function batchMove(ids, newSpaceId) {
 
   // Update space statistics for old and new spaces (non-critical)
   const spaceIdsToUpdate = new Set(oldSpaceIds.rows.map(r => r.space_id));
-  if (newSpaceId) {spaceIdsToUpdate.add(newSpaceId);}
+  if (newSpaceId) {
+    spaceIdsToUpdate.add(newSpaceId);
+  }
   for (const sid of spaceIdsToUpdate) {
     await updateSpaceStatistics(sid);
   }
@@ -281,19 +289,18 @@ async function cleanupOrphaned(dryRun) {
       }
     }
 
-    // Mark orphaned DB records as failed
-    for (const orphan of orphanedInDb) {
+    // Mark orphaned DB records as failed (batch update)
+    if (orphanedInDb.length > 0) {
+      const orphanIds = orphanedInDb.map(o => o.id);
       try {
-        await pool.query(
-          `UPDATE documents SET status = 'failed', error_message = 'Datei in MinIO nicht gefunden (Bereinigung)' WHERE id = $1`,
-          [orphan.id]
+        const updateResult = await pool.query(
+          `UPDATE documents SET status = 'failed', error_message = 'Datei in MinIO nicht gefunden (Bereinigung)' WHERE id = ANY($1)`,
+          [orphanIds]
         );
-        markedInDb++;
-        logger.info(
-          `Cleanup: Marked orphaned DB record as failed: ${orphan.id} (${orphan.filename})`
-        );
+        markedInDb = updateResult.rowCount;
+        logger.info(`Cleanup: Marked ${markedInDb} orphaned DB records as failed`);
       } catch (err) {
-        logger.warn(`Cleanup: Failed to update DB record ${orphan.id}: ${err.message}`);
+        logger.warn(`Cleanup: Failed to batch update orphaned records: ${err.message}`);
       }
     }
   }
@@ -445,7 +452,9 @@ async function getStorageInfo() {
  * @param {string|null} spaceId - Space ID to update
  */
 async function updateSpaceStatistics(spaceId) {
-  if (!spaceId) {return;}
+  if (!spaceId) {
+    return;
+  }
   try {
     await pool.query('SELECT update_space_statistics($1)', [spaceId]);
   } catch (e) {

@@ -53,6 +53,23 @@ _flashrank_ranker = None
 _cross_encoder = None
 _reranker_lock = threading.Lock()
 
+# GPU memory threshold (90% usage triggers warning, request still proceeds)
+GPU_MEM_WARN_THRESHOLD = 0.9
+
+
+def check_gpu_memory():
+    """Check GPU memory usage. Returns (used_pct, free_mb) or None if not on CUDA."""
+    if not torch.cuda.is_available():
+        return None
+    try:
+        allocated = torch.cuda.memory_allocated()
+        total = torch.cuda.get_device_properties(0).total_mem
+        free_mb = (total - allocated) / (1024 * 1024)
+        used_pct = allocated / total if total > 0 else 0
+        return (used_pct, free_mb)
+    except Exception:
+        return None
+
 
 def load_model():
     """Load the embedding model"""
@@ -189,6 +206,13 @@ def embed():
             'error': 'Model not loaded',
             'timestamp': time.time()
         }), 503
+
+    # Check GPU memory before processing
+    gpu_mem = check_gpu_memory()
+    if gpu_mem and gpu_mem[0] > GPU_MEM_WARN_THRESHOLD:
+        logger.warning(f"GPU memory high: {gpu_mem[0]*100:.1f}% used, {gpu_mem[1]:.0f}MB free")
+        # Clear CUDA cache to free up memory
+        torch.cuda.empty_cache()
 
     try:
         data = request.get_json()

@@ -6,7 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const db = require('../../database');
@@ -20,6 +20,7 @@ const logger = require('../../utils/logger');
 router.get(
   '/export',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
 
@@ -257,6 +258,7 @@ router.get(
 router.get(
   '/categories',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
 

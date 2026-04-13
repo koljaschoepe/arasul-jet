@@ -83,7 +83,7 @@ async function requireAuth(req, res, next) {
     let result;
     try {
       result = await db.query(
-        'SELECT id, username, email, is_active FROM admin_users WHERE id = $1',
+        'SELECT id, username, email, role, is_active FROM admin_users WHERE id = $1',
         [decoded.userId]
       );
     } catch (dbError) {
@@ -127,7 +127,9 @@ async function requireAuth(req, res, next) {
             oldestKey = key;
           }
         }
-        if (oldestKey) {userCache.delete(oldestKey);}
+        if (oldestKey) {
+          userCache.delete(oldestKey);
+        }
       }
     }
     userCache.set(decoded.userId, { user, expiresAt: Date.now() + USER_CACHE_TTL });
@@ -180,7 +182,7 @@ async function optionalAuth(req, res, next) {
   // Database errors should be logged as they indicate infrastructure issues
   try {
     const result = await db.query(
-      'SELECT id, username, email, is_active FROM admin_users WHERE id = $1',
+      'SELECT id, username, email, role, is_active FROM admin_users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -196,7 +198,31 @@ async function optionalAuth(req, res, next) {
   next();
 }
 
+/**
+ * Require admin role middleware
+ * Must be used AFTER requireAuth — checks that the authenticated user has admin role
+ */
+function requireAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Authentication required',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  if (req.user.role !== 'admin') {
+    logger.warn(`Non-admin access attempt by user ${req.user.username} (role: ${req.user.role})`);
+    return res.status(403).json({
+      error: 'Admin access required',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  next();
+}
+
 module.exports = {
   requireAuth,
+  requireAdmin,
   optionalAuth,
 };

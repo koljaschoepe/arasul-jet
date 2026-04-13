@@ -25,7 +25,9 @@ let lastRetryAt = 0;
 const RETRY_COOLDOWN_MS = 30000; // 30s between retry attempts
 
 const checkDataDbInitialized = async (req, res, next) => {
-  if (dataDb.isInitialized()) {return next();}
+  if (dataDb.isInitialized()) {
+    return next();
+  }
 
   // Attempt lazy re-initialization (max once per cooldown period)
   const now = Date.now();
@@ -96,19 +98,14 @@ router.get(
     // Get table count
     const tablesResult = await dataDb.query('SELECT COUNT(*)::int as count FROM dt_tables');
 
-    // Get total row count across all tables
-    const tableListResult = await dataDb.query('SELECT slug FROM dt_tables');
-    let totalRows = 0;
-    for (const table of tableListResult.rows) {
-      try {
-        const rowCountResult = await dataDb.query(
-          `SELECT COUNT(*)::int as count FROM ${escapeTableName(table.slug)}`
-        );
-        totalRows += rowCountResult.rows[0].count;
-      } catch (err) {
-        // Table might not exist yet
-      }
-    }
+    // Get estimated total row count across all tables (using pg_class for O(1) lookup)
+    const totalRowsResult = await dataDb.query(`
+      SELECT COALESCE(SUM(c.reltuples::bigint), 0)::int as total_rows
+      FROM dt_tables t
+      JOIN pg_class c ON c.relname = t.slug
+      WHERE c.reltuples >= 0
+    `);
+    const totalRows = totalRowsResult.rows[0]?.total_rows || 0;
 
     // Get quote stats
     const quoteStatsResult = await dataDb.query(`

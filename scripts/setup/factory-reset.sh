@@ -70,9 +70,25 @@ for volume in "${VOLUME_PREFIX}_arasul-llm-models" "${VOLUME_PREFIX}_arasul-embe
 done
 
 if [ "$MODELS_SAVED" = true ]; then
-  echo -e "  ${GREEN}Modelle gesichert nach $BACKUP_DIR${NC}"
+  # Verify backup files exist and have non-zero size
+  BACKUP_VALID=true
+  for tarfile in "$BACKUP_DIR"/*.tar; do
+    [ -f "$tarfile" ] || continue
+    if [ ! -s "$tarfile" ]; then
+      echo -e "  ${RED}FEHLER: Backup-Datei ist leer: $tarfile${NC}"
+      BACKUP_VALID=false
+    fi
+  done
+
+  if [ "$BACKUP_VALID" = true ]; then
+    echo -e "  ${GREEN}Modelle gesichert und verifiziert in $BACKUP_DIR${NC}"
+  else
+    echo -e "  ${RED}FEHLER: Modell-Backup unvollstaendig. Abbruch zum Schutz der Daten.${NC}"
+    rm -rf "$BACKUP_DIR"
+    exit 1
+  fi
 else
-  echo -e "  ${YELLOW}Keine Modell-Volumes gefunden${NC}"
+  echo -e "  ${YELLOW}Keine Modell-Volumes gefunden (kein Backup noetig)${NC}"
 fi
 
 # Step 2: Stop and remove everything

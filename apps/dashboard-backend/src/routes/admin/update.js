@@ -10,7 +10,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const db = require('../../database');
 const logger = require('../../utils/logger');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const updateService = require('../../services/app/updateService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
@@ -54,6 +54,7 @@ const upload = multer({
 router.post(
   '/upload',
   requireAuth,
+  requireAdmin,
   upload.fields([
     { name: 'file', maxCount: 1 },
     { name: 'signature', maxCount: 1 },
@@ -133,6 +134,7 @@ router.post(
 router.post(
   '/apply',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { file_path: rawFilePath } = req.body;
 
@@ -217,6 +219,7 @@ router.post(
 router.get(
   '/status',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const state = await updateService.getUpdateState();
 
@@ -239,6 +242,7 @@ router.get(
 router.get(
   '/history',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const result = await db.query('SELECT * FROM update_events ORDER BY timestamp DESC LIMIT 10');
 
@@ -253,6 +257,7 @@ router.get(
 router.get(
   '/usb-devices',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const devices = await updateService.scanUsbDevices();
 
@@ -268,6 +273,7 @@ router.get(
 router.post(
   '/install-from-usb',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { file_path } = req.body;
 
@@ -347,6 +353,7 @@ router.post(
 router.get(
   '/check',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const result = await updateService.checkForUpdates();
 
@@ -361,6 +368,7 @@ router.get(
 router.post(
   '/download',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { downloadUrl, version } = req.body;
 

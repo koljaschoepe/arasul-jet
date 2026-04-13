@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const db = require('../../database');
 const { asyncHandler } = require('../../middleware/errorHandler');
 
@@ -31,6 +31,7 @@ const MAX_LIMIT = 500;
 router.get(
   '/logs',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     // Parse pagination
     let limit = parseInt(req.query.limit) || DEFAULT_LIMIT;
@@ -166,6 +167,7 @@ router.get(
 router.get(
   '/stats/daily',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     let days = parseInt(req.query.days) || 30;
     days = Math.min(Math.max(1, days), 90);
@@ -208,6 +210,7 @@ router.get(
 router.get(
   '/stats/endpoints',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     let days = parseInt(req.query.days) || 7;
     let limit = parseInt(req.query.limit) || 20;
