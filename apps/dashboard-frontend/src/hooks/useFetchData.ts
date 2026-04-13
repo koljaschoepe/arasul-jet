@@ -47,6 +47,10 @@ export function useFetchData<T>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Track whether initial load has completed — subsequent refetches are silent
+  // (no loading=true) to prevent re-render cascades during background polling.
+  const hasLoadedRef = useRef(false);
+
   // Keep a ref to the fetcher so the useEffect doesn't re-run on every render
   // when the consumer forgets to memoize. The caller controls re-fetching via
   // deps on their useCallback around `fetcher`.
@@ -56,11 +60,15 @@ export function useFetchData<T>(
   const load = useCallback(
     async (signal: AbortSignal) => {
       try {
-        setLoading(true);
+        // Only show loading spinner on initial fetch, not background refetches
+        if (!hasLoadedRef.current) {
+          setLoading(true);
+        }
         const result = await fetcherRef.current(signal);
         if (!signal.aborted) {
           setData(result);
           setError(null);
+          hasLoadedRef.current = true;
         }
       } catch (err: unknown) {
         if (signal.aborted) return;

@@ -9,7 +9,7 @@
   left: var(--sidebar-width, 260px);
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--backdrop-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -38,7 +38,7 @@ body.sidebar-collapsed .excel-editor-overlay {
 
 /* Light mode */
 .light-mode .excel-editor-overlay {
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--backdrop-color);
 }
 
 .light-mode .excel-editor-container {

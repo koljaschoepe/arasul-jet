@@ -13,7 +13,7 @@
   left: var(--sidebar-width, 260px);
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--backdrop-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -305,7 +305,7 @@ body.sidebar-collapsed .tiptap-editor-overlay {
 .tiptap-content pre .hljs-built_in,
 .tiptap-content pre .hljs-name,
 .tiptap-content pre .hljs-tag {
-  color: #ff7b72;
+  color: var(--code-keyword);
 }
 
 .tiptap-content pre .hljs-string,
@@ -317,14 +317,14 @@ body.sidebar-collapsed .tiptap-editor-overlay {
 .tiptap-content pre .hljs-template-variable,
 .tiptap-content pre .hljs-type,
 .tiptap-content pre .hljs-addition {
-  color: #a5d6ff;
+  color: var(--code-string);
 }
 
 .tiptap-content pre .hljs-comment,
 .tiptap-content pre .hljs-quote,
 .tiptap-content pre .hljs-deletion,
 .tiptap-content pre .hljs-meta {
-  color: #8b949e;
+  color: var(--code-comment);
 }
 
 .tiptap-content pre .hljs-number,
@@ -332,16 +332,16 @@ body.sidebar-collapsed .tiptap-editor-overlay {
 .tiptap-content pre .hljs-literal,
 .tiptap-content pre .hljs-bullet,
 .tiptap-content pre .hljs-link {
-  color: #79c0ff;
+  color: var(--code-number);
 }
 
 .tiptap-content pre .hljs-variable,
 .tiptap-content pre .hljs-params {
-  color: #ffa657;
+  color: var(--code-variable);
 }
 
 .tiptap-content pre .hljs-symbol {
-  color: #7ee787;
+  color: var(--code-symbol);
 }
 
 .tiptap-content pre .hljs-emphasis {
@@ -709,7 +709,7 @@ body.sidebar-collapsed .tiptap-editor-overlay {
    ======================================== */
 
 .light-mode .tiptap-editor-overlay {
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--backdrop-color);
 }
 
 .light-mode .tiptap-editor-container {

@@ -1,10 +1,25 @@
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
+/**
+ * Remove 'crossorigin' from <script> and <link> tags in built HTML.
+ * Self-signed TLS certificates + crossorigin attribute = Chrome silently
+ * blocks module scripts (CORS mode + untrusted cert).
+ */
+function removeCrossOrigin(): Plugin {
+  return {
+    name: 'remove-crossorigin',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      return html.replace(/ crossorigin/g, '');
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [tailwindcss(), react()],
+  plugins: [tailwindcss(), react(), removeCrossOrigin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -26,18 +41,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('react-dom') || id.includes('react/')) return 'react-vendor';
-          if (id.includes('recharts') || id.includes('d3-')) return 'charts-vendor';
-          if (id.includes('@tiptap') || id.includes('prosemirror')) return 'editor-vendor';
-          if (id.includes('lucide-react')) return 'icons-vendor';
-          if (id.includes('@radix-ui')) return 'ui-vendor';
-          if (id.includes('node_modules')) return 'vendor';
-        },
-      },
-    },
+    // No manualChunks — Vite's automatic splitting avoids circular
+    // dependency TDZ errors that manual splitting caused.
   },
   test: {
     globals: true,

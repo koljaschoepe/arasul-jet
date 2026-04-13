@@ -141,6 +141,14 @@
   --input: #2a3544;
   --ring: #45ADFF;
 
+  /* Syntax Highlighting */
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-comment: #8b949e;
+  --code-number: #79c0ff;
+  --code-variable: #ffa657;
+  --code-symbol: #7ee787;
+
   /* Sidebar widths */
   --sidebar-width: 260px;
   --sidebar-width-collapsed: 72px;
@@ -368,6 +376,14 @@
   --border: #E2E8F0;
   --input: #E2E8F0;
   --ring: #45ADFF;
+
+  /* Syntax Highlighting — Light */
+  --code-keyword: #cf222e;
+  --code-string: #0a3069;
+  --code-comment: #6e7781;
+  --code-number: #0550ae;
+  --code-variable: #953800;
+  --code-symbol: #116329;
 
   /* Hintergründe - Hell/Weiß */
   --bg-dark: #FFFFFF;

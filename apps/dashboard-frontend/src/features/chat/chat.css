@@ -154,6 +154,11 @@
   50% { opacity: 0.3; }
 }
 
+@keyframes chipSlideIn {
+  from { opacity: 0; transform: translateX(-8px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
 /* --- Scrollbar Styling --- */
 .chat-messages::-webkit-scrollbar { width: 6px; }
 .chat-messages::-webkit-scrollbar-track { background: transparent; }

@@ -289,7 +289,7 @@ CPU_LIMIT_N8N=4
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=gemma4:31b-q8
+LLM_MODEL=gemma4:31b-q4
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=900
@@ -300,7 +300,7 @@ EMBEDDING_USE_FP16=false
 EMBEDDING_MAX_BATCH_SIZE=200
 
 # Recommended Models (in order of capability)
-RECOMMENDED_MODELS="gemma4:31b-q8,gemma4:26b-q4,qwen3:32b-q8,llama3.1:70b-q4,codellama:70b,mixtral:8x7b"
+RECOMMENDED_MODELS="gemma4:31b-q4,gemma4:26b-q4,qwen3:32b-q4,llama3.1:70b-q4,codellama:70b,mixtral:8x7b"
 EOF
             ;;
 
@@ -430,7 +430,7 @@ CPU_LIMIT_N8N=2
 CPU_LIMIT_DASHBOARD=4
 
 # LLM Configuration
-LLM_MODEL=gemma4:e4b-q8
+LLM_MODEL=gemma4:e4b-q4
 LLM_CONTEXT_LENGTH=131072
 LLM_GPU_LAYERS=99
 LLM_KEEP_ALIVE_SECONDS=300
@@ -441,7 +441,7 @@ EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=50
 
 # Recommended Models
-RECOMMENDED_MODELS="gemma4:e4b-q8,gemma4:e4b-q4,qwen3:8b-q8,llama3.1:8b,mistral:7b"
+RECOMMENDED_MODELS="gemma4:e4b-q4,qwen3:7b-q8,llama3.1:8b,mistral:7b"
 EOF
             ;;
 
@@ -486,7 +486,7 @@ EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=25
 
 # Recommended Models
-RECOMMENDED_MODELS="gemma4:e4b-q4,gemma4:e2b-q8,llama3.1:8b,mistral:7b,phi3:mini"
+RECOMMENDED_MODELS="gemma4:e4b-q4,llama3.1:8b,mistral:7b,phi3:mini"
 EOF
             ;;
 
@@ -716,7 +716,7 @@ EMBEDDING_USE_FP16=true
 EMBEDDING_MAX_BATCH_SIZE=20
 
 # Recommended Models
-RECOMMENDED_MODELS="gemma4:e4b-q4,gemma4:e2b-q4,mistral:7b,phi3:mini"
+RECOMMENDED_MODELS="gemma4:e4b-q4,mistral:7b,phi3:mini"
 EOF
             ;;
     esac
@@ -823,10 +823,10 @@ show_recommendations() {
 
     case "$profile" in
         "thor_128gb")
-            echo -e "${GREEN}Maximum Performance (Standard: gemma4:31b-q8):${NC}"
-            echo "  - gemma4:31b-q8     (36GB) - Standard - Multimodal, Thinking, Near-Lossless"
+            echo -e "${GREEN}Maximum Performance (Standard: gemma4:31b-q4):${NC}"
+            echo "  - gemma4:31b-q4     (22GB) - Standard - Multimodal, Thinking, Vision"
             echo "  - gemma4:26b-q4     (20GB) - MoE, Vision, schnelle Inferenz"
-            echo "  - qwen3:32b-q8      (32GB) - Beste Text-Qualitaet (ohne Vision)"
+            echo "  - qwen3:32b-q4      (24GB) - Beste Text-Qualitaet (ohne Vision)"
             echo "  - llama3.1:70b-q4   (40GB) - Maximale Faehigkeit"
             echo ""
             echo -e "${YELLOW}Auch unterstuetzt:${NC}"
@@ -854,20 +854,17 @@ show_recommendations() {
             echo "  - codellama:34b     (19GB) - Best fuer Coding"
             ;;
         "agx_orin_32gb"|"xavier_agx"*)
-            echo -e "${GREEN}Empfohlen (Standard: gemma4:e4b-q8/q4):${NC}"
-            echo "  - gemma4:e4b-q8     (12GB) - Standard (32GB) - Vision+Audio, RAG"
-            echo "  - gemma4:e4b-q4     (10GB) - Standard (Xavier) - Vision+Audio"
-            echo "  - qwen3:8b-q8       (8GB)  - Gute Balance (ohne Vision)"
+            echo -e "${GREEN}Empfohlen (Standard: gemma4:e4b-q4):${NC}"
+            echo "  - gemma4:e4b-q4     (10GB) - Standard - Vision+Audio, RAG"
+            echo "  - qwen3:7b-q8       (8GB)  - Gute Balance (ohne Vision)"
+            echo "  - llama3.1:8b       (5GB)  - Schnell & faehig"
             echo ""
             echo -e "${YELLOW}Auch unterstuetzt:${NC}"
-            echo "  - gemma4:e2b-q4     (7GB)  - Ultra-leicht, Vision+Audio"
-            echo "  - llama3.1:8b       (5GB)  - Schnell & faehig"
             echo "  - mistral:7b        (4GB)  - Effizient"
             ;;
         "orin_nx_16gb")
             echo -e "${GREEN}Empfohlen (Standard: gemma4:e4b-q4):${NC}"
             echo "  - gemma4:e4b-q4     (10GB) - Standard - Vision+Audio, RAG"
-            echo "  - gemma4:e2b-q8     (10GB) - Hoehere Praezision"
             echo "  - llama3.1:8b       (5GB)  - Schnelle Alternative"
             echo ""
             echo -e "${YELLOW}Auch unterstuetzt:${NC}"
@@ -886,7 +883,7 @@ show_recommendations() {
         *)
             echo -e "${YELLOW}Fuer Ihr Geraet empfohlen:${NC}"
             echo "  - gemma4:e4b-q4     (10GB) - Standard - Vision+Audio"
-            echo "  - gemma4:e2b-q4     (7GB)  - Leichtgewichtig, Vision+Audio"
+            echo "  - mistral:7b        (4GB)  - Effizient"
             echo "  - phi3:mini         (2GB)  - Sehr effizient"
             ;;
     esac
