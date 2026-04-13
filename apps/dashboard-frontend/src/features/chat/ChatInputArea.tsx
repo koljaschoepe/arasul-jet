@@ -11,6 +11,7 @@ import {
   Paperclip,
   FileText,
   ImageIcon,
+  RotateCcw,
 } from 'lucide-react';
 import { useChatContext, type ChatMessage, type ChatSettings } from '../../contexts/ChatContext';
 import { useApi } from '../../hooks/useApi';
@@ -64,9 +65,12 @@ function ChatInputArea({
   const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const modelPopupRef = useRef<HTMLDivElement>(null);
   const ragPopupRef = useRef<HTMLDivElement>(null);
+  // Store last send params for retry on error
+  const lastSendRef = useRef<{ msg: string; options: Parameters<typeof sendMessage>[2] } | null>(
+    null
+  );
 
   const isStreaming = !!activeJobIds[chatId];
 
@@ -142,16 +146,6 @@ function ChatInputArea({
     inputRef.current?.focus();
   }, []);
 
-  const handleFileInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) handleFileSelect(file);
-      // Reset so same file can be re-selected
-      e.target.value = '';
-    },
-    [handleFileSelect]
-  );
-
   const handleRemoveFile = useCallback(() => {
     setAttachedFile(null);
     inputRef.current?.focus();
@@ -181,14 +175,6 @@ function ChatInputArea({
       inputRef.current?.focus();
     },
     [attachedImages.length]
-  );
-
-  const handleImageInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) handleImageSelect(e.target.files);
-      e.target.value = '';
-    },
-    [handleImageSelect]
   );
 
   const handleRemoveImage = useCallback((index: number) => {
@@ -233,6 +219,38 @@ function ChatInputArea({
     [handleFileSelect, handleImageSelect, supportsVision]
   );
 
+  const handleUnifiedFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      const imageFiles: File[] = [];
+      let docFile: File | null = null;
+
+      for (const file of Array.from(files)) {
+        if (file.type.startsWith('image/') && supportsVision) {
+          imageFiles.push(file);
+        } else if (!docFile) {
+          docFile = file;
+        }
+      }
+
+      if (imageFiles.length > 0) handleImageSelect(imageFiles);
+      if (docFile) handleFileSelect(docFile);
+
+      e.target.value = '';
+    },
+    [supportsVision, handleImageSelect, handleFileSelect]
+  );
+
+  const handleRemoveAll = useCallback(() => {
+    setAttachedFile(null);
+    setAttachedImages([]);
+    inputRef.current?.focus();
+  }, []);
+
+  const hasAttachments = !!attachedFile || attachedImages.length > 0;
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -257,7 +275,7 @@ function ChatInputArea({
     setAttachedImages([]);
     if (inputRef.current) inputRef.current.style.height = 'auto';
 
-    sendMessage(chatId, msg, {
+    const options = {
       useRAG: file ? false : useRAG, // file upload uses its own pipeline
       useThinking,
       selectedSpaces: selectedSpaceId ? [selectedSpaceId] : [],
@@ -266,7 +284,9 @@ function ChatInputArea({
       model: selectedModel || undefined,
       file: file || undefined,
       images: imageBase64s.length > 0 ? imageBase64s : undefined,
-    });
+    };
+    lastSendRef.current = { msg, options };
+    sendMessage(chatId, msg, options);
   }, [
     input,
     attachedFile,
@@ -281,6 +301,13 @@ function ChatInputArea({
     messagesRef,
     selectedModel,
   ]);
+
+  const handleRetry = useCallback(() => {
+    if (!lastSendRef.current || isLoading || disabled) return;
+    const { msg, options } = lastSendRef.current;
+    onClearError();
+    sendMessage(chatId, msg, { ...options, messages: messagesRef?.current || [] });
+  }, [chatId, sendMessage, isLoading, disabled, onClearError, messagesRef]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -361,6 +388,17 @@ function ChatInputArea({
         >
           <AlertCircle className="shrink-0 size-[18px] text-destructive" aria-hidden="true" />
           <span className="flex-1">{error}</span>
+          {lastSendRef.current && (
+            <button
+              type="button"
+              className="bg-transparent border-none text-muted-foreground cursor-pointer p-1.5 rounded flex items-center gap-1 text-xs hover:bg-primary/10 hover:text-primary whitespace-nowrap"
+              onClick={handleRetry}
+              aria-label="Erneut versuchen"
+            >
+              <RotateCcw className="size-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Erneut versuchen</span>
+            </button>
+          )}
           <button
             type="button"
             className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 rounded flex hover:bg-destructive/20 hover:text-destructive"
@@ -388,7 +426,7 @@ function ChatInputArea({
         </div>
       )}
 
-      <div className="chat-input-card w-full max-w-[960px] bg-card border border-border rounded-xl overflow-visible transition-all duration-200 relative focus-within:border-foreground/25">
+      <div className="chat-input-card w-full max-w-[960px] bg-card border border-white/[0.04] rounded-xl overflow-visible transition-all duration-200 relative focus-within:border-foreground/25">
         <div
           className="chat-toolbar flex items-center gap-2 py-2 px-4 border-b border-border bg-background rounded-t-xl"
           role="toolbar"
@@ -442,7 +480,7 @@ function ChatInputArea({
             </button>
             {showRAGPopup && spaces.length > 0 && (
               <div
-                className="toolbar-popup rag-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card border border-border rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
+                className="toolbar-popup rag-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
                 role="listbox"
                 aria-label="RAG-Bereich auswählen"
               >
@@ -534,7 +572,7 @@ function ChatInputArea({
                 </button>
                 {showModelPopup && (
                   <div
-                    className="toolbar-popup model-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card border border-border rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
+                    className="toolbar-popup model-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
                     role="listbox"
                     aria-label="Modell auswählen"
                   >
@@ -591,6 +629,48 @@ function ChatInputArea({
             </>
           )}
 
+          <div className="chat-toolbar-divider w-px h-6 bg-border shrink-0" />
+
+          <button
+            type="button"
+            className={cn(
+              'chat-toolbar-btn inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 hover:bg-primary/5 hover:text-foreground',
+              hasAttachments && 'active bg-primary/15 text-primary border-primary/20'
+            )}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || isStreaming}
+            aria-label="Datei oder Bild anhängen"
+          >
+            <Paperclip className="size-4 shrink-0" aria-hidden="true" />
+            <span className="toolbar-btn-label uppercase tracking-wide text-xs">Anhang</span>
+          </button>
+
+          {hasAttachments && (
+            <div className="inline-flex items-center gap-1.5 py-1 px-2.5 bg-primary/10 text-primary rounded-md text-xs font-medium animate-[chipSlideIn_200ms_ease-out] max-w-[160px]">
+              {attachedFile ? (
+                <>
+                  <FileText className="size-3 shrink-0" />
+                  <span className="truncate">{attachedFile.name}</span>
+                </>
+              ) : (
+                <>
+                  <ImageIcon className="size-3 shrink-0" />
+                  <span>
+                    {attachedImages.length} Bild{attachedImages.length > 1 ? 'er' : ''}
+                  </span>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={handleRemoveAll}
+                className="flex items-center justify-center size-4 rounded-full bg-transparent text-primary/60 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer border-none p-0"
+                aria-label="Anhang entfernen"
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          )}
+
           <div className="flex-1" />
 
           {queuePosition > 0 && (
@@ -606,23 +686,13 @@ function ChatInputArea({
           )}
         </div>
 
-        {/* Hidden file input */}
+        {/* Unified hidden file/image input */}
         <input
           ref={fileInputRef}
           type="file"
-          accept={ALLOWED_FILE_TYPES}
-          onChange={handleFileInputChange}
-          className="hidden"
-          aria-hidden="true"
-        />
-
-        {/* Hidden image input for vision models */}
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          multiple
-          onChange={handleImageInputChange}
+          accept={supportsVision ? `${ALLOWED_FILE_TYPES},.webp,.gif` : ALLOWED_FILE_TYPES}
+          multiple={supportsVision}
+          onChange={handleUnifiedFileChange}
           className="hidden"
           aria-hidden="true"
         />
@@ -649,9 +719,9 @@ function ChatInputArea({
             {attachedImages.length < 5 && (
               <button
                 type="button"
-                onClick={() => imageInputRef.current?.click()}
+                onClick={() => fileInputRef.current?.click()}
                 className="size-20 rounded-lg border-2 border-dashed border-border bg-transparent text-muted-foreground cursor-pointer flex items-center justify-center hover:border-primary/40 hover:text-primary transition-colors"
-                aria-label="Weiteres Bild hinzufuegen"
+                aria-label="Weiteres Bild hinzufügen"
               >
                 <span className="text-xl">+</span>
               </button>
@@ -683,38 +753,6 @@ function ChatInputArea({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {/* Vision image button — only visible when model supports vision */}
-          {supportsVision && (
-            <button
-              type="button"
-              className={cn(
-                'size-10 min-w-[40px] bg-transparent border-none rounded-full text-muted-foreground cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-accent hover:text-foreground',
-                attachedImages.length > 0 && 'text-primary'
-              )}
-              onClick={() => imageInputRef.current?.click()}
-              disabled={disabled || isStreaming || attachedImages.length >= 5}
-              title={`Bild anhängen (${attachedImages.length}/5)`}
-              aria-label="Bild für Vision-Modell anhängen"
-            >
-              <ImageIcon className="size-5" />
-            </button>
-          )}
-
-          {/* Paperclip button */}
-          <button
-            type="button"
-            className={cn(
-              'size-10 min-w-[40px] bg-transparent border-none rounded-full text-muted-foreground cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-accent hover:text-foreground',
-              attachedFile && 'text-primary'
-            )}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || isStreaming}
-            title="Datei anhängen"
-            aria-label="Datei anhängen"
-          >
-            <Paperclip className="size-5" />
-          </button>
-
           <textarea
             ref={inputRef}
             className="flex-1 bg-transparent border-none py-2 px-1 text-foreground text-[1.05rem] font-[inherit] leading-relaxed min-w-0 min-h-[40px] max-h-[200px] resize-none overflow-y-auto focus:outline-none placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
