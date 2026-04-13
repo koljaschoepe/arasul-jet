@@ -171,7 +171,7 @@ router.post(
     const conn = trackConnection(res);
 
     // Send initial event
-    conn.write(
+    res.write(
       `data: ${JSON.stringify({
         type: 'job_started',
         jobId,
@@ -191,10 +191,10 @@ router.post(
         return;
       }
       try {
-        conn.write(`data: ${JSON.stringify(event)}\n\n`);
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
         if (event.done) {
           unsubscribe();
-          conn.end();
+          res.end();
         }
       } catch {
         unsubscribe();

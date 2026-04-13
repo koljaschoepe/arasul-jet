@@ -12,9 +12,9 @@ set -o pipefail
 TIMEOUT=5
 MAX_RESPONSE_TIME_MS=5000  # 5 seconds max for minimal prompt (cold start tolerance)
 MIN_RESPONSE_TIME_MS=0      # No minimum - fast responses are fine
-OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
+OLLAMA_HOST="${OLLAMA_BASE_URL:-${OLLAMA_HOST:-http://localhost:11434}}"
 TEST_PROMPT="Hello"
-TEST_MODEL="${DEFAULT_MODEL:-qwen3:14b-q8}"
+TEST_MODEL="${LLM_MODEL:-${DEFAULT_MODEL:-gemma4:26b-q4}}"
 
 # Colors for output
 RED='\033[0;31m'

@@ -182,8 +182,8 @@ async function getRecommendedModel() {
   // Profile → default model mapping (mirrors detect-jetson.sh)
   const PROFILE_MODELS = {
     thor_128gb: {
-      model: 'gemma4:31b-q8',
-      models: ['gemma4:31b-q8', 'gemma4:26b-q4', 'qwen3:32b-q8'],
+      model: 'gemma4:31b-q4',
+      models: ['gemma4:31b-q4', 'gemma4:26b-q4', 'qwen3:32b-q8'],
     },
     thor_64gb: {
       model: 'gemma4:31b-q4',
@@ -194,12 +194,12 @@ async function getRecommendedModel() {
       models: ['gemma4:26b-q4', 'gemma4:31b-q4', 'qwen3:14b-q8'],
     },
     agx_orin_32gb: {
-      model: 'gemma4:e4b-q8',
-      models: ['gemma4:e4b-q8', 'gemma4:e4b-q4', 'qwen3:8b-q8'],
+      model: 'gemma4:e4b-q4',
+      models: ['gemma4:e4b-q4', 'gemma4:26b-q4', 'qwen3:8b-q8'],
     },
     orin_nx_16gb: {
       model: 'gemma4:e4b-q4',
-      models: ['gemma4:e4b-q4', 'gemma4:e2b-q8', 'llama3.1:8b'],
+      models: ['gemma4:e4b-q4', 'llama3.1:8b', 'mistral:7b'],
     },
     xavier_agx: { model: 'gemma4:e4b-q4', models: ['gemma4:e4b-q4', 'llama3.1:8b', 'mistral:7b'] },
     xavier_nx_8gb: { model: 'phi3:mini', models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'] },
@@ -207,7 +207,7 @@ async function getRecommendedModel() {
     minimal_4gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b', 'qwen:0.5b'] },
     nano_4gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b', 'qwen:0.5b'] },
     nano_2gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b'] },
-    generic: { model: 'gemma4:e4b-q4', models: ['gemma4:e4b-q4', 'gemma4:e2b-q4', 'mistral:7b'] },
+    generic: { model: 'gemma4:e4b-q4', models: ['gemma4:e4b-q4', 'gemma4:26b-q4', 'mistral:7b'] },
   };
 
   // 1. Try JETSON_PROFILE env var (set by setup scripts)
