@@ -311,8 +311,16 @@ async function recreateAppWithConfig(appId, asyncMode = false) {
 
   // If async mode, start the recreation in background and return immediately
   if (asyncMode) {
-    _doRecreateContainer(appId, manifest, configOverrides).catch(err => {
+    _doRecreateContainer(appId, manifest, configOverrides).catch(async err => {
       logger.error(`Background recreate failed for ${appId}: ${err.message}`);
+      try {
+        await db.query(
+          'UPDATE app_installations SET status = $1, last_error = $2 WHERE app_id = $3',
+          ['error', err.message, appId]
+        );
+      } catch (dbErr) {
+        logger.error(`Failed to update error status for ${appId}: ${dbErr.message}`);
+      }
     });
     return {
       success: true,

@@ -142,7 +142,7 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const tail = parseInt(req.query.tail) || 100;
+    const tail = Math.min(Math.max(parseInt(req.query.tail) || 100, 1), 10000);
 
     const logs = await appService.getAppLogs(id, tail);
 
@@ -163,7 +163,7 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 1000);
 
     const events = await appService.getAppEvents(id, limit);
 
@@ -186,6 +186,10 @@ router.post(
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const config = req.body.config || {};
+
+    if (Array.isArray(config) || typeof config !== 'object') {
+      throw new ValidationError('config muss ein Objekt sein');
+    }
 
     logger.info(`User ${req.user.username} installing app ${id}`);
 
@@ -279,7 +283,7 @@ router.post(
     const { applyConfig, async: asyncMode } = req.body || {};
 
     // Default to async mode for applyConfig to avoid timeout issues
-    const useAsync = asyncMode !== false && applyConfig === true;
+    const useAsync = asyncMode === true || (asyncMode !== false && applyConfig === true);
 
     logger.info(
       `User ${req.user.username} restarting app ${id}${applyConfig ? ' with config update' : ''}${useAsync ? ' (async)' : ''}`
@@ -348,8 +352,18 @@ router.post(
     const { id } = req.params;
     const { config } = req.body;
 
-    if (!config || typeof config !== 'object') {
-      throw new ValidationError('Ungültige Konfiguration: config object is required');
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      throw new ValidationError('Ungültige Konfiguration: config muss ein Objekt sein');
+    }
+
+    const keys = Object.keys(config);
+    if (keys.length > 50) {
+      throw new ValidationError('Zu viele Konfigurationseinträge (max. 50)');
+    }
+    for (const [key, value] of Object.entries(config)) {
+      if (typeof value === 'string' && value.length > 10240) {
+        throw new ValidationError(`Konfigurationswert für "${key}" zu lang (max. 10 KB)`);
+      }
     }
 
     await appService.setAppConfig(id, config);

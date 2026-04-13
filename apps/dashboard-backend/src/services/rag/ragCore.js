@@ -360,7 +360,9 @@ function filterByRelevance(results, reranked = true) {
  * @returns {Object[]} Deduplicated results
  */
 function deduplicateByDocument(results, topK = 5, maxPerDoc = 3) {
-  if (results.length <= topK) {return results;}
+  if (results.length <= topK) {
+    return results;
+  }
 
   const docCounts = new Map();
   const selected = [];
@@ -377,7 +379,9 @@ function deduplicateByDocument(results, topK = 5, maxPerDoc = 3) {
       overflow.push(r);
     }
 
-    if (selected.length >= topK) {break;}
+    if (selected.length >= topK) {
+      break;
+    }
   }
 
   // Backfill from overflow if we haven't reached topK
@@ -722,7 +726,7 @@ async function hybridSearch(query, embedding, limit = 5, spaceIds = null, option
       return fallbackResponse.data.result || [];
     } catch (fallbackErr) {
       logger.error(`Dense-only fallback also failed: ${fallbackErr.message}`);
-      throw new Error('Failed to search documents');
+      return [];
     }
   }
 }

@@ -14,6 +14,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useChatContext, type ChatMessage, type ChatSettings } from '../../contexts/ChatContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useApi } from '../../hooks/useApi';
 import type { InstalledModel, DocumentSpace, QueueJob } from '../../types';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,7 @@ function ChatInputArea({
   disabled,
 }: ChatInputAreaProps) {
   const api = useApi();
+  const toast = useToast();
   const {
     sendMessage,
     cancelJob,
@@ -138,13 +140,25 @@ function ChatInputArea({
     '.pdf,.docx,.txt,.md,.markdown,.yaml,.yml,.png,.jpg,.jpeg,.tiff,.tif,.bmp';
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-  const handleFileSelect = useCallback((file: File) => {
-    if (file.size > MAX_FILE_SIZE) {
-      return; // silently reject oversized files
-    }
-    setAttachedFile(file);
-    inputRef.current?.focus();
-  }, []);
+  const handleFileSelect = useCallback(
+    (file: File) => {
+      const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+      const allowedExts = ALLOWED_FILE_TYPES.split(',');
+      if (!allowedExts.includes(ext)) {
+        toast.warning(
+          `Dateityp ${ext} nicht unterstützt. Erlaubt: PDF, DOCX, TXT, MD, YAML, Bilder`
+        );
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast.warning(`Datei zu groß (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum: 50 MB`);
+        return;
+      }
+      setAttachedFile(file);
+      inputRef.current?.focus();
+    },
+    [toast]
+  );
 
   const handleRemoveFile = useCallback(() => {
     setAttachedFile(null);
@@ -158,23 +172,42 @@ function ChatInputArea({
       const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
       const remaining = MAX_IMAGES - attachedImages.length;
+      if (remaining <= 0) {
+        toast.warning(`Maximal ${MAX_IMAGES} Bilder pro Nachricht`);
+        return;
+      }
       const filesToProcess = Array.from(files).slice(0, remaining);
+      const rejected: string[] = [];
 
       for (const file of filesToProcess) {
-        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) continue;
-        if (file.size > MAX_IMAGE_SIZE) continue;
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          rejected.push(`${file.name} (Typ nicht unterstützt)`);
+          continue;
+        }
+        if (file.size > MAX_IMAGE_SIZE) {
+          rejected.push(`${file.name} (zu groß, max. 20 MB)`);
+          continue;
+        }
 
-        const base64 = await new Promise<string>(resolve => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+        try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden'));
+            reader.readAsDataURL(file);
+          });
+          setAttachedImages(prev => [...prev, { file, base64 }]);
+        } catch {
+          rejected.push(`${file.name} (Lesefehler)`);
+        }
+      }
 
-        setAttachedImages(prev => [...prev, { file, base64 }]);
+      if (rejected.length > 0) {
+        toast.warning(`Übersprungen: ${rejected.join(', ')}`);
       }
       inputRef.current?.focus();
     },
-    [attachedImages.length]
+    [attachedImages.length, toast]
   );
 
   const handleRemoveImage = useCallback((index: number) => {
@@ -439,6 +472,7 @@ function ChatInputArea({
               useThinking && 'active bg-primary/15 text-primary border-primary/20'
             )}
             onClick={handleThinkToggle}
+            disabled={isStreaming}
             aria-pressed={useThinking}
             aria-label={useThinking ? 'Thinking deaktivieren' : 'Thinking aktivieren'}
           >
@@ -456,6 +490,7 @@ function ChatInputArea({
                 useRAG && 'active bg-primary/15 text-primary border-primary/20'
               )}
               onClick={handleRAGClick}
+              disabled={isStreaming}
               aria-pressed={useRAG}
               aria-label={useRAG ? 'RAG deaktivieren' : 'RAG aktivieren'}
             >
@@ -556,6 +591,7 @@ function ChatInputArea({
                   )}
                   onClick={() => !isStreaming && setShowModelPopup(v => !v)}
                   disabled={isStreaming}
+                  title={isStreaming ? 'Warte auf Antwort...' : undefined}
                   aria-expanded={showModelPopup}
                   aria-haspopup="listbox"
                   aria-label="Modell auswählen"

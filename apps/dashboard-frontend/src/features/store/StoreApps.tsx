@@ -117,8 +117,8 @@ const statusConfig: Record<string, StatusConfigEntry> = {
   error: { color: 'var(--destructive)', label: 'Fehler', icon: AlertCircle },
 };
 
-// Get app URL
-const getAppUrl = (app: App): string => {
+// Get app URL - prefers dynamic data from backend over hardcoded fallbacks
+const getAppUrl = (app: App): string | null => {
   if (app.hasCustomPage && app.customPageRoute) {
     return app.customPageRoute;
   }
@@ -129,15 +129,7 @@ const getAppUrl = (app: App): string => {
   if (app.ports?.external) {
     return `http://${window.location.hostname}:${app.ports.external}`;
   }
-  const knownPorts: Record<string, number> = {
-    minio: 9001,
-    'code-server': 8443,
-    gitea: 3002,
-  };
-  if (knownPorts[app.id]) {
-    return `http://${window.location.hostname}:${knownPorts[app.id]}`;
-  }
-  return '#';
+  return null;
 };
 
 function StoreApps() {
@@ -419,11 +411,15 @@ function StoreApps() {
                     <ExternalLink className="size-4" /> Öffnen
                   </Link>
                 </Button>
-              ) : (
+              ) : getAppUrl(app) ? (
                 <Button size="sm" className="flex-1" asChild>
-                  <a href={getAppUrl(app)} target="_blank" rel="noopener noreferrer">
+                  <a href={getAppUrl(app)!} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="size-4" /> Öffnen
                   </a>
+                </Button>
+              ) : (
+                <Button size="sm" className="flex-1" disabled title="App-URL nicht verfügbar">
+                  <ExternalLink className="size-4" /> Öffnen
                 </Button>
               )}
               <ConfirmIconButton

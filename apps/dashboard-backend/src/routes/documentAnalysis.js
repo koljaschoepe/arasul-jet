@@ -139,10 +139,14 @@ router.post(
     }
 
     // 5. Build LLM prompt with extracted text
-    const truncatedText =
-      extractedText.length > 30000
-        ? extractedText.substring(0, 30000) + '\n\n[... Text gekürzt, da zu lang ...]'
-        : extractedText;
+    const wasTruncated = extractedText.length > 30000;
+    const truncatedText = wasTruncated
+      ? extractedText.substring(0, 30000) + '\n\n[... Text gekürzt, da zu lang ...]'
+      : extractedText;
+
+    if (wasTruncated) {
+      logger.info(`Document text truncated: ${extractedText.length} → 30000 chars for ${filename}`);
+    }
 
     const analysisPrompt = prompt
       ? `Der Benutzer hat folgendes Dokument hochgeladen: "${filename}"\n\nExtrahierter Text:\n---\n${truncatedText}\n---\n\nFrage des Benutzers: ${prompt}`
@@ -180,7 +184,13 @@ router.post(
         queuePosition,
         model: model || 'default',
         status: queuePosition > 1 ? 'queued' : 'pending',
-        attachment: { filename, size: file.size, extractedChars: extractedText.length },
+        attachment: {
+          filename,
+          size: file.size,
+          extractedChars: extractedText.length,
+          truncated: wasTruncated,
+          originalChars: wasTruncated ? extractedText.length : undefined,
+        },
       })}\n\n`
     );
 
@@ -216,7 +226,20 @@ router.post(
 router.post(
   '/extract',
   requireAuth,
-  upload.single('file'),
+  (req, res, next) => {
+    upload.single('file')(req, res, err => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return next(new ValidationError('Datei zu groß (max. 50 MB)'));
+        }
+        if (err instanceof ValidationError) {
+          return next(err);
+        }
+        return next(new ValidationError(`Upload-Fehler: ${err.message}`));
+      }
+      next();
+    });
+  },
   asyncHandler(async (req, res) => {
     if (!req.file) {
       throw new ValidationError('Keine Datei hochgeladen');

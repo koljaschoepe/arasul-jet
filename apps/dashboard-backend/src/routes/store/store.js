@@ -89,10 +89,12 @@ router.get(
 
     // Get apps and filter to featured
     let allApps = [];
+    let appsError = false;
     try {
       allApps = await appService.getAllApps({});
     } catch (err) {
       logger.warn('[Store] Failed to load apps:', err.message);
+      appsError = true;
     }
 
     // Mark featured apps and get top 3
@@ -119,6 +121,7 @@ router.get(
         llmRamGB,
         totalRamGB: Math.round(os.totalmem() / (1024 * 1024 * 1024)),
       },
+      ...(appsError && { warnings: ['Apps konnten nicht geladen werden'] }),
     });
   })
 );

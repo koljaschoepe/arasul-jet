@@ -162,6 +162,15 @@ function Store() {
                               </span>
                             </NavLink>
                           ))}
+                          {searchResults.models.length > 5 && (
+                            <NavLink
+                              to="/store/models"
+                              className="search-item flex items-center justify-center px-3 py-2 rounded-md no-underline text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
+                              onClick={() => setSearchQuery('')}
+                            >
+                              und {searchResults.models.length - 5} weitere Modelle
+                            </NavLink>
+                          )}
                         </div>
                       </div>
                     )}
@@ -186,14 +195,21 @@ function Store() {
                               </span>
                             </NavLink>
                           ))}
+                          {searchResults.apps.length > 5 && (
+                            <NavLink
+                              to="/store/apps"
+                              className="search-item flex items-center justify-center px-3 py-2 rounded-md no-underline text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
+                              onClick={() => setSearchQuery('')}
+                            >
+                              und {searchResults.apps.length - 5} weitere Apps
+                            </NavLink>
+                          )}
                         </div>
                       </div>
                     )}
                     {searchResults.models.length === 0 && searchResults.apps.length === 0 && (
                       <div className="p-8 text-center text-muted-foreground">
-                        <p className="font-medium mb-1">
-                          Keine Ergebnisse f&uuml;r &bdquo;{searchQuery}&ldquo;
-                        </p>
+                        <p className="font-medium mb-1">Keine Ergebnisse für „{searchQuery}"</p>
                         <p className="text-sm">
                           Versuche andere Suchbegriffe oder durchsuche die Kategorien.
                         </p>

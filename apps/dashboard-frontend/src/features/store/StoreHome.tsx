@@ -132,32 +132,41 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
   const handleModelActivate = async (modelId: string) => {
     setActionLoading(prev => ({ ...prev, [modelId]: 'activating' }));
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min timeout
+
       const response = await api.post(`/models/${modelId}/activate?stream=true`, null, {
         raw: true,
         showError: false,
+        signal: controller.signal,
       });
 
       // Consume SSE stream (just wait for completion, StoreHome doesn't show detailed progress)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop()!;
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.substring(6));
-              if (data.error) throw new Error(data.error);
-            } catch (e) {
-              if (e instanceof Error && e.message && e.message !== 'Unexpected end of JSON input')
-                throw e;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop()!;
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                if (data.error) throw new Error(data.error);
+              } catch (e) {
+                if (e instanceof Error && e.message && e.message !== 'Unexpected end of JSON input')
+                  throw e;
+              }
             }
           }
         }
+      } finally {
+        clearTimeout(timeoutId);
+        reader.cancel().catch(() => {});
       }
 
       await loadRecommendations();
@@ -165,7 +174,12 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
       console.error('Activation error:', err);
       const model = recommendations.models.find(m => m.id === modelId);
       const name = model?.name || modelId;
-      toast.error((err as Error).message || `Aktivierung von „${name}" fehlgeschlagen`);
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      toast.error(
+        isAbort
+          ? `Aktivierung von „${name}" hat zu lange gedauert`
+          : (err as Error).message || `Aktivierung von „${name}" fehlgeschlagen`
+      );
     } finally {
       setActionLoading(prev => ({ ...prev, [modelId]: null }));
     }

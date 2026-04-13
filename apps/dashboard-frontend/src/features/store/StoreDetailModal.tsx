@@ -113,7 +113,7 @@ const typeConfig: Record<string, { label: string }> = {
   vision: { label: 'Vision' },
 };
 
-const getAppUrl = (app: StoreItem): string => {
+const getAppUrl = (app: StoreItem): string | null => {
   if (app.hasCustomPage && app.customPageRoute) {
     return app.customPageRoute;
   }
@@ -124,7 +124,7 @@ const getAppUrl = (app: StoreItem): string => {
   if (app.ports?.external) {
     return `http://${window.location.hostname}:${app.ports.external}`;
   }
-  return '#';
+  return null;
 };
 
 // --- Component ---
@@ -499,11 +499,15 @@ function StoreDetailModal({
                         <ExternalLink className="size-4" /> Öffnen
                       </Link>
                     </Button>
-                  ) : (
+                  ) : getAppUrl(item) ? (
                     <Button asChild>
-                      <a href={getAppUrl(item)} target="_blank" rel="noopener noreferrer">
+                      <a href={getAppUrl(item)!} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="size-4" /> Öffnen
                       </a>
+                    </Button>
+                  ) : (
+                    <Button disabled title="App-URL nicht verfügbar">
+                      <ExternalLink className="size-4" /> Öffnen
                     </Button>
                   )}
                   {!item.builtin && (

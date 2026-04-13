@@ -51,7 +51,7 @@ function createModelService(deps = {}) {
   const activeDownloadIds = new Set();
 
   // Model availability cache (TTL-based)
-  const MODEL_AVAILABILITY_TTL = 60 * 1000; // 60 seconds
+  const MODEL_AVAILABILITY_TTL = 15 * 1000; // 15 seconds (aligned with frontend polling interval)
   const modelAvailabilityCache = new Map(); // modelId -> { available, expiresAt }
 
   // ============================================================================
@@ -325,9 +325,10 @@ function createModelService(deps = {}) {
       return true;
     } catch (verifyError) {
       logger.warn(
-        `[DOWNLOAD] Could not verify model ${modelId}: ${verifyError.message}, assuming success`
+        `[DOWNLOAD] Could not verify model ${modelId}: ${verifyError.message}, will retry on next sync`
       );
-      // Don't fail if we can't verify - Ollama might be busy
+      // Mark as available (download succeeded) but let next sync verify
+      // This is safer than failing the download when Ollama is temporarily busy
       return true;
     }
   }

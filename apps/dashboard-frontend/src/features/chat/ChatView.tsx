@@ -11,6 +11,7 @@ import { useToast } from '../../contexts/ToastContext';
 import ChatTopBar from './ChatTopBar';
 import ChatInputArea from './ChatInputArea';
 import ChatMessage from './ChatMessage';
+import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 import './chat.css';
@@ -317,15 +318,19 @@ export default function ChatView() {
               </Button>
             )}
             {messages.map((message: ChatMessageType, index: number) => (
-              <ChatMessage
+              <ComponentErrorBoundary
                 key={message.id || message.jobId || `${chatId}-msg-${index}`}
-                message={message}
-                index={index}
-                chatId={chatId}
-                isLoading={isLoading && index === messages.length - 1}
-                onToggleThinking={toggleThinking}
-                onToggleSources={toggleSources}
-              />
+                componentName="Nachricht"
+              >
+                <ChatMessage
+                  message={message}
+                  index={index}
+                  chatId={chatId}
+                  isLoading={isLoading && index === messages.length - 1}
+                  onToggleThinking={toggleThinking}
+                  onToggleSources={toggleSources}
+                />
+              </ComponentErrorBoundary>
             ))}
             <div ref={messagesEndRef} />
           </div>

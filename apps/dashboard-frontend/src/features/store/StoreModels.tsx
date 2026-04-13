@@ -281,6 +281,8 @@ function StoreModels() {
     try {
       await api.post('/models/default', { model_id: modelId }, { showError: false });
       setModelData(prev => ({ ...prev, defaultModel: modelId }));
+      const model = catalog.find(m => m.id === modelId);
+      toast.success(`„${model?.name || modelId}" als Standard gesetzt`);
     } catch (err) {
       console.error('Set default error:', err);
       const model = catalog.find(m => m.id === modelId);
