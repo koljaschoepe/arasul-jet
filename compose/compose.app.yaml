@@ -161,6 +161,7 @@ services:
     hostname: n8n
     restart: always
     networks:
+      - arasul-frontend
       - arasul-backend
     environment:
       N8N_HOST: ${N8N_HOST}
@@ -172,6 +173,14 @@ services:
       N8N_BASIC_AUTH_ACTIVE: 'false'
       WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
       # N8N_ENCRYPTION_KEY provided via Docker secret (compose.secrets.yaml)
+      # PostgreSQL persistence (without this, n8n falls back to SQLite and loses all data on restart)
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres-db
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-arasul_db}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-arasul}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_SCHEMA: n8n
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
       EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: 'true'

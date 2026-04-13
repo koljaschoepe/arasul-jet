@@ -42,6 +42,7 @@ TRUSTED_MODELS_REQUIRING_REMOTE_CODE = frozenset({
 
 # Initialize Flask app
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB max request body
 
 # Global model variables
 model = None
@@ -211,6 +212,16 @@ def embed():
             }), 400
 
         # Validate input length
+        if not texts:
+            return jsonify({
+                'vectors': [],
+                'embeddings': [],
+                'dimension': VECTOR_SIZE,
+                'count': 0,
+                'latency_ms': 0,
+                'timestamp': time.time()
+            }), 200
+
         if len(texts) > 100:
             return jsonify({
                 'error': 'Maximum 100 texts per request',
@@ -263,6 +274,8 @@ def embed_batch():
 
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid or missing JSON body', 'timestamp': time.time()}), 400
         texts = data.get('texts', [])
 
         if not texts:
@@ -315,6 +328,8 @@ def rerank():
 
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid or missing JSON body', 'timestamp': time.time()}), 400
         query = data.get('query', '')
         passages = data.get('passages', [])
         top_k = data.get('top_k', 5)

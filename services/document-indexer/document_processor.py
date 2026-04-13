@@ -9,6 +9,7 @@ process_new_document() and _index_existing_document().
 import hashlib
 import logging
 import os
+import shutil
 from io import BytesIO
 from typing import Dict, List, Optional, Any
 
@@ -206,6 +207,18 @@ def run_indexing_pipeline(
     Returns:
         Number of chunks indexed, or None on failure
     """
+    # Pre-flight: check available disk space (need ~10x file size for chunks + embeddings)
+    MIN_FREE_MB = 500
+    try:
+        free_mb = shutil.disk_usage('/').free // (1024 * 1024)
+        if free_mb < MIN_FREE_MB:
+            msg = f'Low disk space ({free_mb}MB free, need {MIN_FREE_MB}MB minimum)'
+            logger.error(f"Skipping indexing for {filename}: {msg}")
+            db.update_document_status(doc_id, 'failed', msg)
+            return None
+    except OSError:
+        pass  # Non-critical — proceed if disk check fails
+
     # Parse document
     text = parse_document(data, filename)
     if not text:
@@ -280,6 +293,11 @@ def run_indexing_pipeline(
         db.update_document_status(doc_id, 'indexed', chunk_count=chunk_count)
         db.update_document(doc_id, {'embedding_model': EMBEDDING_MODEL})
     else:
+        # Clean up any partial vectors that may have been upserted
+        try:
+            qdrant_manager.delete_document_vectors(doc_id)
+        except Exception as cleanup_err:
+            logger.warning(f"Failed to clean up vectors for {doc_id}: {cleanup_err}")
         db.update_document_status(
             doc_id, 'failed',
             'No chunks created \u2014 document may be empty or unparseable'
@@ -460,10 +478,18 @@ def _index_to_qdrant(
                     f"Domain dictionary update failed (non-critical): {e}"
                 )
 
-        return len(all_points)
+        return total_points
 
     except Exception as e:
         logger.error(
             f"Indexing error for {doc_id}: {e}", exc_info=True
         )
+        # Rollback: remove any partially upserted vectors from Qdrant
+        try:
+            qdrant_manager.delete_document_vectors(doc_id)
+            logger.info(f"Rolled back partial vectors for {doc_id}")
+        except Exception as cleanup_err:
+            logger.warning(
+                f"Failed to rollback vectors for {doc_id}: {cleanup_err}"
+            )
         raise

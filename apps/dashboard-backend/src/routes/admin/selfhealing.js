@@ -10,6 +10,10 @@ const { requireAuth } = require('../../middleware/auth');
 const axios = require('axios');
 const { asyncHandler } = require('../../middleware/errorHandler');
 
+const MAX_LIMIT = 500;
+const boundLimit = (val, def = 20) => Math.min(Math.max(1, parseInt(val) || def), MAX_LIMIT);
+const boundOffset = val => Math.max(0, parseInt(val) || 0);
+
 // GET /api/self-healing/events - Get recent self-healing events
 router.get(
   '/events',
@@ -45,7 +49,7 @@ router.get(
 
     // Order and limit
     query += ` ORDER BY timestamp DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(boundLimit(limit), boundOffset(offset));
 
     const result = await db.query(query, params);
 
@@ -79,8 +83,8 @@ router.get(
       events: result.rows,
       count: result.rows.length,
       total: totalCount,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: boundLimit(limit),
+      offset: boundOffset(offset),
       timestamp: new Date().toISOString(),
     });
   })
@@ -219,7 +223,7 @@ router.get(
         LIMIT $1 OFFSET $2
     `;
 
-    const result = await db.query(query, [parseInt(limit), parseInt(offset)]);
+    const result = await db.query(query, [boundLimit(limit), boundOffset(offset)]);
 
     // Get total count
     const countResult = await db.query('SELECT COUNT(*) FROM recovery_actions');
@@ -229,8 +233,8 @@ router.get(
       actions: result.rows,
       count: result.rows.length,
       total: totalCount,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: boundLimit(limit),
+      offset: boundOffset(offset),
       timestamp: new Date().toISOString(),
     });
   })
@@ -254,7 +258,7 @@ router.get(
     }
 
     query += ` ORDER BY timestamp DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(boundLimit(limit), boundOffset(offset));
 
     const result = await db.query(query, params);
 
@@ -273,8 +277,8 @@ router.get(
       failures: result.rows,
       count: result.rows.length,
       total: totalCount,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: boundLimit(limit),
+      offset: boundOffset(offset),
       timestamp: new Date().toISOString(),
     });
   })
@@ -294,7 +298,7 @@ router.get(
         LIMIT $1 OFFSET $2
     `;
 
-    const result = await db.query(query, [parseInt(limit), parseInt(offset)]);
+    const result = await db.query(query, [boundLimit(limit), boundOffset(offset)]);
 
     // Get total count
     const countResult = await db.query('SELECT COUNT(*) FROM reboot_events');
@@ -304,8 +308,8 @@ router.get(
       reboots: result.rows,
       count: result.rows.length,
       total: totalCount,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: boundLimit(limit),
+      offset: boundOffset(offset),
       timestamp: new Date().toISOString(),
     });
   })

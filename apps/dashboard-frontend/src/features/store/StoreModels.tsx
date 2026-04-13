@@ -146,7 +146,8 @@ function StoreModels() {
   const [sizeFilter, setSizeFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
-  const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
+  const { startDownload, isDownloading, getDownloadState, onDownloadComplete, cancelDownload } =
+    useDownloads();
   const activatingRef = useRef(false);
   const activateAbortRef = useRef<AbortController | null>(null);
 
@@ -574,14 +575,26 @@ function StoreModels() {
                         {downloadState.phase === 'complete' && 'Fertig'}
                         {downloadState.phase === 'error' && 'Fehler'}
                       </span>
-                      <span
-                        className={cn(
-                          'progress-percent text-primary font-semibold text-sm',
-                          downloadState.phase === 'complete' && 'text-primary'
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            'progress-percent text-primary font-semibold text-sm',
+                            downloadState.phase === 'complete' && 'text-primary'
+                          )}
+                        >
+                          {downloadState.progress}%
+                        </span>
+                        {downloadState.phase !== 'complete' && (
+                          <button
+                            onClick={() => cancelDownload(model.id)}
+                            className="text-muted-foreground hover:text-destructive transition-colors p-0.5 rounded"
+                            title="Download abbrechen"
+                            aria-label="Download abbrechen"
+                          >
+                            <X className="size-3.5" />
+                          </button>
                         )}
-                      >
-                        {downloadState.progress}%
-                      </span>
+                      </div>
                     </div>
                     <div className="progress-bar h-2 bg-border rounded overflow-hidden mb-2">
                       <div

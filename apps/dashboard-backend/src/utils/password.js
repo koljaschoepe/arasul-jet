@@ -7,13 +7,13 @@ const logger = require('./logger');
 
 const SALT_ROUNDS = 12;
 
-// Password requirements — enforced at setup and password change.
-const PASSWORD_MIN_LENGTH = 8;
+// Password requirements — kept simple for ease of use (edge appliance, not cloud SaaS).
+const PASSWORD_MIN_LENGTH = 4;
 const PASSWORD_REQUIREMENTS = {
   minLength: PASSWORD_MIN_LENGTH,
-  requireUppercase: true,
-  requireLowercase: true,
-  requireNumbers: true,
+  requireUppercase: false,
+  requireLowercase: false,
+  requireNumbers: false,
   requireSpecialChars: false,
 };
 

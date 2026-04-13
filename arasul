@@ -553,7 +553,9 @@ apply_jetson_profile() {
 pull_images() {
     log_info "Pulling Docker images..."
 
-    docker compose pull postgres-db minio n8n reverse-proxy 2>&1 | grep -v "Pulling" || true
+    if ! docker compose pull postgres-db minio n8n reverse-proxy 2>&1 | grep -v "Pulling"; then
+        log_warn "Some images failed to pull — check network connectivity"
+    fi
 
     log_success "Base images pulled"
 }
@@ -562,7 +564,10 @@ pull_images() {
 build_images() {
     log_info "Building custom Docker images..."
 
-    docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service self-healing-agent 2>&1 | grep -v "Building" || true
+    if ! docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service self-healing-agent 2>&1 | grep -v "Building"; then
+        log_error "Docker build failed — check Dockerfiles and build context"
+        return 1
+    fi
 
     log_success "Custom images built"
 }
@@ -1286,6 +1291,10 @@ install_systemd_timers() {
 cmd_bootstrap() {
     show_banner
     check_root
+
+    # Safety net: always redact plaintext password on exit (success or failure)
+    # This prevents password exposure if bootstrap is interrupted or fails
+    trap 'redact_plaintext_password 2>/dev/null' EXIT
 
     # 1. Hardware validieren
     if ! validate_hardware; then

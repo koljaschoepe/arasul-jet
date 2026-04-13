@@ -526,8 +526,21 @@ main() {
     MINIO_ROOT_USER="arasul"
     MINIO_ROOT_PASSWORD=$(generate_password 24)
     N8N_BASIC_AUTH_PASSWORD=$(generate_password 16)
-    N8N_ENCRYPTION_KEY=$(generate_secret 32)
-    TELEGRAM_ENCRYPTION_KEY=$(generate_secret 32)
+    # Preserve encryption keys from previous install (re-generating would make
+    # existing n8n credentials and Telegram API keys undecryptable)
+    local _prev_n8n_key="" _prev_tg_key=""
+    if [ -f "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" ]; then
+        _prev_n8n_key=$(cat "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" 2>/dev/null)
+    elif [ -f "${PROJECT_ROOT}/.env" ]; then
+        _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "${PROJECT_ROOT}/.env" 2>/dev/null | cut -d'=' -f2-)
+    fi
+    if [ -f "${PROJECT_ROOT}/config/secrets/telegram_encryption_key" ]; then
+        _prev_tg_key=$(cat "${PROJECT_ROOT}/config/secrets/telegram_encryption_key" 2>/dev/null)
+    elif [ -f "${PROJECT_ROOT}/.env" ]; then
+        _prev_tg_key=$(grep '^TELEGRAM_ENCRYPTION_KEY=' "${PROJECT_ROOT}/.env" 2>/dev/null | cut -d'=' -f2-)
+    fi
+    N8N_ENCRYPTION_KEY=${_prev_n8n_key:-$(generate_secret 32)}
+    TELEGRAM_ENCRYPTION_KEY=${_prev_tg_key:-$(generate_secret 32)}
 
     echo ""
     echo -e "  ${BOLD}Konfiguration:${NC}"

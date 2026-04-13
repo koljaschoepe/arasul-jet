@@ -95,7 +95,7 @@ services:
       - /media:/media:ro
       - /mnt:/mnt:ro
       - ../data/updates:/arasul/updates
-      - ../data/backups:/arasul/backups
+      - ${BACKUP_PATH:-../data/backups}:/arasul/backups
     devices:
       - /dev/bus/usb:/dev/bus/usb
     cap_drop:
@@ -149,7 +149,7 @@ services:
       BACKUP_WEEKLY_RETENTION_WEEKS: ${BACKUP_WEEKLY_RETENTION_WEEKS:-12}
       TZ: ${TZ:-Europe/Berlin}
     volumes:
-      - ../data/backups:/backups
+      - ${BACKUP_PATH:-../data/backups}:/backups
       - arasul-wal:/backups/wal
       - ../scripts/backup/backup.sh:/usr/local/bin/backup-full.sh:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -179,7 +179,16 @@ def chunk_text_hierarchical(
         # Create child chunks within this parent
         child_texts = _recursive_split(parent_text, child_size, GERMAN_SEPARATORS)
 
-        # Apply overlap between child chunks
+        # Apply overlap: prepend last N words from previous chunk to each subsequent chunk
+        if child_overlap > 0 and len(child_texts) > 1:
+            overlapped = [child_texts[0]]
+            for i in range(1, len(child_texts)):
+                prev_words = child_texts[i - 1].split()
+                overlap_words = prev_words[-child_overlap:] if len(prev_words) > child_overlap else prev_words
+                overlap_prefix = ' '.join(overlap_words)
+                overlapped.append(overlap_prefix + ' ' + child_texts[i])
+            child_texts = overlapped
+
         children = []
         child_char_offset = parent_start
 

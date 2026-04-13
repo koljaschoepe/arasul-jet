@@ -23,7 +23,7 @@ class DatabaseMixin:
         retry_delay = 5
 
         min_connections = int(os.getenv('POSTGRES_POOL_MIN', '1'))
-        max_connections = int(os.getenv('POSTGRES_POOL_MAX', '3'))
+        max_connections = int(os.getenv('POSTGRES_POOL_MAX', '10'))
 
         for attempt in range(max_retries):
             try:

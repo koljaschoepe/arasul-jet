@@ -17,6 +17,7 @@ const {
   ForbiddenError,
   ServiceUnavailableError,
 } = require('../../utils/errors');
+const { webhookLimiter } = require('../../middleware/rateLimit');
 
 /**
  * GET /api/events
@@ -218,6 +219,7 @@ router.post(
  */
 router.post(
   '/webhook/n8n',
+  webhookLimiter,
   asyncHandler(async (req, res) => {
     // SEC-FIX: Validate webhook secret (required for security)
     // Without this, any request to this endpoint is accepted unauthenticated
@@ -263,6 +265,7 @@ router.post(
  */
 router.post(
   '/webhook/self-healing',
+  webhookLimiter,
   asyncHandler(async (req, res) => {
     // Defense-in-depth: shared secret validation (if configured)
     const webhookSecret = process.env.SELF_HEALING_WEBHOOK_SECRET;

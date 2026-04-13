@@ -219,7 +219,14 @@ else
   ADMIN_PASSWORD=$(generate_password 16)
   JWT_SECRET=$(generate_secret 64)
   MINIO_ROOT_PASSWORD=$(generate_secret 24)
-  N8N_ENCRYPTION_KEY=$(generate_secret 32)
+  # Preserve encryption key from previous install (re-generating breaks n8n credentials)
+  _prev_n8n_key=""
+  if [ -f "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" ]; then
+    _prev_n8n_key=$(cat "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" 2>/dev/null)
+  elif [ -f "$ENV_FILE" ]; then
+    _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "$ENV_FILE" 2>/dev/null | cut -d'=' -f2-)
+  fi
+  N8N_ENCRYPTION_KEY=${_prev_n8n_key:-$(generate_secret 32)}
   N8N_BASIC_AUTH_PASSWORD=$(generate_password 16)
   POSTGRES_PASSWORD=$(generate_secret 24)
 

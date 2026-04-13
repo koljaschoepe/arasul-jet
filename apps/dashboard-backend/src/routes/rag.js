@@ -186,13 +186,20 @@ router.post(
 
       // Step 4: Hybrid search + Graph enrichment IN PARALLEL
       const spaceFilter = targetSpaceIds && targetSpaceIds.length > 0 ? targetSpaceIds : null;
-      const [searchResults, graphEnrichment] = await Promise.all([
-        hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
-          additionalEmbeddings,
-          decompoundedQuery: decompounded,
-        }),
-        graphEnrichedRetrieval(correctedQuery),
-      ]);
+      let searchResults = [];
+      let graphEnrichment = [];
+      try {
+        [searchResults, graphEnrichment] = await Promise.all([
+          hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
+            additionalEmbeddings,
+            decompoundedQuery: decompounded,
+          }),
+          graphEnrichedRetrieval(correctedQuery),
+        ]);
+      } catch (searchError) {
+        logger.error(`Hybrid search failed (Qdrant may be down): ${searchError.message}`);
+        // Continue with empty results — LLM will respond without RAG context
+      }
 
       // Step 5: Rerank results (2-stage: FlashRank → BGE-reranker)
       const rerankedResults = await rerankResults(query, searchResults, top_k);

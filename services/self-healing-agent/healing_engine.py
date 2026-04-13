@@ -13,6 +13,7 @@ import time
 import json
 import ssl
 import subprocess
+import psutil
 import requests
 from datetime import datetime
 from typing import Dict, Optional
@@ -80,12 +81,34 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
     # ========================================================================
 
     def get_metrics(self) -> Dict:
-        """Get current system metrics"""
+        """Get current system metrics, falling back to psutil if metrics-collector is down."""
         try:
             response = requests.get(f"{METRICS_COLLECTOR_URL}/metrics", timeout=2)
             return response.json()
         except Exception as e:
-            logger.error(f"Failed to get metrics: {e}")
+            logger.warning(f"Metrics collector unreachable, using psutil fallback: {e}")
+            return self._get_local_metrics()
+
+    def _get_local_metrics(self) -> Optional[Dict]:
+        """Fallback metrics via psutil when metrics-collector is unavailable."""
+        try:
+            mem = psutil.virtual_memory()
+            temps = psutil.sensors_temperatures()
+            # Find highest temperature across all sensors
+            max_temp = 0
+            for entries in temps.values():
+                for entry in entries:
+                    if entry.current > max_temp:
+                        max_temp = entry.current
+            return {
+                'cpu': psutil.cpu_percent(interval=0.5),
+                'ram': mem.percent,
+                'temperature': max_temp,
+                'gpu': 0,  # GPU metrics require tegrastats, not available via psutil
+                '_fallback': True,
+            }
+        except Exception as e:
+            logger.error(f"psutil fallback also failed: {e}")
             return None
 
     def check_service_health(self) -> Dict[str, Dict]:
@@ -384,6 +407,28 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                     'Autovacuum may be falling behind',
                     'postgres-db', False
                 )
+
+            # XID wraparound check (critical for multi-year uptime)
+            # PostgreSQL forces shutdown at 2^31 (~2.1B) XIDs without vacuum
+            xid_rows = self.execute_query(
+                "SELECT datname, age(datfrozenxid) AS xid_age "
+                "FROM pg_database "
+                "WHERE datallowconn "
+                "ORDER BY xid_age DESC LIMIT 3",
+                fetch=True
+            )
+            if xid_rows:
+                for db_name, xid_age in xid_rows:
+                    if xid_age > 1_200_000_000:  # ~56% of wraparound limit
+                        self.log_event(
+                            'db_xid_wraparound', 'CRITICAL',
+                            f'Database {db_name} XID age {xid_age:,} approaching wraparound',
+                            'VACUUM FREEZE required urgently',
+                            'postgres-db', False
+                        )
+                        logger.error(f"CRITICAL: DB {db_name} XID age {xid_age:,} — wraparound risk")
+                    elif xid_age > 500_000_000:  # ~23% of limit
+                        logger.warning(f"DB {db_name} XID age {xid_age:,} — monitor autovacuum")
         except Exception as e:
             logger.error(f"Database health check failed: {e}")
 

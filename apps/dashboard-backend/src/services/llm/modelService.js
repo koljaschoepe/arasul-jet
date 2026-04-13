@@ -1031,6 +1031,20 @@ function createModelService(deps = {}) {
       });
 
       try {
+        // Prevent deletion of default model
+        const defaultCheck = await database.query(
+          'SELECT is_default FROM llm_installed_models WHERE id = $1',
+          [modelId]
+        );
+        if (defaultCheck.rows[0]?.is_default) {
+          throw new Error('Cannot delete the default model. Set another model as default first.');
+        }
+
+        // Prevent deletion while model is being downloaded
+        if (activeDownloadIds.has(modelId)) {
+          throw new Error('Cannot delete a model while it is being downloaded.');
+        }
+
         // Get ollama_name from catalog
         const catalogResult = await database.query(
           `SELECT COALESCE(ollama_name, id) as effective_ollama_name

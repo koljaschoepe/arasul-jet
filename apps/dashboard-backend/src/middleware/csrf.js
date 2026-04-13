@@ -82,7 +82,7 @@ function csrfProtection(req, res, next) {
 
   if (!cookieToken || !headerToken) {
     logger.warn(`CSRF token missing - ${req.method} ${req.originalUrl} from ${req.ip}`);
-    throw new ForbiddenError('CSRF token missing');
+    return next(new ForbiddenError('CSRF token missing'));
   }
 
   // Constant-time comparison to prevent timing attacks
@@ -91,7 +91,7 @@ function csrfProtection(req, res, next) {
     !crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(headerToken))
   ) {
     logger.warn(`CSRF token mismatch - ${req.method} ${req.originalUrl} from ${req.ip}`);
-    throw new ForbiddenError('CSRF token invalid');
+    return next(new ForbiddenError('CSRF token invalid'));
   }
 
   // BH10 FIX: Rotate CSRF token with error handling — don't block the request on failure

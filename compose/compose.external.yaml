@@ -6,7 +6,7 @@ services:
     image: cloudflare/cloudflared:2025.2.1
     container_name: cloudflared
     hostname: cloudflared
-    restart: unless-stopped
+    restart: always
     networks:
       - arasul-frontend
     environment:

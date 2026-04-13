@@ -852,7 +852,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         // First read timeout is longer to account for model loading (large models need minutes)
-        const INITIAL_READ_TIMEOUT = 300_000; // 5min for initial response (model may need to load)
+        const INITIAL_READ_TIMEOUT = 660_000; // 11min for initial response (backend allows 600s for model load + buffer)
         const STREAM_READ_TIMEOUT = 120_000; // 120s for subsequent reads (heartbeats reset this)
         let isFirstRead = true;
         let streamTimeoutId: ReturnType<typeof setTimeout> | null = null;

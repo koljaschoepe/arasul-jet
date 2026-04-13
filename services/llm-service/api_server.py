@@ -225,6 +225,12 @@ def pull_model():
             except requests.exceptions.RetryError as e:
                 logger.error(f"Model pull failed after retries: {e}")
                 yield json.dumps({"error": "Download failed after multiple retries"}).encode() + b'\n'
+            except requests.exceptions.ChunkedEncodingError as e:
+                logger.error(f"Ollama connection lost during pull: {e}")
+                yield json.dumps({"error": "Connection to Ollama lost during download"}).encode() + b'\n'
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"Ollama connection error during pull: {e}")
+                yield json.dumps({"error": "Cannot connect to Ollama service"}).encode() + b'\n'
             except Exception as e:
                 logger.error(f"Pull model error: {e}")
                 yield json.dumps({"error": str(e)}).encode() + b'\n'
@@ -249,9 +255,17 @@ def delete_model():
         if not model_name:
             return jsonify({"error": "model parameter required"}), 400
 
+        # Input validation (same rules as pull_model)
+        if len(model_name) > 255:
+            return jsonify({"error": "Model name too long (max 255 chars)"}), 400
+        if not re.match(r'^[a-zA-Z0-9_:.\-]+$', model_name):
+            return jsonify({"error": "Invalid model name format"}), 400
+        if '..' in model_name or model_name.startswith('/'):
+            return jsonify({"error": "Invalid model name"}), 400
+
         logger.info(f"Deleting model: {model_name}")
 
-        response = requests.delete(
+        response = _http_session.delete(
             f"{OLLAMA_BASE_URL}/api/delete",
             json={"name": model_name},
             timeout=30
@@ -272,7 +286,7 @@ def delete_model():
             logger.error(f"Model delete failed: {response.text}")
             return jsonify({
                 "status": "error",
-                "message": response.text
+                "message": f"Failed to delete model {model_name}"
             }), 500
 
     except Exception as e:
@@ -290,7 +304,9 @@ def clear_cache():
         logger.info("Clearing LLM cache...")
 
         # First, get list of currently loaded models
-        ps_response = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
+        ps_response = _http_session.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
+        if ps_response.status_code != 200:
+            return jsonify({"error": "Failed to query loaded models"}), 503
         loaded_models = ps_response.json().get('models', [])
 
         if not loaded_models:
@@ -347,13 +363,15 @@ def reset_session():
         logger.info("Resetting LLM session...")
 
         # First, unload ALL loaded models (use cache/clear logic)
-        ps_response = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
+        ps_response = _http_session.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
+        if ps_response.status_code != 200:
+            return jsonify({"error": "Failed to query loaded models"}), 503
         loaded_models = ps_response.json().get('models', [])
 
         for model in loaded_models:
             model_name = model.get('name')
             try:
-                requests.post(
+                _http_session.post(
                     f"{OLLAMA_BASE_URL}/api/generate",
                     json={
                         "model": model_name,
@@ -371,7 +389,7 @@ def reset_session():
         # Use LLM_KEEP_ALIVE_SECONDS from environment (default 300)
         keep_alive = int(os.environ.get("LLM_KEEP_ALIVE_SECONDS", "300"))
 
-        response = requests.post(
+        response = _http_session.post(
             f"{OLLAMA_BASE_URL}/api/generate",
             json={
                 "model": DEFAULT_MODEL,

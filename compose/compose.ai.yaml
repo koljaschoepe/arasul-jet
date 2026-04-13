@@ -18,6 +18,7 @@ services:
     container_name: qdrant
     hostname: qdrant
     restart: always
+    stop_grace_period: 30s
     networks:
       - arasul-backend
     volumes:
@@ -26,11 +27,7 @@ services:
       QDRANT__SERVICE__GRPC_PORT: '6334'
       QDRANT__SERVICE__HTTP_PORT: '6333'
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'curl -sf http://localhost:6333/healthz || test -f /qdrant/storage/raft_state.json',
-        ]
+      test: ['CMD-SHELL', 'curl -sf http://localhost:6333/healthz']
       interval: 10s
       timeout: 3s
       retries: 3
@@ -73,12 +70,15 @@ services:
       # Mount host CUDA toolkit (cuBLAS, cuDNN, cuDart) for GPU inference
       - /usr/local/cuda/lib64:/usr/local/cuda/lib64:ro
     runtime: nvidia
+    tmpfs:
+      - /tmp:noexec,nosuid,size=256M
     <<: *default-security
     deploy:
       resources:
         limits:
           cpus: '${CPU_LIMIT_LLM:-8}'
           memory: ${RAM_LIMIT_LLM:-32G}
+          pids: 512
         reservations:
           devices:
             - driver: nvidia
@@ -128,12 +128,15 @@ services:
       - arasul-embeddings-models:/models
       - ../services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
     runtime: nvidia
+    tmpfs:
+      - /tmp:noexec,nosuid,size=256M
     <<: *default-security
     deploy:
       resources:
         limits:
           cpus: '${CPU_LIMIT_EMBEDDING:-4}'
           memory: ${RAM_LIMIT_EMBEDDING:-12G}
+          pids: 512
         reservations:
           devices:
             - driver: nvidia

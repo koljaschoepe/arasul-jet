@@ -57,7 +57,9 @@ const MAGIC_BYTES = {
 function validateFileContent(buffer, ext) {
   const magic = MAGIC_BYTES[ext];
   if (magic) {
-    if (buffer.length < magic.offset + magic.bytes.length) {return false;}
+    if (buffer.length < magic.offset + magic.bytes.length) {
+      return false;
+    }
     return magic.bytes.every((b, i) => buffer[magic.offset + i] === b);
   }
   // Text formats: reject files containing null bytes (binary content)
@@ -153,6 +155,9 @@ router.get(
     );
     const total = parseInt(countResult.rows[0].count);
 
+    const boundedLimit = Math.min(Math.max(1, parseInt(limit) || 50), 500);
+    const boundedOffset = Math.max(0, parseInt(offset) || 0);
+
     // Get documents with space info
     const documentsResult = await pool.query(
       `SELECT d.*,
@@ -164,14 +169,14 @@ router.get(
          WHERE ${whereClause}
          ORDER BY d.${orderField} ${orderDirection}
          LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
-      [...params, parseInt(limit), parseInt(offset)]
+      [...params, boundedLimit, boundedOffset]
     );
 
     res.json({
       documents: documentsResult.rows,
       total,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: boundedLimit,
+      offset: boundedOffset,
       timestamp: new Date().toISOString(),
     });
   })

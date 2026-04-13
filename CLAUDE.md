@@ -28,7 +28,7 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
 | AI       | Ollama (LLM) + BGE-M3 (Embeddings) + Qdrant (Vektoren)       | `services/llm-service/`, `services/embedding-service/`        |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11 | `compose/`, `config/traefik/`                                 |
 | Ops      | Self-Healing Agent + Metrics Collector + Backup Service      | `services/self-healing-agent/`, `services/metrics-collector/` |
-| DB       | PostgreSQL 16 (64 Migrationen, nächste: `065_*.sql`)         | `services/postgres/init/`                                     |
+| DB       | PostgreSQL 16 (67 Migrationen, nächste: `068_*.sql`)         | `services/postgres/init/`                                     |
 | Hardware | Jetson AGX Orin / Thor (ARM64, 32-128GB, CUDA 8.7-10.0)      | Erkennung: `scripts/setup/detect-jetson.sh`                   |
 
 ---

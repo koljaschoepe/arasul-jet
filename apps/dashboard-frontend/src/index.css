@@ -340,9 +340,11 @@
   --z-sticky: 10;
   --z-sidebar-toggle: 20;
   --z-dropdown: 50;
+  --z-modal-backdrop: 49;
   --z-modal: 50;
-  --z-modal-backdrop: 50;
+  --z-tooltip: 55;
   --z-toast: 60;
+  --z-notification: 70;
   --z-max: 9999;
   --z-skip-nav: 9999;
 }

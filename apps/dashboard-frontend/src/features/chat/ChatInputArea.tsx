@@ -554,7 +554,8 @@ function ChatInputArea({
                     'chat-toolbar-btn model-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 max-w-[160px] hover:bg-primary/5 hover:text-foreground',
                     selectedModel && 'active bg-primary/15 text-primary border-primary/20'
                   )}
-                  onClick={() => setShowModelPopup(v => !v)}
+                  onClick={() => !isStreaming && setShowModelPopup(v => !v)}
+                  disabled={isStreaming}
                   aria-expanded={showModelPopup}
                   aria-haspopup="listbox"
                   aria-label="Modell auswählen"
