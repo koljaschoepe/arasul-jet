@@ -46,6 +46,10 @@ function createModelService(deps = {}) {
   let lastSwitchTime = 0;
   let switchLock = null; // Promise that resolves when current switch completes
 
+  // Track model IDs with an active download in this process.
+  // _cleanupStaleDownloads checks this set to avoid killing in-progress pulls.
+  const activeDownloadIds = new Set();
+
   // Model availability cache (TTL-based)
   const MODEL_AVAILABILITY_TTL = 60 * 1000; // 60 seconds
   const modelAvailabilityCache = new Map(); // modelId -> { available, expiresAt }
@@ -193,18 +197,21 @@ function createModelService(deps = {}) {
                 [modelId]
               );
               logger.info(`Model ${modelId} downloaded successfully`);
+              modelAvailabilityCache.delete(modelId);
 
-              // Auto-set as default if no default exists yet
-              const hasDefault = await database.query(
-                'SELECT id FROM llm_installed_models WHERE is_default = true'
-              );
-              if (hasDefault.rows.length === 0) {
-                await database.query(
-                  'UPDATE llm_installed_models SET is_default = true WHERE id = $1',
-                  [modelId]
+              // Auto-set as default if no default exists yet (atomic)
+              await database.transaction(async client => {
+                const hasDefault = await client.query(
+                  'SELECT id FROM llm_installed_models WHERE is_default = true FOR UPDATE'
                 );
-                logger.info(`Auto-set ${modelId} as default model (first model downloaded)`);
-              }
+                if (hasDefault.rows.length === 0) {
+                  await client.query(
+                    'UPDATE llm_installed_models SET is_default = true WHERE id = $1',
+                    [modelId]
+                  );
+                  logger.info(`Auto-set ${modelId} as default model (first model downloaded)`);
+                }
+              });
             }
           } catch (parseError) {
             // Ignore JSON parse errors for partial lines
@@ -236,18 +243,21 @@ function createModelService(deps = {}) {
             `,
             [modelId]
           );
+          modelAvailabilityCache.delete(modelId);
 
-          // Auto-set as default if no default exists yet
-          const hasDefault = await database.query(
-            'SELECT id FROM llm_installed_models WHERE is_default = true'
-          );
-          if (hasDefault.rows.length === 0) {
-            await database.query(
-              'UPDATE llm_installed_models SET is_default = true WHERE id = $1',
-              [modelId]
+          // Auto-set as default if no default exists yet (atomic)
+          await database.transaction(async client => {
+            const hasDefault = await client.query(
+              'SELECT id FROM llm_installed_models WHERE is_default = true FOR UPDATE'
             );
-            logger.info(`Auto-set ${modelId} as default model (first model downloaded)`);
-          }
+            if (hasDefault.rows.length === 0) {
+              await client.query(
+                'UPDATE llm_installed_models SET is_default = true WHERE id = $1',
+                [modelId]
+              );
+              logger.info(`Auto-set ${modelId} as default model (first model downloaded)`);
+            }
+          });
         }
         resolve({ success: true, modelId });
       });
@@ -556,6 +566,12 @@ function createModelService(deps = {}) {
 
     let staleCount = 0;
     for (const row of downloadingResult.rows) {
+      // Skip models with an active download in this process
+      if (activeDownloadIds.has(row.id)) {
+        logger.debug(`[SYNC] Skipping ${row.id} — active download in progress`);
+        continue;
+      }
+
       if (ollamaModels.includes(row.effective_ollama_name) || ollamaModels.includes(row.id)) {
         // Model is actually in Ollama - mark as available
         await database.query(
@@ -864,6 +880,9 @@ function createModelService(deps = {}) {
         throw new Error('Modell wird bereits heruntergeladen');
       }
 
+      // Register as active BEFORE DB insert so periodic sync can't mark it stale
+      activeDownloadIds.add(modelId);
+
       // Create or update installed model record
       await database.query(
         `
@@ -889,102 +908,106 @@ function createModelService(deps = {}) {
         'EAI_AGAIN',
       ];
 
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          // BH4: Validate disk space right before download to avoid TOCTOU race
-          await _validateDiskSpace(this, catalogModel.size_bytes || 0);
+      try {
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            // BH4: Validate disk space right before download to avoid TOCTOU race
+            await _validateDiskSpace(this, catalogModel.size_bytes || 0);
 
-          // BH4: Re-verify model isn't already downloading (another request may have started)
-          const statusCheck = await database.query(
-            'SELECT status FROM llm_installed_models WHERE id = $1',
-            [modelId]
-          );
-          if (
-            statusCheck.rows.length > 0 &&
-            statusCheck.rows[0].status === 'downloading' &&
-            attempt === 1
-          ) {
-            // On first attempt, we just set it to downloading above, so this is expected.
-            // On retries, we should not hit this because we own the download.
-          } else if (statusCheck.rows.length > 0 && statusCheck.rows[0].status === 'available') {
-            logger.info(`[DOWNLOAD] Model ${modelId} is already available, skipping download`);
-            return { success: true, modelId };
-          }
-
-          // Start pull with streaming - use ollamaName for the API call
-          const response = await axios({
-            method: 'post',
-            url: `${LLM_SERVICE_URL}/api/pull`,
-            data: { name: ollamaName, stream: true },
-            responseType: 'stream',
-            timeout: 7200000, // 2 hours for very large models (70B+ over slow connection)
-            signal,
-          });
-
-          return await _streamModelDownload(modelId, ollamaName, response, progressCallback);
-        } catch (err) {
-          // Handle abort (client disconnect) - never retry
-          const isAborted =
-            err.name === 'AbortError' || err.name === 'CanceledError' || signal?.aborted;
-          if (isAborted) {
-            logger.info(`[DOWNLOAD] Model ${modelId} download aborted by client`);
-            await database.query(
-              'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
-              ['error', 'Download abgebrochen - bitte erneut versuchen', modelId]
-            );
-            throw new Error('Download abgebrochen');
-          }
-
-          // Non-retryable errors (model not found, disk full)
-          const isNotFound = err.response?.data?.error?.includes('not found');
-          const isDiskFull = err.message?.includes('ENOSPC');
-          const isRetryable =
-            !isNotFound &&
-            !isDiskFull &&
-            (RETRY_CODES.includes(err.code) || err.message?.includes('stagniert'));
-
-          if (isRetryable && attempt < MAX_RETRIES) {
-            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000); // 1s, 2s, 4s... max 30s
-            logger.warn(
-              `[DOWNLOAD] Model ${modelId} attempt ${attempt}/${MAX_RETRIES} failed (${err.code || err.message}), retrying in ${delay}ms...`
-            );
-            if (progressCallback) {
-              progressCallback(0, `Verbindungsfehler - Versuch ${attempt + 1}/${MAX_RETRIES}...`);
-            }
-            // Reset download progress for retry
-            await database.query(
-              'UPDATE llm_installed_models SET download_progress = 0, error_message = NULL WHERE id = $1',
+            // BH4: Re-verify model isn't already downloading (another request may have started)
+            const statusCheck = await database.query(
+              'SELECT status FROM llm_installed_models WHERE id = $1',
               [modelId]
             );
-            await new Promise(r => {
-              setTimeout(r, delay);
+            if (
+              statusCheck.rows.length > 0 &&
+              statusCheck.rows[0].status === 'downloading' &&
+              attempt === 1
+            ) {
+              // On first attempt, we just set it to downloading above, so this is expected.
+              // On retries, we should not hit this because we own the download.
+            } else if (statusCheck.rows.length > 0 && statusCheck.rows[0].status === 'available') {
+              logger.info(`[DOWNLOAD] Model ${modelId} is already available, skipping download`);
+              return { success: true, modelId };
+            }
+
+            // Start pull with streaming - use ollamaName for the API call
+            const response = await axios({
+              method: 'post',
+              url: `${LLM_SERVICE_URL}/api/pull`,
+              data: { name: ollamaName, stream: true },
+              responseType: 'stream',
+              timeout: 7200000, // 2 hours for very large models (70B+ over slow connection)
+              signal,
             });
-            continue;
+
+            return await _streamModelDownload(modelId, ollamaName, response, progressCallback);
+          } catch (err) {
+            // Handle abort (client disconnect) - never retry
+            const isAborted =
+              err.name === 'AbortError' || err.name === 'CanceledError' || signal?.aborted;
+            if (isAborted) {
+              logger.info(`[DOWNLOAD] Model ${modelId} download aborted by client`);
+              await database.query(
+                'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
+                ['error', 'Download abgebrochen - bitte erneut versuchen', modelId]
+              );
+              throw new Error('Download abgebrochen');
+            }
+
+            // Non-retryable errors (model not found, disk full)
+            const isNotFound = err.response?.data?.error?.includes('not found');
+            const isDiskFull = err.message?.includes('ENOSPC');
+            const isRetryable =
+              !isNotFound &&
+              !isDiskFull &&
+              (RETRY_CODES.includes(err.code) || err.message?.includes('stagniert'));
+
+            if (isRetryable && attempt < MAX_RETRIES) {
+              const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000); // 1s, 2s, 4s... max 30s
+              logger.warn(
+                `[DOWNLOAD] Model ${modelId} attempt ${attempt}/${MAX_RETRIES} failed (${err.code || err.message}), retrying in ${delay}ms...`
+              );
+              if (progressCallback) {
+                progressCallback(0, `Verbindungsfehler - Versuch ${attempt + 1}/${MAX_RETRIES}...`);
+              }
+              // Reset download progress for retry
+              await database.query(
+                'UPDATE llm_installed_models SET download_progress = 0, error_message = NULL WHERE id = $1',
+                [modelId]
+              );
+              await new Promise(r => {
+                setTimeout(r, delay);
+              });
+              continue;
+            }
+
+            logger.error(
+              `Model ${modelId} (Ollama: ${ollamaName}) download failed after ${attempt} attempt(s): ${err.message}`
+            );
+
+            // User-friendly error messages based on error type
+            let errorMessage = err.message;
+
+            if (isNotFound) {
+              errorMessage = `Model "${ollamaName}" nicht in Ollama Registry gefunden. Bitte Modell-Konfiguration prüfen.`;
+            } else if (err.code === 'ECONNREFUSED') {
+              errorMessage = 'LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.';
+            } else if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+              errorMessage = 'Download-Timeout nach mehreren Versuchen. Bitte erneut versuchen.';
+            } else if (isDiskFull) {
+              errorMessage = 'Nicht genügend Speicherplatz für den Download.';
+            }
+
+            await database.query(
+              'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
+              ['error', errorMessage, modelId]
+            );
+            throw new Error(errorMessage);
           }
-
-          logger.error(
-            `Model ${modelId} (Ollama: ${ollamaName}) download failed after ${attempt} attempt(s): ${err.message}`
-          );
-
-          // User-friendly error messages based on error type
-          let errorMessage = err.message;
-
-          if (isNotFound) {
-            errorMessage = `Model "${ollamaName}" nicht in Ollama Registry gefunden. Bitte Modell-Konfiguration prüfen.`;
-          } else if (err.code === 'ECONNREFUSED') {
-            errorMessage = 'LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.';
-          } else if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
-            errorMessage = 'Download-Timeout nach mehreren Versuchen. Bitte erneut versuchen.';
-          } else if (isDiskFull) {
-            errorMessage = 'Nicht genügend Speicherplatz für den Download.';
-          }
-
-          await database.query(
-            'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
-            ['error', errorMessage, modelId]
-          );
-          throw new Error(errorMessage);
         }
+      } finally {
+        activeDownloadIds.delete(modelId);
       }
     }
 
@@ -992,39 +1015,60 @@ function createModelService(deps = {}) {
      * Delete a model
      */
     async deleteModel(modelId) {
-      // Get ollama_name from catalog
-      const catalogResult = await database.query(
-        `SELECT COALESCE(ollama_name, id) as effective_ollama_name
-                 FROM llm_model_catalog WHERE id = $1`,
-        [modelId]
-      );
-      const ollamaName = catalogResult.rows[0]?.effective_ollama_name || modelId;
-
-      // Check if it's the currently loaded model
-      const loaded = await this.getLoadedModel();
-      if (loaded && loaded.model_id === ollamaName) {
-        // Unload first
-        await this.unloadModel(ollamaName);
-      }
-
-      try {
-        // Delete from Ollama using ollamaName
-        await axios.delete(`${LLM_SERVICE_URL}/api/delete`, {
-          data: { name: ollamaName },
-          timeout: 30000,
-        });
-      } catch (err) {
-        // Ignore if model doesn't exist in Ollama
-        if (!err.message.includes('not found')) {
-          logger.warn(`Error deleting model from Ollama: ${err.message}`);
+      // Acquire switchLock to prevent race with concurrent activateModel
+      if (switchLock) {
+        logger.info(`[DELETE] Waiting for in-progress model switch to complete...`);
+        try {
+          await switchLock;
+        } catch {
+          // Previous switch failed, we can proceed
         }
       }
 
-      // Remove from installed models
-      await database.query('DELETE FROM llm_installed_models WHERE id = $1', [modelId]);
+      let releaseLock;
+      switchLock = new Promise(resolve => {
+        releaseLock = resolve;
+      });
 
-      logger.info(`Model ${modelId} (Ollama: ${ollamaName}) deleted`);
-      return { success: true, modelId };
+      try {
+        // Get ollama_name from catalog
+        const catalogResult = await database.query(
+          `SELECT COALESCE(ollama_name, id) as effective_ollama_name
+                   FROM llm_model_catalog WHERE id = $1`,
+          [modelId]
+        );
+        const ollamaName = catalogResult.rows[0]?.effective_ollama_name || modelId;
+
+        // Check if it's the currently loaded model
+        const loaded = await this.getLoadedModel();
+        if (loaded && loaded.model_id === ollamaName) {
+          // Unload first
+          await this.unloadModel(ollamaName);
+        }
+
+        try {
+          // Delete from Ollama using ollamaName
+          await axios.delete(`${LLM_SERVICE_URL}/api/delete`, {
+            data: { name: ollamaName },
+            timeout: 30000,
+          });
+        } catch (err) {
+          // Ignore if model doesn't exist in Ollama
+          if (!err.message.includes('not found')) {
+            logger.warn(`Error deleting model from Ollama: ${err.message}`);
+          }
+        }
+
+        // Remove from installed models
+        await database.query('DELETE FROM llm_installed_models WHERE id = $1', [modelId]);
+        modelAvailabilityCache.delete(modelId);
+
+        logger.info(`Model ${modelId} (Ollama: ${ollamaName}) deleted`);
+        return { success: true, modelId };
+      } finally {
+        switchLock = null;
+        releaseLock();
+      }
     }
 
     /**

@@ -200,6 +200,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   const activeStreamChatIdRef = useRef<string | null>(null);
   // RACE-001: Mutex to prevent concurrent reconnectToJob calls
   const reconnectMutexRef = useRef<Promise<void>>(Promise.resolve());
+  // RACE-002: Per-chat send lock to prevent double-send from rapid clicks
+  const sendLockRef = useRef(new Set<string>());
   // Background accumulation: stores messages/loading when ChatView is not mounted
   // LEAK-002: LRU eviction - max 10 chats in background to prevent unbounded growth
   const MAX_BACKGROUND_CHATS = 10;
@@ -720,6 +722,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       } = options;
       if ((!input.trim() && !file) || !chatId) return;
 
+      // RACE-002: Synchronous guard against double-send (React state updates are async)
+      if (sendLockRef.current.has(chatId)) return;
+      sendLockRef.current.add(chatId);
+
       const userMessage = input.trim();
       const isRAG = useRAG && !file; // file uploads use their own pipeline
       const isFileUpload = !!file;
@@ -1102,6 +1108,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           return n;
         });
       } finally {
+        sendLockRef.current.delete(chatId);
         delete abortControllersRef.current[chatId];
         // FH3: Reset in finally as safety net (idempotent if already reset in try block)
         resetTokenBatch();
