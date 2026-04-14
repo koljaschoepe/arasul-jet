@@ -114,6 +114,12 @@ app.use((req, res, next) => {
 });
 
 // SEC-007 FIX: Restrict CORS to specific origins + allow local network access
+// Pre-compiled regex for private IP validation (RFC 1918, strict octet 0-255)
+const _octet = '(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)';
+const _privateIPRegex = new RegExp(
+  `^https?:\\/\\/(192\\.168\\.${_octet}\\.${_octet}|10\\.${_octet}\\.${_octet}\\.${_octet}|172\\.(?:1[6-9]|2\\d|3[01])\\.${_octet}\\.${_octet})(:\\d+)?$`
+);
+
 const corsOptions = {
   origin: (origin, callback) => {
     // Explicitly allowed origins from environment
@@ -122,12 +128,7 @@ const corsOptions = {
       : [];
 
     // Check if origin is from a local/private network (RFC 1918) or mDNS
-    // Use strict regex to prevent bypass via crafted domains (e.g. attacker-10.example.com)
-    const isPrivateIP =
-      origin &&
-      /^https?:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(
-        origin
-      );
+    const isPrivateIP = origin && _privateIPRegex.test(origin);
     const isLocalNetwork =
       origin &&
       (isPrivateIP ||
@@ -664,7 +665,9 @@ if (require.main === module) {
       try {
         const n8nLogger = require('./services/n8nLogger');
         const deleted = await n8nLogger.cleanupOldRecords(7);
-        if (deleted > 0) {logger.info(`n8n workflow cleanup: ${deleted} old records removed`);}
+        if (deleted > 0) {
+          logger.info(`n8n workflow cleanup: ${deleted} old records removed`);
+        }
       } catch (err) {
         logger.warn(`n8n workflow cleanup failed (non-critical): ${err.message}`);
       }

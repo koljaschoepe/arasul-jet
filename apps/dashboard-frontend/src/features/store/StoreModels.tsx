@@ -199,13 +199,13 @@ function StoreModels() {
     setActivatingPercent(0);
 
     try {
-      const response = await api.post(`/models/${modelId}/activate?stream=true`, null, {
+      const response = await api.post<Response>(`/models/${modelId}/activate?stream=true`, null, {
         raw: true,
         showError: false,
         signal: controller.signal,
       });
 
-      const body = (response as unknown as Response).body;
+      const body = response.body;
       if (!body) throw new Error('Streaming nicht verfügbar');
       const reader = body.getReader();
       const decoder = new TextDecoder();

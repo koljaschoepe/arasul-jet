@@ -42,7 +42,7 @@ jest.mock('../../src/services/rag/ragCore', () => ({
   buildSpaceFilter: jest.fn().mockReturnValue(null),
   hybridSearch: jest.fn().mockResolvedValue([]),
   rerankResults: jest.fn().mockResolvedValue([]),
-  filterByRelevance: jest.fn().mockImplementation((results) => ({ relevant: results, filtered: [] })),
+  filterByRelevance: jest.fn().mockImplementation((results) => ({ relevant: results, marginal: [], filtered: 0 })),
   deduplicateByDocument: jest.fn().mockImplementation((results) => results),
   graphEnrichedRetrieval: jest.fn().mockResolvedValue({ graphContext: '', graphEntities: [] }),
   getParentChunks: jest.fn().mockResolvedValue([]),
@@ -191,7 +191,7 @@ describe('RAG Routes', () => {
     ragCore.buildSpaceFilter.mockReturnValue(null);
     ragCore.hybridSearch.mockResolvedValue([]);
     ragCore.rerankResults.mockResolvedValue([]);
-    ragCore.filterByRelevance.mockImplementation((results) => ({ relevant: results, filtered: [] }));
+    ragCore.filterByRelevance.mockImplementation((results) => ({ relevant: results, marginal: [], filtered: 0 }));
     ragCore.buildHierarchicalContext.mockReturnValue('No documents found.');
     ragCore.deduplicateByDocument.mockImplementation((results) => results);
     ragCore.graphEnrichedRetrieval.mockResolvedValue({ graphContext: '', graphEntities: [] });
@@ -590,7 +590,7 @@ describe('RAG Routes', () => {
       };
       ragCore.hybridSearch.mockResolvedValueOnce([mockResult]);
       ragCore.rerankResults.mockResolvedValueOnce([mockResult]);
-      ragCore.filterByRelevance.mockReturnValueOnce({ relevant: [mockResult], filtered: [] });
+      ragCore.filterByRelevance.mockReturnValueOnce({ relevant: [mockResult], marginal: [], filtered: 0 });
       ragCore.buildHierarchicalContext.mockReturnValueOnce('Context from hybrid search.');
 
       llmQueueService.enqueue.mockResolvedValueOnce({

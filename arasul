@@ -553,9 +553,12 @@ apply_jetson_profile() {
 pull_images() {
     log_info "Pulling Docker images..."
 
-    if ! docker compose pull postgres-db minio n8n reverse-proxy 2>&1 | grep -v "Pulling"; then
+    # Capture exit code separately from output filtering to avoid masking real errors
+    local pull_output
+    pull_output=$(docker compose pull postgres-db minio n8n reverse-proxy 2>&1) || {
         log_warn "Some images failed to pull — check network connectivity"
-    fi
+        echo "$pull_output" | grep -i "error\|fail\|denied" || true
+    }
 
     log_success "Base images pulled"
 }
@@ -564,10 +567,13 @@ pull_images() {
 build_images() {
     log_info "Building custom Docker images..."
 
-    if ! docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service self-healing-agent 2>&1 | grep -v "Building"; then
+    # Capture exit code separately from output filtering
+    local build_output
+    build_output=$(docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service self-healing-agent 2>&1) || {
         log_error "Docker build failed — check Dockerfiles and build context"
+        echo "$build_output" | tail -20
         return 1
-    fi
+    }
 
     log_success "Custom images built"
 }

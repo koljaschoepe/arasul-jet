@@ -164,7 +164,11 @@ router.post(
             _targetSpaces = routingResult.spaces;
             _routingMethod = routingResult.method;
 
-            if (_routingMethod === 'error' || _routingMethod === 'all') {
+            if (
+              _routingMethod === 'error' ||
+              _routingMethod === 'all' ||
+              _routingMethod === 'none'
+            ) {
               _targetSpaceIds = null;
             } else {
               _targetSpaceIds = _targetSpaces.map(s => s.id);
@@ -204,17 +208,24 @@ router.post(
       // Step 5: Rerank results (2-stage: FlashRank → BGE-reranker)
       const rerankedResults = await rerankResults(query, searchResults, top_k);
 
-      // Step 5b: RAG 4.0 - Filter by relevance score with smart fallback
+      // Step 5b: RAG 4.0 - Filter by relevance score (anti-hallucination)
       const wasReranked = ENABLE_RERANKING && rerankedResults.some(r => r.rerankScore != null);
-      let { relevant: relevantResults } = filterByRelevance(rerankedResults, wasReranked);
+      const { relevant, marginal: marginalResults } = filterByRelevance(
+        rerankedResults,
+        wasReranked
+      );
+      let relevantResults = relevant;
 
-      // Smart fallback: if threshold filtered ALL results but documents exist,
-      // use the top results anyway (better to show something than nothing)
-      if (relevantResults.length === 0 && rerankedResults.length > 0) {
+      // Anti-hallucination: When no results pass the relevance threshold,
+      // use marginal results (if any) but flag them so the LLM knows to be cautious.
+      // Previously this used ALL unfiltered results silently — causing hallucination.
+      let useMarginalResults = false;
+      if (relevantResults.length === 0 && marginalResults.length > 0) {
         logger.info(
-          `RAG fallback: relevance filter removed all ${rerankedResults.length} results, using top ${Math.min(top_k, rerankedResults.length)} unfiltered`
+          `RAG: no relevant results, using ${marginalResults.length} marginal results (flagged as low-confidence)`
         );
-        relevantResults = rerankedResults.slice(0, top_k);
+        relevantResults = marginalResults.slice(0, top_k);
+        useMarginalResults = true;
       }
 
       // Step 5c: Deduplicate by document (max 3 chunks per document)
@@ -300,6 +311,7 @@ router.post(
             score: s.score,
           })),
           noRelevantDocs,
+          marginalResults: useMarginalResults,
         },
         { model }
       );

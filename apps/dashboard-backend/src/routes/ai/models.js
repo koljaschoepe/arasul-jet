@@ -650,6 +650,49 @@ router.post(
 );
 
 /**
+ * GET /api/models/:modelId/capabilities
+ * Get capabilities for a specific model (unified capability detection)
+ * Used by frontend to dynamically show/hide UI features per model.
+ */
+router.get(
+  '/:modelId/capabilities',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { modelId } = req.params;
+    const db = require('../../database');
+
+    const result = await db.query(
+      `SELECT id, name, model_type, supports_thinking, supports_vision_input,
+              supports_audio_input, max_context_window, capabilities, rag_optimized
+       FROM llm_model_catalog WHERE id = $1`,
+      [modelId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundError(`Modell ${modelId} nicht gefunden`);
+    }
+
+    const model = result.rows[0];
+    res.json({
+      model: model.id,
+      name: model.name,
+      capabilities: {
+        text: true,
+        vision: model.supports_vision_input === true || model.model_type === 'vision',
+        thinking: model.supports_thinking === true,
+        ocr: model.model_type === 'ocr',
+        audio: model.supports_audio_input === true,
+        rag_optimized: model.rag_optimized === true,
+        streaming: true,
+        max_context_window: model.max_context_window || null,
+        extra: model.capabilities || [],
+      },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
  * GET /api/models/:modelId
  * Get info for a specific model
  */

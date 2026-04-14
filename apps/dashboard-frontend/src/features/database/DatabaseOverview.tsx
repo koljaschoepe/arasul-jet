@@ -50,11 +50,11 @@ const DatabaseOverview = memo(function DatabaseOverview() {
 
   const tableFetcher = useCallback(
     async (signal: AbortSignal) => {
-      const data = await api.get('/v1/datentabellen/tables', {
+      const data = await api.get<{ data: TableItem[] }>('/v1/datentabellen/tables', {
         signal,
         showError: false,
       });
-      return (data as any).data || [];
+      return data.data || [];
     },
     [api]
   );

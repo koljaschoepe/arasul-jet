@@ -159,25 +159,42 @@ async function processRAGJob(ctx, job) {
   const service = ctx.service;
 
   const { id: jobId, request_data: requestData, requested_model } = job;
-  const { query, context, thinking, sources, matchedSpaces, noRelevantDocs } = requestData;
+  const { query, context, thinking, sources, matchedSpaces, noRelevantDocs, marginalResults } =
+    requestData;
   const enableThinking = thinking !== false;
 
-  // German system prompt with citation rules (RAG 4.0: dual-mode)
-  const ragRules = noRelevantDocs
-    ? `Regeln:
-1. Es wurden keine ausreichend relevanten Dokumente in der Wissensbasis gefunden.
-2. Du kannst die Frage aus deinem eigenen Wissen beantworten.
-3. Beginne deine Antwort mit dem Hinweis: "Hinweis: Keine relevanten Dokumente in der Wissensbasis gefunden. Die folgende Antwort basiert auf allgemeinem Wissen."
-4. Wenn Unternehmenskontext verfuegbar ist, beziehe diesen mit ein.
-5. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
-6. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`
-    : `Regeln:
+  // German system prompt with citation rules (RAG 4.0: three-tier anti-hallucination)
+  let ragRules;
+  if (noRelevantDocs) {
+    // Mode 3: No relevant documents found at all
+    ragRules = `Regeln:
+1. Es wurden keine relevanten Dokumente in der Wissensbasis gefunden.
+2. Sage klar: "In der Wissensbasis wurden keine relevanten Dokumente zu dieser Frage gefunden."
+3. Du darfst die Frage aus allgemeinem Wissen beantworten, ABER kennzeichne dies DEUTLICH als allgemeines Wissen, nicht als Unternehmensinfo.
+4. Beginne deine Antwort IMMER mit: "**Hinweis:** Keine relevanten Dokumente gefunden. Die folgende Antwort basiert auf allgemeinem Wissen und nicht auf Unternehmensdokumenten."
+5. Erfinde KEINE Fakten, Zahlen, Preise oder spezifische Unternehmensinformationen.
+6. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
+7. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
+  } else if (marginalResults) {
+    // Mode 2: Only marginal/low-confidence documents found
+    ragRules = `Regeln:
+1. WICHTIG: Die folgenden Dokumente haben nur GERINGE Uebereinstimmung mit der Frage. Behandle sie mit Vorsicht.
+2. Wenn du die Antwort in den Dokumenten findest, zitiere sie mit [1], [2] etc.
+3. Wenn die Dokumente die Frage NICHT beantworten, sage klar: "Die Wissensbasis enthaelt keine ausreichend relevante Information zu dieser Frage."
+4. Erfinde KEINE Informationen, die nicht woertlich oder sinngemaess in den Dokumenten stehen.
+5. Ergaenze KEINE Fakten, Zahlen oder Details aus eigenem Wissen — nur was in den Dokumenten steht.
+6. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
+7. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
+  } else {
+    // Mode 1: High-confidence relevant documents found
+    ragRules = `Regeln:
 1. Antworte AUSSCHLIESSLICH auf Basis der bereitgestellten Dokumente.
-2. Wenn die Antwort nicht in den Dokumenten zu finden ist, sage das klar und deutlich.
-3. Zitiere deine Quellen mit [1], [2] etc. - die Nummern entsprechen den Dokumenten unten.
+2. Jede Aussage MUSS mit einer Quellenangabe [1], [2] etc. belegt sein — die Nummern entsprechen den Dokumenten unten.
+3. Wenn die Antwort nicht in den Dokumenten zu finden ist, sage das klar und deutlich. Erfinde NICHTS.
 4. Verwende Fachbegriffe aus den Dokumenten.
 5. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
 6. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
+  }
 
   const ragSystemPrompt = `Du bist ein professioneller Wissensassistent fuer ein Unternehmen.
 
@@ -189,12 +206,16 @@ ${ragRules}`;
   const budget = await modelContextService.getTokenBudget(requested_model);
 
   let truncatedContext = context;
+  let contextWasTruncated = false;
   const ragTokens = estimateTokens(context);
   if (ragTokens > budget.maxRagTokens) {
     logger.warn(
       `[JOB ${jobId}] RAG context exceeds budget: ${ragTokens} > ${budget.maxRagTokens} tokens, truncating`
     );
     truncatedContext = truncateToTokens(context, budget.maxRagTokens);
+    truncatedContext +=
+      '\n\n[Hinweis: Der Dokumentenkontext wurde aus Platzgruenden gekuerzt. Einige Dokumente sind moeglicherweise unvollstaendig. Beantworte die Frage nur auf Basis der sichtbaren Informationen.]';
+    contextWasTruncated = true;
   }
 
   // Build optimized prompt with truncated RAG context
@@ -214,6 +235,8 @@ ${ragRules}`;
   service.notifySubscribers(jobId, {
     type: 'context_info',
     tokenBreakdown: optimized.tokenBreakdown,
+    contextTruncated: contextWasTruncated,
+    marginalResults: !!marginalResults,
   });
 
   const prompt = `${ragSystemPrompt}\n\n${truncatedContext}\n\nFrage: ${query}`;

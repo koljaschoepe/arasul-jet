@@ -30,8 +30,8 @@ router.get(
     const data = result.rows[0];
 
     res.json({
-      active: parseInt(data.active) || 0,
-      executed_today: parseInt(data.executed_today) || 0,
+      active: parseInt(data.active, 10) || 0,
+      executed_today: parseInt(data.executed_today, 10) || 0,
       last_error: data.last_error || null,
       last_success: data.last_success ? new Date(data.last_success).toISOString() : null,
       timestamp: new Date().toISOString(),

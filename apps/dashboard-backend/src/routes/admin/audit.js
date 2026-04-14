@@ -34,8 +34,8 @@ router.get(
   requireAdmin,
   asyncHandler(async (req, res) => {
     // Parse pagination
-    let limit = parseInt(req.query.limit) || DEFAULT_LIMIT;
-    let offset = parseInt(req.query.offset) || 0;
+    let limit = parseInt(req.query.limit, 10) || DEFAULT_LIMIT;
+    let offset = parseInt(req.query.offset, 10) || 0;
 
     // Enforce limits
     limit = Math.min(Math.max(1, limit), MAX_LIMIT);
@@ -46,10 +46,10 @@ router.get(
       date_from: req.query.date_from || null,
       date_to: req.query.date_to || null,
       action_type: req.query.action_type || null,
-      user_id: req.query.user_id ? parseInt(req.query.user_id) : null,
+      user_id: req.query.user_id ? parseInt(req.query.user_id, 10) : null,
       endpoint: req.query.endpoint || null,
-      status_min: req.query.status_min ? parseInt(req.query.status_min) : null,
-      status_max: req.query.status_max ? parseInt(req.query.status_max) : null,
+      status_min: req.query.status_min ? parseInt(req.query.status_min, 10) : null,
+      status_max: req.query.status_max ? parseInt(req.query.status_max, 10) : null,
     };
 
     // Build dynamic query
@@ -169,7 +169,7 @@ router.get(
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    let days = parseInt(req.query.days) || 30;
+    let days = parseInt(req.query.days, 10) || 30;
     days = Math.min(Math.max(1, days), 90);
 
     const result = await db.query(
@@ -212,8 +212,8 @@ router.get(
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    let days = parseInt(req.query.days) || 7;
-    let limit = parseInt(req.query.limit) || 20;
+    let days = parseInt(req.query.days, 10) || 7;
+    let limit = parseInt(req.query.limit, 10) || 20;
     days = Math.min(Math.max(1, days), 30);
     limit = Math.min(Math.max(1, limit), 100);
 

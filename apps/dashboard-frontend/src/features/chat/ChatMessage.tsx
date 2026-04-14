@@ -289,7 +289,16 @@ const ChatMessage = memo(function ChatMessage({
               {message.sources.map((source: DocumentSource, sourceIndex: number) => (
                 <div
                   key={sourceIndex}
-                  className="source-item py-3.5 px-4 bg-card rounded-lg mb-2.5 border-l-[3px] border-l-primary last:mb-0"
+                  className={cn(
+                    'source-item py-3.5 px-4 bg-card rounded-lg mb-2.5 border-l-[3px] last:mb-0',
+                    source.rerank_score != null
+                      ? source.rerank_score >= 0.1
+                        ? 'border-l-primary'
+                        : 'border-l-yellow-500'
+                      : (source.score ?? 0) >= 0.01
+                        ? 'border-l-primary'
+                        : 'border-l-yellow-500'
+                  )}
                 >
                   <div className="source-name text-sm font-semibold text-foreground mb-2">
                     <span className="source-index font-semibold text-primary mr-1.5">
@@ -308,16 +317,47 @@ const ChatMessage = memo(function ChatMessage({
                   <div className="source-scores flex gap-3 items-center">
                     {source.rerank_score != null ? (
                       <>
-                        <span className="text-xs text-primary font-medium">
+                        <span
+                          className={cn(
+                            'text-xs font-medium',
+                            source.rerank_score >= 0.15
+                              ? 'text-green-600 dark:text-green-400'
+                              : source.rerank_score >= 0.05
+                                ? 'text-yellow-600 dark:text-yellow-400'
+                                : 'text-red-500 dark:text-red-400'
+                          )}
+                        >
                           Rerank: {(source.rerank_score * 100).toFixed(0)}%
+                          {source.rerank_score < 0.1 && (
+                            <span
+                              className="ml-1"
+                              title="Geringe Uebereinstimmung — Angaben pruefen"
+                            >
+                              &#9888;
+                            </span>
+                          )}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           Vektor: {((source.score ?? 0) * 100).toFixed(0)}%
                         </span>
                       </>
                     ) : (
-                      <span className="text-xs text-primary font-medium">
+                      <span
+                        className={cn(
+                          'text-xs font-medium',
+                          (source.score ?? 0) >= 0.02
+                            ? 'text-green-600 dark:text-green-400'
+                            : (source.score ?? 0) >= 0.005
+                              ? 'text-yellow-600 dark:text-yellow-400'
+                              : 'text-red-500 dark:text-red-400'
+                        )}
+                      >
                         Relevanz: {((source.score ?? 0) * 100).toFixed(0)}%
+                        {(source.score ?? 0) < 0.01 && (
+                          <span className="ml-1" title="Geringe Uebereinstimmung — Angaben pruefen">
+                            &#9888;
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>

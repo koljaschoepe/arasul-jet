@@ -54,11 +54,13 @@ const ENABLE_GRAPH_ENRICHMENT = process.env.RAG_ENABLE_GRAPH !== 'false';
 const GRAPH_MAX_ENTITIES = parseInt(process.env.RAG_GRAPH_MAX_ENTITIES || '3');
 const GRAPH_TRAVERSAL_DEPTH = parseInt(process.env.RAG_GRAPH_TRAVERSAL_DEPTH || '2');
 
-// RAG 4.0: Smart relevance filtering
-// Reranker (BGE CrossEncoder) logits: good matches ~0.05-0.3, threshold must be low
-// RRF fusion scores: ~0.01-0.03, completely different scale from cosine similarity
-const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.05');
-const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.005');
+// RAG 4.0: Relevance filtering — tuned to prevent hallucination
+// Reranker (BGE CrossEncoder) logits: good matches ≥0.10, marginal 0.05–0.10
+// RRF fusion scores: ~0.01-0.03 (different scale from cosine similarity)
+const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.10');
+const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.01');
+// Marginal thresholds: results between marginal and relevant are flagged as low-confidence
+const RAG_MARGINAL_FACTOR = 0.5; // marginal = threshold * factor
 
 /**
  * Get embedding vector for text.
@@ -196,7 +198,14 @@ async function routeToSpaces(queryEmbedding, options = {}) {
     const cachedSpaces = _spaceEmbeddingCache.rows;
 
     if (cachedSpaces.length === 0) {
-      logger.debug('No spaces with embeddings found, returning all spaces');
+      logger.debug('No spaces with embeddings found, using default space');
+      const defaultResult = await db.query(
+        'SELECT id, name, slug, description FROM knowledge_spaces WHERE is_default = TRUE'
+      );
+      if (defaultResult.rows.length > 0) {
+        return { spaces: defaultResult.rows, method: 'fallback' };
+      }
+      // No embeddings and no default — return all as last resort (initial setup)
       const allSpaces = await db.query('SELECT id, name, slug, description FROM knowledge_spaces');
       return { spaces: allSpaces.rows, method: 'all' };
     }
@@ -227,8 +236,13 @@ async function routeToSpaces(queryEmbedding, options = {}) {
         };
       }
 
-      const allSpaces = await db.query('SELECT id, name, slug, description FROM knowledge_spaces');
-      return { spaces: allSpaces.rows, method: 'all' };
+      // Anti-hallucination: Don't search ALL spaces when none match —
+      // this dilutes results and increases hallucination risk.
+      // Return empty so the RAG pipeline can signal "no relevant docs".
+      logger.info(
+        'No spaces matched and no default space — skipping broad search to prevent hallucination'
+      );
+      return { spaces: [], method: 'none' };
     }
 
     logger.debug(
@@ -322,30 +336,41 @@ async function rerankResults(query, results, topK = 5) {
 }
 
 /**
- * Filter results by relevance score (RAG 4.0)
+ * Filter results by relevance score (RAG 4.0 — anti-hallucination)
  * Uses rerank score when available, falls back to vector score.
+ * Returns three tiers: relevant (high confidence), marginal (low confidence), filtered (rejected).
  */
 function filterByRelevance(results, reranked = true) {
   if (results.length === 0) {
-    return { relevant: [], filtered: 0 };
+    return { relevant: [], marginal: [], filtered: 0 };
   }
 
   const threshold = reranked ? RAG_RELEVANCE_THRESHOLD : RAG_VECTOR_SCORE_THRESHOLD;
+  const marginalThreshold = threshold * RAG_MARGINAL_FACTOR;
   const scoreField = reranked ? 'rerankScore' : 'score';
 
-  const relevant = results.filter(r => {
-    const score = r[scoreField];
-    return score != null && score >= threshold;
-  });
+  const relevant = [];
+  const marginal = [];
+  let filtered = 0;
 
-  const filtered = results.length - relevant.length;
-  if (filtered > 0) {
+  for (const r of results) {
+    const score = r[scoreField];
+    if (score != null && score >= threshold) {
+      relevant.push(r);
+    } else if (score != null && score >= marginalThreshold) {
+      marginal.push({ ...r, marginal: true });
+    } else {
+      filtered++;
+    }
+  }
+
+  if (filtered > 0 || marginal.length > 0) {
     logger.info(
-      `Relevance filter: ${results.length} → ${relevant.length} (threshold=${threshold}, filtered=${filtered})`
+      `Relevance filter: ${results.length} → ${relevant.length} relevant, ${marginal.length} marginal, ${filtered} rejected (threshold=${threshold}, marginal=${marginalThreshold})`
     );
   }
 
-  return { relevant, filtered };
+  return { relevant, marginal, filtered };
 }
 
 /**
