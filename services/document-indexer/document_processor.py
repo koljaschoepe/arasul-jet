@@ -393,6 +393,24 @@ def _index_to_qdrant(
             logger.warning(f"No chunks generated for document {doc_id}")
             return 0
 
+        # Filter out tiny child chunks (< 20 words) — headers, page numbers, etc.
+        # produce poor embeddings and add noise to retrieval
+        MIN_CHILD_WORDS = 20
+        for parent in parent_chunks:
+            parent.children = [c for c in parent.children if c.word_count >= MIN_CHILD_WORDS]
+        # Remove parents with no remaining children
+        parent_chunks = [p for p in parent_chunks if p.children]
+        if not parent_chunks:
+            logger.warning(f"No chunks above {MIN_CHILD_WORDS} words for document {doc_id}")
+            return 0
+
+        # Re-index global child indices after filtering
+        global_idx = 0
+        for parent in parent_chunks:
+            for child in parent.children:
+                child.global_index = global_idx
+                global_idx += 1
+
         total_children = sum(len(p.children) for p in parent_chunks)
         doc_title = metadata.get('title', metadata.get('filename', ''))
         logger.info(
@@ -471,6 +489,18 @@ def _index_to_qdrant(
                     })
 
                     domain_texts.append(orig_text)
+
+        # Validate embedding completeness — detect silent failures
+        skipped_chunks = total_children - len(all_points)
+        if skipped_chunks > 0:
+            skip_pct = (skipped_chunks / total_children * 100) if total_children else 0
+            logger.error(
+                f"Document {doc_id}: {skipped_chunks}/{total_children} chunks "
+                f"({skip_pct:.0f}%) failed to embed — document partially indexed"
+            )
+            if len(all_points) == 0:
+                logger.error(f"Document {doc_id}: ALL chunks failed — aborting indexing")
+                return 0
 
         # Upsert to Qdrant in batches to prevent OOM on large documents
         UPSERT_BATCH_SIZE = 100

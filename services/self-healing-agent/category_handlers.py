@@ -16,8 +16,9 @@ from config import (
     REBOOT_ENABLED, MAX_REBOOTS_PER_HOUR, MAX_FAILURES_IN_WINDOW,
     FAILURE_WINDOW_MINUTES, CRITICAL_WINDOW_MINUTES, MAX_CRITICAL_EVENTS,
     CPU_OVERLOAD_THRESHOLD, RAM_OVERLOAD_THRESHOLD, GPU_OVERLOAD_THRESHOLD,
-    TEMP_THROTTLE_THRESHOLD, TEMP_RESTART_THRESHOLD, TEMP_THROTTLE_REARM,
-    TEMP_RESTART_REARM, TEMP_HISTORY_SIZE, DISK_WARNING, DISK_CLEANUP,
+    TEMP_THROTTLE_THRESHOLD, TEMP_RESTART_THRESHOLD, TEMP_SHUTDOWN_THRESHOLD,
+    TEMP_THROTTLE_REARM, TEMP_RESTART_REARM, TEMP_SHUTDOWN_REARM,
+    TEMP_HISTORY_SIZE, DISK_WARNING, DISK_CLEANUP,
     DISK_CRITICAL, DISK_REBOOT, logger
 )
 
@@ -176,6 +177,10 @@ class CategoryHandlersMixin:
         avg_temp = sum(self._temp_history) / len(self._temp_history)
 
         # Re-arm hysteresis
+        if avg_temp < TEMP_SHUTDOWN_REARM:
+            if not getattr(self, '_temp_shutdown_armed', True):
+                logger.info(f"Temperature dropped to {avg_temp:.1f}°C - shutdown action re-armed")
+                self._temp_shutdown_armed = True
         if avg_temp < TEMP_RESTART_REARM:
             if not self._temp_restart_armed:
                 logger.info(f"Temperature dropped to {avg_temp:.1f}°C - restart action re-armed")
@@ -185,7 +190,35 @@ class CategoryHandlersMixin:
                 logger.info(f"Temperature dropped to {avg_temp:.1f}°C - throttle action re-armed")
                 self._temp_throttle_armed = True
 
-        if avg_temp > TEMP_RESTART_THRESHOLD and self._temp_restart_armed:
+        # Emergency thermal shutdown: stop LLM completely at 90°C+
+        # Restart alone can't help — GPU stays hot. Must fully stop until cooldown.
+        if avg_temp > TEMP_SHUTDOWN_THRESHOLD and getattr(self, '_temp_shutdown_armed', True):
+            action_key = 'temp_shutdown'
+            last_action = self.last_overload_actions.get(action_key, 0)
+            if current_time - last_action > 600:
+                logger.critical(f"EMERGENCY: {avg_temp:.1f}°C (raw: {temp}°C) — stopping LLM service")
+                self._temp_shutdown_armed = False
+                try:
+                    container = self.docker_client.containers.get('llm-service')
+                    container.stop(timeout=30)
+                    success = True
+                except Exception as e:
+                    logger.error(f"Failed to stop LLM service: {e}")
+                    success = False
+
+                self.log_event(
+                    'thermal_emergency', 'CRITICAL',
+                    f'Emergency thermal shutdown at {avg_temp:.1f}°C (threshold: {TEMP_SHUTDOWN_THRESHOLD}°C)',
+                    'Stopped LLM service' if success else 'Failed to stop service',
+                    'llm-service', success
+                )
+                self.record_recovery_action(
+                    'service_stop', 'llm-service',
+                    f'Emergency thermal shutdown: {avg_temp:.1f}°C', success
+                )
+                self.last_overload_actions[action_key] = current_time
+
+        elif avg_temp > TEMP_RESTART_THRESHOLD and self._temp_restart_armed:
             action_key = 'temp_critical'
             last_action = self.last_overload_actions.get(action_key, 0)
             if current_time - last_action > 600:

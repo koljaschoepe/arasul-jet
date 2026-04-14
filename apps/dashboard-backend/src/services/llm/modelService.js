@@ -869,33 +869,27 @@ function createModelService(deps = {}) {
       // Use effective_ollama_name for Ollama API calls
       const ollamaName = catalogModel.effective_ollama_name;
 
-      // DL-002: Check if already downloading (prevent reset of progress)
-      const existingModel = await database.query(
-        'SELECT status, download_progress FROM llm_installed_models WHERE id = $1',
+      // DL-002: Atomic claim — INSERT or UPDATE only if not already downloading
+      // This eliminates the TOCTOU race between check and status set
+      const claimResult = await database.query(
+        `INSERT INTO llm_installed_models (id, status, download_progress)
+         VALUES ($1, 'downloading', 0)
+         ON CONFLICT (id) DO UPDATE SET
+             status = 'downloading',
+             download_progress = 0,
+             error_message = NULL
+         WHERE llm_installed_models.status <> 'downloading'
+         RETURNING id`,
         [modelId]
       );
-      if (existingModel.rows.length > 0 && existingModel.rows[0].status === 'downloading') {
-        logger.warn(
-          `[DOWNLOAD] Model ${modelId} is already downloading (${existingModel.rows[0].download_progress}%), skipping`
-        );
+
+      if (claimResult.rows.length === 0) {
+        logger.warn(`[DOWNLOAD] Model ${modelId} is already downloading, skipping`);
         throw new Error('Modell wird bereits heruntergeladen');
       }
 
-      // Register as active BEFORE DB insert so periodic sync can't mark it stale
+      // Register as active AFTER successful claim so periodic sync can't mark it stale
       activeDownloadIds.add(modelId);
-
-      // Create or update installed model record
-      await database.query(
-        `
-                INSERT INTO llm_installed_models (id, status, download_progress)
-                VALUES ($1, 'downloading', 0)
-                ON CONFLICT (id) DO UPDATE SET
-                    status = 'downloading',
-                    download_progress = 0,
-                    error_message = NULL
-            `,
-        [modelId]
-      );
 
       logger.info(`Starting download of model ${modelId} (Ollama: ${ollamaName})`);
 

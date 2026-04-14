@@ -93,7 +93,7 @@ services:
       interval: 30s
       timeout: 15s
       retries: 3
-      start_period: 300s
+      start_period: 120s
     logging: *default-logging
 
   # 3. Embedding Service
@@ -197,8 +197,8 @@ services:
       DOCUMENT_INDEXER_SIMILARITY_THRESHOLD: ${DOCUMENT_INDEXER_SIMILARITY_THRESHOLD:-0.8}
       DOCUMENT_MAX_SIZE_MB: ${DOCUMENT_MAX_SIZE_MB:-100}
       DOCUMENT_INDEXER_PARENT_CHUNK_SIZE: ${DOCUMENT_INDEXER_PARENT_CHUNK_SIZE:-2000}
-      DOCUMENT_INDEXER_CHILD_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHILD_CHUNK_SIZE:-400}
-      DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP:-50}
+      DOCUMENT_INDEXER_CHILD_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHILD_CHUNK_SIZE:-300}
+      DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP:-75}
       BM25_INDEX_PATH: /data/bm25_index
     volumes:
       - arasul-bm25-index:/data/bm25_index
@@ -211,8 +211,7 @@ services:
         condition: service_healthy
       embedding-service:
         condition: service_healthy
-      llm-service:
-        condition: service_healthy
+      # llm-service dependency removed — indexer retries AI analysis when LLM becomes available
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:9102/health']
       interval: 30s

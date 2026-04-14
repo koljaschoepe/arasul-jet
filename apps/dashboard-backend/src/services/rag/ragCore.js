@@ -56,9 +56,9 @@ const GRAPH_TRAVERSAL_DEPTH = parseInt(process.env.RAG_GRAPH_TRAVERSAL_DEPTH || 
 
 // RAG 4.0: Relevance filtering — tuned to prevent hallucination
 // Reranker (BGE CrossEncoder) logits: good matches ≥0.10, marginal 0.05–0.10
-// RRF fusion scores: ~0.01-0.03 (different scale from cosine similarity)
+// RRF fusion scores: good matches ≥0.015, marginal 0.008–0.015 (compressed scale)
 const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.10');
-const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.01');
+const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.015');
 // Marginal thresholds: results between marginal and relevant are flagged as low-confidence
 const RAG_MARGINAL_FACTOR = 0.5; // marginal = threshold * factor
 

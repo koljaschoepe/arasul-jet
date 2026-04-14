@@ -90,7 +90,7 @@ _http_session = create_retry_session()
 _model_cache = None
 _model_cache_time = 0
 _model_cache_lock = threading.Lock()
-MODEL_CACHE_TTL = 30  # Cache models for 30 seconds
+MODEL_CACHE_TTL = 60  # Cache models for 60 seconds
 
 
 @app.route('/health', methods=['GET'])
@@ -200,6 +200,13 @@ def pull_model():
 
         logger.info(f"Pulling model: {model_name}")
 
+        # Invalidate model cache BEFORE streaming to avoid race condition
+        # where concurrent requests see stale cache during download
+        global _model_cache, _model_cache_time
+        with _model_cache_lock:
+            _model_cache = None
+            _model_cache_time = 0
+
         # Stream progress from Ollama to caller
         def generate():
             try:
@@ -215,8 +222,7 @@ def pull_model():
                     if line:
                         yield line + b'\n'
 
-                # Invalidate model cache after successful pull
-                global _model_cache, _model_cache_time
+                # Invalidate again after successful pull to pick up new model
                 with _model_cache_lock:
                     _model_cache = None
                     _model_cache_time = 0
@@ -250,6 +256,8 @@ def delete_model():
     """
     try:
         data = request.get_json()
+        if data is None:
+            return jsonify({"error": "Invalid or missing JSON body"}), 400
         model_name = data.get("model")
 
         if not model_name:
@@ -321,7 +329,7 @@ def clear_cache():
         for model in loaded_models:
             model_name = model.get('name')
             try:
-                response = requests.post(
+                response = _http_session.post(
                     f"{OLLAMA_BASE_URL}/api/generate",
                     json={
                         "model": model_name,
@@ -387,7 +395,11 @@ def reset_session():
 
         # Then reload the default model with test prompt
         # Use LLM_KEEP_ALIVE_SECONDS from environment (default 300)
-        keep_alive = int(os.environ.get("LLM_KEEP_ALIVE_SECONDS", "300"))
+        try:
+            keep_alive = int(os.environ.get("LLM_KEEP_ALIVE_SECONDS", "300"))
+        except (ValueError, TypeError):
+            logger.warning("Invalid LLM_KEEP_ALIVE_SECONDS, using default 300")
+            keep_alive = 300
 
         response = _http_session.post(
             f"{OLLAMA_BASE_URL}/api/generate",

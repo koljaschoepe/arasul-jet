@@ -423,7 +423,7 @@ router.get(
       throw new ServiceUnavailableError('RAG system is degraded');
     }
 
-    const collection = qdrantResponse.data.result;
+    const collection = qdrantResponse.data?.result || {};
 
     res.json({
       status: 'operational',

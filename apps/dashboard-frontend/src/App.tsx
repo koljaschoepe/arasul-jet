@@ -656,32 +656,12 @@ function AppContent(): React.JSX.Element | null {
                   <Route
                     path="*"
                     element={
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          height: '60vh',
-                          color: 'var(--text-secondary)',
-                        }}
-                      >
-                        <h1 style={{ fontSize: '4rem', margin: 0, color: 'var(--text-primary)' }}>
-                          404
-                        </h1>
-                        <p style={{ fontSize: '1.2rem', marginTop: '0.5rem' }}>
-                          Seite nicht gefunden
-                        </p>
+                      <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground">
+                        <h1 className="text-7xl font-bold m-0 text-foreground">404</h1>
+                        <p className="text-lg mt-2">Seite nicht gefunden</p>
                         <Link
                           to="/"
-                          style={{
-                            marginTop: '1.5rem',
-                            padding: '0.6rem 1.5rem',
-                            background: 'var(--primary)',
-                            color: 'var(--text-primary)',
-                            borderRadius: '8px',
-                            textDecoration: 'none',
-                          }}
+                          className="mt-6 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg no-underline hover:opacity-90 transition-opacity"
                         >
                           Zum Dashboard
                         </Link>

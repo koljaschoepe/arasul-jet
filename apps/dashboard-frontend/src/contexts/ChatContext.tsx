@@ -866,7 +866,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
               streamTimeoutReject(
                 new Error(
                   isFirstRead
-                    ? 'Timeout: Modell konnte nicht geladen werden (5 Min). Bitte Systemstatus prüfen.'
+                    ? 'Timeout: Modell konnte nicht geladen werden (11 Min). Bitte Systemstatus prüfen.'
                     : 'Stream-Timeout: Keine Daten seit 120 Sekunden'
                 )
               );

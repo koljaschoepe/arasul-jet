@@ -313,16 +313,6 @@ router.post(
     const contentHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
     const fileHash = crypto.createHash('sha256').update(`${filename}:${file.size}`).digest('hex');
 
-    // Check for duplicates
-    const existingResult = await pool.query(
-      `SELECT id, filename FROM documents WHERE content_hash = $1 AND deleted_at IS NULL`,
-      [contentHash]
-    );
-
-    if (existingResult.rows.length > 0) {
-      throw new ConflictError('Dokument existiert bereits');
-    }
-
     // Check bucket quota before upload
     await minioService.enforceQuota(file.size);
 
@@ -335,7 +325,8 @@ router.post(
       'Content-Type': file.mimetype,
     });
 
-    // Create document record in pending state
+    // Create document record in pending state — atomic duplicate check via ON CONFLICT
+    // Uses partial unique index idx_documents_unique_content_hash (content_hash WHERE deleted_at IS NULL)
     const docId = crypto.randomUUID();
     const mimeTypes = {
       '.pdf': 'application/pdf',
@@ -348,12 +339,15 @@ router.post(
     };
 
     try {
-      await pool.query(
+      const insertResult = await pool.query(
         `INSERT INTO documents (
               id, filename, original_filename, file_path, file_size,
               mime_type, file_extension, content_hash, file_hash,
               status, uploaded_by, space_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          ON CONFLICT (content_hash) WHERE deleted_at IS NULL AND status <> 'deleted'
+          DO NOTHING
+          RETURNING id`,
         [
           docId,
           filename,
@@ -369,7 +363,22 @@ router.post(
           spaceId,
         ]
       );
+
+      // ON CONFLICT DO NOTHING returns 0 rows if duplicate exists
+      if (insertResult.rows.length === 0) {
+        // Clean up the already-uploaded MinIO file
+        try {
+          const minio = minioService.getMinioClient();
+          await minio.removeObject(minioService.MINIO_BUCKET, objectName);
+        } catch (cleanupError) {
+          logger.warn(
+            `Failed to cleanup duplicate MinIO file ${objectName}: ${cleanupError.message}`
+          );
+        }
+        throw new ConflictError('Dokument existiert bereits');
+      }
     } catch (dbError) {
+      if (dbError instanceof ConflictError) {throw dbError;}
       // Compensating transaction: cleanup MinIO file if database insert fails
       try {
         const minio = minioService.getMinioClient();

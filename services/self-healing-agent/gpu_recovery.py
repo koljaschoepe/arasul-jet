@@ -265,7 +265,7 @@ class GPURecovery:
             return False
 
     def reset_gpu(self) -> bool:
-        """Perform GPU reset (nvidia-smi --gpu-reset)"""
+        """Perform GPU reset (nvidia-smi --gpu-reset) with post-reset verification"""
         try:
             logger.warning("Performing GPU reset...")
 
@@ -277,10 +277,21 @@ class GPURecovery:
             )
 
             if result.returncode == 0:
-                logger.info("GPU reset successful")
+                logger.info("GPU reset command succeeded, verifying GPU health...")
                 # Wait for GPU to reinitialize
                 time.sleep(5)
-                return True
+
+                # Post-reset verification: check GPU is responsive
+                verify = subprocess.run(
+                    ['nvidia-smi', '--query-gpu=gpu_uuid,temperature.gpu', '--format=csv,noheader'],
+                    capture_output=True, text=True, timeout=10
+                )
+                if verify.returncode == 0 and verify.stdout.strip():
+                    logger.info(f"GPU reset verified — GPU responsive: {verify.stdout.strip()}")
+                    return True
+                else:
+                    logger.error(f"GPU reset completed but verification failed (rc={verify.returncode})")
+                    return False
             else:
                 logger.error(f"GPU reset failed: {result.stderr}")
                 return False

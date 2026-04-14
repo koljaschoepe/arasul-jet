@@ -293,48 +293,70 @@ router.get(
     );
 
     if (orphanedMessages.length > 0) {
-      for (const msg of orphanedMessages) {
-        try {
-          if (
-            msg.job_id &&
-            (msg.job_status === 'completed' ||
-              msg.job_status === 'error' ||
-              msg.job_status === 'cancelled')
-          ) {
-            // Job exists with terminal status — transfer content if available
-            const jobData = await db.query(
-              `SELECT content, thinking, sources, matched_spaces FROM llm_jobs WHERE id = $1`,
-              [msg.job_id]
-            );
-            if (jobData.rows.length > 0 && (jobData.rows[0].content || jobData.rows[0].thinking)) {
-              const j = jobData.rows[0];
-              await db.query(
-                `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
-                [j.content || '', j.thinking, j.sources, j.matched_spaces, msg.id]
-              );
-              // Update in-memory for this response
-              msg.content = j.content || '';
-              msg.thinking = j.thinking;
-              msg.sources = j.sources;
-              msg.matched_spaces = j.matched_spaces;
-              msg.status = 'completed';
+      try {
+        // Batch recovery: separate messages with terminal jobs vs no-job orphans
+        const withTerminalJob = orphanedMessages.filter(
+          m => m.job_id && ['completed', 'error', 'cancelled'].includes(m.job_status)
+        );
+        const noJob = orphanedMessages.filter(m => !m.job_id || !m.job_status);
+
+        // Bulk fetch all job data in one query
+        if (withTerminalJob.length > 0) {
+          const jobIds = withTerminalJob.map(m => m.job_id);
+          const jobData = await db.query(
+            `SELECT id, content, thinking, sources, matched_spaces FROM llm_jobs WHERE id = ANY($1)`,
+            [jobIds]
+          );
+          const jobMap = new Map(jobData.rows.map(j => [j.id, j]));
+
+          const toRecover = []; // messages with job content to transfer
+          const toMarkError = []; // messages with empty jobs
+
+          for (const msg of withTerminalJob) {
+            const j = jobMap.get(msg.job_id);
+            if (j && (j.content || j.thinking)) {
+              toRecover.push({ msg, job: j });
             } else {
-              // Job has no content — mark message as error
-              await db.query(`UPDATE chat_messages SET status = 'error' WHERE id = $1`, [msg.id]);
-              msg.status = 'error';
-            }
-          } else if (!msg.job_id || !msg.job_status) {
-            // No job at all — mark as error if older than 5 minutes
-            const msgAge = Date.now() - new Date(msg.created_at).getTime();
-            if (msgAge > 5 * 60 * 1000) {
-              await db.query(`UPDATE chat_messages SET status = 'error' WHERE id = $1`, [msg.id]);
+              toMarkError.push(msg.id);
               msg.status = 'error';
             }
           }
-        } catch (recoveryErr) {
-          // Non-critical — log and continue
-          logger.warn(`Inline recovery failed for message ${msg.id}: ${recoveryErr.message}`);
+
+          // Bulk update: transfer content from jobs
+          for (const { msg, job } of toRecover) {
+            await db.query(
+              `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
+              [job.content || '', job.thinking, job.sources, job.matched_spaces, msg.id]
+            );
+            msg.content = job.content || '';
+            msg.thinking = job.thinking;
+            msg.sources = job.sources;
+            msg.matched_spaces = job.matched_spaces;
+            msg.status = 'completed';
+          }
+
+          // Bulk update: mark empty-job messages as error
+          if (toMarkError.length > 0) {
+            await db.query(`UPDATE chat_messages SET status = 'error' WHERE id = ANY($1)`, [
+              toMarkError,
+            ]);
+          }
         }
+
+        // Mark old no-job orphans as error (batch)
+        const staleNoJob = noJob.filter(
+          m => Date.now() - new Date(m.created_at).getTime() > 5 * 60 * 1000
+        );
+        if (staleNoJob.length > 0) {
+          const staleIds = staleNoJob.map(m => m.id);
+          await db.query(`UPDATE chat_messages SET status = 'error' WHERE id = ANY($1)`, [
+            staleIds,
+          ]);
+          for (const msg of staleNoJob) {msg.status = 'error';}
+        }
+      } catch (recoveryErr) {
+        // Non-critical — log and continue
+        logger.warn(`Inline recovery failed: ${recoveryErr.message}`);
       }
     }
 

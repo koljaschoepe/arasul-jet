@@ -125,7 +125,7 @@ services:
           cpus: '2.0'
           memory: ${RAM_LIMIT_SELF_HEALING:-512M}
 
-  # 3. Backup Service (disabled by default — activate with: docker compose --profile backup up)
+  # 3. Backup Service (always-on for 5-year autonomous operation)
   backup-service:
     build:
       context: ../services/backup-service
@@ -133,8 +133,6 @@ services:
     container_name: backup-service
     hostname: backup-service
     restart: always
-    profiles:
-      - backup
     networks:
       - arasul-backend
       - arasul-monitoring
@@ -147,7 +145,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       BACKUP_WEEKLY_RETENTION_WEEKS: ${BACKUP_WEEKLY_RETENTION_WEEKS:-12}
       TZ: ${TZ:-Europe/Berlin}
     volumes:

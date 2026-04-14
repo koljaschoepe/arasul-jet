@@ -254,10 +254,12 @@ router.post(
       throw new ValidationError('model_id ist erforderlich');
     }
 
-    if (typeof model_id !== 'string' || model_id.length > 200 || /[/\\;|&`$(){}]/.test(model_id)) {
-      throw new ValidationError(
-        'Ungültige model_id (max 200 Zeichen, keine Pfad- oder Shell-Metazeichen)'
-      );
+    if (
+      typeof model_id !== 'string' ||
+      model_id.length > 200 ||
+      !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model_id)
+    ) {
+      throw new ValidationError('Ungültige model_id (erlaubt: Buchstaben, Ziffern, . : - _ /)');
     }
 
     // Check if model exists in catalog
@@ -587,10 +589,12 @@ router.post(
       throw new ValidationError('model_id ist erforderlich');
     }
 
-    if (typeof model_id !== 'string' || model_id.length > 200 || /[/\\;|&`$(){}]/.test(model_id)) {
-      throw new ValidationError(
-        'Ungültige model_id (max 200 Zeichen, keine Pfad- oder Shell-Metazeichen)'
-      );
+    if (
+      typeof model_id !== 'string' ||
+      model_id.length > 200 ||
+      !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model_id)
+    ) {
+      throw new ValidationError('Ungültige model_id (erlaubt: Buchstaben, Ziffern, . : - _ /)');
     }
 
     // Check if model is installed

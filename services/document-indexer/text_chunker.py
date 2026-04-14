@@ -131,8 +131,8 @@ def _recursive_split(text: str, max_size: int, separators: List[str]) -> List[st
 def chunk_text_hierarchical(
     text: str,
     parent_size: int = 2000,
-    child_size: int = 400,
-    child_overlap: int = 50
+    child_size: int = 300,
+    child_overlap: int = 75
 ) -> List[ParentChunk]:
     """
     Create hierarchical chunks: large parent chunks for LLM context,

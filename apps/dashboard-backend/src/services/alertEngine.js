@@ -16,7 +16,60 @@
 
 const axios = require('axios');
 const crypto = require('crypto');
+const { URL } = require('url');
+const dns = require('dns');
+const net = require('net');
 const services = require('../config/services');
+
+/**
+ * SSRF Protection: Reject URLs pointing to private/internal networks.
+ * Validates both hostname and resolved IP against RFC1918 ranges.
+ */
+function isPrivateIP(ip) {
+  // RFC1918, loopback, link-local, Docker bridge ranges
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4) {return !net.isIPv4(ip);} // reject IPv6 and invalid
+  return (
+    parts[0] === 10 ||
+    parts[0] === 127 ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+    (parts[0] === 192 && parts[1] === 168) ||
+    (parts[0] === 169 && parts[1] === 254) ||
+    parts[0] === 0
+  );
+}
+
+async function validateWebhookUrl(urlString) {
+  const parsed = new URL(urlString);
+  const hostname = parsed.hostname;
+
+  // Block non-HTTP(S) schemes
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Nur HTTP/HTTPS-URLs erlaubt');
+  }
+
+  // Block IP-literal hostnames that are private
+  if (net.isIP(hostname)) {
+    if (isPrivateIP(hostname)) {
+      throw new Error('Webhook-URLs zu internen/privaten Adressen sind nicht erlaubt');
+    }
+    return;
+  }
+
+  // Resolve hostname and check resolved IPs
+  const addresses = await new Promise((resolve, reject) => {
+    dns.resolve4(hostname, (err, addrs) => {
+      if (err) {return reject(new Error(`DNS-Auflösung fehlgeschlagen: ${hostname}`));}
+      resolve(addrs);
+    });
+  });
+
+  for (const addr of addresses) {
+    if (isPrivateIP(addr)) {
+      throw new Error('Webhook-URL löst zu einer internen Adresse auf');
+    }
+  }
+}
 
 /**
  * Factory function to create AlertEngine with injected dependencies
@@ -604,6 +657,9 @@ function createAlertEngine(deps = {}) {
             headers['X-Arasul-Signature'] = `sha256=${signature}`;
           }
 
+          // SSRF protection on actual webhook calls
+          await validateWebhookUrl(settings.webhook_url);
+
           const response = await axios.post(settings.webhook_url, payload, {
             headers,
             timeout: 10000,
@@ -641,6 +697,9 @@ function createAlertEngine(deps = {}) {
      * Test webhook configuration
      */
     async testWebhook(webhookUrl, webhookSecret) {
+      // SSRF protection: reject private/internal network targets
+      await validateWebhookUrl(webhookUrl);
+
       const payload = {
         event: 'test',
         message: 'Arasul Alert System - Test Notification',

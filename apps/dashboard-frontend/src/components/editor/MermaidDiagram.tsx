@@ -4,27 +4,40 @@ import DOMPurify from 'dompurify';
 let mermaidInstance: typeof import('mermaid').default | null = null;
 let mermaidLoading: Promise<typeof import('mermaid').default> | null = null;
 
+function getCssVar(name: string, fallback: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
 async function getMermaid() {
   if (mermaidInstance) return mermaidInstance;
   if (!mermaidLoading) {
     mermaidLoading = import('mermaid').then(m => {
       mermaidInstance = m.default;
+      // Read theme colors from CSS custom properties for design system consistency
+      const primary = getCssVar('--primary', '#45ADFF');
+      const foreground = getCssVar('--foreground', '#F8FAFC');
+      const border = getCssVar('--border', '#2A3544');
+      const muted = getCssVar('--muted-foreground', '#94A3B8');
+      const card = getCssVar('--card', '#1A2330');
+      const background = getCssVar('--background', '#101923');
+      const cardAlt = getCssVar('--muted', '#222D3D');
+
       mermaidInstance.initialize({
         startOnLoad: false,
         theme: 'dark',
         themeVariables: {
-          primaryColor: '#45ADFF',
-          primaryTextColor: '#F8FAFC',
-          primaryBorderColor: '#2A3544',
-          lineColor: '#94A3B8',
-          secondaryColor: '#1A2330',
-          tertiaryColor: '#222D3D',
-          background: '#101923',
-          mainBkg: '#1A2330',
-          secondBkg: '#222D3D',
-          textColor: '#F8FAFC',
-          nodeTextColor: '#F8FAFC',
-          edgeLabelBackground: '#1A2330',
+          primaryColor: primary,
+          primaryTextColor: foreground,
+          primaryBorderColor: border,
+          lineColor: muted,
+          secondaryColor: card,
+          tertiaryColor: cardAlt,
+          background,
+          mainBkg: card,
+          secondBkg: cardAlt,
+          textColor: foreground,
+          nodeTextColor: foreground,
+          edgeLabelBackground: card,
           errorBkgColor: 'rgba(239, 68, 68, 0.1)',
           errorTextColor: '#EF4444',
         },

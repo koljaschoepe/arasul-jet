@@ -9,9 +9,9 @@
 
 const http = require('http');
 
-// Content batching configuration — low latency for livestream feel
-const BATCH_INTERVAL_MS = 50;
-const BATCH_SIZE_CHARS = 20;
+// Content batching configuration — balanced latency vs CPU overhead
+const BATCH_INTERVAL_MS = 150;
+const BATCH_SIZE_CHARS = 200;
 
 // Shared HTTP agent for Ollama connections (keep-alive + connection pooling)
 const ollamaAgent = new http.Agent({

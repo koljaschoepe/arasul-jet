@@ -176,9 +176,11 @@ export default function ChatView() {
 
   useEffect(() => {
     if (!isUserScrolling && messages.length > 0 && !loadingMessages) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // Use instant scroll during streaming to avoid animation jank from frequent updates
+      const behavior = hasActiveStream(chatId) ? 'auto' : 'smooth';
+      messagesEndRef.current?.scrollIntoView({ behavior });
     }
-  }, [messages, isUserScrolling, loadingMessages]);
+  }, [messages, isUserScrolling, loadingMessages, chatId, hasActiveStream]);
 
   const scrollToBottom = useCallback(() => {
     setIsUserScrolling(false);

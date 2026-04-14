@@ -420,13 +420,23 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             if xid_rows:
                 for db_name, xid_age in xid_rows:
                     if xid_age > 1_200_000_000:  # ~56% of wraparound limit
-                        self.log_event(
-                            'db_xid_wraparound', 'CRITICAL',
-                            f'Database {db_name} XID age {xid_age:,} approaching wraparound',
-                            'VACUUM FREEZE required urgently',
-                            'postgres-db', False
-                        )
-                        logger.error(f"CRITICAL: DB {db_name} XID age {xid_age:,} — wraparound risk")
+                        logger.error(f"CRITICAL: DB {db_name} XID age {xid_age:,} — triggering VACUUM FREEZE")
+                        try:
+                            self.execute_query(f"VACUUM FREEZE")
+                            self.log_event(
+                                'db_xid_wraparound', 'CRITICAL',
+                                f'Database {db_name} XID age {xid_age:,} — VACUUM FREEZE executed',
+                                'Automatic VACUUM FREEZE triggered to prevent wraparound',
+                                'postgres-db', True
+                            )
+                        except Exception as vac_err:
+                            logger.error(f"VACUUM FREEZE failed: {vac_err}")
+                            self.log_event(
+                                'db_xid_wraparound', 'CRITICAL',
+                                f'Database {db_name} XID age {xid_age:,} approaching wraparound',
+                                f'VACUUM FREEZE failed: {vac_err}',
+                                'postgres-db', False
+                            )
                     elif xid_age > 500_000_000:  # ~23% of limit
                         logger.warning(f"DB {db_name} XID age {xid_age:,} — monitor autovacuum")
         except Exception as e:

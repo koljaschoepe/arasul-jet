@@ -31,7 +31,7 @@ const poolConfig = {
 
   // POOL-002: Long-running connection recycling (prevents stale connections over months of uptime)
   maxUses: 7500, // Recycle connection after 7500 queries
-  maxLifetimeMillis: 1800000, // Recycle connection after 30 minutes
+  maxLifetimeMillis: 3600000, // Recycle connection after 60 minutes
 
   // Application name for PostgreSQL monitoring
   application_name: 'arasul-dashboard-backend',
