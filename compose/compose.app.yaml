@@ -76,6 +76,7 @@ services:
       - ../data/appstore/manifests:/arasul/appstore/manifests:ro
       - ../data/ssh-keys:/arasul/ssh-keys:ro
       - ../services/postgres/init:/arasul/migrations:ro
+      - ../data/sandbox/projects:/arasul/sandbox/projects
     security_opt:
       - no-new-privileges:true
     depends_on:

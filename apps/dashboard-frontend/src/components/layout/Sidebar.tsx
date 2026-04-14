@@ -7,6 +7,7 @@ import {
   Package,
   Download,
   Settings,
+  Terminal,
   ChevronLeft,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
@@ -16,6 +17,7 @@ import { PLATFORM_NAME, PLATFORM_SUBTITLE } from '@/config/branding';
 // Preload functions for lazy-loaded route chunks (triggered on hover)
 const preloadDocuments = () => import('@/features/documents/DocumentManager');
 const preloadStore = () => import('@/features/store');
+const preloadSandbox = () => import('@/features/sandbox');
 const preloadSettings = () => import('@/features/settings/Settings');
 
 interface DownloadInfo {
@@ -135,6 +137,17 @@ const SidebarNav = React.memo(function SidebarNav({
                     {!collapsed && downloadCount}
                   </span>
                 )}
+              </Link>
+            </li>
+            <li role="none">
+              <Link
+                to="/sandbox"
+                className={isActive('/sandbox')}
+                role="menuitem"
+                aria-current={isCurrent('/sandbox') ? 'page' : undefined}
+                onMouseEnter={preloadSandbox}
+              >
+                <Terminal aria-hidden="true" /> <span>Sandbox</span>
               </Link>
             </li>
           </ul>

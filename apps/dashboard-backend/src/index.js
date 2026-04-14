@@ -272,6 +272,9 @@ app.use(errorHandler);
 // Use noServer to prevent dual-WSS upgrade conflict with Telegram WSS
 const wss = new WebSocket.Server({ noServer: true });
 
+// Sandbox terminal WebSocket server (interactive terminal sessions)
+const sandboxTerminalWss = new WebSocket.Server({ noServer: true });
+
 const axios = require('axios');
 // TIMEOUT-002: Global safety-net timeout (prevents hanging requests if per-call timeout is missing)
 if (axios.defaults) {
@@ -485,6 +488,28 @@ async function gracefulShutdown(signal) {
   } catch (e) {
     /* ignore */
   }
+  // Stop sandbox idle checker and cleanup terminal sessions
+  try {
+    const sandboxService = require('./services/sandbox/sandboxService');
+    sandboxService.stopIdleChecker();
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    const terminalService = require('./services/sandbox/terminalService');
+    await terminalService.cleanupAllSessions();
+  } catch (e) {
+    /* ignore */
+  }
+  // Close sandbox terminal WebSocket server
+  try {
+    sandboxTerminalWss.clients.forEach(client => {
+      client.close(1001, 'Server shutting down');
+    });
+    sandboxTerminalWss.close();
+  } catch (e) {
+    /* ignore */
+  }
 
   // 5. Close database pool
   try {
@@ -596,10 +621,75 @@ if (require.main === module) {
             socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
             socket.destroy();
           });
+      } else if (pathname === '/api/sandbox/terminal/ws') {
+        // SEC: Verify JWT before allowing Sandbox Terminal WebSocket upgrade
+        const { verifyToken: verifySandboxToken } = require('./utils/jwt');
+        const sandboxUrl = new URL(request.url, `http://${request.headers.host}`);
+        const sandboxTokenFromQuery = sandboxUrl.searchParams.get('token');
+        const sandboxAuthHeader = request.headers['authorization'];
+        const sandboxCookieHeader = request.headers['cookie'];
+        let sandboxToken = sandboxTokenFromQuery;
+        if (!sandboxToken && sandboxAuthHeader && sandboxAuthHeader.startsWith('Bearer ')) {
+          sandboxToken = sandboxAuthHeader.slice(7);
+        }
+        if (!sandboxToken && sandboxCookieHeader) {
+          const sandboxMatch = sandboxCookieHeader.match(/arasul_session=([^;]+)/);
+          if (sandboxMatch) {
+            sandboxToken = sandboxMatch[1];
+          }
+        }
+        if (!sandboxToken) {
+          logger.warn('Sandbox Terminal WebSocket upgrade rejected: no auth token');
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+        verifySandboxToken(sandboxToken)
+          .then(() => {
+            sandboxTerminalWss.handleUpgrade(request, socket, head, ws => {
+              sandboxTerminalWss.emit('connection', ws, request);
+            });
+          })
+          .catch(err => {
+            logger.warn(`Sandbox Terminal WebSocket upgrade rejected: ${err.message}`);
+            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+            socket.destroy();
+          });
       } else {
         socket.destroy();
       }
     });
+
+    // Sandbox Terminal WebSocket connection handler
+    sandboxTerminalWss.on('connection', (ws, request) => {
+      const terminalService = require('./services/sandbox/terminalService');
+      const url = new URL(request.url, `http://${request.headers.host}`);
+      const projectId = url.searchParams.get('projectId');
+      const sessionType = url.searchParams.get('type') || 'shell';
+      const command = url.searchParams.get('command') || undefined;
+      const cols = parseInt(url.searchParams.get('cols') || '120');
+      const rows = parseInt(url.searchParams.get('rows') || '30');
+
+      if (!projectId) {
+        ws.send(JSON.stringify({ type: 'error', message: 'projectId parameter required' }));
+        ws.close(1008, 'Missing projectId');
+        return;
+      }
+
+      terminalService
+        .createSession(projectId, ws, { sessionType, command, cols, rows })
+        .catch(err => {
+          logger.error(`Sandbox terminal session failed: ${err.message}`);
+          try {
+            ws.send(JSON.stringify({ type: 'error', message: err.message }));
+            ws.close(1011, 'Session creation failed');
+          } catch (e) {
+            /* ignore */
+          }
+        });
+    });
+
+    logger.info(`Sandbox Terminal WebSocket ready at ws://0.0.0.0:${PORT}/api/sandbox/terminal/ws`);
 
     // Initialize Data Database for Datentabellen feature
     try {

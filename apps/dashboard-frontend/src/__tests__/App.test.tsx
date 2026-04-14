@@ -35,8 +35,8 @@ vi.mock('../features/documents/DocumentManager', () => ({
 vi.mock('../features/settings/Settings', () => ({
   default: () => <div data-testid="settings">Settings Component</div>,
 }));
-vi.mock('../features/claude/ClaudeCode', () => ({
-  default: () => <div data-testid="claude-code">ClaudeCode Component</div>,
+vi.mock('../features/sandbox', () => ({
+  default: () => <div data-testid="sandbox">SandboxApp Component</div>,
 }));
 
 // Helper to create fetch mock for auth endpoints (AuthContext uses raw fetch)

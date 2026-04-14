@@ -22,6 +22,7 @@ import {
   HardDrive,
   Activity,
   Thermometer,
+  Monitor,
   Zap,
   Database,
   ExternalLink,
@@ -62,7 +63,7 @@ import ChatRouter from './features/chat/ChatRouter';
 const Settings = lazy(() => import('./features/settings/Settings'));
 const DocumentManager = lazy(() => import('./features/documents/DocumentManager'));
 const Store = lazy(() => import('./features/store'));
-const ClaudeCode = lazy(() => import('./features/claude/ClaudeCode'));
+const SandboxApp = lazy(() => import('./features/sandbox'));
 const TelegramAppModal = lazy(() => import('./features/telegram/TelegramAppModal'));
 const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
@@ -143,6 +144,9 @@ interface Thresholds {
 
 interface DeviceInfo {
   name: string;
+  total_memory_gb?: number;
+  cpu_cores?: number;
+  type?: string;
 }
 
 interface ChartDataPoint {
@@ -621,11 +625,12 @@ function AppContent(): React.JSX.Element | null {
                       </RouteErrorBoundary>
                     }
                   />
+                  <Route path="/claude-code" element={<Navigate to="/sandbox" replace />} />
                   <Route
-                    path="/claude-code"
+                    path="/sandbox"
                     element={
-                      <RouteErrorBoundary routeName="Claude Code">
-                        <ClaudeCode />
+                      <RouteErrorBoundary routeName="Sandbox">
+                        <SandboxApp />
                       </RouteErrorBoundary>
                     }
                   />
@@ -878,9 +883,16 @@ const DashboardHome = React.memo(function DashboardHome({
               {metrics?.ram?.toFixed(1) || 0}
               <span className="stat-unit">%</span>
             </div>
-            <div className={`stat-change ${getStatusInfo(metrics?.ram || 0, 'ram').className}`}>
-              {getStatusInfo(metrics?.ram || 0, 'ram').status}
-            </div>
+            {deviceInfo?.total_memory_gb ? (
+              <div className="stat-sublabel">
+                {(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} /{' '}
+                {deviceInfo.total_memory_gb} GB
+              </div>
+            ) : (
+              <div className={`stat-change ${getStatusInfo(metrics?.ram || 0, 'ram').className}`}>
+                {getStatusInfo(metrics?.ram || 0, 'ram').status}
+              </div>
+            )}
           </div>
         </div>
 
@@ -911,19 +923,22 @@ const DashboardHome = React.memo(function DashboardHome({
 
         <div className="stat-card-large">
           <div className="stat-icon-wrapper">
-            <Thermometer className="stat-icon" />
+            <Monitor className="stat-icon" />
           </div>
           <div className="stat-content">
-            <div className="stat-label">TEMPERATURE</div>
+            <div className="stat-label">GPU USAGE</div>
             <div className="stat-value-large">
-              {metrics?.temperature?.toFixed(0) || 0}
-              <span className="stat-unit">°C</span>
+              {metrics?.gpu?.toFixed(1) || 0}
+              <span className="stat-unit">%</span>
             </div>
-            <div
-              className={`stat-change ${getTempStatusInfo(metrics?.temperature || 0).className}`}
-            >
-              {getTempStatusInfo(metrics?.temperature || 0).status}
+            <div className={`stat-change ${getStatusInfo(metrics?.gpu || 0, 'gpu').className}`}>
+              {getStatusInfo(metrics?.gpu || 0, 'gpu').status}
             </div>
+            {(metrics?.temperature ?? 0) > 0 && (
+              <div className="stat-temp-inline">
+                <Thermometer size={12} /> {metrics!.temperature.toFixed(0)}°C
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1053,7 +1068,7 @@ const DashboardHome = React.memo(function DashboardHome({
               <Line
                 type="monotone"
                 dataKey="RAM"
-                stroke="#45ADFF"
+                stroke="#A78BFA"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5 }}
@@ -1061,7 +1076,7 @@ const DashboardHome = React.memo(function DashboardHome({
               <Line
                 type="monotone"
                 dataKey="GPU"
-                stroke="#94A3B8"
+                stroke="#22C55E"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5 }}

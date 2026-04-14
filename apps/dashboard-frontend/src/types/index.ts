@@ -200,36 +200,6 @@ export interface OllamaModel {
   modified_at?: string;
 }
 
-// --- System ---
-
-export interface ClaudeCodeConfig {
-  ANTHROPIC_API_KEY?: string;
-  ANTHROPIC_API_KEY_set?: boolean;
-  CLAUDE_WORKSPACE?: string;
-  [key: string]: string | boolean | undefined;
-}
-
-export interface ClaudeAppStatus {
-  status: string;
-  last_error?: string;
-  container_id?: string;
-  [key: string]: unknown;
-}
-
-export interface ClaudeAuthStatus {
-  authenticated: boolean;
-  expires_at?: string;
-  method?: string;
-  oauth?: {
-    valid: boolean;
-    expiresInHours?: number;
-    account?: {
-      displayName?: string;
-      email?: string;
-    };
-  };
-}
-
 // --- DataTable ---
 
 export interface DataTable {

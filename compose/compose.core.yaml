@@ -105,6 +105,7 @@ services:
       EXEC: 1
       SYSTEM: 1
       BUILD: 1
+      COMMIT: 1
       POST: 1
       # Fine-grained container controls
       ALLOW_START: 1

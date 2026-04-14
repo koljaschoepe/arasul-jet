@@ -65,6 +65,9 @@ router.use('/store', require('./store/store'));
 router.use('/workflows', require('./store/workflows'));
 router.use('/workspaces', require('./store/workspaces'));
 
+// --- Sandbox ---
+router.use('/sandbox', require('./sandbox'));
+
 // --- External ---
 router.use('/v1/external', require('./external/externalApi'));
 router.use('/claude-terminal', require('./external/claudeTerminal'));
