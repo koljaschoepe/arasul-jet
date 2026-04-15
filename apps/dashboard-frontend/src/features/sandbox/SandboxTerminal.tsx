@@ -140,87 +140,90 @@ export default function SandboxTerminal({
   const status = getStatusDisplay(containerStatus, isConnecting, isConnected, error);
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
-      {/* Terminal toolbar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-background border-b border-border shrink-0">
-        <div className="flex items-center gap-2">
-          {status.icon}
-          <span className="text-xs text-muted-foreground font-mono">{status.text}</span>
+    <div className={cn('flex flex-col h-full p-3', className)}>
+      {/* Terminal frame */}
+      <div className="flex flex-col flex-1 min-h-0 rounded-lg border border-border overflow-hidden shadow-sm">
+        {/* Terminal toolbar */}
+        <div className="flex items-center justify-between px-3 py-1.5 bg-[#0a0a0a] border-b border-border/50 shrink-0">
+          <div className="flex items-center gap-2">
+            {status.icon}
+            <span className="text-xs text-muted-foreground font-mono">{status.text}</span>
 
-          {/* Quick Launch — Radix DropdownMenu for portal-based rendering */}
-          {isConnected && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground h-6 px-2 text-xs gap-1 ml-2"
-                >
-                  <Sparkles className="size-3" />
-                  Quick Launch
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[200px]">
-                {QUICK_LAUNCH_ITEMS.map(item => (
-                  <DropdownMenuItem
-                    key={item.label}
-                    onClick={() => sendInput(item.command)}
-                    className="gap-3"
+            {/* Quick Launch — Radix DropdownMenu for portal-based rendering */}
+            {isConnected && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-foreground h-6 px-2 text-xs gap-1 ml-2"
                   >
-                    <Terminal className="size-3 text-primary shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-medium">{item.label}</div>
-                      <div className="text-[10px] text-muted-foreground">{item.description}</div>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                    <Sparkles className="size-3" />
+                    Quick Launch
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-[200px]">
+                  {QUICK_LAUNCH_ITEMS.map(item => (
+                    <DropdownMenuItem
+                      key={item.label}
+                      onClick={() => sendInput(item.command)}
+                      className="gap-3"
+                    >
+                      <Terminal className="size-3 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium">{item.label}</div>
+                        <div className="text-[10px] text-muted-foreground">{item.description}</div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1">
+            {error && (
+              <span className="text-xs text-destructive mr-2 flex items-center gap-1">
+                <AlertCircle className="size-3" />
+                {error}
+              </span>
+            )}
+            {status.showReconnect && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={reconnect}
+                title="Neu verbinden"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className="size-3.5" />
+              </Button>
+            )}
+            {onToggleFullscreen && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleFullscreenToggle}
+                title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="size-3.5" />
+                ) : (
+                  <Maximize2 className="size-3.5" />
+                )}
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          {error && (
-            <span className="text-xs text-destructive mr-2 flex items-center gap-1">
-              <AlertCircle className="size-3" />
-              {error}
-            </span>
-          )}
-          {status.showReconnect && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={reconnect}
-              title="Neu verbinden"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <RefreshCw className="size-3.5" />
-            </Button>
-          )}
-          {onToggleFullscreen && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleFullscreenToggle}
-              title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              {isFullscreen ? (
-                <Minimize2 className="size-3.5" />
-              ) : (
-                <Maximize2 className="size-3.5" />
-              )}
-            </Button>
-          )}
-        </div>
+        {/* Terminal container */}
+        <div
+          ref={terminalRef}
+          className="flex-1 min-h-0 bg-[#0a0a0a] overflow-hidden"
+          style={{ padding: '4px 0 0 4px' }}
+        />
       </div>
-
-      {/* Terminal container */}
-      <div
-        ref={terminalRef}
-        className="flex-1 min-h-0 bg-[#0a0a0a] overflow-hidden"
-        style={{ padding: '4px 0 0 4px' }}
-      />
     </div>
   );
 }

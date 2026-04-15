@@ -9,8 +9,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Terminal, Plus, FolderOpen } from 'lucide-react';
-import { Button } from '@/components/ui/shadcn/button';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
@@ -230,31 +228,30 @@ export default function SandboxApp() {
           );
         })}
 
-        {/* Welcome screen when no tabs open */}
+        {/* Default view when no tabs open — show project list directly */}
         {openTabs.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground animate-in fade-in duration-500">
-            <Terminal className="size-16 text-muted-foreground/50 mb-4" />
-            <h2 className="text-lg font-medium text-foreground mb-1">Terminal</h2>
-            <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-              Isolierte Entwicklungsumgebungen mit KI-Tools.
-              <br />
-              Erstelle ein Projekt oder öffne ein bestehendes.
-            </p>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setShowProjectList(true)}>
-                <FolderOpen className="size-4" />
-                Projekt öffnen
-              </Button>
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="size-4" />
-                Neues Projekt
-              </Button>
-            </div>
-          </div>
+          <ProjectListPanel
+            variant="inline"
+            projects={projects}
+            stats={stats}
+            loading={loading}
+            actionLoading={actionLoading}
+            onClose={() => {}}
+            onOpenProject={handleOpenProject}
+            onStopProject={handleStop}
+            onDeleteProject={handleDelete}
+            onEditProject={setEditProject}
+            onCreateProject={() => setShowCreateDialog(true)}
+            onRefresh={() => {
+              setLoading(true);
+              loadProjects();
+              loadStats();
+            }}
+          />
         )}
 
-        {/* Project list overlay */}
-        {showProjectList && (
+        {/* Project list overlay (only when tabs are open) */}
+        {showProjectList && openTabs.length > 0 && (
           <ProjectListPanel
             projects={projects}
             stats={stats}

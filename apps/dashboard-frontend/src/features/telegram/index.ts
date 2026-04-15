@@ -1,1 +1,1 @@
-export { default as TelegramAppModal } from './TelegramAppModal';
+export { default as TelegramBotPage } from './TelegramBotPage';

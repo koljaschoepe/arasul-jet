@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import {
-  BrowserRouter as Router,
-  Route,
-  Routes,
-  Link,
-  Navigate,
-  useNavigate,
-} from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-router-dom';
 import {
   LineChart,
   Line,
@@ -64,16 +57,12 @@ const Settings = lazy(() => import('./features/settings/Settings'));
 const DocumentManager = lazy(() => import('./features/documents/DocumentManager'));
 const Store = lazy(() => import('./features/store'));
 const SandboxApp = lazy(() => import('./features/sandbox'));
-const TelegramAppModal = lazy(() => import('./features/telegram/TelegramAppModal'));
+const TelegramBotPage = lazy(() => import('./features/telegram/TelegramBotPage'));
 const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
 const ModelStatusBar = lazy(() => import('./features/dashboard/ModelStatusBar'));
 
 // ---- Type definitions ----
-
-interface TelegramRedirectProps {
-  onOpen: () => void;
-}
 
 interface MetricsDisk {
   used: number;
@@ -189,18 +178,6 @@ function App(): React.JSX.Element {
 }
 
 /**
- * TelegramRedirect - Navigates to home and opens Telegram modal
- */
-function TelegramRedirect({ onOpen }: TelegramRedirectProps): null {
-  const navigate = useNavigate();
-  useEffect(() => {
-    onOpen();
-    navigate('/', { replace: true });
-  }, [onOpen, navigate]);
-  return null;
-}
-
-/**
  * App Content - Uses auth context and contains main app logic
  * PHASE 3: Separated from App to use hooks inside AuthProvider
  */
@@ -222,7 +199,6 @@ function AppContent(): React.JSX.Element | null {
   const [runningApps, setRunningApps] = useState<RunningApp[]>([]);
   const [thresholds, setThresholds] = useState<Thresholds | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
-  const [showTelegramModal, setShowTelegramModal] = useState<boolean>(false);
 
   // PHASE 3: Use WebSocket hook for real-time metrics
   const { metrics: wsMetrics } = useWebSocketMetrics(isAuthenticated);
@@ -447,9 +423,6 @@ function AppContent(): React.JSX.Element | null {
     await logout();
   }, [logout]);
 
-  // Memoize TelegramRedirect callback to prevent useEffect re-runs
-  const handleTelegramOpen = useCallback(() => setShowTelegramModal(true), []);
-
   // Show login screen if not authenticated
   if (!isAuthenticated) {
     if (authLoading) {
@@ -637,12 +610,13 @@ function AppContent(): React.JSX.Element | null {
                   />
                   <Route
                     path="/telegram-bot"
-                    element={<TelegramRedirect onOpen={handleTelegramOpen} />}
+                    element={
+                      <RouteErrorBoundary routeName="Telegram Bot">
+                        <TelegramBotPage />
+                      </RouteErrorBoundary>
+                    }
                   />
-                  <Route
-                    path="/telegram-bots"
-                    element={<TelegramRedirect onOpen={handleTelegramOpen} />}
-                  />
+                  <Route path="/telegram-bots" element={<Navigate to="/telegram-bot" replace />} />
                   <Route
                     path="/database"
                     element={
@@ -679,18 +653,6 @@ function AppContent(): React.JSX.Element | null {
             </div>
           </div>
         </Router>
-
-        {/* Telegram App Modal */}
-        {showTelegramModal && (
-          <Suspense fallback={null}>
-            <ComponentErrorBoundary componentName="Telegram App">
-              <TelegramAppModal
-                isOpen={showTelegramModal}
-                onClose={() => setShowTelegramModal(false)}
-              />
-            </ComponentErrorBoundary>
-          </Suspense>
-        )}
       </ChatProvider>
     </DownloadProvider>
   );

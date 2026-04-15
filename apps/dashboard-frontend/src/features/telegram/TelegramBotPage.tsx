@@ -28,16 +28,14 @@ import BotSetupWizard from './BotSetupWizard';
 import BotDetailsModal from './BotDetailsModal';
 import { useApi } from '../../hooks/useApi';
 import { Button } from '@/components/ui/shadcn/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/shadcn/tabs';
+import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
+import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { cn } from '@/lib/utils';
 
 /* ============================================================================
    Types
    ============================================================================ */
-
-interface TelegramAppModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
 
 interface Bot {
   id: string;
@@ -81,24 +79,15 @@ interface AuditLog {
   success: boolean;
 }
 
-interface SidebarSection {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
 /* ============================================================================
-   TELEGRAM APP MODAL - Fullscreen with Sidebar Navigation
+   TELEGRAM BOT PAGE - Full page with horizontal top tabs
    Sections: Bots, Status, System, Logs
    ============================================================================ */
-function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
+export default function TelegramBotPage() {
   const { confirm, ConfirmDialog } = useConfirm();
   const toast = useToast();
   const api = useApi();
   const isMountedRef = useRef(true);
-
-  // Navigation
-  const [activeSection, setActiveSection] = useState('bots');
 
   // Bots state
   const [bots, setBots] = useState<Bot[]>([]);
@@ -110,7 +99,7 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
   const [togglingBot, setTogglingBot] = useState<string | null>(null);
   const [deletingBot, setDeletingBot] = useState<string | null>(null);
 
-  // System section state (migrated from TelegramSettings)
+  // System section state
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({
     bot_token: '',
     chat_id: '',
@@ -199,20 +188,13 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
     }
   }, [api]);
 
+  // Fetch data on mount
   useEffect(() => {
-    if (!isOpen) return;
     const controller = new AbortController();
     fetchData();
     fetchSystemConfig(controller.signal);
     return () => controller.abort();
-  }, [isOpen, fetchData, fetchSystemConfig]);
-
-  // Load logs on tab switch
-  useEffect(() => {
-    if (activeSection === 'logs' && auditLogs.length === 0) {
-      fetchLogs();
-    }
-  }, [activeSection, auditLogs.length, fetchLogs]);
+  }, [fetchData, fetchSystemConfig]);
 
   // Bot actions
   const handleBotCreated = (newBot: Bot) => {
@@ -228,13 +210,11 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
       const data = await api.post(`/telegram-bots/${botId}/${endpoint}`, undefined, {
         showError: false,
       });
-      // Update with server response if available, otherwise toggle locally
       const newActive = data?.bot?.isActive ?? !currentActive;
       setBots(prev => prev.map(bot => (bot.id === botId ? { ...bot, isActive: newActive } : bot)));
       toast.success(currentActive ? 'Bot deaktiviert' : 'Bot aktiviert');
     } catch {
       toast.error('Fehler beim Umschalten des Bots');
-      // No optimistic update was made — nothing to roll back
     } finally {
       setTogglingBot(null);
     }
@@ -336,137 +316,148 @@ function TelegramAppModal({ isOpen, onClose }: TelegramAppModalProps) {
   const systemHasChanges =
     systemConfig.bot_token !== '' || systemConfig.chat_id !== originalSystemConfig?.chat_id;
 
-  if (!isOpen) return null;
-
-  const sections: SidebarSection[] = [
-    { id: 'bots', label: 'Bots', icon: <MessageCircle size={16} /> },
-    { id: 'status', label: 'Status', icon: <Activity size={16} /> },
-    { id: 'system', label: 'System', icon: <Settings size={16} /> },
-    { id: 'logs', label: 'Logs', icon: <FileText size={16} /> },
-  ];
-
   const activeBots = bots.filter(b => b.isActive).length;
 
+  // Lazy-load logs on first tab switch
+  const handleTabChange = (value: string) => {
+    if (value === 'logs' && auditLogs.length === 0) {
+      fetchLogs();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
-      <div className="w-[92vw] h-[88vh] max-w-[1200px] bg-background border border-border rounded-2xl flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-[0.96] duration-300 max-md:w-screen max-md:h-screen max-md:rounded-none">
-        {/* Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-border shrink-0">
-          <div className="flex items-center gap-3">
-            <Send className="text-primary text-xl" size={20} />
-            <h2 className="m-0 text-xl text-foreground">Telegram Bot</h2>
-            {activeBots > 0 && (
-              <span className="bg-primary/10 text-primary border border-primary/20 text-[0.7rem] font-semibold px-2 py-0.5 rounded-full">
-                {activeBots} aktiv
-              </span>
-            )}
+    <div className="flex flex-col h-full animate-in fade-in">
+      {/* Page Header */}
+      <div className="shrink-0 px-8 pt-8 pb-6">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center size-10 rounded-xl bg-primary/10">
+            <Send className="size-5 text-primary" />
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Schließen">
-            <X size={18} />
-          </Button>
+          <div>
+            <h2 className="text-2xl font-bold text-foreground leading-tight">Telegram Bot</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Bots verwalten und konfigurieren</p>
+          </div>
+          {activeBots > 0 && (
+            <span className="bg-primary/10 text-primary border border-primary/20 text-xs font-semibold px-2.5 py-1 rounded-full ml-auto">
+              {activeBots} aktiv
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Horizontal Tab Navigation + Content */}
+      <Tabs
+        defaultValue="bots"
+        onValueChange={handleTabChange}
+        className="flex-1 flex flex-col min-h-0"
+      >
+        <div className="px-8 border-b border-border shrink-0">
+          <TabsList variant="line" className="gap-1">
+            <TabsTrigger value="bots" className="px-4 py-2.5 text-sm">
+              <MessageCircle size={16} /> Bots
+            </TabsTrigger>
+            <TabsTrigger value="status" className="px-4 py-2.5 text-sm">
+              <Activity size={16} /> Status
+            </TabsTrigger>
+            <TabsTrigger value="system" className="px-4 py-2.5 text-sm">
+              <Settings size={16} /> System
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="px-4 py-2.5 text-sm">
+              <FileText size={16} /> Logs
+            </TabsTrigger>
+          </TabsList>
         </div>
 
-        <div className="flex flex-1 overflow-hidden max-md:flex-col">
-          {/* Sidebar */}
-          <nav className="w-[180px] min-w-[180px] border-r border-border py-4 px-2 flex flex-col gap-1 bg-card max-md:w-full max-md:min-w-full max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border max-md:py-2 max-md:px-2 max-md:gap-1">
-            {sections.map(section => (
-              <button
-                key={section.id}
-                type="button"
-                className={cn(
-                  'flex items-center gap-2.5 py-2.5 px-3.5 border-none rounded-lg bg-transparent text-muted-foreground text-sm cursor-pointer transition-all text-left w-full hover:bg-primary/10 hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 max-md:whitespace-nowrap max-md:py-2 max-md:px-3 max-md:text-xs',
-                  activeSection === section.id && 'bg-primary/15 text-primary font-medium'
-                )}
-                onClick={() => setActiveSection(section.id)}
-              >
-                {section.icon}
-                <span>{section.label}</span>
-              </button>
-            ))}
-          </nav>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 max-md:p-4">
-            {activeSection === 'bots' && (
-              <BotsSection
-                bots={bots}
-                loading={loading}
-                error={error}
-                togglingBot={togglingBot}
-                deletingBot={deletingBot}
-                onRefresh={fetchData}
-                onCreateBot={() => setShowWizard(true)}
-                onEditBot={setSelectedBot}
-                onToggleBot={handleToggleBot}
-                onDeleteBot={handleDeleteBot}
-              />
-            )}
-            {activeSection === 'status' && (
-              <StatusSection appStatus={appStatus} bots={bots} loading={loading} />
-            )}
-            {activeSection === 'system' && (
-              <SystemSection
-                config={systemConfig}
-                setConfig={setSystemConfig}
-                hasToken={hasToken}
-                showToken={showToken}
-                setShowToken={setShowToken}
-                loading={systemLoading}
-                saving={systemSaving}
-                testing={systemTesting}
-                message={systemMessage}
-                hasChanges={systemHasChanges}
-                onSave={handleSystemSave}
-                onToggle={handleSystemToggle}
-                onTest={handleSystemTest}
-              />
-            )}
-            {activeSection === 'logs' && (
-              <LogsSection logs={auditLogs} loading={logsLoading} onRefresh={fetchLogs} />
-            )}
-          </div>
-        </div>
-
-        {/* Sub-modals */}
-        {showWizard && (
-          <div
-            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center animate-in fade-in duration-150"
-            onClick={() => setShowWizard(false)}
-          >
-            <div
-              className="w-[90vw] max-w-[700px] max-h-[85vh] bg-background border border-border rounded-[14px] flex flex-col overflow-hidden shadow-2xl"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center px-6 py-4 border-b border-border">
-                <h3 className="m-0 text-lg text-foreground">Neuen Bot erstellen</h3>
-                <button
-                  type="button"
-                  className="flex items-center justify-center size-9 border-none rounded-lg bg-transparent text-muted-foreground cursor-pointer transition-all text-lg hover:bg-card hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-                  onClick={() => setShowWizard(false)}
-                  aria-label="Schließen"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6">
-                <BotSetupWizard
-                  onComplete={handleBotCreated}
-                  onCancel={() => setShowWizard(false)}
+        <ScrollArea className="flex-1">
+          <div className="max-w-[960px] px-8 py-8">
+            <TabsContent value="bots">
+              <ComponentErrorBoundary componentName="Bots">
+                <BotsSection
+                  bots={bots}
+                  loading={loading}
+                  error={error}
+                  togglingBot={togglingBot}
+                  deletingBot={deletingBot}
+                  onRefresh={fetchData}
+                  onCreateBot={() => setShowWizard(true)}
+                  onEditBot={setSelectedBot}
+                  onToggleBot={handleToggleBot}
+                  onDeleteBot={handleDeleteBot}
                 />
-              </div>
+              </ComponentErrorBoundary>
+            </TabsContent>
+
+            <TabsContent value="status">
+              <ComponentErrorBoundary componentName="Status">
+                <StatusSection appStatus={appStatus} bots={bots} loading={loading} />
+              </ComponentErrorBoundary>
+            </TabsContent>
+
+            <TabsContent value="system">
+              <ComponentErrorBoundary componentName="System">
+                <SystemSection
+                  config={systemConfig}
+                  setConfig={setSystemConfig}
+                  hasToken={hasToken}
+                  showToken={showToken}
+                  setShowToken={setShowToken}
+                  loading={systemLoading}
+                  saving={systemSaving}
+                  testing={systemTesting}
+                  message={systemMessage}
+                  hasChanges={systemHasChanges}
+                  onSave={handleSystemSave}
+                  onToggle={handleSystemToggle}
+                  onTest={handleSystemTest}
+                />
+              </ComponentErrorBoundary>
+            </TabsContent>
+
+            <TabsContent value="logs">
+              <ComponentErrorBoundary componentName="Logs">
+                <LogsSection logs={auditLogs} loading={logsLoading} onRefresh={fetchLogs} />
+              </ComponentErrorBoundary>
+            </TabsContent>
+          </div>
+        </ScrollArea>
+      </Tabs>
+
+      {/* Sub-modals */}
+      {showWizard && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center animate-in fade-in duration-150"
+          onClick={() => setShowWizard(false)}
+        >
+          <div
+            className="w-[90vw] max-w-[700px] max-h-[85vh] bg-background border border-border rounded-[14px] flex flex-col overflow-hidden shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center px-6 py-4 border-b border-border">
+              <h3 className="m-0 text-lg text-foreground">Neuen Bot erstellen</h3>
+              <button
+                type="button"
+                className="flex items-center justify-center size-9 border-none rounded-lg bg-transparent text-muted-foreground cursor-pointer transition-all text-lg hover:bg-card hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                onClick={() => setShowWizard(false)}
+                aria-label="Schließen"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <BotSetupWizard onComplete={handleBotCreated} onCancel={() => setShowWizard(false)} />
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {selectedBot && (
-          <BotDetailsModal
-            bot={selectedBot}
-            onClose={() => setSelectedBot(null)}
-            onUpdate={handleBotUpdated}
-          />
-        )}
-        {ConfirmDialog}
-      </div>
+      {selectedBot && (
+        <BotDetailsModal
+          bot={selectedBot}
+          onClose={() => setSelectedBot(null)}
+          onUpdate={handleBotUpdated}
+        />
+      )}
+      {ConfirmDialog}
     </div>
   );
 }
@@ -862,7 +853,7 @@ function StatusSection({ appStatus, bots, loading }: StatusSectionProps) {
 }
 
 /* ============================================================================
-   SYSTEM SECTION (migrated from TelegramSettings)
+   SYSTEM SECTION
    ============================================================================ */
 interface SystemSectionProps {
   config: SystemConfig;
@@ -1135,5 +1126,3 @@ function LogsSection({ logs, loading, onRefresh }: LogsSectionProps) {
     </div>
   );
 }
-
-export default TelegramAppModal;
