@@ -32,6 +32,6 @@ BEGIN
 END $$;
 
 -- Record migration
-INSERT INTO schema_migrations (version, filename, description, executed_at)
-VALUES (71, '071_missing_indexes_and_fk_cascades.sql', 'Add missing token_blacklist FK index + documents cascade fix', NOW())
+INSERT INTO schema_migrations (version, filename, applied_at, execution_ms, success)
+VALUES (71, '071_missing_indexes_and_fk_cascades.sql', NOW(), 0, true)
 ON CONFLICT (version) DO NOTHING;

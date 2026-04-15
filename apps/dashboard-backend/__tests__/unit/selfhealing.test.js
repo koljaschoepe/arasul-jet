@@ -52,7 +52,7 @@ function mockWithRouteQueries(routeHandler) {
     if (query.includes('token_blacklist')) return Promise.resolve({ rows: [] });
     if (query.includes('active_sessions') && query.includes('SELECT')) return Promise.resolve({ rows: [{ id: 1, expires_at: new Date() }] });
     if (query.includes('update_session_activity')) return Promise.resolve({ rows: [] });
-    if (query.includes('admin_users')) return Promise.resolve({ rows: [{ id: 1, username: 'admin', is_active: true }] });
+    if (query.includes('admin_users')) return Promise.resolve({ rows: [{ id: 1, username: 'admin', role: 'admin', is_active: true }] });
     // Delegate to route-specific handler
     return routeHandler(query, params);
   });

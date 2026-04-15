@@ -41,31 +41,18 @@ http:
         - websecure
       tls: {}
 
-    # Claude Code Terminal WebSocket
-    # SECURITY: forward-auth is required here — without it, the terminal is
-    # accessible to anyone who can reach the host, bypassing dashboard login.
-    # Browsers DO send cookies (including arasul_session) on same-origin
-    # WebSocket upgrade requests, so cookie-based JWT validation works.
-    claude-terminal-websocket:
-      rule: 'PathPrefix(`/claude-terminal`) && Headers(`Upgrade`, `websocket`)'
-      service: claude-terminal-service
-      priority: 110
-      middlewares:
-        - forward-auth
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
     # Sandbox Terminal WebSocket
-    # Auth handled by the backend via JWT token in query params.
-    # forward-auth added as defense-in-depth (browser sends cookies on upgrade).
+    # Auth handled entirely by the backend's upgrade handler (JWT from query param / cookie / header).
+    # forward-auth REMOVED: it blocks WebSocket upgrades because Traefik's forwardAuth
+    # only forwards Authorization + Cookie headers to /api/auth/verify, but the browser's
+    # WebSocket constructor cannot set custom headers — the token comes via query param,
+    # which forward-auth doesn't propagate. The backend verifies JWT before calling
+    # sandboxTerminalWss.handleUpgrade(), so security is maintained.
     sandbox-terminal-websocket:
       rule: 'PathPrefix(`/api/sandbox/terminal/ws`) && Headers(`Upgrade`, `websocket`)'
       service: dashboard-backend-service
       priority: 50
       middlewares:
-        - forward-auth
         - security-headers
       entryPoints:
         - websecure

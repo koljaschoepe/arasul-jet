@@ -178,6 +178,17 @@ def health_check():
         test_vec = model.encode("test", convert_to_numpy=True)
         latency = (time.time() - start_time) * 1000
 
+        # Include GPU memory status
+        gpu_mem = check_gpu_memory()
+        gpu_info = None
+        gpu_status = "n/a"
+        if gpu_mem:
+            gpu_info = {
+                "used_pct": round(gpu_mem[0] * 100, 1),
+                "free_mb": round(gpu_mem[1]),
+            }
+            gpu_status = "critical" if gpu_mem[0] > GPU_MEM_WARN_THRESHOLD else "ok"
+
         return jsonify({
             'status': 'healthy',
             'model': MODEL_NAME,
@@ -185,6 +196,8 @@ def health_check():
             'vector_size': len(test_vec),
             'test_latency_ms': round(latency, 2),
             'reranking_enabled': ENABLE_RERANKING,
+            'gpu_memory': gpu_info,
+            'gpu_status': gpu_status,
             'timestamp': time.time()
         }), 200
 
@@ -310,13 +323,28 @@ def embed_batch():
         if len(texts) > 500:
             return jsonify({'error': 'Maximum 500 texts per batch request', 'timestamp': time.time()}), 400
 
+        # Proactive GPU memory check before large batch
+        gpu_mem = check_gpu_memory()
+        if gpu_mem and gpu_mem[0] > GPU_MEM_WARN_THRESHOLD:
+            logger.warning(f"GPU memory high before batch ({gpu_mem[0]*100:.1f}%), clearing CUDA cache")
+            torch.cuda.empty_cache()
+
         start_time = time.time()
         sub_batch_size = 32
         all_vectors = []
 
         for i in range(0, len(texts), sub_batch_size):
             batch = texts[i:i + sub_batch_size]
-            embeddings = model.encode(batch, convert_to_numpy=True, show_progress_bar=False)
+            try:
+                embeddings = model.encode(batch, convert_to_numpy=True, show_progress_bar=False)
+            except Exception as e:
+                # OOM during sub-batch — clear cache and retry once
+                if 'out of memory' in str(e).lower() or 'CUDA' in str(e):
+                    logger.warning(f"CUDA OOM in sub-batch {i//sub_batch_size}, clearing cache and retrying")
+                    torch.cuda.empty_cache()
+                    embeddings = model.encode(batch, convert_to_numpy=True, show_progress_bar=False)
+                else:
+                    raise
             all_vectors.extend(embeddings.tolist())
 
         latency = (time.time() - start_time) * 1000
@@ -333,6 +361,9 @@ def embed_batch():
 
     except Exception as e:
         logger.error(f"Batch embedding failed: {e}")
+        # Final cache cleanup on any failure
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         return jsonify({'error': str(e), 'timestamp': time.time()}), 500
 
 

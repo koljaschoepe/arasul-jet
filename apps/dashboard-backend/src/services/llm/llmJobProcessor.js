@@ -9,6 +9,54 @@
 
 const http = require('http');
 
+// OOM error patterns from Ollama/CUDA
+const OOM_PATTERNS = [
+  'out of memory',
+  'oom',
+  'cuda error',
+  'cuda_error_out_of_memory',
+  'failed to allocate',
+  'insufficient memory',
+  'nicht genügend speicher',
+];
+
+/**
+ * Check if an error message indicates a GPU OOM condition
+ */
+function isOomError(message) {
+  const lower = (message || '').toLowerCase();
+  return OOM_PATTERNS.some(p => lower.includes(p));
+}
+
+/**
+ * Attempt GPU OOM recovery via llm-service /api/gpu/recover endpoint.
+ * Returns { recovered, free_mb } or null on failure.
+ */
+async function attemptOomRecovery(logger) {
+  const LLM_SERVICE_URL = process.env.LLM_SERVICE_URL || 'http://llm-service:11436';
+  try {
+    logger.warn('[OOM-RECOVERY] Triggering GPU memory recovery via llm-service...');
+    const response = await fetch(`${LLM_SERVICE_URL}/api/gpu/recover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (response.ok) {
+      const result = await response.json();
+      logger.info(
+        `[OOM-RECOVERY] Success — freed ${result.freed_mb}MB, ` +
+          `${result.free_mb}MB now available, can_retry: ${result.can_retry}`
+      );
+      return result;
+    }
+    logger.error(`[OOM-RECOVERY] llm-service returned ${response.status}`);
+    return null;
+  } catch (err) {
+    logger.error(`[OOM-RECOVERY] Failed to contact llm-service: ${err.message}`);
+    return null;
+  }
+}
+
 // Content batching configuration — balanced latency vs CPU overhead
 const BATCH_INTERVAL_MS = 150;
 const BATCH_SIZE_CHARS = 200;
@@ -27,7 +75,7 @@ const ollamaAgent = new http.Agent({
  * @param {Object} job - The job record from database
  */
 async function processChatJob(ctx, job) {
-  const { database, logger, llmJobService, modelService } = ctx.deps;
+  const { database, logger } = ctx.deps;
   const service = ctx.service;
 
   const { id: jobId, request_data: requestData, requested_model } = job;
@@ -155,7 +203,7 @@ async function processChatJob(ctx, job) {
  * @param {Object} job - The job record from database
  */
 async function processRAGJob(ctx, job) {
-  const { database, logger, llmJobService, modelService } = ctx.deps;
+  const { logger, llmJobService } = ctx.deps;
   const service = ctx.service;
 
   const { id: jobId, request_data: requestData, requested_model } = job;
@@ -284,7 +332,7 @@ async function streamFromOllama(
   numCtx = null,
   images = null
 ) {
-  const { database, logger, llmJobService, modelService, axios, getOllamaReadiness } = ctx.deps;
+  const { database, logger, llmJobService, modelService } = ctx.deps;
   const { LLM_SERVICE_URL } = ctx.config;
   const service = ctx.service;
 
@@ -559,17 +607,23 @@ async function streamFromOllama(
         clearTimeout(inactivityTimer);
       }
       inactivityTimer = setTimeout(async () => {
-        logger.warn(
-          `[QUEUE] Job ${jobId} stream timed out due to inactivity (${INACTIVITY_TIMEOUT_MS / 1000}s)`
-        );
-        abortController.abort();
-        await flushToDatabase(true);
-        await llmJobService.errorJob(jobId, 'Stream timed out due to inactivity');
-        service.notifySubscribers(jobId, {
-          error: 'Stream timed out due to inactivity',
-          done: true,
-        });
-        onJobComplete(ctx, jobId);
+        try {
+          logger.warn(
+            `[QUEUE] Job ${jobId} stream timed out due to inactivity (${INACTIVITY_TIMEOUT_MS / 1000}s)`
+          );
+          abortController.abort();
+          await flushToDatabase(true);
+          await llmJobService.errorJob(jobId, 'Stream timed out due to inactivity');
+          service.notifySubscribers(jobId, {
+            error: 'Stream timed out due to inactivity',
+            done: true,
+          });
+          onJobComplete(ctx, jobId);
+        } catch (err) {
+          logger.error(
+            `[QUEUE] Inactivity timeout handler failed for job ${jobId}: ${err.message}`
+          );
+        }
       }, INACTIVITY_TIMEOUT_MS);
     };
 
@@ -595,7 +649,7 @@ async function streamFromOllama(
     // CRITICAL: Wrap stream consumption in a Promise so the try block stays alive.
     // Without this, the finally block runs immediately after resume() and destroys
     // the stream before any data events can fire — the root cause of the timeout bug.
-    await new Promise((resolveStream, rejectStream) => {
+    await new Promise((resolveStream, _rejectStream) => {
       responseStream.on('data', async chunk => {
         try {
           // Reset inactivity timer on each chunk
@@ -763,10 +817,25 @@ async function streamFromOllama(
           }
 
           logger.error(`[QUEUE] Stream error for job ${jobId}: ${error.message}`);
-          await flushToDatabase(true);
-          await llmJobService.errorJob(jobId, error.message);
 
-          service.notifySubscribers(jobId, { error: error.message, done: true });
+          // GPU OOM detection — trigger recovery to free memory for subsequent jobs
+          if (isOomError(error.message)) {
+            logger.warn(`[QUEUE] OOM detected for job ${jobId}, triggering GPU recovery`);
+            service.notifySubscribers(jobId, {
+              type: 'error',
+              error: 'GPU-Speicher voll — Modelle werden entladen. Bitte erneut versuchen.',
+              done: true,
+            });
+            await flushToDatabase(true);
+            await llmJobService.errorJob(jobId, `OOM: ${error.message}`);
+            // Fire-and-forget recovery so next job has memory
+            attemptOomRecovery(logger).catch(() => {});
+          } else {
+            await flushToDatabase(true);
+            await llmJobService.errorJob(jobId, error.message);
+            service.notifySubscribers(jobId, { error: error.message, done: true });
+          }
+
           onJobComplete(ctx, jobId);
           resolveStream(); // Resolve (not reject) — error handling is done above
         } catch (err) {
@@ -827,9 +896,22 @@ async function streamFromOllama(
     });
   } catch (error) {
     logger.error(`[QUEUE] Error streaming for job ${jobId}: ${error.message}`);
-    await llmJobService.errorJob(jobId, error.message);
 
-    service.notifySubscribers(jobId, { error: error.message, done: true });
+    // GPU OOM detection — trigger recovery for subsequent jobs
+    if (isOomError(error.message)) {
+      logger.warn(`[QUEUE] OOM detected in stream setup for job ${jobId}, triggering GPU recovery`);
+      await llmJobService.errorJob(jobId, `OOM: ${error.message}`);
+      service.notifySubscribers(jobId, {
+        type: 'error',
+        error: 'GPU-Speicher voll — Modelle werden entladen. Bitte erneut versuchen.',
+        done: true,
+      });
+      attemptOomRecovery(logger).catch(() => {});
+    } else {
+      await llmJobService.errorJob(jobId, error.message);
+      service.notifySubscribers(jobId, { error: error.message, done: true });
+    }
+
     onJobComplete(ctx, jobId);
   } finally {
     // LEAK-001: Always ensure stream is cleaned up, even if catch handler throws

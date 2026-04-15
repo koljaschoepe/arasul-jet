@@ -29,7 +29,7 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # POSTGRES_PASSWORD resolved via Docker secret (compose.secrets.yaml)
       POSTGRES_DB: ${POSTGRES_DB}
       METRICS_INTERVAL_LIVE: ${METRICS_INTERVAL_LIVE:-5}
       METRICS_INTERVAL_PERSIST: ${METRICS_INTERVAL_PERSIST:-60}
@@ -37,6 +37,7 @@ services:
     volumes:
       - /sys:/host/sys:ro
       - /proc:/host/proc:ro
+      - /dev:/host/dev:ro
       - arasul-metrics:/cache
     depends_on:
       postgres-db:
@@ -74,7 +75,7 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # POSTGRES_PASSWORD resolved via Docker secret (compose.secrets.yaml)
       POSTGRES_DB: ${POSTGRES_DB}
       SELF_HEALING_INTERVAL: ${SELF_HEALING_INTERVAL}
       SELF_HEALING_ENABLED: ${SELF_HEALING_ENABLED}
@@ -139,11 +140,10 @@ services:
     environment:
       POSTGRES_HOST: postgres-db
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # POSTGRES_PASSWORD resolved via Docker secret (compose.secrets.yaml)
       POSTGRES_DB: ${POSTGRES_DB}
       MINIO_HOST: minio
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # MINIO_ROOT_USER / MINIO_ROOT_PASSWORD resolved via Docker secrets (compose.secrets.yaml)
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       BACKUP_WEEKLY_RETENTION_WEEKS: ${BACKUP_WEEKLY_RETENTION_WEEKS:-12}

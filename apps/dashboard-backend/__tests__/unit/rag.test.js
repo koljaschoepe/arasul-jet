@@ -450,28 +450,14 @@ describe('RAG Routes', () => {
       expect(ragCore.routeToSpaces).not.toHaveBeenCalled();
     });
 
-    // Skip: Complex mock setup issue with axios.post sequence
-    test.skip('should use default top_k of 5', async () => {
-      const token = await getAuthToken();
-      setupAuthMocks(db);
-
-      axios.post.mockResolvedValueOnce({
-        data: { vectors: [new Array(768).fill(0.1)] }
-      });
-
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
-      db.query.mockResolvedValueOnce({ rows: [] });
-
-      axios.post.mockResolvedValueOnce({ data: { result: [] } });
-      db.query.mockResolvedValueOnce({ rows: [] });
+    test('should use default top_k of 5', async () => {
+      const token = getAuthToken();
+      setupRagMocks();
 
       llmJobService.createJob.mockResolvedValueOnce({
         jobId: 'job-123',
         messageId: 'msg-123'
       });
-      llmJobService.updateJobContent.mockResolvedValueOnce();
-      llmJobService.completeJob.mockResolvedValueOnce();
 
       await request(app)
         .post('/api/rag/query')
@@ -479,15 +465,17 @@ describe('RAG Routes', () => {
         .send({
           query: 'test query',
           conversation_id: 1
-          // No top_k specified
+          // No top_k specified — should default to 5
         });
 
-      // Qdrant should be called with limit = top_k * 2 = 10
-      const qdrantCalls = axios.post.mock.calls.filter(call =>
-        call[0].includes('qdrant') && call[0].includes('search')
+      // hybridSearch should be called with top_k = 5 (3rd argument)
+      expect(ragCore.hybridSearch).toHaveBeenCalledWith(
+        expect.any(String),     // query
+        expect.any(Array),      // embedding
+        5,                      // top_k default
+        null,                   // spaceFilter (no spaces configured)
+        expect.any(Object)      // options
       );
-      expect(qdrantCalls.length).toBe(1);
-      expect(qdrantCalls[0][1].limit).toBe(10);
     });
   });
 

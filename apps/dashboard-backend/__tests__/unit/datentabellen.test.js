@@ -30,6 +30,7 @@ jest.mock('../../src/middleware/auth', () => ({
     req.tokenData = { userId: 1, username: 'testuser', jti: 'test-jti', type: 'access' };
     next();
   },
+  requireAdmin: (req, res, next) => next(),
 }));
 
 // Import routes after mocking
@@ -209,6 +210,7 @@ describe('Datentabellen Tables Routes', () => {
     test('creates table successfully', async () => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // Advisory lock
           .mockResolvedValueOnce({ rows: [] }) // Check slug exists
           .mockResolvedValueOnce({ rows: [MOCK_TABLE] }) // Insert
           .mockResolvedValueOnce({ rows: [] }) // CREATE TABLE
@@ -229,6 +231,7 @@ describe('Datentabellen Tables Routes', () => {
     test('creates table with default field when createDefaultField is true', async () => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // Advisory lock
           .mockResolvedValueOnce({ rows: [] }) // Check slug exists
           .mockResolvedValueOnce({ rows: [MOCK_TABLE] }) // Insert
           .mockResolvedValueOnce({ rows: [] }) // CREATE TABLE with name column
@@ -269,6 +272,7 @@ describe('Datentabellen Tables Routes', () => {
     test('returns 409 for duplicate table name', async () => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // Advisory lock
           .mockResolvedValueOnce({ rows: [{ id: 'existing' }] }), // Slug already exists
       };
 

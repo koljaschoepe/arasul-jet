@@ -9,7 +9,7 @@ interface Document {
   [key: string]: unknown;
 }
 
-interface SimilarDocument {
+export interface SimilarDocument {
   id: string;
   filename: string;
   similarity: number;

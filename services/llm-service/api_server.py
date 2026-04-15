@@ -93,11 +93,53 @@ _model_cache_lock = threading.Lock()
 MODEL_CACHE_TTL = 60  # Cache models for 60 seconds
 
 
+def _get_gpu_memory():
+    """
+    Get GPU memory info via nvidia-smi.
+    Returns dict with free_mb, total_mb, used_mb or None on failure.
+    On Jetson (shared memory), falls back to system RAM via psutil.
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free,memory.total,memory.used",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=2, check=True
+        )
+        parts = result.stdout.strip().split(',')
+        free = parts[0].strip() if len(parts) > 0 else ""
+        total = parts[1].strip() if len(parts) > 1 else ""
+        used = parts[2].strip() if len(parts) > 2 else ""
+
+        # Jetson returns [N/A] for GPU memory — use system RAM instead
+        if '[N/A]' in free or not free.isdigit():
+            mem = psutil.virtual_memory()
+            return {
+                "free_mb": round(mem.available / 1024 / 1024),
+                "total_mb": round(mem.total / 1024 / 1024),
+                "used_mb": round(mem.used / 1024 / 1024),
+                "source": "system_ram"
+            }
+
+        return {
+            "free_mb": int(free),
+            "total_mb": int(total),
+            "used_mb": int(used),
+            "source": "nvidia_gpu"
+        }
+    except Exception as e:
+        logger.warning(f"Could not get GPU memory: {e}")
+        return None
+
+
+# GPU OOM threshold — consider OOM risk when free memory drops below this
+GPU_OOM_THRESHOLD_MB = int(os.environ.get("GPU_OOM_THRESHOLD_MB", "512"))
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """
-    Health check endpoint - checks only service availability
-    NOT if a specific model is loaded (for flexibility)
+    Health check endpoint - checks service availability and GPU memory status.
+    Returns gpu_memory info and warns on low memory (potential OOM).
     """
     try:
         # Check if Ollama is reachable
@@ -110,11 +152,28 @@ def health():
 
         models = response.json().get("models", [])
 
-        return jsonify({
+        # GPU memory status
+        gpu_mem = _get_gpu_memory()
+        gpu_status = "unknown"
+        if gpu_mem:
+            if gpu_mem["free_mb"] < GPU_OOM_THRESHOLD_MB:
+                gpu_status = "critical"
+                logger.warning(
+                    f"GPU memory critical: {gpu_mem['free_mb']}MB free "
+                    f"(threshold: {GPU_OOM_THRESHOLD_MB}MB)"
+                )
+            else:
+                gpu_status = "ok"
+
+        result = {
             "status": "healthy",
             "models_count": len(models),
-            "models": [m.get("name") for m in models]
-        }), 200
+            "models": [m.get("name") for m in models],
+            "gpu_memory": gpu_mem,
+            "gpu_status": gpu_status
+        }
+
+        return jsonify(result), 200
 
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -355,6 +414,66 @@ def clear_cache():
 
     except Exception as e:
         logger.error(f"Cache clear error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@app.route('/api/gpu/recover', methods=['POST'])
+def gpu_recover():
+    """
+    GPU OOM Recovery — clears cache and verifies memory was freed.
+    Called by dashboard-backend when OOM errors are detected during generation.
+    Returns the freed memory amount so the caller can decide whether to retry.
+    """
+    try:
+        # Check memory before
+        gpu_before = _get_gpu_memory()
+        free_before = gpu_before["free_mb"] if gpu_before else 0
+
+        # Unload all models (same logic as /api/cache/clear)
+        ps_response = _http_session.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
+        unloaded = []
+        if ps_response.status_code == 200:
+            loaded_models = ps_response.json().get('models', [])
+            for model in loaded_models:
+                model_name = model.get('name')
+                try:
+                    _http_session.post(
+                        f"{OLLAMA_BASE_URL}/api/generate",
+                        json={"model": model_name, "prompt": "", "stream": False, "keep_alive": 0},
+                        timeout=5
+                    )
+                    unloaded.append(model_name)
+                    logger.info(f"[OOM-RECOVERY] Unloaded model: {model_name}")
+                except Exception as e:
+                    logger.warning(f"[OOM-RECOVERY] Failed to unload {model_name}: {e}")
+
+        # Brief pause to let GPU memory settle
+        time.sleep(1)
+
+        # Check memory after
+        gpu_after = _get_gpu_memory()
+        free_after = gpu_after["free_mb"] if gpu_after else 0
+        freed_mb = free_after - free_before
+
+        logger.info(
+            f"[OOM-RECOVERY] Complete. Freed ~{freed_mb}MB. "
+            f"Before: {free_before}MB free, After: {free_after}MB free. "
+            f"Unloaded {len(unloaded)} model(s)"
+        )
+
+        return jsonify({
+            "status": "recovered",
+            "freed_mb": freed_mb,
+            "free_mb": free_after,
+            "unloaded_models": unloaded,
+            "can_retry": free_after >= GPU_OOM_THRESHOLD_MB
+        }), 200
+
+    except Exception as e:
+        logger.error(f"[OOM-RECOVERY] Failed: {e}")
         return jsonify({
             "status": "error",
             "message": str(e)

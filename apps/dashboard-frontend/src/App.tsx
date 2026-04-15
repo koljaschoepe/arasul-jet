@@ -625,11 +625,12 @@ function AppContent(): React.JSX.Element | null {
                       </RouteErrorBoundary>
                     }
                   />
-                  <Route path="/claude-code" element={<Navigate to="/sandbox" replace />} />
+                  <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
+                  <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
                   <Route
-                    path="/sandbox"
+                    path="/terminal"
                     element={
-                      <RouteErrorBoundary routeName="Sandbox">
+                      <RouteErrorBoundary routeName="Terminal">
                         <SandboxApp />
                       </RouteErrorBoundary>
                     }

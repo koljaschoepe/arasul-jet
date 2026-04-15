@@ -233,6 +233,10 @@ async function createBot(userId, botData) {
     ]
   );
 
+  if (result.rows.length === 0) {
+    throw new Error('Bot konnte nicht erstellt werden');
+  }
+
   const bot = result.rows[0];
 
   logger.info(`Bot created: ${bot.name} (@${bot.bot_username}) for user ${userId}`);
@@ -640,6 +644,10 @@ async function createCommand(botId, commandData) {
     [botId, cleanCommand, description, prompt, sortOrder]
   );
 
+  if (result.rows.length === 0) {
+    throw new Error('Command konnte nicht erstellt werden');
+  }
+
   logger.info(`Command created: /${cleanCommand} for bot ${botId}`);
   return result.rows[0];
 }
@@ -777,6 +785,10 @@ async function addChat(botId, chatData) {
     [botId, chatId, title, type, username]
   );
 
+  if (result.rows.length === 0) {
+    throw new Error('Chat konnte nicht hinzugefügt werden');
+  }
+
   return result.rows[0];
 }
 
@@ -805,7 +817,7 @@ async function removeChat(chatRowId, botId) {
  * @param {string} secret - Webhook secret
  * @returns {Promise<Object|null>} Bot if valid, null otherwise
  */
-async function getBotByWebhookSecret(botId, secret) {
+async function getBotByWebhookSecret(botId, _secret) {
   // Fetch bot by ID only - secret comparison is done in the route layer
   // using crypto.timingSafeEqual to prevent timing attacks
   const result = await database.query(

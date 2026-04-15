@@ -550,8 +550,23 @@ if (require.main === module) {
 
     // Central upgrade handler - routes WebSocket connections by path
     // Prevents dual-WSS conflict where two servers corrupt each other's upgrades
+    const MAX_WS_CONNECTIONS = 100;
     server.on('upgrade', (request, socket, head) => {
       const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+
+      // Connection limit guard — prevent resource exhaustion
+      const totalConnections =
+        wss.clients.size +
+        sandboxTerminalWss.clients.size +
+        (telegramWebSocketService?.wss?.clients?.size || 0);
+      if (totalConnections >= MAX_WS_CONNECTIONS) {
+        logger.warn(
+          `WebSocket connection limit reached (${totalConnections}/${MAX_WS_CONNECTIONS}), rejecting upgrade`
+        );
+        socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+        socket.destroy();
+        return;
+      }
 
       if (pathname === '/api/metrics/live-stream') {
         // SEC: Verify JWT before allowing WebSocket upgrade
@@ -645,7 +660,8 @@ if (require.main === module) {
           return;
         }
         verifySandboxToken(sandboxToken)
-          .then(() => {
+          .then(decoded => {
+            request.userId = decoded.userId;
             sandboxTerminalWss.handleUpgrade(request, socket, head, ws => {
               sandboxTerminalWss.emit('connection', ws, request);
             });
@@ -677,7 +693,7 @@ if (require.main === module) {
       }
 
       terminalService
-        .createSession(projectId, ws, { sessionType, command, cols, rows })
+        .createSession(projectId, ws, { sessionType, command, cols, rows, userId: request.userId })
         .catch(err => {
           logger.error(`Sandbox terminal session failed: ${err.message}`);
           try {

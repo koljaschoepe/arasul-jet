@@ -467,10 +467,9 @@ describe('DocumentManager Component', () => {
 
   // =====================================================
   // Knowledge Spaces Tests (RAG 2.0)
-  // NOTE: These tests are skipped as the feature is not fully implemented yet
   // =====================================================
-  describe.skip('Knowledge Spaces (RAG 2.0)', () => {
-    const mockSpaces = [
+  describe('Knowledge Spaces (RAG 2.0)', () => {
+    const spacesMock = [
       {
         id: 'space-1',
         name: 'Technical Documentation',
@@ -511,15 +510,19 @@ describe('DocumentManager Component', () => {
         if (
           url.includes('/documents') &&
           !url.includes('/categories') &&
-          !url.includes('/spaces')
+          !url.includes('/spaces') &&
+          !url.includes('/statistics')
         ) {
           return Promise.resolve({ documents: mockDocuments });
         }
         if (url.includes('/documents/categories')) {
           return Promise.resolve({ categories: mockCategories });
         }
-        if (url.includes('/spaces')) {
-          return Promise.resolve({ spaces: mockSpaces });
+        if (url.includes('/documents/spaces') || url.includes('/spaces')) {
+          return Promise.resolve({ spaces: spacesMock });
+        }
+        if (url.includes('/statistics')) {
+          return Promise.resolve({ total_documents: 40 });
         }
         return Promise.resolve({});
       });
@@ -539,7 +542,7 @@ describe('DocumentManager Component', () => {
         renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
-          expect(screen.getByText(/alle/i)).toBeInTheDocument();
+          expect(screen.getByText('Alle')).toBeInTheDocument();
         });
       });
 
@@ -547,22 +550,16 @@ describe('DocumentManager Component', () => {
         renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
-          // Should show document counts in space tabs
-          expect(screen.getByText('10')).toBeInTheDocument();
-          expect(screen.getByText('25')).toBeInTheDocument();
+          expect(screen.getByLabelText('10 Dokumente')).toBeInTheDocument();
+          expect(screen.getByLabelText('25 Dokumente')).toBeInTheDocument();
         });
       });
 
-      test('zeigt "Add Space" Button', async () => {
+      test('zeigt "Neu" Button zum Erstellen', async () => {
         renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
-          const addButton =
-            screen.queryByText(/neuer/i) ||
-            screen.queryByText(/hinzufügen/i) ||
-            document.querySelector('.add-space') ||
-            document.querySelector('[class*="add"]');
-          expect(addButton).toBeTruthy();
+          expect(screen.getByLabelText('Neuen Bereich erstellen')).toBeInTheDocument();
         });
       });
     });
@@ -577,8 +574,7 @@ describe('DocumentManager Component', () => {
         });
 
         // Click on a space tab
-        const spaceTab = screen.getByText('Technical Documentation');
-        await user.click(spaceTab);
+        await user.click(screen.getByText('Technical Documentation'));
 
         // API should be called with space_id filter
         await waitFor(() => {
@@ -598,12 +594,10 @@ describe('DocumentManager Component', () => {
         });
 
         // First select a space
-        const spaceTab = screen.getByText('Technical Documentation');
-        await user.click(spaceTab);
+        await user.click(screen.getByText('Technical Documentation'));
 
         // Then click "Alle"
-        const allTab = screen.getByText(/alle/i);
-        await user.click(allTab);
+        await user.click(screen.getByText('Alle'));
 
         // API should be called without space_id filter
         await waitFor(() => {
@@ -612,25 +606,21 @@ describe('DocumentManager Component', () => {
         });
       });
 
-      test('zeigt aktiven Space mit Highlight', async () => {
+      test('zeigt aktiven Space mit aria-selected', async () => {
         const user = userEvent.setup();
         renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
-          expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
+          expect(screen.getByRole('tab', { name: /Technical Documentation/ })).toBeInTheDocument();
         });
 
         // Click on a space tab
-        const spaceTab =
-          screen.getByText('Technical Documentation').closest('.space-tab') ||
-          screen.getByText('Technical Documentation').closest('button');
+        await user.click(screen.getByRole('tab', { name: /Technical Documentation/ }));
 
-        await user.click(spaceTab || screen.getByText('Technical Documentation'));
-
-        // Tab should have active class
+        // Tab should have aria-selected="true"
         await waitFor(() => {
-          const activeTab = document.querySelector('.space-tab.active');
-          expect(activeTab).toBeTruthy();
+          const spaceButton = screen.getByRole('tab', { name: /Technical Documentation/ });
+          expect(spaceButton).toHaveAttribute('aria-selected', 'true');
         });
       });
     });
@@ -649,13 +639,13 @@ describe('DocumentManager Component', () => {
 
         // Description should be shown
         await waitFor(() => {
-          expect(screen.queryByText(/technical documentation and guides/i)).toBeInTheDocument();
+          expect(screen.getByText(/technical documentation and guides/i)).toBeInTheDocument();
         });
       });
     });
 
     describe('Space Modal', () => {
-      test('öffnet Modal beim Klick auf "Add Space"', async () => {
+      test('öffnet Modal beim Klick auf "Neu"', async () => {
         const user = userEvent.setup();
         renderWithProviders(<DocumentManager />);
 
@@ -663,22 +653,16 @@ describe('DocumentManager Component', () => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
         });
 
-        // Find add space button
-        const addButton =
-          document.querySelector('.add-space') || screen.queryByLabelText(/space hinzufügen/i);
+        // Find add space button via aria-label
+        const addButton = screen.getByLabelText('Neuen Bereich erstellen');
+        await user.click(addButton);
 
-        if (addButton) {
-          await user.click(addButton);
-
-          // Modal should appear
-          await waitFor(() => {
-            expect(
-              screen.queryByText(/wissensbereich/i) ||
-                screen.queryByText(/space erstellen/i) ||
-                document.querySelector('.modal')
-            ).toBeTruthy();
-          });
-        }
+        // Modal should appear
+        await waitFor(() => {
+          expect(
+            screen.queryByText(/wissensbereich/i) || screen.queryByRole('dialog')
+          ).toBeTruthy();
+        });
       });
 
       test('Edit-Button nur für nicht-System Spaces', async () => {
@@ -688,129 +672,13 @@ describe('DocumentManager Component', () => {
           expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
         });
 
-        // Find edit buttons - should not be present for system spaces
-        const editButtons = document.querySelectorAll('.space-edit-btn');
+        // Edit buttons exist via aria-label — only for non-default, non-system spaces
+        const editTechDocs = screen.queryByLabelText('Technical Documentation bearbeiten');
+        // System space should NOT have edit button
+        const editSystem = screen.queryByLabelText('System bearbeiten');
 
-        // Should have edit buttons for non-system spaces (space-1 and space-2)
-        expect(editButtons.length).toBeLessThanOrEqual(2);
-      });
-
-      test('öffnet Edit-Modal beim Klick auf Edit-Button', async () => {
-        const user = userEvent.setup();
-        renderWithProviders(<DocumentManager />);
-
-        await waitFor(() => {
-          expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
-        });
-
-        // Find edit button for Technical Documentation
-        const editButton = document.querySelector('.space-edit-btn');
-
-        if (editButton) {
-          await user.click(editButton);
-
-          // Modal should open in edit mode
-          await waitFor(() => {
-            expect(
-              screen.queryByText(/bearbeiten/i) || document.querySelector('.modal')
-            ).toBeTruthy();
-          });
-        }
-      });
-    });
-
-    describe('Upload to Space', () => {
-      test('Upload geht an aktiven Space', async () => {
-        const user = userEvent.setup();
-
-        mockApi.post.mockResolvedValue({ success: true, document: { id: 'new-doc' } });
-
-        renderWithProviders(<DocumentManager />);
-
-        await waitFor(() => {
-          expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
-        });
-
-        // Select a space first
-        await user.click(screen.getByText('Technical Documentation'));
-
-        // Upload a file
-        const fileInput = document.querySelector('input[type="file"]');
-
-        if (fileInput) {
-          const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' });
-          await user.upload(fileInput, file);
-
-          // Should include space_id in upload
-          await waitFor(
-            () => {
-              const postCalls = mockApi.post.mock.calls;
-              const uploadCall = postCalls.find(call => call[0].includes('/upload'));
-
-              if (uploadCall) {
-                const formData = uploadCall[1];
-                // FormData should include space_id
-                expect(formData.has('space_id') || formData.get('space_id')).toBeTruthy();
-              }
-            },
-            { timeout: 3000 }
-          );
-        }
-      });
-
-      test('zeigt Ziel-Space Hint im Upload-Bereich', async () => {
-        const user = userEvent.setup();
-        renderWithProviders(<DocumentManager />);
-
-        await waitFor(() => {
-          expect(screen.getByText('Technical Documentation')).toBeInTheDocument();
-        });
-
-        // Select a space
-        await user.click(screen.getByText('Technical Documentation'));
-
-        // Should show hint about target space
-        await waitFor(() => {
-          expect(
-            screen.queryByText(/Technical Documentation/i) ||
-              document.querySelector('.upload-space-hint')
-          ).toBeTruthy();
-        });
-      });
-    });
-
-    describe('Space Badge on Documents', () => {
-      test('zeigt Space-Badge auf Dokumenten', async () => {
-        // Mock documents with space info
-        const docsWithSpaces = [
-          {
-            ...mockDocuments[0],
-            space_id: 'space-1',
-            space_name: 'Technical Documentation',
-            space_color: '#3b82f6',
-          },
-        ];
-
-        mockApi.get.mockImplementation(url => {
-          if (
-            url.includes('/documents') &&
-            !url.includes('/categories') &&
-            !url.includes('/spaces')
-          ) {
-            return Promise.resolve({ documents: docsWithSpaces });
-          }
-          if (url.includes('/spaces')) {
-            return Promise.resolve({ spaces: mockSpaces });
-          }
-          return Promise.resolve({});
-        });
-
-        renderWithProviders(<DocumentManager />);
-
-        await waitFor(() => {
-          const spaceBadge = document.querySelector('.space-badge');
-          expect(spaceBadge).toBeTruthy();
-        });
+        expect(editTechDocs).toBeInTheDocument();
+        expect(editSystem).not.toBeInTheDocument();
       });
     });
 
@@ -820,8 +688,15 @@ describe('DocumentManager Component', () => {
           if (url.includes('/spaces')) {
             return Promise.reject(new Error('Space API Error'));
           }
-          if (url.includes('/documents')) {
+          if (
+            url.includes('/documents') &&
+            !url.includes('/categories') &&
+            !url.includes('/statistics')
+          ) {
             return Promise.resolve({ documents: mockDocuments });
+          }
+          if (url.includes('/statistics')) {
+            return Promise.resolve({});
           }
           return Promise.resolve({});
         });

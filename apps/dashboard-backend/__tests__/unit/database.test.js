@@ -47,6 +47,10 @@ const { retryDatabaseQuery } = require('../../src/utils/retry');
 // Import database module (uses mocked pg)
 const db = require('../../src/database');
 
+// Capture mock calls from module import BEFORE clearAllMocks wipes them
+const poolConstructorArgs = Pool.mock.calls[0]?.[0];
+const poolOnCalls = [...mockPool.on.mock.calls];
+
 describe('Database Module', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -58,12 +62,11 @@ describe('Database Module', () => {
 
     // =====================================================
     // Pool Configuration
-    // Note: Pool initialization tests are skipped because jest.clearAllMocks()
-    // clears the Pool mock call history that occurred during module import
+    // Uses poolConstructorArgs/poolOnCalls captured before clearAllMocks
     // =====================================================
     describe('Pool Configuration', () => {
-        test.skip('Pool wird mit korrekten Einstellungen erstellt', () => {
-            expect(Pool).toHaveBeenCalledWith(expect.objectContaining({
+        test('Pool wird mit korrekten Einstellungen erstellt', () => {
+            expect(poolConstructorArgs).toEqual(expect.objectContaining({
                 host: expect.any(String),
                 port: expect.any(Number),
                 user: expect.any(String),
@@ -73,11 +76,12 @@ describe('Database Module', () => {
             }));
         });
 
-        test.skip('Pool registriert Event-Handler', () => {
-            expect(mockPool.on).toHaveBeenCalledWith('connect', expect.any(Function));
-            expect(mockPool.on).toHaveBeenCalledWith('error', expect.any(Function));
-            expect(mockPool.on).toHaveBeenCalledWith('remove', expect.any(Function));
-            expect(mockPool.on).toHaveBeenCalledWith('acquire', expect.any(Function));
+        test('Pool registriert Event-Handler', () => {
+            const eventNames = poolOnCalls.map(call => call[0]);
+            expect(eventNames).toContain('connect');
+            expect(eventNames).toContain('error');
+            expect(eventNames).toContain('remove');
+            expect(eventNames).toContain('acquire');
         });
     });
 
@@ -559,12 +563,11 @@ describe('Retry Utility', () => {
 
 // =====================================================
 // Pool Event Handler Tests
-// Note: Skipped because jest.clearAllMocks() clears the mock.calls history
-// that was populated during module import
+// Uses poolOnCalls captured before clearAllMocks
 // =====================================================
-describe.skip('Pool Event Handlers', () => {
+describe('Pool Event Handlers', () => {
     test('connect event setzt Client-Encoding', () => {
-        const connectHandler = mockPool.on.mock.calls.find(
+        const connectHandler = poolOnCalls.find(
             call => call[0] === 'connect'
         )?.[1];
 
@@ -572,7 +575,7 @@ describe.skip('Pool Event Handlers', () => {
     });
 
     test('error event loggt Fehler', () => {
-        const errorHandler = mockPool.on.mock.calls.find(
+        const errorHandler = poolOnCalls.find(
             call => call[0] === 'error'
         )?.[1];
 
@@ -591,7 +594,7 @@ describe.skip('Pool Event Handlers', () => {
     });
 
     test('acquire event warnt bei hoher Auslastung', () => {
-        const acquireHandler = mockPool.on.mock.calls.find(
+        const acquireHandler = poolOnCalls.find(
             call => call[0] === 'acquire'
         )?.[1];
 
@@ -599,7 +602,7 @@ describe.skip('Pool Event Handlers', () => {
     });
 
     test('remove event wird registriert', () => {
-        const removeHandler = mockPool.on.mock.calls.find(
+        const removeHandler = poolOnCalls.find(
             call => call[0] === 'remove'
         )?.[1];
 

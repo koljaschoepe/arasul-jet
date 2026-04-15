@@ -12,7 +12,7 @@ const { apiLimiter, createUserRateLimiter } = require('../../middleware/rateLimi
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
 const { buildSetClauses } = require('../../utils/queryBuilder');
 
 // Rate limiter for test endpoint (5 tests per minute)
@@ -21,7 +21,6 @@ const testLimiter = createUserRateLimiter(5, 60 * 1000);
 // Encryption configuration
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
-const TAG_LENGTH = 16;
 
 /**
  * Get encryption key from JWT_SECRET (32 bytes for AES-256)
@@ -29,7 +28,7 @@ const TAG_LENGTH = 16;
 function getEncryptionKey() {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    throw new Error('JWT_SECRET is not set - cannot encrypt/decrypt tokens');
+    throw new ServiceUnavailableError('JWT_SECRET is not set - cannot encrypt/decrypt tokens');
   }
   // Use SHA-256 to derive a 32-byte key from the secret
   return crypto.createHash('sha256').update(secret).digest();
@@ -262,7 +261,7 @@ router.get(
       botToken = decrypt(config.bot_token_encrypted, config.bot_token_iv, config.bot_token_tag);
     } catch (decryptError) {
       logger.error(`Failed to decrypt Telegram token for updates: ${decryptError.message}`);
-      throw new Error('Failed to decrypt bot token');
+      throw new ServiceUnavailableError('Failed to decrypt bot token');
     }
 
     // Fetch updates from Telegram API
@@ -288,7 +287,7 @@ router.get(
     }
 
     if (!response.data.ok) {
-      throw new Error(response.data.description || 'Unknown Telegram API error');
+      throw new ServiceUnavailableError(response.data.description || 'Unknown Telegram API error');
     }
 
     // Extract unique chats from updates
@@ -474,7 +473,7 @@ router.post(
       botToken = decrypt(config.bot_token_encrypted, config.bot_token_iv, config.bot_token_tag);
     } catch (decryptError) {
       logger.error(`Failed to decrypt Telegram token for test: ${decryptError.message}`);
-      throw new Error('Failed to decrypt bot token');
+      throw new ServiceUnavailableError('Failed to decrypt bot token');
     }
 
     // Determine chat ID (from request or stored config)
@@ -518,14 +517,14 @@ router.post(
 
       // Handle network errors
       if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
-        throw new Error('Telegram API timeout: Could not reach Telegram servers');
+        throw new ServiceUnavailableError('Telegram API timeout: Could not reach Telegram servers');
       }
 
       throw axiosError;
     }
 
     if (!response.data.ok) {
-      throw new Error(response.data.description || 'Unknown Telegram API error');
+      throw new ServiceUnavailableError(response.data.description || 'Unknown Telegram API error');
     }
 
     // Update chat_id in config if provided in request and different from stored

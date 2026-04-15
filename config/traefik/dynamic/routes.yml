@@ -23,6 +23,7 @@ http:
       middlewares:
         - security-headers
         - rate-limit-api
+        - body-limit
         - compress
       entryPoints:
         - websecure
@@ -236,6 +237,7 @@ http:
           path: /api/tags
           interval: 30s
           timeout: 5s
+        serversTransport: llm-transport
 
     # Embeddings Service
     embeddings-service:

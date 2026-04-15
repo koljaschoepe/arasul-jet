@@ -93,7 +93,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 // Featured apps
-const FEATURED_APPS = ['n8n', 'telegram-bot', 'claude-code'];
+const FEATURED_APPS = ['n8n', 'telegram-bot', 'terminal'];
 
 // Category labels
 const categoryLabels: Record<string, string> = {

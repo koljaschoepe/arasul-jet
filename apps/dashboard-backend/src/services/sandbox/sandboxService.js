@@ -7,7 +7,7 @@
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
-const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const { ValidationError, NotFoundError } = require('../../utils/errors');
 const path = require('path');
 const fs = require('fs');
 
@@ -29,7 +29,9 @@ async function getHostDataDir() {
   if (process.env.SANDBOX_HOST_DATA_DIR) {
     return process.env.SANDBOX_HOST_DATA_DIR;
   }
-  if (_hostDirCache) {return _hostDirCache;}
+  if (_hostDirCache) {
+    return _hostDirCache;
+  }
 
   try {
     const container = docker.getContainer('dashboard-backend');
@@ -56,15 +58,14 @@ const DEFAULT_RESOURCE_LIMITS = {
   pids: 256,
 };
 
-// Slug validation pattern (matches generate_sandbox_slug output)
-const VALID_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,79}$/;
-
 /**
  * Parse memory string (e.g., "2G", "512M") to bytes
  */
 function parseMemoryLimit(mem) {
   const match = String(mem).match(/^(\d+(?:\.\d+)?)\s*(B|K|M|G|T)?$/i);
-  if (!match) {return 2 * 1024 * 1024 * 1024;} // default 2G
+  if (!match) {
+    return 2 * 1024 * 1024 * 1024;
+  } // default 2G
   const value = parseFloat(match[1]);
   const unit = (match[2] || 'B').toUpperCase();
   const multipliers = { B: 1, K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 };
@@ -86,7 +87,12 @@ async function createProject({
   baseImage,
   resourceLimits,
   environment,
+  network_mode,
+  userId,
 }) {
+  if (!userId) {
+    throw new ValidationError('User-ID ist erforderlich');
+  }
   if (!name || !name.trim()) {
     throw new ValidationError('Projektname ist erforderlich');
   }
@@ -105,10 +111,14 @@ async function createProject({
   // Merge resource limits with defaults
   const limits = { ...DEFAULT_RESOURCE_LIMITS, ...(resourceLimits || {}) };
 
+  // Validate network_mode — default is 'isolated' (bridge, no access to backend services)
+  const validNetworkModes = ['isolated', 'internal'];
+  const netMode = validNetworkModes.includes(network_mode) ? network_mode : 'isolated';
+
   const result = await db.query(
     `INSERT INTO sandbox_projects
-      (name, slug, description, icon, color, base_image, host_path, container_path, resource_limits, environment)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, '/workspace', $8, $9)
+      (name, slug, description, icon, color, base_image, host_path, container_path, resource_limits, environment, network_mode, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, '/workspace', $8, $9, $10, $11)
      RETURNING *`,
     [
       name.trim(),
@@ -120,6 +130,8 @@ async function createProject({
       hostPath,
       JSON.stringify(limits),
       JSON.stringify(environment || {}),
+      netMode,
+      userId,
     ]
   );
 
@@ -140,10 +152,16 @@ async function createProject({
 /**
  * List all projects with optional filters
  */
-async function listProjects({ status, search, limit = 50, offset = 0 } = {}) {
+async function listProjects({ status, search, limit = 50, offset = 0, userId } = {}) {
   const conditions = [];
   const params = [];
   let idx = 1;
+
+  // User isolation: only show projects belonging to this user
+  if (userId) {
+    conditions.push(`user_id = $${idx++}`);
+    params.push(userId);
+  }
 
   if (status) {
     conditions.push(`status = $${idx++}`);
@@ -187,14 +205,22 @@ async function listProjects({ status, search, limit = 50, offset = 0 } = {}) {
 /**
  * Get a single project by ID
  */
-async function getProject(projectId) {
+async function getProject(projectId, userId) {
+  const params = [projectId];
+  let userFilter = '';
+
+  if (userId) {
+    userFilter = ' AND sp.user_id = $2';
+    params.push(userId);
+  }
+
   const result = await db.query(
     `SELECT sp.*,
        (SELECT COUNT(*) FROM sandbox_terminal_sessions st
         WHERE st.project_id = sp.id AND st.status = 'active') AS active_sessions
      FROM sandbox_projects sp
-     WHERE sp.id = $1`,
-    [projectId]
+     WHERE sp.id = $1${userFilter}`,
+    params
   );
 
   if (result.rows.length === 0) {
@@ -209,19 +235,23 @@ async function getProject(projectId) {
  */
 async function updateProject(
   projectId,
-  { name, description, icon, color, environment, resourceLimits }
+  { name, description, icon, color, environment, resourceLimits, network_mode },
+  userId
 ) {
-  // Verify project exists
-  await getProject(projectId);
+  // Verify project exists and belongs to user
+  await getProject(projectId, userId);
 
   const setClauses = ['updated_at = NOW()'];
   const params = [];
   let idx = 1;
 
   if (name !== undefined) {
-    if (!name.trim()) {throw new ValidationError('Projektname darf nicht leer sein');}
-    if (name.trim().length > 100)
-      {throw new ValidationError('Projektname darf maximal 100 Zeichen lang sein');}
+    if (!name.trim()) {
+      throw new ValidationError('Projektname darf nicht leer sein');
+    }
+    if (name.trim().length > 100) {
+      throw new ValidationError('Projektname darf maximal 100 Zeichen lang sein');
+    }
     setClauses.push(`name = $${idx++}`);
     params.push(name.trim());
   }
@@ -246,6 +276,14 @@ async function updateProject(
     setClauses.push(`resource_limits = $${idx++}`);
     params.push(JSON.stringify(limits));
   }
+  if (network_mode !== undefined) {
+    const validModes = ['isolated', 'internal'];
+    if (!validModes.includes(network_mode)) {
+      throw new ValidationError(`Ungültiger Netzwerkmodus: ${network_mode}`);
+    }
+    setClauses.push(`network_mode = $${idx++}`);
+    params.push(network_mode);
+  }
 
   const result = await db.query(
     `UPDATE sandbox_projects SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
@@ -258,12 +296,12 @@ async function updateProject(
 /**
  * Delete (archive) a project
  */
-async function deleteProject(projectId) {
-  const project = await getProject(projectId);
+async function deleteProject(projectId, userId) {
+  const project = await getProject(projectId, userId);
 
-  // Stop container if running
+  // Stop container if running (userId already verified via getProject above)
   if (project.container_status === 'running') {
-    await stopContainer(projectId);
+    await stopContainer(projectId, userId);
   }
 
   // Remove container if it exists
@@ -298,11 +336,11 @@ async function deleteProject(projectId) {
 /**
  * Start (or create) the container for a project
  */
-async function startContainer(projectId) {
-  const project = await getProject(projectId);
+async function startContainer(projectId, userId) {
+  const project = await getProject(projectId, userId);
 
-  if (project.container_status === 'running') {
-    return { success: true, message: 'Container läuft bereits' };
+  if (['running', 'creating', 'committing'].includes(project.container_status)) {
+    return { success: true, message: 'Container wird bereits verarbeitet' };
   }
 
   // Update status to creating
@@ -350,7 +388,24 @@ async function startContainer(projectId) {
     const limits = project.resource_limits || DEFAULT_RESOURCE_LIMITS;
 
     // Determine image: use committed image if available, otherwise base_image
-    const image = project.committed_image || project.base_image || DEFAULT_IMAGE;
+    let image = project.committed_image || project.base_image || DEFAULT_IMAGE;
+
+    // Verify committed image still exists (may have been pruned)
+    if (project.committed_image) {
+      try {
+        await docker.getImage(image).inspect();
+      } catch (imgErr) {
+        if (imgErr.statusCode === 404) {
+          logger.warn(
+            `Committed image ${image} not found, falling back to ${project.base_image || DEFAULT_IMAGE}`
+          );
+          image = project.base_image || DEFAULT_IMAGE;
+          await db.query('UPDATE sandbox_projects SET committed_image = NULL WHERE id = $1', [
+            projectId,
+          ]);
+        }
+      }
+    }
 
     // Ensure project directory exists via container-local path
     const hostPath = project.host_path;
@@ -375,6 +430,9 @@ async function startContainer(projectId) {
       // Ignore 404 — no zombie
     }
 
+    // Determine network mode: 'isolated' (bridge, default) or 'internal' (backend network)
+    const networkMode = project.network_mode === 'internal' ? NETWORK_NAME : 'bridge';
+
     const containerConfig = {
       Image: image,
       name: containerName,
@@ -383,12 +441,15 @@ async function startContainer(projectId) {
       WorkingDir: '/workspace',
       HostConfig: {
         Binds: [`${hostPath}:/workspace`],
-        NetworkMode: NETWORK_NAME,
+        NetworkMode: networkMode,
         RestartPolicy: { Name: 'unless-stopped' },
         Memory: parseMemoryLimit(limits.memory),
         NanoCpus: Math.round(parseFloat(limits.cpus || '2') * 1e9),
-        PidsLimit: parseInt(limits.pids || '256'),
+        PidsLimit: parseInt(limits.pids || '128'),
         SecurityOpt: ['no-new-privileges:true'],
+        CapDrop: ['ALL'],
+        CapAdd: ['NET_BIND_SERVICE'],
+        Tmpfs: { '/tmp': 'noexec,nosuid,size=256M' },
       },
     };
 
@@ -416,8 +477,8 @@ async function startContainer(projectId) {
 /**
  * Stop the container for a project (preserves container state)
  */
-async function stopContainer(projectId) {
-  const project = await getProject(projectId);
+async function stopContainer(projectId, userId) {
+  const project = await getProject(projectId, userId);
 
   if (
     !project.container_id ||
@@ -445,7 +506,10 @@ async function stopContainer(projectId) {
     }
   }
 
-  // Close all active terminal sessions
+  // Close all active terminal sessions (in-memory WebSocket/stream cleanup + DB update)
+  // Lazy require to avoid circular dependency (terminalService requires sandboxService)
+  const terminalService = require('./terminalService');
+  await terminalService.closeProjectSessions(projectId);
   await db.query(
     `UPDATE sandbox_terminal_sessions SET status = 'closed', ended_at = NOW()
      WHERE project_id = $1 AND status = 'active'`,
@@ -463,8 +527,8 @@ async function stopContainer(projectId) {
 /**
  * Commit container state as a new image (preserves installed packages)
  */
-async function commitContainer(projectId) {
-  const project = await getProject(projectId);
+async function commitContainer(projectId, userId) {
+  const project = await getProject(projectId, userId);
 
   if (!project.container_id) {
     throw new ValidationError('Kein Container vorhanden zum Speichern');
@@ -509,8 +573,8 @@ async function commitContainer(projectId) {
 /**
  * Get live container status from Docker (not just DB)
  */
-async function getContainerStatus(projectId) {
-  const project = await getProject(projectId);
+async function getContainerStatus(projectId, userId) {
+  const project = await getProject(projectId, userId);
 
   if (!project.container_id) {
     return { status: 'none', running: false };
@@ -614,7 +678,9 @@ async function checkIdleContainers() {
  * Start the periodic idle container checker
  */
 function startIdleChecker() {
-  if (_idleCheckTimer) {return;}
+  if (_idleCheckTimer) {
+    return;
+  }
   _idleCheckTimer = setInterval(checkIdleContainers, IDLE_CHECK_INTERVAL_MS);
   logger.info(
     `Sandbox idle checker started (timeout: ${IDLE_TIMEOUT_MS / 60000}min, interval: ${IDLE_CHECK_INTERVAL_MS / 60000}min)`

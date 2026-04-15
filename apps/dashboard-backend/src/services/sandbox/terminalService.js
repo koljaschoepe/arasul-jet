@@ -7,7 +7,7 @@
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
-const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { ValidationError } = require('../../utils/errors');
 const sandboxService = require('./sandboxService');
 
 // Active sessions map: sessionId → { exec, stream, ws, projectId }
@@ -27,9 +27,9 @@ const SESSION_COMMANDS = {
 async function createSession(
   projectId,
   ws,
-  { sessionType = 'shell', command, cols = 120, rows = 30 } = {}
+  { sessionType = 'shell', command, cols = 120, rows = 30, userId } = {}
 ) {
-  const project = await sandboxService.getProject(projectId);
+  const project = await sandboxService.getProject(projectId, userId);
 
   // Ensure container is running
   if (project.container_status !== 'running' || !project.container_id) {
@@ -107,16 +107,18 @@ async function createSession(
   });
 
   // Pipe WebSocket input → Docker exec stdin
+  // Note: ws library v8+ always provides Buffer for data. Use isBinary flag only
+  // to distinguish binary frames (terminal input) from text frames (control JSON).
   ws.on('message', (data, isBinary) => {
-    if (isBinary || Buffer.isBuffer(data)) {
-      // Binary frame: raw terminal input
+    if (isBinary) {
+      // Binary frame: raw terminal input from xterm.js
       try {
         stream.write(data);
       } catch (err) {
         logger.warn(`Terminal write error for session ${session.id}: ${err.message}`);
       }
     } else {
-      // Text frame: control message (JSON)
+      // Text frame: control message (JSON) — resize, ping, etc.
       try {
         const msg = JSON.parse(data.toString());
         handleControlMessage(session.id, msg);
@@ -162,7 +164,9 @@ async function createSession(
  */
 function handleControlMessage(sessionId, msg) {
   const session = activeSessions.get(sessionId);
-  if (!session) {return;}
+  if (!session) {
+    return;
+  }
 
   switch (msg.type) {
     case 'resize': {
@@ -188,7 +192,9 @@ function handleControlMessage(sessionId, msg) {
  */
 async function resizeTerminal(sessionId, cols, rows) {
   const session = activeSessions.get(sessionId);
-  if (!session || !session.exec) {return;}
+  if (!session || !session.exec) {
+    return;
+  }
 
   try {
     await session.exec.resize({ h: rows, w: cols });
@@ -203,7 +209,9 @@ async function resizeTerminal(sessionId, cols, rows) {
  */
 async function closeSession(sessionId, reason = 'closed') {
   const session = activeSessions.get(sessionId);
-  if (!session) {return;}
+  if (!session) {
+    return;
+  }
 
   // Remove from active map first to prevent re-entry
   activeSessions.delete(sessionId);
@@ -281,10 +289,29 @@ async function cleanupAllSessions() {
   logger.info(`Cleaned up ${sessionIds.length} terminal sessions`);
 }
 
+/**
+ * Close all active sessions for a specific project (e.g. when container is stopped)
+ */
+async function closeProjectSessions(projectId) {
+  const sessionIds = [];
+  for (const [sessionId, session] of activeSessions.entries()) {
+    if (session.projectId === projectId) {
+      sessionIds.push(sessionId);
+    }
+  }
+  for (const sessionId of sessionIds) {
+    await closeSession(sessionId, 'container_stopped');
+  }
+  if (sessionIds.length > 0) {
+    logger.info(`Closed ${sessionIds.length} terminal sessions for project ${projectId}`);
+  }
+}
+
 module.exports = {
   createSession,
   resizeTerminal,
   closeSession,
+  closeProjectSessions,
   listSessions,
   getActiveSessionCount,
   cleanupAllSessions,

@@ -310,9 +310,8 @@ describe('Documents Routes', () => {
     // =====================================================
     describe('POST /api/documents/upload', () => {
         test('lädt PDF-Datei erfolgreich hoch', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [] })  // Duplicate check
-                .mockResolvedValueOnce({ rows: [] });  // Insert
+            // INSERT ... ON CONFLICT DO NOTHING RETURNING id
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-1' }] });
 
             const response = await request(app)
                 .post('/api/documents/upload')
@@ -325,9 +324,7 @@ describe('Documents Routes', () => {
         });
 
         test('lädt DOCX-Datei erfolgreich hoch', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [] });
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-2' }] });
 
             const response = await request(app)
                 .post('/api/documents/upload')
@@ -337,9 +334,7 @@ describe('Documents Routes', () => {
         });
 
         test('lädt Markdown-Datei erfolgreich hoch', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [] });
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-3' }] });
 
             const response = await request(app)
                 .post('/api/documents/upload')
@@ -365,9 +360,8 @@ describe('Documents Routes', () => {
         });
 
         test('erkennt Duplikate und gibt 409', async () => {
-            pool.query.mockResolvedValueOnce({
-                rows: [{ id: 'existing-doc', filename: 'test.pdf' }]
-            });
+            // INSERT ... ON CONFLICT DO NOTHING returns 0 rows for duplicates
+            pool.query.mockResolvedValueOnce({ rows: [] });
 
             const response = await request(app)
                 .post('/api/documents/upload')
@@ -394,9 +388,8 @@ describe('Documents Routes', () => {
         test('speichert mit gültiger space_id', async () => {
             pool.query
                 .mockResolvedValueOnce({ rows: [{ id: 'space-1' }] })  // Space check
-                .mockResolvedValueOnce({ rows: [] })  // Duplicate check
-                .mockResolvedValueOnce({ rows: [] })  // Insert
-                .mockResolvedValueOnce({ rows: [] }); // Update space statistics
+                .mockResolvedValueOnce({ rows: [{ id: 'doc-4' }] })    // INSERT RETURNING id
+                .mockResolvedValueOnce({ rows: [] });                  // Update space statistics
 
             const response = await request(app)
                 .post('/api/documents/upload')
@@ -408,9 +401,7 @@ describe('Documents Routes', () => {
         });
 
         test('sanitized Dateiname gegen Path-Traversal', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [] });
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-5' }] });
 
             const response = await request(app)
                 .post('/api/documents/upload')
@@ -939,9 +930,7 @@ describe('Documents Routes', () => {
     // =====================================================
     describe('Filename Sanitization', () => {
         test('entfernt Path-Traversal Versuche', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [] });
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-san-1' }] });
 
             const response = await request(app)
                 .post('/api/documents/upload')
@@ -952,9 +941,7 @@ describe('Documents Routes', () => {
         });
 
         test('entfernt führende Punkte', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [] });
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-san-2' }] });
 
             const response = await request(app)
                 .post('/api/documents/upload')
@@ -965,9 +952,7 @@ describe('Documents Routes', () => {
         });
 
         test('entfernt Windows-verbotene Zeichen', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [] });
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-san-3' }] });
 
             // Note: Some special characters may cause issues with multipart parsing
             // Use a simpler set of forbidden characters that work with supertest
@@ -981,9 +966,7 @@ describe('Documents Routes', () => {
         });
 
         test('kürzt zu lange Dateinamen', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [] })
-                .mockResolvedValueOnce({ rows: [] });
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-san-4' }] });
 
             const longName = 'a'.repeat(300) + '.pdf';
             const response = await request(app)
@@ -1007,9 +990,7 @@ describe('File Type Validation', () => {
     });
 
     test('akzeptiert .pdf', async () => {
-        pool.query
-            .mockResolvedValueOnce({ rows: [] })
-            .mockResolvedValueOnce({ rows: [] });
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'ft-1' }] });
 
         const response = await request(app)
             .post('/api/documents/upload')
@@ -1019,9 +1000,7 @@ describe('File Type Validation', () => {
     });
 
     test('akzeptiert .docx', async () => {
-        pool.query
-            .mockResolvedValueOnce({ rows: [] })
-            .mockResolvedValueOnce({ rows: [] });
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'ft-2' }] });
 
         const response = await request(app)
             .post('/api/documents/upload')
@@ -1031,9 +1010,7 @@ describe('File Type Validation', () => {
     });
 
     test('akzeptiert .md', async () => {
-        pool.query
-            .mockResolvedValueOnce({ rows: [] })
-            .mockResolvedValueOnce({ rows: [] });
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'ft-3' }] });
 
         const response = await request(app)
             .post('/api/documents/upload')
@@ -1043,9 +1020,7 @@ describe('File Type Validation', () => {
     });
 
     test('akzeptiert .txt', async () => {
-        pool.query
-            .mockResolvedValueOnce({ rows: [] })
-            .mockResolvedValueOnce({ rows: [] });
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'ft-4' }] });
 
         const response = await request(app)
             .post('/api/documents/upload')

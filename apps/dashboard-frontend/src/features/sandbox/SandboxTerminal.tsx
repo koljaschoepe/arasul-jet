@@ -4,9 +4,12 @@
  * Renders a full interactive terminal connected to a sandbox container
  * via WebSocket. Includes connection status, reconnect, fullscreen,
  * and Quick-Launch buttons for common tools.
+ *
+ * Container-aware: Shows appropriate status messages based on containerStatus
+ * and only attempts connection when container is running.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import {
   RefreshCw,
   Maximize2,
@@ -15,9 +18,15 @@ import {
   Loader2,
   AlertCircle,
   Sparkles,
-  ChevronDown,
+  Terminal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/shadcn/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useTerminal } from './useTerminal';
 import '@xterm/xterm/css/xterm.css';
@@ -26,61 +35,100 @@ interface QuickLaunchItem {
   label: string;
   command: string;
   description: string;
-  color: string;
 }
 
 const QUICK_LAUNCH_ITEMS: QuickLaunchItem[] = [
-  {
-    label: 'Claude Code',
-    command: 'claude\n',
-    description: 'Claude Code CLI starten',
-    color: '#d97706',
-  },
-  {
-    label: 'Codex',
-    command: 'codex\n',
-    description: 'OpenAI Codex CLI starten',
-    color: '#22c55e',
-  },
-  {
-    label: 'Python',
-    command: 'python3\n',
-    description: 'Python REPL starten',
-    color: '#3b82f6',
-  },
-  {
-    label: 'Node.js',
-    command: 'node\n',
-    description: 'Node.js REPL starten',
-    color: '#16a34a',
-  },
-  {
-    label: 'htop',
-    command: 'htop\n',
-    description: 'Prozess-Monitor',
-    color: '#06b6d4',
-  },
+  { label: 'Claude Code', command: 'claude\n', description: 'Claude Code CLI starten' },
+  { label: 'Codex', command: 'codex\n', description: 'OpenAI Codex CLI starten' },
+  { label: 'Python', command: 'python3\n', description: 'Python REPL starten' },
+  { label: 'Node.js', command: 'node\n', description: 'Node.js REPL starten' },
+  { label: 'htop', command: 'htop\n', description: 'Prozess-Monitor' },
 ];
 
 interface SandboxTerminalProps {
   projectId: string;
+  containerStatus?: string;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   className?: string;
 }
 
+/**
+ * Derive the status indicator for the toolbar based on container + connection state.
+ */
+function getStatusDisplay(
+  containerStatus: string | undefined,
+  isConnecting: boolean,
+  isConnected: boolean,
+  error: string | null
+) {
+  // Container not ready yet — show container-level status
+  if (containerStatus && containerStatus !== 'running') {
+    switch (containerStatus) {
+      case 'creating':
+        return {
+          icon: <Loader2 className="size-3 text-primary animate-spin" />,
+          text: 'Container wird erstellt...',
+          showReconnect: false,
+        };
+      case 'none':
+      case 'stopped':
+        return {
+          icon: <Loader2 className="size-3 text-primary animate-spin" />,
+          text: 'Container wird gestartet...',
+          showReconnect: false,
+        };
+      case 'committing':
+        return {
+          icon: <Loader2 className="size-3 text-primary animate-spin" />,
+          text: 'Container wird gespeichert...',
+          showReconnect: false,
+        };
+      case 'error':
+        return {
+          icon: <AlertCircle className="size-3 text-destructive" />,
+          text: 'Container-Fehler',
+          showReconnect: true,
+        };
+    }
+  }
+
+  // Container is running — show connection-level status
+  if (isConnecting) {
+    return {
+      icon: <Loader2 className="size-3 text-primary animate-spin" />,
+      text: 'Verbinde...',
+      showReconnect: false,
+    };
+  }
+  if (isConnected) {
+    return {
+      icon: <Circle className="size-3 fill-primary text-primary" />,
+      text: 'Verbunden',
+      showReconnect: true,
+    };
+  }
+
+  // Disconnected with or without error
+  return {
+    icon: <Circle className="size-3 fill-muted-foreground text-muted-foreground" />,
+    text: error ? '' : 'Getrennt',
+    showReconnect: true,
+  };
+}
+
 export default function SandboxTerminal({
   projectId,
+  containerStatus,
   isFullscreen = false,
   onToggleFullscreen,
   className,
 }: SandboxTerminalProps) {
   const { terminalRef, isConnected, isConnecting, error, reconnect, fit, sendInput } = useTerminal({
     projectId,
+    containerStatus,
     fontSize: isFullscreen ? 15 : 14,
   });
-
-  const [showQuickLaunch, setShowQuickLaunch] = useState(false);
 
   const handleFullscreenToggle = useCallback(() => {
     onToggleFullscreen?.();
@@ -89,97 +137,73 @@ export default function SandboxTerminal({
     });
   }, [onToggleFullscreen, fit]);
 
-  const handleQuickLaunch = useCallback(
-    (item: QuickLaunchItem) => {
-      sendInput(item.command);
-      setShowQuickLaunch(false);
-    },
-    [sendInput]
-  );
+  const status = getStatusDisplay(containerStatus, isConnecting, isConnected, error);
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Terminal toolbar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#0a0a0a] border-b border-zinc-800 shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-2">
-          {isConnecting ? (
-            <Loader2 className="size-3 text-yellow-500 animate-spin" />
-          ) : isConnected ? (
-            <Circle className="size-3 fill-emerald-500 text-emerald-500" />
-          ) : (
-            <Circle className="size-3 fill-red-500 text-red-500" />
-          )}
-          <span className="text-xs text-zinc-400 font-mono">
-            {isConnecting ? 'Verbinde...' : isConnected ? 'Verbunden' : 'Getrennt'}
-          </span>
+          {status.icon}
+          <span className="text-xs text-muted-foreground font-mono">{status.text}</span>
 
-          {/* Quick Launch */}
+          {/* Quick Launch — Radix DropdownMenu for portal-based rendering */}
           {isConnected && (
-            <div className="relative ml-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowQuickLaunch(!showQuickLaunch)}
-                className="text-zinc-400 hover:text-zinc-200 h-6 px-2 text-xs gap-1"
-              >
-                <Sparkles className="size-3" />
-                Quick Launch
-                <ChevronDown
-                  className={cn('size-3 transition-transform', showQuickLaunch && 'rotate-180')}
-                />
-              </Button>
-
-              {showQuickLaunch && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowQuickLaunch(false)} />
-                  <div className="absolute top-full left-0 mt-1 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 min-w-[200px]">
-                    {QUICK_LAUNCH_ITEMS.map(item => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        onClick={() => handleQuickLaunch(item)}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-zinc-800 transition-colors"
-                      >
-                        <div
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <div className="min-w-0">
-                          <div className="text-xs text-zinc-200 font-medium">{item.label}</div>
-                          <div className="text-[10px] text-zinc-500">{item.description}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground h-6 px-2 text-xs gap-1 ml-2"
+                >
+                  <Sparkles className="size-3" />
+                  Quick Launch
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[200px]">
+                {QUICK_LAUNCH_ITEMS.map(item => (
+                  <DropdownMenuItem
+                    key={item.label}
+                    onClick={() => sendInput(item.command)}
+                    className="gap-3"
+                  >
+                    <Terminal className="size-3 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium">{item.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{item.description}</div>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 
         <div className="flex items-center gap-1">
           {error && (
-            <span className="text-xs text-red-400 mr-2 flex items-center gap-1">
+            <span className="text-xs text-destructive mr-2 flex items-center gap-1">
               <AlertCircle className="size-3" />
               {error}
             </span>
           )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={reconnect}
-            title="Neu verbinden"
-            className="text-zinc-400 hover:text-zinc-200"
-          >
-            <RefreshCw className="size-3.5" />
-          </Button>
+          {status.showReconnect && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={reconnect}
+              title="Neu verbinden"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className="size-3.5" />
+            </Button>
+          )}
           {onToggleFullscreen && (
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={handleFullscreenToggle}
               title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
-              className="text-zinc-400 hover:text-zinc-200"
+              className="text-muted-foreground hover:text-foreground"
             >
               {isFullscreen ? (
                 <Minimize2 className="size-3.5" />

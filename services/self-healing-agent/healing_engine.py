@@ -443,10 +443,9 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             logger.error(f"Database health check failed: {e}")
 
     def check_tls_cert_expiry(self):
-        """Check TLS certificate expiry and warn/renew if needed"""
+        """Check TLS certificate expiry and auto-renew if within 60 days"""
         try:
             cert_pem = ssl.get_server_certificate(('reverse-proxy', 443))
-            x509 = ssl.PEM_cert_to_DER_cert(cert_pem)
             # Use openssl to parse expiry date
             result = subprocess.run(
                 ['openssl', 'x509', '-enddate', '-noout'],
@@ -458,24 +457,91 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                 expiry = datetime.strptime(expiry_str, '%b %d %H:%M:%S %Y %Z')
                 days_left = (expiry - datetime.utcnow()).days
 
-                if days_left < 30:
-                    logger.error(f"TLS certificate expires in {days_left} days!")
+                if days_left < 60:
+                    severity = 'CRITICAL' if days_left < 30 else 'WARNING'
+                    logger.warning(f"TLS certificate expires in {days_left} days — attempting auto-renewal")
+                    renewed = self._renew_tls_cert()
                     self.log_event(
-                        'tls_cert_expiry', 'CRITICAL',
+                        'tls_cert_renewal', severity,
                         f'TLS certificate expires in {days_left} days',
-                        'Certificate renewal required', 'reverse-proxy', False
+                        'Auto-renewed successfully' if renewed else 'Auto-renewal failed — manual action required',
+                        'reverse-proxy', renewed
+                    )
+                    self.record_recovery_action(
+                        'cert_renewal', 'reverse-proxy',
+                        f'TLS cert expires in {days_left} days', renewed
                     )
                 elif days_left < 90:
-                    logger.warning(f"TLS certificate expires in {days_left} days")
-                    self.log_event(
-                        'tls_cert_expiry', 'WARNING',
-                        f'TLS certificate expires in {days_left} days',
-                        'Consider renewing certificate', 'reverse-proxy', True
-                    )
+                    logger.info(f"TLS certificate expires in {days_left} days (renewal at <60 days)")
                 else:
                     logger.debug(f"TLS certificate valid for {days_left} more days")
         except Exception as e:
             logger.debug(f"TLS cert check skipped: {e}")
+
+    def _renew_tls_cert(self) -> bool:
+        """Auto-renew self-signed TLS certificate and reload Traefik"""
+        try:
+            cert_script = '/arasul/scripts/security/generate_self_signed_cert.sh'
+            if not os.path.exists(cert_script):
+                logger.error(f"Cert renewal script not found: {cert_script}")
+                return False
+
+            # Run cert generation with FORCE_OVERWRITE
+            env = os.environ.copy()
+            env['FORCE_OVERWRITE'] = 'true'
+            result = subprocess.run(
+                ['bash', cert_script, '/arasul/config/traefik/certs'],
+                capture_output=True, text=True, timeout=30, env=env
+            )
+            if result.returncode != 0:
+                logger.error(f"Cert renewal script failed: {result.stderr}")
+                return False
+
+            logger.info("TLS certificate renewed, reloading Traefik...")
+
+            # Reload Traefik to pick up the new certificate
+            try:
+                container = self.docker_client.containers.get('reverse-proxy')
+                # Traefik watches its dynamic config dir — a restart ensures it picks up new certs
+                container.restart(timeout=10)
+                logger.info("Traefik restarted with new certificate")
+            except Exception as e:
+                logger.warning(f"Traefik restart failed (cert still renewed on disk): {e}")
+
+            return True
+        except Exception as e:
+            logger.error(f"TLS cert renewal failed: {e}")
+            return False
+
+    def check_storage_wear(self, metrics: dict):
+        """Check storage wear from metrics-collector data and alert if degraded"""
+        try:
+            wear = metrics.get('storage_wear') if metrics else None
+            if not wear:
+                return
+
+            health = wear.get('health', 'ok')
+            device = wear.get('device', 'unknown')
+            spare = wear.get('spare_pct', '?')
+
+            if health == 'critical':
+                self.log_event(
+                    'storage_wear_critical', 'CRITICAL',
+                    f'Storage {device} spare at {spare}% — replacement needed',
+                    'No automated action — hardware replacement required',
+                    'storage', False
+                )
+            elif health == 'warning':
+                self.log_event(
+                    'storage_wear_warning', 'WARNING',
+                    f'Storage {device} spare at {spare}% — plan replacement',
+                    'Monitor closely — schedule maintenance window',
+                    'storage', True
+                )
+            else:
+                logger.debug(f"Storage wear OK: {device} spare at {spare}%")
+        except Exception as e:
+            logger.debug(f"Storage wear check failed: {e}")
 
     def run_healing_cycle(self):
         """Main healing cycle - executed every HEALING_INTERVAL seconds"""
@@ -561,6 +627,10 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             # TLS certificate expiry check (every 720 cycles = ~2 hours)
             if self.check_count % 720 == 0:
                 self.check_tls_cert_expiry()
+
+            # Storage wear check (every 8640 cycles = ~24 hours)
+            if self.check_count % 8640 == 0:
+                self.check_storage_wear(metrics)
 
             # Periodic cleanup (every 100 cycles = ~16 minutes)
             if self.check_count % 100 == 0 and self.check_count > 0:

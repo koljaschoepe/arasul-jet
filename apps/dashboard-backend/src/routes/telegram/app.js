@@ -11,7 +11,7 @@ const { apiLimiter } = require('../../middleware/rateLimit');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
 const { buildSetClauses } = require('../../utils/queryBuilder');
 const { encryptToken, decryptToken } = require('../../utils/tokenCrypto');
 const telegramSetupPollingService = require('../../services/telegram/telegramSetupPollingService');
@@ -205,7 +205,7 @@ router.post(
       });
 
       if (!response.data.ok) {
-        throw new Error(response.data.description || 'Token ungültig');
+        throw new ServiceUnavailableError(response.data.description || 'Token ungültig');
       }
 
       botInfo = response.data.result;

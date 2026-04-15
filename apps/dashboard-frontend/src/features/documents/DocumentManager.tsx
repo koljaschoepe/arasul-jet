@@ -15,12 +15,10 @@ import {
   Clock,
   Folder,
   Star,
-  Tag,
   FileText,
   Database,
   Cpu,
   Eye,
-  Link,
   Pencil,
   Plus,
   Settings,
@@ -31,24 +29,17 @@ import {
   Minus,
   FolderInput,
 } from 'lucide-react';
-import {
-  TableBadge,
-  StatusBadge,
-  TableStatusBadge,
-  IndexStatusBadge,
-  CategoryBadge,
-  SpaceBadge,
-} from './Badges';
+import { TableBadge, StatusBadge, TableStatusBadge, IndexStatusBadge, SpaceBadge } from './Badges';
 import TipTapEditor from '../../components/editor/tiptap/TipTapEditor';
 import CreateDocumentDialog from '../../components/editor/CreateDocumentDialog';
 import ExcelEditor from '../datentabellen/ExcelEditor';
 import SpaceModal from './SpaceModal';
-import Modal from '../../components/ui/Modal';
+import DocumentDetailsModal from './DocumentDetailsModal';
 import { useApi } from '../../hooks/useApi';
 import { getValidToken } from '../../utils/token';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
-import { formatDate, formatFileSize } from '../../utils/formatting';
+import { formatFileSize } from '../../utils/formatting';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import useDocumentUpload from './useDocumentUpload';
 import useDocumentActions from './useDocumentActions';
@@ -60,7 +51,6 @@ import type {
   DocumentCategory,
   DocumentStatistics,
   DataTable,
-  DocumentSource,
 } from '../../types';
 
 function DocumentManager() {
@@ -1713,216 +1703,18 @@ function DocumentManager() {
 
       {/* Document Details Modal */}
       {showDetails && selectedDocument && (
-        <Modal
+        <DocumentDetailsModal
+          document={selectedDocument}
           isOpen={true}
           onClose={() => setShowDetails(false)}
-          title={selectedDocument.title || selectedDocument.filename}
-          size="medium"
-          footer={
-            <div className="flex items-center gap-3" role="group" aria-label="Aktionen">
-              {isEditable(selectedDocument) && (
-                <Button
-                  onClick={() => {
-                    setShowDetails(false);
-                    handleEdit(selectedDocument);
-                  }}
-                  aria-label="Dokument bearbeiten"
-                >
-                  <Pencil aria-hidden="true" size={16} /> Bearbeiten
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={() => handleDownload(selectedDocument.id, selectedDocument.filename)}
-                aria-label="Dokument herunterladen"
-              >
-                <Download aria-hidden="true" size={16} /> Download
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  handleDelete(selectedDocument.id, selectedDocument.filename);
-                  setShowDetails(false);
-                }}
-                aria-label="Dokument löschen"
-              >
-                <Trash2 aria-hidden="true" size={16} /> Löschen
-              </Button>
-            </div>
-          }
-        >
-          {/* Basic Info */}
-          <div className="mb-6 last:mb-0">
-            <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
-              Informationen
-            </h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Dateiname</span>
-                <span className="text-foreground text-sm">{selectedDocument.filename}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Gr&ouml;&szlig;e</span>
-                <span className="text-foreground text-sm">
-                  {formatFileSize(selectedDocument.file_size)}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Typ</span>
-                <span className="text-foreground text-sm">{selectedDocument.file_extension}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Status</span>
-                <StatusBadge status={selectedDocument.status} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Seiten</span>
-                <span className="text-foreground text-sm">
-                  {selectedDocument.page_count || '-'}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">W&ouml;rter</span>
-                <span className="text-foreground text-sm">
-                  {selectedDocument.word_count?.toLocaleString() || '-'}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Chunks</span>
-                <span className="text-foreground text-sm">
-                  {selectedDocument.chunk_count || '-'}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Sprache</span>
-                <span className="text-foreground text-sm">
-                  {selectedDocument.language === 'de' ? 'Deutsch' : 'Englisch'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Summary */}
-          {selectedDocument.summary && (
-            <div className="mb-6 last:mb-0">
-              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
-                <Cpu aria-hidden="true" size={16} /> KI-Zusammenfassung
-              </h4>
-              <p className="text-muted-foreground leading-relaxed text-sm m-0 bg-[var(--bg-code)] p-4 rounded-md border-l-[3px] border-l-primary">
-                {selectedDocument.summary}
-              </p>
-            </div>
-          )}
-
-          {/* Topics */}
-          {selectedDocument.key_topics && selectedDocument.key_topics.length > 0 && (
-            <div className="mb-6 last:mb-0">
-              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
-                <Tag aria-hidden="true" size={16} /> Themen
-              </h4>
-              <div className="flex flex-wrap gap-2" aria-label="Dokumenten-Themen">
-                {selectedDocument.key_topics.map((topic: string, idx: number) => (
-                  <span
-                    key={idx}
-                    className="bg-primary/10 text-primary py-1 px-2.5 rounded-xs text-sm"
-                  >
-                    {topic}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Category with confidence */}
-          {selectedDocument.category_name && (
-            <div className="mb-6 last:mb-0">
-              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
-                <Folder aria-hidden="true" size={16} /> Kategorie
-              </h4>
-              <div className="flex items-center gap-3">
-                <CategoryBadge
-                  name={selectedDocument.category_name}
-                  color={selectedDocument.category_color}
-                />
-                {selectedDocument.category_confidence && (
-                  <span
-                    className="text-muted-foreground text-sm"
-                    aria-label={`Konfidenz: ${(selectedDocument.category_confidence * 100).toFixed(0)} Prozent`}
-                  >
-                    ({(selectedDocument.category_confidence * 100).toFixed(0)}% Konfidenz)
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Similar Documents */}
-          {selectedDocument.status === 'indexed' && (
-            <div className="mb-6 last:mb-0">
-              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
-                <Link aria-hidden="true" size={16} /> Ähnliche Dokumente
-              </h4>
-              {loadingSimilar ? (
-                <div
-                  className="flex items-center gap-3 text-muted-foreground"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <RefreshCw className="animate-spin" aria-hidden="true" size={16} />
-                  <span>Suche ähnliche Dokumente...</span>
-                </div>
-              ) : similarDocuments.length === 0 ? (
-                <p className="text-muted-foreground italic">Keine ähnlichen Dokumente gefunden</p>
-              ) : (
-                <div className="flex flex-col gap-2" aria-label="Ähnliche Dokumente">
-                  {similarDocuments.map((sim, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-3 py-2 px-3 bg-[var(--bg-code)] rounded-sm"
-                    >
-                      <File aria-hidden="true" size={16} />
-                      <span className="flex-1 text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
-                        {sim.title || sim.filename}
-                      </span>
-                      <span
-                        className="bg-primary/10 text-primary py-0.5 px-2 rounded-xs text-xs"
-                        aria-label={`Ähnlichkeit: ${(sim.similarity_score * 100).toFixed(0)} Prozent`}
-                      >
-                        {(sim.similarity_score * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Error message if failed */}
-          {selectedDocument.status === 'failed' && selectedDocument.processing_error && (
-            <div
-              className="mb-6 last:mb-0 bg-destructive/5 p-4 rounded-md border border-destructive/20"
-              role="alert"
-            >
-              <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
-                <AlertCircle aria-hidden="true" size={16} /> Fehler
-              </h4>
-              <p className="text-destructive m-0 mb-4 text-sm">
-                {selectedDocument.processing_error}
-              </p>
-              <button
-                type="button"
-                className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-destructive py-2 px-4 rounded-sm cursor-pointer text-sm transition-all hover:bg-destructive/20"
-                onClick={() => {
-                  handleReindex(selectedDocument.id);
-                  setShowDetails(false);
-                }}
-                aria-label="Indexierung erneut versuchen"
-              >
-                <RefreshCw aria-hidden="true" size={16} /> Erneut versuchen
-              </button>
-            </div>
-          )}
-        </Modal>
+          onEdit={handleEdit}
+          onDownload={handleDownload}
+          onDelete={handleDelete}
+          onReindex={handleReindex}
+          loadingSimilar={loadingSimilar}
+          similarDocuments={similarDocuments}
+          isEditable={isEditable}
+        />
       )}
 
       {/* Markdown Editor */}

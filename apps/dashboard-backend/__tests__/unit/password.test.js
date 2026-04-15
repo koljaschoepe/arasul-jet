@@ -48,17 +48,10 @@ describe('Password Utilities', () => {
   });
 
   describe('validatePasswordComplexity', () => {
-    // Requirements: minLength 4, no complexity requirements
+    // Requirements: minLength 8, requireNumbers: true, no uppercase/special required
 
-    test('should accept any password with 4+ characters', () => {
-      const result = validatePasswordComplexity('abcd');
-
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    test('should accept a simple numeric password', () => {
-      const result = validatePasswordComplexity('1234');
+    test('should accept a valid password with 8+ chars and number', () => {
+      const result = validatePasswordComplexity('password1');
 
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -71,27 +64,34 @@ describe('Password Utilities', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    test('should reject password shorter than 4 characters', () => {
-      const result = validatePasswordComplexity('abc');
+    test('should reject password shorter than 8 characters', () => {
+      const result = validatePasswordComplexity('abc1');
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Passwort muss mindestens 4 Zeichen lang sein');
+      expect(result.errors).toContain('Passwort muss mindestens 8 Zeichen lang sein');
     });
 
-    test('should accept exactly 4 character password', () => {
-      const result = validatePasswordComplexity('test');
+    test('should reject password without numbers', () => {
+      const result = validatePasswordComplexity('longenoughpassword');
 
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Passwort muss mindestens eine Zahl enthalten');
     });
 
     test('should accept password without uppercase', () => {
-      const result = validatePasswordComplexity('lowercase');
+      const result = validatePasswordComplexity('lowercase1');
 
       expect(result.valid).toBe(true);
     });
 
-    test('should accept password without numbers', () => {
-      const result = validatePasswordComplexity('nonumbers');
+    test('should accept password without special chars', () => {
+      const result = validatePasswordComplexity('simplepass1');
+
+      expect(result.valid).toBe(true);
+    });
+
+    test('should accept exactly 8 character password with number', () => {
+      const result = validatePasswordComplexity('testing1');
 
       expect(result.valid).toBe(true);
     });

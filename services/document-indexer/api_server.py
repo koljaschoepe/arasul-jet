@@ -19,6 +19,7 @@ logger = setup_logging("document-indexer")
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
+import config
 from enhanced_indexer import get_indexer, EnhancedDocumentIndexer
 from decompound_service import decompound_text, CHARSPLIT_AVAILABLE
 from bm25_index import get_bm25_index
@@ -29,10 +30,20 @@ from graph_refiner import get_refiner
 
 # Flask app
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = config.MAX_FILE_SIZE_BYTES  # Enforce upload size limit
 CORS(app, origins=[
     'http://dashboard-backend:3001',
     'http://localhost:3001',
 ])  # Restrict CORS to internal backend only
+
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """Return clear error when upload exceeds MAX_FILE_SIZE_MB"""
+    return jsonify({
+        'error': f'Request too large (max {config.MAX_FILE_SIZE_MB}MB)',
+        'max_size_mb': config.MAX_FILE_SIZE_MB
+    }), 413
 
 # Configuration
 API_PORT = int(os.getenv('DOCUMENT_INDEXER_API_PORT', '9102'))

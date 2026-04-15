@@ -15,7 +15,7 @@ const { promisify } = require('util');
 const fs = require('fs').promises;
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
-const { ValidationError } = require('../../utils/errors');
+const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
 const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
 const { logSecurityEvent } = require('../../utils/auditLog');
 
@@ -27,16 +27,13 @@ const DIAGNOSTICS_SCRIPT = path.join(PROJECT_ROOT, 'scripts/system/diagnostics.s
 
 // GET /api/system/heartbeat
 // Public endpoint (no auth) for remote monitoring and health checks
-router.get(
-  '/heartbeat',
-  asyncHandler(async (req, res) => {
-    res.json({
-      status: 'ok',
-      uptime: Math.floor(os.uptime()),
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
+router.get('/heartbeat', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: Math.floor(os.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // GET /api/system/status
 router.get(
@@ -147,10 +144,10 @@ router.get(
     let jetpackVersion = 'unknown';
     try {
       // SECURITY: Use execFile with array args to prevent shell injection
-      // eslint-disable-next-line no-template-curly-in-string
       const { stdout } = await execFileAsync('dpkg-query', [
         '-W',
         '-f',
+        // eslint-disable-next-line no-template-curly-in-string
         '${Version}',
         'nvidia-jetpack',
       ]);
@@ -380,47 +377,43 @@ router.get(
 );
 
 // POST /api/system/reload-config - Reload configuration without restart
-router.post(
-  '/reload-config',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    logger.info('Configuration reload requested');
+router.post('/reload-config', requireAuth, (req, res) => {
+  logger.info('Configuration reload requested');
 
-    logSecurityEvent({
-      userId: req.user.id,
-      action: 'config_reload',
-      ipAddress: req.ip,
-      requestId: req.headers['x-request-id'],
-    });
+  logSecurityEvent({
+    userId: req.user.id,
+    action: 'config_reload',
+    ipAddress: req.ip,
+    requestId: req.headers['x-request-id'],
+  });
 
-    // Reload environment variables (if changed)
-    // Note: This only works for non-critical config that doesn't require restart
+  // Reload environment variables (if changed)
+  // Note: This only works for non-critical config that doesn't require restart
 
-    // BUG-007 FIX: Removed reference to non-existent '../config' file
-    // Configuration is now loaded via process.env and .env file
+  // BUG-007 FIX: Removed reference to non-existent '../config' file
+  // Configuration is now loaded via process.env and .env file
 
-    // Reload rate limit configuration
-    try {
-      require('../../middleware/rateLimit');
-      // Rate limiter will pick up new config on next request
-      logger.info('Rate limit configuration reload triggered');
-    } catch {
-      // Rate limit reload failed - non-critical
-    }
+  // Reload rate limit configuration
+  try {
+    require('../../middleware/rateLimit');
+    // Rate limiter will pick up new config on next request
+    logger.info('Rate limit configuration reload triggered');
+  } catch {
+    // Rate limit reload failed - non-critical
+  }
 
-    // Reload logging configuration
-    const currentLogLevel = process.env.LOG_LEVEL || 'INFO';
-    logger.info(`Current log level: ${currentLogLevel}`);
+  // Reload logging configuration
+  const currentLogLevel = process.env.LOG_LEVEL || 'INFO';
+  logger.info(`Current log level: ${currentLogLevel}`);
 
-    res.json({
-      status: 'success',
-      message: 'Configuration reload completed',
-      reloaded: ['rate_limits', 'logging_config'],
-      note: 'Some changes require a restart (database credentials, ports, etc.)',
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
+  res.json({
+    status: 'success',
+    message: 'Configuration reload completed',
+    reloaded: ['rate_limits', 'logging_config'],
+    note: 'Some changes require a restart (database credentials, ports, etc.)',
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // =============================================================================
 // DIAGNOSTICS
@@ -461,7 +454,7 @@ router.post(
         stdout: stdout.slice(-500),
         stderr: stderr.slice(-500),
       });
-      throw new Error('Diagnostics collection failed — no result');
+      throw new ServiceUnavailableError('Diagnostics collection failed — no result');
     }
 
     const result = JSON.parse(jsonMatch[1]);
@@ -503,7 +496,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const [systemInfo, dockerInfo, dbInfo] = await Promise.all([
       // System
-      (async () => {
+      (() => {
         const loadavg = os.loadavg();
         const totalMem = os.totalmem();
         const freeMem = os.freemem();

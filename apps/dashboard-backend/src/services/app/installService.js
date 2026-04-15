@@ -79,6 +79,20 @@ async function installApp(appId, config = {}) {
 
   // Built-in apps run inside dashboard-backend, no container needed
   if (manifest.builtin) {
+    // If builtin app needs a Docker image built (e.g., terminal sandbox)
+    if (manifest.docker?.buildRequired && manifest.docker?.buildContext) {
+      const imageName = manifest.docker.image;
+      const imageExists = await containerService.checkImageExists(imageName);
+      if (!imageExists) {
+        logger.info(`Building image ${imageName} for builtin app ${appId}`);
+        const buildContext = '/arasul/sandbox-build';
+        await containerService.buildImage(imageName, buildContext);
+        logger.info(`Image ${imageName} built successfully for ${appId}`);
+      } else {
+        logger.info(`Image ${imageName} already exists for ${appId}`);
+      }
+    }
+
     await db.query(
       `
         INSERT INTO app_installations (app_id, status, version, container_name, app_type)
@@ -150,15 +164,8 @@ async function installApp(appId, config = {}) {
       }
     }
 
-    // Get dynamic workspace volumes for claude-code
-    let dynamicVolumes = [];
-    if (appId === 'claude-code') {
-      dynamicVolumes = await configService.getClaudeWorkspaceVolumes();
-      logger.info(`Loaded ${dynamicVolumes.length} workspace volumes for claude-code installation`);
-    }
-
-    // Build container config with dynamic volumes
-    const containerConfig = containerService.buildContainerConfig(manifest, config, dynamicVolumes);
+    // Build container config
+    const containerConfig = containerService.buildContainerConfig(manifest, config);
 
     // Create container
     const container = await docker.createContainer(containerConfig);

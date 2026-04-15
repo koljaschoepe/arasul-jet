@@ -41,13 +41,6 @@ ENV LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8
 
-# Install Docker CLI (for interacting with host Docker if needed)
-RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
-    echo "deb [arch=arm64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends docker-ce-cli && \
-    rm -rf /var/lib/apt/lists/*
-
 # Pre-install Claude Code CLI (users can update via npm)
 RUN npm install -g @anthropic-ai/claude-code 2>/dev/null || true
 
@@ -55,9 +48,7 @@ RUN npm install -g @anthropic-ai/claude-code 2>/dev/null || true
 # Rename to 'sandbox' for clarity
 RUN usermod -l sandbox -d /home/sandbox -m node && \
     groupmod -n sandbox node && \
-    echo "sandbox ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
-    groupadd -g 994 docker 2>/dev/null || true && \
-    usermod -aG docker sandbox 2>/dev/null || true
+    echo "sandbox ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Create workspace directory
 RUN mkdir -p /workspace && chown sandbox:sandbox /workspace

@@ -29,6 +29,7 @@ const mockUser = {
   id: 1,
   username: 'admin',
   email: 'admin@arasul.local',
+  role: 'admin',
   is_active: true
 };
 

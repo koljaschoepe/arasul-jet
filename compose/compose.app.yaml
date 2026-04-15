@@ -77,6 +77,7 @@ services:
       - ../data/ssh-keys:/arasul/ssh-keys:ro
       - ../services/postgres/init:/arasul/migrations:ro
       - ../data/sandbox/projects:/arasul/sandbox/projects
+      - ../services/sandbox:/arasul/sandbox-build:ro
     security_opt:
       - no-new-privileges:true
     depends_on:
@@ -180,7 +181,7 @@ services:
       DB_POSTGRESDB_PORT: 5432
       DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-arasul_db}
       DB_POSTGRESDB_USER: ${POSTGRES_USER:-arasul}
-      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      # DB_POSTGRESDB_PASSWORD resolved via Docker secret (compose.secrets.yaml)
       DB_POSTGRESDB_SCHEMA: n8n
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
       EXECUTIONS_DATA_SAVE_ON_ERROR: all

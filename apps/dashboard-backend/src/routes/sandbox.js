@@ -8,7 +8,6 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { ValidationError } = require('../utils/errors');
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
 
@@ -16,13 +15,19 @@ const terminalService = require('../services/sandbox/terminalService');
 // Projects CRUD
 // ============================================================================
 
-// GET /api/sandbox/projects — List all projects
+// GET /api/sandbox/projects — List all projects (filtered by user)
 router.get(
   '/projects',
   requireAuth,
   asyncHandler(async (req, res) => {
     const { status, search, limit, offset } = req.query;
-    const result = await sandboxService.listProjects({ status, search, limit, offset });
+    const result = await sandboxService.listProjects({
+      status,
+      search,
+      limit,
+      offset,
+      userId: req.user.id,
+    });
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -32,7 +37,8 @@ router.post(
   '/projects',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { name, description, icon, color, baseImage, resourceLimits, environment } = req.body;
+    const { name, description, icon, color, baseImage, resourceLimits, environment, network_mode } =
+      req.body;
     const project = await sandboxService.createProject({
       name,
       description,
@@ -41,6 +47,8 @@ router.post(
       baseImage,
       resourceLimits,
       environment,
+      network_mode,
+      userId: req.user.id,
     });
     res.status(201).json({ project, timestamp: new Date().toISOString() });
   })
@@ -51,7 +59,7 @@ router.get(
   '/projects/:id',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const project = await sandboxService.getProject(req.params.id);
+    const project = await sandboxService.getProject(req.params.id, req.user.id);
     res.json({ project, timestamp: new Date().toISOString() });
   })
 );
@@ -61,15 +69,20 @@ router.put(
   '/projects/:id',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { name, description, icon, color, environment, resourceLimits } = req.body;
-    const project = await sandboxService.updateProject(req.params.id, {
-      name,
-      description,
-      icon,
-      color,
-      environment,
-      resourceLimits,
-    });
+    const { name, description, icon, color, environment, resourceLimits, network_mode } = req.body;
+    const project = await sandboxService.updateProject(
+      req.params.id,
+      {
+        name,
+        description,
+        icon,
+        color,
+        environment,
+        resourceLimits,
+        network_mode,
+      },
+      req.user.id
+    );
     res.json({ project, timestamp: new Date().toISOString() });
   })
 );
@@ -79,7 +92,7 @@ router.delete(
   '/projects/:id',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.deleteProject(req.params.id);
+    const result = await sandboxService.deleteProject(req.params.id, req.user.id);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -93,7 +106,7 @@ router.post(
   '/projects/:id/start',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.startContainer(req.params.id);
+    const result = await sandboxService.startContainer(req.params.id, req.user.id);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -103,7 +116,7 @@ router.post(
   '/projects/:id/stop',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.stopContainer(req.params.id);
+    const result = await sandboxService.stopContainer(req.params.id, req.user.id);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -113,7 +126,7 @@ router.post(
   '/projects/:id/commit',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.commitContainer(req.params.id);
+    const result = await sandboxService.commitContainer(req.params.id, req.user.id);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -123,7 +136,7 @@ router.get(
   '/projects/:id/status',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const status = await sandboxService.getContainerStatus(req.params.id);
+    const status = await sandboxService.getContainerStatus(req.params.id, req.user.id);
     res.json({ status, timestamp: new Date().toISOString() });
   })
 );

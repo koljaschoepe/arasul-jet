@@ -26,6 +26,16 @@ vi.mock('../../../components/ui/LoadingSpinner', () => ({
   },
 }));
 
+// Mock ToastContext
+vi.mock('../../../contexts/ToastContext', () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
+}));
+
 // Mock useApi
 const mockApiPatch = vi.fn().mockResolvedValue({});
 vi.mock('../../../hooks/useApi', () => ({

@@ -19,6 +19,7 @@ export interface SandboxProject {
   environment: Record<string, string> | null;
   installed_packages: string[] | null;
   last_accessed_at: string | null;
+  network_mode: 'isolated' | 'internal';
   total_terminal_seconds: number;
   created_at: string;
   updated_at: string;
@@ -47,8 +48,8 @@ export interface SandboxStats {
   total_projects: number;
   active_projects: number;
   running_containers: number;
-  total_sessions: number;
-  total_terminal_hours: number;
+  stopped_containers: number;
+  active_sessions: number;
 }
 
 export interface ProjectListResponse {

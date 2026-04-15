@@ -8,9 +8,34 @@ set -e
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DAY_OF_WEEK=$(date +%u) # 1=Monday, 7=Sunday
+DAY_OF_MONTH=$(date +%d)
 RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-7}
-WEEKLY_RETENTION_WEEKS=${BACKUP_WEEKLY_RETENTION_WEEKS:-12}
+WEEKLY_RETENTION_WEEKS=${BACKUP_WEEKLY_RETENTION_WEEKS:-52}
 WEEKLY_RETENTION_DAYS=$((WEEKLY_RETENTION_WEEKS * 7))
+MONTHLY_RETENTION_MONTHS=${BACKUP_MONTHLY_RETENTION_MONTHS:-60}
+MONTHLY_RETENTION_DAYS=$((MONTHLY_RETENTION_MONTHS * 30))
+
+# Backup encryption (AES-256-CBC via openssl)
+BACKUP_ENCRYPT=${BACKUP_ENCRYPT:-false}
+BACKUP_ENCRYPT_KEY_FILE=${BACKUP_ENCRYPT_KEY_FILE:-/run/secrets/backup_encryption_key}
+
+encrypt_file() {
+    local src="$1"
+    if [ "$BACKUP_ENCRYPT" = "true" ] && [ -f "$BACKUP_ENCRYPT_KEY_FILE" ]; then
+        local key
+        key=$(cat "$BACKUP_ENCRYPT_KEY_FILE")
+        if openssl enc -aes-256-cbc -salt -pbkdf2 -in "$src" -out "${src}.enc" -pass "pass:${key}" 2>/dev/null; then
+            mv "${src}.enc" "$src"
+            echo "[$TIMESTAMP] Encrypted: $(basename "$src")"
+            return 0
+        else
+            echo "[$TIMESTAMP] [WARNING] Encryption failed for $(basename "$src"), keeping unencrypted"
+            rm -f "${src}.enc"
+            return 1
+        fi
+    fi
+    return 0
+}
 
 echo "[$TIMESTAMP] Starting backup..."
 BACKUP_OK=true
@@ -43,12 +68,20 @@ else
     BACKUP_OK=false
 fi
 rm -f ~/.pgpass
+encrypt_file /backups/postgres/arasul_db_$TIMESTAMP.sql.gz
 ln -sf arasul_db_$TIMESTAMP.sql.gz /backups/postgres/arasul_db_latest.sql.gz
 
 # Weekly snapshot: copy Sunday's backup to weekly dir (kept longer)
 if [ "$DAY_OF_WEEK" = "7" ]; then
     cp /backups/postgres/arasul_db_$TIMESTAMP.sql.gz /backups/postgres/weekly/
     echo "[$TIMESTAMP] Weekly PostgreSQL snapshot saved"
+fi
+
+# Monthly snapshot: copy 1st of month to monthly dir (5-year retention)
+if [ "$DAY_OF_MONTH" = "01" ]; then
+    mkdir -p /backups/postgres/monthly
+    cp /backups/postgres/arasul_db_$TIMESTAMP.sql.gz /backups/postgres/monthly/
+    echo "[$TIMESTAMP] Monthly PostgreSQL snapshot saved"
 fi
 
 # MinIO backup via docker exec (credentials via env to avoid process listing exposure)
@@ -67,6 +100,7 @@ else
     echo "[$TIMESTAMP] [ERROR] MinIO backup archive creation failed"
     BACKUP_OK=false
 fi
+encrypt_file /backups/minio/documents_$TIMESTAMP.tar.gz
 ln -sf documents_$TIMESTAMP.tar.gz /backups/minio/documents_latest.tar.gz
 rm -rf /tmp/minio_backup_$TIMESTAMP
 docker exec minio rm -rf /tmp/backup_docs 2>/dev/null || true
@@ -75,6 +109,13 @@ docker exec minio rm -rf /tmp/backup_docs 2>/dev/null || true
 if [ "$DAY_OF_WEEK" = "7" ]; then
     cp /backups/minio/documents_$TIMESTAMP.tar.gz /backups/minio/weekly/
     echo "[$TIMESTAMP] Weekly MinIO snapshot saved"
+fi
+
+# Monthly snapshot for MinIO
+if [ "$DAY_OF_MONTH" = "01" ]; then
+    mkdir -p /backups/minio/monthly
+    cp /backups/minio/documents_$TIMESTAMP.tar.gz /backups/minio/monthly/
+    echo "[$TIMESTAMP] Monthly MinIO snapshot saved"
 fi
 
 # WAL archive backup: include in daily backup for PITR
@@ -105,7 +146,11 @@ if [ "$BACKUP_OK" = true ]; then
     # Cleanup: weekly backups (longer retention)
     find /backups/postgres/weekly -name "*.sql.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
-    echo "[$TIMESTAMP] Cleanup completed (daily: ${RETENTION_DAYS}d, weekly: ${WEEKLY_RETENTION_WEEKS}w)"
+
+    # Cleanup: monthly backups (5-year retention)
+    find /backups/postgres/monthly -name "*.sql.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
+    find /backups/minio/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
+    echo "[$TIMESTAMP] Cleanup completed (daily: ${RETENTION_DAYS}d, weekly: ${WEEKLY_RETENTION_WEEKS}w, monthly: ${MONTHLY_RETENTION_MONTHS}mo)"
 else
     echo "[$TIMESTAMP] [WARNING] Skipping cleanup — backup had errors (WAL files preserved for recovery)"
 fi
@@ -133,10 +178,14 @@ cat > /backups/backup_report.json << EOF
   "status": "$([ "$BACKUP_OK" = true ] && echo completed || echo partial_failure)",
   "postgres_backups": $(ls /backups/postgres/*.sql.gz 2>/dev/null | grep -v latest | wc -l),
   "postgres_weekly": $(ls /backups/postgres/weekly/*.sql.gz 2>/dev/null | wc -l),
+  "postgres_monthly": $(ls /backups/postgres/monthly/*.sql.gz 2>/dev/null | wc -l),
   "minio_backups": $(ls /backups/minio/*.tar.gz 2>/dev/null | grep -v latest | wc -l),
   "minio_weekly": $(ls /backups/minio/weekly/*.tar.gz 2>/dev/null | wc -l),
+  "minio_monthly": $(ls /backups/minio/monthly/*.tar.gz 2>/dev/null | wc -l),
   "retention_days": $RETENTION_DAYS,
   "weekly_retention_weeks": $WEEKLY_RETENTION_WEEKS,
+  "monthly_retention_months": $MONTHLY_RETENTION_MONTHS,
+  "encrypted": "$BACKUP_ENCRYPT",
   "postgres_size": "$PG_SIZE",
   "minio_size": "$MINIO_SIZE",
   "wal_size": "$WAL_SIZE",

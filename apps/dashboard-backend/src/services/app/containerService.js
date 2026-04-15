@@ -330,7 +330,7 @@ async function recreateAppWithConfig(appId, asyncMode = false) {
   }
 
   // Synchronous mode - wait for completion
-  return await _doRecreateContainer(appId, manifest, configOverrides);
+  return _doRecreateContainer(appId, manifest, configOverrides);
 }
 
 /**
@@ -483,6 +483,9 @@ function buildContainerConfig(manifest, overrides = {}, dynamicVolumes = []) {
           'max-file': '3',
         },
       },
+      SecurityOpt: ['no-new-privileges:true'],
+      CapDrop: ['ALL'],
+      CapAdd: manifest.docker.capAdd || ['NET_BIND_SERVICE'],
     },
     Labels: buildTraefikLabels(manifest),
   };
@@ -495,6 +498,7 @@ function buildContainerConfig(manifest, overrides = {}, dynamicVolumes = []) {
   }
 
   // Static volumes from manifest (non-workspace volumes like config, docker socket)
+  const path = require('path');
   for (const vol of manifest.docker.volumes || []) {
     // Skip workspace volumes for claude-code - they come from database
     if (manifest.id === 'claude-code' && vol.containerPath.startsWith('/workspace/')) {
@@ -507,13 +511,24 @@ function buildContainerConfig(manifest, overrides = {}, dynamicVolumes = []) {
       const hostPath = vol.name.replace(/\$\{([^}]+)\}/g, (match, varName) => {
         return process.env[varName] || match;
       });
-      config.HostConfig.Binds.push(`${hostPath}:${vol.containerPath}`);
+      // Validate resolved path — prevent path traversal via ../
+      const resolved = path.resolve(hostPath);
+      if (resolved !== hostPath && hostPath.includes('..')) {
+        logger.warn(`Blocked bind mount with path traversal: ${hostPath}`);
+        continue;
+      }
+      config.HostConfig.Binds.push(`${resolved}:${vol.containerPath}`);
     }
   }
 
   // Dynamic workspace volumes (from database)
   for (const vol of dynamicVolumes) {
-    config.HostConfig.Binds.push(`${vol.hostPath}:${vol.containerPath}`);
+    const resolved = path.resolve(vol.hostPath);
+    if (resolved !== vol.hostPath && vol.hostPath.includes('..')) {
+      logger.warn(`Blocked dynamic volume with path traversal: ${vol.hostPath}`);
+      continue;
+    }
+    config.HostConfig.Binds.push(`${resolved}:${vol.containerPath}`);
   }
 
   // Resource limits
@@ -600,33 +615,54 @@ function buildTraefikLabels(manifest) {
 }
 
 /**
- * Pull Docker image
+ * Pull Docker image with exponential backoff retry
  */
-async function pullImage(image) {
-  return new Promise((resolve, reject) => {
-    docker.pull(image, (err, stream) => {
-      if (err) {
-        return reject(err);
-      }
-
-      docker.modem.followProgress(
-        stream,
-        (err, output) => {
+async function pullImage(image, maxRetries = 3) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        docker.pull(image, (err, stream) => {
           if (err) {
-            return reject(err);
+            reject(err);
+            return;
           }
-          logger.debug(`Image pull complete: ${image}`);
-          resolve(output);
-        },
-        event => {
-          // Progress events
-          if (event.status) {
-            logger.debug(`Pull ${image}: ${event.status}`);
-          }
-        }
-      );
-    });
-  });
+
+          docker.modem.followProgress(
+            stream,
+            (pullErr, output) => {
+              if (pullErr) {
+                reject(pullErr);
+                return;
+              }
+              logger.debug(`Image pull complete: ${image}`);
+              resolve(output);
+            },
+            event => {
+              if (event.status) {
+                logger.debug(`Pull ${image}: ${event.status}`);
+              }
+            }
+          );
+        });
+      });
+      return result;
+    } catch (err) {
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        logger.warn(
+          `Image pull failed for ${image} (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms: ${err.message}`
+        );
+        await new Promise(r => {
+          setTimeout(r, delay);
+        });
+      } else {
+        logger.error(
+          `Image pull failed for ${image} after ${maxRetries + 1} attempts: ${err.message}`
+        );
+        throw err;
+      }
+    }
+  }
 }
 
 /**
@@ -645,6 +681,34 @@ async function checkImageExists(image) {
     }
     throw err;
   }
+}
+
+/**
+ * Build a Docker image from a context directory
+ * @param {string} imageName - Target image name (e.g., 'arasul-sandbox:latest')
+ * @param {string} contextPath - Path to build context directory containing Dockerfile
+ */
+async function buildImage(imageName, contextPath) {
+  const [repo, tag] = imageName.includes(':') ? imageName.split(':') : [imageName, 'latest'];
+
+  logger.info(`Building Docker image ${repo}:${tag} from ${contextPath}`);
+
+  const stream = await docker.buildImage(
+    { context: contextPath, src: ['.'] },
+    { t: `${repo}:${tag}` }
+  );
+
+  await new Promise((resolve, reject) => {
+    docker.modem.followProgress(stream, (err, res) => {
+      if (err) {
+        logger.error(`Image build failed for ${repo}:${tag}: ${err.message}`);
+        reject(err);
+      } else {
+        logger.info(`Image ${repo}:${tag} built successfully`);
+        resolve(res);
+      }
+    });
+  });
 }
 
 /**
@@ -779,6 +843,7 @@ module.exports = {
   getContainerStatus,
   pullImage,
   checkImageExists,
+  buildImage,
   getAppLogs,
   buildContainerConfig,
   buildEnvironment,

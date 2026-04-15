@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Cpu,
@@ -21,6 +21,14 @@ import {
   TooltipTrigger,
 } from '../../components/ui/shadcn/tooltip';
 import type { InstalledModel } from '../../types';
+
+type CategoryKey = 'text' | 'vision' | 'ocr';
+
+interface ModelCategory {
+  key: CategoryKey;
+  label: string;
+  models: Array<{ model: InstalledModel; active: boolean; hasError: boolean; isOcr: boolean }>;
+}
 
 function ModelStatusBar() {
   const {
@@ -47,19 +55,51 @@ function ModelStatusBar() {
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
 
+  // Enrich models with status info
   const allModels = useMemo(() => {
-    const withStatus = [...llmModels, ...ocrModels].map(m => {
+    return [...llmModels, ...ocrModels].map(m => {
       const isOcr = m.model_type === 'ocr';
       const active = isOcr ? !!m.is_running : isLlmLoaded(m);
       const hasError = m.install_status === 'error' || m.status === 'error';
       return { model: m, active, hasError, isOcr };
     });
-    // Sort: active first, then by name
-    return withStatus.sort((a, b) => {
+  }, [llmModels, ocrModels, isLlmLoaded]);
+
+  // Group models by category
+  const categories = useMemo((): ModelCategory[] => {
+    return [
+      {
+        key: 'text' as CategoryKey,
+        label: 'Text',
+        models: allModels.filter(
+          m => m.model.model_type !== 'ocr' && !m.model.supports_vision_input
+        ),
+      },
+      {
+        key: 'vision' as CategoryKey,
+        label: 'Vision',
+        models: allModels.filter(m => !!m.model.supports_vision_input),
+      },
+      {
+        key: 'ocr' as CategoryKey,
+        label: 'OCR',
+        models: allModels.filter(m => m.model.model_type === 'ocr'),
+      },
+    ].filter(c => c.models.length > 0);
+  }, [allModels]);
+
+  // Active tab — default to first category with models
+  const [activeTab, setActiveTab] = useState<CategoryKey>('text');
+  const currentCategory = categories.find(c => c.key === activeTab) || categories[0];
+
+  // Sort: active first, then by name
+  const sortedModels = useMemo(() => {
+    if (!currentCategory) return [];
+    return [...currentCategory.models].sort((a, b) => {
       if (a.active !== b.active) return a.active ? -1 : 1;
       return a.model.name.localeCompare(b.model.name);
     });
-  }, [llmModels, ocrModels, isLlmLoaded]);
+  }, [currentCategory]);
 
   const handleStart = async (model: InstalledModel) => {
     const isOcr = model.model_type === 'ocr';
@@ -107,9 +147,12 @@ function ModelStatusBar() {
       <div className="msb-header">
         <div className="msb-header-left">
           <Cpu size={18} style={{ color: 'var(--primary-color)' }} />
-          <h3 className="dashboard-card-title" style={{ margin: 0 }}>
-            KI-Modelle
-          </h3>
+          <div>
+            <h3 className="dashboard-card-title" style={{ margin: 0 }}>
+              KI-Modelle
+            </h3>
+            <div className="msb-subtitle">1 API-Endpunkt · Lokale Verarbeitung</div>
+          </div>
         </div>
         <div className="msb-header-actions">
           <TooltipProvider>
@@ -157,11 +200,7 @@ function ModelStatusBar() {
         <div className="msb-error">
           <AlertTriangle size={14} />
           <span>{error}</span>
-          <button
-            className="msb-error-dismiss"
-            onClick={clearError}
-            aria-label="Fehler schlie\u00dfen"
-          >
+          <button className="msb-error-dismiss" onClick={clearError} aria-label="Fehler schließen">
             <X size={14} />
           </button>
         </div>
@@ -191,82 +230,117 @@ function ModelStatusBar() {
         </div>
       )}
 
-      {/* Model list */}
+      {/* Tabs + Model list */}
       {!isInitialLoad && hasData && (
-        <div className="msb-list">
-          {allModels.map(({ model, active, hasError, isOcr }) => {
-            const isLoading = loadingModels.has(model.id);
-            const statusMsg = loadingStatus[model.id];
-            const canLoad = canLoadModel(model);
-            const ramGb = model.ram_required_gb
-              ? model.ram_required_gb >= 1
-                ? `${model.ram_required_gb.toFixed(1)} GB`
-                : `${Math.round(model.ram_required_gb * 1024)} MB`
-              : null;
-
-            const dotClass = hasError
-              ? 'msb-dot msb-dot-error'
-              : active
-                ? 'msb-dot msb-dot-active'
-                : 'msb-dot msb-dot-inactive';
-
-            return (
-              <div key={model.id} className="msb-model-row">
-                <span
-                  className={dotClass}
-                  aria-label={hasError ? 'Fehler' : active ? 'Aktiv' : 'Inaktiv'}
-                />
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="msb-model-name">{model.name}</span>
-                    </TooltipTrigger>
-                    <TooltipContent>{model.name}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <span className="msb-type-badge">{isOcr ? 'OCR' : 'LLM'}</span>
-                {ramGb && <span className="msb-model-ram">{ramGb}</span>}
-
-                {isLoading ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="msb-btn msb-btn-loading">
-                          <Loader2 size={14} className="msb-spin" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>{statusMsg || 'Wird geladen\u2026'}</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : active ? (
+        <>
+          {/* Category Tabs */}
+          {categories.length > 1 && (
+            <div className="msb-tabs" role="tablist">
+              {categories.map(cat => {
+                const activeCount = cat.models.filter(m => m.active).length;
+                return (
                   <button
-                    className="msb-btn msb-btn-stop"
-                    onClick={() => handleStop(model)}
-                    aria-label={`${model.name} stoppen`}
+                    key={cat.key}
+                    role="tab"
+                    aria-selected={
+                      activeTab === cat.key ||
+                      (!categories.find(c => c.key === activeTab) && cat === categories[0])
+                    }
+                    className={`msb-tab ${activeTab === cat.key || (!categories.find(c => c.key === activeTab) && cat === categories[0]) ? 'active' : ''}`}
+                    onClick={() => setActiveTab(cat.key)}
                   >
-                    <Square size={12} />
+                    {cat.label}
+                    {activeCount > 0 && <span className="msb-tab-count">({activeCount})</span>}
                   </button>
-                ) : (
+                );
+              })}
+            </div>
+          )}
+
+          {/* Model list for active tab */}
+          <div className="msb-list" role="tabpanel">
+            {sortedModels.map(({ model, active, hasError }) => {
+              const isLoading = loadingModels.has(model.id);
+              const statusMsg = loadingStatus[model.id];
+              const canLoad = canLoadModel(model);
+              const ramGb = model.ram_required_gb
+                ? model.ram_required_gb >= 1
+                  ? `${model.ram_required_gb.toFixed(1)} GB`
+                  : `${Math.round(model.ram_required_gb * 1024)} MB`
+                : null;
+
+              const dotClass = hasError
+                ? 'msb-dot msb-dot-error'
+                : active
+                  ? 'msb-dot msb-dot-active'
+                  : 'msb-dot msb-dot-inactive';
+
+              return (
+                <div key={model.id} className="msb-model-row">
+                  <span
+                    className={dotClass}
+                    aria-label={hasError ? 'Fehler' : active ? 'Aktiv' : 'Inaktiv'}
+                  />
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button
-                          className="msb-btn msb-btn-start"
-                          onClick={() => handleStart(model)}
-                          disabled={!canLoad}
-                          aria-label={`${model.name} starten`}
-                        >
-                          <Play size={12} />
-                        </button>
+                        <span className="msb-model-name">{model.name}</span>
                       </TooltipTrigger>
-                      {!canLoad && <TooltipContent>Nicht genug RAM verf\u00fcgbar</TooltipContent>}
+                      <TooltipContent>{model.name}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                )}
+                  {ramGb && <span className="msb-model-ram">{ramGb}</span>}
+
+                  {isLoading ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="msb-btn msb-btn-loading">
+                            <Loader2 size={14} className="msb-spin" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>{statusMsg || 'Wird geladen\u2026'}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : active ? (
+                    <button
+                      className="msb-btn msb-btn-stop"
+                      onClick={() => handleStop(model)}
+                      aria-label={`${model.name} stoppen`}
+                    >
+                      <Square size={12} />
+                    </button>
+                  ) : (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className="msb-btn msb-btn-start"
+                            onClick={() => handleStart(model)}
+                            disabled={!canLoad}
+                            aria-label={`${model.name} starten`}
+                          >
+                            <Play size={12} />
+                          </button>
+                        </TooltipTrigger>
+                        {!canLoad && <TooltipContent>Nicht genug RAM verfügbar</TooltipContent>}
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              );
+            })}
+
+            {sortedModels.length === 0 && (
+              <div className="msb-empty">
+                <p>Keine Modelle in dieser Kategorie</p>
+                <Link to="/store/models" className="msb-link">
+                  Im Store verfügbar <ExternalLink size={12} />
+                </Link>
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* RAM Budget Bar */}
@@ -276,7 +350,7 @@ function ModelStatusBar() {
             <div className={ramBarClass} style={{ width: `${Math.min(usedPercent, 100)}%` }} />
           </div>
           <div className="msb-ram-label">
-            <span>RAM</span>
+            <span>KI-RAM</span>
             <span>
               {(usedMb / 1024).toFixed(1)} / {(totalBudgetMb / 1024).toFixed(0)} GB
             </span>

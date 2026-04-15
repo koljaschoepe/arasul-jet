@@ -270,9 +270,10 @@ class MetricsCollector:
         """Read NVMe health from sysfs (works without smartctl/root)"""
         try:
             import subprocess
-            # Try smartctl first (most reliable)
+            # Try smartctl first (most reliable) — use host-mounted path in container
+            dev_path = '/host/dev/nvme0n1' if os.path.exists('/host/dev/nvme0n1') else '/dev/nvme0n1'
             result = subprocess.run(
-                ['smartctl', '-A', '/dev/nvme0n1', '--json'],
+                ['smartctl', '-A', dev_path, '--json'],
                 capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
@@ -381,6 +382,131 @@ class MetricsCollector:
             self._tailscale_cache = None
             return None  # Tailscale check is optional, don't fail on error
 
+    # Storage wear monitoring — cached for 24h (SMART data changes slowly)
+    _storage_wear_cache: Optional[Dict] = None
+    _storage_wear_cache_time: float = 0
+    _STORAGE_WEAR_CACHE_TTL: int = 86400  # 24 hours
+
+    def check_storage_wear(self) -> Optional[Dict]:
+        """Check NVMe/SSD health via smartctl or nvme-cli.
+        Returns wear info or None if not available.
+        Cached for 24h — SMART data changes very slowly.
+        """
+        import subprocess as sp
+        now = time.time()
+        if now - self._storage_wear_cache_time < self._STORAGE_WEAR_CACHE_TTL:
+            return self._storage_wear_cache
+
+        result = None
+        try:
+            # Try smartctl first (works for both NVMe and SATA)
+            # Find the root disk device — prefer /host/dev/ mount (container), fall back to /dev/
+            disk_dev = None
+            smartctl_dev = None
+            for candidate in ['/dev/nvme0n1', '/dev/sda', '/dev/mmcblk0']:
+                host_dev = candidate.replace('/dev/', '/host/dev/')
+                if os.path.exists(host_dev):
+                    disk_dev = candidate
+                    smartctl_dev = host_dev  # Use host-mounted path for smartctl/nvme-cli
+                    break
+                elif os.path.exists(candidate):
+                    disk_dev = candidate
+                    smartctl_dev = candidate
+                    break
+
+            if not disk_dev:
+                self._storage_wear_cache_time = now
+                self._storage_wear_cache = None
+                return None
+
+            # Try smartctl
+            try:
+                proc = sp.run(
+                    ['smartctl', '-A', '-j', smartctl_dev],
+                    capture_output=True, text=True, timeout=10
+                )
+                if proc.returncode in (0, 4):  # 4 = some SMART attributes have problems
+                    data = json.loads(proc.stdout)
+                    attrs = data.get('ata_smart_attributes', {}).get('table', [])
+                    nvme_health = data.get('nvme_smart_health_information_log', {})
+
+                    if nvme_health:
+                        # NVMe drive
+                        pct_used = nvme_health.get('percentage_used', 0)
+                        spare = 100 - pct_used
+                        result = {
+                            'type': 'nvme',
+                            'device': disk_dev,
+                            'percentage_used': pct_used,
+                            'spare_pct': spare,
+                            'temperature_c': nvme_health.get('temperature', 0),
+                            'power_on_hours': nvme_health.get('power_on_hours', 0),
+                            'data_written_tb': round(
+                                nvme_health.get('data_units_written', 0) * 512000 / 1e12, 2
+                            ),
+                            'health': 'critical' if spare < 10 else ('warning' if spare < 20 else 'ok'),
+                        }
+                    elif attrs:
+                        # SATA SSD — look for key attributes
+                        wear_attr = next(
+                            (a for a in attrs if a.get('id') in (177, 231, 233)),
+                            None
+                        )
+                        result = {
+                            'type': 'sata_ssd',
+                            'device': disk_dev,
+                            'spare_pct': wear_attr.get('value', 100) if wear_attr else None,
+                            'health': 'ok',
+                        }
+                        if result['spare_pct'] is not None and result['spare_pct'] < 10:
+                            result['health'] = 'critical'
+                        elif result['spare_pct'] is not None and result['spare_pct'] < 20:
+                            result['health'] = 'warning'
+            except FileNotFoundError:
+                pass  # smartctl not installed
+
+            # Fallback: try nvme-cli for NVMe drives
+            if result is None and disk_dev and 'nvme' in disk_dev:
+                try:
+                    proc = sp.run(
+                        ['nvme', 'smart-log', smartctl_dev, '-o', 'json'],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    if proc.returncode == 0:
+                        data = json.loads(proc.stdout)
+                        pct_used = data.get('percent_used', 0)
+                        spare = 100 - pct_used
+                        result = {
+                            'type': 'nvme',
+                            'device': disk_dev,
+                            'percentage_used': pct_used,
+                            'spare_pct': spare,
+                            'temperature_c': data.get('temperature', 0),
+                            'power_on_hours': data.get('power_on_hours', 0),
+                            'health': 'critical' if spare < 10 else ('warning' if spare < 20 else 'ok'),
+                        }
+                except FileNotFoundError:
+                    pass  # nvme-cli not installed
+
+            # Log warnings for critical/warning states
+            if result:
+                if result['health'] == 'critical':
+                    logger.error(
+                        f"STORAGE CRITICAL: {result['device']} spare at {result.get('spare_pct', '?')}% — "
+                        f"replacement needed soon"
+                    )
+                elif result['health'] == 'warning':
+                    logger.warning(
+                        f"Storage wear warning: {result['device']} spare at {result.get('spare_pct', '?')}%"
+                    )
+
+        except Exception as e:
+            logger.debug(f"Storage wear check failed: {e}")
+
+        self._storage_wear_cache = result
+        self._storage_wear_cache_time = now
+        return result
+
     def collect_all(self) -> Dict:
         """Collect all metrics"""
         return {
@@ -389,6 +515,7 @@ class MetricsCollector:
             'gpu': self.get_gpu_percent(),
             'temperature': self.get_temperature(),
             'disk': self.get_disk_usage(),
+            'storage_wear': self._storage_wear_cache,
             'self_healing': self.check_self_healing_health(),
             'network': self.check_network_connectivity(),
             'tailscale': self.check_tailscale_status(),
@@ -745,6 +872,10 @@ async def collect_metrics_loop():
     persist_counter = 0
     cleanup_counter = 0
     gpu_counter = 0
+    storage_wear_counter = 0
+
+    # Initial storage wear check on startup
+    collector.check_storage_wear()
 
     while True:
         try:
@@ -760,6 +891,12 @@ async def collect_metrics_loop():
             if gpu_counter >= 10:
                 collector.collect_gpu_detailed()
                 gpu_counter = 0
+
+            # Storage wear check (every 24h = 86400s)
+            storage_wear_counter += METRICS_INTERVAL_LIVE
+            if storage_wear_counter >= 86400:
+                collector.check_storage_wear()
+                storage_wear_counter = 0
 
             # Persist to database every METRICS_INTERVAL_PERSIST seconds
             persist_counter += METRICS_INTERVAL_LIVE

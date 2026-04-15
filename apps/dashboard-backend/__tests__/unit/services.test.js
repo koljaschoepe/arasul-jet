@@ -401,8 +401,13 @@ describe('ModelService', () => {
 
     describe('deleteModel()', () => {
         test('löscht Model aus Ollama und DB', async () => {
+            // 1. Catalog lookup for ollama_name
+            mockDb.query.mockResolvedValueOnce({ rows: [{ effective_ollama_name: 'old-model' }] });
+            // 2. getLoadedModel check (no model loaded)
             mockAxios.get.mockResolvedValueOnce({ data: { models: [] } });
+            // 3. Delete from Ollama
             mockAxios.delete.mockResolvedValueOnce({ data: {} });
+            // 4. DELETE FROM llm_installed_models
             mockDb.query.mockResolvedValueOnce({ rows: [] });
 
             const result = await service.deleteModel('old-model');

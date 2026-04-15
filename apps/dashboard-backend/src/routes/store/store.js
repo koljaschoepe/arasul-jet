@@ -20,7 +20,7 @@ const { cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
 
 // Featured apps (always recommended)
-const FEATURED_APPS = ['n8n', 'telegram-bot', 'claude-code'];
+const FEATURED_APPS = ['n8n', 'telegram-bot', 'terminal'];
 
 // Model recommendations based on LLM RAM allocation
 const MODEL_RECOMMENDATIONS = {

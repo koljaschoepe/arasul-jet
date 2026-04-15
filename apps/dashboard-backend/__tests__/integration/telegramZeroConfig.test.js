@@ -15,10 +15,28 @@ const { generateTestToken, mockUser, mockSession } = require('../helpers/authMoc
 jest.mock('../../src/database');
 jest.mock('../../src/utils/logger');
 jest.mock('axios');
+jest.mock('../../src/utils/tokenCrypto', () => ({
+  encryptToken: jest.fn((token) => Buffer.from(`encrypted:${token}`)),
+  decryptToken: jest.fn((buf) => {
+    if (!buf) return null;
+    const str = buf.toString();
+    return str.startsWith('encrypted:') ? str.slice(10) : 'mock_decrypted_token';
+  }),
+}));
+jest.mock('../../src/services/telegram/telegramAppService', () => ({
+  getAppStatus: jest.fn(),
+  getDashboardAppData: jest.fn(),
+  recordActivity: jest.fn().mockResolvedValue(),
+  updateSettings: jest.fn(),
+  isIconVisible: jest.fn(),
+  activateApp: jest.fn(),
+  getGlobalStats: jest.fn(),
+}));
 
 const db = require('../../src/database');
 const logger = require('../../src/utils/logger');
 const axios = require('axios');
+const telegramAppService = require('../../src/services/telegram/telegramAppService');
 
 // Mock logger
 logger.info = jest.fn();
@@ -325,9 +343,7 @@ describeIfApp('Telegram Zero-Config Integration Tests', () => {
     const mockSetupToken = 'c'.repeat(32);
     const mockChatId = 987654321;
 
-    // NOTE: This test requires encryption mocking (decryptToken) which is complex
-    // The core zero-config flow is tested in other tests
-    test.skip('should complete setup and send test message', async () => {
+    test('should complete setup and send test message', async () => {
       db.query.mockImplementation(createDbMock((query) => {
         // Completed session lookup
         if (query.includes('telegram_setup_sessions') && query.includes('SELECT')) {
@@ -338,7 +354,7 @@ describeIfApp('Telegram Zero-Config Integration Tests', () => {
               user_id: mockUser.id,
               status: 'completed',
               chat_id: mockChatId,
-              bot_token_encrypted: Buffer.from('encrypted_token'),
+              bot_token_encrypted: Buffer.from('encrypted:mock_bot_token'),
               bot_username: 'test_bot'
             }]
           });
@@ -388,36 +404,15 @@ describeIfApp('Telegram Zero-Config Integration Tests', () => {
   // App Status Endpoints
   // =====================================================
   describe('GET /api/telegram-app/status', () => {
-    // NOTE: This endpoint requires telegramAppService mocking which is not
-    // part of the zero-config flow. The service calls ensure_telegram_app_status
-    // stored procedure that needs proper mocking.
-    test.skip('should return app status', async () => {
-      db.query.mockImplementation(createDbMock((query) => {
-        // App status query
-        if (query.includes('telegram_app_config')) {
-          return Promise.resolve({
-            rows: [{
-              is_enabled: true,
-              icon_visible: true,
-              first_bot_created_at: new Date(),
-              settings: { defaultProvider: 'ollama' }
-            }]
-          });
-        }
-        // Bot count
-        if (query.includes('telegram_bots') && query.includes('COUNT')) {
-          return Promise.resolve({
-            rows: [{ total: '2', active: '1' }]
-          });
-        }
-        // Stats
-        if (query.includes('telegram_chats') && query.includes('COUNT')) {
-          return Promise.resolve({
-            rows: [{ total_chats: '5' }]
-          });
-        }
-        return Promise.resolve({ rows: [] });
-      }));
+    test('should return app status', async () => {
+      // Mock the service directly (no DB mocking needed — service is mocked)
+      telegramAppService.getAppStatus.mockResolvedValueOnce({
+        isEnabled: true,
+        iconVisible: true,
+        botCount: 2,
+        activeBotCount: 1,
+        totalChats: 5,
+      });
 
       const response = await request(app)
         .get('/api/telegram-app/status')
@@ -425,7 +420,7 @@ describeIfApp('Telegram Zero-Config Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('isEnabled');
+      expect(response.body).toHaveProperty('isEnabled', true);
     });
   });
 

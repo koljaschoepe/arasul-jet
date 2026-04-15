@@ -107,12 +107,16 @@ const createTestApp = () => {
   });
 
   // Chats routes
-  app.get('/api/chats', authMiddleware, async (req, res) => {
-    const result = await db.query(
-      'SELECT * FROM conversations WHERE user_id = $1 ORDER BY updated_at DESC',
-      [req.user.id]
-    );
-    res.json(result.rows);
+  app.get('/api/chats', authMiddleware, async (req, res, next) => {
+    try {
+      const result = await db.query(
+        'SELECT * FROM conversations WHERE user_id = $1 ORDER BY updated_at DESC',
+        [req.user.id]
+      );
+      res.json(result.rows);
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.post('/api/chats', authMiddleware, async (req, res) => {
@@ -152,6 +156,12 @@ const createTestApp = () => {
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  });
+
+  // Error handling middleware (matches production errorHandler)
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    res.status(500).json({ error: 'Internal server error' });
   });
 
   return app;
@@ -452,8 +462,7 @@ describe('E2E Integration Tests', () => {
   // Error Handling Flow
   // =====================================================
   describe('Error Handling Flow', () => {
-    // Skip: Test app doesn't have error handling middleware
-    it.skip('Database error -> graceful handling', async () => {
+    it('Database error -> graceful handling', async () => {
       db.query.mockRejectedValueOnce(new Error('Database connection failed'));
 
       await request(app)

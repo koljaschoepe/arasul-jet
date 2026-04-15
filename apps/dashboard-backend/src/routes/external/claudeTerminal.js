@@ -29,7 +29,9 @@ const MAX_QUERY_LENGTH = 5000;
 async function getTerminalModel() {
   const model = await modelService.getDefaultModel();
   if (!model) {
-    throw new Error('Kein LLM-Model verfügbar. Bitte laden Sie ein Model im Model Store herunter.');
+    throw new ServiceUnavailableError(
+      'Kein LLM-Model verfügbar. Bitte laden Sie ein Model im Model Store herunter.'
+    );
   }
 
   // Resolve ollama_name from catalog

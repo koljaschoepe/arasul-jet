@@ -833,9 +833,9 @@ describe('Security Tests', () => {
 });
 
 describe('Password Policy Security', () => {
-  it('requires minimum 4 character passwords', () => {
+  it('requires minimum 8 character passwords', () => {
     const { PASSWORD_REQUIREMENTS } = require('../../src/utils/password');
-    expect(PASSWORD_REQUIREMENTS.minLength).toBeGreaterThanOrEqual(4);
+    expect(PASSWORD_REQUIREMENTS.minLength).toBe(8);
   });
 
   it('does not require uppercase letters (minimal friction)', () => {
@@ -848,9 +848,9 @@ describe('Password Policy Security', () => {
     expect(PASSWORD_REQUIREMENTS.requireLowercase).toBe(false);
   });
 
-  it('does not require numbers (minimal friction)', () => {
+  it('requires numbers for security', () => {
     const { PASSWORD_REQUIREMENTS } = require('../../src/utils/password');
-    expect(PASSWORD_REQUIREMENTS.requireNumbers).toBe(false);
+    expect(PASSWORD_REQUIREMENTS.requireNumbers).toBe(true);
   });
 });
 

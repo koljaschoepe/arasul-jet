@@ -172,7 +172,7 @@ describe('LLMJobService (DI)', () => {
                 expect.stringContaining("status = 'completed'"),
                 expect.arrayContaining(['job-123'])
             );
-            expect(mockLogger.info).toHaveBeenCalledWith('Completed LLM job job-123 (content: 13 chars, thinking: 9 chars)');
+            expect(mockLogger.info).toHaveBeenCalledWith('[JOB job-123] Message 456 persisted: 13 chars, 9 thinking chars, 1 sources');
         });
 
         test('should handle job not found gracefully', async () => {

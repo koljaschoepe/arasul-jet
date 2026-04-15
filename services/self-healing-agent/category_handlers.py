@@ -26,12 +26,46 @@ from config import (
 class CategoryHandlersMixin:
     """Category A-D handler mixin for SelfHealingEngine"""
 
+    # Restart backoff delays per attempt (exponential: 10s, 30s, 60s, 120s)
+    RESTART_BACKOFF_DELAYS = [10, 30, 60, 120]
+
+    # Max restarts per service in a 30-minute window before entering alert-only mode
+    MAX_RESTARTS_PER_30MIN = 5
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+    def _get_restart_backoff(self, failure_count: int) -> int:
+        """Get backoff delay in seconds based on failure count"""
+        idx = min(failure_count - 1, len(self.RESTART_BACKOFF_DELAYS) - 1)
+        return self.RESTART_BACKOFF_DELAYS[max(0, idx)]
+
+    def _is_restart_rate_limited(self, service_name: str) -> bool:
+        """Check if service has exceeded max restarts in 30min window"""
+        try:
+            rows = self.execute_query(
+                "SELECT COUNT(*) FROM recovery_actions "
+                "WHERE service_name = %s AND action_type = 'service_restart' "
+                "AND timestamp >= NOW() - INTERVAL '30 minutes'",
+                (service_name,), fetch=True
+            )
+            count = rows[0][0] if rows else 0
+            if count >= self.MAX_RESTARTS_PER_30MIN:
+                logger.error(
+                    f"Service {service_name} hit restart rate limit: "
+                    f"{count}/{self.MAX_RESTARTS_PER_30MIN} restarts in 30min — alert only"
+                )
+                return True
+            return False
+        except Exception:
+            return False
+
     # ========================================================================
     # CATEGORY A: SERVICE DOWN
     # ========================================================================
 
     def handle_category_a_service_down(self, service_name: str, container):
-        """Category A: Service Down - tiered restart strategies with DB tracking"""
+        """Category A: Service Down - tiered restart strategies with exponential backoff"""
 
         self.record_failure(service_name, 'unhealthy', 'down')
 
@@ -39,17 +73,29 @@ class CategoryHandlersMixin:
             logger.warning(f"Service {service_name} is in cooldown, skipping recovery")
             return
 
+        # Rate limit check: max 5 restarts in 30min, then alert-only
+        if self._is_restart_rate_limited(service_name):
+            self.log_event(
+                'service_restart_rate_limited', 'CRITICAL',
+                f'{service_name} exceeded {self.MAX_RESTARTS_PER_30MIN} restarts in 30min',
+                'Entering alert-only mode — manual intervention required',
+                service_name, False
+            )
+            return
+
         failure_count = self.get_failure_count(service_name)
-        logger.warning(f"Service {service_name} unhealthy (failures in window: {failure_count})")
+        backoff = self._get_restart_backoff(failure_count)
+        logger.warning(
+            f"Service {service_name} unhealthy (failures: {failure_count}, backoff: {backoff}s)"
+        )
 
         start_time = time.time()
 
         try:
             if failure_count == 1:
-                logger.info(f"Attempting restart of {service_name} (attempt 1/3)")
+                logger.info(f"Attempting restart of {service_name} (attempt 1/3, wait {backoff}s)")
                 container.restart()
-                # Wait for container to stabilize after restart
-                time.sleep(10)
+                time.sleep(backoff)
                 container.reload()
                 is_running = container.status == 'running'
                 duration_ms = int((time.time() - start_time) * 1000)
@@ -57,7 +103,7 @@ class CategoryHandlersMixin:
                 self.log_event(
                     'service_restart', 'WARNING',
                     f'{service_name} unhealthy, performing restart (running={is_running})',
-                    'container.restart()', service_name, is_running
+                    f'container.restart() + {backoff}s backoff', service_name, is_running
                 )
                 self.record_recovery_action(
                     'service_restart', service_name,
@@ -66,12 +112,11 @@ class CategoryHandlersMixin:
                 )
 
             elif failure_count == 2:
-                logger.info(f"Attempting stop and start of {service_name} (attempt 2/3)")
+                logger.info(f"Attempting stop+start of {service_name} (attempt 2/3, wait {backoff}s)")
                 container.stop(timeout=10)
                 time.sleep(2)
                 container.start()
-                # Wait for container to stabilize after start
-                time.sleep(10)
+                time.sleep(backoff)
                 container.reload()
                 is_running = container.status == 'running'
                 duration_ms = int((time.time() - start_time) * 1000)
@@ -79,7 +124,7 @@ class CategoryHandlersMixin:
                 self.log_event(
                     'service_stop_start', 'WARNING',
                     f'{service_name} still unhealthy, performing stop+start',
-                    'container.stop() + container.start()', service_name, True
+                    f'container.stop()+start() + {backoff}s backoff', service_name, True
                 )
                 self.record_recovery_action(
                     'service_restart', service_name,
@@ -88,7 +133,10 @@ class CategoryHandlersMixin:
                 )
 
             elif failure_count >= MAX_FAILURES_IN_WINDOW:
-                logger.error(f"Service {service_name} failed {failure_count} times in {FAILURE_WINDOW_MINUTES}min window, escalating")
+                logger.error(
+                    f"Service {service_name} failed {failure_count} times in "
+                    f"{FAILURE_WINDOW_MINUTES}min window, escalating"
+                )
                 self.log_event(
                     'service_escalation', 'CRITICAL',
                     f'{service_name} failed {failure_count} times, escalating to hard recovery',

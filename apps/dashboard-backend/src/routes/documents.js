@@ -28,6 +28,8 @@ const { ValidationError, NotFoundError, ConflictError } = require('../utils/erro
 const { uploadLimiter } = require('../middleware/rateLimit');
 const { buildSetClauses } = require('../utils/queryBuilder');
 const { getEmbedding } = require('../services/embeddingService');
+const { validateFileContent } = require('../utils/fileValidation');
+const documentImagesRouter = require('./documentImages');
 
 // Document services
 const minioService = require('../services/documents/minioService');
@@ -37,38 +39,6 @@ const documentService = require('../services/documents/documentService');
 // Allowed file types and size limits
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-
-// Magic byte signatures for binary file types
-const MAGIC_BYTES = {
-  '.pdf': { bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 }, // %PDF
-  '.docx': { bytes: [0x50, 0x4b, 0x03, 0x04], offset: 0 }, // PK (ZIP archive)
-  '.png': { bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0 }, // PNG
-  '.jpg': { bytes: [0xff, 0xd8, 0xff], offset: 0 }, // JPEG
-  '.jpeg': { bytes: [0xff, 0xd8, 0xff], offset: 0 }, // JPEG
-  '.gif': { bytes: [0x47, 0x49, 0x46], offset: 0 }, // GIF
-  '.webp': { bytes: [0x52, 0x49, 0x46, 0x46], offset: 0 }, // RIFF (WebP)
-};
-
-/**
- * Validate file content matches expected type via magic bytes.
- * Binary formats (PDF, DOCX) must match their signature.
- * Text formats (.md, .txt, .yaml) are validated as valid UTF-8 with no null bytes.
- */
-function validateFileContent(buffer, ext) {
-  const magic = MAGIC_BYTES[ext];
-  if (magic) {
-    if (buffer.length < magic.offset + magic.bytes.length) {
-      return false;
-    }
-    return magic.bytes.every((b, i) => buffer[magic.offset + i] === b);
-  }
-  // Text formats: reject files containing null bytes (binary content)
-  if (['.md', '.markdown', '.txt', '.yaml', '.yml', '.svg'].includes(ext)) {
-    const sample = buffer.subarray(0, Math.min(buffer.length, 8192));
-    return !sample.includes(0x00);
-  }
-  return true;
-}
 
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
@@ -378,7 +348,9 @@ router.post(
         throw new ConflictError('Dokument existiert bereits');
       }
     } catch (dbError) {
-      if (dbError instanceof ConflictError) {throw dbError;}
+      if (dbError instanceof ConflictError) {
+        throw dbError;
+      }
       // Compensating transaction: cleanup MinIO file if database insert fails
       try {
         const minio = minioService.getMinioClient();
@@ -870,6 +842,14 @@ router.get(
         res.destroy();
       }
     });
+
+    // Cleanup MinIO stream if client disconnects mid-download
+    res.on('close', () => {
+      if (!dataStream.destroyed) {
+        dataStream.destroy();
+      }
+    });
+
     dataStream.pipe(res);
   })
 );
@@ -922,16 +902,6 @@ router.post(
     const contentBuffer = Buffer.from(documentContent, 'utf-8');
     const contentHash = crypto.createHash('sha256').update(contentBuffer).digest('hex');
 
-    // Check for duplicates
-    const existingResult = await pool.query(
-      `SELECT id, filename FROM documents WHERE content_hash = $1 AND deleted_at IS NULL`,
-      [contentHash]
-    );
-
-    if (existingResult.rows.length > 0) {
-      throw new ConflictError('Dokument mit identischem Inhalt existiert bereits');
-    }
-
     // Generate unique path in MinIO
     const timestamp = Date.now();
     const objectName = `${timestamp}_${sanitizedName}`;
@@ -943,20 +913,23 @@ router.post(
 
     logger.info(`Created markdown file in MinIO: ${objectName}`);
 
-    // Create document record
+    // Create document record — atomic duplicate check via ON CONFLICT
     const docId = crypto.randomUUID();
     const fileHash = crypto
       .createHash('sha256')
       .update(`${sanitizedName}:${contentBuffer.length}`)
       .digest('hex');
 
-    await pool.query(
+    const insertResult = await pool.query(
       `INSERT INTO documents (
             id, filename, original_filename, file_path, file_size,
             mime_type, file_extension, content_hash, file_hash,
             status, uploaded_by, space_id, title,
             char_count, word_count
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ON CONFLICT (content_hash) WHERE deleted_at IS NULL AND status <> 'deleted'
+        DO NOTHING
+        RETURNING id`,
       [
         docId,
         sanitizedName,
@@ -975,6 +948,19 @@ router.post(
         documentContent.split(/\s+/).filter(w => w.length > 0).length,
       ]
     );
+
+    // ON CONFLICT DO NOTHING returns 0 rows if duplicate exists
+    if (insertResult.rows.length === 0) {
+      try {
+        const minio = minioService.getMinioClient();
+        await minio.removeObject(minioService.MINIO_BUCKET, objectName);
+      } catch (cleanupError) {
+        logger.warn(
+          `Failed to cleanup duplicate MinIO file ${objectName}: ${cleanupError.message}`
+        );
+      }
+      throw new ConflictError('Dokument mit identischem Inhalt existiert bereits');
+    }
 
     // Update space statistics if assigned
     if (spaceId) {
@@ -1141,102 +1127,7 @@ router.post(
   })
 );
 
-// ==========================================
-// IMAGE UPLOAD for inline document images
-// ==========================================
-
-const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-
-const imageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_IMAGE_SIZE },
-  fileFilter: (req, file, cb) => {
-    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
-    if (ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Ungültiger Bildtyp. Erlaubt: ${ALLOWED_IMAGE_EXTENSIONS.join(', ')}`));
-    }
-  },
-});
-
-/**
- * POST /images/upload — Upload an image for inline use in documents
- */
-router.post(
-  '/images/upload',
-  requireAuth,
-  (req, res, next) => {
-    imageUpload.single('image')(req, res, err => {
-      if (err) {
-        if (err instanceof multer.MulterError) {
-          return res.status(400).json({ error: err.message });
-        }
-        return res.status(400).json({ error: err.message });
-      }
-      next();
-    });
-  },
-  asyncHandler(async (req, res) => {
-    const file = req.file;
-    if (!file) {
-      throw new ValidationError('Kein Bild hochgeladen');
-    }
-
-    const filename = minioService.sanitizeFilename(file.originalname);
-    const imageExt = '.' + filename.split('.').pop().toLowerCase();
-
-    // Validate image content matches extension (magic byte check)
-    if (!validateFileContent(file.buffer, imageExt)) {
-      throw new ValidationError('Bildinhalt stimmt nicht mit dem Dateityp überein');
-    }
-
-    const timestamp = Date.now();
-    const objectName = `images/${timestamp}_${filename}`;
-
-    await minioService.uploadObject(objectName, file.buffer, file.size, {
-      'Content-Type': file.mimetype,
-    });
-
-    logger.info(`Image uploaded: ${objectName} (${file.size} bytes)`);
-
-    res.json({
-      url: `/api/documents/images/${encodeURIComponent(objectName.replace('images/', ''))}`,
-      objectName,
-      size: file.size,
-    });
-  })
-);
-
-/**
- * GET /images/:filename — Serve an uploaded image from MinIO
- */
-router.get(
-  '/images/:filename',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { filename } = req.params;
-    const objectName = `images/${filename}`;
-
-    if (!minioService.isValidMinioPath(objectName)) {
-      throw new ValidationError('Ungültiger Dateipfad');
-    }
-
-    try {
-      const stat = await minioService.statObject(objectName);
-      res.set('Content-Type', stat.metaData?.['content-type'] || 'application/octet-stream');
-      res.set('Cache-Control', 'public, max-age=31536000, immutable');
-
-      const stream = await minioService.getObject(objectName);
-      stream.pipe(res);
-    } catch (err) {
-      if (err.code === 'NotFound' || err.code === 'NoSuchKey') {
-        throw new NotFoundError('Bild nicht gefunden');
-      }
-      throw err;
-    }
-  })
-);
+// Image routes (extracted to documentImages.js)
+router.use('/', documentImagesRouter);
 
 module.exports = router;

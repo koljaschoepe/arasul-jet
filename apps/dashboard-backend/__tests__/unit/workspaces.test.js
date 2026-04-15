@@ -295,7 +295,7 @@ describe('Workspaces Routes', () => {
               id: 1,
               name: 'New Project',
               slug: 'new-project',
-              host_path: '/home/arasul/new-project',
+              host_path: '/tmp/new-project',
               container_path: '/workspace/new-project'
             }]
           });
@@ -306,7 +306,7 @@ describe('Workspaces Routes', () => {
       const response = await request(app)
         .post('/api/workspaces')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'New Project', hostPath: '/home/arasul/new-project', description: 'Test' });
+        .send({ name: 'New Project', hostPath: '/tmp/new-project', description: 'Test' });
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('workspace');
@@ -333,7 +333,7 @@ describe('Workspaces Routes', () => {
       const response = await request(app)
         .post('/api/workspaces')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'New', hostPath: '/home/arasul/new' });
+        .send({ name: 'New', hostPath: '/tmp/new' });
 
       expect(response.status).toBe(201);
       expect(fs.mkdir).toHaveBeenCalled();

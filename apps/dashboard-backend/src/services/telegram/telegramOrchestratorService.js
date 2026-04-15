@@ -354,6 +354,7 @@ class TelegramWebSocketService {
 class BaseAgent extends EventEmitter {
   constructor(name, options = {}) {
     super();
+    this.setMaxListeners(10);
     this.name = name;
     this.thinkingMode = options.thinkingMode ?? config.thinkingMode;
     this.skipPermissions = options.skipPermissions ?? config.skipPermissions;
@@ -413,6 +414,7 @@ class BaseAgent extends EventEmitter {
     await this.think('Session ending', 'finalize', result);
     const sid = this.sessionId;
     this.sessionId = null;
+    this.removeAllListeners();
     return sid;
   }
 }
@@ -550,7 +552,7 @@ class SetupAgent extends BaseAgent {
     };
   }
 
-  async finalizeSetup(event) {
+  async finalizeSetup(_event) {
     await this.think('Finalizing setup, sending test message...');
 
     // This would send the test message
@@ -798,7 +800,7 @@ class CommandAgent extends BaseAgent {
     }
   }
 
-  async handleStatus(event) {
+  async handleStatus(_event) {
     await this.think('Fetching system status...');
 
     const axios = require('axios');
@@ -820,7 +822,7 @@ class CommandAgent extends BaseAgent {
     }
   }
 
-  async handleMetrics(event) {
+  async handleMetrics(_event) {
     await this.think('Fetching system metrics...');
 
     const axios = require('axios');
@@ -842,7 +844,7 @@ class CommandAgent extends BaseAgent {
     }
   }
 
-  async handleHelp(event) {
+  async handleHelp(_event) {
     await this.think('Generating help message...');
 
     const helpText = `
@@ -864,7 +866,7 @@ _Benachrichtigungen konfigurieren: Dashboard → Telegram Bot_
     };
   }
 
-  async handleServices(event) {
+  async handleServices(_event) {
     await this.think('Fetching services status...');
 
     const axios = require('axios');
@@ -925,7 +927,7 @@ class TelegramOrchestrator extends EventEmitter {
   /**
    * Dispatch event to appropriate agent
    */
-  async dispatch(event) {
+  dispatch(event) {
     const agentMap = {
       // Setup events
       'setup.init': 'setup',

@@ -138,6 +138,11 @@ http:
           - '/n8n'
         forceSlash: false
 
+    # Request Body Size Limit (50MB — prevents DoS via oversized uploads)
+    body-limit:
+      buffering:
+        maxRequestBodyBytes: 52428800
+
     # Compression
     compress:
       compress:
@@ -172,3 +177,9 @@ http:
       forwardingTimeouts:
         responseHeaderTimeout: 600s
         idleConnTimeout: 600s
+
+    # LLM inference can take up to 5 minutes for long outputs
+    llm-transport:
+      forwardingTimeouts:
+        responseHeaderTimeout: 300s
+        idleConnTimeout: 300s

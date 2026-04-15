@@ -1,21 +1,5 @@
 import React, { memo, useState, useEffect } from 'react';
-import {
-  Folder,
-  Briefcase,
-  FileText,
-  Users,
-  Settings,
-  DollarSign,
-  ShoppingCart,
-  Wrench,
-  BookOpen,
-  Archive,
-  Save,
-  AlertCircle,
-  Check,
-  Trash2,
-  type LucideIcon,
-} from 'lucide-react';
+import { Save, AlertCircle, Check, Trash2 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import useConfirm from '../../hooks/useConfirm';
 import Modal from '../../components/ui/Modal';
@@ -23,49 +7,6 @@ import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
-import { cn } from '@/lib/utils';
-
-// Icon mapping for space icons
-const ICON_MAP: Record<string, LucideIcon> = {
-  folder: Folder,
-  briefcase: Briefcase,
-  'file-text': FileText,
-  users: Users,
-  settings: Settings,
-  'dollar-sign': DollarSign,
-  'shopping-cart': ShoppingCart,
-  tool: Wrench,
-  book: BookOpen,
-  archive: Archive,
-};
-
-// Available icons for spaces
-const SPACE_ICONS = [
-  { value: 'folder', label: 'Ordner' },
-  { value: 'briefcase', label: 'Aktenkoffer' },
-  { value: 'file-text', label: 'Dokument' },
-  { value: 'users', label: 'Team' },
-  { value: 'settings', label: 'Einstellungen' },
-  { value: 'dollar-sign', label: 'Finanzen' },
-  { value: 'shopping-cart', label: 'Vertrieb' },
-  { value: 'tool', label: 'Technik' },
-  { value: 'book', label: 'Wissen' },
-  { value: 'archive', label: 'Archiv' },
-];
-
-// Available colors for spaces
-const SPACE_COLORS = [
-  '#45ADFF', // Primary blue
-  '#6EC4FF', // Primary hover
-  '#2D8FD9', // Primary active
-  '#94A3B8', // Muted grey
-  '#64748B', // Disabled grey
-  '#CBD5E1', // Light grey
-  '#F0F4F8', // Near-white
-  '#2A3544', // Border dark
-  '#1A2330', // Card dark
-  '#222D3A', // Elevated dark
-];
 
 const descriptionTemplate = `**Inhalt:** Beschreiben Sie, welche Dokumente dieser Bereich enthält.
 
@@ -105,8 +46,6 @@ const SpaceModal = memo(function SpaceModal({
   const { confirm, ConfirmDialog } = useConfirm();
   const [name, setName] = useState('');
   const [description, setDescription] = useState(descriptionTemplate);
-  const [icon, setIcon] = useState('folder');
-  const [color, setColor] = useState('#45ADFF');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -117,13 +56,9 @@ const SpaceModal = memo(function SpaceModal({
       if (space && mode === 'edit') {
         setName(space.name || '');
         setDescription(space.description || '');
-        setIcon(space.icon || 'folder');
-        setColor(space.color || '#45ADFF');
       } else {
         setName('');
         setDescription(descriptionTemplate);
-        setIcon('folder');
-        setColor('#45ADFF');
       }
       setError(null);
       setSuccess(null);
@@ -150,8 +85,8 @@ const SpaceModal = memo(function SpaceModal({
       const payload = {
         name: name.trim(),
         description: description.trim(),
-        icon,
-        color,
+        icon: space?.icon || 'folder',
+        color: space?.color || '#45ADFF',
       };
 
       let data;
@@ -209,17 +144,8 @@ const SpaceModal = memo(function SpaceModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={(() => {
-        const TitleIcon = ICON_MAP[icon] || Folder;
-        return (
-          <>
-            <TitleIcon style={{ color }} />
-            {mode === 'edit' ? ' Bereich bearbeiten' : ' Neuen Wissensbereich erstellen'}
-          </>
-        );
-      })()}
+      title={mode === 'edit' ? 'Bereich bearbeiten' : 'Neuen Wissensbereich erstellen'}
       size="medium"
-      className="space-modal-wrapper"
       footer={
         <div className="flex justify-between items-center w-full max-sm:flex-col max-sm:gap-3">
           {mode === 'edit' && space && !space.is_default && !space.is_system && (
@@ -263,26 +189,24 @@ const SpaceModal = memo(function SpaceModal({
         </div>
       }
     >
-      <div className="flex-1 overflow-y-auto p-6 max-sm:p-5">
+      <div className="p-6 flex flex-col gap-5">
         {/* Messages */}
         {error && (
-          <div className="flex items-center gap-3 p-3.5 rounded-md text-sm font-medium mb-4 animate-[fadeIn_0.2s_ease] bg-destructive/10 border border-destructive/30 text-destructive">
-            <AlertCircle className="shrink-0 w-[1.15rem] h-[1.15rem]" />
+          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
+            <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="flex items-center gap-3 p-3.5 rounded-md text-sm font-medium mb-4 animate-[fadeIn_0.2s_ease] bg-primary/10 border border-primary/30 text-primary">
-            <Check className="shrink-0 w-[1.15rem] h-[1.15rem]" />
+          <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/30 rounded-lg text-primary text-sm">
+            <Check className="size-4 shrink-0" />
             <span>{success}</span>
           </div>
         )}
 
         {/* Name */}
-        <div className="mb-5 last:mb-0">
-          <Label htmlFor="space-name" className="mb-2">
-            Name
-          </Label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="space-name">Name</Label>
           <Input
             id="space-name"
             type="text"
@@ -294,60 +218,12 @@ const SpaceModal = memo(function SpaceModal({
           />
         </div>
 
-        {/* Icon and Color */}
-        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-          <div className="mb-0">
-            <Label className="mb-2">Icon</Label>
-            <div className="flex flex-wrap gap-2">
-              {SPACE_ICONS.map(opt => {
-                const IconComp = ICON_MAP[opt.value] || Folder;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={cn(
-                      'size-9 bg-background border-2 border-border rounded-md text-muted-foreground cursor-pointer flex items-center justify-center transition-all hover:border-[var(--border-input-focus)] hover:text-muted-foreground',
-                      icon === opt.value && 'bg-primary/10 border-primary text-primary'
-                    )}
-                    onClick={() => setIcon(opt.value)}
-                    title={opt.label}
-                    aria-label={opt.label}
-                    aria-pressed={icon === opt.value}
-                  >
-                    <IconComp className="size-4" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mb-0 max-sm:mb-5">
-            <Label className="mb-2">Farbe</Label>
-            <div className="flex flex-wrap gap-2">
-              {SPACE_COLORS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  className={cn(
-                    'size-7 border-2 border-transparent rounded-full cursor-pointer transition-all hover:scale-115',
-                    color === c && 'border-white shadow-[0_0_0_2px_rgba(255,255,255,0.3)] scale-110'
-                  )}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                  aria-label={`Farbe ${c}`}
-                  aria-pressed={color === c}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* Description */}
-        <div className="mb-5 last:mb-0 mt-5">
-          <Label htmlFor="space-description" className="mb-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="space-description" className="flex items-center gap-1.5">
             Beschreibung
-            <span className="font-normal text-muted-foreground text-xs ml-2">
-              (wird für intelligentes Routing genutzt)
+            <span className="font-normal text-muted-foreground text-xs">
+              wird für intelligentes Routing genutzt
             </span>
           </Label>
           <Textarea
@@ -358,7 +234,7 @@ const SpaceModal = memo(function SpaceModal({
             rows={8}
             className="resize-y min-h-[150px] font-mono leading-relaxed"
           />
-          <p className="mt-2 text-xs text-muted-foreground italic m-0">
+          <p className="text-xs text-muted-foreground italic">
             Je präziser die Beschreibung, desto besser findet die KI relevante Dokumente.
           </p>
         </div>

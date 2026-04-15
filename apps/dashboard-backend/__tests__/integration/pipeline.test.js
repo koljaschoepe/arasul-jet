@@ -672,16 +672,12 @@ describe('Document Upload Pipeline', () => {
         return Promise.resolve({ rows: [] });
       }
       if (sql.includes('admin_users')) {
-        return Promise.resolve({ rows: [{ id: 1, username: 'admin', email: 'admin@arasul.local', is_active: true }] });
+        return Promise.resolve({ rows: [{ id: 1, username: 'admin', email: 'admin@arasul.local', role: 'admin', is_active: true }] });
       }
-      // Document hash check
-      if (sql.includes('content_hash')) {
-        return Promise.resolve({ rows: [] }); // no duplicate
-      }
-      // Document insert
+      // Document insert (ON CONFLICT DO NOTHING RETURNING id — returns rows on success, empty on duplicate)
       if (sql.includes('INSERT INTO documents')) {
         return Promise.resolve({
-          rows: [{ id: 1, filename: 'test.pdf', status: 'uploaded' }],
+          rows: [{ id: 1 }],
         });
       }
       return Promise.resolve({ rows: [], rowCount: 0 });
@@ -746,13 +742,11 @@ describe('Document Upload Pipeline', () => {
         return Promise.resolve({ rows: [] });
       }
       if (sql.includes('admin_users')) {
-        return Promise.resolve({ rows: [{ id: 1, username: 'admin', email: 'admin@arasul.local', is_active: true }] });
+        return Promise.resolve({ rows: [{ id: 1, username: 'admin', email: 'admin@arasul.local', role: 'admin', is_active: true }] });
       }
-      // Content hash check — return existing document
-      if (sql.includes('content_hash')) {
-        return Promise.resolve({
-          rows: [{ id: 99, filename: 'existing.pdf', content_hash: 'abc123' }],
-        });
+      // Document insert (ON CONFLICT DO NOTHING RETURNING id — returns empty rows on duplicate)
+      if (sql.includes('INSERT INTO documents')) {
+        return Promise.resolve({ rows: [] }); // Duplicate: no rows returned
       }
       return Promise.resolve({ rows: [], rowCount: 0 });
     });

@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gcc \
     python3-dev \
+    smartmontools \
+    nvme-cli \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

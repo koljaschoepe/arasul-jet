@@ -1,28 +1,17 @@
 import { useState, memo } from 'react';
+import { AlertCircle, Save } from 'lucide-react';
 import { useApi } from '../../../hooks/useApi';
 import Modal from '../../../components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
-import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/shadcn/textarea';
 
 interface CreateTableDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated: () => void;
 }
-
-const ICONS = ['📦', '📊', '📋', '📝', '💼', '🛒', '👥', '🏢', '📁', '🔧', '💰', '📅'];
-const COLORS = [
-  '#45ADFF',
-  '#22C55E',
-  '#F59E0B',
-  '#EF4444',
-  '#8B5CF6',
-  '#06B6D4',
-  '#EC4899',
-  '#14B8A6',
-];
 
 const CreateTableDialog = memo(function CreateTableDialog({
   isOpen,
@@ -32,12 +21,10 @@ const CreateTableDialog = memo(function CreateTableDialog({
   const api = useApi();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('📦');
-  const [color, setColor] = useState('#45ADFF');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -50,16 +37,14 @@ const CreateTableDialog = memo(function CreateTableDialog({
         {
           name: name.trim(),
           description: description.trim() || null,
-          icon,
-          color,
+          icon: '\u{1F4E6}',
+          color: '#45ADFF',
         },
         { showError: false }
       );
 
       setName('');
       setDescription('');
-      setIcon('📦');
-      setColor('#45ADFF');
       onCreated();
       onClose();
     } catch (err: unknown) {
@@ -78,88 +63,72 @@ const CreateTableDialog = memo(function CreateTableDialog({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Neue Tabelle erstellen">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Neue Tabelle erstellen"
+      size="medium"
+      footer={
+        <div className="flex items-center justify-end w-full max-sm:flex-col max-sm:gap-3">
+          <div className="flex gap-3 max-sm:w-full max-sm:ml-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="max-sm:flex-1 max-sm:justify-center"
+              onClick={handleClose}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              type="button"
+              className="max-sm:flex-1 max-sm:justify-center"
+              disabled={loading || !name.trim()}
+              onClick={handleSubmit}
+            >
+              {loading ? (
+                'Erstelle...'
+              ) : (
+                <>
+                  <Save className="size-4" />
+                  Erstellen
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
         {error && (
-          <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
+          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
+            <AlertCircle className="size-4 shrink-0" />
             {error}
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="table-name">Name *</Label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="table-name">Name</Label>
           <Input
             id="table-name"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="z.B. Produkte, Kunden, Aufträge"
             autoFocus
-            required
           />
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="table-description">Beschreibung</Label>
-          <textarea
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="table-description" className="flex items-center gap-1.5">
+            Beschreibung <span className="font-normal text-muted-foreground text-xs">optional</span>
+          </Label>
+          <Textarea
             id="table-description"
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="Kurze Beschreibung der Tabelle..."
             rows={2}
-            className="py-2.5 px-3 bg-transparent border border-input rounded-md text-foreground text-sm transition-all duration-150 resize-none focus:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="resize-none"
           />
-        </div>
-
-        <div className="flex gap-4 max-md:flex-col">
-          <div className="flex flex-col gap-2 flex-1">
-            <Label>Icon</Label>
-            <div className="flex flex-wrap gap-2">
-              {ICONS.map(i => (
-                <button
-                  key={i}
-                  type="button"
-                  className={cn(
-                    'size-10 flex items-center justify-center bg-transparent border border-input rounded-lg text-xl cursor-pointer transition-all duration-150 hover:border-ring',
-                    icon === i && 'bg-primary/15 border-primary'
-                  )}
-                  onClick={() => setIcon(i)}
-                  aria-label={`Icon ${i}`}
-                  aria-pressed={icon === i}
-                >
-                  {i}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 flex-1">
-            <Label>Farbe</Label>
-            <div className="flex flex-wrap gap-2">
-              {COLORS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  className={cn(
-                    'size-8 rounded-full border-2 border-transparent cursor-pointer transition-all duration-150 hover:scale-110',
-                    color === c && 'border-foreground shadow-[0_0_0_2px_var(--background)]'
-                  )}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                  aria-label={`Farbe ${c}`}
-                  aria-pressed={color === c}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 mt-2">
-          <Button type="button" variant="outline" onClick={handleClose}>
-            Abbrechen
-          </Button>
-          <Button type="submit" disabled={loading || !name.trim()}>
-            {loading ? 'Erstelle...' : 'Tabelle erstellen'}
-          </Button>
         </div>
       </form>
     </Modal>

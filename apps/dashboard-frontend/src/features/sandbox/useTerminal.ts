@@ -2,7 +2,12 @@
  * useTerminal - xterm.js + WebSocket hook for sandbox terminals
  *
  * Manages the full lifecycle: xterm instance, WebSocket connection,
- * binary data piping, resize handling, and cleanup.
+ * binary data piping, resize handling, auto-reconnect, and cleanup.
+ *
+ * Key features:
+ * - Container-ready gate: WebSocket connection only when containerStatus === 'running'
+ * - Auto-reconnect with exponential backoff on transient failures
+ * - Stable hook identity: uses refs for callbacks to prevent re-render loops
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
@@ -16,8 +21,12 @@ import { getValidToken } from '../../utils/token';
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE = import.meta.env.VITE_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;
 
+const MAX_RETRIES = 5;
+const BASE_DELAY = 1500; // 1.5s, 3s, 6s, 12s, 24s
+
 interface UseTerminalOptions {
   projectId: string;
+  containerStatus?: string;
   fontSize?: number;
   onConnected?: () => void;
   onDisconnected?: () => void;
@@ -36,6 +45,7 @@ interface UseTerminalReturn {
 
 export function useTerminal({
   projectId,
+  containerStatus,
   fontSize = 14,
   onConnected,
   onDisconnected,
@@ -48,15 +58,28 @@ export function useTerminal({
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const intentionalClose = useRef(false);
+  const retryCountRef = useRef(0);
+  const hasConnectedRef = useRef(false);
+
+  // Stable callback refs — prevents connect from depending on callback identity
+  const onConnectedRef = useRef(onConnected);
+  const onDisconnectedRef = useRef(onDisconnected);
+  const onErrorRef = useRef(onError);
+  onConnectedRef.current = onConnected;
+  onDisconnectedRef.current = onDisconnected;
+  onErrorRef.current = onError;
 
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const cleanup = useCallback(() => {
-    intentionalClose.current = true;
-
+  const teardown = useCallback(() => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
@@ -66,6 +89,7 @@ export function useTerminal({
       resizeObserverRef.current = null;
     }
     if (wsRef.current) {
+      intentionalClose.current = true;
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -101,20 +125,14 @@ export function useTerminal({
     }
   }, []);
 
+  // connect stored in ref so useEffect never depends on it
+  const connectRef = useRef<() => void>(() => {});
+
   const connect = useCallback(() => {
     if (!terminalRef.current) return;
 
-    // Cleanup previous
-    if (wsRef.current) {
-      intentionalClose.current = true;
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    if (xtermRef.current) {
-      xtermRef.current.dispose();
-      xtermRef.current = null;
-    }
-
+    // Teardown previous connection
+    teardown();
     intentionalClose.current = false;
     setIsConnecting(true);
     setError(null);
@@ -198,29 +216,27 @@ export function useTerminal({
       setIsConnected(true);
       setIsConnecting(false);
       setError(null);
+      retryCountRef.current = 0;
+      hasConnectedRef.current = true;
 
       // Send initial resize
       const { cols, rows } = term;
       sendControl({ type: 'resize', cols, rows });
 
-      onConnected?.();
+      onConnectedRef.current?.();
     };
 
     ws.onmessage = event => {
       if (event.data instanceof ArrayBuffer) {
-        // Binary frame: raw terminal data
         term.write(new Uint8Array(event.data));
       } else {
-        // Text frame: control message
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'error') {
             setError(msg.message);
-          } else if (msg.type === 'pong') {
-            // keepalive response
           }
+          // pong and other control messages are silently handled
         } catch {
-          // Not JSON, write as text
           term.write(event.data);
         }
       }
@@ -234,15 +250,30 @@ export function useTerminal({
     ws.onclose = event => {
       setIsConnected(false);
       setIsConnecting(false);
-      onDisconnected?.();
+      onDisconnectedRef.current?.();
 
-      if (!intentionalClose.current && event.code !== 1000) {
-        setError('Verbindung unterbrochen');
-        onError?.('Verbindung unterbrochen');
+      // Graceful close — no error, no retry
+      if (intentionalClose.current || event.code === 1000 || event.code === 1001) {
+        setError(null);
+        return;
+      }
+
+      // Auto-reconnect with exponential backoff
+      if (retryCountRef.current < MAX_RETRIES) {
+        const delay = BASE_DELAY * Math.pow(2, retryCountRef.current);
+        retryCountRef.current++;
+        setError(`Neuversuch in ${Math.round(delay / 1000)}s...`);
+        reconnectTimerRef.current = setTimeout(() => {
+          intentionalClose.current = false;
+          connectRef.current();
+        }, delay);
+      } else {
+        setError('Verbindung fehlgeschlagen');
+        onErrorRef.current?.('Verbindung fehlgeschlagen');
       }
     };
 
-    // Pipe terminal input to WebSocket as binary
+    // Pipe terminal input → WebSocket as binary
     term.onData(data => {
       if (ws.readyState === WebSocket.OPEN) {
         const encoder = new TextEncoder();
@@ -250,7 +281,6 @@ export function useTerminal({
       }
     });
 
-    // Terminal binary data handler
     term.onBinary(data => {
       if (ws.readyState === WebSocket.OPEN) {
         const bytes = new Uint8Array(data.length);
@@ -282,34 +312,49 @@ export function useTerminal({
     resizeObserverRef.current = observer;
 
     // Keepalive ping every 25s
-    const pingInterval = setInterval(() => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+    }
+    pingIntervalRef.current = setInterval(() => {
       sendControl({ type: 'ping' });
     }, 25000);
+  }, [projectId, fontSize, sendControl, teardown]);
 
-    // Store cleanup for interval
-    const prevCleanup = ws.onclose;
-    ws.onclose = event => {
-      clearInterval(pingInterval);
-      if (typeof prevCleanup === 'function') {
-        prevCleanup.call(ws, event);
-      }
-    };
-  }, [projectId, fontSize, onConnected, onDisconnected, onError, sendControl]);
+  // Keep connectRef in sync
+  connectRef.current = connect;
 
+  // Manual reconnect — resets retry counter
   const reconnect = useCallback(() => {
-    cleanup();
-    // Small delay to let cleanup finish
+    retryCountRef.current = 0;
+    teardown();
     reconnectTimerRef.current = setTimeout(() => {
       intentionalClose.current = false;
-      connect();
+      connectRef.current();
     }, 300);
-  }, [cleanup, connect]);
+  }, [teardown]);
 
-  // Initial connection
+  // Container-ready gate: connect only when container is running.
+  // Uses connectRef to avoid depending on connect identity.
   useEffect(() => {
-    connect();
-    return cleanup;
-  }, [connect, cleanup]);
+    const shouldConnect = containerStatus === undefined || containerStatus === 'running';
+
+    if (shouldConnect && !hasConnectedRef.current) {
+      // First connection — container just became ready
+      connectRef.current();
+    } else if (shouldConnect && hasConnectedRef.current && !wsRef.current) {
+      // Container back to running after being stopped — reconnect
+      retryCountRef.current = 0;
+      connectRef.current();
+    }
+
+    return () => {
+      // Only full teardown on unmount, not on every re-fire
+      teardown();
+      hasConnectedRef.current = false;
+      retryCountRef.current = 0;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerStatus, projectId]);
 
   return {
     terminalRef,

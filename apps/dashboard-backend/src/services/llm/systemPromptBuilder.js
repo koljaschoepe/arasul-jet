@@ -15,6 +15,48 @@ const logger = require('../../utils/logger');
 const GLOBAL_BASE_PROMPT =
   'Du bist ein hilfreicher KI-Assistent. Antworte praezise und strukturiert auf Deutsch, es sei denn der Benutzer schreibt in einer anderen Sprache.';
 
+/**
+ * Sanitize user-supplied prompt content to mitigate prompt injection.
+ * Strips common injection patterns and wraps content in clear delimiters.
+ * @param {string} content - Raw user-supplied content
+ * @param {string} label - Section label for the delimiter
+ * @returns {string} Sanitized and delimited content
+ */
+function sanitizePromptContent(content, label) {
+  if (!content || !content.trim()) {return '';}
+
+  let sanitized = content;
+
+  // Strip common prompt injection patterns (case-insensitive)
+  const injectionPatterns = [
+    /ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules?)/gi,
+    /disregard\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?)/gi,
+    /forget\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?)/gi,
+    /you\s+are\s+now\s+(?:a\s+)?(?:new|different)\s+(?:AI|assistant|bot)/gi,
+    /new\s+instructions?:\s*/gi,
+    /system\s*:\s*/gi,
+    /\[SYSTEM\]/gi,
+    /<<\s*SYS\s*>>/gi,
+    /<\/?system>/gi,
+  ];
+
+  for (const pattern of injectionPatterns) {
+    if (pattern.test(sanitized)) {
+      logger.warn(`[SystemPrompt] Stripped injection pattern from ${label}: ${pattern}`);
+      sanitized = sanitized.replace(pattern, '[entfernt]');
+    }
+  }
+
+  // Truncate excessively long content (max 5000 chars for context, 2000 for project prompt)
+  const maxLen = label === 'Unternehmenskontext' ? 5000 : 2000;
+  if (sanitized.length > maxLen) {
+    logger.warn(`[SystemPrompt] Truncated ${label} from ${sanitized.length} to ${maxLen} chars`);
+    sanitized = sanitized.slice(0, maxLen) + '\n[... gekuerzt]';
+  }
+
+  return sanitized;
+}
+
 // Simple TTL cache for profile and company context
 const cache = {
   profile: { value: undefined, expiresAt: 0 },
@@ -171,16 +213,22 @@ async function buildSystemPrompt(database, conversationId, { includeTools = true
     parts.push(profileSection);
   }
 
-  // Layer 3: Company Context
+  // Layer 3: Company Context (sanitized — user-editable content)
   const companyContext = await loadCompanyContext(database);
   if (companyContext) {
-    parts.push(`## Unternehmenskontext\n${companyContext}`);
+    const sanitized = sanitizePromptContent(companyContext, 'Unternehmenskontext');
+    if (sanitized) {
+      parts.push(`## Unternehmenskontext\n${sanitized}`);
+    }
   }
 
-  // Layer 4: Project Prompt
+  // Layer 4: Project Prompt (sanitized — user-editable content)
   const projectPrompt = await loadProjectPrompt(database, conversationId);
   if (projectPrompt) {
-    parts.push(`## Projektanweisungen\n${projectPrompt}`);
+    const sanitized = sanitizePromptContent(projectPrompt, 'Projektanweisungen');
+    if (sanitized) {
+      parts.push(`## Projektanweisungen\n${sanitized}`);
+    }
   }
 
   // Layer 5: Available Tools (only for medium/complex queries)
