@@ -46,9 +46,12 @@ EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-m3')
 CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHUNK_SIZE', '500'))
 CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
 PARENT_CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_PARENT_CHUNK_SIZE', '2000'))
-CHILD_CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHILD_CHUNK_SIZE', '300'))
-CHILD_CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP', '75'))
-INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '120'))
+CHILD_CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHILD_CHUNK_SIZE', '150'))
+CHILD_CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP', '30'))
+INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '30'))
+# Phase 5.1: Cap documents processed per scan cycle to avoid long-running cycles.
+# New uploads during a busy cycle wait at most INDEXER_INTERVAL seconds for the next pass.
+INDEXER_MAX_DOCS_PER_CYCLE = int(os.getenv('DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE', '10'))
 
 # --- File Size Limit ---
 # CRITICAL-FIX: Maximum file size limit to prevent OOM (default: 100MB)
@@ -60,6 +63,12 @@ ENABLE_AI_ANALYSIS = os.getenv('DOCUMENT_INDEXER_ENABLE_AI', 'true').lower() == 
 ENABLE_SIMILARITY = os.getenv('DOCUMENT_INDEXER_ENABLE_SIMILARITY', 'true').lower() == 'true'
 SIMILARITY_THRESHOLD = float(os.getenv('DOCUMENT_INDEXER_SIMILARITY_THRESHOLD', '0.8'))
 ENABLE_KNOWLEDGE_GRAPH = os.getenv('DOCUMENT_INDEXER_ENABLE_KG', 'true').lower() == 'true'
+
+# --- Contextual Chunking (Phase 2) ---
+# LLM-generated context descriptions for each chunk during indexing.
+# Improves retrieval by ~35% but adds ~3-5s per chunk during indexing.
+# 'llm' = LLM-generated context, 'template' = enhanced template (default)
+CHUNK_CONTEXT_MODE = os.getenv('DOCUMENT_INDEXER_CONTEXT_MODE', 'llm')
 
 # --- PostgreSQL DSN (for GraphStore) ---
 _PG_HOST = os.getenv('POSTGRES_HOST', 'postgres-db')

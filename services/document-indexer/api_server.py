@@ -252,6 +252,41 @@ def reindex_document(doc_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/reindex-all', methods=['POST'])
+def reindex_all_documents():
+    """Trigger reindexing of all indexed documents (e.g. after context mode change)"""
+    idx = get_safe_indexer()
+    if idx is None:
+        return jsonify({'error': 'Indexer not initialized'}), 503
+
+    try:
+        # Query indexed documents directly
+        from psycopg2.extras import RealDictCursor
+        with idx.db.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT id FROM documents WHERE status = 'indexed' AND deleted_at IS NULL"
+                )
+                docs = cur.fetchall()
+
+        queued = 0
+        for doc in docs:
+            idx.db.update_document_status(doc['id'], 'pending')
+            idx.db.update_document(doc['id'], {'retry_count': 0})
+            queued += 1
+
+        logger.info(f"Queued {queued} documents for reindexing")
+        return jsonify({
+            'status': 'queued',
+            'count': queued,
+            'message': f'{queued} documents queued for reindexing'
+        })
+
+    except Exception as e:
+        logger.error(f"Reindex-all error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/documents/<doc_id>/similar', methods=['GET'])
 def get_similar_documents(doc_id):
     """Get similar documents"""
@@ -751,7 +786,9 @@ def extract_text():
 
 def run_api():
     """Run the Flask API server"""
+    from config import CHUNK_CONTEXT_MODE, CHILD_CHUNK_SIZE, PARENT_CHUNK_SIZE
     logger.info(f"Starting Document Indexer API on port {API_PORT}")
+    logger.info(f"Chunk context mode: {CHUNK_CONTEXT_MODE} | child={CHILD_CHUNK_SIZE}w parent={PARENT_CHUNK_SIZE}w")
     app.run(host='0.0.0.0', port=API_PORT, threaded=True)
 
 

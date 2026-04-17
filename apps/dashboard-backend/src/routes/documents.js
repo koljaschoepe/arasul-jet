@@ -377,7 +377,7 @@ router.post(
         space_id: spaceId,
       },
       message: 'Dokument erfolgreich hochgeladen. Indexierung wird gestartet.',
-      indexing_interval_seconds: parseInt(process.env.DOCUMENT_INDEXER_INTERVAL || '120', 10),
+      indexing_interval_seconds: parseInt(process.env.DOCUMENT_INDEXER_INTERVAL || '30', 10),
       timestamp: new Date().toISOString(),
     });
   })

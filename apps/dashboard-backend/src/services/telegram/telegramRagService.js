@@ -46,7 +46,7 @@ async function enrichWithRAG(userQuery, bot) {
     const searchResults = await ragCore.hybridSearch(
       userQuery,
       embedding,
-      5,
+      8,
       spaceIds && spaceIds.length > 0 ? spaceIds : null
     );
 
@@ -56,7 +56,7 @@ async function enrichWithRAG(userQuery, bot) {
     }
 
     // 4. Rerank results
-    const reranked = await ragCore.rerankResults(userQuery, searchResults, 5);
+    const reranked = await ragCore.rerankResults(userQuery, searchResults, 8);
 
     // 5. Filter by relevance
     const wasReranked = ragCore.ENABLE_RERANKING && reranked.some(r => r.rerankScore != null);
@@ -67,8 +67,11 @@ async function enrichWithRAG(userQuery, bot) {
       return { context: null, sources: [], sourceText: null };
     }
 
-    // 5b. Deduplicate by document (max 3 chunks per document)
-    const deduplicated = ragCore.deduplicateByDocument(relevant, 5, 3);
+    // 5b. MMR diversity selection
+    const mmrResults = ragCore.applyMMR(relevant, 0.7, 8);
+
+    // 5c. Deduplicate by document (max 3 chunks per document)
+    const deduplicated = ragCore.deduplicateByDocument(mmrResults, 8, 3);
 
     // 6. Load parent chunks for richer context
     const parentChunks = await ragCore.getParentChunks(deduplicated);

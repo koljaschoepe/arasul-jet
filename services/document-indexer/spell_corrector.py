@@ -108,8 +108,13 @@ def correct_query(query: str) -> Tuple[str, List[Dict]]:
 
     for word in words:
         # Skip short words, numbers, and special characters
-        clean = re.sub(r'[^\w]', '', word)
+        clean = re.sub(r'[^\w-]', '', word)
         if len(clean) < MIN_WORD_LENGTH or clean.isdigit():
+            corrected.append(word)
+            continue
+
+        # Skip hyphenated compound words (common in German: IT-Sicherheit, KI-Modell, etc.)
+        if '-' in clean:
             corrected.append(word)
             continue
 

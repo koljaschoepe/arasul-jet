@@ -89,7 +89,7 @@ document-indexer/
 
 | Variable                       | Default           | Description             |
 | ------------------------------ | ----------------- | ----------------------- |
-| DOCUMENT_INDEXER_INTERVAL      | 120               | Scan interval (seconds) |
+| DOCUMENT_INDEXER_INTERVAL      | 30                | Scan interval (seconds) |
 | DOCUMENT_INDEXER_CHUNK_SIZE    | 500               | Chunk size (characters) |
 | DOCUMENT_INDEXER_CHUNK_OVERLAP | 50                | Overlap (characters)    |
 | DOCUMENT_INDEXER_MINIO_BUCKET  | documents         | MinIO bucket name       |

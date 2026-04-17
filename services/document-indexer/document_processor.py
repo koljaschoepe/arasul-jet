@@ -18,13 +18,13 @@ from document_parsers import (
     parse_yaml_table, parse_image
 )
 from metadata_extractor import extract_metadata, extract_key_topics
-from text_chunker import chunk_text_hierarchical
+from text_chunker import chunk_text_hierarchical, MIN_CHILD_WORDS
 from spell_corrector import update_domain_dictionary
 from entity_extractor import extract_from_document
 
 from config import (
     PARENT_CHUNK_SIZE, CHILD_CHUNK_SIZE, CHILD_CHUNK_OVERLAP,
-    ENABLE_AI_ANALYSIS, EMBEDDING_MODEL
+    ENABLE_AI_ANALYSIS, EMBEDDING_MODEL, CHUNK_CONTEXT_MODE
 )
 
 logger = logging.getLogger(__name__)
@@ -159,12 +159,122 @@ def get_document_space_info(db, doc_id: str) -> Dict[str, str]:
     return {'space_id': None, 'space_name': '', 'space_slug': ''}
 
 
+def _template_context(
+    chunk_text: str,
+    document_title: str,
+    parent_text: str,
+    chunk_index: int,
+    total_chunks: int,
+    section_header: str = ''
+) -> str:
+    """
+    Template-based contextualization (fast, no LLM needed).
+
+    Adds document title, position, and section info as a header.
+    """
+    if total_chunks > 0:
+        position = chunk_index / total_chunks
+    else:
+        position = 0
+    pos_label = "Anfang" if position < 0.2 else "Ende" if position > 0.8 else "Mitte"
+
+    context = f"[Dokument: {document_title}, Position: {pos_label}]"
+    if section_header:
+        context += f" [Abschnitt: {section_header}]"
+    elif parent_text:
+        parent_preview = parent_text[:150].strip().replace('\n', ' ')
+        context += f" [Abschnitt: {parent_preview}...]"
+    return f"{context}\n{chunk_text}"
+
+
+# LLM context cache to avoid re-generating for re-indexed documents
+_llm_context_cache: Dict[str, str] = {}
+
+
+def _llm_context(
+    chunk_text: str,
+    document_title: str,
+    parent_text: str,
+    chunk_index: int,
+    total_chunks: int,
+    section_header: str = ''
+) -> str:
+    """
+    LLM-based contextualization (Anthropic Contextual Retrieval approach).
+
+    Generates a concise description of the chunk's content and position
+    within the document. Adds ~35% retrieval improvement.
+    Falls back to template if LLM is unavailable.
+    """
+    import requests
+
+    # Cache key: content-based to survive re-indexing
+    cache_key = f"{document_title}:{chunk_index}:{hash(chunk_text[:100])}"
+    if cache_key in _llm_context_cache:
+        return f"{_llm_context_cache[cache_key]}\n\n{chunk_text}"
+
+    # Build prompt with parent context for better understanding
+    parent_preview = parent_text[:300].strip() if parent_text else ""
+    section_info = f' im Abschnitt "{section_header}"' if section_header else ""
+
+    prompt = (
+        f'Hier ist ein Ausschnitt aus dem Dokument "{document_title}"{section_info}.\n\n'
+        f'Kontext des uebergeordneten Abschnitts:\n{parent_preview}\n\n'
+        f'Ausschnitt:\n{chunk_text[:500]}\n\n'
+        f'Schreibe einen einzelnen kurzen Satz (max. 25 Woerter), der beschreibt, '
+        f'worum es in diesem Ausschnitt geht und welche Schluesselbegriffe er enthaelt. '
+        f'Antworte NUR mit dem Kontextsatz, ohne Erklaerung.'
+    )
+
+    llm_host = os.getenv('LLM_SERVICE_HOST', 'llm-service')
+    llm_port = os.getenv('LLM_SERVICE_PORT', '11434')
+    llm_model = os.getenv('LLM_MODEL', 'qwen3:14b-q8')
+
+    try:
+        response = requests.post(
+            f"http://{llm_host}:{llm_port}/api/chat",
+            json={
+                "model": llm_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "options": {
+                    "num_predict": 80,
+                    "temperature": 0.1,
+                }
+            },
+            timeout=30
+        )
+        response.raise_for_status()
+        context_sentence = response.json().get('message', {}).get('content', '').strip()
+
+        # Strip thinking tags if qwen3 returns them
+        if '<think>' in context_sentence:
+            import re
+            context_sentence = re.sub(r'<think>.*?</think>\s*', '', context_sentence, flags=re.DOTALL).strip()
+
+        if context_sentence and len(context_sentence) > 10:
+            # Prefix with document title for extra retrieval signal
+            full_context = f"[Dokument: {document_title}] {context_sentence}"
+            _llm_context_cache[cache_key] = full_context
+            return f"{full_context}\n\n{chunk_text}"
+
+    except Exception as e:
+        logger.warning(f"LLM contextualization failed for chunk {chunk_index}: {e}")
+
+    # Fallback to template
+    return _template_context(
+        chunk_text, document_title, parent_text,
+        chunk_index, total_chunks, section_header
+    )
+
+
 def contextualize_chunk(
     chunk_text: str,
     document_title: str,
     parent_text: str,
     chunk_index: int,
-    total_chunks: int
+    total_chunks: int,
+    section_header: str = ''
 ) -> str:
     """
     Add document context to a chunk before embedding (Contextual Retrieval).
@@ -173,25 +283,19 @@ def contextualize_chunk(
     position and topic within the document. The original chunk_text is
     stored unchanged in the Qdrant payload for display.
 
-    Args:
-        chunk_text: Original child chunk text
-        document_title: Document title/filename
-        parent_text: Parent chunk text for section context
-        chunk_index: Global index of the child chunk
-        total_chunks: Total number of child chunks
-
-    Returns:
-        Contextualized text for embedding
+    Mode is controlled by CHUNK_CONTEXT_MODE config:
+    - 'llm': LLM-generated contextual descriptions (~35% retrieval improvement)
+    - 'template': Enhanced template-based headers (fast, no LLM cost)
     """
-    context = f"[Dokument: {document_title}]"
-    if chunk_index == 0:
-        context += " [Anfang]"
-    elif chunk_index == total_chunks - 1:
-        context += " [Ende]"
-    if parent_text:
-        parent_preview = parent_text[:150].strip().replace('\n', ' ')
-        context += f" [Abschnitt: {parent_preview}...]"
-    return f"{context}\n{chunk_text}"
+    if CHUNK_CONTEXT_MODE == 'llm':
+        return _llm_context(
+            chunk_text, document_title, parent_text,
+            chunk_index, total_chunks, section_header
+        )
+    return _template_context(
+        chunk_text, document_title, parent_text,
+        chunk_index, total_chunks, section_header
+    )
 
 
 def run_indexing_pipeline(
@@ -247,6 +351,24 @@ def run_indexing_pipeline(
     # Extract metadata
     file_ext = os.path.splitext(filename.lower())[1]
     metadata = extract_metadata(data, filename, file_ext)
+
+    # Phase 5.3: persist extracted metadata so re-indexed documents (created via
+    # dashboard upload without metadata) also get word_count/char_count/etc.
+    # Idempotent for new documents — values match what process_new_document inserted.
+    metadata_updates = {}
+    for field in ('word_count', 'char_count', 'page_count', 'language', 'author'):
+        value = metadata.get(field)
+        if value is not None:
+            metadata_updates[field] = value
+    if metadata.get('title'):
+        metadata_updates['title'] = metadata['title']
+    if metadata_updates:
+        try:
+            db.update_document(doc_id, metadata_updates)
+        except Exception as meta_err:
+            logger.warning(
+                f"Failed to persist metadata for {doc_id}: {meta_err}"
+            )
 
     # Get categories for AI analysis
     categories = db.get_categories()
@@ -393,9 +515,8 @@ def _index_to_qdrant(
             logger.warning(f"No chunks generated for document {doc_id}")
             return 0
 
-        # Filter out tiny child chunks (< 20 words) — headers, page numbers, etc.
+        # Filter out tiny child chunks — headers, page numbers, etc.
         # produce poor embeddings and add noise to retrieval
-        MIN_CHILD_WORDS = 20
         for parent in parent_chunks:
             parent.children = [c for c in parent.children if c.word_count >= MIN_CHILD_WORDS]
         # Remove parents with no remaining children
@@ -431,13 +552,21 @@ def _index_to_qdrant(
             parent_db_id = parent_id_map.get(parent.parent_index)
 
             # Contextualized texts for embedding
-            contextualized_texts = [
-                contextualize_chunk(
+            contextualized_texts = []
+            for child in parent.children:
+                ctx = contextualize_chunk(
                     child.text, doc_title, parent.text,
-                    child.global_index, total_children
+                    child.global_index, total_children,
+                    section_header=getattr(child, 'section_header', '')
                 )
-                for child in parent.children
-            ]
+                contextualized_texts.append(ctx)
+
+            if parent.children:
+                logger.info(
+                    f"Contextualized {len(parent.children)} chunks for "
+                    f"parent {parent.parent_index + 1}/{len(parent_chunks)} "
+                    f"(mode={CHUNK_CONTEXT_MODE})"
+                )
             # Original texts for payload storage
             original_texts = [child.text for child in parent.children]
 

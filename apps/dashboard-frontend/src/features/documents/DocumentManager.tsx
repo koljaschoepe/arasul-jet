@@ -35,6 +35,7 @@ import CreateDocumentDialog from '../../components/editor/CreateDocumentDialog';
 import ExcelEditor from '../datentabellen/ExcelEditor';
 import SpaceModal from './SpaceModal';
 import DocumentDetailsModal from './DocumentDetailsModal';
+import RagMetricsCard from './RagMetricsCard';
 import { useApi } from '../../hooks/useApi';
 import { getValidToken } from '../../utils/token';
 import { useToast } from '../../contexts/ToastContext';
@@ -670,7 +671,7 @@ function DocumentManager() {
 
   return (
     <main
-      className="document-manager p-[clamp(1rem,2vw,1.5rem)] max-w-[1600px] mx-auto"
+      className="document-manager p-6 max-md:p-4 max-w-[1600px] mx-auto"
       role="main"
       aria-label="Dokumentenverwaltung"
     >
@@ -695,7 +696,7 @@ function DocumentManager() {
         )}
         <div
           className={cn(
-            'dm-stats-row grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-[clamp(0.75rem,1.5vw,1rem)]',
+            'dm-stats-row grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4',
             statsError && 'opacity-50'
           )}
           role="group"
@@ -760,6 +761,8 @@ function DocumentManager() {
           </div>
         </div>
       </header>
+
+      <RagMetricsCard />
 
       {/* Knowledge Spaces Tabs (RAG 2.0) */}
       <nav className="mb-4 overflow-hidden" aria-label="Wissensbereiche">

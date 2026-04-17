@@ -1,0 +1,58 @@
+[
+  {
+    "id": "hr-vacation-10y",
+    "query": "Wie viele Urlaubstage haben Mitarbeiter nach 10 Jahren Betriebszugehörigkeit?",
+    "expected_facts": ["34"],
+    "expected_source": "personalrichtlinie",
+    "category": "specific_fact"
+  },
+  {
+    "id": "hr-variable-comp-l8",
+    "query": "Wie hoch ist die variable Vergütung in Stufe 8 laut Personalrichtlinie?",
+    "expected_facts": ["15"],
+    "expected_source": "personalrichtlinie",
+    "category": "numeric_extraction"
+  },
+  {
+    "id": "product-visionguard-price",
+    "query": "Was kostet VisionGuard Professional?",
+    "expected_facts": ["49.900", "599"],
+    "expected_source": "produktkatalog",
+    "category": "numeric_extraction"
+  },
+  {
+    "id": "it-mfa-methods",
+    "query": "Welche MFA-Methoden sind laut IT-Sicherheitsrichtlinie zulässig?",
+    "expected_facts": ["TOTP"],
+    "expected_source": "sicherheit",
+    "category": "enumeration"
+  },
+  {
+    "id": "finance-q4-margin",
+    "query": "Wie hoch war die Bruttomarge im Q4 2025?",
+    "expected_facts": ["%"],
+    "expected_source": "quartalsbericht",
+    "category": "financial_metric"
+  },
+  {
+    "id": "finance-q4-ebitda",
+    "query": "Wie hoch war das EBITDA im vierten Quartal 2025?",
+    "expected_facts": ["EBITDA"],
+    "expected_source": "quartalsbericht",
+    "category": "financial_metric"
+  },
+  {
+    "id": "hr-mental-health",
+    "query": "Welche Angebote gibt es für psychische Gesundheit?",
+    "expected_facts": ["Beratung"],
+    "expected_source": "personalrichtlinie",
+    "category": "qualitative"
+  },
+  {
+    "id": "cross-doc-annual-headcount",
+    "query": "Was sind Jahresumsatz und Mitarbeiterzahl des Unternehmens?",
+    "expected_facts": ["Mitarbeiter"],
+    "expected_source": "quartalsbericht",
+    "category": "cross_document"
+  }
+]

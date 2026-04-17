@@ -37,7 +37,7 @@ const HYBRID_SEARCH_ENABLED = process.env.RAG_HYBRID_SEARCH !== 'false';
 
 // Timeout configuration (ms) — tuned for Jetson ARM64 latency
 const RAG_TIMEOUT_SPARSE = parseInt(process.env.RAG_TIMEOUT_SPARSE_MS, 10) || 5000;
-const RAG_TIMEOUT_RERANK = parseInt(process.env.RAG_TIMEOUT_RERANK_MS, 10) || 45000;
+const RAG_TIMEOUT_RERANK = parseInt(process.env.RAG_TIMEOUT_RERANK_MS, 10) || 120000;
 const RAG_TIMEOUT_ENTITY = parseInt(process.env.RAG_TIMEOUT_ENTITY_MS, 10) || 5000;
 const RAG_TIMEOUT_SEARCH = parseInt(process.env.RAG_TIMEOUT_SEARCH_MS, 10) || 15000;
 const RAG_TIMEOUT_FALLBACK = parseInt(process.env.RAG_TIMEOUT_FALLBACK_MS, 10) || 10000;
@@ -54,13 +54,15 @@ const ENABLE_GRAPH_ENRICHMENT = process.env.RAG_ENABLE_GRAPH !== 'false';
 const GRAPH_MAX_ENTITIES = parseInt(process.env.RAG_GRAPH_MAX_ENTITIES || '3');
 const GRAPH_TRAVERSAL_DEPTH = parseInt(process.env.RAG_GRAPH_TRAVERSAL_DEPTH || '2');
 
-// RAG 4.0: Relevance filtering — tuned to prevent hallucination
-// Reranker (BGE CrossEncoder) logits: good matches ≥0.10, marginal 0.05–0.10
-// RRF fusion scores: good matches ≥0.015, marginal 0.008–0.015 (compressed scale)
-const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.10');
-const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.015');
+// RAG 4.0: Relevance filtering — tuned for recall over precision
+// Lower thresholds: prefer showing more results over missing relevant ones.
+// The anti-hallucination prompt handles low-quality results.
+// Reranker (BGE CrossEncoder) logits: good matches ≥0.05, marginal 0.015–0.05
+// RRF fusion scores: good matches ≥0.01, marginal 0.003–0.01 (compressed scale)
+const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.01');
+const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.005');
 // Marginal thresholds: results between marginal and relevant are flagged as low-confidence
-const RAG_MARGINAL_FACTOR = 0.5; // marginal = threshold * factor
+const RAG_MARGINAL_FACTOR = 0.3; // marginal = threshold * factor (lower = fewer filtered out)
 
 /**
  * Get embedding vector for text.
@@ -300,7 +302,7 @@ async function rerankResults(query, results, topK = 5) {
         query,
         passages,
         top_k: topK,
-        stage1_top_k: Math.min(10, results.length),
+        stage1_top_k: Math.min(20, results.length),
       },
       { timeout: RAG_TIMEOUT_RERANK }
     );
@@ -315,7 +317,7 @@ async function rerankResults(query, results, topK = 5) {
     );
 
     const idToResult = new Map(results.map(r => [String(r.id), r]));
-    return response.data.results
+    const rerankedResults = response.data.results
       .map(rr => {
         const original = idToResult.get(String(rr.id));
         if (!original) {
@@ -329,6 +331,23 @@ async function rerankResults(query, results, topK = 5) {
         };
       })
       .filter(Boolean);
+
+    // Detect low-quality reranking: when CrossEncoder fails and FlashRank gives
+    // near-zero scores (< 0.001), the ranking is unreliable — FlashRank can't
+    // distinguish relevant from irrelevant German text at these score levels.
+    // Fall back to original search ranking (vector + BM25 fusion) which is
+    // semantically aware and much more reliable.
+    const maxRerankScore = Math.max(...rerankedResults.map(r => r.rerankScore || 0));
+    if (maxRerankScore < 0.001) {
+      logger.warn(
+        `Low-quality reranking detected (maxScore=${maxRerankScore.toFixed(6)}), falling back to search ranking`
+      );
+      // Return original search results without rerank scores — the relevance
+      // filter will use vector/hybrid scores instead (wasReranked = false)
+      return results.slice(0, topK);
+    }
+
+    return rerankedResults;
   } catch (error) {
     logger.warn(`Reranking failed (using unreranked results): ${error.message}`);
     return results.slice(0, topK);
@@ -345,9 +364,32 @@ function filterByRelevance(results, reranked = true) {
     return { relevant: [], marginal: [], filtered: 0 };
   }
 
-  const threshold = reranked ? RAG_RELEVANCE_THRESHOLD : RAG_VECTOR_SCORE_THRESHOLD;
-  const marginalThreshold = threshold * RAG_MARGINAL_FACTOR;
+  const baseThreshold = reranked ? RAG_RELEVANCE_THRESHOLD : RAG_VECTOR_SCORE_THRESHOLD;
   const scoreField = reranked ? 'rerankScore' : 'score';
+
+  // Get all scores for adaptive thresholding
+  const scores = results.map(r => r[scoreField]).filter(s => s != null);
+  const topScore = scores.length > 0 ? Math.max(...scores) : 0;
+
+  // Adaptive threshold: when reranker falls back to FlashRank (stage1-only),
+  // scores can be orders of magnitude lower (0.0003 vs 0.05).
+  // Use relative threshold: keep results scoring >= 30% of the top score,
+  // but only if top score exceeds a minimum floor (to still reject truly irrelevant results).
+  const MIN_TOP_SCORE = 0.00005; // Below this, no results are relevant
+  const RELATIVE_THRESHOLD = 0.3; // Keep results within 30% of top score
+
+  let threshold;
+  if (topScore < MIN_TOP_SCORE) {
+    // All scores too low — nothing relevant
+    threshold = baseThreshold;
+  } else if (topScore < baseThreshold) {
+    // Scores below fixed threshold — use relative threshold from top score
+    threshold = topScore * RELATIVE_THRESHOLD;
+  } else {
+    // Normal case — use fixed threshold
+    threshold = baseThreshold;
+  }
+  const marginalThreshold = threshold * RAG_MARGINAL_FACTOR;
 
   const relevant = [];
   const marginal = [];
@@ -364,13 +406,104 @@ function filterByRelevance(results, reranked = true) {
     }
   }
 
-  if (filtered > 0 || marginal.length > 0) {
+  // Log score distribution for threshold tuning
+  if (scores.length > 0) {
+    const topScores = scores
+      .slice(0, 5)
+      .map(s => s.toFixed(4))
+      .join(', ');
     logger.info(
-      `Relevance filter: ${results.length} → ${relevant.length} relevant, ${marginal.length} marginal, ${filtered} rejected (threshold=${threshold}, marginal=${marginalThreshold})`
+      `Relevance filter: ${results.length} → ${relevant.length} relevant, ${marginal.length} marginal, ${filtered} rejected (threshold=${threshold.toFixed(4)}, topScore=${topScore.toFixed(4)}, scores: [${topScores}])`
     );
   }
 
   return { relevant, marginal, filtered };
+}
+
+/**
+ * Jaccard similarity between two texts (word-set overlap).
+ * Used by MMR for lightweight diversity without needing embedding vectors.
+ */
+function jaccardSimilarity(textA, textB) {
+  const wordsA = new Set(
+    textA
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+  );
+  const wordsB = new Set(
+    textB
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+  );
+  if (wordsA.size === 0 || wordsB.size === 0) {return 0;}
+  let intersection = 0;
+  for (const w of wordsA) {
+    if (wordsB.has(w)) {intersection++;}
+  }
+  const union = new Set([...wordsA, ...wordsB]).size;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Maximum Marginal Relevance (MMR) — diversify results after reranking.
+ * Selects results that balance relevance and diversity, preventing
+ * redundant chunks covering the same content from dominating.
+ *
+ * Uses Jaccard word-set similarity for diversity (no embedding vectors needed).
+ *
+ * @param {Object[]} results - Ranked results with scores
+ * @param {number} lambda - Balance: 1.0 = pure relevance, 0.0 = pure diversity (default: 0.7)
+ * @param {number} topK - Max results to return
+ * @returns {Object[]} Diversified results
+ */
+function applyMMR(results, lambda = 0.7, topK = 8) {
+  if (results.length <= 1) {return results;}
+
+  // Normalize scores to [0, 1] for fair comparison
+  const scoreField = results[0].rerankScore != null ? 'rerankScore' : 'score';
+  const scores = results.map(r => r[scoreField] || 0);
+  const maxScore = Math.max(...scores);
+  const minScore = Math.min(...scores);
+  const scoreRange = maxScore - minScore || 1;
+
+  const selected = [results[0]]; // Best result always included
+  const remaining = results.slice(1).map((r, i) => ({ result: r, idx: i + 1 }));
+
+  while (selected.length < topK && remaining.length > 0) {
+    let bestMMR = -Infinity;
+    let bestIdx = 0;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidate = remaining[i].result;
+      const relevance = ((candidate[scoreField] || 0) - minScore) / scoreRange;
+
+      // Max similarity to any already-selected result
+      const maxSim = Math.max(
+        ...selected.map(s =>
+          jaccardSimilarity(candidate.payload?.text || '', s.payload?.text || '')
+        )
+      );
+
+      const mmrScore = lambda * relevance - (1 - lambda) * maxSim;
+
+      if (mmrScore > bestMMR) {
+        bestMMR = mmrScore;
+        bestIdx = i;
+      }
+    }
+
+    selected.push(remaining.splice(bestIdx, 1)[0].result);
+  }
+
+  // Log reordering if any changed positions
+  const reordered = selected.some((r, i) => i > 0 && results.indexOf(r) !== i);
+  if (reordered) {
+    logger.info(`MMR: reordered ${selected.length} results for diversity (lambda=${lambda})`);
+  }
+
+  return selected;
 }
 
 /**
@@ -628,21 +761,21 @@ function buildHierarchicalContext(
       .map((pc, i) => {
         const child = childByParent.get(String(pc.id));
         const docName = child?.document_name || 'Dokument';
-        const spaceBadge = child?.space_name ? `[${child.space_name}] ` : '';
-        const categoryBadge = child?.category ? `[${child.category}] ` : '';
-        return `[${i + 1}] ${spaceBadge}${categoryBadge}${docName}:\n${pc.chunk_text}`;
+        const spaceBadge = child?.space_name ? ` | Bereich: ${child.space_name}` : '';
+        const categoryBadge = child?.category ? ` | Kategorie: ${child.category}` : '';
+        return `--- DOKUMENT [${i + 1}]: ${docName}${spaceBadge}${categoryBadge} ---\n${pc.chunk_text}\n--- ENDE DOKUMENT [${i + 1}] ---`;
       })
-      .join('\n\n---\n\n');
-    parts.push(`## Gefundene Informationen\n${chunkTexts}`);
+      .join('\n\n');
+    parts.push(`## Gefundene Informationen\n\n${chunkTexts}`);
   } else if (chunks && chunks.length > 0) {
     const chunkTexts = chunks
       .map((c, i) => {
-        const spaceBadge = c.space_name ? `[${c.space_name}] ` : '';
-        const categoryBadge = c.category ? `[${c.category}] ` : '';
-        return `[${i + 1}] ${spaceBadge}${categoryBadge}${c.document_name}:\n${c.text}`;
+        const spaceBadge = c.space_name ? ` | Bereich: ${c.space_name}` : '';
+        const categoryBadge = c.category ? ` | Kategorie: ${c.category}` : '';
+        return `--- DOKUMENT [${i + 1}]: ${c.document_name}${spaceBadge}${categoryBadge} ---\n${c.text}\n--- ENDE DOKUMENT [${i + 1}] ---`;
       })
-      .join('\n\n---\n\n');
-    parts.push(`## Gefundene Informationen\n${chunkTexts}`);
+      .join('\n\n');
+    parts.push(`## Gefundene Informationen\n\n${chunkTexts}`);
   }
 
   // Level 4: Knowledge Graph context
@@ -672,7 +805,7 @@ function buildHierarchicalContext(
 async function hybridSearch(query, embedding, limit = 5, spaceIds = null, options = {}) {
   const { additionalEmbeddings = [], decompoundedQuery = null } = options;
 
-  const fetchLimit = ENABLE_RERANKING ? Math.min(limit * 5, 25) : limit * 2;
+  const fetchLimit = ENABLE_RERANKING ? Math.min(limit * 5, 40) : limit * 2;
 
   const sparseQuery = decompoundedQuery || query;
   const sparseVector = HYBRID_SEARCH_ENABLED ? await getSparseVector(sparseQuery) : null;
@@ -711,30 +844,74 @@ async function hybridSearch(query, embedding, limit = 5, spaceIds = null, option
     });
   }
 
+  // Run RRF fusion + BM25-only rescue search in parallel.
+  // BM25 rescue ensures keyword-matched results aren't lost in RRF fusion
+  // (RRF underweights results that only match BM25 but not dense vectors).
   try {
-    const response = await axios.post(
-      `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/query`,
-      {
-        prefetch,
-        query: { fusion: 'rrf' },
-        limit: fetchLimit,
-        with_payload: true,
-      },
-      { timeout: RAG_TIMEOUT_SEARCH }
-    );
+    const [response, bm25RescueResponse] = await Promise.all([
+      axios.post(
+        `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/query`,
+        {
+          prefetch,
+          query: { fusion: 'rrf' },
+          limit: fetchLimit,
+          with_payload: true,
+        },
+        { timeout: RAG_TIMEOUT_SEARCH }
+      ),
+      sparseVector
+        ? axios
+            .post(
+              `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/query`,
+              {
+                query: sparseVector,
+                using: 'bm25',
+                limit: Math.min(limit, 5),
+                with_payload: true,
+                ...(filter ? { filter } : {}),
+              },
+              { timeout: RAG_TIMEOUT_SEARCH }
+            )
+            .catch(err => {
+              logger.debug(`BM25-only search failed: ${err.message}`);
+              return { data: { result: { points: [] } } };
+            })
+        : Promise.resolve({ data: { result: { points: [] } } }),
+    ]);
 
-    const points = response.data.result?.points || [];
-
-    logger.debug(
-      `Hybrid search (Qdrant-native): ${points.length} results from ${prefetch.length} prefetch queries ` +
-        `(${additionalEmbeddings.length + 1} dense, ${sparseVector ? 1 : 0} sparse)`
-    );
-
-    return points.map(point => ({
+    const bm25OnlyResults = (bm25RescueResponse.data.result?.points || []).map(point => ({
       id: point.id,
       score: point.score,
       payload: point.payload,
+      _bm25Only: true,
     }));
+
+    const points = response.data.result?.points || [];
+
+    // Merge BM25-only results that are missing from RRF fusion
+    const rrfIds = new Set(points.map(p => String(p.id)));
+    const missingBm25 = bm25OnlyResults.filter(r => !rrfIds.has(String(r.id)));
+    if (missingBm25.length > 0) {
+      logger.info(
+        `BM25 rescue: ${missingBm25.length} keyword-matched results not in RRF top-${points.length}, adding them`
+      );
+    }
+
+    const combined = [
+      ...points.map(point => ({
+        id: point.id,
+        score: point.score,
+        payload: point.payload,
+      })),
+      ...missingBm25,
+    ];
+
+    logger.debug(
+      `Hybrid search (Qdrant-native): ${points.length} RRF + ${missingBm25.length} BM25-rescue = ${combined.length} results ` +
+        `from ${prefetch.length} prefetch queries (${additionalEmbeddings.length + 1} dense, ${sparseVector ? 1 : 0} sparse)`
+    );
+
+    return combined;
   } catch (error) {
     logger.warn(`Qdrant hybrid query failed, falling back to dense-only: ${error.message}`);
     try {
@@ -768,6 +945,7 @@ module.exports = {
   rerankResults,
   filterByRelevance,
   deduplicateByDocument,
+  applyMMR,
   graphEnrichedRetrieval,
   formatGraphContext,
   getParentChunks,

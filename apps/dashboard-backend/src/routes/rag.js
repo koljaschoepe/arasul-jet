@@ -29,6 +29,8 @@ const { initSSE, trackConnection } = require('../utils/sseHelper');
 const services = require('../config/services');
 const { optimizeQuery } = require('../services/context/queryOptimizer');
 
+const { logRagQuery } = require('../services/rag/ragMetrics');
+
 // Import core RAG functions from shared module
 const ragCore = require('../services/rag/ragCore');
 const {
@@ -40,6 +42,7 @@ const {
   rerankResults,
   filterByRelevance,
   deduplicateByDocument,
+  applyMMR,
   graphEnrichedRetrieval,
   getParentChunks,
   buildHierarchicalContext,
@@ -63,7 +66,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const {
       query,
-      top_k = 5,
+      top_k = 8,
       thinking,
       conversation_id,
       space_ids = null, // RAG 2.0: Optional pre-selected spaces
@@ -79,6 +82,9 @@ router.post(
     if (!conversation_id) {
       throw new ValidationError('conversation_id is required for RAG queries');
     }
+
+    // Phase 6.2: telemetry — capture wall-clock start for latency.
+    const _ragStartTs = Date.now();
 
     try {
       const HYBRID_SEARCH_ENABLED = process.env.RAG_HYBRID_SEARCH !== 'false';
@@ -167,7 +173,8 @@ router.post(
             if (
               _routingMethod === 'error' ||
               _routingMethod === 'all' ||
-              _routingMethod === 'none'
+              _routingMethod === 'none' ||
+              _routingMethod === 'fallback'
             ) {
               _targetSpaceIds = null;
             } else {
@@ -190,6 +197,9 @@ router.post(
 
       // Step 4: Hybrid search + Graph enrichment IN PARALLEL
       const spaceFilter = targetSpaceIds && targetSpaceIds.length > 0 ? targetSpaceIds : null;
+      logger.info(
+        `Space routing: method=${routingMethod}, spaces=${targetSpaces?.length || 0}, filter=${spaceFilter ? spaceFilter.join(',') : 'none'}`
+      );
       let searchResults = [];
       let graphEnrichment = [];
       try {
@@ -203,6 +213,15 @@ router.post(
       } catch (searchError) {
         logger.error(`Hybrid search failed (Qdrant may be down): ${searchError.message}`);
         // Continue with empty results — LLM will respond without RAG context
+      }
+
+      // Debug: log search result documents
+      if (searchResults.length > 0) {
+        const docNames = searchResults
+          .slice(0, 10)
+          .map(r => `${r.payload?.document_name || '?'}(${(r.score || 0).toFixed(3)})`)
+          .join(', ');
+        logger.info(`Search results (${searchResults.length}): ${docNames}`);
       }
 
       // Step 5: Rerank results (2-stage: FlashRank → BGE-reranker)
@@ -228,7 +247,10 @@ router.post(
         useMarginalResults = true;
       }
 
-      // Step 5c: Deduplicate by document (max 3 chunks per document)
+      // Step 5c: MMR diversity selection (balance relevance vs diversity)
+      relevantResults = applyMMR(relevantResults, 0.7, top_k);
+
+      // Step 5d: Deduplicate by document (max 3 chunks per document)
       relevantResults = deduplicateByDocument(relevantResults, top_k, 3);
 
       // Step 6: Load parent chunks for richer LLM context
@@ -292,6 +314,19 @@ router.post(
         res.write(`data: ${JSON.stringify({ type: 'sources', sources: [] })}\n\n`);
         res.write(`data: ${JSON.stringify({ type: 'response', token: noDocsMessage })}\n\n`);
         res.write(`data: ${JSON.stringify({ type: 'done', done: true, jobId })}\n\n`);
+        logRagQuery({
+          conversationId: conversation_id,
+          userId: req.user?.id ?? null,
+          queryText: query,
+          sources: [],
+          spaceIds: targetSpaces.map(s => s.id),
+          routingMethod,
+          marginalResults: false,
+          noRelevantDocs: true,
+          responseLength: noDocsMessage.length,
+          latencyMs: Date.now() - _ragStartTs,
+          error: null,
+        });
         return res.end();
       }
 
@@ -367,11 +402,33 @@ router.post(
       const connection = trackConnection(res);
       let unsubscribe = null;
 
+      // Phase 6.2: accumulate response length for telemetry.
+      let _ragResponseLen = 0;
+      let _ragLogged = false;
+      const _emitRagLog = (errMsg = null) => {
+        if (_ragLogged) {return;}
+        _ragLogged = true;
+        logRagQuery({
+          conversationId: conversation_id,
+          userId: req.user?.id ?? null,
+          queryText: query,
+          sources,
+          spaceIds: targetSpaces.map(s => s.id),
+          routingMethod,
+          marginalResults: useMarginalResults,
+          noRelevantDocs,
+          responseLength: _ragResponseLen,
+          latencyMs: Date.now() - _ragStartTs,
+          error: errMsg,
+        });
+      };
+
       connection.onClose(() => {
         logger.debug(`[RAG ${jobId}] Client disconnected, job continues in background`);
         if (unsubscribe) {
           unsubscribe();
         }
+        _emitRagLog('client_disconnected');
       });
 
       // Subscribe to job updates and forward to client
@@ -381,11 +438,16 @@ router.post(
         }
 
         try {
+          if (event.type === 'response' && typeof event.token === 'string') {
+            _ragResponseLen += event.token.length;
+          }
+
           res.write(`data: ${JSON.stringify(event)}\n\n`);
 
           if (event.done) {
             res.end();
             unsubscribe();
+            _emitRagLog(event.type === 'error' ? String(event.error || 'llm_error') : null);
           }
         } catch (err) {
           logger.debug(`[RAG ${jobId}] Write error: ${err.message}`);
@@ -433,6 +495,77 @@ router.get(
         points_count: collection.points_count || 0,
         vectors_count: collection.vectors_count || 0,
       },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/rag/metrics — Phase 6.2 dashboard aggregates
+ * Query params:
+ *   window: '24h' (default) | '7d' | '30d'
+ */
+router.get(
+  '/metrics',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const window = String(req.query.window || '24h');
+    const interval = { '24h': '24 hours', '7d': '7 days', '30d': '30 days' }[window];
+    if (!interval) {
+      throw new ValidationError('window must be one of: 24h, 7d, 30d');
+    }
+
+    const result = await db.query(
+      `SELECT
+         COUNT(*)::int                                                AS total_queries,
+         COUNT(*) FILTER (WHERE retrieved_count > 0)::int             AS with_results,
+         COUNT(*) FILTER (WHERE retrieved_count = 0)::int             AS no_results,
+         COUNT(*) FILTER (WHERE no_relevant_docs)::int                AS no_relevant,
+         COUNT(*) FILTER (WHERE marginal_results)::int                AS marginal,
+         COUNT(*) FILTER (WHERE error IS NOT NULL)::int               AS errored,
+         AVG(retrieved_count)::float                                  AS avg_retrieved,
+         AVG(top_rerank_score)::float                                 AS avg_top_rerank,
+         AVG(avg_rerank_score)::float                                 AS avg_rerank,
+         AVG(response_length)::float                                  AS avg_response_length,
+         AVG(latency_ms)::float                                       AS avg_latency_ms,
+         PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms)     AS p95_latency_ms
+       FROM rag_query_log
+       WHERE created_at >= NOW() - $1::interval`,
+      [interval]
+    );
+
+    const recent = await db.query(
+      `SELECT id, created_at, query_text, retrieved_count, top_rerank_score,
+              response_length, latency_ms, no_relevant_docs, error
+         FROM rag_query_log
+        WHERE created_at >= NOW() - $1::interval
+        ORDER BY created_at DESC
+        LIMIT 20`,
+      [interval]
+    );
+
+    const row = result.rows[0] || {};
+    const total = row.total_queries || 0;
+    const retrievalRate = total > 0 ? row.with_results / total : 0;
+    const noDocumentRate = total > 0 ? row.no_results / total : 0;
+
+    res.json({
+      window,
+      total_queries: total,
+      retrieval_rate: Number(retrievalRate.toFixed(3)),
+      no_document_rate: Number(noDocumentRate.toFixed(3)),
+      no_relevant_rate: total > 0 ? Number((row.no_relevant / total).toFixed(3)) : 0,
+      marginal_rate: total > 0 ? Number((row.marginal / total).toFixed(3)) : 0,
+      error_rate: total > 0 ? Number((row.errored / total).toFixed(3)) : 0,
+      avg_retrieved: row.avg_retrieved != null ? Number(row.avg_retrieved.toFixed(2)) : null,
+      avg_top_rerank_score:
+        row.avg_top_rerank != null ? Number(row.avg_top_rerank.toFixed(3)) : null,
+      avg_rerank_score: row.avg_rerank != null ? Number(row.avg_rerank.toFixed(3)) : null,
+      avg_response_length:
+        row.avg_response_length != null ? Math.round(row.avg_response_length) : null,
+      avg_latency_ms: row.avg_latency_ms != null ? Math.round(row.avg_latency_ms) : null,
+      p95_latency_ms: row.p95_latency_ms != null ? Math.round(row.p95_latency_ms) : null,
+      recent: recent.rows,
       timestamp: new Date().toISOString(),
     });
   })

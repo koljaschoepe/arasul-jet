@@ -33,7 +33,8 @@ from graph_store import GraphStore
 from config import (
     MINIO_HOST, MINIO_PORT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD,
     MINIO_BUCKET, QDRANT_COLLECTION,
-    INDEXER_INTERVAL, MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES,
+    INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE,
+    MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES,
     ENABLE_AI_ANALYSIS, ENABLE_SIMILARITY, ENABLE_KNOWLEDGE_GRAPH,
     EMBEDDING_MODEL, POSTGRES_DSN
 )
@@ -521,12 +522,14 @@ class EnhancedDocumentIndexer:
     # ------------------------------------------------------------------
 
     def scan_and_index(self):
-        """Scan MinIO bucket and index new documents"""
+        """Scan MinIO bucket and index new documents (capped per cycle)."""
         try:
             objects = self.minio_client.list_objects(
                 MINIO_BUCKET, recursive=True
             )
 
+            processed_this_cycle = 0
+            cap_reached = False
             for obj in objects:
                 try:
                     # Quick check: skip download if file hash already indexed
@@ -535,11 +538,16 @@ class EnhancedDocumentIndexer:
                     )
                     existing = self.db.get_document_by_file_hash(file_hash)
                     if existing and existing['status'] == 'indexed':
-                        logger.info(
+                        logger.debug(
                             f"Document already indexed (content match): "
                             f"{os.path.basename(obj.object_name)}"
                         )
                         continue
+
+                    # Phase 5.1: cap per-cycle work to keep scan cycles bounded.
+                    if processed_this_cycle >= INDEXER_MAX_DOCS_PER_CYCLE:
+                        cap_reached = True
+                        break
 
                     # Download object only if not yet indexed
                     response = self.minio_client.get_object(
@@ -553,12 +561,20 @@ class EnhancedDocumentIndexer:
 
                     # Process document
                     self.process_new_document(obj.object_name, data)
+                    processed_this_cycle += 1
 
                 except Exception as e:
                     logger.error(
                         f"Error processing {obj.object_name}: {e}"
                     )
                     continue
+
+            if cap_reached:
+                logger.info(
+                    f"Scan cycle cap reached "
+                    f"({INDEXER_MAX_DOCS_PER_CYCLE} docs); "
+                    f"remaining pending documents will be picked up in next cycle."
+                )
 
             # Get actual pending count from database
             try:
