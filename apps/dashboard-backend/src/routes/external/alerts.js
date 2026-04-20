@@ -9,6 +9,12 @@ const { requireAuth } = require('../../middleware/auth');
 const alertEngine = require('../../services/alertEngine');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const {
+  UpdateQuietHoursDayBody,
+  BatchQuietHoursBody,
+  TestWebhookBody,
+} = require('../../schemas/alerts');
 
 // All routes require authentication
 router.use(requireAuth);
@@ -150,23 +156,12 @@ router.get(
  */
 router.put(
   '/quiet-hours/:dayOfWeek',
+  validateBody(UpdateQuietHoursDayBody),
   asyncHandler(async (req, res) => {
     const dayOfWeek = parseInt(req.params.dayOfWeek, 10);
 
     if (isNaN(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
       throw new ValidationError('Ungültiger Wochentag (0-6 erwartet)');
-    }
-
-    // Validate time format if provided
-    const { start_time, end_time } = req.body;
-    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
-
-    if (start_time && !timeRegex.test(start_time)) {
-      throw new ValidationError('Ungültiges Startzeit-Format (HH:MM erwartet)');
-    }
-
-    if (end_time && !timeRegex.test(end_time)) {
-      throw new ValidationError('Ungültiges Endzeit-Format (HH:MM erwartet)');
     }
 
     const updated = await alertEngine.updateQuietHours(dayOfWeek, req.body);
@@ -189,12 +184,9 @@ router.put(
  */
 router.put(
   '/quiet-hours',
+  validateBody(BatchQuietHoursBody),
   asyncHandler(async (req, res) => {
     const { days } = req.body;
-
-    if (!Array.isArray(days)) {
-      throw new ValidationError('Array von Tagen erwartet');
-    }
 
     const results = [];
 
@@ -319,19 +311,9 @@ router.get(
  */
 router.post(
   '/test-webhook',
+  validateBody(TestWebhookBody),
   asyncHandler(async (req, res) => {
     const { webhook_url, webhook_secret } = req.body;
-
-    if (!webhook_url) {
-      throw new ValidationError('Webhook-URL ist erforderlich');
-    }
-
-    // Basic URL validation
-    try {
-      new URL(webhook_url);
-    } catch {
-      throw new ValidationError('Ungültige Webhook-URL');
-    }
 
     const result = await alertEngine.testWebhook(webhook_url, webhook_secret);
 
