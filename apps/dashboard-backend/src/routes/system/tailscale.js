@@ -9,7 +9,8 @@ const tailscaleService = require('../../services/network/tailscaleService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
-const { ValidationError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { TailscaleConnectBody } = require('../../schemas/tailscale');
 
 // All routes require authentication
 router.use(requireAuth);
@@ -58,31 +59,9 @@ router.post(
  */
 router.post(
   '/connect',
+  validateBody(TailscaleConnectBody),
   asyncHandler(async (req, res) => {
     const { authKey, hostname } = req.body;
-
-    if (!authKey || typeof authKey !== 'string') {
-      throw new ValidationError('Auth-Key ist erforderlich');
-    }
-
-    if (!authKey.startsWith('tskey-') || authKey.length < 20 || authKey.length > 100) {
-      throw new ValidationError(
-        'Ungueltiger Auth-Key (muss mit tskey- beginnen und 20-100 Zeichen lang sein)'
-      );
-    }
-
-    if (hostname !== undefined && hostname !== null) {
-      if (
-        typeof hostname !== 'string' ||
-        hostname.length === 0 ||
-        hostname.length > 63 ||
-        !/^[a-zA-Z0-9-]+$/.test(hostname)
-      ) {
-        throw new ValidationError(
-          'Hostname muss 1-63 Zeichen lang sein und darf nur Buchstaben, Ziffern und Bindestriche enthalten'
-        );
-      }
-    }
 
     logger.info(`Tailscale connect requested by user ${req.user?.username}`);
     const status = await tailscaleService.connect(authKey, hostname);
