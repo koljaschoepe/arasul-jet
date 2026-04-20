@@ -9,7 +9,9 @@ const db = require('../../database');
 const n8nLogger = require('../../services/n8nLogger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
+const { validateBody } = require('../../middleware/validate');
 const { ValidationError } = require('../../utils/errors');
+const { WorkflowExecutionBody } = require('../../schemas/store');
 
 // GET /api/workflows/activity
 router.get(
@@ -63,16 +65,9 @@ router.get(
 router.post(
   '/execution',
   requireAuth,
+  validateBody(WorkflowExecutionBody),
   asyncHandler(async (req, res) => {
     const { workflow_name, execution_id, status, duration_ms, error } = req.body;
-
-    if (!workflow_name) {
-      throw new ValidationError('workflow_name is required');
-    }
-
-    if (!status || !['success', 'error', 'running', 'waiting'].includes(status)) {
-      throw new ValidationError('status must be one of: success, error, running, waiting');
-    }
 
     const record = await n8nLogger.logExecution({
       workflow_name,

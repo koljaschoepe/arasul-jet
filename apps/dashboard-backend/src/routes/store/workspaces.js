@@ -11,12 +11,14 @@ const logger = require('../../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { validateBody } = require('../../middleware/validate');
 const {
   ValidationError,
   NotFoundError,
   ForbiddenError,
   ConflictError,
 } = require('../../utils/errors');
+const { CreateWorkspaceBody, UpdateWorkspaceBody } = require('../../schemas/store');
 
 /**
  * GET /api/workspaces
@@ -83,19 +85,9 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  validateBody(CreateWorkspaceBody),
   asyncHandler(async (req, res) => {
     const { name, description, hostPath } = req.body;
-
-    if (!name || !hostPath) {
-      throw new ValidationError('Name und Host-Pfad sind erforderlich');
-    }
-
-    // Validate name (alphanumeric, spaces, dashes, underscores)
-    if (!/^[a-zA-Z0-9\s\-_äöüÄÖÜß]+$/.test(name)) {
-      throw new ValidationError(
-        'Ungültiger Name. Nur Buchstaben, Zahlen, Leerzeichen und Bindestriche erlaubt.'
-      );
-    }
 
     // Generate slug from name
     const slug = name
@@ -175,6 +167,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
+  validateBody(UpdateWorkspaceBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { name, description } = req.body;

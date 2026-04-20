@@ -10,7 +10,9 @@ const { apiLimiter } = require('../../middleware/rateLimit');
 const appService = require('../../services/app/appService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { AppUninstallBody, AppRestartBody, AppConfigBody } = require('../../schemas/store');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 
 /**
@@ -253,6 +255,7 @@ router.post(
   '/:id/uninstall',
   requireAuth,
   apiLimiter,
+  validateBody(AppUninstallBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const removeVolumes = req.body.removeVolumes === true;
@@ -321,6 +324,7 @@ router.post(
   '/:id/restart',
   requireAuth,
   apiLimiter,
+  validateBody(AppRestartBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { applyConfig, async: asyncMode } = req.body || {};
@@ -391,18 +395,11 @@ router.get(
 router.post(
   '/:id/config',
   requireAuth,
+  validateBody(AppConfigBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { config } = req.body;
 
-    if (!config || typeof config !== 'object' || Array.isArray(config)) {
-      throw new ValidationError('Ungültige Konfiguration: config muss ein Objekt sein');
-    }
-
-    const keys = Object.keys(config);
-    if (keys.length > 50) {
-      throw new ValidationError('Zu viele Konfigurationseinträge (max. 50)');
-    }
     for (const [key, value] of Object.entries(config)) {
       if (typeof value === 'string' && value.length > 10240) {
         throw new ValidationError(`Konfigurationswert für "${key}" zu lang (max. 10 KB)`);
