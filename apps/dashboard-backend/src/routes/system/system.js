@@ -15,9 +15,11 @@ const { promisify } = require('util');
 const fs = require('fs').promises;
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
-const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
+const { ServiceUnavailableError } = require('../../utils/errors');
 const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
 const { logSecurityEvent } = require('../../utils/auditLog');
+const { validateBody } = require('../../middleware/validate');
+const { SetupStepBody, SetupCompleteBody, DiagnosticsBody } = require('../../schemas/system');
 
 const path = require('path');
 const execFileAsync = promisify(execFile);
@@ -427,11 +429,11 @@ router.post('/reload-config', requireAuth, (req, res) => {
 router.post(
   '/diagnostics',
   requireAuth,
+  validateBody(DiagnosticsBody),
   asyncHandler(async (req, res) => {
     const { days = 3, includeLogs = true } = req.body;
 
-    // Validate
-    const logDays = Math.min(Math.max(Math.round(Number(days)), 1), 14);
+    const logDays = days;
 
     const args = [DIAGNOSTICS_SCRIPT, '--days', String(logDays)];
     if (!includeLogs) {
@@ -596,6 +598,7 @@ router.get(
 router.post(
   '/setup-complete',
   requireAuth,
+  validateBody(SetupCompleteBody),
   asyncHandler(async (req, res) => {
     const { companyName, hostname, selectedModel } = req.body;
 
@@ -638,12 +641,9 @@ router.post(
 router.put(
   '/setup-step',
   requireAuth,
+  validateBody(SetupStepBody),
   asyncHandler(async (req, res) => {
     const { step, companyName, hostname, selectedModel } = req.body;
-
-    if (step === undefined || typeof step !== 'number' || step < 0 || step > 5) {
-      throw new ValidationError('Step must be a number between 0 and 5');
-    }
 
     await db.query(
       `UPDATE system_settings SET
