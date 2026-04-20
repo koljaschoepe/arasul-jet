@@ -86,7 +86,6 @@ interface StoreDetailModalProps {
   loadedModel?: LoadedModel | null;
   defaultModel?: string;
   isDownloading?: (id: string) => boolean;
-  downloadState?: Record<string, unknown>;
   activating?: string | null;
   activatingPercent?: number;
   onDownload?: (id: string, name: string) => void;
@@ -137,7 +136,6 @@ function StoreDetailModal({
   loadedModel,
   defaultModel,
   isDownloading,
-  downloadState,
   activating,
   activatingPercent,
   onDownload,
@@ -152,7 +150,7 @@ function StoreDetailModal({
   const isModel = type === 'model';
 
   // Model state
-  const isInstalled = isModel && item.install_status === 'available';
+  const isReady = isModel && item.install_status === 'available';
   const isLoaded =
     isModel &&
     (loadedModel?.model_id === item.id || loadedModel?.model_id === item.effective_ollama_name);
@@ -350,7 +348,7 @@ function StoreDetailModal({
                   {item.capabilities.map((cap: string) => (
                     <span
                       key={cap}
-                      className="capability-tag bg-muted text-foreground/60 px-2 py-1 rounded text-xs"
+                      className="capability-tag bg-muted text-muted-foreground px-2 py-1 rounded text-xs"
                     >
                       {cap}
                     </span>
@@ -396,14 +394,14 @@ function StoreDetailModal({
           {isModel ? (
             <>
               {/* Model: Download */}
-              {!isInstalled && !modelDownloading && (
+              {!isReady && !modelDownloading && (
                 <Button onClick={() => onDownload?.(item.id, item.name)}>
                   <Download className="size-4" /> Herunterladen
                 </Button>
               )}
 
               {/* Model: Activate + Set Default + Delete */}
-              {isInstalled && !isLoaded && (
+              {isReady && !isLoaded && (
                 <>
                   <Button
                     onClick={() => onActivate?.(item.id)}

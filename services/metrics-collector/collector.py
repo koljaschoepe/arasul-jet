@@ -55,6 +55,7 @@ METRICS_INTERVAL_PERSIST = int(os.getenv('METRICS_INTERVAL_PERSIST', '30'))
 current_metrics = {
     'cpu': 0.0,
     'ram': 0.0,
+    'swap': 0.0,
     'gpu': 0.0,
     'temperature': 0.0,
     'disk': {
@@ -75,10 +76,16 @@ metrics_buffer = []
 class MetricsCollector:
     """Collects system metrics from various sources"""
 
-    # Candidate GPU load paths (Orin, Thor, generic)
+    # Candidate GPU load paths (Orin JetPack 6+, Xavier legacy, generic)
     GPU_LOAD_CANDIDATES = [
-        'devices/platform/gpu.0/load',
-        'devices/platform/gpu/load',
+        'devices/platform/bus@0/17000000.gpu/load',  # AGX Orin, JetPack 6+ (L4T R36+)
+        'devices/platform/gpu.0/load',               # Xavier legacy
+        'devices/platform/gpu/load',                 # Generic fallback
+    ]
+
+    # Glob patterns for future-proofing (Thor / other Tegra SoCs)
+    GPU_LOAD_GLOBS = [
+        'devices/platform/bus@*/[0-9a-f]*.gpu/load',
     ]
 
     SYSFS_PREFIXES = ['/host/sys', '/sys']
@@ -131,18 +138,39 @@ class MetricsCollector:
                 full_path = os.path.join(prefix, candidate)
                 if os.path.exists(full_path):
                     self._cached_gpu_load_path = full_path
+                    logger.info(f"GPU load sysfs path: {full_path}")
                     return full_path
+
+        # Glob-based discovery for future Tegra SoCs (Thor etc.)
+        for prefix in self.SYSFS_PREFIXES:
+            for glob_pat in self.GPU_LOAD_GLOBS:
+                matches = glob_module.glob(os.path.join(prefix, glob_pat))
+                if matches:
+                    self._cached_gpu_load_path = matches[0]
+                    logger.info(f"GPU load sysfs path (glob): {matches[0]}")
+                    return matches[0]
 
         self._cached_gpu_load_path = ''  # Mark as searched but not found
         return None
 
     def _find_gpu_thermal_path(self) -> Optional[str]:
-        """Discover GPU thermal zone by checking type instead of hardcoding zone number (cached)"""
+        """Discover thermal zone — prefers Tj (junction) for throttle-relevant temp.
+
+        Priority: tj-thermal (max across all zones, NVIDIA's throttle indicator)
+        → gpu-thermal → legacy Jetpack <=5 names.
+        """
         if self._cached_gpu_thermal_path is not None:
             return self._cached_gpu_thermal_path if self._cached_gpu_thermal_path else None
 
-        gpu_therm_names = ['gpu-therm', 'GPU-therm', 'gpu_therm', 'Tdiode_GPU', 'GPU']
+        # Ordered preference: Tj first (junction = max, throttle-relevant), then GPU-specific
+        preferred_names = [
+            'tj-thermal',       # L4T R36+ junction temp (max of all zones)
+            'gpu-thermal',      # L4T R36+ GPU zone
+            'gpu-therm', 'GPU-therm', 'gpu_therm',  # Legacy JetPack ≤5
+            'Tdiode_GPU', 'GPU',
+        ]
 
+        discovered: Dict[str, str] = {}
         for prefix in self.SYSFS_PREFIXES:
             thermal_base = os.path.join(prefix, 'class/thermal')
             if not os.path.isdir(thermal_base):
@@ -156,17 +184,23 @@ class MetricsCollector:
                         if os.path.exists(type_file):
                             with open(type_file, 'r') as f:
                                 zone_type = f.read().strip()
-                                if zone_type in gpu_therm_names:
+                                if zone_type in preferred_names and zone_type not in discovered:
                                     temp_path = os.path.join(zone_dir, 'temp')
                                     if os.path.exists(temp_path):
-                                        self._cached_gpu_thermal_path = temp_path
-                                        logger.info(f"GPU thermal zone: {zone_type} -> {temp_path}")
-                                        return temp_path
+                                        discovered[zone_type] = temp_path
                     except Exception as e:
                         logger.debug(f"Non-critical error reading thermal zone type: {e}")
                         continue
             except Exception as e:
                 logger.debug(f"Non-critical error scanning thermal zones: {e}")
+
+            # Pick in preference order from what we discovered under this prefix
+            for name in preferred_names:
+                if name in discovered:
+                    temp_path = discovered[name]
+                    self._cached_gpu_thermal_path = temp_path
+                    logger.info(f"System temperature zone: {name} -> {temp_path}")
+                    return temp_path
 
         # Fallback: try common zone paths
         fallback_paths = [
@@ -198,6 +232,14 @@ class MetricsCollector:
             return psutil.virtual_memory().percent
         except Exception as e:
             logger.error(f"Error reading RAM: {e}")
+            return 0.0
+
+    def get_swap_percent(self) -> float:
+        """Get swap utilization percentage (aggregates zram + NVMe swapfile on Jetson)"""
+        try:
+            return psutil.swap_memory().percent
+        except Exception as e:
+            logger.error(f"Error reading swap: {e}")
             return 0.0
 
     def get_gpu_percent(self) -> float:
@@ -512,6 +554,7 @@ class MetricsCollector:
         return {
             'cpu': self.get_cpu_percent(),
             'ram': self.get_ram_percent(),
+            'swap': self.get_swap_percent(),
             'gpu': self.get_gpu_percent(),
             'temperature': self.get_temperature(),
             'disk': self.get_disk_usage(),
@@ -720,6 +763,12 @@ class DatabaseWriter:
             cursor.execute(
                 "INSERT INTO metrics_ram (timestamp, value) VALUES (%s, %s) ON CONFLICT (timestamp) DO NOTHING",
                 (timestamp, metrics['ram'])
+            )
+
+            # Insert Swap
+            cursor.execute(
+                "INSERT INTO metrics_swap (timestamp, value) VALUES (%s, %s) ON CONFLICT (timestamp) DO NOTHING",
+                (timestamp, metrics.get('swap', 0))
             )
 
             # Insert GPU

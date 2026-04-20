@@ -122,13 +122,12 @@ http:
         - websecure
       tls: {}
 
-    # n8n Workflow Engine (protected by dashboard session auth)
+    # n8n Workflow Engine (uses its own authentication)
     n8n:
       rule: 'PathPrefix(`/n8n`)'
       service: n8n-service
       priority: 100
       middlewares:
-        - forward-auth
         - strip-n8n-prefix
         - security-headers
       entryPoints:

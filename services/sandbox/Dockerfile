@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     htop \
     less \
     tree \
+    tmux \
     unzip \
     zip \
     openssh-client \
@@ -45,15 +46,22 @@ ENV LANG=en_US.UTF-8 \
 RUN npm install -g @anthropic-ai/claude-code 2>/dev/null || true
 
 # Reuse existing 'node' user (UID 1000) — matches host user arasul
-# Rename to 'sandbox' for clarity
+# Rename to 'sandbox' for clarity.
+# Narrow sudoers to a whitelist (package install + GPU diagnostics) instead of
+# NOPASSWD:ALL to shrink container-escape blast radius (SEC-02).
 RUN usermod -l sandbox -d /home/sandbox -m node && \
     groupmod -n sandbox node && \
-    echo "sandbox ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    install -d -m 0750 /etc/sudoers.d && \
+    printf 'sandbox ALL=(root) NOPASSWD: /usr/bin/apt-get, /usr/bin/apt, /usr/bin/dpkg, /usr/bin/pip3, /usr/bin/npm, /usr/bin/nvidia-smi, /usr/bin/tegrastats\n' \
+      > /etc/sudoers.d/sandbox && \
+    chmod 0440 /etc/sudoers.d/sandbox && \
+    visudo -c -f /etc/sudoers.d/sandbox
 
 # Create workspace directory
 RUN mkdir -p /workspace && chown sandbox:sandbox /workspace
 
-# Copy entrypoint
+# Copy tmux config and entrypoint
+COPY tmux.conf /etc/tmux.conf
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 
 # Switch to non-root user

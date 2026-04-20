@@ -6,7 +6,7 @@
  * Migrated to TypeScript + shadcn + Tailwind
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { Package, Search, X, Cpu, LayoutGrid, Home } from 'lucide-react';
 import { Input } from '@/components/ui/shadcn/input';
@@ -44,6 +44,7 @@ function Store() {
   const toast = useToast();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
+  const searchRef = useRef<HTMLDivElement>(null);
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     llmRamGB: 32,
     totalRamGB: 64,
@@ -95,6 +96,30 @@ function Store() {
     return 'home';
   }, [location.pathname]);
 
+  // Close search overlay on click outside or Escape
+  useEffect(() => {
+    if (!searchQuery) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchQuery('');
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchQuery('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [searchQuery]);
+
   // Clear search when navigating
   const handleTabClick = () => {
     if (searchQuery) {
@@ -103,7 +128,7 @@ function Store() {
   };
 
   return (
-    <div className="store p-4 md:p-6 max-w-[1600px] mx-auto animate-in fade-in">
+    <div className="store p-6 max-md:p-4 max-w-[1600px] mx-auto animate-in fade-in">
       {/* Header */}
       <div className="store-header mb-6">
         <div className="store-header-top flex items-center justify-between gap-6 mb-4 flex-wrap relative">
@@ -113,7 +138,7 @@ function Store() {
           </div>
 
           {/* Global Search */}
-          <div className="store-search relative flex-1 max-w-[400px] min-w-[200px]">
+          <div ref={searchRef} className="store-search relative flex-1 max-w-[400px] min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             <Input
               type="text"
@@ -121,6 +146,10 @@ function Store() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               aria-label="Store durchsuchen"
+              aria-expanded={!!searchQuery}
+              aria-controls={searchQuery ? 'store-search-results' : undefined}
+              role="combobox"
+              aria-autocomplete="list"
               className="pl-10 pr-10"
             />
             {searchQuery && (
@@ -136,7 +165,14 @@ function Store() {
 
             {/* Search Results Overlay */}
             {searchQuery && (
-              <div className="store-search-results absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[400px] overflow-y-auto">
+              <div
+                id="store-search-results"
+                className="store-search-results absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[400px] overflow-y-auto"
+                role="listbox"
+                aria-label="Suchergebnisse"
+                aria-live="polite"
+                aria-busy={isSearching}
+              >
                 {isSearching ? (
                   <div className="p-6 text-center text-muted-foreground">Suche...</div>
                 ) : (
@@ -152,6 +188,7 @@ function Store() {
                               key={model.id}
                               to={`/store/models?highlight=${model.id}`}
                               className="search-item flex justify-between items-center px-3 py-2.5 rounded-md no-underline transition-colors hover:bg-muted"
+                              role="option"
                               onClick={() => setSearchQuery('')}
                             >
                               <span className="search-item-name text-foreground font-medium">
@@ -185,6 +222,7 @@ function Store() {
                               key={app.id}
                               to={`/store/apps?highlight=${app.id}`}
                               className="search-item flex justify-between items-center px-3 py-2.5 rounded-md no-underline transition-colors hover:bg-muted"
+                              role="option"
                               onClick={() => setSearchQuery('')}
                             >
                               <span className="search-item-name text-foreground font-medium">
@@ -236,7 +274,9 @@ function Store() {
             }
             onClick={handleTabClick}
             role="tab"
+            id="store-tab-home"
             aria-selected={activeTab === 'home'}
+            aria-controls="store-tabpanel"
           >
             <Home className="size-4" />
             <span>Start</span>
@@ -252,7 +292,9 @@ function Store() {
             }
             onClick={handleTabClick}
             role="tab"
+            id="store-tab-models"
             aria-selected={activeTab === 'models'}
+            aria-controls="store-tabpanel"
           >
             <Cpu className="size-4" />
             <span>Modelle</span>
@@ -268,7 +310,9 @@ function Store() {
             }
             onClick={handleTabClick}
             role="tab"
+            id="store-tab-apps"
             aria-selected={activeTab === 'apps'}
+            aria-controls="store-tabpanel"
           >
             <LayoutGrid className="size-4" />
             <span>Apps</span>
@@ -277,7 +321,12 @@ function Store() {
       </div>
 
       {/* Content */}
-      <div className="store-content mt-6">
+      <div
+        className="store-content mt-6"
+        role="tabpanel"
+        id="store-tabpanel"
+        aria-labelledby={`store-tab-${activeTab}`}
+      >
         <Routes>
           <Route
             index

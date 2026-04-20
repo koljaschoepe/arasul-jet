@@ -92,6 +92,21 @@ _model_cache_time = 0
 _model_cache_lock = threading.Lock()
 MODEL_CACHE_TTL = 60  # Cache models for 60 seconds
 
+# LLM-02: Per-model pull locks. Prevents two concurrent `/api/models/pull`
+# calls for the same model from both streaming a download — Ollama itself
+# will dedupe, but we avoid double log spam and the cache-invalidation race
+# that briefly surfaces a half-downloaded tag to /api/tags consumers.
+_pull_locks: dict = {}
+_pull_locks_guard = threading.Lock()
+
+def _get_pull_lock(model_name: str) -> threading.Lock:
+    with _pull_locks_guard:
+        lock = _pull_locks.get(model_name)
+        if lock is None:
+            lock = threading.Lock()
+            _pull_locks[model_name] = lock
+        return lock
+
 
 def _get_gpu_memory():
     """
@@ -266,8 +281,15 @@ def pull_model():
             _model_cache = None
             _model_cache_time = 0
 
+        pull_lock = _get_pull_lock(model_name)
+
         # Stream progress from Ollama to caller
         def generate():
+            # LLM-02: serialize concurrent pulls of the same model
+            acquired = pull_lock.acquire(blocking=False)
+            if not acquired:
+                logger.info(f"Pull for {model_name} already in progress — waiting")
+                pull_lock.acquire()  # block until the in-flight pull finishes
             try:
                 response = _http_session.post(
                     f"{OLLAMA_BASE_URL}/api/pull",
@@ -299,6 +321,11 @@ def pull_model():
             except Exception as e:
                 logger.error(f"Pull model error: {e}")
                 yield json.dumps({"error": str(e)}).encode() + b'\n'
+            finally:
+                try:
+                    pull_lock.release()
+                except RuntimeError:
+                    pass
 
         return Response(generate(), mimetype='application/x-ndjson')
 

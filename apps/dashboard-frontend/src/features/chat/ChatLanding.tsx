@@ -343,7 +343,7 @@ export default function ChatLanding() {
           )}
         </div>
         {projects.length > 1 && (
-          <div className="project-filter-chips flex flex-wrap gap-1 mt-2">
+          <div className="project-filter-chips flex flex-wrap gap-2 mt-3">
             {projects.map(p => (
               <button
                 key={p.id}
@@ -369,7 +369,7 @@ export default function ChatLanding() {
       </div>
 
       {isSearching ? (
-        <section className="search-results flex flex-col gap-1">
+        <section className="search-results flex flex-col gap-2">
           {searchLoading || searchResults === null ? (
             <div className="chat-landing-skeleton flex flex-col gap-4">
               <div className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
@@ -406,7 +406,7 @@ export default function ChatLanding() {
               <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide m-0 mb-4">
                 Letzte Chats
               </h2>
-              <div className="recent-chats-list grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2">
+              <div className="recent-chats-list grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
                 {displayedRecentChats.slice(0, 6).map(chat => (
                   <RecentChatCard
                     key={chat.id}

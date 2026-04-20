@@ -42,6 +42,7 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
 }: ConfirmIconButtonProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const confirmBtnRef = useRef<HTMLButtonElement>(null);
   const styles = variantStyles[variant];
 
   useEffect(() => {
@@ -61,6 +62,9 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
+
+    // Focus confirm button when popup opens
+    requestAnimationFrame(() => confirmBtnRef.current?.focus());
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -115,6 +119,7 @@ const ConfirmIconButton = memo(function ConfirmIconButton({
         >
           <span className="confirm-text text-sm font-medium whitespace-nowrap">{confirmText}</span>
           <Button
+            ref={confirmBtnRef}
             variant="ghost"
             size="icon-xs"
             className={cn('confirm-yes', styles.confirm)}

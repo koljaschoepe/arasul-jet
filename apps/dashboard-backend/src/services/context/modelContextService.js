@@ -204,8 +204,8 @@ async function getTokenBudget(modelName) {
   const tier2Memory = contextWindow >= 16384 ? 400 : 200;
   const tier3Summary = contextWindow >= 16384 ? 600 : 300;
 
-  // RAG budget scales with context
-  const maxRagTokens = contextWindow >= 32768 ? 8000 : contextWindow >= 16384 ? 4000 : 1500;
+  // RAG budget scales with context (increased for top_k=8 with parent chunks)
+  const maxRagTokens = contextWindow >= 32768 ? 24000 : contextWindow >= 16384 ? 8000 : 3000;
 
   const fixedOverhead = SYSTEM_PROMPT_TOKENS + TIER1_PROFILE_TOKENS + tier2Memory + tier3Summary;
   const availableForHistory = contextWindow - responseReserve - fixedOverhead - maxRagTokens;

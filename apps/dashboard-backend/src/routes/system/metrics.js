@@ -107,6 +107,7 @@ router.get(
             ts as timestamp,
             (SELECT value FROM metrics_cpu WHERE timestamp <= ts ORDER BY timestamp DESC LIMIT 1) as cpu,
             (SELECT value FROM metrics_ram WHERE timestamp <= ts ORDER BY timestamp DESC LIMIT 1) as ram,
+            (SELECT value FROM metrics_swap WHERE timestamp <= ts ORDER BY timestamp DESC LIMIT 1) as swap,
             (SELECT value FROM metrics_gpu WHERE timestamp <= ts ORDER BY timestamp DESC LIMIT 1) as gpu,
             (SELECT value FROM metrics_temperature WHERE timestamp <= ts ORDER BY timestamp DESC LIMIT 1) as temperature,
             (SELECT percent FROM metrics_disk WHERE timestamp <= ts ORDER BY timestamp DESC LIMIT 1) as disk_used
@@ -121,6 +122,7 @@ router.get(
       timestamps: [],
       cpu: [],
       ram: [],
+      swap: [],
       gpu: [],
       temperature: [],
       disk_used: [],
@@ -130,6 +132,7 @@ router.get(
       data.timestamps.push(row.timestamp);
       data.cpu.push(parseFloat(row.cpu) || 0);
       data.ram.push(parseFloat(row.ram) || 0);
+      data.swap.push(parseFloat(row.swap) || 0);
       data.gpu.push(parseFloat(row.gpu) || 0);
       data.temperature.push(parseFloat(row.temperature) || 0);
       data.disk_used.push(parseFloat(row.disk_used) || 0);

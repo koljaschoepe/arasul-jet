@@ -85,7 +85,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
 
   if (loading) {
     return (
-      <div className="dt-container p-6 w-full min-h-full box-border">
+      <div className="dt-container p-6 max-md:p-4 w-full min-h-full box-border">
         <div
           className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4"
           role="status"
@@ -103,7 +103,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
 
   if (error) {
     return (
-      <div className="dt-container p-6 w-full min-h-full box-border">
+      <div className="dt-container p-6 max-md:p-4 w-full min-h-full box-border">
         <div className="flex flex-col items-center justify-center min-h-[400px] text-center text-muted-foreground">
           <h3 className="text-foreground mb-2">Fehler beim Laden</h3>
           <p>{error}</p>

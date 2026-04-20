@@ -6,7 +6,7 @@
  * Migrated to TypeScript + shadcn + Tailwind
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import useConfirm from '../../hooks/useConfirm';
 import EmptyState from '../../components/ui/EmptyState';
@@ -16,10 +16,8 @@ import {
   Cpu,
   Download,
   Trash2,
-  Play,
   Check,
   AlertCircle,
-  RefreshCw,
   HardDrive,
   Zap,
   Star,
@@ -29,10 +27,13 @@ import {
   Type,
 } from 'lucide-react';
 import { useDownloads } from '../../contexts/DownloadContext';
+import { useActivation } from '../../contexts/ActivationContext';
 import { useApi } from '../../hooks/useApi';
 import { useFetchData } from '../../hooks/useFetchData';
 import { formatModelSize as formatSize } from '../../utils/formatting';
 import StoreDetailModal from './StoreDetailModal';
+import DownloadProgress from './DownloadProgress';
+import ActivationButton from './ActivationButton';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
@@ -137,9 +138,6 @@ function StoreModels() {
 
   const { catalog, loadedModel, defaultModel, queueByModel } = modelData;
 
-  const [activating, setActivating] = useState<string | null>(null);
-  const [activatingProgress, setActivatingProgress] = useState('');
-  const [activatingPercent, setActivatingPercent] = useState(0);
   const [selectedModel, setSelectedModel] = useState<CatalogModel | null>(null);
 
   // Filters
@@ -148,27 +146,23 @@ function StoreModels() {
 
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete, cancelDownload } =
     useDownloads();
-  const activatingRef = useRef(false);
-  const activateAbortRef = useRef<AbortController | null>(null);
+  const { activation, startActivation, onActivationComplete } = useActivation();
 
-  // Cleanup activation stream on unmount
+  // Poll for status updates every 30 seconds (catalog changes rarely)
   useEffect(() => {
-    return () => {
-      activateAbortRef.current?.abort();
-    };
-  }, []);
-
-  // Poll for status updates every 15 seconds
-  useEffect(() => {
-    const interval = setInterval(() => loadData(), 15000);
+    const interval = setInterval(() => loadData(), 30000);
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // Reload when download completes
+  // Reload when download or activation completes
   useEffect(() => {
-    const unsubscribe = onDownloadComplete(() => loadData());
-    return unsubscribe;
-  }, [onDownloadComplete, loadData]);
+    const unsub1 = onDownloadComplete(() => loadData());
+    const unsub2 = onActivationComplete(() => loadData());
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [onDownloadComplete, onActivationComplete, loadData]);
 
   // Highlight model from search
   useEffect(() => {
@@ -185,80 +179,10 @@ function StoreModels() {
     startDownload(modelId, modelName);
   };
 
-  // Activate model with SSE streaming
-  const handleActivate = async (modelId: string) => {
-    if (activatingRef.current) return;
-    activatingRef.current = true;
-
-    activateAbortRef.current?.abort();
-    const controller = new AbortController();
-    activateAbortRef.current = controller;
-
-    setActivating(modelId);
-    setActivatingProgress('Initialisiere...');
-    setActivatingPercent(0);
-
-    try {
-      const response = await api.post<Response>(`/models/${modelId}/activate?stream=true`, null, {
-        raw: true,
-        showError: false,
-        signal: controller.signal,
-      });
-
-      const body = response.body;
-      if (!body) throw new Error('Streaming nicht verfügbar');
-      const reader = body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        if (controller.signal.aborted) {
-          reader.cancel();
-          break;
-        }
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.progress !== undefined) setActivatingPercent(data.progress);
-              if (data.message) setActivatingProgress(data.message);
-              if (data.error) throw new Error(data.error);
-              if (data.done) {
-                setActivatingProgress(data.message || 'Erfolgreich aktiviert!');
-                setActivatingPercent(100);
-                await new Promise(resolve => setTimeout(resolve, 800));
-                await loadData();
-              }
-            } catch (parseErr: unknown) {
-              if (
-                !(parseErr instanceof Error) ||
-                parseErr.message !== 'Unexpected end of JSON input'
-              ) {
-                console.error('SSE parse error:', parseErr);
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      console.error('Activation error:', err);
-      const model = catalog.find(m => m.id === modelId);
-      const name = model?.name || modelId;
-      setError(`Aktivierung von „${name}" fehlgeschlagen. Bitte versuche es erneut.`);
-    } finally {
-      setActivating(null);
-      setActivatingProgress('');
-      setActivatingPercent(0);
-      activatingRef.current = false;
-    }
+  // Activate model via global ActivationContext
+  const handleActivate = (modelId: string) => {
+    const model = catalog.find(m => m.id === modelId);
+    startActivation(modelId, model?.name);
   };
 
   // Delete model
@@ -444,13 +368,13 @@ function StoreModels() {
         {/* Model Grid */}
         <div className="model-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
           {filteredCatalog.map(model => {
-            const isInstalled = model.install_status === 'available';
+            const isReady = model.install_status === 'available';
             const isLoaded =
               loadedModel?.model_id === model.id ||
               loadedModel?.model_id === model.effective_ollama_name;
             const modelIsDownloading = isDownloading(model.id);
             const downloadState = getDownloadState(model.id);
-            const isActivating = activating === model.id;
+            const isActivating = activation?.modelId === model.id && !activation?.error;
             const isDefault = defaultModel === model.id;
             const pendingJobs = getQueueCount(model.id);
             const sizeInfo = sizeConfig[model.category] || sizeConfig.medium;
@@ -461,9 +385,8 @@ function StoreModels() {
               <div
                 key={model.id}
                 className={cn(
-                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted',
-                  isLoaded && 'active border-primary bg-primary/5',
-                  isInstalled && 'installed border-muted'
+                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20',
+                  isLoaded && 'border-l-2 border-l-primary'
                 )}
                 onClick={() => setSelectedModel(model)}
                 tabIndex={0}
@@ -491,9 +414,17 @@ function StoreModels() {
                     {isLoaded && (
                       <Badge
                         variant="outline"
-                        className="badge-loaded bg-primary/10 border-primary text-primary"
+                        className="badge-loaded bg-primary/10 border-primary/30 text-primary"
                       >
                         <Zap className="size-3" /> Aktiv
+                      </Badge>
+                    )}
+                    {isReady && !isLoaded && (
+                      <Badge
+                        variant="outline"
+                        className="badge-installed bg-muted border-border text-muted-foreground"
+                      >
+                        <Check className="size-3" /> Installiert
                       </Badge>
                     )}
                     {pendingJobs > 0 && (
@@ -506,14 +437,14 @@ function StoreModels() {
                     )}
                     <Badge
                       variant="outline"
-                      className="badge-type bg-muted border-border text-foreground/60"
+                      className="badge-type bg-muted border-border text-muted-foreground"
                       title={typeInfo.description}
                     >
                       {typeInfo.label}
                     </Badge>
                     <Badge
                       variant="outline"
-                      className="badge-category bg-muted border-border text-foreground/60"
+                      className="badge-category bg-muted border-border text-muted-foreground"
                       title={sizeInfo.description}
                     >
                       {sizeInfo.label}
@@ -546,7 +477,7 @@ function StoreModels() {
                     {model.capabilities.slice(0, 4).map(cap => (
                       <span
                         key={cap}
-                        className="capability-tag text-xs bg-muted text-foreground/60 px-2 py-0.5 rounded-full"
+                        className="capability-tag text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
                       >
                         {cap}
                       </span>
@@ -556,70 +487,10 @@ function StoreModels() {
 
                 {/* Download Progress */}
                 {modelIsDownloading && downloadState && (
-                  <div
-                    className={cn(
-                      'download-progress bg-muted rounded-md p-3.5 border border-border',
-                      `phase-${downloadState.phase}`,
-                      downloadState.phase === 'complete' && 'border-primary bg-primary/10'
-                    )}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <div className="progress-header flex justify-between items-center mb-2">
-                      <span
-                        className={cn(
-                          'progress-phase-label text-xs font-semibold text-muted-foreground uppercase tracking-wider',
-                          downloadState.phase === 'complete' && 'text-primary'
-                        )}
-                      >
-                        {downloadState.phase === 'init' && 'Initialisiere'}
-                        {downloadState.phase === 'download' && 'Download'}
-                        {downloadState.phase === 'verify' && 'Verifiziere'}
-                        {downloadState.phase === 'complete' && 'Fertig'}
-                        {downloadState.phase === 'error' && 'Fehler'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={cn(
-                            'progress-percent text-primary font-semibold text-sm',
-                            downloadState.phase === 'complete' && 'text-primary'
-                          )}
-                        >
-                          {downloadState.progress}%
-                        </span>
-                        {downloadState.phase !== 'complete' && (
-                          <button
-                            onClick={() => cancelDownload(model.id)}
-                            className="text-muted-foreground hover:text-destructive transition-colors p-0.5 rounded"
-                            title="Download abbrechen"
-                            aria-label="Download abbrechen"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="progress-bar h-2 bg-border rounded overflow-hidden mb-2">
-                      <div
-                        className={cn(
-                          'progress-fill h-full bg-linear-to-r from-primary to-primary/80 rounded transition-all duration-300',
-                          downloadState.phase === 'verify' &&
-                            'pulsing animate-pulse from-muted-foreground to-muted-foreground/80',
-                          downloadState.phase === 'complete' && 'from-primary to-primary/80'
-                        )}
-                        style={{
-                          width: `${downloadState.phase === 'verify' && downloadState.progress < 100 ? 100 : downloadState.progress}%`,
-                        }}
-                      />
-                    </div>
-                    <div
-                      className={cn(
-                        'progress-status text-xs text-muted-foreground',
-                        downloadState.phase === 'complete' && 'text-primary'
-                      )}
-                    >
-                      {downloadState.error || downloadState.status}
-                    </div>
-                  </div>
+                  <DownloadProgress
+                    downloadState={downloadState}
+                    onCancel={() => cancelDownload(model.id)}
+                  />
                 )}
 
                 {/* Actions */}
@@ -627,7 +498,7 @@ function StoreModels() {
                   className="model-actions flex gap-2 mt-auto pt-2"
                   onClick={e => e.stopPropagation()}
                 >
-                  {!isInstalled && !modelIsDownloading && (
+                  {!isReady && !modelIsDownloading && (
                     <>
                       <Button
                         size="sm"
@@ -652,32 +523,14 @@ function StoreModels() {
                     </>
                   )}
 
-                  {isInstalled && !isLoaded && (
+                  {(isReady || isLoaded) && (
                     <>
-                      <Button
-                        size="sm"
-                        className={cn('flex-1', isActivating && 'activating-btn')}
-                        onClick={() => handleActivate(model.id)}
-                        disabled={isActivating}
-                        style={
-                          isActivating
-                            ? {
-                                background: `linear-gradient(90deg, var(--color-success) ${activatingPercent}%, var(--card) ${activatingPercent}%)`,
-                                borderColor: 'var(--color-success)',
-                              }
-                            : {}
-                        }
-                      >
-                        {isActivating ? (
-                          <>
-                            <RefreshCw className="size-4 animate-spin" /> {activatingPercent}%
-                          </>
-                        ) : (
-                          <>
-                            <Play className="size-4" /> Aktivieren
-                          </>
-                        )}
-                      </Button>
+                      <ActivationButton
+                        isActivating={isActivating}
+                        isLoaded={isLoaded}
+                        activatingPercent={activation?.progress || 0}
+                        onActivate={() => handleActivate(model.id)}
+                      />
                       <Button
                         size="icon-sm"
                         variant="ghost"
@@ -691,37 +544,18 @@ function StoreModels() {
                       >
                         <Star className={cn('size-4', isDefault && 'fill-primary')} />
                       </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={() => handleDelete(model.id)}
-                        title="Löschen"
-                        aria-label="Löschen"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </>
-                  )}
-
-                  {isLoaded && (
-                    <>
-                      <Button size="sm" className="flex-1" disabled>
-                        <Check className="size-4" /> Aktiv
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className={cn(
-                          'text-muted-foreground hover:text-primary',
-                          isDefault && 'text-primary'
-                        )}
-                        onClick={() => handleSetDefault(model.id)}
-                        title={isDefault ? 'Standard-Modell' : 'Als Standard setzen'}
-                        aria-label={isDefault ? 'Standard-Modell' : 'Als Standard setzen'}
-                      >
-                        <Star className={cn('size-4', isDefault && 'fill-primary')} />
-                      </Button>
+                      {isReady && !isLoaded && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() => handleDelete(model.id)}
+                          title="Löschen"
+                          aria-label="Löschen"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
@@ -743,8 +577,8 @@ function StoreModels() {
             loadedModel={loadedModel}
             defaultModel={defaultModel ?? undefined}
             isDownloading={isDownloading}
-            activating={activating}
-            activatingPercent={activatingPercent}
+            activating={activation?.modelId ?? null}
+            activatingPercent={activation?.progress || 0}
             onDownload={handleDownload}
             onActivate={handleActivate}
             onDelete={handleDelete}

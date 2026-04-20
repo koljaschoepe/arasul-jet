@@ -12,6 +12,7 @@ import {
   Download,
   Play,
   Check,
+  Clock,
   Star,
   RefreshCw,
   Zap,
@@ -23,11 +24,14 @@ import { Badge } from '@/components/ui/shadcn/badge';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 import { useDownloads } from '../../contexts/DownloadContext';
+import { useActivation } from '../../contexts/ActivationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useApi } from '../../hooks/useApi';
 import { formatModelSize as formatSize } from '../../utils/formatting';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import StoreDetailModal from './StoreDetailModal';
+import DownloadProgress from './DownloadProgress';
+import ActivationButton from './ActivationButton';
 
 interface SystemInfo {
   llmRamGB: number;
@@ -86,22 +90,26 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadedModel, setLoadedModel] = useState<LoadedModel | null>(null);
+  const [defaultModel, setDefaultModel] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, string | null>>({});
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
 
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
+  const { activation, startActivation, onActivationComplete } = useActivation();
 
   // Load recommendations
   const loadRecommendations = useCallback(async () => {
     try {
       const opts = { showError: false };
-      const [recsData, statusData] = await Promise.all([
+      const [recsData, statusData, defaultData] = await Promise.all([
         api.get('/store/recommendations', opts),
         api.get('/models/status', opts).catch(() => ({})),
+        api.get('/models/default', opts).catch(() => ({})),
       ]);
 
       setRecommendations(recsData);
       setLoadedModel(statusData.loaded_model);
+      setDefaultModel(defaultData.default_model || null);
       setError(null);
     } catch (err) {
       console.error('Failed to load recommendations:', err);
@@ -115,78 +123,30 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
     loadRecommendations();
   }, [loadRecommendations]);
 
-  // Reload when download completes
+  // Reload when download or activation completes
   useEffect(() => {
-    const unsubscribe = onDownloadComplete(() => {
-      loadRecommendations();
-    });
-    return unsubscribe;
-  }, [onDownloadComplete, loadRecommendations]);
+    const unsub1 = onDownloadComplete(() => loadRecommendations());
+    const unsub2 = onActivationComplete(() => loadRecommendations());
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [onDownloadComplete, onActivationComplete, loadRecommendations]);
 
   // Handle model download
   const handleModelDownload = (modelId: string, modelName: string) => {
     startDownload(modelId, modelName);
   };
 
-  // Handle model activation with SSE streaming for progress feedback
-  const handleModelActivate = async (modelId: string) => {
-    setActionLoading(prev => ({ ...prev, [modelId]: 'activating' }));
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min timeout
-
-      const response = await api.post(`/models/${modelId}/activate?stream=true`, null, {
-        raw: true,
-        showError: false,
-        signal: controller.signal,
-      });
-
-      // Consume SSE stream (just wait for completion, StoreHome doesn't show detailed progress)
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop()!;
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.substring(6));
-                if (data.error) throw new Error(data.error);
-              } catch (e) {
-                if (e instanceof Error && e.message && e.message !== 'Unexpected end of JSON input')
-                  throw e;
-              }
-            }
-          }
-        }
-      } finally {
-        clearTimeout(timeoutId);
-        reader.cancel().catch(() => {});
-      }
-
-      await loadRecommendations();
-    } catch (err) {
-      console.error('Activation error:', err);
-      const model = recommendations.models.find(m => m.id === modelId);
-      const name = model?.name || modelId;
-      const isAbort = err instanceof DOMException && err.name === 'AbortError';
-      toast.error(
-        isAbort
-          ? `Aktivierung von „${name}" hat zu lange gedauert`
-          : (err as Error).message || `Aktivierung von „${name}" fehlgeschlagen`
-      );
-    } finally {
-      setActionLoading(prev => ({ ...prev, [modelId]: null }));
-    }
+  // Handle model activation via global ActivationContext
+  const handleModelActivate = (modelId: string) => {
+    const model = recommendations.models.find(m => m.id === modelId);
+    startActivation(modelId, model?.name);
   };
 
   // Handle app action (install/start/stop/restart)
   const handleAppAction = async (appId: string, action: string) => {
+    if (actionLoading[appId]) return;
     setActionLoading(prev => ({ ...prev, [appId]: action }));
     try {
       await api.post(`/apps/${appId}/${action}`, null, { showError: false });
@@ -318,18 +278,18 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
 
         <div className="model-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
           {recommendations.models.slice(0, 4).map(model => {
-            const isInstalled = model.install_status === 'available';
+            const isReady = model.install_status === 'available';
             const isLoaded = loadedModel?.model_id === model.id;
             const modelIsDownloading = isDownloading(model.id);
             const downloadState = getDownloadState(model.id);
-            const isActivating = actionLoading[model.id] === 'activating';
+            const isActivating = activation?.modelId === model.id && !activation?.error;
 
             return (
               <div
                 key={model.id}
                 className={cn(
-                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted',
-                  isLoaded && 'active border-primary bg-primary/5'
+                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20',
+                  isLoaded && 'border-l-2 border-l-primary'
                 )}
                 onClick={() => setSelectedItem({ type: 'model', item: model })}
                 tabIndex={0}
@@ -357,9 +317,17 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                     {isLoaded && (
                       <Badge
                         variant="outline"
-                        className="bg-primary/10 border-primary text-primary"
+                        className="bg-primary/10 border-primary/30 text-primary"
                       >
                         <Zap className="size-3" /> Aktiv
+                      </Badge>
+                    )}
+                    {isReady && !isLoaded && (
+                      <Badge
+                        variant="outline"
+                        className="bg-muted border-border text-muted-foreground"
+                      >
+                        <Check className="size-3" /> Installiert
                       </Badge>
                     )}
                   </div>
@@ -390,7 +358,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                     {model.capabilities.slice(0, 4).map(cap => (
                       <span
                         key={cap}
-                        className="capability-tag text-xs bg-muted text-foreground/60 px-2 py-0.5 rounded-full"
+                        className="capability-tag text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
                       >
                         {cap}
                       </span>
@@ -400,27 +368,14 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
 
                 {/* Download Progress */}
                 {modelIsDownloading && downloadState && (
-                  <div
-                    className="download-progress flex items-center gap-3"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <div className="progress-bar flex-1 bg-border h-2 rounded overflow-hidden">
-                      <div
-                        className="progress-fill h-full bg-primary transition-all duration-300"
-                        style={{ width: `${downloadState.progress}%` }}
-                      />
-                    </div>
-                    <span className="progress-text text-xs text-muted-foreground font-medium">
-                      {downloadState.progress}%
-                    </span>
-                  </div>
+                  <DownloadProgress downloadState={downloadState} compact />
                 )}
 
                 <div
                   className="model-actions flex gap-2 mt-auto pt-2"
                   onClick={e => e.stopPropagation()}
                 >
-                  {!isInstalled && !modelIsDownloading && (
+                  {!isReady && !modelIsDownloading && (
                     <Button
                       size="sm"
                       className="flex-1"
@@ -429,28 +384,13 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                       <Download className="size-4" /> Herunterladen
                     </Button>
                   )}
-                  {isInstalled && !isLoaded && (
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleModelActivate(model.id)}
-                      disabled={isActivating}
-                    >
-                      {isActivating ? (
-                        <>
-                          <RefreshCw className="size-4 animate-spin" /> Aktiviere...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="size-4" /> Aktivieren
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  {isLoaded && (
-                    <Button size="sm" className="flex-1" disabled>
-                      <Check className="size-4" /> Aktiv
-                    </Button>
+                  {(isReady || isLoaded) && (
+                    <ActivationButton
+                      isActivating={isActivating}
+                      isLoaded={isLoaded}
+                      activatingPercent={activation?.progress || 0}
+                      onActivate={() => handleModelActivate(model.id)}
+                    />
                   )}
                 </div>
               </div>
@@ -483,8 +423,8 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
               <div
                 key={app.id}
                 className={cn(
-                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted',
-                  isRunning && 'active border-primary bg-primary/5'
+                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20',
+                  isRunning && 'border-l-2 border-l-primary'
                 )}
                 onClick={() => setSelectedItem({ type: 'app', item: app })}
                 tabIndex={0}
@@ -512,12 +452,23 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                     {isRunning && (
                       <Badge
                         variant="outline"
-                        className="bg-primary/10 border-primary text-primary"
+                        className="bg-primary/10 border-primary/30 text-primary"
                       >
                         <Zap className="size-3" /> Aktiv
                       </Badge>
                     )}
-                    <Badge variant="outline" className="bg-muted border-border text-foreground/60">
+                    {isInstalled && (
+                      <Badge
+                        variant="outline"
+                        className="bg-muted border-border text-muted-foreground"
+                      >
+                        <Clock className="size-3" /> Gestoppt
+                      </Badge>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className="bg-muted border-border text-muted-foreground"
+                    >
                       App
                     </Badge>
                   </div>
@@ -563,6 +514,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                   )}
                   {isInstalled && (
                     <Button
+                      variant="secondary"
                       size="sm"
                       className="flex-1"
                       onClick={() => handleAppAction(app.id, 'start')}
@@ -580,7 +532,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                     </Button>
                   )}
                   {isRunning && (
-                    <Button size="sm" className="flex-1" disabled>
+                    <Button variant="secondary" size="sm" className="flex-1" disabled>
                       <Check className="size-4" /> Aktiv
                     </Button>
                   )}
@@ -598,6 +550,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
           item={selectedItem.item}
           onClose={() => setSelectedItem(null)}
           loadedModel={loadedModel}
+          defaultModel={defaultModel ?? undefined}
           isDownloading={isDownloading}
           onDownload={handleModelDownload}
           onActivate={handleModelActivate}

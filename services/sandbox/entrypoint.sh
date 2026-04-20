@@ -3,6 +3,11 @@ set -e
 
 export HOME=/home/sandbox
 
+# Copy global tmux config to user home (if not already customized)
+if [ -f /etc/tmux.conf ] && [ ! -f "$HOME/.tmux.conf" ]; then
+    cp /etc/tmux.conf "$HOME/.tmux.conf"
+fi
+
 # Ensure workspace directory exists and is writable
 mkdir -p /workspace 2>/dev/null || true
 

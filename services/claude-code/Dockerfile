@@ -31,10 +31,15 @@ RUN wget -O /usr/local/bin/ttyd \
 RUN npm install -g @anthropic-ai/claude-code
 
 # Reuse existing 'node' user (UID 1000) from base image - matches host user arasul
-# Rename to 'claude' for clarity and move home directory
-# Add docker group with host GID (994) for Docker socket access
+# Rename to 'claude' for clarity and move home directory.
+# Narrow sudoers to package install instead of NOPASSWD:ALL (SEC-02).
+# Add docker group with host GID (994) for Docker socket access.
 RUN usermod -l claude -d /home/claude -m node && \
-    echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    install -d -m 0750 /etc/sudoers.d && \
+    printf 'claude ALL=(root) NOPASSWD: /usr/bin/apt-get, /usr/bin/apt, /usr/bin/dpkg, /usr/bin/npm, /usr/bin/pip3\n' \
+      > /etc/sudoers.d/claude && \
+    chmod 0440 /etc/sudoers.d/claude && \
+    visudo -c -f /etc/sudoers.d/claude && \
     groupadd -g 994 docker && \
     usermod -aG docker claude
 

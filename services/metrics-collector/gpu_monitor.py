@@ -85,10 +85,16 @@ class GPUMonitor:
     # Jetson sysfs prefixes (mounted as /host/sys in container)
     JETSON_SYSFS_PREFIXES = ['/host/sys', '/sys']
 
-    # Candidate GPU load paths (Orin, Thor, generic)
+    # Candidate GPU load paths (Orin JetPack 6+, Xavier legacy, generic)
     GPU_LOAD_CANDIDATES = [
-        'devices/platform/gpu.0/load',
-        'devices/platform/gpu/load',
+        'devices/platform/bus@0/17000000.gpu/load',  # AGX Orin, JetPack 6+ (L4T R36+)
+        'devices/platform/gpu.0/load',               # Xavier legacy
+        'devices/platform/gpu/load',                 # Generic fallback
+    ]
+
+    # Glob patterns for future-proofing (Thor / other Tegra SoCs)
+    GPU_LOAD_GLOB_PATTERNS = [
+        'devices/platform/bus@*/[0-9a-f]*.gpu/load',
     ]
 
     # Candidate GPU devfreq paths (glob patterns for dynamic discovery)
@@ -158,13 +164,24 @@ class GPUMonitor:
         return None
 
     def _discover_gpu_thermal_zone(self, prefix: str) -> Optional[str]:
-        """Find GPU thermal zone by checking type files instead of hardcoding zone number"""
+        """Find thermal zone — prefers Tj (junction) for throttle-relevant temp.
+
+        Priority: tj-thermal (max of all zones, NVIDIA throttle indicator)
+        → gpu-thermal → legacy JetPack ≤5 names.
+        """
         thermal_base = os.path.join(prefix, 'class/thermal')
         if not os.path.isdir(thermal_base):
             return None
 
-        # Look for GPU-therm zone by checking each zone's type
-        gpu_therm_names = ['gpu-therm', 'GPU-therm', 'gpu_therm', 'Tdiode_GPU', 'GPU']
+        # Ordered preference: Tj first, then GPU-specific, then legacy
+        preferred_names = [
+            'tj-thermal',       # L4T R36+ junction temp (max of all zones)
+            'gpu-thermal',      # L4T R36+ GPU zone
+            'gpu-therm', 'GPU-therm', 'gpu_therm',  # Legacy JetPack ≤5
+            'Tdiode_GPU', 'GPU',
+        ]
+
+        discovered = {}
         try:
             zones = sorted(glob_module.glob(os.path.join(thermal_base, 'thermal_zone*')))
             for zone_dir in zones:
@@ -173,21 +190,24 @@ class GPUMonitor:
                     if os.path.exists(type_file):
                         with open(type_file, 'r') as f:
                             zone_type = f.read().strip()
-                            if zone_type in gpu_therm_names:
+                            if zone_type in preferred_names and zone_type not in discovered:
                                 zone_name = os.path.basename(zone_dir)
-                                rel_path = f'class/thermal/{zone_name}/temp'
-                                logger.info(f"GPU thermal zone found: {zone_type} -> {rel_path}")
-                                return rel_path
+                                discovered[zone_type] = f'class/thermal/{zone_name}/temp'
                 except Exception:
                     continue
         except Exception:
             pass
 
+        for name in preferred_names:
+            if name in discovered:
+                logger.info(f"System thermal zone: {name} -> {discovered[name]}")
+                return discovered[name]
+
         # Fallback: try common zone numbers (zone1 on Orin, zone0 as last resort)
         for zone_num in [1, 0, 2]:
             fallback = f'class/thermal/thermal_zone{zone_num}/temp'
             if os.path.exists(os.path.join(prefix, fallback)):
-                logger.info(f"GPU thermal zone fallback: thermal_zone{zone_num}")
+                logger.info(f"Thermal zone fallback: thermal_zone{zone_num}")
                 return fallback
 
         return None
@@ -195,8 +215,10 @@ class GPUMonitor:
     def _detect_jetson(self):
         """Detect if running on NVIDIA Jetson (AGX Orin, Thor, etc.) and discover sysfs paths"""
         for prefix in self.JETSON_SYSFS_PREFIXES:
-            # Try to find GPU load path
+            # Try to find GPU load path — fixed candidates first, then glob fallback (future SoCs)
             gpu_load = self._discover_sysfs_path(prefix, self.GPU_LOAD_CANDIDATES)
+            if not gpu_load:
+                gpu_load = self._discover_sysfs_glob(prefix, self.GPU_LOAD_GLOB_PATTERNS)
             if gpu_load:
                 self._sysfs_prefix = prefix
                 self._gpu_load_path = gpu_load

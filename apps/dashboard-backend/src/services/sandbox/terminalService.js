@@ -13,13 +13,22 @@ const sandboxService = require('./sandboxService');
 // Active sessions map: sessionId → { exec, stream, ws, projectId }
 const activeSessions = new Map();
 
-// Session type → command mapping
-const SESSION_COMMANDS = {
-  shell: ['/bin/bash'],
-  'claude-code': ['/bin/bash', '-c', 'claude'],
-  codex: ['/bin/bash', '-c', 'codex'],
-  custom: null, // determined by user
-};
+// Default tmux session name for persistent terminals
+const TMUX_SESSION = 'main';
+
+// Allowlist for sessionType — anything else is rejected
+const ALLOWED_SESSION_TYPES = new Set(['shell', 'custom', 'claude-code', 'codex']);
+
+// Strict allowlist for user-supplied custom commands.
+// Permits binary names, paths, hyphens, dots and a single space for simple args;
+// blocks every shell metacharacter (; & | ` $ ( ) < > " ' \ newline tab).
+const CUSTOM_COMMAND_RE = /^[A-Za-z0-9_.\-/ ]{1,200}$/;
+
+// Produce a single-quoted shell literal (POSIX).
+// Replaces every ' with '\'' so the result is safe inside bash -c '...'.
+function shellSingleQuote(str) {
+  return `'${String(str).replace(/'/g, "'\\''")}'`;
+}
 
 /**
  * Create a new terminal session and attach it to a WebSocket
@@ -29,6 +38,17 @@ async function createSession(
   ws,
   { sessionType = 'shell', command, cols = 120, rows = 30, userId } = {}
 ) {
+  if (!ALLOWED_SESSION_TYPES.has(sessionType)) {
+    throw new ValidationError(`Ungültiger sessionType: ${sessionType}`);
+  }
+  if (sessionType === 'custom') {
+    if (!command || typeof command !== 'string' || !CUSTOM_COMMAND_RE.test(command)) {
+      throw new ValidationError(
+        'Ungültiger command — nur [A-Za-z0-9_.-/ ] zulässig, max 200 Zeichen'
+      );
+    }
+  }
+
   const project = await sandboxService.getProject(projectId, userId);
 
   // Ensure container is running
@@ -36,12 +56,34 @@ async function createSession(
     throw new ValidationError('Container ist nicht gestartet. Bitte zuerst den Container starten.');
   }
 
-  // Determine command to execute
+  // Determine inner command for the tmux session
+  let innerCmd = null;
+  if (sessionType === 'custom') {
+    innerCmd = command;
+  } else if (sessionType === 'claude-code') {
+    innerCmd = 'claude';
+  } else if (sessionType === 'codex') {
+    innerCmd = 'codex';
+  }
+  // shell → no innerCmd (tmux starts default shell)
+
+  // Use tmux for persistent sessions: attach if exists, create if not.
+  // Falls back to plain shell if tmux is not installed (old containers).
+  // innerCmd is validated above; still single-quote it for defense in depth.
   let cmd;
-  if (sessionType === 'custom' && command) {
-    cmd = ['/bin/bash', '-c', command];
+  if (innerCmd) {
+    const quoted = shellSingleQuote(innerCmd);
+    cmd = [
+      '/bin/bash',
+      '-c',
+      `command -v tmux >/dev/null 2>&1 && tmux new-session -A -s ${TMUX_SESSION} ${quoted} || exec ${quoted}`,
+    ];
   } else {
-    cmd = SESSION_COMMANDS[sessionType] || SESSION_COMMANDS.shell;
+    cmd = [
+      '/bin/bash',
+      '-c',
+      `command -v tmux >/dev/null 2>&1 && tmux new-session -A -s ${TMUX_SESSION} || exec /bin/bash`,
+    ];
   }
 
   const container = docker.getContainer(project.container_id);
@@ -119,9 +161,9 @@ async function createSession(
       }
     } else {
       // Text frame: control message (JSON) — resize, ping, etc.
+      let msg;
       try {
-        const msg = JSON.parse(data.toString());
-        handleControlMessage(session.id, msg);
+        msg = JSON.parse(data.toString());
       } catch (err) {
         // Not JSON — treat as terminal input
         try {
@@ -129,7 +171,11 @@ async function createSession(
         } catch (writeErr) {
           logger.warn(`Terminal write error: ${writeErr.message}`);
         }
+        return;
       }
+      handleControlMessage(session.id, msg).catch(err => {
+        logger.warn(`Terminal control message error: ${err.message}`);
+      });
     }
   });
 
@@ -162,7 +208,7 @@ async function createSession(
 /**
  * Handle control messages from WebSocket client
  */
-function handleControlMessage(sessionId, msg) {
+async function handleControlMessage(sessionId, msg) {
   const session = activeSessions.get(sessionId);
   if (!session) {
     return;
@@ -172,7 +218,7 @@ function handleControlMessage(sessionId, msg) {
     case 'resize': {
       const { cols, rows } = msg;
       if (cols > 0 && rows > 0 && cols <= 500 && rows <= 200) {
-        resizeTerminal(sessionId, cols, rows);
+        await resizeTerminal(sessionId, cols, rows);
       }
       break;
     }
@@ -315,4 +361,10 @@ module.exports = {
   listSessions,
   getActiveSessionCount,
   cleanupAllSessions,
+  // Exported for tests / defense-in-depth reuse
+  _internals: {
+    ALLOWED_SESSION_TYPES,
+    CUSTOM_COMMAND_RE,
+    shellSingleQuote,
+  },
 };

@@ -41,12 +41,11 @@ interface ShowPasswordFields {
   confirm: boolean;
 }
 
-type ServiceId = 'dashboard' | 'minio' | 'n8n';
+type ServiceId = 'dashboard' | 'minio';
 
 const SERVICES: { id: ServiceId; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <Monitor className="size-4" /> },
   { id: 'minio', label: 'MinIO', icon: <HardDrive className="size-4" /> },
-  { id: 'n8n', label: 'n8n', icon: <Zap className="size-4" /> },
 ];
 
 function PasswordManagement() {
@@ -56,12 +55,10 @@ function PasswordManagement() {
   const [passwords, setPasswords] = useState<Record<ServiceId, PasswordFields>>({
     dashboard: { current: '', new: '', confirm: '' },
     minio: { current: '', new: '', confirm: '' },
-    n8n: { current: '', new: '', confirm: '' },
   });
   const [showPasswords, setShowPasswords] = useState<Record<ServiceId, ShowPasswordFields>>({
     dashboard: { current: false, new: false, confirm: false },
     minio: { current: false, new: false, confirm: false },
-    n8n: { current: false, new: false, confirm: false },
   });
   const [requirements, setRequirements] = useState<PasswordRequirements | null>(null);
   const [validations, setValidations] = useState({
@@ -260,7 +257,7 @@ function PasswordManagement() {
         Passwortverwaltung
       </h3>
       <p className="text-xs text-muted-foreground mb-6">
-        Ändern Sie die Passwörter für Dashboard, MinIO und n8n
+        Ändern Sie die Passwörter für Dashboard und MinIO
       </p>
 
       <div className="space-y-6">
@@ -280,9 +277,11 @@ function PasswordManagement() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {renderPasswordField(
             'current',
-            `Aktuelles ${SERVICES.find(s => s.id === activeService)?.label ?? 'Dashboard'}-Passwort`,
-            'Aktuelles Passwort eingeben',
-            `Zur Sicherheit wird Ihr aktuelles ${SERVICES.find(s => s.id === activeService)?.label ?? 'Dashboard'}-Passwort benötigt`
+            'Aktuelles Dashboard-Passwort',
+            'Dashboard-Passwort eingeben',
+            activeService === 'dashboard'
+              ? 'Zur Sicherheit wird Ihr aktuelles Passwort benötigt'
+              : 'Zur Bestätigung wird Ihr Dashboard-Admin-Passwort benötigt'
           )}
           {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
           {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
@@ -400,13 +399,35 @@ function PasswordManagement() {
             </p>
           )}
 
-          {(activeService === 'minio' || activeService === 'n8n') && (
+          {activeService === 'minio' && (
             <p className="text-xs text-muted-foreground text-center">
-              <Info className="size-3.5 inline" /> Der {activeService === 'minio' ? 'MinIO' : 'n8n'}
-              -Service wird nach der Passwortänderung automatisch neu gestartet.
+              <Info className="size-3.5 inline" /> Der MinIO-Service wird nach der Passwortänderung
+              automatisch neu gestartet.
             </p>
           )}
         </form>
+
+        {/* n8n info */}
+        <div className="mt-6 pt-6 border-t border-border">
+          <div className="flex items-start gap-3 text-sm">
+            <Zap className="size-4 text-primary shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-foreground">n8n-Passwort</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                n8n verwaltet Benutzerkonten und Passwörter selbst. Öffne{' '}
+                <a
+                  href="/n8n"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  n8n
+                </a>{' '}
+                → Settings → Personal Settings, um dein n8n-Passwort zu ändern.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

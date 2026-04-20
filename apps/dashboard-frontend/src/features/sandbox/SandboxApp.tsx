@@ -36,6 +36,7 @@ export default function SandboxApp() {
   const [showProjectList, setShowProjectList] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editProject, setEditProject] = useState<SandboxProject | null>(null);
+  const [hasRestoredTabs, setHasRestoredTabs] = useState(false);
 
   // ---- Data loading ----
 
@@ -93,6 +94,58 @@ export default function SandboxApp() {
     const interval = setInterval(loadProjects, 10000);
     return () => clearInterval(interval);
   }, [projects, loadProjects]);
+
+  // Persist open tabs to localStorage
+  useEffect(() => {
+    if (!hasRestoredTabs) return; // Don't save before restore completes
+    if (openTabs.length > 0) {
+      localStorage.setItem(
+        'sandbox-open-tabs',
+        JSON.stringify({
+          tabs: openTabs.map(t => t.id),
+          activeId: activeTabId,
+        })
+      );
+    } else {
+      localStorage.removeItem('sandbox-open-tabs');
+    }
+  }, [openTabs, activeTabId, hasRestoredTabs]);
+
+  // Restore tabs from localStorage (once, after first project load)
+  useEffect(() => {
+    if (hasRestoredTabs || loading || projects.length === 0) return;
+
+    const saved = localStorage.getItem('sandbox-open-tabs');
+    if (!saved) {
+      setHasRestoredTabs(true);
+      return;
+    }
+
+    try {
+      const { tabs, activeId } = JSON.parse(saved) as { tabs: string[]; activeId: string | null };
+      const restoredTabs = tabs
+        .map(id => projects.find(p => p.id === id))
+        .filter((p): p is SandboxProject => p != null && p.status === 'active');
+
+      if (restoredTabs.length > 0) {
+        setOpenTabs(restoredTabs);
+        const validActiveId =
+          activeId && restoredTabs.some(t => t.id === activeId) ? activeId : restoredTabs[0].id;
+        setActiveTabId(validActiveId);
+
+        // Auto-start stopped containers for restored tabs
+        for (const tab of restoredTabs) {
+          if (tab.container_status !== 'running' && tab.container_status !== 'creating') {
+            api.post(`/sandbox/projects/${tab.id}/start`, {}, { showError: false }).catch(() => {});
+          }
+        }
+      }
+    } catch {
+      // Corrupt localStorage — ignore
+    }
+
+    setHasRestoredTabs(true);
+  }, [projects, loading, hasRestoredTabs, api]);
 
   // ---- Actions ----
 

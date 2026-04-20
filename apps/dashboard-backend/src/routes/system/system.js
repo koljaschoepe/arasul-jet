@@ -275,7 +275,7 @@ router.get(
         ram: { warning: 75, critical: 90 },
         gpu: { warning: 80, critical: 95 },
         storage: { warning: 70, critical: 85 },
-        temperature: { warning: 65, critical: 80 }, // Throttles at ~85°C
+        temperature: { warning: 80, critical: 95 }, // Tj junction, throttles ~99°C (NVIDIA TDG-10943)
       },
       // Jetson Orin Nano - Less powerful, smaller heatsink
       jetson_orin_nano: {

@@ -229,7 +229,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
 
       {/* Main Content Area */}
       <ScrollArea className="flex-1">
-        <div className="max-w-[900px] p-6">{renderContent()}</div>
+        <div className="max-w-[900px] p-6 max-md:p-4">{renderContent()}</div>
       </ScrollArea>
     </div>
   );
