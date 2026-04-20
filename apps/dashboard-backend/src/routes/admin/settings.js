@@ -19,6 +19,8 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, UnauthorizedError } = require('../../utils/errors');
 const { getEmbedding } = require('../../services/embeddingService');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
+const { validateBody } = require('../../middleware/validate');
+const { PasswordChangeBody, CompanyContextBody } = require('../../schemas/admin-settings');
 
 // SECURITY: Use execFile (not exec) to prevent shell injection
 const execFilePromise = util.promisify(execFile);
@@ -103,6 +105,7 @@ router.post(
   requireAuth,
   requireAdmin,
   passwordChangeLimiter,
+  validateBody(PasswordChangeBody),
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
@@ -155,13 +158,9 @@ router.post(
   requireAuth,
   requireAdmin,
   passwordChangeLimiter,
+  validateBody(PasswordChangeBody),
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
-
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      throw new ValidationError('Current password and new password are required');
-    }
 
     // Validate new password complexity
     const validation = validatePasswordComplexity(newPassword);
@@ -222,13 +221,9 @@ router.post(
   requireAuth,
   requireAdmin,
   passwordChangeLimiter,
+  validateBody(PasswordChangeBody),
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
-
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      throw new ValidationError('Current password and new password are required');
-    }
 
     // Validate new password complexity
     const validation = validatePasswordComplexity(newPassword);
@@ -357,12 +352,9 @@ router.put(
   '/company-context',
   requireAuth,
   requireAdmin,
+  validateBody(CompanyContextBody),
   asyncHandler(async (req, res) => {
     const { content } = req.body;
-
-    if (content === undefined || typeof content !== 'string') {
-      throw new ValidationError('Inhalt ist erforderlich');
-    }
 
     // Generate embedding for the content (for potential future use)
     const embedding = await getEmbedding(content);
