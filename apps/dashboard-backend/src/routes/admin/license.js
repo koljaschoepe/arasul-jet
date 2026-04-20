@@ -8,6 +8,8 @@ const router = express.Router();
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { ActivateLicenseBody } = require('../../schemas/admin-license');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const licenseService = require('../../services/app/licenseService');
 const logger = require('../../utils/logger');
@@ -47,12 +49,9 @@ router.post(
   '/activate',
   requireAuth,
   requireAdmin,
+  validateBody(ActivateLicenseBody),
   asyncHandler(async (req, res) => {
     const { licenseKey } = req.body;
-
-    if (!licenseKey || typeof licenseKey !== 'string' || licenseKey.length < 10) {
-      throw new ValidationError('A valid license key is required');
-    }
 
     const result = await licenseService.activateLicense(licenseKey);
 
