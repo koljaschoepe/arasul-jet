@@ -7,7 +7,14 @@ const express = require('express');
 const router = express.Router();
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
-const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { ValidationError } = require('../../utils/errors');
+const {
+  UpdateProfileBody,
+  CreateProfileBody,
+  UpdateMemoryBody,
+  DeleteAllBody,
+} = require('../../schemas/memory');
 const memoryService = require('../../services/memory/memoryService');
 const database = require('../../database');
 
@@ -34,11 +41,9 @@ router.get(
  */
 router.put(
   '/profile',
+  validateBody(UpdateProfileBody),
   asyncHandler(async (req, res) => {
     const { profile } = req.body;
-    if (!profile || typeof profile !== 'string') {
-      throw new ValidationError('profile (string) is required');
-    }
     await memoryService.updateProfile(profile);
     const { invalidateProfileCache } = require('../../services/llm/systemPromptBuilder');
     invalidateProfileCache();
@@ -51,11 +56,9 @@ router.put(
  */
 router.post(
   '/profile',
+  validateBody(CreateProfileBody),
   asyncHandler(async (req, res) => {
     const { companyName, industry, teamSize, products, preferences } = req.body;
-    if (!companyName) {
-      throw new ValidationError('companyName is required');
-    }
 
     const profileYaml = memoryService.generateProfileYaml({
       firma: companyName,
@@ -125,12 +128,10 @@ router.delete(
  */
 router.put(
   '/:id',
+  validateBody(UpdateMemoryBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { content } = req.body;
-    if (!content || typeof content !== 'string') {
-      throw new ValidationError('content (string) is required');
-    }
     await memoryService.updateMemory(id, content);
     res.json({ success: true });
   })
@@ -283,11 +284,8 @@ router.post(
  */
 router.delete(
   '/all',
+  validateBody(DeleteAllBody),
   asyncHandler(async (req, res) => {
-    const { confirm } = req.body;
-    if (confirm !== true) {
-      throw new ValidationError('Set confirm: true to delete all memories');
-    }
     await memoryService.deleteAllMemories();
     res.json({ success: true });
   })

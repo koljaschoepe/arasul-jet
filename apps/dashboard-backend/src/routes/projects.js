@@ -8,7 +8,9 @@ const router = express.Router();
 const db = require('../database');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { validateBody } = require('../middleware/validate');
 const { ValidationError, NotFoundError } = require('../utils/errors');
+const { CreateProjectBody, UpdateProjectBody } = require('../schemas/projects');
 
 // GET /api/projects - List all projects with conversation count
 router.get(
@@ -62,15 +64,9 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  validateBody(CreateProjectBody),
   asyncHandler(async (req, res) => {
     const { name, description, system_prompt, icon, color, knowledge_space_id } = req.body;
-
-    if (!name || !name.trim()) {
-      throw new ValidationError('Name ist erforderlich');
-    }
-    if (name.length > 100) {
-      throw new ValidationError('Name darf maximal 100 Zeichen lang sein');
-    }
 
     // Validate knowledge_space_id exists if provided
     if (knowledge_space_id) {
@@ -136,16 +132,10 @@ router.get(
 router.put(
   '/:id',
   requireAuth,
+  validateBody(UpdateProjectBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { name, description, system_prompt, icon, color, knowledge_space_id } = req.body;
-
-    if (name !== undefined && (!name || !name.trim())) {
-      throw new ValidationError('Name darf nicht leer sein');
-    }
-    if (name && name.length > 100) {
-      throw new ValidationError('Name darf maximal 100 Zeichen lang sein');
-    }
 
     // Validate knowledge_space_id if provided
     if (knowledge_space_id) {

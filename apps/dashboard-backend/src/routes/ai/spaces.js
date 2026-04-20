@@ -15,12 +15,14 @@ const logger = require('../../utils/logger');
 const { requireAuth } = require('../../middleware/auth');
 const pool = require('../../database');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { validateBody } = require('../../middleware/validate');
 const {
   ValidationError,
   NotFoundError,
   ForbiddenError,
   ConflictError,
 } = require('../../utils/errors');
+const { CreateSpaceBody, UpdateSpaceBody, RouteQueryBody } = require('../../schemas/spaces');
 const { buildSetClauses } = require('../../utils/queryBuilder');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { generateSlug } = require('../../utils/slugGenerator');
@@ -122,17 +124,9 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  validateBody(CreateSpaceBody),
   asyncHandler(async (req, res) => {
     const { name, description, icon = 'folder', color = '#6366f1' } = req.body;
-
-    // Validation
-    if (!name || !name.trim()) {
-      throw new ValidationError('Name ist erforderlich');
-    }
-
-    if (!description || !description.trim()) {
-      throw new ValidationError('Beschreibung ist erforderlich');
-    }
 
     // Generate slug
     let slug = generateSlug(name);
@@ -203,6 +197,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
+  validateBody(UpdateSpaceBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { name, description, icon, color, sort_order } = req.body;
@@ -425,12 +420,9 @@ router.post(
 router.post(
   '/route',
   requireAuth,
+  validateBody(RouteQueryBody),
   asyncHandler(async (req, res) => {
     const { query, top_k = 3, threshold = 0.5 } = req.body;
-
-    if (!query || typeof query !== 'string') {
-      throw new ValidationError('Query ist erforderlich');
-    }
 
     // Get query embedding
     const queryEmbedding = await getEmbedding(query);
