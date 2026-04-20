@@ -11,7 +11,8 @@ const axios = require('axios');
 const { requireAuth } = require('../../middleware/auth');
 const { apiLimiter } = require('../../middleware/rateLimit');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { EmbedBody } = require('../../schemas/embeddings');
 const services = require('../../config/services');
 
 const EMBEDDING_SERVICE_URL = services.embedding.url;
@@ -54,14 +55,10 @@ router.post(
   '/',
   requireAuth,
   apiLimiter,
+  validateBody(EmbedBody),
   asyncHandler(async (req, res) => {
     const { text } = req.body;
 
-    if (!text) {
-      throw new ValidationError('Text is required');
-    }
-
-    // Handle both string and array of strings
     const texts = Array.isArray(text) ? text : [text];
 
     // MEDIUM-PRIORITY-FIX 3.7: Use pooled axios instance
