@@ -15,6 +15,8 @@ const logger = require('../../utils/logger');
 const llmDataAccess = require('../../services/context/llmDataAccessService');
 const { isValidSlug, escapeTableName } = require('../../utils/sqlIdentifier');
 const { ValidationError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { NaturalQueryBody, SqlQueryBody } = require('../../schemas/datentabellen');
 const indexingService = require('../../services/datentabellen/indexingService');
 
 /**
@@ -223,24 +225,9 @@ router.get(
 router.post(
   '/query/natural',
   requireAuth,
+  validateBody(NaturalQueryBody),
   asyncHandler(async (req, res) => {
     const { query, tableSlug } = req.body;
-
-    if (!query || typeof query !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Query parameter is required',
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    if (query.trim().length < 5) {
-      return res.status(400).json({
-        success: false,
-        error: 'Query is too short (minimum 5 characters)',
-        timestamp: new Date().toISOString(),
-      });
-    }
 
     logger.info(
       `[Datentabellen] Natural language query: "${query}" for table: ${tableSlug || 'auto'}`
@@ -282,16 +269,9 @@ router.post(
 router.post(
   '/query/sql',
   requireAuth,
+  validateBody(SqlQueryBody),
   asyncHandler(async (req, res) => {
     const { sql } = req.body;
-
-    if (!sql || typeof sql !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'SQL parameter is required',
-        timestamp: new Date().toISOString(),
-      });
-    }
 
     logger.info(`[Datentabellen] Direct SQL query: ${sql.substring(0, 100)}...`);
 
