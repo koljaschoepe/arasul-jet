@@ -11,6 +11,13 @@ const dataDb = require('../../dataDatabase');
 const pool = require('../../database');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const {
+  CreateTableBody,
+  UpdateTableBody,
+  CreateFieldBody,
+  UpdateFieldBody,
+} = require('../../schemas/datentabellen');
 const {
   SQL_RESERVED_KEYWORDS,
   isValidSlug,
@@ -249,13 +256,9 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  validateBody(CreateTableBody),
   asyncHandler(async (req, res) => {
     const { name, description, icon, color, createDefaultField, space_id, category } = req.body;
-
-    // Validation
-    if (!name || !name.trim()) {
-      throw new ValidationError('Tabellenname erforderlich');
-    }
 
     const slug = generateTableSlug(name);
 
@@ -369,6 +372,7 @@ router.post(
 router.patch(
   '/:slug',
   requireAuth,
+  validateBody(UpdateTableBody),
   asyncHandler(async (req, res) => {
     const { slug } = req.params;
     const { name, description, icon, color, space_id, status, category } = req.body;
@@ -398,13 +402,6 @@ router.patch(
       ]);
       if (spaceCheck.rows.length === 0) {
         throw new ValidationError('Ungültiger Wissensbereich');
-      }
-    }
-
-    if (status !== undefined) {
-      const validStatuses = ['active', 'draft', 'archived'];
-      if (!validStatuses.includes(status)) {
-        throw new ValidationError(`Ungültiger Status. Erlaubt: ${validStatuses.join(', ')}`);
       }
     }
 
@@ -502,6 +499,7 @@ router.delete(
 router.post(
   '/:slug/fields',
   requireAuth,
+  validateBody(CreateFieldBody),
   asyncHandler(async (req, res) => {
     const { slug } = req.params;
     const {
@@ -518,14 +516,6 @@ router.post(
 
     if (!isValidSlug(slug)) {
       throw new ValidationError('Ungültiger Tabellenname');
-    }
-
-    if (!name || !name.trim()) {
-      throw new ValidationError('Feldname erforderlich');
-    }
-
-    if (!field_type) {
-      throw new ValidationError('Feldtyp erforderlich');
     }
 
     // Get table
@@ -559,9 +549,6 @@ router.post(
     };
 
     const pgType = pgTypeMap[field_type];
-    if (!pgType) {
-      throw new ValidationError(`Ungültiger Feldtyp: ${field_type}`);
-    }
 
     // Start transaction
     const result = await dataDb.transaction(async client => {
@@ -583,7 +570,9 @@ router.post(
           'SELECT id FROM dt_fields WHERE table_id = $1 AND slug = $2',
           [tableId, finalSlug]
         );
-        if (existingField.rows.length === 0) {break;}
+        if (existingField.rows.length === 0) {
+          break;
+        }
         counter++;
         finalSlug = `${fieldSlug}_${counter}`;
       }
@@ -705,6 +694,7 @@ router.delete(
 router.patch(
   '/:slug/fields/:fieldSlug',
   requireAuth,
+  validateBody(UpdateFieldBody),
   asyncHandler(async (req, res) => {
     const { slug, fieldSlug } = req.params;
     const {
@@ -751,14 +741,6 @@ router.patch(
       formula: 'TEXT',
     };
 
-    // Validate field_type before building query
-    if (field_type !== undefined) {
-      const pgType = pgTypeMap[field_type];
-      if (!pgType) {
-        throw new ValidationError(`Ungültiger Feldtyp: ${field_type}`);
-      }
-    }
-
     // Build update query
     const { setClauses, params, paramIndex } = buildSetClauses(
       {
@@ -796,7 +778,9 @@ router.patch(
             );
           }
         } catch (err) {
-          if (err instanceof ValidationError) {throw err;}
+          if (err instanceof ValidationError) {
+            throw err;
+          }
           // Pre-check failed, let ALTER TABLE handle it
         }
       }
