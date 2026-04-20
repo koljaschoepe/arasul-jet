@@ -17,6 +17,8 @@ const { requireAuth } = require('../../middleware/auth');
 const pool = require('../../database');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { KgQueryBody } = require('../../schemas/knowledge-graph');
 const axios = require('axios');
 
 const DOCUMENT_INDEXER_URL = process.env.DOCUMENT_INDEXER_URL || 'http://document-indexer:9102';
@@ -50,7 +52,9 @@ router.get(
     let paramIdx = 1;
 
     if (search) {
-      if (search.length > 200) {throw new ValidationError('Suchbegriff zu lang (max. 200 Zeichen)');}
+      if (search.length > 200) {
+        throw new ValidationError('Suchbegriff zu lang (max. 200 Zeichen)');
+      }
       conditions.push(`name ILIKE $${paramIdx}`);
       params.push(`%${search}%`);
       paramIdx++;
@@ -95,8 +99,9 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { entityName } = req.params;
-    if (entityName.length > 500)
-      {throw new ValidationError('Entity-Name zu lang (max. 500 Zeichen)');}
+    if (entityName.length > 500) {
+      throw new ValidationError('Entity-Name zu lang (max. 500 Zeichen)');
+    }
     const depth = Math.min(parseInt(req.query.depth) || 2, 4);
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
@@ -162,7 +167,9 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { documentId } = req.params;
-    if (!UUID_RE.test(documentId)) {throw new ValidationError('Ungültige Dokument-ID');}
+    if (!UUID_RE.test(documentId)) {
+      throw new ValidationError('Ungültige Dokument-ID');
+    }
 
     // Verify document exists
     const docCheck = await pool.query(
@@ -338,18 +345,12 @@ router.get(
 router.post(
   '/query',
   requireAuth,
+  validateBody(KgQueryBody),
   asyncHandler(async (req, res) => {
     const { question, include_documents = true, max_depth = 2, max_entities = 5 } = req.body;
 
-    if (!question || typeof question !== 'string') {
-      throw new ValidationError('question ist erforderlich');
-    }
-    if (question.length > 5000) {
-      throw new ValidationError('Frage zu lang (max. 5000 Zeichen)');
-    }
-
-    const depth = Math.min(parseInt(max_depth) || 2, 4);
-    const entityLimit = Math.min(parseInt(max_entities) || 5, 10);
+    const depth = Math.min(max_depth, 4);
+    const entityLimit = Math.min(max_entities, 10);
 
     // 1. Extract entities from question via document-indexer
     let queryEntities = [];
