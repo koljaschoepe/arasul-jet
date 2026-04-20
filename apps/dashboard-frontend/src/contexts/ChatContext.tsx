@@ -23,6 +23,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from 'react';
+import type { ChatInput } from '@arasul/shared-schemas';
 import useTokenBatching from '../hooks/useTokenBatching';
 import { useApi } from '../hooks/useApi';
 import { API_BASE, getAuthHeaders } from '../config/api';
@@ -828,19 +829,20 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           };
         } else {
           endpoint = `${API_BASE}/llm/chat`;
+          const chatPayload: ChatInput = {
+            messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+            temperature: 0.7,
+            max_tokens: 32768,
+            stream: true,
+            thinking: useThinking,
+            conversation_id: chatId,
+            model: effectiveModel || undefined,
+            ...(images && images.length > 0 ? { images } : {}),
+          };
           fetchOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({
-              messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-              temperature: 0.7,
-              ...(images && images.length > 0 ? { images } : {}),
-              max_tokens: 32768,
-              stream: true,
-              thinking: useThinking,
-              conversation_id: chatId,
-              model: effectiveModel || undefined,
-            }),
+            body: JSON.stringify(chatPayload),
             signal: abortController.signal,
           };
         }

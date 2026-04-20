@@ -41,6 +41,10 @@ updates/
 **/node_modules/
 **/dist/
 **/build/
+# Exception: checked-in build outputs for shared packages must land in
+# the image so workspaces consuming @arasul/shared-schemas via file:
+# can resolve dist/index.cjs etc.
+!packages/*/dist/
 
 # Python cache
 **/__pycache__/

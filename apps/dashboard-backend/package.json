@@ -35,7 +35,8 @@
     "winston": "^3.11.0",
     "ws": "^8.16.0",
     "js-yaml": "^4.1.0",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "@arasul/shared-schemas": "file:../../packages/shared-schemas"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

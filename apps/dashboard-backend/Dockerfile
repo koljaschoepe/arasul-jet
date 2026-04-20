@@ -7,9 +7,15 @@ LABEL org.opencontainers.image.architecture="arm64"
 
 WORKDIR /app
 
-# Install dependencies
+# Shared workspace: copy @arasul/shared-schemas so the local file: dep resolves.
+# Placed at /packages/shared-schemas so ../../packages/shared-schemas from
+# /app (the backend workdir) points here.
+COPY packages/shared-schemas /packages/shared-schemas
+
+# Install dependencies (--install-links copies file: deps into node_modules
+# instead of symlinking, which is what we want inside the container).
 COPY apps/dashboard-backend/package*.json ./
-RUN npm install --omit=dev
+RUN npm install --omit=dev --install-links
 
 # Copy source code
 COPY apps/dashboard-backend/src/ ./src/

@@ -30,6 +30,10 @@ build/
 coverage/
 *.log
 
+# Exception: shared package build outputs are checked in so Dockerfiles
+# and downstream workspaces can consume without a build-stage bootstrap.
+!packages/*/dist/
+
 # Node modules
 node_modules/
 

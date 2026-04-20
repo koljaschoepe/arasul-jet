@@ -4,6 +4,7 @@
   "description": "Arasul Platform Dashboard Frontend",
   "private": true,
   "dependencies": {
+    "@arasul/shared-schemas": "file:../../packages/shared-schemas",
     "@hookform/resolvers": "^3.10.0",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.62.11",

@@ -5,9 +5,13 @@ LABEL org.opencontainers.image.architecture="arm64"
 
 WORKDIR /app
 
+# Shared workspace: place @arasul/shared-schemas at a path the file: dep
+# in package.json expects (../../packages/shared-schemas from /app).
+COPY packages/shared-schemas /packages/shared-schemas
+
 # Copy package files and install dependencies
 COPY apps/dashboard-frontend/package*.json ./
-RUN npm install
+RUN npm install --install-links
 
 # Copy source code
 COPY apps/dashboard-frontend/ .
