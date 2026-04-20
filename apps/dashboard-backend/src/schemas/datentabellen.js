@@ -116,6 +116,31 @@ const UpdateFieldBody = z
   })
   .strict();
 
+// POST /tables/:slug/rows/bulk
+const BulkCreateRowsBody = z
+  .object({
+    rows: z
+      .array(z.record(z.string(), z.unknown()), {
+        error: 'Keine Daten zum Importieren',
+      })
+      .min(1, 'Keine Daten zum Importieren')
+      .max(1000, 'Maximal 1000 Zeilen pro Import'),
+  })
+  .strict();
+
+// DELETE /tables/:slug/rows/bulk
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const BulkDeleteRowsBody = z
+  .object({
+    ids: z
+      .array(z.string().regex(UUID_REGEX, 'Ungültige ID'), {
+        error: 'Keine IDs zum Löschen angegeben',
+      })
+      .min(1, 'Keine IDs zum Löschen angegeben')
+      .max(100, 'Maximal 100 Zeilen pro Löschvorgang'),
+  })
+  .strict();
+
 module.exports = {
   NaturalQueryBody,
   SqlQueryBody,
@@ -123,4 +148,6 @@ module.exports = {
   UpdateTableBody,
   CreateFieldBody,
   UpdateFieldBody,
+  BulkCreateRowsBody,
+  BulkDeleteRowsBody,
 };

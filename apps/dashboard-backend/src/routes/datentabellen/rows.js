@@ -11,6 +11,8 @@ const dataDb = require('../../dataDatabase');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
 const { isValidSlug, escapeIdentifier, escapeTableName } = require('../../utils/sqlIdentifier');
+const { validateBody } = require('../../middleware/validate');
+const { BulkCreateRowsBody, BulkDeleteRowsBody } = require('../../schemas/datentabellen');
 
 /**
  * Helper: Mark table as needing re-index after data changes
@@ -74,7 +76,9 @@ function buildWhereClause(filters, fields, startParamIndex = 1) {
     if (filter._or && Array.isArray(filter._or)) {
       const orConditions = [];
       for (const subFilter of filter._or) {
-        if (!validFields.has(subFilter.field)) {continue;}
+        if (!validFields.has(subFilter.field)) {
+          continue;
+        }
         const SYSTEM_FIELDS = new Set(['_id', '_created_at', '_updated_at', '_created_by']);
         const escapedField = SYSTEM_FIELDS.has(subFilter.field)
           ? `"${subFilter.field}"`
@@ -519,20 +523,13 @@ router.delete(
 router.post(
   '/:slug/rows/bulk',
   requireAuth,
+  validateBody(BulkCreateRowsBody),
   asyncHandler(async (req, res) => {
     const { slug } = req.params;
     const { rows } = req.body;
 
     if (!isValidSlug(slug)) {
       throw new ValidationError('Ungültiger Tabellenname');
-    }
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      throw new ValidationError('Keine Daten zum Importieren');
-    }
-
-    if (rows.length > 1000) {
-      throw new ValidationError('Maximal 1000 Zeilen pro Import');
     }
 
     const { table, fields } = await getTableMeta(slug);
@@ -578,7 +575,9 @@ router.post(
       return { inserted: insertedRows.length, errors: errorCount };
     });
 
-    if (result.inserted > 0) {await markNeedsReindex(slug);}
+    if (result.inserted > 0) {
+      await markNeedsReindex(slug);
+    }
     logger.info(
       `[Datentabellen] Bulk import to ${slug}: ${result.inserted} inserted, ${result.errors} errors`
     );
@@ -599,28 +598,13 @@ router.post(
 router.delete(
   '/:slug/rows/bulk',
   requireAuth,
+  validateBody(BulkDeleteRowsBody),
   asyncHandler(async (req, res) => {
     const { slug } = req.params;
     const { ids } = req.body;
 
     if (!isValidSlug(slug)) {
       throw new ValidationError('Ungültiger Tabellenname');
-    }
-
-    if (!Array.isArray(ids) || ids.length === 0) {
-      throw new ValidationError('Keine IDs zum Löschen angegeben');
-    }
-
-    if (ids.length > 100) {
-      throw new ValidationError('Maximal 100 Zeilen pro Löschvorgang');
-    }
-
-    // Validate all UUIDs
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    for (const id of ids) {
-      if (!uuidRegex.test(id)) {
-        throw new ValidationError(`Ungültige ID: ${id}`);
-      }
     }
 
     await getTableMeta(slug); // Verify table exists
@@ -631,7 +615,9 @@ router.delete(
       ids
     );
 
-    if (result.rows.length > 0) {await markNeedsReindex(slug);}
+    if (result.rows.length > 0) {
+      await markNeedsReindex(slug);
+    }
     logger.info(`[Datentabellen] Bulk delete from ${slug}: ${result.rows.length} deleted`);
 
     res.json({
