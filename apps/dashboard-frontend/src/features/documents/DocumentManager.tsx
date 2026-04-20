@@ -20,9 +20,6 @@ import {
   Cpu,
   Eye,
   Pencil,
-  Plus,
-  Settings,
-  Table,
   Grid3x3,
   CheckSquare,
   Square,
@@ -36,6 +33,9 @@ import ExcelEditor from '../datentabellen/ExcelEditor';
 import SpaceModal from './SpaceModal';
 import DocumentDetailsModal from './DocumentDetailsModal';
 import RagMetricsCard from './RagMetricsCard';
+import DocumentStatsHeader from './sections/DocumentStatsHeader';
+import SpaceTabs from './sections/SpaceTabs';
+import DocumentPagination from './sections/DocumentPagination';
 import { useApi } from '../../hooks/useApi';
 import { getValidToken } from '../../utils/token';
 import { useToast } from '../../contexts/ToastContext';
@@ -675,196 +675,30 @@ function DocumentManager() {
       role="main"
       aria-label="Dokumentenverwaltung"
     >
-      {/* Header with statistics */}
-      <header className="mb-6" aria-label="Dokumenten-Statistiken">
-        {statsError && (
-          <div
-            className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-md py-2 px-3 mb-3 text-destructive text-sm"
-            role="alert"
-          >
-            <AlertCircle size={14} className="shrink-0" />
-            <span>Statistiken konnten nicht geladen werden</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto text-destructive h-7 px-2"
-              onClick={() => loadStatistics()}
-            >
-              <RefreshCw size={12} className="mr-1" /> Erneut versuchen
-            </Button>
-          </div>
-        )}
-        <div
-          className={cn(
-            'dm-stats-row grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4',
-            statsError && 'opacity-50'
-          )}
-          role="group"
-          aria-label="Übersicht"
-        >
-          <div
-            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
-            aria-label={`${statistics?.total_documents || 0} Dokumente`}
-          >
-            <Database className="text-3xl text-primary opacity-80 shrink-0" aria-hidden="true" />
-            <div>
-              <span className="dm-stat-value text-2xl font-bold text-foreground block">
-                {statistics?.total_documents || 0}
-              </span>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                Dokumente{activeSpaceId || statusFilter || categoryFilter ? ' (gefiltert)' : ''}
-              </span>
-            </div>
-          </div>
-          <div
-            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
-            aria-label={`${statistics?.total_chunks || 0} indexierte Chunks`}
-          >
-            <Check className="text-3xl text-primary opacity-80 shrink-0" aria-hidden="true" />
-            <div>
-              <span className="dm-stat-value text-2xl font-bold text-foreground block">
-                {statistics?.total_chunks || 0}
-              </span>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                Indexierte Chunks
-              </span>
-            </div>
-          </div>
-          <div
-            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
-            aria-label={`${statistics?.pending_documents || 0} Dokumente wartend`}
-          >
-            <Clock
-              className="text-3xl text-muted-foreground opacity-80 shrink-0"
-              aria-hidden="true"
-            />
-            <div>
-              <span className="dm-stat-value text-2xl font-bold text-foreground block">
-                {statistics?.pending_documents || 0}
-              </span>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">Wartend</span>
-            </div>
-          </div>
-          <div
-            className="dm-stat-card flex items-center gap-4 bg-[var(--gradient-card)] border border-border rounded-lg py-4 px-5"
-            aria-label={`${statistics?.table_count || 0} Tabellen`}
-          >
-            <Table className="text-3xl text-primary opacity-80 shrink-0" aria-hidden="true" />
-            <div>
-              <span className="dm-stat-value text-2xl font-bold text-foreground block">
-                {statistics?.table_count || 0}
-              </span>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                Tabellen
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DocumentStatsHeader
+        statistics={statistics}
+        statsError={statsError}
+        activeSpaceId={activeSpaceId}
+        statusFilter={statusFilter}
+        categoryFilter={categoryFilter}
+        onReload={() => loadStatistics()}
+      />
 
       <RagMetricsCard />
 
-      {/* Knowledge Spaces Tabs (RAG 2.0) */}
-      <nav className="mb-4 overflow-hidden" aria-label="Wissensbereiche">
-        {spacesError && (
-          <div
-            className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-md py-2 px-3 mb-2 text-destructive text-sm"
-            role="alert"
-          >
-            <AlertCircle size={14} className="shrink-0" />
-            <span>Wissensbereiche nicht verfügbar</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto text-destructive h-7 px-2"
-              onClick={() => loadSpaces()}
-            >
-              <RefreshCw size={12} className="mr-1" /> Laden
-            </Button>
-          </div>
-        )}
-        <div
-          className="flex gap-2 overflow-x-auto py-1"
-          role="tablist"
-          aria-label="Dokumenten-Bereiche"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeSpaceId === null}
-            className={cn(
-              'flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-border rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-[var(--border-hover)] hover:bg-accent hover:text-foreground',
-              activeSpaceId === null && 'border-primary bg-primary/10 text-foreground shadow-sm'
-            )}
-            onClick={() => handleSpaceChange(null)}
-          >
-            <Folder aria-hidden="true" size={16} />
-            <span>Alle</span>
-            <span
-              className="bg-primary/10 text-primary py-0.5 px-1.5 rounded-xs text-xs font-semibold"
-              aria-label={`${statistics?.total_documents || 0} Dokumente`}
-            >
-              {statistics?.total_documents || 0}
-            </span>
-          </button>
-          {spaces.map(space => (
-            <button
-              type="button"
-              key={space.id}
-              role="tab"
-              aria-selected={activeSpaceId === space.id}
-              className={cn(
-                'group/tab flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-border rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-[var(--border-hover)] hover:bg-accent hover:text-foreground',
-                activeSpaceId === space.id &&
-                  'border-[var(--space-color,var(--primary-color))] bg-primary/10 text-foreground shadow-sm'
-              )}
-              onClick={() => handleSpaceChange(space.id)}
-              style={{ '--space-color': space.color } as React.CSSProperties}
-            >
-              <Folder style={{ color: space.color }} aria-hidden="true" size={16} />
-              <span>{space.name}</span>
-              <span
-                className="bg-primary/10 text-primary py-0.5 px-1.5 rounded-xs text-xs font-semibold"
-                aria-label={`${space.document_count || 0} Dokumente`}
-              >
-                {space.document_count || 0}
-              </span>
-              {!space.is_default && !space.is_system && (
-                <button
-                  type="button"
-                  className="hidden group-hover/tab:flex bg-transparent border-none text-muted-foreground cursor-pointer p-0.5 ml-1 rounded-xs transition-colors hover:text-primary hover:bg-primary/10"
-                  onClick={e => handleEditSpace(space, e)}
-                  aria-label={`${space.name} bearbeiten`}
-                >
-                  <Settings aria-hidden="true" size={14} />
-                </button>
-              )}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-dashed border-border rounded-md text-primary text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-primary hover:bg-primary/10"
-            onClick={() => {
-              setEditingSpace(null);
-              setShowSpaceModal(true);
-            }}
-            aria-label="Neuen Bereich erstellen"
-          >
-            <Plus aria-hidden="true" size={16} />
-            <span>Neu</span>
-          </button>
-        </div>
-      </nav>
-
-      {/* Active Space Description (if a space is selected) */}
-      {activeSpaceId && spaces.find(s => s.id === activeSpaceId) && (
-        <div className="bg-muted border border-border rounded-md py-4 px-5 mb-4">
-          <div>
-            <h4>{spaces.find(s => s.id === activeSpaceId)?.name}</h4>
-            <p>{spaces.find(s => s.id === activeSpaceId)?.description?.substring(0, 200)}...</p>
-          </div>
-        </div>
-      )}
+      <SpaceTabs
+        spaces={spaces}
+        activeSpaceId={activeSpaceId}
+        statistics={statistics}
+        spacesError={spacesError}
+        onSpaceChange={handleSpaceChange}
+        onEditSpace={handleEditSpace}
+        onCreateSpace={() => {
+          setEditingSpace(null);
+          setShowSpaceModal(true);
+        }}
+        onReloadSpaces={() => loadSpaces()}
+      />
 
       {/* Upload Zone */}
       <div
@@ -1624,85 +1458,14 @@ function DocumentManager() {
         )}
       </section>
 
-      {/* Pagination */}
-      {totalPages > 0 && (
-        <nav
-          className="flex justify-between items-center gap-4 mt-6 flex-wrap"
-          role="navigation"
-          aria-label="Seitennavigation"
-        >
-          <div className="flex items-center gap-4">
-            <span className="text-muted-foreground text-sm">
-              {totalDocuments + totalTables} Einträge
-            </span>
-            <label
-              htmlFor="dm-page-size"
-              className="text-muted-foreground text-sm whitespace-nowrap"
-            >
-              Pro Seite:
-            </label>
-            <select
-              id="dm-page-size"
-              className="bg-background border border-border rounded-sm text-foreground py-1.5 px-2 text-sm cursor-pointer"
-              value={itemsPerPage}
-              onChange={e => {
-                setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(1)}
-              aria-label="Erste Seite"
-            >
-              &laquo;
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => p - 1)}
-              aria-label="Vorherige Seite"
-            >
-              Zur&uuml;ck
-            </Button>
-            <span
-              className="text-muted-foreground text-sm whitespace-nowrap"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              Seite {currentPage} von {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(p => p + 1)}
-              aria-label="Nächste Seite"
-            >
-              Weiter
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(totalPages)}
-              aria-label="Letzte Seite"
-            >
-              &raquo;
-            </Button>
-          </div>
-        </nav>
-      )}
+      <DocumentPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalEntries={totalDocuments + totalTables}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={setItemsPerPage}
+      />
 
       {/* Document Details Modal */}
       {showDetails && selectedDocument && (

@@ -213,6 +213,217 @@ async function installApp(appId, config = {}) {
 }
 
 /**
+ * Install an app with progress callback (for SSE streaming).
+ * Delegates to the same logic as installApp but passes onProgress to pullImageWithProgress.
+ * @param {string} appId
+ * @param {Object} config
+ * @param {(event: {phase: string, status: string, percent: number, message: string}) => void} onProgress
+ * @returns {Promise<Object>}
+ */
+async function installAppWithProgress(appId, config, onProgress) {
+  validateAppId(appId);
+  const manifestService = require('./manifestService');
+  const containerService = require('./containerService');
+  const configService = require('./configService');
+
+  const manifests = await manifestService.loadManifests();
+  const manifest = manifests[appId];
+
+  if (!manifest) {
+    throw new Error(`App ${appId} not found`);
+  }
+
+  // Check if already installed
+  const existing = await db.query('SELECT status FROM app_installations WHERE app_id = $1', [
+    appId,
+  ]);
+  const reinstallableStatuses = ['available', 'error'];
+  if (existing.rows.length > 0 && !reinstallableStatuses.includes(existing.rows[0].status)) {
+    throw new ConflictError(
+      `App ${appId} ist bereits installiert (Status: ${existing.rows[0].status})`
+    );
+  }
+
+  // Cleanup zombie container from previous failed install
+  if (existing.rows.length > 0 && existing.rows[0].status === 'error') {
+    try {
+      const container = docker.getContainer(appId);
+      try {
+        await container.stop({ t: 5 });
+      } catch (e) {
+        /* ignore */
+      }
+      await container.remove();
+      logger.info(`Cleaned up zombie container for ${appId}`);
+    } catch (e) {
+      logger.debug(`No zombie container to clean for ${appId}: ${e.message}`);
+    }
+  }
+
+  // Check dependencies
+  for (const dep of manifest.dependencies || []) {
+    if (dep.required) {
+      const depStatus = await containerService.getContainerStatus(dep.container);
+      if (!depStatus || !depStatus.Running) {
+        throw new Error(`Abhängigkeit ${dep.container} ist nicht aktiv`);
+      }
+    }
+  }
+
+  // Built-in apps — no Docker pull needed
+  if (manifest.builtin) {
+    onProgress({
+      phase: 'setup',
+      status: 'complete',
+      percent: 100,
+      message: 'Built-in App wird aktiviert',
+    });
+    if (manifest.docker?.buildRequired && manifest.docker?.buildContext) {
+      const imageName = manifest.docker.image;
+      const imageExists = await containerService.checkImageExists(imageName);
+      if (!imageExists) {
+        onProgress({
+          phase: 'build',
+          status: 'building',
+          percent: 50,
+          message: `Image ${imageName} wird gebaut...`,
+        });
+        const buildContext = '/arasul/sandbox-build';
+        await containerService.buildImage(imageName, buildContext);
+      }
+    }
+
+    await db.query(
+      `INSERT INTO app_installations (app_id, status, version, container_name, app_type)
+       VALUES ($1, 'running', $2, $3, $4)
+       ON CONFLICT (app_id) DO UPDATE SET
+         status = 'running', version = $2, started_at = NOW(), last_error = NULL, updated_at = NOW()`,
+      [appId, manifest.version, appId, manifest.appType || 'official']
+    );
+    await configService.logEvent(appId, 'install_complete', 'Built-in App aktiviert');
+    return { success: true, appId, message: 'App erfolgreich aktiviert' };
+  }
+
+  // Update status to installing
+  await db.query(
+    `INSERT INTO app_installations (app_id, status, version, container_name, internal_port, external_port, traefik_route, app_type)
+     VALUES ($1, 'installing', $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (app_id) DO UPDATE SET
+       status = 'installing', version = $2, app_type = $7, last_error = NULL, updated_at = NOW()`,
+    [
+      appId,
+      manifest.version,
+      appId,
+      manifest.docker.ports?.internal,
+      manifest.docker.ports?.external,
+      manifest.traefik?.rule,
+      manifest.appType || 'official',
+    ]
+  );
+
+  await configService.logEvent(appId, 'install_start', 'Installation gestartet');
+  onProgress({
+    phase: 'pull',
+    status: 'starting',
+    percent: 0,
+    message: 'Image-Download startet...',
+  });
+
+  try {
+    if (manifest.docker.buildRequired) {
+      const imageExists = await containerService.checkImageExists(manifest.docker.image);
+      if (!imageExists) {
+        throw new Error(
+          `Lokales Image ${manifest.docker.image} nicht gefunden. Bitte zuerst mit 'docker build' erstellen.`
+        );
+      }
+      onProgress({
+        phase: 'pull',
+        status: 'complete',
+        percent: 100,
+        message: 'Lokales Image gefunden',
+      });
+    } else {
+      // Pull with progress
+      await containerService.pullImageWithProgress(manifest.docker.image, evt => {
+        onProgress({
+          phase: 'pull',
+          status: evt.status,
+          percent: evt.percent,
+          message:
+            evt.status === 'Pull complete'
+              ? `Layer ${evt.id} fertig`
+              : `${evt.status} ${evt.id || ''}`.trim(),
+        });
+      });
+      onProgress({
+        phase: 'pull',
+        status: 'complete',
+        percent: 100,
+        message: 'Image heruntergeladen',
+      });
+    }
+
+    // Create volumes
+    onProgress({
+      phase: 'setup',
+      status: 'creating_volumes',
+      percent: 0,
+      message: 'Volumes werden erstellt...',
+    });
+    for (const vol of manifest.docker.volumes || []) {
+      if (vol.type === 'volume') {
+        try {
+          await docker.createVolume({ Name: vol.name });
+        } catch (err) {
+          if (!err.message.includes('already exists')) {throw err;}
+        }
+      }
+    }
+
+    // Create container
+    onProgress({
+      phase: 'setup',
+      status: 'creating_container',
+      percent: 50,
+      message: 'Container wird erstellt...',
+    });
+    const containerConfig = containerService.buildContainerConfig(manifest, config);
+    const container = await docker.createContainer(containerConfig);
+    logger.info(`Created container ${container.id} for ${appId}`);
+
+    // Update DB
+    await db.query(
+      `UPDATE app_installations SET status = 'installed', container_id = $1, installed_at = NOW(), last_error = NULL WHERE app_id = $2`,
+      [container.id, appId]
+    );
+
+    await configService.logEvent(appId, 'install_complete', 'Installation erfolgreich');
+    onProgress({
+      phase: 'complete',
+      status: 'done',
+      percent: 100,
+      message: 'Installation abgeschlossen',
+    });
+
+    return {
+      success: true,
+      appId,
+      containerId: container.id,
+      message: 'App erfolgreich installiert',
+    };
+  } catch (error) {
+    logger.error(`Installation failed for ${appId}: ${error.message}`);
+    await db.query(
+      `UPDATE app_installations SET status = 'error', last_error = $1, error_count = COALESCE(error_count, 0) + 1 WHERE app_id = $2`,
+      [error.message, appId]
+    );
+    await configService.logEvent(appId, 'install_error', error.message);
+    throw error;
+  }
+}
+
+/**
  * Uninstall an app
  * @param {string} appId - App ID to uninstall
  * @param {boolean} removeVolumes - Whether to remove associated volumes
@@ -356,6 +567,7 @@ async function syncSystemApps() {
 
 module.exports = {
   installApp,
+  installAppWithProgress,
   uninstallApp,
   checkDependencies,
   syncSystemApps,

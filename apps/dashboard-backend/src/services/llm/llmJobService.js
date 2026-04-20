@@ -160,12 +160,17 @@ function createLLMJobService(deps = {}) {
 
             const { content, thinking, sources, matched_spaces, message_id } = jobResult.rows[0];
 
+            // Serialize JSONB values — pg returns JS objects from jsonb columns,
+            // but expects JSON strings when writing back to jsonb parameters
+            const sourcesJson = sources ? JSON.stringify(sources) : null;
+            const spacesJson = matched_spaces ? JSON.stringify(matched_spaces) : null;
+
             // Update the message with final content including sources and matched spaces
             await client.query(
               `UPDATE chat_messages
                        SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed'
                        WHERE id = $5`,
-              [content, thinking, sources, matched_spaces, message_id]
+              [content, thinking, sourcesJson, spacesJson, message_id]
             );
 
             // Mark job as completed
@@ -235,9 +240,12 @@ function createLLMJobService(deps = {}) {
 
           const { content, thinking, sources, matched_spaces, message_id } = jobResult.rows[0];
 
+          const sourcesJson = sources ? JSON.stringify(sources) : null;
+          const spacesJson = matched_spaces ? JSON.stringify(matched_spaces) : null;
+
           await database.query(
             `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
-            [content, thinking, sources, matched_spaces, message_id]
+            [content, thinking, sourcesJson, spacesJson, message_id]
           );
           await database.query(
             `UPDATE llm_jobs SET status = 'completed', completed_at = NOW() WHERE id = $1`,
@@ -413,15 +421,12 @@ function createLLMJobService(deps = {}) {
         try {
           if (row.job_id_found && (row.job_content || row.job_thinking)) {
             // Job exists and has content — transfer it to chat_messages
+            // Serialize JSONB values — pg returns JS objects from jsonb columns
+            const srcJson = row.job_sources ? JSON.stringify(row.job_sources) : null;
+            const spcJson = row.job_matched_spaces ? JSON.stringify(row.job_matched_spaces) : null;
             await database.query(
               `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
-              [
-                row.job_content || '',
-                row.job_thinking,
-                row.job_sources,
-                row.job_matched_spaces,
-                row.message_id,
-              ]
+              [row.job_content || '', row.job_thinking, srcJson, spcJson, row.message_id]
             );
             if (row.job_status === 'streaming' || row.job_status === 'pending') {
               await database.query(
@@ -542,9 +547,11 @@ function createLLMJobService(deps = {}) {
 
         for (const job of unrecovered.rows) {
           try {
+            const srcJson = job.sources ? JSON.stringify(job.sources) : null;
+            const spcJson = job.matched_spaces ? JSON.stringify(job.matched_spaces) : null;
             await database.query(
               `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
-              [job.content || '', job.thinking, job.sources, job.matched_spaces, job.message_id]
+              [job.content || '', job.thinking, srcJson, spcJson, job.message_id]
             );
             logger.info(
               `Recovered message ${job.message_id} before job ${job.id} cleanup ` +

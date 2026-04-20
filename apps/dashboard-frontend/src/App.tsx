@@ -1,30 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-router-dom';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
-import {
-  Cpu,
-  HardDrive,
-  Activity,
-  Thermometer,
-  Monitor,
-  Zap,
-  Database,
-  ExternalLink,
-  Code,
-  GitBranch,
-  Box,
-  Terminal,
-  Send,
-} from 'lucide-react';
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
 import Login from './features/system/Login';
@@ -35,9 +10,11 @@ import ErrorBoundary, {
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import { SkeletonCard, SkeletonText } from './components/ui/Skeleton';
 import SetupWizard from './features/system/SetupWizard';
+import DashboardHome from './features/dashboard/DashboardHome';
 
 // PHASE 3: State Management - Contexts and Hooks
 import { DownloadProvider } from './contexts/DownloadContext';
+import { ActivationProvider } from './contexts/ActivationContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ChatProvider } from './contexts/ChatContext';
@@ -60,7 +37,6 @@ const SandboxApp = lazy(() => import('./features/sandbox'));
 const TelegramBotPage = lazy(() => import('./features/telegram/TelegramBotPage'));
 const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
-const ModelStatusBar = lazy(() => import('./features/dashboard/ModelStatusBar'));
 
 // ---- Type definitions ----
 
@@ -73,6 +49,7 @@ interface MetricsDisk {
 interface Metrics {
   cpu: number;
   ram: number;
+  swap: number;
   gpu: number;
   temperature: number;
   temp: number;
@@ -83,6 +60,7 @@ interface MetricsHistory {
   timestamps: string[];
   cpu: (number | null)[];
   ram: (number | null)[];
+  swap: (number | null)[];
   gpu: (number | null)[];
   temperature: (number | null)[];
 }
@@ -142,23 +120,9 @@ interface ChartDataPoint {
   timestamp: number;
   time: string;
   hour: number;
-  CPU: number | null;
   RAM: number | null;
-  GPU: number | null;
+  Swap: number | null;
   Temp: number | null;
-}
-
-interface DashboardHomeProps {
-  metrics: Metrics | null;
-  metricsHistory: MetricsHistory | null;
-  services: Services | null;
-  systemInfo: SystemInfo | null;
-  networkInfo: NetworkInfo | null;
-  runningApps: RunningApp[];
-  formatChartData: () => ChartDataPoint[];
-  formatUptime: (seconds: number) => string;
-  thresholds: Thresholds | null;
-  deviceInfo: DeviceInfo | null;
 }
 
 /**
@@ -402,9 +366,8 @@ function AppContent(): React.JSX.Element | null {
       timestamp: new Date(timestamp).getTime(),
       time: new Date(timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
       hour: new Date(timestamp).getHours(),
-      CPU: metricsHistory.cpu?.[index] ?? null,
       RAM: metricsHistory.ram?.[index] ?? null,
-      GPU: metricsHistory.gpu?.[index] ?? null,
+      Swap: metricsHistory.swap?.[index] ?? null,
       Temp: metricsHistory.temperature?.[index] ?? null,
     }));
   }, [metricsHistory]);
@@ -439,16 +402,18 @@ function AppContent(): React.JSX.Element | null {
   if (showSetupWizard) {
     return (
       <DownloadProvider>
-        <SetupWizard
-          onComplete={() => {
-            setShowSetupWizard(false);
-            setSetupComplete(true);
-          }}
-          onSkip={() => {
-            setShowSetupWizard(false);
-            setSetupComplete(true);
-          }}
-        />
+        <ActivationProvider>
+          <SetupWizard
+            onComplete={() => {
+              setShowSetupWizard(false);
+              setSetupComplete(true);
+            }}
+            onSkip={() => {
+              setShowSetupWizard(false);
+              setSetupComplete(true);
+            }}
+          />
+        </ActivationProvider>
       </DownloadProvider>
     );
   }
@@ -478,592 +443,189 @@ function AppContent(): React.JSX.Element | null {
 
   return (
     <DownloadProvider>
-      <ChatProvider isAuthenticated={isAuthenticated}>
-        <Router>
-          <div className="app">
-            {/* PHASE 5: Skip-to-content link for keyboard navigation */}
-            <a href="#main-content" className="skip-to-content">
-              Zum Hauptinhalt springen
-            </a>
+      <ActivationProvider>
+        <ChatProvider isAuthenticated={isAuthenticated}>
+          <Router>
+            <div className="app">
+              {/* PHASE 5: Skip-to-content link for keyboard navigation */}
+              <a href="#main-content" className="skip-to-content">
+                Zum Hauptinhalt springen
+              </a>
 
-            <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+              <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
-            {/* Network offline banner */}
-            {metrics &&
-              (metrics as Record<string, unknown>).network &&
-              !((metrics as Record<string, unknown>).network as Record<string, unknown>)
-                ?.online && (
-                <div className="fixed top-0 left-0 right-0 z-50 bg-muted border-b border-border text-foreground text-center py-1.5 text-sm font-medium">
-                  Keine Internetverbindung
+              {/* Network offline banner */}
+              {metrics &&
+                (metrics as Record<string, unknown>).network &&
+                !((metrics as Record<string, unknown>).network as Record<string, unknown>)
+                  ?.online && (
+                  <div className="fixed top-0 left-0 right-0 z-50 bg-muted border-b border-border text-foreground text-center py-1.5 text-sm font-medium">
+                    Keine Internetverbindung
+                  </div>
+                )}
+
+              {/* Update available banner */}
+              {updateAvailable && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
+                  <span>Update verfügbar — Seite neu laden</span>
+                  <button
+                    className="underline font-semibold hover:opacity-80"
+                    onClick={() => window.location.reload()}
+                  >
+                    Jetzt laden
+                  </button>
+                  <button
+                    className="ml-2 opacity-70 hover:opacity-100"
+                    onClick={() => {
+                      setUpdateAvailable(false);
+                      updateDismissedRef.current = Date.now();
+                    }}
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
 
-            {/* Update available banner */}
-            {updateAvailable && (
-              <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
-                <span>Update verfügbar — Seite neu laden</span>
-                <button
-                  className="underline font-semibold hover:opacity-80"
-                  onClick={() => window.location.reload()}
-                >
-                  Jetzt laden
-                </button>
-                <button
-                  className="ml-2 opacity-70 hover:opacity-100"
-                  onClick={() => {
-                    setUpdateAvailable(false);
-                    updateDismissedRef.current = Date.now();
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            <div
-              className="app-content animate-in fade-in duration-150"
-              id="main-content"
-              role="main"
-              tabIndex={-1}
-              ref={(el: HTMLDivElement | null) => {
-                if (el && window.location.hash === '#main-content') el.focus();
-              }}
-            >
-              {/* PHASE 2: Suspense wrapper for lazy-loaded route components */}
-              <Suspense
-                fallback={
-                  <div className="flex flex-col gap-6 p-6 animate-in fade-in">
-                    <SkeletonText lines={2} width="40%" />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <SkeletonCard hasAvatar={false} lines={3} />
-                      <SkeletonCard hasAvatar={false} lines={3} />
-                    </div>
-                  </div>
-                }
+              <div
+                className="app-content animate-in fade-in duration-150"
+                id="main-content"
+                role="main"
+                tabIndex={-1}
+                ref={(el: HTMLDivElement | null) => {
+                  if (el && window.location.hash === '#main-content') el.focus();
+                }}
               >
-                <Routes>
-                  <Route
-                    path="/"
-                    element={
-                      <RouteErrorBoundary routeName="Dashboard">
-                        <DashboardHome
-                          metrics={metrics}
-                          metricsHistory={metricsHistory}
-                          services={services}
-                          systemInfo={systemInfo}
-                          networkInfo={networkInfo}
-                          runningApps={runningApps}
-                          formatChartData={formatChartData}
-                          formatUptime={formatUptime}
-                          thresholds={thresholds}
-                          deviceInfo={deviceInfo}
-                        />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="/settings"
-                    element={
-                      <RouteErrorBoundary routeName="Einstellungen">
-                        <Settings
-                          handleLogout={handleLogout}
-                          theme={theme}
-                          onToggleTheme={toggleTheme}
-                        />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="/chat/*"
-                    element={
-                      <RouteErrorBoundary routeName="AI Chat">
-                        <ChatRouter />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="/data"
-                    element={
-                      <RouteErrorBoundary routeName="Dokumente">
-                        <DocumentManager />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route path="/documents" element={<Navigate to="/data" replace />} />
-                  <Route
-                    path="/store/*"
-                    element={
-                      <RouteErrorBoundary routeName="Store">
-                        <Store />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
-                  <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
-                  <Route
-                    path="/terminal"
-                    element={
-                      <RouteErrorBoundary routeName="Terminal">
-                        <SandboxApp />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="/telegram-bot"
-                    element={
-                      <RouteErrorBoundary routeName="Telegram Bot">
-                        <TelegramBotPage />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route path="/telegram-bots" element={<Navigate to="/telegram-bot" replace />} />
-                  <Route
-                    path="/database"
-                    element={
-                      <RouteErrorBoundary routeName="Datenbank">
-                        <DatabaseOverview />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="/database/:slug"
-                    element={
-                      <RouteErrorBoundary routeName="Datentabelle">
-                        <DatabaseTable />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="*"
-                    element={
-                      <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground">
-                        <h1 className="text-7xl font-bold m-0 text-foreground">404</h1>
-                        <p className="text-lg mt-2">Seite nicht gefunden</p>
-                        <Link
-                          to="/"
-                          className="mt-6 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg no-underline hover:opacity-90 transition-opacity"
-                        >
-                          Zum Dashboard
-                        </Link>
+                {/* PHASE 2: Suspense wrapper for lazy-loaded route components */}
+                <Suspense
+                  fallback={
+                    <div className="flex flex-col gap-6 p-6 animate-in fade-in">
+                      <SkeletonText lines={2} width="40%" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <SkeletonCard hasAvatar={false} lines={3} />
+                        <SkeletonCard hasAvatar={false} lines={3} />
                       </div>
-                    }
-                  />
-                </Routes>
-              </Suspense>
+                    </div>
+                  }
+                >
+                  <Routes>
+                    <Route
+                      path="/"
+                      element={
+                        <RouteErrorBoundary routeName="Dashboard">
+                          <DashboardHome
+                            metrics={metrics}
+                            metricsHistory={metricsHistory}
+                            services={services}
+                            systemInfo={systemInfo}
+                            networkInfo={networkInfo}
+                            runningApps={runningApps}
+                            formatChartData={formatChartData}
+                            formatUptime={formatUptime}
+                            thresholds={thresholds}
+                            deviceInfo={deviceInfo}
+                          />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/settings"
+                      element={
+                        <RouteErrorBoundary routeName="Einstellungen">
+                          <Settings
+                            handleLogout={handleLogout}
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
+                          />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/chat/*"
+                      element={
+                        <RouteErrorBoundary routeName="AI Chat">
+                          <ChatRouter />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/data"
+                      element={
+                        <RouteErrorBoundary routeName="Dokumente">
+                          <DocumentManager />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route path="/documents" element={<Navigate to="/data" replace />} />
+                    <Route
+                      path="/store/*"
+                      element={
+                        <RouteErrorBoundary routeName="Store">
+                          <Store />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
+                    <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
+                    <Route
+                      path="/terminal"
+                      element={
+                        <RouteErrorBoundary routeName="Terminal">
+                          <SandboxApp />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/telegram-bot"
+                      element={
+                        <RouteErrorBoundary routeName="Telegram Bot">
+                          <TelegramBotPage />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/telegram-bots"
+                      element={<Navigate to="/telegram-bot" replace />}
+                    />
+                    <Route
+                      path="/database"
+                      element={
+                        <RouteErrorBoundary routeName="Datenbank">
+                          <DatabaseOverview />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/database/:slug"
+                      element={
+                        <RouteErrorBoundary routeName="Datentabelle">
+                          <DatabaseTable />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="*"
+                      element={
+                        <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground">
+                          <h1 className="text-7xl font-bold m-0 text-foreground">404</h1>
+                          <p className="text-lg mt-2">Seite nicht gefunden</p>
+                          <Link
+                            to="/"
+                            className="mt-6 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg no-underline hover:opacity-90 transition-opacity"
+                          >
+                            Zum Dashboard
+                          </Link>
+                        </div>
+                      }
+                    />
+                  </Routes>
+                </Suspense>
+              </div>
             </div>
-          </div>
-        </Router>
-      </ChatProvider>
+          </Router>
+        </ChatProvider>
+      </ActivationProvider>
     </DownloadProvider>
   );
 }
-
-// PHASE 2: Memoize DashboardHome to prevent re-renders when props haven't changed
-const DashboardHome = React.memo(function DashboardHome({
-  metrics,
-  metricsHistory,
-  services,
-  systemInfo,
-  networkInfo,
-  runningApps,
-  formatChartData,
-  formatUptime,
-  thresholds,
-  deviceInfo,
-}: DashboardHomeProps): React.JSX.Element {
-  // Default thresholds if not loaded yet
-  const defaultThresholds: Thresholds = {
-    cpu: { warning: 70, critical: 90 },
-    ram: { warning: 70, critical: 90 },
-    gpu: { warning: 80, critical: 95 },
-    storage: { warning: 70, critical: 85 },
-    temperature: { warning: 65, critical: 80 },
-  };
-
-  const t = thresholds || defaultThresholds;
-
-  // Helper function to get status info based on value and metric thresholds
-  const getStatusInfo = (value: number, metric: string): { status: string; className: string } => {
-    const threshold = t[metric];
-    if (!threshold) return { status: 'Normal', className: 'stat-change-positive' };
-
-    if (value >= threshold.critical) {
-      return { status: 'Critical', className: 'stat-change-negative' };
-    }
-    if (value >= threshold.warning) {
-      return { status: 'Warning', className: 'stat-change-warning' };
-    }
-    return { status: 'Normal', className: 'stat-change-positive' };
-  };
-
-  // Temperature-specific status labels
-  const getTempStatusInfo = (value: number): { status: string; className: string } => {
-    const threshold = t.temperature;
-    if (value >= threshold.critical) {
-      return { status: 'Hot', className: 'stat-change-negative' };
-    }
-    if (value >= threshold.warning) {
-      return { status: 'Warm', className: 'stat-change-warning' };
-    }
-    return { status: 'Normal', className: 'stat-change-positive' };
-  };
-
-  // Chart zoom state - persisted to localStorage
-  const [chartTimeRange, setChartTimeRange] = useState<number>(() => {
-    const saved = localStorage.getItem('arasul_chart_time_range');
-    return saved ? Number(saved) : 24;
-  }); // hours
-
-  // Persist chartTimeRange changes
-  useEffect(() => {
-    localStorage.setItem('arasul_chart_time_range', String(chartTimeRange));
-  }, [chartTimeRange]);
-  const timeRangeOptions: number[] = [1, 6, 12, 24];
-
-  // Tick interval in ms per time range
-  const tickIntervalMs: Record<number, number> = {
-    1: 10 * 60 * 1000, // 10 min
-    6: 60 * 60 * 1000, // 1h
-    12: 2 * 60 * 60 * 1000, // 2h
-    24: 4 * 60 * 60 * 1000, // 4h
-  };
-
-  // Memoized chart data - only recalculate when data or timeRange changes
-  const chartData = useMemo((): ChartDataPoint[] => {
-    const allData = formatChartData();
-    if (!allData.length) return [];
-
-    const now = Date.now();
-    const cutoff = now - chartTimeRange * 60 * 60 * 1000;
-    return allData.filter(d => d.timestamp >= cutoff);
-  }, [formatChartData, chartTimeRange]);
-
-  // Generate clean tick values aligned to round intervals
-  const chartTicks = useMemo((): number[] => {
-    if (!chartData.length) return [];
-    const interval = tickIntervalMs[chartTimeRange] || 60 * 60 * 1000;
-    const now = Date.now();
-    const cutoff = now - chartTimeRange * 60 * 60 * 1000;
-    // Start from first round interval after cutoff
-    const firstTick = Math.ceil(cutoff / interval) * interval;
-    const ticks: number[] = [];
-    for (let t = firstTick; t <= now; t += interval) {
-      ticks.push(t);
-    }
-    return ticks;
-  }, [chartData, chartTimeRange]);
-
-  // Icon mapping for apps
-  const getAppIcon = (iconName: string): React.JSX.Element => {
-    const icons: Record<string, React.ComponentType<{ className?: string }>> = {
-      FiZap: Zap,
-      FiDatabase: Database,
-      FiCode: Code,
-      FiGitBranch: GitBranch,
-      FiBox: Box,
-      FiTerminal: Terminal,
-      FiSend: Send,
-    };
-    const IconComponent = icons[iconName] || Box;
-    return <IconComponent className="service-link-icon" />;
-  };
-
-  // Get app URL based on port or traefik route
-  const getAppUrl = (app: RunningApp): string => {
-    // Apps with custom pages should link internally
-    if (app.hasCustomPage && app.customPageRoute) {
-      return app.customPageRoute;
-    }
-    // Apps routed through Traefik path (use same origin, no port)
-    const traefikPaths: Record<string, string> = {
-      n8n: '/n8n',
-    };
-    if (traefikPaths[app.id]) {
-      return `${window.location.origin}${traefikPaths[app.id]}`;
-    }
-    // Use external port if available
-    if (app.ports?.external) {
-      return `http://${window.location.hostname}:${app.ports.external}`;
-    }
-    // Fallback to known ports for direct access
-    const knownPorts: Record<string, number> = {
-      minio: 9001,
-      'code-server': 8443,
-      gitea: 3002,
-    };
-    if (knownPorts[app.id]) {
-      return `http://${window.location.hostname}:${knownPorts[app.id]}`;
-    }
-    return '#';
-  };
-
-  // Check if app link should be internal (React Router) or external
-  const isInternalLink = (app: RunningApp): boolean => {
-    return !!(app.hasCustomPage && app.customPageRoute);
-  };
-  // Dynamic progress color based on thresholds
-  const getProgressColor = (value: number, metric: string = 'cpu'): string => {
-    const threshold = t[metric] || { warning: 70, critical: 90 };
-    if (value >= threshold.critical) return 'var(--danger-color)';
-    if (value >= threshold.warning) return 'var(--warning-color)';
-    return 'var(--primary-color)';
-  };
-
-  const formatBytes = (bytes: number): string => {
-    return (bytes / 1024 / 1024 / 1024).toFixed(0);
-  };
-
-  const totalDisk = (metrics?.disk?.used || 0) + (metrics?.disk?.free || 0);
-  const usedDisk = metrics?.disk?.used || 0;
-
-  return (
-    <>
-      {/* Top Stats Row */}
-      <div className="stats-top-row">
-        <div className="stat-card-large">
-          <div className="stat-icon-wrapper">
-            <Cpu className="stat-icon" />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">CPU USAGE</div>
-            <div className="stat-value-large">
-              {metrics?.cpu?.toFixed(1) || 0}
-              <span className="stat-unit">%</span>
-            </div>
-            <div className={`stat-change ${getStatusInfo(metrics?.cpu || 0, 'cpu').className}`}>
-              {getStatusInfo(metrics?.cpu || 0, 'cpu').status}
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card-large">
-          <div className="stat-icon-wrapper">
-            <Activity className="stat-icon" />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">RAM USAGE</div>
-            <div className="stat-value-large">
-              {metrics?.ram?.toFixed(1) || 0}
-              <span className="stat-unit">%</span>
-            </div>
-            {deviceInfo?.total_memory_gb ? (
-              <div className="stat-sublabel">
-                {(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} /{' '}
-                {deviceInfo.total_memory_gb} GB
-              </div>
-            ) : (
-              <div className={`stat-change ${getStatusInfo(metrics?.ram || 0, 'ram').className}`}>
-                {getStatusInfo(metrics?.ram || 0, 'ram').status}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="stat-card-large">
-          <div className="stat-icon-wrapper">
-            <HardDrive className="stat-icon" />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">STORAGE</div>
-            <div className="stat-value-large">
-              {metrics?.disk?.percent?.toFixed(0) || 0}
-              <span className="stat-unit">%</span>
-            </div>
-            <div className="storage-bar-container">
-              <div
-                className="storage-bar-fill"
-                style={{
-                  width: `${metrics?.disk?.percent || 0}%`,
-                  background: getProgressColor(metrics?.disk?.percent || 0, 'storage'),
-                }}
-              />
-            </div>
-            <div className="stat-sublabel">
-              {formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card-large">
-          <div className="stat-icon-wrapper">
-            <Monitor className="stat-icon" />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">GPU USAGE</div>
-            <div className="stat-value-large">
-              {metrics?.gpu?.toFixed(1) || 0}
-              <span className="stat-unit">%</span>
-            </div>
-            <div className={`stat-change ${getStatusInfo(metrics?.gpu || 0, 'gpu').className}`}>
-              {getStatusInfo(metrics?.gpu || 0, 'gpu').status}
-            </div>
-            {(metrics?.temperature ?? 0) > 0 && (
-              <div className="stat-temp-inline">
-                <Thermometer size={12} /> {metrics!.temperature.toFixed(0)}°C
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Installed Apps - Dynamic */}
-      {runningApps && runningApps.length > 0 && (
-        <div className="service-links-modern">
-          {runningApps
-            ?.filter((app: RunningApp) => app.status === 'running' && app.id !== 'minio')
-            .map((app: RunningApp) => {
-              const url = getAppUrl(app);
-              if (isInternalLink(app)) {
-                return (
-                  <Link key={app.id} to={url} className="service-link-card">
-                    <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
-                    <div className="service-link-content">
-                      <div className="service-link-name">{app.name}</div>
-                      <div className="service-link-description">{app.description}</div>
-                    </div>
-                    <ExternalLink className="service-link-arrow" />
-                  </Link>
-                );
-              }
-              if (url === '#') {
-                return (
-                  <div key={app.id} className="service-link-card service-link-unavailable">
-                    <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
-                    <div className="service-link-content">
-                      <div className="service-link-name">{app.name}</div>
-                      <div className="service-link-description">{app.description}</div>
-                    </div>
-                    <span className="service-link-badge-unavailable">Nicht verfügbar</span>
-                  </div>
-                );
-              }
-              return (
-                <a
-                  key={app.id}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="service-link-card"
-                >
-                  <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
-                  <div className="service-link-content">
-                    <div className="service-link-name">{app.name}</div>
-                    <div className="service-link-description">{app.description}</div>
-                  </div>
-                  <ExternalLink className="service-link-arrow" />
-                </a>
-              );
-            })}
-        </div>
-      )}
-
-      {/* Main Content Grid */}
-      <div className="dashboard-grid">
-        {/* 24h Performance Chart */}
-        <div className="dashboard-card dashboard-card-large">
-          <div className="chart-header">
-            <h3 className="dashboard-card-title">Performance</h3>
-            <div className="chart-zoom-controls">
-              {timeRangeOptions.map((hours: number) => (
-                <button
-                  key={hours}
-                  type="button"
-                  className={`chart-zoom-btn ${chartTimeRange === hours ? 'active' : ''}`}
-                  onClick={() => setChartTimeRange(hours)}
-                >
-                  {hours}h
-                </button>
-              ))}
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart
-              data={chartData}
-              role="img"
-              aria-label={`Performance-Diagramm der letzten ${chartTimeRange} Stunden: CPU, RAM und GPU`}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-alpha-10)" />
-              <XAxis
-                dataKey="timestamp"
-                type="number"
-                domain={['dataMin', 'dataMax']}
-                ticks={chartTicks}
-                tickFormatter={(ts: number) =>
-                  new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-                }
-                stroke="var(--text-muted)"
-                tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
-                axisLine={{ stroke: 'var(--text-muted)' }}
-                tickLine={{ stroke: 'var(--text-muted)' }}
-              />
-              <YAxis
-                stroke="var(--text-muted)"
-                tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
-                axisLine={{ stroke: 'var(--text-muted)' }}
-                tickLine={{ stroke: 'var(--text-muted)' }}
-                domain={[0, 100]}
-                tickFormatter={(value: number) => `${value}%`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-subtle) 100%)',
-                  border: '1px solid var(--primary-alpha-30)',
-                  borderRadius: '10px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
-                }}
-                labelStyle={{ color: 'var(--primary-color)', fontWeight: 600 }}
-                labelFormatter={(ts: number) =>
-                  new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-                }
-                formatter={(value: number, name: string) => {
-                  return [`${value?.toFixed(1)}%`, name];
-                }}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="CPU"
-                stroke="var(--primary-color)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="RAM"
-                stroke="#A78BFA"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="GPU"
-                stroke="#22C55E"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-          {/* Screen-reader summary for chart data */}
-          <div className="sr-only" role="status">
-            {metrics && (
-              <>
-                CPU: {metrics.cpu?.toFixed(1)}%, RAM: {metrics.ram?.toFixed(1)}%, GPU:{' '}
-                {metrics.gpu?.toFixed(1)}%
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Model Status Bar - 40% width */}
-        <Suspense fallback={<div className="dashboard-card" style={{ minHeight: 280 }} />}>
-          <ModelStatusBar />
-        </Suspense>
-      </div>
-    </>
-  );
-});
 
 export default App;

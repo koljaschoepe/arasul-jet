@@ -11,6 +11,7 @@ const appService = require('../../services/app/appService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const { initSSE, trackConnection } = require('../../utils/sseHelper');
 
 /**
  * GET /api/apps
@@ -178,6 +179,7 @@ router.get(
 /**
  * POST /api/apps/:id/install
  * Install an app
+ * Supports SSE streaming for progress updates via ?stream=true
  */
 router.post(
   '/:id/install',
@@ -186,19 +188,60 @@ router.post(
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const config = req.body.config || {};
+    const useStream = req.query.stream === 'true';
 
     if (Array.isArray(config) || typeof config !== 'object') {
+      if (useStream) {
+        initSSE(res);
+        res.write(
+          `data: ${JSON.stringify({ error: 'config muss ein Objekt sein', done: true })}\n\n`
+        );
+        return res.end();
+      }
       throw new ValidationError('config muss ein Objekt sein');
     }
 
-    logger.info(`User ${req.user.username} installing app ${id}`);
+    logger.info(`User ${req.user.username} installing app ${id}${useStream ? ' (streaming)' : ''}`);
 
-    const result = await appService.installApp(id, config);
+    if (useStream) {
+      initSSE(res);
+      const { isConnected } = trackConnection(res);
 
-    res.status(201).json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+      res.write(
+        `data: ${JSON.stringify({ phase: 'init', status: 'starting', percent: 0, message: 'Installation wird vorbereitet...' })}\n\n`
+      );
+
+      try {
+        const result = await appService.installAppWithProgress(id, config, evt => {
+          if (isConnected()) {
+            res.write(`data: ${JSON.stringify(evt)}\n\n`);
+          }
+        });
+
+        if (isConnected()) {
+          res.write(
+            `data: ${JSON.stringify({ phase: 'complete', status: 'done', percent: 100, message: result.message, done: true, ...result })}\n\n`
+          );
+        }
+        res.end();
+      } catch (err) {
+        logger.error(`Streaming install failed for ${id}: ${err.message}`);
+        if (isConnected()) {
+          res.write(
+            `data: ${JSON.stringify({ phase: 'error', status: 'error', error: err.message, done: true })}\n\n`
+          );
+        }
+        res.end();
+      }
+    } else {
+      // Non-streaming (original behavior)
+      const result = await appService.installApp(id, config);
+
+      res.status(201).json({
+        ...result,
+        timestamp: new Date().toISOString(),
+      });
+    }
   })
 );
 

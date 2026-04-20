@@ -1,95 +1,25 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  X,
-  Plus,
-  Send,
-  MessageCircle,
-  Power,
-  Trash2,
-  Pencil,
-  RefreshCw,
-  Loader2,
-  Activity,
-  Settings,
-  FileText,
-  Check,
-  AlertCircle,
-  Eye,
-  EyeOff,
-  BookOpen,
-  Cpu,
-  Mic,
-  Wrench,
-  Shield,
-} from 'lucide-react';
+import { X, Send, MessageCircle, Activity, Settings, FileText } from 'lucide-react';
 import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
 import BotSetupWizard from './BotSetupWizard';
 import BotDetailsModal from './BotDetailsModal';
 import { useApi } from '../../hooks/useApi';
-import { Button } from '@/components/ui/shadcn/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/shadcn/tabs';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
-import { cn } from '@/lib/utils';
+import BotsSection from './sections/BotsSection';
+import StatusSection from './sections/StatusSection';
+import SystemSection from './sections/SystemSection';
+import LogsSection from './sections/LogsSection';
+import type { Bot, AppStatus, SystemConfig, SystemMessage, AuditLog } from './sections/types';
 
-/* ============================================================================
-   Types
-   ============================================================================ */
-
-interface Bot {
-  id: string;
-  name: string;
-  username?: string;
-  isActive: boolean;
-  llmProvider?: string;
-  llmModel?: string;
-  chatCount?: number;
-  messageCount?: number;
-  ragEnabled?: boolean;
-  ragSpaceIds?: string[];
-  toolsEnabled?: boolean;
-  voiceEnabled?: boolean;
-  restrictUsers?: boolean;
-}
-
-interface AppStatus {
-  isEnabled?: boolean;
-}
-
-interface SystemConfig {
-  bot_token: string;
-  chat_id: string;
-  enabled: boolean;
-}
-
-interface SystemMessage {
-  type: 'success' | 'error';
-  text: string;
-}
-
-interface AuditLog {
-  id: string;
-  timestamp: string;
-  username?: string;
-  chat_id?: string;
-  command?: string;
-  message_text?: string;
-  interaction_type?: string;
-  success: boolean;
-}
-
-/* ============================================================================
-   TELEGRAM BOT PAGE - Full page with horizontal top tabs
-   Sections: Bots, Status, System, Logs
-   ============================================================================ */
 export default function TelegramBotPage() {
   const { confirm, ConfirmDialog } = useConfirm();
   const toast = useToast();
   const api = useApi();
   const isMountedRef = useRef(true);
 
-  // Bots state
   const [bots, setBots] = useState<Bot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +29,6 @@ export default function TelegramBotPage() {
   const [togglingBot, setTogglingBot] = useState<string | null>(null);
   const [deletingBot, setDeletingBot] = useState<string | null>(null);
 
-  // System section state
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({
     bot_token: '',
     chat_id: '',
@@ -113,7 +42,6 @@ export default function TelegramBotPage() {
   const [systemMessage, setSystemMessage] = useState<SystemMessage | null>(null);
   const [originalSystemConfig, setOriginalSystemConfig] = useState<SystemConfig | null>(null);
 
-  // Logs state
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
@@ -124,7 +52,6 @@ export default function TelegramBotPage() {
     };
   }, []);
 
-  // Fetch bots & status
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -146,7 +73,6 @@ export default function TelegramBotPage() {
     }
   }, [api]);
 
-  // Fetch system config
   const fetchSystemConfig = useCallback(
     async (signal: AbortSignal) => {
       try {
@@ -175,7 +101,6 @@ export default function TelegramBotPage() {
     [api]
   );
 
-  // Fetch audit logs
   const fetchLogs = useCallback(async () => {
     setLogsLoading(true);
     try {
@@ -188,7 +113,6 @@ export default function TelegramBotPage() {
     }
   }, [api]);
 
-  // Fetch data on mount
   useEffect(() => {
     const controller = new AbortController();
     fetchData();
@@ -196,7 +120,6 @@ export default function TelegramBotPage() {
     return () => controller.abort();
   }, [fetchData, fetchSystemConfig]);
 
-  // Bot actions
   const handleBotCreated = (newBot: Bot) => {
     setBots(prev => [...prev, newBot]);
     setShowWizard(false);
@@ -244,7 +167,6 @@ export default function TelegramBotPage() {
     setSelectedBot(null);
   };
 
-  // System section handlers
   const handleSystemSave = async () => {
     setSystemSaving(true);
     setSystemMessage(null);
@@ -318,7 +240,6 @@ export default function TelegramBotPage() {
 
   const activeBots = bots.filter(b => b.isActive).length;
 
-  // Lazy-load logs on first tab switch
   const handleTabChange = (value: string) => {
     if (value === 'logs' && auditLogs.length === 0) {
       fetchLogs();
@@ -327,8 +248,7 @@ export default function TelegramBotPage() {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in">
-      {/* Page Header */}
-      <div className="shrink-0 px-8 pt-8 pb-6">
+      <div className="shrink-0 px-6 pt-6 pb-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center justify-center size-10 rounded-xl bg-primary/10">
             <Send className="size-5 text-primary" />
@@ -345,14 +265,13 @@ export default function TelegramBotPage() {
         </div>
       </div>
 
-      {/* Horizontal Tab Navigation + Content */}
       <Tabs
         defaultValue="bots"
         onValueChange={handleTabChange}
         className="flex-1 flex flex-col min-h-0"
       >
-        <div className="px-8 border-b border-border shrink-0">
-          <TabsList variant="line" className="gap-1">
+        <div className="px-6 border-b border-border shrink-0">
+          <TabsList variant="line" className="gap-2">
             <TabsTrigger value="bots" className="px-4 py-2.5 text-sm">
               <MessageCircle size={16} /> Bots
             </TabsTrigger>
@@ -369,7 +288,7 @@ export default function TelegramBotPage() {
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="max-w-[960px] px-8 py-8">
+          <div className="max-w-[960px] px-6 py-6">
             <TabsContent value="bots">
               <ComponentErrorBoundary componentName="Bots">
                 <BotsSection
@@ -422,7 +341,6 @@ export default function TelegramBotPage() {
         </ScrollArea>
       </Tabs>
 
-      {/* Sub-modals */}
       {showWizard && (
         <div
           className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center animate-in fade-in duration-150"
@@ -458,671 +376,6 @@ export default function TelegramBotPage() {
         />
       )}
       {ConfirmDialog}
-    </div>
-  );
-}
-
-/* ============================================================================
-   BOTS SECTION
-   ============================================================================ */
-interface BotsSectionProps {
-  bots: Bot[];
-  loading: boolean;
-  error: string | null;
-  togglingBot: string | null;
-  deletingBot: string | null;
-  onRefresh: () => void;
-  onCreateBot: () => void;
-  onEditBot: (bot: Bot) => void;
-  onToggleBot: (botId: string, currentActive: boolean) => void;
-  onDeleteBot: (botId: string) => void;
-}
-
-function BotsSection({
-  bots,
-  loading,
-  error,
-  togglingBot,
-  deletingBot,
-  onRefresh,
-  onCreateBot,
-  onEditBot,
-  onToggleBot,
-  onDeleteBot,
-}: BotsSectionProps) {
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="m-0 text-foreground text-lg">
-          {bots.length} Bot{bots.length !== 1 ? 's' : ''}
-        </h3>
-        <div className="flex gap-2 items-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onRefresh}
-            disabled={loading}
-            title="Aktualisieren"
-            aria-label="Aktualisieren"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          </Button>
-          <Button onClick={onCreateBot}>
-            <Plus size={16} /> Neuer Bot
-          </Button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="py-3 px-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm mb-4">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4 max-md:grid-cols-1">
-          {[1, 2].map(i => (
-            <div
-              key={i}
-              className="bg-card border border-border rounded-xl p-5 pointer-events-none"
-            >
-              <div className="flex justify-between items-start mb-3.5">
-                <div
-                  className="rounded bg-border animate-pulse"
-                  style={{ width: 120, height: 16 }}
-                />
-                <div className="w-[52px] h-[22px] rounded-full bg-border animate-pulse" />
-              </div>
-              <div
-                className="rounded bg-border animate-pulse"
-                style={{ width: '80%', height: 12 }}
-              />
-              <div className="flex flex-wrap gap-2.5 py-3 border-t border-b border-border mb-3.5 mt-3.5">
-                <div
-                  className="rounded bg-border animate-pulse"
-                  style={{ width: 80, height: 12 }}
-                />
-                <div
-                  className="rounded bg-border animate-pulse"
-                  style={{ width: 60, height: 12 }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : bots.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground bg-card border border-dashed border-border rounded-xl">
-          <div className="flex items-center justify-center size-16 bg-primary/10 rounded-full text-primary mb-4">
-            <Send size={32} />
-          </div>
-          <h4 className="text-foreground m-0 mb-2 text-lg">Noch keine Bots</h4>
-          <p className="m-0 mb-5 max-w-[360px] leading-relaxed text-sm">
-            Verbinde deinen ersten Telegram Bot mit einer KI und starte Gespräche direkt aus
-            Telegram.
-          </p>
-          <Button onClick={onCreateBot}>
-            <Plus size={16} /> Bot erstellen
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4 max-md:grid-cols-1">
-          {bots.map(bot => (
-            <BotCard
-              key={bot.id}
-              bot={bot}
-              toggling={togglingBot === bot.id}
-              deleting={deletingBot === bot.id}
-              onEdit={() => onEditBot(bot)}
-              onToggle={() => onToggleBot(bot.id, bot.isActive)}
-              onDelete={() => onDeleteBot(bot.id)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ============================================================================
-   BOT CARD
-   ============================================================================ */
-interface BotCardProps {
-  bot: Bot;
-  toggling: boolean;
-  deleting: boolean;
-  onEdit: () => void;
-  onToggle: () => void;
-  onDelete: () => void;
-}
-
-function BotCard({ bot, toggling, deleting, onEdit, onToggle, onDelete }: BotCardProps) {
-  const isActive = bot.isActive;
-  const model = bot.llmModel || '';
-  const provider = bot.llmProvider || 'ollama';
-  const username = bot.username;
-  const chatCount = bot.chatCount || 0;
-  const messageCount = bot.messageCount || 0;
-  const ragEnabled = bot.ragEnabled || false;
-  const ragSpaceIds = bot.ragSpaceIds;
-  const isMaster = ragEnabled && !ragSpaceIds;
-  const voiceEnabled = bot.voiceEnabled ?? true;
-  const toolsEnabled = bot.toolsEnabled ?? true;
-  const restrictUsers = bot.restrictUsers || false;
-
-  return (
-    <div
-      className={cn(
-        'bg-card border border-border rounded-xl p-5 transition-all hover:border-primary hover:shadow-lg hover:-translate-y-0.5',
-        isActive && 'border-primary/30'
-      )}
-    >
-      <div className="flex justify-between items-start mb-3.5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h4 className="m-0 mb-1 text-foreground text-base">{bot.name}</h4>
-            {isMaster && (
-              <span className="bg-primary/15 text-primary text-[0.65rem] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide">
-                Master
-              </span>
-            )}
-          </div>
-          <span className="text-sm text-muted-foreground">@{username || 'nicht verbunden'}</span>
-        </div>
-        <span
-          className={cn(
-            'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium',
-            isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-          )}
-        >
-          <span
-            className={cn(
-              'w-1.5 h-1.5 rounded-full bg-current shrink-0',
-              isActive && 'shadow-[0_0_6px_theme(--color-primary)] animate-pulse'
-            )}
-          />
-          {isActive ? 'Aktiv' : 'Inaktiv'}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap gap-2.5 py-3 border-t border-b border-border mb-3.5 max-[480px]:gap-1.5">
-        {ragEnabled && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70">
-            <BookOpen size={14} /> {ragSpaceIds ? `${ragSpaceIds.length} Spaces` : 'Alle Spaces'}
-          </span>
-        )}
-        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70">
-          <MessageCircle size={14} /> {chatCount} Chats
-        </span>
-        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70">
-          <Cpu size={14} /> {model ? model.split(':')[0] : provider}
-        </span>
-        {voiceEnabled && (
-          <span
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70"
-            title="Sprachnachrichten aktiv"
-          >
-            <Mic size={14} />
-          </span>
-        )}
-        {toolsEnabled && (
-          <span
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70"
-            title="Tool-Zugriff aktiv"
-          >
-            <Wrench size={14} />
-          </span>
-        )}
-        {restrictUsers && (
-          <span
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70"
-            title="Zugriff eingeschränkt"
-          >
-            <Shield size={14} />
-          </span>
-        )}
-        {messageCount > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground [&_svg]:text-sm [&_svg]:opacity-70">
-            <Send size={14} /> {messageCount} Nachr.
-          </span>
-        )}
-      </div>
-
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={onEdit} title="Bearbeiten">
-          <Pencil size={14} /> <span>Bearbeiten</span>
-        </Button>
-        <button
-          type="button"
-          className={cn(
-            'flex items-center justify-center size-9 border border-border rounded-lg bg-background cursor-pointer transition-all hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
-            isActive ? 'text-muted-foreground' : 'text-primary'
-          )}
-          onClick={onToggle}
-          disabled={toggling}
-          title={isActive ? 'Deaktivieren' : 'Aktivieren'}
-          aria-label={isActive ? 'Deaktivieren' : 'Aktivieren'}
-        >
-          <Power size={16} className={toggling ? 'animate-spin' : ''} />
-        </button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="hover:bg-destructive/10 hover:text-destructive"
-          onClick={onDelete}
-          disabled={deleting}
-          title="Löschen"
-          aria-label="Löschen"
-        >
-          {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================================
-   STATUS SECTION
-   ============================================================================ */
-interface StatusSectionProps {
-  appStatus: AppStatus | null;
-  bots: Bot[];
-  loading: boolean;
-}
-
-function StatusSection({ appStatus, bots, loading }: StatusSectionProps) {
-  const totalChats = bots.reduce((sum, b) => sum + (b.chatCount || 0), 0);
-  const activeBots = bots.filter(b => b.isActive).length;
-  const ragBots = bots.filter(b => b.ragEnabled).length;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-3 p-12 text-muted-foreground text-sm">
-        <RefreshCw size={16} className="animate-spin" /> Lade Status...
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 className="m-0 mb-4 text-foreground text-lg">Übersicht</h3>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 max-md:grid-cols-2 max-[480px]:grid-cols-2">
-        <div className="flex flex-col gap-1.5 p-4 bg-card border border-border rounded-xl transition-colors hover:border-primary/30">
-          <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wider">
-            Bots gesamt
-          </span>
-          <span className="text-2xl font-semibold text-foreground">{bots.length}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 p-4 bg-card border border-border rounded-xl transition-colors hover:border-primary/30">
-          <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wider">
-            Aktive Bots
-          </span>
-          <span className="text-2xl font-semibold text-primary">{activeBots}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 p-4 bg-card border border-border rounded-xl transition-colors hover:border-primary/30">
-          <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wider">
-            Verbundene Chats
-          </span>
-          <span className="text-2xl font-semibold text-foreground">{totalChats}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 p-4 bg-card border border-border rounded-xl transition-colors hover:border-primary/30">
-          <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wider">
-            RAG-Bots
-          </span>
-          <span className="text-2xl font-semibold text-foreground">{ragBots}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 p-4 bg-card border border-border rounded-xl transition-colors hover:border-primary/30">
-          <span className="text-[0.725rem] text-muted-foreground uppercase tracking-wider">
-            System-Alerts
-          </span>
-          <span
-            className={cn(
-              'text-2xl font-semibold text-foreground',
-              appStatus?.isEnabled && 'text-primary'
-            )}
-          >
-            {appStatus?.isEnabled ? 'Aktiv' : 'Inaktiv'}
-          </span>
-        </div>
-      </div>
-
-      {/* Bot Details Table */}
-      {bots.length > 0 && (
-        <>
-          <h3 className="m-0 mb-4 text-foreground text-lg mt-8">Bot-Details</h3>
-          <div className="overflow-x-auto border border-border rounded-xl">
-            <table className="w-full border-collapse max-[480px]:text-xs">
-              <thead>
-                <tr>
-                  <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                    Bot
-                  </th>
-                  <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                    Status
-                  </th>
-                  <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                    Modell
-                  </th>
-                  <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                    Chats
-                  </th>
-                  <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                    RAG
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {bots.map(bot => (
-                  <tr key={bot.id} className="hover:bg-primary/5">
-                    <td className="py-3 px-4 text-sm text-foreground border-b border-border last:[&:is(tr:last-child_td)]:border-b-0">
-                      <strong>{bot.name}</strong>
-                      <br />
-                      <span className="text-muted-foreground text-sm">
-                        @{bot.username || '\u2014'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                      <span
-                        className={cn(
-                          'text-xs font-medium px-2 py-0.5 rounded-full',
-                          bot.isActive
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-muted text-muted-foreground'
-                        )}
-                      >
-                        {bot.isActive ? 'Aktiv' : 'Inaktiv'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                      {bot.llmModel || '\u2014'}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                      {bot.chatCount || 0}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                      {bot.ragEnabled ? 'Ja' : 'Nein'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ============================================================================
-   SYSTEM SECTION
-   ============================================================================ */
-interface SystemSectionProps {
-  config: SystemConfig;
-  setConfig: React.Dispatch<React.SetStateAction<SystemConfig>>;
-  hasToken: boolean;
-  showToken: boolean;
-  setShowToken: (show: boolean) => void;
-  loading: boolean;
-  saving: boolean;
-  testing: boolean;
-  message: SystemMessage | null;
-  hasChanges: boolean;
-  onSave: () => void;
-  onToggle: () => void;
-  onTest: () => void;
-}
-
-function SystemSection({
-  config,
-  setConfig,
-  hasToken,
-  showToken,
-  setShowToken,
-  loading,
-  saving,
-  testing,
-  message,
-  hasChanges,
-  onSave,
-  onToggle,
-  onTest,
-}: SystemSectionProps) {
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-3 p-12 text-muted-foreground text-sm">
-        <RefreshCw size={16} className="animate-spin" /> Lade Konfiguration...
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 className="m-0 mb-4 text-foreground text-lg">System-Benachrichtigungen</h3>
-      <p className="text-muted-foreground text-sm -mt-2 mb-6 leading-relaxed">
-        Konfiguriere einen Bot für automatische System-Alerts (CPU, RAM, Disk, Temperatur).
-      </p>
-
-      {/* Status Toggle */}
-      <div className="bg-card border border-border rounded-xl p-5 mb-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <strong className="text-foreground text-sm">System-Alerts</strong>
-            <p className="text-muted-foreground text-sm mt-1 mb-0">
-              Automatische Benachrichtigungen bei System-Warnungen
-            </p>
-          </div>
-          <button
-            type="button"
-            className={cn(
-              'relative w-12 h-[26px] bg-background border border-border rounded-full cursor-pointer transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
-              config.enabled && 'bg-primary border-primary'
-            )}
-            onClick={onToggle}
-            disabled={saving || (!hasToken && !config.enabled)}
-            title={!hasToken ? 'Zuerst Bot-Token eingeben' : ''}
-            role="switch"
-            aria-checked={config.enabled}
-            aria-label="System-Alerts ein/ausschalten"
-          >
-            <span
-              className={cn(
-                'absolute top-[3px] left-[3px] size-[18px] bg-white rounded-full transition-transform',
-                config.enabled && 'translate-x-[22px]'
-              )}
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* Configuration */}
-      <div className="bg-card border border-border rounded-xl p-5 mb-4">
-        <h4 className="m-0 mb-1 text-foreground text-sm">Bot Konfiguration</h4>
-        <p className="text-muted-foreground text-sm mb-4">
-          Bot-Token von @BotFather und Chat-ID eingeben
-        </p>
-
-        {message && (
-          <div
-            className={cn(
-              'flex items-center gap-2 py-2.5 px-3.5 rounded-lg text-sm mb-4',
-              message.type === 'success'
-                ? 'bg-primary/10 text-primary border border-primary/20'
-                : 'bg-foreground/5 text-foreground border border-foreground/20'
-            )}
-          >
-            {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
-            <span>{message.text}</span>
-          </div>
-        )}
-
-        <div className="mb-4">
-          <label
-            htmlFor="sys-bot-token"
-            className="block mb-1.5 text-foreground text-sm font-medium"
-          >
-            Bot Token
-          </label>
-          <div className="relative">
-            <input
-              id="sys-bot-token"
-              type={showToken ? 'text' : 'password'}
-              value={config.bot_token}
-              onChange={e => setConfig(prev => ({ ...prev, bot_token: e.target.value }))}
-              placeholder={
-                hasToken ? '********** (Token gespeichert)' : 'Token von @BotFather eingeben'
-              }
-              autoComplete="off"
-              className="w-full py-2.5 px-3.5 pr-10 bg-background border border-border rounded-lg text-foreground text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
-            <button
-              type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-muted-foreground cursor-pointer p-1"
-              onClick={() => setShowToken(!showToken)}
-            >
-              {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-          <small className="block mt-1.5 text-muted-foreground text-xs">
-            Erstelle einen Bot bei <strong>@BotFather</strong> auf Telegram
-          </small>
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="sys-chat-id" className="block mb-1.5 text-foreground text-sm font-medium">
-            Chat ID
-          </label>
-          <input
-            id="sys-chat-id"
-            type="text"
-            value={config.chat_id}
-            onChange={e => setConfig(prev => ({ ...prev, chat_id: e.target.value }))}
-            placeholder="z.B. 123456789"
-            className="w-full py-2.5 px-3.5 bg-background border border-border rounded-lg text-foreground text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-          <small className="block mt-1.5 text-muted-foreground text-xs">
-            Nutze <strong>@userinfobot</strong> um deine Chat-ID zu erfahren
-          </small>
-        </div>
-
-        <div className="flex gap-3 mt-5 max-md:flex-col">
-          <Button onClick={onSave} disabled={saving || !hasChanges}>
-            {saving ? (
-              'Speichern...'
-            ) : (
-              <>
-                <Check size={16} /> Speichern
-              </>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={onTest}
-            disabled={testing || !hasToken || !config.chat_id}
-          >
-            {testing ? (
-              <>
-                <RefreshCw size={16} className="animate-spin" /> Senden...
-              </>
-            ) : (
-              <>
-                <Send size={16} /> Test senden
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================================
-   LOGS SECTION
-   ============================================================================ */
-interface LogsSectionProps {
-  logs: AuditLog[];
-  loading: boolean;
-  onRefresh: () => void;
-}
-
-function LogsSection({ logs, loading, onRefresh }: LogsSectionProps) {
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="m-0 text-foreground text-lg">Aktivitäts-Log</h3>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onRefresh}
-          disabled={loading}
-          title="Aktualisieren"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </Button>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center gap-3 p-12 text-muted-foreground text-sm">
-          <RefreshCw size={16} className="animate-spin" /> Lade Logs...
-        </div>
-      ) : logs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-card border border-dashed border-border rounded-xl">
-          <FileText size={24} />
-          <p>Noch keine Aktivitäten</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto border border-border rounded-xl">
-          <table className="w-full border-collapse max-[480px]:text-xs">
-            <thead>
-              <tr>
-                <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                  Zeitpunkt
-                </th>
-                <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                  Benutzer
-                </th>
-                <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                  Chat-ID
-                </th>
-                <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                  Befehl
-                </th>
-                <th className="py-3 px-4 bg-card text-muted-foreground text-xs font-semibold uppercase tracking-wider text-left border-b border-border">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map(log => (
-                <tr key={log.id} className="hover:bg-primary/5">
-                  <td className="py-3 px-4 text-sm text-muted-foreground border-b border-border">
-                    {new Date(log.timestamp).toLocaleString('de-DE')}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                    {log.username || '\u2014'}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                    {log.chat_id || '\u2014'}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                    <code>{log.command || log.interaction_type || '\u2014'}</code>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-foreground border-b border-border">
-                    <span
-                      className={cn(
-                        'text-xs font-medium px-2 py-0.5 rounded-full',
-                        log.success
-                          ? 'bg-primary/10 text-primary'
-                          : 'bg-foreground/10 text-foreground'
-                      )}
-                    >
-                      {log.success ? 'OK' : 'Fehler'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }

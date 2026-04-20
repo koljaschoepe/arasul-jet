@@ -10,67 +10,16 @@ const { docker } = require('../core/docker');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
 const path = require('path');
 const fs = require('fs');
-
-// Container name prefix for all sandbox containers
-const CONTAINER_PREFIX = 'arasul-sandbox-';
-const DEFAULT_IMAGE = 'arasul-sandbox:latest';
-const NETWORK_NAME = process.env.DOCKER_NETWORK || 'arasul-platform_arasul-backend';
-
-// Container-local path where sandbox project directories are accessible.
-// Bind-mounted from host via compose.app.yaml: ../data/sandbox/projects:/arasul/sandbox/projects
-const SANDBOX_DATA_DIR = process.env.SANDBOX_DATA_DIR || '/arasul/sandbox/projects';
-
-// Host-side base path for Docker API bind mounts.
-// We discover this by inspecting our own container's bind mounts via Docker API.
-// The SANDBOX_DATA_DIR (/arasul/sandbox/projects) is bind-mounted from the host,
-// and we read the source path from Docker inspect to get the absolute host path.
-let _hostDirCache = null;
-async function getHostDataDir() {
-  if (process.env.SANDBOX_HOST_DATA_DIR) {
-    return process.env.SANDBOX_HOST_DATA_DIR;
-  }
-  if (_hostDirCache) {
-    return _hostDirCache;
-  }
-
-  try {
-    const container = docker.getContainer('dashboard-backend');
-    const info = await container.inspect();
-    const binds = info.HostConfig.Binds || [];
-    const sandboxBind = binds.find(b => b.includes('/arasul/sandbox/projects'));
-    if (sandboxBind) {
-      _hostDirCache = sandboxBind.split(':')[0];
-      logger.info(`Sandbox host data dir resolved: ${_hostDirCache}`);
-      return _hostDirCache;
-    }
-  } catch (err) {
-    logger.warn(`Could not resolve sandbox host dir from Docker: ${err.message}`);
-  }
-
-  _hostDirCache = '/opt/arasul/data/sandbox/projects';
-  return _hostDirCache;
-}
-
-// Default resource limits
-const DEFAULT_RESOURCE_LIMITS = {
-  memory: '2G',
-  cpus: '2',
-  pids: 256,
-};
-
-/**
- * Parse memory string (e.g., "2G", "512M") to bytes
- */
-function parseMemoryLimit(mem) {
-  const match = String(mem).match(/^(\d+(?:\.\d+)?)\s*(B|K|M|G|T)?$/i);
-  if (!match) {
-    return 2 * 1024 * 1024 * 1024;
-  } // default 2G
-  const value = parseFloat(match[1]);
-  const unit = (match[2] || 'B').toUpperCase();
-  const multipliers = { B: 1, K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 };
-  return Math.round(value * (multipliers[unit] || 1));
-}
+const {
+  CONTAINER_PREFIX,
+  DEFAULT_IMAGE,
+  NETWORK_NAME,
+  SANDBOX_DATA_DIR,
+  DEFAULT_RESOURCE_LIMITS,
+  getHostDataDir,
+  parseMemoryLimit,
+} = require('./sandboxShared');
+const { checkIdleContainers, startIdleChecker, stopIdleChecker } = require('./sandboxIdleChecker');
 
 // ============================================================================
 // Project CRUD
@@ -626,78 +575,8 @@ async function getStatistics() {
   return result.rows[0];
 }
 
-// ============================================================================
-// Idle Detection & Auto-Stop
-// ============================================================================
-
-const IDLE_TIMEOUT_MS = parseInt(process.env.SANDBOX_IDLE_TIMEOUT_MIN || '30', 10) * 60 * 1000;
-const IDLE_CHECK_INTERVAL_MS = 5 * 60 * 1000; // Check every 5 minutes
-let _idleCheckTimer = null;
-
-/**
- * Check for idle containers and auto-stop them.
- * A container is considered idle if:
- * 1. It's running
- * 2. last_accessed_at is older than IDLE_TIMEOUT_MS
- * 3. It has no active terminal sessions
- */
-async function checkIdleContainers() {
-  try {
-    const result = await db.query(
-      `SELECT id, name, slug, container_status, last_accessed_at
-       FROM sandbox_projects
-       WHERE status = 'active'
-         AND container_status = 'running'
-         AND last_accessed_at < NOW() - INTERVAL '${Math.floor(IDLE_TIMEOUT_MS / 1000)} seconds'
-         AND NOT EXISTS (
-           SELECT 1 FROM sandbox_terminal_sessions
-           WHERE project_id = sandbox_projects.id AND status = 'active'
-         )`
-    );
-
-    for (const project of result.rows) {
-      try {
-        logger.info(
-          `Auto-stopping idle sandbox container: ${project.slug} (idle since ${project.last_accessed_at})`
-        );
-        await stopContainer(project.id);
-      } catch (err) {
-        logger.warn(`Failed to auto-stop sandbox ${project.slug}: ${err.message}`);
-      }
-    }
-
-    if (result.rows.length > 0) {
-      logger.info(`Auto-stopped ${result.rows.length} idle sandbox container(s)`);
-    }
-  } catch (err) {
-    logger.error(`Idle container check failed: ${err.message}`);
-  }
-}
-
-/**
- * Start the periodic idle container checker
- */
-function startIdleChecker() {
-  if (_idleCheckTimer) {
-    return;
-  }
-  _idleCheckTimer = setInterval(checkIdleContainers, IDLE_CHECK_INTERVAL_MS);
-  logger.info(
-    `Sandbox idle checker started (timeout: ${IDLE_TIMEOUT_MS / 60000}min, interval: ${IDLE_CHECK_INTERVAL_MS / 60000}min)`
-  );
-}
-
-/**
- * Stop the periodic idle container checker
- */
-function stopIdleChecker() {
-  if (_idleCheckTimer) {
-    clearInterval(_idleCheckTimer);
-    _idleCheckTimer = null;
-  }
-}
-
-// Auto-start the idle checker when the module is loaded
+// Auto-start the idle checker when the module is loaded.
+// The idle checker lazy-requires stopContainer from this module.
 startIdleChecker();
 
 module.exports = {

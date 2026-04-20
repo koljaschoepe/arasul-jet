@@ -92,8 +92,12 @@ class ModelLifecycleService {
    * Classify an hour based on average request count.
    */
   _classifyHour(avgRequests) {
-    if (avgRequests >= PEAK_THRESHOLD) {return 'peak';}
-    if (avgRequests > 0) {return 'normal';}
+    if (avgRequests >= PEAK_THRESHOLD) {
+      return 'peak';
+    }
+    if (avgRequests > 0) {
+      return 'normal';
+    }
     return 'idle';
   }
 
@@ -148,7 +152,9 @@ class ModelLifecycleService {
   async checkAndUnload({ getLoadedModels, modelUsageTracker, unloadModel }) {
     try {
       const loadedModels = await getLoadedModels();
-      if (!loadedModels || loadedModels.length === 0) {return;}
+      if (!loadedModels || loadedModels.length === 0) {
+        return;
+      }
 
       const { keepAliveSeconds, phase } = await this.getCurrentKeepAlive();
       const keepAliveMs = keepAliveSeconds * 1000;
@@ -159,10 +165,29 @@ class ModelLifecycleService {
         const usage = modelUsageTracker.get(modelId);
 
         // Skip models with active requests
-        if (usage?.activeRequests > 0) {continue;}
+        if (usage?.activeRequests > 0) {
+          continue;
+        }
+
+        // Respect Ollama's own expires_at (accounts for direct external usage,
+        // e.g. document-indexer calling Ollama directly)
+        if (model.expires_at) {
+          const expiresAt = new Date(model.expires_at).getTime();
+          if (expiresAt > now) {
+            continue;
+          }
+        }
 
         const lastUsed = usage?.lastUsed ? usage.lastUsed.getTime() : 0;
         const inactiveMs = lastUsed > 0 ? now - lastUsed : Infinity;
+
+        // If we have no usage data but Ollama still has the model loaded,
+        // initialize the tracker instead of unloading (external caller may be using it)
+        if (inactiveMs === Infinity) {
+          modelUsageTracker.set(modelId, { lastUsed: new Date(), activeRequests: 0 });
+          logger.debug(`[ModelLifecycle] Initialized tracker for externally-loaded ${modelId}`);
+          continue;
+        }
 
         if (inactiveMs > keepAliveMs) {
           logger.info(
@@ -182,7 +207,9 @@ class ModelLifecycleService {
    * Skip preload during idle phases (e.g. night reboot).
    */
   async shouldPreloadOnStartup() {
-    if (!LIFECYCLE_ENABLED) {return true;}
+    if (!LIFECYCLE_ENABLED) {
+      return true;
+    }
 
     const profile = await this.getUsageProfile();
     const currentHour = new Date().getHours();
@@ -190,7 +217,9 @@ class ModelLifecycleService {
 
     // If no data yet (fresh install), always preload
     const hasAnyData = profile.some(p => p.avgRequests > 0);
-    if (!hasAnyData) {return true;}
+    if (!hasAnyData) {
+      return true;
+    }
 
     // Preload in peak or normal phases, skip in idle
     return hourData?.phase !== 'idle';

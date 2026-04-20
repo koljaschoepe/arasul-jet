@@ -666,6 +666,69 @@ async function pullImage(image, maxRetries = 3) {
 }
 
 /**
+ * Pull Docker image with progress callback for SSE streaming.
+ * Aggregates per-layer progress into an overall percentage.
+ * No retries — the caller (SSE route) handles errors directly.
+ */
+async function pullImageWithProgress(image, onProgress) {
+  return new Promise((resolve, reject) => {
+    docker.pull(image, (err, stream) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      const layers = {};
+
+      docker.modem.followProgress(
+        stream,
+        (pullErr, output) => {
+          if (pullErr) {
+            reject(pullErr);
+            return;
+          }
+          logger.debug(`Image pull complete: ${image}`);
+          resolve(output);
+        },
+        event => {
+          // Track per-layer download progress
+          if (event.id && event.progressDetail) {
+            const { current, total } = event.progressDetail;
+            if (total && total > 0) {
+              layers[event.id] = { current, total };
+            }
+          }
+
+          // Calculate aggregate percentage across all layers
+          let percent = 0;
+          const ids = Object.keys(layers);
+          if (ids.length > 0) {
+            let totalBytes = 0;
+            let currentBytes = 0;
+            for (const id of ids) {
+              totalBytes += layers[id].total;
+              currentBytes += layers[id].current;
+            }
+            if (totalBytes > 0) {
+              percent = Math.round((currentBytes / totalBytes) * 100);
+            }
+          }
+
+          if (onProgress) {
+            onProgress({
+              status: event.status || '',
+              id: event.id || '',
+              percent,
+              layerCount: Object.keys(layers).length,
+            });
+          }
+        }
+      );
+    });
+  });
+}
+
+/**
  * Check if a Docker image exists locally
  * @param {string} image - Image name to check
  * @returns {Promise<boolean>} True if image exists
@@ -842,6 +905,7 @@ module.exports = {
   _doRecreateContainer,
   getContainerStatus,
   pullImage,
+  pullImageWithProgress,
   checkImageExists,
   buildImage,
   getAppLogs,
