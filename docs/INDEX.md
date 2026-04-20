@@ -8,9 +8,10 @@ Quick navigation to all Arasul Platform documentation.
 
 ### Day 1-2: Understand the System
 
-1. [GETTING_STARTED.md](GETTING_STARTED.md) - Setup, first change, deployment workflow
-2. [ARCHITECTURE.md](ARCHITECTURE.md) - 17 services, data flows, file locations
-3. [DEVELOPMENT.md](DEVELOPMENT.md) - Patterns, hooks, debugging cheatsheet
+1. [ONBOARDING.md](ONBOARDING.md) - **30-min productive path** — rules, loops, first PR
+2. [GETTING_STARTED.md](GETTING_STARTED.md) - Setup, first change, deployment workflow
+3. [ARCHITECTURE.md](ARCHITECTURE.md) - 17 services, data flows, file locations
+4. [DEVELOPMENT.md](DEVELOPMENT.md) - Patterns, hooks, debugging cheatsheet
 
 ### Day 3-4: Deep Dive
 
@@ -44,6 +45,7 @@ Quick navigation to all Arasul Platform documentation.
 
 | Document                                  | Description                                       |
 | ----------------------------------------- | ------------------------------------------------- |
+| [ONBOARDING.md](ONBOARDING.md)            | 30-min productive path — rules, workflow, gotchas |
 | [GETTING_STARTED.md](GETTING_STARTED.md)  | Developer onboarding & first change walkthrough   |
 | [DEVELOPMENT.md](DEVELOPMENT.md)          | Workflows, backend patterns, API usage, debugging |
 | [TESTING.md](TESTING.md)                  | Test framework & procedures                       |
