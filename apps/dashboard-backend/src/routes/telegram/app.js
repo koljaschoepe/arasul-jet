@@ -12,6 +12,16 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const {
+  UpdateSettingsBody,
+  ZeroConfigTokenBody,
+  ZeroConfigCancelBody,
+  ZeroConfigCompleteBody,
+  CreateRuleBody,
+  UpdateRuleBody,
+  UpdateConfigBody,
+} = require('../../schemas/telegram-app');
 const { buildSetClauses } = require('../../utils/queryBuilder');
 const { encryptToken, decryptToken } = require('../../utils/tokenCrypto');
 const telegramSetupPollingService = require('../../services/telegram/telegramSetupPollingService');
@@ -81,13 +91,10 @@ router.get(
 router.put(
   '/settings',
   requireAuth,
+  validateBody(UpdateSettingsBody),
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const { settings } = req.body;
-
-    if (!settings || typeof settings !== 'object') {
-      throw new ValidationError('Settings object is required');
-    }
 
     const updatedSettings = await telegramAppService.updateSettings(userId, settings);
 
@@ -173,13 +180,10 @@ router.post(
   '/zero-config/token',
   requireAuth,
   apiLimiter,
+  validateBody(ZeroConfigTokenBody),
   asyncHandler(async (req, res) => {
     const { setupToken, botToken } = req.body;
     const userId = req.user.id;
-
-    if (!setupToken || !botToken) {
-      throw new ValidationError('Setup-Token und Bot-Token sind erforderlich');
-    }
 
     // Verify setup session
     const session = await db.query(
@@ -312,13 +316,10 @@ router.get(
 router.post(
   '/zero-config/cancel',
   requireAuth,
+  validateBody(ZeroConfigCancelBody),
   asyncHandler(async (req, res) => {
     const { setupToken } = req.body;
     const userId = req.user.id;
-
-    if (!setupToken) {
-      throw new ValidationError('Setup-Token ist erforderlich');
-    }
 
     // Verify ownership
     const session = await db.query(
@@ -365,6 +366,7 @@ router.post(
   '/zero-config/complete',
   requireAuth,
   apiLimiter,
+  validateBody(ZeroConfigCompleteBody),
   asyncHandler(async (req, res) => {
     const { setupToken } = req.body;
     const userId = req.user.id;
@@ -478,6 +480,7 @@ router.post(
   '/rules',
   requireAuth,
   apiLimiter,
+  validateBody(CreateRuleBody),
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const {
@@ -491,12 +494,6 @@ router.post(
       cooldownSeconds,
       isEnabled,
     } = req.body;
-
-    if (!name || !eventSource || !eventType || !messageTemplate) {
-      throw new ValidationError(
-        'Name, Event-Quelle, Event-Typ und Nachrichtenvorlage sind erforderlich'
-      );
-    }
 
     const result = await db.query(
       `
@@ -537,6 +534,7 @@ router.post(
 router.put(
   '/rules/:id',
   requireAuth,
+  validateBody(UpdateRuleBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
@@ -818,6 +816,7 @@ router.get(
 router.put(
   '/config',
   requireAuth,
+  validateBody(UpdateConfigBody),
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const {
