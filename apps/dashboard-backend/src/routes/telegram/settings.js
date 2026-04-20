@@ -12,8 +12,14 @@ const { apiLimiter, createUserRateLimiter } = require('../../middleware/rateLimi
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { validateBody } = require('../../middleware/validate');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
 const { buildSetClauses } = require('../../utils/queryBuilder');
+const {
+  ThresholdValuesBody,
+  TelegramTestBody,
+  AuditCleanupBody,
+} = require('../../schemas/telegram');
 
 // Rate limiter for test endpoint (5 tests per minute)
 const testLimiter = createUserRateLimiter(5, 60 * 1000);
@@ -381,12 +387,9 @@ router.put(
   '/thresholds',
   requireAuth,
   apiLimiter,
+  validateBody(ThresholdValuesBody),
   asyncHandler(async (req, res) => {
     const { thresholds } = req.body;
-
-    if (!thresholds || typeof thresholds !== 'object') {
-      throw new ValidationError('Thresholds object is required');
-    }
 
     // Validate threshold values
     const numericFields = [
@@ -446,6 +449,7 @@ router.post(
   '/test',
   requireAuth,
   testLimiter,
+  validateBody(TelegramTestBody),
   asyncHandler(async (req, res) => {
     const { chat_id: requestChatId } = req.body;
 
@@ -768,6 +772,7 @@ router.get(
 router.delete(
   '/audit-logs/cleanup',
   requireAuth,
+  validateBody(AuditCleanupBody),
   asyncHandler(async (req, res) => {
     const retentionDays = parseInt(req.body.retentionDays) || 90;
 

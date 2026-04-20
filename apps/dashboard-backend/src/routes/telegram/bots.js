@@ -34,8 +34,18 @@ const crypto = require('crypto');
 const logger = require('../../utils/logger');
 const { requireAuth } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { validateBody } = require('../../middleware/validate');
 const { webhookLimiter } = require('../../middleware/rateLimit');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
+const {
+  CreateBotBody,
+  UpdateBotBody,
+  ValidateTokenBody,
+  CreateCommandBody,
+  UpdateCommandBody,
+  SetWebhookBody,
+  TestMessageBody,
+} = require('../../schemas/telegram');
 const telegramBotService = require('../../services/telegram/telegramBotService');
 const telegramLLMService = require('../../services/telegram/telegramLLMService');
 const telegramWebhookService = require('../../services/telegram/telegramWebhookService');
@@ -178,6 +188,7 @@ router.get(
 // Create new bot
 router.post(
   '/',
+  validateBody(CreateBotBody),
   asyncHandler(async (req, res) => {
     const {
       name,
@@ -191,18 +202,6 @@ router.post(
       ragShowSources,
       setupToken,
     } = req.body;
-
-    if (!name || !token) {
-      throw new ValidationError('Name und Token sind erforderlich');
-    }
-
-    // Input validation
-    if (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 100) {
-      throw new ValidationError('Name muss ein String mit 1-100 Zeichen sein');
-    }
-    if (typeof token !== 'string' || !/^\d+:[A-Za-z0-9_-]{35,}$/.test(token.trim())) {
-      throw new ValidationError('Ungültiges Telegram-Bot-Token-Format');
-    }
 
     const bot = await telegramBotService.createBot(req.user.id, {
       name,
@@ -277,6 +276,7 @@ router.get(
 // Update bot
 router.put(
   '/:id',
+  validateBody(UpdateBotBody),
   asyncHandler(async (req, res) => {
     if (isNaN(parseInt(req.params.id))) {
       throw new ValidationError('Ungültige Bot-ID');
@@ -431,12 +431,9 @@ router.post(
 // Validate bot token
 router.post(
   '/validate-token',
+  validateBody(ValidateTokenBody),
   asyncHandler(async (req, res) => {
     const { token } = req.body;
-
-    if (!token) {
-      throw new ValidationError('Token ist erforderlich');
-    }
 
     const botInfo = await telegramBotService.validateBotToken(token);
 
@@ -470,12 +467,9 @@ router.get(
 // Create command
 router.post(
   '/:id/commands',
+  validateBody(CreateCommandBody),
   asyncHandler(async (req, res) => {
     const { command, description, prompt, sortOrder } = req.body;
-
-    if (!command || !description || !prompt) {
-      throw new ValidationError('Command, Beschreibung und Prompt sind erforderlich');
-    }
 
     // Verify bot ownership
     const bot = await telegramBotService.getBotById(parseInt(req.params.id), req.user.id);
@@ -497,6 +491,7 @@ router.post(
 // Update command
 router.put(
   '/:id/commands/:cmdId',
+  validateBody(UpdateCommandBody),
   asyncHandler(async (req, res) => {
     const { command, description, prompt, isEnabled, sortOrder } = req.body;
 
@@ -630,12 +625,9 @@ router.get(
 // Set webhook manually
 router.post(
   '/:id/webhook',
+  validateBody(SetWebhookBody),
   asyncHandler(async (req, res) => {
     const { url } = req.body;
-
-    if (!url) {
-      throw new ValidationError('URL ist erforderlich');
-    }
 
     // Verify bot ownership
     const bot = await telegramBotService.getBotById(parseInt(req.params.id), req.user.id);
@@ -666,12 +658,9 @@ router.delete(
 // Send test message
 router.post(
   '/:id/test-message',
+  validateBody(TestMessageBody),
   asyncHandler(async (req, res) => {
     const { chatId, text } = req.body;
-
-    if (!chatId || !text) {
-      throw new ValidationError('Chat-ID und Text sind erforderlich');
-    }
 
     // Verify bot ownership
     const bot = await telegramBotService.getBotById(parseInt(req.params.id), req.user.id);
