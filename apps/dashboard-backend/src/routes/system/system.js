@@ -473,7 +473,10 @@ router.post(
     stream.on('error', err => {
       logger.error('Diagnostics file stream error:', err);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to stream diagnostics archive' });
+        res.status(500).json({
+          error: { code: 'INTERNAL_ERROR', message: 'Failed to stream diagnostics archive' },
+          timestamp: new Date().toISOString(),
+        });
       }
     });
 

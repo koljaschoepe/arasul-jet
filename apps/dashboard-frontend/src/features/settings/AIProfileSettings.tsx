@@ -245,10 +245,10 @@ export function AIProfileSettings() {
 
       setMessage({ type: 'success', text: 'KI-Profil erfolgreich gespeichert' });
     } catch (error: unknown) {
-      const err = error as { data?: { error?: string }; message?: string };
+      const err = error as { message?: string };
       setMessage({
         type: 'error',
-        text: err.data?.error || err.message || 'Fehler beim Speichern',
+        text: err.message || 'Fehler beim Speichern',
       });
     } finally {
       setSaving(false);

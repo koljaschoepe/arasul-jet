@@ -27,9 +27,11 @@ const asyncHandler = fn => (req, res, next) => {
  */
 const notFoundHandler = (req, res, next) => {
   res.status(404).json({
-    error: 'Endpoint not found',
-    path: req.originalUrl,
-    method: req.method,
+    error: {
+      code: 'NOT_FOUND',
+      message: 'Endpoint not found',
+      details: { path: req.originalUrl, method: req.method },
+    },
     timestamp: new Date().toISOString(),
   });
 };
@@ -120,16 +122,15 @@ const errorHandler = (err, req, res, next) => {
   try {
     // BH6: Never include stack traces or internal details in client response.
     // Only send safe, user-facing error info. Stack is logged server-side above.
-    const responseBody = {
-      error: message,
-      code,
-      timestamp: new Date().toISOString(),
-    };
+    const errorBody = { code, message };
     // Only include details for client errors (4xx) where details are explicitly set
     if (details && statusCode >= 400 && statusCode < 500) {
-      responseBody.details = details;
+      errorBody.details = details;
     }
-    res.status(statusCode).json(responseBody);
+    res.status(statusCode).json({
+      error: errorBody,
+      timestamp: new Date().toISOString(),
+    });
   } catch (jsonErr) {
     logger.error(`Failed to serialize error response: ${jsonErr.message}`);
     res.status(500).end('Internal Server Error');

@@ -255,8 +255,8 @@ export default function useTableData({
         await loadTable();
         setSaveStatus('success');
       } catch (err: unknown) {
-        const e = err as { data?: { error?: string }; message?: string };
-        setError(e.data?.error || e.message || String(err));
+        const e = err as { message?: string };
+        setError(e.message || String(err));
         setSaveStatus('error');
       } finally {
         setSaving(false);
@@ -279,8 +279,8 @@ export default function useTableData({
         await loadTable();
         setSaveStatus('success');
       } catch (err: unknown) {
-        const e = err as { data?: { error?: string }; message?: string };
-        setError(e.data?.error || e.message || String(err));
+        const e = err as { message?: string };
+        setError(e.message || String(err));
         setSaveStatus('error');
       } finally {
         setSaving(false);

@@ -460,7 +460,7 @@ describe('Projects Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain('Standard-Projekt');
+      expect(res.body.error.message).toContain('Standard-Projekt');
     });
 
     test('returns 404 for nonexistent project', async () => {

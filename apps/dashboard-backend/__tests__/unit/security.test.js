@@ -66,20 +66,28 @@ const createSecureApp = () => {
   const authMiddleware = (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
+      return res
+        .status(401)
+        .json({ error: { code: 'UNAUTHORIZED', message: 'No token provided' } });
     }
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       if (decoded.disabled) {
-        return res.status(403).json({ error: 'Account disabled' });
+        return res
+          .status(403)
+          .json({ error: { code: 'FORBIDDEN', message: 'Account disabled' } });
       }
       req.user = decoded;
       next();
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ error: 'Token expired' });
+        return res
+          .status(401)
+          .json({ error: { code: 'TOKEN_EXPIRED', message: 'Token expired' } });
       }
-      return res.status(401).json({ error: 'Invalid token' });
+      return res
+        .status(401)
+        .json({ error: { code: 'INVALID_TOKEN', message: 'Invalid token' } });
     }
   };
 
@@ -98,7 +106,9 @@ const createSecureApp = () => {
     try {
       const userId = parseInt(req.params.id, 10);
       if (isNaN(userId) || userId < 1 || String(userId) !== req.params.id) {
-        return res.status(400).json({ error: 'Invalid user ID' });
+        return res
+          .status(400)
+          .json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid user ID' } });
       }
 
       const result = await db.query(
@@ -107,7 +117,9 @@ const createSecureApp = () => {
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'User not found' });
+        return res
+        .status(404)
+        .json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
       }
       res.json(result.rows[0]);
     } catch (err) {
@@ -119,7 +131,9 @@ const createSecureApp = () => {
   app.get('/api/search', authMiddleware, async (req, res) => {
     const { q } = req.query;
     if (!q || typeof q !== 'string') {
-      return res.status(400).json({ error: 'Query required' });
+      return res
+        .status(400)
+        .json({ error: { code: 'VALIDATION_ERROR', message: 'Query required' } });
     }
 
     // Safe: parameterized query with LIKE
@@ -135,7 +149,9 @@ const createSecureApp = () => {
   app.get('/api/documents/:id/download', authMiddleware, async (req, res) => {
     const docId = parseInt(req.params.id, 10);
     if (isNaN(docId)) {
-      return res.status(400).json({ error: 'Invalid document ID' });
+      return res
+        .status(400)
+        .json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid document ID' } });
     }
 
     const result = await db.query(
@@ -144,7 +160,9 @@ const createSecureApp = () => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res
+        .status(404)
+        .json({ error: { code: 'NOT_FOUND', message: 'Document not found' } });
     }
 
     const doc = result.rows[0];
@@ -154,7 +172,7 @@ const createSecureApp = () => {
     const fullPath = path.resolve(basePath, doc.file_path);
 
     if (!fullPath.startsWith(basePath)) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
     }
 
     res.json({ path: fullPath, filename: sanitizeFilename(doc.filename) });
@@ -165,20 +183,26 @@ const createSecureApp = () => {
     const { filename, content } = req.body;
 
     if (!filename || typeof filename !== 'string') {
-      return res.status(400).json({ error: 'Filename required' });
+      return res
+        .status(400)
+        .json({ error: { code: 'VALIDATION_ERROR', message: 'Filename required' } });
     }
 
     // Sanitize filename
     const sanitized = sanitizeFilename(filename);
     if (sanitized !== filename) {
-      return res.status(400).json({ error: 'Invalid filename characters' });
+      return res
+        .status(400)
+        .json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid filename characters' } });
     }
 
     // Check file extension
     const allowedExtensions = ['.pdf', '.docx', '.txt', '.md'];
     const ext = path.extname(filename).toLowerCase();
     if (!allowedExtensions.includes(ext)) {
-      return res.status(400).json({ error: 'File type not allowed' });
+      return res
+        .status(400)
+        .json({ error: { code: 'VALIDATION_ERROR', message: 'File type not allowed' } });
     }
 
     res.status(201).json({ filename: sanitized, status: 'uploaded' });
@@ -192,7 +216,9 @@ const createSecureApp = () => {
     const allowedServices = ['llm-service', 'embedding-service', 'n8n'];
 
     if (!serviceName || !allowedServices.includes(serviceName)) {
-      return res.status(400).json({ error: 'Invalid service name' });
+      return res
+        .status(400)
+        .json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid service name' } });
     }
 
     // In real implementation, use execFile instead of exec
@@ -219,7 +245,9 @@ const createSecureApp = () => {
     requestCounts[ip] = (requestCounts[ip] || 0) + 1;
 
     if (requestCounts[ip] > 30) {
-      return res.status(429).json({ error: 'Too many requests' });
+      return res
+        .status(429)
+        .json({ error: { code: 'RATE_LIMITED', message: 'Too many requests' } });
     }
 
     res.json({ message: 'Login processed' });
@@ -233,7 +261,9 @@ const createSecureApp = () => {
 
   // Error handler (matches production pattern)
   app.use((err, req, res, next) => {
-    res.status(500).json({ error: 'Internal server error' });
+    res
+      .status(500)
+      .json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
   });
 
   return app;
@@ -263,7 +293,7 @@ describe('Security Tests', () => {
         .get('/api/users/1')
         .expect(401)
         .expect(res => {
-          expect(res.body.error).toBe('No token provided');
+          expect(res.body.error.message).toBe('No token provided');
         });
     });
 
@@ -279,7 +309,7 @@ describe('Security Tests', () => {
         .set('Authorization', `Bearer ${expiredToken}`)
         .expect(401)
         .expect(res => {
-          expect(res.body.error).toBe('Token expired');
+          expect(res.body.error.message).toBe('Token expired');
         });
     });
 
@@ -289,7 +319,7 @@ describe('Security Tests', () => {
         .set('Authorization', 'Bearer invalid.token.here')
         .expect(401)
         .expect(res => {
-          expect(res.body.error).toBe('Invalid token');
+          expect(res.body.error.message).toBe('Invalid token');
         });
     });
 
@@ -314,7 +344,7 @@ describe('Security Tests', () => {
         .set('Authorization', `Bearer ${disabledToken}`)
         .expect(403)
         .expect(res => {
-          expect(res.body.error).toBe('Account disabled');
+          expect(res.body.error.message).toBe('Account disabled');
         });
     });
 
@@ -341,7 +371,7 @@ describe('Security Tests', () => {
         .set('Authorization', `Bearer ${validToken}`)
         .expect(400)
         .expect(res => {
-          expect(res.body.error).toBe('Invalid user ID');
+          expect(res.body.error.message).toBe('Invalid user ID');
         });
     });
 
@@ -409,7 +439,7 @@ describe('Security Tests', () => {
         .set('Authorization', `Bearer ${validToken}`)
         .expect(403)
         .expect(res => {
-          expect(res.body.error).toBe('Access denied');
+          expect(res.body.error.message).toBe('Access denied');
         });
     });
 
@@ -420,7 +450,7 @@ describe('Security Tests', () => {
         .send({ filename: 'test\0.php.pdf', content: 'data' })
         .expect(400);
 
-      expect(response.body.error).toBe('Invalid filename characters');
+      expect(response.body.error.message).toBe('Invalid filename characters');
     });
 
     it('Blocks double dot sequences', async () => {
@@ -430,7 +460,7 @@ describe('Security Tests', () => {
         .send({ filename: '..\\..\\secret.txt', content: 'data' })
         .expect(400);
 
-      expect(response.body.error).toBe('Invalid filename characters');
+      expect(response.body.error.message).toBe('Invalid filename characters');
     });
 
     it('Allows valid file paths', async () => {
@@ -461,7 +491,7 @@ describe('Security Tests', () => {
         .send({ serviceName: 'llm-service; rm -rf /' })
         .expect(400)
         .expect(res => {
-          expect(res.body.error).toBe('Invalid service name');
+          expect(res.body.error.message).toBe('Invalid service name');
         });
     });
 
@@ -529,7 +559,7 @@ describe('Security Tests', () => {
           .send({ filename, content: 'data' })
           .expect(400)
           .expect(res => {
-            expect(res.body.error).toBe('File type not allowed');
+            expect(res.body.error.message).toBe('File type not allowed');
           });
       }
     });
@@ -597,7 +627,7 @@ describe('Security Tests', () => {
           expect(response.status).toBe(200);
         } else {
           expect(response.status).toBe(429);
-          expect(response.body.error).toBe('Too many requests');
+          expect(response.body.error.message).toBe('Too many requests');
         }
       }
     });
@@ -671,7 +701,7 @@ describe('Security Tests', () => {
         .send({}) // Missing filename
         .expect(400)
         .expect(res => {
-          expect(res.body.error).toBe('Filename required');
+          expect(res.body.error.message).toBe('Filename required');
         });
     });
 
@@ -689,7 +719,7 @@ describe('Security Tests', () => {
         .set('Authorization', `Bearer ${validToken}`)
         .expect(400)
         .expect(res => {
-          expect(res.body.error).toBe('Query required');
+          expect(res.body.error.message).toBe('Query required');
         });
     });
 

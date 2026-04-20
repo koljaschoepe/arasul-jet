@@ -155,7 +155,10 @@ async function requireApiKey(req, res, next) {
 
   if (!apiKey) {
     return res.status(401).json({
-      error: 'API key required. Use X-API-Key header.',
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'API key required. Use X-API-Key header.',
+      },
       timestamp: new Date().toISOString(),
     });
   }
@@ -164,7 +167,7 @@ async function requireApiKey(req, res, next) {
 
   if (!validation.valid) {
     return res.status(401).json({
-      error: validation.error,
+      error: { code: 'UNAUTHORIZED', message: validation.error },
       timestamp: new Date().toISOString(),
     });
   }
@@ -181,8 +184,11 @@ async function requireApiKey(req, res, next) {
 
   if (!rateLimit.allowed) {
     return res.status(429).json({
-      error: 'Rate limit exceeded',
-      retryAfter: rateLimit.resetIn,
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Rate limit exceeded',
+        details: { retryAfter: rateLimit.resetIn },
+      },
       timestamp: new Date().toISOString(),
     });
   }
@@ -216,12 +222,18 @@ function isEndpointAllowed(allowedEndpoints, endpoint) {
 function requireEndpoint(endpoint) {
   return (req, res, next) => {
     if (!req.apiKey) {
-      return res.status(401).json({ error: 'API key required' });
+      return res.status(401).json({
+        error: { code: 'UNAUTHORIZED', message: 'API key required' },
+        timestamp: new Date().toISOString(),
+      });
     }
 
     if (!isEndpointAllowed(req.apiKey.allowedEndpoints, endpoint)) {
       return res.status(403).json({
-        error: `Access to '${endpoint}' not allowed for this API key`,
+        error: {
+          code: 'FORBIDDEN',
+          message: `Access to '${endpoint}' not allowed for this API key`,
+        },
         timestamp: new Date().toISOString(),
       });
     }

@@ -48,8 +48,8 @@ const CreateTableDialog = memo(function CreateTableDialog({
       onCreated();
       onClose();
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || e.message || 'Fehler beim Erstellen der Tabelle');
+      const e = err as { message?: string };
+      setError(e.message || 'Fehler beim Erstellen der Tabelle');
     } finally {
       setLoading(false);
     }

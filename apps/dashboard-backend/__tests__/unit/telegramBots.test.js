@@ -254,7 +254,7 @@ describe('Telegram Bot Routes', () => {
         .send({ name: 'TestBot', token: 'invalid-token-format' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Token-Format');
+      expect(response.body.error.message).toContain('Token-Format');
     });
 
     test('returns 400 for empty name', async () => {
@@ -453,7 +453,7 @@ describe('Telegram Bot Routes', () => {
         .send({ token: 'invalid-token' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Ungültiges Token');
+      expect(response.body.error.message).toContain('Ungültiges Token');
     });
   });
 

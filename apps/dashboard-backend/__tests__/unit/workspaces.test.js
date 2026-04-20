@@ -202,7 +202,7 @@ describe('Workspaces Routes', () => {
         .send({ hostPath: '/home/arasul/test' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('erforderlich');
+      expect(response.body.error.message).toContain('erforderlich');
     });
 
     test('should return 400 if hostPath is missing', async () => {
@@ -214,7 +214,7 @@ describe('Workspaces Routes', () => {
         .send({ name: 'Test' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('erforderlich');
+      expect(response.body.error.message).toContain('erforderlich');
     });
 
     test('should return 400 if name contains invalid characters', async () => {
@@ -226,7 +226,7 @@ describe('Workspaces Routes', () => {
         .send({ name: 'Test<script>', hostPath: '/home/arasul/test' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Ungültiger Name');
+      expect(response.body.error.message).toContain('Ungültiger Name');
     });
 
     test('should return 400 if name is too short', async () => {
@@ -238,7 +238,7 @@ describe('Workspaces Routes', () => {
         .send({ name: 'X', hostPath: '/home/arasul/test' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('zu kurz');
+      expect(response.body.error.message).toContain('zu kurz');
     });
 
     test('should return 400 if hostPath is not absolute', async () => {
@@ -250,7 +250,7 @@ describe('Workspaces Routes', () => {
         .send({ name: 'Test', hostPath: 'relative/path' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('absoluter Pfad');
+      expect(response.body.error.message).toContain('absoluter Pfad');
     });
 
     test('should return 400 if hostPath is not in allowed prefix', async () => {
@@ -262,7 +262,7 @@ describe('Workspaces Routes', () => {
         .send({ name: 'Test', hostPath: '/etc/passwd' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Präfixe');
+      expect(response.body.error.message).toContain('Präfixe');
     });
 
     test('should return 409 if slug already exists', async () => {
@@ -279,7 +279,7 @@ describe('Workspaces Routes', () => {
         .send({ name: 'Existing', hostPath: '/home/arasul/existing' });
 
       expect(response.status).toBe(409);
-      expect(response.body.error).toContain('existiert bereits');
+      expect(response.body.error.message).toContain('existiert bereits');
     });
 
     test('should create workspace with valid data', async () => {
@@ -383,7 +383,7 @@ describe('Workspaces Routes', () => {
         .send({ name: 'New Name' });
 
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('System-Workspaces');
+      expect(response.body.error.message).toContain('System-Workspaces');
     });
 
     test('should update workspace with valid data', async () => {
@@ -451,7 +451,7 @@ describe('Workspaces Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('System-Workspaces');
+      expect(response.body.error.message).toContain('System-Workspaces');
     });
 
     test('should return 403 when trying to delete default workspace', async () => {
@@ -469,7 +469,7 @@ describe('Workspaces Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('Standard-Workspace');
+      expect(response.body.error.message).toContain('Standard-Workspace');
     });
 
     test('should soft delete workspace', async () => {

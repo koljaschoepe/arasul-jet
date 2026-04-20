@@ -363,8 +363,8 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
       }
       setPasswordChanged(true);
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string; message?: string }; message?: string };
-      setPasswordError(e.data?.error || e.data?.message || e.message || String(err));
+      const e = err as { message?: string };
+      setPasswordError(e.message || String(err));
     } finally {
       setLoading(false);
     }
@@ -475,8 +475,8 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
       onComplete();
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || e.message || String(err));
+      const e = err as { message?: string };
+      setError(e.message || String(err));
     } finally {
       setLoading(false);
     }

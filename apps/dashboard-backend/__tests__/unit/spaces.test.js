@@ -215,7 +215,7 @@ describe('Knowledge Spaces Routes', () => {
         .send({ description: 'Test space' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('erforderlich');
+      expect(response.body.error.message).toContain('erforderlich');
     });
 
     test('should return 400 if description is missing', async () => {
@@ -227,7 +227,7 @@ describe('Knowledge Spaces Routes', () => {
         .send({ name: 'Test' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('erforderlich');
+      expect(response.body.error.message).toContain('erforderlich');
     });
 
     test('should create space with valid data', async () => {
@@ -277,7 +277,7 @@ describe('Knowledge Spaces Routes', () => {
         .send({ name: 'Existing Space', description: 'Duplicate' });
 
       expect(response.status).toBe(409);
-      expect(response.body.error).toContain('existiert bereits');
+      expect(response.body.error.message).toContain('existiert bereits');
     });
   });
 
@@ -324,7 +324,7 @@ describe('Knowledge Spaces Routes', () => {
         .send({ name: 'New Name' });
 
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('Systembereich');
+      expect(response.body.error.message).toContain('Systembereich');
     });
 
     test('should update space with valid data', async () => {
@@ -368,7 +368,7 @@ describe('Knowledge Spaces Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Keine Änderungen');
+      expect(response.body.error.message).toContain('Keine Änderungen');
     });
   });
 
@@ -411,7 +411,7 @@ describe('Knowledge Spaces Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('Systembereich');
+      expect(response.body.error.message).toContain('Systembereich');
     });
 
     test('should delete space and move documents', async () => {
@@ -509,7 +509,7 @@ describe('Knowledge Spaces Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Query');
+      expect(response.body.error.message).toContain('Query');
     });
 
     test('should return relevant spaces for query', async () => {

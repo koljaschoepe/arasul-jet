@@ -210,7 +210,7 @@ describe('Documents Routes', () => {
                 .get('/api/documents');
 
             expect(response.status).toBe(500);
-            expect(response.body.error).toBe('Internal server error');
+            expect(response.body.error.message).toBe('Internal server error');
         });
     });
 
@@ -301,7 +301,7 @@ describe('Documents Routes', () => {
                 .get('/api/documents/nonexistent');
 
             expect(response.status).toBe(404);
-            expect(response.body.error).toBe('Dokument nicht gefunden');
+            expect(response.body.error.message).toBe('Dokument nicht gefunden');
         });
     });
 
@@ -348,7 +348,7 @@ describe('Documents Routes', () => {
                 .post('/api/documents/upload');
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Keine Datei hochgeladen');
+            expect(response.body.error.message).toBe('Keine Datei hochgeladen');
         });
 
         test('lehnt ungültigen Dateityp ab', async () => {
@@ -368,7 +368,7 @@ describe('Documents Routes', () => {
                 .attach('file', PDF_BUFFER, 'test.pdf');
 
             expect(response.status).toBe(409);
-            expect(response.body.error).toBe('Dokument existiert bereits');
+            expect(response.body.error.message).toBe('Dokument existiert bereits');
         });
 
         test('validiert space_id wenn angegeben', async () => {
@@ -382,7 +382,7 @@ describe('Documents Routes', () => {
                 .attach('file', PDF_BUFFER, 'test.pdf');
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Ungültiger Wissensbereich');
+            expect(response.body.error.message).toBe('Ungültiger Wissensbereich');
         });
 
         test('speichert mit gültiger space_id', async () => {
@@ -546,7 +546,7 @@ describe('Documents Routes', () => {
                 .send({});
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Keine Aktualisierungen angegeben');
+            expect(response.body.error.message).toBe('Keine Aktualisierungen angegeben');
         });
 
         test('gibt 404 für nicht existierendes Dokument', async () => {
@@ -616,7 +616,7 @@ describe('Documents Routes', () => {
                 .send({ space_id: 'invalid-space' });
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Ungültiger Wissensbereich');
+            expect(response.body.error.message).toBe('Ungültiger Wissensbereich');
         });
     });
 
@@ -703,7 +703,7 @@ describe('Documents Routes', () => {
                 .send({});
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toContain('Suchbegriff erforderlich');
+            expect(response.body.error.message).toContain('Suchbegriff erforderlich');
         });
 
         test('gibt 400 für ungültigen Query-Typ', async () => {
@@ -791,7 +791,7 @@ describe('Documents Routes', () => {
                 .get('/api/documents/doc-123/content');
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Dieser Dateityp kann nicht bearbeitet werden');
+            expect(response.body.error.message).toBe('Dieser Dateityp kann nicht bearbeitet werden');
         });
 
         test('gibt 404 für nicht existierendes Dokument', async () => {
@@ -836,7 +836,7 @@ describe('Documents Routes', () => {
                 .send({});
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toContain('Inhalt erforderlich');
+            expect(response.body.error.message).toContain('Inhalt erforderlich');
         });
 
         test('gibt 400 für nicht editierbare Dateitypen', async () => {
@@ -854,7 +854,7 @@ describe('Documents Routes', () => {
                 .send({ content: 'new content' });
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Dieser Dateityp kann nicht bearbeitet werden');
+            expect(response.body.error.message).toBe('Dieser Dateityp kann nicht bearbeitet werden');
         });
 
         test('setzt Status auf pending nach Update', async () => {
@@ -1069,7 +1069,7 @@ describe('Magic Byte Validation', () => {
             .attach('file', Buffer.from('This is not a PDF'), 'fake.pdf');
 
         expect(response.status).toBe(400);
-        expect(response.body.error).toContain('Dateityp');
+        expect(response.body.error.message).toContain('Dateityp');
     });
 
     test('lehnt DOCX mit falschem Inhalt ab', async () => {
@@ -1078,7 +1078,7 @@ describe('Magic Byte Validation', () => {
             .attach('file', Buffer.from('Not a DOCX file'), 'fake.docx');
 
         expect(response.status).toBe(400);
-        expect(response.body.error).toContain('Dateityp');
+        expect(response.body.error.message).toContain('Dateityp');
     });
 
     test('lehnt Text-Datei mit Null-Bytes ab', async () => {
@@ -1087,7 +1087,7 @@ describe('Magic Byte Validation', () => {
             .attach('file', Buffer.from([0x48, 0x65, 0x6C, 0x00, 0x6C, 0x6F]), 'binary.txt');
 
         expect(response.status).toBe(400);
-        expect(response.body.error).toContain('Dateityp');
+        expect(response.body.error.message).toContain('Dateityp');
     });
 });
 

@@ -263,10 +263,8 @@ const UpdatePage = () => {
       }
     } catch (error: unknown) {
       setUploadStatus('error');
-      const err = error as { data?: { error?: string }; message?: string };
-      setErrorMessage(
-        err.data?.error || err.message || 'Update-Prozess konnte nicht gestartet werden'
-      );
+      const err = error as { message?: string };
+      setErrorMessage(err.message || 'Update-Prozess konnte nicht gestartet werden');
     }
   };
 
@@ -286,8 +284,8 @@ const UpdatePage = () => {
       setUploadProgress(100);
     } catch (error: unknown) {
       setUploadStatus('error');
-      const err = error as { data?: { error?: string }; message?: string };
-      setErrorMessage(err.data?.error || err.message || 'USB-Update konnte nicht geladen werden');
+      const err = error as { message?: string };
+      setErrorMessage(err.message || 'USB-Update konnte nicht geladen werden');
       setUploadProgress(0);
     }
   };

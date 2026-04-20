@@ -107,7 +107,7 @@ describe('Logs Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Invalid service');
+      expect(response.body.error.message).toContain('Invalid service');
     });
 
     test('should accept lines parameter', async () => {
@@ -215,7 +215,7 @@ describe('Logs Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('query');
+      expect(response.body.error.message).toContain('query');
     });
 
     test('should search logs with valid query', async () => {

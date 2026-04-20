@@ -611,7 +611,7 @@ describe('AppStore Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('config');
+      expect(response.body.error.message).toContain('config');
     });
 
     test('should return 400 if config is not an object', async () => {

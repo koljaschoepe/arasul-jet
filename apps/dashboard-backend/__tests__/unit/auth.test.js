@@ -59,7 +59,7 @@ describe('Authentication Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('required');
+      expect(response.body.error.message).toContain('required');
       expect(response.body).toHaveProperty('timestamp');
     });
 
@@ -70,7 +70,7 @@ describe('Authentication Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('required');
+      expect(response.body.error.message).toContain('required');
     });
 
     test('should return 400 if both username and password are missing', async () => {
@@ -89,7 +89,7 @@ describe('Authentication Routes', () => {
         .send({ username: 'admin', password: 'TestPassword123!' });
 
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('locked');
+      expect(response.body.error.message).toContain('locked');
     });
 
     test('should return 401 if user does not exist', async () => {
@@ -107,7 +107,7 @@ describe('Authentication Routes', () => {
         .send({ username: 'nonexistent', password: 'TestPassword123!' });
 
       expect(response.status).toBe(401);
-      expect(response.body.error).toContain('Invalid');
+      expect(response.body.error.message).toContain('Invalid');
     });
 
     test('should return 403 if user is inactive', async () => {
@@ -125,7 +125,7 @@ describe('Authentication Routes', () => {
         .send({ username: 'admin', password: 'TestPassword123!' });
 
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('disabled');
+      expect(response.body.error.message).toContain('disabled');
     });
 
     test('should return 401 if password is incorrect', async () => {
@@ -145,7 +145,7 @@ describe('Authentication Routes', () => {
         .send({ username: 'admin', password: 'WrongPassword123!' });
 
       expect(response.status).toBe(401);
-      expect(response.body.error).toContain('Invalid');
+      expect(response.body.error.message).toContain('Invalid');
     });
 
     test('should return token on successful login', async () => {
@@ -296,7 +296,7 @@ describe('Authentication Routes', () => {
         .send({ newPassword: 'NewPassword456!' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('required');
+      expect(response.body.error.message).toContain('required');
     });
 
     test('should return 400 if newPassword is missing', async () => {
@@ -316,7 +316,7 @@ describe('Authentication Routes', () => {
         .send({ currentPassword: 'TestPassword123!' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('required');
+      expect(response.body.error.message).toContain('required');
     });
 
     test('should return 400 if newPassword does not meet complexity requirements', async () => {
@@ -336,7 +336,7 @@ describe('Authentication Routes', () => {
         .send({ currentPassword: 'TestPassword123!', newPassword: 'abc' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('complexity');
+      expect(response.body.error.message).toContain('complexity');
     });
 
     test('should return 401 if currentPassword is incorrect', async () => {
@@ -360,7 +360,7 @@ describe('Authentication Routes', () => {
         });
 
       expect(response.status).toBe(401);
-      expect(response.body.error).toContain('incorrect');
+      expect(response.body.error.message).toContain('incorrect');
     });
 
     test('should return 400 if newPassword is same as currentPassword', async () => {
@@ -384,7 +384,7 @@ describe('Authentication Routes', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('different');
+      expect(response.body.error.message).toContain('different');
     });
   });
 

@@ -202,8 +202,8 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
       setFormData(prev => ({ ...prev, token: '' }));
       if (onUpdate) onUpdate(data.bot);
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string } };
-      setMessage({ type: 'error', text: e.data?.error || 'Fehler beim Speichern' });
+      const e = err as { message?: string };
+      setMessage({ type: 'error', text: e.message || 'Fehler beim Speichern' });
     } finally {
       setSaving(false);
     }

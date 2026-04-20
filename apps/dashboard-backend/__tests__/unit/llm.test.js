@@ -92,7 +92,7 @@ describe('LLM Routes', () => {
         .send({ conversation_id: 1 });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Messages');
+      expect(response.body.error.message).toContain('Messages');
     });
 
     test('should return 400 if messages is not an array', async () => {
@@ -105,7 +105,7 @@ describe('LLM Routes', () => {
         .send({ messages: 'not an array', conversation_id: 1 });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('array');
+      expect(response.body.error.message).toContain('array');
     });
 
     test('should return 400 if conversation_id is missing', async () => {
@@ -118,7 +118,7 @@ describe('LLM Routes', () => {
         .send({ messages: [{ role: 'user', content: 'Hello' }] });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('conversation_id');
+      expect(response.body.error.message).toContain('conversation_id');
     });
 
     test('should enqueue job and return job info for non-streaming', async () => {
@@ -167,7 +167,7 @@ describe('LLM Routes', () => {
         });
 
       expect(response.status).toBe(503);
-      expect(response.body.error).toContain('not available');
+      expect(response.body.error.message).toContain('not available');
     });
 
     test('should handle generic errors', async () => {
@@ -317,7 +317,7 @@ describe('LLM Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('job_id');
+      expect(response.body.error.message).toContain('job_id');
     });
 
     test('should prioritize job successfully', async () => {
@@ -359,7 +359,7 @@ describe('LLM Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(404);
-      expect(response.body.error).toContain('not found');
+      expect(response.body.error.message).toContain('not found');
     });
 
     test('should return job details', async () => {
@@ -525,7 +525,7 @@ describe('LLM Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(503);
-      expect(response.body.error).toContain('Failed');
+      expect(response.body.error.message).toContain('Failed');
     });
 
     test('should return empty array if no models', async () => {

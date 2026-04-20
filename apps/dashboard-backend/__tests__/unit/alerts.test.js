@@ -210,7 +210,7 @@ describe('Alert Routes', () => {
         .send({ warning_threshold: 75, critical_threshold: 90 });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Metrik-Typ');
+      expect(response.body.error.message).toContain('Metrik-Typ');
     });
 
     test('should return 400 if warning >= critical', async () => {
@@ -220,7 +220,7 @@ describe('Alert Routes', () => {
         .send({ warning_threshold: 95, critical_threshold: 80 });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('kleiner');
+      expect(response.body.error.message).toContain('kleiner');
     });
 
     test('should return 400 for out of range threshold', async () => {
@@ -230,7 +230,7 @@ describe('Alert Routes', () => {
         .send({ warning_threshold: 150 });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('100');
+      expect(response.body.error.message).toContain('100');
     });
 
     test('should return 404 if threshold not found', async () => {
@@ -311,7 +311,7 @@ describe('Alert Routes', () => {
         .send({ enabled: true });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Wochentag');
+      expect(response.body.error.message).toContain('Wochentag');
     });
 
     test('should return 400 for invalid time format', async () => {
@@ -321,7 +321,7 @@ describe('Alert Routes', () => {
         .send({ start_time: 'invalid' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Format');
+      expect(response.body.error.message).toContain('Format');
     });
   });
 
@@ -354,7 +354,7 @@ describe('Alert Routes', () => {
         .send({ days: 'invalid' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Array');
+      expect(response.body.error.message).toContain('Array');
     });
   });
 
@@ -463,7 +463,7 @@ describe('Alert Routes', () => {
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Alert-ID');
+      expect(response.body.error.message).toContain('Alert-ID');
     });
 
     test('should return 404 if alert not found', async () => {
@@ -563,7 +563,7 @@ describe('Alert Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('URL');
+      expect(response.body.error.message).toContain('URL');
     });
 
     test('should return 400 for invalid URL', async () => {
@@ -573,7 +573,7 @@ describe('Alert Routes', () => {
         .send({ webhook_url: 'not-a-valid-url' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('URL');
+      expect(response.body.error.message).toContain('URL');
     });
   });
 

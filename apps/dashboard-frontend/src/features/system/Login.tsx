@@ -52,12 +52,8 @@ function Login({ onLoginSuccess }: LoginProps) {
       onLoginSuccess(data);
     } catch (err: unknown) {
       console.error('Login error:', err);
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(
-        e.data?.error ||
-          e.message ||
-          'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.'
-      );
+      const e = err as { message?: string };
+      setError(e.message || 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.');
     }
   };
 

@@ -348,8 +348,8 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       if (err instanceof Error && err.name === 'AbortError') {
         setError('Zeitüberschreitung bei der Token-Validierung');
       } else {
-        const e = err as { data?: { error?: string }; message?: string };
-        setError(e.data?.error || e.message || 'Fehler bei der Token-Validierung');
+        const e = err as { message?: string };
+        setError(e.message || 'Fehler bei der Token-Validierung');
       }
     } finally {
       setValidating(false);
@@ -415,8 +415,8 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       if (err instanceof Error && err.name === 'AbortError') {
         setError('Verbindungs-Timeout. Bitte prüfe deine Internetverbindung.');
       } else {
-        const e = err as { data?: { error?: string }; message?: string };
-        setError(e.data?.error || e.message || 'Fehler bei der Chat-Verifizierung');
+        const e = err as { message?: string };
+        setError(e.message || 'Fehler bei der Chat-Verifizierung');
       }
       setWaitingForChat(false);
     }
@@ -507,8 +507,8 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
             });
             data.bot.isActive = true;
           } catch (activationErr: unknown) {
-            const ae = activationErr as { data?: { error?: string }; message?: string };
-            const reason = ae.data?.error || ae.message || 'Unbekannter Fehler';
+            const ae = activationErr as { message?: string };
+            const reason = ae.message || 'Unbekannter Fehler';
             toast.warning(
               `Bot erstellt, aber Aktivierung fehlgeschlagen: ${reason}. Bitte in den Bot-Einstellungen aktivieren.`
             );
@@ -517,8 +517,8 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
         onComplete(data.bot);
       }
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || e.message || 'Fehler beim Erstellen des Bots');
+      const e = err as { message?: string };
+      setError(e.message || 'Fehler beim Erstellen des Bots');
     } finally {
       setCreating(false);
     }

@@ -21,6 +21,9 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var index_exports = {};
 __export(index_exports, {
   ChatBody: () => ChatBody,
+  ERROR_CODES: () => ERROR_CODES,
+  ErrorBody: () => ErrorBody,
+  ErrorEnvelope: () => ErrorEnvelope,
   PrioritizeJobBody: () => PrioritizeJobBody
 });
 module.exports = __toCommonJS(index_exports);
@@ -46,8 +49,33 @@ var ChatBody = import_zod.z.object({
   priority: import_zod.z.number().int().min(0).max(10).optional(),
   images: import_zod.z.array(import_zod.z.string()).max(5, "Maximal 5 Bilder pro Nachricht erlaubt").optional().nullable()
 }).strict();
+
+// src/errors.ts
+var import_zod2 = require("zod");
+var ErrorBody = import_zod2.z.object({
+  code: import_zod2.z.string().min(1),
+  message: import_zod2.z.string().min(1),
+  details: import_zod2.z.unknown().optional()
+}).strict();
+var ErrorEnvelope = import_zod2.z.object({
+  error: ErrorBody,
+  timestamp: import_zod2.z.string().min(1)
+}).strict();
+var ERROR_CODES = [
+  "INTERNAL_ERROR",
+  "VALIDATION_ERROR",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "CONFLICT",
+  "RATE_LIMITED",
+  "SERVICE_UNAVAILABLE"
+];
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ChatBody,
+  ERROR_CODES,
+  ErrorBody,
+  ErrorEnvelope,
   PrioritizeJobBody
 });

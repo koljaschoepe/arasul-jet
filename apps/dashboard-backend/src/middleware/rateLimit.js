@@ -21,20 +21,21 @@ const isRateLimitDisabled = () => process.env.RATE_LIMIT_ENABLED === 'false';
  * @param {object} [extraOptions] - Additional express-rate-limit options to merge
  */
 function createLimiter(name, windowMs, max, errorMessage, extraOptions = {}) {
+  const buildEnvelope = () => ({
+    error: { code: 'RATE_LIMITED', message: errorMessage },
+    timestamp: new Date().toISOString(),
+  });
   return rateLimit({
     windowMs,
     max,
     skip: isRateLimitDisabled,
-    message: { error: errorMessage, timestamp: new Date().toISOString() },
+    message: buildEnvelope(),
     standardHeaders: true,
     legacyHeaders: false,
     validate: { trustProxy: false }, // Suppress trust proxy warning (behind Traefik)
     handler: (req, res) => {
       logger.warn(`${name} rate limit exceeded for IP: ${req.ip}`);
-      res.status(429).json({
-        error: errorMessage,
-        timestamp: new Date().toISOString(),
-      });
+      res.status(429).json(buildEnvelope());
     },
     ...extraOptions,
   });
@@ -114,7 +115,7 @@ function createUserRateLimiter(maxRequests, windowMs) {
     if (recentRequests.length >= maxRequests) {
       logger.warn(`User rate limit exceeded for user: ${req.user.username}`);
       return res.status(429).json({
-        error: 'Too many requests, please try again later',
+        error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' },
         timestamp: new Date().toISOString(),
       });
     }

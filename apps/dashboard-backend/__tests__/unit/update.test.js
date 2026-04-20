@@ -96,7 +96,7 @@ describe('Update API Routes', () => {
                 .post('/api/update/upload');
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('No update file uploaded');
+            expect(response.body.error.message).toBe('No update file uploaded');
         });
 
         it('should reject if signature is missing', async () => {
@@ -108,7 +108,7 @@ describe('Update API Routes', () => {
                 .set('x-test-files', JSON.stringify(files));
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Signature file is required for update validation');
+            expect(response.body.error.message).toBe('Signature file is required for update validation');
         });
 
         it('should accept valid update and signature files', async () => {
@@ -140,7 +140,7 @@ describe('Update API Routes', () => {
                 .set('x-test-files', JSON.stringify(validFiles));
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Invalid signature');
+            expect(response.body.error.message).toBe('Invalid signature');
         });
     });
 
@@ -169,7 +169,7 @@ describe('Update API Routes', () => {
                 .send({ file_path: '/arasul/updates/update.araupdate' });
 
             expect(response.status).toBe(409);
-            expect(response.body.error).toBe('Update already in progress');
+            expect(response.body.error.message).toBe('Update already in progress');
         });
 
         it('should reject if file path missing', async () => {
@@ -178,7 +178,7 @@ describe('Update API Routes', () => {
                 .send({});
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toContain('Update file path is required');
+            expect(response.body.error.message).toContain('Update file path is required');
         });
     });
 });

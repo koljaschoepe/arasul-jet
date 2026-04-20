@@ -19,7 +19,32 @@ var ChatBody = z.object({
   priority: z.number().int().min(0).max(10).optional(),
   images: z.array(z.string()).max(5, "Maximal 5 Bilder pro Nachricht erlaubt").optional().nullable()
 }).strict();
+
+// src/errors.ts
+import { z as z2 } from "zod";
+var ErrorBody = z2.object({
+  code: z2.string().min(1),
+  message: z2.string().min(1),
+  details: z2.unknown().optional()
+}).strict();
+var ErrorEnvelope = z2.object({
+  error: ErrorBody,
+  timestamp: z2.string().min(1)
+}).strict();
+var ERROR_CODES = [
+  "INTERNAL_ERROR",
+  "VALIDATION_ERROR",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "CONFLICT",
+  "RATE_LIMITED",
+  "SERVICE_UNAVAILABLE"
+];
 export {
   ChatBody,
+  ERROR_CODES,
+  ErrorBody,
+  ErrorEnvelope,
   PrioritizeJobBody
 };

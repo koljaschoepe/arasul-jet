@@ -843,7 +843,10 @@ router.get(
     dataStream.on('error', err => {
       logger.error(`Document download stream error: ${err.message}`);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Download failed' });
+        res.status(500).json({
+          error: { code: 'INTERNAL_ERROR', message: 'Download failed' },
+          timestamp: new Date().toISOString(),
+        });
       } else {
         res.destroy();
       }

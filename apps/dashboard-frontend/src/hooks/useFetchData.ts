@@ -76,13 +76,12 @@ export function useFetchData<T>(
         const e = err as {
           name?: string;
           code?: string;
-          data?: { error?: string };
           message?: string;
         };
         if (e.name === 'AbortError' || e.name === 'CanceledError' || e.code === 'ERR_CANCELED')
           return;
         console.error(errorMessage, err);
-        setError(e.data?.error || e.message || errorMessage);
+        setError(e.message || errorMessage);
       } finally {
         if (!signal.aborted) {
           setLoading(false);

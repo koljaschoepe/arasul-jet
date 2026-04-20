@@ -188,8 +188,8 @@ export default function TelegramBotPage() {
       setSystemMessage({ type: 'success', text: 'Konfiguration gespeichert' });
     } catch (err: unknown) {
       if (!isMountedRef.current) return;
-      const e = err as { data?: { error?: string } };
-      setSystemMessage({ type: 'error', text: e.data?.error || 'Netzwerkfehler beim Speichern' });
+      const e = err as { message?: string };
+      setSystemMessage({ type: 'error', text: e.message || 'Netzwerkfehler beim Speichern' });
     } finally {
       if (isMountedRef.current) setSystemSaving(false);
     }
@@ -212,8 +212,8 @@ export default function TelegramBotPage() {
       });
     } catch (err: unknown) {
       if (!isMountedRef.current) return;
-      const e = err as { data?: { error?: string } };
-      setSystemMessage({ type: 'error', text: e.data?.error || 'Netzwerkfehler' });
+      const e = err as { message?: string };
+      setSystemMessage({ type: 'error', text: e.message || 'Netzwerkfehler' });
     } finally {
       if (isMountedRef.current) setSystemSaving(false);
     }
@@ -228,8 +228,8 @@ export default function TelegramBotPage() {
       setSystemMessage({ type: 'success', text: 'Test-Nachricht erfolgreich gesendet!' });
     } catch (err: unknown) {
       if (!isMountedRef.current) return;
-      const e = err as { data?: { error?: string } };
-      setSystemMessage({ type: 'error', text: e.data?.error || 'Netzwerkfehler beim Test' });
+      const e = err as { message?: string };
+      setSystemMessage({ type: 'error', text: e.message || 'Netzwerkfehler beim Test' });
     } finally {
       if (isMountedRef.current) setSystemTesting(false);
     }

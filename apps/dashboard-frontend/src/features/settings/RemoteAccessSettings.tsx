@@ -161,8 +161,8 @@ export function RemoteAccessSettings() {
       toast.success('Tailscale erfolgreich installiert!');
       await loadStatus();
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string; message?: string }; message?: string };
-      const msg = e.data?.error || e.data?.message || e.message || 'Installation fehlgeschlagen';
+      const e = err as { message?: string };
+      const msg = e.message || 'Installation fehlgeschlagen';
       setInstallError(msg);
       toast.error(msg);
     } finally {
@@ -186,8 +186,8 @@ export function RemoteAccessSettings() {
       setAuthKey('');
       toast.success('Tailscale verbunden!');
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      toast.error(e.data?.error || e.message || 'Verbindung fehlgeschlagen');
+      const e = err as { message?: string };
+      toast.error(e.message || 'Verbindung fehlgeschlagen');
     } finally {
       setConnecting(false);
     }
@@ -200,8 +200,8 @@ export function RemoteAccessSettings() {
       toast.success('Tailscale getrennt');
       await loadStatus();
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      toast.error(e.data?.error || e.message || 'Trennung fehlgeschlagen');
+      const e = err as { message?: string };
+      toast.error(e.message || 'Trennung fehlgeschlagen');
     } finally {
       setDisconnecting(false);
     }

@@ -204,7 +204,7 @@ describe('Workflows Routes', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('workflow_name');
+      expect(response.body.error.message).toContain('workflow_name');
     });
 
     test('should return 400 for invalid status', async () => {
@@ -217,7 +217,7 @@ describe('Workflows Routes', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('status');
+      expect(response.body.error.message).toContain('status');
     });
 
     test('should accept all valid status values', async () => {
@@ -365,7 +365,7 @@ describe('Workflows Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('range');
+      expect(response.body.error.message).toContain('range');
     });
   });
 

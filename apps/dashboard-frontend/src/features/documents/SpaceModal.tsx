@@ -103,8 +103,8 @@ const SpaceModal = memo(function SpaceModal({
         onClose();
       }, 500);
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || e.message || 'Unbekannter Fehler');
+      const e = err as { message?: string };
+      setError(e.message || 'Unbekannter Fehler');
     } finally {
       setSaving(false);
     }
@@ -133,8 +133,8 @@ const SpaceModal = memo(function SpaceModal({
         onClose();
       }, 500);
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || e.message || 'Unbekannter Fehler');
+      const e = err as { message?: string };
+      setError(e.message || 'Unbekannter Fehler');
     } finally {
       setSaving(false);
     }

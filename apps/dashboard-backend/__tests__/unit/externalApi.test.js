@@ -133,7 +133,7 @@ describe('External API Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('prompt');
+      expect(response.body.error.message).toContain('prompt');
     });
 
     test('should enqueue job and return immediately with wait_for_result=false', async () => {
@@ -372,7 +372,7 @@ describe('External API Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('name');
+      expect(response.body.error.message).toContain('name');
     });
 
     test('should create API key with valid data', async () => {

@@ -21,9 +21,65 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getCsrfToken } from '../utils/csrf';
 
-interface ApiError extends Error {
+export interface ApiError extends Error {
   status: number;
+  /** Stable machine-readable error code (e.g. 'VALIDATION_ERROR'). */
+  code?: string;
+  /** Optional structured error details (e.g. validation field errors). */
+  details?: unknown;
+  /** Raw response body for debugging; prefer message/code/details on the error itself. */
   data?: Record<string, unknown>;
+}
+
+/**
+ * Normalize a backend error body into a flat { message, code, details } triple.
+ * Supports the canonical nested envelope { error: { code, message, details } }
+ * and falls back to legacy flat shapes { error: 'msg', code, details } or
+ * { message: 'msg' } so tests/edge cases keep working.
+ */
+function normalizeErrorBody(
+  body: unknown,
+  statusCode: number
+): {
+  message: string;
+  code?: string;
+  details?: unknown;
+} {
+  if (body === null || body === undefined) {
+    return { message: 'Unbekannter Fehler' };
+  }
+  if (body && typeof body === 'object') {
+    const payload = body as Record<string, unknown>;
+    const nested = payload.error;
+    if (nested && typeof nested === 'object') {
+      const n = nested as Record<string, unknown>;
+      return {
+        message:
+          typeof n.message === 'string'
+            ? n.message
+            : typeof payload.message === 'string'
+              ? payload.message
+              : `HTTP ${statusCode}`,
+        code: typeof n.code === 'string' ? n.code : undefined,
+        details: n.details,
+      };
+    }
+    if (typeof nested === 'string') {
+      return {
+        message: nested,
+        code: typeof payload.code === 'string' ? payload.code : undefined,
+        details: payload.details,
+      };
+    }
+    if (typeof payload.message === 'string') {
+      return {
+        message: payload.message,
+        code: typeof payload.code === 'string' ? payload.code : undefined,
+        details: payload.details,
+      };
+    }
+  }
+  return { message: `HTTP ${statusCode}` };
 }
 
 interface RequestOptions {
@@ -117,13 +173,16 @@ export function useApi(): ApiMethods {
           throw err;
         }
 
-        const error = await res.json().catch(() => ({ message: 'Unbekannter Fehler' }));
+        const rawBody = await res.json().catch(() => null);
+        const { message, code, details } = normalizeErrorBody(rawBody, res.status);
         if (showError && toast) {
-          toast.error(error.message || `Fehler ${res.status}`);
+          toast.error(message);
         }
-        const err = new Error(error.message || `HTTP ${res.status}`) as ApiError;
+        const err = new Error(message) as ApiError;
         err.status = res.status;
-        err.data = error;
+        err.code = code;
+        err.details = details;
+        err.data = (rawBody as Record<string, unknown>) ?? undefined;
         throw err;
       }
 

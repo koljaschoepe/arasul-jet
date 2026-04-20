@@ -364,7 +364,7 @@ describe('API Integration Tests', () => {
             expect(response.status).toBe(400);
             expect(response.body).toHaveProperty('error');
             expect(response.body).toHaveProperty('timestamp');
-            expect(typeof response.body.error).toBe('string');
+            expect(typeof response.body.error.message).toBe('string');
             expect(typeof response.body.timestamp).toBe('string');
         });
 

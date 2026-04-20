@@ -199,11 +199,10 @@ function PasswordManagement() {
         }, 2000);
       }
     } catch (error: unknown) {
-      const err = error as { data?: { error?: string; message?: string }; message?: string };
+      const err = error as { message?: string };
       setMessage({
         type: 'error',
-        text:
-          err.data?.error || err.data?.message || err.message || 'Fehler beim Ändern des Passworts',
+        text: err.message || 'Fehler beim Ändern des Passworts',
       });
     } finally {
       setLoading(false);

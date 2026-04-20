@@ -110,7 +110,10 @@ app.use((req, res, next) => {
   const timeout = isStreamingEndpoint ? 300000 : 60000; // 5min for streaming, 60s for regular
   res.setTimeout(timeout, () => {
     if (!res.headersSent) {
-      res.status(408).json({ error: 'Request timeout' });
+      res.status(408).json({
+        error: { code: 'REQUEST_TIMEOUT', message: 'Request timeout' },
+        timestamp: new Date().toISOString(),
+      });
     }
   });
   next();

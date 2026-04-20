@@ -73,7 +73,7 @@ describe('Embeddings Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('required');
+      expect(response.body.error.message).toContain('required');
     });
 
     test('should return embedding for single text', async () => {

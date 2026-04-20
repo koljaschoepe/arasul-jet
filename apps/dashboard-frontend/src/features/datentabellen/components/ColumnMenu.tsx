@@ -59,8 +59,8 @@ const ColumnMenu = memo(function ColumnMenu({
         onFieldUpdated();
         onClose();
       } catch (err: unknown) {
-        const e = err as { data?: { error?: string }; message?: string };
-        setError(e.data?.error || e.message || String(err));
+        const e = err as { message?: string };
+        setError(e.message || String(err));
       } finally {
         setLoading(false);
       }
@@ -103,8 +103,8 @@ const ColumnMenu = memo(function ColumnMenu({
       onFieldUpdated();
       onClose();
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || e.message || String(err));
+      const e = err as { message?: string };
+      setError(e.message || String(err));
     } finally {
       setLoading(false);
     }

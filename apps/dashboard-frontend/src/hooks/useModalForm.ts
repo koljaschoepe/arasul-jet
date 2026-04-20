@@ -81,8 +81,8 @@ export function useModalForm<T extends Record<string, unknown>>(
       try {
         await submitFn();
       } catch (err: unknown) {
-        const e = err as { data?: { error?: string }; message?: string };
-        setError(e.data?.error || e.message || 'Fehler');
+        const e = err as { message?: string };
+        setError(e.message || 'Fehler');
       } finally {
         setSaving(false);
       }

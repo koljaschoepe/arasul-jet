@@ -9,7 +9,7 @@
  * - timestamp  — ISO string set at throw time
  *
  * The global error handler (middleware/errorHandler.js) serializes to:
- *   { error: message, code, details?, timestamp }
+ *   { error: { code, message, details? }, timestamp }
  */
 
 class ApiError extends Error {
@@ -25,9 +25,11 @@ class ApiError extends Error {
 
   toJSON() {
     return {
-      error: this.message,
-      code: this.code,
-      ...(this.details && { details: this.details }),
+      error: {
+        code: this.code,
+        message: this.message,
+        ...(this.details && { details: this.details }),
+      },
       timestamp: this.timestamp,
     };
   }

@@ -136,7 +136,7 @@ describe('Sandbox + LLM Jobs Integration', () => {
         .send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/name/i);
+      expect(res.body.error.message).toMatch(/name/i);
     });
   });
 
@@ -270,9 +270,9 @@ describe('Sandbox + LLM Jobs Integration', () => {
         .send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/job_id/i);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
-      expect(res.body.details?.issues?.[0]?.path).toBe('job_id');
+      expect(res.body.error.message).toMatch(/job_id/i);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.details?.issues?.[0]?.path).toBe('job_id');
       expect(llmQueueService.prioritizeJob).not.toHaveBeenCalled();
     });
   });
@@ -312,9 +312,9 @@ describe('Sandbox + LLM Jobs Integration', () => {
         .send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
-      expect(res.body.details.source).toBe('body');
-      expect(res.body.details.issues).toBeDefined();
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.details.source).toBe('body');
+      expect(res.body.error.details.issues).toBeDefined();
       expect(sandboxService.createProject).not.toHaveBeenCalled();
     });
 
@@ -325,7 +325,7 @@ describe('Sandbox + LLM Jobs Integration', () => {
         .send({ name: 'ok', bogus_field: 'nope' });
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
       expect(sandboxService.createProject).not.toHaveBeenCalled();
     });
 
@@ -336,7 +336,7 @@ describe('Sandbox + LLM Jobs Integration', () => {
         .send({ name: 'ok', color: 'red' });
 
       expect(res.status).toBe(400);
-      expect(res.body.details.issues[0].path).toBe('color');
+      expect(res.body.error.details.issues[0].path).toBe('color');
     });
   });
 
@@ -359,7 +359,7 @@ describe('Sandbox + LLM Jobs Integration', () => {
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
     });
   });
 });

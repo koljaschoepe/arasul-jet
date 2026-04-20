@@ -119,8 +119,8 @@ const ProjectModal = memo(function ProjectModal({
         onClose();
       }, 500);
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || e.message || String(err));
+      const e = err as { message?: string };
+      setError(e.message || String(err));
     } finally {
       setSaving(false);
     }
@@ -145,8 +145,8 @@ const ProjectModal = memo(function ProjectModal({
         onClose();
       }, 500);
     } catch (err: unknown) {
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || e.message || String(err));
+      const e = err as { message?: string };
+      setError(e.message || String(err));
     } finally {
       setSaving(false);
     }

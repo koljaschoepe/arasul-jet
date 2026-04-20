@@ -293,7 +293,7 @@ describe('Datentabellen Tables Routes', () => {
         .send({ name: 'Test', space_id: 'invalid-space' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Wissensbereich');
+      expect(response.body.error.message).toContain('Wissensbereich');
     });
   });
 
@@ -332,7 +332,7 @@ describe('Datentabellen Tables Routes', () => {
         .send({ name: 'Neuer Name' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Systemtabellen');
+      expect(response.body.error.message).toContain('Systemtabellen');
     });
 
     test('validates status values', async () => {
@@ -343,7 +343,7 @@ describe('Datentabellen Tables Routes', () => {
         .send({ status: 'invalid_status' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Ungültiger Status');
+      expect(response.body.error.message).toContain('Ungültiger Status');
     });
 
     test('returns 400 for invalid slug', async () => {
@@ -390,7 +390,7 @@ describe('Datentabellen Tables Routes', () => {
       const response = await request(app).delete('/api/v1/datentabellen/tables/system_table');
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Systemtabellen');
+      expect(response.body.error.message).toContain('Systemtabellen');
     });
 
     test('returns 400 for invalid slug', async () => {
@@ -449,7 +449,7 @@ describe('Datentabellen Tables Routes', () => {
         .send({ name: 'Test', field_type: 'nonexistent_type' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Ungültiger Feldtyp');
+      expect(response.body.error.message).toContain('Ungültiger Feldtyp');
     });
 
     test('returns 404 for non-existent table', async () => {

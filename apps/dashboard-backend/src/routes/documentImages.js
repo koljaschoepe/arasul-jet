@@ -51,10 +51,11 @@ router.post(
   (req, res, next) => {
     imageUpload.single('image')(req, res, err => {
       if (err) {
-        if (err instanceof multer.MulterError) {
-          return res.status(400).json({ error: err.message });
-        }
-        return res.status(400).json({ error: err.message });
+        const code = err instanceof multer.MulterError ? 'UPLOAD_ERROR' : 'VALIDATION_ERROR';
+        return res.status(400).json({
+          error: { code, message: err.message },
+          timestamp: new Date().toISOString(),
+        });
       }
       next();
     });

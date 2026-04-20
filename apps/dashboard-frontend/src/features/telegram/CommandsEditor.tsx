@@ -105,8 +105,8 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
       setNewCommand(null);
     } catch (err: unknown) {
       console.error('Befehl erstellen fehlgeschlagen:', err);
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || 'Fehler beim Erstellen des Befehls');
+      const e = err as { message?: string };
+      setError(e.message || 'Fehler beim Erstellen des Befehls');
     } finally {
       setSaving(false);
     }
@@ -139,8 +139,8 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
       setEditingCommand(null);
     } catch (err: unknown) {
       console.error('Befehl speichern fehlgeschlagen:', err);
-      const e = err as { data?: { error?: string }; message?: string };
-      setError(e.data?.error || 'Fehler beim Speichern des Befehls');
+      const e = err as { message?: string };
+      setError(e.message || 'Fehler beim Speichern des Befehls');
     } finally {
       setSaving(false);
     }

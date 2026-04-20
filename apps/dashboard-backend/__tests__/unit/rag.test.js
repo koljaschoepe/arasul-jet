@@ -224,7 +224,7 @@ describe('RAG Routes', () => {
         .send({ conversation_id: 1 });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Query');
+      expect(response.body.error.message).toContain('Query');
     });
 
     test('should return 400 if query is not a string', async () => {
@@ -237,7 +237,7 @@ describe('RAG Routes', () => {
         .send({ query: 123, conversation_id: 1 });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('string');
+      expect(response.body.error.message).toContain('string');
     });
 
     test('should return 400 if conversation_id is missing', async () => {
@@ -250,7 +250,7 @@ describe('RAG Routes', () => {
         .send({ query: 'test query' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('conversation_id');
+      expect(response.body.error.message).toContain('conversation_id');
     });
 
     test('should handle embedding service error', async () => {
@@ -268,7 +268,7 @@ describe('RAG Routes', () => {
         .send({ query: 'test query', conversation_id: 1 });
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toContain('error');
+      expect(response.body.error.message).toContain('error');
     });
 
     test('should return no documents message when search returns empty', async () => {
@@ -527,7 +527,7 @@ describe('RAG Routes', () => {
 
       expect(response.status).toBe(503);
       expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('degraded');
+      expect(response.body.error.message).toContain('degraded');
       expect(response.body).toHaveProperty('timestamp');
     });
 

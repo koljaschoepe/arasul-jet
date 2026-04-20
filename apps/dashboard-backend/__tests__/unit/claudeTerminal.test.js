@@ -295,7 +295,7 @@ describe('Claude Terminal Routes', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Query');
+      expect(response.body.error.message).toContain('Query');
     });
 
     test('should return 400 if query exceeds max length', async () => {
@@ -307,7 +307,7 @@ describe('Claude Terminal Routes', () => {
         .send({ query: longQuery });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('maximum length');
+      expect(response.body.error.message).toContain('maximum length');
     });
 
     test('should return 503 when LLM service unavailable', async () => {
@@ -320,7 +320,7 @@ describe('Claude Terminal Routes', () => {
         .send({ query: 'What is the system status?' });
 
       expect(response.status).toBe(503);
-      expect(response.body.error).toContain('unavailable');
+      expect(response.body.error.message).toContain('unavailable');
     });
 
     test('should return 503 when no model available', async () => {
@@ -338,7 +338,7 @@ describe('Claude Terminal Routes', () => {
         .send({ query: 'What is the system status?' });
 
       expect(response.status).toBe(503);
-      expect(response.body.error).toContain('Model');
+      expect(response.body.error.message).toContain('Model');
     });
   });
 });

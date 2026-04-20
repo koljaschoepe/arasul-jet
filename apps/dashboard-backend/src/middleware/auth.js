@@ -38,7 +38,7 @@ async function requireAuth(req, res, next) {
 
   if (!token) {
     return res.status(401).json({
-      error: 'No authentication token provided',
+      error: { code: 'UNAUTHORIZED', message: 'No authentication token provided' },
       timestamp: new Date().toISOString(),
     });
   }
@@ -52,22 +52,22 @@ async function requireAuth(req, res, next) {
 
     if (tokenError.message === 'Token expired') {
       return res.status(401).json({
-        error: 'Token expired',
+        error: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
         timestamp: new Date().toISOString(),
       });
     } else if (tokenError.message === 'Invalid token') {
       return res.status(401).json({
-        error: 'Invalid token',
+        error: { code: 'INVALID_TOKEN', message: 'Invalid token' },
         timestamp: new Date().toISOString(),
       });
     } else if (tokenError.message === 'Token is blacklisted') {
       return res.status(401).json({
-        error: 'Token has been revoked',
+        error: { code: 'TOKEN_REVOKED', message: 'Token has been revoked' },
         timestamp: new Date().toISOString(),
       });
     } else {
       return res.status(401).json({
-        error: 'Authentication failed',
+        error: { code: 'UNAUTHORIZED', message: 'Authentication failed' },
         timestamp: new Date().toISOString(),
       });
     }
@@ -92,14 +92,14 @@ async function requireAuth(req, res, next) {
         stack: dbError.stack,
       });
       return res.status(503).json({
-        error: 'Service temporarily unavailable',
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'Service temporarily unavailable' },
         timestamp: new Date().toISOString(),
       });
     }
 
     if (result.rows.length === 0) {
       return res.status(401).json({
-        error: 'User not found',
+        error: { code: 'UNAUTHORIZED', message: 'User not found' },
         timestamp: new Date().toISOString(),
       });
     }
@@ -138,7 +138,7 @@ async function requireAuth(req, res, next) {
   if (!user.is_active) {
     userCache.delete(decoded.userId);
     return res.status(403).json({
-      error: 'User account is disabled',
+      error: { code: 'FORBIDDEN', message: 'User account is disabled' },
       timestamp: new Date().toISOString(),
     });
   }
@@ -205,7 +205,7 @@ async function optionalAuth(req, res, next) {
 function requireAdmin(req, res, next) {
   if (!req.user) {
     return res.status(401).json({
-      error: 'Authentication required',
+      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
       timestamp: new Date().toISOString(),
     });
   }
@@ -213,7 +213,7 @@ function requireAdmin(req, res, next) {
   if (req.user.role !== 'admin') {
     logger.warn(`Non-admin access attempt by user ${req.user.username} (role: ${req.user.role})`);
     return res.status(403).json({
-      error: 'Admin access required',
+      error: { code: 'FORBIDDEN', message: 'Admin access required' },
       timestamp: new Date().toISOString(),
     });
   }
