@@ -14,13 +14,14 @@ const { createUserRateLimiter } = require('../../middleware/rateLimit');
 const contextService = require('../../services/context/contextInjectionService');
 const modelService = require('../../services/llm/modelService');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
+const { ServiceUnavailableError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { TerminalQueryBody, MAX_QUERY_LENGTH } = require('../../schemas/claudeTerminal');
 const services = require('../../config/services');
 
 // Configuration
 const LLM_SERVICE_URL = services.llm.url;
 const DEFAULT_TIMEOUT = parseInt(process.env.CLAUDE_TERMINAL_TIMEOUT) || 60000; // 60s default
-const MAX_QUERY_LENGTH = 5000;
 
 /**
  * Get the model to use for terminal queries
@@ -153,19 +154,11 @@ router.post(
   '/query',
   requireAuth,
   terminalRateLimiter,
+  validateBody(TerminalQueryBody),
   asyncHandler(async (req, res) => {
     const startTime = Date.now();
     const { query, includeContext = true, timeout = DEFAULT_TIMEOUT } = req.body;
     const userId = req.user.id;
-
-    // Validate query
-    if (!query || typeof query !== 'string') {
-      throw new ValidationError('Query is required');
-    }
-
-    if (query.length > MAX_QUERY_LENGTH) {
-      throw new ValidationError(`Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`);
-    }
 
     // Check LLM availability first
     const llmStatus = await checkLLMAvailability();
