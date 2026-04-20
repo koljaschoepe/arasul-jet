@@ -24,6 +24,16 @@ const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const pool = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { validateBody } = require('../middleware/validate');
+const {
+  PatchDocBody,
+  MoveBody,
+  ContentBody,
+  SearchBody,
+  CreateMarkdownBody,
+  BatchIdsBody,
+  BatchMoveBody,
+} = require('../schemas/documents');
 const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
 const { uploadLimiter } = require('../middleware/rateLimit');
 const { buildSetClauses } = require('../utils/queryBuilder');
@@ -454,6 +464,7 @@ router.post(
 router.patch(
   '/:id',
   requireAuth,
+  validateBody(PatchDocBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { title, category_id, user_tags, user_notes, is_favorite } = req.body;
@@ -492,6 +503,7 @@ router.patch(
 router.put(
   '/:id/move',
   requireAuth,
+  validateBody(MoveBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { space_id } = req.body;
@@ -564,12 +576,9 @@ router.get(
 router.post(
   '/search',
   requireAuth,
+  validateBody(SearchBody),
   asyncHandler(async (req, res) => {
     const { query, top_k = 10, category_id } = req.body;
-
-    if (!query || typeof query !== 'string') {
-      throw new ValidationError('Suchbegriff erforderlich');
-    }
 
     // Get query embedding
     const queryVector = await getEmbedding(query);
@@ -709,13 +718,10 @@ router.get(
 router.put(
   '/:id/content',
   requireAuth,
+  validateBody(ContentBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { content } = req.body;
-
-    if (content === undefined || typeof content !== 'string') {
-      throw new ValidationError('Inhalt erforderlich');
-    }
 
     // Get document info
     const docResult = await pool.query(
@@ -861,12 +867,9 @@ router.get(
 router.post(
   '/create-markdown',
   requireAuth,
+  validateBody(CreateMarkdownBody),
   asyncHandler(async (req, res) => {
     const { filename, content, description, space_id } = req.body;
-
-    if (!filename || typeof filename !== 'string' || !filename.trim()) {
-      throw new ValidationError('Dateiname erforderlich');
-    }
 
     // Sanitize filename and ensure .md extension
     let sanitizedName = filename
@@ -1041,14 +1044,9 @@ router.post(
 router.post(
   '/batch/delete',
   requireAuth,
+  validateBody(BatchIdsBody),
   asyncHandler(async (req, res) => {
     const { ids } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      throw new ValidationError('Mindestens eine Dokument-ID erforderlich');
-    }
-    if (ids.length > 100) {
-      throw new ValidationError('Maximal 100 Dokumente gleichzeitig');
-    }
 
     const result = await documentService.batchDelete(ids);
 
@@ -1068,14 +1066,9 @@ router.post(
 router.post(
   '/batch/reindex',
   requireAuth,
+  validateBody(BatchIdsBody),
   asyncHandler(async (req, res) => {
     const { ids } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      throw new ValidationError('Mindestens eine Dokument-ID erforderlich');
-    }
-    if (ids.length > 100) {
-      throw new ValidationError('Maximal 100 Dokumente gleichzeitig');
-    }
 
     const result = await documentService.batchReindex(ids);
 
@@ -1094,15 +1087,9 @@ router.post(
 router.post(
   '/batch/move',
   requireAuth,
+  validateBody(BatchMoveBody),
   asyncHandler(async (req, res) => {
     const { ids, space_id } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      throw new ValidationError('Mindestens eine Dokument-ID erforderlich');
-    }
-    if (ids.length > 100) {
-      throw new ValidationError('Maximal 100 Dokumente gleichzeitig');
-    }
-
     const newSpaceId = space_id || null;
 
     // Validate space

@@ -703,7 +703,7 @@ describe('Documents Routes', () => {
                 .send({});
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Suchbegriff erforderlich');
+            expect(response.body.error).toContain('Suchbegriff erforderlich');
         });
 
         test('gibt 400 für ungültigen Query-Typ', async () => {
@@ -836,7 +836,7 @@ describe('Documents Routes', () => {
                 .send({});
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Inhalt erforderlich');
+            expect(response.body.error).toContain('Inhalt erforderlich');
         });
 
         test('gibt 400 für nicht editierbare Dateitypen', async () => {

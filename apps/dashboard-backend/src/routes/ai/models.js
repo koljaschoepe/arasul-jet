@@ -23,7 +23,9 @@ const { requireAuth } = require('../../middleware/auth');
 const modelService = require('../../services/llm/modelService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { DownloadBody, DefaultModelBody } = require('../../schemas/models');
+const { NotFoundError } = require('../../utils/errors');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
@@ -247,20 +249,9 @@ router.post(
 router.post(
   '/download',
   requireAuth,
+  validateBody(DownloadBody),
   asyncHandler(async (req, res) => {
     const { model_id } = req.body;
-
-    if (!model_id) {
-      throw new ValidationError('model_id ist erforderlich');
-    }
-
-    if (
-      typeof model_id !== 'string' ||
-      model_id.length > 200 ||
-      !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model_id)
-    ) {
-      throw new ValidationError('Ungültige model_id (erlaubt: Buchstaben, Ziffern, . : - _ /)');
-    }
 
     // Check if model exists in catalog
     const modelInfo = await modelService.getModelInfo(model_id);
@@ -582,20 +573,9 @@ router.get(
 router.post(
   '/default',
   requireAuth,
+  validateBody(DefaultModelBody),
   asyncHandler(async (req, res) => {
     const { model_id } = req.body;
-
-    if (!model_id) {
-      throw new ValidationError('model_id ist erforderlich');
-    }
-
-    if (
-      typeof model_id !== 'string' ||
-      model_id.length > 200 ||
-      !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model_id)
-    ) {
-      throw new ValidationError('Ungültige model_id (erlaubt: Buchstaben, Ziffern, . : - _ /)');
-    }
 
     // Check if model is installed
     const isInstalled = await modelService.isModelInstalled(model_id);

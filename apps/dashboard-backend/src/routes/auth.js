@@ -21,7 +21,9 @@ const {
   createUserRateLimiter,
 } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { ValidationError, UnauthorizedError, ForbiddenError } = require('../utils/errors');
+const { validateBody } = require('../middleware/validate');
+const { LoginBody, ChangePasswordBody } = require('../schemas/auth');
+const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const { generateCsrfToken, CSRF_COOKIE } = require('../middleware/csrf');
 const logger = require('../utils/logger');
 const { logSecurityEvent } = require('../utils/auditLog');
@@ -37,15 +39,11 @@ const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000); // 3 per
 router.post(
   '/login',
   loginLimiter,
+  validateBody(LoginBody),
   asyncHandler(async (req, res) => {
     const { username, password } = req.body;
     const ipAddress = req.ip;
     const userAgent = req.get('user-agent') || 'unknown';
-
-    // Validate input
-    if (!username || !password) {
-      throw new ValidationError('Username and password are required');
-    }
 
     // Check if user is locked
     const lockCheck = await db.query('SELECT is_user_locked($1) as locked', [username]);
@@ -234,6 +232,7 @@ router.post(
   '/change-password',
   requireAuth,
   passwordChangeLimiter,
+  validateBody(ChangePasswordBody),
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 

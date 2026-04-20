@@ -10,6 +10,13 @@ const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const llmJobService = require('../services/llm/llmJobService');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { validateBody } = require('../middleware/validate');
+const {
+  CreateChatBody,
+  PostMessageBody,
+  PatchChatBody,
+  PatchChatSettingsBody,
+} = require('../schemas/chats');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
 const { buildSetClauses } = require('../utils/queryBuilder');
 
@@ -192,6 +199,7 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  validateBody(CreateChatBody),
   asyncHandler(async (req, res) => {
     const { title, project_id } = req.body;
 
@@ -352,7 +360,9 @@ router.get(
           await db.query(`UPDATE chat_messages SET status = 'error' WHERE id = ANY($1)`, [
             staleIds,
           ]);
-          for (const msg of staleNoJob) {msg.status = 'error';}
+          for (const msg of staleNoJob) {
+            msg.status = 'error';
+          }
         }
       } catch (recoveryErr) {
         // Non-critical — log and continue
@@ -395,6 +405,7 @@ router.get(
 router.post(
   '/:id/messages',
   requireAuth,
+  validateBody(PostMessageBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { role, content, thinking } = req.body;
@@ -405,10 +416,6 @@ router.post(
     }
 
     await verifyOwnership(id, req.user.id);
-
-    if (!role || !content) {
-      throw new ValidationError('Role and content are required');
-    }
 
     // DB-001 FIX: The trigger_update_message_count on chat_messages already handles
     // both message_count increment and updated_at. Manual increment caused double-counting.
@@ -430,6 +437,7 @@ router.post(
 router.patch(
   '/:id',
   requireAuth,
+  validateBody(PatchChatBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { title, project_id } = req.body;
@@ -437,10 +445,6 @@ router.patch(
     // PHASE3-FIX: Validate conversation_id
     if (!isValidConversationId(id)) {
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
-    }
-
-    if (!title && project_id === undefined) {
-      throw new ValidationError('Title or project_id is required');
     }
 
     // Build dynamic update
@@ -473,6 +477,7 @@ router.patch(
 router.patch(
   '/:id/settings',
   requireAuth,
+  validateBody(PatchChatSettingsBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
@@ -481,38 +486,6 @@ router.patch(
     }
 
     const { use_rag, use_thinking, preferred_model, preferred_space_id } = req.body;
-
-    // Validate: at least one field must be provided
-    if (
-      use_rag === undefined &&
-      use_thinking === undefined &&
-      preferred_model === undefined &&
-      preferred_space_id === undefined
-    ) {
-      throw new ValidationError('Mindestens ein Setting muss angegeben werden');
-    }
-
-    // Validate types before building query
-    if (use_rag !== undefined && typeof use_rag !== 'boolean') {
-      throw new ValidationError('use_rag muss ein Boolean sein');
-    }
-    if (use_thinking !== undefined && typeof use_thinking !== 'boolean') {
-      throw new ValidationError('use_thinking muss ein Boolean sein');
-    }
-    if (
-      preferred_model !== undefined &&
-      preferred_model !== null &&
-      typeof preferred_model !== 'string'
-    ) {
-      throw new ValidationError('preferred_model muss ein String oder null sein');
-    }
-    if (
-      preferred_space_id !== undefined &&
-      preferred_space_id !== null &&
-      typeof preferred_space_id !== 'string'
-    ) {
-      throw new ValidationError('preferred_space_id muss ein String oder null sein');
-    }
 
     // Build dynamic update
     const { setClauses, params, paramIndex } = buildSetClauses({

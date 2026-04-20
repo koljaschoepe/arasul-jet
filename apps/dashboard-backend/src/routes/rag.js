@@ -24,6 +24,8 @@ const llmJobService = require('../services/llm/llmJobService');
 const llmQueueService = require('../services/llm/llmQueueService');
 const db = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { validateBody } = require('../middleware/validate');
+const { RagQueryBody } = require('../schemas/rag');
 const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
 const services = require('../config/services');
@@ -63,6 +65,7 @@ router.post(
   '/query',
   requireAuth,
   llmLimiter,
+  validateBody(RagQueryBody),
   asyncHandler(async (req, res) => {
     const {
       query,
@@ -74,14 +77,6 @@ router.post(
       model = null, // Optional: explicit model selection
     } = req.body;
     const enableThinking = thinking !== false;
-
-    if (!query || typeof query !== 'string') {
-      throw new ValidationError('Query is required and must be a string');
-    }
-
-    if (!conversation_id) {
-      throw new ValidationError('conversation_id is required for RAG queries');
-    }
 
     // Phase 6.2: telemetry — capture wall-clock start for latency.
     const _ragStartTs = Date.now();
@@ -406,7 +401,9 @@ router.post(
       let _ragResponseLen = 0;
       let _ragLogged = false;
       const _emitRagLog = (errMsg = null) => {
-        if (_ragLogged) {return;}
+        if (_ragLogged) {
+          return;
+        }
         _ragLogged = true;
         logRagQuery({
           conversationId: conversation_id,
