@@ -15,7 +15,7 @@ const llmJobService = require('../services/llm/llmJobService');
 const llmQueueService = require('../services/llm/llmQueueService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
-const { PrioritizeJobBody } = require('../schemas/llm');
+const { PrioritizeJobBody, ChatBody } = require('../schemas/llm');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
 const services = require('../config/services');
@@ -31,6 +31,7 @@ router.post(
   '/chat',
   requireAuth,
   llmLimiter,
+  validateBody(ChatBody),
   asyncHandler(async (req, res) => {
     const {
       messages,
@@ -46,21 +47,10 @@ router.post(
     } = req.body;
     const enableThinking = thinking !== false;
 
-    if (!messages || !Array.isArray(messages)) {
-      throw new ValidationError('Messages array is required');
-    }
-
-    if (!conversation_id) {
-      throw new ValidationError('conversation_id is required for chat streaming');
-    }
-
     try {
       // Validate images if provided (must be array of base64 strings, max 5)
       let validatedImages = null;
       if (images && Array.isArray(images) && images.length > 0) {
-        if (images.length > 5) {
-          throw new ValidationError('Maximal 5 Bilder pro Nachricht erlaubt');
-        }
         validatedImages = images
           .filter(img => typeof img === 'string' && img.length > 0)
           .map(img => {
