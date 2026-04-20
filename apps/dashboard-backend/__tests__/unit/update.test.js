@@ -178,7 +178,7 @@ describe('Update API Routes', () => {
                 .send({});
 
             expect(response.status).toBe(400);
-            expect(response.body.error).toBe('Update file path is required');
+            expect(response.body.error).toContain('Update file path is required');
         });
     });
 });

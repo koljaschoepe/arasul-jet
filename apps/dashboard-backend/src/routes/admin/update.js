@@ -15,6 +15,12 @@ const updateService = require('../../services/app/updateService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
+const { validateBody } = require('../../middleware/validate');
+const {
+  ApplyUpdateBody,
+  InstallFromUsbBody,
+  DownloadUpdateBody,
+} = require('../../schemas/admin-update');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -135,12 +141,9 @@ router.post(
   '/apply',
   requireAuth,
   requireAdmin,
+  validateBody(ApplyUpdateBody),
   asyncHandler(async (req, res) => {
     const { file_path: rawFilePath } = req.body;
-
-    if (!rawFilePath) {
-      throw new ValidationError('Update file path is required');
-    }
 
     // Prevent path traversal - only allow files within /arasul/updates/ or /tmp/updates/
     const allowedDirs = ['/arasul/updates', '/tmp/updates'];
@@ -274,12 +277,9 @@ router.post(
   '/install-from-usb',
   requireAuth,
   requireAdmin,
+  validateBody(InstallFromUsbBody),
   asyncHandler(async (req, res) => {
     const { file_path } = req.body;
-
-    if (!file_path) {
-      throw new ValidationError('File path is required');
-    }
 
     // Security: Only allow files from /media/ or /mnt/
     if (!file_path.startsWith('/media/') && !file_path.startsWith('/mnt/')) {
@@ -369,12 +369,9 @@ router.post(
   '/download',
   requireAuth,
   requireAdmin,
+  validateBody(DownloadUpdateBody),
   asyncHandler(async (req, res) => {
     const { downloadUrl, version } = req.body;
-
-    if (!downloadUrl || !version) {
-      throw new ValidationError('downloadUrl and version are required');
-    }
 
     // Only allow HTTPS downloads
     if (!downloadUrl.startsWith('https://')) {
