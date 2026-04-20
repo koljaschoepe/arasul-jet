@@ -11,6 +11,14 @@ const dataDb = require('../../dataDatabase');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
 const pdfService = require('../../services/app/pdfService');
+const { validateBody } = require('../../middleware/validate');
+const {
+  CreateQuoteBody,
+  UpdateQuoteBody,
+  UpdateQuoteStatusBody,
+  CreateQuoteTemplateBody,
+  UpdateQuoteTemplateBody,
+} = require('../../schemas/datentabellen-quotes');
 
 /**
  * GET /api/v1/datentabellen/quotes
@@ -178,6 +186,7 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  validateBody(CreateQuoteBody),
   asyncHandler(async (req, res) => {
     const {
       customer_email,
@@ -194,15 +203,6 @@ router.post(
       valid_days,
       discount_percent,
     } = req.body;
-
-    // Validation
-    if (!customer_email || !customer_email.trim()) {
-      throw new ValidationError('Kunden-E-Mail erforderlich');
-    }
-
-    if (!positions || !Array.isArray(positions) || positions.length === 0) {
-      throw new ValidationError('Mindestens eine Position erforderlich');
-    }
 
     // Get template (or default)
     let template;
@@ -368,6 +368,7 @@ router.post(
 router.patch(
   '/:quoteId',
   requireAuth,
+  validateBody(UpdateQuoteBody),
   asyncHandler(async (req, res) => {
     const { quoteId } = req.params;
 
@@ -448,6 +449,7 @@ router.patch(
 router.post(
   '/:quoteId/status',
   requireAuth,
+  validateBody(UpdateQuoteStatusBody),
   asyncHandler(async (req, res) => {
     const { quoteId } = req.params;
     const { status } = req.body;
@@ -456,19 +458,6 @@ router.post(
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(quoteId)) {
       throw new ValidationError('Ungültige Angebots-ID');
-    }
-
-    const validStatuses = [
-      'draft',
-      'sent',
-      'viewed',
-      'accepted',
-      'rejected',
-      'expired',
-      'cancelled',
-    ];
-    if (!validStatuses.includes(status)) {
-      throw new ValidationError('Ungültiger Status');
     }
 
     // Get existing quote
@@ -617,6 +606,7 @@ router.get(
 router.post(
   '/templates',
   requireAuth,
+  validateBody(CreateQuoteTemplateBody),
   asyncHandler(async (req, res) => {
     const {
       name,
@@ -636,10 +626,6 @@ router.post(
       email_subject_template,
       email_body_template,
     } = req.body;
-
-    if (!name || !name.trim()) {
-      throw new ValidationError('Vorlagenname erforderlich');
-    }
 
     // If setting as default, unset other defaults
     if (is_default) {
@@ -696,6 +682,7 @@ router.post(
 router.patch(
   '/templates/:templateId',
   requireAuth,
+  validateBody(UpdateQuoteTemplateBody),
   asyncHandler(async (req, res) => {
     const { templateId } = req.params;
 
