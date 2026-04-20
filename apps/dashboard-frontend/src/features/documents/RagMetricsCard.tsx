@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Activity, Gauge, FileSearch, Clock } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../../hooks/useApi';
-import { useFetchData } from '../../hooks/useFetchData';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 
@@ -37,15 +37,14 @@ function RagMetricsCard() {
   const api = useApi();
   const [window, setWindow] = useState<Window>('24h');
 
-  const fetcher = useCallback(
-    (signal: AbortSignal) =>
+  const {
+    data,
+    isLoading: loading,
+    isError: error,
+  } = useQuery<RagMetrics>({
+    queryKey: ['rag-metrics', window],
+    queryFn: ({ signal }) =>
       api.get<RagMetrics>(`/rag/metrics?window=${window}`, { signal, showError: false }),
-    [api, window]
-  );
-
-  const { data, loading, error } = useFetchData<RagMetrics | null>(fetcher, {
-    initialData: null,
-    errorMessage: 'Fehler beim Laden der RAG-Metriken',
   });
 
   if (error) {
