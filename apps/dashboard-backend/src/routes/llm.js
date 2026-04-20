@@ -14,6 +14,8 @@ const { llmLimiter } = require('../middleware/rateLimit');
 const llmJobService = require('../services/llm/llmJobService');
 const llmQueueService = require('../services/llm/llmQueueService');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { validateBody } = require('../middleware/validate');
+const { PrioritizeJobBody } = require('../schemas/llm');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
 const services = require('../config/services');
@@ -66,7 +68,9 @@ router.post(
             const base64Match = img.match(/^data:image\/[^;]+;base64,(.+)$/);
             return base64Match ? base64Match[1] : img;
           });
-        if (validatedImages.length === 0) {validatedImages = null;}
+        if (validatedImages.length === 0) {
+          validatedImages = null;
+        }
       }
 
       // Add job to queue with model options
@@ -182,13 +186,9 @@ router.get(
 router.post(
   '/queue/prioritize',
   requireAuth,
+  validateBody(PrioritizeJobBody),
   asyncHandler(async (req, res) => {
     const { job_id } = req.body;
-
-    if (!job_id) {
-      throw new ValidationError('job_id is required');
-    }
-
     await llmQueueService.prioritizeJob(job_id);
 
     res.json({

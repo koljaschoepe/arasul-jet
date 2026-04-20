@@ -57,12 +57,14 @@ const errorHandler = (err, req, res, next) => {
   let statusCode = 500;
   let message = 'Internal server error';
   let details = null;
+  let code = 'INTERNAL_ERROR';
 
   if (err instanceof ApiError) {
     // Custom API error
     statusCode = err.statusCode;
     message = err.message;
     details = err.details;
+    code = err.code || 'INTERNAL_ERROR';
 
     // Log level based on status code
     if (statusCode >= 500) {
@@ -77,12 +79,14 @@ const errorHandler = (err, req, res, next) => {
     // Mongoose/Joi validation error
     statusCode = 400;
     message = 'Validation failed';
+    code = 'VALIDATION_ERROR';
     details = err.details || err.message;
     logger.warn(`${req.method} ${req.originalUrl}: ${message}`, errorContext);
   } else if (err.code === 'ECONNREFUSED') {
     // Database/service connection error
     statusCode = 503;
     message = 'Service temporarily unavailable';
+    code = 'SERVICE_UNAVAILABLE';
     logger.error(`${req.method} ${req.originalUrl}: Connection refused`, {
       ...errorContext,
       target: err.address,
@@ -91,11 +95,13 @@ const errorHandler = (err, req, res, next) => {
     // PostgreSQL unique violation
     statusCode = 409;
     message = 'Resource already exists';
+    code = 'CONFLICT';
     logger.warn(`${req.method} ${req.originalUrl}: Duplicate key`, errorContext);
   } else if (err.code === '23503') {
     // PostgreSQL foreign key violation
     statusCode = 400;
     message = 'Invalid reference';
+    code = 'VALIDATION_ERROR';
     logger.warn(`${req.method} ${req.originalUrl}: FK violation`, errorContext);
   } else {
     // Unknown error - log full details
@@ -116,6 +122,7 @@ const errorHandler = (err, req, res, next) => {
     // Only send safe, user-facing error info. Stack is logged server-side above.
     const responseBody = {
       error: message,
+      code,
       timestamp: new Date().toISOString(),
     };
     // Only include details for client errors (4xx) where details are explicitly set

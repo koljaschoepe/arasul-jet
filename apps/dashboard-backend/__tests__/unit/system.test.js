@@ -458,9 +458,9 @@ describe('System Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.device.type).toBe('jetson_agx_orin');
       expect(response.body.device.name).toBe('NVIDIA Jetson AGX Orin');
-      // AGX Orin has conservative temperature thresholds (throttles at ~85°C)
-      expect(response.body.thresholds.temperature.warning).toBe(65);
-      expect(response.body.thresholds.temperature.critical).toBe(80);
+      // AGX Orin Tj (junction) thresholds — throttles at ~99°C per NVIDIA TDG-10943
+      expect(response.body.thresholds.temperature.warning).toBe(80);
+      expect(response.body.thresholds.temperature.critical).toBe(95);
     });
 
     test('should fall back to generic thresholds when device detection fails', async () => {

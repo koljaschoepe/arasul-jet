@@ -103,9 +103,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// TIMEOUT-001: 60s request timeout safety net (prevents indefinitely hanging requests)
+// TIMEOUT-001: Request timeout safety net (prevents indefinitely hanging requests)
+// SSE/streaming endpoints (RAG, LLM) get a longer timeout since reranking can take 120s+
 app.use((req, res, next) => {
-  res.setTimeout(60000, () => {
+  const isStreamingEndpoint = req.path.startsWith('/api/rag/') || req.path.startsWith('/api/llm/');
+  const timeout = isStreamingEndpoint ? 300000 : 60000; // 5min for streaming, 60s for regular
+  res.setTimeout(timeout, () => {
     if (!res.headersSent) {
       res.status(408).json({ error: 'Request timeout' });
     }

@@ -8,6 +8,8 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { validateBody, validateQuery } = require('../middleware/validate');
+const { CreateProjectBody, UpdateProjectBody, ListProjectsQuery } = require('../schemas/sandbox');
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
 
@@ -19,13 +21,10 @@ const terminalService = require('../services/sandbox/terminalService');
 router.get(
   '/projects',
   requireAuth,
+  validateQuery(ListProjectsQuery),
   asyncHandler(async (req, res) => {
-    const { status, search, limit, offset } = req.query;
     const result = await sandboxService.listProjects({
-      status,
-      search,
-      limit,
-      offset,
+      ...req.query,
       userId: req.user.id,
     });
     res.json({ ...result, timestamp: new Date().toISOString() });
@@ -36,18 +35,10 @@ router.get(
 router.post(
   '/projects',
   requireAuth,
+  validateBody(CreateProjectBody),
   asyncHandler(async (req, res) => {
-    const { name, description, icon, color, baseImage, resourceLimits, environment, network_mode } =
-      req.body;
     const project = await sandboxService.createProject({
-      name,
-      description,
-      icon,
-      color,
-      baseImage,
-      resourceLimits,
-      environment,
-      network_mode,
+      ...req.body,
       userId: req.user.id,
     });
     res.status(201).json({ project, timestamp: new Date().toISOString() });
@@ -68,21 +59,9 @@ router.get(
 router.put(
   '/projects/:id',
   requireAuth,
+  validateBody(UpdateProjectBody),
   asyncHandler(async (req, res) => {
-    const { name, description, icon, color, environment, resourceLimits, network_mode } = req.body;
-    const project = await sandboxService.updateProject(
-      req.params.id,
-      {
-        name,
-        description,
-        icon,
-        color,
-        environment,
-        resourceLimits,
-        network_mode,
-      },
-      req.user.id
-    );
+    const project = await sandboxService.updateProject(req.params.id, req.body, req.user.id);
     res.json({ project, timestamp: new Date().toISOString() });
   })
 );

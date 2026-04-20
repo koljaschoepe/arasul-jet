@@ -1,17 +1,23 @@
 /**
  * Custom Error Classes
- * Centralized error handling for the API
+ *
+ * All API errors extend ApiError and carry:
+ * - statusCode — HTTP status
+ * - code       — stable machine-readable identifier (e.g. 'VALIDATION_ERROR')
+ *                clients can dispatch on this without parsing human messages
+ * - details    — optional structured payload (only exposed for 4xx responses)
+ * - timestamp  — ISO string set at throw time
+ *
+ * The global error handler (middleware/errorHandler.js) serializes to:
+ *   { error: message, code, details?, timestamp }
  */
 
-/**
- * Base API Error
- * All custom errors should extend this class
- */
 class ApiError extends Error {
-  constructor(message, statusCode = 500, details = null) {
+  constructor(message, { statusCode = 500, code = 'INTERNAL_ERROR', details = null } = {}) {
     super(message);
     this.name = this.constructor.name;
     this.statusCode = statusCode;
+    this.code = code;
     this.details = details;
     this.timestamp = new Date().toISOString();
     Error.captureStackTrace(this, this.constructor);
@@ -20,79 +26,60 @@ class ApiError extends Error {
   toJSON() {
     return {
       error: this.message,
+      code: this.code,
       ...(this.details && { details: this.details }),
       timestamp: this.timestamp,
     };
   }
 }
 
-/**
- * 400 Bad Request
- * Use for validation errors or malformed requests
- */
 class ValidationError extends ApiError {
   constructor(message = 'Validation failed', details = null) {
-    super(message, 400, details);
+    super(message, { statusCode: 400, code: 'VALIDATION_ERROR', details });
   }
 }
 
-/**
- * 401 Unauthorized
- * Use when authentication is required but not provided or invalid
- */
 class UnauthorizedError extends ApiError {
   constructor(message = 'Authentication required') {
-    super(message, 401);
+    super(message, { statusCode: 401, code: 'UNAUTHORIZED' });
   }
 }
 
-/**
- * 403 Forbidden
- * Use when user is authenticated but not authorized for the action
- */
 class ForbiddenError extends ApiError {
   constructor(message = 'Access denied') {
-    super(message, 403);
+    super(message, { statusCode: 403, code: 'FORBIDDEN' });
   }
 }
 
-/**
- * 404 Not Found
- * Use when requested resource doesn't exist
- */
 class NotFoundError extends ApiError {
   constructor(message = 'Resource not found') {
-    super(message, 404);
+    super(message, { statusCode: 404, code: 'NOT_FOUND' });
   }
 }
 
-/**
- * 409 Conflict
- * Use for duplicate entries or state conflicts
- */
 class ConflictError extends ApiError {
   constructor(message = 'Resource conflict') {
-    super(message, 409);
+    super(message, { statusCode: 409, code: 'CONFLICT' });
   }
 }
 
-/**
- * 429 Too Many Requests
- * Use when rate limit is exceeded
- */
 class RateLimitError extends ApiError {
   constructor(message = 'Too many requests', retryAfter = null) {
-    super(message, 429, retryAfter ? { retryAfter } : null);
+    super(message, {
+      statusCode: 429,
+      code: 'RATE_LIMITED',
+      details: retryAfter ? { retryAfter } : null,
+    });
   }
 }
 
-/**
- * 503 Service Unavailable
- * Use when an external service is down
- */
 class ServiceUnavailableError extends ApiError {
   constructor(message = 'Service temporarily unavailable', serviceName = null) {
-    super(message, 503, serviceName ? { service: serviceName } : null);
+    super(message, {
+      statusCode: 503,
+      code: 'SERVICE_UNAVAILABLE',
+      details: serviceName ? { service: serviceName } : null,
+    });
   }
 }
 
