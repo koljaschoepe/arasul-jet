@@ -24,6 +24,8 @@ const modelService = require('../../services/llm/modelService');
 const extractionService = require('../../services/documents/extractionService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
+const { validateBody } = require('../../middleware/validate');
+const { ExternalLlmChatBody, CreateApiKeyBody } = require('../../schemas/externalApi');
 
 // Multer for document upload endpoints (50MB limit)
 const upload = multer({
@@ -89,6 +91,7 @@ router.post(
   '/llm/chat',
   requireApiKey,
   requireEndpoint('llm:chat'),
+  validateBody(ExternalLlmChatBody),
   asyncHandler(async (req, res) => {
     const startTime = Date.now();
 
@@ -101,10 +104,6 @@ router.post(
       wait_for_result = true,
       timeout_seconds = 300,
     } = req.body;
-
-    if (!prompt || typeof prompt !== 'string') {
-      throw new ValidationError('prompt is required and must be a string');
-    }
 
     // Create a temporary conversation for this request
     // USER-FIX: Use API key owner's user_id instead of hardcoded 1
@@ -270,12 +269,9 @@ router.get(
 router.post(
   '/api-keys',
   requireAuth,
+  validateBody(CreateApiKeyBody),
   asyncHandler(async (req, res) => {
     const { name, description, rate_limit_per_minute, allowed_endpoints, expires_at } = req.body;
-
-    if (!name) {
-      throw new ValidationError('name is required');
-    }
 
     const result = await generateApiKey(name, description || '', req.user.id, {
       rateLimitPerMinute: rate_limit_per_minute || 60,
