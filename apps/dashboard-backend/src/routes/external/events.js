@@ -18,6 +18,8 @@ const {
   ServiceUnavailableError,
 } = require('../../utils/errors');
 const { webhookLimiter } = require('../../middleware/rateLimit');
+const { validateBody } = require('../../middleware/validate');
+const { N8nWebhookBody, SelfHealingWebhookBody, ManualEventBody } = require('../../schemas/events');
 
 /**
  * GET /api/events
@@ -220,6 +222,7 @@ router.post(
 router.post(
   '/webhook/n8n',
   webhookLimiter,
+  validateBody(N8nWebhookBody),
   asyncHandler(async (req, res) => {
     // SEC-FIX: Validate webhook secret (required for security)
     // Without this, any request to this endpoint is accepted unauthenticated
@@ -237,10 +240,6 @@ router.post(
     }
 
     const { workflow_id, workflow_name, execution_id, status, error, duration_ms } = req.body;
-
-    if (!workflow_id || !status) {
-      throw new ValidationError('Missing required fields: workflow_id, status');
-    }
 
     const result = await eventListenerService.handleWorkflowEvent({
       workflow_id,
@@ -266,6 +265,7 @@ router.post(
 router.post(
   '/webhook/self-healing',
   webhookLimiter,
+  validateBody(SelfHealingWebhookBody),
   asyncHandler(async (req, res) => {
     // Defense-in-depth: shared secret validation (if configured)
     const webhookSecret = process.env.SELF_HEALING_WEBHOOK_SECRET;
@@ -305,10 +305,6 @@ router.post(
 
     const { action_type, service_name, reason, success, duration_ms, error_message } = req.body;
 
-    if (!action_type) {
-      throw new ValidationError('Missing required field: action_type');
-    }
-
     const result = await eventListenerService.handleSelfHealingEvent({
       action_type,
       service_name,
@@ -333,6 +329,7 @@ router.post(
 router.post(
   '/manual',
   auth,
+  validateBody(ManualEventBody),
   asyncHandler(async (req, res) => {
     const {
       event_type = 'service_status',
@@ -342,10 +339,6 @@ router.post(
       title,
       message,
     } = req.body;
-
-    if (!title) {
-      throw new ValidationError('Title is required');
-    }
 
     const result = await telegramService.queueNotification({
       event_type,
