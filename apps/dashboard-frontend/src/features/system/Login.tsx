@@ -1,10 +1,20 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useApi } from '../../hooks/useApi';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/shadcn/card';
 import { Input } from '@/components/ui/shadcn/input';
 import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
 import { PLATFORM_NAME, PLATFORM_DESCRIPTION, SUPPORT_EMAIL } from '@/config/branding';
+
+const LoginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+
+type LoginFormValues = z.infer<typeof LoginSchema>;
 
 interface LoginResponseData {
   token: string;
@@ -17,28 +27,28 @@ interface LoginProps {
 
 function Login({ onLoginSuccess }: LoginProps) {
   const api = useApi();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(LoginSchema),
+    defaultValues: { username: '', password: '' },
+  });
+
+  const username = watch('username');
+  const password = watch('password');
+  const canSubmit = Boolean(username && password);
+
+  const onSubmit = async (values: LoginFormValues) => {
     setError('');
-    setLoading(true);
-
     try {
-      const data = await api.post<LoginResponseData>(
-        '/auth/login',
-        { username, password },
-        { showError: false }
-      );
-
-      // Store token in localStorage
+      const data = await api.post<LoginResponseData>('/auth/login', values, { showError: false });
       localStorage.setItem('arasul_token', data.token);
       localStorage.setItem('arasul_user', JSON.stringify(data.user));
-
-      // Call success callback
       onLoginSuccess(data);
     } catch (err: unknown) {
       console.error('Login error:', err);
@@ -48,8 +58,6 @@ function Login({ onLoginSuccess }: LoginProps) {
           e.message ||
           'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.'
       );
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -66,7 +74,7 @@ function Login({ onLoginSuccess }: LoginProps) {
         </CardHeader>
 
         <CardContent className="p-0 mb-8 max-sm:mb-6">
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit(onSubmit)}>
             {error && (
               <div
                 id="login-error"
@@ -84,14 +92,12 @@ function Login({ onLoginSuccess }: LoginProps) {
               <Input
                 id="username"
                 type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
                 placeholder="admin"
-                required
                 autoComplete="username"
                 autoFocus
                 aria-describedby={error ? 'login-error' : undefined}
                 className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
+                {...register('username')}
               />
             </div>
 
@@ -102,22 +108,20 @@ function Login({ onLoginSuccess }: LoginProps) {
               <Input
                 id="password"
                 type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
                 placeholder="Passwort eingeben"
-                required
                 autoComplete="current-password"
                 className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
+                {...register('password')}
               />
             </div>
 
             <Button
               type="submit"
               variant="solid"
-              disabled={loading || !username || !password}
+              disabled={isSubmitting || !canSubmit}
               className="w-full py-4 h-auto text-base font-bold uppercase tracking-wide hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 transition-all max-md:min-h-12 max-md:text-sm"
             >
-              {loading ? 'Anmeldung...' : 'Anmelden'}
+              {isSubmitting ? 'Anmeldung...' : 'Anmelden'}
             </Button>
           </form>
         </CardContent>
