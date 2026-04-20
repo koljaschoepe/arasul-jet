@@ -12,13 +12,14 @@ const db = require('../../database');
 const { requireAuth } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const {
-  ValidationError,
   NotFoundError,
   ForbiddenError,
   RateLimitError,
   ServiceUnavailableError,
 } = require('../../utils/errors');
 const serviceConfig = require('../../config/services');
+const { validateBody } = require('../../middleware/validate');
+const { PullModelBody } = require('../../schemas/system-services');
 
 // Allowed services whitelist - only Arasul services can be restarted
 const ALLOWED_SERVICES = [
@@ -249,12 +250,9 @@ router.get(
 router.post(
   '/llm/models/pull',
   requireAuth,
+  validateBody(PullModelBody),
   asyncHandler(async (req, res) => {
     const { model_name } = req.body;
-
-    if (!model_name) {
-      throw new ValidationError('Model name is required');
-    }
 
     const llmServiceUrl = serviceConfig.llm.url;
 
