@@ -56,16 +56,10 @@ run_backend_tests() {
     # Jest flags: no coverage for speed/memory, limit workers to prevent OOM on Jetson
     JEST_FLAGS="--passWithNoTests --maxWorkers=2"
 
-    # Prefer Docker when container is running (has all dependencies)
-    if docker compose ps dashboard-backend 2>/dev/null | grep -q "Up\|running"; then
-      echo "   Running in Docker container (maxWorkers=2, no coverage)..."
-      if docker compose exec -T dashboard-backend npx jest $JEST_FLAGS; then
-        echo "   Backend tests: PASSED"
-      else
-        echo "   Backend tests: FAILED"
-        EXIT_CODE=1
-      fi
-    elif check_npm; then
+    # Strategy: prefer local `npx jest` (fastest, watches work). Otherwise build
+    # the dedicated test image (multi-stage `test` target in the backend
+    # Dockerfile) — the prod container is --omit=dev so it has no jest binary.
+    if check_npm; then
       cd apps/dashboard-backend
       if npx jest $JEST_FLAGS; then
         echo "   Backend tests: PASSED"
@@ -74,9 +68,24 @@ run_backend_tests() {
         EXIT_CODE=1
       fi
       cd "$PROJECT_ROOT"
+    elif command -v docker &> /dev/null; then
+      echo "   Building backend test image (--target test) ..."
+      if ! docker build --target test \
+          -t arasul-backend-test:latest \
+          -f apps/dashboard-backend/Dockerfile . >/dev/null 2>&1; then
+        echo "   Backend test image build FAILED — rerun with 'docker build --target test -f apps/dashboard-backend/Dockerfile .' to see errors"
+        EXIT_CODE=1
+      else
+        echo "   Running tests in arasul-backend-test (maxWorkers=2, no coverage)..."
+        if docker run --rm arasul-backend-test:latest npx jest $JEST_FLAGS; then
+          echo "   Backend tests: PASSED"
+        else
+          echo "   Backend tests: FAILED"
+          EXIT_CODE=1
+        fi
+      fi
     else
-      echo "   SKIPPED: Container not running and npm not available"
-      echo "   Start container: docker compose up -d dashboard-backend"
+      echo "   SKIPPED: neither npm nor docker available on host"
     fi
   fi
 }

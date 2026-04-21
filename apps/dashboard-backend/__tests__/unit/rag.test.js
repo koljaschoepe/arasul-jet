@@ -44,6 +44,7 @@ jest.mock('../../src/services/rag/ragCore', () => ({
   rerankResults: jest.fn().mockResolvedValue([]),
   filterByRelevance: jest.fn().mockImplementation((results) => ({ relevant: results, marginal: [], filtered: 0 })),
   deduplicateByDocument: jest.fn().mockImplementation((results) => results),
+  applyMMR: jest.fn().mockImplementation((results) => results),
   graphEnrichedRetrieval: jest.fn().mockResolvedValue({ graphContext: '', graphEntities: [] }),
   getParentChunks: jest.fn().mockResolvedValue([]),
   buildHierarchicalContext: jest.fn().mockReturnValue('No documents found.'),
@@ -450,7 +451,7 @@ describe('RAG Routes', () => {
       expect(ragCore.routeToSpaces).not.toHaveBeenCalled();
     });
 
-    test('should use default top_k of 5', async () => {
+    test('should use default top_k of 8', async () => {
       const token = getAuthToken();
       setupRagMocks();
 
@@ -468,11 +469,11 @@ describe('RAG Routes', () => {
           // No top_k specified — should default to 5
         });
 
-      // hybridSearch should be called with top_k = 5 (3rd argument)
+      // hybridSearch should be called with top_k = 8 (3rd argument, route default)
       expect(ragCore.hybridSearch).toHaveBeenCalledWith(
         expect.any(String),     // query
         expect.any(Array),      // embedding
-        5,                      // top_k default
+        8,                      // top_k default
         null,                   // spaceFilter (no spaces configured)
         expect.any(Object)      // options
       );

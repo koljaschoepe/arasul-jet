@@ -1,5 +1,9 @@
 ARG NODE_VERSION=20.19
-FROM node:${NODE_VERSION}-alpine
+
+# ============================================================================
+# base: shared layer — node image + workdir + workspace shared-schemas
+# ============================================================================
+FROM node:${NODE_VERSION}-alpine AS base
 
 LABEL maintainer="Arasul Platform"
 LABEL description="Dashboard Backend API"
@@ -12,15 +16,31 @@ WORKDIR /app
 # /app (the backend workdir) points here.
 COPY packages/shared-schemas /packages/shared-schemas
 
-# Install dependencies (--install-links copies file: deps into node_modules
-# instead of symlinking, which is what we want inside the container).
 COPY apps/dashboard-backend/package*.json ./
+
+# ============================================================================
+# test: devDependencies + tests for local `npx jest` runs via
+# `docker compose -f compose.test.yaml run backend-test`.
+# NOT used at runtime — prod image is `runtime` below.
+# ============================================================================
+FROM base AS test
+RUN npm install --install-links
+COPY apps/dashboard-backend/src/ ./src/
+COPY apps/dashboard-backend/__tests__/ ./__tests__/
+COPY apps/dashboard-backend/__mocks__/ ./__mocks__/
+COPY apps/dashboard-backend/jest.setup.js ./jest.setup.js
+COPY apps/dashboard-backend/openapi.yaml ./
+ENV NODE_ENV=test
+CMD ["npx", "jest", "--passWithNoTests", "--maxWorkers=2"]
+
+# ============================================================================
+# runtime: default target — prod image, omits devDeps and test files.
+# ============================================================================
+FROM base AS runtime
+
 RUN npm install --omit=dev --install-links
 
-# Copy source code
 COPY apps/dashboard-backend/src/ ./src/
-
-# Copy OpenAPI spec for API docs
 COPY apps/dashboard-backend/openapi.yaml ./
 
 EXPOSE 3001
