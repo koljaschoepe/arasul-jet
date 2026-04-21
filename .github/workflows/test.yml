@@ -34,6 +34,12 @@ jobs:
         working-directory: apps/dashboard-backend
         run: npx jest --coverage --maxWorkers=2
 
+      # Advisory: reports high/critical vulnerabilities so they show up in the
+      # Actions summary without blocking the pipeline. Run from workspace root
+      # so the single root lockfile is audited once per CI run.
+      - name: npm audit (advisory)
+        run: npm audit --audit-level=high --omit=dev || true
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
