@@ -27,6 +27,7 @@ const EVENT_TYPE_EMOJI = {
   workflow_event: '\u{2699}', // Gear
   system_boot: '\u{1F504}', // Refresh
   self_healing: '\u{1FA79}', // Bandage
+  metric_alert: '\u{1F4CA}', // Bar chart
 };
 
 class TelegramNotificationService {
@@ -108,6 +109,7 @@ class TelegramNotificationService {
       workflow_event: 'Workflow-Event',
       system_boot: 'System-Start',
       self_healing: 'Self-Healing',
+      metric_alert: 'Metrik-Alert',
     };
     return typeMap[eventType] || eventType;
   }

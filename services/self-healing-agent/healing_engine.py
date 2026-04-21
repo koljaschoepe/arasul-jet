@@ -79,6 +79,12 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         self._last_failure_recorded: Dict[str, float] = {}
         self._failure_record_interval_seconds = 60
 
+        # QUARANTINE-GUARD: dedup Telegram notifications when service enters
+        # rate-limited quarantine. Without this, every healing cycle (~10s) would
+        # re-fire the alert while the admin is on their way to fix it.
+        self._last_quarantine_notified: Dict[str, float] = {}
+        self._quarantine_notify_interval_seconds = 3600  # 1h between repeat alerts
+
         logger.info("Self-Healing Engine initialized")
 
     def should_record_failure(self, service_name: str) -> bool:

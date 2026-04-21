@@ -167,6 +167,22 @@ class DatabaseMixin:
             (action_type, service_name, reason, success, duration_ms, error_message)
         )
 
+    def record_notification_event(self, event_type: str, event_category: str,
+                                  source_service: str, severity: str,
+                                  title: str, message: str, metadata: dict = None):
+        """Queue an entry for the backend's Telegram listener to pick up.
+
+        The backend's eventListenerService polls notification_events every 30s
+        via telegramService.processPendingFromDb(). Use this for out-of-band
+        notifications that cross the Python/Node boundary.
+        """
+        import json
+        meta_json = json.dumps(metadata or {})
+        self.execute_query(
+            "SELECT record_notification_event(%s, %s, %s, %s, %s, %s, %s::jsonb)",
+            (event_type, event_category, source_service, severity, title, message, meta_json)
+        )
+
     def get_pool_stats(self):
         """Get connection pool statistics"""
         uptime = time.time() - self.pool_stats['start_time']

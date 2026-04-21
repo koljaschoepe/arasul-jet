@@ -40,6 +40,41 @@ class CategoryHandlersMixin:
         idx = min(failure_count - 1, len(self.RESTART_BACKOFF_DELAYS) - 1)
         return self.RESTART_BACKOFF_DELAYS[max(0, idx)]
 
+    def _notify_quarantine(self, service_name: str) -> None:
+        """Fire a Telegram alert when a service enters restart-rate-limit quarantine.
+
+        Dedup by _last_quarantine_notified so the admin isn't spammed every
+        ~10s healing cycle while the service stays in quarantine.
+        """
+        now = time.time()
+        last = self._last_quarantine_notified.get(service_name, 0)
+        if now - last < self._quarantine_notify_interval_seconds:
+            return
+        self._last_quarantine_notified[service_name] = now
+
+        try:
+            self.record_notification_event(
+                event_type='self_healing',
+                event_category='quarantine',
+                source_service=service_name,
+                severity='critical',
+                title=f'Service {service_name} in Quarantine',
+                message=(
+                    f'{service_name} hat in den letzten 30 Minuten '
+                    f'{self.MAX_RESTARTS_PER_30MIN}+ Neustarts versucht und '
+                    f'wurde in den Alert-Only-Modus versetzt. '
+                    f'Manueller Eingriff erforderlich.'
+                ),
+                metadata={
+                    'service_name': service_name,
+                    'max_restarts_per_30min': self.MAX_RESTARTS_PER_30MIN,
+                    'quarantine_mode': 'alert_only',
+                },
+            )
+            logger.warning(f"Quarantine notification queued for {service_name}")
+        except Exception as e:
+            logger.error(f"Failed to queue quarantine notification for {service_name}: {e}")
+
     def _is_restart_rate_limited(self, service_name: str) -> bool:
         """Check if service has exceeded max restarts in 30min window"""
         try:
@@ -82,6 +117,7 @@ class CategoryHandlersMixin:
                 'Entering alert-only mode — manual intervention required',
                 service_name, False
             )
+            self._notify_quarantine(service_name)
             return
 
         failure_count = self.get_failure_count(service_name)

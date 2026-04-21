@@ -20,6 +20,7 @@ const { URL } = require('url');
 const dns = require('dns');
 const net = require('net');
 const services = require('../config/services');
+const telegramNotificationService = require('./telegram/telegramNotificationService');
 
 /**
  * SSRF Protection: Reject URLs pointing to private/internal networks.
@@ -28,7 +29,9 @@ const services = require('../config/services');
 function isPrivateIP(ip) {
   // RFC1918, loopback, link-local, Docker bridge ranges
   const parts = ip.split('.').map(Number);
-  if (parts.length !== 4) {return !net.isIPv4(ip);} // reject IPv6 and invalid
+  if (parts.length !== 4) {
+    return !net.isIPv4(ip);
+  } // reject IPv6 and invalid
   return (
     parts[0] === 10 ||
     parts[0] === 127 ||
@@ -59,7 +62,9 @@ async function validateWebhookUrl(urlString) {
   // Resolve hostname and check resolved IPs
   const addresses = await new Promise((resolve, reject) => {
     dns.resolve4(hostname, (err, addrs) => {
-      if (err) {return reject(new Error(`DNS-Auflösung fehlgeschlagen: ${hostname}`));}
+      if (err) {
+        return reject(new Error(`DNS-Auflösung fehlgeschlagen: ${hostname}`));
+      }
       resolve(addrs);
     });
   });
@@ -681,6 +686,40 @@ function createAlertEngine(deps = {}) {
           logger.info(`Webhook notification sent for ${metricType} alert`);
         } catch (error) {
           logger.error(`Webhook notification failed: ${error.message}`);
+        }
+      }
+
+      // Telegram notification (via existing telegramNotificationService)
+      // Self-guards: service is disabled if TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing
+      if (telegramNotificationService.enabled) {
+        try {
+          const tgResult = await telegramNotificationService.queueNotification({
+            event_type: 'metric_alert',
+            event_category: severity === 'critical' ? 'critical_threshold' : 'warning_threshold',
+            source_service: 'alert-engine',
+            severity: severity === 'critical' ? 'critical' : 'warning',
+            title: `${threshold.displayName} ${severity === 'critical' ? 'KRITISCH' : 'Warnung'}`,
+            message,
+            metadata: {
+              metric_type: metricType,
+              current_value: currentValue,
+              threshold_value: thresholdValue,
+              unit: threshold.unit,
+            },
+          });
+          if (tgResult?.success) {
+            notifiedVia.push('telegram');
+            // Update notified_via on last-fired alert row
+            await database.query(
+              `UPDATE alert_history
+               SET notified_via = $1
+               WHERE metric_type = $2::alert_metric_type
+               AND fired_at = (SELECT MAX(fired_at) FROM alert_history WHERE metric_type = $2::alert_metric_type)`,
+              [notifiedVia, metricType]
+            );
+          }
+        } catch (error) {
+          logger.warn(`Telegram alert dispatch failed: ${error.message}`);
         }
       }
 
