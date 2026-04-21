@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { Button } from '@/components/ui/shadcn/button';
-import { cn } from '@/lib/utils';
 import { useDownloads } from '../../contexts/DownloadContext';
 import { useActivation } from '../../contexts/ActivationContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -61,8 +60,19 @@ interface App {
   category: string;
   status: string;
   featured?: boolean;
+  hasCustomPage?: boolean;
+  ports?: { external?: number };
+  appType?: string;
   [key: string]: unknown;
 }
+
+const getAppTags = (app: App): string[] => {
+  const tags: string[] = [];
+  if (app.hasCustomPage) tags.push('Integriert');
+  else if (app.ports?.external) tags.push('Web-UI');
+  if (app.appType === 'official') tags.push('Offiziell');
+  return tags;
+};
 
 interface StoreHomeProps {
   systemInfo: SystemInfo;
@@ -287,10 +297,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
             return (
               <div
                 key={model.id}
-                className={cn(
-                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20',
-                  isLoaded && 'border-l-2 border-l-primary'
-                )}
+                className="model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20"
                 onClick={() => setSelectedItem({ type: 'model', item: model })}
                 tabIndex={0}
                 role="button"
@@ -418,14 +425,12 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
             const isRunning = app.status === 'running';
             const isInstalled = app.status === 'installed';
             const isLoading = actionLoading[app.id];
+            const tags = getAppTags(app);
 
             return (
               <div
                 key={app.id}
-                className={cn(
-                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20',
-                  isRunning && 'border-l-2 border-l-primary'
-                )}
+                className="model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20"
                 onClick={() => setSelectedItem({ type: 'app', item: app })}
                 tabIndex={0}
                 role="button"
@@ -490,6 +495,19 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                   </div>
                 </div>
 
+                {tags.length > 0 && (
+                  <div className="app-tags flex flex-wrap gap-1.5">
+                    {tags.map(tag => (
+                      <span
+                        key={tag}
+                        className="tag text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div
                   className="model-actions flex gap-2 mt-auto pt-2"
                   onClick={e => e.stopPropagation()}
@@ -514,7 +532,6 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                   )}
                   {isInstalled && (
                     <Button
-                      variant="secondary"
                       size="sm"
                       className="flex-1"
                       onClick={() => handleAppAction(app.id, 'start')}
@@ -532,7 +549,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                     </Button>
                   )}
                   {isRunning && (
-                    <Button variant="secondary" size="sm" className="flex-1" disabled>
+                    <Button size="sm" className="flex-1" disabled>
                       <Check className="size-4" /> Aktiv
                     </Button>
                   )}

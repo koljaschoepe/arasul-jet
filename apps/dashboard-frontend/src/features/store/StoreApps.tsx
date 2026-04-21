@@ -13,7 +13,7 @@ import {
   Package,
   Download,
   Play,
-  OctagonX,
+  Square,
   RefreshCw,
   ExternalLink,
   Trash2,
@@ -30,7 +30,6 @@ import {
   X,
 } from 'lucide-react';
 import StoreDetailModal from './StoreDetailModal';
-import ConfirmIconButton from '../../components/ui/ConfirmIconButton';
 import DownloadProgress from './DownloadProgress';
 import DataStateRenderer from '../../components/ui/DataStateRenderer';
 import { SkeletonCard } from '../../components/ui/Skeleton';
@@ -132,6 +131,15 @@ const getAppUrl = (app: App): string | null => {
     return `http://${window.location.hostname}:${app.ports.external}`;
   }
   return null;
+};
+
+// Synthesized tags so App-Cards match Model-Card density
+export const getAppTags = (app: Pick<App, 'hasCustomPage' | 'ports' | 'appType'>): string[] => {
+  const tags: string[] = [];
+  if (app.hasCustomPage) tags.push('Integriert');
+  else if (app.ports?.external) tags.push('Web-UI');
+  if (app.appType === 'official') tags.push('Offiziell');
+  return tags;
 };
 
 function StoreApps() {
@@ -377,19 +385,12 @@ function StoreApps() {
     const isLoading = actionLoading[app.id];
     const isSystem = app.appType === 'system';
     const isFeatured = FEATURED_APPS.includes(app.id) || app.featured;
+    const tags = getAppTags(app);
 
     return (
       <div
         key={app.id}
-        className={cn(
-          'app-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20',
-          app.status === 'running' && 'border-l-2 border-l-primary',
-          (app.status === 'installing' ||
-            app.status === 'starting' ||
-            app.status === 'stopping' ||
-            app.status === 'uninstalling') &&
-            'animate-pulse border-primary/30'
-        )}
+        className="app-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20"
         onClick={() => setSelectedApp(app)}
         tabIndex={0}
         role="button"
@@ -462,6 +463,19 @@ function StoreApps() {
           </div>
         </div>
 
+        {tags.length > 0 && (
+          <div className="app-tags flex flex-wrap gap-1.5">
+            {tags.map(tag => (
+              <span
+                key={tag}
+                className="tag text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Install progress bar */}
         {installProgress[app.id] != null && (
           <div onClick={e => e.stopPropagation()}>
@@ -485,7 +499,6 @@ function StoreApps() {
           {app.status === 'installed' && (
             <>
               <Button
-                variant="secondary"
                 size="sm"
                 className="flex-1"
                 onClick={() => handleAction(app.id, 'start')}
@@ -531,14 +544,19 @@ function StoreApps() {
                   <ExternalLink className="size-4" /> Öffnen
                 </Button>
               )}
-              <ConfirmIconButton
-                icon={<OctagonX />}
-                label="Stoppen"
-                confirmText="Stoppen?"
-                onConfirm={() => handleAction(app.id, 'stop')}
-                variant="danger"
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleAction(app.id, 'stop')}
                 disabled={!!isLoading}
-              />
+              >
+                {isLoading === 'stop' ? (
+                  <RefreshCw className="size-4 animate-spin" />
+                ) : (
+                  <Square className="size-4" />
+                )}
+                Stoppen
+              </Button>
             </>
           )}
 
@@ -570,7 +588,7 @@ function StoreApps() {
             app.status === 'starting' ||
             app.status === 'stopping' ||
             app.status === 'uninstalling') && (
-            <Button variant="secondary" size="sm" className="flex-1" disabled>
+            <Button size="sm" className="flex-1" disabled>
               <RefreshCw className="size-4 animate-spin" /> {status.label}
             </Button>
           )}

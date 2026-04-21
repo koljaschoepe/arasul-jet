@@ -11,7 +11,7 @@ import {
   Package,
   Download,
   Play,
-  OctagonX,
+  Square,
   Check,
   RefreshCw,
   ExternalLink,
@@ -30,8 +30,6 @@ import {
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
-import { cn } from '@/lib/utils';
-import ConfirmIconButton from '../../components/ui/ConfirmIconButton';
 import { sanitizeUrl } from '../../utils/sanitizeUrl';
 import { formatModelSize as formatSize } from '../../utils/formatting';
 
@@ -421,7 +419,7 @@ function StoreDetailModal({
                       </>
                     ) : (
                       <>
-                        <Play className="size-4" /> Aktivieren
+                        <Zap className="size-4" /> Aktivieren
                       </>
                     )}
                   </Button>
@@ -511,20 +509,24 @@ function StoreDetailModal({
                   {!item.builtin && (
                     <>
                       <Button
-                        variant="secondary"
+                        variant="outline"
                         onClick={() => onAction?.(item.id, 'restart')}
                         disabled={!!appLoading}
                       >
                         <RefreshCw className="size-4" /> Neustarten
                       </Button>
-                      <ConfirmIconButton
-                        icon={<OctagonX />}
-                        label="Stoppen"
-                        confirmText="Stoppen?"
-                        onConfirm={() => onAction?.(item.id, 'stop')}
-                        variant="danger"
+                      <Button
+                        variant="outline"
+                        onClick={() => onAction?.(item.id, 'stop')}
                         disabled={!!appLoading}
-                      />
+                      >
+                        {appLoading === 'stop' ? (
+                          <RefreshCw className="size-4 animate-spin" />
+                        ) : (
+                          <Square className="size-4" />
+                        )}
+                        Stoppen
+                      </Button>
                     </>
                   )}
                 </>

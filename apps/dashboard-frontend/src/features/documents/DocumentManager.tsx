@@ -25,6 +25,7 @@ import {
   Square,
   Minus,
   FolderInput,
+  Table,
 } from 'lucide-react';
 import { TableBadge, StatusBadge, TableStatusBadge, IndexStatusBadge, SpaceBadge } from './Badges';
 import TipTapEditor from '../../components/editor/tiptap/TipTapEditor';

@@ -4,7 +4,7 @@
  * Used in StoreHome and StoreModels for consistent activation UX
  */
 
-import { Play, RefreshCw, Check } from 'lucide-react';
+import { Zap, RefreshCw, Check } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +27,7 @@ function ActivationButton({
 }: ActivationButtonProps) {
   if (isLoaded) {
     return (
-      <Button variant="secondary" size={size} className={cn('flex-1', className)} disabled>
+      <Button size={size} className={cn('flex-1', className)} disabled>
         <Check className="size-4" /> Aktiv
       </Button>
     );
@@ -35,7 +35,6 @@ function ActivationButton({
 
   return (
     <Button
-      variant="secondary"
       size={size}
       className={cn('flex-1', className)}
       onClick={onActivate}
@@ -56,7 +55,7 @@ function ActivationButton({
         </>
       ) : (
         <>
-          <Play className="size-4" /> Aktivieren
+          <Zap className="size-4" /> Aktivieren
         </>
       )}
     </Button>

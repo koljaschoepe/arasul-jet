@@ -384,10 +384,7 @@ function StoreModels() {
             return (
               <div
                 key={model.id}
-                className={cn(
-                  'model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20',
-                  isLoaded && 'border-l-2 border-l-primary'
-                )}
+                className="model-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20"
                 onClick={() => setSelectedModel(model)}
                 tabIndex={0}
                 role="button"
