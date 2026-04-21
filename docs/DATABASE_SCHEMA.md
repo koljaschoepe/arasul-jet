@@ -2,6 +2,8 @@
 
 Complete schema reference for the Arasul Platform PostgreSQL database.
 
+> ⚠️ **Teilweise veraltet (Stand 2026-04-21):** Migrationen 073–077 (`sandbox_schema`, `sandbox_network_mode`, `sandbox_user_isolation`, `rag_query_log`, `metrics_swap`) sind hier noch nicht dokumentiert. Automatische Regeneration ist in `.claude/ANALYSIS_PLAN.md` Phase 7.2 eingeplant. Quelle: `services/postgres/init/*.sql` (78 Migrationen, letzte `version=77`).
+
 ## Overview
 
 ### Main Database

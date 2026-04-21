@@ -2,6 +2,8 @@
 
 This guide covers running the Arasul Platform on different NVIDIA Jetson devices.
 
+> ℹ️ **Stand 2026-04-21 — Thor noch nicht validiert:** Thor 64/128GB ist in den Profilen unten als _Planned_ markiert. JetPack 7.0 (Aug 2025), 7.1 (Jan 2026, Linux 38.4), 7.2 (Q2 2026 geplant, CUDA 13.2 unified SBSA) liefern die Basis, aber Compose-Files und Image-Tags nutzen aktuell JetPack-6-Defaults (CUDA 12.6, sm_87). Vollständige Thor-Validierung + SBSA-Abstraction-Layer: siehe `.claude/ANALYSIS_PLAN.md` Phase 3 und `.claude/analysis/19-jetson-research.md`.
+
 ## Supported Devices
 
 | Device          | RAM   | GPU       | Status          | Default LLM    |

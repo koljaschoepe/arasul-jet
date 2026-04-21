@@ -77,4 +77,9 @@ config/dev/
 # Local tool configuration
 .mcp.json
 .claude/plans/
+.claude/scheduled_tasks.lock
 config/base/
+
+# Test output artifacts
+apps/*/jest-results.json
+apps/*/test-results.json
