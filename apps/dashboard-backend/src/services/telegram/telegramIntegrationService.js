@@ -511,7 +511,9 @@ async function getSessionInfo(botId, chatId) {
  */
 async function getOllamaModels() {
   try {
-    const response = await fetch(`${OLLAMA_URL}/api/tags`);
+    const response = await fetch(`${OLLAMA_URL}/api/tags`, {
+      signal: AbortSignal.timeout(10000),
+    });
     if (!response.ok) {
       throw new Error('Failed to fetch Ollama models');
     }

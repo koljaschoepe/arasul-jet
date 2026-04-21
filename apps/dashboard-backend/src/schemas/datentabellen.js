@@ -141,6 +141,25 @@ const BulkDeleteRowsBody = z
   })
   .strict();
 
+// Rows are dynamic-column (user-defined fields), so only enforce object-shape.
+// Per-field validation happens in the route against the fields table.
+const CreateRowBody = z
+  .record(z.string().max(200), z.unknown(), {
+    error: 'Request body must be an object of field values',
+  })
+  .refine(obj => Object.keys(obj).length <= 200, {
+    message: 'Zu viele Felder (max. 200)',
+  });
+
+// PATCH row — same but also allows optional _expected_updated_at for optimistic locking
+const UpdateRowBody = z
+  .record(z.string().max(200), z.unknown(), {
+    error: 'Request body must be an object of field values',
+  })
+  .refine(obj => Object.keys(obj).length <= 200, {
+    message: 'Zu viele Felder (max. 200)',
+  });
+
 module.exports = {
   NaturalQueryBody,
   SqlQueryBody,
@@ -150,4 +169,6 @@ module.exports = {
   UpdateFieldBody,
   BulkCreateRowsBody,
   BulkDeleteRowsBody,
+  CreateRowBody,
+  UpdateRowBody,
 };

@@ -19,6 +19,7 @@ const {
   ThresholdValuesBody,
   TelegramTestBody,
   AuditCleanupBody,
+  TelegramConfigBody,
 } = require('../../schemas/telegram');
 
 // Rate limiter for test endpoint (5 tests per minute)
@@ -97,16 +98,12 @@ router.post(
   '/config',
   requireAuth,
   apiLimiter,
+  validateBody(TelegramConfigBody),
   asyncHandler(async (req, res) => {
     const { bot_token, chat_id, enabled } = req.body;
 
     // If bot_token is provided, do full upsert with new token
     if (bot_token && typeof bot_token === 'string') {
-      // Basic validation of bot token format (should contain a colon)
-      if (!bot_token.includes(':')) {
-        throw new ValidationError('Invalid bot token format');
-      }
-
       // Encrypt the token
       const { encrypted, iv, tag } = encrypt(bot_token);
 

@@ -12,7 +12,12 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
 const { isValidSlug, escapeIdentifier, escapeTableName } = require('../../utils/sqlIdentifier');
 const { validateBody } = require('../../middleware/validate');
-const { BulkCreateRowsBody, BulkDeleteRowsBody } = require('../../schemas/datentabellen');
+const {
+  BulkCreateRowsBody,
+  BulkDeleteRowsBody,
+  CreateRowBody,
+  UpdateRowBody,
+} = require('../../schemas/datentabellen');
 
 /**
  * Helper: Mark table as needing re-index after data changes
@@ -329,6 +334,7 @@ router.get(
 router.post(
   '/:slug/rows',
   requireAuth,
+  validateBody(CreateRowBody),
   asyncHandler(async (req, res) => {
     const { slug } = req.params;
     const data = req.body;
@@ -392,6 +398,7 @@ router.post(
 router.patch(
   '/:slug/rows/:rowId',
   requireAuth,
+  validateBody(UpdateRowBody),
   asyncHandler(async (req, res) => {
     const { slug, rowId } = req.params;
     const { _expected_updated_at, ...data } = req.body;

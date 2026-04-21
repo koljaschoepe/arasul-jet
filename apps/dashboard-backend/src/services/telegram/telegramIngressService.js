@@ -379,6 +379,7 @@ async function processUpdate(botId, update) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ callback_query_id: cbQuery.id }),
+        signal: AbortSignal.timeout(10000),
       });
     } catch (err) {
       logger.warn(`Failed to answer callback query: ${err.message}`);

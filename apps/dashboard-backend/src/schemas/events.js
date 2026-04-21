@@ -50,8 +50,44 @@ const ManualEventBody = z
   })
   .strict();
 
+// PUT /settings — notification_settings upsert. HH:MM for quiet hours.
+const TIME_REGEX = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+
+const UpdateNotificationSettingsBody = z
+  .object({
+    channel: z.enum(['telegram', 'webhook', 'email', 'in_app']).optional(),
+    enabled: z.boolean().optional(),
+    event_types: z.array(z.string().max(100)).max(100).optional().nullable(),
+    min_severity: z.enum(['info', 'warning', 'critical']).optional(),
+    rate_limit_per_minute: z.number().int().nonnegative().max(10000).optional(),
+    quiet_hours_start: z
+      .string()
+      .regex(TIME_REGEX, 'Ungültiges Zeitformat (HH:MM erwartet)')
+      .optional()
+      .nullable(),
+    quiet_hours_end: z
+      .string()
+      .regex(TIME_REGEX, 'Ungültiges Zeitformat (HH:MM erwartet)')
+      .optional()
+      .nullable(),
+    telegram_chat_id: z
+      .union([z.string().trim().min(1).max(100), z.number().int()])
+      .optional()
+      .nullable(),
+  })
+  .strict();
+
+// POST /test — test notification message
+const TestNotificationBody = z
+  .object({
+    message: z.string().trim().min(1).max(4000).optional(),
+  })
+  .strict();
+
 module.exports = {
   N8nWebhookBody,
   SelfHealingWebhookBody,
   ManualEventBody,
+  UpdateNotificationSettingsBody,
+  TestNotificationBody,
 };

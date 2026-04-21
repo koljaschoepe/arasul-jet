@@ -14,6 +14,8 @@ const {
   UpdateQuietHoursDayBody,
   BatchQuietHoursBody,
   TestWebhookBody,
+  UpdateAlertSettingsBody,
+  UpdateThresholdBody,
 } = require('../../schemas/alerts');
 
 // All routes require authentication
@@ -44,6 +46,7 @@ router.get(
  */
 router.put(
   '/settings',
+  validateBody(UpdateAlertSettingsBody),
   asyncHandler(async (req, res) => {
     const updated = await alertEngine.updateSettings(req.body, req.user.id);
 
@@ -84,36 +87,13 @@ router.get(
  */
 router.put(
   '/thresholds/:metricType',
+  validateBody(UpdateThresholdBody),
   asyncHandler(async (req, res) => {
     const { metricType } = req.params;
     const validTypes = ['cpu', 'ram', 'disk', 'temperature'];
 
     if (!validTypes.includes(metricType)) {
       throw new ValidationError(`Ungültiger Metrik-Typ. Erlaubt: ${validTypes.join(', ')}`);
-    }
-
-    // Validate threshold values
-    const { warning_threshold, critical_threshold } = req.body;
-
-    if (warning_threshold !== undefined && critical_threshold !== undefined) {
-      if (parseFloat(warning_threshold) >= parseFloat(critical_threshold)) {
-        throw new ValidationError('Warnschwelle muss kleiner als kritische Schwelle sein');
-      }
-    }
-
-    // Validate ranges
-    if (warning_threshold !== undefined) {
-      const warn = parseFloat(warning_threshold);
-      if (isNaN(warn) || warn < 0 || warn > 100) {
-        throw new ValidationError('Warnschwelle muss zwischen 0 und 100 liegen');
-      }
-    }
-
-    if (critical_threshold !== undefined) {
-      const crit = parseFloat(critical_threshold);
-      if (isNaN(crit) || crit < 0 || crit > 100) {
-        throw new ValidationError('Kritische Schwelle muss zwischen 0 und 100 liegen');
-      }
     }
 
     const updated = await alertEngine.updateThreshold(metricType, req.body, req.user.id);

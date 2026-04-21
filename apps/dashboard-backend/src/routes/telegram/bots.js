@@ -386,6 +386,7 @@ router.post(
                 text: `🤖 <b>${bot.name} ist jetzt aktiv!</b>\n\nSchreib mir einfach eine Nachricht und ich antworte dir.\n\n/help - Zeigt alle Befehle`,
                 parse_mode: 'HTML',
               }),
+              signal: AbortSignal.timeout(10000),
             });
           } catch (sendErr) {
             const safeMsg = sendErr.message
@@ -725,13 +726,17 @@ router.get(
     try {
       const botToken = await telegramBotService.getBotToken(botId);
       if (botToken) {
-        const meResponse = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+        const meResponse = await fetch(`https://api.telegram.org/bot${botToken}/getMe`, {
+          signal: AbortSignal.timeout(10000),
+        });
         const meData = await meResponse.json();
         debug.tokenValid = meData.ok === true;
         debug.botUsername = meData.result?.username;
 
         // Get webhook info from Telegram
-        const whResponse = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+        const whResponse = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`, {
+          signal: AbortSignal.timeout(10000),
+        });
         const whData = await whResponse.json();
         if (whData.ok) {
           debug.telegramWebhookInfo = {

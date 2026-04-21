@@ -113,7 +113,9 @@ async function getOpenAIKey(botId) {
  */
 async function downloadVoiceFile(token, fileId) {
   try {
-    const fileInfoResponse = await fetch(`${TELEGRAM_API}${token}/getFile?file_id=${fileId}`);
+    const fileInfoResponse = await fetch(`${TELEGRAM_API}${token}/getFile?file_id=${fileId}`, {
+      signal: AbortSignal.timeout(10000),
+    });
     const fileInfo = await fileInfoResponse.json();
 
     if (!fileInfo.ok) {
@@ -123,7 +125,9 @@ async function downloadVoiceFile(token, fileId) {
     const filePath = fileInfo.result.file_path;
     const fileUrl = `${TELEGRAM_FILE_API}${token}/${filePath}`;
 
-    const response = await fetch(fileUrl);
+    const response = await fetch(fileUrl, {
+      signal: AbortSignal.timeout(30000),
+    });
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.status}`);
     }
@@ -164,6 +168,7 @@ async function transcribeWithWhisper(filePath, apiKey) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: formData,
+      signal: AbortSignal.timeout(60000),
     });
 
     if (!response.ok) {

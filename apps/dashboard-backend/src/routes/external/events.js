@@ -19,7 +19,13 @@ const {
 } = require('../../utils/errors');
 const { webhookLimiter } = require('../../middleware/rateLimit');
 const { validateBody } = require('../../middleware/validate');
-const { N8nWebhookBody, SelfHealingWebhookBody, ManualEventBody } = require('../../schemas/events');
+const {
+  N8nWebhookBody,
+  SelfHealingWebhookBody,
+  ManualEventBody,
+  UpdateNotificationSettingsBody,
+  TestNotificationBody,
+} = require('../../schemas/events');
 
 /**
  * GET /api/events
@@ -124,6 +130,7 @@ router.get(
 router.put(
   '/settings',
   auth,
+  validateBody(UpdateNotificationSettingsBody),
   asyncHandler(async (req, res) => {
     const {
       channel = 'telegram',
@@ -182,6 +189,7 @@ router.put(
 router.post(
   '/test',
   auth,
+  validateBody(TestNotificationBody),
   asyncHandler(async (req, res) => {
     const { message = 'Test-Benachrichtigung von Arasul Platform' } = req.body;
 

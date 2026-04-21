@@ -41,8 +41,41 @@ const TestWebhookBody = z
   })
   .strict();
 
+// PUT /settings — global alert settings (whitelist must match alertEngine.updateSettings validFields)
+const UpdateAlertSettingsBody = z
+  .object({
+    alerts_enabled: z.boolean().optional(),
+    webhook_enabled: z.boolean().optional(),
+    webhook_url: z.string().trim().url('Ungültige Webhook-URL').max(2000).optional().nullable(),
+    webhook_secret: z.string().max(500).optional().nullable(),
+    in_app_notifications: z.boolean().optional(),
+    audio_enabled: z.boolean().optional(),
+    max_history_entries: z.number().int().positive().max(100000).optional(),
+  })
+  .strict();
+
+// PUT /thresholds/:metricType
+const UpdateThresholdBody = z
+  .object({
+    warning_threshold: z.number().min(0).max(100).optional(),
+    critical_threshold: z.number().min(0).max(100).optional(),
+    enabled: z.boolean().optional(),
+    cooldown_seconds: z.number().int().nonnegative().max(86400).optional(),
+    description: z.string().max(1000).optional().nullable(),
+  })
+  .strict()
+  .refine(
+    v =>
+      v.warning_threshold === undefined ||
+      v.critical_threshold === undefined ||
+      v.warning_threshold < v.critical_threshold,
+    { message: 'Warnschwelle muss kleiner als kritische Schwelle sein' }
+  );
+
 module.exports = {
   UpdateQuietHoursDayBody,
   BatchQuietHoursBody,
   TestWebhookBody,
+  UpdateAlertSettingsBody,
+  UpdateThresholdBody,
 };

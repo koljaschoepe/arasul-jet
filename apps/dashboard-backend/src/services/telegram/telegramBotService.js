@@ -28,7 +28,9 @@ const maskToken = token => (token ? token.substring(0, 8) + '***' : 'null');
  */
 async function validateBotToken(token) {
   try {
-    const response = await fetch(`${TELEGRAM_API}${token}/getMe`);
+    const response = await fetch(`${TELEGRAM_API}${token}/getMe`, {
+      signal: AbortSignal.timeout(10000),
+    });
     const data = await response.json();
 
     if (data.ok) {

@@ -12,7 +12,12 @@ const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody } = require('../../middleware/validate');
 const { ValidationError, NotFoundError } = require('../../utils/errors');
-const { AppUninstallBody, AppRestartBody, AppConfigBody } = require('../../schemas/store');
+const {
+  AppUninstallBody,
+  AppRestartBody,
+  AppConfigBody,
+  AppInstallBody,
+} = require('../../schemas/store');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 
 /**
@@ -187,21 +192,11 @@ router.post(
   '/:id/install',
   requireAuth,
   apiLimiter,
+  validateBody(AppInstallBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const config = req.body.config || {};
     const useStream = req.query.stream === 'true';
-
-    if (Array.isArray(config) || typeof config !== 'object') {
-      if (useStream) {
-        initSSE(res);
-        res.write(
-          `data: ${JSON.stringify({ error: 'config muss ein Objekt sein', done: true })}\n\n`
-        );
-        return res.end();
-      }
-      throw new ValidationError('config muss ein Objekt sein');
-    }
 
     logger.info(`User ${req.user.username} installing app ${id}${useStream ? ' (streaming)' : ''}`);
 

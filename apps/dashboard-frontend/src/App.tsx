@@ -194,9 +194,7 @@ function AppContent(): React.JSX.Element | null {
       if (updateDismissedRef.current && Date.now() - updateDismissedRef.current < 30 * 60 * 1000)
         return;
       try {
-        const resp = await fetch('/api/health');
-        if (!resp.ok) return;
-        const data = await resp.json();
+        const data = await api.get<{ build_hash?: string }>('/health', { showError: false });
         const hash = data.build_hash;
         if (!hash || hash === 'dev') return;
         if (!initialBuildHashRef.current) {

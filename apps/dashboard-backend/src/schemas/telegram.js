@@ -145,6 +145,22 @@ const AuditCleanupBody = z
   })
   .strict();
 
+// POST /config — Telegram bot setup (either full with bot_token or partial update)
+const TelegramConfigBody = z
+  .object({
+    bot_token: z
+      .string()
+      .trim()
+      .regex(TELEGRAM_TOKEN_REGEX, 'Ungültiges Telegram-Bot-Token-Format')
+      .optional(),
+    chat_id: z
+      .union([z.string().trim().min(1).max(100), z.number().int()])
+      .optional()
+      .nullable(),
+    enabled: z.boolean().optional(),
+  })
+  .strict();
+
 module.exports = {
   CreateBotBody,
   UpdateBotBody,
@@ -156,4 +172,5 @@ module.exports = {
   ThresholdValuesBody,
   TelegramTestBody,
   AuditCleanupBody,
+  TelegramConfigBody,
 };

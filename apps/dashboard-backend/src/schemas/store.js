@@ -77,6 +77,21 @@ const AppConfigBody = z
     path: ['config'],
   });
 
+// POST /:id/install — optional config object (same shape as AppConfigBody but config is optional)
+const AppInstallBody = z
+  .object({
+    config: z
+      .record(z.string(), z.unknown(), {
+        error: 'config muss ein Objekt sein',
+      })
+      .optional(),
+  })
+  .strict()
+  .refine(v => !v.config || Object.keys(v.config).length <= 50, {
+    message: 'Zu viele Konfigurationseinträge (max. 50)',
+    path: ['config'],
+  });
+
 module.exports = {
   CreateWorkspaceBody,
   UpdateWorkspaceBody,
@@ -84,4 +99,5 @@ module.exports = {
   AppUninstallBody,
   AppRestartBody,
   AppConfigBody,
+  AppInstallBody,
 };
