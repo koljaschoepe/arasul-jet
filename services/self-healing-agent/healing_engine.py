@@ -74,7 +74,27 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         self._memory_samples: Dict = {}
         self._memory_max_samples = 2016  # 7 days at 5-min intervals
 
+        # FLAPPING-GUARD: dedup record_failure calls per service.
+        # Without this, a stuck-unhealthy container generates 8640 rows/day (every 10s).
+        self._last_failure_recorded: Dict[str, float] = {}
+        self._failure_record_interval_seconds = 60
+
         logger.info("Self-Healing Engine initialized")
+
+    def should_record_failure(self, service_name: str) -> bool:
+        """Rate-limit failure recording per service to prevent service_failures table flood.
+
+        Returns True only if no failure has been recorded for this service within the
+        configured interval (default 60s). Without this, a perpetually-unhealthy container
+        that the engine already gave up restarting (rate-limited) would still keep inserting
+        service_failures rows on every healing cycle (~10s apart).
+        """
+        now = time.time()
+        last = self._last_failure_recorded.get(service_name, 0)
+        if now - last < self._failure_record_interval_seconds:
+            return False
+        self._last_failure_recorded[service_name] = now
+        return True
 
     # ========================================================================
     # MONITORING

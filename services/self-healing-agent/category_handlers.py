@@ -67,7 +67,8 @@ class CategoryHandlersMixin:
     def handle_category_a_service_down(self, service_name: str, container):
         """Category A: Service Down - tiered restart strategies with exponential backoff"""
 
-        self.record_failure(service_name, 'unhealthy', 'down')
+        if self.should_record_failure(service_name):
+            self.record_failure(service_name, 'unhealthy', 'down')
 
         if self.is_in_cooldown(service_name):
             logger.warning(f"Service {service_name} is in cooldown, skipping recovery")

@@ -783,6 +783,7 @@ async function generateAndExecuteSQL(query, tableSlug = null) {
           options: {
             temperature: 0.1, // Low temperature for deterministic output
             num_predict: 500,
+            num_ctx: 4096, // SQL generation input is small — prevent full-context KV cache load
           },
         },
         { timeout: 60000 }

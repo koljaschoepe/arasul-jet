@@ -288,7 +288,7 @@ ${formattedMessages}`;
         stream: false,
         think: false,
         keep_alive: parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300'),
-        options: { temperature: 0.2, num_predict: 512 },
+        options: { temperature: 0.2, num_predict: 512, num_ctx: 4096 },
       }),
       signal: AbortSignal.timeout(60000),
     });

@@ -184,6 +184,7 @@ async function callOllamaNonStreaming(model, prompt, maxTokens) {
       options: {
         temperature: 0.3,
         num_predict: maxTokens * 2, // Allow some headroom
+        num_ctx: 8192, // Compaction input is small — avoid loading full model context window
       },
     }),
     signal: AbortSignal.timeout(60000), // 60s timeout for compaction

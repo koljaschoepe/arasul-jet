@@ -88,15 +88,17 @@ async function getGpuInfo() {
   }
 
   try {
-    // Try tegrastats-style detection first (Jetson unified memory)
-    // fire-and-forget: file may not exist on non-Jetson devices; null = not found
+    // Jetson detection: try tegra file first, then fall back to device profile.
+    // Containers often don't mount /etc/nv_tegra_release; detectDevice() uses RAM/CPU heuristics.
     const tegraFile = await fs.readFile('/etc/nv_tegra_release', 'utf8').catch(() => null);
-    if (tegraFile) {
-      // On Jetson, GPU shares system RAM - report unified memory
+    const device = await detectDevice();
+    const isJetson =
+      !!tegraFile || device.type.startsWith('jetson_') || device.type === 'thor_128gb';
+
+    if (isJetson) {
       const totalMemoryMB = Math.round(os.totalmem() / (1024 * 1024));
       const freeMemoryMB = Math.round(os.freemem() / (1024 * 1024));
 
-      // Get CUDA version
       let cudaVersion = 'unknown';
       try {
         const versionFile = await fs.readFile('/usr/local/cuda/version.json', 'utf8');
@@ -116,7 +118,7 @@ async function getGpuInfo() {
 
       cachedGpuInfo = {
         available: true,
-        name: 'NVIDIA Tegra (Unified Memory)',
+        name: `NVIDIA ${device.name.replace(/^NVIDIA /, '')} (Unified Memory)`,
         cudaVersion,
         memoryTotalMB: totalMemoryMB,
         memoryFreeMB: freeMemoryMB,
