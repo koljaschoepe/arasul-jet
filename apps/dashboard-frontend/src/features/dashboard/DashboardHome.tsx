@@ -27,6 +27,7 @@ import {
 import { Suspense, lazy } from 'react';
 
 const ModelStatusBar = lazy(() => import('./ModelStatusBar'));
+const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
 
 interface MetricsDisk {
   used: number;
@@ -530,6 +531,10 @@ const DashboardHome = React.memo(function DashboardHome({
 
         <Suspense fallback={<div className="dashboard-card" style={{ minHeight: 280 }} />}>
           <ModelStatusBar />
+        </Suspense>
+
+        <Suspense fallback={<div className="dashboard-card" style={{ minHeight: 200 }} />}>
+          <SystemHealthWidget />
         </Suspense>
       </div>
     </>

@@ -1,1846 +1,2685 @@
-# Database Schema
+# Arasul Platform — Database Schema
 
-Complete schema reference for the Arasul Platform PostgreSQL database.
+> **Auto-generated**. Do not edit by hand.
+> Run `scripts/docs/generate-db-schema.sh` to regenerate. Last sync: `2026-04-21T23:42:19Z`
 
-> ⚠️ **Teilweise veraltet (Stand 2026-04-21):** Migrationen 073–077 (`sandbox_schema`, `sandbox_network_mode`, `sandbox_user_isolation`, `rag_query_log`, `metrics_swap`) sind hier noch nicht dokumentiert. Automatische Regeneration ist in `.claude/ANALYSIS_PLAN.md` Phase 7.2 eingeplant. Quelle: `services/postgres/init/*.sql` (78 Migrationen, letzte `version=77`).
+## Übersicht
 
-## Overview
-
-### Main Database
-
-| Property   | Value                      |
-| ---------- | -------------------------- |
-| Database   | arasul_db                  |
-| User       | arasul                     |
-| Schema     | public                     |
-| Migrations | `/services/postgres/init/` |
-
-### Data Database (Datentabellen)
-
-| Property   | Value                              |
-| ---------- | ---------------------------------- |
-| Database   | arasul_data_db                     |
-| User       | arasul_data                        |
-| Schema     | public                             |
-| Migrations | `/services/postgres/init-data-db/` |
-
-## Entity Relationship Diagram
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  admin_users    │     │ chat_conversations│    │ telegram_config │
-│─────────────────│     │─────────────────│     │─────────────────│
-│ id (PK)         │     │ id (PK)         │     │ id (PK)         │
-│ username        │     │ title           │     │ bot_token_enc   │
-│ password_hash   │     │ message_count   │     │ chat_id         │
-│ ...             │     │ deleted_at      │     │ enabled         │
-└────────┬────────┘     └────────┬────────┘     └─────────────────┘
-         │                       │
-         │ 1:N                   │ 1:N
-         ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐
-│ active_sessions │     │ chat_messages   │
-│─────────────────│     │─────────────────│
-│ id (PK)         │     │ id (PK)         │
-│ user_id (FK)    │     │ conversation_id │
-│ token_jti       │     │ role            │
-│ ...             │     │ content         │
-└─────────────────┘     │ thinking        │
-                        │ sources         │
-┌─────────────────┐     └─────────────────┘
-│ llm_jobs        │
-│─────────────────│     ┌─────────────────┐
-│ id (PK)         │     │   documents     │
-│ conversation_id │     │─────────────────│
-│ status          │     │ id (PK)         │
-│ prompt          │     │ filename        │
-│ response        │     │ minio_path      │
-└────────┬────────┘     │ status          │
-         │              └────────┬────────┘
-         │ 1:1                   │ 1:N
-         ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐
-│   llm_queue     │     │ document_chunks │
-│─────────────────│     │─────────────────│
-│ id (PK)         │     │ id (PK)         │
-│ job_id (FK)     │     │ document_id (FK)│
-│ priority        │     │ chunk_index     │
-└─────────────────┘     │ content         │
-                        └─────────────────┘
-```
+- Tabellen: **88**
+- Spalten gesamt: **1192**
+- Foreign Keys: **63**
+- Indexes: **343**
 
 ---
 
-## Tables by Migration
+## `active_sessions`
 
-### 001_init_schema.sql - Metrics
+> Active user sessions
 
-#### metrics_cpu
+| Column          | Type                     | Nullable | Default                                    |
+| --------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`            | bigint                   | ⛔       | `nextval('active_sessions_id_seq'::reg...` |
+| `user_id`       | bigint                   | ✅       |                                            |
+| `token_jti`     | character varying        | ⛔       |                                            |
+| `ip_address`    | inet                     | ✅       |                                            |
+| `user_agent`    | text                     | ✅       |                                            |
+| `created_at`    | timestamp with time zone | ✅       | `now()`                                    |
+| `expires_at`    | timestamp with time zone | ⛔       |                                            |
+| `last_activity` | timestamp with time zone | ✅       | `now()`                                    |
 
-| Column    | Type         | Description           |
-| --------- | ------------ | --------------------- |
-| timestamp | timestamptz  | Measurement time (PK) |
-| value     | decimal(5,2) | CPU usage %           |
+**Primary key:** `id`
 
-#### metrics_ram
+**Foreign Keys:**
 
-| Column    | Type         | Description           |
-| --------- | ------------ | --------------------- |
-| timestamp | timestamptz  | Measurement time (PK) |
-| value     | decimal(5,2) | RAM usage %           |
-
-#### metrics_gpu
-
-| Column    | Type         | Description           |
-| --------- | ------------ | --------------------- |
-| timestamp | timestamptz  | Measurement time (PK) |
-| value     | decimal(5,2) | GPU usage %           |
-
-#### metrics_temperature
-
-| Column    | Type         | Description           |
-| --------- | ------------ | --------------------- |
-| timestamp | timestamptz  | Measurement time (PK) |
-| value     | decimal(5,2) | Temperature °C        |
-
-#### metrics_disk
-
-| Column    | Type         | Description           |
-| --------- | ------------ | --------------------- |
-| timestamp | timestamptz  | Measurement time (PK) |
-| used      | bigint       | Used bytes            |
-| free      | bigint       | Free bytes            |
-| percent   | decimal(5,2) | Usage %               |
-
-**Retention:** 7 days
-
----
-
-### 002_auth_schema.sql - Authentication
-
-#### admin_users
-
-| Column         | Type         | Description      |
-| -------------- | ------------ | ---------------- |
-| id             | serial       | Primary key      |
-| username       | varchar(50)  | Unique username  |
-| password_hash  | varchar(255) | bcrypt hash      |
-| email          | varchar(255) | Email (nullable) |
-| created_at     | timestamptz  | Creation time    |
-| updated_at     | timestamptz  | Last update      |
-| last_login     | timestamptz  | Last login time  |
-| login_attempts | integer      | Failed attempts  |
-| locked_until   | timestamptz  | Lockout expiry   |
-| is_active      | boolean      | Account active   |
-
-**Constraints:**
-
-- `username` UNIQUE
-- Default user: `admin`
-
-#### token_blacklist
-
-| Column         | Type         | Description       |
-| -------------- | ------------ | ----------------- |
-| id             | serial       | Primary key       |
-| token_jti      | varchar(255) | JWT ID (unique)   |
-| user_id        | integer      | FK to admin_users |
-| blacklisted_at | timestamptz  | Blacklist time    |
-| expires_at     | timestamptz  | Token expiry      |
-
-#### login_attempts
-
-| Column       | Type        | Description         |
-| ------------ | ----------- | ------------------- |
-| id           | serial      | Primary key         |
-| username     | varchar(50) | Attempted username  |
-| ip_address   | inet        | Client IP           |
-| success      | boolean     | Login success       |
-| attempted_at | timestamptz | Attempt time        |
-| user_agent   | text        | Browser/client info |
-
-#### active_sessions
-
-| Column        | Type         | Description         |
-| ------------- | ------------ | ------------------- |
-| id            | serial       | Primary key         |
-| user_id       | integer      | FK to admin_users   |
-| token_jti     | varchar(255) | JWT ID              |
-| ip_address    | inet         | Client IP           |
-| user_agent    | text         | Browser/client info |
-| created_at    | timestamptz  | Session start       |
-| expires_at    | timestamptz  | Session expiry      |
-| last_activity | timestamptz  | Last activity       |
-
-#### password_history
-
-| Column        | Type         | Description         |
-| ------------- | ------------ | ------------------- |
-| id            | serial       | Primary key         |
-| user_id       | integer      | FK to admin_users   |
-| password_hash | varchar(255) | Old password hash   |
-| changed_at    | timestamptz  | Change time         |
-| changed_by    | varchar(50)  | Changed by username |
-| ip_address    | inet         | Client IP           |
-
----
-
-### 003_self_healing_schema.sql - Self-Healing
-
-#### self_healing_events
-
-| Column       | Type        | Description           |
-| ------------ | ----------- | --------------------- |
-| id           | serial      | Primary key           |
-| event_type   | varchar(50) | Event type            |
-| severity     | varchar(20) | INFO/WARNING/CRITICAL |
-| description  | text        | Event description     |
-| action_taken | text        | Recovery action       |
-| timestamp    | timestamptz | Event time            |
-
-**Retention:** 7 days
-
-#### workflow_activity
-
-| Column        | Type         | Description       |
-| ------------- | ------------ | ----------------- |
-| id            | serial       | Primary key       |
-| workflow_name | varchar(255) | n8n workflow name |
-| status        | varchar(50)  | Execution status  |
-| timestamp     | timestamptz  | Execution time    |
-| duration_ms   | integer      | Duration in ms    |
-| error         | text         | Error message     |
-
----
-
-### 004_update_schema.sql - Updates
-
-#### update_events
-
-| Column             | Type        | Description                                      |
-| ------------------ | ----------- | ------------------------------------------------ |
-| id                 | serial      | Primary key                                      |
-| version_from       | varchar(20) | Previous version                                 |
-| version_to         | varchar(20) | New version                                      |
-| status             | varchar(20) | pending/in_progress/completed/failed/rolled_back |
-| source             | varchar(50) | dashboard/usb/auto                               |
-| components_updated | jsonb       | Updated components                               |
-| error_message      | text        | Error details                                    |
-| started_at         | timestamptz | Start time                                       |
-| completed_at       | timestamptz | Completion time                                  |
-| duration_seconds   | integer     | Duration                                         |
-| requires_reboot    | boolean     | Reboot needed                                    |
-| initiated_by       | varchar(50) | User/system                                      |
-
-#### update_backups
-
-| Column             | Type          | Description          |
-| ------------------ | ------------- | -------------------- |
-| id                 | serial        | Primary key          |
-| backup_path        | varchar(500)  | Backup file path     |
-| update_event_id    | integer       | FK to update_events  |
-| created_at         | timestamptz   | Creation time        |
-| backup_size_mb     | decimal(10,2) | Size in MB           |
-| components         | jsonb         | Backed up components |
-| restoration_tested | boolean       | Tested flag          |
-| notes              | text          | Notes                |
-
-#### update_files
-
-| Column             | Type         | Description       |
-| ------------------ | ------------ | ----------------- |
-| id                 | serial       | Primary key       |
-| filename           | varchar(255) | File name         |
-| file_path          | varchar(500) | Full path         |
-| checksum_sha256    | varchar(64)  | SHA256 hash       |
-| file_size_bytes    | bigint       | Size in bytes     |
-| source             | varchar(50)  | Upload source     |
-| uploaded_at        | timestamptz  | Upload time       |
-| signature_verified | boolean      | Signature valid   |
-| manifest           | jsonb        | Package manifest  |
-| validation_status  | varchar(20)  | Validation status |
-| applied            | boolean      | Applied flag      |
-
-#### update_rollbacks
-
-| Column                   | Type        | Description          |
-| ------------------------ | ----------- | -------------------- |
-| id                       | serial      | Primary key          |
-| original_update_event_id | integer     | FK to update_events  |
-| backup_id                | integer     | FK to update_backups |
-| rollback_reason          | text        | Reason               |
-| initiated_by             | varchar(50) | User/system          |
-| started_at               | timestamptz | Start time           |
-| completed_at             | timestamptz | Completion time      |
-| success                  | boolean     | Success flag         |
-| error_message            | text        | Error details        |
-
-#### component_updates
-
-| Column          | Type         | Description               |
-| --------------- | ------------ | ------------------------- |
-| id              | serial       | Primary key               |
-| update_event_id | integer      | FK to update_events       |
-| component_name  | varchar(100) | Component name            |
-| component_type  | varchar(50)  | Type (service/config/etc) |
-| version_from    | varchar(20)  | Previous version          |
-| version_to      | varchar(20)  | New version               |
-| status          | varchar(20)  | Status                    |
-| started_at      | timestamptz  | Start time                |
-| completed_at    | timestamptz  | Completion time           |
-| error_message   | text         | Error details             |
-
----
-
-### 005_chat_schema.sql - Chat
-
-#### chat_conversations
-
-| Column        | Type         | Description             |
-| ------------- | ------------ | ----------------------- |
-| id            | uuid         | Primary key (generated) |
-| title         | varchar(255) | Conversation title      |
-| created_at    | timestamptz  | Creation time           |
-| updated_at    | timestamptz  | Last update             |
-| deleted_at    | timestamptz  | Soft delete time        |
-| message_count | integer      | Auto-updated count      |
+- `user_id` → `admin_users.id`
 
 **Indexes:**
 
-- `idx_conversations_updated` on updated_at DESC
-- `idx_conversations_deleted` on deleted_at
+- `active_sessions_pkey` — `CREATE UNIQUE INDEX active_sessions_pkey ON public.active_sessions USING btree (id)`
+- `active_sessions_token_jti_key` — `CREATE UNIQUE INDEX active_sessions_token_jti_key ON public.active_sessions USING btree (token_jti)`
+- `idx_active_sessions_expires` — `CREATE INDEX idx_active_sessions_expires ON public.active_sessions USING btree (expires_at)`
+- `idx_active_sessions_jti` — `CREATE INDEX idx_active_sessions_jti ON public.active_sessions USING btree (token_jti)`
+- `idx_active_sessions_user` — `CREATE INDEX idx_active_sessions_user ON public.active_sessions USING btree (user_id)`
 
-#### chat_messages
+---
 
-| Column          | Type        | Description              |
-| --------------- | ----------- | ------------------------ |
-| id              | uuid        | Primary key (generated)  |
-| conversation_id | uuid        | FK to chat_conversations |
-| role            | varchar(20) | user/assistant/system    |
-| content         | text        | Message content          |
-| thinking        | text        | LLM thinking (nullable)  |
-| sources         | jsonb       | RAG sources (nullable)   |
-| created_at      | timestamptz | Creation time            |
+## `admin_users`
+
+> Administrator user accounts
+
+| Column           | Type                     | Nullable | Default                                   |
+| ---------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`             | bigint                   | ⛔       | `nextval('admin_users_id_seq'::regclass)` |
+| `username`       | character varying        | ⛔       |                                           |
+| `password_hash`  | character varying        | ⛔       |                                           |
+| `email`          | character varying        | ✅       |                                           |
+| `created_at`     | timestamp with time zone | ✅       | `now()`                                   |
+| `updated_at`     | timestamp with time zone | ✅       | `now()`                                   |
+| `last_login`     | timestamp with time zone | ✅       |                                           |
+| `login_attempts` | integer                  | ✅       | `0`                                       |
+| `locked_until`   | timestamp with time zone | ✅       |                                           |
+| `is_active`      | boolean                  | ✅       | `true`                                    |
+| `role`           | character varying        | ⛔       | `'admin'::character varying`              |
+
+**Primary key:** `id`
 
 **Indexes:**
 
-- `idx_messages_conversation` on conversation_id, created_at
-
-**Triggers:**
-
-- `update_message_count` - Auto-updates conversation.message_count
-
----
-
-### 006_llm_jobs_schema.sql - LLM Jobs
-
-#### llm_jobs
-
-| Column          | Type        | Description                         |
-| --------------- | ----------- | ----------------------------------- |
-| id              | uuid        | Primary key (generated)             |
-| conversation_id | uuid        | FK to chat_conversations            |
-| status          | varchar(20) | pending/processing/completed/failed |
-| prompt          | text        | User prompt                         |
-| response        | text        | LLM response                        |
-| error           | text        | Error message                       |
-| created_at      | timestamptz | Creation time                       |
-| updated_at      | timestamptz | Last update                         |
+- `admin_users_pkey` — `CREATE UNIQUE INDEX admin_users_pkey ON public.admin_users USING btree (id)`
+- `admin_users_username_key` — `CREATE UNIQUE INDEX admin_users_username_key ON public.admin_users USING btree (username)`
+- `idx_admin_users_active` — `CREATE INDEX idx_admin_users_active ON public.admin_users USING btree (is_active)`
+- `idx_admin_users_username` — `CREATE INDEX idx_admin_users_username ON public.admin_users USING btree (username)`
 
 ---
 
-### 007_add_sources_to_messages.sql
+## `ai_memories`
 
-Adds `sources` JSONB column to `chat_messages` for RAG source tracking.
+| Column                   | Type                     | Nullable | Default             |
+| ------------------------ | ------------------------ | -------- | ------------------- |
+| `id`                     | uuid                     | ⛔       | `gen_random_uuid()` |
+| `type`                   | character varying        | ⛔       |                     |
+| `content`                | text                     | ⛔       |                     |
+| `source_conversation_id` | bigint                   | ✅       |                     |
+| `qdrant_point_id`        | uuid                     | ✅       |                     |
+| `importance`             | numeric                  | ✅       | `0.5`               |
+| `created_at`             | timestamp with time zone | ✅       | `now()`             |
+| `updated_at`             | timestamp with time zone | ✅       | `now()`             |
+| `is_active`              | boolean                  | ✅       | `true`              |
 
----
+**Primary key:** `id`
 
-### 008_llm_queue_schema.sql - LLM Queue
+**Foreign Keys:**
 
-#### llm_queue
-
-| Column     | Type        | Description      |
-| ---------- | ----------- | ---------------- |
-| id         | serial      | Primary key      |
-| job_id     | uuid        | FK to llm_jobs   |
-| priority   | integer     | Queue priority   |
-| created_at | timestamptz | Queue time       |
-| started_at | timestamptz | Processing start |
-
----
-
-### 009_documents_schema.sql - Documents
-
-#### documents
-
-| Column        | Type         | Description                     |
-| ------------- | ------------ | ------------------------------- |
-| id            | uuid         | Primary key (generated)         |
-| filename      | varchar(255) | Stored filename                 |
-| original_name | varchar(255) | Original filename               |
-| mime_type     | varchar(100) | MIME type                       |
-| size_bytes    | bigint       | File size                       |
-| minio_path    | varchar(500) | MinIO object path               |
-| status        | varchar(20)  | pending/indexing/indexed/failed |
-| chunk_count   | integer      | Number of chunks                |
-| error_message | text         | Error details                   |
-| created_at    | timestamptz  | Upload time                     |
-| updated_at    | timestamptz  | Last update                     |
-| indexed_at    | timestamptz  | Indexing completion             |
+- `source_conversation_id` → `chat_conversations.id`
 
 **Indexes:**
 
-- `idx_documents_status` on status
-- `idx_documents_created` on created_at DESC
+- `ai_memories_pkey` — `CREATE UNIQUE INDEX ai_memories_pkey ON public.ai_memories USING btree (id)`
+- `idx_ai_memories_active` — `CREATE INDEX idx_ai_memories_active ON public.ai_memories USING btree (is_active) WHERE (is_active = true)`
+- `idx_ai_memories_created` — `CREATE INDEX idx_ai_memories_created ON public.ai_memories USING btree (created_at DESC)`
+- `idx_ai_memories_type` — `CREATE INDEX idx_ai_memories_type ON public.ai_memories USING btree (type)`
 
-#### document_chunks
+---
 
-| Column       | Type         | Description             |
-| ------------ | ------------ | ----------------------- |
-| id           | uuid         | Primary key (generated) |
-| document_id  | uuid         | FK to documents         |
-| chunk_index  | integer      | Chunk sequence          |
-| content      | text         | Chunk text              |
-| embedding_id | varchar(100) | Qdrant point ID         |
-| created_at   | timestamptz  | Creation time           |
+## `alert_history`
+
+> History of all fired alerts
+
+| Column                  | Type                     | Nullable | Default                                    |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                    | integer                  | ⛔       | `nextval('alert_history_id_seq'::regcl...` |
+| `metric_type`           | USER-DEFINED             | ⛔       |                                            |
+| `severity`              | USER-DEFINED             | ⛔       |                                            |
+| `current_value`         | numeric                  | ⛔       |                                            |
+| `threshold_value`       | numeric                  | ⛔       |                                            |
+| `message`               | text                     | ⛔       |                                            |
+| `notified_via`          | ARRAY                    | ✅       |                                            |
+| `webhook_response_code` | integer                  | ✅       |                                            |
+| `acknowledged`          | boolean                  | ✅       | `false`                                    |
+| `acknowledged_at`       | timestamp with time zone | ✅       |                                            |
+| `acknowledged_by`       | character varying        | ✅       |                                            |
+| `fired_at`              | timestamp with time zone | ✅       | `now()`                                    |
+| `resolved_at`           | timestamp with time zone | ✅       |                                            |
+| `created_at`            | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
 
 **Indexes:**
 
-- `idx_chunks_document` on document_id
+- `alert_history_pkey` — `CREATE UNIQUE INDEX alert_history_pkey ON public.alert_history USING btree (id)`
+- `idx_alert_history_acknowledged` — `CREATE INDEX idx_alert_history_acknowledged ON public.alert_history USING btree (acknowledged) WHERE (NOT acknowledged)`
+- `idx_alert_history_fired_at` — `CREATE INDEX idx_alert_history_fired_at ON public.alert_history USING btree (fired_at DESC)`
+- `idx_alert_history_metric` — `CREATE INDEX idx_alert_history_metric ON public.alert_history USING btree (metric_type)`
+- `idx_alert_history_severity` — `CREATE INDEX idx_alert_history_severity ON public.alert_history USING btree (severity)`
 
 ---
 
-### 010_alert_config_schema.sql - Alert Configuration
+## `alert_last_fired`
 
-#### alert_thresholds
+> Rate limiting tracker for each metric type
 
-| Column             | Type              | Description                               |
-| ------------------ | ----------------- | ----------------------------------------- |
-| id                 | serial            | Primary key                               |
-| metric_type        | alert_metric_type | cpu, ram, disk, temperature               |
-| warning_threshold  | decimal(5,2)      | Warning level                             |
-| critical_threshold | decimal(5,2)      | Critical level                            |
-| enabled            | boolean           | Enable/disable this alert                 |
-| cooldown_seconds   | integer           | Min seconds between alerts (default: 300) |
-| display_name       | varchar(100)      | UI display name                           |
+| Column          | Type                     | Nullable | Default |
+| --------------- | ------------------------ | -------- | ------- |
+| `metric_type`   | USER-DEFINED             | ⛔       |         |
+| `severity`      | USER-DEFINED             | ⛔       |         |
+| `fired_at`      | timestamp with time zone | ⛔       | `now()` |
+| `current_value` | numeric                  | ✅       |         |
 
-#### alert_history
-
-| Column            | Type              | Description                 |
-| ----------------- | ----------------- | --------------------------- |
-| id                | serial            | Primary key                 |
-| metric_type       | alert_metric_type | Alert type                  |
-| severity          | alert_severity    | warning/critical            |
-| value             | decimal(10,2)     | Actual value                |
-| threshold         | decimal(10,2)     | Threshold that was exceeded |
-| triggered_at      | timestamptz       | Alert time                  |
-| resolved_at       | timestamptz       | Resolution time             |
-| notification_sent | boolean           | Notification status         |
-
----
-
-### 011_llm_models_schema.sql - LLM Model Management
-
-#### llm_model_catalog
-
-| Column           | Type         | Description                       |
-| ---------------- | ------------ | --------------------------------- |
-| id               | varchar(100) | Primary key (e.g., 'qwen3:7b-q8') |
-| name             | varchar(255) | Display name                      |
-| description      | text         | Model description                 |
-| size_bytes       | bigint       | Download size                     |
-| ram_required_gb  | integer      | RAM requirement                   |
-| category         | varchar(50)  | small/medium/large/xlarge         |
-| capabilities     | jsonb        | ['coding', 'reasoning', etc.]     |
-| jetson_tested    | boolean      | Tested on Jetson AGX Orin         |
-| performance_tier | integer      | 1=fastest, 3=slowest              |
-
-#### llm_installed_models
-
-| Column            | Type         | Description                 |
-| ----------------- | ------------ | --------------------------- |
-| id                | varchar(100) | Primary key                 |
-| status            | varchar(20)  | downloading/available/error |
-| download_progress | integer      | 0-100 percent               |
-| downloaded_at     | timestamptz  | Download completion         |
-| last_used_at      | timestamptz  | Last usage                  |
-| usage_count       | integer      | Usage counter               |
-| is_default        | boolean      | Default model flag          |
-
-#### llm_model_switches
-
-| Column             | Type         | Description              |
-| ------------------ | ------------ | ------------------------ |
-| id                 | serial       | Primary key              |
-| from_model         | varchar(100) | Previous model           |
-| to_model           | varchar(100) | New model                |
-| switch_duration_ms | integer      | Switch time              |
-| triggered_by       | varchar(50)  | user/queue/workflow/auto |
-| switched_at        | timestamptz  | Switch timestamp         |
-
----
-
-### 013_appstore_schema.sql - App Store
-
-#### installed_apps
-
-| Column       | Type         | Description               |
-| ------------ | ------------ | ------------------------- |
-| id           | varchar(100) | Primary key               |
-| name         | varchar(255) | App name                  |
-| description  | text         | App description           |
-| version      | varchar(50)  | Installed version         |
-| category     | varchar(50)  | App category              |
-| status       | varchar(20)  | installed/running/stopped |
-| config       | jsonb        | App configuration         |
-| installed_at | timestamptz  | Installation time         |
-
----
-
-### 017_audit_log_schema.sql - Audit Logging
-
-#### audit_logs
-
-| Column        | Type         | Description         |
-| ------------- | ------------ | ------------------- |
-| id            | serial       | Primary key         |
-| user_id       | integer      | FK to admin_users   |
-| action        | varchar(100) | Action performed    |
-| resource_type | varchar(50)  | Type of resource    |
-| resource_id   | varchar(100) | Resource identifier |
-| details       | jsonb        | Action details      |
-| ip_address    | varchar(45)  | Client IP           |
-| created_at    | timestamptz  | Action time         |
-
----
-
-### 018_claude_terminal_schema.sql - Claude Terminal
-
-#### claude_terminal_sessions
-
-| Column     | Type        | Description       |
-| ---------- | ----------- | ----------------- |
-| id         | serial      | Primary key       |
-| user_id    | integer     | FK to admin_users |
-| query      | text        | User query        |
-| response   | text        | Claude response   |
-| context    | jsonb       | Session context   |
-| created_at | timestamptz | Query time        |
-
----
-
-### 020_telegram_config_schema.sql - Telegram Bot
-
-#### telegram_config
-
-| Column              | Type        | Description                               |
-| ------------------- | ----------- | ----------------------------------------- |
-| id                  | integer     | Primary key (always 1, singleton)         |
-| bot_token_encrypted | text        | AES-256-GCM encrypted token               |
-| bot_token_iv        | text        | Initialization vector for decryption      |
-| bot_token_tag       | text        | GCM authentication tag                    |
-| chat_id             | varchar(50) | Default chat ID for broadcasts            |
-| enabled             | boolean     | Master switch for notifications           |
-| alert_thresholds    | jsonb       | Alert threshold configuration (see below) |
-| created_at          | timestamptz | Creation time                             |
-| updated_at          | timestamptz | Last update (auto-updated via trigger)    |
-
-**alert_thresholds JSON Schema:**
-
-```json
-{
-  "cpu_warning": 80, // CPU % for warning
-  "cpu_critical": 95, // CPU % for critical alert
-  "ram_warning": 80, // RAM % for warning
-  "ram_critical": 95, // RAM % for critical alert
-  "disk_warning": 80, // Disk % for warning
-  "disk_critical": 95, // Disk % for critical alert
-  "gpu_warning": 85, // GPU % for warning
-  "gpu_critical": 95, // GPU % for critical alert
-  "temperature_warning": 75, // Temperature °C for warning
-  "temperature_critical": 85, // Temperature °C for critical alert
-  "notify_on_warning": false, // Send notifications on warning level
-  "notify_on_critical": true, // Send notifications on critical level
-  "notify_on_service_down": true, // Alert when services fail
-  "notify_on_self_healing": true, // Alert on self-healing events
-  "cooldown_minutes": 15 // Minimum minutes between repeated alerts
-}
-```
-
-**Constraints:**
-
-- `CHECK (id = 1)` - Single-row enforced (singleton pattern)
-- Token encrypted with AES-256-GCM using JWT_SECRET as key
+**Primary key:** `metric_type`
 
 **Indexes:**
 
-- `idx_telegram_config_enabled` on enabled
-
-**Triggers:**
-
-- `trigger_telegram_config_updated_at` - Auto-updates `updated_at` on changes
+- `alert_last_fired_pkey` — `CREATE UNIQUE INDEX alert_last_fired_pkey ON public.alert_last_fired USING btree (metric_type)`
 
 ---
 
-### 019_notification_events_schema.sql - Notification Events
+## `alert_quiet_hours`
 
-#### notification_events
+> Quiet hours configuration to suppress alerts during certain times
 
-| Column               | Type         | Description                                       |
-| -------------------- | ------------ | ------------------------------------------------- |
-| id                   | serial       | Primary key                                       |
-| event_type           | varchar(50)  | Event type (service_status, workflow_event, etc.) |
-| event_category       | varchar(50)  | Category (status_change, completion, failure)     |
-| source_service       | varchar(100) | Container or service name                         |
-| severity             | varchar(20)  | info, warning, error, critical                    |
-| title                | varchar(255) | Event title                                       |
-| message              | text         | Event message                                     |
-| metadata             | jsonb        | Additional event data                             |
-| notification_sent    | boolean      | Whether notification was sent                     |
-| notification_sent_at | timestamptz  | When notification was sent                        |
-| notification_error   | text         | Error if sending failed                           |
-| retry_count          | integer      | Number of retry attempts                          |
-| created_at           | timestamptz  | Creation time                                     |
+| Column        | Type                     | Nullable | Default                                    |
+| ------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`          | integer                  | ⛔       | `nextval('alert_quiet_hours_id_seq'::r...` |
+| `day_of_week` | integer                  | ⛔       |                                            |
+| `start_time`  | time without time zone   | ⛔       | `'22:00:00'::time without time zone`       |
+| `end_time`    | time without time zone   | ⛔       | `'07:00:00'::time without time zone`       |
+| `enabled`     | boolean                  | ✅       | `false`                                    |
+| `created_at`  | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`  | timestamp with time zone | ✅       | `now()`                                    |
 
-#### notification_settings
-
-| Column                      | Type         | Description               |
-| --------------------------- | ------------ | ------------------------- |
-| id                          | serial       | Primary key               |
-| user_id                     | integer      | FK to users               |
-| channel                     | varchar(50)  | telegram, webhook, email  |
-| enabled                     | boolean      | Channel enabled           |
-| event_types                 | text[]       | Filtered event types      |
-| min_severity                | varchar(20)  | Minimum severity to send  |
-| rate_limit_per_minute       | integer      | Rate limit per minute     |
-| rate_limit_per_hour         | integer      | Rate limit per hour       |
-| quiet_hours_start           | time         | Quiet hours start         |
-| quiet_hours_end             | time         | Quiet hours end           |
-| telegram_chat_id            | varchar(100) | Telegram chat ID          |
-| telegram_bot_token_override | varchar(255) | Optional custom bot token |
-| webhook_url                 | varchar(500) | Webhook URL               |
-| webhook_secret              | varchar(255) | Webhook secret            |
-| created_at                  | timestamptz  | Creation time             |
-| updated_at                  | timestamptz  | Last update               |
-
-#### service_status_cache
-
-| Column            | Type         | Description                    |
-| ----------------- | ------------ | ------------------------------ |
-| service_name      | varchar(100) | Primary key                    |
-| container_name    | varchar(255) | Docker container name          |
-| status            | varchar(50)  | running, stopped, exited, etc. |
-| health            | varchar(50)  | healthy, unhealthy, starting   |
-| last_status       | varchar(50)  | Previous status                |
-| last_health       | varchar(50)  | Previous health                |
-| status_changed_at | timestamptz  | When status changed            |
-| last_checked_at   | timestamptz  | Last check time                |
-| metadata          | jsonb        | Additional data                |
-
-#### system_boot_events
-
-| Column                         | Type         | Description             |
-| ------------------------------ | ------------ | ----------------------- |
-| id                             | serial       | Primary key             |
-| boot_timestamp                 | timestamptz  | Boot time               |
-| previous_shutdown_timestamp    | timestamptz  | Previous shutdown       |
-| shutdown_reason                | varchar(100) | Reason for shutdown     |
-| uptime_before_shutdown_seconds | integer      | Uptime before shutdown  |
-| services_status_at_boot        | jsonb        | Services status at boot |
-| boot_duration_ms               | integer      | Boot duration in ms     |
-| notification_sent              | boolean      | Notification sent       |
-| created_at                     | timestamptz  | Creation time           |
-
-#### notification_rate_limits
-
-| Column       | Type        | Description             |
-| ------------ | ----------- | ----------------------- |
-| id           | serial      | Primary key             |
-| user_id      | integer     | FK to users             |
-| channel      | varchar(50) | Notification channel    |
-| event_type   | varchar(50) | Event type              |
-| window_start | timestamptz | Rate limit window start |
-| count        | integer     | Message count in window |
-
----
-
-### 021_api_audit_logs_schema.sql - API Audit Logging
-
-#### api_audit_logs
-
-| Column          | Type         | Description                                      |
-| --------------- | ------------ | ------------------------------------------------ |
-| id              | serial       | Primary key                                      |
-| timestamp       | timestamptz  | Request timestamp                                |
-| user_id         | integer      | FK to admin_users (nullable for unauth requests) |
-| username        | varchar(255) | Username at time of request                      |
-| action_type     | varchar(50)  | HTTP method (GET, POST, PUT, DELETE, PATCH)      |
-| target_endpoint | varchar(500) | Full API endpoint path                           |
-| request_method  | varchar(10)  | HTTP method (for efficient filtering)            |
-| request_payload | jsonb        | Sanitized request body (no passwords/tokens)     |
-| response_status | integer      | HTTP response status code                        |
-| duration_ms     | integer      | Request processing time in ms                    |
-| ip_address      | varchar(45)  | Client IP address (IPv4/IPv6)                    |
-| user_agent      | text         | Client user agent string                         |
-| error_message   | text         | Error details for failed requests                |
+**Primary key:** `id`
 
 **Indexes:**
 
-- `idx_api_audit_logs_timestamp` on timestamp DESC
-- `idx_api_audit_logs_user_id` on user_id, timestamp DESC
-- `idx_api_audit_logs_action_type` on action_type, timestamp DESC
-- `idx_api_audit_logs_status` on response_status, timestamp DESC
-- `idx_api_audit_logs_date_action` on DATE(timestamp), action_type
-- `idx_api_audit_logs_endpoint` on target_endpoint, timestamp DESC
-- `idx_api_audit_logs_errors` on timestamp DESC WHERE response_status >= 400
-
-**Views:**
-
-- `api_audit_daily_stats` - Daily aggregated request statistics
-- `api_audit_endpoint_stats` - Endpoint usage and performance stats
-
-**Functions:**
-
-- `cleanup_old_api_audit_logs(retention_days)` - Remove logs older than N days (default: 90)
-
-**Retention:** 90 days (recommended)
+- `alert_quiet_hours_day_of_week_key` — `CREATE UNIQUE INDEX alert_quiet_hours_day_of_week_key ON public.alert_quiet_hours USING btree (day_of_week)`
+- `alert_quiet_hours_pkey` — `CREATE UNIQUE INDEX alert_quiet_hours_pkey ON public.alert_quiet_hours USING btree (id)`
 
 ---
 
-### 022_telegram_notification_system.sql - Telegram Notification System
+## `alert_settings`
 
-Extended columns added to `telegram_config`:
+> Global alert system configuration
 
-| Column                   | Type         | Description                   |
-| ------------------------ | ------------ | ----------------------------- |
-| notification_preferences | jsonb        | Notification type preferences |
-| test_message_sent_at     | timestamptz  | Last test message time        |
-| last_error               | text         | Last error message            |
-| last_error_at            | timestamptz  | Last error time               |
-| connection_verified      | boolean      | Connection verified flag      |
-| connection_verified_at   | timestamptz  | Verification time             |
-| bot_username             | varchar(100) | Bot username from getMe       |
+| Column                 | Type                     | Nullable | Default |
+| ---------------------- | ------------------------ | -------- | ------- |
+| `id`                   | integer                  | ⛔       | `1`     |
+| `alerts_enabled`       | boolean                  | ✅       | `true`  |
+| `webhook_url`          | text                     | ✅       |         |
+| `webhook_enabled`      | boolean                  | ✅       | `false` |
+| `webhook_secret`       | character varying        | ✅       |         |
+| `in_app_notifications` | boolean                  | ✅       | `true`  |
+| `audio_enabled`        | boolean                  | ✅       | `false` |
+| `max_history_entries`  | integer                  | ✅       | `1000`  |
+| `updated_at`           | timestamp with time zone | ✅       | `now()` |
+| `updated_by`           | character varying        | ✅       |         |
 
-**notification_preferences JSON Schema:**
-
-```json
-{
-  "system_alerts": true,
-  "self_healing_events": true,
-  "service_status_changes": true,
-  "login_alerts": true,
-  "daily_summary": false,
-  "quiet_hours_enabled": false,
-  "quiet_hours_start": "22:00",
-  "quiet_hours_end": "07:00"
-}
-```
-
-#### telegram_rate_limits
-
-| Column          | Type        | Description             |
-| --------------- | ----------- | ----------------------- |
-| id              | serial      | Primary key             |
-| chat_id         | varchar(50) | Telegram chat ID        |
-| window_start    | timestamptz | Rate limit window start |
-| message_count   | integer     | Messages in window      |
-| last_message_at | timestamptz | Last message time       |
-
-**Purpose:** Enforces Telegram API rate limits (30 msg/sec per chat)
-
-#### telegram_message_log
-
-| Column          | Type         | Description                              |
-| --------------- | ------------ | ---------------------------------------- |
-| id              | serial       | Primary key                              |
-| chat_id         | varchar(50)  | Telegram chat ID                         |
-| message_type    | varchar(50)  | alert, test, notification, daily_summary |
-| severity        | varchar(20)  | info, warning, error, critical           |
-| title           | varchar(255) | Message title                            |
-| message_text    | text         | Full message content                     |
-| message_id      | integer      | Telegram message ID                      |
-| metadata        | jsonb        | Additional data                          |
-| sent_at         | timestamptz  | Send time                                |
-| delivered       | boolean      | Delivery success                         |
-| error_message   | text         | Error if failed                          |
-| retry_count     | integer      | Retry attempts                           |
-| source_event_id | integer      | Reference to notification_events         |
-| triggered_by    | varchar(100) | system, user:{username}, scheduler       |
-
-**Retention:** 30 days
-
-#### telegram_alert_cooldowns
-
-| Column        | Type         | Description                                  |
-| ------------- | ------------ | -------------------------------------------- |
-| id            | serial       | Primary key                                  |
-| alert_type    | varchar(100) | Alert type (cpu_critical, service_down:name) |
-| chat_id       | varchar(50)  | Telegram chat ID                             |
-| last_alert_at | timestamptz  | Last alert time                              |
-| alert_count   | integer      | Total alert count                            |
-
-**Purpose:** Prevents alert spam with configurable cooldown per alert type
-
-**Functions:**
-
-- `check_telegram_rate_limit(chat_id, max_per_sec, max_per_min)` - Check and increment rate limit
-- `check_telegram_alert_cooldown(alert_type, chat_id, cooldown_min)` - Check if alert can be sent
-- `log_telegram_message(...)` - Log sent message
-- `cleanup_telegram_rate_limits()` - Clean entries older than 1 hour
-- `cleanup_telegram_message_logs(retention_days)` - Clean old message logs
-
-**Views:**
-
-- `v_telegram_stats_24h` - Message statistics for last 24 hours
-- `v_telegram_active_cooldowns` - Currently active cooldowns
-- `v_telegram_recent_messages` - Last 50 messages
-
----
-
-### 023_api_keys_schema.sql - API Keys for External Access
-
-#### api_keys
-
-| Column                | Type         | Description                      |
-| --------------------- | ------------ | -------------------------------- |
-| id                    | serial       | Primary key                      |
-| key_hash              | varchar(128) | bcrypt hash of API key           |
-| key_prefix            | varchar(8)   | First 8 chars for identification |
-| name                  | varchar(100) | Key name                         |
-| description           | text         | Key description                  |
-| created_by            | integer      | FK to admin_users                |
-| created_at            | timestamptz  | Creation time                    |
-| last_used_at          | timestamptz  | Last usage                       |
-| expires_at            | timestamptz  | Expiration time                  |
-| is_active             | boolean      | Active status                    |
-| rate_limit_per_minute | integer      | Rate limit (default: 60)         |
-| allowed_endpoints     | text[]       | Allowed endpoint patterns        |
-
-#### api_key_usage
-
-| Column           | Type         | Description     |
-| ---------------- | ------------ | --------------- |
-| id               | serial       | Primary key     |
-| api_key_id       | integer      | FK to api_keys  |
-| endpoint         | varchar(255) | Called endpoint |
-| method           | varchar(10)  | HTTP method     |
-| status_code      | integer      | Response status |
-| response_time_ms | integer      | Response time   |
-| request_ip       | varchar(45)  | Client IP       |
-| created_at       | timestamptz  | Request time    |
-
----
-
-### 024_telegram_app_schema.sql - Telegram Bot App
-
-#### telegram_setup_sessions
-
-| Column              | Type                  | Description                           |
-| ------------------- | --------------------- | ------------------------------------- |
-| id                  | serial                | Primary key                           |
-| setup_token         | varchar(64)           | Unique setup token                    |
-| bot_token_encrypted | bytea                 | AES-256 encrypted bot token           |
-| bot_username        | varchar(100)          | Bot username                          |
-| chat_id             | bigint                | Connected chat ID                     |
-| user_id             | integer               | FK to admin_users                     |
-| status              | telegram_setup_status | pending/token_valid/completed/expired |
-| expires_at          | timestamptz           | Session expiration                    |
-
-#### telegram_notification_rules
-
-| Column           | Type                      | Description                       |
-| ---------------- | ------------------------- | --------------------------------- |
-| id               | serial                    | Primary key                       |
-| name             | varchar(100)              | Rule name                         |
-| event_source     | notification_event_source | claude/system/n8n/services/custom |
-| event_type       | varchar(100)              | Event type filter                 |
-| severity_filter  | varchar(20)[]             | Severity levels to match          |
-| message_template | text                      | Message template                  |
-| enabled          | boolean                   | Rule enabled                      |
-| created_at       | timestamptz               | Creation time                     |
-
----
-
-### 025-028 - Maintenance Migrations
-
-These migrations contain fixes and incremental updates:
-
-- **025_telegram_functions_fix.sql**: Fixes for Telegram notification functions
-- **026_fix_default_model.sql**: Fix for default model handling
-- **027_model_ollama_name.sql**: Add ollama_name column to model catalog
-- **028_fix_user_references.sql**: Fix user reference constraints
-
----
-
-### 029_model_capabilities_schema.sql - Model Capabilities
-
-Adds capability columns to `llm_model_catalog`:
-
-| Column            | Type    | Description                                                 |
-| ----------------- | ------- | ----------------------------------------------------------- |
-| supports_thinking | boolean | Model supports extended thinking mode (default: false)      |
-| rag_optimized     | boolean | Model is optimized for RAG retrieval tasks (default: false) |
-
-**Data Seeded:**
-
-- `supports_thinking = true`: qwen3:7b-q8, qwen3:14b-q8, qwen3:32b-q4
-- `rag_optimized = true`: qwen3:7b-q8, qwen3:14b-q8, qwen3:32b-q4, llama3.1:70b-q4
+**Primary key:** `id`
 
 **Indexes:**
 
-- `idx_llm_catalog_capabilities` on (supports_thinking, rag_optimized)
+- `alert_settings_pkey` — `CREATE UNIQUE INDEX alert_settings_pkey ON public.alert_settings USING btree (id)`
 
 ---
 
-### 030_model_performance_metrics.sql - Model Performance Tracking
+## `alert_thresholds`
 
-#### model_performance_metrics
+> Configurable thresholds for system metrics alerts
 
-| Column                 | Type         | Description                                                                     |
-| ---------------------- | ------------ | ------------------------------------------------------------------------------- |
-| id                     | serial       | Primary key                                                                     |
-| model_id               | varchar(100) | Model identifier                                                                |
-| job_id                 | uuid         | Associated job ID                                                               |
-| job_type               | varchar(50)  | Job type (chat, rag, etc.)                                                      |
-| tokens_generated       | integer      | Number of tokens generated                                                      |
-| prompt_tokens          | integer      | Number of prompt tokens                                                         |
-| time_to_first_token_ms | integer      | Time to first token in ms                                                       |
-| total_duration_ms      | integer      | Total generation duration in ms                                                 |
-| tokens_per_second      | numeric      | Throughput (GENERATED STORED, computed from tokens_generated/total_duration_ms) |
-| thinking_enabled       | boolean      | Whether thinking mode was active                                                |
-| context_length         | integer      | Context length used                                                             |
-| created_at             | timestamptz  | Record creation time                                                            |
+| Column               | Type                     | Nullable | Default                                    |
+| -------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                 | integer                  | ⛔       | `nextval('alert_thresholds_id_seq'::re...` |
+| `metric_type`        | USER-DEFINED             | ⛔       |                                            |
+| `warning_threshold`  | numeric                  | ⛔       |                                            |
+| `critical_threshold` | numeric                  | ⛔       |                                            |
+| `enabled`            | boolean                  | ✅       | `true`                                     |
+| `cooldown_seconds`   | integer                  | ✅       | `300`                                      |
+| `display_name`       | character varying        | ⛔       |                                            |
+| `description`        | text                     | ✅       |                                            |
+| `unit`               | character varying        | ✅       | `'%'::character varying`                   |
+| `created_at`         | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`         | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_by`         | character varying        | ✅       |                                            |
 
-**View:**
-
-- `model_performance_stats` - 7-day aggregated statistics grouped by model_id and job_type
-
-**Functions:**
-
-- `record_model_performance()` - Insert a new performance record
-- `cleanup_old_performance_metrics()` - Remove records older than 30 days (30-day retention)
+**Primary key:** `id`
 
 **Indexes:**
 
-- `idx_perf_model_id` on model_id
-- `idx_perf_created_at` on created_at DESC
-- `idx_perf_job_type` on job_type
+- `alert_thresholds_metric_type_key` — `CREATE UNIQUE INDEX alert_thresholds_metric_type_key ON public.alert_thresholds USING btree (metric_type)`
+- `alert_thresholds_pkey` — `CREATE UNIQUE INDEX alert_thresholds_pkey ON public.alert_thresholds USING btree (id)`
 
 ---
 
-### 031_datentabellen_database.sql - Datentabellen Config
-
-#### datentabellen_config
-
-| Column       | Type         | Description                            |
-| ------------ | ------------ | -------------------------------------- |
-| id           | serial       | Primary key                            |
-| data_db_host | varchar(255) | Data database hostname                 |
-| data_db_port | integer      | Data database port                     |
-| data_db_name | varchar(100) | Data database name                     |
-| data_db_user | varchar(100) | Data database user                     |
-| is_enabled   | boolean      | Feature enabled flag                   |
-| created_at   | timestamptz  | Creation time                          |
-| updated_at   | timestamptz  | Last update (auto-updated via trigger) |
-
-**Default Row:** host=postgres-db, port=5432, db=arasul_data_db, user=arasul_data, enabled=true
-
-**Triggers:**
-
-- Auto-update `updated_at` on row change
-
----
-
-### 032_telegram_multi_bot_schema.sql - Multi-Bot Telegram (519 lines)
-
-Major schema overhaul replacing the single-bot Telegram architecture with a multi-bot system.
-
-**Dropped Tables:** telegram_llm_messages, telegram_llm_sessions, telegram_api_keys
-
-#### telegram_bots
-
-| Column              | Type         | Description                     |
-| ------------------- | ------------ | ------------------------------- |
-| id                  | serial       | Primary key                     |
-| bot_token_encrypted | text         | AES-256-GCM encrypted bot token |
-| bot_token_iv        | text         | Initialization vector           |
-| bot_token_tag       | text         | GCM authentication tag          |
-| bot_username        | varchar(100) | Bot username from Telegram      |
-| bot_name            | varchar(255) | Display name                    |
-| llm_model           | varchar(100) | Assigned LLM model              |
-| llm_system_prompt   | text         | System prompt for LLM           |
-| webhook_url         | text         | Webhook endpoint URL            |
-| is_active           | boolean      | Bot active flag                 |
-| created_at          | timestamptz  | Creation time                   |
-| updated_at          | timestamptz  | Last update                     |
-
-#### telegram_bot_commands
-
-| Column            | Type         | Description                 |
-| ----------------- | ------------ | --------------------------- |
-| id                | serial       | Primary key                 |
-| bot_id            | integer      | FK to telegram_bots         |
-| command           | varchar(100) | Slash command (e.g. /start) |
-| description       | text         | Command description         |
-| response_template | text         | Response template           |
-| is_active         | boolean      | Command active flag         |
-
-#### telegram_bot_chats
-
-| Column       | Type         | Description                      |
-| ------------ | ------------ | -------------------------------- |
-| id           | serial       | Primary key                      |
-| bot_id       | integer      | FK to telegram_bots              |
-| chat_id      | bigint       | Telegram chat ID                 |
-| chat_type    | varchar(20)  | private/group/supergroup/channel |
-| chat_title   | varchar(255) | Chat name                        |
-| is_active    | boolean      | Connection active                |
-| connected_at | timestamptz  | Connection time                  |
-
-#### telegram_bot_sessions
-
-| Column     | Type        | Description                |
-| ---------- | ----------- | -------------------------- |
-| id         | serial      | Primary key                |
-| bot_id     | integer     | FK to telegram_bots        |
-| chat_id    | bigint      | Telegram chat ID           |
-| user_id    | bigint      | Telegram user ID           |
-| messages   | jsonb       | Conversation history array |
-| created_at | timestamptz | Session start              |
-| updated_at | timestamptz | Last activity              |
-
-**Modified Tables:**
-
-- `telegram_notification_rules` - Added bot_id column
-- `telegram_notification_history` - Added bot_id column
-- `telegram_setup_sessions` - Added bot_id, bot_name, llm_provider columns
-
-**Functions:**
-
-- `create_telegram_bot()` - Create a new bot entry with encrypted token
-- `add_telegram_bot_chat()` - Register a chat connection for a bot
-- `get_or_create_bot_session()` - Retrieve or initialize a conversation session
-- `add_message_to_session()` - Append a message to session history
-- `clear_bot_session()` - Reset conversation history for a session
-- `complete_multibot_setup()` - Finalize bot setup flow
-
-**Indexes:** 13 indexes created; data migration from old tables performed.
-
----
-
-### 033_telegram_voice_support.sql - Telegram Voice & Rate Limiting
-
-Adds voice support and user restrictions to `telegram_bots`:
-
-| Column             | Type    | Description                                  |
-| ------------------ | ------- | -------------------------------------------- |
-| openai_api_key     | text    | AES-256 encrypted OpenAI API key for Whisper |
-| voice_enabled      | boolean | Enable voice message handling                |
-| max_voice_duration | integer | Maximum voice duration in seconds            |
-| allowed_users      | jsonb   | Array of allowed Telegram user IDs           |
-| restrict_users     | boolean | Enforce allowed_users whitelist              |
-
-#### telegram_rate_limits
-
-| Column                  | Type        | Description                 |
-| ----------------------- | ----------- | --------------------------- |
-| id                      | serial      | Primary key                 |
-| bot_id                  | integer     | FK to telegram_bots         |
-| chat_id                 | bigint      | Telegram chat ID            |
-| user_id                 | bigint      | Telegram user ID            |
-| request_count           | integer     | Requests in current window  |
-| window_start            | timestamptz | Window start time           |
-| max_requests_per_minute | integer     | Per-minute rate limit       |
-| max_requests_per_hour   | integer     | Per-hour rate limit         |
-| is_rate_limited         | boolean     | Currently rate limited flag |
-| cooldown_until          | timestamptz | Rate limit expiry time      |
-
-**Functions:**
-
-- `check_rate_limit()` - Evaluate and enforce rate limits for a user/chat
-- `is_user_allowed()` - Check if a user is in the allowed_users whitelist
-
----
-
-### 034_telegram_app_status_schema.sql - Telegram App Status
-
-#### telegram_app_status
-
-| Column               | Type        | Description                 |
-| -------------------- | ----------- | --------------------------- |
-| id                   | serial      | Primary key                 |
-| user_id              | integer     | FK to admin_users (UNIQUE)  |
-| is_enabled           | boolean     | App enabled for this user   |
-| icon_visible         | boolean     | App icon shown in dashboard |
-| first_bot_created_at | timestamptz | When first bot was created  |
-| last_activity_at     | timestamptz | Last activity timestamp     |
-| settings             | jsonb       | User-specific settings      |
-
-**Functions:**
-
-- `ensure_telegram_app_status()` - Create status row if not exists for a user
-- `activate_telegram_app()` - Enable the app and make icon visible
-- `update_telegram_app_on_bot_change()` - Sync app status on bot creation/deletion
-
-**Triggers:**
-
-- Auto-trigger on bot creation in `telegram_bots` to activate the app status for the owner
-
----
-
-### 035_model_types.sql - Model Type Classification
-
-Adds type classification to `llm_model_catalog`:
-
-| Column     | Type        | Description                                                      |
-| ---------- | ----------- | ---------------------------------------------------------------- |
-| model_type | varchar(20) | Model category: 'llm', 'ocr', 'vision', 'audio' (default: 'llm') |
-
-**Constraint:** CHECK (model_type IN ('llm', 'ocr', 'vision', 'audio'))
-
-**Index:**
-
-- `idx_model_catalog_type` on model_type
-
-**Data Seeded (OCR models):**
-| Model | Size | Type |
-|-------|------|------|
-| tesseract:latest | 536 MB | ocr |
-| paddleocr:latest | 4 GB | ocr |
-
----
-
-### 036_rag_performance.sql - RAG Performance Indexes
-
-Performance indexes for German-language document retrieval:
-
-- **`idx_document_chunks_text_search_de`** - GIN index on `to_tsvector('german', chunk_text)` in `document_chunks` for German full-text search
-- **`idx_documents_space_status`** - Composite index on `(space_id, status)` in `documents` WHERE `deleted_at IS NULL` (partial index)
-
----
-
-### 037_fix_foreign_keys_and_indexes.sql - FK and Index Fixes
-
-Fixes foreign key constraints with explicit ON DELETE actions for tables from migrations 004, 009, 023, and 024.
-
-**Composite Indexes Added:**
-
-| Table         | Index                                  | Columns                     |
-| ------------- | -------------------------------------- | --------------------------- |
-| chat_messages | idx_chat_messages_conversation_created | conversation_id, created_at |
-| documents     | idx_documents_space_id                 | space_id                    |
-| documents     | idx_documents_status_uploaded          | status, uploaded_at         |
-
----
-
-### 038_system_settings.sql - System Setup Wizard
-
-Introduces the `system_settings` singleton table that persists the state of the first-boot Setup Wizard (Phase 6).
-
-#### system_settings
-
-| Column             | Type         | Description                                 |
-| ------------------ | ------------ | ------------------------------------------- |
-| id                 | integer      | Primary key (always 1, singleton)           |
-| setup_completed    | boolean      | Whether the Setup Wizard has been completed |
-| setup_completed_at | timestamptz  | Timestamp when setup was marked complete    |
-| setup_completed_by | integer      | FK to admin_users (who completed the setup) |
-| company_name       | varchar(255) | Company name entered during setup           |
-| hostname           | varchar(255) | Device hostname configured during setup     |
-| selected_model     | varchar(255) | LLM model selected during setup             |
-| setup_step         | integer      | Last saved wizard step (for resume support) |
-| created_at         | timestamptz  | Row creation time                           |
-| updated_at         | timestamptz  | Last update (auto-updated via trigger)      |
-
-**Constraints:**
-
-- `CHECK (id = 1)` - Single-row enforced (singleton pattern)
-- `setup_completed_by` FK references `admin_users(id)` ON DELETE SET NULL
-
-**Default Row:** Inserted on migration with `setup_completed = false`, `setup_step = 1`.
-
-**Functions:**
-
-- `is_setup_completed()` - Returns boolean; queries `system_settings` to check whether setup is done. Used by the public `GET /api/system/setup-status` endpoint without requiring a DB join.
-- `update_system_settings_timestamp()` - Trigger function that sets `updated_at = NOW()` on every UPDATE.
-
-**Triggers:**
-
-- `trg_system_settings_updated` - BEFORE UPDATE trigger on `system_settings`; calls `update_system_settings_timestamp()` to keep `updated_at` current.
-
----
-
-### 039_parent_chunks_schema.sql - Hierarchical Document Chunks
-
-Supports hierarchical chunking: parent chunks (~2000 tokens) for LLM context, child chunks (~400 tokens) for precise vector retrieval.
-
-#### document_parent_chunks
-
-| Column       | Type        | Description               |
-| ------------ | ----------- | ------------------------- |
-| id           | uuid        | Primary key (generated)   |
-| document_id  | uuid        | FK to documents (CASCADE) |
-| parent_index | integer     | Parent chunk sequence     |
-| chunk_text   | text        | Parent chunk text         |
-| char_start   | integer     | Start character offset    |
-| char_end     | integer     | End character offset      |
-| word_count   | integer     | Word count                |
-| token_count  | integer     | Token count               |
-| created_at   | timestamptz | Creation time             |
-
-**Constraints:**
-
-- `UNIQUE(document_id, parent_index)`
-
-**Columns added to `document_chunks`:**
-
-| Column          | Type    | Description                           |
-| --------------- | ------- | ------------------------------------- |
-| parent_chunk_id | uuid    | FK to document_parent_chunks          |
-| child_index     | integer | Child chunk index within parent chunk |
+## `api_audit_logs`
+
+> Audit log for all API requests - used for monitoring, debugging, and compliance
+
+| Column            | Type                     | Nullable | Default                                    |
+| ----------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`              | integer                  | ⛔       | `nextval('api_audit_logs_id_seq'::regc...` |
+| `timestamp`       | timestamp with time zone | ⛔       | `now()`                                    |
+| `user_id`         | integer                  | ✅       |                                            |
+| `action_type`     | character varying        | ⛔       |                                            |
+| `target_endpoint` | character varying        | ⛔       |                                            |
+| `request_payload` | jsonb                    | ✅       | `'{}'::jsonb`                              |
+| `response_status` | integer                  | ⛔       |                                            |
+| `duration_ms`     | integer                  | ⛔       | `0`                                        |
+| `ip_address`      | inet                     | ✅       |                                            |
+| `user_agent`      | text                     | ✅       |                                            |
+| `request_id`      | character varying        | ✅       |                                            |
+| `error_message`   | text                     | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
 
 **Indexes:**
 
-- `idx_document_chunks_parent` on document_chunks(parent_chunk_id)
-- `idx_parent_chunks_document` on document_parent_chunks(document_id)
+- `api_audit_logs_pkey` — `CREATE UNIQUE INDEX api_audit_logs_pkey ON public.api_audit_logs USING btree (id)`
+- `idx_api_audit_logs_action_type` — `CREATE INDEX idx_api_audit_logs_action_type ON public.api_audit_logs USING btree (action_type, "timestamp" DESC)`
+- `idx_api_audit_logs_endpoint` — `CREATE INDEX idx_api_audit_logs_endpoint ON public.api_audit_logs USING btree (target_endpoint, "timestamp" DESC)`
+- `idx_api_audit_logs_errors` — `CREATE INDEX idx_api_audit_logs_errors ON public.api_audit_logs USING btree ("timestamp" DESC) WHERE (response_status >= 400)`
+- `idx_api_audit_logs_response_status` — `CREATE INDEX idx_api_audit_logs_response_status ON public.api_audit_logs USING btree (response_status, "timestamp" DESC)`
+- `idx_api_audit_logs_timestamp` — `CREATE INDEX idx_api_audit_logs_timestamp ON public.api_audit_logs USING btree ("timestamp" DESC)`
+- `idx_api_audit_logs_timestamp_action` — `CREATE INDEX idx_api_audit_logs_timestamp_action ON public.api_audit_logs USING btree ("timestamp" DESC, action_type)`
+- `idx_api_audit_logs_user_id` — `CREATE INDEX idx_api_audit_logs_user_id ON public.api_audit_logs USING btree (user_id, "timestamp" DESC) WHERE (user_id IS NOT NULL)`
 
 ---
 
-### 040_filter_aware_statistics.sql - Document Statistics Function
+## `api_key_usage`
 
-**Function:** `get_filtered_document_statistics(p_space_id, p_status, p_category_id) RETURNS TABLE`
+| Column             | Type                     | Nullable | Default                                    |
+| ------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`               | integer                  | ⛔       | `nextval('api_key_usage_id_seq'::regcl...` |
+| `api_key_id`       | integer                  | ✅       |                                            |
+| `endpoint`         | character varying        | ⛔       |                                            |
+| `method`           | character varying        | ⛔       |                                            |
+| `status_code`      | integer                  | ✅       |                                            |
+| `response_time_ms` | integer                  | ✅       |                                            |
+| `request_ip`       | character varying        | ✅       |                                            |
+| `user_agent`       | text                     | ✅       |                                            |
+| `created_at`       | timestamp with time zone | ✅       | `now()`                                    |
 
-Filter-aware document statistics function. All parameters are optional (NULL = no filter).
+**Primary key:** `id`
 
-Returns: `total_documents`, `indexed_documents`, `pending_documents`, `failed_documents`, `total_chunks`, `total_size_bytes`, `documents_by_category` (JSONB).
+**Foreign Keys:**
 
----
-
-### 041_context_management_schema.sql - Context Management System
-
-Compaction, memory, token-tracking, and model context window management.
-
-**Columns added to `chat_conversations`:**
-
-| Column                   | Type        | Description                     |
-| ------------------------ | ----------- | ------------------------------- |
-| compaction_summary       | text        | Summary from context compaction |
-| compaction_token_count   | integer     | Token count after compaction    |
-| compaction_message_count | integer     | Messages compacted              |
-| last_compacted_at        | timestamptz | Last compaction time            |
-
-**Columns added to `llm_jobs`:**
-
-| Column              | Type    | Description            |
-| ------------------- | ------- | ---------------------- |
-| prompt_tokens       | integer | Prompt token count     |
-| completion_tokens   | integer | Completion token count |
-| context_window_used | integer | Context window used    |
-
-**Columns added to `llm_model_catalog`:**
-
-| Column          | Type    | Description                         |
-| --------------- | ------- | ----------------------------------- |
-| context_window  | integer | Model context window size           |
-| recommended_ctx | integer | Recommended context (default: 8192) |
-
-**Columns added to `system_settings`:**
-
-| Column                | Type        | Description                 |
-| --------------------- | ----------- | --------------------------- |
-| ai_profile_yaml       | text        | AI profile YAML config      |
-| ai_profile_updated_at | timestamptz | AI profile last update time |
-
-#### ai_memories
-
-| Column                 | Type         | Description                         |
-| ---------------------- | ------------ | ----------------------------------- |
-| id                     | uuid         | Primary key (generated)             |
-| type                   | varchar(20)  | fact/decision/preference            |
-| content                | text         | Memory content                      |
-| source_conversation_id | bigint       | FK to chat_conversations (SET NULL) |
-| qdrant_point_id        | uuid         | Qdrant vector point ID              |
-| importance             | decimal(3,2) | Importance score (default: 0.5)     |
-| created_at             | timestamptz  | Creation time                       |
-| updated_at             | timestamptz  | Last update                         |
-| is_active              | boolean      | Active flag (default: true)         |
+- `api_key_id` → `api_keys.id`
 
 **Indexes:**
 
-- `idx_ai_memories_type` on type
-- `idx_ai_memories_active` on is_active WHERE is_active = TRUE
-- `idx_ai_memories_created` on created_at DESC
-
-#### compaction_log
-
-| Column             | Type         | Description                          |
-| ------------------ | ------------ | ------------------------------------ |
-| id                 | serial       | Primary key                          |
-| conversation_id    | bigint       | FK to chat_conversations (CASCADE)   |
-| messages_compacted | integer      | Number of messages compacted         |
-| tokens_before      | integer      | Token count before compaction        |
-| tokens_after       | integer      | Token count after compaction         |
-| compression_ratio  | decimal(5,2) | Compression ratio                    |
-| memories_extracted | integer      | Memories extracted during compaction |
-| model_used         | varchar(100) | Model used for compaction            |
-| duration_ms        | integer      | Compaction duration in ms            |
-| created_at         | timestamptz  | Record creation time                 |
-
-**Functions:**
-
-- `cleanup_old_compaction_logs()` - Remove records older than 30 days
-
-**Retention:** 30 days
+- `api_key_usage_pkey` — `CREATE UNIQUE INDEX api_key_usage_pkey ON public.api_key_usage USING btree (id)`
+- `idx_api_key_usage_created` — `CREATE INDEX idx_api_key_usage_created ON public.api_key_usage USING btree (created_at)`
+- `idx_api_key_usage_key_id` — `CREATE INDEX idx_api_key_usage_key_id ON public.api_key_usage USING btree (api_key_id)`
 
 ---
 
-### 042_projects_schema.sql - Project System
+## `api_keys`
 
-Adds project system for grouping conversations with system prompts and knowledge spaces.
+> API keys for external app access (n8n, automations, etc.)
 
-#### projects
+| Column                  | Type                     | Nullable | Default                                    |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                    | integer                  | ⛔       | `nextval('api_keys_id_seq'::regclass)`     |
+| `key_hash`              | character varying        | ⛔       |                                            |
+| `key_prefix`            | character varying        | ⛔       |                                            |
+| `name`                  | character varying        | ⛔       |                                            |
+| `description`           | text                     | ✅       |                                            |
+| `created_by`            | integer                  | ✅       |                                            |
+| `created_at`            | timestamp with time zone | ✅       | `now()`                                    |
+| `last_used_at`          | timestamp with time zone | ✅       |                                            |
+| `expires_at`            | timestamp with time zone | ✅       |                                            |
+| `is_active`             | boolean                  | ✅       | `true`                                     |
+| `rate_limit_per_minute` | integer                  | ✅       | `60`                                       |
+| `allowed_endpoints`     | ARRAY                    | ✅       | `ARRAY['llm:chat'::text, 'llm:status':...` |
+| `metadata`              | jsonb                    | ✅       | `'{}'::jsonb`                              |
 
-| Column             | Type         | Description                         |
-| ------------------ | ------------ | ----------------------------------- |
-| id                 | uuid         | Primary key (generated)             |
-| name               | varchar(100) | Project name                        |
-| description        | text         | Project description                 |
-| system_prompt      | text         | System prompt for project chats     |
-| icon               | varchar(50)  | Icon identifier (default: 'folder') |
-| color              | varchar(7)   | Hex color (default: '#45ADFF')      |
-| knowledge_space_id | uuid         | FK to knowledge_spaces (SET NULL)   |
-| sort_order         | integer      | Display order                       |
-| created_at         | timestamptz  | Creation time                       |
-| updated_at         | timestamptz  | Last update                         |
+**Primary key:** `id`
 
-**Column added to `chat_conversations`:**
+**Foreign Keys:**
 
-| Column     | Type | Description    |
-| ---------- | ---- | -------------- |
-| project_id | uuid | FK to projects |
+- `created_by` → `admin_users.id`
 
 **Indexes:**
 
-- `idx_conversations_project` on chat_conversations(project_id)
-- `idx_projects_sort` on projects(sort_order, created_at DESC)
+- `api_keys_pkey` — `CREATE UNIQUE INDEX api_keys_pkey ON public.api_keys USING btree (id)`
+- `idx_api_keys_active` — `CREATE INDEX idx_api_keys_active ON public.api_keys USING btree (is_active) WHERE (is_active = true)`
+- `idx_api_keys_prefix` — `CREATE INDEX idx_api_keys_prefix ON public.api_keys USING btree (key_prefix)`
 
 ---
 
-### 043_default_project_and_constraints.sql - Default Project
+## `app_configurations`
 
-Ensures every chat belongs to a project. Creates "Allgemein" as the default project.
+> Per-app configuration key-value storage
 
-**Column added to `projects`:**
+| Column         | Type                     | Nullable | Default                                    |
+| -------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`           | integer                  | ⛔       | `nextval('app_configurations_id_seq'::...` |
+| `app_id`       | character varying        | ⛔       |                                            |
+| `config_key`   | character varying        | ⛔       |                                            |
+| `config_value` | text                     | ✅       |                                            |
+| `is_secret`    | boolean                  | ✅       | `false`                                    |
+| `created_at`   | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`   | timestamp with time zone | ✅       | `now()`                                    |
 
-| Column     | Type    | Description          |
-| ---------- | ------- | -------------------- |
-| is_default | boolean | Default project flag |
+**Primary key:** `id`
 
-**Data:** Inserts "Allgemein" default project (icon: inbox, color: #94A3B8).
+**Foreign Keys:**
 
-**Constraint:** `chat_conversations.project_id` changed to NOT NULL.
+- `app_id` → `app_installations.app_id`
 
 **Indexes:**
 
-- `idx_conversations_updated` on chat_conversations(updated_at DESC) WHERE deleted_at IS NULL
+- `app_configurations_app_id_config_key_key` — `CREATE UNIQUE INDEX app_configurations_app_id_config_key_key ON public.app_configurations USING btree (app_id, config_key)`
+- `app_configurations_pkey` — `CREATE UNIQUE INDEX app_configurations_pkey ON public.app_configurations USING btree (id)`
+- `idx_app_configurations_app` — `CREATE INDEX idx_app_configurations_app ON public.app_configurations USING btree (app_id)`
+- `idx_app_configurations_app_id` — `CREATE INDEX idx_app_configurations_app_id ON public.app_configurations USING btree (app_id)`
 
 ---
 
-### 044_knowledge_graph_schema.sql - Knowledge Graph
+## `app_dependencies`
 
-Stores entities and relations extracted from documents for graph-enriched RAG.
+> App dependency tracking (e.g., needs postgres-db)
 
-**Extension:** `pg_trgm` (trigram similarity)
+| Column            | Type              | Nullable | Default                                    |
+| ----------------- | ----------------- | -------- | ------------------------------------------ |
+| `id`              | integer           | ⛔       | `nextval('app_dependencies_id_seq'::re...` |
+| `app_id`          | character varying | ⛔       |                                            |
+| `depends_on`      | character varying | ⛔       |                                            |
+| `dependency_type` | character varying | ✅       | `'required'::character varying`            |
 
-#### kg_entities
+**Primary key:** `id`
 
-| Column        | Type        | Description                      |
-| ------------- | ----------- | -------------------------------- |
-| id            | serial      | Primary key                      |
-| name          | text        | Entity name                      |
-| entity_type   | text        | Person/Organisation/Produkt/etc. |
-| properties    | jsonb       | Additional properties            |
-| mention_count | integer     | Number of mentions (default: 1)  |
-| created_at    | timestamptz | Creation time                    |
-| updated_at    | timestamptz | Last update (auto-trigger)       |
+**Foreign Keys:**
 
-**Constraints:**
-
-- `UNIQUE(name, entity_type)`
-
-#### kg_entity_documents
-
-| Column        | Type        | Description                            |
-| ------------- | ----------- | -------------------------------------- |
-| entity_id     | integer     | FK to kg_entities (CASCADE), PK part   |
-| document_id   | uuid        | FK to documents (CASCADE), PK part     |
-| mention_count | integer     | Mentions in this document (default: 1) |
-| created_at    | timestamptz | Creation time                          |
-
-**Primary Key:** (entity_id, document_id)
-
-#### kg_relations
-
-| Column             | Type        | Description                    |
-| ------------------ | ----------- | ------------------------------ |
-| id                 | serial      | Primary key                    |
-| source_entity_id   | integer     | FK to kg_entities (CASCADE)    |
-| target_entity_id   | integer     | FK to kg_entities (CASCADE)    |
-| relation_type      | text        | Relation label                 |
-| context            | text        | Contextual snippet             |
-| properties         | jsonb       | Additional properties          |
-| weight             | real        | Relation weight (default: 1.0) |
-| source_document_id | uuid        | FK to documents (SET NULL)     |
-| created_at         | timestamptz | Creation time                  |
-
-**Constraints:**
-
-- `UNIQUE(source_entity_id, target_entity_id, relation_type)`
+- `app_id` → `app_installations.app_id`
 
 **Indexes:**
 
-- `idx_kg_entities_type` on kg_entities(entity_type)
-- `idx_kg_entities_name_trgm` GIN index on kg_entities(name) for trigram similarity
-- `idx_kg_relations_source` on kg_relations(source_entity_id)
-- `idx_kg_relations_target` on kg_relations(target_entity_id)
-- `idx_kg_relations_type` on kg_relations(relation_type)
-- `idx_kg_entity_documents_doc` on kg_entity_documents(document_id)
-
-**Triggers:**
-
-- `kg_entities_updated` - Auto-updates `updated_at` on kg_entities changes
+- `app_dependencies_app_id_depends_on_key` — `CREATE UNIQUE INDEX app_dependencies_app_id_depends_on_key ON public.app_dependencies USING btree (app_id, depends_on)`
+- `app_dependencies_pkey` — `CREATE UNIQUE INDEX app_dependencies_pkey ON public.app_dependencies USING btree (id)`
+- `idx_app_dependencies_app` — `CREATE INDEX idx_app_dependencies_app ON public.app_dependencies USING btree (app_id)`
 
 ---
 
-### 045_knowledge_graph_refinement.sql - Knowledge Graph Refinement
+## `app_events`
 
-Adds entity resolution tracking for LLM-based graph refinement.
+> Audit log for app lifecycle events
 
-**Columns added to `kg_entities`:**
+| Column          | Type                     | Nullable | Default                                  |
+| --------------- | ------------------------ | -------- | ---------------------------------------- |
+| `id`            | integer                  | ⛔       | `nextval('app_events_id_seq'::regclass)` |
+| `app_id`        | character varying        | ⛔       |                                          |
+| `event_type`    | character varying        | ⛔       |                                          |
+| `event_message` | text                     | ✅       |                                          |
+| `event_details` | jsonb                    | ✅       |                                          |
+| `created_at`    | timestamp with time zone | ✅       | `now()`                                  |
 
-| Column       | Type    | Description                                      |
-| ------------ | ------- | ------------------------------------------------ |
-| refined      | boolean | Whether entity has been refined (default: false) |
-| canonical_id | integer | Self-FK for entity resolution/merging            |
-
-**Columns added to `kg_relations`:**
-
-| Column  | Type    | Description                                        |
-| ------- | ------- | -------------------------------------------------- |
-| refined | boolean | Whether relation has been refined (default: false) |
+**Primary key:** `id`
 
 **Indexes:**
 
-- `idx_kg_entities_unrefined` on kg_entities(refined) WHERE refined = FALSE
-- `idx_kg_relations_unrefined` on kg_relations(refined) WHERE refined = FALSE AND relation_type = 'VERWANDT_MIT'
-- `idx_kg_entities_canonical` on kg_entities(canonical_id) WHERE canonical_id IS NOT NULL
-- `idx_kg_entities_name_lower` on kg_entities(LOWER(name))
+- `app_events_pkey` — `CREATE UNIQUE INDEX app_events_pkey ON public.app_events USING btree (id)`
+- `idx_app_events_app` — `CREATE INDEX idx_app_events_app ON public.app_events USING btree (app_id)`
+- `idx_app_events_created` — `CREATE INDEX idx_app_events_created ON public.app_events USING btree (created_at DESC)`
+- `idx_app_events_type` — `CREATE INDEX idx_app_events_type ON public.app_events USING btree (event_type)`
 
 ---
 
-### 046_chat_settings.sql - Per-Chat Settings
-
-Persists per-chat preferences (RAG, thinking mode, model, knowledge space) across sessions.
-
-**Columns added to `chat_conversations`:**
-
-| Column             | Type         | Default | Description               |
-| ------------------ | ------------ | ------- | ------------------------- |
-| use_rag            | boolean      | false   | RAG enabled for this chat |
-| use_thinking       | boolean      | true    | Thinking mode enabled     |
-| preferred_model    | varchar(100) | NULL    | Preferred LLM model       |
-| preferred_space_id | uuid         | NULL    | Preferred knowledge space |
-
----
-
-### 047_telegram_rag.sql - Telegram Bot RAG Configuration
-
-Adds RAG (Retrieval-Augmented Generation) settings to `telegram_bots`:
-
-| Column            | Type    | Default | Description                                               |
-| ----------------- | ------- | ------- | --------------------------------------------------------- |
-| rag_enabled       | boolean | false   | Whether RAG is enabled for this bot                       |
-| rag_space_ids     | uuid[]  | NULL    | Array of space IDs the bot can access (NULL = all spaces) |
-| rag_show_sources  | boolean | true    | Whether to show sources in responses                      |
-| rag_context_limit | integer | 2000    | Maximum context length for RAG                            |
-
-**Notes:**
-
-- Master Bot: `rag_space_ids = NULL` means access to all spaces
-- Custom Bots: `rag_space_ids = '{uuid1,uuid2}'` restricts to specific spaces
-
----
-
-### 048_fix_project_id_constraint.sql - Project FK Fix
-
-Fixes constraint conflict between 042 (ON DELETE SET NULL) and 043 (NOT NULL).
-
-Changes `chat_conversations.project_id` FK to ON DELETE RESTRICT. The backend handles reassigning conversations before deleting a project.
-
-**Constraint:** `fk_conversations_project` FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT
-
----
-
-### 049_cleanup_stale_tables.sql - Remove Stale Objects
-
-Removes unused tables, views, and functions from the old singleton Telegram notification system (migration 022), superseded by the multi-bot architecture (032+).
-
-**Dropped Views:** `v_telegram_stats_24h`, `v_telegram_active_cooldowns`, `v_telegram_recent_messages`
-
-**Dropped Functions:** `check_telegram_rate_limit()`, `check_telegram_alert_cooldown()`, `log_telegram_message()`, `cleanup_telegram_rate_limits()`, `cleanup_telegram_message_logs()`
-
-**Dropped Tables:** `telegram_alert_cooldowns`, `telegram_message_log`
-
----
-
-### 050_scheduled_cleanup_and_fk_fixes.sql - Consolidated Cleanup & FK Fixes
-
-**FK Fix:** Ensures `llm_jobs.conversation_id` has `ON DELETE CASCADE` (idempotent DROP + ADD).
-
-**Function:** `run_all_cleanups() RETURNS JSONB`
-
-Calls all 17 cleanup functions in isolation (each wrapped in its own exception handler). Returns a JSONB object with per-function status, timing, and a `_summary` key with totals.
-
-| Cleanup Function                      | Source Migration | Retention Policy                           |
-| ------------------------------------- | ---------------- | ------------------------------------------ |
-| `cleanup_old_metrics()`               | 001              | 7d metrics, 30d events/restarts            |
-| `cleanup_expired_auth_data()`         | 002              | Expired tokens/sessions, 7d login attempts |
-| `cleanup_service_failures()`          | 003              | 1h failures, 7d actions, 30d reboots       |
-| `cleanup_old_update_files()`          | 004              | 90d, keep latest 10                        |
-| `cleanup_old_update_events()`         | 004              | 180d, keep latest 20                       |
-| `cleanup_deleted_chats()`             | 005              | 30d after soft-delete                      |
-| `cleanup_old_llm_jobs()`              | 006              | 1h after completion                        |
-| `cleanup_stale_llm_jobs()`            | 006              | 10min timeout on streaming jobs            |
-| `cleanup_old_access_logs()`           | 009              | 30d                                        |
-| `cleanup_old_alert_history()`         | 010              | Trims to max_history_entries setting       |
-| `cleanup_old_app_events()`            | 013              | 30d                                        |
-| `cleanup_old_audit_logs()`            | 017              | 90d (default)                              |
-| `cleanup_old_notification_events()`   | 019              | 30d events, 1d rate limits                 |
-| `cleanup_old_api_audit_logs()`        | 021              | 90d (default)                              |
-| `cleanup_expired_telegram_sessions()` | 024              | Expires pending sessions past expiry time  |
-| `cleanup_old_performance_metrics()`   | 030              | 30d                                        |
-| `cleanup_old_compaction_logs()`       | 041              | 30d                                        |
-
-**Usage:**
-
-```sql
--- From backend scheduler or cron:
-SELECT run_all_cleanups();
-
--- Host cron example (daily at 3 AM):
--- 0 3 * * * psql -U arasul -d arasul_db -c "SELECT run_all_cleanups()"
-```
-
----
-
-### 051_fix_model_catalog_ollama_names.sql - Fix Ollama Registry Names
-
-Corrects `ollama_name` mappings and `size_bytes` values in `llm_model_catalog`. The original migration 027 used incorrect quantization suffixes (e.g., `qwen3:14b` instead of `qwen3:14b-q8_0`).
-
-**Corrections:**
-
-| Model ID        | Old ollama_name | Corrected ollama_name | Corrected Size |
-| --------------- | --------------- | --------------------- | -------------- |
-| qwen3:14b-q8    | qwen3:14b       | qwen3:14b-q8_0        | 15 GB          |
-| qwen3:7b-q8     | qwen3:8b        | qwen3:8b-q8_0         | 8 GB           |
-| mistral:7b-q8   | mistral:7b      | mistral:7b            | 4.1 GB         |
-| gemma2:9b-q8    | gemma2:9b       | gemma2:9b             | 5.4 GB         |
-| qwen3:32b-q4    | qwen3:32b       | qwen3:32b             | 20 GB          |
-| llama3.1:70b-q4 | llama3.1:70b    | llama3.1:70b          | 40 GB          |
-| llama3.1:8b     | (unchanged)     | (unchanged)           | 4.9 GB         |
-
----
-
-### 052_document_unique_content_hash.sql - Document Deduplication
-
-Adds a partial unique constraint on `content_hash` to prevent duplicate documents.
-
-**Index:** `idx_documents_unique_content_hash` UNIQUE on documents(content_hash) WHERE deleted_at IS NULL AND status <> 'deleted'
-
----
-
-### 053_update_thinking_models.sql - Update Thinking Model Catalog
-
-Updates `supports_thinking = true` for newly supported thinking-capable models (Ollama 0.9.0+).
-
-**Models updated:** DeepSeek-R1 variants, QwQ, DeepSeek-v3.1, Qwen3.5, Magistral, Nemotron, GLM-4.7
-
----
-
-### 054_schema_hardening.sql - Schema Hardening
-
-Adds missing FK constraints and indexes identified in schema audit.
-
-**FK Constraints Added:**
-
-- `fk_app_configurations_app_id` on app_configurations(app_id) REFERENCES app_installations(app_id) ON DELETE CASCADE
-- `fk_app_dependencies_app_id` on app_dependencies(app_id) REFERENCES app_installations(app_id) ON DELETE CASCADE
-
-**Indexes Added:**
-
-- `idx_kg_entity_documents_entity_id` on kg_entity_documents(entity_id)
-- `idx_llm_jobs_status_created` on llm_jobs(status, created_at DESC)
-
----
-
-### 055_telegram_bot_capabilities.sql - Telegram Bot Capabilities
-
-Adds per-bot capability columns for tools, context limits, and rate limiting.
-
-**Columns added to `telegram_bots`:**
-
-| Column                | Type    | Default | Description                          |
-| --------------------- | ------- | ------- | ------------------------------------ |
-| tools_enabled         | boolean | true    | Enable tool use for this bot         |
-| max_context_tokens    | integer | 4096    | Per-bot context window limit         |
-| max_response_tokens   | integer | 1024    | Per-bot max response token limit     |
-| rate_limit_per_minute | integer | 10      | Per-bot rate limit (requests/minute) |
-
----
-
-### 056_schema_cleanup.sql - Schema Cleanup
-
-Cleanup and maintenance migration.
-
-**Dropped:** `idx_documents_content_hash` (superseded by `idx_documents_unique_content_hash` from 052)
-
-**Indexes Added:**
-
-- `idx_app_configurations_app_id` on app_configurations(app_id)
-
-**Functions:**
-
-- `update_updated_at_column()` - Canonical trigger function for auto-updating `updated_at`
-- `cleanup_telegram_sessions()` - Removes stale bot sessions (30 days) and setup sessions (1 day)
-
----
-
-### 057_model_lifecycle_views.sql - Model Usage Profile Views
-
-Provides hourly usage aggregation from `llm_jobs` for adaptive keep-alive scheduling.
-
-**Views:**
-
-- `v_llm_hourly_usage` - Hourly request counts by day-of-week (7-day window)
-- `v_llm_usage_profile` - Aggregated hourly usage profile (avg/peak requests, active days)
-
----
-
-### 058_add_matched_spaces.sql - RAG Matched Spaces
-
-Persists RAG knowledge space metadata so it survives page reload.
-
-**Columns added to `chat_messages`:**
-
-| Column         | Type  | Description                                             |
-| -------------- | ----- | ------------------------------------------------------- |
-| matched_spaces | jsonb | RAG matched knowledge spaces [{name, color, score, id}] |
-
-**Columns added to `llm_jobs`:**
-
-| Column         | Type  | Description                                   |
-| -------------- | ----- | --------------------------------------------- |
-| matched_spaces | jsonb | RAG matched knowledge spaces during streaming |
-
----
-
-### 059_chat_attachments.sql - Chat Attachments
-
-Enables file uploads in chat messages for document analysis.
-
-#### chat_attachments
-
-| Column              | Type          | Description                             |
-| ------------------- | ------------- | --------------------------------------- |
-| id                  | uuid          | Primary key (generated)                 |
-| message_id          | bigint        | FK to chat_messages (CASCADE)           |
-| conversation_id     | bigint        | FK to chat_conversations (CASCADE)      |
-| filename            | varchar(500)  | Sanitized filename                      |
-| original_filename   | varchar(500)  | Original upload filename                |
-| file_path           | varchar(1000) | MinIO storage path                      |
-| file_size           | bigint        | File size in bytes                      |
-| mime_type           | varchar(100)  | MIME type                               |
-| file_extension      | varchar(20)   | File extension (e.g. .pdf)              |
-| extracted_text      | text          | OCR/extracted text content              |
-| extraction_status   | varchar(20)   | pending/extracting/done/failed          |
-| extraction_metadata | jsonb         | Extraction details (OCR used, language) |
-| created_at          | timestamptz   | Creation time                           |
+## `app_installations`
+
+> Main app installation tracking for AppStore
+
+| Column              | Type                     | Nullable | Default                   |
+| ------------------- | ------------------------ | -------- | ------------------------- |
+| `id`                | uuid                     | ⛔       | `gen_random_uuid()`       |
+| `app_id`            | character varying        | ⛔       |                           |
+| `status`            | USER-DEFINED             | ✅       | `'available'::app_status` |
+| `app_type`          | USER-DEFINED             | ✅       | `'official'::app_type`    |
+| `version`           | character varying        | ✅       |                           |
+| `container_id`      | character varying        | ✅       |                           |
+| `container_name`    | character varying        | ✅       |                           |
+| `internal_port`     | integer                  | ✅       |                           |
+| `external_port`     | integer                  | ✅       |                           |
+| `traefik_route`     | character varying        | ✅       |                           |
+| `cpu_usage`         | numeric                  | ✅       |                           |
+| `memory_usage_mb`   | integer                  | ✅       |                           |
+| `installed_at`      | timestamp with time zone | ✅       |                           |
+| `started_at`        | timestamp with time zone | ✅       |                           |
+| `stopped_at`        | timestamp with time zone | ✅       |                           |
+| `last_health_check` | timestamp with time zone | ✅       |                           |
+| `last_error`        | text                     | ✅       |                           |
+| `error_count`       | integer                  | ✅       | `0`                       |
+| `created_at`        | timestamp with time zone | ✅       | `now()`                   |
+| `updated_at`        | timestamp with time zone | ✅       | `now()`                   |
+
+**Primary key:** `id`
 
 **Indexes:**
 
-- `idx_chat_attachments_message` on message_id
-- `idx_chat_attachments_conversation` on conversation_id
-- `idx_chat_attachments_status` on extraction_status (WHERE extraction_status != 'done')
+- `app_installations_app_id_key` — `CREATE UNIQUE INDEX app_installations_app_id_key ON public.app_installations USING btree (app_id)`
+- `app_installations_pkey` — `CREATE UNIQUE INDEX app_installations_pkey ON public.app_installations USING btree (id)`
+- `idx_app_installations_app_id` — `CREATE INDEX idx_app_installations_app_id ON public.app_installations USING btree (app_id)`
+- `idx_app_installations_status` — `CREATE INDEX idx_app_installations_status ON public.app_installations USING btree (status)`
+- `idx_app_installations_type` — `CREATE INDEX idx_app_installations_type ON public.app_installations USING btree (app_type)`
 
 ---
 
-## Indexes Summary
+## `audit_logs`
 
-| Table                     | Index                                  | Columns                                     | Source |
-| ------------------------- | -------------------------------------- | ------------------------------------------- | ------ |
-| chat_conversations        | idx_conversations_updated              | updated_at DESC (WHERE deleted_at IS NULL)  | 043    |
-| chat_conversations        | idx_conversations_deleted              | deleted_at                                  | 005    |
-| chat_conversations        | idx_conversations_project              | project_id                                  | 042    |
-| chat_messages             | idx_messages_conversation              | conversation_id, created_at                 | 005    |
-| chat_messages             | idx_chat_messages_conversation_created | conversation_id, created_at                 | 037    |
-| documents                 | idx_documents_status                   | status                                      | 009    |
-| documents                 | idx_documents_created                  | created_at DESC                             | 009    |
-| documents                 | idx_documents_space_status             | space_id, status (WHERE deleted_at IS NULL) | 036    |
-| documents                 | idx_documents_space_id                 | space_id                                    | 037    |
-| documents                 | idx_documents_status_uploaded          | status, uploaded_at                         | 037    |
-| documents                 | idx_documents_unique_content_hash      | content_hash (UNIQUE, partial)              | 052    |
-| document_chunks           | idx_chunks_document                    | document_id                                 | 009    |
-| document_chunks           | idx_document_chunks_text_search_de     | to_tsvector('german', chunk_text) GIN       | 036    |
-| document_chunks           | idx_document_chunks_parent             | parent_chunk_id                             | 039    |
-| document_parent_chunks    | idx_parent_chunks_document             | document_id                                 | 039    |
-| chat_attachments          | idx_chat_attachments_message           | message_id                                  | 059    |
-| chat_attachments          | idx_chat_attachments_conversation      | conversation_id                             | 059    |
-| chat_attachments          | idx_chat_attachments_status            | extraction_status (WHERE != 'done')         | 059    |
-| telegram_config           | idx_telegram_config_enabled            | enabled                                     | 020    |
-| telegram_rate_limits      | idx_telegram_rate_limits_chat          | chat_id, window_start DESC                  | 022    |
-| telegram_rate_limits      | idx_telegram_rate_limits_cleanup       | window_start                                | 022    |
-| api_audit_logs            | idx_api_audit_logs_timestamp           | timestamp DESC                              | 021    |
-| api_audit_logs            | idx_api_audit_logs_user_id             | user_id, timestamp DESC                     | 021    |
-| api_audit_logs            | idx_api_audit_logs_action_type         | action_type, timestamp DESC                 | 021    |
-| api_audit_logs            | idx_api_audit_logs_response_status     | response_status, timestamp DESC             | 021    |
-| api_audit_logs            | idx_api_audit_logs_timestamp_action    | timestamp DESC, action_type                 | 021    |
-| api_audit_logs            | idx_api_audit_logs_endpoint            | target_endpoint, timestamp DESC             | 021    |
-| api_audit_logs            | idx_api_audit_logs_errors              | timestamp DESC (WHERE >= 400)               | 021    |
-| llm_model_catalog         | idx_llm_catalog_capabilities           | supports_thinking, rag_optimized            | 029    |
-| llm_model_catalog         | idx_model_catalog_type                 | model_type                                  | 035    |
-| llm_model_catalog         | idx_llm_model_catalog_ollama_name      | ollama_name                                 | 027    |
-| model_performance_metrics | idx_perf_model_id                      | model_id                                    | 030    |
-| model_performance_metrics | idx_perf_created_at                    | created_at DESC                             | 030    |
-| model_performance_metrics | idx_perf_job_type                      | job_type                                    | 030    |
-| llm_jobs                  | idx_llm_jobs_status_created            | status, created_at DESC                     | 054    |
-| ai_memories               | idx_ai_memories_type                   | type                                        | 041    |
-| ai_memories               | idx_ai_memories_active                 | is_active (WHERE TRUE)                      | 041    |
-| ai_memories               | idx_ai_memories_created                | created_at DESC                             | 041    |
-| compaction_log            | idx_compaction_log_conversation        | conversation_id                             | 041    |
-| projects                  | idx_projects_sort                      | sort_order, created_at DESC                 | 042    |
-| kg_entities               | idx_kg_entities_type                   | entity_type                                 | 044    |
-| kg_entities               | idx_kg_entities_name_trgm              | name (GIN trigram)                          | 044    |
-| kg_entities               | idx_kg_entities_unrefined              | refined (WHERE FALSE)                       | 045    |
-| kg_entities               | idx_kg_entities_canonical              | canonical_id (WHERE NOT NULL)               | 045    |
-| kg_entities               | idx_kg_entities_name_lower             | LOWER(name)                                 | 045    |
-| kg_relations              | idx_kg_relations_source                | source_entity_id                            | 044    |
-| kg_relations              | idx_kg_relations_target                | target_entity_id                            | 044    |
-| kg_relations              | idx_kg_relations_type                  | relation_type                               | 044    |
-| kg_relations              | idx_kg_relations_unrefined             | refined (WHERE FALSE AND VERWANDT_MIT)      | 045    |
-| kg_entity_documents       | idx_kg_entity_documents_doc            | document_id                                 | 044    |
-| kg_entity_documents       | idx_kg_entity_documents_entity_id      | entity_id                                   | 054    |
-| app_configurations        | idx_app_configurations_app_id          | app_id                                      | 056    |
+> High-value security audit trail — password changes, service restarts, config changes, exports
+
+| Column       | Type                     | Nullable | Default                                  |
+| ------------ | ------------------------ | -------- | ---------------------------------------- |
+| `id`         | integer                  | ⛔       | `nextval('audit_logs_id_seq'::regclass)` |
+| `timestamp`  | timestamp with time zone | ⛔       | `now()`                                  |
+| `user_id`    | integer                  | ✅       |                                          |
+| `action`     | character varying        | ⛔       |                                          |
+| `details`    | jsonb                    | ✅       | `'{}'::jsonb`                            |
+| `ip_address` | character varying        | ✅       |                                          |
+| `request_id` | uuid                     | ✅       |                                          |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `audit_logs_pkey` — `CREATE UNIQUE INDEX audit_logs_pkey ON public.audit_logs USING btree (id)`
+- `idx_audit_logs_action` — `CREATE INDEX idx_audit_logs_action ON public.audit_logs USING btree (action, "timestamp" DESC)`
+- `idx_audit_logs_timestamp` — `CREATE INDEX idx_audit_logs_timestamp ON public.audit_logs USING btree ("timestamp" DESC)`
+- `idx_audit_logs_user_action` — `CREATE INDEX idx_audit_logs_user_action ON public.audit_logs USING btree (user_id, action, "timestamp" DESC)`
 
 ---
 
-## Data Retention
+## `bot_audit_log`
 
-| Data Type                  | Retention                 |
-| -------------------------- | ------------------------- |
-| Metrics (CPU/RAM/GPU/etc.) | 7 days                    |
-| Self-healing events        | 30 days                   |
-| Workflow activity          | 7 days                    |
-| Deleted conversations      | 30 days (soft delete)     |
-| Update files               | 90 days (keep latest 10)  |
-| Update events              | 180 days (keep latest 20) |
-| Login attempts             | 7 days                    |
-| Document access logs       | 30 days                   |
-| Alert history              | Configurable              |
-| App store events           | 30 days                   |
-| Audit logs                 | 90 days                   |
-| Notification events        | 30 days                   |
-| API audit logs             | 90 days                   |
-| Telegram bot sessions      | 30 days                   |
-| Telegram setup sessions    | 1 day                     |
-| Model performance metrics  | 30 days                   |
-| Compaction log             | 30 days                   |
-| LLM jobs (completed)       | 1 hour                    |
-| User accounts              | Permanent                 |
-| Telegram config            | Permanent (singleton)     |
-| System settings            | Permanent (singleton)     |
+> Audit log for all Telegram bot interactions
 
----
+| Column             | Type                     | Nullable | Default                                    |
+| ------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`               | integer                  | ⛔       | `nextval('bot_audit_log_id_seq'::regcl...` |
+| `timestamp`        | timestamp with time zone | ⛔       | `now()`                                    |
+| `user_id`          | bigint                   | ✅       |                                            |
+| `username`         | character varying        | ✅       |                                            |
+| `chat_id`          | bigint                   | ⛔       |                                            |
+| `command`          | character varying        | ✅       |                                            |
+| `message_text`     | text                     | ✅       |                                            |
+| `response_text`    | text                     | ✅       |                                            |
+| `response_time_ms` | integer                  | ✅       |                                            |
+| `success`          | boolean                  | ✅       | `true`                                     |
+| `error_message`    | text                     | ✅       |                                            |
+| `interaction_type` | character varying        | ✅       | `'message'::character varying`             |
+| `metadata`         | jsonb                    | ✅       | `'{}'::jsonb`                              |
 
-## Datentabellen (Dynamic Database)
+**Primary key:** `id`
 
-Separate database `arasul_data_db` for user-created dynamic tables and quote management.
+**Indexes:**
 
-### Meta Tables
-
-| Table        | Purpose                                             |
-| ------------ | --------------------------------------------------- |
-| dt_tables    | Table definitions (name, slug, icon, color)         |
-| dt_fields    | Field definitions (type, unit, validation, options) |
-| dt_relations | Relationships between tables                        |
-| dt_views     | Saved filter/sort configurations                    |
-
-### Dynamic Data Tables
-
-User-created tables follow the naming convention `data_{slug}`:
-
-| Column        | Type         | Description           |
-| ------------- | ------------ | --------------------- |
-| \_id          | UUID         | Primary key           |
-| \_created_at  | TIMESTAMPTZ  | Creation timestamp    |
-| \_updated_at  | TIMESTAMPTZ  | Last update timestamp |
-| \_created_by  | VARCHAR(100) | Creator username      |
-| _user_fields_ | _varies_     | User-defined columns  |
-
-### Quote Tables
-
-| Table              | Purpose                                   |
-| ------------------ | ----------------------------------------- |
-| dt_quote_templates | Company branding, PDF settings, tax rates |
-| dt_quotes          | Quote header (customer, totals, status)   |
-| dt_quote_positions | Line items/positions                      |
-| dt_quote_history   | Audit trail of status changes             |
-
-### Supported Field Types
-
-| Type        | PostgreSQL Type | Description           |
-| ----------- | --------------- | --------------------- |
-| text        | TEXT            | Single-line text      |
-| textarea    | TEXT            | Multi-line text       |
-| number      | NUMERIC         | Numbers               |
-| currency    | NUMERIC(12,2)   | Currency values       |
-| date        | DATE            | Date only             |
-| datetime    | TIMESTAMPTZ     | Date and time         |
-| select      | TEXT            | Single selection      |
-| multiselect | TEXT[]          | Multiple selection    |
-| checkbox    | BOOLEAN         | True/false            |
-| relation    | UUID            | Foreign key reference |
-| email       | TEXT            | Email addresses       |
-| url         | TEXT            | Web URLs              |
-| phone       | TEXT            | Phone numbers         |
-
-### dt_fields Columns
-
-| Column      | Type         | Description                               |
-| ----------- | ------------ | ----------------------------------------- |
-| id          | SERIAL       | Primary key                               |
-| table_id    | INTEGER (FK) | Reference to dt_tables                    |
-| name        | VARCHAR(255) | Display name                              |
-| slug        | VARCHAR(255) | URL-safe identifier                       |
-| field_type  | VARCHAR(50)  | One of the supported field types above    |
-| unit        | VARCHAR(50)  | Optional measurement unit (e.g. kg, €, m) |
-| is_required | BOOLEAN      | Whether field is required                 |
-| is_unique   | BOOLEAN      | Whether values must be unique             |
-| options     | JSONB        | Type-specific options (e.g. select items) |
-| position    | INTEGER      | Display order                             |
-
-### Schema Files
-
-| File                                | Description                   |
-| ----------------------------------- | ----------------------------- |
-| init/031_datentabellen_database.sql | Config table in main DB       |
-| init/032_create_data_database.sh    | Creates arasul_data_db        |
-| init-data-db/001_meta_schema.sql    | Meta tables                   |
-| init-data-db/002_quotes_schema.sql  | Quote tables                  |
-| init-data-db/004_add_field_unit.sql | Adds unit column to dt_fields |
+- `bot_audit_log_pkey` — `CREATE UNIQUE INDEX bot_audit_log_pkey ON public.bot_audit_log USING btree (id)`
+- `idx_bot_audit_log_chat_id` — `CREATE INDEX idx_bot_audit_log_chat_id ON public.bot_audit_log USING btree (chat_id, "timestamp" DESC)`
+- `idx_bot_audit_log_command` — `CREATE INDEX idx_bot_audit_log_command ON public.bot_audit_log USING btree (command) WHERE (command IS NOT NULL)`
+- `idx_bot_audit_log_success` — `CREATE INDEX idx_bot_audit_log_success ON public.bot_audit_log USING btree (success, "timestamp" DESC) WHERE (success = false)`
+- `idx_bot_audit_log_timestamp` — `CREATE INDEX idx_bot_audit_log_timestamp ON public.bot_audit_log USING btree ("timestamp" DESC)`
+- `idx_bot_audit_log_user_id` — `CREATE INDEX idx_bot_audit_log_user_id ON public.bot_audit_log USING btree (user_id, "timestamp" DESC)`
 
 ---
 
-## Related Documentation
+## `chat_attachments`
 
-- [PostgreSQL Service](../services/postgres/README.md) - Service details
-- [Dashboard Backend](../apps/dashboard-backend/README.md) - Database client
+| Column                | Type                     | Nullable | Default                        |
+| --------------------- | ------------------------ | -------- | ------------------------------ |
+| `id`                  | uuid                     | ⛔       | `gen_random_uuid()`            |
+| `message_id`          | bigint                   | ✅       |                                |
+| `conversation_id`     | bigint                   | ✅       |                                |
+| `filename`            | character varying        | ⛔       |                                |
+| `original_filename`   | character varying        | ⛔       |                                |
+| `file_path`           | character varying        | ⛔       |                                |
+| `file_size`           | bigint                   | ⛔       |                                |
+| `mime_type`           | character varying        | ✅       |                                |
+| `file_extension`      | character varying        | ✅       |                                |
+| `extracted_text`      | text                     | ✅       |                                |
+| `extraction_status`   | character varying        | ✅       | `'pending'::character varying` |
+| `extraction_metadata` | jsonb                    | ✅       |                                |
+| `created_at`          | timestamp with time zone | ✅       | `now()`                        |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `conversation_id` → `chat_conversations.id`
+- `message_id` → `chat_messages.id`
+
+**Indexes:**
+
+- `chat_attachments_pkey` — `CREATE UNIQUE INDEX chat_attachments_pkey ON public.chat_attachments USING btree (id)`
+- `idx_chat_attachments_conversation` — `CREATE INDEX idx_chat_attachments_conversation ON public.chat_attachments USING btree (conversation_id)`
+- `idx_chat_attachments_message` — `CREATE INDEX idx_chat_attachments_message ON public.chat_attachments USING btree (message_id)`
+- `idx_chat_attachments_status` — `CREATE INDEX idx_chat_attachments_status ON public.chat_attachments USING btree (extraction_status) WHERE ((extraction_status)::text <> 'done'::text)`
+
+---
+
+## `chat_conversations`
+
+> Multi-conversation chat sessions
+
+| Column                     | Type                     | Nullable | Default                                    |
+| -------------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                       | bigint                   | ⛔       | `nextval('chat_conversations_id_seq'::...` |
+| `title`                    | text                     | ⛔       | `'New Chat'::text`                         |
+| `created_at`               | timestamp with time zone | ⛔       | `now()`                                    |
+| `updated_at`               | timestamp with time zone | ⛔       | `now()`                                    |
+| `deleted_at`               | timestamp with time zone | ✅       |                                            |
+| `message_count`            | integer                  | ⛔       | `0`                                        |
+| `compaction_summary`       | text                     | ✅       |                                            |
+| `compaction_token_count`   | integer                  | ✅       | `0`                                        |
+| `compaction_message_count` | integer                  | ✅       | `0`                                        |
+| `last_compacted_at`        | timestamp with time zone | ✅       |                                            |
+| `project_id`               | uuid                     | ⛔       |                                            |
+| `use_rag`                  | boolean                  | ✅       | `false`                                    |
+| `use_thinking`             | boolean                  | ✅       | `true`                                     |
+| `preferred_model`          | character varying        | ✅       | `NULL::character varying`                  |
+| `preferred_space_id`       | uuid                     | ✅       |                                            |
+| `user_id`                  | bigint                   | ⛔       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+- `project_id` → `projects.id`
+
+**Indexes:**
+
+- `chat_conversations_pkey` — `CREATE UNIQUE INDEX chat_conversations_pkey ON public.chat_conversations USING btree (id)`
+- `idx_chat_conversations_deleted` — `CREATE INDEX idx_chat_conversations_deleted ON public.chat_conversations USING btree (deleted_at) WHERE (deleted_at IS NULL)`
+- `idx_chat_conversations_updated` — `CREATE INDEX idx_chat_conversations_updated ON public.chat_conversations USING btree (updated_at DESC)`
+- `idx_chat_conversations_user` — `CREATE INDEX idx_chat_conversations_user ON public.chat_conversations USING btree (user_id, updated_at DESC) WHERE (deleted_at IS NULL)`
+- `idx_conversations_project` — `CREATE INDEX idx_conversations_project ON public.chat_conversations USING btree (project_id)`
+- `idx_conversations_updated` — `CREATE INDEX idx_conversations_updated ON public.chat_conversations USING btree (updated_at DESC) WHERE (deleted_at IS NULL)`
+
+---
+
+## `chat_messages`
+
+> Chat messages with role (user/assistant/system) and optional thinking blocks
+
+| Column            | Type                     | Nullable | Default                                    |
+| ----------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`              | bigint                   | ⛔       | `nextval('chat_messages_id_seq'::regcl...` |
+| `conversation_id` | bigint                   | ⛔       |                                            |
+| `role`            | text                     | ⛔       |                                            |
+| `content`         | text                     | ⛔       |                                            |
+| `thinking`        | text                     | ✅       |                                            |
+| `created_at`      | timestamp with time zone | ⛔       | `now()`                                    |
+| `job_id`          | uuid                     | ✅       |                                            |
+| `status`          | character varying        | ✅       | `'completed'::character varying`           |
+| `sources`         | jsonb                    | ✅       |                                            |
+| `matched_spaces`  | jsonb                    | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `conversation_id` → `chat_conversations.id`
+- `job_id` → `llm_jobs.id`
+
+**Indexes:**
+
+- `chat_messages_pkey` — `CREATE UNIQUE INDEX chat_messages_pkey ON public.chat_messages USING btree (id)`
+- `idx_chat_messages_conversation` — `CREATE INDEX idx_chat_messages_conversation ON public.chat_messages USING btree (conversation_id)`
+- `idx_chat_messages_conversation_created` — `CREATE INDEX idx_chat_messages_conversation_created ON public.chat_messages USING btree (conversation_id, created_at)`
+- `idx_chat_messages_created` — `CREATE INDEX idx_chat_messages_created ON public.chat_messages USING btree (created_at DESC)`
+- `idx_chat_messages_job` — `CREATE INDEX idx_chat_messages_job ON public.chat_messages USING btree (job_id) WHERE (job_id IS NOT NULL)`
+- `idx_chat_messages_job_id` — `CREATE INDEX idx_chat_messages_job_id ON public.chat_messages USING btree (job_id) WHERE (job_id IS NOT NULL)`
+- `idx_chat_messages_status` — `CREATE INDEX idx_chat_messages_status ON public.chat_messages USING btree (status) WHERE ((status)::text <> 'completed'::text)`
+
+---
+
+## `claude_terminal_queries`
+
+> Claude Terminal query history (max 100 per user)
+
+| Column             | Type                     | Nullable | Default                                    |
+| ------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`               | integer                  | ⛔       | `nextval('claude_terminal_queries_id_s...` |
+| `session_id`       | integer                  | ✅       |                                            |
+| `user_id`          | integer                  | ✅       |                                            |
+| `query`            | text                     | ⛔       |                                            |
+| `response`         | text                     | ✅       |                                            |
+| `injected_context` | jsonb                    | ✅       |                                            |
+| `model_used`       | character varying        | ✅       |                                            |
+| `tokens_used`      | integer                  | ✅       |                                            |
+| `response_time_ms` | integer                  | ✅       |                                            |
+| `status`           | character varying        | ✅       | `'pending'::character varying`             |
+| `error_message`    | text                     | ✅       |                                            |
+| `created_at`       | timestamp with time zone | ✅       | `now()`                                    |
+| `completed_at`     | timestamp with time zone | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+- `session_id` → `claude_terminal_sessions.id`
+
+**Indexes:**
+
+- `claude_terminal_queries_pkey` — `CREATE UNIQUE INDEX claude_terminal_queries_pkey ON public.claude_terminal_queries USING btree (id)`
+- `idx_claude_terminal_queries_created_at` — `CREATE INDEX idx_claude_terminal_queries_created_at ON public.claude_terminal_queries USING btree (created_at DESC)`
+- `idx_claude_terminal_queries_session_id` — `CREATE INDEX idx_claude_terminal_queries_session_id ON public.claude_terminal_queries USING btree (session_id)`
+- `idx_claude_terminal_queries_status` — `CREATE INDEX idx_claude_terminal_queries_status ON public.claude_terminal_queries USING btree (status)`
+- `idx_claude_terminal_queries_user_id` — `CREATE INDEX idx_claude_terminal_queries_user_id ON public.claude_terminal_queries USING btree (user_id)`
+
+---
+
+## `claude_terminal_sessions`
+
+> Claude Terminal user sessions for context persistence
+
+| Column             | Type                     | Nullable | Default                                    |
+| ------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`               | integer                  | ⛔       | `nextval('claude_terminal_sessions_id_...` |
+| `user_id`          | integer                  | ✅       |                                            |
+| `created_at`       | timestamp with time zone | ✅       | `now()`                                    |
+| `last_activity_at` | timestamp with time zone | ✅       | `now()`                                    |
+| `session_context`  | jsonb                    | ✅       | `'{}'::jsonb`                              |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `claude_terminal_sessions_pkey` — `CREATE UNIQUE INDEX claude_terminal_sessions_pkey ON public.claude_terminal_sessions USING btree (id)`
+- `idx_claude_terminal_sessions_user_id` — `CREATE INDEX idx_claude_terminal_sessions_user_id ON public.claude_terminal_sessions USING btree (user_id)`
+
+---
+
+## `claude_workspaces`
+
+> Dynamic workspace management for Claude Code
+
+| Column           | Type                     | Nullable | Default                                    |
+| ---------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`             | integer                  | ⛔       | `nextval('claude_workspaces_id_seq'::r...` |
+| `name`           | character varying        | ⛔       |                                            |
+| `slug`           | character varying        | ⛔       |                                            |
+| `description`    | text                     | ✅       |                                            |
+| `host_path`      | character varying        | ⛔       |                                            |
+| `container_path` | character varying        | ⛔       |                                            |
+| `is_default`     | boolean                  | ✅       | `false`                                    |
+| `is_system`      | boolean                  | ✅       | `false`                                    |
+| `is_active`      | boolean                  | ✅       | `true`                                     |
+| `last_used_at`   | timestamp with time zone | ✅       |                                            |
+| `usage_count`    | integer                  | ✅       | `0`                                        |
+| `created_at`     | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`     | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `claude_workspaces_pkey` — `CREATE UNIQUE INDEX claude_workspaces_pkey ON public.claude_workspaces USING btree (id)`
+- `claude_workspaces_slug_key` — `CREATE UNIQUE INDEX claude_workspaces_slug_key ON public.claude_workspaces USING btree (slug)`
+- `idx_claude_workspaces_active` — `CREATE INDEX idx_claude_workspaces_active ON public.claude_workspaces USING btree (is_active, name)`
+- `idx_claude_workspaces_default` — `CREATE UNIQUE INDEX idx_claude_workspaces_default ON public.claude_workspaces USING btree (is_default) WHERE (is_default = true)`
+- `idx_claude_workspaces_slug` — `CREATE INDEX idx_claude_workspaces_slug ON public.claude_workspaces USING btree (slug)`
+
+---
+
+## `compaction_log`
+
+| Column               | Type                     | Nullable | Default                                    |
+| -------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                 | integer                  | ⛔       | `nextval('compaction_log_id_seq'::regc...` |
+| `conversation_id`    | bigint                   | ✅       |                                            |
+| `messages_compacted` | integer                  | ⛔       |                                            |
+| `tokens_before`      | integer                  | ⛔       |                                            |
+| `tokens_after`       | integer                  | ⛔       |                                            |
+| `compression_ratio`  | numeric                  | ✅       |                                            |
+| `memories_extracted` | integer                  | ✅       | `0`                                        |
+| `model_used`         | character varying        | ✅       |                                            |
+| `duration_ms`        | integer                  | ✅       |                                            |
+| `created_at`         | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `conversation_id` → `chat_conversations.id`
+
+**Indexes:**
+
+- `compaction_log_pkey` — `CREATE UNIQUE INDEX compaction_log_pkey ON public.compaction_log USING btree (id)`
+- `idx_compaction_log_conversation` — `CREATE INDEX idx_compaction_log_conversation ON public.compaction_log USING btree (conversation_id)`
+
+---
+
+## `company_context`
+
+> Singleton table for global company context used in all RAG queries
+
+| Column              | Type                     | Nullable | Default    |
+| ------------------- | ------------------------ | -------- | ---------- |
+| `id`                | integer                  | ⛔       | `1`        |
+| `content`           | text                     | ⛔       | `''::text` |
+| `content_embedding` | text                     | ✅       |            |
+| `updated_at`        | timestamp with time zone | ✅       | `now()`    |
+| `updated_by`        | integer                  | ✅       |            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `company_context_pkey` — `CREATE UNIQUE INDEX company_context_pkey ON public.company_context USING btree (id)`
+
+---
+
+## `component_updates`
+
+| Column            | Type                     | Nullable | Default                                    |
+| ----------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`              | integer                  | ⛔       | `nextval('component_updates_id_seq'::r...` |
+| `update_event_id` | integer                  | ✅       |                                            |
+| `component_name`  | character varying        | ⛔       |                                            |
+| `component_type`  | character varying        | ⛔       |                                            |
+| `version_from`    | character varying        | ✅       |                                            |
+| `version_to`      | character varying        | ✅       |                                            |
+| `status`          | character varying        | ⛔       |                                            |
+| `started_at`      | timestamp with time zone | ✅       |                                            |
+| `completed_at`    | timestamp with time zone | ✅       |                                            |
+| `error_message`   | text                     | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `update_event_id` → `update_events.id`
+
+**Indexes:**
+
+- `component_updates_pkey` — `CREATE UNIQUE INDEX component_updates_pkey ON public.component_updates USING btree (id)`
+- `idx_component_updates_event` — `CREATE INDEX idx_component_updates_event ON public.component_updates USING btree (update_event_id)`
+
+---
+
+## `datentabellen_config`
+
+> Configuration for the separate arasul_data_db used by the Datentabellen feature
+
+| Column         | Type                     | Nullable | Default                                    |
+| -------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`           | integer                  | ⛔       | `nextval('datentabellen_config_id_seq'...` |
+| `data_db_host` | character varying        | ✅       | `'postgres-db'::character varying`         |
+| `data_db_port` | integer                  | ✅       | `5432`                                     |
+| `data_db_name` | character varying        | ✅       | `'arasul_data_db'::character varying`      |
+| `data_db_user` | character varying        | ✅       | `'arasul_data'::character varying`         |
+| `is_enabled`   | boolean                  | ✅       | `true`                                     |
+| `created_at`   | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`   | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `datentabellen_config_pkey` — `CREATE UNIQUE INDEX datentabellen_config_pkey ON public.datentabellen_config USING btree (id)`
+
+---
+
+## `document_access_log`
+
+> Analytics log for document access patterns
+
+| Column        | Type                     | Nullable | Default                                    |
+| ------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`          | integer                  | ⛔       | `nextval('document_access_log_id_seq':...` |
+| `document_id` | uuid                     | ⛔       |                                            |
+| `access_type` | character varying        | ⛔       |                                            |
+| `user_id`     | character varying        | ✅       |                                            |
+| `query_text`  | text                     | ✅       |                                            |
+| `accessed_at` | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `document_id` → `documents.id`
+
+**Indexes:**
+
+- `document_access_log_pkey` — `CREATE UNIQUE INDEX document_access_log_pkey ON public.document_access_log USING btree (id)`
+- `idx_document_access_log_document` — `CREATE INDEX idx_document_access_log_document ON public.document_access_log USING btree (document_id)`
+- `idx_document_access_log_time` — `CREATE INDEX idx_document_access_log_time ON public.document_access_log USING btree (accessed_at DESC)`
+
+---
+
+## `document_categories`
+
+> Document categories for organization and filtering
+
+| Column        | Type                     | Nullable | Default                                    |
+| ------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`          | integer                  | ⛔       | `nextval('document_categories_id_seq':...` |
+| `name`        | character varying        | ⛔       |                                            |
+| `description` | text                     | ✅       |                                            |
+| `color`       | character varying        | ✅       | `'#6366f1'::character varying`             |
+| `icon`        | character varying        | ✅       | `'file'::character varying`                |
+| `is_system`   | boolean                  | ✅       | `false`                                    |
+| `created_at`  | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`  | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `document_categories_name_key` — `CREATE UNIQUE INDEX document_categories_name_key ON public.document_categories USING btree (name)`
+- `document_categories_pkey` — `CREATE UNIQUE INDEX document_categories_pkey ON public.document_categories USING btree (id)`
+- `idx_document_categories_name` — `CREATE INDEX idx_document_categories_name ON public.document_categories USING btree (name)`
+
+---
+
+## `document_chunks`
+
+> Tracking of document chunks indexed in Qdrant
+
+| Column            | Type                     | Nullable | Default |
+| ----------------- | ------------------------ | -------- | ------- |
+| `id`              | uuid                     | ⛔       |         |
+| `document_id`     | uuid                     | ⛔       |         |
+| `chunk_index`     | integer                  | ⛔       |         |
+| `chunk_text`      | text                     | ⛔       |         |
+| `char_start`      | integer                  | ✅       |         |
+| `char_end`        | integer                  | ✅       |         |
+| `word_count`      | integer                  | ✅       |         |
+| `created_at`      | timestamp with time zone | ✅       | `now()` |
+| `parent_chunk_id` | uuid                     | ✅       |         |
+| `child_index`     | integer                  | ✅       |         |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `document_id` → `documents.id`
+- `parent_chunk_id` → `document_parent_chunks.id`
+
+**Indexes:**
+
+- `document_chunks_document_id_chunk_index_key` — `CREATE UNIQUE INDEX document_chunks_document_id_chunk_index_key ON public.document_chunks USING btree (document_id, chunk_index)`
+- `document_chunks_pkey` — `CREATE UNIQUE INDEX document_chunks_pkey ON public.document_chunks USING btree (id)`
+- `idx_document_chunks_document` — `CREATE INDEX idx_document_chunks_document ON public.document_chunks USING btree (document_id)`
+- `idx_document_chunks_document_id` — `CREATE INDEX idx_document_chunks_document_id ON public.document_chunks USING btree (document_id)`
+- `idx_document_chunks_document_index` — `CREATE INDEX idx_document_chunks_document_index ON public.document_chunks USING btree (document_id, chunk_index)`
+- `idx_document_chunks_parent` — `CREATE INDEX idx_document_chunks_parent ON public.document_chunks USING btree (parent_chunk_id)`
+- `idx_document_chunks_text_search_de` — `CREATE INDEX idx_document_chunks_text_search_de ON public.document_chunks USING gin (to_tsvector('german'::regconfig, chunk_text))`
+
+---
+
+## `document_parent_chunks`
+
+| Column         | Type                     | Nullable | Default             |
+| -------------- | ------------------------ | -------- | ------------------- |
+| `id`           | uuid                     | ⛔       | `gen_random_uuid()` |
+| `document_id`  | uuid                     | ⛔       |                     |
+| `parent_index` | integer                  | ⛔       |                     |
+| `chunk_text`   | text                     | ⛔       |                     |
+| `char_start`   | integer                  | ✅       |                     |
+| `char_end`     | integer                  | ✅       |                     |
+| `word_count`   | integer                  | ✅       |                     |
+| `token_count`  | integer                  | ✅       |                     |
+| `created_at`   | timestamp with time zone | ✅       | `now()`             |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `document_id` → `documents.id`
+
+**Indexes:**
+
+- `document_parent_chunks_document_id_parent_index_key` — `CREATE UNIQUE INDEX document_parent_chunks_document_id_parent_index_key ON public.document_parent_chunks USING btree (document_id, parent_index)`
+- `document_parent_chunks_pkey` — `CREATE UNIQUE INDEX document_parent_chunks_pkey ON public.document_parent_chunks USING btree (id)`
+- `idx_parent_chunks_document` — `CREATE INDEX idx_parent_chunks_document ON public.document_parent_chunks USING btree (document_id)`
+
+---
+
+## `document_processing_queue`
+
+> Queue for async document processing tasks
+
+| Column          | Type                     | Nullable | Default                                    |
+| --------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`            | integer                  | ⛔       | `nextval('document_processing_queue_id...` |
+| `document_id`   | uuid                     | ⛔       |                                            |
+| `task_type`     | character varying        | ⛔       |                                            |
+| `priority`      | integer                  | ✅       | `0`                                        |
+| `status`        | character varying        | ✅       | `'pending'::character varying`             |
+| `attempts`      | integer                  | ✅       | `0`                                        |
+| `max_attempts`  | integer                  | ✅       | `3`                                        |
+| `error_message` | text                     | ✅       |                                            |
+| `created_at`    | timestamp with time zone | ✅       | `now()`                                    |
+| `started_at`    | timestamp with time zone | ✅       |                                            |
+| `completed_at`  | timestamp with time zone | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `document_id` → `documents.id`
+
+**Indexes:**
+
+- `document_processing_queue_document_id_task_type_status_key` — `CREATE UNIQUE INDEX document_processing_queue_document_id_task_type_status_key ON public.document_processing_queue USING btree (document_id, task_type, status)`
+- `document_processing_queue_pkey` — `CREATE UNIQUE INDEX document_processing_queue_pkey ON public.document_processing_queue USING btree (id)`
+- `idx_document_queue_status` — `CREATE INDEX idx_document_queue_status ON public.document_processing_queue USING btree (status, priority DESC)`
+
+---
+
+## `document_similarities`
+
+> Pre-computed document similarity scores
+
+| Column             | Type                     | Nullable | Default                                    |
+| ------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`               | integer                  | ⛔       | `nextval('document_similarities_id_seq...` |
+| `document_id_1`    | uuid                     | ⛔       |                                            |
+| `document_id_2`    | uuid                     | ⛔       |                                            |
+| `similarity_score` | numeric                  | ⛔       |                                            |
+| `similarity_type`  | character varying        | ✅       | `'semantic'::character varying`            |
+| `calculated_at`    | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `document_id_1` → `documents.id`
+- `document_id_2` → `documents.id`
+
+**Indexes:**
+
+- `document_similarities_document_id_1_document_id_2_key` — `CREATE UNIQUE INDEX document_similarities_document_id_1_document_id_2_key ON public.document_similarities USING btree (document_id_1, document_id_2)`
+- `document_similarities_pkey` — `CREATE UNIQUE INDEX document_similarities_pkey ON public.document_similarities USING btree (id)`
+- `idx_document_similarities_doc1` — `CREATE INDEX idx_document_similarities_doc1 ON public.document_similarities USING btree (document_id_1)`
+- `idx_document_similarities_doc2` — `CREATE INDEX idx_document_similarities_doc2 ON public.document_similarities USING btree (document_id_2)`
+- `idx_document_similarities_score` — `CREATE INDEX idx_document_similarities_score ON public.document_similarities USING btree (similarity_score DESC)`
+
+---
+
+## `documents`
+
+> Main document metadata storage for RAG system
+
+| Column                    | Type                     | Nullable | Default                      |
+| ------------------------- | ------------------------ | -------- | ---------------------------- |
+| `id`                      | uuid                     | ⛔       | `gen_random_uuid()`          |
+| `filename`                | character varying        | ⛔       |                              |
+| `original_filename`       | character varying        | ⛔       |                              |
+| `file_path`               | character varying        | ⛔       |                              |
+| `file_size`               | bigint                   | ⛔       |                              |
+| `mime_type`               | character varying        | ✅       |                              |
+| `file_extension`          | character varying        | ✅       |                              |
+| `content_hash`            | character varying        | ⛔       |                              |
+| `file_hash`               | character varying        | ⛔       |                              |
+| `status`                  | USER-DEFINED             | ✅       | `'pending'::document_status` |
+| `processing_started_at`   | timestamp with time zone | ✅       |                              |
+| `processing_completed_at` | timestamp with time zone | ✅       |                              |
+| `processing_error`        | text                     | ✅       |                              |
+| `retry_count`             | integer                  | ✅       | `0`                          |
+| `title`                   | character varying        | ✅       |                              |
+| `author`                  | character varying        | ✅       |                              |
+| `language`                | character varying        | ✅       | `'de'::character varying`    |
+| `page_count`              | integer                  | ✅       |                              |
+| `word_count`              | integer                  | ✅       |                              |
+| `char_count`              | integer                  | ✅       |                              |
+| `chunk_count`             | integer                  | ✅       | `0`                          |
+| `embedding_model`         | character varying        | ✅       |                              |
+| `summary`                 | text                     | ✅       |                              |
+| `key_topics`              | ARRAY                    | ✅       |                              |
+| `category_id`             | integer                  | ✅       |                              |
+| `category_confidence`     | numeric                  | ✅       |                              |
+| `user_tags`               | ARRAY                    | ✅       |                              |
+| `user_notes`              | text                     | ✅       |                              |
+| `is_favorite`             | boolean                  | ✅       | `false`                      |
+| `uploaded_at`             | timestamp with time zone | ✅       | `now()`                      |
+| `indexed_at`              | timestamp with time zone | ✅       |                              |
+| `updated_at`              | timestamp with time zone | ✅       | `now()`                      |
+| `deleted_at`              | timestamp with time zone | ✅       |                              |
+| `uploaded_by`             | character varying        | ✅       | `'admin'::character varying` |
+| `space_id`                | uuid                     | ✅       |                              |
+| `document_summary`        | text                     | ✅       |                              |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `category_id` → `document_categories.id`
+- `space_id` → `knowledge_spaces.id`
+
+**Indexes:**
+
+- `documents_pkey` — `CREATE UNIQUE INDEX documents_pkey ON public.documents USING btree (id)`
+- `idx_documents_category` — `CREATE INDEX idx_documents_category ON public.documents USING btree (category_id)`
+- `idx_documents_category_uploaded` — `CREATE INDEX idx_documents_category_uploaded ON public.documents USING btree (category_id, uploaded_at DESC) WHERE (deleted_at IS NULL)`
+- `idx_documents_deleted_at` — `CREATE INDEX idx_documents_deleted_at ON public.documents USING btree (deleted_at) WHERE (deleted_at IS NULL)`
+- `idx_documents_file_hash` — `CREATE INDEX idx_documents_file_hash ON public.documents USING btree (file_hash)`
+- `idx_documents_filename` — `CREATE INDEX idx_documents_filename ON public.documents USING btree (filename)`
+- `idx_documents_search_gin` — `CREATE INDEX idx_documents_search_gin ON public.documents USING gin (to_tsvector('german'::regconfig, (((COALESCE(filename, ''::character varying))::text || ' '::text) || (COALESCE(title, ''::character varying))::text))) WHERE (deleted_at IS NULL)`
+- `idx_documents_space_id` — `CREATE INDEX idx_documents_space_id ON public.documents USING btree (space_id)`
+- `idx_documents_space_status` — `CREATE INDEX idx_documents_space_status ON public.documents USING btree (space_id, status) WHERE (deleted_at IS NULL)`
+- `idx_documents_status` — `CREATE INDEX idx_documents_status ON public.documents USING btree (status)`
+- `idx_documents_status_uploaded` — `CREATE INDEX idx_documents_status_uploaded ON public.documents USING btree (status, uploaded_at DESC)`
+- `idx_documents_unique_content_hash` — `CREATE UNIQUE INDEX idx_documents_unique_content_hash ON public.documents USING btree (content_hash) WHERE ((deleted_at IS NULL) AND (status <> 'deleted'::document_status))`
+- `idx_documents_uploaded_at` — `CREATE INDEX idx_documents_uploaded_at ON public.documents USING btree (uploaded_at DESC)`
+
+---
+
+## `kg_entities`
+
+| Column          | Type                     | Nullable | Default                                   |
+| --------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`            | integer                  | ⛔       | `nextval('kg_entities_id_seq'::regclass)` |
+| `name`          | text                     | ⛔       |                                           |
+| `entity_type`   | text                     | ⛔       |                                           |
+| `properties`    | jsonb                    | ✅       | `'{}'::jsonb`                             |
+| `mention_count` | integer                  | ✅       | `1`                                       |
+| `created_at`    | timestamp with time zone | ✅       | `now()`                                   |
+| `updated_at`    | timestamp with time zone | ✅       | `now()`                                   |
+| `refined`       | boolean                  | ✅       | `false`                                   |
+| `canonical_id`  | integer                  | ✅       |                                           |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `canonical_id` → `kg_entities.id`
+
+**Indexes:**
+
+- `idx_kg_entities_canonical` — `CREATE INDEX idx_kg_entities_canonical ON public.kg_entities USING btree (canonical_id) WHERE (canonical_id IS NOT NULL)`
+- `idx_kg_entities_name_lower` — `CREATE INDEX idx_kg_entities_name_lower ON public.kg_entities USING btree (lower(name))`
+- `idx_kg_entities_name_trgm` — `CREATE INDEX idx_kg_entities_name_trgm ON public.kg_entities USING gin (name gin_trgm_ops)`
+- `idx_kg_entities_type` — `CREATE INDEX idx_kg_entities_type ON public.kg_entities USING btree (entity_type)`
+- `idx_kg_entities_unrefined` — `CREATE INDEX idx_kg_entities_unrefined ON public.kg_entities USING btree (refined) WHERE (refined = false)`
+- `kg_entities_name_entity_type_key` — `CREATE UNIQUE INDEX kg_entities_name_entity_type_key ON public.kg_entities USING btree (name, entity_type)`
+- `kg_entities_pkey` — `CREATE UNIQUE INDEX kg_entities_pkey ON public.kg_entities USING btree (id)`
+
+---
+
+## `kg_entity_documents`
+
+| Column          | Type                     | Nullable | Default |
+| --------------- | ------------------------ | -------- | ------- |
+| `entity_id`     | integer                  | ⛔       |         |
+| `document_id`   | uuid                     | ⛔       |         |
+| `mention_count` | integer                  | ✅       | `1`     |
+| `created_at`    | timestamp with time zone | ✅       | `now()` |
+
+**Primary key:** `entity_id, document_id`
+
+**Foreign Keys:**
+
+- `document_id` → `documents.id`
+- `entity_id` → `kg_entities.id`
+
+**Indexes:**
+
+- `idx_kg_entity_documents_doc` — `CREATE INDEX idx_kg_entity_documents_doc ON public.kg_entity_documents USING btree (document_id)`
+- `idx_kg_entity_documents_entity_id` — `CREATE INDEX idx_kg_entity_documents_entity_id ON public.kg_entity_documents USING btree (entity_id)`
+- `kg_entity_documents_pkey` — `CREATE UNIQUE INDEX kg_entity_documents_pkey ON public.kg_entity_documents USING btree (entity_id, document_id)`
+
+---
+
+## `kg_relations`
+
+| Column               | Type                     | Nullable | Default                                    |
+| -------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                 | integer                  | ⛔       | `nextval('kg_relations_id_seq'::regclass)` |
+| `source_entity_id`   | integer                  | ⛔       |                                            |
+| `target_entity_id`   | integer                  | ⛔       |                                            |
+| `relation_type`      | text                     | ⛔       |                                            |
+| `context`            | text                     | ✅       |                                            |
+| `properties`         | jsonb                    | ✅       | `'{}'::jsonb`                              |
+| `weight`             | real                     | ✅       | `1.0`                                      |
+| `source_document_id` | uuid                     | ✅       |                                            |
+| `created_at`         | timestamp with time zone | ✅       | `now()`                                    |
+| `refined`            | boolean                  | ✅       | `false`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `source_document_id` → `documents.id`
+- `source_entity_id` → `kg_entities.id`
+- `target_entity_id` → `kg_entities.id`
+
+**Indexes:**
+
+- `idx_kg_relations_source` — `CREATE INDEX idx_kg_relations_source ON public.kg_relations USING btree (source_entity_id)`
+- `idx_kg_relations_target` — `CREATE INDEX idx_kg_relations_target ON public.kg_relations USING btree (target_entity_id)`
+- `idx_kg_relations_type` — `CREATE INDEX idx_kg_relations_type ON public.kg_relations USING btree (relation_type)`
+- `idx_kg_relations_unrefined` — `CREATE INDEX idx_kg_relations_unrefined ON public.kg_relations USING btree (refined) WHERE ((refined = false) AND (relation_type = 'VERWANDT_MIT'::text))`
+- `kg_relations_pkey` — `CREATE UNIQUE INDEX kg_relations_pkey ON public.kg_relations USING btree (id)`
+- `kg_relations_source_entity_id_target_entity_id_relation_typ_key` — `CREATE UNIQUE INDEX kg_relations_source_entity_id_target_entity_id_relation_typ_key ON public.kg_relations USING btree (source_entity_id, target_entity_id, relation_type)`
+
+---
+
+## `knowledge_spaces`
+
+> Knowledge spaces (themed document collections) for hierarchical RAG
+
+| Column                   | Type                     | Nullable | Default                        |
+| ------------------------ | ------------------------ | -------- | ------------------------------ |
+| `id`                     | uuid                     | ⛔       | `gen_random_uuid()`            |
+| `name`                   | character varying        | ⛔       |                                |
+| `slug`                   | character varying        | ⛔       |                                |
+| `icon`                   | character varying        | ✅       | `'folder'::character varying`  |
+| `color`                  | character varying        | ✅       | `'#6366f1'::character varying` |
+| `sort_order`             | integer                  | ✅       | `0`                            |
+| `description`            | text                     | ⛔       |                                |
+| `description_embedding`  | text                     | ✅       |                                |
+| `auto_summary`           | text                     | ✅       |                                |
+| `auto_topics`            | jsonb                    | ✅       | `'[]'::jsonb`                  |
+| `auto_glossary`          | jsonb                    | ✅       | `'[]'::jsonb`                  |
+| `auto_generated_at`      | timestamp with time zone | ✅       |                                |
+| `auto_generation_status` | character varying        | ✅       | `'pending'::character varying` |
+| `auto_generation_error`  | text                     | ✅       |                                |
+| `document_count`         | integer                  | ✅       | `0`                            |
+| `total_chunks`           | integer                  | ✅       | `0`                            |
+| `total_size_bytes`       | bigint                   | ✅       | `0`                            |
+| `is_default`             | boolean                  | ✅       | `false`                        |
+| `is_system`              | boolean                  | ✅       | `false`                        |
+| `created_at`             | timestamp with time zone | ✅       | `now()`                        |
+| `updated_at`             | timestamp with time zone | ✅       | `now()`                        |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_knowledge_spaces_single_default` — `CREATE UNIQUE INDEX idx_knowledge_spaces_single_default ON public.knowledge_spaces USING btree (is_default) WHERE (is_default = true)`
+- `idx_knowledge_spaces_sort` — `CREATE INDEX idx_knowledge_spaces_sort ON public.knowledge_spaces USING btree (sort_order, name)`
+- `idx_knowledge_spaces_updated` — `CREATE INDEX idx_knowledge_spaces_updated ON public.knowledge_spaces USING btree (updated_at DESC)`
+- `knowledge_spaces_pkey` — `CREATE UNIQUE INDEX knowledge_spaces_pkey ON public.knowledge_spaces USING btree (id)`
+- `knowledge_spaces_slug_key` — `CREATE UNIQUE INDEX knowledge_spaces_slug_key ON public.knowledge_spaces USING btree (slug)`
+
+---
+
+## `llm_installed_models`
+
+> Tracking of installed/downloaded models
+
+| Column              | Type                     | Nullable | Default                          |
+| ------------------- | ------------------------ | -------- | -------------------------------- |
+| `id`                | character varying        | ⛔       |                                  |
+| `status`            | character varying        | ✅       | `'available'::character varying` |
+| `download_progress` | integer                  | ✅       | `0`                              |
+| `downloaded_at`     | timestamp with time zone | ✅       |                                  |
+| `last_used_at`      | timestamp with time zone | ✅       |                                  |
+| `usage_count`       | integer                  | ✅       | `0`                              |
+| `error_message`     | text                     | ✅       |                                  |
+| `is_default`        | boolean                  | ✅       | `false`                          |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_llm_installed_models_default` — `CREATE UNIQUE INDEX idx_llm_installed_models_default ON public.llm_installed_models USING btree (is_default) WHERE (is_default = true)`
+- `idx_llm_installed_models_last_used` — `CREATE INDEX idx_llm_installed_models_last_used ON public.llm_installed_models USING btree (last_used_at DESC NULLS LAST)`
+- `idx_llm_installed_models_status` — `CREATE INDEX idx_llm_installed_models_status ON public.llm_installed_models USING btree (status)`
+- `llm_installed_models_pkey` — `CREATE UNIQUE INDEX llm_installed_models_pkey ON public.llm_installed_models USING btree (id)`
+
+---
+
+## `llm_jobs`
+
+> Background LLM streaming jobs for tab-switch resilience
+
+| Column                | Type                     | Nullable | Default                        |
+| --------------------- | ------------------------ | -------- | ------------------------------ |
+| `id`                  | uuid                     | ⛔       | `gen_random_uuid()`            |
+| `conversation_id`     | bigint                   | ⛔       |                                |
+| `message_id`          | bigint                   | ✅       |                                |
+| `job_type`            | character varying        | ⛔       |                                |
+| `status`              | character varying        | ⛔       | `'pending'::character varying` |
+| `request_data`        | jsonb                    | ⛔       |                                |
+| `content`             | text                     | ⛔       | `''::text`                     |
+| `thinking`            | text                     | ✅       |                                |
+| `sources`             | jsonb                    | ✅       |                                |
+| `created_at`          | timestamp with time zone | ⛔       | `now()`                        |
+| `started_at`          | timestamp with time zone | ✅       |                                |
+| `completed_at`        | timestamp with time zone | ✅       |                                |
+| `last_update_at`      | timestamp with time zone | ⛔       | `now()`                        |
+| `error_message`       | text                     | ✅       |                                |
+| `queue_position`      | integer                  | ✅       |                                |
+| `queued_at`           | timestamp with time zone | ✅       | `now()`                        |
+| `priority`            | integer                  | ✅       | `0`                            |
+| `requested_model`     | character varying        | ✅       |                                |
+| `model_sequence`      | jsonb                    | ✅       |                                |
+| `max_wait_seconds`    | integer                  | ✅       | `120`                          |
+| `prompt_tokens`       | integer                  | ✅       |                                |
+| `completion_tokens`   | integer                  | ✅       |                                |
+| `context_window_used` | integer                  | ✅       |                                |
+| `matched_spaces`      | jsonb                    | ✅       |                                |
+| `images`              | jsonb                    | ✅       |                                |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `conversation_id` → `chat_conversations.id`
+- `message_id` → `chat_messages.id`
+
+**Indexes:**
+
+- `idx_llm_jobs_completed_at` — `CREATE INDEX idx_llm_jobs_completed_at ON public.llm_jobs USING btree (completed_at) WHERE ((status)::text = ANY ((ARRAY['completed'::character varying, 'error'::character varying, 'cancelled'::character varying])::text[]))`
+- `idx_llm_jobs_conversation` — `CREATE INDEX idx_llm_jobs_conversation ON public.llm_jobs USING btree (conversation_id)`
+- `idx_llm_jobs_conversation_status` — `CREATE INDEX idx_llm_jobs_conversation_status ON public.llm_jobs USING btree (conversation_id, status) WHERE ((status)::text = ANY ((ARRAY['pending'::character varying, 'queued'::character varying, 'streaming'::character varying])::text[]))`
+- `idx_llm_jobs_created` — `CREATE INDEX idx_llm_jobs_created ON public.llm_jobs USING btree (created_at DESC)`
+- `idx_llm_jobs_fairness_check` — `CREATE INDEX idx_llm_jobs_fairness_check ON public.llm_jobs USING btree (queued_at) WHERE ((status)::text = 'pending'::text)`
+- `idx_llm_jobs_model_pending` — `CREATE INDEX idx_llm_jobs_model_pending ON public.llm_jobs USING btree (requested_model, priority DESC, queued_at) WHERE ((status)::text = 'pending'::text)`
+- `idx_llm_jobs_queue` — `CREATE INDEX idx_llm_jobs_queue ON public.llm_jobs USING btree (queue_position) WHERE ((status)::text = 'pending'::text)`
+- `idx_llm_jobs_queue_position` — `CREATE INDEX idx_llm_jobs_queue_position ON public.llm_jobs USING btree (queue_position) WHERE ((status)::text = ANY ((ARRAY['pending'::character varying, 'queued'::character varying])::text[]))`
+- `idx_llm_jobs_status` — `CREATE INDEX idx_llm_jobs_status ON public.llm_jobs USING btree (status) WHERE ((status)::text = ANY ((ARRAY['pending'::character varying, 'streaming'::character varying])::text[]))`
+- `idx_llm_jobs_status_created` — `CREATE INDEX idx_llm_jobs_status_created ON public.llm_jobs USING btree (status, created_at DESC)`
+- `llm_jobs_pkey` — `CREATE UNIQUE INDEX llm_jobs_pkey ON public.llm_jobs USING btree (id)`
+
+---
+
+## `llm_model_catalog`
+
+> Curated catalog of Jetson-tested LLM models
+
+| Column                  | Type                     | Nullable | Default                    |
+| ----------------------- | ------------------------ | -------- | -------------------------- |
+| `id`                    | character varying        | ⛔       |                            |
+| `name`                  | character varying        | ⛔       |                            |
+| `description`           | text                     | ✅       |                            |
+| `size_bytes`            | bigint                   | ⛔       |                            |
+| `ram_required_gb`       | integer                  | ⛔       |                            |
+| `category`              | character varying        | ⛔       |                            |
+| `capabilities`          | jsonb                    | ✅       | `'[]'::jsonb`              |
+| `recommended_for`       | jsonb                    | ✅       | `'[]'::jsonb`              |
+| `jetson_tested`         | boolean                  | ✅       | `true`                     |
+| `performance_tier`      | integer                  | ✅       | `2`                        |
+| `ollama_library_url`    | character varying        | ✅       |                            |
+| `added_at`              | timestamp with time zone | ✅       | `now()`                    |
+| `updated_at`            | timestamp with time zone | ✅       | `now()`                    |
+| `ollama_name`           | character varying        | ✅       |                            |
+| `supports_thinking`     | boolean                  | ✅       | `false`                    |
+| `rag_optimized`         | boolean                  | ✅       | `false`                    |
+| `model_type`            | character varying        | ✅       | `'llm'::character varying` |
+| `context_window`        | integer                  | ✅       |                            |
+| `recommended_ctx`       | integer                  | ✅       | `8192`                     |
+| `supports_vision_input` | boolean                  | ✅       | `false`                    |
+| `is_platform_default`   | boolean                  | ✅       | `false`                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_llm_catalog_capabilities` — `CREATE INDEX idx_llm_catalog_capabilities ON public.llm_model_catalog USING btree (supports_thinking, rag_optimized)`
+- `idx_llm_catalog_platform_default` — `CREATE INDEX idx_llm_catalog_platform_default ON public.llm_model_catalog USING btree (is_platform_default) WHERE (is_platform_default = true)`
+- `idx_llm_catalog_vision` — `CREATE INDEX idx_llm_catalog_vision ON public.llm_model_catalog USING btree (supports_vision_input) WHERE (supports_vision_input = true)`
+- `idx_llm_model_catalog_category` — `CREATE INDEX idx_llm_model_catalog_category ON public.llm_model_catalog USING btree (category)`
+- `idx_llm_model_catalog_ollama_name` — `CREATE INDEX idx_llm_model_catalog_ollama_name ON public.llm_model_catalog USING btree (ollama_name)`
+- `idx_llm_model_catalog_performance` — `CREATE INDEX idx_llm_model_catalog_performance ON public.llm_model_catalog USING btree (performance_tier)`
+- `idx_model_catalog_type` — `CREATE INDEX idx_model_catalog_type ON public.llm_model_catalog USING btree (model_type)`
+- `llm_model_catalog_pkey` — `CREATE UNIQUE INDEX llm_model_catalog_pkey ON public.llm_model_catalog USING btree (id)`
+
+---
+
+## `llm_model_switches`
+
+> History of model switches for analytics
+
+| Column               | Type                     | Nullable | Default                                    |
+| -------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                 | integer                  | ⛔       | `nextval('llm_model_switches_id_seq'::...` |
+| `from_model`         | character varying        | ✅       |                                            |
+| `to_model`           | character varying        | ⛔       |                                            |
+| `switch_duration_ms` | integer                  | ✅       |                                            |
+| `triggered_by`       | character varying        | ✅       |                                            |
+| `reason`             | character varying        | ✅       |                                            |
+| `switched_at`        | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_llm_model_switches_time` — `CREATE INDEX idx_llm_model_switches_time ON public.llm_model_switches USING btree (switched_at DESC)`
+- `llm_model_switches_pkey` — `CREATE UNIQUE INDEX llm_model_switches_pkey ON public.llm_model_switches USING btree (id)`
+
+---
+
+## `login_attempts`
+
+> Login attempt history for security monitoring
+
+| Column         | Type                     | Nullable | Default                                    |
+| -------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`           | bigint                   | ⛔       | `nextval('login_attempts_id_seq'::regc...` |
+| `username`     | character varying        | ⛔       |                                            |
+| `ip_address`   | inet                     | ⛔       |                                            |
+| `success`      | boolean                  | ⛔       |                                            |
+| `attempted_at` | timestamp with time zone | ✅       | `now()`                                    |
+| `user_agent`   | text                     | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_login_attempts_ip` — `CREATE INDEX idx_login_attempts_ip ON public.login_attempts USING btree (ip_address)`
+- `idx_login_attempts_ip_time` — `CREATE INDEX idx_login_attempts_ip_time ON public.login_attempts USING btree (ip_address, attempted_at DESC)`
+- `idx_login_attempts_time` — `CREATE INDEX idx_login_attempts_time ON public.login_attempts USING btree (attempted_at DESC)`
+- `idx_login_attempts_username` — `CREATE INDEX idx_login_attempts_username ON public.login_attempts USING btree (username)`
+- `idx_login_attempts_username_time` — `CREATE INDEX idx_login_attempts_username_time ON public.login_attempts USING btree (username, attempted_at DESC)`
+- `login_attempts_pkey` — `CREATE UNIQUE INDEX login_attempts_pkey ON public.login_attempts USING btree (id)`
+
+---
+
+## `metrics_cpu`
+
+> CPU utilization metrics (percentage)
+
+| Column       | Type                     | Nullable | Default |
+| ------------ | ------------------------ | -------- | ------- |
+| `timestamp`  | timestamp with time zone | ⛔       |         |
+| `value`      | double precision         | ⛔       |         |
+| `created_at` | timestamp with time zone | ✅       | `now()` |
+
+**Primary key:** `timestamp`
+
+**Indexes:**
+
+- `idx_metrics_cpu_recent` — `CREATE INDEX idx_metrics_cpu_recent ON public.metrics_cpu USING btree ("timestamp" DESC)`
+- `idx_metrics_cpu_timestamp` — `CREATE INDEX idx_metrics_cpu_timestamp ON public.metrics_cpu USING btree ("timestamp" DESC)`
+- `metrics_cpu_pkey` — `CREATE UNIQUE INDEX metrics_cpu_pkey ON public.metrics_cpu USING btree ("timestamp")`
+
+---
+
+## `metrics_disk`
+
+> Disk usage metrics
+
+| Column       | Type                     | Nullable | Default |
+| ------------ | ------------------------ | -------- | ------- |
+| `timestamp`  | timestamp with time zone | ⛔       |         |
+| `used`       | bigint                   | ⛔       |         |
+| `free`       | bigint                   | ⛔       |         |
+| `percent`    | double precision         | ⛔       |         |
+| `created_at` | timestamp with time zone | ✅       | `now()` |
+
+**Primary key:** `timestamp`
+
+**Indexes:**
+
+- `idx_metrics_disk_recent` — `CREATE INDEX idx_metrics_disk_recent ON public.metrics_disk USING btree ("timestamp" DESC)`
+- `idx_metrics_disk_timestamp` — `CREATE INDEX idx_metrics_disk_timestamp ON public.metrics_disk USING btree ("timestamp" DESC)`
+- `metrics_disk_pkey` — `CREATE UNIQUE INDEX metrics_disk_pkey ON public.metrics_disk USING btree ("timestamp")`
+
+---
+
+## `metrics_gpu`
+
+> GPU utilization metrics (percentage)
+
+| Column       | Type                     | Nullable | Default |
+| ------------ | ------------------------ | -------- | ------- |
+| `timestamp`  | timestamp with time zone | ⛔       |         |
+| `value`      | double precision         | ⛔       |         |
+| `created_at` | timestamp with time zone | ✅       | `now()` |
+
+**Primary key:** `timestamp`
+
+**Indexes:**
+
+- `idx_metrics_gpu_recent` — `CREATE INDEX idx_metrics_gpu_recent ON public.metrics_gpu USING btree ("timestamp" DESC)`
+- `idx_metrics_gpu_timestamp` — `CREATE INDEX idx_metrics_gpu_timestamp ON public.metrics_gpu USING btree ("timestamp" DESC)`
+- `metrics_gpu_pkey` — `CREATE UNIQUE INDEX metrics_gpu_pkey ON public.metrics_gpu USING btree ("timestamp")`
+
+---
+
+## `metrics_infra`
+
+> Generic infra metrics sink: one row per (source_type, source_name, collection). payload is JSONB so new metrics do not require migrations.
+
+| Column         | Type                     | Nullable | Default                                    |
+| -------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`           | bigint                   | ⛔       | `nextval('metrics_infra_id_seq'::regcl...` |
+| `source_type`  | character varying        | ⛔       |                                            |
+| `source_name`  | character varying        | ⛔       |                                            |
+| `payload`      | jsonb                    | ⛔       | `'{}'::jsonb`                              |
+| `collected_at` | timestamp with time zone | ⛔       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_metrics_infra_collected_at` — `CREATE INDEX idx_metrics_infra_collected_at ON public.metrics_infra USING btree (collected_at DESC)`
+- `idx_metrics_infra_type_name_time` — `CREATE INDEX idx_metrics_infra_type_name_time ON public.metrics_infra USING btree (source_type, source_name, collected_at DESC)`
+- `metrics_infra_pkey` — `CREATE UNIQUE INDEX metrics_infra_pkey ON public.metrics_infra USING btree (id)`
+
+---
+
+## `metrics_ram`
+
+> RAM utilization metrics (percentage)
+
+| Column       | Type                     | Nullable | Default |
+| ------------ | ------------------------ | -------- | ------- |
+| `timestamp`  | timestamp with time zone | ⛔       |         |
+| `value`      | double precision         | ⛔       |         |
+| `created_at` | timestamp with time zone | ✅       | `now()` |
+
+**Primary key:** `timestamp`
+
+**Indexes:**
+
+- `idx_metrics_ram_recent` — `CREATE INDEX idx_metrics_ram_recent ON public.metrics_ram USING btree ("timestamp" DESC)`
+- `idx_metrics_ram_timestamp` — `CREATE INDEX idx_metrics_ram_timestamp ON public.metrics_ram USING btree ("timestamp" DESC)`
+- `metrics_ram_pkey` — `CREATE UNIQUE INDEX metrics_ram_pkey ON public.metrics_ram USING btree ("timestamp")`
+
+---
+
+## `metrics_swap`
+
+| Column       | Type                     | Nullable | Default |
+| ------------ | ------------------------ | -------- | ------- |
+| `timestamp`  | timestamp with time zone | ⛔       |         |
+| `value`      | double precision         | ⛔       |         |
+| `created_at` | timestamp with time zone | ✅       | `now()` |
+
+**Primary key:** `timestamp`
+
+**Indexes:**
+
+- `idx_metrics_swap_recent` — `CREATE INDEX idx_metrics_swap_recent ON public.metrics_swap USING btree ("timestamp" DESC)`
+- `idx_metrics_swap_timestamp` — `CREATE INDEX idx_metrics_swap_timestamp ON public.metrics_swap USING btree ("timestamp" DESC)`
+- `metrics_swap_pkey` — `CREATE UNIQUE INDEX metrics_swap_pkey ON public.metrics_swap USING btree ("timestamp")`
+
+---
+
+## `metrics_temperature`
+
+> System temperature metrics (Celsius)
+
+| Column       | Type                     | Nullable | Default |
+| ------------ | ------------------------ | -------- | ------- |
+| `timestamp`  | timestamp with time zone | ⛔       |         |
+| `value`      | double precision         | ⛔       |         |
+| `created_at` | timestamp with time zone | ✅       | `now()` |
+
+**Primary key:** `timestamp`
+
+**Indexes:**
+
+- `idx_metrics_temperature_recent` — `CREATE INDEX idx_metrics_temperature_recent ON public.metrics_temperature USING btree ("timestamp" DESC)`
+- `idx_metrics_temperature_timestamp` — `CREATE INDEX idx_metrics_temperature_timestamp ON public.metrics_temperature USING btree ("timestamp" DESC)`
+- `metrics_temperature_pkey` — `CREATE UNIQUE INDEX metrics_temperature_pkey ON public.metrics_temperature USING btree ("timestamp")`
+
+---
+
+## `model_performance_metrics`
+
+> Tracks LLM performance metrics (tokens/s, latency) for each model and request type
+
+| Column                   | Type                     | Nullable | Default                                    |
+| ------------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`                     | integer                  | ⛔       | `nextval('model_performance_metrics_id...` |
+| `model_id`               | character varying        | ⛔       |                                            |
+| `job_id`                 | uuid                     | ✅       |                                            |
+| `job_type`               | character varying        | ⛔       | `'chat'::character varying`                |
+| `tokens_generated`       | integer                  | ⛔       | `0`                                        |
+| `prompt_tokens`          | integer                  | ✅       |                                            |
+| `time_to_first_token_ms` | integer                  | ✅       |                                            |
+| `total_duration_ms`      | integer                  | ⛔       |                                            |
+| `tokens_per_second`      | numeric                  | ✅       |                                            |
+| `thinking_enabled`       | boolean                  | ✅       | `false`                                    |
+| `context_length`         | integer                  | ✅       |                                            |
+| `created_at`             | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `job_id` → `llm_jobs.id`
+
+**Indexes:**
+
+- `idx_perf_created_at` — `CREATE INDEX idx_perf_created_at ON public.model_performance_metrics USING btree (created_at DESC)`
+- `idx_perf_job_type` — `CREATE INDEX idx_perf_job_type ON public.model_performance_metrics USING btree (job_type)`
+- `idx_perf_model_id` — `CREATE INDEX idx_perf_model_id ON public.model_performance_metrics USING btree (model_id)`
+- `model_performance_metrics_pkey` — `CREATE UNIQUE INDEX model_performance_metrics_pkey ON public.model_performance_metrics USING btree (id)`
+
+---
+
+## `notification_events`
+
+> Stores all events that trigger notifications
+
+| Column                 | Type                     | Nullable | Default                                    |
+| ---------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                   | integer                  | ⛔       | `nextval('notification_events_id_seq':...` |
+| `event_type`           | character varying        | ⛔       |                                            |
+| `event_category`       | character varying        | ⛔       |                                            |
+| `source_service`       | character varying        | ✅       |                                            |
+| `severity`             | character varying        | ✅       | `'info'::character varying`                |
+| `title`                | character varying        | ⛔       |                                            |
+| `message`              | text                     | ✅       |                                            |
+| `metadata`             | jsonb                    | ✅       | `'{}'::jsonb`                              |
+| `notification_sent`    | boolean                  | ✅       | `false`                                    |
+| `notification_sent_at` | timestamp with time zone | ✅       |                                            |
+| `notification_error`   | text                     | ✅       |                                            |
+| `retry_count`          | integer                  | ✅       | `0`                                        |
+| `created_at`           | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_notification_events_created` — `CREATE INDEX idx_notification_events_created ON public.notification_events USING btree (created_at DESC)`
+- `idx_notification_events_severity` — `CREATE INDEX idx_notification_events_severity ON public.notification_events USING btree (severity)`
+- `idx_notification_events_type` — `CREATE INDEX idx_notification_events_type ON public.notification_events USING btree (event_type)`
+- `idx_notification_events_unsent` — `CREATE INDEX idx_notification_events_unsent ON public.notification_events USING btree (notification_sent) WHERE (notification_sent = false)`
+- `notification_events_pkey` — `CREATE UNIQUE INDEX notification_events_pkey ON public.notification_events USING btree (id)`
+
+---
+
+## `notification_rate_limits`
+
+> Prevents notification spam via rate limiting
+
+| Column         | Type                     | Nullable | Default                                    |
+| -------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`           | integer                  | ⛔       | `nextval('notification_rate_limits_id_...` |
+| `user_id`      | integer                  | ✅       |                                            |
+| `channel`      | character varying        | ⛔       |                                            |
+| `event_type`   | character varying        | ⛔       |                                            |
+| `window_start` | timestamp with time zone | ⛔       |                                            |
+| `count`        | integer                  | ✅       | `1`                                        |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_notification_rate_limits_window` — `CREATE INDEX idx_notification_rate_limits_window ON public.notification_rate_limits USING btree (user_id, channel, window_start)`
+- `notification_rate_limits_pkey` — `CREATE UNIQUE INDEX notification_rate_limits_pkey ON public.notification_rate_limits USING btree (id)`
+- `notification_rate_limits_user_id_channel_event_type_window__key` — `CREATE UNIQUE INDEX notification_rate_limits_user_id_channel_event_type_window__key ON public.notification_rate_limits USING btree (user_id, channel, event_type, window_start)`
+
+---
+
+## `notification_settings`
+
+> User preferences for notification delivery
+
+| Column                        | Type                     | Nullable | Default                                    |
+| ----------------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                          | integer                  | ⛔       | `nextval('notification_settings_id_seq...` |
+| `user_id`                     | integer                  | ✅       |                                            |
+| `channel`                     | character varying        | ⛔       | `'telegram'::character varying`            |
+| `enabled`                     | boolean                  | ✅       | `true`                                     |
+| `event_types`                 | ARRAY                    | ✅       | `ARRAY['service_status'::text, 'workfl...` |
+| `min_severity`                | character varying        | ✅       | `'warning'::character varying`             |
+| `rate_limit_per_minute`       | integer                  | ✅       | `10`                                       |
+| `rate_limit_per_hour`         | integer                  | ✅       | `100`                                      |
+| `quiet_hours_start`           | time without time zone   | ✅       |                                            |
+| `quiet_hours_end`             | time without time zone   | ✅       |                                            |
+| `telegram_chat_id`            | character varying        | ✅       |                                            |
+| `telegram_bot_token_override` | character varying        | ✅       |                                            |
+| `webhook_url`                 | character varying        | ✅       |                                            |
+| `webhook_secret`              | character varying        | ✅       |                                            |
+| `created_at`                  | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`                  | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `notification_settings_pkey` — `CREATE UNIQUE INDEX notification_settings_pkey ON public.notification_settings USING btree (id)`
+- `notification_settings_user_id_channel_key` — `CREATE UNIQUE INDEX notification_settings_user_id_channel_key ON public.notification_settings USING btree (user_id, channel)`
+
+---
+
+## `password_history`
+
+> Password change history
+
+| Column          | Type                     | Nullable | Default                                    |
+| --------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`            | bigint                   | ⛔       | `nextval('password_history_id_seq'::re...` |
+| `user_id`       | bigint                   | ✅       |                                            |
+| `password_hash` | character varying        | ⛔       |                                            |
+| `changed_at`    | timestamp with time zone | ✅       | `now()`                                    |
+| `changed_by`    | character varying        | ✅       |                                            |
+| `ip_address`    | inet                     | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_password_history_time` — `CREATE INDEX idx_password_history_time ON public.password_history USING btree (changed_at DESC)`
+- `idx_password_history_user` — `CREATE INDEX idx_password_history_user ON public.password_history USING btree (user_id)`
+- `password_history_pkey` — `CREATE UNIQUE INDEX password_history_pkey ON public.password_history USING btree (id)`
+
+---
+
+## `projects`
+
+| Column               | Type                     | Nullable | Default                        |
+| -------------------- | ------------------------ | -------- | ------------------------------ |
+| `id`                 | uuid                     | ⛔       | `gen_random_uuid()`            |
+| `name`               | character varying        | ⛔       |                                |
+| `description`        | text                     | ✅       | `''::text`                     |
+| `system_prompt`      | text                     | ✅       | `''::text`                     |
+| `icon`               | character varying        | ✅       | `'folder'::character varying`  |
+| `color`              | character varying        | ✅       | `'#45ADFF'::character varying` |
+| `knowledge_space_id` | uuid                     | ✅       |                                |
+| `sort_order`         | integer                  | ✅       | `0`                            |
+| `created_at`         | timestamp with time zone | ✅       | `now()`                        |
+| `updated_at`         | timestamp with time zone | ✅       | `now()`                        |
+| `is_default`         | boolean                  | ✅       | `false`                        |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `knowledge_space_id` → `knowledge_spaces.id`
+
+**Indexes:**
+
+- `idx_projects_sort` — `CREATE INDEX idx_projects_sort ON public.projects USING btree (sort_order, created_at DESC)`
+- `projects_pkey` — `CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (id)`
+
+---
+
+## `rag_query_log`
+
+> Per-query RAG telemetry. Aggregated by /api/rag/metrics for the Database Overview dashboard.
+
+| Column             | Type                     | Nullable | Default                                    |
+| ------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`               | bigint                   | ⛔       | `nextval('rag_query_log_id_seq'::regcl...` |
+| `created_at`       | timestamp with time zone | ⛔       | `now()`                                    |
+| `conversation_id`  | integer                  | ✅       |                                            |
+| `user_id`          | integer                  | ✅       |                                            |
+| `query_text`       | text                     | ⛔       |                                            |
+| `query_length`     | integer                  | ⛔       |                                            |
+| `retrieved_count`  | integer                  | ⛔       | `0`                                        |
+| `top_rerank_score` | double precision         | ✅       |                                            |
+| `avg_rerank_score` | double precision         | ✅       |                                            |
+| `space_ids`        | ARRAY                    | ✅       |                                            |
+| `routing_method`   | text                     | ✅       |                                            |
+| `marginal_results` | boolean                  | ⛔       | `false`                                    |
+| `no_relevant_docs` | boolean                  | ⛔       | `false`                                    |
+| `response_length`  | integer                  | ✅       |                                            |
+| `latency_ms`       | integer                  | ✅       |                                            |
+| `error`            | text                     | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_rag_query_log_conversation` — `CREATE INDEX idx_rag_query_log_conversation ON public.rag_query_log USING btree (conversation_id)`
+- `idx_rag_query_log_created_at` — `CREATE INDEX idx_rag_query_log_created_at ON public.rag_query_log USING btree (created_at DESC)`
+- `rag_query_log_pkey` — `CREATE UNIQUE INDEX rag_query_log_pkey ON public.rag_query_log USING btree (id)`
+
+---
+
+## `reboot_events`
+
+| Column              | Type                     | Nullable | Default                                    |
+| ------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                | bigint                   | ⛔       | `nextval('reboot_events_id_seq'::regcl...` |
+| `timestamp`         | timestamp with time zone | ⛔       | `now()`                                    |
+| `reason`            | text                     | ⛔       |                                            |
+| `pre_reboot_state`  | jsonb                    | ⛔       |                                            |
+| `post_reboot_state` | jsonb                    | ✅       |                                            |
+| `reboot_completed`  | boolean                  | ✅       | `false`                                    |
+| `validation_passed` | boolean                  | ✅       |                                            |
+| `created_at`        | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_reboot_events_timestamp` — `CREATE INDEX idx_reboot_events_timestamp ON public.reboot_events USING btree ("timestamp" DESC)`
+- `reboot_events_pkey` — `CREATE UNIQUE INDEX reboot_events_pkey ON public.reboot_events USING btree (id)`
+
+---
+
+## `recovery_actions`
+
+| Column          | Type                     | Nullable | Default                                    |
+| --------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`            | bigint                   | ⛔       | `nextval('recovery_actions_id_seq'::re...` |
+| `timestamp`     | timestamp with time zone | ⛔       | `now()`                                    |
+| `action_type`   | text                     | ⛔       |                                            |
+| `service_name`  | text                     | ✅       |                                            |
+| `reason`        | text                     | ⛔       |                                            |
+| `success`       | boolean                  | ⛔       |                                            |
+| `duration_ms`   | integer                  | ✅       |                                            |
+| `error_message` | text                     | ✅       |                                            |
+| `metadata`      | jsonb                    | ✅       |                                            |
+| `created_at`    | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_recovery_actions_action_type` — `CREATE INDEX idx_recovery_actions_action_type ON public.recovery_actions USING btree (action_type)`
+- `idx_recovery_actions_service` — `CREATE INDEX idx_recovery_actions_service ON public.recovery_actions USING btree (service_name)`
+- `idx_recovery_actions_timestamp` — `CREATE INDEX idx_recovery_actions_timestamp ON public.recovery_actions USING btree ("timestamp" DESC)`
+- `recovery_actions_pkey` — `CREATE UNIQUE INDEX recovery_actions_pkey ON public.recovery_actions USING btree (id)`
+
+---
+
+## `sandbox_projects`
+
+> Persistent sandbox development environments with Docker containers
+
+| Column                   | Type                     | Nullable | Default                                    |
+| ------------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`                     | uuid                     | ⛔       | `gen_random_uuid()`                        |
+| `name`                   | character varying        | ⛔       |                                            |
+| `slug`                   | character varying        | ⛔       |                                            |
+| `description`            | text                     | ✅       | `''::text`                                 |
+| `icon`                   | character varying        | ✅       | `'terminal'::character varying`            |
+| `color`                  | character varying        | ✅       | `'#45ADFF'::character varying`             |
+| `base_image`             | character varying        | ⛔       | `'arasul-sandbox:latest'::character va...` |
+| `status`                 | USER-DEFINED             | ✅       | `'active'::sandbox_project_status`         |
+| `container_id`           | character varying        | ✅       |                                            |
+| `container_name`         | character varying        | ✅       |                                            |
+| `container_status`       | USER-DEFINED             | ✅       | `'none'::sandbox_container_status`         |
+| `committed_image`        | character varying        | ✅       |                                            |
+| `host_path`              | text                     | ⛔       |                                            |
+| `container_path`         | text                     | ⛔       | `'/workspace'::text`                       |
+| `resource_limits`        | jsonb                    | ✅       | `'{"cpus": "2", "pids": 256, "memory":...` |
+| `environment`            | jsonb                    | ✅       | `'{}'::jsonb`                              |
+| `installed_packages`     | ARRAY                    | ✅       | `'{}'::text[]`                             |
+| `last_accessed_at`       | timestamp with time zone | ✅       |                                            |
+| `total_terminal_seconds` | integer                  | ✅       | `0`                                        |
+| `created_at`             | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`             | timestamp with time zone | ✅       | `now()`                                    |
+| `network_mode`           | character varying        | ✅       | `'internal'::character varying`            |
+| `user_id`                | integer                  | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_sandbox_projects_container_status` — `CREATE INDEX idx_sandbox_projects_container_status ON public.sandbox_projects USING btree (container_status) WHERE (container_status = ANY (ARRAY['running'::sandbox_container_status, 'creating'::sandbox_container_status]))`
+- `idx_sandbox_projects_last_accessed` — `CREATE INDEX idx_sandbox_projects_last_accessed ON public.sandbox_projects USING btree (last_accessed_at DESC NULLS LAST) WHERE (status = 'active'::sandbox_project_status)`
+- `idx_sandbox_projects_slug` — `CREATE INDEX idx_sandbox_projects_slug ON public.sandbox_projects USING btree (slug)`
+- `idx_sandbox_projects_status` — `CREATE INDEX idx_sandbox_projects_status ON public.sandbox_projects USING btree (status)`
+- `idx_sandbox_projects_user_id` — `CREATE INDEX idx_sandbox_projects_user_id ON public.sandbox_projects USING btree (user_id)`
+- `sandbox_projects_pkey` — `CREATE UNIQUE INDEX sandbox_projects_pkey ON public.sandbox_projects USING btree (id)`
+- `sandbox_projects_slug_key` — `CREATE UNIQUE INDEX sandbox_projects_slug_key ON public.sandbox_projects USING btree (slug)`
+
+---
+
+## `sandbox_terminal_sessions`
+
+> Active and historical terminal sessions within sandbox projects
+
+| Column              | Type                     | Nullable | Default                            |
+| ------------------- | ------------------------ | -------- | ---------------------------------- |
+| `id`                | uuid                     | ⛔       | `gen_random_uuid()`                |
+| `project_id`        | uuid                     | ⛔       |                                    |
+| `session_type`      | USER-DEFINED             | ✅       | `'shell'::sandbox_session_type`    |
+| `command`           | text                     | ✅       | `'/bin/bash'::text`                |
+| `status`            | USER-DEFINED             | ✅       | `'active'::sandbox_session_status` |
+| `container_exec_id` | character varying        | ✅       |                                    |
+| `started_at`        | timestamp with time zone | ✅       | `now()`                            |
+| `ended_at`          | timestamp with time zone | ✅       |                                    |
+| `metadata`          | jsonb                    | ✅       | `'{}'::jsonb`                      |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `project_id` → `sandbox_projects.id`
+
+**Indexes:**
+
+- `idx_sandbox_sessions_active` — `CREATE INDEX idx_sandbox_sessions_active ON public.sandbox_terminal_sessions USING btree (project_id, status) WHERE (status = 'active'::sandbox_session_status)`
+- `idx_sandbox_sessions_project` — `CREATE INDEX idx_sandbox_sessions_project ON public.sandbox_terminal_sessions USING btree (project_id)`
+- `idx_sandbox_sessions_started` — `CREATE INDEX idx_sandbox_sessions_started ON public.sandbox_terminal_sessions USING btree (started_at DESC)`
+- `sandbox_terminal_sessions_pkey` — `CREATE UNIQUE INDEX sandbox_terminal_sessions_pkey ON public.sandbox_terminal_sessions USING btree (id)`
+
+---
+
+## `schema_migrations`
+
+> Tracks applied database migrations for idempotent re-runs
+
+| Column         | Type                     | Nullable | Default |
+| -------------- | ------------------------ | -------- | ------- |
+| `version`      | integer                  | ⛔       |         |
+| `filename`     | character varying        | ⛔       |         |
+| `applied_at`   | timestamp with time zone | ✅       | `now()` |
+| `checksum`     | character varying        | ✅       |         |
+| `execution_ms` | integer                  | ✅       |         |
+| `success`      | boolean                  | ✅       | `true`  |
+
+**Primary key:** `version`
+
+**Indexes:**
+
+- `schema_migrations_pkey` — `CREATE UNIQUE INDEX schema_migrations_pkey ON public.schema_migrations USING btree (version)`
+
+---
+
+## `self_healing_events`
+
+> Self-healing engine action log
+
+| Column         | Type                     | Nullable | Default                                    |
+| -------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`           | bigint                   | ⛔       | `nextval('self_healing_events_id_seq':...` |
+| `event_type`   | text                     | ⛔       |                                            |
+| `severity`     | text                     | ⛔       |                                            |
+| `description`  | text                     | ⛔       |                                            |
+| `timestamp`    | timestamp with time zone | ⛔       | `now()`                                    |
+| `action_taken` | text                     | ⛔       |                                            |
+| `service_name` | text                     | ✅       |                                            |
+| `success`      | boolean                  | ✅       | `true`                                     |
+| `metadata`     | jsonb                    | ✅       |                                            |
+| `created_at`   | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_self_healing_events_service` — `CREATE INDEX idx_self_healing_events_service ON public.self_healing_events USING btree (service_name)`
+- `idx_self_healing_events_severity` — `CREATE INDEX idx_self_healing_events_severity ON public.self_healing_events USING btree (severity)`
+- `idx_self_healing_events_timestamp` — `CREATE INDEX idx_self_healing_events_timestamp ON public.self_healing_events USING btree ("timestamp" DESC)`
+- `self_healing_events_pkey` — `CREATE UNIQUE INDEX self_healing_events_pkey ON public.self_healing_events USING btree (id)`
+
+---
+
+## `service_failures`
+
+| Column             | Type                     | Nullable | Default                                    |
+| ------------------ | ------------------------ | -------- | ------------------------------------------ |
+| `id`               | bigint                   | ⛔       | `nextval('service_failures_id_seq'::re...` |
+| `service_name`     | text                     | ⛔       |                                            |
+| `timestamp`        | timestamp with time zone | ⛔       | `now()`                                    |
+| `failure_type`     | text                     | ⛔       |                                            |
+| `health_status`    | text                     | ✅       |                                            |
+| `recovery_action`  | text                     | ✅       |                                            |
+| `recovery_success` | boolean                  | ✅       |                                            |
+| `window_start`     | timestamp with time zone | ⛔       |                                            |
+| `created_at`       | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_service_failures_service_name` — `CREATE INDEX idx_service_failures_service_name ON public.service_failures USING btree (service_name)`
+- `idx_service_failures_timestamp` — `CREATE INDEX idx_service_failures_timestamp ON public.service_failures USING btree ("timestamp" DESC)`
+- `idx_service_failures_window` — `CREATE INDEX idx_service_failures_window ON public.service_failures USING btree (window_start DESC)`
+- `service_failures_pkey` — `CREATE UNIQUE INDEX service_failures_pkey ON public.service_failures USING btree (id)`
+
+---
+
+## `service_restarts`
+
+> Service restart tracking
+
+| Column          | Type                     | Nullable | Default                                    |
+| --------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`            | bigint                   | ⛔       | `nextval('service_restarts_id_seq'::re...` |
+| `timestamp`     | timestamp with time zone | ⛔       | `now()`                                    |
+| `service_name`  | text                     | ⛔       |                                            |
+| `reason`        | text                     | ⛔       |                                            |
+| `initiated_by`  | text                     | ⛔       |                                            |
+| `success`       | boolean                  | ⛔       |                                            |
+| `restart_count` | integer                  | ✅       | `1`                                        |
+| `created_at`    | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_service_restarts_service` — `CREATE INDEX idx_service_restarts_service ON public.service_restarts USING btree (service_name)`
+- `idx_service_restarts_timestamp` — `CREATE INDEX idx_service_restarts_timestamp ON public.service_restarts USING btree ("timestamp" DESC)`
+- `service_restarts_pkey` — `CREATE UNIQUE INDEX service_restarts_pkey ON public.service_restarts USING btree (id)`
+
+---
+
+## `service_status_cache`
+
+> Caches last known service status for change detection
+
+| Column              | Type                     | Nullable | Default       |
+| ------------------- | ------------------------ | -------- | ------------- |
+| `service_name`      | character varying        | ⛔       |               |
+| `container_name`    | character varying        | ✅       |               |
+| `status`            | character varying        | ⛔       |               |
+| `health`            | character varying        | ✅       |               |
+| `last_status`       | character varying        | ✅       |               |
+| `last_health`       | character varying        | ✅       |               |
+| `status_changed_at` | timestamp with time zone | ✅       | `now()`       |
+| `last_checked_at`   | timestamp with time zone | ✅       | `now()`       |
+| `metadata`          | jsonb                    | ✅       | `'{}'::jsonb` |
+
+**Primary key:** `service_name`
+
+**Indexes:**
+
+- `idx_service_status_cache_changed` — `CREATE INDEX idx_service_status_cache_changed ON public.service_status_cache USING btree (status_changed_at DESC)`
+- `service_status_cache_pkey` — `CREATE UNIQUE INDEX service_status_cache_pkey ON public.service_status_cache USING btree (service_name)`
+
+---
+
+## `system_boot_events`
+
+> Records system boot events for uptime tracking
+
+| Column                           | Type                     | Nullable | Default                                    |
+| -------------------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                             | integer                  | ⛔       | `nextval('system_boot_events_id_seq'::...` |
+| `boot_timestamp`                 | timestamp with time zone | ⛔       | `now()`                                    |
+| `previous_shutdown_timestamp`    | timestamp with time zone | ✅       |                                            |
+| `shutdown_reason`                | character varying        | ✅       |                                            |
+| `uptime_before_shutdown_seconds` | integer                  | ✅       |                                            |
+| `services_status_at_boot`        | jsonb                    | ✅       |                                            |
+| `boot_duration_ms`               | integer                  | ✅       |                                            |
+| `notification_sent`              | boolean                  | ✅       | `false`                                    |
+| `created_at`                     | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_system_boot_events_timestamp` — `CREATE INDEX idx_system_boot_events_timestamp ON public.system_boot_events USING btree (boot_timestamp DESC)`
+- `system_boot_events_pkey` — `CREATE UNIQUE INDEX system_boot_events_pkey ON public.system_boot_events USING btree (id)`
+
+---
+
+## `system_settings`
+
+| Column                  | Type                     | Nullable | Default |
+| ----------------------- | ------------------------ | -------- | ------- |
+| `id`                    | integer                  | ⛔       | `1`     |
+| `setup_completed`       | boolean                  | ⛔       | `false` |
+| `setup_completed_at`    | timestamp with time zone | ✅       |         |
+| `setup_completed_by`    | integer                  | ✅       |         |
+| `company_name`          | character varying        | ✅       |         |
+| `hostname`              | character varying        | ✅       |         |
+| `selected_model`        | character varying        | ✅       |         |
+| `setup_step`            | integer                  | ✅       | `0`     |
+| `created_at`            | timestamp with time zone | ⛔       | `now()` |
+| `updated_at`            | timestamp with time zone | ⛔       | `now()` |
+| `ai_profile_yaml`       | text                     | ✅       |         |
+| `ai_profile_updated_at` | timestamp with time zone | ✅       |         |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `setup_completed_by` → `admin_users.id`
+
+**Indexes:**
+
+- `system_settings_pkey` — `CREATE UNIQUE INDEX system_settings_pkey ON public.system_settings USING btree (id)`
+
+---
+
+## `system_snapshots`
+
+> Periodic system state snapshots
+
+| Column         | Type                     | Nullable | Default                                    |
+| -------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`           | bigint                   | ⛔       | `nextval('system_snapshots_id_seq'::re...` |
+| `timestamp`    | timestamp with time zone | ⛔       | `now()`                                    |
+| `status`       | text                     | ⛔       |                                            |
+| `cpu`          | double precision         | ✅       |                                            |
+| `ram`          | double precision         | ✅       |                                            |
+| `gpu`          | double precision         | ✅       |                                            |
+| `temperature`  | double precision         | ✅       |                                            |
+| `disk_percent` | double precision         | ✅       |                                            |
+| `services`     | jsonb                    | ✅       |                                            |
+| `created_at`   | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_system_snapshots_status` — `CREATE INDEX idx_system_snapshots_status ON public.system_snapshots USING btree (status)`
+- `idx_system_snapshots_timestamp` — `CREATE INDEX idx_system_snapshots_timestamp ON public.system_snapshots USING btree ("timestamp" DESC)`
+- `system_snapshots_pkey` — `CREATE UNIQUE INDEX system_snapshots_pkey ON public.system_snapshots USING btree (id)`
+
+---
+
+## `telegram_app_status`
+
+> Tracks Telegram App activation status per user for dashboard icon visibility
+
+| Column                 | Type                     | Nullable | Default                                    |
+| ---------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                   | integer                  | ⛔       | `nextval('telegram_app_status_id_seq':...` |
+| `user_id`              | integer                  | ⛔       |                                            |
+| `is_enabled`           | boolean                  | ✅       | `false`                                    |
+| `icon_visible`         | boolean                  | ✅       | `false`                                    |
+| `first_bot_created_at` | timestamp with time zone | ✅       |                                            |
+| `last_activity_at`     | timestamp with time zone | ✅       | `now()`                                    |
+| `settings`             | jsonb                    | ✅       | `'{"quietHoursEnd": "07:00", "quietHou...` |
+| `created_at`           | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`           | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_telegram_app_status_enabled` — `CREATE INDEX idx_telegram_app_status_enabled ON public.telegram_app_status USING btree (user_id) WHERE (is_enabled = true)`
+- `idx_telegram_app_status_visible` — `CREATE INDEX idx_telegram_app_status_visible ON public.telegram_app_status USING btree (user_id) WHERE (icon_visible = true)`
+- `telegram_app_status_pkey` — `CREATE UNIQUE INDEX telegram_app_status_pkey ON public.telegram_app_status USING btree (id)`
+- `telegram_app_status_user_id_key` — `CREATE UNIQUE INDEX telegram_app_status_user_id_key ON public.telegram_app_status USING btree (user_id)`
+
+---
+
+## `telegram_bot_chats`
+
+> Chats/groups connected to each bot
+
+| Column            | Type                     | Nullable | Default                                    |
+| ----------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`              | integer                  | ⛔       | `nextval('telegram_bot_chats_id_seq'::...` |
+| `bot_id`          | integer                  | ⛔       |                                            |
+| `chat_id`         | bigint                   | ⛔       |                                            |
+| `chat_title`      | character varying        | ✅       |                                            |
+| `chat_type`       | character varying        | ✅       | `'private'::character varying`             |
+| `chat_username`   | character varying        | ✅       |                                            |
+| `is_active`       | boolean                  | ✅       | `true`                                     |
+| `is_admin`        | boolean                  | ✅       | `false`                                    |
+| `added_at`        | timestamp with time zone | ✅       | `now()`                                    |
+| `last_message_at` | timestamp with time zone | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `bot_id` → `telegram_bots.id`
+
+**Indexes:**
+
+- `idx_telegram_bot_chats_active` — `CREATE INDEX idx_telegram_bot_chats_active ON public.telegram_bot_chats USING btree (bot_id, is_active) WHERE (is_active = true)`
+- `idx_telegram_bot_chats_bot` — `CREATE INDEX idx_telegram_bot_chats_bot ON public.telegram_bot_chats USING btree (bot_id)`
+- `idx_telegram_bot_chats_chat` — `CREATE INDEX idx_telegram_bot_chats_chat ON public.telegram_bot_chats USING btree (chat_id)`
+- `telegram_bot_chats_bot_id_chat_id_key` — `CREATE UNIQUE INDEX telegram_bot_chats_bot_id_chat_id_key ON public.telegram_bot_chats USING btree (bot_id, chat_id)`
+- `telegram_bot_chats_pkey` — `CREATE UNIQUE INDEX telegram_bot_chats_pkey ON public.telegram_bot_chats USING btree (id)`
+
+---
+
+## `telegram_bot_commands`
+
+> Custom slash commands per bot with LLM prompts
+
+| Column         | Type                     | Nullable | Default                                    |
+| -------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`           | integer                  | ⛔       | `nextval('telegram_bot_commands_id_seq...` |
+| `bot_id`       | integer                  | ⛔       |                                            |
+| `command`      | character varying        | ⛔       |                                            |
+| `description`  | character varying        | ⛔       |                                            |
+| `prompt`       | text                     | ⛔       |                                            |
+| `is_enabled`   | boolean                  | ✅       | `true`                                     |
+| `sort_order`   | integer                  | ✅       | `0`                                        |
+| `usage_count`  | integer                  | ✅       | `0`                                        |
+| `last_used_at` | timestamp with time zone | ✅       |                                            |
+| `created_at`   | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`   | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `bot_id` → `telegram_bots.id`
+
+**Indexes:**
+
+- `idx_telegram_bot_commands_bot` — `CREATE INDEX idx_telegram_bot_commands_bot ON public.telegram_bot_commands USING btree (bot_id)`
+- `idx_telegram_bot_commands_enabled` — `CREATE INDEX idx_telegram_bot_commands_enabled ON public.telegram_bot_commands USING btree (bot_id, is_enabled) WHERE (is_enabled = true)`
+- `telegram_bot_commands_bot_id_command_key` — `CREATE UNIQUE INDEX telegram_bot_commands_bot_id_command_key ON public.telegram_bot_commands USING btree (bot_id, command)`
+- `telegram_bot_commands_pkey` — `CREATE UNIQUE INDEX telegram_bot_commands_pkey ON public.telegram_bot_commands USING btree (id)`
+
+---
+
+## `telegram_bot_configs`
+
+> Per-user Telegram Bot configurations
+
+| Column                  | Type                     | Nullable | Default                                    |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                    | integer                  | ⛔       | `nextval('telegram_bot_configs_id_seq'...` |
+| `user_id`               | integer                  | ✅       |                                            |
+| `bot_token_encrypted`   | bytea                    | ✅       |                                            |
+| `chat_id`               | bigint                   | ✅       |                                            |
+| `bot_username`          | character varying        | ✅       |                                            |
+| `bot_first_name`        | character varying        | ✅       |                                            |
+| `notifications_enabled` | boolean                  | ✅       | `true`                                     |
+| `quiet_hours_start`     | time without time zone   | ✅       |                                            |
+| `quiet_hours_end`       | time without time zone   | ✅       |                                            |
+| `min_severity`          | USER-DEFINED             | ✅       | `'info'::notification_severity`            |
+| `claude_notifications`  | boolean                  | ✅       | `true`                                     |
+| `system_notifications`  | boolean                  | ✅       | `true`                                     |
+| `n8n_notifications`     | boolean                  | ✅       | `true`                                     |
+| `is_active`             | boolean                  | ✅       | `true`                                     |
+| `last_message_at`       | timestamp with time zone | ✅       |                                            |
+| `created_at`            | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`            | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_telegram_bot_configs_active` — `CREATE INDEX idx_telegram_bot_configs_active ON public.telegram_bot_configs USING btree (is_active) WHERE (is_active = true)`
+- `idx_telegram_bot_configs_user` — `CREATE INDEX idx_telegram_bot_configs_user ON public.telegram_bot_configs USING btree (user_id)`
+- `telegram_bot_configs_pkey` — `CREATE UNIQUE INDEX telegram_bot_configs_pkey ON public.telegram_bot_configs USING btree (id)`
+- `telegram_bot_configs_user_id_key` — `CREATE UNIQUE INDEX telegram_bot_configs_user_id_key ON public.telegram_bot_configs USING btree (user_id)`
+
+---
+
+## `telegram_bot_sessions`
+
+> LLM conversation sessions per bot+chat
+
+| Column        | Type                     | Nullable | Default                                    |
+| ------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`          | integer                  | ⛔       | `nextval('telegram_bot_sessions_id_seq...` |
+| `bot_id`      | integer                  | ⛔       |                                            |
+| `chat_id`     | bigint                   | ⛔       |                                            |
+| `messages`    | jsonb                    | ✅       | `'[]'::jsonb`                              |
+| `token_count` | integer                  | ✅       | `0`                                        |
+| `max_tokens`  | integer                  | ✅       | `4096`                                     |
+| `created_at`  | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`  | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `bot_id` → `telegram_bots.id`
+
+**Indexes:**
+
+- `idx_telegram_bot_sessions_bot` — `CREATE INDEX idx_telegram_bot_sessions_bot ON public.telegram_bot_sessions USING btree (bot_id)`
+- `idx_telegram_bot_sessions_chat` — `CREATE INDEX idx_telegram_bot_sessions_chat ON public.telegram_bot_sessions USING btree (bot_id, chat_id)`
+- `idx_telegram_bot_sessions_updated` — `CREATE INDEX idx_telegram_bot_sessions_updated ON public.telegram_bot_sessions USING btree (updated_at DESC)`
+- `telegram_bot_sessions_bot_id_chat_id_key` — `CREATE UNIQUE INDEX telegram_bot_sessions_bot_id_chat_id_key ON public.telegram_bot_sessions USING btree (bot_id, chat_id)`
+- `telegram_bot_sessions_pkey` — `CREATE UNIQUE INDEX telegram_bot_sessions_pkey ON public.telegram_bot_sessions USING btree (id)`
+
+---
+
+## `telegram_bots`
+
+> Multi-bot management - each user can have multiple Telegram bots
+
+| Column                     | Type                     | Nullable | Default                                    |
+| -------------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                       | integer                  | ⛔       | `nextval('telegram_bots_id_seq'::regcl...` |
+| `user_id`                  | integer                  | ✅       |                                            |
+| `name`                     | character varying        | ⛔       |                                            |
+| `bot_username`             | character varying        | ✅       |                                            |
+| `bot_token_encrypted`      | bytea                    | ⛔       |                                            |
+| `bot_token_iv`             | character varying        | ⛔       |                                            |
+| `bot_token_tag`            | character varying        | ⛔       |                                            |
+| `system_prompt`            | text                     | ✅       | `'Du bist ein hilfreicher Assistent. A...` |
+| `llm_provider`             | character varying        | ✅       | `'ollama'::character varying`              |
+| `llm_model`                | character varying        | ✅       |                                            |
+| `claude_api_key_encrypted` | bytea                    | ✅       |                                            |
+| `claude_api_key_iv`        | character varying        | ✅       |                                            |
+| `claude_api_key_tag`       | character varying        | ✅       |                                            |
+| `webhook_secret`           | character varying        | ✅       |                                            |
+| `webhook_url`              | text                     | ✅       |                                            |
+| `is_active`                | boolean                  | ✅       | `false`                                    |
+| `is_polling`               | boolean                  | ✅       | `false`                                    |
+| `created_at`               | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`               | timestamp with time zone | ✅       | `now()`                                    |
+| `last_message_at`          | timestamp with time zone | ✅       |                                            |
+| `openai_api_key_encrypted` | bytea                    | ✅       |                                            |
+| `openai_api_key_iv`        | character varying        | ✅       |                                            |
+| `openai_api_key_auth_tag`  | character varying        | ✅       |                                            |
+| `voice_enabled`            | boolean                  | ✅       | `true`                                     |
+| `max_voice_duration`       | integer                  | ✅       | `120`                                      |
+| `allowed_users`            | jsonb                    | ✅       | `'[]'::jsonb`                              |
+| `restrict_users`           | boolean                  | ✅       | `false`                                    |
+| `rag_enabled`              | boolean                  | ✅       | `false`                                    |
+| `rag_space_ids`            | ARRAY                    | ✅       |                                            |
+| `rag_show_sources`         | boolean                  | ✅       | `true`                                     |
+| `rag_context_limit`        | integer                  | ✅       | `2000`                                     |
+| `tools_enabled`            | boolean                  | ✅       | `true`                                     |
+| `max_context_tokens`       | integer                  | ✅       | `4096`                                     |
+| `max_response_tokens`      | integer                  | ✅       | `1024`                                     |
+| `rate_limit_per_minute`    | integer                  | ✅       | `10`                                       |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_telegram_bots_active` — `CREATE INDEX idx_telegram_bots_active ON public.telegram_bots USING btree (is_active) WHERE (is_active = true)`
+- `idx_telegram_bots_user` — `CREATE INDEX idx_telegram_bots_user ON public.telegram_bots USING btree (user_id)`
+- `idx_telegram_bots_username` — `CREATE INDEX idx_telegram_bots_username ON public.telegram_bots USING btree (bot_username)`
+- `telegram_bots_pkey` — `CREATE UNIQUE INDEX telegram_bots_pkey ON public.telegram_bots USING btree (id)`
+- `telegram_bots_user_id_name_key` — `CREATE UNIQUE INDEX telegram_bots_user_id_name_key ON public.telegram_bots USING btree (user_id, name)`
+
+---
+
+## `telegram_config`
+
+> Telegram bot configuration (singleton) with encrypted token for system notifications
+
+| Column                     | Type                     | Nullable | Default                                    |
+| -------------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                       | integer                  | ⛔       | `1`                                        |
+| `bot_token_encrypted`      | text                     | ✅       |                                            |
+| `bot_token_iv`             | text                     | ✅       |                                            |
+| `bot_token_tag`            | text                     | ✅       |                                            |
+| `chat_id`                  | character varying        | ✅       |                                            |
+| `enabled`                  | boolean                  | ✅       | `false`                                    |
+| `alert_thresholds`         | jsonb                    | ✅       | `'{"cpu_warning": 80, "gpu_warning": 8...` |
+| `created_at`               | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`               | timestamp with time zone | ✅       | `now()`                                    |
+| `notification_preferences` | jsonb                    | ✅       | `'{"login_alerts": true, "daily_summar...` |
+| `test_message_sent_at`     | timestamp with time zone | ✅       |                                            |
+| `last_error`               | text                     | ✅       |                                            |
+| `last_error_at`            | timestamp with time zone | ✅       |                                            |
+| `connection_verified`      | boolean                  | ✅       | `false`                                    |
+| `connection_verified_at`   | timestamp with time zone | ✅       |                                            |
+| `bot_username`             | character varying        | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_telegram_config_enabled` — `CREATE INDEX idx_telegram_config_enabled ON public.telegram_config USING btree (enabled)`
+- `telegram_config_pkey` — `CREATE UNIQUE INDEX telegram_config_pkey ON public.telegram_config USING btree (id)`
+
+---
+
+## `telegram_notification_history`
+
+> Audit trail of sent notifications
+
+| Column                | Type                     | Nullable | Default                                    |
+| --------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                  | integer                  | ⛔       | `nextval('telegram_notification_histor...` |
+| `rule_id`             | integer                  | ✅       |                                            |
+| `user_id`             | integer                  | ✅       |                                            |
+| `chat_id`             | bigint                   | ✅       |                                            |
+| `event_source`        | USER-DEFINED             | ✅       |                                            |
+| `event_type`          | character varying        | ✅       |                                            |
+| `severity`            | USER-DEFINED             | ✅       |                                            |
+| `message_sent`        | text                     | ✅       |                                            |
+| `telegram_message_id` | bigint                   | ✅       |                                            |
+| `delivered`           | boolean                  | ✅       | `false`                                    |
+| `delivery_error`      | text                     | ✅       |                                            |
+| `created_at`          | timestamp with time zone | ✅       | `now()`                                    |
+| `delivered_at`        | timestamp with time zone | ✅       |                                            |
+| `bot_id`              | integer                  | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `bot_id` → `telegram_bots.id`
+- `rule_id` → `telegram_notification_rules.id`
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_telegram_history_bot` — `CREATE INDEX idx_telegram_history_bot ON public.telegram_notification_history USING btree (bot_id)`
+- `idx_telegram_history_created` — `CREATE INDEX idx_telegram_history_created ON public.telegram_notification_history USING btree (created_at DESC)`
+- `idx_telegram_history_rule` — `CREATE INDEX idx_telegram_history_rule ON public.telegram_notification_history USING btree (rule_id)`
+- `idx_telegram_history_user` — `CREATE INDEX idx_telegram_history_user ON public.telegram_notification_history USING btree (user_id)`
+- `telegram_notification_history_pkey` — `CREATE UNIQUE INDEX telegram_notification_history_pkey ON public.telegram_notification_history USING btree (id)`
+
+---
+
+## `telegram_notification_rules`
+
+> User-defined notification rules for Telegram
+
+| Column              | Type                     | Nullable | Default                                    |
+| ------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                | integer                  | ⛔       | `nextval('telegram_notification_rules_...` |
+| `name`              | character varying        | ⛔       |                                            |
+| `description`       | text                     | ✅       |                                            |
+| `event_source`      | USER-DEFINED             | ⛔       |                                            |
+| `event_type`        | character varying        | ⛔       |                                            |
+| `trigger_condition` | jsonb                    | ✅       | `'{}'::jsonb`                              |
+| `severity`          | USER-DEFINED             | ✅       | `'info'::notification_severity`            |
+| `message_template`  | text                     | ⛔       |                                            |
+| `cooldown_seconds`  | integer                  | ✅       | `60`                                       |
+| `last_triggered_at` | timestamp with time zone | ✅       |                                            |
+| `trigger_count`     | integer                  | ✅       | `0`                                        |
+| `is_enabled`        | boolean                  | ✅       | `true`                                     |
+| `user_id`           | integer                  | ✅       |                                            |
+| `created_at`        | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`        | timestamp with time zone | ✅       | `now()`                                    |
+| `bot_id`            | integer                  | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `bot_id` → `telegram_bots.id`
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_telegram_rules_bot` — `CREATE INDEX idx_telegram_rules_bot ON public.telegram_notification_rules USING btree (bot_id)`
+- `idx_telegram_rules_enabled` — `CREATE INDEX idx_telegram_rules_enabled ON public.telegram_notification_rules USING btree (is_enabled) WHERE (is_enabled = true)`
+- `idx_telegram_rules_event` — `CREATE INDEX idx_telegram_rules_event ON public.telegram_notification_rules USING btree (event_source, event_type)`
+- `idx_telegram_rules_source` — `CREATE INDEX idx_telegram_rules_source ON public.telegram_notification_rules USING btree (event_source)`
+- `idx_telegram_rules_user` — `CREATE INDEX idx_telegram_rules_user ON public.telegram_notification_rules USING btree (user_id)`
+- `telegram_notification_rules_pkey` — `CREATE UNIQUE INDEX telegram_notification_rules_pkey ON public.telegram_notification_rules USING btree (id)`
+
+---
+
+## `telegram_orchestrator_state`
+
+> Agent state and thinking logs for debugging
+
+| Column            | Type                     | Nullable | Default                                    |
+| ----------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`              | integer                  | ⛔       | `nextval('telegram_orchestrator_state_...` |
+| `agent_type`      | USER-DEFINED             | ⛔       |                                            |
+| `session_id`      | character varying        | ✅       |                                            |
+| `state`           | jsonb                    | ✅       | `'{}'::jsonb`                              |
+| `thinking_log`    | jsonb                    | ✅       | `'[]'::jsonb`                              |
+| `last_action`     | timestamp with time zone | ✅       | `now()`                                    |
+| `actions_count`   | integer                  | ✅       | `0`                                        |
+| `avg_response_ms` | integer                  | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_telegram_orchestrator_agent` — `CREATE INDEX idx_telegram_orchestrator_agent ON public.telegram_orchestrator_state USING btree (agent_type)`
+- `idx_telegram_orchestrator_session` — `CREATE INDEX idx_telegram_orchestrator_session ON public.telegram_orchestrator_state USING btree (session_id)`
+- `telegram_orchestrator_state_agent_type_session_id_key` — `CREATE UNIQUE INDEX telegram_orchestrator_state_agent_type_session_id_key ON public.telegram_orchestrator_state USING btree (agent_type, session_id)`
+- `telegram_orchestrator_state_pkey` — `CREATE UNIQUE INDEX telegram_orchestrator_state_pkey ON public.telegram_orchestrator_state USING btree (id)`
+
+---
+
+## `telegram_rate_limits`
+
+> Per-chat rate limiting for LLM calls
+
+| Column                    | Type                     | Nullable | Default                                    |
+| ------------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                      | integer                  | ⛔       | `nextval('telegram_rate_limits_id_seq'...` |
+| `bot_id`                  | integer                  | ⛔       |                                            |
+| `chat_id`                 | bigint                   | ⛔       |                                            |
+| `user_id`                 | bigint                   | ✅       |                                            |
+| `request_count`           | integer                  | ✅       | `0`                                        |
+| `window_start`            | timestamp with time zone | ✅       | `now()`                                    |
+| `max_requests_per_minute` | integer                  | ✅       | `10`                                       |
+| `max_requests_per_hour`   | integer                  | ✅       | `100`                                      |
+| `is_rate_limited`         | boolean                  | ✅       | `false`                                    |
+| `cooldown_until`          | timestamp with time zone | ✅       |                                            |
+| `created_at`              | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`              | timestamp with time zone | ✅       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `bot_id` → `telegram_bots.id`
+
+**Indexes:**
+
+- `idx_telegram_rate_limits_bot_chat` — `CREATE INDEX idx_telegram_rate_limits_bot_chat ON public.telegram_rate_limits USING btree (bot_id, chat_id)`
+- `idx_telegram_rate_limits_limited` — `CREATE INDEX idx_telegram_rate_limits_limited ON public.telegram_rate_limits USING btree (is_rate_limited) WHERE (is_rate_limited = true)`
+- `telegram_rate_limits_bot_id_chat_id_key` — `CREATE UNIQUE INDEX telegram_rate_limits_bot_id_chat_id_key ON public.telegram_rate_limits USING btree (bot_id, chat_id)`
+- `telegram_rate_limits_pkey` — `CREATE UNIQUE INDEX telegram_rate_limits_pkey ON public.telegram_rate_limits USING btree (id)`
+
+---
+
+## `telegram_setup_sessions`
+
+> Zero-Config Magic Setup sessions for Telegram Bot
+
+| Column                | Type                     | Nullable | Default                                    |
+| --------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                  | integer                  | ⛔       | `nextval('telegram_setup_sessions_id_s...` |
+| `setup_token`         | character varying        | ⛔       |                                            |
+| `bot_token_encrypted` | bytea                    | ✅       |                                            |
+| `bot_username`        | character varying        | ✅       |                                            |
+| `chat_id`             | bigint                   | ✅       |                                            |
+| `chat_username`       | character varying        | ✅       |                                            |
+| `chat_first_name`     | character varying        | ✅       |                                            |
+| `user_id`             | integer                  | ✅       |                                            |
+| `status`              | USER-DEFINED             | ✅       | `'pending'::telegram_setup_status`         |
+| `created_at`          | timestamp with time zone | ✅       | `now()`                                    |
+| `expires_at`          | timestamp with time zone | ✅       | `(now() + '00:10:00'::interval)`           |
+| `token_validated_at`  | timestamp with time zone | ✅       |                                            |
+| `completed_at`        | timestamp with time zone | ✅       |                                            |
+| `last_error`          | text                     | ✅       |                                            |
+| `bot_id`              | integer                  | ✅       |                                            |
+| `bot_name`            | character varying        | ✅       |                                            |
+| `llm_provider`        | character varying        | ✅       | `'ollama'::character varying`              |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `bot_id` → `telegram_bots.id`
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_telegram_setup_expires` — `CREATE INDEX idx_telegram_setup_expires ON public.telegram_setup_sessions USING btree (expires_at) WHERE (status = ANY (ARRAY['pending'::telegram_setup_status, 'token_valid'::telegram_setup_status, 'waiting_start'::telegram_setup_status]))`
+- `idx_telegram_setup_status` — `CREATE INDEX idx_telegram_setup_status ON public.telegram_setup_sessions USING btree (status)`
+- `idx_telegram_setup_token` — `CREATE INDEX idx_telegram_setup_token ON public.telegram_setup_sessions USING btree (setup_token)`
+- `idx_telegram_setup_user` — `CREATE INDEX idx_telegram_setup_user ON public.telegram_setup_sessions USING btree (user_id)`
+- `telegram_setup_sessions_pkey` — `CREATE UNIQUE INDEX telegram_setup_sessions_pkey ON public.telegram_setup_sessions USING btree (id)`
+- `telegram_setup_sessions_setup_token_key` — `CREATE UNIQUE INDEX telegram_setup_sessions_setup_token_key ON public.telegram_setup_sessions USING btree (setup_token)`
+
+---
+
+## `token_blacklist`
+
+> Blacklisted JWT tokens (logged out)
+
+| Column           | Type                     | Nullable | Default                                    |
+| ---------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`             | bigint                   | ⛔       | `nextval('token_blacklist_id_seq'::reg...` |
+| `token_jti`      | character varying        | ⛔       |                                            |
+| `user_id`        | bigint                   | ✅       |                                            |
+| `blacklisted_at` | timestamp with time zone | ✅       | `now()`                                    |
+| `expires_at`     | timestamp with time zone | ⛔       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_token_blacklist_expires` — `CREATE INDEX idx_token_blacklist_expires ON public.token_blacklist USING btree (expires_at)`
+- `idx_token_blacklist_jti` — `CREATE INDEX idx_token_blacklist_jti ON public.token_blacklist USING btree (token_jti)`
+- `idx_token_blacklist_user_id` — `CREATE INDEX idx_token_blacklist_user_id ON public.token_blacklist USING btree (user_id)`
+- `token_blacklist_pkey` — `CREATE UNIQUE INDEX token_blacklist_pkey ON public.token_blacklist USING btree (id)`
+- `token_blacklist_token_jti_key` — `CREATE UNIQUE INDEX token_blacklist_token_jti_key ON public.token_blacklist USING btree (token_jti)`
+
+---
+
+## `update_backups`
+
+| Column               | Type                     | Nullable | Default                                    |
+| -------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                 | integer                  | ⛔       | `nextval('update_backups_id_seq'::regc...` |
+| `backup_path`        | character varying        | ⛔       |                                            |
+| `update_event_id`    | integer                  | ✅       |                                            |
+| `created_at`         | timestamp with time zone | ✅       | `now()`                                    |
+| `backup_size_mb`     | integer                  | ✅       |                                            |
+| `components`         | jsonb                    | ✅       |                                            |
+| `restoration_tested` | boolean                  | ✅       | `false`                                    |
+| `notes`              | text                     | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `update_event_id` → `update_events.id`
+
+**Indexes:**
+
+- `idx_update_backups_event` — `CREATE INDEX idx_update_backups_event ON public.update_backups USING btree (update_event_id)`
+- `update_backups_pkey` — `CREATE UNIQUE INDEX update_backups_pkey ON public.update_backups USING btree (id)`
+
+---
+
+## `update_events`
+
+| Column               | Type                     | Nullable | Default                                    |
+| -------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                 | integer                  | ⛔       | `nextval('update_events_id_seq'::regcl...` |
+| `version_from`       | character varying        | ⛔       |                                            |
+| `version_to`         | character varying        | ⛔       |                                            |
+| `status`             | character varying        | ⛔       |                                            |
+| `source`             | character varying        | ⛔       |                                            |
+| `components_updated` | jsonb                    | ✅       |                                            |
+| `error_message`      | text                     | ✅       |                                            |
+| `started_at`         | timestamp with time zone | ✅       | `now()`                                    |
+| `completed_at`       | timestamp with time zone | ✅       |                                            |
+| `duration_seconds`   | integer                  | ✅       |                                            |
+| `requires_reboot`    | boolean                  | ✅       | `false`                                    |
+| `reboot_completed`   | boolean                  | ✅       | `false`                                    |
+| `initiated_by`       | character varying        | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_update_events_status` — `CREATE INDEX idx_update_events_status ON public.update_events USING btree (status)`
+- `idx_update_events_timestamp` — `CREATE INDEX idx_update_events_timestamp ON public.update_events USING btree (started_at DESC)`
+- `update_events_pkey` — `CREATE UNIQUE INDEX update_events_pkey ON public.update_events USING btree (id)`
+
+---
+
+## `update_files`
+
+| Column                  | Type                     | Nullable | Default                                    |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                    | integer                  | ⛔       | `nextval('update_files_id_seq'::regclass)` |
+| `filename`              | character varying        | ⛔       |                                            |
+| `file_path`             | character varying        | ⛔       |                                            |
+| `checksum_sha256`       | character varying        | ⛔       |                                            |
+| `file_size_bytes`       | bigint                   | ⛔       |                                            |
+| `source`                | character varying        | ⛔       |                                            |
+| `uploaded_at`           | timestamp with time zone | ✅       | `now()`                                    |
+| `signature_verified`    | boolean                  | ✅       | `false`                                    |
+| `signature_verified_at` | timestamp with time zone | ✅       |                                            |
+| `manifest`              | jsonb                    | ✅       |                                            |
+| `validation_status`     | character varying        | ✅       |                                            |
+| `validation_error`      | text                     | ✅       |                                            |
+| `applied`               | boolean                  | ✅       | `false`                                    |
+| `applied_at`            | timestamp with time zone | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_update_files_applied` — `CREATE INDEX idx_update_files_applied ON public.update_files USING btree (applied, uploaded_at DESC)`
+- `idx_update_files_checksum` — `CREATE INDEX idx_update_files_checksum ON public.update_files USING btree (checksum_sha256)`
+- `update_files_checksum_sha256_key` — `CREATE UNIQUE INDEX update_files_checksum_sha256_key ON public.update_files USING btree (checksum_sha256)`
+- `update_files_pkey` — `CREATE UNIQUE INDEX update_files_pkey ON public.update_files USING btree (id)`
+
+---
+
+## `update_rollbacks`
+
+| Column                     | Type                     | Nullable | Default                                    |
+| -------------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                       | integer                  | ⛔       | `nextval('update_rollbacks_id_seq'::re...` |
+| `original_update_event_id` | integer                  | ✅       |                                            |
+| `backup_id`                | integer                  | ✅       |                                            |
+| `rollback_reason`          | text                     | ⛔       |                                            |
+| `initiated_by`             | character varying        | ✅       |                                            |
+| `started_at`               | timestamp with time zone | ✅       | `now()`                                    |
+| `completed_at`             | timestamp with time zone | ✅       |                                            |
+| `success`                  | boolean                  | ✅       |                                            |
+| `error_message`            | text                     | ✅       |                                            |
+| `services_restored`        | ARRAY                    | ✅       |                                            |
+| `database_restored`        | boolean                  | ✅       | `false`                                    |
+| `config_restored`          | boolean                  | ✅       | `false`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `backup_id` → `update_backups.id`
+- `original_update_event_id` → `update_events.id`
+
+**Indexes:**
+
+- `update_rollbacks_pkey` — `CREATE UNIQUE INDEX update_rollbacks_pkey ON public.update_rollbacks USING btree (id)`
+
+---
+
+## `update_state_snapshots`
+
+| Column            | Type                     | Nullable | Default                                    |
+| ----------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`              | integer                  | ⛔       | `nextval('update_state_snapshots_id_se...` |
+| `update_event_id` | integer                  | ✅       |                                            |
+| `current_step`    | character varying        | ⛔       |                                            |
+| `step_data`       | jsonb                    | ✅       |                                            |
+| `created_at`      | timestamp with time zone | ✅       | `now()`                                    |
+| `completed`       | boolean                  | ✅       | `false`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `update_event_id` → `update_events.id`
+
+**Indexes:**
+
+- `update_state_snapshots_pkey` — `CREATE UNIQUE INDEX update_state_snapshots_pkey ON public.update_state_snapshots USING btree (id)`
+
+---
+
+## `workflow_activity`
+
+> n8n workflow execution history
+
+| Column          | Type                     | Nullable | Default                                    |
+| --------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`            | bigint                   | ⛔       | `nextval('workflow_activity_id_seq'::r...` |
+| `workflow_name` | text                     | ⛔       |                                            |
+| `status`        | text                     | ⛔       |                                            |
+| `timestamp`     | timestamp with time zone | ⛔       | `now()`                                    |
+| `duration_ms`   | integer                  | ✅       |                                            |
+| `error`         | text                     | ✅       |                                            |
+| `created_at`    | timestamp with time zone | ✅       | `now()`                                    |
+| `execution_id`  | text                     | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_workflow_activity_execution_id` — `CREATE INDEX idx_workflow_activity_execution_id ON public.workflow_activity USING btree (execution_id) WHERE (execution_id IS NOT NULL)`
+- `idx_workflow_activity_status` — `CREATE INDEX idx_workflow_activity_status ON public.workflow_activity USING btree (status)`
+- `idx_workflow_activity_timestamp` — `CREATE INDEX idx_workflow_activity_timestamp ON public.workflow_activity USING btree ("timestamp" DESC)`
+- `idx_workflow_activity_workflow_name` — `CREATE INDEX idx_workflow_activity_workflow_name ON public.workflow_activity USING btree (workflow_name)`
+- `workflow_activity_pkey` — `CREATE UNIQUE INDEX workflow_activity_pkey ON public.workflow_activity USING btree (id)`
+
+---

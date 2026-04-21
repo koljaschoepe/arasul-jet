@@ -11,6 +11,9 @@ RUN apk add --no-cache \
 COPY backup.sh /usr/local/bin/backup.sh
 RUN chmod +x /usr/local/bin/backup.sh
 
+COPY restore-drill.sh /usr/local/bin/restore-drill.sh
+RUN chmod +x /usr/local/bin/restore-drill.sh
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

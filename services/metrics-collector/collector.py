@@ -358,6 +358,74 @@ class MetricsCollector:
 
         return None
 
+    def collect_qdrant_stats(self) -> Optional[list]:
+        """Query Qdrant collections endpoint; returns list of (name, dict) or None on failure."""
+        import urllib.request
+        try:
+            host = os.getenv('QDRANT_HOST', 'qdrant')
+            port = os.getenv('QDRANT_PORT', '6333')
+            url = f"http://{host}:{port}/collections"
+            with urllib.request.urlopen(url, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+            collections = data.get('result', {}).get('collections', [])
+            out = []
+            for c in collections:
+                name = c.get('name')
+                if not name:
+                    continue
+                try:
+                    with urllib.request.urlopen(f"{url}/{name}", timeout=5) as resp:
+                        detail = json.loads(resp.read().decode()).get('result', {})
+                    out.append((name, {
+                        'vectors_count': detail.get('vectors_count'),
+                        'indexed_vectors_count': detail.get('indexed_vectors_count'),
+                        'points_count': detail.get('points_count'),
+                        'segments_count': detail.get('segments_count'),
+                        'status': detail.get('status'),
+                    }))
+                except Exception as e:
+                    logger.debug(f"qdrant detail fetch failed for {name}: {e}")
+            return out
+        except Exception as e:
+            logger.debug(f"qdrant collections fetch failed: {e}")
+            return None
+
+    def collect_minio_stats(self) -> Optional[list]:
+        """Approximate bucket usage via psutil disk usage of the minio data volume,
+        if mounted into this container. Returns list of (bucket_name, dict) or None.
+        MinIO does not expose size-per-bucket without mc/admin keys we don't carry
+        here, so this is best-effort.
+        """
+        # Only run if /minio-data is mounted (opt-in via compose)
+        minio_root = os.getenv('MINIO_DATA_PATH', '/minio-data')
+        if not os.path.isdir(minio_root):
+            return None
+        try:
+            out = []
+            for entry in os.listdir(minio_root):
+                path = os.path.join(minio_root, entry)
+                if not os.path.isdir(path):
+                    continue
+                if entry.startswith('.'):
+                    continue
+                total_size = 0
+                file_count = 0
+                for root, _dirs, files in os.walk(path):
+                    for f in files:
+                        try:
+                            total_size += os.path.getsize(os.path.join(root, f))
+                            file_count += 1
+                        except OSError:
+                            pass
+                out.append((entry, {
+                    'bucket_size_bytes': total_size,
+                    'object_count': file_count,
+                }))
+            return out
+        except Exception as e:
+            logger.debug(f"minio stats failed: {e}")
+            return None
+
     def check_self_healing_health(self) -> Optional[Dict]:
         """Check self-healing agent heartbeat via HTTP endpoint"""
         import urllib.request
@@ -833,6 +901,73 @@ class DatabaseWriter:
             if conn:
                 self.release_connection(conn)
 
+    def write_infra_metric(self, source_type: str, source_name: str, payload: Dict):
+        """Generic sink for infrastructure metrics (Phase 5.6).
+
+        Writes one row to metrics_infra. Silent on failure — infra probes
+        should never block the main loop.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO metrics_infra (source_type, source_name, payload) "
+                "VALUES (%s, %s, %s::jsonb)",
+                (source_type, source_name, json.dumps(payload))
+            )
+            conn.commit()
+            cursor.close()
+        except Exception as e:
+            logger.debug(f"infra metric write failed ({source_type}/{source_name}): {e}")
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        finally:
+            if conn:
+                self.release_connection(conn)
+
+    def collect_pg_stats(self):
+        """Snapshot top pg_stat_user_tables entries by dead-tuple count."""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT relname,
+                       COALESCE(n_live_tup, 0)::bigint AS live,
+                       COALESCE(n_dead_tup, 0)::bigint AS dead,
+                       last_autovacuum,
+                       last_autoanalyze
+                  FROM pg_stat_user_tables
+                 WHERE n_live_tup + n_dead_tup > 0
+                 ORDER BY n_dead_tup DESC NULLS LAST
+                 LIMIT 25
+            """)
+            rows = cursor.fetchall()
+            cursor.close()
+            for relname, live, dead, last_vac, last_ana in rows:
+                self.write_infra_metric('pg_table', relname, {
+                    'n_live_tup': int(live),
+                    'n_dead_tup': int(dead),
+                    'last_autovacuum': last_vac.isoformat() if last_vac else None,
+                    'last_autoanalyze': last_ana.isoformat() if last_ana else None,
+                })
+            return len(rows)
+        except Exception as e:
+            logger.warning(f"pg_stats collection failed: {e}")
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            return 0
+        finally:
+            if conn:
+                self.release_connection(conn)
+
     def get_pool_stats(self):
         """Get connection pool statistics"""
         uptime = time.time() - self.pool_stats['start_time']
@@ -922,6 +1057,10 @@ async def collect_metrics_loop():
     cleanup_counter = 0
     gpu_counter = 0
     storage_wear_counter = 0
+    infra_counter = 0
+    # Infra probes (pg_stat / qdrant / minio) are expensive enough to run
+    # every 5 minutes, not every 5 seconds like live metrics.
+    INFRA_INTERVAL_SECONDS = int(os.getenv('INFRA_METRICS_INTERVAL', '300'))
 
     # Initial storage wear check on startup
     collector.check_storage_wear()
@@ -963,6 +1102,32 @@ async def collect_metrics_loop():
             if cleanup_counter >= 3600:
                 db_writer.cleanup_old_metrics()
                 cleanup_counter = 0
+
+            # Infrastructure metrics (pg_stat, Qdrant, MinIO) — expensive, so
+            # run on a long interval. Each probe is best-effort; failures
+            # never block the main loop.
+            infra_counter += METRICS_INTERVAL_LIVE
+            if infra_counter >= INFRA_INTERVAL_SECONDS:
+                infra_counter = 0
+                try:
+                    n_tables = db_writer.collect_pg_stats()
+                    logger.debug(f"pg_stat snapshot: {n_tables} rows")
+                except Exception as e:
+                    logger.debug(f"pg_stat probe errored: {e}")
+                try:
+                    qd = collector.collect_qdrant_stats()
+                    if qd:
+                        for name, payload in qd:
+                            db_writer.write_infra_metric('qdrant_collection', name, payload)
+                except Exception as e:
+                    logger.debug(f"qdrant probe errored: {e}")
+                try:
+                    mn = collector.collect_minio_stats()
+                    if mn:
+                        for name, payload in mn:
+                            db_writer.write_infra_metric('minio_bucket', name, payload)
+                except Exception as e:
+                    logger.debug(f"minio probe errored: {e}")
 
             await asyncio.sleep(METRICS_INTERVAL_LIVE)
 
