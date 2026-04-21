@@ -549,18 +549,51 @@ apply_jetson_profile() {
     fi
 }
 
-# Pull Docker images
+# Pre-flight network check: can we reach a Docker registry?
+check_registry_reachable() {
+    local timeout=5
+    # Try Docker Hub and ghcr.io — at least one must respond
+    curl -sfI --max-time "$timeout" https://registry-1.docker.io/v2/ >/dev/null 2>&1 && return 0
+    curl -sfI --max-time "$timeout" https://ghcr.io/v2/ >/dev/null 2>&1 && return 0
+    return 1
+}
+
+# Pull Docker images with network pre-check and retry (exponential backoff)
+# Returns 0 on success, 1 on persistent failure (caller must abort bootstrap)
 pull_images() {
+    log_info "Pruefe Netzwerk-Verbindung zur Docker-Registry..."
+    if ! check_registry_reachable; then
+        log_error "Keine Verbindung zu Docker-Registry (docker.io / ghcr.io)"
+        log_info "Moegliche Ursachen: DNS, Firewall, Proxy, oder Offline-Betrieb"
+        log_info "Wenn Images bereits lokal vorhanden: './arasul bootstrap --skip-pull'"
+        return 1
+    fi
+    log_success "Netzwerk-Verbindung OK"
+
     log_info "Pulling Docker images..."
 
-    # Capture exit code separately from output filtering to avoid masking real errors
-    local pull_output
-    pull_output=$(docker compose pull postgres-db minio n8n reverse-proxy 2>&1) || {
-        log_warn "Some images failed to pull — check network connectivity"
-        echo "$pull_output" | grep -i "error\|fail\|denied" || true
-    }
+    local max_retries=3
+    local attempt=1
+    local delay=5
+    local pull_output=""
+    while [ $attempt -le $max_retries ]; do
+        if pull_output=$(docker compose pull postgres-db minio n8n reverse-proxy 2>&1); then
+            log_success "Base images pulled"
+            return 0
+        fi
+        log_warning "Docker pull Versuch ${attempt}/${max_retries} fehlgeschlagen"
+        if [ $attempt -lt $max_retries ]; then
+            log_info "Warte ${delay}s vor Retry..."
+            sleep "$delay"
+            delay=$((delay * 2))
+        fi
+        attempt=$((attempt + 1))
+    done
 
-    log_success "Base images pulled"
+    log_error "Docker pull nach ${max_retries} Versuchen fehlgeschlagen"
+    echo "$pull_output" | grep -iE "error|fail|denied|timeout" | head -5 || true
+    log_info "Hinweis: './arasul bootstrap --skip-pull' nutzen wenn Images bereits lokal vorhanden"
+    return 1
 }
 
 # Build custom images
@@ -1295,8 +1328,17 @@ install_systemd_timers() {
 
 # Bootstrap command
 cmd_bootstrap() {
+    # Persistent bootstrap log (feldsupport: Fehler nach Neustart nachvollziehen)
+    local logdir="${SCRIPT_DIR}/logs"
+    local logfile="${logdir}/bootstrap_$(date +%Y-%m-%d_%H-%M-%S).log"
+    mkdir -p "$logdir"
+    chmod 700 "$logdir" 2>/dev/null || true
+    # Terminal- und Log-Ausgabe parallel (tee), bleibt auch bei Fehlern erhalten
+    exec > >(tee -a "$logfile") 2>&1
+
     show_banner
     check_root
+    log_info "Bootstrap-Log: $logfile"
 
     # Safety net: always redact plaintext password on exit (success or failure)
     # This prevents password exposure if bootstrap is interrupted or fails
@@ -1356,7 +1398,11 @@ cmd_bootstrap() {
 
     # 9. Docker-Images (--skip-pull / --skip-build fuer Factory-Images)
     if [ "$SKIP_PULL" != "true" ]; then
-        pull_images
+        if ! pull_images; then
+            log_error "Docker-Images konnten nicht geladen werden - Bootstrap abgebrochen"
+            generate_error_report 1 "pull_images"
+            exit 1
+        fi
     else
         log_info "Image-Pull uebersprungen (--skip-pull)"
     fi
@@ -1625,7 +1671,10 @@ case "${1:-help}" in
         cmd_setup
         ;;
     bootstrap)
-        # Parse bootstrap flags
+        # Parse bootstrap flags (set -u requires defaults before case/ifs)
+        SKIP_PULL=false
+        SKIP_BUILD=false
+        FORCE_SETUP=false
         shift
         for arg in "$@"; do
             case "$arg" in

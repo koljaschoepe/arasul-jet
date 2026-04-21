@@ -33,22 +33,29 @@ fi
 SETUP_ENV_WRITTEN=false
 cleanup_on_abort() {
     echo ""
+    # Always remove partial tmp file (atomic write pattern)
+    rm -f "${PROJECT_ROOT}/.env.tmp"
     if [ "$SETUP_ENV_WRITTEN" = true ]; then
-        # Partielle .env entfernen, Backup wiederherstellen
-        local latest_backup=$(ls -t "${PROJECT_ROOT}/.env.backup."* 2>/dev/null | head -1)
-        if [ -n "$latest_backup" ]; then
-            mv "$latest_backup" "${PROJECT_ROOT}/.env"
-            echo -e "${YELLOW}Setup abgebrochen. Alte .env wiederhergestellt.${NC}"
-        else
-            rm -f "${PROJECT_ROOT}/.env"
-            echo -e "${YELLOW}Setup abgebrochen. Partielle .env entfernt.${NC}"
-        fi
+        echo -e "${YELLOW}Setup abgebrochen. .env bleibt unveraendert.${NC}"
     else
         echo -e "${YELLOW}Setup abgebrochen. Keine Aenderungen vorgenommen.${NC}"
     fi
     exit 1
 }
 trap cleanup_on_abort INT
+
+# Rotate .env.backup.* files, keeping only the latest N
+rotate_backups() {
+    local keep="${1:-5}"
+    local backups
+    mapfile -t backups < <(ls -1t "${PROJECT_ROOT}/.env.backup."* 2>/dev/null || true)
+    if [ "${#backups[@]}" -gt "$keep" ]; then
+        local i
+        for ((i = keep; i < ${#backups[@]}; i++)); do
+            rm -f "${backups[$i]}"
+        done
+    fi
+}
 
 # =============================================================================
 # Hilfsfunktionen
@@ -330,12 +337,8 @@ main() {
 
     # Bestehende .env pruefen
     if [ -f "${PROJECT_ROOT}/.env" ]; then
-        # Immer Backup erstellen
-        cp "${PROJECT_ROOT}/.env" "${PROJECT_ROOT}/.env.backup.$(date +%Y%m%d_%H%M%S)"
-
         if [ "$NON_INTERACTIVE" = true ]; then
             print_warn ".env existiert bereits, wird ueberschrieben (--non-interactive)"
-            print_ok "Backup der alten .env erstellt"
         else
             echo -e "  ${YELLOW}Eine .env Datei existiert bereits.${NC}"
             if ! prompt_confirm "Ueberschreiben?"; then
@@ -343,8 +346,11 @@ main() {
                 print_ok "Setup abgebrochen. Bestehende .env beibehalten."
                 exit 0
             fi
-            print_ok "Backup der alten .env erstellt"
         fi
+        # Backup erst NACH Bestaetigung erstellen (vermeidet Backup-Muell bei Abbruch)
+        cp "${PROJECT_ROOT}/.env" "${PROJECT_ROOT}/.env.backup.$(date +%Y%m%d_%H%M%S)"
+        rotate_backups 5
+        print_ok "Backup der alten .env erstellt (max. 5 rotiert)"
     fi
 
     # =========================================================================
@@ -568,12 +574,15 @@ main() {
     fi
 
     # =========================================================================
-    # .env schreiben
+    # .env schreiben (atomic: .env.tmp -> mv)
     # =========================================================================
 
     local env_file="${PROJECT_ROOT}/.env"
+    local env_file_tmp="${env_file}.tmp"
+    # Stale tmp von frueherem Abbruch entfernen
+    rm -f "$env_file_tmp"
 
-    cat > "$env_file" << ENVEOF
+    cat > "$env_file_tmp" << ENVEOF
 # =============================================================================
 # Arasul Platform - Konfiguration
 # Generiert: $(date -Iseconds)
@@ -698,12 +707,24 @@ ENVEOF
                 echo "# System Detection (read-only)"
                 echo "JETSON_RAM_TOTAL=${DEVICE_RAM}"
                 echo "JETSON_CPU_CORES=${DEVICE_CORES}"
-            } >> "$env_file"
+            } >> "$env_file_tmp"
         fi
     fi
 
-    # Berechtigungen setzen
-    chmod 600 "$env_file"
+    # Berechtigungen setzen BEVOR atomic move (damit .env nie mit 644 sichtbar ist)
+    chmod 600 "$env_file_tmp"
+
+    # Write-Validation: Kernzeilen muessen vorhanden sein
+    if ! grep -q "^ADMIN_HASH=" "$env_file_tmp" \
+        || ! grep -q "^JWT_SECRET=" "$env_file_tmp" \
+        || ! grep -q "^POSTGRES_PASSWORD=" "$env_file_tmp"; then
+        print_err "Write-Validation fehlgeschlagen - .env.tmp unvollstaendig"
+        rm -f "$env_file_tmp"
+        exit 1
+    fi
+
+    # Atomic rename: .env.tmp -> .env
+    mv "$env_file_tmp" "$env_file"
     SETUP_ENV_WRITTEN=true
 
     # Docker-Secrets-Dateien erstellen (Vorbereitung fuer docker-compose.secrets.yml)
