@@ -57,6 +57,18 @@ vi.mock('../../contexts/DownloadContext', () => ({
   DownloadProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('../../contexts/ActivationContext', () => ({
+  useActivation: () => ({
+    activation: null,
+    startActivation: vi.fn(),
+    cancelActivation: vi.fn(),
+    isActivating: vi.fn().mockReturnValue(false),
+    getActivationPercent: vi.fn().mockReturnValue(0),
+    onActivationComplete: vi.fn().mockReturnValue(() => {}),
+  }),
+  ActivationProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 vi.mock('../../hooks/useDebouncedSearch', () => ({
   useDebouncedSearch: (_query: string, _searcher: unknown, opts?: { initialResults: unknown }) => ({
     results: opts?.initialResults ?? { models: [], apps: [] },

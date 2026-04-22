@@ -13,6 +13,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import DocumentManager from '../../features/documents/DocumentManager';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
 
@@ -126,10 +127,15 @@ const sampleStatistics = {
 // ---- Helpers ----
 
 function renderDocumentManager() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter>
-      <DocumentManager />
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <DocumentManager />
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

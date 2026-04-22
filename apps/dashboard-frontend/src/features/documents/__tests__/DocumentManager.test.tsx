@@ -14,6 +14,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ToastProvider } from '../../../contexts/ToastContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import DocumentManager from '../DocumentManager';
 
 vi.mock('../../../components/editor/tiptap/TipTapEditor', () => ({
@@ -48,7 +49,16 @@ const mockApi = {
 };
 vi.mock('../../../hooks/useApi', () => ({ useApi: () => mockApi, default: () => mockApi }));
 
-const renderWithProviders = ui => render(<ToastProvider>{ui}</ToastProvider>);
+const renderWithProviders = ui => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>
+  );
+};
 
 describe('DocumentManager Component', () => {
   const mockDocuments = [
@@ -374,9 +384,11 @@ describe('DocumentManager Component', () => {
         expect(statCards.length).toBeGreaterThan(0);
       });
 
-      // Check for stat labels — stats show Dokumente, Indexierte Chunks, Wartend, Tabellen
+      // Check for stat labels — stats show Dokumente, Indexierte Chunks, Wartend, Tabellen.
+      // "Dokumente" appears in multiple places (title, stat label, aria-labels), so
+      // assert on a more specific sibling label to avoid the ambiguous match.
       await waitFor(() => {
-        expect(screen.getByText(/Dokumente/)).toBeInTheDocument();
+        expect(screen.getByText('Indexierte Chunks')).toBeInTheDocument();
       });
     });
   });

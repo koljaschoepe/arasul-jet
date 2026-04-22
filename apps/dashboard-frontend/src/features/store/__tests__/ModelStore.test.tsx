@@ -16,6 +16,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { StoreModels as ModelStore } from '..';
 import { DownloadProvider } from '../../../contexts/DownloadContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
+import { ActivationProvider } from '../../../contexts/ActivationContext';
 
 // Mock AuthContext - useApi now requires AuthProvider
 vi.mock('../../../contexts/AuthContext', () => ({
@@ -28,7 +29,9 @@ const renderWithProvider = ui => {
   return render(
     <MemoryRouter>
       <ToastProvider>
-        <DownloadProvider>{ui}</DownloadProvider>
+        <DownloadProvider>
+          <ActivationProvider>{ui}</ActivationProvider>
+        </DownloadProvider>
       </ToastProvider>
     </MemoryRouter>
   );
