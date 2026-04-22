@@ -1,5 +1,10 @@
 # Arasul Production Hardening Plan
 
+> **📜 Archived — superseded by [ROADMAP.md](ROADMAP.md).**
+> Snapshot from 2026-04-15. Its action items have been absorbed into
+> Phases 0 + 2 + 4 of the cleanup plan (`.claude/CLEANUP_PLAN.md`). Keep
+> for historical context, but don't work from it.
+
 > Ergebnis der 20-Agent-Tiefenanalyse vom 15. April 2026
 > Ziel: Jedes Feature funktioniert, jeder Workflow ist durchdacht, System skaliert auf neue Jetson-Geraete
 

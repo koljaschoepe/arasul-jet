@@ -2,6 +2,9 @@
 
 Quick navigation to all Arasul Platform documentation.
 
+> **Where work is tracked:** [ROADMAP.md](ROADMAP.md) is the single source of
+> truth for current phase status and which historical plan docs are archived.
+
 ---
 
 ## Reading Paths (New Developer Onboarding)

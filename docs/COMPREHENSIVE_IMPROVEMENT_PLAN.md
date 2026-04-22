@@ -1,5 +1,10 @@
 # Arasul Platform — Ultimativer Improvement Plan
 
+> **📜 Archived — superseded by [ROADMAP.md](ROADMAP.md).**
+> Multi-agent audit snapshot from 2026-04-09. Findings have been absorbed
+> into the phased cleanup plan in `.claude/CLEANUP_PLAN.md`. Keep for
+> historical context, but don't work from it.
+
 > Erstellt am 2026-04-09 durch 20 Analyse-Agents + 12 Challenge-Agents.
 > Validiert gegen: Balena.io, Azure IoT Edge, AWS Greengrass, NVIDIA Fleet Command, Home Assistant, Umbrel, Frigate NVR, CasaOS.
 > Ziel: Kommerzielles Edge-AI-Produkt, das 3-5 Jahre autonom beim Kunden laeuft.

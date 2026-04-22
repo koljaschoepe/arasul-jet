@@ -1,5 +1,10 @@
 # Arasul Platform — Production Readiness Report
 
+> **📜 Archived — superseded by [ROADMAP.md](ROADMAP.md).**
+> Historical audit snapshot from 2026-04-10. Its findings drove Phases 0–5
+> of the cleanup plan; state has moved on considerably since. Keep for
+> historical context, but don't work from it.
+
 **Datum**: 10. April 2026
 **Analyse**: 13 parallele Deep-Dive Agenten, ~1.100 Dateien analysiert
 **Ziel**: Produkt an ersten Kunden ausliefern, 5 Jahre autonomer Betrieb

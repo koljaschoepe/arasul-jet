@@ -1,5 +1,10 @@
 # Arasul Production Readiness Plan
 
+> **📜 Archived — superseded by [ROADMAP.md](ROADMAP.md).**
+> This plan was a snapshot from 2026-04-04 and has since been absorbed into
+> the phased cleanup plan in `.claude/CLEANUP_PLAN.md`. Keep for historical
+> context, but don't work from it.
+
 **Erstellt:** 2026-04-04
 **Methode:** Vollanalyse mit 10+ parallelen Agents - Frontend, Backend, Store, LLM-Pipeline, RAG, Datentabellen, Telegram, Docker/Infra, WebSocket/SSE, Auth/Security, N8N, DB-Migrationen
 **Scope:** Keine Architektur-Umbauten - nur Bugfixes, fehlende Verbindungen, und Blocker beseitigen

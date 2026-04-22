@@ -1,5 +1,10 @@
 # Arasul Platform — Refactoring & Hardening Plan
 
+> **📜 Archived — superseded by [ROADMAP.md](ROADMAP.md).**
+> Snapshot from 2026-04-19. Absorbed into Phases 2 + 3 of the cleanup
+> plan (`.claude/CLEANUP_PLAN.md`). Keep for historical context, but don't
+> work from it.
+
 > **Erstellt:** 2026-04-19
 > **Basis:** 20-Agenten-Audit über Frontend, Backend, DB, Python-Services, Infra, Security, Tests, Dokumentation, Monorepo-Best-Practices, Edge-AI-Research
 > **Ziel:** Kommerzielles Edge-AI-Produkt, das 5 Jahre autonom beim Enterprise-Kunden läuft — ohne Regressionen, mit klarer Architektur für Neuonboarding, voller Testabdeckung kritischer Pfade.
