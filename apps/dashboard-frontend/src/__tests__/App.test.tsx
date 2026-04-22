@@ -141,6 +141,19 @@ const createApiMock = (mockUser, overrides = {}) => {
         app: null,
       });
     }
+    if (url.includes('/ops/overview')) {
+      return Promise.resolve({
+        status: 'OK',
+        warnings: [],
+        criticals: [],
+        backup: { status: 'healthy', stale: false, totalSize: null },
+        restore_drill: { status: 'ok', stale: false },
+        services: { total: 10, healthy: 10, degraded: 0, down: 0, down_services: [] },
+        alerts: { active: 0 },
+        notifications: { unsent_critical_24h: 0 },
+        timestamp: new Date().toISOString(),
+      });
+    }
     // Apply overrides
     if (overrides[url]) {
       return overrides[url];
@@ -220,7 +233,7 @@ describe('App Component', () => {
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getAllByText(/cpu/i).length).toBeGreaterThan(0);
+        expect(screen.getByText('Performance')).toBeInTheDocument();
       });
     });
 

@@ -74,7 +74,7 @@ describe('PasswordManagement Component', () => {
       );
 
       expect(
-        screen.getByText(/Ändern Sie die Passwörter für Dashboard, MinIO und n8n/)
+        screen.getByText(/Ändern Sie die Passwörter für Dashboard und MinIO/)
       ).toBeInTheDocument();
     });
 
@@ -150,20 +150,6 @@ describe('PasswordManagement Component', () => {
       expect(minioButton).toHaveAttribute('data-state', 'active');
     });
 
-    test('wechselt zu n8n bei Click', async () => {
-      const user = userEvent.setup();
-      render(
-        <ToastProvider>
-          <PasswordManagement />
-        </ToastProvider>
-      );
-
-      await user.click(screen.getByText('n8n'));
-
-      const n8nButton = screen.getByText('n8n').closest('button');
-      expect(n8nButton).toHaveAttribute('data-state', 'active');
-    });
-
     test('zeigt Service-Icons', async () => {
       render(
         <ToastProvider>
@@ -172,7 +158,7 @@ describe('PasswordManagement Component', () => {
       );
 
       const tabs = screen.getAllByRole('tab');
-      expect(tabs).toHaveLength(3);
+      expect(tabs).toHaveLength(2);
       tabs.forEach(tab => {
         expect(tab.querySelector('svg')).toBeInTheDocument();
       });
@@ -190,7 +176,7 @@ describe('PasswordManagement Component', () => {
         </ToastProvider>
       );
 
-      expect(screen.getByPlaceholderText('Aktuelles Passwort eingeben')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Dashboard-Passwort eingeben')).toBeInTheDocument();
     });
 
     test('zeigt Neues-Passwort Feld', async () => {
@@ -220,7 +206,7 @@ describe('PasswordManagement Component', () => {
         </ToastProvider>
       );
 
-      const currentField = screen.getByPlaceholderText('Aktuelles Passwort eingeben');
+      const currentField = screen.getByPlaceholderText('Dashboard-Passwort eingeben');
       const newField = screen.getByPlaceholderText('Neues Passwort eingeben');
       const confirmField = screen.getByPlaceholderText('Neues Passwort bestätigen');
 
@@ -237,7 +223,7 @@ describe('PasswordManagement Component', () => {
       );
 
       expect(
-        screen.getByText(/Zur Sicherheit wird Ihr aktuelles Dashboard-Passwort benötigt/)
+        screen.getByText(/Zur Sicherheit wird Ihr aktuelles Passwort benötigt/)
       ).toBeInTheDocument();
     });
   });
@@ -253,7 +239,7 @@ describe('PasswordManagement Component', () => {
         </ToastProvider>
       );
 
-      const currentField = screen.getByPlaceholderText('Aktuelles Passwort eingeben');
+      const currentField = screen.getByPlaceholderText('Dashboard-Passwort eingeben');
       expect(currentField).toHaveAttribute('type', 'password');
     });
 
@@ -271,7 +257,7 @@ describe('PasswordManagement Component', () => {
         .filter(Boolean);
       await user.click(toggleButtons[0]!);
 
-      const currentField = screen.getByPlaceholderText('Aktuelles Passwort eingeben');
+      const currentField = screen.getByPlaceholderText('Dashboard-Passwort eingeben');
       expect(currentField).toHaveAttribute('type', 'text');
     });
 
@@ -290,7 +276,7 @@ describe('PasswordManagement Component', () => {
       await user.click(toggleButtons[0]!); // Show
       await user.click(toggleButtons[0]!); // Hide
 
-      const currentField = screen.getByPlaceholderText('Aktuelles Passwort eingeben');
+      const currentField = screen.getByPlaceholderText('Dashboard-Passwort eingeben');
       expect(currentField).toHaveAttribute('type', 'password');
     });
   });
@@ -448,21 +434,6 @@ describe('PasswordManagement Component', () => {
         screen.getByText(/MinIO-Service wird nach der Passwortänderung automatisch neu gestartet/)
       ).toBeInTheDocument();
     });
-
-    test('zeigt n8n-Neustart Info bei n8n Auswahl', async () => {
-      const user = userEvent.setup();
-      render(
-        <ToastProvider>
-          <PasswordManagement />
-        </ToastProvider>
-      );
-
-      await user.click(screen.getByText('n8n'));
-
-      expect(
-        screen.getByText(/n8n-Service wird nach der Passwortänderung automatisch neu gestartet/)
-      ).toBeInTheDocument();
-    });
   });
 
   // =====================================================
@@ -494,7 +465,7 @@ describe('PasswordManagement Component', () => {
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
       // Fill form with valid password
-      await user.type(screen.getByPlaceholderText('Aktuelles Passwort eingeben'), 'OldPass123!');
+      await user.type(screen.getByPlaceholderText('Dashboard-Passwort eingeben'), 'OldPass123!');
       await user.type(screen.getByPlaceholderText('Neues Passwort eingeben'), 'NewPass123!');
       await user.type(screen.getByPlaceholderText('Neues Passwort bestätigen'), 'NewPass123!');
 
@@ -539,7 +510,7 @@ describe('PasswordManagement Component', () => {
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
-      await user.type(screen.getByPlaceholderText('Aktuelles Passwort eingeben'), 'OldPass1x');
+      await user.type(screen.getByPlaceholderText('Dashboard-Passwort eingeben'), 'OldPass1x');
       await user.type(screen.getByPlaceholderText('Neues Passwort eingeben'), 'NewPass1x');
       await user.type(screen.getByPlaceholderText('Neues Passwort bestätigen'), 'NewPass1x');
 
@@ -586,7 +557,7 @@ describe('PasswordManagement Component', () => {
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
-      await user.type(screen.getByPlaceholderText('Aktuelles Passwort eingeben'), 'WrongPass1');
+      await user.type(screen.getByPlaceholderText('Dashboard-Passwort eingeben'), 'WrongPass1');
       await user.type(screen.getByPlaceholderText('Neues Passwort eingeben'), 'NewPass1x');
       await user.type(screen.getByPlaceholderText('Neues Passwort bestätigen'), 'NewPass1x');
 
