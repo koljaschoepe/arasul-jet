@@ -714,6 +714,10 @@ setup_secrets() {
     # Store n8n password in secrets for reference
     echo "$n8n_pass" > config/secrets/n8n_basic_auth_password
     chmod 600 config/secrets/n8n_basic_auth_password
+    if ! [ -s config/secrets/n8n_basic_auth_password ]; then
+        log_error "Secret schreiben fehlgeschlagen: config/secrets/n8n_basic_auth_password"
+        return 1
+    fi
 
     # Configure Traefik Basic Auth (replace __BASIC_AUTH_HASH__ placeholder)
     local middlewares_file="config/traefik/dynamic/middlewares.yml"
@@ -866,6 +870,10 @@ init_admin_user() {
     chmod 700 config/secrets
     echo "$admin_hash" > config/secrets/admin.hash
     chmod 600 config/secrets/admin.hash
+    if ! [ -s config/secrets/admin.hash ]; then
+        log_error "Secret schreiben fehlgeschlagen: config/secrets/admin.hash"
+        return 1
+    fi
 
     # Validate inputs before SQL (prevent injection)
     local safe_user="${admin_user:-admin}"
