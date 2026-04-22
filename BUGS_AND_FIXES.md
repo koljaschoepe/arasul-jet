@@ -12,14 +12,13 @@
 
 | Status              | Anzahl | Details                                                                        |
 | ------------------- | ------ | ------------------------------------------------------------------------------ |
-| BEHOBEN             | ~45    | Security, Bugs, High-Priority — alle in Production Hardening Phases 1-5 gefixt |
-| NOCH OFFEN          | 1      | **SEC-001**: SQL Injection in n8nLogger.js (INTERVAL String-Interpolation)     |
+| BEHOBEN             | ~46    | Security, Bugs, High-Priority — alle in Production Hardening Phases 1-5 gefixt |
 | UNKLAR              | 1      | **HIGH-017**: 401 Interceptor Loop — Frontend-Fix nicht verifiziert            |
 | NICHT MEHR RELEVANT | ~4     | Überholt durch Architekturänderungen                                           |
 
-### Verbleibende Aktion: SEC-001 fixen
+### SEC-001 Status (verifiziert 2026-04-22)
 
-`apps/dashboard-backend/src/services/n8nLogger.js` Zeilen 152, 239 — INTERVAL mit String-Interpolation statt parametrisierter Query.
+`apps/dashboard-backend/src/services/n8nLogger.js` — Whitelist-Validierung in `getWorkflowStats` (Zeile 135) und `parseInt`-Validierung in `cleanupOldRecords` (Zeile 233) verhindern SQL-Injection. INTERVAL wird jetzt parametrisiert als `$1::interval` bzw. `$1` mit validiertem Wert übergeben. Siehe `SEC-001 FIX`-Marker im Code.
 
 ---
 
@@ -27,7 +26,7 @@
 
 | ID       | Issue                            | Severity | Status (Apr 2026)         |
 | -------- | -------------------------------- | -------- | ------------------------- | ------------ |
-| SEC-001  | SQL Injection in n8nLogger       | CRITICAL | **NOCH OFFEN**            |
+| SEC-001  | SQL Injection in n8nLogger       | CRITICAL | BEHOBEN                   |
 | SEC-002  | SQL Injection in Logs Route      | CRITICAL | BEHOBEN                   |
 | SEC-003  | SQL Injection in Self-Healing    | CRITICAL | BEHOBEN                   |
 | SEC-004  | No Auth on LLM Endpoint          | CRITICAL | BEHOBEN                   |

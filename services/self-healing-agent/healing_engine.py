@@ -392,7 +392,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                 "SELECT count(*) AS active, "
                 "(SELECT setting::int FROM pg_settings WHERE name='max_connections') AS max_conn "
                 "FROM pg_stat_activity WHERE backend_type='client backend'",
-                fetch=True
+                fetch_all=True
             )
             if rows:
                 active, max_conn = rows[0][0], rows[0][1]
@@ -410,7 +410,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                     "SELECT count(*) FROM pg_stat_activity "
                     "WHERE state='idle in transaction' "
                     "AND state_change < now() - interval '5 minutes'",
-                    fetch=True
+                    fetch_all=True
                 )
                 if idle_rows and idle_rows[0][0] > 0:
                     logger.warning(f"DB: {idle_rows[0][0]} idle-in-transaction connections > 5 min")
@@ -422,7 +422,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                 "WHERE n_live_tup > 0 AND n_dead_tup > 10000 "
                 "AND (n_dead_tup::float / (n_live_tup + n_dead_tup)) > 0.5 "
                 "ORDER BY n_dead_tup DESC LIMIT 5",
-                fetch=True
+                fetch_all=True
             )
             if bloat_rows:
                 tables = [f"{r[0]}({r[1]} dead)" for r in bloat_rows]
@@ -441,7 +441,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                 "FROM pg_database "
                 "WHERE datallowconn "
                 "ORDER BY xid_age DESC LIMIT 3",
-                fetch=True
+                fetch_all=True
             )
             if xid_rows:
                 for db_name, xid_age in xid_rows:

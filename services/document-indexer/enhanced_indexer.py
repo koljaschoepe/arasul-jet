@@ -33,7 +33,7 @@ from graph_store import GraphStore
 from config import (
     MINIO_HOST, MINIO_PORT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD,
     MINIO_BUCKET, QDRANT_COLLECTION,
-    INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE,
+    INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE, INDEXER_MAX_RETRIES,
     MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES,
     ENABLE_AI_ANALYSIS, ENABLE_SIMILARITY, ENABLE_KNOWLEDGE_GRAPH,
     EMBEDDING_MODEL, POSTGRES_DSN
@@ -287,13 +287,22 @@ class EnhancedDocumentIndexer:
                 )
                 return existing['id']
             elif existing['status'] in ('pending', 'failed'):
+                doc_id = existing['id']
+                # BUG-002 fix: honor retry cap for failed docs. Scan loop previously
+                # reset retry_count → infinite retries. Explicit /retry endpoint
+                # still bypasses this by resetting retry_count before re-enqueue.
+                if existing['status'] == 'failed':
+                    current_retry = existing.get('retry_count') or 0
+                    if current_retry >= INDEXER_MAX_RETRIES:
+                        logger.debug(
+                            f"Skipping failed document {filename}: "
+                            f"retry cap reached ({current_retry}/{INDEXER_MAX_RETRIES})"
+                        )
+                        return existing['id']
                 logger.info(
                     f"Found {existing['status']} document, "
                     f"will index: {filename}"
                 )
-                doc_id = existing['id']
-                if existing['status'] == 'failed':
-                    self.db.update_document(doc_id, {'retry_count': 0})
                 return self._index_existing_document(
                     doc_id, data, filename, content_hash, file_hash
                 )

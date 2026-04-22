@@ -52,6 +52,9 @@ INDEXER_INTERVAL = int(os.getenv('DOCUMENT_INDEXER_INTERVAL', '30'))
 # Phase 5.1: Cap documents processed per scan cycle to avoid long-running cycles.
 # New uploads during a busy cycle wait at most INDEXER_INTERVAL seconds for the next pass.
 INDEXER_MAX_DOCS_PER_CYCLE = int(os.getenv('DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE', '10'))
+# Phase 0 (BUG-002): Max automatic retries for failed documents in the scan loop.
+# The scan loop must honor this cap; explicit /retry endpoint bypasses it by resetting retry_count.
+INDEXER_MAX_RETRIES = int(os.getenv('DOCUMENT_INDEXER_MAX_RETRIES', '3'))
 
 # --- File Size Limit ---
 # CRITICAL-FIX: Maximum file size limit to prevent OOM (default: 100MB)
