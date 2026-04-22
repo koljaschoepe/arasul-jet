@@ -2,6 +2,8 @@
 
 **Version 1.0.0** - Autonomous Edge AI Appliance for NVIDIA Jetson AGX Orin
 
+> Docs: [`docs/INDEX.md`](docs/INDEX.md) · Contributors: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) · Language policy: [`docs/LANGUAGE_POLICY.md`](docs/LANGUAGE_POLICY.md)
+
 ---
 
 ## Executive Summary

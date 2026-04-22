@@ -1,5 +1,10 @@
 # CLAUDE.md — Arasul Platform
 
+> **AI-facing context file.** This file is the entry point for AI coding
+> assistants (Claude Code et al.). Humans looking for documentation should
+> start at [`docs/INDEX.md`](docs/INDEX.md). Language convention for new
+> content: see [`docs/LANGUAGE_POLICY.md`](docs/LANGUAGE_POLICY.md).
+
 ## Vision
 
 Arasul ist eine autonome Edge-AI-Plattform für NVIDIA Jetson. Sie wird als kommerzielles Produkt an Unternehmen verkauft — eine Plug-&-Play-Box, die KI-Funktionen (Chat, RAG, Dokumentenanalyse, Automatisierung) komplett lokal und datenschutzkonform bereitstellt. Ziel: 5 Jahre autonomer Betrieb ohne manuellen Eingriff.
