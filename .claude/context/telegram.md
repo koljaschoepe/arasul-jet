@@ -112,6 +112,6 @@ Bot-Tokens werden AES-256-GCM verschlüsselt in der DB gespeichert:
 
 - [ ] Service-Logik in `services/telegram/` (richtige Service-Datei wählen)
 - [ ] Route in `routes/telegram/bots.js` hinzufügen
-- [ ] DB-Migration falls neues Feld (nächste: `059_*.sql`)
+- [ ] DB-Migration falls neues Feld (nächste: `082_*.sql`)
 - [ ] Tests in `__tests__/unit/telegram*.test.js`
 - [ ] Frontend-Komponente in `features/telegram/` aktualisieren

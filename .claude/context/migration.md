@@ -3,15 +3,15 @@
 ## Quick Reference
 
 **Location:** `services/postgres/init/`
-**Current Migrations:** 000-058
-**Next Migration:** `059_*.sql`
+**Current Migrations:** 000-081
+**Next Migration:** `082_*.sql`
 **Documentation:** `docs/DATABASE_SCHEMA.md`
 
 ---
 
 ## Steps
 
-1. Create migration file: `059_description.sql`
+1. Create migration file: `082_description.sql`
 2. Use `IF NOT EXISTS` for idempotency
 3. Update `docs/DATABASE_SCHEMA.md`
 4. Rebuild: `docker compose up -d --build postgres-db`
@@ -21,10 +21,10 @@
 ## Migration Template
 
 ```sql
--- 053_example_feature.sql
+-- 082_example_feature.sql
 -- Description: Add example feature tables
 -- Author: Claude Code
--- Date: 2026-03-29
+-- Date: 2026-04-23
 
 -- Create new table
 CREATE TABLE IF NOT EXISTS example_items (
@@ -302,7 +302,7 @@ SELECT run_all_cleanups();
 docker compose up -d --build postgres-db
 
 # Or execute directly
-docker exec -i postgres-db psql -U arasul -d arasul_db < services/postgres/init/053_example.sql
+docker exec -i postgres-db psql -U arasul -d arasul_db < services/postgres/init/082_example.sql
 
 # Verify
 docker exec -it postgres-db psql -U arasul -d arasul_db -c "\dt"
@@ -315,7 +315,7 @@ docker exec -it postgres-db psql -U arasul -d arasul_db -c "SELECT run_all_clean
 
 ## Checklist
 
-- [ ] File named `053_description.sql`
+- [ ] File named `082_description.sql`
 - [ ] All CREATE statements use `IF NOT EXISTS`
 - [ ] All ALTER statements are wrapped in `DO $$ ... $$`
 - [ ] Indexes created for foreign keys

@@ -103,7 +103,7 @@ apps/
   dashboard-backend/     # Express API (src/index.js, routes/, services/, middleware/)
   dashboard-frontend/    # React 19 SPA (src/App.tsx, features/, components/, hooks/)
 services/
-  postgres/init/         # SQL migrations (000-052, next: 053)
+  postgres/init/         # SQL migrations (000-081, next: 082)
   llm-service/           # Ollama wrapper with health/management API
   embedding-service/     # BGE-M3 embeddings + reranking
   document-indexer/      # Python document processing pipeline

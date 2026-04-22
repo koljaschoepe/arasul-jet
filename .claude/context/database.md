@@ -4,7 +4,7 @@
 
 - **Location**: `services/postgres/init/*.sql` (executed alphabetically on first DB start)
 - **Connection**: `apps/dashboard-backend/src/database.js`
-- **Migrations**: 59 files (000-058), **next available: `059_*.sql`**
+- **Migrations**: 82 files (000-081), **next available: `082_*.sql`**
 - **Two databases**: `arasul_db` (main) and `arasul_data_db` (user data tables / Datentabellen)
 
 ## Tables by Domain
@@ -209,7 +209,7 @@ All enforced by `run_all_cleanups()`:
 ## Migration Template
 
 ```sql
--- Migration 053: [Feature Name]
+-- Migration 082: [Feature Name]
 -- [Brief description]
 
 BEGIN;
