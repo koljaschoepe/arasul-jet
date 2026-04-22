@@ -15,14 +15,14 @@ Development workflows, patterns, API usage, and debugging for the Arasul Platfor
 
 ### Documentation Protocol
 
-| Change Type         | Update These Files                               |
-| ------------------- | ------------------------------------------------ |
-| New API endpoint    | `docs/API_REFERENCE.md`                          |
-| Database schema     | `docs/DATABASE_SCHEMA.md`, add migration         |
-| New env variable    | `docs/ENVIRONMENT_VARIABLES.md`, `.env.template` |
-| Architecture change | `docs/ARCHITECTURE.md`                           |
-| Bug fix             | `BUGS_AND_FIXES.md`                              |
-| Frontend component  | Follow `docs/DESIGN_SYSTEM.md`                   |
+| Change Type         | Update These Files                                           |
+| ------------------- | ------------------------------------------------------------ |
+| New API endpoint    | `docs/API_REFERENCE.md`                                      |
+| Database schema     | `docs/DATABASE_SCHEMA.md`, add migration                     |
+| New env variable    | `docs/ENVIRONMENT_VARIABLES.md`, `.env.template`             |
+| Architecture change | `docs/ARCHITECTURE.md`                                       |
+| Bug fix             | `docs/BUGS_OPEN.md` (open), `docs/BUGS_ARCHIVE.md` (history) |
+| Frontend component  | Follow `docs/DESIGN_SYSTEM.md`                               |
 
 ---
 
@@ -370,7 +370,8 @@ docker compose logs reverse-proxy | tail -50
 
 ### Known Issues
 
-See [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md).
+See [BUGS_OPEN.md](BUGS_OPEN.md) for currently unresolved bugs and
+[BUGS_ARCHIVE.md](BUGS_ARCHIVE.md) for the history of resolved ones.
 
 ---
 

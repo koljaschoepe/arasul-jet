@@ -43,13 +43,14 @@ Quick navigation to all Arasul Platform documentation.
 
 ## Development
 
-| Document                                  | Description                                       |
-| ----------------------------------------- | ------------------------------------------------- |
-| [ONBOARDING.md](ONBOARDING.md)            | 30-min productive path — rules, workflow, gotchas |
-| [GETTING_STARTED.md](GETTING_STARTED.md)  | Developer onboarding & first change walkthrough   |
-| [DEVELOPMENT.md](DEVELOPMENT.md)          | Workflows, backend patterns, API usage, debugging |
-| [TESTING.md](TESTING.md)                  | Test framework & procedures                       |
-| [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md) | Bug tracking & resolutions                        |
+| Document                                 | Description                                       |
+| ---------------------------------------- | ------------------------------------------------- |
+| [ONBOARDING.md](ONBOARDING.md)           | 30-min productive path — rules, workflow, gotchas |
+| [GETTING_STARTED.md](GETTING_STARTED.md) | Developer onboarding & first change walkthrough   |
+| [DEVELOPMENT.md](DEVELOPMENT.md)         | Workflows, backend patterns, API usage, debugging |
+| [TESTING.md](TESTING.md)                 | Test framework & procedures                       |
+| [BUGS_OPEN.md](BUGS_OPEN.md)             | Currently unresolved bugs (living)                |
+| [BUGS_ARCHIVE.md](BUGS_ARCHIVE.md)       | Historical bug records (resolved)                 |
 
 ---
 

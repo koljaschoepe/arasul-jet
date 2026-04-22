@@ -142,6 +142,7 @@ curl http://localhost:8080/api/http/routers
 
 **Symptom:** Service marked unhealthy despite working
 **Solution:** Increase health check timeout in docker-compose.yml
+
 ```yaml
 healthcheck:
   timeout: 10s
@@ -152,6 +153,7 @@ healthcheck:
 
 **Symptom:** Services fail due to missing dependencies
 **Solution:** Use `depends_on` with `condition: service_healthy`
+
 ```yaml
 depends_on:
   postgres-db:
@@ -162,10 +164,11 @@ depends_on:
 
 **Symptom:** "too many clients" database errors
 **Solution:** Check for connection leaks, increase pool size
+
 ```javascript
 // database.js
 const pool = new Pool({
-  max: 20,  // Increase if needed
+  max: 20, // Increase if needed
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 });
@@ -175,12 +178,13 @@ const pool = new Pool({
 
 **Symptom:** 404 or routing issues
 **Solution:** Check `config/traefik/dynamic/routes.yml`
+
 ```yaml
 # Ensure correct router priority
 http:
   routers:
     api:
-      rule: "PathPrefix(`/api`)"
+      rule: 'PathPrefix(`/api`)'
       priority: 100
 ```
 
@@ -283,4 +287,4 @@ docker compose down -v && docker compose up -d
 5. [ ] Check database connectivity
 6. [ ] Verify network connectivity
 7. [ ] Check for recent changes
-8. [ ] Consult BUGS_AND_FIXES.md
+8. [ ] Consult docs/BUGS_OPEN.md (open) and docs/BUGS_ARCHIVE.md (historical fixes)
