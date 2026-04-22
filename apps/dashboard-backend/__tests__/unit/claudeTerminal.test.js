@@ -52,7 +52,8 @@ const { app } = require('../../src/server');
 // Import auth mock helpers
 const {
   setupAuthMocks,
-  generateTestToken
+  generateTestToken,
+  testRequiresAuth
 } = require('../helpers/authMock');
 
 describe('Claude Terminal Routes', () => {
@@ -68,12 +69,7 @@ describe('Claude Terminal Routes', () => {
   // GET /api/claude-terminal/status
   // ============================================================================
   describe('GET /api/claude-terminal/status', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/claude-terminal/status');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/claude-terminal/status');
 
     test('should return terminal status when LLM available', async () => {
       // Mock LLM service available
@@ -132,12 +128,7 @@ describe('Claude Terminal Routes', () => {
   // GET /api/claude-terminal/history
   // ============================================================================
   describe('GET /api/claude-terminal/history', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/claude-terminal/history');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/claude-terminal/history');
 
     test('should return query history', async () => {
       db.query
@@ -217,12 +208,7 @@ describe('Claude Terminal Routes', () => {
   // GET /api/claude-terminal/context
   // ============================================================================
   describe('GET /api/claude-terminal/context', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/claude-terminal/context');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/claude-terminal/context');
 
     test('should return current system context', async () => {
       const mockContext = {
@@ -249,12 +235,7 @@ describe('Claude Terminal Routes', () => {
   // DELETE /api/claude-terminal/history
   // ============================================================================
   describe('DELETE /api/claude-terminal/history', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .delete('/api/claude-terminal/history');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'delete', '/api/claude-terminal/history');
 
     test('should clear query history', async () => {
       db.query
@@ -280,13 +261,7 @@ describe('Claude Terminal Routes', () => {
   // POST /api/claude-terminal/query - Basic validation tests
   // ============================================================================
   describe('POST /api/claude-terminal/query', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/claude-terminal/query')
-        .send({ query: 'Test query' });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/claude-terminal/query', { query: 'Test query' });
 
     test('should return 400 if query is missing', async () => {
       const response = await request(app)

@@ -59,7 +59,8 @@ const { app } = require('../../src/server');
 // Import auth mock helpers
 const {
   setupAuthMocks,
-  generateTestToken
+  generateTestToken,
+  testRequiresAuth
 } = require('../helpers/authMock');
 
 describe('Alert Routes', () => {
@@ -75,12 +76,7 @@ describe('Alert Routes', () => {
   // GET /api/alerts/settings
   // ============================================================================
   describe('GET /api/alerts/settings', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/alerts/settings');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/alerts/settings');
 
     test('should return alert settings', async () => {
       const mockSettings = {
@@ -105,13 +101,7 @@ describe('Alert Routes', () => {
   // PUT /api/alerts/settings
   // ============================================================================
   describe('PUT /api/alerts/settings', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .put('/api/alerts/settings')
-        .send({ alerts_enabled: false });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'put', '/api/alerts/settings', { alerts_enabled: false });
 
     test('should update alert settings', async () => {
       const updatedSettings = {
@@ -146,12 +136,7 @@ describe('Alert Routes', () => {
   // GET /api/alerts/thresholds
   // ============================================================================
   describe('GET /api/alerts/thresholds', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/alerts/thresholds');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/alerts/thresholds');
 
     test('should return all thresholds', async () => {
       const mockThresholds = [
@@ -177,12 +162,9 @@ describe('Alert Routes', () => {
   // PUT /api/alerts/thresholds/:metricType
   // ============================================================================
   describe('PUT /api/alerts/thresholds/:metricType', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .put('/api/alerts/thresholds/cpu')
-        .send({ warning_threshold: 75, critical_threshold: 90 });
-
-      expect(response.status).toBe(401);
+    testRequiresAuth(app, 'put', '/api/alerts/thresholds/cpu', {
+      warning_threshold: 75,
+      critical_threshold: 90
     });
 
     test('should update CPU threshold', async () => {
@@ -249,12 +231,7 @@ describe('Alert Routes', () => {
   // GET /api/alerts/quiet-hours
   // ============================================================================
   describe('GET /api/alerts/quiet-hours', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/alerts/quiet-hours');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/alerts/quiet-hours');
 
     test('should return quiet hours configuration', async () => {
       const mockQuietHours = [
@@ -277,12 +254,10 @@ describe('Alert Routes', () => {
   // PUT /api/alerts/quiet-hours/:dayOfWeek
   // ============================================================================
   describe('PUT /api/alerts/quiet-hours/:dayOfWeek', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .put('/api/alerts/quiet-hours/0')
-        .send({ enabled: true, start_time: '22:00', end_time: '07:00' });
-
-      expect(response.status).toBe(401);
+    testRequiresAuth(app, 'put', '/api/alerts/quiet-hours/0', {
+      enabled: true,
+      start_time: '22:00',
+      end_time: '07:00'
     });
 
     test('should update quiet hours for Sunday', async () => {
@@ -362,12 +337,7 @@ describe('Alert Routes', () => {
   // GET /api/alerts/history
   // ============================================================================
   describe('GET /api/alerts/history', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/alerts/history');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/alerts/history');
 
     test('should return alert history', async () => {
       const mockHistory = {
@@ -433,12 +403,7 @@ describe('Alert Routes', () => {
   // POST /api/alerts/history/:id/acknowledge
   // ============================================================================
   describe('POST /api/alerts/history/:id/acknowledge', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/alerts/history/1/acknowledge');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/alerts/history/1/acknowledge');
 
     test('should acknowledge an alert', async () => {
       const acknowledgedAlert = {
@@ -481,12 +446,7 @@ describe('Alert Routes', () => {
   // POST /api/alerts/history/acknowledge-all
   // ============================================================================
   describe('POST /api/alerts/history/acknowledge-all', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/alerts/history/acknowledge-all');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/alerts/history/acknowledge-all');
 
     test('should acknowledge all alerts', async () => {
       alertEngine.acknowledgeAll.mockResolvedValue(5);
@@ -505,12 +465,7 @@ describe('Alert Routes', () => {
   // GET /api/alerts/statistics
   // ============================================================================
   describe('GET /api/alerts/statistics', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/alerts/statistics');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/alerts/statistics');
 
     test('should return alert statistics', async () => {
       const mockStats = {
@@ -535,12 +490,8 @@ describe('Alert Routes', () => {
   // POST /api/alerts/test-webhook
   // ============================================================================
   describe('POST /api/alerts/test-webhook', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/alerts/test-webhook')
-        .send({ webhook_url: 'https://example.com/webhook' });
-
-      expect(response.status).toBe(401);
+    testRequiresAuth(app, 'post', '/api/alerts/test-webhook', {
+      webhook_url: 'https://example.com/webhook'
     });
 
     test('should test webhook successfully', async () => {
@@ -581,12 +532,7 @@ describe('Alert Routes', () => {
   // POST /api/alerts/trigger-check
   // ============================================================================
   describe('POST /api/alerts/trigger-check', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/alerts/trigger-check');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/alerts/trigger-check');
 
     test('should trigger alert check', async () => {
       alertEngine.triggerCheck.mockResolvedValue({ checked: true, alerts_generated: 0 });
@@ -605,12 +551,7 @@ describe('Alert Routes', () => {
   // GET /api/alerts/status
   // ============================================================================
   describe('GET /api/alerts/status', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/alerts/status');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/alerts/status');
 
     test('should return alert engine status', async () => {
       alertEngine.getSettings.mockResolvedValue({

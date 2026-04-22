@@ -56,7 +56,9 @@ jest.mock('../../src/services/core/cacheService', () => ({
 
 const db = require('../../src/database');
 const { app } = require('../../src/server');
-const { generateTestToken, mockUser, mockSession } = require('../helpers/authMock');
+const { generateTestToken, mockUser, mockSession,
+  testRequiresAuth
+} = require('../helpers/authMock');
 
 /**
  * Helper to setup combined auth + custom query mocks
@@ -98,10 +100,7 @@ describe('Knowledge Spaces Routes', () => {
   // GET /api/spaces
   // ============================================================================
   describe('GET /api/spaces', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).get('/api/spaces');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/spaces');
 
     test('should return list of spaces with valid token', async () => {
       setupMocksWithAuth((query) => {
@@ -149,10 +148,7 @@ describe('Knowledge Spaces Routes', () => {
   // GET /api/spaces/:id
   // ============================================================================
   describe('GET /api/spaces/:id', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).get('/api/spaces/1');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/spaces/1');
 
     test('should return space details with valid token', async () => {
       setupMocksWithAuth((query) => {
@@ -199,12 +195,7 @@ describe('Knowledge Spaces Routes', () => {
   // POST /api/spaces
   // ============================================================================
   describe('POST /api/spaces', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/spaces')
-        .send({ name: 'Test', description: 'Test space' });
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/spaces', { name: 'Test', description: 'Test space' });
 
     test('should return 400 if name is missing', async () => {
       setupMocksWithAuth();
@@ -285,12 +276,7 @@ describe('Knowledge Spaces Routes', () => {
   // PUT /api/spaces/:id
   // ============================================================================
   describe('PUT /api/spaces/:id', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .put('/api/spaces/1')
-        .send({ name: 'Updated' });
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'put', '/api/spaces/1', { name: 'Updated' });
 
     test('should return 404 if space not found', async () => {
       setupMocksWithAuth((query) => {
@@ -376,10 +362,7 @@ describe('Knowledge Spaces Routes', () => {
   // DELETE /api/spaces/:id
   // ============================================================================
   describe('DELETE /api/spaces/:id', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).delete('/api/spaces/1');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'delete', '/api/spaces/1');
 
     test('should return 404 if space not found', async () => {
       setupMocksWithAuth((query) => {
@@ -448,10 +431,7 @@ describe('Knowledge Spaces Routes', () => {
   // POST /api/spaces/:id/regenerate
   // ============================================================================
   describe('POST /api/spaces/:id/regenerate', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).post('/api/spaces/1/regenerate');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/spaces/1/regenerate');
 
     test('should return 404 if space not found', async () => {
       setupMocksWithAuth((query) => {
@@ -493,12 +473,7 @@ describe('Knowledge Spaces Routes', () => {
   // POST /api/spaces/route
   // ============================================================================
   describe('POST /api/spaces/route', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/spaces/route')
-        .send({ query: 'test' });
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/spaces/route', { query: 'test' });
 
     test('should return 400 if query is missing', async () => {
       setupMocksWithAuth();

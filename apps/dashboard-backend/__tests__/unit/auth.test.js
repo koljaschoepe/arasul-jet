@@ -39,7 +39,8 @@ const {
   setupAuthMocks,
   setupLoginMocks,
   setupLogoutMocks,
-  setupPasswordChangeMocks
+  setupPasswordChangeMocks,
+  testRequiresAuth
 } = require('../helpers/authMock');
 
 // Valid bcrypt hash for 'TestPassword123!' (generated with cost 12)
@@ -188,12 +189,7 @@ describe('Authentication Routes', () => {
   // POST /api/auth/logout
   // ============================================================================
   describe('POST /api/auth/logout', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/auth/logout');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/auth/logout');
 
     test('should return 401 with invalid token', async () => {
       const response = await request(app)
@@ -230,12 +226,7 @@ describe('Authentication Routes', () => {
   // GET /api/auth/me
   // ============================================================================
   describe('GET /api/auth/me', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/auth/me');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/auth/me');
 
     test('should return user info with valid token', async () => {
       // Login first
@@ -266,15 +257,9 @@ describe('Authentication Routes', () => {
   // POST /api/auth/change-password
   // ============================================================================
   describe('POST /api/auth/change-password', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/auth/change-password')
-        .send({
-          currentPassword: 'OldPassword123!',
-          newPassword: 'NewPassword456!'
-        });
-
-      expect(response.status).toBe(401);
+    testRequiresAuth(app, 'post', '/api/auth/change-password', {
+      currentPassword: 'OldPassword123!',
+      newPassword: 'NewPassword456!'
     });
 
     test('should return 400 if currentPassword is missing', async () => {
@@ -392,12 +377,7 @@ describe('Authentication Routes', () => {
   // GET /api/auth/sessions
   // ============================================================================
   describe('GET /api/auth/sessions', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/auth/sessions');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/auth/sessions');
 
     test('should return sessions list with valid token', async () => {
       const token = generateTestToken();
@@ -527,12 +507,7 @@ describe('Authentication Routes', () => {
   // POST /api/auth/logout-all
   // ============================================================================
   describe('POST /api/auth/logout-all', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/auth/logout-all');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/auth/logout-all');
 
     test('should invalidate all sessions with valid token', async () => {
       const token = generateTestToken();

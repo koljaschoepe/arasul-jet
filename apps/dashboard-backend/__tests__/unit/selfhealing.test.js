@@ -39,7 +39,8 @@ const { app } = require('../../src/server');
 // Import auth mock helpers
 const {
   setupAuthMocks,
-  generateTestToken
+  generateTestToken,
+  testRequiresAuth
 } = require('../helpers/authMock');
 
 /**
@@ -71,12 +72,7 @@ describe('Self-Healing Routes', () => {
   // GET /api/self-healing/events
   // ============================================================================
   describe('GET /api/self-healing/events', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/self-healing/events');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/self-healing/events');
 
     test('should return self-healing events', async () => {
       mockWithRouteQueries((query) => {
@@ -170,12 +166,7 @@ describe('Self-Healing Routes', () => {
   // GET /api/self-healing/status
   // ============================================================================
   describe('GET /api/self-healing/status', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/self-healing/status');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/self-healing/status');
 
     test('should return self-healing status with healthy heartbeat', async () => {
       // Mock axios for heartbeat
@@ -268,12 +259,7 @@ describe('Self-Healing Routes', () => {
   // GET /api/self-healing/recovery-actions
   // ============================================================================
   describe('GET /api/self-healing/recovery-actions', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/self-healing/recovery-actions');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/self-healing/recovery-actions');
 
     test('should return recovery actions', async () => {
       mockWithRouteQueries((query) => {
@@ -327,12 +313,7 @@ describe('Self-Healing Routes', () => {
   // GET /api/self-healing/service-failures
   // ============================================================================
   describe('GET /api/self-healing/service-failures', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/self-healing/service-failures');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/self-healing/service-failures');
 
     test('should return service failures', async () => {
       mockWithRouteQueries((query) => {
@@ -382,12 +363,7 @@ describe('Self-Healing Routes', () => {
   // GET /api/self-healing/reboot-history
   // ============================================================================
   describe('GET /api/self-healing/reboot-history', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/self-healing/reboot-history');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/self-healing/reboot-history');
 
     test('should return reboot history', async () => {
       mockWithRouteQueries((query) => {
@@ -420,12 +396,7 @@ describe('Self-Healing Routes', () => {
   // GET /api/self-healing/metrics
   // ============================================================================
   describe('GET /api/self-healing/metrics', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/self-healing/metrics');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/self-healing/metrics');
 
     test('should return self-healing metrics', async () => {
       mockWithRouteQueries((query) => {

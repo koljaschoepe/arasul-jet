@@ -45,7 +45,9 @@ jest.mock('../../src/utils/tokenCrypto', () => ({
 const db = require('../../src/database');
 const axios = require('axios');
 const { app } = require('../../src/server');
-const { generateTestToken } = require('../helpers/authMock');
+const { generateTestToken,
+  testRequiresAuth
+} = require('../helpers/authMock');
 
 // Mock user and session for auth
 const mockUser = { id: 1, username: 'admin', role: 'admin', is_active: true };
@@ -91,12 +93,7 @@ describe('Telegram App Routes', () => {
   // ============================================================================
   describe('Zero-Config Setup', () => {
     describe('POST /api/telegram-app/zero-config/init', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .post('/api/telegram-app/zero-config/init');
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'post', '/api/telegram-app/zero-config/init');
 
       test('should initialize setup session with valid token', async () => {
         setupMocksWithAuth((query, params) => {
@@ -118,13 +115,7 @@ describe('Telegram App Routes', () => {
     });
 
     describe('POST /api/telegram-app/zero-config/token', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .post('/api/telegram-app/zero-config/token')
-          .send({ setupToken: 'test', botToken: 'test' });
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'post', '/api/telegram-app/zero-config/token', { setupToken: 'test', botToken: 'test' });
 
       test('should return 400 if setupToken or botToken is missing', async () => {
         setupMocksWithAuth();
@@ -191,12 +182,7 @@ describe('Telegram App Routes', () => {
     });
 
     describe('GET /api/telegram-app/zero-config/status/:token', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .get('/api/telegram-app/zero-config/status/test-token');
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'get', '/api/telegram-app/zero-config/status/test-token');
 
       test('should return session status', async () => {
         setupMocksWithAuth((query, params) => {
@@ -267,12 +253,7 @@ describe('Telegram App Routes', () => {
   // ============================================================================
   describe('Notification Rules', () => {
     describe('GET /api/telegram-app/rules', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .get('/api/telegram-app/rules');
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'get', '/api/telegram-app/rules');
 
       test('should return list of notification rules', async () => {
         setupMocksWithAuth((query, params) => {
@@ -310,13 +291,7 @@ describe('Telegram App Routes', () => {
     });
 
     describe('POST /api/telegram-app/rules', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .post('/api/telegram-app/rules')
-          .send({ name: 'Test Rule' });
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'post', '/api/telegram-app/rules', { name: 'Test Rule' });
 
       test('should return 400 if required fields missing', async () => {
         setupMocksWithAuth();
@@ -363,13 +338,7 @@ describe('Telegram App Routes', () => {
     });
 
     describe('PUT /api/telegram-app/rules/:id', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .put('/api/telegram-app/rules/1')
-          .send({ name: 'Updated Rule' });
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'put', '/api/telegram-app/rules/1', { name: 'Updated Rule' });
 
       test('should update notification rule', async () => {
         setupMocksWithAuth((query, params) => {
@@ -411,12 +380,7 @@ describe('Telegram App Routes', () => {
     });
 
     describe('DELETE /api/telegram-app/rules/:id', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .delete('/api/telegram-app/rules/1');
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'delete', '/api/telegram-app/rules/1');
 
       test('should delete notification rule', async () => {
         setupMocksWithAuth((query, params) => {
@@ -456,12 +420,7 @@ describe('Telegram App Routes', () => {
   // ============================================================================
   describe('Orchestrator', () => {
     describe('GET /api/telegram-app/orchestrator/status', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .get('/api/telegram-app/orchestrator/status');
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'get', '/api/telegram-app/orchestrator/status');
 
       test('should return orchestrator status', async () => {
         setupMocksWithAuth((query, params) => {
@@ -491,12 +450,7 @@ describe('Telegram App Routes', () => {
     });
 
     describe('GET /api/telegram-app/orchestrator/thinking/:agentType', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .get('/api/telegram-app/orchestrator/thinking/setup');
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'get', '/api/telegram-app/orchestrator/thinking/setup');
 
       test('should return thinking logs for agent', async () => {
         setupMocksWithAuth((query, params) => {
@@ -529,12 +483,7 @@ describe('Telegram App Routes', () => {
   // ============================================================================
   describe('Bot Config', () => {
     describe('GET /api/telegram-app/config', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .get('/api/telegram-app/config');
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'get', '/api/telegram-app/config');
 
       test('should return bot configuration', async () => {
         setupMocksWithAuth((query, params) => {
@@ -578,13 +527,7 @@ describe('Telegram App Routes', () => {
     });
 
     describe('PUT /api/telegram-app/config', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .put('/api/telegram-app/config')
-          .send({ notificationsEnabled: false });
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'put', '/api/telegram-app/config', { notificationsEnabled: false });
 
       test('should update bot configuration', async () => {
         setupMocksWithAuth((query, params) => {
@@ -609,12 +552,7 @@ describe('Telegram App Routes', () => {
     });
 
     describe('GET /api/telegram-app/history', () => {
-      test('should return 401 without authentication', async () => {
-        const response = await request(app)
-          .get('/api/telegram-app/history');
-
-        expect(response.status).toBe(401);
-      });
+      testRequiresAuth(app, 'get', '/api/telegram-app/history');
 
       test('should return notification history', async () => {
         setupMocksWithAuth((query, params) => {

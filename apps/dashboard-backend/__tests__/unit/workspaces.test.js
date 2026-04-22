@@ -44,7 +44,9 @@ jest.mock('fs', () => {
 
 const db = require('../../src/database');
 const { app } = require('../../src/server');
-const { generateTestToken, mockUser, mockSession } = require('../helpers/authMock');
+const { generateTestToken, mockUser, mockSession,
+  testRequiresAuth
+} = require('../helpers/authMock');
 const fs = require('fs').promises;
 
 /**
@@ -87,10 +89,7 @@ describe('Workspaces Routes', () => {
   // GET /api/workspaces
   // ============================================================================
   describe('GET /api/workspaces', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).get('/api/workspaces');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/workspaces');
 
     test('should return list of active workspaces', async () => {
       setupMocksWithAuth((query) => {
@@ -122,10 +121,7 @@ describe('Workspaces Routes', () => {
   // GET /api/workspaces/:id
   // ============================================================================
   describe('GET /api/workspaces/:id', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).get('/api/workspaces/1');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/workspaces/1');
 
     test('should return workspace details by ID', async () => {
       setupMocksWithAuth((query) => {
@@ -186,12 +182,7 @@ describe('Workspaces Routes', () => {
   // POST /api/workspaces
   // ============================================================================
   describe('POST /api/workspaces', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/workspaces')
-        .send({ name: 'Test', hostPath: '/home/arasul/test' });
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/workspaces', { name: 'Test', hostPath: '/home/arasul/test' });
 
     test('should return 400 if name is missing', async () => {
       setupMocksWithAuth();
@@ -344,12 +335,7 @@ describe('Workspaces Routes', () => {
   // PUT /api/workspaces/:id
   // ============================================================================
   describe('PUT /api/workspaces/:id', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .put('/api/workspaces/1')
-        .send({ name: 'Updated' });
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'put', '/api/workspaces/1', { name: 'Updated' });
 
     test('should return 404 if workspace not found', async () => {
       setupMocksWithAuth((query) => {
@@ -416,10 +402,7 @@ describe('Workspaces Routes', () => {
   // DELETE /api/workspaces/:id
   // ============================================================================
   describe('DELETE /api/workspaces/:id', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).delete('/api/workspaces/1');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'delete', '/api/workspaces/1');
 
     test('should return 404 if workspace not found', async () => {
       setupMocksWithAuth((query) => {
@@ -499,10 +482,7 @@ describe('Workspaces Routes', () => {
   // POST /api/workspaces/:id/default
   // ============================================================================
   describe('POST /api/workspaces/:id/default', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).post('/api/workspaces/1/default');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/workspaces/1/default');
 
     test('should return 404 if workspace not found', async () => {
       setupMocksWithAuth((query) => {
@@ -546,10 +526,7 @@ describe('Workspaces Routes', () => {
   // POST /api/workspaces/:id/use
   // ============================================================================
   describe('POST /api/workspaces/:id/use', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).post('/api/workspaces/1/use');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/workspaces/1/use');
 
     test('should increment usage count', async () => {
       setupMocksWithAuth((query) => {
@@ -573,10 +550,7 @@ describe('Workspaces Routes', () => {
   // GET /api/workspaces/volumes/list
   // ============================================================================
   describe('GET /api/workspaces/volumes/list', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).get('/api/workspaces/volumes/list');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/workspaces/volumes/list');
 
     test('should return list of volume bindings', async () => {
       setupMocksWithAuth((query) => {

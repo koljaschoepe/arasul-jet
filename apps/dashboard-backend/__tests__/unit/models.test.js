@@ -64,7 +64,9 @@ const db = require('../../src/database');
 const modelService = require('../../src/services/llm/modelService');
 const { app } = require('../../src/server');
 
-const { setupAuthMocks, generateTestToken } = require('../helpers/authMock');
+const { setupAuthMocks, generateTestToken,
+  testRequiresAuth
+} = require('../helpers/authMock');
 
 describe('Models Routes', () => {
   let authToken;
@@ -79,12 +81,7 @@ describe('Models Routes', () => {
   // GET /api/models/catalog
   // ============================================================================
   describe('GET /api/models/catalog', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/models/catalog');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/models/catalog');
 
     test('should return models array', async () => {
       modelService.getCatalog.mockResolvedValue([

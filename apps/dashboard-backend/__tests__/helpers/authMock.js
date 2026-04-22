@@ -20,6 +20,7 @@
  */
 
 const jwt = require('jsonwebtoken');
+const request = require('supertest');
 
 // Test JWT secret - must match jest.setup.js
 const TEST_JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-for-jwt-testing-minimum-32-chars';
@@ -323,6 +324,24 @@ function setupPasswordChangeMocks(db, passwordHash, options = {}) {
 }
 
 /**
+ * Register a `test()` that asserts the given endpoint returns 401 without
+ * an Authorization header. Call inside a `describe()` block in place of the
+ * recurring cookie-cutter 401 test.
+ *
+ * @param {Object} app - Express app under test
+ * @param {string} method - HTTP verb (get|post|put|patch|delete)
+ * @param {string} path - Request path
+ * @param {Object} [body] - Optional JSON body for non-GET requests
+ */
+function testRequiresAuth(app, method, path, body) {
+  test('should return 401 without authentication', async () => {
+    const req = request(app)[method.toLowerCase()](path);
+    const response = body !== undefined ? await req.send(body) : await req;
+    expect(response.status).toBe(401);
+  });
+}
+
+/**
  * Verify that auth was checked correctly
  *
  * @param {Object} db - Mocked database module
@@ -370,6 +389,9 @@ module.exports = {
   setupLoginMocks,
   setupLogoutMocks,
   setupPasswordChangeMocks,
+
+  // Parameterized test registrar
+  testRequiresAuth,
 
   // Mock setup (order-based - legacy)
   setupAuthMocksSequential,

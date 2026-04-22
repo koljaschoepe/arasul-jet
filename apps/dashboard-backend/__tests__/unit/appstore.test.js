@@ -65,7 +65,8 @@ const { app } = require('../../src/server');
 // Import auth mock helpers
 const {
   setupAuthMocks,
-  generateTestToken
+  generateTestToken,
+  testRequiresAuth
 } = require('../helpers/authMock');
 
 describe('AppStore Routes', () => {
@@ -81,12 +82,7 @@ describe('AppStore Routes', () => {
   // GET /api/apps
   // ============================================================================
   describe('GET /api/apps', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/apps');
 
     test('should return all apps', async () => {
       const mockApps = [
@@ -149,12 +145,7 @@ describe('AppStore Routes', () => {
   // GET /api/apps/categories
   // ============================================================================
   describe('GET /api/apps/categories', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/categories');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/apps/categories');
 
     test('should return app categories', async () => {
       const mockCategories = [
@@ -178,12 +169,7 @@ describe('AppStore Routes', () => {
   // GET /api/apps/:id
   // ============================================================================
   describe('GET /api/apps/:id', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/n8n');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/apps/n8n');
 
     test('should return app details', async () => {
       const mockApp = {
@@ -221,12 +207,7 @@ describe('AppStore Routes', () => {
   // GET /api/apps/:id/logs
   // ============================================================================
   describe('GET /api/apps/:id/logs', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/n8n/logs');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/apps/n8n/logs');
 
     test('should return app logs', async () => {
       const mockLogs = [
@@ -261,12 +242,7 @@ describe('AppStore Routes', () => {
   // GET /api/apps/:id/events
   // ============================================================================
   describe('GET /api/apps/:id/events', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/n8n/events');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/apps/n8n/events');
 
     test('should return app events', async () => {
       const mockEvents = [
@@ -290,12 +266,7 @@ describe('AppStore Routes', () => {
   // POST /api/apps/:id/install
   // ============================================================================
   describe('POST /api/apps/:id/install', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/n8n/install');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/apps/n8n/install');
 
     test('should install app', async () => {
       const mockResult = {
@@ -334,12 +305,7 @@ describe('AppStore Routes', () => {
   // POST /api/apps/:id/uninstall
   // ============================================================================
   describe('POST /api/apps/:id/uninstall', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/n8n/uninstall');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/apps/n8n/uninstall');
 
     test('should uninstall app', async () => {
       const mockResult = {
@@ -374,12 +340,7 @@ describe('AppStore Routes', () => {
   // POST /api/apps/:id/start
   // ============================================================================
   describe('POST /api/apps/:id/start', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/n8n/start');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/apps/n8n/start');
 
     test('should start app', async () => {
       const mockResult = {
@@ -403,12 +364,7 @@ describe('AppStore Routes', () => {
   // POST /api/apps/:id/stop
   // ============================================================================
   describe('POST /api/apps/:id/stop', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/n8n/stop');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/apps/n8n/stop');
 
     test('should stop app', async () => {
       const mockResult = {
@@ -431,12 +387,7 @@ describe('AppStore Routes', () => {
   // POST /api/apps/:id/restart
   // ============================================================================
   describe('POST /api/apps/:id/restart', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/n8n/restart');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/apps/n8n/restart');
 
     test('should restart app', async () => {
       const mockResult = {
@@ -471,12 +422,7 @@ describe('AppStore Routes', () => {
   // POST /api/apps/sync
   // ============================================================================
   describe('POST /api/apps/sync', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/sync');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/apps/sync');
 
     test('should sync system apps', async () => {
       appService.syncSystemApps.mockResolvedValue();
@@ -496,12 +442,7 @@ describe('AppStore Routes', () => {
   // GET /api/apps/claude-code/auth-status
   // ============================================================================
   describe('GET /api/apps/claude-code/auth-status', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/claude-code/auth-status');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/apps/claude-code/auth-status');
 
     test('should return Claude auth status', async () => {
       const mockStatus = {
@@ -525,12 +466,7 @@ describe('AppStore Routes', () => {
   // POST /api/apps/claude-code/auth-refresh
   // ============================================================================
   describe('POST /api/apps/claude-code/auth-refresh', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/claude-code/auth-refresh');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/apps/claude-code/auth-refresh');
 
     test('should refresh Claude auth', async () => {
       const mockResult = {
@@ -553,12 +489,7 @@ describe('AppStore Routes', () => {
   // GET /api/apps/:id/config
   // ============================================================================
   describe('GET /api/apps/:id/config', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/n8n/config');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/apps/n8n/config');
 
     test('should return app config', async () => {
       const mockConfig = {
@@ -582,13 +513,7 @@ describe('AppStore Routes', () => {
   // POST /api/apps/:id/config
   // ============================================================================
   describe('POST /api/apps/:id/config', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/n8n/config')
-        .send({ config: { port: 5678 } });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/apps/n8n/config', { config: { port: 5678 } });
 
     test('should update app config', async () => {
       appService.setAppConfig.mockResolvedValue();
@@ -628,12 +553,7 @@ describe('AppStore Routes', () => {
   // GET /api/apps/:id/n8n-credentials
   // ============================================================================
   describe('GET /api/apps/:id/n8n-credentials', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/n8n/n8n-credentials');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/apps/n8n/n8n-credentials');
 
     test('should return n8n credentials', async () => {
       const mockCredentials = {

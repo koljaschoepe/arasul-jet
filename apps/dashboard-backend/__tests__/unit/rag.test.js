@@ -93,7 +93,8 @@ const {
   mockUser,
   mockSession,
   generateTestToken,
-  setupAuthMocks
+  setupAuthMocks,
+  testRequiresAuth
 } = require('../helpers/authMock');
 
 /**
@@ -207,13 +208,7 @@ describe('RAG Routes', () => {
   // POST /api/rag/query
   // ============================================================================
   describe('POST /api/rag/query', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/rag/query')
-        .send({ query: 'test query' });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/rag/query', { query: 'test query' });
 
     test('should return 400 if query is missing', async () => {
       const token = getAuthToken();
@@ -484,12 +479,7 @@ describe('RAG Routes', () => {
   // GET /api/rag/status
   // ============================================================================
   describe('GET /api/rag/status', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/rag/status');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/rag/status');
 
     test('should return operational status when Qdrant is healthy', async () => {
       const token = getAuthToken();

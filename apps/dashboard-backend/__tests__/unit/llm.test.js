@@ -57,7 +57,8 @@ const { app } = require('../../src/server');
 const {
   mockUser,
   setupAuthMocks,
-  generateTestToken
+  generateTestToken,
+  testRequiresAuth
 } = require('../helpers/authMock');
 
 /**
@@ -74,13 +75,7 @@ describe('LLM Routes', () => {
   // POST /api/llm/chat
   // ============================================================================
   describe('POST /api/llm/chat', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/llm/chat')
-        .send({ messages: [{ role: 'user', content: 'Hello' }] });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/llm/chat', { messages: [{ role: 'user', content: 'Hello' }] });
 
     test('should return 400 if messages is missing', async () => {
       const token = await getAuthToken();
@@ -254,12 +249,7 @@ describe('LLM Routes', () => {
   // GET /api/llm/queue
   // ============================================================================
   describe('GET /api/llm/queue', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/llm/queue');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/llm/queue');
 
     test('should return queue status', async () => {
       const token = await getAuthToken();
@@ -299,13 +289,7 @@ describe('LLM Routes', () => {
   // POST /api/llm/queue/prioritize
   // ============================================================================
   describe('POST /api/llm/queue/prioritize', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/llm/queue/prioritize')
-        .send({ job_id: 'job-123' });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/llm/queue/prioritize', { job_id: 'job-123' });
 
     test('should return 400 if job_id is missing', async () => {
       const token = await getAuthToken();
@@ -341,12 +325,7 @@ describe('LLM Routes', () => {
   // GET /api/llm/jobs/:jobId
   // ============================================================================
   describe('GET /api/llm/jobs/:jobId', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/llm/jobs/job-123');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/llm/jobs/job-123');
 
     test('should return 404 if job not found', async () => {
       const token = await getAuthToken();
@@ -390,12 +369,7 @@ describe('LLM Routes', () => {
   // DELETE /api/llm/jobs/:jobId
   // ============================================================================
   describe('DELETE /api/llm/jobs/:jobId', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .delete('/api/llm/jobs/job-123');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'delete', '/api/llm/jobs/job-123');
 
     test('should return 404 if job not found', async () => {
       const token = await getAuthToken();
@@ -435,12 +409,7 @@ describe('LLM Routes', () => {
   // GET /api/llm/jobs
   // ============================================================================
   describe('GET /api/llm/jobs', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/llm/jobs');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/llm/jobs');
 
     test('should return all active jobs', async () => {
       const token = await getAuthToken();
@@ -484,12 +453,7 @@ describe('LLM Routes', () => {
   // GET /api/llm/models
   // ============================================================================
   describe('GET /api/llm/models', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/llm/models');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/llm/models');
 
     test('should return available models', async () => {
       const token = await getAuthToken();
@@ -547,12 +511,7 @@ describe('LLM Routes', () => {
   // GET /api/llm/jobs/:jobId/stream (Reconnection)
   // ============================================================================
   describe('GET /api/llm/jobs/:jobId/stream', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/llm/jobs/job-123/stream');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/llm/jobs/job-123/stream');
 
     test('should return 404 if job not found', async () => {
       const token = await getAuthToken();

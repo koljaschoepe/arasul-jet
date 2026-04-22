@@ -91,7 +91,9 @@ const eventListenerService = require('../../src/services/core/eventListenerServi
 const telegramService = require('../../src/services/telegram/telegramNotificationService');
 const { app } = require('../../src/server');
 
-const { generateTestToken } = require('../helpers/authMock');
+const { generateTestToken,
+  testRequiresAuth
+} = require('../helpers/authMock');
 
 describe('Events Routes', () => {
   let authToken;
@@ -107,12 +109,7 @@ describe('Events Routes', () => {
   // GET /api/events
   // ============================================================================
   describe('GET /api/events', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/events');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/events');
 
     test('should return list of events', async () => {
       db.query.mockImplementation((query) => {
@@ -153,12 +150,7 @@ describe('Events Routes', () => {
   // GET /api/events/stats
   // ============================================================================
   describe('GET /api/events/stats', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/events/stats');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/events/stats');
 
     test('should return event statistics', async () => {
       eventListenerService.getStats.mockReturnValue({ running: true, events_processed: 42 });
@@ -188,12 +180,7 @@ describe('Events Routes', () => {
   // GET /api/events/settings
   // ============================================================================
   describe('GET /api/events/settings', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/events/settings');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/events/settings');
 
     test('should return notification settings', async () => {
       db.query.mockImplementation((query) => {
@@ -218,13 +205,7 @@ describe('Events Routes', () => {
   // PUT /api/events/settings
   // ============================================================================
   describe('PUT /api/events/settings', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .put('/api/events/settings')
-        .send({ channel: 'telegram', enabled: true });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'put', '/api/events/settings', { channel: 'telegram', enabled: true });
 
     test('should update notification settings', async () => {
       db.query.mockImplementation((query) => {
@@ -249,12 +230,7 @@ describe('Events Routes', () => {
   // POST /api/events/test
   // ============================================================================
   describe('POST /api/events/test', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/events/test');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/events/test');
 
     test('should send test notification successfully', async () => {
       telegramService.testConnection.mockResolvedValue({ success: true, botInfo: { username: 'testbot' } });
@@ -381,13 +357,7 @@ describe('Events Routes', () => {
   // POST /api/events/manual
   // ============================================================================
   describe('POST /api/events/manual', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/events/manual')
-        .send({ title: 'Test Event' });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/events/manual', { title: 'Test Event' });
 
     test('should create manual event successfully', async () => {
       telegramService.queueNotification.mockResolvedValue({ eventId: 55 });
@@ -417,12 +387,7 @@ describe('Events Routes', () => {
   // GET /api/events/service-status
   // ============================================================================
   describe('GET /api/events/service-status', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/events/service-status');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/events/service-status');
 
     test('should return service status cache', async () => {
       db.query.mockImplementation((query) => {
@@ -447,12 +412,7 @@ describe('Events Routes', () => {
   // GET /api/events/boot-history
   // ============================================================================
   describe('GET /api/events/boot-history', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/events/boot-history');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/events/boot-history');
 
     test('should return boot history', async () => {
       db.query.mockImplementation((query) => {
@@ -477,12 +437,7 @@ describe('Events Routes', () => {
   // DELETE /api/events/:id
   // ============================================================================
   describe('DELETE /api/events/:id', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .delete('/api/events/1');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'delete', '/api/events/1');
 
     test('should delete an existing event', async () => {
       db.query.mockImplementation((query) => {
@@ -522,12 +477,7 @@ describe('Events Routes', () => {
   // POST /api/events/cleanup
   // ============================================================================
   describe('POST /api/events/cleanup', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/events/cleanup');
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/events/cleanup');
 
     test('should run cleanup and return deleted count', async () => {
       db.query.mockImplementation((query) => {

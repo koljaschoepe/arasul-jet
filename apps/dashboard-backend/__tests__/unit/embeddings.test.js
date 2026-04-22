@@ -42,7 +42,9 @@ jest.mock('axios', () => {
 const db = require('../../src/database');
 const axios = require('axios');
 const { app } = require('../../src/server');
-const { setupAuthMocks, generateTestToken } = require('../helpers/authMock');
+const { setupAuthMocks, generateTestToken,
+  testRequiresAuth
+} = require('../helpers/authMock');
 
 describe('Embeddings Routes', () => {
   let token;
@@ -56,13 +58,7 @@ describe('Embeddings Routes', () => {
   // POST /api/embeddings
   // ============================================================================
   describe('POST /api/embeddings', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/embeddings')
-        .send({ text: 'hello world' });
-
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'post', '/api/embeddings', { text: 'hello world' });
 
     test('should return 400 if text is missing', async () => {
       setupAuthMocks(db);

@@ -59,7 +59,9 @@ jest.mock('fs', () => {
 
 const db = require('../../src/database');
 const { app } = require('../../src/server');
-const { setupAuthMocks, generateTestToken } = require('../helpers/authMock');
+const { setupAuthMocks, generateTestToken,
+  testRequiresAuth
+} = require('../helpers/authMock');
 
 describe('Logs Routes', () => {
   let token;
@@ -73,10 +75,7 @@ describe('Logs Routes', () => {
   // GET /api/logs
   // ============================================================================
   describe('GET /api/logs', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).get('/api/logs');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/logs');
 
     test('should return log contents with valid token', async () => {
       setupAuthMocks(db);
@@ -162,10 +161,7 @@ describe('Logs Routes', () => {
   // GET /api/logs/list
   // ============================================================================
   describe('GET /api/logs/list', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).get('/api/logs/list');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/logs/list');
 
     test('should return list of available log files', async () => {
       setupAuthMocks(db);
@@ -201,11 +197,7 @@ describe('Logs Routes', () => {
   // GET /api/logs/search
   // ============================================================================
   describe('GET /api/logs/search', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/logs/search?query=error');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/logs/search?query=error');
 
     test('should return 400 if query is missing', async () => {
       setupAuthMocks(db);
@@ -272,10 +264,7 @@ describe('Logs Routes', () => {
   // GET /api/logs/stream
   // ============================================================================
   describe('GET /api/logs/stream', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app).get('/api/logs/stream');
-      expect(response.status).toBe(401);
-    });
+    testRequiresAuth(app, 'get', '/api/logs/stream');
 
     test('should return 400 for invalid service', async () => {
       setupAuthMocks(db);
