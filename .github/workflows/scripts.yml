@@ -1,0 +1,40 @@
+name: Scripts
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/scripts.yml'
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/scripts.yml'
+
+jobs:
+  bats:
+    name: bats (setup scripts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+
+      - name: Run bats suite
+        run: bats scripts/test/setup/
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          severity: error
+          scandir: ./scripts
