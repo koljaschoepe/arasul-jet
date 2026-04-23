@@ -300,7 +300,7 @@ describe('ChatInputArea Component', () => {
   describe('Model-Popup', () => {
     test('zeigt Model-Toggle', () => {
       render(<ChatInputArea {...defaultProps} />);
-      expect(screen.getByText('Standard')).toBeInTheDocument();
+      expect(screen.getByLabelText('Modell auswählen')).toBeInTheDocument();
     });
 
     test('Klick öffnet Model-Popup', async () => {

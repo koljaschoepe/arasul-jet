@@ -10,7 +10,6 @@ import {
   ChevronUp,
   Paperclip,
   FileText,
-  ImageIcon,
   RotateCcw,
 } from 'lucide-react';
 import { useChatContext, type ChatMessage, type ChatSettings } from '../../contexts/ChatContext';
@@ -276,12 +275,6 @@ function ChatInputArea({
     [supportsVision, handleImageSelect, handleFileSelect]
   );
 
-  const handleRemoveAll = useCallback(() => {
-    setAttachedFile(null);
-    setAttachedImages([]);
-    inputRef.current?.focus();
-  }, []);
-
   const hasAttachments = !!attachedFile || attachedImages.length > 0;
 
   const formatFileSize = (bytes: number) => {
@@ -398,11 +391,6 @@ function ChatInputArea({
   const showThinkWarning = useThinking && currentModel && currentModel.supports_thinking === false;
   const showRagWarning = useRAG && currentModel && currentModel.rag_optimized === false;
 
-  const modelDisplayName = selectedModel
-    ? installedModels.find((m: InstalledModel) => m.id === selectedModel)?.name?.split(' ')[0] ||
-      selectedModel.split(':')[0]
-    : 'Standard';
-
   const selectedSpace = selectedSpaceId
     ? spaces.find((s: DocumentSpace) => s.id === selectedSpaceId)
     : null;
@@ -465,6 +453,104 @@ function ChatInputArea({
           role="toolbar"
           aria-label="Chat-Einstellungen"
         >
+          <button
+            type="button"
+            className={cn(
+              'chat-toolbar-btn inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 hover:bg-primary/5 hover:text-foreground',
+              hasAttachments && 'active bg-primary/15 text-primary border-primary/20'
+            )}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || isStreaming}
+            aria-label="Datei oder Bild anhängen"
+          >
+            <Paperclip className="size-4 shrink-0" aria-hidden="true" />
+            <span className="toolbar-btn-label uppercase tracking-wide text-xs">Anhang</span>
+          </button>
+
+          {availableModels.length > 0 && (
+            <>
+              <div className="chat-toolbar-divider w-px h-6 bg-border shrink-0" />
+              <div className="toolbar-popup-container relative" ref={modelPopupRef}>
+                <button
+                  type="button"
+                  className="chat-toolbar-btn model-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 hover:bg-primary/5 hover:text-foreground"
+                  onClick={() => !isStreaming && setShowModelPopup(v => !v)}
+                  disabled={isStreaming}
+                  title={isStreaming ? 'Warte auf Antwort...' : undefined}
+                  aria-expanded={showModelPopup}
+                  aria-haspopup="listbox"
+                  aria-label="Modell auswählen"
+                >
+                  <Box className="size-4 shrink-0" aria-hidden="true" />
+                  <span className="toolbar-btn-label uppercase tracking-wide text-xs">Model</span>
+                  <ChevronUp
+                    className={cn(
+                      'size-3 transition-transform duration-200',
+                      showModelPopup && 'rotate-180'
+                    )}
+                  />
+                </button>
+                {showModelPopup && (
+                  <div
+                    className="toolbar-popup model-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
+                    role="listbox"
+                    aria-label="Modell auswählen"
+                  >
+                    {availableModels.map(model => {
+                      const isSelected = selectedModel === model.id;
+                      const isDefault = model.id === defaultModel;
+                      return (
+                        <div
+                          key={model.id}
+                          className={cn(
+                            'popup-option flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-foreground hover:bg-accent',
+                            isSelected && 'selected bg-primary/10'
+                          )}
+                          onClick={() => handleSelectModel(model.id)}
+                          role="option"
+                          aria-selected={isSelected}
+                        >
+                          {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
+                          <span
+                            className={cn(
+                              'popup-option-name flex-1 font-medium flex items-center gap-1.5',
+                              isSelected && 'text-primary'
+                            )}
+                          >
+                            {model.name}
+                            {isDefault && (
+                              <span className="text-[0.65rem] bg-primary/10 text-primary py-px px-1.5 rounded font-normal">
+                                Standard
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {selectedModel && selectedModel !== defaultModel && (
+                      <>
+                        <div className="h-px bg-border my-1" />
+                        <div
+                          className="popup-option popup-action flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-muted-foreground hover:text-primary hover:bg-accent"
+                          onClick={() => {
+                            setModelAsDefault(selectedModel);
+                            setShowModelPopup(false);
+                          }}
+                        >
+                          <span className="popup-option-name flex-1 font-medium">
+                            Als Standard festlegen
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          <div className="chat-toolbar-divider w-px h-6 bg-border shrink-0" />
+
           <button
             type="button"
             className={cn(
@@ -578,135 +664,6 @@ function ChatInputArea({
               </div>
             )}
           </div>
-
-          {availableModels.length > 0 && (
-            <>
-              <div className="chat-toolbar-divider w-px h-6 bg-border shrink-0" />
-              <div className="toolbar-popup-container relative" ref={modelPopupRef}>
-                <button
-                  type="button"
-                  className={cn(
-                    'chat-toolbar-btn model-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 max-w-[160px] hover:bg-primary/5 hover:text-foreground',
-                    selectedModel && 'active bg-primary/15 text-primary border-primary/20'
-                  )}
-                  onClick={() => !isStreaming && setShowModelPopup(v => !v)}
-                  disabled={isStreaming}
-                  title={isStreaming ? 'Warte auf Antwort...' : undefined}
-                  aria-expanded={showModelPopup}
-                  aria-haspopup="listbox"
-                  aria-label="Modell auswählen"
-                >
-                  <Box className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="model-name-short max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap text-xs normal-case tracking-normal">
-                    {modelDisplayName}
-                  </span>
-                  <ChevronUp
-                    className={cn(
-                      'size-3 transition-transform duration-200',
-                      showModelPopup && 'rotate-180'
-                    )}
-                  />
-                </button>
-                {showModelPopup && (
-                  <div
-                    className="toolbar-popup model-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
-                    role="listbox"
-                    aria-label="Modell auswählen"
-                  >
-                    {availableModels.map(model => {
-                      const isSelected = selectedModel === model.id;
-                      const isDefault = model.id === defaultModel;
-                      return (
-                        <div
-                          key={model.id}
-                          className={cn(
-                            'popup-option flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-foreground hover:bg-accent',
-                            isSelected && 'selected bg-primary/10'
-                          )}
-                          onClick={() => handleSelectModel(model.id)}
-                          role="option"
-                          aria-selected={isSelected}
-                        >
-                          {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
-                          <span
-                            className={cn(
-                              'popup-option-name flex-1 font-medium flex items-center gap-1.5',
-                              isSelected && 'text-primary'
-                            )}
-                          >
-                            {model.name}
-                            {isDefault && (
-                              <span className="text-[0.65rem] bg-primary/10 text-primary py-px px-1.5 rounded font-normal">
-                                Standard
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {selectedModel && selectedModel !== defaultModel && (
-                      <>
-                        <div className="h-px bg-border my-1" />
-                        <div
-                          className="popup-option popup-action flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-muted-foreground hover:text-primary hover:bg-accent"
-                          onClick={() => {
-                            setModelAsDefault(selectedModel);
-                            setShowModelPopup(false);
-                          }}
-                        >
-                          <span className="popup-option-name flex-1 font-medium">
-                            Als Standard festlegen
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          <div className="chat-toolbar-divider w-px h-6 bg-border shrink-0" />
-
-          <button
-            type="button"
-            className={cn(
-              'chat-toolbar-btn inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 hover:bg-primary/5 hover:text-foreground',
-              hasAttachments && 'active bg-primary/15 text-primary border-primary/20'
-            )}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || isStreaming}
-            aria-label="Datei oder Bild anhängen"
-          >
-            <Paperclip className="size-4 shrink-0" aria-hidden="true" />
-            <span className="toolbar-btn-label uppercase tracking-wide text-xs">Anhang</span>
-          </button>
-
-          {hasAttachments && (
-            <div className="inline-flex items-center gap-1.5 py-1 px-2.5 bg-primary/10 text-primary rounded-md text-xs font-medium animate-[chipSlideIn_200ms_ease-out] max-w-[160px]">
-              {attachedFile ? (
-                <>
-                  <FileText className="size-3 shrink-0" />
-                  <span className="truncate">{attachedFile.name}</span>
-                </>
-              ) : (
-                <>
-                  <ImageIcon className="size-3 shrink-0" />
-                  <span>
-                    {attachedImages.length} Bild{attachedImages.length > 1 ? 'er' : ''}
-                  </span>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={handleRemoveAll}
-                className="flex items-center justify-center size-4 rounded-full bg-transparent text-primary/60 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer border-none p-0"
-                aria-label="Anhang entfernen"
-              >
-                <X className="size-3" />
-              </button>
-            </div>
-          )}
 
           <div className="flex-1" />
 

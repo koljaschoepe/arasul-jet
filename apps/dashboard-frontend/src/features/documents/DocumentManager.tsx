@@ -33,7 +33,6 @@ import CreateDocumentDialog from '../../components/editor/CreateDocumentDialog';
 import ExcelEditor from '../datentabellen/ExcelEditor';
 import SpaceModal from './SpaceModal';
 import DocumentDetailsModal from './DocumentDetailsModal';
-import RagMetricsCard from './RagMetricsCard';
 import DocumentStatsHeader from './sections/DocumentStatsHeader';
 import SpaceTabs from './sections/SpaceTabs';
 import DocumentPagination from './sections/DocumentPagination';
@@ -685,8 +684,6 @@ function DocumentManager() {
         onReload={() => loadStatistics()}
       />
 
-      <RagMetricsCard />
-
       <SpaceTabs
         spaces={spaces}
         activeSpaceId={activeSpaceId}
@@ -759,7 +756,7 @@ function DocumentManager() {
             {/* Per-file status */}
             {fileStatuses.map(fs => (
               <div key={fs.name} className="flex items-center gap-2 text-sm">
-                {fs.status === 'success' && <Check size={14} className="text-green-500 shrink-0" />}
+                {fs.status === 'success' && <Check size={14} className="text-success shrink-0" />}
                 {fs.status === 'error' && (
                   <AlertCircle size={14} className="text-destructive shrink-0" />
                 )}
