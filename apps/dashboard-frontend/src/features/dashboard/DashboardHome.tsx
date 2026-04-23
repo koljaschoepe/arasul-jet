@@ -54,25 +54,6 @@ interface MetricsHistory {
   temperature: (number | null)[];
 }
 
-interface ServiceStatus {
-  status: string;
-}
-
-interface Services {
-  llm: ServiceStatus;
-  embeddings: ServiceStatus;
-}
-
-interface SystemInfo {
-  uptime_seconds: number;
-  version: string;
-  hostname: string;
-}
-
-interface NetworkInfo {
-  internet_reachable: boolean;
-}
-
 interface RunningApp {
   id: string;
   name: string;
@@ -117,12 +98,8 @@ interface ChartDataPoint {
 export interface DashboardHomeProps {
   metrics: Metrics | null;
   metricsHistory: MetricsHistory | null;
-  services: Services | null;
-  systemInfo: SystemInfo | null;
-  networkInfo: NetworkInfo | null;
   runningApps: RunningApp[];
   formatChartData: () => ChartDataPoint[];
-  formatUptime: (seconds: number) => string;
   thresholds: Thresholds | null;
   deviceInfo: DeviceInfo | null;
 }
@@ -302,7 +279,7 @@ const DashboardHome = React.memo(function DashboardHome({
             <Activity className="stat-icon" />
           </div>
           <div className="stat-content">
-            <div className="stat-label">RAM USAGE</div>
+            <div className="stat-label">SYSTEM RAM</div>
             <div className="stat-value-large">
               {metrics?.ram?.toFixed(1) || 0}
               <span className="stat-unit">%</span>
@@ -366,7 +343,9 @@ const DashboardHome = React.memo(function DashboardHome({
             <Thermometer className="stat-icon" />
           </div>
           <div className="stat-content">
-            <div className="stat-label">TEMPERATUR</div>
+            <div className="stat-label" title="System-on-Chip Sensor">
+              SOC TEMP
+            </div>
             <div className="stat-value-large">
               {metrics?.temperature?.toFixed(0) || 0}
               <span className="stat-unit">°C</span>
@@ -469,12 +448,23 @@ const DashboardHome = React.memo(function DashboardHome({
                 tickLine={{ stroke: 'var(--text-muted)' }}
               />
               <YAxis
+                yAxisId="left"
                 stroke="var(--text-muted)"
                 tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
                 axisLine={{ stroke: 'var(--text-muted)' }}
                 tickLine={{ stroke: 'var(--text-muted)' }}
                 domain={[0, 100]}
                 tickFormatter={(value: number) => `${value}%`}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke="var(--text-muted)"
+                tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
+                axisLine={{ stroke: 'var(--text-muted)' }}
+                tickLine={{ stroke: 'var(--text-muted)' }}
+                domain={[0, 120]}
+                tickFormatter={(value: number) => `${value}°C`}
               />
               <Tooltip
                 contentStyle={{
@@ -494,6 +484,7 @@ const DashboardHome = React.memo(function DashboardHome({
               />
               <Legend />
               <Line
+                yAxisId="left"
                 type="monotone"
                 dataKey="RAM"
                 stroke="var(--color-chart-2)"
@@ -502,6 +493,7 @@ const DashboardHome = React.memo(function DashboardHome({
                 activeDot={{ r: 5 }}
               />
               <Line
+                yAxisId="left"
                 type="monotone"
                 dataKey="Swap"
                 stroke="var(--primary-color)"
@@ -510,6 +502,7 @@ const DashboardHome = React.memo(function DashboardHome({
                 activeDot={{ r: 5 }}
               />
               <Line
+                yAxisId="right"
                 type="monotone"
                 dataKey="Temp"
                 stroke="var(--color-chart-3)"

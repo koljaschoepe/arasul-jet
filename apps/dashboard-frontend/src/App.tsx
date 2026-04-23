@@ -25,6 +25,7 @@ import { useWebSocketMetrics } from './hooks/useWebSocketMetrics';
 import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
 import { SidebarWithDownloads } from './components/layout/Sidebar';
+import { Button } from '@/components/ui/shadcn/button';
 import './index.css';
 
 // Eager imports for primary routes (needed immediately or on first render)
@@ -48,6 +49,10 @@ interface MetricsDisk {
   percent: number;
 }
 
+interface MetricsNetwork {
+  online: boolean;
+}
+
 interface Metrics {
   cpu: number;
   ram: number;
@@ -56,6 +61,7 @@ interface Metrics {
   temperature: number;
   temp: number;
   disk: MetricsDisk;
+  network?: MetricsNetwork;
 }
 
 interface MetricsHistory {
@@ -65,25 +71,6 @@ interface MetricsHistory {
   swap: (number | null)[];
   gpu: (number | null)[];
   temperature: (number | null)[];
-}
-
-interface ServiceStatus {
-  status: string;
-}
-
-interface Services {
-  llm: ServiceStatus;
-  embeddings: ServiceStatus;
-}
-
-interface SystemInfo {
-  uptime_seconds: number;
-  version: string;
-  hostname: string;
-}
-
-interface NetworkInfo {
-  internet_reachable: boolean;
 }
 
 interface RunningApp {
@@ -159,9 +146,6 @@ function AppContent(): React.JSX.Element | null {
 
   // Dashboard state
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistory | null>(null);
-  const [services, setServices] = useState<Services | null>(null);
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [runningApps, setRunningApps] = useState<RunningApp[]>([]);
@@ -264,9 +248,6 @@ function AppContent(): React.JSX.Element | null {
         const results = await Promise.allSettled([
           api.get('/metrics/live', opts),
           api.get('/metrics/history?range=24h', opts),
-          api.get('/services', opts),
-          api.get('/system/info', opts),
-          api.get('/system/network', opts),
           api.get('/apps?status=running,installed', opts),
           api.get('/system/thresholds', opts),
         ]);
@@ -278,13 +259,10 @@ function AppContent(): React.JSX.Element | null {
 
         if (val(0)) setMetrics(val(0));
         if (val(1)) setMetricsHistory(val(1));
-        if (val(2)) setServices(val(2));
-        if (val(3)) setSystemInfo(val(3));
-        if (val(4)) setNetworkInfo(val(4));
-        if (val(5)) setRunningApps(val(5).apps || []);
-        if (val(6)) {
-          setThresholds(val(6).thresholds);
-          setDeviceInfo(val(6).device);
+        if (val(2)) setRunningApps(val(2).apps || []);
+        if (val(3)) {
+          setThresholds(val(3).thresholds);
+          setDeviceInfo(val(3).device);
         }
 
         const failedCount = results.filter(r => r.status === 'rejected').length;
@@ -353,14 +331,6 @@ function AppContent(): React.JSX.Element | null {
     return () => controller.abort();
   }, [isAuthenticated, api]);
 
-  // PHASE 2: Memoize utility functions with useCallback
-  const formatUptime = useCallback((seconds: number): string => {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${days}d ${hours}h ${minutes}m`;
-  }, []);
-
   const formatChartData = useCallback((): ChartDataPoint[] => {
     if (!metricsHistory?.timestamps || !Array.isArray(metricsHistory.timestamps)) return [];
 
@@ -427,17 +397,16 @@ function AppContent(): React.JSX.Element | null {
           <div className="error-icon">⚠️</div>
           <h2>Fehler beim Laden</h2>
           <p className="error-text">{error}</p>
-          <button
-            type="button"
+          <Button
+            variant="solid"
             onClick={() => {
               setError(null);
               setLoading(true);
               fetchData();
             }}
-            className="btn-retry"
           >
             Erneut versuchen
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -457,34 +426,36 @@ function AppContent(): React.JSX.Element | null {
               <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
               {/* Network offline banner */}
-              {metrics &&
-                (metrics as Record<string, unknown>).network &&
-                !((metrics as Record<string, unknown>).network as Record<string, unknown>)
-                  ?.online && (
-                  <div className="fixed top-0 left-0 right-0 z-50 bg-muted border-b border-border text-foreground text-center py-1.5 text-sm font-medium">
-                    Keine Internetverbindung
-                  </div>
-                )}
+              {metrics?.network && !metrics.network.online && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-muted border-b border-border text-foreground text-center py-1.5 text-sm font-medium">
+                  Keine Internetverbindung
+                </div>
+              )}
 
               {/* Update available banner */}
               {updateAvailable && (
                 <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
                   <span>Update verfügbar — Seite neu laden</span>
-                  <button
-                    className="underline font-semibold hover:opacity-80"
+                  <Button
+                    variant="link"
+                    size="xs"
+                    className="text-primary-foreground underline font-semibold h-auto p-0 hover:opacity-80"
                     onClick={() => window.location.reload()}
                   >
                     Jetzt laden
-                  </button>
-                  <button
-                    className="ml-2 opacity-70 hover:opacity-100"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="text-primary-foreground opacity-70 hover:opacity-100 hover:bg-transparent"
                     onClick={() => {
                       setUpdateAvailable(false);
                       updateDismissedRef.current = Date.now();
                     }}
+                    aria-label="Update-Hinweis schließen"
                   >
                     ✕
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -517,12 +488,8 @@ function AppContent(): React.JSX.Element | null {
                           <DashboardHome
                             metrics={metrics}
                             metricsHistory={metricsHistory}
-                            services={services}
-                            systemInfo={systemInfo}
-                            networkInfo={networkInfo}
                             runningApps={runningApps}
                             formatChartData={formatChartData}
-                            formatUptime={formatUptime}
                             thresholds={thresholds}
                             deviceInfo={deviceInfo}
                           />
