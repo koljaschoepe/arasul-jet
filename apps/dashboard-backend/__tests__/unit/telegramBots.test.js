@@ -43,14 +43,14 @@ jest.mock('../../src/services/telegram/telegramBotService', () => ({
   removeChat: jest.fn(),
 }));
 
-// Mock telegramLLMService
-jest.mock('../../src/services/telegram/telegramLLMService', () => ({
+// Mock telegramIntegrationService (LLM methods)
+jest.mock('../../src/services/telegram/telegramIntegrationService', () => ({
   getOllamaModels: jest.fn(),
   getClaudeModels: jest.fn(),
 }));
 
-// Mock telegramWebhookService
-jest.mock('../../src/services/telegram/telegramWebhookService', () => ({
+// Mock telegramIngressService (webhook methods)
+jest.mock('../../src/services/telegram/telegramIngressService', () => ({
   setWebhook: jest.fn(),
   deleteWebhook: jest.fn(),
   processUpdate: jest.fn(),
@@ -75,8 +75,8 @@ jest.mock('../../src/services/core/cacheService', () => ({
 
 const db = require('../../src/database');
 const telegramBotService = require('../../src/services/telegram/telegramBotService');
-const telegramLLMService = require('../../src/services/telegram/telegramLLMService');
-const telegramWebhookService = require('../../src/services/telegram/telegramWebhookService');
+const telegramIntegrationService = require('../../src/services/telegram/telegramIntegrationService');
+const telegramIngressService = require('../../src/services/telegram/telegramIngressService');
 const telegramPollingManager = require('../../src/services/telegram/telegramPollingManager');
 const { app } = require('../../src/server');
 
@@ -130,7 +130,7 @@ describe('Telegram Bot Routes', () => {
         ...MOCK_BOT,
         webhook_secret: 'secret-abc-123',
       });
-      telegramWebhookService.processUpdate.mockResolvedValue(true);
+      telegramIngressService.processUpdate.mockResolvedValue(true);
 
       const response = await request(app)
         .post('/api/telegram-bots/webhook/1/secret-abc-123')
@@ -144,7 +144,7 @@ describe('Telegram Bot Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.text).toBe('OK');
-      expect(telegramWebhookService.processUpdate).toHaveBeenCalledWith(1, expect.any(Object));
+      expect(telegramIngressService.processUpdate).toHaveBeenCalledWith(1, expect.any(Object));
     });
 
     test('returns 200 even for invalid secret (no retry)', async () => {
@@ -155,7 +155,7 @@ describe('Telegram Bot Routes', () => {
         .send({ update_id: 123 });
 
       expect(response.status).toBe(200);
-      expect(telegramWebhookService.processUpdate).not.toHaveBeenCalled();
+      expect(telegramIngressService.processUpdate).not.toHaveBeenCalled();
     });
 
     test('handles processing failure without crashing', async () => {
@@ -163,7 +163,7 @@ describe('Telegram Bot Routes', () => {
         ...MOCK_BOT,
         webhook_secret: 'secret-abc-123',
       });
-      telegramWebhookService.processUpdate.mockRejectedValue(new Error('Processing failed'));
+      telegramIngressService.processUpdate.mockRejectedValue(new Error('Processing failed'));
 
       const response = await request(app)
         .post('/api/telegram-bots/webhook/1/secret-abc-123')
@@ -401,7 +401,7 @@ describe('Telegram Bot Routes', () => {
     test('deactivates bot and stops polling', async () => {
       telegramBotService.deactivateBot.mockResolvedValue({ ...MOCK_BOT, isActive: false });
       telegramPollingManager.stopPolling.mockResolvedValue(true);
-      telegramWebhookService.deleteWebhook.mockResolvedValue(true);
+      telegramIngressService.deleteWebhook.mockResolvedValue(true);
 
       const response = await request(app)
         .post('/api/telegram-bots/1/deactivate')
@@ -590,7 +590,7 @@ describe('Telegram Bot Routes', () => {
   // ============================================================================
   describe('GET /api/telegram-bots/models/ollama', () => {
     test('returns ollama models', async () => {
-      telegramLLMService.getOllamaModels.mockResolvedValue([
+      telegramIntegrationService.getOllamaModels.mockResolvedValue([
         { id: 'llama3:8b', name: 'Llama 3' },
       ]);
 
@@ -605,7 +605,7 @@ describe('Telegram Bot Routes', () => {
 
   describe('GET /api/telegram-bots/models/claude', () => {
     test('returns claude models', async () => {
-      telegramLLMService.getClaudeModels.mockReturnValue([
+      telegramIntegrationService.getClaudeModels.mockReturnValue([
         { id: 'claude-3-haiku', name: 'Claude 3 Haiku' },
       ]);
 

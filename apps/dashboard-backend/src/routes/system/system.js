@@ -28,7 +28,10 @@ const PROJECT_ROOT = path.resolve(__dirname, '../../../../..');
 const DIAGNOSTICS_SCRIPT = path.join(PROJECT_ROOT, 'scripts/system/diagnostics.sh');
 
 // GET /api/system/heartbeat
-// Public endpoint (no auth) for remote monitoring and health checks
+// Public endpoint (no auth) for remote monitoring and health checks.
+// Intentionally a synchronous handler (no asyncHandler): the liveness check
+// must stay minimal — no DB, no I/O, no async work. Anything that can fail
+// belongs in /api/system/status, not here.
 router.get('/heartbeat', (req, res) => {
   res.json({
     status: 'ok',
@@ -379,43 +382,41 @@ router.get(
 );
 
 // POST /api/system/reload-config - Reload configuration without restart
-router.post('/reload-config', requireAuth, (req, res) => {
-  logger.info('Configuration reload requested');
+router.post(
+  '/reload-config',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    logger.info('Configuration reload requested');
 
-  logSecurityEvent({
-    userId: req.user.id,
-    action: 'config_reload',
-    ipAddress: req.ip,
-    requestId: req.headers['x-request-id'],
-  });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'config_reload',
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
 
-  // Reload environment variables (if changed)
-  // Note: This only works for non-critical config that doesn't require restart
+    // Reload rate limit configuration
+    try {
+      require('../../middleware/rateLimit');
+      // Rate limiter will pick up new config on next request
+      logger.info('Rate limit configuration reload triggered');
+    } catch {
+      // Rate limit reload failed - non-critical
+    }
 
-  // BUG-007 FIX: Removed reference to non-existent '../config' file
-  // Configuration is now loaded via process.env and .env file
+    // Reload logging configuration
+    const currentLogLevel = process.env.LOG_LEVEL || 'INFO';
+    logger.info(`Current log level: ${currentLogLevel}`);
 
-  // Reload rate limit configuration
-  try {
-    require('../../middleware/rateLimit');
-    // Rate limiter will pick up new config on next request
-    logger.info('Rate limit configuration reload triggered');
-  } catch {
-    // Rate limit reload failed - non-critical
-  }
-
-  // Reload logging configuration
-  const currentLogLevel = process.env.LOG_LEVEL || 'INFO';
-  logger.info(`Current log level: ${currentLogLevel}`);
-
-  res.json({
-    status: 'success',
-    message: 'Configuration reload completed',
-    reloaded: ['rate_limits', 'logging_config'],
-    note: 'Some changes require a restart (database credentials, ports, etc.)',
-    timestamp: new Date().toISOString(),
-  });
-});
+    res.json({
+      status: 'success',
+      message: 'Configuration reload completed',
+      reloaded: ['rate_limits', 'logging_config'],
+      note: 'Some changes require a restart (database credentials, ports, etc.)',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
 
 // =============================================================================
 // DIAGNOSTICS

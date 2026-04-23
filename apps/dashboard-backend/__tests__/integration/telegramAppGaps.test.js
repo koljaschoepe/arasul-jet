@@ -29,16 +29,16 @@ jest.mock('../../src/utils/tokenCrypto', () => ({
   encryptToken: jest.fn((t) => `enc:${t}`),
   decryptToken: jest.fn(() => 'plain-bot-token'),
 }));
-jest.mock('../../src/services/telegram/telegramAppService', () => ({
+jest.mock('../../src/services/telegram/telegramIntegrationService', () => ({
   getAppStatus: jest.fn(),
   getDashboardAppData: jest.fn(),
   updateSettings: jest.fn(),
   recordActivity: jest.fn().mockResolvedValue(undefined),
   getGlobalStats: jest.fn(),
 }));
-jest.mock('../../src/services/telegram/telegramSetupPollingService', () => ({
-  stopPolling: jest.fn(),
-  startPolling: jest.fn(),
+jest.mock('../../src/services/telegram/telegramIngressService', () => ({
+  stopSetupPolling: jest.fn(),
+  startSetupPolling: jest.fn(),
 }));
 jest.mock('../../src/services/telegram/telegramOrchestratorService', () => ({
   logThinking: jest.fn().mockResolvedValue(undefined),
@@ -47,8 +47,8 @@ jest.mock('../../src/services/telegram/telegramOrchestratorService', () => ({
 const db = require('../../src/database');
 const logger = require('../../src/utils/logger');
 const axios = require('axios');
-const telegramAppService = require('../../src/services/telegram/telegramAppService');
-const telegramSetupPollingService = require('../../src/services/telegram/telegramSetupPollingService');
+const telegramAppService = require('../../src/services/telegram/telegramIntegrationService');
+const telegramIngressService = require('../../src/services/telegram/telegramIngressService');
 const { app } = require('../../src/server');
 
 logger.info = jest.fn();
@@ -191,7 +191,7 @@ describe('POST /api/telegram-app/zero-config/cancel', () => {
       .send({});
 
     expect(response.status).toBe(400);
-    expect(telegramSetupPollingService.stopPolling).not.toHaveBeenCalled();
+    expect(telegramIngressService.stopSetupPolling).not.toHaveBeenCalled();
   });
 
   test('returns 404 when the session is not in a cancellable state', async () => {
@@ -214,7 +214,7 @@ describe('POST /api/telegram-app/zero-config/cancel', () => {
       .send({ setupToken: 'nope' });
 
     expect(response.status).toBe(404);
-    expect(telegramSetupPollingService.stopPolling).not.toHaveBeenCalled();
+    expect(telegramIngressService.stopSetupPolling).not.toHaveBeenCalled();
   });
 
   test('happy path: stops polling, marks session failed, returns success', async () => {
@@ -241,7 +241,7 @@ describe('POST /api/telegram-app/zero-config/cancel', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(telegramSetupPollingService.stopPolling).toHaveBeenCalledWith('abc123');
+    expect(telegramIngressService.stopSetupPolling).toHaveBeenCalledWith('abc123');
 
     const updates = db.query.mock.calls.filter(([sql]) =>
       sql.includes('UPDATE telegram_setup_sessions')

@@ -23,7 +23,7 @@ jest.mock('../../src/utils/tokenCrypto', () => ({
     return str.startsWith('encrypted:') ? str.slice(10) : 'mock_decrypted_token';
   }),
 }));
-jest.mock('../../src/services/telegram/telegramAppService', () => ({
+jest.mock('../../src/services/telegram/telegramIntegrationService', () => ({
   getAppStatus: jest.fn(),
   getDashboardAppData: jest.fn(),
   recordActivity: jest.fn().mockResolvedValue(),
@@ -36,7 +36,7 @@ jest.mock('../../src/services/telegram/telegramAppService', () => ({
 const db = require('../../src/database');
 const logger = require('../../src/utils/logger');
 const axios = require('axios');
-const telegramAppService = require('../../src/services/telegram/telegramAppService');
+const telegramAppService = require('../../src/services/telegram/telegramIntegrationService');
 
 // Mock logger
 logger.info = jest.fn();

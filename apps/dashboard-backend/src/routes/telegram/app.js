@@ -24,7 +24,7 @@ const {
 } = require('../../schemas/telegram-app');
 const { buildSetClauses } = require('../../utils/queryBuilder');
 const { encryptToken, decryptToken } = require('../../utils/tokenCrypto');
-const telegramSetupPollingService = require('../../services/telegram/telegramSetupPollingService');
+const telegramIngressService = require('../../services/telegram/telegramIngressService');
 
 // Import orchestrator service (will be created next)
 let orchestratorService;
@@ -34,8 +34,8 @@ try {
   logger.warn('Telegram Orchestrator Service not yet available');
 }
 
-// Import App Service for lifecycle management
-const telegramAppService = require('../../services/telegram/telegramAppService');
+// Import Integration Service for app lifecycle + dashboard methods
+const telegramIntegrationService = require('../../services/telegram/telegramIntegrationService');
 
 // ============================================================================
 // APP STATUS ENDPOINTS (Dashboard Integration)
@@ -50,7 +50,7 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const status = await telegramAppService.getAppStatus(userId);
+    const status = await telegramIntegrationService.getAppStatus(userId);
 
     res.json({
       success: true,
@@ -69,12 +69,12 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const appData = await telegramAppService.getDashboardAppData(userId);
+    const appData = await telegramIntegrationService.getDashboardAppData(userId);
 
     // Record activity
     if (appData) {
       // fire-and-forget: activity recording is non-critical
-      telegramAppService.recordActivity(userId).catch(() => {});
+      telegramIntegrationService.recordActivity(userId).catch(() => {});
     }
 
     res.json({
@@ -96,7 +96,7 @@ router.put(
     const userId = req.user.id;
     const { settings } = req.body;
 
-    const updatedSettings = await telegramAppService.updateSettings(userId, settings);
+    const updatedSettings = await telegramIntegrationService.updateSettings(userId, settings);
 
     res.json({
       success: true,
@@ -113,7 +113,7 @@ router.get(
   '/global-stats',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const stats = await telegramAppService.getGlobalStats();
+    const stats = await telegramIntegrationService.getGlobalStats();
 
     res.json({
       success: true,
@@ -245,7 +245,7 @@ router.post(
     }
 
     // Start polling Telegram getUpdates to detect /start command
-    telegramSetupPollingService.startPolling(setupToken).catch(err => {
+    telegramIngressService.startSetupPolling(setupToken).catch(err => {
       logger.error(`Failed to start setup polling: ${err.message}`);
     });
 
@@ -336,7 +336,7 @@ router.post(
     }
 
     // Stop polling
-    telegramSetupPollingService.stopPolling(setupToken);
+    telegramIngressService.stopSetupPolling(setupToken);
 
     // Mark session as failed (no 'cancelled' in enum)
     await db.query(

@@ -10,7 +10,7 @@
  *
  * Consolidated from (now deleted):
  *   telegramLLMService.js       - LLM integration
- *   telegramAppService.js       - app integration (shim re-exports from here)
+ *   telegramAppService.js       - app integration
  */
 
 // =============================================================================

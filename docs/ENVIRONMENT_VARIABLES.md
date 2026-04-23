@@ -7,10 +7,9 @@ via `compose/`.
 > **Drift check:** `scripts/docs/check-env-vars.sh` scans the backend
 > (JS/TS) and Python services for `process.env.X` / `getEnvVar()` /
 > `os.environ` references and diffs them against this doc. Run it
-> before releasing new features that add env vars. Currently ~77
-> vars are referenced in code but not documented here (mostly
-> threshold knobs and indexer flags); the script soft-fails on that
-> backlog rather than gating CI.
+> before releasing new features that add env vars. The check is
+> currently at zero undocumented vars — keep it there by documenting
+> new vars in this file (a single-row tabellar entry is enough).
 
 ---
 
@@ -748,6 +747,142 @@ The dashboard-backend resolver also supports these `_FILE` variables (add them t
 ### Precedence
 
 If both `VAR` and `VAR_FILE` are set, the file-based value wins (overwrites the env var). Remove the plain env var from `.env` when switching to secrets.
+
+---
+
+## Additional runtime tunables
+
+These variables are referenced in code but were previously undocumented. Most
+are internal knobs for services, timeouts, or host overrides — they have
+sensible defaults baked into the code. Listed here as a reference so the
+drift check stays at zero. Review the referencing file for precise behavior.
+
+### Admin & Dashboard
+
+| Variable                 | Purpose                                               |
+| ------------------------ | ----------------------------------------------------- |
+| `ADMIN_EMAIL`            | Default email for the bootstrap admin user            |
+| `DASHBOARD_BACKEND_HOST` | Hostname the frontend uses to reach the backend       |
+| `DASHBOARD_BACKEND_URL`  | Full URL override for the backend (tests, E2E)        |
+| `COMPOSE_PROJECT_DIR`    | Path to the compose project root (Docker-exec calls)  |
+| `DOCKER_HOST`            | Docker daemon endpoint (docker-proxy)                 |
+| `EXCLUDED_CONTAINERS`    | Comma-separated container names to exclude from views |
+
+### LLM & Claude
+
+| Variable                    | Purpose                               |
+| --------------------------- | ------------------------------------- |
+| `CLAUDE_CLI_PATH`           | Path to claude-code CLI binary        |
+| `DEFAULT_CLAUDE_MODEL`      | Default Claude model identifier       |
+| `DEFAULT_OLLAMA_MODEL`      | Default local Ollama model identifier |
+| `LLM_SERVICE_URL`           | Full URL override for the LLM service |
+| `OLLAMA_BASE_URL`           | Base URL for Ollama API               |
+| `LLM_AI_TIMEOUT`            | Timeout (ms) for LLM AI requests      |
+| `LLM_INACTIVITY_TIMEOUT_MS` | Auto-unload after inactivity          |
+| `LLM_MAX_QUEUE_SIZE`        | Max pending LLM jobs before rejection |
+
+### Document Indexer & RAG
+
+| Variable                                | Purpose                                         |
+| --------------------------------------- | ----------------------------------------------- |
+| `DOCUMENT_INDEXER_CONTEXT_MODE`         | Context assembly mode (`full`, `chunked`, etc.) |
+| `DOCUMENT_INDEXER_ENABLE_AI`            | Toggle AI-assisted indexing                     |
+| `DOCUMENT_INDEXER_ENABLE_KG`            | Toggle knowledge-graph extraction               |
+| `DOCUMENT_INDEXER_ENABLE_SIMILARITY`    | Toggle similarity-based dedup                   |
+| `DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE`   | Batch size per indexing cycle                   |
+| `DOCUMENT_INDEXER_MAX_RETRIES`          | Max retries on transient indexing errors        |
+| `DOCUMENT_INDEXER_SIMILARITY_THRESHOLD` | Cosine-similarity threshold for dedup           |
+| `DOMAIN_DICT_PATH`                      | Path to domain-specific dictionary              |
+| `EMBEDDING_CB_FAILURE_THRESHOLD`        | Circuit-breaker failure count before opening    |
+| `EMBEDDING_CB_OPEN_MS`                  | Circuit-breaker open-state duration (ms)        |
+| `RAG_TIMEOUT_ENTITY_MS`                 | Timeout for entity extraction                   |
+| `RAG_TIMEOUT_FALLBACK_MS`               | Timeout for fallback search                     |
+| `RAG_TIMEOUT_RERANK_MS`                 | Timeout for reranking                           |
+| `RAG_TIMEOUT_SEARCH_MS`                 | Timeout for vector search                       |
+| `RAG_TIMEOUT_SPARSE_MS`                 | Timeout for sparse (keyword) search             |
+| `KG_REFINE_ENTITY_BATCH`                | Entity batch size for graph refinement          |
+| `KG_REFINE_MIN_SIMILARITY`              | Min similarity for merging entities             |
+| `KG_REFINE_MODEL`                       | LLM used by knowledge-graph refinement          |
+| `KG_REFINE_RELATION_BATCH`              | Relation batch size for graph refinement        |
+| `SPELLCHECK_MAX_EDIT_DISTANCE`          | Max Levenshtein distance for spellcheck         |
+| `SENTENCE_TRANSFORMERS_HOME`            | Cache directory for sentence-transformer models |
+
+### Self-Healing & System
+
+| Variable                      | Purpose                                          |
+| ----------------------------- | ------------------------------------------------ |
+| `CPU_OVERLOAD_THRESHOLD`      | CPU% above which self-healing reacts             |
+| `RAM_OVERLOAD_THRESHOLD`      | RAM% above which self-healing reacts             |
+| `GPU_OVERLOAD_THRESHOLD`      | GPU% above which self-healing reacts             |
+| `GPU_OOM_THRESHOLD_MB`        | Free GPU memory (MB) below which OOM is signaled |
+| `MAX_REBOOTS_PER_HOUR`        | Reboot rate limit                                |
+| `REBOOT_COOLDOWN_MINUTES`     | Cooldown between reboots                         |
+| `SELF_HEALING_WEBHOOK_SECRET` | HMAC secret for self-healing callback webhook    |
+| `HEARTBEAT_INTERVAL_CYCLES`   | Cycles between heartbeat emissions               |
+| `HEARTBEAT_PORT`              | Port for internal heartbeat                      |
+| `HEARTBEAT_URL`               | External heartbeat URL                           |
+| `INFRA_METRICS_INTERVAL`      | Collection interval for infra metrics (seconds)  |
+| `MEMORY_DEDUP_THRESHOLD`      | Memory-dedup similarity threshold                |
+| `MEMORY_MAX_ENTRIES`          | Max memory entries stored per user               |
+| `MEMORY_MAX_PROFILE_BYTES`    | Max size (bytes) of a single memory profile      |
+
+### Temperature monitoring
+
+| Variable                  | Purpose                                           |
+| ------------------------- | ------------------------------------------------- |
+| `TEMP_HISTORY_SIZE`       | Samples retained in temperature history           |
+| `TEMP_THROTTLE_THRESHOLD` | Temp (°C) at which throttling kicks in            |
+| `TEMP_THROTTLE_REARM`     | Hysteresis: temp must drop below this to rearm    |
+| `TEMP_RESTART_THRESHOLD`  | Temp (°C) at which a service restart is triggered |
+| `TEMP_RESTART_REARM`      | Hysteresis for restart rearm                      |
+| `TEMP_SHUTDOWN_THRESHOLD` | Temp (°C) at which the host shuts down            |
+| `TEMP_SHUTDOWN_REARM`     | Hysteresis for shutdown rearm                     |
+
+### Sandbox
+
+| Variable                   | Purpose                                              |
+| -------------------------- | ---------------------------------------------------- |
+| `SANDBOX_DATA_DIR`         | Container-internal sandbox data directory            |
+| `SANDBOX_HOST_DATA_DIR`    | Host-side sandbox data directory (for volume mounts) |
+| `SANDBOX_IDLE_TIMEOUT_MIN` | Auto-stop idle sandbox containers after N minutes    |
+| `WORKSPACE`                | Sandbox workspace base path inside the container     |
+
+### Licensing
+
+| Variable                    | Purpose                                              |
+| --------------------------- | ---------------------------------------------------- |
+| `LICENSE_FILE`              | Path to the signed license file                      |
+| `LICENSE_PUBLIC_KEY_PATH`   | Path to the license verification public key          |
+| `LICENSE_GRACE_PERIOD_DAYS` | Days after expiry during which the system still runs |
+
+### Backup & Update
+
+| Variable               | Purpose                                           |
+| ---------------------- | ------------------------------------------------- |
+| `BACKUP_REPORT_PATH`   | Path where backup-result JSON reports are written |
+| `EXTERNAL_BACKUP_PATH` | Mount point for the external backup target (SSD)  |
+| `MIGRATIONS_DIR`       | Directory containing database migration files     |
+| `MINIO_DATA_PATH`      | Host path bound into the MinIO container          |
+| `UPDATE_CHANNEL`       | Release channel name (`stable`, `beta`, …)        |
+| `UPDATE_SERVER_URL`    | URL of the OTA update server                      |
+
+### OCR
+
+| Variable         | Purpose                           |
+| ---------------- | --------------------------------- |
+| `PADDLEOCR_HOST` | Hostname of the PaddleOCR service |
+| `PADDLEOCR_PORT` | Port of the PaddleOCR service     |
+| `TESSERACT_HOST` | Hostname of the Tesseract service |
+| `TESSERACT_PORT` | Port of the Tesseract service     |
+
+### Test & E2E
+
+| Variable                              | Purpose                                   |
+| ------------------------------------- | ----------------------------------------- |
+| `E2E_ADMIN_USER`                      | Admin username for Playwright E2E tests   |
+| `E2E_ADMIN_PASS`                      | Admin password for E2E tests              |
+| `E2E_BASE_URL`                        | Base URL the E2E tests point at           |
+| `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` | Override path for bundled Chromium binary |
 
 ---
 

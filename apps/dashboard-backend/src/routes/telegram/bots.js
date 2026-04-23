@@ -47,8 +47,8 @@ const {
   TestMessageBody,
 } = require('../../schemas/telegram');
 const telegramBotService = require('../../services/telegram/telegramBotService');
-const telegramLLMService = require('../../services/telegram/telegramLLMService');
-const telegramWebhookService = require('../../services/telegram/telegramWebhookService');
+const telegramIntegrationService = require('../../services/telegram/telegramIntegrationService');
+const telegramIngressService = require('../../services/telegram/telegramIngressService');
 const telegramPollingManager = require('../../services/telegram/telegramPollingManager');
 const database = require('../../database');
 
@@ -113,7 +113,7 @@ router.post(
       });
 
       // Process update
-      const success = await telegramWebhookService.processUpdate(parseInt(botId), req.body);
+      const success = await telegramIngressService.processUpdate(parseInt(botId), req.body);
 
       const duration = Date.now() - startTime;
       if (success) {
@@ -159,7 +159,7 @@ router.use(requireAuth);
 router.get(
   '/models/ollama',
   asyncHandler(async (req, res) => {
-    const models = await telegramLLMService.getOllamaModels();
+    const models = await telegramIntegrationService.getOllamaModels();
     res.json({ models });
   })
 );
@@ -167,7 +167,7 @@ router.get(
 router.get(
   '/models/claude',
   asyncHandler(async (req, res) => {
-    const models = telegramLLMService.getClaudeModels();
+    const models = telegramIntegrationService.getClaudeModels();
     res.json({ models });
   })
 );
@@ -358,7 +358,7 @@ router.post(
         // Use webhooks when PUBLIC_URL is available
         const fullWebhookUrl = `${process.env.PUBLIC_URL}/api/telegram-bots/webhook/${bot.id}/${botDetails.webhookSecret}`;
         try {
-          await telegramWebhookService.setWebhook(bot.id, fullWebhookUrl);
+          await telegramIngressService.setWebhook(bot.id, fullWebhookUrl);
           mode = 'webhook';
           logger.info(`Webhook set for bot ${bot.id}: ${fullWebhookUrl}`);
         } catch (webhookError) {
@@ -420,7 +420,7 @@ router.post(
 
     // Delete webhook if set
     try {
-      await telegramWebhookService.deleteWebhook(bot.id);
+      await telegramIngressService.deleteWebhook(bot.id);
     } catch (webhookError) {
       logger.warn('Could not delete webhook:', webhookError.message);
     }
@@ -581,7 +581,7 @@ router.get(
       throw new NotFoundError('Bot nicht gefunden');
     }
 
-    const sessionInfo = await telegramLLMService.getSessionInfo(
+    const sessionInfo = await telegramIntegrationService.getSessionInfo(
       parseInt(req.params.id),
       parseInt(req.params.chatId)
     );
@@ -599,7 +599,10 @@ router.delete(
       throw new NotFoundError('Bot nicht gefunden');
     }
 
-    await telegramLLMService.clearSession(parseInt(req.params.id), parseInt(req.params.chatId));
+    await telegramIntegrationService.clearSession(
+      parseInt(req.params.id),
+      parseInt(req.params.chatId)
+    );
     res.json({ success: true, message: 'Session gelöscht' });
   })
 );
@@ -618,7 +621,7 @@ router.get(
       throw new NotFoundError('Bot nicht gefunden');
     }
 
-    const webhookInfo = await telegramWebhookService.getWebhookInfo(parseInt(req.params.id));
+    const webhookInfo = await telegramIngressService.getWebhookInfo(parseInt(req.params.id));
     res.json({ webhook: webhookInfo });
   })
 );
@@ -636,7 +639,7 @@ router.post(
       throw new NotFoundError('Bot nicht gefunden');
     }
 
-    await telegramWebhookService.setWebhook(parseInt(req.params.id), url);
+    await telegramIngressService.setWebhook(parseInt(req.params.id), url);
     res.json({ success: true, message: 'Webhook gesetzt' });
   })
 );
@@ -651,7 +654,7 @@ router.delete(
       throw new NotFoundError('Bot nicht gefunden');
     }
 
-    await telegramWebhookService.deleteWebhook(parseInt(req.params.id));
+    await telegramIngressService.deleteWebhook(parseInt(req.params.id));
     res.json({ success: true, message: 'Webhook gelöscht' });
   })
 );
@@ -669,7 +672,7 @@ router.post(
       throw new NotFoundError('Bot nicht gefunden');
     }
 
-    const result = await telegramWebhookService.sendTestMessage(
+    const result = await telegramIngressService.sendTestMessage(
       parseInt(req.params.id),
       chatId,
       text
