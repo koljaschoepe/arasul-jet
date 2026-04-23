@@ -66,6 +66,7 @@ Quick navigation to all Arasul Platform documentation.
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)   | DR runbooks, backup/restore procedures           |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md)       | Problem resolution & support                     |
 | [BACKUP_SYSTEM.md](BACKUP_SYSTEM.md)           | Automated backup documentation                   |
+| [HEALTH_CONTRACT.md](HEALTH_CONTRACT.md)       | Health-endpoint contract (`/healthz`, `/readyz`) |
 | [UPDATE_SYSTEM.md](UPDATE_SYSTEM.md)           | Update mechanism                                 |
 | [ADMIN_HANDBUCH.md](ADMIN_HANDBUCH.md)         | Administration handbook (12 chapters)            |
 | [QUICK_START.md](QUICK_START.md)               | Customer quick start guide                       |

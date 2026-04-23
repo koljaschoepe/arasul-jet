@@ -92,6 +92,23 @@ describe('API Integration Tests', () => {
             expect(response.status).toBe(200);
             expect(response.body).toHaveProperty('timestamp');
         });
+
+        test('/healthz returns liveness shape (no deps)', async () => {
+            const response = await request(app).get('/healthz');
+            expect(response.status).toBe(200);
+            expect(response.body).toHaveProperty('status', 'OK');
+            expect(response.body).toHaveProperty('timestamp');
+        });
+
+        test('/readyz exercises deep checks', async () => {
+            // Stub external axios so this test doesn't require the
+            // real LLM/embedding/MinIO services.
+            axios.get.mockResolvedValue({ data: { models: [] } });
+            const response = await request(app).get('/readyz');
+            expect([200, 503]).toContain(response.status);
+            expect(response.body).toHaveProperty('checks');
+            expect(response.body).toHaveProperty('eventLoop');
+        });
     });
 
     describe('System Endpoints', () => {

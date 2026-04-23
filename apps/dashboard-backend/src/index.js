@@ -182,8 +182,14 @@ app.use('/api', csrfProtection);
 app.use('/api', require('./routes'));
 
 // Health check endpoint (public, no auth required)
-// ?detail=true returns full dependency status
-app.get('/api/health', async (req, res) => {
+// ?detail=true returns full dependency status.
+// See docs/HEALTH_CONTRACT.md for the response contract.
+//
+// /healthz is an alias kept for K8s-style probes; /readyz is a thin
+// wrapper that forwards to the detail path so readiness fails on
+// degraded dependencies (HTTP 503) while /healthz / /api/health stay
+// liveness-only (HTTP 200 unless the process is crashing).
+const healthHandler = async (req, res) => {
   const { circuitBreakers } = require('./utils/retry');
   const showDetail = req.query.detail === 'true';
 
@@ -263,6 +269,15 @@ app.get('/api/health', async (req, res) => {
     eventLoop,
     circuitBreakers: circuitBreakers.getAllStatus(),
   });
+};
+
+app.get('/api/health', healthHandler);
+// K8s-style liveness: just returns 200 if the process can serve HTTP.
+app.get('/healthz', (_req, res) => res.json({ status: 'OK', timestamp: new Date().toISOString() }));
+// K8s-style readiness: uses the same deep-check path as /api/health?detail=true.
+app.get('/readyz', (req, res) => {
+  req.query = { ...(req.query || {}), detail: 'true' };
+  return healthHandler(req, res);
 });
 
 // Import centralized error handling
