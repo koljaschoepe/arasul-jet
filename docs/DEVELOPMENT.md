@@ -4,6 +4,69 @@ Development workflows, patterns, API usage, and debugging for the Arasul Platfor
 
 ---
 
+## 0. IDE & Local Setup
+
+This is meant to get you from a clean checkout to a working, lint-on-save
+editor in 5 minutes. For the broader onboarding path, start with
+[ONBOARDING.md](ONBOARDING.md).
+
+### Tooling the repo expects
+
+- **Node 20.x** (for the Express backend and Vite frontend).
+- **Python 3.12** (for document-indexer, embedding-service,
+  metrics-collector, self-healing-agent, backup-service).
+- **Docker 24+** with Compose V2 (`docker compose`, not
+  `docker-compose`).
+- **NVIDIA Container Toolkit** (on the Jetson host) — GPU containers
+  won't start otherwise.
+
+Formatters / linters are wired up in each workspace's `package.json` /
+`pyproject.toml`:
+
+- JS/TS: `eslint` + `prettier`, configured per-workspace under
+  `apps/dashboard-backend/` and `apps/dashboard-frontend/`.
+- Python: `black` + `ruff` (see each service's `pyproject.toml`).
+- Pre-commit: Husky + lint-staged at the repo root
+  (`.husky/pre-commit`). Type-check and lint run automatically on
+  staged files before every commit.
+
+### Editor setup
+
+- **VS Code** — useful extensions: `dbaeumer.vscode-eslint`,
+  `esbenp.prettier-vscode`, `editorconfig.editorconfig`,
+  `ms-python.python`, `ms-python.black-formatter`,
+  `ms-azuretools.vscode-docker`, `bradlc.vscode-tailwindcss`,
+  `eamodio.gitlens`. Point ESLint at the two frontend/backend
+  workspaces (`apps/dashboard-backend`, `apps/dashboard-frontend`) —
+  each has its own config. Enable format-on-save; Prettier picks up
+  the per-workspace `.prettierrc`.
+- **JetBrains (WebStorm / PyCharm)** — works out of the box. Same
+  ESLint working-directories pointer as above. Prettier is
+  auto-picked from `package.json`.
+- **Neovim / Helix / …** — your normal LSP setup covers it:
+  `typescript-language-server`, `eslint-language-server`, and
+  `pyright`. Config files live at the workspace edges, not the repo
+  root.
+
+### Day-1 checklist
+
+- [ ] `docker compose up -d` — all 17 services come up (see
+      [DEPLOYMENT.md](DEPLOYMENT.md)).
+- [ ] `docker compose ps` — everything `Up (healthy)`.
+- [ ] `./scripts/test/run-tests.sh --all` — backend Jest + frontend Vitest
+      green.
+- [ ] `npm run lint:fix` at repo root — no errors.
+- [ ] Open the dashboard at `http://arasul.local/` (or whichever hostname
+      `detect-jetson.sh` picked) and log in.
+- [ ] Make a trivial backend edit, rebuild one service
+      (`docker compose up -d --build dashboard-backend`), confirm the
+      change is live — this is the deploy loop you'll use all the time.
+
+If any step fails, jump to §6 (Debugging) or
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+---
+
 ## 1. Workflow Rules
 
 ### After Every Significant Implementation
