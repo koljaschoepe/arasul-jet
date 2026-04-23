@@ -33,7 +33,7 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
 | AI       | Ollama (LLM) + BGE-M3 (Embeddings) + Qdrant (Vektoren)       | `services/llm-service/`, `services/embedding-service/`        |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11 | `compose/`, `config/traefik/`                                 |
 | Ops      | Self-Healing Agent + Metrics Collector + Backup Service      | `services/self-healing-agent/`, `services/metrics-collector/` |
-| DB       | PostgreSQL 16 (82 Migrationen, nächste: `082_*.sql`)         | `services/postgres/init/`                                     |
+| DB       | PostgreSQL 16 (83 Migrationen, nächste: `083_*.sql`)         | `services/postgres/init/`                                     |
 | Hardware | Jetson AGX Orin / Thor (ARM64, 32-128GB, CUDA 8.7-10.0)      | Erkennung: `scripts/setup/detect-jetson.sh`                   |
 
 ---
@@ -125,7 +125,7 @@ Lade den passenden Kontext aus `.claude/context/` je nach Aufgabe:
 | ----------- | ---------------------------------------------------------- |
 | Backend API | `apps/dashboard-backend/src/index.js` → `routes/index.js`  |
 | Frontend    | `apps/dashboard-frontend/src/App.tsx`                      |
-| Database    | `services/postgres/init/` (nächste Migration: `082_*.sql`) |
+| Database    | `services/postgres/init/` (nächste Migration: `083_*.sql`) |
 | LLM Service | `services/llm-service/api_server.py`                       |
 | Setup       | `scripts/interactive_setup.sh`                             |
 | Bootstrap   | `./arasul bootstrap`                                       |

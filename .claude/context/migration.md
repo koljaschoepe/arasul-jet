@@ -3,15 +3,15 @@
 ## Quick Reference
 
 **Location:** `services/postgres/init/`
-**Current Migrations:** 000-081
-**Next Migration:** `082_*.sql`
+**Current Migrations:** 000-082
+**Next Migration:** `083_*.sql`
 **Documentation:** `docs/DATABASE_SCHEMA.md`
 
 ---
 
 ## Steps
 
-1. Create migration file: `082_description.sql`
+1. Create migration file: `083_description.sql`
 2. Use `IF NOT EXISTS` for idempotency
 3. Update `docs/DATABASE_SCHEMA.md`
 4. Rebuild: `docker compose up -d --build postgres-db`

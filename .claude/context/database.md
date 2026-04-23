@@ -4,7 +4,7 @@
 
 - **Location**: `services/postgres/init/*.sql` (executed alphabetically on first DB start)
 - **Connection**: `apps/dashboard-backend/src/database.js`
-- **Migrations**: 82 files (000-081), **next available: `082_*.sql`**
+- **Migrations**: 83 files (000-082), **next available: `083_*.sql`**
 - **Two databases**: `arasul_db` (main) and `arasul_data_db` (user data tables / Datentabellen)
 
 ## Tables by Domain

@@ -120,9 +120,15 @@ start_pg "$DST"
 wait_ready "$DST"
 
 log "Step 6: Replay dump into destination"
-if ! docker exec -i "$DST" psql -v ON_ERROR_STOP=1 -U arasul -d arasul_db < "$DUMP" >/dev/null 2>&1; then
+REPLAY_LOG=$(mktemp)
+if ! docker exec -i "$DST" psql -v ON_ERROR_STOP=1 -U arasul -d arasul_db < "$DUMP" > "$REPLAY_LOG" 2>&1; then
+  echo "---- last 40 lines of replay log ----"
+  tail -40 "$REPLAY_LOG"
+  echo "-------------------------------------"
+  rm -f "$REPLAY_LOG"
   fail "Dump replay failed"
 fi
+rm -f "$REPLAY_LOG"
 rm -f "$DUMP"
 
 log "Step 7: Verify destination"
