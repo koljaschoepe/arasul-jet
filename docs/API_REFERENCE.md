@@ -413,40 +413,11 @@ Request: `multipart/form-data` with `file` field.
 - Content-Type: `multipart/form-data`
 - Field: `file` (PDF, TXT, DOCX, Markdown, or YAML)
 
-### YAML Tables
+### Datentabellen
 
-| Method | Endpoint                              | Description           |
-| ------ | ------------------------------------- | --------------------- |
-| POST   | `/api/yaml-tables/create`             | Create new YAML table |
-| GET    | `/api/yaml-tables/:docId`             | Get parsed YAML data  |
-| PUT    | `/api/yaml-tables/:docId`             | Update YAML content   |
-| POST   | `/api/yaml-tables/:docId/rows`        | Add row to table      |
-| DELETE | `/api/yaml-tables/:docId/rows/:rowId` | Delete row            |
-| POST   | `/api/yaml-tables/:docId/import`      | Import from CSV       |
-| GET    | `/api/yaml-tables/:docId/export`      | Export as CSV         |
-
-**POST /api/yaml-tables/create:**
-
-```json
-{
-  "name": "My Table",
-  "description": "Optional description",
-  "columns": [{ "slug": "name", "name": "Name", "type": "text", "required": false }],
-  "space_id": "optional-space-uuid"
-}
-```
-
-**PUT /api/yaml-tables/:docId:**
-
-```json
-{
-  "data": {
-    "_meta": { "name": "Table Name" },
-    "columns": [...],
-    "rows": [...]
-  }
-}
-```
+The YAML-tables API was removed; dynamic-schema tables now live under
+`/api/v1/datentabellen/*` (see "Datentabellen" section below for the
+full surface).
 
 ### Embeddings
 
@@ -1266,18 +1237,18 @@ Response (same as POST /upload):
 
 ### Model Management
 
-| Method | Endpoint                     | Description                        |
-| ------ | ---------------------------- | ---------------------------------- |
-| GET    | `/api/models/catalog`        | List curated model catalog         |
-| GET    | `/api/models/installed`      | List installed models              |
-| GET    | `/api/models/status`         | Current loaded model + queue stats |
-| GET    | `/api/models/loaded`         | Get currently loaded model         |
-| GET    | `/api/models/default`        | Get default model                  |
-| POST   | `/api/models/default`        | Set default model                  |
-| POST   | `/api/models/download`       | Download model (SSE progress)      |
-| DELETE | `/api/models/:id`            | Delete installed model             |
-| POST   | `/api/models/:id/activate`   | Load model into RAM                |
-| POST   | `/api/models/:id/deactivate` | Unload model from RAM              |
+| Method | Endpoint                          | Description                        |
+| ------ | --------------------------------- | ---------------------------------- |
+| GET    | `/api/models/catalog`             | List curated model catalog         |
+| GET    | `/api/models/installed`           | List installed models              |
+| GET    | `/api/models/status`              | Current loaded model + queue stats |
+| GET    | `/api/models/loaded`              | Get currently loaded model         |
+| GET    | `/api/models/default`             | Get default model                  |
+| POST   | `/api/models/default`             | Set default model                  |
+| POST   | `/api/models/download`            | Download model (SSE progress)      |
+| DELETE | `/api/models/:modelId`            | Delete installed model             |
+| POST   | `/api/models/:modelId/activate`   | Load model into RAM                |
+| POST   | `/api/models/:modelId/deactivate` | Unload model from RAM              |
 
 **GET /api/models/catalog:**
 
@@ -1333,7 +1304,7 @@ data: {"type": "progress", "percent": 45, "downloaded_gb": 3.6, "total_gb": 8.0}
 data: {"type": "done", "model_id": "qwen3:7b-q8"}
 ```
 
-**POST /api/models/:id/activate:**
+**POST /api/models/:modelId/activate:**
 Loads model into RAM. Only one model can be loaded at a time.
 
 ```json
@@ -1976,31 +1947,13 @@ Response:
 
 ### Zero-Config (Additional Endpoints)
 
-| Method | Endpoint                                      | Description                                   |
-| ------ | --------------------------------------------- | --------------------------------------------- |
-| POST   | `/api/telegram-app/zero-config/chat-detected` | Called by bot when user sends /start (intern) |
-| POST   | `/api/telegram-app/zero-config/cancel`        | Cancel setup session and stop polling         |
+| Method | Endpoint                               | Description                           |
+| ------ | -------------------------------------- | ------------------------------------- |
+| POST   | `/api/telegram-app/zero-config/cancel` | Cancel setup session and stop polling |
 
-**POST /api/telegram-app/zero-config/chat-detected:**
-
-Interner Endpoint – wird vom Polling-Service aufgerufen, wenn der Bot ein `/start`-Kommando erkennt. Kein Auth-Token erforderlich.
-
-```json
-// Request
-{
-  "setupToken": "a1b2c3d4e5f6...",
-  "chatId": 987654321,
-  "username": "user123",
-  "firstName": "Max"
-}
-
-// Response
-{
-  "success": true,
-  "message": "Setup erfolgreich abgeschlossen",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
+Bot chat-detection is now handled internally by the polling service
+(no HTTP endpoint). The `/api/telegram-app/zero-config/chat-detected`
+route was removed.
 
 **POST /api/telegram-app/zero-config/cancel:**
 
