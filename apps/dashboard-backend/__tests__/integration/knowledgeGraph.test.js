@@ -399,7 +399,7 @@ describe('Knowledge Graph API', () => {
       expect(response.body.linked_documents).toHaveLength(1);
     });
 
-    test('still returns 200 when entity extraction fails (empty entities)', async () => {
+    test('returns 503 when entity extraction fails (document-indexer down)', async () => {
       axios.post.mockRejectedValue(new Error('indexer down'));
       setupAuthMocks(db);
 
@@ -408,11 +408,8 @@ describe('Knowledge Graph API', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ question: 'hello', include_documents: false });
 
-      expect(response.status).toBe(200);
-      expect(response.body.entities).toEqual([]);
-      expect(response.body.graph_relations).toEqual([]);
-      expect(response.body.graph_context).toBeNull();
-      expect(response.body.linked_documents).toEqual([]);
+      expect(response.status).toBe(503);
+      expect(response.body.error.code).toBe('SERVICE_UNAVAILABLE');
     });
   });
 

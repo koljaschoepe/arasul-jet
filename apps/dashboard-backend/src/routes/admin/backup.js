@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { NotImplementedError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
 const fs = require('fs').promises;
 const { execFile } = require('child_process');
@@ -104,15 +105,12 @@ router.post(
       });
     }
 
-    // TODO: Implement actual backup trigger via backup.sh with BACKUP_PATH
-    logger.info(`Manual backup triggered by ${req.user.username} to ${EXTERNAL_MOUNT}`);
-
-    res.json({
-      success: true,
-      message: 'Backup wird gestartet...',
-      targetPath: EXTERNAL_MOUNT,
-      timestamp: new Date().toISOString(),
-    });
+    logger.warn(
+      `Manual backup trigger requested by ${req.user.username} — endpoint not implemented`
+    );
+    throw new NotImplementedError(
+      'Manueller Backup-Trigger ist noch nicht verdrahtet. Nutzen Sie das automatische Backup via Cron oder scripts/backup/backup.sh direkt auf dem Host.'
+    );
   })
 );
 

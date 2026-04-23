@@ -362,7 +362,11 @@ router.post(
       );
       queryEntities = (entityResponse.data.entities || []).slice(0, entityLimit);
     } catch (err) {
-      logger.warn(`Entity extraction for n8n query failed: ${err.message}`);
+      logger.error(`Entity extraction for n8n query failed: ${err.message}`);
+      throw new ServiceUnavailableError(
+        'Entity-Extraktion nicht verfügbar — Document-Indexer antwortet nicht.',
+        'document-indexer'
+      );
     }
 
     // 2. Traverse the graph for each entity
