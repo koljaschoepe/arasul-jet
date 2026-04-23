@@ -913,7 +913,25 @@ usage() {
     echo "  $0 generate && $0 apply # Configure for this device"
 }
 
+assert_aarch64_or_force() {
+    local arch=$(uname -m)
+    if [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then
+        return 0
+    fi
+    if [ "${ARASUL_FORCE_NON_JETSON:-0}" = "1" ] || [ "${FORCE_NON_JETSON:-}" = "1" ]; then
+        echo -e "${YELLOW}Warning: Running on ${arch} (not a Jetson) — continuing because ARASUL_FORCE_NON_JETSON=1${NC}" >&2
+        return 0
+    fi
+    echo -e "${RED}Error: This script targets NVIDIA Jetson (aarch64) — detected architecture: ${arch}${NC}" >&2
+    echo -e "${YELLOW}To run on a non-Jetson development machine, set ARASUL_FORCE_NON_JETSON=1${NC}" >&2
+    exit 2
+}
+
 main() {
+    # Abort early on non-Jetson hardware unless explicitly forced.
+    # Functions remain sourceable for tests (this guard only runs on direct invocation).
+    assert_aarch64_or_force
+
     case "${1:-detect}" in
         detect|info)
             print_device_info

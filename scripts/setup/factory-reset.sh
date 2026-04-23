@@ -23,6 +23,10 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 cd "$PROJECT_ROOT"
 
+# Warn on interruption so the operator knows the system may be in a partial
+# state (customer data deleted but re-init not finished).
+trap 'echo -e "\n${RED}${BOLD}Factory Reset abgebrochen — System kann in inkonsistentem Zustand sein.${NC}" >&2; echo -e "${YELLOW}Falls Daten bereits geloescht wurden, starte ./scripts/setup/preconfigure.sh manuell, um die Installation abzuschliessen.${NC}" >&2' ERR INT TERM
+
 echo -e "${RED}${BOLD}"
 echo "============================================"
 echo "  ARASUL FACTORY RESET"

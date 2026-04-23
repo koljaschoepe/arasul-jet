@@ -88,17 +88,11 @@ TOTAL_STEPS=16
 # Helper functions
 ###############################################################################
 
-generate_secret() {
-  # Generate a cryptographically secure random string
-  local length=${1:-32}
-  openssl rand -base64 "$length" | tr -dc 'a-zA-Z0-9' | head -c "$length"
-}
-
-generate_password() {
-  # Generate a human-readable password (for admin)
-  local length=${1:-16}
-  openssl rand -base64 "$length" | tr -dc 'a-zA-Z0-9!@#$%' | head -c "$length"
-}
+# Shared crypto helpers (generate_secret, generate_password). The previous
+# in-file versions under-sampled the random pool and could return shorter-than-
+# requested strings after alphanumeric filtering.
+# shellcheck source=../lib/crypto.sh
+. "${PROJECT_ROOT}/scripts/lib/crypto.sh"
 
 ###############################################################################
 echo -e "\n${BLUE}${BOLD}════════════════════════════════════════════════${NC}"
@@ -413,8 +407,8 @@ if [ -f "$MIDDLEWARES_FILE" ] && grep -q "PLACEHOLDER" "$MIDDLEWARES_FILE" 2>/de
   if [ -z "${ADMIN_PASSWORD:-}" ]; then
     ADMIN_PASSWORD=$(generate_password 20)
     log_info "Traefik Admin-Passwort automatisch generiert"
-    # Save to .env for reference
-    if [ -f "$ENV_FILE" ]; then
+    # Save to .env for reference (idempotent: skip if already present)
+    if [ -f "$ENV_FILE" ] && ! grep -q '^ADMIN_PASSWORD=' "$ENV_FILE" 2>/dev/null; then
       echo "ADMIN_PASSWORD=\"${ADMIN_PASSWORD}\"" >> "$ENV_FILE"
     fi
   fi

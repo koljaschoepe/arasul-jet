@@ -17,7 +17,13 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Error tracking
-ERROR_LOG_FILE="/tmp/arasul_bootstrap_errors.json"
+# Persistent log path (survives reboot); falls back to /tmp if logs/ is not writable.
+mkdir -p "$SCRIPT_DIR/logs" 2>/dev/null || true
+if [ -w "$SCRIPT_DIR/logs" ] 2>/dev/null || [ -w "$SCRIPT_DIR" ]; then
+    ERROR_LOG_FILE="$SCRIPT_DIR/logs/bootstrap_errors.json"
+else
+    ERROR_LOG_FILE="/tmp/arasul_bootstrap_errors.json"
+fi
 ERROR_COUNT=0
 ERRORS=()
 

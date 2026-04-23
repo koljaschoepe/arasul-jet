@@ -6,6 +6,7 @@
  * 2. No admin user exists on fresh deploy (chicken-and-egg with Setup Wizard).
  */
 
+const fs = require('fs');
 const db = require('./database');
 const { hashPassword } = require('./utils/password');
 const { runMigrations } = require('./migrationRunner');
@@ -13,6 +14,26 @@ const logger = require('./utils/logger');
 
 const DEFAULT_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const DEFAULT_EMAIL = process.env.ADMIN_EMAIL || 'admin@arasul.local';
+
+/**
+ * Strip ADMIN_PASSWORD= lines from the mounted .env file so the plaintext
+ * bootstrap password does not persist on disk after the admin user has been
+ * created. No-op if the file is read-only or absent.
+ */
+function stripAdminPasswordFromEnvFile() {
+  const envPath = process.env.ENV_FILE_PATH;
+  if (!envPath) {return;}
+  try {
+    const original = fs.readFileSync(envPath, 'utf8');
+    const cleaned = original.replace(/^ADMIN_PASSWORD=.*$\n?/gm, '');
+    if (cleaned !== original) {
+      fs.writeFileSync(envPath, cleaned, { mode: 0o600 });
+      logger.info(`Bootstrap: ADMIN_PASSWORD removed from ${envPath}`);
+    }
+  } catch (err) {
+    logger.warn(`Bootstrap: Could not clean ADMIN_PASSWORD from env file: ${err.message}`);
+  }
+}
 
 /**
  * Run pending database migrations, then ensure admin user exists.
@@ -67,6 +88,9 @@ async function ensureAdminUser() {
     // Remove plaintext password from process environment
     delete process.env.ADMIN_PASSWORD;
     logger.info('Bootstrap: ADMIN_PASSWORD removed from process environment');
+
+    // Remove plaintext password from .env file so it does not survive a restart
+    stripAdminPasswordFromEnvFile();
   } catch (error) {
     // Table might not exist yet on very first run - don't crash
     if (error.message && error.message.includes('does not exist')) {
