@@ -1,15 +1,6 @@
 import React, { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Cpu,
-  RefreshCw,
-  Loader2,
-  Play,
-  Square,
-  ExternalLink,
-  AlertTriangle,
-  X,
-} from 'lucide-react';
+import { Loader2, Play, Square, ExternalLink, AlertTriangle, X } from 'lucide-react';
 import useModelStatus from '../../hooks/useModelStatus';
 import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
@@ -39,7 +30,6 @@ function ModelStatusBar() {
     loadingModels,
     loadingStatus,
     error,
-    isRefreshing,
     pollErrors,
     usedMb,
     totalBudgetMb,
@@ -102,6 +92,14 @@ function ModelStatusBar() {
     });
   }, [currentCategory]);
 
+  // Backend container/model state can lag the start/stop API call by a few
+  // seconds. Schedule two follow-up refreshes so the UI converges without
+  // requiring a manual reload.
+  const scheduleFollowUpRefresh = () => {
+    setTimeout(() => fetchData(true), 800);
+    setTimeout(() => fetchData(true), 3000);
+  };
+
   const handleStart = async (model: InstalledModel) => {
     const isOcr = model.model_type === 'ocr';
     try {
@@ -111,6 +109,7 @@ function ModelStatusBar() {
         await handleLoadLlm(model.id);
       }
       toast.success(`${model.name} wurde aktiviert`);
+      scheduleFollowUpRefresh();
     } catch {
       // Error already handled in hook
     }
@@ -127,6 +126,7 @@ function ModelStatusBar() {
     try {
       await handleUnload(model.id);
       toast.success(`${model.name} wurde gestoppt`);
+      scheduleFollowUpRefresh();
     } catch {
       // Error already handled in hook
     }
@@ -144,33 +144,12 @@ function ModelStatusBar() {
 
   return (
     <div className="dashboard-card msb-widget">
-      {/* Header */}
+      {/* Header — matches Performance card: title only, plus action link */}
       <div className="msb-header">
-        <div className="msb-header-left">
-          <Cpu size={18} style={{ color: 'var(--primary-color)' }} />
-          <div>
-            <h3 className="dashboard-card-title" style={{ margin: 0 }}>
-              KI-Modelle
-            </h3>
-            <div className="msb-subtitle">1 API-Endpunkt · Lokale Verarbeitung</div>
-          </div>
-        </div>
+        <h3 className="dashboard-card-title" style={{ margin: 0 }}>
+          KI-Modelle
+        </h3>
         <div className="msb-header-actions">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="msb-btn msb-btn-stop"
-                  onClick={() => fetchData(true)}
-                  disabled={isRefreshing}
-                  aria-label="Aktualisieren"
-                >
-                  <RefreshCw size={14} className={isRefreshing ? 'msb-spin' : ''} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Aktualisieren</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

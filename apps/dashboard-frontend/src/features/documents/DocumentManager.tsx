@@ -1243,12 +1243,18 @@ function DocumentManager() {
                           aria-hidden="true"
                           size={20}
                         />
-                        <div>
-                          <span className="block font-medium overflow-hidden text-ellipsis whitespace-nowrap">
+                        <div className="min-w-0 flex-1">
+                          <span
+                            className="block font-medium overflow-hidden text-ellipsis whitespace-nowrap"
+                            title={table.name}
+                          >
                             {table.name}
                           </span>
                           {table.description && (
-                            <span className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                            <span
+                              className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap"
+                              title={table.description}
+                            >
                               {table.description}
                             </span>
                           )}
@@ -1360,12 +1366,18 @@ function DocumentManager() {
                           'aria-hidden': 'true',
                           size: 20,
                         })}
-                        <div>
-                          <span className="block font-medium overflow-hidden text-ellipsis whitespace-nowrap">
+                        <div className="min-w-0 flex-1">
+                          <span
+                            className="block font-medium overflow-hidden text-ellipsis whitespace-nowrap"
+                            title={doc.title || doc.filename}
+                          >
                             {doc.title || doc.filename}
                           </span>
                           {doc.title && doc.title !== doc.filename && (
-                            <span className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                            <span
+                              className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap"
+                              title={doc.filename}
+                            >
                               {doc.filename}
                             </span>
                           )}
