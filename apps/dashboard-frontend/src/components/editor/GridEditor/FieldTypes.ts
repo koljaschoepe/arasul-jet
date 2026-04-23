@@ -21,6 +21,9 @@ interface FormatOptions {
   currency?: string;
 }
 
+// Anything a table cell may hold. Matches the JSONB surface the backend returns.
+export type FieldValue = string | number | boolean | Date | null | undefined;
+
 // Supported field types with their configuration
 export const FIELD_TYPES: FieldTypeConfig[] = [
   { value: 'text', label: 'Text', description: 'Einzeiliger Text', icon: 'T' },
@@ -47,20 +50,21 @@ export const getFieldType = (type: string): FieldTypeConfig => {
 };
 
 // Validation functions for field types
-export const validateValue = (value: any, fieldType: string): string | null => {
-  if (!value || value === '') return null;
+export const validateValue = (value: FieldValue, fieldType: string): string | null => {
+  if (value === null || value === undefined || value === '') return null;
 
+  const str = String(value);
   switch (fieldType) {
     case 'email': {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(value)) {
+      if (!emailRegex.test(str)) {
         return 'Ungültige E-Mail-Adresse';
       }
       break;
     }
     case 'url': {
       try {
-        new URL(value);
+        new URL(str);
       } catch {
         return 'Ungültige URL (muss mit http:// oder https:// beginnen)';
       }
@@ -68,14 +72,14 @@ export const validateValue = (value: any, fieldType: string): string | null => {
     }
     case 'phone': {
       const phoneRegex = /^[+\d\s\-()]+$/;
-      if (!phoneRegex.test(value)) {
+      if (!phoneRegex.test(str)) {
         return 'Ungültige Telefonnummer';
       }
       break;
     }
     case 'number':
     case 'currency': {
-      if (isNaN(parseFloat(value))) {
+      if (isNaN(parseFloat(str))) {
         return 'Ungültiger numerischer Wert';
       }
       break;
@@ -87,25 +91,30 @@ export const validateValue = (value: any, fieldType: string): string | null => {
 };
 
 // Format value for display
-export const formatValue = (value: any, type: string, options: FormatOptions = {}): string => {
+export const formatValue = (
+  value: FieldValue,
+  type: string,
+  options: FormatOptions = {}
+): string => {
   if (value === null || value === undefined || value === '') return '-';
 
+  const str = String(value);
   switch (type) {
     case 'currency':
       return new Intl.NumberFormat('de-DE', {
         style: 'currency',
         currency: options.currency || 'EUR',
-      }).format(parseFloat(value) || 0);
+      }).format(parseFloat(str) || 0);
     case 'number':
-      return new Intl.NumberFormat('de-DE').format(parseFloat(value) || 0);
+      return new Intl.NumberFormat('de-DE').format(parseFloat(str) || 0);
     case 'date':
-      return new Date(value).toLocaleDateString('de-DE');
+      return new Date(str).toLocaleDateString('de-DE');
     case 'datetime':
-      return new Date(value).toLocaleString('de-DE');
+      return new Date(str).toLocaleString('de-DE');
     case 'checkbox':
       return value === true || value === 'true' ? '✓' : '✗';
     default:
-      return String(value);
+      return str;
   }
 };
 
@@ -121,11 +130,11 @@ export const toSlug = (name: string): string => {
 };
 
 // Auto-detect field type from values
-export const autoDetectType = (values: any[]): string => {
+export const autoDetectType = (values: FieldValue[]): string => {
   const nonEmpty = values.filter(v => v !== '' && v !== null && v !== undefined);
   if (nonEmpty.length === 0) return 'text';
 
-  if (nonEmpty.every(v => !isNaN(parseFloat(v)))) {
+  if (nonEmpty.every(v => !isNaN(parseFloat(String(v))))) {
     if (nonEmpty.some(v => String(v).includes('€') || String(v).includes('$'))) {
       return 'currency';
     }
