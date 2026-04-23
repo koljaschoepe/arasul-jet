@@ -1,0 +1,29 @@
+name: DR Drill (nightly)
+
+on:
+  schedule:
+    # 03:15 UTC daily — after other nightly jobs, avoids the top-of-hour stampede.
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'services/postgres/init/**'
+      - 'scripts/test/dr-drill-ci.sh'
+      - '.github/workflows/dr-drill.yml'
+
+jobs:
+  drill:
+    name: migrate → dump → restore roundtrip
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run DR drill
+        run: ./scripts/test/dr-drill-ci.sh
+
+      - name: Print migration summary on failure
+        if: failure()
+        run: |
+          echo "Migrations present:"
+          ls services/postgres/init/ | head -100
