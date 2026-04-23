@@ -1,8 +1,16 @@
 # Environment Variables
 
-Complete reference for all Arasul Platform configuration variables.
+Reference for Arasul Platform configuration variables. Variables are
+defined in `.env` at the repository root and propagated to containers
+via `compose/`.
 
-All variables are defined in `.env` file at repository root.
+> **Drift check:** `scripts/docs/check-env-vars.sh` scans the backend
+> (JS/TS) and Python services for `process.env.X` / `getEnvVar()` /
+> `os.environ` references and diffs them against this doc. Run it
+> before releasing new features that add env vars. Currently ~77
+> vars are referenced in code but not documented here (mostly
+> threshold knobs and indexer flags); the script soft-fails on that
+> backlog rather than gating CI.
 
 ---
 
