@@ -321,10 +321,10 @@ const ChatMessage = memo(function ChatMessage({
                           className={cn(
                             'text-xs font-medium',
                             source.rerank_score >= 0.15
-                              ? 'text-green-600 dark:text-green-400'
+                              ? 'text-success'
                               : source.rerank_score >= 0.05
-                                ? 'text-yellow-600 dark:text-yellow-400'
-                                : 'text-red-500 dark:text-red-400'
+                                ? 'text-warning'
+                                : 'text-destructive'
                           )}
                         >
                           Rerank: {(source.rerank_score * 100).toFixed(0)}%
@@ -346,10 +346,10 @@ const ChatMessage = memo(function ChatMessage({
                         className={cn(
                           'text-xs font-medium',
                           (source.score ?? 0) >= 0.02
-                            ? 'text-green-600 dark:text-green-400'
+                            ? 'text-success'
                             : (source.score ?? 0) >= 0.005
-                              ? 'text-yellow-600 dark:text-yellow-400'
-                              : 'text-red-500 dark:text-red-400'
+                              ? 'text-warning'
+                              : 'text-destructive'
                         )}
                       >
                         Relevanz: {((source.score ?? 0) * 100).toFixed(0)}%

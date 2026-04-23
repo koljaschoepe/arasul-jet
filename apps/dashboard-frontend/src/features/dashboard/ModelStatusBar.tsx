@@ -14,6 +14,7 @@ import useModelStatus from '../../hooks/useModelStatus';
 import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
 import { Skeleton } from '../../components/ui/shadcn/skeleton';
+import { Button } from '../../components/ui/shadcn/button';
 import {
   Tooltip,
   TooltipContent,
@@ -200,9 +201,15 @@ function ModelStatusBar() {
         <div className="msb-error">
           <AlertTriangle size={14} />
           <span>{error}</span>
-          <button className="msb-error-dismiss" onClick={clearError} aria-label="Fehler schließen">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="msb-error-dismiss"
+            onClick={clearError}
+            aria-label="Fehler schließen"
+          >
             <X size={14} />
-          </button>
+          </Button>
         </div>
       )}
 

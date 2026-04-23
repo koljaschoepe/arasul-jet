@@ -5,12 +5,13 @@
  */
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, Table as TableIcon } from 'lucide-react';
 import useConfirm from '../../hooks/useConfirm';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import EmptyState from '../../components/ui/EmptyState';
 import useExcelKeyboard from './useExcelKeyboard';
 import useVirtualScroll from './useVirtualScroll';
 import useExcelClipboard from './useExcelClipboard';
@@ -392,6 +393,13 @@ function ExcelEditor({ tableSlug, tableName, onClose }: ExcelEditorProps) {
                 ref={bodyRef}
                 onScroll={handleBodyScroll}
               >
+                {!loading && totalRows === 0 ? (
+                  <EmptyState
+                    icon={<TableIcon />}
+                    title="Noch keine Daten"
+                    description="Fügen Sie über die Toolbar eine neue Zeile hinzu oder importieren Sie eine CSV-Datei."
+                  />
+                ) : null}
                 <div className="relative min-w-max" style={{ height: totalHeight }}>
                   <div
                     className="will-change-transform"
