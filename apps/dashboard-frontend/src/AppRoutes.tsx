@@ -17,8 +17,6 @@ const DocumentManager = lazy(() => import('./features/documents/DocumentManager'
 const Store = lazy(() => import('./features/store'));
 const SandboxApp = lazy(() => import('./features/sandbox'));
 const TelegramBotPage = lazy(() => import('./features/telegram/TelegramBotPage'));
-const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
-const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
 
 interface ChartDataPoint {
   timestamp: number;
@@ -158,22 +156,10 @@ function AppRoutes({
           }
         />
         <Route path="/telegram-bots" element={<Navigate to="/telegram-bot" replace />} />
-        <Route
-          path="/database"
-          element={
-            <RouteErrorBoundary routeName="Datenbank">
-              <DatabaseOverview />
-            </RouteErrorBoundary>
-          }
-        />
-        <Route
-          path="/database/:slug"
-          element={
-            <RouteErrorBoundary routeName="Datentabelle">
-              <DatabaseTable />
-            </RouteErrorBoundary>
-          }
-        />
+        {/* Tables are managed exclusively via /data (DocumentManager).
+            Old /database deep-links redirect there for backwards compatibility. */}
+        <Route path="/database" element={<Navigate to="/data" replace />} />
+        <Route path="/database/:slug" element={<Navigate to="/data" replace />} />
         <Route path="*" element={NotFound} />
       </Routes>
     </Suspense>

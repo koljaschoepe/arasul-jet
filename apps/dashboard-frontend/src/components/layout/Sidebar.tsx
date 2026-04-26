@@ -8,9 +8,6 @@ import {
   Download,
   Settings,
   ChevronLeft,
-  HardDrive,
-  Terminal as TerminalIcon,
-  Send,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -20,9 +17,6 @@ import { PLATFORM_NAME, PLATFORM_SUBTITLE } from '@/config/branding';
 const preloadDocuments = () => import('@/features/documents/DocumentManager');
 const preloadStore = () => import('@/features/store');
 const preloadSettings = () => import('@/features/settings/Settings');
-const preloadDatabase = () => import('@/features/database/DatabaseOverview');
-const preloadTerminal = () => import('@/features/sandbox');
-const preloadTelegram = () => import('@/features/telegram/TelegramBotPage');
 
 interface DownloadInfo {
   modelId: string;
@@ -109,7 +103,9 @@ const SidebarNav = React.memo(function SidebarNav({
   // Roving tabindex: only the active route's link is in the tab order;
   // arrow keys move focus between items. If no menubar item matches the
   // current route, the first item (Dashboard) gets tabindex=0 as fallback.
-  const menuPaths = ['/', '/chat', '/data', '/store', '/database', '/terminal', '/telegram-bot'];
+  // Only the 4 main tabs are sidebar entries — Database/Terminal/Telegram
+  // are accessed via Dashboard-Cards (apps) or live inside /data (tables).
+  const menuPaths = ['/', '/chat', '/data', '/store'];
   const activePath = menuPaths.find(p => isActive(p) === 'nav-link active') ?? menuPaths[0];
   const tabIndexFor = (path: string) => (path === activePath ? 0 : -1);
 
@@ -188,42 +184,6 @@ const SidebarNav = React.memo(function SidebarNav({
                     {!collapsed && downloadCount}
                   </span>
                 )}
-              </Link>
-            </li>
-            <li role="none">
-              <Link
-                to="/database"
-                tabIndex={tabIndexFor('/database')}
-                className={isActive('/database')}
-                role="menuitem"
-                aria-current={isCurrent('/database') ? 'page' : undefined}
-                onMouseEnter={preloadDatabase}
-              >
-                <HardDrive aria-hidden="true" /> <span>Tabellen</span>
-              </Link>
-            </li>
-            <li role="none">
-              <Link
-                to="/terminal"
-                tabIndex={tabIndexFor('/terminal')}
-                className={isActive('/terminal')}
-                role="menuitem"
-                aria-current={isCurrent('/terminal') ? 'page' : undefined}
-                onMouseEnter={preloadTerminal}
-              >
-                <TerminalIcon aria-hidden="true" /> <span>Terminal</span>
-              </Link>
-            </li>
-            <li role="none">
-              <Link
-                to="/telegram-bot"
-                tabIndex={tabIndexFor('/telegram-bot')}
-                className={isActive('/telegram-bot')}
-                role="menuitem"
-                aria-current={isCurrent('/telegram-bot') ? 'page' : undefined}
-                onMouseEnter={preloadTelegram}
-              >
-                <Send aria-hidden="true" /> <span>Telegram</span>
               </Link>
             </li>
           </ul>

@@ -32,7 +32,6 @@ interface BreadcrumbsProps {
  * Usage:
  *   <Breadcrumbs items={[
  *     { label: 'Daten', to: '/data' },
- *     { label: 'Tabellen', to: '/database' },
  *     { label: tableName }, // current page — no `to`
  *   ]} />
  */
