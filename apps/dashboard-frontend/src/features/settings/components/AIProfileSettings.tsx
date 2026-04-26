@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Save, Check, AlertCircle } from 'lucide-react';
-import { SkeletonCard } from '../../components/ui/Skeleton';
-import { useApi } from '../../hooks/useApi';
-import { formatDate } from '../../utils/formatting';
+import { useMemo, useState } from 'react';
+import { Save } from 'lucide-react';
+import { SkeletonCard } from '../../../components/ui/Skeleton';
+import StatusMessage from '../../../components/ui/StatusMessage';
+import { formatDate } from '../../../utils/formatting';
+import { useUnsavedChangesGuard } from '../../../contexts/UnsavedChangesContext';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
@@ -15,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/shadcn/select';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { useProfileQuery, useCompanyContextQuery } from '../hooks/queries';
+import { useUpdateProfileMutation, useUpdateCompanyContextMutation } from '../hooks/mutations';
 
 const AI_INDUSTRIES = [
   'IT & Software',
@@ -38,220 +40,111 @@ const defaultContextTemplate = `# Zusätzlicher Kontext
 ---
 *Diese Informationen werden bei allen KI-Anfragen als Hintergrundkontext bereitgestellt.*`;
 
+interface ProfileForm {
+  companyName: string;
+  industry: string;
+  customIndustry: string;
+  products: string;
+  answerLength: string;
+  formality: string;
+}
+
+const EMPTY_FORM: ProfileForm = {
+  companyName: '',
+  industry: '',
+  customIndustry: '',
+  products: '',
+  answerLength: 'mittel',
+  formality: 'normal',
+};
+
 export function AIProfileSettings() {
-  const api = useApi();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const profileQuery = useProfileQuery();
+  const contextQuery = useCompanyContextQuery();
+  const updateProfile = useUpdateProfileMutation();
+  const updateContext = useUpdateCompanyContextMutation();
+
+  const loading = profileQuery.isLoading || contextQuery.isLoading;
+  const saving = updateProfile.isPending || updateContext.isPending;
+
+  // Derived "original" form from server data — recomputed when query refetches
+  const originalForm = useMemo<ProfileForm>(() => {
+    const p = profileQuery.data;
+    if (!p) return EMPTY_FORM;
+    const isKnownIndustry = AI_INDUSTRIES.includes(p.branche);
+    return {
+      companyName: p.firma,
+      industry: p.branche ? (isKnownIndustry ? p.branche : 'custom') : '',
+      customIndustry: p.branche && !isKnownIndustry ? p.branche : '',
+      products: p.produkte.join(', '),
+      answerLength: p.antwortlaenge || 'mittel',
+      formality: p.formalitaet || 'normal',
+    };
+  }, [profileQuery.data]);
+
+  const originalContext = contextQuery.data?.content || defaultContextTemplate;
+  const lastUpdated = contextQuery.data?.updated_at ?? null;
+
+  // Local form state — synced from server on initial load and after every save
+  const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
+  const [contextContent, setContextContent] = useState('');
+  const [originalSnapshot, setOriginalSnapshot] = useState<string>('');
+  const [originalContextSnapshot, setOriginalContextSnapshot] = useState<string>('');
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
-  // Profile fields
-  const [companyName, setCompanyName] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [customIndustry, setCustomIndustry] = useState('');
-  const [products, setProducts] = useState('');
-  const [answerLength, setAnswerLength] = useState('mittel');
-  const [formality, setFormality] = useState('normal');
-
-  // Company context fields
-  const [contextContent, setContextContent] = useState('');
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-
-  // Original state for change detection
-  const [originalProfile, setOriginalProfile] = useState<Record<string, string> | null>(null);
-  const [originalContext, setOriginalContext] = useState('');
-
-  const parseYaml = useCallback((yamlStr: string) => {
-    if (!yamlStr) return {} as Record<string, string | string[]>;
-    const data: Record<string, string | string[]> = {};
-    for (const line of yamlStr.split('\n')) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('- ') || !trimmed || trimmed.startsWith('#')) continue;
-      const colonIdx = trimmed.indexOf(':');
-      if (colonIdx > 0) {
-        const key = trimmed.substring(0, colonIdx).trim();
-        const val = trimmed
-          .substring(colonIdx + 1)
-          .trim()
-          .replace(/^["']|["']$/g, '');
-        data[key] = val;
-      }
+  // Sync local form from server when query data changes (initial load, after save)
+  if (profileQuery.data) {
+    const snapshot = JSON.stringify(originalForm);
+    if (snapshot !== originalSnapshot) {
+      setForm(originalForm);
+      setOriginalSnapshot(snapshot);
     }
-    const lines = yamlStr.split('\n');
-    const produkteIdx = lines.findIndex(l => l.trim() === 'produkte:');
-    if (produkteIdx >= 0) {
-      const items: string[] = [];
-      for (let i = produkteIdx + 1; i < lines.length; i++) {
-        const l = lines[i].trim();
-        if (l.startsWith('- ')) {
-          items.push(l.substring(2).trim());
-        } else if (l && !l.startsWith('#')) {
-          break;
-        }
-      }
-      data._produkte = items;
-    }
-    const praefIdx = lines.findIndex(l => l.trim() === 'praeferenzen:');
-    if (praefIdx >= 0) {
-      for (let i = praefIdx + 1; i < lines.length; i++) {
-        const l = lines[i].trim();
-        if (l.startsWith('antwortlaenge:')) {
-          data._antwortlaenge = l
-            .split(':')[1]
-            .trim()
-            .replace(/^["']|["']$/g, '');
-        } else if (l.startsWith('formalitaet:')) {
-          data._formalitaet = l
-            .split(':')[1]
-            .trim()
-            .replace(/^["']|["']$/g, '');
-        } else if (l && !l.startsWith('#') && !l.startsWith('-')) {
-          if (l.indexOf(':') > 0 && !l.startsWith(' ')) break;
-        }
-      }
-    }
-    return data;
-  }, []);
+  }
+  if (contextQuery.data && originalContext !== originalContextSnapshot) {
+    setContextContent(originalContext);
+    setOriginalContextSnapshot(originalContext);
+  }
 
-  const fetchData = useCallback(
-    async (signal: AbortSignal) => {
-      try {
-        const [profileData, contextData] = await Promise.all([
-          api.get('/memory/profile', { signal, showError: false }).catch(() => ({ profile: null })),
-          api
-            .get('/settings/company-context', { signal, showError: false })
-            .catch(() => ({ content: '', updated_at: null })),
-        ]);
-
-        if (profileData.profile) {
-          const parsed = parseYaml(profileData.profile);
-          const firma = (parsed.firma as string) || '';
-          const branche = (parsed.branche as string) || '';
-          const prods = Array.isArray(parsed._produkte) ? parsed._produkte.join(', ') : '';
-          const aLen = (parsed._antwortlaenge as string) || 'mittel';
-          const form = (parsed._formalitaet as string) || 'normal';
-
-          setCompanyName(firma);
-          if (AI_INDUSTRIES.includes(branche)) {
-            setIndustry(branche);
-            setCustomIndustry('');
-          } else if (branche) {
-            setIndustry('custom');
-            setCustomIndustry(branche);
-          }
-          setProducts(prods);
-          setAnswerLength(aLen);
-          setFormality(form);
-          setOriginalProfile({ firma, branche, prods, aLen, form });
-        } else {
-          setOriginalProfile({ firma: '', branche: '', prods: '', aLen: 'mittel', form: 'normal' });
-        }
-
-        const ctx = contextData.content || defaultContextTemplate;
-        setContextContent(ctx);
-        setOriginalContext(ctx);
-        setLastUpdated(contextData.updated_at || null);
-      } catch (error) {
-        if (signal?.aborted) return;
-        console.error('Error fetching profile data:', error);
-        setOriginalProfile({ firma: '', branche: '', prods: '', aLen: 'mittel', form: 'normal' });
-        setContextContent(defaultContextTemplate);
-        setOriginalContext(defaultContextTemplate);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api, parseYaml]
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchData(controller.signal);
-    return () => controller.abort();
-  }, [fetchData]);
-
-  const currentProfileState = {
-    firma: companyName,
-    branche: industry === 'custom' ? customIndustry : industry,
-    prods: products,
-    aLen: answerLength,
-    form: formality,
-  };
-
-  const profileChanged =
-    originalProfile &&
-    (currentProfileState.firma !== originalProfile.firma ||
-      currentProfileState.branche !== originalProfile.branche ||
-      currentProfileState.prods !== originalProfile.prods ||
-      currentProfileState.aLen !== originalProfile.aLen ||
-      currentProfileState.form !== originalProfile.form);
-
-  const contextChanged = contextContent !== originalContext;
+  const profileChanged = JSON.stringify(form) !== originalSnapshot;
+  const contextChanged = contextContent !== originalContextSnapshot;
   const hasChanges = profileChanged || contextChanged;
 
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasChanges) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasChanges]);
+  // Report dirty state to the Settings-level UnsavedChangesProvider, which
+  // installs the browser beforeunload warning AND lets Settings prompt
+  // before in-app tab switches discard our edits.
+  useUnsavedChangesGuard(hasChanges);
 
   const handleSave = async () => {
-    setSaving(true);
     setMessage(null);
+    const tasks: Promise<unknown>[] = [];
+
+    if (profileChanged) {
+      const resolvedIndustry = form.industry === 'custom' ? form.customIndustry : form.industry;
+      const productList = form.products
+        .split(',')
+        .map(p => p.trim())
+        .filter(Boolean);
+      tasks.push(
+        updateProfile.mutateAsync({
+          companyName: form.companyName || 'Unbekannt',
+          industry: resolvedIndustry,
+          teamSize: '',
+          products: productList,
+          preferences: { antwortlaenge: form.answerLength, formalitaet: form.formality },
+        })
+      );
+    }
+
+    if (contextChanged) {
+      tasks.push(updateContext.mutateAsync(contextContent));
+    }
 
     try {
-      const promises: Promise<unknown>[] = [];
-
-      if (profileChanged) {
-        const resolvedIndustry = industry === 'custom' ? customIndustry : industry;
-        const productList = products
-          .split(',')
-          .map(p => p.trim())
-          .filter(Boolean);
-
-        promises.push(
-          api.post(
-            '/memory/profile',
-            {
-              companyName: companyName || 'Unbekannt',
-              industry: resolvedIndustry,
-              teamSize: '',
-              products: productList,
-              preferences: { antwortlaenge: answerLength, formalitaet: formality },
-            },
-            { showError: false }
-          )
-        );
-      }
-
-      if (contextChanged) {
-        promises.push(
-          api.put('/settings/company-context', { content: contextContent }, { showError: false })
-        );
-      }
-
-      const results = await Promise.all(promises);
-
-      setOriginalProfile({ ...currentProfileState });
-      setOriginalContext(contextContent);
-
-      const contextResult = results.find(r => r?.updated_at);
-      if (contextResult) {
-        setLastUpdated(contextResult.updated_at);
-      }
-
+      await Promise.all(tasks);
       setMessage({ type: 'success', text: 'KI-Profil erfolgreich gespeichert' });
     } catch (error: unknown) {
       const err = error as { message?: string };
-      setMessage({
-        type: 'error',
-        text: err.message || 'Fehler beim Speichern',
-      });
-    } finally {
-      setSaving(false);
+      setMessage({ type: 'error', text: err.message || 'Fehler beim Speichern' });
     }
   };
 
@@ -285,8 +178,8 @@ export function AIProfileSettings() {
             <Label htmlFor="companyName">Firmenname</Label>
             <Input
               id="companyName"
-              value={companyName}
-              onChange={e => setCompanyName(e.target.value)}
+              value={form.companyName}
+              onChange={e => setForm(f => ({ ...f, companyName: e.target.value }))}
               placeholder="z.B. Muster GmbH"
             />
           </div>
@@ -294,11 +187,14 @@ export function AIProfileSettings() {
           <div className="space-y-2">
             <Label>Branche</Label>
             <Select
-              value={industry}
-              onValueChange={val => {
-                setIndustry(val);
-                if (val !== 'custom') setCustomIndustry('');
-              }}
+              value={form.industry}
+              onValueChange={val =>
+                setForm(f => ({
+                  ...f,
+                  industry: val,
+                  customIndustry: val === 'custom' ? f.customIndustry : '',
+                }))
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="-- Bitte wählen --" />
@@ -312,11 +208,11 @@ export function AIProfileSettings() {
                 <SelectItem value="custom">Sonstige...</SelectItem>
               </SelectContent>
             </Select>
-            {industry === 'custom' && (
+            {form.industry === 'custom' && (
               <Input
                 className="mt-2"
-                value={customIndustry}
-                onChange={e => setCustomIndustry(e.target.value)}
+                value={form.customIndustry}
+                onChange={e => setForm(f => ({ ...f, customIndustry: e.target.value }))}
                 placeholder="Ihre Branche eingeben..."
               />
             )}
@@ -328,8 +224,8 @@ export function AIProfileSettings() {
             </Label>
             <Input
               id="products"
-              value={products}
-              onChange={e => setProducts(e.target.value)}
+              value={form.products}
+              onChange={e => setForm(f => ({ ...f, products: e.target.value }))}
               placeholder="z.B. Webentwicklung, Cloud-Hosting, Beratung"
             />
             <p className="text-xs text-muted-foreground">Komma-getrennt eingeben</p>
@@ -369,8 +265,8 @@ export function AIProfileSettings() {
           <div className="space-y-2">
             <Label>Antwortlänge</Label>
             <RadioGroup
-              value={answerLength}
-              onValueChange={setAnswerLength}
+              value={form.answerLength}
+              onValueChange={val => setForm(f => ({ ...f, answerLength: val }))}
               className="flex flex-wrap gap-3"
             >
               {[
@@ -391,8 +287,8 @@ export function AIProfileSettings() {
           <div className="space-y-2">
             <Label>Formalität</Label>
             <RadioGroup
-              value={formality}
-              onValueChange={setFormality}
+              value={form.formality}
+              onValueChange={val => setForm(f => ({ ...f, formality: val }))}
               className="flex flex-wrap gap-3"
             >
               {[
@@ -411,19 +307,8 @@ export function AIProfileSettings() {
           </div>
         </section>
 
-        {/* Message */}
-        {message && (
-          <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-            {message.type === 'success' ? (
-              <Check className="size-4" />
-            ) : (
-              <AlertCircle className="size-4" />
-            )}
-            <AlertDescription>{message.text}</AlertDescription>
-          </Alert>
-        )}
+        <StatusMessage message={message as { type: 'success' | 'error'; text: string } | null} />
 
-        {/* Save Footer */}
         <div className="flex items-center justify-between py-2">
           <div>
             {hasChanges && (

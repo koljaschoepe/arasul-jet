@@ -16,7 +16,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import ChatTopBar from '../ChatTopBar';
+import ChatTopBar from '../components/ChatTopBar';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({

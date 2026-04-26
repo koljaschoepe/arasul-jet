@@ -8,11 +8,26 @@
  * - Error Handling
  */
 
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import Settings from '../Settings';
+
+function TestProviders({ children }: { children: ReactNode }) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ToastProvider>{children}</ToastProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
 
 // Mock AuthContext - useApi now requires AuthProvider
 vi.mock('../../../contexts/AuthContext', () => ({
@@ -37,7 +52,7 @@ vi.mock('../../system/SelfHealingEvents', () => ({
     );
   },
 }));
-vi.mock('../PasswordManagement', () => ({
+vi.mock('../components/PasswordManagement', () => ({
   default: () => {
     const React = require('react');
     return React.createElement(
@@ -122,9 +137,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(screen.getByText('Einstellungen')).toBeInTheDocument();
@@ -135,9 +150,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       // Nav items appear in both mobile and desktop navs
@@ -156,9 +171,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       // Descriptions appear in desktop sidebar nav (hidden on mobile)
@@ -173,9 +188,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => {
@@ -194,9 +209,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await user.click(screen.getAllByText('Updates')[0]);
@@ -209,9 +224,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await user.click(screen.getAllByText('Self-Healing')[0]);
@@ -224,9 +239,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await user.click(screen.getAllByText('Sicherheit')[0]);
@@ -239,9 +254,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings handleLogout={vi.fn()} />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await user.click(screen.getAllByText('Sicherheit')[0]);
@@ -255,9 +270,9 @@ describe('Settings Component', () => {
       mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await user.click(screen.getAllByText('KI-Profil')[0]);
@@ -272,9 +287,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       // Initial - Allgemein should be active (find the desktop sidebar button with 'bg-muted' class)
@@ -307,9 +322,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => {
@@ -327,9 +342,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => {
@@ -344,9 +359,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => {
@@ -359,9 +374,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => {
@@ -375,17 +390,22 @@ describe('Settings Component', () => {
       global.fetch.mockRejectedValue(new Error('Network error'));
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
-      await waitFor(() => {
-        expect(
-          screen.getByText('Systeminformationen konnten nicht geladen werden.')
-        ).toBeInTheDocument();
-      });
-    });
+      // useApi retries GET 4 times (100/500/2500ms backoff = ~3.1s) before
+      // the query settles to error state. waitFor needs to outwait that.
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText('Systeminformationen konnten nicht geladen werden.')
+          ).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
+    }, 10_000);
   });
 
   // =====================================================
@@ -399,9 +419,9 @@ describe('Settings Component', () => {
         global.fetch.mockImplementation(() => new Promise(() => {}));
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -424,9 +444,9 @@ describe('Settings Component', () => {
         });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -440,9 +460,9 @@ describe('Settings Component', () => {
         mockProfileAndContextFetch(null, { content: null, updated_at: null });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -467,9 +487,9 @@ describe('Settings Component', () => {
         mockProfileAndContextFetch(null, { content: 'Initial content', updated_at: null });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -498,9 +518,9 @@ describe('Settings Component', () => {
         mockProfileAndContextFetch(null, { content: 'Initial', updated_at: null });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -529,9 +549,9 @@ describe('Settings Component', () => {
         mockProfileAndContextFetch(null, { content: 'Initial', updated_at: null });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -587,9 +607,9 @@ describe('Settings Component', () => {
         });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -646,9 +666,9 @@ describe('Settings Component', () => {
         });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -710,9 +730,9 @@ describe('Settings Component', () => {
         });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -769,9 +789,9 @@ describe('Settings Component', () => {
         });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -810,9 +830,9 @@ describe('Settings Component', () => {
         });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -833,9 +853,9 @@ describe('Settings Component', () => {
         mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -855,26 +875,33 @@ describe('Settings Component', () => {
         global.fetch.mockRejectedValue(new Error('Fetch failed'));
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
-        await waitFor(() => {
-          expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
-        });
+        // Outwait useApi retries (~3.1s for GET network-error)
+        await waitFor(
+          () => {
+            expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
+          },
+          { timeout: 5000 }
+        );
         await user.click(screen.getByText('Zusatzkontext'));
 
-        await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
-            'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
-          );
-          expect(textarea.value).toContain('Zusätzlicher Kontext');
-        });
+        await waitFor(
+          () => {
+            const textarea = screen.getByPlaceholderText(
+              'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
+            );
+            expect(textarea.value).toContain('Zusätzlicher Kontext');
+          },
+          { timeout: 5000 }
+        );
 
         consoleError.mockRestore();
-      });
+      }, 15_000);
     });
 
     describe('Profile Fields', () => {
@@ -883,9 +910,9 @@ describe('Settings Component', () => {
         mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -901,9 +928,9 @@ describe('Settings Component', () => {
         mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
         render(
-          <ToastProvider>
+          <TestProviders>
             <Settings />
-          </ToastProvider>
+          </TestProviders>
         );
         await user.click(screen.getAllByText('KI-Profil')[0]);
 
@@ -924,9 +951,9 @@ describe('Settings Component', () => {
       mockSystemInfoFetch();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
 
       const navItems = screen.getAllByRole('button');
@@ -944,9 +971,9 @@ describe('Settings Component', () => {
       mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <Settings />
-        </ToastProvider>
+        </TestProviders>
       );
       await user.click(screen.getAllByText('KI-Profil')[0]);
 

@@ -5,9 +5,9 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Save, X, Terminal, AlertCircle, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useApi } from '../../hooks/useApi';
-import { useToast } from '../../contexts/ToastContext';
-import useConfirm from '../../hooks/useConfirm';
+import { useApi } from '../../../hooks/useApi';
+import { useToast } from '../../../contexts/ToastContext';
+import useConfirm from '../../../hooks/useConfirm';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';

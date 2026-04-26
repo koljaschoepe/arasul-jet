@@ -1,15 +1,40 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChevronDown, ChevronUp, Cpu, BookOpen, Folder } from 'lucide-react';
-import MermaidDiagram from '../../components/editor/MermaidDiagram';
+import MermaidDiagram from '../../../components/editor/MermaidDiagram';
 import { cn } from '@/lib/utils';
-import type { ChatMessage as ChatMessageType } from '../../contexts/ChatContext';
-import type { MatchedSpace, DocumentSource } from '../../types';
-import './chat.css';
+import type { ChatMessage as ChatMessageType } from '../../../contexts/ChatContext';
+import type { MatchedSpace, DocumentSource } from '../../../types';
+import '../chat.css';
 
 // PERF: Stable reference - avoid recreating on every render
 const remarkPlugins = [remarkGfm];
+
+/**
+ * Map server stream-status codes to user-facing labels. Centralised here so
+ * adding a new status (e.g. `rag_search`) only touches one place.
+ */
+function getStreamStatusLabel(status: string): string {
+  switch (status) {
+    case 'queued':
+      return 'In Warteschlange...';
+    case 'model_loading':
+      return 'Lade Modell...';
+    case 'model_loaded':
+      return 'Modell bereit';
+    case 'thinking':
+      return 'Denke nach...';
+    case 'rag_search':
+      return 'Durchsuche Dokumente...';
+    case 'generating':
+      return 'Generiere Antwort...';
+    case 'compacting':
+      return 'Komprimiere Verlauf...';
+    default:
+      return 'Verarbeite...';
+  }
+}
 
 interface CodeProps {
   node?: unknown;
@@ -63,7 +88,10 @@ function arePropsEqual(prev: ChatMessageProps, next: ChatMessageProps) {
     pm.matchedSpaces === nm.matchedSpaces &&
     pm.streamStatus === nm.streamStatus &&
     pm.statusMessage === nm.statusMessage &&
-    pm.images === nm.images
+    pm.images === nm.images &&
+    pm.tokensPerSecond === nm.tokensPerSecond &&
+    pm.tokenCount === nm.tokenCount &&
+    pm.streamDurationMs === nm.streamDurationMs
   );
 }
 
@@ -187,7 +215,7 @@ const ChatMessage = memo(function ChatMessage({
         </div>
       )}
 
-      {/* Status indicator for model loading / queue */}
+      {/* Status indicator for model loading / queue / processing */}
       {message.role === 'assistant' &&
         !message.content &&
         !message.thinking &&
@@ -195,15 +223,15 @@ const ChatMessage = memo(function ChatMessage({
           <div
             className="flex items-center gap-2 py-3 px-5 text-sm"
             style={{ color: 'var(--text-secondary)' }}
+            role="status"
+            aria-live="polite"
           >
             <span
               className="inline-block size-2 rounded-full animate-pulse"
               style={{ backgroundColor: 'var(--primary-color)' }}
+              aria-hidden="true"
             />
-            <span>
-              {message.statusMessage ||
-                (message.streamStatus === 'model_loading' ? 'Lade Modell...' : 'Verarbeite...')}
-            </span>
+            <span>{message.statusMessage || getStreamStatusLabel(message.streamStatus)}</span>
           </div>
         )}
 
@@ -230,6 +258,22 @@ const ChatMessage = memo(function ChatMessage({
               className="size-2 bg-primary rounded-full animate-[loading-dot_1.2s_ease-in-out_infinite_both] [animation-delay:300ms]"
               aria-hidden="true"
             />
+          </div>
+        )}
+
+      {/* Token-speed badge — small inline metric for completed assistant
+          responses. Helps user calibrate model performance expectations. */}
+      {message.role === 'assistant' &&
+        message.status === 'completed' &&
+        message.tokensPerSecond != null &&
+        message.tokenCount != null &&
+        message.tokenCount > 0 && (
+          <div
+            className="flex items-center gap-2 px-5 pb-2 text-[11px] text-muted-foreground/70"
+            title={`${message.tokenCount} Tokens in ${((message.streamDurationMs ?? 0) / 1000).toFixed(1)}s`}
+          >
+            <Cpu className="size-3" aria-hidden="true" />
+            <span>{message.tokensPerSecond} tokens/sec</span>
           </div>
         )}
 

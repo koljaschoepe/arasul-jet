@@ -1,33 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Lock,
   Eye,
   EyeOff,
   Check,
   X,
-  AlertCircle,
   AlertTriangle,
   Info,
   Monitor,
   HardDrive,
   Zap,
 } from 'lucide-react';
-import { useApi } from '../../hooks/useApi';
-import useConfirm from '../../hooks/useConfirm';
+import useConfirm from '../../../hooks/useConfirm';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
-import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import StatusMessage from '../../../components/ui/StatusMessage';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/shadcn/tabs';
 import { cn } from '@/lib/utils';
-
-interface PasswordRequirements {
-  minLength: number;
-  requireUppercase: boolean;
-  requireLowercase: boolean;
-  requireNumbers: boolean;
-  requireSpecialChars: boolean;
-}
+import { usePasswordRequirementsQuery } from '../hooks/queries';
+import { useChangePasswordMutation } from '../hooks/mutations';
 
 interface PasswordFields {
   current: string;
@@ -49,8 +41,10 @@ const SERVICES: { id: ServiceId; label: string; icon: React.ReactNode }[] = [
 ];
 
 function PasswordManagement() {
-  const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { data: requirements } = usePasswordRequirementsQuery();
+  const changePassword = useChangePasswordMutation();
+
   const [activeService, setActiveService] = useState<ServiceId>('dashboard');
   const [passwords, setPasswords] = useState<Record<ServiceId, PasswordFields>>({
     dashboard: { current: '', new: '', confirm: '' },
@@ -60,52 +54,32 @@ function PasswordManagement() {
     dashboard: { current: false, new: false, confirm: false },
     minio: { current: false, new: false, confirm: false },
   });
-  const [requirements, setRequirements] = useState<PasswordRequirements | null>(null);
-  const [validations, setValidations] = useState({
-    minLength: false,
-    uppercase: false,
-    lowercase: false,
-    number: false,
-    special: false,
-    match: false,
-  });
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
-  useEffect(() => {
-    fetchPasswordRequirements();
-  }, []);
+  const loading = changePassword.isPending;
 
-  useEffect(() => {
-    validatePassword();
-  }, [passwords, activeService]);
-
-  const fetchPasswordRequirements = async () => {
-    try {
-      const data = await api.get('/settings/password-requirements', { showError: false });
-      setRequirements(data.requirements);
-    } catch (error) {
-      console.error('Failed to fetch password requirements:', error);
-    }
-  };
-
-  const validatePassword = () => {
-    const newPass = passwords[activeService].new;
-    const confirmPass = passwords[activeService].confirm;
-
-    if (!requirements) return;
-
-    setValidations({
-      minLength: newPass.length >= requirements.minLength,
-      uppercase: requirements.requireUppercase ? /[A-Z]/.test(newPass) : true,
-      lowercase: requirements.requireLowercase ? /[a-z]/.test(newPass) : true,
-      number: requirements.requireNumbers ? /[0-9]/.test(newPass) : true,
-      special: requirements.requireSpecialChars
-        ? /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPass)
-        : true,
-      match: newPass.length > 0 && newPass === confirmPass,
-    });
-  };
+  // Validations derived from current input + server requirements (no useState needed)
+  const newPass = passwords[activeService]?.new ?? '';
+  const confirmPass = passwords[activeService]?.confirm ?? '';
+  const validations = requirements
+    ? {
+        minLength: newPass.length >= requirements.minLength,
+        uppercase: requirements.requireUppercase ? /[A-Z]/.test(newPass) : true,
+        lowercase: requirements.requireLowercase ? /[a-z]/.test(newPass) : true,
+        number: requirements.requireNumbers ? /[0-9]/.test(newPass) : true,
+        special: requirements.requireSpecialChars
+          ? /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(newPass)
+          : true,
+        match: newPass.length > 0 && newPass === confirmPass,
+      }
+    : {
+        minLength: false,
+        uppercase: false,
+        lowercase: false,
+        number: false,
+        special: false,
+        match: false,
+      };
 
   const handleInputChange = (service: ServiceId, field: keyof PasswordFields, value: string) => {
     setPasswords(prev => ({
@@ -157,7 +131,7 @@ function PasswordManagement() {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!isFormValid()) {
@@ -168,45 +142,42 @@ function PasswordManagement() {
       return;
     }
 
-    setLoading(true);
     setMessage(null);
 
-    try {
-      const data = await api.post(
-        `/settings/password/${activeService}`,
-        {
-          currentPassword: passwords[activeService].current,
-          newPassword: passwords[activeService].new,
+    changePassword.mutate(
+      {
+        service: activeService,
+        currentPassword: passwords[activeService].current,
+        newPassword: passwords[activeService].new,
+      },
+      {
+        onSuccess: data => {
+          setMessage({
+            type: 'success',
+            text: data.message || 'Passwort erfolgreich geändert',
+          });
+          setPasswords(prev => ({
+            ...prev,
+            [activeService]: { current: '', new: '', confirm: '' },
+          }));
+
+          if (activeService === 'dashboard') {
+            setTimeout(() => {
+              localStorage.removeItem('arasul_token');
+              localStorage.removeItem('arasul_user');
+              window.location.href = '/';
+            }, 2000);
+          }
         },
-        { showError: false }
-      );
-
-      setMessage({
-        type: 'success',
-        text: data.message || 'Passwort erfolgreich geändert',
-      });
-
-      setPasswords(prev => ({
-        ...prev,
-        [activeService]: { current: '', new: '', confirm: '' },
-      }));
-
-      if (activeService === 'dashboard') {
-        setTimeout(() => {
-          localStorage.removeItem('arasul_token');
-          localStorage.removeItem('arasul_user');
-          window.location.href = '/';
-        }, 2000);
+        onError: error => {
+          const err = error as { message?: string };
+          setMessage({
+            type: 'error',
+            text: err.message || 'Fehler beim Ändern des Passworts',
+          });
+        },
       }
-    } catch (error: unknown) {
-      const err = error as { message?: string };
-      setMessage({
-        type: 'error',
-        text: err.message || 'Fehler beim Ändern des Passworts',
-      });
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
   const renderPasswordField = (
@@ -376,13 +347,7 @@ function PasswordManagement() {
             </div>
           )}
 
-          {/* Message */}
-          {message && (
-            <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-              <AlertCircle className="size-4" />
-              <AlertDescription>{message.text}</AlertDescription>
-            </Alert>
-          )}
+          <StatusMessage message={message as { type: 'success' | 'error'; text: string } | null} />
 
           {/* Submit Button */}
           <div className="flex justify-end">

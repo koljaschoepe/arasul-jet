@@ -8,9 +8,9 @@ import {
   type ChatSettings,
 } from '../../contexts/ChatContext';
 import { useToast } from '../../contexts/ToastContext';
-import ChatTopBar from './ChatTopBar';
-import ChatInputArea from './ChatInputArea';
-import ChatMessage from './ChatMessage';
+import ChatTopBar from './components/ChatTopBar';
+import ChatInputArea from './components/ChatInputArea';
+import ChatMessage from './components/ChatMessage';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
@@ -28,7 +28,6 @@ export default function ChatView() {
     unregisterMessageCallback,
     reconnectToJob,
     checkActiveJobs,
-    activeJobIds,
     getBackgroundMessages,
     getBackgroundLoading,
     clearBackgroundState,
@@ -91,8 +90,12 @@ export default function ChatView() {
 
     const init = async () => {
       try {
+        interface ChatDataResponse {
+          chat?: { id: number; title?: string; settings?: ChatSettings | null };
+          project?: { id: number; name: string; color: string } | null;
+        }
         const [chatData, msgResult, activeJob] = await Promise.all([
-          api.get(`/chats/${chatId}`, { showError: false }),
+          api.get<ChatDataResponse>(`/chats/${chatId}`, { showError: false }),
           loadMessages(chatId),
           checkActiveJobs(chatId),
         ]);

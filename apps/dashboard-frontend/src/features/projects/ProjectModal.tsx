@@ -67,7 +67,11 @@ const ProjectModal = memo(function ProjectModal({
     api
       .get<{ spaces?: Space[] }>('/spaces', { signal: controller.signal, showError: false })
       .then(data => setSpaces(data.spaces || []))
-      .catch(() => {});
+      .catch(err => {
+        if (err?.name !== 'AbortError') {
+          console.warn('ProjectModal: failed to load spaces', err);
+        }
+      });
     return () => controller.abort();
   }, [isOpen, api]);
 

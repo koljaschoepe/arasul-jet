@@ -11,10 +11,10 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import { useApi } from '../../hooks/useApi';
-import EmptyState from '../../components/ui/EmptyState';
+import { useApi } from '../../../hooks/useApi';
+import EmptyState from '../../../components/ui/EmptyState';
 import { Button } from '@/components/ui/shadcn/button';
-import { formatRelativeTime } from './utils';
+import { formatRelativeTime } from '../utils';
 import { cn } from '@/lib/utils';
 
 interface ProjectConversation {

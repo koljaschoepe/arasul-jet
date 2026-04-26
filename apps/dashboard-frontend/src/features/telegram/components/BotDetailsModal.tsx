@@ -26,10 +26,10 @@ import {
   Gauge,
   Zap,
 } from 'lucide-react';
-import { useApi } from '../../hooks/useApi';
-import { useToast } from '../../contexts/ToastContext';
-import Modal from '../../components/ui/Modal';
-import { SkeletonList } from '../../components/ui/Skeleton';
+import { useApi } from '../../../hooks/useApi';
+import { useToast } from '../../../contexts/ToastContext';
+import Modal from '../../../components/ui/Modal';
+import { SkeletonList } from '../../../components/ui/Skeleton';
 import CommandsEditor from './CommandsEditor';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
@@ -49,7 +49,7 @@ import type {
   TelegramChat,
   OllamaModel,
   DocumentSpace,
-} from '../../types';
+} from '../../../types';
 
 interface BotDetailsModalProps {
   bot: TelegramBot;

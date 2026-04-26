@@ -1,11 +1,20 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Trash2 } from 'lucide-react';
-import { useApi } from '../../hooks/useApi';
-import { useToast } from '../../contexts/ToastContext';
-import { useChatContext } from '../../contexts/ChatContext';
-import useConfirm from '../../hooks/useConfirm';
+import { ArrowLeft, Download, Trash2, Cpu, Star, Check } from 'lucide-react';
+import { useApi } from '../../../hooks/useApi';
+import { useToast } from '../../../contexts/ToastContext';
+import { useChatContext } from '../../../contexts/ChatContext';
+import useConfirm from '../../../hooks/useConfirm';
 import { Button } from '@/components/ui/shadcn/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/shadcn/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 interface ChatTopBarProps {
   chatId: number;
@@ -18,8 +27,29 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
   const navigate = useNavigate();
   const api = useApi();
   const toast = useToast();
-  const { activeJobIds } = useChatContext();
+  const ctx = useChatContext();
+  const { activeJobIds } = ctx;
+  // Defensive defaults — older tests mock this context with only `activeJobIds`
+  const installedModels = ctx.installedModels ?? [];
+  const selectedModel = ctx.selectedModel ?? '';
+  const setSelectedModel = ctx.setSelectedModel ?? (() => {});
+  const defaultModel = ctx.defaultModel ?? '';
+  const loadedModel = ctx.loadedModel ?? '';
+  const favoriteModels = ctx.favoriteModels ?? [];
+  const toggleFavorite = ctx.toggleFavorite ?? (() => {});
+  const setModelAsDefault = ctx.setModelAsDefault ?? (() => {});
   const { confirm, ConfirmDialog } = useConfirm();
+
+  // Effective active model: explicit selection wins, else default, else loaded
+  const activeModelId = selectedModel || defaultModel || loadedModel || '';
+  const activeModel = installedModels.find(m => m.id === activeModelId);
+  const sortedModels = [...installedModels].sort((a, b) => {
+    // Favorites first, then alphabetic
+    const aFav = favoriteModels.includes(a.id);
+    const bFav = favoriteModels.includes(b.id);
+    if (aFav !== bFav) return aFav ? -1 : 1;
+    return (a.name || a.id).localeCompare(b.name || b.id);
+  });
 
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -144,6 +174,95 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
       </div>
 
       <div className="chat-top-bar-actions flex items-center gap-1 ml-auto shrink-0">
+        {/* Model switcher — only shown when models are available */}
+        {installedModels.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 max-w-[200px]"
+                title={`Aktives Modell: ${activeModel?.name || activeModelId || 'Kein Modell'}`}
+                aria-label="Modell wechseln"
+              >
+                <Cpu className="size-3.5 text-primary shrink-0" />
+                <span className="truncate text-xs font-medium">
+                  {activeModel?.name || activeModelId || 'Modell wählen'}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel className="text-xs uppercase tracking-wide text-muted-foreground">
+                Modell auswählen
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {sortedModels.map(model => {
+                const isActive = model.id === activeModelId;
+                const isDefault = model.id === defaultModel;
+                const isLoaded = model.id === loadedModel;
+                const isFav = favoriteModels.includes(model.id);
+                return (
+                  <DropdownMenuItem
+                    key={model.id}
+                    onSelect={() => setSelectedModel(model.id)}
+                    className="flex items-start gap-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {isActive && <Check className="size-3 text-primary shrink-0" />}
+                        <span
+                          className={cn(
+                            'truncate text-sm',
+                            isActive && 'font-semibold text-foreground'
+                          )}
+                        >
+                          {model.name || model.id}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
+                        {isLoaded && <span className="text-primary font-medium">● Geladen</span>}
+                        {isDefault && <span>Standard</span>}
+                        {model.supports_thinking && <span>Thinking</span>}
+                        {model.supports_vision_input && <span>Vision</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        className={cn(
+                          'p-1 rounded hover:bg-muted',
+                          isFav ? 'text-primary' : 'text-muted-foreground'
+                        )}
+                        onClick={e => {
+                          e.stopPropagation();
+                          toggleFavorite(model.id);
+                        }}
+                        title={isFav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
+                        aria-label={isFav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
+                      >
+                        <Star className="size-3" />
+                      </button>
+                      {!isDefault && (
+                        <button
+                          type="button"
+                          className="p-1 rounded hover:bg-muted text-muted-foreground"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setModelAsDefault(model.id);
+                          }}
+                          title="Als Standard setzen"
+                          aria-label="Als Standard setzen"
+                        >
+                          <Cpu className="size-3" />
+                        </button>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <Button
           variant="ghost"
           size="icon"

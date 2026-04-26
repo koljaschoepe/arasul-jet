@@ -6,12 +6,13 @@
  * Migrated to TypeScript + shadcn + Tailwind
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import useConfirm from '../../hooks/useConfirm';
-import EmptyState from '../../components/ui/EmptyState';
-import DataStateRenderer from '../../components/ui/DataStateRenderer';
-import { useToast } from '../../contexts/ToastContext';
+import useConfirm from '../../../hooks/useConfirm';
+import EmptyState from '../../../components/ui/EmptyState';
+import DataStateRenderer from '../../../components/ui/DataStateRenderer';
+import { useToast } from '../../../contexts/ToastContext';
 import {
   Cpu,
   Download,
@@ -26,18 +27,23 @@ import {
   Eye,
   Type,
 } from 'lucide-react';
-import { useDownloads } from '../../contexts/DownloadContext';
-import { useActivation } from '../../contexts/ActivationContext';
-import { useApi } from '../../hooks/useApi';
-import { useFetchData } from '../../hooks/useFetchData';
-import { formatModelSize as formatSize } from '../../utils/formatting';
+import { useDownloads } from '../../../contexts/DownloadContext';
+import { useActivation } from '../../../contexts/ActivationContext';
+import { formatModelSize as formatSize } from '../../../utils/formatting';
 import StoreDetailModal from './StoreDetailModal';
 import DownloadProgress from './DownloadProgress';
 import ActivationButton from './ActivationButton';
-import { SkeletonCard } from '../../components/ui/Skeleton';
+import { SkeletonCard } from '../../../components/ui/Skeleton';
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { cn } from '@/lib/utils';
+import {
+  useModelsCatalogQuery,
+  useModelsStatusQuery,
+  useModelsDefaultQuery,
+} from '../hooks/queries';
+import { useDeleteModelMutation, useSetDefaultModelMutation } from '../hooks/mutations';
+import { storeKeys } from '../hooks/queryKeys';
 
 // --- Interfaces ---
 
@@ -67,13 +73,6 @@ interface QueueEntry {
   pending_count: number;
 }
 
-interface DownloadState {
-  progress: number;
-  phase: string;
-  status?: string;
-  error?: string;
-}
-
 // --- Config ---
 
 const sizeConfig: Record<string, { label: string; description: string }> = {
@@ -93,50 +92,40 @@ const typeConfig: Record<
 };
 
 function StoreModels() {
-  const api = useApi();
   const toast = useToast();
+  const qc = useQueryClient();
   const { confirm, ConfirmDialog } = useConfirm();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
 
-  interface ModelData {
-    catalog: CatalogModel[];
-    loadedModel: LoadedModel | null;
-    defaultModel: string | null;
-    queueByModel: QueueEntry[];
-  }
+  // Three independent queries — TanStack dedups + caches across components
+  const catalogQuery = useModelsCatalogQuery();
+  const statusQuery = useModelsStatusQuery();
+  const defaultQuery = useModelsDefaultQuery();
 
-  const modelFetcher = useCallback(
-    async (signal: AbortSignal) => {
-      const opts = { signal, showError: false };
-      const [catalogData, statusData, defaultData] = await Promise.all([
-        api.get('/models/catalog', opts),
-        api.get('/models/status', opts).catch(() => ({})),
-        api.get('/models/default', opts).catch(() => ({})),
-      ]);
-      return {
-        catalog: (catalogData as { models?: CatalogModel[] }).models || [],
-        loadedModel: (statusData as { loaded_model?: LoadedModel | null }).loaded_model || null,
-        defaultModel: (defaultData as { default_model?: string | null }).default_model || null,
-        queueByModel: (statusData as { queue_by_model?: QueueEntry[] }).queue_by_model || [],
-      } as ModelData;
-    },
-    [api]
-  );
+  const catalog = (catalogQuery.data ?? []) as CatalogModel[];
+  const loadedModel: LoadedModel | null =
+    (statusQuery.data?.loaded_model as LoadedModel | null | undefined) ?? null;
+  const defaultModel: string | null = defaultQuery.data?.default_model ?? null;
+  const queueByModel: QueueEntry[] =
+    (statusQuery.data?.queue_by_model as QueueEntry[] | undefined) ?? [];
 
-  const {
-    data: modelData,
-    setData: setModelData,
-    loading,
-    error,
-    setError,
-    refetch: loadData,
-  } = useFetchData<ModelData>(modelFetcher, {
-    initialData: { catalog: [], loadedModel: null, defaultModel: null, queueByModel: [] },
-    errorMessage: 'Fehler beim Laden der Modell-Daten',
-  });
+  const loading = catalogQuery.isLoading;
+  const queryError = catalogQuery.error;
+  const [localError, setLocalError] = useState<string | null>(null);
+  const error = localError ?? (queryError ? 'Fehler beim Laden der Modell-Daten' : null);
+  const setError = setLocalError;
 
-  const { catalog, loadedModel, defaultModel, queueByModel } = modelData;
+  // Manual reload triggered by download/activation completion
+  const reloadAll = () => {
+    catalogQuery.refetch();
+    statusQuery.refetch();
+    defaultQuery.refetch();
+  };
+
+  // Mutations
+  const deleteMutation = useDeleteModelMutation();
+  const setDefaultMutation = useSetDefaultModelMutation();
 
   const [selectedModel, setSelectedModel] = useState<CatalogModel | null>(null);
 
@@ -148,21 +137,22 @@ function StoreModels() {
     useDownloads();
   const { activation, startActivation, onActivationComplete } = useActivation();
 
-  // Poll for status updates every 30 seconds (catalog changes rarely)
+  // Reload when download or activation completes (status polling already
+  // happens every 5s via useModelsStatusQuery, but downloads finish at
+  // arbitrary times so we trigger an immediate refetch).
   useEffect(() => {
-    const interval = setInterval(() => loadData(), 30000);
-    return () => clearInterval(interval);
-  }, [loadData]);
-
-  // Reload when download or activation completes
-  useEffect(() => {
-    const unsub1 = onDownloadComplete(() => loadData());
-    const unsub2 = onActivationComplete(() => loadData());
+    const unsub1 = onDownloadComplete(() => {
+      qc.invalidateQueries({ queryKey: storeKeys.modelsCatalog() });
+      qc.invalidateQueries({ queryKey: storeKeys.modelsStatus() });
+    });
+    const unsub2 = onActivationComplete(() => {
+      qc.invalidateQueries({ queryKey: storeKeys.modelsStatus() });
+    });
     return () => {
       unsub1();
       unsub2();
     };
-  }, [onDownloadComplete, onActivationComplete, loadData]);
+  }, [onDownloadComplete, onActivationComplete, qc]);
 
   // Highlight model from search
   useEffect(() => {
@@ -188,31 +178,26 @@ function StoreModels() {
   // Delete model
   const handleDelete = async (modelId: string) => {
     if (!(await confirm({ message: `Modell "${modelId}" wirklich löschen?` }))) return;
-
-    try {
-      await api.del(`/models/${modelId}`, { showError: false });
-      await loadData();
-    } catch (err) {
-      console.error('Delete error:', err);
-      const model = catalog.find(m => m.id === modelId);
-      const name = model?.name || modelId;
-      setError(`Fehler beim Löschen von „${name}"`);
-    }
+    deleteMutation.mutate(modelId, {
+      onError: () => {
+        const model = catalog.find(m => m.id === modelId);
+        setError(`Fehler beim Löschen von „${model?.name || modelId}"`);
+      },
+    });
   };
 
   // Set as default
-  const handleSetDefault = async (modelId: string) => {
-    try {
-      await api.post('/models/default', { model_id: modelId }, { showError: false });
-      setModelData(prev => ({ ...prev, defaultModel: modelId }));
-      const model = catalog.find(m => m.id === modelId);
-      toast.success(`„${model?.name || modelId}" als Standard gesetzt`);
-    } catch (err) {
-      console.error('Set default error:', err);
-      const model = catalog.find(m => m.id === modelId);
-      const name = model?.name || modelId;
-      setError(`Fehler beim Setzen von „${name}" als Standard-Modell`);
-    }
+  const handleSetDefault = (modelId: string) => {
+    setDefaultMutation.mutate(modelId, {
+      onSuccess: () => {
+        const model = catalog.find(m => m.id === modelId);
+        toast.success(`„${model?.name || modelId}" als Standard gesetzt`);
+      },
+      onError: () => {
+        const model = catalog.find(m => m.id === modelId);
+        setError(`Fehler beim Setzen von „${model?.name || modelId}" als Standard-Modell`);
+      },
+    });
   };
 
   // Get queue count for model
@@ -239,7 +224,7 @@ function StoreModels() {
       loading={loading && catalog.length === 0}
       error={initialError}
       empty={false}
-      onRetry={() => loadData()}
+      onRetry={reloadAll}
       loadingSkeleton={
         <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
           {Array(6)

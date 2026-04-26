@@ -18,7 +18,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import ChatInputArea from '../ChatInputArea';
+import ChatInputArea from '../components/ChatInputArea';
 
 vi.mock('../../../components/ui/LoadingSpinner', () => ({
   default: function MockLoadingSpinner() {

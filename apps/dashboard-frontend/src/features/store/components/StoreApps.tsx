@@ -8,7 +8,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../../contexts/ToastContext';
+import { useAppsQuery } from '../hooks/queries';
+import { useAppActionMutation } from '../hooks/mutations';
 import {
   Package,
   Download,
@@ -31,9 +33,9 @@ import {
 } from 'lucide-react';
 import StoreDetailModal from './StoreDetailModal';
 import DownloadProgress from './DownloadProgress';
-import DataStateRenderer from '../../components/ui/DataStateRenderer';
-import { SkeletonCard } from '../../components/ui/Skeleton';
-import { useApi } from '../../hooks/useApi';
+import DataStateRenderer from '../../../components/ui/DataStateRenderer';
+import { SkeletonCard } from '../../../components/ui/Skeleton';
+import { useApi } from '../../../hooks/useApi';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
@@ -149,10 +151,7 @@ function StoreApps() {
   const navigate = useNavigate();
 
   const toast = useToast();
-  const [apps, setApps] = useState<App[]>([]);
-  const [loading, setLoading] = useState(true);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, string | null>>({});
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
@@ -166,29 +165,19 @@ function StoreApps() {
     appName: null,
   });
 
-  // Load apps
-  const loadApps = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        const data = await api.get('/apps', { signal, showError: false });
-        setApps(data.apps || []);
-        setError(null);
-      } catch (err: unknown) {
-        if (signal?.aborted) return;
-        console.error('Error loading apps:', err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api]
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    loadApps(controller.signal);
-    return () => controller.abort();
-  }, [loadApps]);
+  // Apps via TanStack Query — refetchInterval handles the 20s polling we
+  // had as a manual setInterval before.
+  const appsQuery = useAppsQuery(20_000);
+  const apps = (appsQuery.data ?? []) as App[];
+  const loading = appsQuery.isLoading;
+  const error = appsQuery.error
+    ? appsQuery.error instanceof Error
+      ? appsQuery.error.message
+      : String(appsQuery.error)
+    : null;
+  const loadApps = useCallback(() => {
+    appsQuery.refetch();
+  }, [appsQuery]);
 
   // SSE-based install with real-time progress
   const handleInstallSSE = useCallback(
@@ -282,17 +271,7 @@ function StoreApps() {
     [apps, installProgress, loadApps, toast]
   );
 
-  // Refresh every 20 seconds (app status changes rarely)
-  useEffect(() => {
-    let active = true;
-    const interval = setInterval(() => {
-      if (active) loadApps();
-    }, 20000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [loadApps]);
+  // (20s polling now handled by useAppsQuery's refetchInterval)
 
   // Loading timeout - show message after 15s
   useEffect(() => {
@@ -313,7 +292,9 @@ function StoreApps() {
     }
   }, [highlightId, apps]);
 
-  // Handle app actions
+  // App action mutation (install/start/stop/restart/uninstall)
+  const appActionMutation = useAppActionMutation();
+
   const handleAction = async (
     appId: string,
     action: string,
@@ -323,8 +304,7 @@ function StoreApps() {
     setActionLoading(prev => ({ ...prev, [appId]: action }));
 
     try {
-      await api.post(`/apps/${appId}/${action}`, options, { showError: false });
-      await loadApps();
+      await appActionMutation.mutateAsync({ appId, action, options });
     } catch (err) {
       console.error(`Error ${action} app ${appId}:`, err);
       const app = apps.find(a => a.id === appId);
@@ -373,7 +353,6 @@ function StoreApps() {
 
   // Retry handler for loading timeout
   const retry = () => {
-    setLoading(true);
     setLoadingTimeout(false);
     loadApps();
   };

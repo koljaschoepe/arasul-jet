@@ -3,6 +3,7 @@ import { X, Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { cn } from '@/lib/utils';
+import { useFocusRestore } from '../../../hooks/useFocusRestore';
 import type { CellValue, Field, Row } from '../types';
 import { FIELD_LABELS, formatCellValue } from '../utils';
 
@@ -25,6 +26,8 @@ const RecordDetailSheet = memo(function RecordDetailSheet({
 }: RecordDetailSheetProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  // Restore focus to the table cell that opened this sheet on close
+  useFocusRestore();
 
   const startEdit = (field: Field) => {
     setEditingField(field.slug);

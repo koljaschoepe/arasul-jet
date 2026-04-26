@@ -63,7 +63,7 @@ vi.mock('../../../contexts/ChatContext', () => ({
 }));
 
 // Mock child components to isolate ChatView logic
-vi.mock('../ChatTopBar', () => ({
+vi.mock('../components/ChatTopBar', () => ({
   default: function MockChatTopBar({ chatId, title }) {
     return (
       <div data-testid="chat-top-bar" data-chat-id={chatId}>
@@ -73,14 +73,14 @@ vi.mock('../ChatTopBar', () => ({
   },
 }));
 
-vi.mock('../ChatInputArea', () => ({
+vi.mock('../components/ChatInputArea', () => ({
   default: function MockChatInputArea({ chatId, disabled }) {
     return <div data-testid="chat-input-area" data-disabled={disabled} />;
   },
 }));
 
 // Mock ChatMessage
-vi.mock('../ChatMessage', () => {
+vi.mock('../components/ChatMessage', () => {
   const React = require('react');
   return {
     default: React.memo(function MockChatMessage({ message }) {

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { CellPosition, CellValue, Field, Row } from './types';
+import type { CellPosition, CellValue, Field, Row } from '../types';
 
 interface ClipboardEntry {
   value: unknown;

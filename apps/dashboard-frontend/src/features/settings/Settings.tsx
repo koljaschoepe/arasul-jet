@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Settings as SettingsIcon,
   Upload,
@@ -15,11 +16,15 @@ import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { cn } from '@/lib/utils';
 import { useApi } from '../../hooks/useApi';
-import { GeneralSettings } from './GeneralSettings';
-import { AIProfileSettings } from './AIProfileSettings';
-import { ServicesSettings } from './ServicesSettings';
-import { SecuritySettings } from './SecuritySettings';
-import { RemoteAccessSettings } from './RemoteAccessSettings';
+import {
+  UnsavedChangesProvider,
+  useUnsavedChangesGate,
+} from '../../contexts/UnsavedChangesContext';
+import { GeneralSettings } from './components/GeneralSettings';
+import { AIProfileSettings } from './components/AIProfileSettings';
+import { ServicesSettings } from './components/ServicesSettings';
+import { SecuritySettings } from './components/SecuritySettings';
+import { RemoteAccessSettings } from './components/RemoteAccessSettings';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -79,13 +84,36 @@ const sections: Section[] = [
   },
 ];
 
-function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
+const VALID_SECTIONS = new Set(sections.map(s => s.id));
+const DEFAULT_SECTION = 'general';
+
+function SettingsInner({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   const api = useApi();
-  // TODO: warn about unsaved changes on tab switch
-  // This would require lifting hasChanges state from sub-components (AIProfileSettings etc.)
-  // or implementing a shared context. Skipping for now to avoid over-engineering.
-  const [activeSection, setActiveSection] = useState('general');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loggingOutAll, setLoggingOutAll] = useState(false);
+  const confirmDiscard = useUnsavedChangesGate();
+
+  // Active section is driven by URL — `?tab=ai-profile` etc. — so deep links
+  // and back/forward navigation work. Falls back to 'general' for missing or
+  // invalid tabs (so old bookmarks don't break).
+  const tabParam = searchParams.get('tab');
+  const activeSection = tabParam && VALID_SECTIONS.has(tabParam) ? tabParam : DEFAULT_SECTION;
+
+  const setActiveSection = useCallback(
+    (id: string) => {
+      // Confirm discard if any sub-component reports unsaved changes
+      if (id !== activeSection && !confirmDiscard()) return;
+      const next = new URLSearchParams(searchParams);
+      if (id === DEFAULT_SECTION) {
+        next.delete('tab');
+      } else {
+        next.set('tab', id);
+      }
+      // `replace: true` so back-button doesn't bounce through every tab visit
+      setSearchParams(next, { replace: true });
+    },
+    [activeSection, confirmDiscard, searchParams, setSearchParams]
+  );
 
   const handleLogoutAll = async () => {
     setLoggingOutAll(true);
@@ -232,6 +260,20 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
         <div className="max-w-[900px] p-6 max-md:p-4">{renderContent()}</div>
       </ScrollArea>
     </div>
+  );
+}
+
+/**
+ * Settings — wraps the inner page with UnsavedChangesProvider so any
+ * settings sub-form (currently AIProfileSettings, but extensible) can mark
+ * itself dirty via useUnsavedChangesGuard. Tab switches then prompt before
+ * discarding edits.
+ */
+function Settings(props: SettingsProps) {
+  return (
+    <UnsavedChangesProvider>
+      <SettingsInner {...props} />
+    </UnsavedChangesProvider>
   );
 }
 

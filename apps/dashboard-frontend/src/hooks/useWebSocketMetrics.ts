@@ -7,8 +7,17 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { getValidToken } from '../utils/token';
+
+/**
+ * Shared query key for live metrics. WebSocket pushes write into this
+ * cache slot via `qc.setQueryData(metricsLiveKey, data)`, so any consumer
+ * can subscribe via `useQuery({ queryKey: metricsLiveKey })` and React
+ * DevTools shows the live value.
+ */
+export const metricsLiveKey = ['metrics', 'live'] as const;
 
 // WebSocket URL: use wss:// if page is https://, otherwise ws://
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -32,9 +41,21 @@ interface UseWebSocketMetricsReturn {
  * @returns { metrics, wsConnected, wsReconnecting }
  */
 export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetricsReturn {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const qc = useQueryClient();
+  const [metrics, setMetricsState] = useState<Metrics | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [wsReconnecting, setWsReconnecting] = useState(false);
+
+  // Mirror metrics into the TanStack Query cache so other components can
+  // subscribe via `useQuery({ queryKey: metricsLiveKey })` and React Query
+  // DevTools shows the live value flowing in.
+  const setMetrics = useCallback(
+    (data: Metrics | null) => {
+      setMetricsState(data);
+      qc.setQueryData(metricsLiveKey, data);
+    },
+    [qc]
+  );
 
   // Use refs to avoid stale closures in WebSocket callbacks
   const wsRef = useRef<WebSocket | null>(null);

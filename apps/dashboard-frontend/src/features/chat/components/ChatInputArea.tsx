@@ -12,12 +12,12 @@ import {
   FileText,
   RotateCcw,
 } from 'lucide-react';
-import { useChatContext, type ChatMessage, type ChatSettings } from '../../contexts/ChatContext';
-import { useToast } from '../../contexts/ToastContext';
-import { useApi } from '../../hooks/useApi';
-import type { InstalledModel, DocumentSpace, QueueJob } from '../../types';
+import { useChatContext, type ChatMessage, type ChatSettings } from '../../../contexts/ChatContext';
+import { useToast } from '../../../contexts/ToastContext';
+import { useApi } from '../../../hooks/useApi';
+import type { InstalledModel, DocumentSpace, QueueJob } from '../../../types';
 import { cn } from '@/lib/utils';
-import './chat.css';
+import '../chat.css';
 
 interface ChatInputAreaProps {
   chatId: number;
@@ -63,7 +63,6 @@ function ChatInputArea({
   const [showRAGPopup, setShowRAGPopup] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modelPopupRef = useRef<HTMLDivElement>(null);

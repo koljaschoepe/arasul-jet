@@ -1,15 +1,12 @@
-import React from 'react';
 import {
   File,
   Trash2,
   Download,
   RefreshCw,
   AlertCircle,
-  Clock,
   Folder,
   Tag,
   Cpu,
-  Eye,
   Link,
   Pencil,
 } from 'lucide-react';

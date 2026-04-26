@@ -4,8 +4,9 @@
  * Shows loaded-model banner + 4 model cards + 4 app cards
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Cpu,
   ArrowRight,
@@ -22,15 +23,22 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { Button } from '@/components/ui/shadcn/button';
-import { useDownloads } from '../../contexts/DownloadContext';
-import { useActivation } from '../../contexts/ActivationContext';
-import { useToast } from '../../contexts/ToastContext';
-import { useApi } from '../../hooks/useApi';
-import { formatModelSize as formatSize } from '../../utils/formatting';
-import { SkeletonCard } from '../../components/ui/Skeleton';
+import { useDownloads } from '../../../contexts/DownloadContext';
+import { useActivation } from '../../../contexts/ActivationContext';
+import { useToast } from '../../../contexts/ToastContext';
+import { useApi } from '../../../hooks/useApi';
+import { formatModelSize as formatSize } from '../../../utils/formatting';
+import { SkeletonCard } from '../../../components/ui/Skeleton';
 import StoreDetailModal from './StoreDetailModal';
 import DownloadProgress from './DownloadProgress';
 import ActivationButton from './ActivationButton';
+import { useModelsStatusQuery, useModelsDefaultQuery } from '../hooks/queries';
+import {
+  useAppActionMutation,
+  useDeleteModelMutation,
+  useSetDefaultModelMutation,
+} from '../hooks/mutations';
+import { storeKeys } from '../hooks/queryKeys';
 
 interface SystemInfo {
   llmRamGB: number;
@@ -96,52 +104,49 @@ interface Recommendations {
 function StoreHome({ systemInfo }: StoreHomeProps) {
   const api = useApi();
   const toast = useToast();
-  const [recommendations, setRecommendations] = useState<Recommendations>({ models: [], apps: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [loadedModel, setLoadedModel] = useState<LoadedModel | null>(null);
-  const [defaultModel, setDefaultModel] = useState<string | null>(null);
+  const qc = useQueryClient();
   const [actionLoading, setActionLoading] = useState<Record<string, string | null>>({});
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
 
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
   const { activation, startActivation, onActivationComplete } = useActivation();
 
-  // Load recommendations
-  const loadRecommendations = useCallback(async () => {
-    try {
-      const opts = { showError: false };
-      const [recsData, statusData, defaultData] = await Promise.all([
-        api.get('/store/recommendations', opts),
-        api.get('/models/status', opts).catch(() => ({})),
-        api.get('/models/default', opts).catch(() => ({})),
-      ]);
+  // Recommendations is a typed Recommendations object (not just an array),
+  // so we use a one-off useQuery here rather than a generic recommendations
+  // hook. The shape of /store/recommendations is { models: [], apps: [] }.
+  const recsQuery = useQuery({
+    queryKey: storeKeys.recommendations(),
+    queryFn: ({ signal }) =>
+      api.get<Recommendations>('/store/recommendations', { showError: false, signal }),
+  });
+  const recommendations: Recommendations = recsQuery.data ?? { models: [], apps: [] };
+  const statusQuery = useModelsStatusQuery();
+  const defaultQuery = useModelsDefaultQuery();
+  const loadedModel: LoadedModel | null =
+    (statusQuery.data?.loaded_model as LoadedModel | null | undefined) ?? null;
+  const defaultModel: string | null = defaultQuery.data?.default_model ?? null;
+  const loading = recsQuery.isLoading || statusQuery.isLoading;
+  const error = recsQuery.error ? 'Fehler beim Laden der Empfehlungen' : null;
 
-      setRecommendations(recsData);
-      setLoadedModel(statusData.loaded_model);
-      setDefaultModel(defaultData.default_model || null);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to load recommendations:', err);
-      setError('Fehler beim Laden der Empfehlungen');
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
+  // Mutations
+  const appActionMutation = useAppActionMutation();
+  const deleteModelMutation = useDeleteModelMutation();
+  const setDefaultMutation = useSetDefaultModelMutation();
 
+  // Reload all on download/activation complete
   useEffect(() => {
-    loadRecommendations();
-  }, [loadRecommendations]);
-
-  // Reload when download or activation completes
-  useEffect(() => {
-    const unsub1 = onDownloadComplete(() => loadRecommendations());
-    const unsub2 = onActivationComplete(() => loadRecommendations());
+    const refresh = () => {
+      qc.invalidateQueries({ queryKey: storeKeys.recommendations() });
+      qc.invalidateQueries({ queryKey: storeKeys.modelsStatus() });
+      qc.invalidateQueries({ queryKey: storeKeys.modelsDefault() });
+    };
+    const unsub1 = onDownloadComplete(refresh);
+    const unsub2 = onActivationComplete(refresh);
     return () => {
       unsub1();
       unsub2();
     };
-  }, [onDownloadComplete, onActivationComplete, loadRecommendations]);
+  }, [onDownloadComplete, onActivationComplete, qc]);
 
   // Handle model download
   const handleModelDownload = (modelId: string, modelName: string) => {
@@ -159,8 +164,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
     if (actionLoading[appId]) return;
     setActionLoading(prev => ({ ...prev, [appId]: action }));
     try {
-      await api.post(`/apps/${appId}/${action}`, null, { showError: false });
-      await loadRecommendations();
+      await appActionMutation.mutateAsync({ appId, action });
     } catch (err) {
       console.error(`App ${action} error:`, err);
       const app = recommendations.apps.find(a => a.id === appId);
@@ -182,9 +186,8 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
   const handleModelDelete = async (modelId: string) => {
     setActionLoading(prev => ({ ...prev, [modelId]: 'deleting' }));
     try {
-      await api.del(`/models/${modelId}`, { showError: false });
+      await deleteModelMutation.mutateAsync(modelId);
       toast.success('Modell gelöscht');
-      await loadRecommendations();
     } catch {
       toast.error('Fehler beim Löschen des Modells');
     } finally {
@@ -195,9 +198,8 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
   // Handle setting default model
   const handleSetDefault = async (modelId: string) => {
     try {
-      await api.post('/models/default', { model_id: modelId }, { showError: false });
+      await setDefaultMutation.mutateAsync(modelId);
       toast.success('Standard-Modell gesetzt');
-      await loadRecommendations();
     } catch {
       toast.error('Fehler beim Setzen des Standard-Modells');
     }
@@ -207,9 +209,8 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
   const handleAppUninstall = async (appId: string, appName: string) => {
     setActionLoading(prev => ({ ...prev, [appId]: 'uninstall' }));
     try {
-      await api.post(`/apps/${appId}/uninstall`, null, { showError: false });
+      await appActionMutation.mutateAsync({ appId, action: 'uninstall' });
       toast.success(`„${appName}" deinstalliert`);
-      await loadRecommendations();
     } catch {
       toast.error(`Deinstallation von „${appName}" fehlgeschlagen`);
     } finally {
@@ -234,7 +235,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
     return (
       <div className="store-home-error flex flex-col items-center justify-center min-h-[300px] gap-4 text-muted-foreground">
         <p>{error}</p>
-        <Button variant="outline" onClick={loadRecommendations}>
+        <Button variant="outline" onClick={() => recsQuery.refetch()}>
           Erneut versuchen
         </Button>
       </div>

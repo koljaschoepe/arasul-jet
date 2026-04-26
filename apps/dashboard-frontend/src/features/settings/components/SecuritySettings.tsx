@@ -1,6 +1,6 @@
 import { LogOut, MonitorOff } from 'lucide-react';
 import PasswordManagement from './PasswordManagement';
-import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
+import { ComponentErrorBoundary } from '../../../components/ui/ErrorBoundary';
 import { Button } from '@/components/ui/shadcn/button';
 
 interface SecuritySettingsProps {

@@ -4,14 +4,14 @@
 
 import { useState, useEffect } from 'react';
 import { AlertCircle, Save } from 'lucide-react';
-import Modal from '../../components/ui/Modal';
+import Modal from '../../../components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
-import { useApi } from '../../hooks/useApi';
-import { useToast } from '../../contexts/ToastContext';
-import type { SandboxProject } from './types';
+import { useApi } from '../../../hooks/useApi';
+import { useToast } from '../../../contexts/ToastContext';
+import type { SandboxProject } from '../types';
 
 interface EditProjectDialogProps {
   project: SandboxProject | null;

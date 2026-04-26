@@ -75,6 +75,11 @@ const ERROR_CODES = [
   'RATE_LIMITED',
   'SERVICE_UNAVAILABLE',
   'INTERNAL_ERROR',
+  // LLM-domain codes (sent via SSE error frames, see llmQueueService)
+  'MODEL_NOT_FOUND',
+  'MODEL_SWITCH_FAILED',
+  'CUDA_OOM',
+  'LLM_UNREACHABLE',
 ];
 
 router.get('/_meta', (req, res) => {

@@ -16,7 +16,7 @@ import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import ChatMessage from '../ChatMessage';
+import ChatMessage from '../components/ChatMessage';
 
 // Mock MermaidDiagram component before import - avoids mermaid module issues
 vi.mock('../../../components/editor/MermaidDiagram', () => ({

@@ -121,7 +121,8 @@ describe('Database integration', () => {
     renderDatabaseOverview();
 
     await waitFor(() => {
-      expect(screen.getByText('Datenbank')).toBeInTheDocument();
+      // Renamed from "Datenbank" → "Tabellen" to disambiguate from /data
+      expect(screen.getByText('Tabellen')).toBeInTheDocument();
     });
   });
 
@@ -139,7 +140,9 @@ describe('Database integration', () => {
     renderDatabaseOverview();
 
     await waitFor(() => {
-      expect(screen.getByText(/3 tabellen/i)).toBeInTheDocument();
+      // Badge text changed from "X Tabellen" → "X insgesamt" since the
+      // page title now says "Tabellen" itself.
+      expect(screen.getByText(/3 insgesamt/i)).toBeInTheDocument();
     });
   });
 

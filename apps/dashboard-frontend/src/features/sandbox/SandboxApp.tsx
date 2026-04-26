@@ -12,11 +12,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
-import TerminalTabs from './TerminalTabs';
-import ProjectListPanel from './ProjectListPanel';
-import CreateProjectDialog from './CreateProjectDialog';
-import EditProjectDialog from './EditProjectDialog';
-import SandboxTerminal from './SandboxTerminal';
+import TerminalTabs from './components/TerminalTabs';
+import ProjectListPanel from './components/ProjectListPanel';
+import CreateProjectDialog from './components/CreateProjectDialog';
+import EditProjectDialog from './components/EditProjectDialog';
+import SandboxTerminal from './components/SandboxTerminal';
 import type { SandboxProject, SandboxStats } from './types';
 
 export default function SandboxApp() {

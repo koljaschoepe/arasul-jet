@@ -10,11 +10,23 @@
  * - Fehlermeldungen
  */
 
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import PasswordManagement from '../PasswordManagement';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import PasswordManagement from '../components/PasswordManagement';
+
+function TestProviders({ children }: { children: ReactNode }) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>{children}</ToastProvider>
+    </QueryClientProvider>
+  );
+}
 
 // Mock AuthContext - useApi now requires AuthProvider
 vi.mock('../../../contexts/AuthContext', () => ({
@@ -58,9 +70,9 @@ describe('PasswordManagement Component', () => {
   describe('Initial Rendering', () => {
     test('rendert Header mit Titel', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
@@ -68,9 +80,9 @@ describe('PasswordManagement Component', () => {
 
     test('rendert Beschreibung', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(
@@ -80,9 +92,9 @@ describe('PasswordManagement Component', () => {
 
     test('zeigt Lock-Icon', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       // Lock icon is rendered inside the h3 header alongside the title
@@ -93,9 +105,9 @@ describe('PasswordManagement Component', () => {
 
     test('lädt Passwort-Anforderungen beim Mount', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => {
@@ -115,9 +127,9 @@ describe('PasswordManagement Component', () => {
   describe('Service Selector', () => {
     test('zeigt alle drei Services', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
@@ -127,9 +139,9 @@ describe('PasswordManagement Component', () => {
 
     test('Dashboard ist standardmäßig aktiv', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       const dashboardButton = screen.getByText('Dashboard').closest('button');
@@ -139,9 +151,9 @@ describe('PasswordManagement Component', () => {
     test('wechselt zu MinIO bei Click', async () => {
       const user = userEvent.setup();
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await user.click(screen.getByText('MinIO'));
@@ -152,9 +164,9 @@ describe('PasswordManagement Component', () => {
 
     test('zeigt Service-Icons', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       const tabs = screen.getAllByRole('tab');
@@ -171,9 +183,9 @@ describe('PasswordManagement Component', () => {
   describe('Form Fields', () => {
     test('zeigt Aktuelles-Passwort Feld', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(screen.getByPlaceholderText('Dashboard-Passwort eingeben')).toBeInTheDocument();
@@ -181,9 +193,9 @@ describe('PasswordManagement Component', () => {
 
     test('zeigt Neues-Passwort Feld', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(screen.getByPlaceholderText('Neues Passwort eingeben')).toBeInTheDocument();
@@ -191,9 +203,9 @@ describe('PasswordManagement Component', () => {
 
     test('zeigt Passwort-Bestätigung Feld', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(screen.getByPlaceholderText('Neues Passwort bestätigen')).toBeInTheDocument();
@@ -201,9 +213,9 @@ describe('PasswordManagement Component', () => {
 
     test('Felder sind initiell leer', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       const currentField = screen.getByPlaceholderText('Dashboard-Passwort eingeben');
@@ -217,9 +229,9 @@ describe('PasswordManagement Component', () => {
 
     test('zeigt Hinweis für aktuelles Passwort', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(
@@ -234,9 +246,9 @@ describe('PasswordManagement Component', () => {
   describe('Password Visibility Toggle', () => {
     test('Passwörter sind initial versteckt', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       const currentField = screen.getByPlaceholderText('Dashboard-Passwort eingeben');
@@ -246,9 +258,9 @@ describe('PasswordManagement Component', () => {
     test('kann Aktuelles-Passwort sichtbar machen', async () => {
       const user = userEvent.setup();
       const { container } = render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       const passwordFields = container.querySelectorAll('.relative');
@@ -264,9 +276,9 @@ describe('PasswordManagement Component', () => {
     test('kann Passwort wieder verstecken', async () => {
       const user = userEvent.setup();
       const { container } = render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       const passwordFields = container.querySelectorAll('.relative');
@@ -288,9 +300,9 @@ describe('PasswordManagement Component', () => {
     test('zeigt Anforderungen wenn neues Passwort eingegeben', async () => {
       const user = userEvent.setup();
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => {
@@ -306,9 +318,9 @@ describe('PasswordManagement Component', () => {
     test('zeigt Mindestlänge-Anforderung', async () => {
       const user = userEvent.setup();
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
@@ -322,9 +334,9 @@ describe('PasswordManagement Component', () => {
     test('zeigt Übereinstimmungs-Anforderung', async () => {
       const user = userEvent.setup();
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
@@ -343,9 +355,9 @@ describe('PasswordManagement Component', () => {
     test('markiert erfüllte Anforderungen als valid', async () => {
       const user = userEvent.setup();
       const { container } = render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
@@ -360,9 +372,9 @@ describe('PasswordManagement Component', () => {
     test('markiert nicht-erfüllte Anforderungen als invalid', async () => {
       const user = userEvent.setup();
       const { container } = render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
@@ -382,9 +394,9 @@ describe('PasswordManagement Component', () => {
   describe('Submit Button', () => {
     test('zeigt Submit-Button', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(screen.getByText('Passwort ändern')).toBeInTheDocument();
@@ -392,9 +404,9 @@ describe('PasswordManagement Component', () => {
 
     test('Submit-Button ist initial disabled', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       const submitButton = screen.getByText('Passwort ändern');
@@ -408,9 +420,9 @@ describe('PasswordManagement Component', () => {
   describe('Warning Messages', () => {
     test('zeigt Dashboard-Logout Warnung', async () => {
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       expect(
@@ -423,9 +435,9 @@ describe('PasswordManagement Component', () => {
     test('zeigt MinIO-Neustart Info bei MinIO Auswahl', async () => {
       const user = userEvent.setup();
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await user.click(screen.getByText('MinIO'));
@@ -457,9 +469,9 @@ describe('PasswordManagement Component', () => {
       });
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
@@ -503,9 +515,9 @@ describe('PasswordManagement Component', () => {
       });
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
@@ -550,9 +562,9 @@ describe('PasswordManagement Component', () => {
       });
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       await waitFor(() => expect(global.fetch).toHaveBeenCalled());
@@ -579,9 +591,9 @@ describe('PasswordManagement Component', () => {
     test('löscht Nachricht bei Service-Wechsel', async () => {
       const user = userEvent.setup();
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
       // Set some state that would show a message
@@ -599,19 +611,19 @@ describe('PasswordManagement Component', () => {
   describe('Error Handling', () => {
     test('behandelt fehlgeschlagene Anforderungs-Abfrage', async () => {
       global.fetch = vi.fn(() => Promise.reject(new Error('Network error')));
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
 
       render(
-        <ToastProvider>
+        <TestProviders>
           <PasswordManagement />
-        </ToastProvider>
+        </TestProviders>
       );
 
+      // Behavior test: component still renders (form fields visible) even when
+      // requirements fetch fails. TanStack Query handles the error internally;
+      // the component simply has no validation hints to show.
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalled();
+        expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
       });
-
-      consoleSpy.mockRestore();
     });
   });
 });

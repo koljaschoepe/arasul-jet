@@ -118,8 +118,8 @@ const DatabaseOverview = memo(function DatabaseOverview() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6 gap-4 flex-wrap max-md:flex-col max-md:items-start">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-foreground m-0">Datenbank</h1>
-          <Badge variant="secondary">{tables.length} Tabellen</Badge>
+          <h1 className="text-2xl font-bold text-foreground m-0">Tabellen</h1>
+          <Badge variant="secondary">{tables.length} insgesamt</Badge>
         </div>
         <Button className="max-md:w-full max-md:justify-center" onClick={handleCreateTable}>
           <Plus className="size-4" /> Neue Tabelle

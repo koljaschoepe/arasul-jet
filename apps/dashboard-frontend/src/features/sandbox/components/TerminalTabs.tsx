@@ -16,7 +16,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { cn } from '@/lib/utils';
-import type { SandboxProject } from './types';
+import type { SandboxProject } from '../types';
 
 interface TerminalTabsProps {
   openTabs: SandboxProject[];

@@ -9,6 +9,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import { X, Save, FileText, Maximize2, Minimize2, AlertCircle } from 'lucide-react';
 import useConfirm from '../../../hooks/useConfirm';
 import { useApi } from '../../../hooks/useApi';
+import { useFocusRestore } from '../../../hooks/useFocusRestore';
 import { createExtensions } from './extensions';
 import './tiptap-editor.css';
 
@@ -30,6 +31,8 @@ const TipTapEditor = memo(function TipTapEditor({
   const { confirm, ConfirmDialog } = useConfirm();
   const containerRef = useRef<HTMLDivElement>(null);
   const originalContentRef = useRef<string>('');
+  // Restore focus to whatever opened the editor when it closes
+  useFocusRestore();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

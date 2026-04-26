@@ -28,7 +28,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useTerminal } from './useTerminal';
+import { useTerminal } from '../hooks/useTerminal';
 import '@xterm/xterm/css/xterm.css';
 
 interface QuickLaunchItem {

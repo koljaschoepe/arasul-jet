@@ -102,7 +102,8 @@ describe('useApi', () => {
   });
 
   it('shows toast error on failure when showError is true', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    // Persistent mock: GET 500s are retried 3× before the toast fires
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
       status: 500,
       json: () => Promise.resolve({ message: 'Server Error' }),
@@ -119,7 +120,7 @@ describe('useApi', () => {
     });
 
     expect(mockToast.error).toHaveBeenCalledWith('Server Error');
-  });
+  }, 10_000);
 
   it('does not show toast when showError is false', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -251,16 +252,15 @@ describe('useApi', () => {
   });
 
   it('handles network errors gracefully', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new TypeError('Failed to fetch')
-    );
+    // Persistent rejection: GET network errors retry 3× before throwing
+    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new TypeError('Failed to fetch'));
 
     const { result } = renderHook(() => useApi());
 
     await act(async () => {
       await expect(result.current.get('/unreachable')).rejects.toThrow('Failed to fetch');
     });
-  });
+  }, 10_000);
 
   it('supports custom headers', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -282,7 +282,8 @@ describe('useApi', () => {
   });
 
   it('handles JSON parse errors on error responses', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    // Persistent: 500 + JSON-parse-error retried 3× before throwing
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
       status: 500,
       json: () => Promise.reject(new SyntaxError('Unexpected token')),
@@ -298,6 +299,115 @@ describe('useApi', () => {
         expect(err.message).toBe('Unbekannter Fehler');
         expect(err.status).toBe(500);
       }
+    });
+  }, 10_000);
+
+  // ---- Retry behavior (Phase 4.3) ----
+
+  describe('retry logic', () => {
+    it('retries GET on 500 with exponential backoff', async () => {
+      // First 2 attempts: 500. Third attempt: 200.
+      (global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ message: 'Transient' }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          json: () => Promise.resolve({ message: 'Transient' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true }),
+        });
+
+      const { result } = renderHook(() => useApi());
+      let data: unknown;
+      await act(async () => {
+        data = await result.current.get('/flaky');
+      });
+
+      expect(data).toEqual({ ok: true });
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+      // No toast fired because the eventual response was 200
+      expect(mockToast.error).not.toHaveBeenCalled();
+    }, 10_000);
+
+    it('does NOT retry GET on 4xx (user errors)', async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({ message: 'Not found' }),
+      });
+
+      const { result } = renderHook(() => useApi());
+      await act(async () => {
+        await expect(result.current.get('/missing')).rejects.toThrow('Not found');
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT retry POST/PUT/PATCH/DEL (non-idempotent)', async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ message: 'Server Error' }),
+      });
+
+      const { result } = renderHook(() => useApi());
+      await act(async () => {
+        await expect(result.current.post('/things', { name: 'x' })).rejects.toThrow();
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws after 4 attempts on persistent 5xx', async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: () => Promise.resolve({ message: 'Down' }),
+      });
+
+      const { result } = renderHook(() => useApi());
+      await act(async () => {
+        await expect(result.current.get('/down')).rejects.toThrow('Down');
+      });
+
+      // 1 initial + 3 retries = 4 attempts
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+    }, 10_000);
+
+    it('does NOT retry on AbortError', async () => {
+      const abortErr = new DOMException('Aborted', 'AbortError');
+      (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(abortErr);
+
+      const { result } = renderHook(() => useApi());
+      await act(async () => {
+        await expect(result.current.get('/cancelled')).rejects.toThrow('Aborted');
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT retry on 401 (auto-logout instead)', async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ message: 'Unauthorized' }),
+      });
+
+      const { result } = renderHook(() => useApi());
+      await act(async () => {
+        await expect(result.current.get('/protected')).rejects.toThrow('Sitzung abgelaufen');
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(mockLogout).toHaveBeenCalledTimes(1);
     });
   });
 

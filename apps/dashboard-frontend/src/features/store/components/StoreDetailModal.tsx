@@ -30,8 +30,8 @@ import {
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
-import { sanitizeUrl } from '../../utils/sanitizeUrl';
-import { formatModelSize as formatSize } from '../../utils/formatting';
+import { sanitizeUrl } from '../../../utils/sanitizeUrl';
+import { formatModelSize as formatSize } from '../../../utils/formatting';
 
 // --- Types ---
 

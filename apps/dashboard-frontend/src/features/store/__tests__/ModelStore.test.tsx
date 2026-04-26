@@ -13,6 +13,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StoreModels as ModelStore } from '..';
 import { DownloadProvider } from '../../../contexts/DownloadContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
@@ -26,14 +27,19 @@ vi.mock('../../../contexts/AuthContext', () => ({
 
 // Helper to render with required providers (Router needed for useSearchParams)
 const renderWithProvider = ui => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter>
-      <ToastProvider>
-        <DownloadProvider>
-          <ActivationProvider>{ui}</ActivationProvider>
-        </DownloadProvider>
-      </ToastProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ToastProvider>
+          <DownloadProvider>
+            <ActivationProvider>{ui}</ActivationProvider>
+          </DownloadProvider>
+        </ToastProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 };
 
@@ -340,10 +346,16 @@ describe('ModelStore Component', () => {
 
       renderWithProvider(<ModelStore />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/fehler/i)).toBeInTheDocument();
-      });
-    });
+      // useApi retries GET 4× (~3.1s) before settling — outwait it.
+      // DataStateRenderer renders both an "Fehler beim Laden" headline and the
+      // detail message, so multiple elements match /fehler/i — use getAllByText.
+      await waitFor(
+        () => {
+          expect(screen.getAllByText(/fehler/i).length).toBeGreaterThan(0);
+        },
+        { timeout: 5000 }
+      );
+    }, 10_000);
 
     test('zeigt spezifischen Fehler bei API-Fehler', async () => {
       // useApi reads res.json() on non-ok responses, so we must provide .json()
@@ -356,11 +368,15 @@ describe('ModelStore Component', () => {
 
       renderWithProvider(<ModelStore />);
 
-      await waitFor(() => {
-        // The component catches and sets: 'Fehler beim Laden der Modell-Daten'
-        expect(screen.getByText(/fehler beim laden/i)).toBeInTheDocument();
-      });
-    });
+      await waitFor(
+        () => {
+          // Both "Fehler beim Laden" (headline) and "Fehler beim Laden der
+          // Modell-Daten" (detail) match — use getAllByText.
+          expect(screen.getAllByText(/fehler beim laden/i).length).toBeGreaterThan(0);
+        },
+        { timeout: 5000 }
+      );
+    }, 10_000);
   });
 
   describe('Loading States', () => {

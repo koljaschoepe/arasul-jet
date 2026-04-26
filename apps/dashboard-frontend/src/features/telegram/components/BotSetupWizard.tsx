@@ -20,10 +20,10 @@ import {
   Star,
   Pencil,
 } from 'lucide-react';
-import { useApi } from '../../hooks/useApi';
-import { API_BASE } from '../../config/api';
-import { useToast } from '../../contexts/ToastContext';
-import { sanitizeUrl } from '../../utils/sanitizeUrl';
+import { useApi } from '../../../hooks/useApi';
+import { API_BASE } from '../../../config/api';
+import { useToast } from '../../../contexts/ToastContext';
+import { sanitizeUrl } from '../../../utils/sanitizeUrl';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Textarea } from '@/components/ui/shadcn/textarea';
@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/shadcn/select';
 import { cn } from '@/lib/utils';
 import type { LucideIcon } from 'lucide-react';
-import type { TelegramBot } from '../../types';
+import type { TelegramBot } from '../../../types';
 
 interface BotSetupWizardProps {
   onComplete: (bot: TelegramBot) => void;

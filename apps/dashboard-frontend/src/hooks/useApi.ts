@@ -157,42 +157,92 @@ export function useApi(): ApiMethods {
       // LEAK-002: Default 30s timeout if no signal provided (prevents hanging requests)
       const effectiveSignal = signal || AbortSignal.timeout(30000);
 
-      const res = await fetch(`${API_BASE}${path}`, {
-        method,
-        headers,
-        body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-        signal: effectiveSignal,
-      });
+      // Retry config (exponential backoff). Only safe methods (GET, HEAD)
+      // are auto-retried — POST/PUT/PATCH/DEL may not be idempotent.
+      // Network errors and 5xx server errors are retryable; 4xx errors
+      // (including 401 auth) are not.
+      const isRetryableMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+      const RETRY_DELAYS = [100, 500, 2500] as const;
+      const maxAttempts = isRetryableMethod ? RETRY_DELAYS.length + 1 : 1;
+      const requestBody = body instanceof FormData ? body : body ? JSON.stringify(body) : undefined;
 
-      if (!res.ok) {
-        // 401 interceptor: auto-logout on expired/invalid token
-        if (res.status === 401 && !path.startsWith('/auth/')) {
-          logoutRef.current();
-          const err = new Error('Sitzung abgelaufen') as ApiError;
-          err.status = 401;
-          throw err;
+      let attempt = 0;
+      let lastError: unknown;
+
+      while (attempt < maxAttempts) {
+        try {
+          const res = await fetch(`${API_BASE}${path}`, {
+            method,
+            headers,
+            body: requestBody,
+            signal: effectiveSignal,
+          });
+
+          if (!res.ok) {
+            // 401 interceptor: auto-logout on expired/invalid token (no retry)
+            if (res.status === 401 && !path.startsWith('/auth/')) {
+              logoutRef.current();
+              const err = new Error('Sitzung abgelaufen') as ApiError;
+              err.status = 401;
+              throw err;
+            }
+
+            const rawBody = await res.json().catch(() => null);
+            const { message, code, details } = normalizeErrorBody(rawBody, res.status);
+            const err = new Error(message) as ApiError;
+            err.status = res.status;
+            err.code = code;
+            err.details = details;
+            err.data = (rawBody as Record<string, unknown>) ?? undefined;
+
+            // Retry only for 5xx (server errors). 4xx are user errors — don't retry.
+            const shouldRetry = isRetryableMethod && res.status >= 500 && attempt < maxAttempts - 1;
+
+            if (!shouldRetry) {
+              if (showError && toast) toast.error(message);
+              throw err;
+            }
+            lastError = err;
+          } else {
+            // Success path — return result
+            if (raw) return res as unknown as T;
+            if (res.status === 204) return null as T;
+            return (await res.json()) as T;
+          }
+        } catch (err) {
+          // AbortError: never retry (request was cancelled). Check duck-typed
+          // because DOMException isn't always `instanceof Error` in jsdom.
+          if (err && typeof err === 'object' && (err as { name?: string }).name === 'AbortError') {
+            throw err;
+          }
+          // Re-throw ApiErrors with status info we already handled above
+          if (err instanceof Error && (err as ApiError).status) {
+            const status = (err as ApiError).status;
+            const shouldRetry = isRetryableMethod && status >= 500 && attempt < maxAttempts - 1;
+            if (!shouldRetry) throw err;
+            lastError = err;
+          } else {
+            // Network error (fetch threw) — retry if method allows
+            const shouldRetry = isRetryableMethod && attempt < maxAttempts - 1;
+            if (!shouldRetry) {
+              if (showError && toast) {
+                toast.error(err instanceof Error ? err.message : 'Netzwerkfehler');
+              }
+              throw err;
+            }
+            lastError = err;
+          }
         }
 
-        const rawBody = await res.json().catch(() => null);
-        const { message, code, details } = normalizeErrorBody(rawBody, res.status);
-        if (showError && toast) {
-          toast.error(message);
-        }
-        const err = new Error(message) as ApiError;
-        err.status = res.status;
-        err.code = code;
-        err.details = details;
-        err.data = (rawBody as Record<string, unknown>) ?? undefined;
-        throw err;
+        // Backoff before next attempt
+        const delay = RETRY_DELAYS[attempt] ?? RETRY_DELAYS[RETRY_DELAYS.length - 1]!;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        attempt++;
       }
 
-      // Return raw response for non-JSON endpoints (downloads, etc.)
-      if (raw) return res as unknown as T;
-
-      // Handle empty responses (204 No Content)
-      if (res.status === 204) return null as T;
-
-      return res.json() as Promise<T>;
+      // Should be unreachable — every code path above either returns or throws —
+      // but TypeScript needs a final throw for the typing.
+      throw lastError ?? new Error('Request failed after retries');
     },
     [toast]
   );

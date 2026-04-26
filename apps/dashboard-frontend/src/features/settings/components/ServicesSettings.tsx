@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import {
   Server,
   RefreshCw,
@@ -19,8 +19,7 @@ import {
   Archive,
   type LucideIcon,
 } from 'lucide-react';
-import { SkeletonCard } from '../../components/ui/Skeleton';
-import { useApi } from '../../hooks/useApi';
+import { SkeletonCard } from '../../../components/ui/Skeleton';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import {
@@ -32,13 +31,8 @@ import {
   DialogTitle,
 } from '@/components/ui/shadcn/dialog';
 import { cn } from '@/lib/utils';
-
-interface Service {
-  id: string;
-  name: string;
-  status: string;
-  canRestart?: boolean;
-}
+import { useServicesQuery, type Service } from '../hooks/queries';
+import { useRestartServiceMutation } from '../hooks/mutations';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   healthy: { label: 'Aktiv', dot: 'bg-primary' },
@@ -70,76 +64,52 @@ function getServiceInfo(name: string) {
 }
 
 export function ServicesSettings() {
-  const api = useApi();
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [restartingService, setRestartingService] = useState<string | null>(null);
+  const { data: services = [], isLoading: loading } = useServicesQuery();
+  const restartService = useRestartServiceMutation();
   const [confirmRestart, setConfirmRestart] = useState<Service | null>(null);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
-  const fetchServices = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        const data = await api.get('/services/all', { signal, showError: false });
-        setServices(data.services || []);
-      } catch (error: unknown) {
-        if (signal?.aborted) return;
-        console.error('Error fetching services:', error);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api]
-  );
+  const restartingService = restartService.isPending
+    ? ((restartService.variables as string | undefined) ?? null)
+    : null;
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchServices(controller.signal);
-    const interval = setInterval(() => fetchServices(controller.signal), 15000);
-    return () => {
-      controller.abort();
-      clearInterval(interval);
-    };
-  }, [fetchServices]);
-
-  const handleConfirmRestart = async () => {
+  const handleConfirmRestart = () => {
     if (!confirmRestart) return;
 
     const serviceName = confirmRestart.name;
-    setRestartingService(serviceName);
     setConfirmRestart(null);
     setMessage(null);
 
-    try {
-      const data = await api.post(`/services/restart/${serviceName}`, null, { showError: false });
-      if (data.success) {
-        setMessage({
-          type: 'success',
-          text: `Service "${getServiceInfo(serviceName).displayName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`,
-        });
-        setTimeout(fetchServices, 2000);
-      } else {
-        setMessage({
-          type: 'error',
-          text: data.message || 'Fehler beim Neustart des Service',
-        });
-      }
-    } catch (error: unknown) {
-      const err = error as { status?: number; data?: { message?: string }; message?: string };
-      if (err.status === 429) {
-        setMessage({
-          type: 'error',
-          text: err.data?.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
-        });
-      } else {
-        setMessage({
-          type: 'error',
-          text: err.data?.message || err.message || 'Netzwerkfehler beim Neustart des Service',
-        });
-      }
-    } finally {
-      setRestartingService(null);
-    }
+    restartService.mutate(serviceName, {
+      onSuccess: data => {
+        if (data.success) {
+          setMessage({
+            type: 'success',
+            text: `Service "${getServiceInfo(serviceName).displayName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`,
+          });
+        } else {
+          setMessage({
+            type: 'error',
+            text: data.message || 'Fehler beim Neustart des Service',
+          });
+        }
+      },
+      onError: error => {
+        const err = error as { status?: number; data?: { message?: string }; message?: string };
+        if (err.status === 429) {
+          setMessage({
+            type: 'error',
+            text:
+              err.data?.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
+          });
+        } else {
+          setMessage({
+            type: 'error',
+            text: err.data?.message || err.message || 'Netzwerkfehler beim Neustart des Service',
+          });
+        }
+      },
+    });
   };
 
   if (loading) {

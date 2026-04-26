@@ -1,19 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
 import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
 import { Switch } from '@/components/ui/shadcn/switch';
 import { Label } from '@/components/ui/shadcn/label';
-import { SkeletonCard } from '../../components/ui/Skeleton';
-import { useApi } from '../../hooks/useApi';
+import { SkeletonCard } from '../../../components/ui/Skeleton';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 import { N8nIntegrationGuide } from './N8nIntegrationGuide';
-
-interface SystemInfo {
-  version: string;
-  hostname: string;
-  jetpack_version: string;
-  uptime_seconds: number;
-  build_hash: string;
-}
+import { useSystemInfoQuery } from '../../../hooks/queries/system';
 
 interface GeneralSettingsProps {
   theme?: string;
@@ -31,30 +22,7 @@ function formatUptime(seconds: number): string {
 }
 
 export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) {
-  const api = useApi();
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchSystemInfo = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        const data = await api.get('/system/info', { signal, showError: false });
-        setSystemInfo(data);
-      } catch (error: unknown) {
-        if (signal?.aborted) return;
-        console.error('Failed to fetch system info:', error);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [api]
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchSystemInfo(controller.signal);
-    return () => controller.abort();
-  }, [fetchSystemInfo]);
+  const { data: systemInfo, isLoading: loading } = useSystemInfoQuery();
 
   return (
     <div className="animate-in fade-in">

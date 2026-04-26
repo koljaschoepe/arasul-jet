@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
-import { formatRelativeTime } from './utils';
+import { formatRelativeTime } from '../utils';
 
 interface RecentChatCardProps {
   chat: {

@@ -4,7 +4,6 @@ import { SkeletonList } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import {
   RefreshCw,
-  Info,
   AlertCircle,
   AlertTriangle,
   CheckCircle,

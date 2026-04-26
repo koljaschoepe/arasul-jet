@@ -1,146 +1,98 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import { X, Send, MessageCircle, Activity, Settings, FileText } from 'lucide-react';
 import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
-import BotSetupWizard from './BotSetupWizard';
-import BotDetailsModal from './BotDetailsModal';
-import { useApi } from '../../hooks/useApi';
+import BotSetupWizard from './components/BotSetupWizard';
+import BotDetailsModal from './components/BotDetailsModal';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/shadcn/tabs';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
-import BotsSection from './sections/BotsSection';
-import StatusSection from './sections/StatusSection';
-import SystemSection from './sections/SystemSection';
-import LogsSection from './sections/LogsSection';
-import type { Bot, AppStatus, SystemConfig, SystemMessage, AuditLog } from './sections/types';
+import BotsSection from './components/BotsSection';
+import StatusSection from './components/StatusSection';
+import SystemSection from './components/SystemSection';
+import LogsSection from './components/LogsSection';
+import type { Bot, SystemConfig, SystemMessage } from './components/types';
+import {
+  useBotsQuery,
+  useAppStatusQuery,
+  useSystemConfigQuery,
+  useAuditLogsQuery,
+} from './hooks/queries';
+import {
+  useToggleBotMutation,
+  useDeleteBotMutation,
+  useAddBotToCache,
+  useUpdateBotInCache,
+  useUpdateSystemConfigMutation,
+  useTestSystemMutation,
+} from './hooks/mutations';
 
 export default function TelegramBotPage() {
   const { confirm, ConfirmDialog } = useConfirm();
   const toast = useToast();
-  const api = useApi();
-  const isMountedRef = useRef(true);
 
-  const [bots, setBots] = useState<Bot[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Server state — useQuery (cached, dedup, retry)
+  const botsQuery = useBotsQuery();
+  const appStatusQuery = useAppStatusQuery();
+  const systemConfigQuery = useSystemConfigQuery();
+
+  const bots = botsQuery.data ?? [];
+  const error = botsQuery.error ? 'Fehler beim Laden der Telegram-Daten' : null;
+  const loading = botsQuery.isLoading || appStatusQuery.isLoading;
+
+  const remoteSystemConfig = systemConfigQuery.data?.config;
+  const hasToken = systemConfigQuery.data?.hasToken ?? false;
+  const systemLoading = systemConfigQuery.isLoading;
+
+  // Logs are deferred — only fetched once the user opens the Logs tab
+  const [logsTabOpened, setLogsTabOpened] = useState(false);
+  const auditLogsQuery = useAuditLogsQuery(logsTabOpened);
+  const auditLogs = auditLogsQuery.data ?? [];
+  const logsLoading = auditLogsQuery.isFetching;
+
+  // Mutations
+  const toggleBot = useToggleBotMutation();
+  const deleteBot = useDeleteBotMutation();
+  const addBotToCache = useAddBotToCache();
+  const updateBotInCache = useUpdateBotInCache();
+  const updateSystemConfig = useUpdateSystemConfigMutation();
+  const testSystem = useTestSystemMutation();
+
+  // Local UI state — pure form/modal toggles, not server data
   const [showWizard, setShowWizard] = useState(false);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
-  const [appStatus, setAppStatus] = useState<AppStatus | null>(null);
-  const [togglingBot, setTogglingBot] = useState<string | null>(null);
-  const [deletingBot, setDeletingBot] = useState<string | null>(null);
+  const [showToken, setShowToken] = useState(false);
+  const [systemMessage, setSystemMessage] = useState<SystemMessage | null>(null);
 
-  const [systemConfig, setSystemConfig] = useState<SystemConfig>({
+  // Local form state for system config — initialized from server, edited freely.
+  // Reset whenever the server fetch refreshes (e.g. after save).
+  const [formConfig, setFormConfig] = useState<SystemConfig>({
     bot_token: '',
     chat_id: '',
     enabled: false,
   });
-  const [hasToken, setHasToken] = useState(false);
-  const [showToken, setShowToken] = useState(false);
-  const [systemLoading, setSystemLoading] = useState(true);
-  const [systemSaving, setSystemSaving] = useState(false);
-  const [systemTesting, setSystemTesting] = useState(false);
-  const [systemMessage, setSystemMessage] = useState<SystemMessage | null>(null);
-  const [originalSystemConfig, setOriginalSystemConfig] = useState<SystemConfig | null>(null);
-
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [botsData, statusData] = await Promise.all([
-        api.get('/telegram-bots', { showError: false }),
-        api.get('/telegram-app/status', { showError: false }),
-      ]);
-      if (isMountedRef.current) {
-        setBots(botsData.bots || []);
-        setAppStatus(statusData);
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError('Fehler beim Laden der Telegram-Daten');
-      }
-    } finally {
-      if (isMountedRef.current) setLoading(false);
+  const [lastServerConfigSnapshot, setLastServerConfigSnapshot] = useState<string>('');
+  if (remoteSystemConfig) {
+    const snapshot = JSON.stringify(remoteSystemConfig);
+    if (snapshot !== lastServerConfigSnapshot) {
+      // Server data changed (initial load or after mutation) — sync local form
+      setFormConfig(remoteSystemConfig);
+      setLastServerConfigSnapshot(snapshot);
     }
-  }, [api]);
+  }
 
-  const fetchSystemConfig = useCallback(
-    async (signal: AbortSignal) => {
-      try {
-        const data = await api.get('/telegram/config', { showError: false, signal });
-        if (isMountedRef.current) {
-          setSystemConfig({
-            bot_token: '',
-            chat_id: data.chat_id || '',
-            enabled: data.enabled || false,
-          });
-          setHasToken(data.configured || false);
-          setOriginalSystemConfig({
-            bot_token: '',
-            chat_id: data.chat_id || '',
-            enabled: data.enabled || false,
-          });
-        }
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === 'AbortError') return;
-        if (isMountedRef.current)
-          setSystemMessage({ type: 'error', text: 'Fehler beim Laden der Konfiguration' });
-      } finally {
-        if (isMountedRef.current) setSystemLoading(false);
-      }
-    },
-    [api]
-  );
-
-  const fetchLogs = useCallback(async () => {
-    setLogsLoading(true);
-    try {
-      const data = await api.get('/telegram/audit-logs?limit=50', { showError: false });
-      if (isMountedRef.current) setAuditLogs(data.logs || []);
-    } catch {
-      // silently fail
-    } finally {
-      if (isMountedRef.current) setLogsLoading(false);
-    }
-  }, [api]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchData();
-    fetchSystemConfig(controller.signal);
-    return () => controller.abort();
-  }, [fetchData, fetchSystemConfig]);
+  const systemHasChanges =
+    formConfig.bot_token !== '' ||
+    (remoteSystemConfig != null && formConfig.chat_id !== remoteSystemConfig.chat_id);
 
   const handleBotCreated = (newBot: Bot) => {
-    setBots(prev => [...prev, newBot]);
+    addBotToCache(newBot);
     setShowWizard(false);
     toast.success('Bot erfolgreich erstellt');
   };
 
-  const handleToggleBot = async (botId: string, currentActive: boolean) => {
-    setTogglingBot(botId);
-    try {
-      const endpoint = currentActive ? 'deactivate' : 'activate';
-      const data = await api.post(`/telegram-bots/${botId}/${endpoint}`, undefined, {
-        showError: false,
-      });
-      const newActive = data?.bot?.isActive ?? !currentActive;
-      setBots(prev => prev.map(bot => (bot.id === botId ? { ...bot, isActive: newActive } : bot)));
-      toast.success(currentActive ? 'Bot deaktiviert' : 'Bot aktiviert');
-    } catch {
-      toast.error('Fehler beim Umschalten des Bots');
-    } finally {
-      setTogglingBot(null);
-    }
+  const handleToggleBot = (botId: string, currentActive: boolean) => {
+    toggleBot.mutate({ botId, currentActive });
   };
 
   const handleDeleteBot = async (botId: string) => {
@@ -148,103 +100,75 @@ export default function TelegramBotPage() {
       !(await confirm({
         message: 'Bot wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
       }))
-    )
+    ) {
       return;
-    setDeletingBot(botId);
-    try {
-      await api.del(`/telegram-bots/${botId}`, { showError: false });
-      setBots(prev => prev.filter(bot => bot.id !== botId));
-      toast.success('Bot gelöscht');
-    } catch {
-      toast.error('Fehler beim Löschen des Bots');
-    } finally {
-      setDeletingBot(null);
     }
+    deleteBot.mutate(botId);
   };
 
-  const handleBotUpdated = (updatedBot: Bot) => {
-    setBots(prev => prev.map(b => (b.id === updatedBot.id ? updatedBot : b)));
-    setSelectedBot(null);
-  };
-
-  const handleSystemSave = async () => {
-    setSystemSaving(true);
+  const handleSystemSave = () => {
     setSystemMessage(null);
-    try {
-      const payload: Record<string, string | boolean> = {
-        chat_id: systemConfig.chat_id,
-        enabled: systemConfig.enabled,
-      };
-      if (systemConfig.bot_token) payload.bot_token = systemConfig.bot_token;
-      const data = await api.post('/telegram/config', payload, { showError: false });
-      if (!isMountedRef.current) return;
-      setHasToken(data.has_token === true || (systemConfig.bot_token !== '' && data.success));
-      setSystemConfig(prev => ({ ...prev, bot_token: '' }));
-      setOriginalSystemConfig({
-        bot_token: '',
-        chat_id: systemConfig.chat_id,
-        enabled: systemConfig.enabled,
-      });
-      setSystemMessage({ type: 'success', text: 'Konfiguration gespeichert' });
-    } catch (err: unknown) {
-      if (!isMountedRef.current) return;
-      const e = err as { message?: string };
-      setSystemMessage({ type: 'error', text: e.message || 'Netzwerkfehler beim Speichern' });
-    } finally {
-      if (isMountedRef.current) setSystemSaving(false);
-    }
+    const payload: { chat_id: string; enabled: boolean; bot_token?: string } = {
+      chat_id: formConfig.chat_id,
+      enabled: formConfig.enabled,
+    };
+    if (formConfig.bot_token) payload.bot_token = formConfig.bot_token;
+
+    updateSystemConfig.mutate(payload, {
+      onSuccess: () => setSystemMessage({ type: 'success', text: 'Konfiguration gespeichert' }),
+      onError: err => {
+        const e = err as { message?: string };
+        setSystemMessage({ type: 'error', text: e.message ?? 'Netzwerkfehler beim Speichern' });
+      },
+    });
   };
 
-  const handleSystemToggle = async () => {
-    setSystemSaving(true);
+  const handleSystemToggle = () => {
     setSystemMessage(null);
-    const newEnabled = !systemConfig.enabled;
-    try {
-      await api.post('/telegram/config', { enabled: newEnabled }, { showError: false });
-      if (!isMountedRef.current) return;
-      setSystemConfig(prev => ({ ...prev, enabled: newEnabled }));
-      setOriginalSystemConfig(prev => (prev ? { ...prev, enabled: newEnabled } : prev));
-      setSystemMessage({
-        type: 'success',
-        text: newEnabled
-          ? 'System-Benachrichtigungen aktiviert'
-          : 'System-Benachrichtigungen deaktiviert',
-      });
-    } catch (err: unknown) {
-      if (!isMountedRef.current) return;
-      const e = err as { message?: string };
-      setSystemMessage({ type: 'error', text: e.message || 'Netzwerkfehler' });
-    } finally {
-      if (isMountedRef.current) setSystemSaving(false);
-    }
+    const newEnabled = !formConfig.enabled;
+    updateSystemConfig.mutate(
+      { enabled: newEnabled },
+      {
+        onSuccess: () =>
+          setSystemMessage({
+            type: 'success',
+            text: newEnabled
+              ? 'System-Benachrichtigungen aktiviert'
+              : 'System-Benachrichtigungen deaktiviert',
+          }),
+        onError: err => {
+          const e = err as { message?: string };
+          setSystemMessage({ type: 'error', text: e.message ?? 'Netzwerkfehler' });
+        },
+      }
+    );
   };
 
-  const handleSystemTest = async () => {
-    setSystemTesting(true);
+  const handleSystemTest = () => {
     setSystemMessage(null);
-    try {
-      await api.post('/telegram/test', undefined, { showError: false });
-      if (!isMountedRef.current) return;
-      setSystemMessage({ type: 'success', text: 'Test-Nachricht erfolgreich gesendet!' });
-    } catch (err: unknown) {
-      if (!isMountedRef.current) return;
-      const e = err as { message?: string };
-      setSystemMessage({ type: 'error', text: e.message || 'Netzwerkfehler beim Test' });
-    } finally {
-      if (isMountedRef.current) setSystemTesting(false);
-    }
+    testSystem.mutate(undefined, {
+      onSuccess: () =>
+        setSystemMessage({ type: 'success', text: 'Test-Nachricht erfolgreich gesendet!' }),
+      onError: err => {
+        const e = err as { message?: string };
+        setSystemMessage({ type: 'error', text: e.message ?? 'Netzwerkfehler beim Test' });
+      },
+    });
   };
 
-  const systemHasChanges =
-    systemConfig.bot_token !== '' || systemConfig.chat_id !== originalSystemConfig?.chat_id;
+  const handleTabChange = (value: string) => {
+    if (value === 'logs') setLogsTabOpened(true);
+  };
 
   const activeBots = bots.filter(b => b.isActive).length;
 
-  const handleTabChange = (value: string) => {
-    if (value === 'logs' && auditLogs.length === 0) {
-      fetchLogs();
-    }
-  };
+  // Per-bot pending state derived from in-flight mutation variables
+  const togglingBot = toggleBot.isPending ? (toggleBot.variables?.botId ?? null) : null;
+  const deletingBot = deleteBot.isPending
+    ? ((deleteBot.variables as string | undefined) ?? null)
+    : null;
+  const systemSaving = updateSystemConfig.isPending;
+  const systemTesting = testSystem.isPending;
 
   return (
     <div className="flex flex-col h-full animate-in fade-in">
@@ -297,7 +221,7 @@ export default function TelegramBotPage() {
                   error={error}
                   togglingBot={togglingBot}
                   deletingBot={deletingBot}
-                  onRefresh={fetchData}
+                  onRefresh={() => botsQuery.refetch()}
                   onCreateBot={() => setShowWizard(true)}
                   onEditBot={setSelectedBot}
                   onToggleBot={handleToggleBot}
@@ -308,15 +232,19 @@ export default function TelegramBotPage() {
 
             <TabsContent value="status">
               <ComponentErrorBoundary componentName="Status">
-                <StatusSection appStatus={appStatus} bots={bots} loading={loading} />
+                <StatusSection
+                  appStatus={appStatusQuery.data ?? null}
+                  bots={bots}
+                  loading={loading}
+                />
               </ComponentErrorBoundary>
             </TabsContent>
 
             <TabsContent value="system">
               <ComponentErrorBoundary componentName="System">
                 <SystemSection
-                  config={systemConfig}
-                  setConfig={setSystemConfig}
+                  config={formConfig}
+                  setConfig={setFormConfig}
                   hasToken={hasToken}
                   showToken={showToken}
                   setShowToken={setShowToken}
@@ -334,7 +262,11 @@ export default function TelegramBotPage() {
 
             <TabsContent value="logs">
               <ComponentErrorBoundary componentName="Logs">
-                <LogsSection logs={auditLogs} loading={logsLoading} onRefresh={fetchLogs} />
+                <LogsSection
+                  logs={auditLogs}
+                  loading={logsLoading}
+                  onRefresh={() => auditLogsQuery.refetch()}
+                />
               </ComponentErrorBoundary>
             </TabsContent>
           </div>
@@ -372,7 +304,10 @@ export default function TelegramBotPage() {
         <BotDetailsModal
           bot={selectedBot}
           onClose={() => setSelectedBot(null)}
-          onUpdate={handleBotUpdated}
+          onUpdate={updatedBot => {
+            updateBotInCache(updatedBot);
+            setSelectedBot(null);
+          }}
         />
       )}
       {ConfirmDialog}

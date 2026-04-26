@@ -7,11 +7,10 @@ import { useChatContext } from '../../contexts/ChatContext';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import { ProjectModal } from '../projects';
-import ProjectCard from './ProjectCard';
-import RecentChatCard from './RecentChatCard';
+import ProjectCard from './components/ProjectCard';
+import RecentChatCard from './components/RecentChatCard';
 import EmptyState from '../../components/ui/EmptyState';
 import { Button } from '@/components/ui/shadcn/button';
-import { formatRelativeTime } from './utils';
 import { cn } from '@/lib/utils';
 import './chat.css';
 
@@ -55,12 +54,15 @@ export default function ChatLanding() {
   const fetcher = useCallback(
     async (signal: AbortSignal) => {
       const [projData, recentData] = await Promise.all([
-        api.get('/projects?include=conversations', { signal, showError: false }),
-        api.get('/chats/recent', { signal, showError: false }),
+        api.get<{ projects?: Project[] }>('/projects?include=conversations', {
+          signal,
+          showError: false,
+        }),
+        api.get<{ chats?: RecentChat[] }>('/chats/recent', { signal, showError: false }),
       ]);
       return {
-        projects: (projData as { projects?: Project[] }).projects || [],
-        recentChats: (recentData as { chats?: RecentChat[] }).chats || [],
+        projects: projData.projects ?? [],
+        recentChats: recentData.chats ?? [],
       };
     },
     [api]

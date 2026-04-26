@@ -498,32 +498,39 @@ function createLLMQueueService(deps = {}) {
 
           if (!switchSuccess) {
             clearInterval(heartbeatInterval);
-            // All retries failed - classify error for better UX
-            let userMessage;
+            // All retries failed — classify error to a structured code so the
+            // frontend can render appropriate UX (link to Store for missing
+            // models, system-status link for unreachable service, etc.).
             const errMsg = lastError?.message?.toLowerCase() || '';
+            let userMessage;
+            let errorCode;
 
             if (errMsg.includes('nicht gefunden') || errMsg.includes('not found')) {
               userMessage = `Modell "${requested_model}" nicht verfügbar. Bitte im Model Store erneut herunterladen.`;
+              errorCode = 'MODEL_NOT_FOUND';
             } else if (
               errMsg.includes('timeout') ||
               errMsg.includes('econnrefused') ||
               errMsg.includes('nicht erreichbar')
             ) {
               userMessage = `LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.`;
+              errorCode = 'LLM_UNREACHABLE';
             } else if (errMsg.includes('nicht genügend') || errMsg.includes('speicher')) {
               userMessage =
                 lastError?.message || `Nicht genügend Speicher für Modell "${requested_model}".`;
+              errorCode = 'CUDA_OOM';
             } else {
               userMessage = `Modell-Wechsel fehlgeschlagen nach ${MAX_SWITCH_RETRIES} Versuchen: ${lastError?.message}`;
+              errorCode = 'MODEL_SWITCH_FAILED';
             }
 
             logger.error(
-              `Failed to switch model after ${MAX_SWITCH_RETRIES} attempts: ${lastError?.message}`
+              `Failed to switch model after ${MAX_SWITCH_RETRIES} attempts (${errorCode}): ${lastError?.message}`
             );
             await llmJobService.errorJob(jobId, userMessage);
             this.notifySubscribers(jobId, {
               error: userMessage,
-              errorCode: 'MODEL_SWITCH_FAILED',
+              errorCode,
               done: true,
             });
             this.processingJobId = null;

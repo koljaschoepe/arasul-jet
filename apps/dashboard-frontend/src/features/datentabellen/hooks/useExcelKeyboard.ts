@@ -1,5 +1,5 @@
 import { useCallback, useEffect, type RefObject } from 'react';
-import type { CellPosition, CellValue, Field, Row } from './types';
+import type { CellPosition, CellValue, Field, Row } from '../types';
 
 interface EditingCell {
   rowId: string;

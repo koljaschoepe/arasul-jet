@@ -1,6 +1,13 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useApi } from '../../../hooks/useApi';
 import type { Document } from '../../../types';
+import { useSimilarDocumentsQuery } from './queries';
+import {
+  useDeleteDocumentMutation,
+  useReindexDocumentMutation,
+  useToggleFavoriteMutation,
+  useSemanticSearchMutation,
+} from './mutations';
 
 export interface SimilarDocument {
   id: string;
@@ -10,10 +17,11 @@ export interface SimilarDocument {
 }
 
 interface SearchResults {
+  query?: string;
   results: Array<{
-    document_id: string;
-    chunk_text: string;
-    similarity: number;
+    document_id?: string;
+    chunk_text?: string;
+    similarity?: number;
     [key: string]: unknown;
   }>;
   [key: string]: unknown;
@@ -22,25 +30,24 @@ interface SearchResults {
 interface UseDocumentActionsParams {
   confirm: (options: { message: string }) => Promise<boolean>;
   setError: (message: string) => void;
+  /** Kept for API parity; mutations invalidate the cache themselves now. */
   loadDocuments: () => void;
+  /** Kept for API parity; mutations invalidate the cache themselves now. */
   loadStatistics: () => void;
 }
 
 interface UseDocumentActionsReturn {
-  // Detail modal
   selectedDocument: Document | null;
   setSelectedDocument: React.Dispatch<React.SetStateAction<Document | null>>;
   showDetails: boolean;
   setShowDetails: React.Dispatch<React.SetStateAction<boolean>>;
   similarDocuments: SimilarDocument[];
   loadingSimilar: boolean;
-  // Semantic search
   semanticSearch: string;
   setSemanticSearch: React.Dispatch<React.SetStateAction<string>>;
   searchResults: SearchResults | null;
   setSearchResults: React.Dispatch<React.SetStateAction<SearchResults | null>>;
   searching: boolean;
-  // Actions
   handleDelete: (docId: string, filename: string) => Promise<void>;
   handleDownload: (docId: string, filename: string) => Promise<void>;
   handleReindex: (docId: string) => Promise<void>;
@@ -50,46 +57,50 @@ interface UseDocumentActionsReturn {
 }
 
 /**
- * useDocumentActions - Document CRUD, search, favorites, and related actions
+ * useDocumentActions — Document CRUD, semantic search, favorites, and detail
+ * modal state. Public API preserved from the pre-TanStack version; internals
+ * delegate to TanStack mutations for cache invalidation.
  */
 export default function useDocumentActions({
   confirm,
   setError,
-  loadDocuments,
-  loadStatistics,
 }: UseDocumentActionsParams): UseDocumentActionsReturn {
   const api = useApi();
 
-  // Detail modal state
+  // Detail modal
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [similarDocuments, setSimilarDocuments] = useState<SimilarDocument[]>([]);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
-  // Semantic search state
+  // Semantic search input + results (the result lives here so it survives
+  // unmount of the search panel without re-fetching)
   const [semanticSearch, setSemanticSearch] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
-  const [searching, setSearching] = useState(false);
-  const searchRequestIdRef = useRef(0);
+
+  // Mutations
+  const deleteMutation = useDeleteDocumentMutation();
+  const reindexMutation = useReindexDocumentMutation();
+  const favoriteMutation = useToggleFavoriteMutation();
+  const searchMutation = useSemanticSearchMutation();
+
+  // Similar documents query — runs only when a doc is selected and indexed
+  const similarQuery = useSimilarDocumentsQuery(showDetails ? selectedDocument : null);
 
   const handleDelete = useCallback(
     async (docId: string, filename: string) => {
       if (!(await confirm({ message: `"${filename}" wirklich löschen?` }))) return;
       try {
-        await api.del(`/documents/${docId}`, { showError: false });
-        loadDocuments();
-        loadStatistics();
-      } catch (err) {
+        await deleteMutation.mutateAsync(docId);
+      } catch {
         setError('Fehler beim Löschen');
       }
     },
-    [api, confirm, setError, loadDocuments, loadStatistics]
+    [confirm, deleteMutation, setError]
   );
 
   const handleDownload = useCallback(
     async (docId: string, filename: string) => {
       try {
-        const response = await api.get(`/documents/${docId}/download`, {
+        const response = await api.get<Response>(`/documents/${docId}/download`, {
           raw: true,
           showError: false,
         });
@@ -101,7 +112,7 @@ export default function useDocumentActions({
         document.body.appendChild(link);
         link.click();
         link.remove();
-      } catch (err) {
+      } catch {
         setError('Fehler beim Download');
       }
     },
@@ -111,92 +122,53 @@ export default function useDocumentActions({
   const handleReindex = useCallback(
     async (docId: string) => {
       try {
-        await api.post(`/documents/${docId}/reindex`, undefined, { showError: false });
-        loadDocuments();
-      } catch (err) {
+        await reindexMutation.mutateAsync(docId);
+      } catch {
         setError('Fehler beim Neuindexieren');
       }
     },
-    [api, setError, loadDocuments]
+    [reindexMutation, setError]
   );
 
-  const viewDocumentDetails = useCallback(
-    async (doc: Document) => {
-      setSelectedDocument(doc);
-      setShowDetails(true);
-      setSimilarDocuments([]);
-
-      if (doc.status === 'indexed') {
-        setLoadingSimilar(true);
-        try {
-          const data = await api.get(`/documents/${doc.id}/similar`, { showError: false });
-          setSimilarDocuments(data.similar_documents || []);
-        } catch (err) {
-          console.error('Error loading similar documents:', err);
-        } finally {
-          setLoadingSimilar(false);
-        }
-      }
-    },
-    [api]
-  );
+  const viewDocumentDetails = useCallback(async (doc: Document) => {
+    setSelectedDocument(doc);
+    setShowDetails(true);
+    // Similar documents auto-fetch via useSimilarDocumentsQuery
+  }, []);
 
   const handleSemanticSearch = useCallback(async () => {
     if (!semanticSearch.trim()) return;
-    const currentRequestId = ++searchRequestIdRef.current;
-    setSearching(true);
-
     try {
-      const data = await api.post(
-        '/documents/search',
-        { query: semanticSearch, top_k: 10 },
-        { showError: false }
-      );
-      if (searchRequestIdRef.current === currentRequestId) {
-        setSearchResults(data);
-      }
-    } catch (err) {
-      if (searchRequestIdRef.current === currentRequestId) {
-        setError('Fehler bei der Suche');
-      }
-    } finally {
-      if (searchRequestIdRef.current === currentRequestId) {
-        setSearching(false);
-      }
+      const data = await searchMutation.mutateAsync(semanticSearch);
+      setSearchResults(data);
+    } catch {
+      setError('Fehler bei der Suche');
     }
-  }, [api, semanticSearch, setError]);
+  }, [searchMutation, semanticSearch, setError]);
 
   const toggleFavorite = useCallback(
     async (doc: Document) => {
       try {
-        await api.patch(
-          `/documents/${doc.id}`,
-          { is_favorite: !doc.is_favorite },
-          { showError: false }
-        );
-        loadDocuments();
-      } catch (err) {
+        await favoriteMutation.mutateAsync({ doc });
+      } catch {
         setError('Fehler beim Aktualisieren');
       }
     },
-    [api, setError, loadDocuments]
+    [favoriteMutation, setError]
   );
 
   return {
-    // Detail modal
     selectedDocument,
     setSelectedDocument,
     showDetails,
     setShowDetails,
-    similarDocuments,
-    loadingSimilar,
-    // Semantic search
+    similarDocuments: similarQuery.data ?? [],
+    loadingSimilar: similarQuery.isFetching,
     semanticSearch,
     setSemanticSearch,
     searchResults,
     setSearchResults,
-    searching,
-    // Actions
+    searching: searchMutation.isPending,
     handleDelete,
     handleDownload,
     handleReindex,

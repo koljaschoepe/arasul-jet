@@ -8,13 +8,14 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { X, AlertCircle, Table as TableIcon } from 'lucide-react';
 import useConfirm from '../../hooks/useConfirm';
 import useMediaQuery from '../../hooks/useMediaQuery';
+import { useFocusRestore } from '../../hooks/useFocusRestore';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import useExcelKeyboard from './useExcelKeyboard';
-import useVirtualScroll from './useVirtualScroll';
-import useExcelClipboard from './useExcelClipboard';
+import useExcelKeyboard from './hooks/useExcelKeyboard';
+import useVirtualScroll from './hooks/useVirtualScroll';
+import useExcelClipboard from './hooks/useExcelClipboard';
 import useTableData from './hooks/useTableData';
 import useColumnResize from './hooks/useColumnResize';
 import useSorting from './hooks/useSorting';
@@ -45,6 +46,8 @@ function ExcelEditor({ tableSlug, tableName, onClose }: ExcelEditorProps) {
   const { confirm: showConfirm, ConfirmDialog } = useConfirm();
   const api = useApi();
   const toast = useToast();
+  // Restore focus to whatever opened the editor when it closes
+  useFocusRestore();
 
   // Auto-index on close: trigger re-index then call parent onClose
   const handleClose = useCallback(() => {

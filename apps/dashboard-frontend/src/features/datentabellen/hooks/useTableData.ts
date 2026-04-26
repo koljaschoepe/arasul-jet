@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, type MutableRefObject } from 'react';
 import { useApi } from '../../../hooks/useApi';
 import { useToast } from '../../../contexts/ToastContext';
-import useExcelHistory from '../useExcelHistory';
+import useExcelHistory from './useExcelHistory';
 import type { CellValue, Field, Row, TableData } from '../types';
 
 type CellSaveFn = (
@@ -164,7 +164,7 @@ export default function useTableData({
       rowId: string,
       fieldSlug: string,
       value: CellValue,
-      direction?: string,
+      _direction?: string,
       skipUndo = false
     ) => {
       setEditingCell(null);

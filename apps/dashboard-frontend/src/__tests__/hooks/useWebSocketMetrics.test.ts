@@ -1,5 +1,16 @@
+import React, { type ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
 
 // Mock window.location for WebSocket URL construction
 const originalLocation = window.location;
@@ -65,7 +76,7 @@ describe('useWebSocketMetrics', () => {
 
   it('returns initial state when not authenticated', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result } = renderHook(() => useWebSocketMetrics(false));
+    const { result } = renderHook(() => useWebSocketMetrics(false), { wrapper: createWrapper() });
 
     expect(result.current.metrics).toBeNull();
     expect(result.current.wsConnected).toBe(false);
@@ -74,7 +85,7 @@ describe('useWebSocketMetrics', () => {
 
   it('creates WebSocket connection when authenticated', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result } = renderHook(() => useWebSocketMetrics(true));
+    const { result } = renderHook(() => useWebSocketMetrics(true), { wrapper: createWrapper() });
 
     expect(MockWebSocket.instances.length).toBeGreaterThanOrEqual(1);
     const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
@@ -83,7 +94,7 @@ describe('useWebSocketMetrics', () => {
 
   it('updates metrics on WebSocket message', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result } = renderHook(() => useWebSocketMetrics(true));
+    const { result } = renderHook(() => useWebSocketMetrics(true), { wrapper: createWrapper() });
 
     const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
 
@@ -102,7 +113,7 @@ describe('useWebSocketMetrics', () => {
 
   it('ignores error messages from WebSocket', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result } = renderHook(() => useWebSocketMetrics(true));
+    const { result } = renderHook(() => useWebSocketMetrics(true), { wrapper: createWrapper() });
 
     const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
 
@@ -123,7 +134,7 @@ describe('useWebSocketMetrics', () => {
 
   it('sets wsReconnecting on close', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result } = renderHook(() => useWebSocketMetrics(true));
+    const { result } = renderHook(() => useWebSocketMetrics(true), { wrapper: createWrapper() });
 
     const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
 
@@ -141,7 +152,9 @@ describe('useWebSocketMetrics', () => {
 
   it('cleans up on unmount', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result, unmount } = renderHook(() => useWebSocketMetrics(true));
+    const { result, unmount } = renderHook(() => useWebSocketMetrics(true), {
+      wrapper: createWrapper(),
+    });
 
     const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
 
@@ -156,7 +169,7 @@ describe('useWebSocketMetrics', () => {
 
   it('handles malformed WebSocket messages gracefully', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result } = renderHook(() => useWebSocketMetrics(true));
+    const { result } = renderHook(() => useWebSocketMetrics(true), { wrapper: createWrapper() });
 
     const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
 

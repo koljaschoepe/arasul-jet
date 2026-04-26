@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import {
   Wifi,
   WifiOff,
@@ -15,34 +15,17 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
-import { useApi } from '../../hooks/useApi';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../../contexts/ToastContext';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
-import { SkeletonCard } from '../../components/ui/Skeleton';
+import { SkeletonCard } from '../../../components/ui/Skeleton';
 import { cn } from '@/lib/utils';
-
-interface Peer {
-  id: string;
-  hostname: string;
-  dnsName: string;
-  ip: string;
-  os: string;
-  online: boolean;
-  lastSeen: string | null;
-}
-
-interface TailscaleStatus {
-  installed: boolean;
-  running: boolean;
-  connected: boolean;
-  ip: string | null;
-  hostname: string | null;
-  dnsName: string | null;
-  tailnet: string | null;
-  version: string | null;
-  peers: Peer[];
-}
+import { useTailscaleStatusQuery, type TailscaleStatus } from '../hooks/queries';
+import {
+  useInstallTailscaleMutation,
+  useConnectTailscaleMutation,
+  useDisconnectTailscaleMutation,
+} from '../hooks/mutations';
 
 const OS_ICONS: Record<string, typeof Monitor> = {
   linux: Server,
@@ -52,162 +35,68 @@ const OS_ICONS: Record<string, typeof Monitor> = {
   android: Smartphone,
 };
 
-function getStep(status: TailscaleStatus | null): number {
+function getStep(status: TailscaleStatus | null | undefined): number {
   if (!status || !status.installed) return 1;
   if (!status.connected) return 2;
   return 3;
 }
 
-// sessionStorage for instant tab-switch rendering
-const SS_KEY = 'arasul_tailscale_status';
-
-function getCachedStatus(): TailscaleStatus | null {
-  try {
-    const raw = sessionStorage.getItem(SS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function setCachedStatus(data: TailscaleStatus) {
-  try {
-    sessionStorage.setItem(SS_KEY, JSON.stringify(data));
-  } catch {
-    /* */
-  }
-}
-
 export function RemoteAccessSettings() {
-  const api = useApi();
   const toast = useToast();
+  const statusQuery = useTailscaleStatusQuery();
+  const installMutation = useInstallTailscaleMutation();
+  const connectMutation = useConnectTailscaleMutation();
+  const disconnectMutation = useDisconnectTailscaleMutation();
 
-  const initialCache = getCachedStatus();
-  const [status, setStatus] = useState<TailscaleStatus | null>(initialCache);
-  const [loading, setLoading] = useState(!initialCache);
-  const [refreshing, setRefreshing] = useState(false);
-  const [installing, setInstalling] = useState(false);
-  const [installError, setInstallError] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
+  const status = statusQuery.data ?? null;
+  const loading = statusQuery.isLoading;
+  const refreshing = statusQuery.isFetching && !statusQuery.isLoading;
+  const installing = installMutation.isPending;
+  const connecting = connectMutation.isPending;
+  const disconnecting = disconnectMutation.isPending;
+
   const [authKey, setAuthKey] = useState('');
   const [copied, setCopied] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
 
-  // Use ref for status so callbacks don't need it as a dependency
-  const statusRef = useRef(status);
-  statusRef.current = status;
-
-  const updateStatus = useCallback((data: TailscaleStatus) => {
-    setStatus(data);
-    setCachedStatus(data);
-  }, []);
-
-  const loadStatus = useCallback(
-    async (signal?: AbortSignal) => {
-      setRefreshing(true);
-      try {
-        const data = await api.get<TailscaleStatus>('/tailscale/status', {
-          showError: false,
-          signal,
-        });
-        if (signal?.aborted) return;
-        updateStatus(data);
-      } catch {
-        if (signal?.aborted) return;
-        // Only set empty status if we have NO data at all
-        if (!statusRef.current) {
-          setStatus({
-            installed: false,
-            running: false,
-            connected: false,
-            ip: null,
-            hostname: null,
-            dnsName: null,
-            tailnet: null,
-            version: null,
-            peers: [],
-          });
-        }
-      } finally {
-        if (!signal?.aborted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    },
-    [api, updateStatus]
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    loadStatus(controller.signal);
-    const interval = setInterval(() => loadStatus(controller.signal), 30000);
-    return () => {
-      controller.abort();
-      clearInterval(interval);
-    };
-  }, [loadStatus]);
-
-  const handleInstall = async () => {
-    setInstalling(true);
+  const handleInstall = () => {
     setInstallError(null);
-    try {
-      // 3 minute timeout — install downloads and runs a script on the host
-      await api.post('/tailscale/install', null, {
-        showError: false,
-        signal: AbortSignal.timeout(180_000),
-      });
-      toast.success('Tailscale erfolgreich installiert!');
-      await loadStatus();
-    } catch (err: unknown) {
-      const e = err as { message?: string };
-      const msg = e.message || 'Installation fehlgeschlagen';
-      setInstallError(msg);
-      toast.error(msg);
-    } finally {
-      setInstalling(false);
-    }
+    installMutation.mutate(undefined, {
+      onSuccess: () => {
+        toast.success('Tailscale erfolgreich installiert!');
+      },
+      onError: err => {
+        const msg = (err as { message?: string }).message || 'Installation fehlgeschlagen';
+        setInstallError(msg);
+        toast.error(msg);
+      },
+    });
   };
 
-  const handleConnect = async () => {
-    if (!authKey.trim()) return;
-    setConnecting(true);
-    try {
-      const data = await api.post<TailscaleStatus>(
-        '/tailscale/connect',
-        { authKey: authKey.trim() },
-        {
-          showError: false,
-          signal: AbortSignal.timeout(60_000),
-        }
-      );
-      updateStatus(data);
-      setAuthKey('');
-      toast.success('Tailscale verbunden!');
-    } catch (err: unknown) {
-      const e = err as { message?: string };
-      toast.error(e.message || 'Verbindung fehlgeschlagen');
-    } finally {
-      setConnecting(false);
-    }
+  const handleConnect = () => {
+    const trimmed = authKey.trim();
+    if (!trimmed) return;
+    connectMutation.mutate(trimmed, {
+      onSuccess: () => {
+        setAuthKey('');
+        toast.success('Tailscale verbunden!');
+      },
+      onError: err => {
+        toast.error((err as { message?: string }).message || 'Verbindung fehlgeschlagen');
+      },
+    });
   };
 
-  const handleDisconnect = async () => {
-    setDisconnecting(true);
-    try {
-      await api.post('/tailscale/disconnect', null, { showError: false });
-      toast.success('Tailscale getrennt');
-      await loadStatus();
-    } catch (err: unknown) {
-      const e = err as { message?: string };
-      toast.error(e.message || 'Trennung fehlgeschlagen');
-    } finally {
-      setDisconnecting(false);
-    }
+  const handleDisconnect = () => {
+    disconnectMutation.mutate(undefined, {
+      onSuccess: () => toast.success('Tailscale getrennt'),
+      onError: err =>
+        toast.error((err as { message?: string }).message || 'Trennung fehlgeschlagen'),
+    });
   };
 
-  const handleRefresh = () => loadStatus();
+  const handleRefresh = () => statusQuery.refetch();
 
   const copyIp = async () => {
     if (!status?.ip) return;

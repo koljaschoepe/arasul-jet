@@ -3,7 +3,6 @@ import { Pencil, Type, Hash, Trash2 } from 'lucide-react';
 import { useApi } from '../../../hooks/useApi';
 import useConfirm from '../../../hooks/useConfirm';
 import { FIELD_TYPES } from '../../../components/editor/GridEditor/FieldTypes';
-import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,

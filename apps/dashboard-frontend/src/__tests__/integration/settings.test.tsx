@@ -12,6 +12,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Settings from '../../features/settings/Settings';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
 
@@ -57,13 +58,18 @@ function renderSettings(props: Partial<Parameters<typeof Settings>[0]> = {}) {
     theme: 'dark' as string,
     onToggleTheme: vi.fn(),
   };
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
 
   return {
     ...defaultProps,
     ...render(
-      <MemoryRouter>
-        <Settings {...defaultProps} {...props} />
-      </MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <Settings {...defaultProps} {...props} />
+        </MemoryRouter>
+      </QueryClientProvider>
     ),
   };
 }

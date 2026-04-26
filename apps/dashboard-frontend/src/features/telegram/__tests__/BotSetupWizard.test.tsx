@@ -15,7 +15,7 @@ import React from 'react';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import BotSetupWizard from '../BotSetupWizard';
+import BotSetupWizard from '../components/BotSetupWizard';
 
 // Mock useApi
 const mockApi = {

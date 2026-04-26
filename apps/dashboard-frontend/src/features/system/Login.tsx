@@ -84,6 +84,9 @@ function Login({ onLoginSuccess }: LoginProps) {
             <div className="mb-6 max-sm:mb-5">
               <Label htmlFor="username" className="block mb-2 text-sm font-medium">
                 Benutzername
+                <span className="text-destructive ml-0.5" aria-hidden="true">
+                  *
+                </span>
               </Label>
               <Input
                 id="username"
@@ -91,6 +94,9 @@ function Login({ onLoginSuccess }: LoginProps) {
                 placeholder="admin"
                 autoComplete="username"
                 autoFocus
+                required
+                aria-required="true"
+                aria-invalid={error ? 'true' : 'false'}
                 aria-describedby={error ? 'login-error' : undefined}
                 className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
                 {...register('username')}
@@ -100,12 +106,19 @@ function Login({ onLoginSuccess }: LoginProps) {
             <div className="mb-6 max-sm:mb-5">
               <Label htmlFor="password" className="block mb-2 text-sm font-medium">
                 Passwort
+                <span className="text-destructive ml-0.5" aria-hidden="true">
+                  *
+                </span>
               </Label>
               <Input
                 id="password"
                 type="password"
                 placeholder="Passwort eingeben"
                 autoComplete="current-password"
+                required
+                aria-required="true"
+                aria-invalid={error ? 'true' : 'false'}
+                aria-describedby={error ? 'login-error' : undefined}
                 className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
                 {...register('password')}
               />

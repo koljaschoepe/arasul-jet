@@ -8,6 +8,9 @@ import {
   Download,
   Settings,
   ChevronLeft,
+  HardDrive,
+  Terminal as TerminalIcon,
+  Send,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -17,6 +20,9 @@ import { PLATFORM_NAME, PLATFORM_SUBTITLE } from '@/config/branding';
 const preloadDocuments = () => import('@/features/documents/DocumentManager');
 const preloadStore = () => import('@/features/store');
 const preloadSettings = () => import('@/features/settings/Settings');
+const preloadDatabase = () => import('@/features/database/DatabaseOverview');
+const preloadTerminal = () => import('@/features/sandbox');
+const preloadTelegram = () => import('@/features/telegram/TelegramBotPage');
 
 interface DownloadInfo {
   modelId: string;
@@ -46,6 +52,42 @@ export function SidebarWithDownloads({ collapsed, onToggle }: SidebarProps) {
   );
 }
 
+/**
+ * Roving tabindex for the menubar: arrow keys move focus between
+ * `[role="menuitem"]` items, Home/End jump to first/last. Only one item
+ * is in the tab order at a time (tabindex=0); the rest are tabindex=-1.
+ */
+function handleMenubarKeyDown(e: React.KeyboardEvent<HTMLUListElement>) {
+  const target = e.target as HTMLElement;
+  if (target.getAttribute('role') !== 'menuitem') return;
+
+  const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+  const currentIdx = items.indexOf(target);
+  if (currentIdx === -1) return;
+
+  let nextIdx = -1;
+  switch (e.key) {
+    case 'ArrowDown':
+    case 'ArrowRight':
+      nextIdx = (currentIdx + 1) % items.length;
+      break;
+    case 'ArrowUp':
+    case 'ArrowLeft':
+      nextIdx = (currentIdx - 1 + items.length) % items.length;
+      break;
+    case 'Home':
+      nextIdx = 0;
+      break;
+    case 'End':
+      nextIdx = items.length - 1;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  items[nextIdx]?.focus();
+}
+
 const SidebarNav = React.memo(function SidebarNav({
   collapsed,
   onToggle,
@@ -63,6 +105,13 @@ const SidebarNav = React.memo(function SidebarNav({
   };
 
   const isCurrent = (path: string) => location.pathname === path;
+
+  // Roving tabindex: only the active route's link is in the tab order;
+  // arrow keys move focus between items. If no menubar item matches the
+  // current route, the first item (Dashboard) gets tabindex=0 as fallback.
+  const menuPaths = ['/', '/chat', '/data', '/store', '/database', '/terminal', '/telegram-bot'];
+  const activePath = menuPaths.find(p => isActive(p) === 'nav-link active') ?? menuPaths[0];
+  const tabIndexFor = (path: string) => (path === activePath ? 0 : -1);
 
   const sidebarClassName = `sidebar ${collapsed ? 'collapsed' : 'expanded'}`;
 
@@ -86,10 +135,11 @@ const SidebarNav = React.memo(function SidebarNav({
 
       <ScrollArea className="flex-1 min-h-0">
         <nav id="sidebar-nav" className="navigation" aria-label="Hauptmenü">
-          <ul className="nav-bar" role="menubar">
+          <ul className="nav-bar" role="menubar" onKeyDown={handleMenubarKeyDown}>
             <li role="none">
               <Link
                 to="/"
+                tabIndex={tabIndexFor('/')}
                 className={isActive('/')}
                 role="menuitem"
                 aria-current={isCurrent('/') ? 'page' : undefined}
@@ -100,6 +150,7 @@ const SidebarNav = React.memo(function SidebarNav({
             <li role="none">
               <Link
                 to="/chat"
+                tabIndex={tabIndexFor('/chat')}
                 className={isActive('/chat')}
                 role="menuitem"
                 aria-current={isCurrent('/chat') ? 'page' : undefined}
@@ -110,6 +161,7 @@ const SidebarNav = React.memo(function SidebarNav({
             <li role="none">
               <Link
                 to="/data"
+                tabIndex={tabIndexFor('/data')}
                 className={isActive('/data')}
                 role="menuitem"
                 aria-current={isCurrent('/data') ? 'page' : undefined}
@@ -121,6 +173,7 @@ const SidebarNav = React.memo(function SidebarNav({
             <li role="none">
               <Link
                 to="/store"
+                tabIndex={tabIndexFor('/store')}
                 className={`${isActive('/store')} ${downloadCount > 0 ? 'has-downloads' : ''}`}
                 role="menuitem"
                 aria-current={isCurrent('/store') ? 'page' : undefined}
@@ -135,6 +188,42 @@ const SidebarNav = React.memo(function SidebarNav({
                     {!collapsed && downloadCount}
                   </span>
                 )}
+              </Link>
+            </li>
+            <li role="none">
+              <Link
+                to="/database"
+                tabIndex={tabIndexFor('/database')}
+                className={isActive('/database')}
+                role="menuitem"
+                aria-current={isCurrent('/database') ? 'page' : undefined}
+                onMouseEnter={preloadDatabase}
+              >
+                <HardDrive aria-hidden="true" /> <span>Tabellen</span>
+              </Link>
+            </li>
+            <li role="none">
+              <Link
+                to="/terminal"
+                tabIndex={tabIndexFor('/terminal')}
+                className={isActive('/terminal')}
+                role="menuitem"
+                aria-current={isCurrent('/terminal') ? 'page' : undefined}
+                onMouseEnter={preloadTerminal}
+              >
+                <TerminalIcon aria-hidden="true" /> <span>Terminal</span>
+              </Link>
+            </li>
+            <li role="none">
+              <Link
+                to="/telegram-bot"
+                tabIndex={tabIndexFor('/telegram-bot')}
+                className={isActive('/telegram-bot')}
+                role="menuitem"
+                aria-current={isCurrent('/telegram-bot') ? 'page' : undefined}
+                onMouseEnter={preloadTelegram}
+              >
+                <Send aria-hidden="true" /> <span>Telegram</span>
               </Link>
             </li>
           </ul>

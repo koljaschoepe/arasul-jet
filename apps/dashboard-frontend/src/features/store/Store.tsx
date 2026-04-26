@@ -6,19 +6,19 @@
  * Migrated to TypeScript + shadcn + Tailwind
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { Package, Search, X, Cpu, LayoutGrid, Home } from 'lucide-react';
 import { Input } from '@/components/ui/shadcn/input';
 import { cn } from '@/lib/utils';
-import { useDownloads } from '../../contexts/DownloadContext';
-import StoreHome from './StoreHome';
-import StoreModels from './StoreModels';
-import StoreApps from './StoreApps';
-import { useApi } from '../../hooks/useApi';
+import StoreHome from './components/StoreHome';
+import StoreModels from './components/StoreModels';
+import StoreApps from './components/StoreApps';
 import { useToast } from '../../contexts/ToastContext';
 import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
+import { useStoreInfoQuery } from './hooks/queries';
+import { useApi } from '../../hooks/useApi';
 
 interface SearchResultItem {
   id: string;
@@ -38,6 +38,11 @@ interface SystemInfo {
 }
 
 const EMPTY_SEARCH: SearchResults = { models: [], apps: [] };
+const DEFAULT_SYSTEM_INFO: SystemInfo = {
+  llmRamGB: 32,
+  totalRamGB: 64,
+  availableDiskGB: 100,
+};
 
 function Store() {
   const api = useApi();
@@ -45,28 +50,23 @@ function Store() {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<HTMLDivElement>(null);
-  const [systemInfo, setSystemInfo] = useState<SystemInfo>({
-    llmRamGB: 32,
-    totalRamGB: 64,
-    availableDiskGB: 100,
-  });
 
-  // Load system info for RAM-based recommendations
+  // Store info via TanStack Query — falls back to defaults if endpoint unreachable
+  const storeInfoQuery = useStoreInfoQuery();
+  const systemInfo: SystemInfo =
+    (storeInfoQuery.data as SystemInfo | undefined) ?? DEFAULT_SYSTEM_INFO;
+
+  // Surface load errors as toast (one-shot)
   useEffect(() => {
-    const loadSystemInfo = async () => {
-      try {
-        const data = await api.get('/store/info', { showError: false });
-        setSystemInfo(data);
-      } catch (err) {
-        toast.error('Systeminfo konnte nicht geladen werden');
-      }
-    };
-    loadSystemInfo();
-  }, [api, toast]);
+    if (storeInfoQuery.error) {
+      toast.error('Systeminfo konnte nicht geladen werden');
+    }
+  }, [storeInfoQuery.error, toast]);
 
-  // Debounced search with AbortController for race condition prevention (STORE-003)
-  const storeSearcher = useCallback(
-    async (q: string, signal: AbortSignal) => {
+  // Debounced search uses raw fetch (not useQuery) because it needs
+  // per-keystroke abort + already has its own state machine.
+  const storeSearcher = useMemo(
+    () => async (q: string, signal: AbortSignal) => {
       try {
         return await api.get<SearchResults>(`/store/search?q=${encodeURIComponent(q)}`, {
           signal,
