@@ -20,12 +20,37 @@ const readFileAsync = promisify(fs.readFile);
 
 const { createDownloadHelpers } = require('./modelDownloadHelpers');
 const { createSyncHelpers } = require('./modelSyncHelpers');
+const { ValidationError } = require('../../utils/errors');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
 
 // Configuration
 const MODEL_SWITCH_COOLDOWN = parseInt(process.env.MODEL_SWITCH_COOLDOWN_SECONDS || '5') * 1000;
+
+// Phase 5.5: Defense-in-depth model-name validator. Catalog IDs follow Ollama's
+// naming (e.g. `gemma3:9b-q8`, `llama3.1:8b`, `qwen2.5-coder:7b-instruct`),
+// so we accept lowercase alphanumerics plus `: . _ - /` between non-boundary
+// chars. Hard-fails on shell-meta, NUL, whitespace, traversal sequences, etc.
+// Catalog lookup already validates existence — this catches malformed IDs
+// before they reach DB queries / Ollama HTTP calls and surfaces clearly.
+const MODEL_ID_PATTERN = /^[a-z0-9][a-z0-9:._/-]*[a-z0-9]$/i;
+const MODEL_ID_MAX_LEN = 128;
+
+function _assertValidModelId(modelId, op) {
+  if (typeof modelId !== 'string' || modelId.length === 0 || modelId.length > MODEL_ID_MAX_LEN) {
+    throw new ValidationError(`Invalid model id for ${op}: must be 1..${MODEL_ID_MAX_LEN} chars`, {
+      field: 'modelId',
+      op,
+    });
+  }
+  if (!MODEL_ID_PATTERN.test(modelId)) {
+    throw new ValidationError(
+      `Invalid model id for ${op}: only lowercase alphanumerics + ":._/-" allowed`,
+      { field: 'modelId', op }
+    );
+  }
+}
 
 /**
  * Factory function to create ModelService with injected dependencies
@@ -257,6 +282,7 @@ function createModelService(deps = {}) {
                     c.supports_thinking,
                     c.rag_optimized,
                     c.supports_vision_input,
+                    c.context_window AS max_context_window,
                     COALESCE(c.ollama_name, c.id) as effective_ollama_name,
                     FALSE as is_running
                 FROM llm_installed_models i
@@ -450,11 +476,24 @@ function createModelService(deps = {}) {
     }
 
     /**
-     * Download a model with progress callback
-     * @param {string} modelId - Model ID to download
-     * @param {function} progressCallback - Callback for progress updates (progress, status)
+     * Download (or resume) a model with progress callback.
+     *
+     * Phase 0 changes:
+     *   - Atomic claim is now race-safe (SELECT FOR UPDATE inside a TX) instead
+     *     of the WHERE-clause trick on the upsert that had a TOCTOU window.
+     *   - 'paused' rows are valid resume targets; bytes_completed is preserved
+     *     so Ollama's local blob cache picks up where it left off.
+     *   - attempt_count is incremented per claim and capped at 5 to avoid
+     *     infinite loops on a permanently failing pull.
+     *
+     * @param {string} modelId
+     * @param {function|null} progressCallback - (percent, statusString, {bytesCompleted, bytesTotal, speedBps})
+     * @param {Object}   [options]
+     * @param {AbortSignal} [options.signal]
+     * @param {string}   [options.triggeredBy='user'] - 'user' | 'auto-resume' | 'sync'
      */
-    async downloadModel(modelId, progressCallback = null, { signal } = {}) {
+    async downloadModel(modelId, progressCallback = null, { signal, triggeredBy = 'user' } = {}) {
+      _assertValidModelId(modelId, 'download');
       // Verify model is in catalog and get ollama_name
       const catalogResult = await database.query(
         `SELECT *, COALESCE(ollama_name, id) as effective_ollama_name
@@ -471,29 +510,85 @@ function createModelService(deps = {}) {
       await this.evictModelsIfNeeded(modelId);
 
       const ollamaName = catalogModel.effective_ollama_name;
+      const MAX_ATTEMPTS_PER_MODEL = 5;
 
-      // Atomic claim — INSERT or UPDATE only if not already downloading
-      const claimResult = await database.query(
-        `INSERT INTO llm_installed_models (id, status, download_progress)
-         VALUES ($1, 'downloading', 0)
-         ON CONFLICT (id) DO UPDATE SET
-             status = 'downloading',
-             download_progress = 0,
-             error_message = NULL
-         WHERE llm_installed_models.status <> 'downloading'
-         RETURNING id`,
-        [modelId]
-      );
+      // Atomic claim inside a transaction. We:
+      //   1. Insert a brand-new row if none exists.
+      //   2. Lock the row (SELECT FOR UPDATE) and inspect.
+      //   3. Reject if already 'downloading' (another process owns it).
+      //   4. Reject if 'available' (no work needed).
+      //   5. Promote 'paused'/'error'/initial → 'downloading', preserving
+      //      bytes_completed for resume.
+      const claimInfo = await database.transaction(async client => {
+        await client.query(
+          `INSERT INTO llm_installed_models (id, status, download_progress, bytes_completed, attempt_count)
+           VALUES ($1, 'paused', 0, 0, 0)
+           ON CONFLICT (id) DO NOTHING`,
+          [modelId]
+        );
+        const row = await client.query(
+          `SELECT status, bytes_completed, attempt_count
+             FROM llm_installed_models
+            WHERE id = $1
+            FOR UPDATE`,
+          [modelId]
+        );
+        const current = row.rows[0];
+        if (current.status === 'downloading') {
+          return { action: 'already_downloading', bytesCompleted: current.bytes_completed || 0 };
+        }
+        if (current.status === 'available') {
+          return { action: 'already_installed', bytesCompleted: current.bytes_completed || 0 };
+        }
+        if ((current.attempt_count || 0) >= MAX_ATTEMPTS_PER_MODEL) {
+          return {
+            action: 'max_attempts',
+            attempts: current.attempt_count,
+          };
+        }
+        await client.query(
+          `UPDATE llm_installed_models
+              SET status = 'downloading',
+                  attempt_count = COALESCE(attempt_count, 0) + 1,
+                  download_started_at = COALESCE(download_started_at, NOW()),
+                  last_activity_at = NOW(),
+                  error_message = NULL,
+                  last_error_code = NULL
+            WHERE id = $1`,
+          [modelId]
+        );
+        return {
+          action: current.bytes_completed > 0 ? 'resume' : 'fresh',
+          bytesCompleted: current.bytes_completed || 0,
+        };
+      });
 
-      if (claimResult.rows.length === 0) {
-        logger.warn(`[DOWNLOAD] Model ${modelId} is already downloading, skipping`);
+      if (claimInfo.action === 'already_downloading') {
+        logger.warn(
+          `[DOWNLOAD] Model ${modelId} is already downloading (${claimInfo.bytesCompleted} bytes), skipping`
+        );
         throw new Error('Modell wird bereits heruntergeladen');
+      }
+      if (claimInfo.action === 'already_installed') {
+        logger.info(`[DOWNLOAD] Model ${modelId} is already installed, skipping`);
+        return { success: true, modelId, alreadyInstalled: true };
+      }
+      if (claimInfo.action === 'max_attempts') {
+        const msg = `Modell ${modelId} hat die maximale Anzahl an Download-Versuchen (${claimInfo.attempts}) erreicht. Bitte aus dem Store löschen und neu starten.`;
+        logger.error(`[DOWNLOAD] ${msg}`);
+        throw new Error(msg);
       }
 
       // Register as active AFTER successful claim so periodic sync can't mark it stale
       activeDownloadIds.add(modelId);
 
-      logger.info(`Starting download of model ${modelId} (Ollama: ${ollamaName})`);
+      const resumeBytes = claimInfo.bytesCompleted || 0;
+      logger.info(
+        `Starting ${claimInfo.action === 'resume' ? 'RESUME' : 'download'} of model ${modelId} (Ollama: ${ollamaName})` +
+          (claimInfo.action === 'resume'
+            ? ` from ${resumeBytes} bytes (triggered by ${triggeredBy})`
+            : ` (triggered by ${triggeredBy})`)
+      );
 
       const MAX_RETRIES = 3;
       const RETRY_CODES = [
@@ -508,8 +603,12 @@ function createModelService(deps = {}) {
       try {
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
           try {
-            // Validate disk space right before download
-            await downloadHelpers.validateDiskSpace(this, catalogModel.size_bytes || 0);
+            // Validate disk space right before download — accounting for resume bytes
+            await downloadHelpers.validateDiskSpace(
+              this,
+              catalogModel.size_bytes || 0,
+              resumeBytes
+            );
 
             // Re-verify model isn't already available
             const statusCheck = await database.query(
@@ -521,7 +620,9 @@ function createModelService(deps = {}) {
               return { success: true, modelId };
             }
 
-            // Start pull with streaming
+            // Start pull with streaming. Ollama natively reuses any blob it
+            // already has on disk, so a resume after partial download is
+            // automatic — we don't need a special "resume" flag.
             const response = await axios({
               method: 'post',
               url: `${LLM_SERVICE_URL}/api/pull`,
@@ -538,21 +639,28 @@ function createModelService(deps = {}) {
               progressCallback
             );
           } catch (err) {
-            // Handle abort (client disconnect) - never retry
+            // Handle abort (explicit cancel via AbortSignal). We do NOT retry,
+            // and we preserve any bytes already on disk by going to 'paused'
+            // (so the user — or the boot recovery — can resume cheaply).
             const isAborted =
               err.name === 'AbortError' || err.name === 'CanceledError' || signal?.aborted;
             if (isAborted) {
               logger.info(`[DOWNLOAD] Model ${modelId} download aborted by client`);
-              await database.query(
-                'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
-                ['error', 'Download abgebrochen - bitte erneut versuchen', modelId]
+              const bytesNow = await database.query(
+                'SELECT bytes_completed FROM llm_installed_models WHERE id = $1',
+                [modelId]
               );
+              await downloadHelpers.markPausedOrError(modelId, {
+                bytesCompleted: bytesNow.rows[0]?.bytes_completed || 0,
+                errorMessage: 'Download abgebrochen — kann fortgesetzt werden.',
+                errorCode: 'ABORTED',
+              });
               throw new Error('Download abgebrochen');
             }
 
             // Non-retryable errors (model not found, disk full)
             const isNotFound = err.response?.data?.error?.includes('not found');
-            const isDiskFull = err.message?.includes('ENOSPC');
+            const isDiskFull = err.message?.includes('ENOSPC') || err.code === 'ENOSPC';
             const isRetryable =
               !isNotFound &&
               !isDiskFull &&
@@ -566,8 +674,15 @@ function createModelService(deps = {}) {
               if (progressCallback) {
                 progressCallback(0, `Verbindungsfehler - Versuch ${attempt + 1}/${MAX_RETRIES}...`);
               }
+              // NOTE: we deliberately do NOT zero download_progress or
+              // bytes_completed here — Ollama's blob cache will let the next
+              // attempt resume from where we left off.
               await database.query(
-                'UPDATE llm_installed_models SET download_progress = 0, error_message = NULL WHERE id = $1',
+                `UPDATE llm_installed_models
+                    SET error_message = NULL,
+                        last_error_code = NULL,
+                        last_activity_at = NOW()
+                  WHERE id = $1`,
                 [modelId]
               );
               await new Promise(r => {
@@ -580,22 +695,44 @@ function createModelService(deps = {}) {
               `Model ${modelId} (Ollama: ${ollamaName}) download failed after ${attempt} attempt(s): ${err.message}`
             );
 
-            // User-friendly error messages
+            // User-friendly error messages + machine code for the row
             let errorMessage = err.message;
+            let errorCode = err.code || 'UNKNOWN';
             if (isNotFound) {
               errorMessage = `Model "${ollamaName}" nicht in Ollama Registry gefunden. Bitte Modell-Konfiguration prüfen.`;
+              errorCode = 'NOT_FOUND';
             } else if (err.code === 'ECONNREFUSED') {
               errorMessage = 'LLM-Service nicht erreichbar. Bitte Systemstatus prüfen.';
             } else if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
               errorMessage = 'Download-Timeout nach mehreren Versuchen. Bitte erneut versuchen.';
             } else if (isDiskFull) {
               errorMessage = 'Nicht genügend Speicherplatz für den Download.';
+              errorCode = 'ENOSPC';
             }
 
-            await database.query(
-              'UPDATE llm_installed_models SET status = $1, error_message = $2 WHERE id = $3',
-              ['error', errorMessage, modelId]
+            // 'not found' and 'disk full' are unrecoverable — go straight to
+            // 'error'. Network-class failures preserve bytes via 'paused'.
+            const bytesNow = await database.query(
+              'SELECT bytes_completed FROM llm_installed_models WHERE id = $1',
+              [modelId]
             );
+            const bytesCompleted = bytesNow.rows[0]?.bytes_completed || 0;
+            if (isNotFound || isDiskFull) {
+              await database.query(
+                `UPDATE llm_installed_models
+                    SET status = 'error',
+                        error_message = $1,
+                        last_error_code = $2
+                  WHERE id = $3`,
+                [errorMessage, errorCode, modelId]
+              );
+            } else {
+              await downloadHelpers.markPausedOrError(modelId, {
+                bytesCompleted,
+                errorMessage,
+                errorCode,
+              });
+            }
             throw new Error(errorMessage);
           }
         }
@@ -608,6 +745,7 @@ function createModelService(deps = {}) {
      * Delete a model
      */
     async deleteModel(modelId) {
+      _assertValidModelId(modelId, 'delete');
       // Acquire switchLock to prevent race with concurrent activateModel
       if (switchLock) {
         logger.info(`[DELETE] Waiting for in-progress model switch to complete...`);
@@ -761,6 +899,7 @@ function createModelService(deps = {}) {
      * @param {string} triggeredBy - Who triggered the switch ('user', 'queue', 'workflow')
      */
     async activateModel(modelId, triggeredBy = 'user') {
+      _assertValidModelId(modelId, 'activate');
       // Cooldown check
       const now = Date.now();
       if (now - lastSwitchTime < MODEL_SWITCH_COOLDOWN) {
@@ -1000,7 +1139,9 @@ function createModelService(deps = {}) {
 
     /**
      * Sync installed models with Ollama
-     * Updates database based on what's actually in Ollama
+     * Updates database based on what's actually in Ollama.
+     * Returns { paused, errored } from the stale-download cleanup so callers
+     * (e.g. ollamaReadiness) can trigger auto-resume.
      */
     async syncWithOllama() {
       try {
@@ -1017,7 +1158,7 @@ function createModelService(deps = {}) {
         // 2. Mark models as error if marked available in DB but not in Ollama
         await syncHelpers.markMissingModels(ollamaModels);
 
-        // 3. Clean up stale downloads (stuck in 'downloading')
+        // 3. Clean up stale downloads — distinguishes paused vs errored now
         const cleanedUp = await syncHelpers.cleanupStaleDownloads(ollamaModels);
 
         this.invalidateAvailabilityCache();
@@ -1026,6 +1167,14 @@ function createModelService(deps = {}) {
         logger.error(`[SYNC] Error syncing with Ollama: ${err.message}`);
         return { success: false, error: err.message };
       }
+    }
+
+    /**
+     * List downloads that are 'paused' and ready for resume.
+     * Thin wrapper over the sync-helper so callers don't need to know about it.
+     */
+    async listResumableDownloads() {
+      return syncHelpers.listResumableDownloads();
     }
 
     /**

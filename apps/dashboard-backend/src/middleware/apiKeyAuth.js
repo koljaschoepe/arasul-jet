@@ -11,8 +11,29 @@ const database = require('../database');
 const logger = require('../utils/logger');
 const crypto = require('crypto');
 
-// Cache for rate limiting (in-memory, resets on restart)
-const rateLimitCache = new Map();
+// Phase 5.3: Rate-limit windows are keyed by the stable numeric `api_keys.id`
+// rather than the 12-char key prefix. Two distinct keys with a colliding
+// prefix (8 random chars after `aras_`) would have shared a window before;
+// they now get independent budgets. Counts reset on backend restart — for
+// an edge appliance that's acceptable.
+const rateLimitCache = new Map(); // Map<apiKeyId:number, { count, windowStart }>
+
+// Janitor: prune entries whose window has fully expired so the map cannot
+// grow unboundedly when many short-lived keys hit the API. Runs every
+// minute and is a no-op when nothing is stale.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const _rateLimitJanitor = setInterval(() => {
+  const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
+  for (const [id, usage] of rateLimitCache) {
+    if (usage.windowStart < cutoff) {
+      rateLimitCache.delete(id);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS);
+// Don't keep the event loop alive in test runs.
+if (typeof _rateLimitJanitor.unref === 'function') {
+  _rateLimitJanitor.unref();
+}
 
 /**
  * Generate a new API key
@@ -25,7 +46,13 @@ const rateLimitCache = new Map();
 async function generateApiKey(name, description, createdBy, options = {}) {
   const {
     rateLimitPerMinute = 60,
-    allowedEndpoints = ['llm:chat', 'llm:status'],
+    allowedEndpoints = [
+      'llm:chat',
+      'llm:status',
+      'openai:chat',
+      'openai:embeddings',
+      'openai:models',
+    ],
     expiresAt = null,
   } = options;
 
@@ -118,21 +145,25 @@ async function validateApiKey(apiKey) {
 }
 
 /**
- * Check rate limit for API key
- * @param {string} keyPrefix - Key prefix for identification
+ * Check rate limit for API key.
+ *
+ * Phase 5.3: Keyed by numeric `api_keys.id` (stable, prefix-collision-free)
+ * instead of the 12-char string prefix.
+ *
+ * @param {number} keyId - Stable api_keys.id
  * @param {number} limit - Requests per minute limit
  * @returns {{allowed: boolean, remaining: number, resetIn: number}}
  */
-function checkRateLimit(keyPrefix, limit) {
+function checkRateLimit(keyId, limit) {
   const now = Date.now();
-  const windowMs = 60 * 1000; // 1 minute window
+  const windowMs = RATE_LIMIT_WINDOW_MS;
 
-  let usage = rateLimitCache.get(keyPrefix);
+  let usage = rateLimitCache.get(keyId);
 
   // Reset if window expired
   if (!usage || now - usage.windowStart > windowMs) {
     usage = { count: 0, windowStart: now };
-    rateLimitCache.set(keyPrefix, usage);
+    rateLimitCache.set(keyId, usage);
   }
 
   const remaining = Math.max(0, limit - usage.count);
@@ -175,8 +206,8 @@ async function requireApiKey(req, res, next) {
   const { keyData } = validation;
   const keyPrefix = apiKey.substring(0, 12);
 
-  // Check rate limit
-  const rateLimit = checkRateLimit(keyPrefix, keyData.rate_limit_per_minute);
+  // Check rate limit (keyed by stable api_keys.id — Phase 5.3)
+  const rateLimit = checkRateLimit(keyData.id, keyData.rate_limit_per_minute);
 
   res.setHeader('X-RateLimit-Limit', keyData.rate_limit_per_minute);
   res.setHeader('X-RateLimit-Remaining', rateLimit.remaining);
@@ -207,12 +238,18 @@ async function requireApiKey(req, res, next) {
 
 /**
  * Check if endpoint is allowed for API key
+ *
+ * Phase 5.4: Wildcard ('*') scopes are explicitly NOT honored. Legacy keys
+ * created before the create-time refinement may still have '*' stored — they
+ * are inert from the auth layer's perspective and need to be reissued with
+ * an explicit endpoint list. Migration 085 flags affected keys.
+ *
  * @param {string[]} allowedEndpoints - Array of allowed endpoint patterns
  * @param {string} endpoint - Endpoint to check (e.g., 'llm:chat')
  * @returns {boolean}
  */
 function isEndpointAllowed(allowedEndpoints, endpoint) {
-  return allowedEndpoints.includes(endpoint) || allowedEndpoints.includes('*');
+  return allowedEndpoints.includes(endpoint);
 }
 
 /**
@@ -248,4 +285,7 @@ module.exports = {
   requireApiKey,
   requireEndpoint,
   checkRateLimit,
+  // Test-only escape hatches: lets specs reset state between cases without
+  // round-tripping through requireApiKey. Not part of any consumer contract.
+  __rateLimitCache: rateLimitCache,
 };

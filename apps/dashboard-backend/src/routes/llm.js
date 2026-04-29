@@ -13,6 +13,7 @@ const { requireAuth } = require('../middleware/auth');
 const { llmLimiter } = require('../middleware/rateLimit');
 const llmJobService = require('../services/llm/llmJobService');
 const llmQueueService = require('../services/llm/llmQueueService');
+const ollamaReadiness = require('../services/llm/ollamaReadiness');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
 const { PrioritizeJobBody, ChatBody } = require('../schemas/llm');
@@ -46,6 +47,19 @@ router.post(
       images, // Optional: base64-encoded images for vision models
     } = req.body;
     const enableThinking = thinking !== false;
+
+    // Phase 4.1: fail fast when Ollama is unreachable. Without this probe a
+    // dead Ollama lets the request sit in the queue until the 11-min model-
+    // load timeout — users see "thinking" for 11 minutes instead of a clear
+    // error. 2s is enough to distinguish "down" from "slow".
+    const health = await ollamaReadiness.quickCheck(2000);
+    if (!health.ready) {
+      throw new ServiceUnavailableError('LLM-Service ist nicht erreichbar', {
+        code: 'OLLAMA_UNAVAILABLE',
+        service: 'ollama',
+        details: { latencyMs: health.latencyMs, error: health.error },
+      });
+    }
 
     try {
       // Validate images if provided (must be array of base64 strings, max 5)
@@ -228,15 +242,23 @@ router.get(
 
     initSSE(res);
 
-    // Send current content immediately
+    // Phase 4.6: prefer the in-memory live snapshot over the (possibly
+    // stale-by-up-to-150ms) DB row. The streamer updates the in-memory
+    // snapshot synchronously per token so reconnects don't lose tokens
+    // that landed between the last DB flush and the disconnect.
+    const live = job.status === 'streaming' ? llmQueueService.getLiveStream(jobId) : null;
+    const reconnectContent = live && live.content ? live.content : job.content || '';
+    const reconnectThinking = live && live.thinking ? live.thinking : job.thinking || '';
+
     logger.debug(
-      `[RECONNECT ${jobId}] Sending content: "${(job.content || '').substring(0, 50)}..."`
+      `[RECONNECT ${jobId}] Sending content: "${reconnectContent.substring(0, 50)}..." ` +
+        `(source: ${live ? `live-snapshot seq=${live.seq}` : 'db'})`
     );
     res.write(
       `data: ${JSON.stringify({
         type: 'reconnect',
-        content: job.content || '',
-        thinking: job.thinking || '',
+        content: reconnectContent,
+        thinking: reconnectThinking,
         sources: job.sources,
         matchedSpaces: job.matched_spaces,
         status: job.status,

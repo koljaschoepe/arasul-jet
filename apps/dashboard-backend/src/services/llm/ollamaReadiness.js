@@ -14,6 +14,7 @@ const logger = require('../../utils/logger');
 const database = require('../../database');
 const services = require('../../config/services');
 const modelLifecycleService = require('./modelLifecycleService');
+const { circuitBreakers } = require('../../utils/retry');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
@@ -49,8 +50,15 @@ class OllamaReadinessService {
     // Wait for Ollama to be ready
     await this.waitForOllama();
 
-    // Initial sync
+    // Initial sync — also demotes orphaned 'downloading' rows to 'paused'
+    // when bytes are present, so the resume step below can pick them up.
     await this.performSync();
+
+    // Phase 0: auto-resume any downloads that were interrupted by a crash,
+    // restart, or network blip. Runs in background; does not block startup.
+    this.resumePausedDownloads().catch(err =>
+      logger.error(`[OllamaReadiness] Initial resume sweep failed: ${err.message}`)
+    );
 
     // Preload default model (respects lifecycle phases)
     await this.preloadDefaultModel();
@@ -63,6 +71,60 @@ class OllamaReadinessService {
 
     logger.info('[OllamaReadiness] Initialization complete');
     return { success: true };
+  }
+
+  /**
+   * Auto-resume all 'paused' downloads.
+   *
+   * Triggered:
+   *   1. Once at startup, after the initial sync.
+   *   2. After every periodic sync (in case a sync just demoted a row).
+   *
+   * Pulls are fired sequentially with a small stagger so we don't hammer
+   * Ollama; each one runs to completion in the background. The atomic claim
+   * inside downloadModel makes it idempotent — if a resume is already in
+   * flight, a duplicate trigger is a no-op.
+   */
+  async resumePausedDownloads() {
+    if (!this.modelService) {
+      return { resumed: 0, skipped: 0 };
+    }
+    let rows;
+    try {
+      rows = await this.modelService.listResumableDownloads();
+    } catch (err) {
+      logger.error(`[OllamaReadiness] listResumableDownloads failed: ${err.message}`);
+      return { resumed: 0, skipped: 0, error: err.message };
+    }
+    if (!rows.length) {
+      return { resumed: 0, skipped: 0 };
+    }
+
+    logger.info(`[OllamaReadiness] Found ${rows.length} paused download(s) — auto-resuming...`);
+    let resumed = 0;
+    let skipped = 0;
+    for (const row of rows) {
+      logger.info(
+        `[OllamaReadiness] Resuming ${row.id} from ${row.bytes_completed || 0} bytes (attempt ${row.attempt_count || 0})`
+      );
+      try {
+        // Fire-and-forget: large pulls run for hours and must not block.
+        // Errors propagate to the row itself (status='paused' or 'error').
+        this.modelService
+          .downloadModel(row.id, null, { triggeredBy: 'auto-resume' })
+          .then(() => logger.info(`[OllamaReadiness] Resume of ${row.id} completed`))
+          .catch(err => logger.warn(`[OllamaReadiness] Resume of ${row.id} ended: ${err.message}`));
+        resumed++;
+      } catch (err) {
+        logger.warn(`[OllamaReadiness] Could not start resume of ${row.id}: ${err.message}`);
+        skipped++;
+      }
+      // 1s stagger between starts so Ollama doesn't see a burst.
+      await new Promise(r => {
+        setTimeout(r, 1000);
+      });
+    }
+    return { resumed, skipped };
   }
 
   /**
@@ -200,7 +262,16 @@ class OllamaReadinessService {
     }
 
     syncIntervalId = setInterval(async () => {
-      await this.performSync();
+      const syncResult = await this.performSync();
+      // If the sync just demoted any 'downloading' rows to 'paused', kick off
+      // a resume sweep. Quick check via the cleanedUp counts avoids needless
+      // DB queries when nothing changed.
+      const cleanedUp = syncResult?.cleanedUp;
+      if (cleanedUp && (cleanedUp.paused || 0) > 0) {
+        this.resumePausedDownloads().catch(err =>
+          logger.warn(`[OllamaReadiness] Resume sweep after periodic sync failed: ${err.message}`)
+        );
+      }
     }, SYNC_INTERVAL);
 
     logger.info(`[OllamaReadiness] Periodic sync started (every ${SYNC_INTERVAL / 1000}s)`);
@@ -330,7 +401,9 @@ class OllamaReadinessService {
 
       // Check if model is among loaded models
       const isLoaded = loadedModels.some(m => (m.name || m.model) === ollamaName);
-      if (isLoaded) {return true;}
+      if (isLoaded) {
+        return true;
+      }
 
       // Auto-reload the model
       logger.info(`[OllamaReadiness] Auto-loading model ${modelId} for incoming request`);
@@ -350,10 +423,61 @@ class OllamaReadinessService {
   }
 
   /**
-   * Check if Ollama is ready
+   * Check if Ollama is ready (cached flag from initialization / sync).
    */
   isReady() {
     return isOllamaReady;
+  }
+
+  /**
+   * Fast probe to check whether Ollama is reachable RIGHT NOW.
+   *
+   * Used by the /chat enqueue path to fail fast (≈2s) instead of letting
+   * the queue wait the full 11-min model-load timeout when Ollama is dead.
+   *
+   * Returns `{ ready, latencyMs, error? }`. Mutates the cached `isOllamaReady`
+   * flag based on the probe result so other consumers see fresh state.
+   */
+  async quickCheck(timeoutMs = 2000) {
+    // Phase 6.3: Wrap the probe in the central circuit breaker. After 3
+    // consecutive Ollama failures the breaker opens for 30s — quickCheck
+    // returns instantly with `error: 'circuit-open'` instead of paying the
+    // 2s timeout per request and hammering a known-down Ollama. The breaker
+    // state is exposed via /api/health?detail=true.
+    const startTime = Date.now();
+    const breaker = circuitBreakers.get('ollama');
+    try {
+      const response = await breaker.execute(() =>
+        axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: timeoutMs })
+      );
+      const latencyMs = Date.now() - startTime;
+      if (response.status === 200) {
+        if (!isOllamaReady) {
+          // Recovered from a previous failure — log once so the operator
+          // knows the box is back online.
+          logger.info('[OllamaReadiness] quickCheck recovered Ollama');
+        }
+        isOllamaReady = true;
+        return { ready: true, latencyMs };
+      }
+      isOllamaReady = false;
+      return { ready: false, latencyMs, error: `unexpected status ${response.status}` };
+    } catch (err) {
+      isOllamaReady = false;
+      // Surface circuit-open as a distinct, non-noisy error (no axios stack)
+      if (err && err.code === 'CIRCUIT_OPEN') {
+        return {
+          ready: false,
+          latencyMs: Date.now() - startTime,
+          error: 'circuit-open',
+        };
+      }
+      return {
+        ready: false,
+        latencyMs: Date.now() - startTime,
+        error: err.code || err.message || 'unknown',
+      };
+    }
   }
 
   /**

@@ -21,6 +21,7 @@ const { requireAuth } = require('../../middleware/auth');
 const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
+const ollamaReadiness = require('../../services/llm/ollamaReadiness');
 const extractionService = require('../../services/documents/extractionService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
@@ -104,6 +105,17 @@ router.post(
       wait_for_result = true,
       timeout_seconds = 300,
     } = req.body;
+
+    // Phase 4.1: fail fast on dead Ollama (≈2s probe) instead of letting
+    // the request sit through the 11-min model-load timeout.
+    const health = await ollamaReadiness.quickCheck(2000);
+    if (!health.ready) {
+      throw new ServiceUnavailableError('LLM-Service ist nicht erreichbar', {
+        code: 'OLLAMA_UNAVAILABLE',
+        service: 'ollama',
+        details: { latencyMs: health.latencyMs, error: health.error },
+      });
+    }
 
     // Create a temporary conversation for this request
     // USER-FIX: Use API key owner's user_id instead of hardcoded 1
@@ -280,6 +292,9 @@ router.post(
         'llm:status',
         'document:extract',
         'document:analyze',
+        'openai:chat',
+        'openai:embeddings',
+        'openai:models',
       ],
       expiresAt: expires_at || null,
     });

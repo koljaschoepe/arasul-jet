@@ -203,9 +203,16 @@ export function ActivationProvider({ children }: ActivationProviderProps) {
     }
   }, []);
 
+  // Phase 1.6: also reset the activation snapshot ref. Without this, a
+  // subsequent isActivating() call would still match the cancelled modelId
+  // (because activationRef.current was last synced *before* setActivation(null)
+  // had a chance to flush), and a later activation could pick up stale
+  // controller state.
   const cancelActivation = useCallback(() => {
     abortRef.current?.abort();
+    abortRef.current = null;
     setActivation(null);
+    activationRef.current = null;
     activatingRef.current = false;
   }, []);
 

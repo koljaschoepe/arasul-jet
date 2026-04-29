@@ -46,6 +46,11 @@ jest.mock('../../src/services/llm/modelService', () => ({
   getLoadedModel: jest.fn()
 }));
 
+// Phase 4.1: routes/external/externalApi.js calls ollamaReadiness.quickCheck()
+jest.mock('../../src/services/llm/ollamaReadiness', () => ({
+  quickCheck: jest.fn().mockResolvedValue({ ready: true })
+}));
+
 // Mock apiKeyAuth middleware
 jest.mock('../../src/middleware/apiKeyAuth', () => ({
   requireApiKey: jest.fn((req, res, next) => {

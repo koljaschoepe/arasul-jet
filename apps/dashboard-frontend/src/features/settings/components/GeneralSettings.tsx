@@ -3,7 +3,6 @@ import { Switch } from '@/components/ui/shadcn/switch';
 import { Label } from '@/components/ui/shadcn/label';
 import { SkeletonCard } from '../../../components/ui/Skeleton';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
-import { N8nIntegrationGuide } from './N8nIntegrationGuide';
 import { useSystemInfoQuery } from '../../../hooks/queries/system';
 
 interface GeneralSettingsProps {
@@ -154,9 +153,6 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
             </p>
           </div>
         </div>
-
-        {/* n8n KI-Integration Guide */}
-        <N8nIntegrationGuide />
       </div>
     </div>
   );

@@ -312,11 +312,13 @@ describe('RAG Pipeline', () => {
     expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith('Test query');
   });
 
-  test('getEmbedding throws when embedding service returns null', async () => {
+  test('getEmbedding throws ServiceUnavailableError(EMBEDDING_DOWN) when service returns null', async () => {
     mockEmbeddingService.getEmbedding.mockResolvedValue(null);
 
+    // Phase 4.7: replaced silent-fallback with typed throw so callers/routes
+    // surface a 503 + EMBEDDING_DOWN instead of running RAG with empty sources.
     await expect(ragCore.getEmbedding('Test query'))
-      .rejects.toThrow('Failed to generate embedding');
+      .rejects.toMatchObject({ code: 'EMBEDDING_DOWN', statusCode: 503 });
   });
 
   test('cosineSimilarity calculates correctly for identical vectors', () => {

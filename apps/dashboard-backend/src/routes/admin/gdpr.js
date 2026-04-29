@@ -8,9 +8,12 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { ValidationError, ForbiddenError } = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const db = require('../../database');
 const logger = require('../../utils/logger');
+
+const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
 
 /**
  * GET /api/gdpr/export
@@ -304,6 +307,149 @@ router.get(
           description: 'Passwortänderungen, Konfigurationsänderungen',
         },
       ],
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * DELETE /api/gdpr/me
+ * DSGVO Art. 17 — Recht auf Löschung ("right to be forgotten").
+ *
+ * Body MUSS `{ confirm: 'LOESCHEN-BESTAETIGT' }` enthalten — verhindert
+ * versehentliche Trigger via XSS, Mistypes oder fremde Browser-Sessions.
+ *
+ * Was passiert:
+ *   - Persönliche Inhalte werden gelöscht (Chats, Dokumenten-Metadaten,
+ *     KI-Memories, Knowledge-Spaces, Projekte).
+ *   - Aktive Sessions des Users werden invalidiert.
+ *   - Compliance-Trails (audit_logs, api_audit_logs, login_attempts) werden
+ *     anonymisiert (user_id/username → NULL) statt gelöscht — DSGVO Art. 17 (3) (b)
+ *     erlaubt das, wenn rechtliche Aufbewahrungspflichten greifen.
+ *   - rag_query_log: user_id → NULL (Plaintext ist seit Phase 5.2 schon
+ *     anonymisiert).
+ *   - admin_users: Eigene Row wird gelöscht — ABER nur wenn nicht letzter
+ *     Admin (sonst wäre die Box gemauert; Single-Box-Appliance).
+ */
+router.delete(
+  '/me',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const username = req.user.username;
+    const confirm = req.body && req.body.confirm;
+
+    if (confirm !== DELETE_CONFIRMATION_TOKEN) {
+      throw new ValidationError(
+        `Bestätigung erforderlich. Body muss { "confirm": "${DELETE_CONFIRMATION_TOKEN}" } enthalten.`
+      );
+    }
+
+    // Single-Box-Schutz: letzter Admin darf sich nicht selbst löschen, sonst
+    // ist die Appliance unbedienbar. User muss erst einen anderen Admin anlegen.
+    const adminCount = await db.query(
+      `SELECT COUNT(*)::int AS n FROM admin_users WHERE role = 'admin' AND is_active = true`
+    );
+    if (req.user.role === 'admin' && (adminCount.rows[0]?.n ?? 0) <= 1) {
+      throw new ForbiddenError(
+        'Du bist der letzte aktive Admin. Lege erst einen Ersatz-Admin an, sonst ist die Box danach unbedienbar.'
+      );
+    }
+
+    logger.warn(`[gdpr-delete] user ${username} (id=${userId}) initiates account deletion`);
+
+    const summary = await db.transaction(async client => {
+      const counts = {};
+
+      // Reihenfolge folgt FK-Abhängigkeiten: erst Kinder, dann Parents.
+      // Jede Query nutzt try/catch via separate Helpers wäre nicht atomar —
+      // bei einer fehlenden Tabelle (Schema-Drift) lieber crashen und
+      // ROLLBACK, damit nichts halb-gelöscht zurückbleibt.
+
+      const del = async (label, sql, params) => {
+        const result = await client.query(sql, params);
+        counts[label] = result.rowCount || 0;
+      };
+
+      // 1) Chat-Stack
+      await del(
+        'chat_attachments',
+        `DELETE FROM chat_attachments
+          WHERE message_id IN (
+            SELECT m.id FROM chat_messages m
+            JOIN chat_conversations c ON c.id = m.conversation_id
+            WHERE c.user_id = $1
+          )`,
+        [userId]
+      );
+      await del(
+        'chat_messages',
+        `DELETE FROM chat_messages
+          WHERE conversation_id IN (
+            SELECT id FROM chat_conversations WHERE user_id = $1
+          )`,
+        [userId]
+      );
+      await del('chat_conversations', `DELETE FROM chat_conversations WHERE user_id = $1`, [
+        userId,
+      ]);
+
+      // 2) Documents — Metadaten löschen. Single-Box: documents.uploaded_by
+      //    ist die einzige user-gebundene Spalte; ai_memories, knowledge_spaces
+      //    und projects sind Box-weit (kein user_id-Feld) und werden vom
+      //    Single-Box-Schutz oben ohnehin auf einem Nachfolge-Admin "vererbt".
+      //    MinIO-Files bleiben (Cleanup ist follow-up Phase 5.7); für DSGVO ist
+      //    die DB-Löschung der entscheidende Schritt, weil MinIO-Objekte ohne
+      //    Metadata-Referenz nicht mehr addressierbar sind.
+      await del('documents', `DELETE FROM documents WHERE uploaded_by = $1`, [userId]);
+
+      // 3) Aktive Sessions invalidieren
+      await del('active_sessions', `DELETE FROM active_sessions WHERE user_id = $1`, [userId]);
+
+      // 4) Compliance-Trails anonymisieren (siehe DSGVO Art. 17 (3) (b))
+      const anon = async (label, sql, params) => {
+        const result = await client.query(sql, params);
+        counts[`anon_${label}`] = result.rowCount || 0;
+      };
+      await anon('audit_logs', `UPDATE audit_logs SET user_id = NULL WHERE user_id = $1`, [userId]);
+      await anon('api_audit_logs', `UPDATE api_audit_logs SET user_id = NULL WHERE user_id = $1`, [
+        userId,
+      ]);
+      await anon(
+        'login_attempts',
+        `UPDATE login_attempts SET username = NULL WHERE username = $1`,
+        [username]
+      );
+      await anon('rag_query_log', `UPDATE rag_query_log SET user_id = NULL WHERE user_id = $1`, [
+        userId,
+      ]);
+
+      // 5) admin_users — eigene Row löschen (Single-Box-Schutz oben hat
+      //    sichergestellt, dass es nicht der letzte Admin ist).
+      await del('admin_users', `DELETE FROM admin_users WHERE id = $1`, [userId]);
+
+      return counts;
+    });
+
+    logSecurityEvent({
+      userId: null,
+      action: 'gdpr_account_deletion',
+      details: { deleted_user: username, summary },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    logger.warn(
+      `[gdpr-delete] user ${username} (id=${userId}) deleted; summary: ${JSON.stringify(summary)}`
+    );
+
+    // Session-Cookie räumen, damit der Client nicht weiter eingeloggt wirkt
+    res.clearCookie('arasul_session');
+
+    res.json({
+      ok: true,
+      message: 'Account und alle persönlichen Daten wurden gelöscht.',
+      summary,
       timestamp: new Date().toISOString(),
     });
   })

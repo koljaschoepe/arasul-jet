@@ -27,7 +27,23 @@ interface UseTokenBatchingReturn {
   tokenBatchRef: MutableRefObject<TokenBatch>;
   flushTokenBatch: (assistantMessageIndex: number, forceFlush?: boolean) => void;
   addTokenToBatch: (type: TokenType, token: string, assistantMessageIndex: number) => void;
-  resetTokenBatch: () => void;
+  /**
+   * Reset the batch and bind it to a new opaque `streamId`. addTokenToBatch
+   * calls made with a different (or older) streamId are dropped — defense
+   * against stale tokens leaking across chat switches. (Phase 4.3)
+   *
+   * Returns the bound streamId so the caller can pass it back to subsequent
+   * addTokenToBatch calls. If the caller doesn't care, omit and behavior is
+   * backward-compatible.
+   */
+  resetTokenBatch: (streamId?: string | number) => string | number | null;
+  /** Send a token tagged with the streamId previously bound by resetTokenBatch. */
+  addTokenToBatchForStream: (
+    streamId: string | number,
+    type: TokenType,
+    token: string,
+    assistantMessageIndex: number
+  ) => void;
 }
 
 /**
@@ -49,6 +65,11 @@ export default function useTokenBatching(
     pendingThinking: '',
   });
   const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Phase 4.3: opaque tag set by resetTokenBatch(); addTokenToBatchForStream
+  // drops tokens whose streamId doesn't match — protects against the chat
+  // switch race where an aborted stream's late SSE chunks would otherwise
+  // append into the next chat's buffer.
+  const streamIdRef = useRef<string | number | null>(null);
 
   // Flush batched tokens to state - called periodically or when stream ends
   // RC-001 FIX: Added index validation and warning for out-of-bounds access
@@ -117,19 +138,36 @@ export default function useTokenBatching(
     [scheduleTokenFlush]
   );
 
-  // Reset batch state for new stream
-  const resetTokenBatch = useCallback(() => {
+  // Stream-tagged variant: drop stale tokens (Phase 4.3 defense-in-depth).
+  const addTokenToBatchForStream = useCallback(
+    (streamId: string | number, type: TokenType, token: string, assistantMessageIndex: number) => {
+      if (streamIdRef.current !== streamId) {
+        // Late chunk from an aborted/stale stream — drop on the floor.
+        return;
+      }
+      addTokenToBatch(type, token, assistantMessageIndex);
+    },
+    [addTokenToBatch]
+  );
+
+  // Reset batch state for new stream. Optional streamId binds the batch
+  // to a specific stream identifier; subsequent addTokenToBatchForStream
+  // calls with a different ID are no-ops.
+  const resetTokenBatch = useCallback((streamId: string | number | null = null) => {
     tokenBatchRef.current = { content: '', thinking: '', pendingContent: '', pendingThinking: '' };
+    streamIdRef.current = streamId;
     if (batchTimerRef.current) {
       clearTimeout(batchTimerRef.current);
       batchTimerRef.current = null;
     }
+    return streamId;
   }, []);
 
   return {
     tokenBatchRef,
     flushTokenBatch,
     addTokenToBatch,
+    addTokenToBatchForStream,
     resetTokenBatch,
   };
 }

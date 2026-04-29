@@ -47,6 +47,11 @@ jest.mock('../../src/services/llm/llmQueueService', () => ({
   subscribeToJob: jest.fn()
 }));
 
+// Phase 4.1: routes/llm.js calls ollamaReadiness.quickCheck() before enqueue
+jest.mock('../../src/services/llm/ollamaReadiness', () => ({
+  quickCheck: jest.fn().mockResolvedValue({ ready: true })
+}));
+
 const db = require('../../src/database');
 const axios = require('axios');
 const llmJobService = require('../../src/services/llm/llmJobService');

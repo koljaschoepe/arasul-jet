@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import StoreHome from './components/StoreHome';
 import StoreModels from './components/StoreModels';
 import StoreApps from './components/StoreApps';
+import StorageBar from './components/StorageBar';
 import { useToast } from '../../contexts/ToastContext';
 import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
@@ -258,6 +259,11 @@ function Store() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Phase 2.3: live disk usage so users see what's free before pulling 40GB. */}
+        <div className="mb-4">
+          <StorageBar />
         </div>
 
         {/* Tab Navigation */}

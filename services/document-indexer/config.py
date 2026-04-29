@@ -55,6 +55,11 @@ INDEXER_MAX_DOCS_PER_CYCLE = int(os.getenv('DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE'
 # Phase 0 (BUG-002): Max automatic retries for failed documents in the scan loop.
 # The scan loop must honor this cap; explicit /retry endpoint bypasses it by resetting retry_count.
 INDEXER_MAX_RETRIES = int(os.getenv('DOCUMENT_INDEXER_MAX_RETRIES', '3'))
+# Periodic watchdog: docs stuck in 'processing' for longer than STUCK_AFTER_MINUTES are
+# reset to 'pending' (so retry_count increments and they eventually fail clean).
+# Runs every WATCHDOG_INTERVAL_SECS while the indexer is alive.
+INDEXER_WATCHDOG_INTERVAL_SECS = int(os.getenv('DOCUMENT_INDEXER_WATCHDOG_INTERVAL', '300'))
+INDEXER_STUCK_AFTER_MINUTES = int(os.getenv('DOCUMENT_INDEXER_STUCK_AFTER_MINUTES', '30'))
 
 # --- File Size Limit ---
 # CRITICAL-FIX: Maximum file size limit to prevent OOM (default: 100MB)

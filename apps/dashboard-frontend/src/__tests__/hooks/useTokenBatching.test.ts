@@ -142,4 +142,57 @@ describe('useTokenBatching', () => {
 
     expect(setMessagesMock).toHaveBeenCalled();
   });
+
+  describe('Phase 4.3 — stream-tagged tokens', () => {
+    it('accepts tokens whose streamId matches the bound id', () => {
+      const { result } = renderHook(() => useTokenBatching(setMessagesMock));
+
+      act(() => {
+        result.current.resetTokenBatch('chat-A');
+      });
+
+      act(() => {
+        result.current.addTokenToBatchForStream('chat-A', 'content', 'Hi', 0);
+      });
+
+      expect(result.current.tokenBatchRef.current.pendingContent).toBe('Hi');
+    });
+
+    it('drops late tokens whose streamId no longer matches (chat switch race)', () => {
+      const { result } = renderHook(() => useTokenBatching(setMessagesMock));
+
+      act(() => {
+        result.current.resetTokenBatch('chat-A');
+        result.current.addTokenToBatchForStream('chat-A', 'content', 'A1', 0);
+      });
+      // User switches to chat-B: any in-flight chat-A chunks are stale
+      act(() => {
+        result.current.resetTokenBatch('chat-B');
+        result.current.addTokenToBatchForStream('chat-A', 'content', 'STALE', 0);
+        result.current.addTokenToBatchForStream('chat-B', 'content', 'B1', 0);
+      });
+
+      expect(result.current.tokenBatchRef.current.pendingContent).toBe('B1');
+    });
+
+    it('drops addTokenToBatchForStream when no streamId has been bound', () => {
+      const { result } = renderHook(() => useTokenBatching(setMessagesMock));
+
+      act(() => {
+        result.current.addTokenToBatchForStream('whatever', 'content', 'X', 0);
+      });
+
+      expect(result.current.tokenBatchRef.current.pendingContent).toBe('');
+    });
+
+    it('un-tagged addTokenToBatch keeps working for legacy call sites', () => {
+      const { result } = renderHook(() => useTokenBatching(setMessagesMock));
+
+      act(() => {
+        result.current.addTokenToBatch('content', 'legacy', 0);
+      });
+
+      expect(result.current.tokenBatchRef.current.pendingContent).toBe('legacy');
+    });
+  });
 });

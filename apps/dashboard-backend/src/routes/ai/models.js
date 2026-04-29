@@ -259,7 +259,10 @@ router.post(
       throw new NotFoundError(`Modell ${model_id} nicht im Katalog gefunden`);
     }
 
-    // DL-002: Check if model is already downloading or installed
+    // DL-002: Check if model is already downloading or installed.
+    // Phase 0: 'paused' is NOT a short-circuit — it means a previous attempt
+    // was interrupted; we let modelService.downloadModel resume from saved
+    // bytes_completed (Ollama re-uses its local blob cache).
     if (modelInfo.install_status === 'downloading') {
       // Already downloading - return current progress via SSE and close
       initSSE(res);
@@ -268,6 +271,8 @@ router.post(
           status: 'already_downloading',
           model_id,
           progress: modelInfo.download_progress || 0,
+          bytes_completed: modelInfo.bytes_completed || 0,
+          bytes_total: modelInfo.bytes_total || null,
           message: 'Download läuft bereits',
         })}\n\n`
       );
@@ -341,16 +346,25 @@ router.post(
     try {
       await modelService.downloadModel(
         model_id,
-        (progress, status) => {
+        (progress, status, bytes) => {
           if (connection.isConnected()) {
             try {
-              res.write(`data: ${JSON.stringify({ progress, status, model_id })}\n\n`);
+              res.write(
+                `data: ${JSON.stringify({
+                  progress,
+                  status,
+                  model_id,
+                  bytes_completed: bytes?.bytesCompleted,
+                  bytes_total: bytes?.bytesTotal,
+                  speed_bps: bytes?.speedBps,
+                })}\n\n`
+              );
             } catch {
               // connection lost - trackConnection handles state
             }
           }
         },
-        { signal: abortController.signal }
+        { signal: abortController.signal, triggeredBy: 'user' }
       );
 
       // Invalidate model caches after successful download
@@ -380,6 +394,94 @@ router.post(
         res.end();
       }
     }
+  })
+);
+
+/**
+ * DELETE /api/models/:modelId/download
+ *
+ * Phase 0: explicit "purge a paused/errored download and start over".
+ *
+ * Tab-close cancellation (the common case) needs no API call — the server
+ * sees the SSE disconnect, aborts the pull, and goes to status='paused'
+ * with bytes preserved. This endpoint is for the rarer "I want to wipe and
+ * restart from zero" intent, e.g. when the user suspects on-disk corruption
+ * or wants to free disk space.
+ *
+ * Behavior:
+ *   - Refuses if the model is currently downloading (active in this process):
+ *     the user must close the tab / hit Cancel first so the abort handler
+ *     can park it as 'paused'.
+ *   - Otherwise: removes the row from llm_installed_models and tries to
+ *     `ollama rm` any local blobs (best-effort).
+ */
+router.delete(
+  '/:modelId/download',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { modelId } = req.params;
+    const database = require('../../database');
+    const axios = require('axios');
+    const services = require('../../config/services');
+
+    const row = await database.query(
+      `SELECT i.status, i.bytes_completed,
+              COALESCE(c.ollama_name, c.id) as effective_ollama_name
+         FROM llm_installed_models i
+         LEFT JOIN llm_model_catalog c ON c.id = i.id
+        WHERE i.id = $1`,
+      [modelId]
+    );
+
+    if (row.rows.length === 0) {
+      // Nothing to clean up
+      return res.json({ success: true, message: 'Kein Download-State vorhanden.' });
+    }
+
+    const {
+      status,
+      bytes_completed: bytesCompleted,
+      effective_ollama_name: ollamaName,
+    } = row.rows[0];
+
+    if (status === 'downloading') {
+      return res.status(409).json({
+        success: false,
+        message:
+          'Der Download läuft gerade aktiv. Bitte erst über das UI abbrechen, dann den Reset wiederholen.',
+        code: 'DOWNLOAD_ACTIVE',
+      });
+    }
+
+    if (status === 'available') {
+      return res.status(409).json({
+        success: false,
+        message: 'Modell ist installiert. Zum Entfernen bitte den Modell-Löschen-Button nutzen.',
+        code: 'MODEL_INSTALLED',
+      });
+    }
+
+    // Best-effort: tell Ollama to drop its local blob cache. May 404 if it
+    // never had the model — that's fine.
+    try {
+      await axios.delete(`${services.llm.url}/api/delete`, {
+        data: { name: ollamaName || modelId },
+        timeout: 15000,
+      });
+    } catch (err) {
+      logger.debug(`[CancelDownload] ollama rm for ${modelId}: ${err.message}`);
+    }
+
+    await database.query('DELETE FROM llm_installed_models WHERE id = $1', [modelId]);
+    cacheService.invalidatePattern('models:*');
+
+    logger.info(`[CancelDownload] Purged ${modelId} (was ${status}, ${bytesCompleted || 0} bytes)`);
+    res.json({
+      success: true,
+      message: 'Download zurückgesetzt — der nächste Versuch beginnt von vorne.',
+      previous_status: status,
+      bytes_freed: bytesCompleted || 0,
+    });
   })
 );
 
@@ -647,7 +749,8 @@ router.get(
 
     const result = await db.query(
       `SELECT id, name, model_type, supports_thinking, supports_vision_input,
-              supports_audio_input, max_context_window, capabilities, rag_optimized
+              context_window AS max_context_window,
+              capabilities, rag_optimized
        FROM llm_model_catalog WHERE id = $1`,
       [modelId]
     );

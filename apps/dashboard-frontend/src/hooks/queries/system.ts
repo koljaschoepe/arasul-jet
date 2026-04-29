@@ -1,12 +1,19 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useApi } from '../useApi';
 
+export interface PowerModeInfo {
+  mode: string;
+  modeIndex: number | null;
+  available: boolean;
+}
+
 export interface SystemInfo {
   version: string;
   hostname: string;
   jetpack_version: string;
   uptime_seconds: number;
   build_hash: string;
+  power_mode?: PowerModeInfo;
 }
 
 /** Hierarchical query keys for shared system endpoints. */

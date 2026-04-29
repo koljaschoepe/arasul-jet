@@ -505,12 +505,19 @@ docker compose up -d backup-service
 
 ## Logging
 
-| Variable      | Default      | Description                       |
-| ------------- | ------------ | --------------------------------- |
-| LOG_LEVEL     | info         | Log level (debug/info/warn/error) |
-| LOG_MAX_SIZE  | 50m          | Max log file size                 |
-| LOG_MAX_FILES | 10           | Max log files                     |
-| LOG_DIR       | /arasul/logs | Log directory path                |
+Backend writes JSON-structured logs to console (always) and to rotating files
+(default-on, opt-out via `LOG_FILE_ENABLED=false`). Files land in `LOG_DIR`,
+mounted from host `data/logs/backend/`. Two streams:
+`backend-YYYY-MM-DD.log` (all levels) and `backend-error-YYYY-MM-DD.log`
+(errors only). Rotated archives are gzip-compressed.
+
+| Variable           | Default   | Description                                                    |
+| ------------------ | --------- | -------------------------------------------------------------- |
+| LOG_LEVEL          | info      | Log level (debug/info/warn/error)                              |
+| LOG_DIR            | /app/logs | Container path for rotated log files (host: data/logs/backend) |
+| LOG_RETENTION_DAYS | 14        | Days before rotated logs are pruned                            |
+| LOG_MAX_SIZE       | 50m       | Max size per log file before rotation                          |
+| LOG_FILE_ENABLED   | (auto)    | Force file transport on/off; default off in NODE_ENV=test      |
 
 ---
 

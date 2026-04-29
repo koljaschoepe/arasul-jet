@@ -32,6 +32,7 @@ import { useActivation } from '../../../contexts/ActivationContext';
 import { formatModelSize as formatSize } from '../../../utils/formatting';
 import StoreDetailModal from './StoreDetailModal';
 import DownloadProgress from './DownloadProgress';
+import HardwareCompatibilityBadge from './HardwareCompatibilityBadge';
 import ActivationButton from './ActivationButton';
 import { SkeletonCard } from '../../../components/ui/Skeleton';
 import { Button } from '@/components/ui/shadcn/button';
@@ -133,8 +134,15 @@ function StoreModels() {
   const [sizeFilter, setSizeFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
-  const { startDownload, isDownloading, getDownloadState, onDownloadComplete, cancelDownload } =
-    useDownloads();
+  const {
+    startDownload,
+    isDownloading,
+    getDownloadState,
+    onDownloadComplete,
+    cancelDownload,
+    purgeDownload,
+    resumeDownload,
+  } = useDownloads();
   const { activation, startActivation, onActivationComplete } = useActivation();
 
   // Reload when download or activation completes (status polling already
@@ -417,6 +425,7 @@ function StoreModels() {
                         {pendingJobs} wartend
                       </Badge>
                     )}
+                    <HardwareCompatibilityBadge ram_required_gb={model.ram_required_gb} />
                     <Badge
                       variant="outline"
                       className="badge-type bg-muted border-border text-muted-foreground"
@@ -472,6 +481,8 @@ function StoreModels() {
                   <DownloadProgress
                     downloadState={downloadState}
                     onCancel={() => cancelDownload(model.id)}
+                    onResume={() => resumeDownload(model.id, model.name)}
+                    onPurge={() => purgeDownload(model.id)}
                   />
                 )}
 

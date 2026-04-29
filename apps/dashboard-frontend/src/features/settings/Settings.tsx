@@ -9,6 +9,8 @@ import {
   Server,
   User,
   Globe,
+  Zap,
+  ShieldAlert,
 } from 'lucide-react';
 import UpdatePage from '../system/UpdatePage';
 import SelfHealingEvents from '../system/SelfHealingEvents';
@@ -25,6 +27,8 @@ import { AIProfileSettings } from './components/AIProfileSettings';
 import { ServicesSettings } from './components/ServicesSettings';
 import { SecuritySettings } from './components/SecuritySettings';
 import { RemoteAccessSettings } from './components/RemoteAccessSettings';
+import { N8nIntegrationSettings } from './components/N8nIntegrationSettings';
+import { PrivacySettings } from './components/PrivacySettings';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -59,6 +63,12 @@ const sections: Section[] = [
     description: 'Passwörter und Zugriffsverwaltung',
   },
   {
+    id: 'privacy',
+    label: 'Datenschutz',
+    icon: <ShieldAlert className="size-5" />,
+    description: 'DSGVO: Datenexport und Recht auf Löschung',
+  },
+  {
     id: 'services',
     label: 'Services',
     icon: <Server className="size-5" />,
@@ -69,6 +79,12 @@ const sections: Section[] = [
     label: 'Fernzugriff',
     icon: <Globe className="size-5" />,
     description: 'Tailscale VPN und Remote-Zugriff',
+  },
+  {
+    id: 'n8n',
+    label: 'n8n Integration',
+    icon: <Zap className="size-5" />,
+    description: 'Workflow-Anbindung & API-Zugriff',
   },
   {
     id: 'updates',
@@ -149,6 +165,12 @@ function SettingsInner({ handleLogout, theme, onToggleTheme }: SettingsProps) {
             />
           </ComponentErrorBoundary>
         );
+      case 'privacy':
+        return (
+          <ComponentErrorBoundary componentName="Datenschutz">
+            <PrivacySettings handleLogout={handleLogout} />
+          </ComponentErrorBoundary>
+        );
       case 'services':
         return (
           <ComponentErrorBoundary componentName="Services">
@@ -159,6 +181,12 @@ function SettingsInner({ handleLogout, theme, onToggleTheme }: SettingsProps) {
         return (
           <ComponentErrorBoundary componentName="Fernzugriff">
             <RemoteAccessSettings />
+          </ComponentErrorBoundary>
+        );
+      case 'n8n':
+        return (
+          <ComponentErrorBoundary componentName="n8n Integration">
+            <N8nIntegrationSettings />
           </ComponentErrorBoundary>
         );
       case 'updates':

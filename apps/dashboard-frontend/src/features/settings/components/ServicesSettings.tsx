@@ -33,6 +33,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useServicesQuery, type Service } from '../hooks/queries';
 import { useRestartServiceMutation } from '../hooks/mutations';
+import EmbeddingMismatchBanner from './EmbeddingMismatchBanner';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   healthy: { label: 'Aktiv', dot: 'bg-primary' },
@@ -132,6 +133,9 @@ export function ServicesSettings() {
           bei Bedarf neustarten.
         </p>
       </div>
+
+      {/* Phase 4.9: heads-up if EMBEDDING_MODEL was rotated and old vectors are still around */}
+      <EmbeddingMismatchBanner />
 
       {message && (
         <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className="mb-6">

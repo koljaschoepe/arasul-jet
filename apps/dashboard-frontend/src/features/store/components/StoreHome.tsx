@@ -27,10 +27,12 @@ import { useDownloads } from '../../../contexts/DownloadContext';
 import { useActivation } from '../../../contexts/ActivationContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useApi } from '../../../hooks/useApi';
+import useConfirm from '../../../hooks/useConfirm';
 import { formatModelSize as formatSize } from '../../../utils/formatting';
 import { SkeletonCard } from '../../../components/ui/Skeleton';
 import StoreDetailModal from './StoreDetailModal';
 import DownloadProgress from './DownloadProgress';
+import HardwareCompatibilityBadge from './HardwareCompatibilityBadge';
 import ActivationButton from './ActivationButton';
 import { useModelsStatusQuery, useModelsDefaultQuery } from '../hooks/queries';
 import {
@@ -108,7 +110,16 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
   const [actionLoading, setActionLoading] = useState<Record<string, string | null>>({});
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
 
-  const { startDownload, isDownloading, getDownloadState, onDownloadComplete } = useDownloads();
+  const {
+    startDownload,
+    isDownloading,
+    getDownloadState,
+    onDownloadComplete,
+    cancelDownload,
+    purgeDownload,
+    resumeDownload,
+  } = useDownloads();
+  const { confirm, ConfirmDialog } = useConfirm();
   const { activation, startActivation, onActivationComplete } = useActivation();
 
   // Recommendations is a typed Recommendations object (not just an array),
@@ -182,8 +193,12 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
     }
   };
 
-  // Handle model deletion
-  const handleModelDelete = async (modelId: string) => {
+  // Handle model deletion. Phase 1.5: confirmation dialog so a misclick can't
+  // wipe a 40GB model. Mirrors the pattern used in StoreModels.tsx.
+  const handleModelDelete = async (modelId: string, modelName?: string) => {
+    if (!(await confirm({ message: `Modell "${modelName || modelId}" wirklich löschen?` }))) {
+      return;
+    }
     setActionLoading(prev => ({ ...prev, [modelId]: 'deleting' }));
     try {
       await deleteModelMutation.mutateAsync(modelId);
@@ -338,6 +353,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
                         <Check className="size-3" /> Installiert
                       </Badge>
                     )}
+                    <HardwareCompatibilityBadge ram_required_gb={model.ram_required_gb} />
                   </div>
                 </div>
 
@@ -376,7 +392,13 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
 
                 {/* Download Progress */}
                 {modelIsDownloading && downloadState && (
-                  <DownloadProgress downloadState={downloadState} compact />
+                  <DownloadProgress
+                    downloadState={downloadState}
+                    onCancel={() => cancelDownload(model.id)}
+                    onResume={() => resumeDownload(model.id, model.name)}
+                    onPurge={() => purgeDownload(model.id)}
+                    compact
+                  />
                 )}
 
                 <div
@@ -572,13 +594,14 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
           isDownloading={isDownloading}
           onDownload={handleModelDownload}
           onActivate={handleModelActivate}
-          onDelete={handleModelDelete}
+          onDelete={(id: string) => handleModelDelete(id, selectedItem.item.name)}
           onSetDefault={handleSetDefault}
           onAction={handleAppAction}
           onUninstall={handleAppUninstall}
           actionLoading={actionLoading}
         />
       )}
+      {ConfirmDialog}
     </div>
   );
 }

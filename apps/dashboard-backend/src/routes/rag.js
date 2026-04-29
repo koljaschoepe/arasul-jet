@@ -187,8 +187,10 @@ router.post(
       ]);
 
       const { targetSpaces, routingMethod, targetSpaceIds } = spaceRouting;
-      // Null-safe: getEmbeddings() may return null on embedding service failure
-      const additionalEmbeddings = additionalEmbeddingsRaw || [];
+      // Phase 4.7: getEmbeddings() now throws ServiceUnavailableError on
+      // failure, so reaching this line means we have a valid array
+      // (possibly empty when there were no additional texts to embed).
+      const additionalEmbeddings = additionalEmbeddingsRaw;
 
       // Step 4: Hybrid search + Graph enrichment IN PARALLEL
       const spaceFilter = targetSpaceIds && targetSpaceIds.length > 0 ? targetSpaceIds : null;
@@ -531,8 +533,12 @@ router.get(
       [interval]
     );
 
+    // DSGVO (Phase 5.2): query_text wird per Default nicht mehr persistiert.
+    // query_hash erlaubt Korrelation, query_length + query_language tragen die
+    // Aggregat-Information ohne PII auszuliefern.
     const recent = await db.query(
-      `SELECT id, created_at, query_text, retrieved_count, top_rerank_score,
+      `SELECT id, created_at, query_hash, query_length, query_language,
+              retrieved_count, top_rerank_score,
               response_length, latency_ms, no_relevant_docs, error
          FROM rag_query_log
         WHERE created_at >= NOW() - $1::interval
@@ -667,6 +673,67 @@ router.post(
       errors,
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+// Phase 4.9 — Embedding-model mismatch detection + reindex trigger.
+// Operators rotate EMBEDDING_MODEL when upgrading models or evaluating new
+// ones. Vectors stored with the old model are not comparable to the new
+// model's query vectors, so retrieval silently degrades. These endpoints
+// surface the mismatch and let the user trigger a controlled re-index.
+
+const INDEXER_URL = `http://${services.documentIndexer.host}:${services.documentIndexer.port}`;
+
+/**
+ * GET /api/rag/embedding-status
+ * Proxies the indexer's /embedding-status — { current_model, per_model[],
+ * mismatched_count, total_indexed, has_mismatch }.
+ */
+router.get(
+  '/embedding-status',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    try {
+      const upstream = await axios.get(`${INDEXER_URL}/embedding-status`, { timeout: 5000 });
+      res.json(upstream.data);
+    } catch (err) {
+      logger.warn(`[rag] embedding-status proxy failed: ${err.message}`);
+      throw new ServiceUnavailableError('Document-Indexer nicht erreichbar', {
+        code: 'INDEXER_UNAVAILABLE',
+        service: 'document-indexer',
+      });
+    }
+  })
+);
+
+/**
+ * POST /api/rag/reindex-all
+ * Triggers reindex of either everything (default) or only documents
+ * indexed with a specific previous embedding model.
+ *
+ * Body: { from_model?: string }
+ */
+router.post(
+  '/reindex-all',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const fromModel = typeof req.body?.from_model === 'string' ? req.body.from_model : null;
+    const url = fromModel
+      ? `${INDEXER_URL}/reindex-all?from_model=${encodeURIComponent(fromModel)}`
+      : `${INDEXER_URL}/reindex-all`;
+    try {
+      const upstream = await axios.post(url, {}, { timeout: 30_000 });
+      logger.info(
+        `[rag] reindex-all triggered by user=${req.user?.id} from_model=${fromModel || 'all'} → queued=${upstream.data?.count || 0}`
+      );
+      res.json(upstream.data);
+    } catch (err) {
+      logger.warn(`[rag] reindex-all proxy failed: ${err.message}`);
+      throw new ServiceUnavailableError('Document-Indexer nicht erreichbar', {
+        code: 'INDEXER_UNAVAILABLE',
+        service: 'document-indexer',
+      });
+    }
   })
 );
 

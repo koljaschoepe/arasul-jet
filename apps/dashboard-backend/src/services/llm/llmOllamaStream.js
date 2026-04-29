@@ -427,6 +427,10 @@ async function streamFromOllama(
                   inThinkBlock = true;
                 }
                 thinkingBuffer += data.thinking;
+                // Phase 4.6: keep an in-memory snapshot up-to-date *synchronously*
+                // per token so reconnects don't lose tokens that landed between
+                // the last DB flush and the disconnect.
+                service.appendLiveStream(jobId, { thinking: data.thinking });
                 service.notifySubscribersBatched(jobId, { type: 'thinking', token: data.thinking });
                 flushToDatabase();
               }
@@ -441,6 +445,8 @@ async function streamFromOllama(
                   service.notifySubscribers(jobId, { type: 'thinking_end' });
                 }
                 contentBuffer += data.response;
+                // Phase 4.6: see thinking-branch above.
+                service.appendLiveStream(jobId, { content: data.response });
                 service.notifySubscribersBatched(jobId, { type: 'response', token: data.response });
                 flushToDatabase();
               }
@@ -705,6 +711,10 @@ function onJobComplete(ctx, jobId) {
     // Clean up subscribers AND timestamps
     service.jobSubscribers.delete(jobId);
     service.jobSubscriberTimestamps.delete(jobId);
+
+    // Phase 4.6: at this point the DB row is the canonical state — drop
+    // the in-memory live snapshot to free memory.
+    service.clearLiveStream(jobId);
 
     // Emit queue update
     service.emit('queue:update');

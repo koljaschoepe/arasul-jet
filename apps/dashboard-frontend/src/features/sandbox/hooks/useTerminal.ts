@@ -16,7 +16,6 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
-import { getValidToken } from '../../../utils/token';
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE = import.meta.env.VITE_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;
@@ -199,15 +198,10 @@ export function useTerminal({
       }
     });
 
-    // Connect WebSocket
-    const token = getValidToken();
-    if (!token) {
-      setError('Nicht authentifiziert');
-      setIsConnecting(false);
-      return;
-    }
-
-    const wsUrl = `${WS_BASE}/sandbox/terminal/ws?projectId=${projectId}&token=${token}`;
+    // Phase 5.1: Auth via HttpOnly arasul_session cookie (set at login,
+    // path=/). The browser attaches it to the WS handshake automatically;
+    // we no longer leak the JWT in the URL.
+    const wsUrl = `${WS_BASE}/sandbox/terminal/ws?projectId=${encodeURIComponent(projectId)}`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;

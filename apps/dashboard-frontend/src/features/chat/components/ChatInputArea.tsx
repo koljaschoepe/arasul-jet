@@ -71,6 +71,11 @@ function ChatInputArea({
   const lastSendRef = useRef<{ msg: string; options: Parameters<typeof sendMessage>[2] } | null>(
     null
   );
+  // Phase 4.2: while a cancel DELETE is in flight, gate both Send and Cancel
+  // so a fast user-click doesn't fire DELETE+POST out of order. Without
+  // this gate, hitting Cancel then immediately Enter would race the new
+  // send against the still-pending old job and produce duplicate messages.
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const isStreaming = !!activeJobIds[chatId];
 
@@ -284,7 +289,7 @@ function ChatInputArea({
 
   const handleSend = useCallback(() => {
     const hasInput = input.trim() || attachedFile || attachedImages.length > 0;
-    if (!hasInput || isLoading || disabled) return;
+    if (!hasInput || isLoading || disabled || isCancelling) return;
 
     const msg =
       input.trim() ||
@@ -318,6 +323,7 @@ function ChatInputArea({
     attachedImages,
     isLoading,
     disabled,
+    isCancelling,
     chatId,
     sendMessage,
     useRAG,
@@ -344,9 +350,18 @@ function ChatInputArea({
     [handleSend]
   );
 
-  const handleCancel = useCallback(() => {
-    cancelJob(chatId);
-  }, [cancelJob, chatId]);
+  const handleCancel = useCallback(async () => {
+    // Reentrancy guard: if a cancel is already in flight, ignore additional
+    // clicks. The button is also disabled in render, but state updates lag
+    // user clicks by one frame so this is the authoritative check.
+    if (isCancelling) return;
+    setIsCancelling(true);
+    try {
+      await cancelJob(chatId);
+    } finally {
+      setIsCancelling(false);
+    }
+  }, [cancelJob, chatId, isCancelling]);
 
   const handleThinkToggle = useCallback(() => {
     setUseThinking(prev => {
@@ -761,10 +776,11 @@ function ChatInputArea({
           {isStreaming ? (
             <button
               type="button"
-              className="cancel-btn size-10 min-w-[40px] bg-destructive/15 border-none rounded-full text-destructive cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-destructive/20 hover:scale-105"
+              className="cancel-btn size-10 min-w-[40px] bg-destructive/15 border-none rounded-full text-destructive cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-destructive/20 hover:scale-105 disabled:opacity-50 disabled:cursor-wait"
               onClick={handleCancel}
-              title="Abbrechen"
-              aria-label="Abbrechen"
+              disabled={isCancelling}
+              title={isCancelling ? 'Abbruch läuft…' : 'Abbrechen'}
+              aria-label={isCancelling ? 'Abbruch läuft' : 'Abbrechen'}
             >
               <X className="size-5" />
             </button>
@@ -776,7 +792,8 @@ function ChatInputArea({
               disabled={
                 (!input.trim() && !attachedFile && attachedImages.length === 0) ||
                 disabled ||
-                isLoading
+                isLoading ||
+                isCancelling
               }
               title="Senden"
               aria-label="Senden"

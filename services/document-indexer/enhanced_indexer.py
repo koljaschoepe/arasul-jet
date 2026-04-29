@@ -34,6 +34,7 @@ from config import (
     MINIO_HOST, MINIO_PORT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD,
     MINIO_BUCKET, QDRANT_COLLECTION,
     INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE, INDEXER_MAX_RETRIES,
+    INDEXER_WATCHDOG_INTERVAL_SECS, INDEXER_STUCK_AFTER_MINUTES,
     MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES,
     ENABLE_AI_ANALYSIS, ENABLE_SIMILARITY, ENABLE_KNOWLEDGE_GRAPH,
     EMBEDDING_MODEL, POSTGRES_DSN
@@ -621,18 +622,46 @@ class EnhancedDocumentIndexer:
 
         return status
 
+    def _run_watchdog(self):
+        """Recover docs stuck in 'processing' beyond STUCK_AFTER_MINUTES and
+        promote retry-exhausted 'pending' rows to 'failed'.
+
+        Boot-time recovery (in __init__) resets all 'processing' rows because none
+        can be legitimate — but mid-run we MUST honor a time threshold, otherwise
+        we would abort live work. Pairing this with mark_exhausted_as_failed
+        ensures docs do not loop forever between processing → pending → processing.
+        """
+        try:
+            recovered = self.db.recover_stuck_processing(
+                stuck_after_minutes=INDEXER_STUCK_AFTER_MINUTES
+            )
+            promoted = self.db.mark_exhausted_as_failed(max_retries=INDEXER_MAX_RETRIES)
+            if recovered or promoted:
+                logger.info(
+                    f"Watchdog: {recovered} stuck→pending, {promoted} exhausted→failed"
+                )
+        except Exception as e:
+            logger.error(f"Watchdog error: {e}", exc_info=True)
+
     def run(self):
         """Main loop - run indexing periodically"""
         logger.info(
             f"Starting Enhanced Document Indexer "
-            f"(interval: {INDEXER_INTERVAL}s)"
+            f"(interval: {INDEXER_INTERVAL}s, "
+            f"watchdog: {INDEXER_WATCHDOG_INTERVAL_SECS}s)"
         )
 
+        last_watchdog = time.monotonic()
         while self.status['running']:
             try:
                 self.scan_and_index()
             except Exception as e:
                 logger.error(f"Main loop error: {e}", exc_info=True)
+
+            now = time.monotonic()
+            if now - last_watchdog >= INDEXER_WATCHDOG_INTERVAL_SECS:
+                self._run_watchdog()
+                last_watchdog = now
 
             time.sleep(INDEXER_INTERVAL)
 

@@ -1,11 +1,13 @@
 import React, { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Play, Square, ExternalLink, AlertTriangle, X } from 'lucide-react';
+import { Loader2, Play, Square, ExternalLink, AlertTriangle, X, Zap } from 'lucide-react';
 import useModelStatus from '../../hooks/useModelStatus';
 import useConfirm from '../../hooks/useConfirm';
 import { useToast } from '../../contexts/ToastContext';
 import { Skeleton } from '../../components/ui/shadcn/skeleton';
 import { Button } from '../../components/ui/shadcn/button';
+import { Badge } from '../../components/ui/shadcn/badge';
+import { useSystemInfoQuery } from '../../hooks/queries/system';
 import {
   Tooltip,
   TooltipContent,
@@ -45,6 +47,10 @@ function ModelStatusBar() {
 
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
+  // Phase 2.4: Jetson power mode (MAXN / 30W / 15W). Tiny chip in header
+  // so the user instantly sees if the box is throttled.
+  const systemInfoQuery = useSystemInfoQuery();
+  const powerMode = systemInfoQuery.data?.power_mode;
 
   // Enrich models with status info
   const allModels = useMemo(() => {
@@ -149,7 +155,30 @@ function ModelStatusBar() {
         <h3 className="dashboard-card-title" style={{ margin: 0 }}>
           KI-Modelle
         </h3>
-        <div className="msb-header-actions">
+        <div className="msb-header-actions flex items-center gap-2">
+          {powerMode?.available && powerMode.mode !== 'unknown' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className={
+                      powerMode.mode === 'MAXN'
+                        ? 'bg-primary/10 border-primary/30 text-primary'
+                        : 'bg-amber-500/10 border-amber-500/40 text-amber-700 dark:text-amber-400'
+                    }
+                  >
+                    <Zap className="size-3" /> {powerMode.mode}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {powerMode.mode === 'MAXN'
+                    ? 'Maximaler Power-Modus — volle GPU/CPU-Performance.'
+                    : `Power-Modus ${powerMode.mode} — gedrosselt; LLM-Performance reduziert. Mit \`sudo nvpmodel -m 0\` auf MAXN umstellen.`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

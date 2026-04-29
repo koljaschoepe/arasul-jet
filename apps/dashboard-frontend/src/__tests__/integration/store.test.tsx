@@ -51,6 +51,8 @@ vi.mock('../../contexts/DownloadContext', () => ({
     activeDownloadsList: [],
     startDownload: vi.fn(),
     cancelDownload: vi.fn(),
+    purgeDownload: vi.fn().mockResolvedValue(undefined),
+    resumeDownload: vi.fn().mockResolvedValue(undefined),
     isDownloading: vi.fn().mockReturnValue(false),
     getDownloadState: vi.fn().mockReturnValue(null),
     onDownloadComplete: vi.fn().mockReturnValue(() => {}),

@@ -1,12 +1,26 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+/**
+ * useModelStatus — Dashboard-side hook for memory budget + installed models.
+ *
+ * Phase 1 of LLM_RAG_N8N_HARDENING: budget + installed list now come from the
+ * shared TanStack cache (`modelKeys.memoryBudget()` / `modelKeys.installed()`)
+ * so Store and Chat see Dashboard's data and vice versa. UI-only state
+ * (loading per model, SSE status, last error) stays local because it doesn't
+ * belong in the cache.
+ *
+ * Polling cadence:
+ *   - memoryBudget → MODEL_POLL_INTERVAL_MS (5s) so RAM pressure is current
+ *   - installed → no automatic polling; refreshes via mutation invalidation
+ *     of `modelKeys.installed()`
+ */
+import { useState, useCallback, useRef, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './useApi';
+import { modelKeys, MODEL_POLL_INTERVAL_MS } from './queries/modelKeys';
 import type { InstalledModel, MemoryBudget } from '../types';
 
 interface InstalledModelsResponse {
   models?: InstalledModel[];
 }
-
-const POLL_INTERVAL = 10_000;
 
 export interface ModelStatusData {
   /** All installed models (available status) */
@@ -49,71 +63,58 @@ export interface ModelStatusData {
 
 export default function useModelStatus(): ModelStatusData {
   const api = useApi();
-  const [budget, setBudget] = useState<MemoryBudget | null>(null);
-  const [installedModels, setInstalledModels] = useState<InstalledModel[]>([]);
+  const qc = useQueryClient();
+
   const [loadingModels, setLoadingModels] = useState<Set<string>>(new Set());
   const [loadingStatus, setLoadingStatus] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pollErrors, setPollErrors] = useState(0);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRefs = useRef<Record<string, AbortController>>({});
+
+  // Shared TanStack queries — Store and Chat read the same cache entries.
+  const budgetQuery = useQuery({
+    queryKey: modelKeys.memoryBudget(),
+    queryFn: ({ signal }) =>
+      api.get<MemoryBudget>('/models/memory-budget', { showError: false, signal }),
+    refetchInterval: MODEL_POLL_INTERVAL_MS,
+    // TanStack pauses background refetch automatically when the tab is
+    // hidden, so the previous visibilitychange handler is no longer needed.
+  });
+
+  const installedQuery = useQuery({
+    queryKey: modelKeys.installed(),
+    queryFn: async ({ signal }) => {
+      const data = await api.get<InstalledModelsResponse>('/models/installed', {
+        showError: false,
+        signal,
+      });
+      return data.models ?? [];
+    },
+  });
+
+  const budget = budgetQuery.data ?? null;
+  const installedModels = installedQuery.data ?? [];
+  const pollErrors = (budgetQuery.failureCount || 0) + (installedQuery.failureCount || 0);
 
   const fetchData = useCallback(
     async (manual = false) => {
       if (manual) setIsRefreshing(true);
       try {
-        const [budgetData, modelsData] = await Promise.all([
-          api.get<MemoryBudget>('/models/memory-budget', { showError: false }),
-          api.get<InstalledModelsResponse>('/models/installed', { showError: false }),
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: modelKeys.memoryBudget() }),
+          qc.invalidateQueries({ queryKey: modelKeys.installed() }),
         ]);
-        setBudget(budgetData);
-        if (modelsData?.models) setInstalledModels(modelsData.models);
-        setPollErrors(0);
-      } catch {
-        setPollErrors(prev => prev + 1);
       } finally {
         if (manual) setIsRefreshing(false);
       }
     },
-    [api]
+    [qc]
   );
-
-  useEffect(() => {
-    fetchData();
-
-    // Only poll when tab is visible to save resources on Jetson
-    const startPolling = () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = setInterval(() => {
-        if (document.visibilityState === 'visible') {
-          fetchData();
-        }
-      }, POLL_INTERVAL);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchData(); // Immediate refresh when tab becomes visible
-        startPolling();
-      } else {
-        if (pollRef.current) clearInterval(pollRef.current);
-      }
-    };
-
-    startPolling();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [fetchData]);
 
   const handleLoadLlm = useCallback(
     async (modelId: string) => {
       setLoadingModels(prev => new Set(prev).add(modelId));
-      setLoadingStatus(prev => ({ ...prev, [modelId]: 'Wird vorbereitet\u2026' }));
+      setLoadingStatus(prev => ({ ...prev, [modelId]: 'Wird vorbereitet…' }));
       setError(null);
 
       const controller = new AbortController();
@@ -127,7 +128,7 @@ export default function useModelStatus(): ModelStatusData {
         });
 
         const reader = (res as unknown as Response).body?.getReader();
-        if (!reader) throw new Error('Streaming nicht verf\u00fcgbar');
+        if (!reader) throw new Error('Streaming nicht verfügbar');
 
         const decoder = new TextDecoder();
         let buffer = '';

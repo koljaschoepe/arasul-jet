@@ -9,7 +9,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { API_BASE, getAuthHeaders } from '../config/api';
-import { getValidToken } from '../utils/token';
 
 /**
  * Shared query key for live metrics. WebSocket pushes write into this
@@ -136,12 +135,11 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
     }
 
     try {
-      // WebSocket API doesn't support custom headers, so send JWT via query param.
-      // This is safe: the connection is over WSS (encrypted) through Traefik.
-      const token = getValidToken();
-      const wsUrl = token
-        ? `${WS_BASE}/metrics/live-stream?token=${encodeURIComponent(token)}`
-        : `${WS_BASE}/metrics/live-stream`;
+      // Phase 5.1: Auth travels via the HttpOnly `arasul_session` cookie that
+      // login set with path=/. Same-origin WebSocket handshakes pick that
+      // cookie up automatically — keeping the JWT out of URL/history/logs.
+      // Backend WS upgrade still falls back to ?token= for older clients.
+      const wsUrl = `${WS_BASE}/metrics/live-stream`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {

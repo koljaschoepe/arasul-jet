@@ -89,6 +89,8 @@ export interface InstalledModel {
   performance_tier?: number;
   model_type?: string;
   is_running?: boolean;
+  /** Phase 4.4: max context window in tokens (from llm_model_catalog). */
+  max_context_window?: number;
 }
 
 export interface CatalogModel {
@@ -107,6 +109,16 @@ export interface CatalogModel {
   effective_ollama_name?: string;
   performance_tier?: number;
   ollama_library_url?: string;
+  /** Phase 4.4: max context window in tokens. */
+  max_context_window?: number;
+  // Phase 0: byte-level download persistence
+  bytes_completed?: number;
+  bytes_total?: number;
+  download_speed_bps?: number;
+  attempt_count?: number;
+  last_error_code?: string;
+  last_activity_at?: string;
+  download_started_at?: string;
 }
 
 // --- Model Lifecycle ---

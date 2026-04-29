@@ -57,7 +57,8 @@ jest.mock('../../src/services/core/docker', () => ({
 jest.mock('../../src/utils/hardware', () => ({
   detectDevice: jest.fn().mockResolvedValue({ type: 'generic', name: 'Generic Linux' }),
   getGpuInfo: jest.fn().mockResolvedValue({ available: true, name: 'Test GPU' }),
-  getLlmRamGB: jest.fn().mockReturnValue(32)
+  getLlmRamGB: jest.fn().mockReturnValue(32),
+  getPowerMode: jest.fn().mockResolvedValue('unknown')
 }));
 
 // Mock axios

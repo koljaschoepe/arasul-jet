@@ -327,20 +327,60 @@ class DatabaseManager:
 
         return documents, total
 
-    def recover_stuck_processing(self) -> int:
-        """Reset documents stuck in 'processing' back to 'pending' (crash recovery)"""
+    def recover_stuck_processing(self, stuck_after_minutes: int = 0) -> int:
+        """Reset documents stuck in 'processing' back to 'pending'.
+
+        - stuck_after_minutes=0 (default): reset all 'processing' rows. Used at indexer
+          boot, where any 'processing' row is by definition orphaned (no in-flight work).
+        - stuck_after_minutes>0: only reset rows whose processing_started_at is older
+          than the threshold. Used by the periodic watchdog so it does not abort
+          legitimately-running work.
+        """
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                if stuck_after_minutes > 0:
+                    cur.execute("""
+                        UPDATE documents
+                        SET status = 'pending', processing_started_at = NULL
+                        WHERE status = 'processing'
+                          AND processing_started_at IS NOT NULL
+                          AND processing_started_at < NOW() - (%s || ' minutes')::interval
+                        RETURNING id
+                    """, (str(stuck_after_minutes),))
+                else:
+                    cur.execute("""
+                        UPDATE documents
+                        SET status = 'pending', processing_started_at = NULL
+                        WHERE status = 'processing'
+                        RETURNING id
+                    """)
+                recovered = cur.rowcount
+                if recovered > 0:
+                    threshold_msg = f" (older than {stuck_after_minutes}min)" if stuck_after_minutes > 0 else ""
+                    logger.info(f"Recovered {recovered} stuck 'processing' document(s) back to 'pending'{threshold_msg}")
+                return recovered
+
+    def mark_exhausted_as_failed(self, max_retries: int = 3) -> int:
+        """Promote 'pending' docs whose retry_count has hit the cap to 'failed'.
+
+        The scan loop already filters pending docs by `retry_count < max_retries`, so
+        exhausted ones are silently skipped — they linger as 'pending' forever. This
+        promotes them to 'failed' so the UI can surface a re-index button.
+        """
         with self.get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE documents
-                    SET status = 'pending', processing_started_at = NULL
-                    WHERE status = 'processing'
+                    SET status = 'failed',
+                        processing_error = COALESCE(processing_error, 'Retry-Limit erreicht (Watchdog)')
+                    WHERE status = 'pending'
+                      AND retry_count >= %s
                     RETURNING id
-                """)
-                recovered = cur.rowcount
-                if recovered > 0:
-                    logger.info(f"Recovered {recovered} stuck 'processing' document(s) back to 'pending'")
-                return recovered
+                """, (max_retries,))
+                promoted = cur.rowcount
+                if promoted > 0:
+                    logger.warning(f"Marked {promoted} retry-exhausted document(s) as 'failed'")
+                return promoted
 
     def get_pending_documents(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get documents pending processing"""

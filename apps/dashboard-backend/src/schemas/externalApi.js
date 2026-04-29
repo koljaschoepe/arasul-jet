@@ -17,12 +17,21 @@ const ExternalLlmChatBody = z
   .strict();
 
 // POST /api-keys
+// Phase 5.4: Wildcard scopes ('*') are rejected at create time. Defense-in-depth:
+// the middleware also stops honoring '*' in `isEndpointAllowed`, so legacy keys
+// that already carry it are inert until reissued — see migration 085.
 const CreateApiKeyBody = z
   .object({
     name: z.string({ error: 'name is required' }).trim().min(1, 'name is required').max(200),
     description: z.string().max(2000).optional().nullable(),
     rate_limit_per_minute: z.number().int().positive().max(100000).optional(),
-    allowed_endpoints: z.array(z.string().max(100)).max(50).optional(),
+    allowed_endpoints: z
+      .array(z.string().max(100))
+      .max(50)
+      .refine(arr => !arr.includes('*'), {
+        message: 'Wildcard scope ("*") is not allowed — list explicit endpoints',
+      })
+      .optional(),
     expires_at: z.string().max(50).optional().nullable(),
   })
   .strict();

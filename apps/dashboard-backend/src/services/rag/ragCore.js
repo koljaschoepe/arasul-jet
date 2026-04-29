@@ -25,6 +25,7 @@ const logger = require('../../utils/logger');
 const db = require('../../database');
 const services = require('../../config/services');
 const embeddingService = require('../embeddingService');
+const { ServiceUnavailableError } = require('../../utils/errors');
 
 // Environment variables
 const QDRANT_HOST = services.qdrant.host;
@@ -66,19 +67,28 @@ const RAG_MARGINAL_FACTOR = 0.3; // marginal = threshold * factor (lower = fewer
 
 /**
  * Get embedding vector for text.
- * Throws on failure (RAG pipeline requires embeddings to proceed).
+ *
+ * Throws ServiceUnavailableError(code: EMBEDDING_DOWN) on failure so the
+ * route/error handler returns a 503 with a stable code the frontend can
+ * dispatch on. Pre-Phase-4 the pipeline used a plain `Error` and routes
+ * caught the failure silently, letting RAG run with empty sources — which
+ * silently degraded answers. This forces the caller to either decide on
+ * a fallback or surface the failure.
  */
 async function getEmbedding(text) {
   const vector = await embeddingService.getEmbedding(text);
   if (!vector) {
-    throw new Error('Failed to generate embedding');
+    throw new ServiceUnavailableError('Embedding-Service nicht erreichbar', {
+      code: 'EMBEDDING_DOWN',
+      service: 'embedding',
+    });
   }
   return vector;
 }
 
 /**
  * Get embedding vectors for multiple texts (batch).
- * Throws on failure (RAG pipeline requires embeddings to proceed).
+ * See getEmbedding() above for why this throws ServiceUnavailableError.
  */
 async function getEmbeddings(texts) {
   if (texts.length === 0) {
@@ -86,7 +96,10 @@ async function getEmbeddings(texts) {
   }
   const vectors = await embeddingService.getEmbeddings(texts);
   if (!vectors) {
-    throw new Error('Failed to generate embeddings');
+    throw new ServiceUnavailableError('Embedding-Service nicht erreichbar', {
+      code: 'EMBEDDING_DOWN',
+      service: 'embedding',
+    });
   }
   return vectors;
 }
@@ -437,10 +450,14 @@ function jaccardSimilarity(textA, textB) {
       .split(/\s+/)
       .filter(w => w.length > 2)
   );
-  if (wordsA.size === 0 || wordsB.size === 0) {return 0;}
+  if (wordsA.size === 0 || wordsB.size === 0) {
+    return 0;
+  }
   let intersection = 0;
   for (const w of wordsA) {
-    if (wordsB.has(w)) {intersection++;}
+    if (wordsB.has(w)) {
+      intersection++;
+    }
   }
   const union = new Set([...wordsA, ...wordsB]).size;
   return union > 0 ? intersection / union : 0;
@@ -459,7 +476,9 @@ function jaccardSimilarity(textA, textB) {
  * @returns {Object[]} Diversified results
  */
 function applyMMR(results, lambda = 0.7, topK = 8) {
-  if (results.length <= 1) {return results;}
+  if (results.length <= 1) {
+    return results;
+  }
 
   // Normalize scores to [0, 1] for fair comparison
   const scoreField = results[0].rerankScore != null ? 'rerankScore' : 'score';

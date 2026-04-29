@@ -16,7 +16,7 @@ const fs = require('fs').promises;
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth } = require('../../middleware/auth');
 const { ServiceUnavailableError } = require('../../utils/errors');
-const { detectDevice, getGpuInfo, getLlmRamGB } = require('../../utils/hardware');
+const { detectDevice, getGpuInfo, getLlmRamGB, getPowerMode } = require('../../utils/hardware');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { validateBody } = require('../../middleware/validate');
 const { SetupStepBody, SetupCompleteBody, DiagnosticsBody } = require('../../schemas/system');
@@ -163,8 +163,12 @@ router.get(
       // JetPack version not available
     }
 
-    // Detect device and GPU
-    const [device, gpu] = await Promise.all([detectDevice(), getGpuInfo()]);
+    // Detect device, GPU and power mode (Phase 2.4)
+    const [device, gpu, power_mode] = await Promise.all([
+      detectDevice(),
+      getGpuInfo(),
+      getPowerMode(),
+    ]);
 
     res.json({
       version: process.env.SYSTEM_VERSION || '1.0.0',
@@ -174,6 +178,7 @@ router.get(
       hostname: hostname,
       device,
       gpu,
+      power_mode,
       llmRamGB: getLlmRamGB(),
       timestamp: new Date().toISOString(),
     });

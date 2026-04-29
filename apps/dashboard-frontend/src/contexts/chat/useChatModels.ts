@@ -1,17 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../hooks/useApi';
+import { modelKeys, MODEL_POLL_INTERVAL_MS } from '../../hooks/queries/modelKeys';
 import type { InstalledModel } from './types';
 
 const FAVORITES_STORAGE_KEY = 'arasul_favorite_models';
-
-// Query keys are flat strings (not feature-prefixed) so other parts of the
-// app (e.g. Store) reading the same endpoints share the cache automatically.
-const KEYS = {
-  installed: ['models', 'installed'] as const,
-  default: ['models', 'default'] as const,
-  loaded: ['models', 'loaded'] as const,
-};
 
 interface InstalledModelsResponse {
   models?: InstalledModel[];
@@ -60,7 +53,7 @@ export default function useChatModels({
   const qc = useQueryClient();
 
   const installedQuery = useQuery({
-    queryKey: KEYS.installed,
+    queryKey: modelKeys.installed(),
     enabled: isAuthenticated,
     queryFn: async ({ signal }) => {
       const data = await api.get<InstalledModelsResponse>('/models/installed', {
@@ -71,21 +64,25 @@ export default function useChatModels({
     },
   });
 
+  // Cache stores the wire shape (`{ default_model: '...' }`) so the Store's
+  // useModelsDefaultQuery — which queries the same key — gets the same data.
+  // We expose the unwrapped string via `select` to keep this hook's API
+  // unchanged for ChatContext consumers.
   const defaultQuery = useQuery({
-    queryKey: KEYS.default,
+    queryKey: modelKeys.default(),
     enabled: isAuthenticated,
-    queryFn: async ({ signal }) => {
-      const data = await api.get<DefaultModelResponse>('/models/default', {
-        showError: false,
-        signal,
-      });
-      return data.default_model ?? '';
-    },
+    queryFn: ({ signal }) =>
+      api.get<DefaultModelResponse>('/models/default', { showError: false, signal }),
+    select: data => data?.default_model ?? '',
   });
 
+  // Phase 1.2: poll loaded model so the chat header notices when the backend
+  // unloads a model under memory pressure. Without this the header would
+  // happily display a model that's no longer in RAM.
   const loadedQuery = useQuery({
-    queryKey: KEYS.loaded,
+    queryKey: modelKeys.loaded(),
     enabled: isAuthenticated,
+    refetchInterval: MODEL_POLL_INTERVAL_MS,
     queryFn: async ({ signal }) => {
       try {
         const data = await api.get<LoadedModelResponse>('/models/loaded', {
@@ -116,13 +113,14 @@ export default function useChatModels({
     selectedModelRef.current = selectedModel;
   }, [selectedModel]);
 
-  // Set-default mutation
+  // Set-default mutation. Cache update uses the centralized key + wire shape
+  // (`{ default_model }`) so Store and Dashboard see the change in the same
+  // render tick.
   const setDefaultMutation = useMutation({
     mutationFn: (modelId: string) =>
       api.post('/models/default', { model_id: modelId }, { showError: false }),
     onSuccess: (_data, modelId) => {
-      // Update the cache directly so consumers see the change instantly
-      qc.setQueryData(KEYS.default, modelId);
+      qc.setQueryData(modelKeys.default(), { default_model: modelId });
     },
   });
 
@@ -145,13 +143,10 @@ export default function useChatModels({
     });
   }, []);
 
-  // Manual reload (kept for API parity — invalidates all three queries)
+  // Manual reload — invalidates the entire model namespace so every consumer
+  // (Chat, Store, Dashboard, Sidebar) refreshes in lockstep.
   const loadModels = useCallback(async () => {
-    await Promise.all([
-      qc.invalidateQueries({ queryKey: KEYS.installed }),
-      qc.invalidateQueries({ queryKey: KEYS.default }),
-      qc.invalidateQueries({ queryKey: KEYS.loaded }),
-    ]);
+    await qc.invalidateQueries({ queryKey: modelKeys.all });
   }, [qc]);
 
   return {

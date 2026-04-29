@@ -80,6 +80,9 @@ const ERROR_CODES = [
   'MODEL_SWITCH_FAILED',
   'CUDA_OOM',
   'LLM_UNREACHABLE',
+  // Phase 4: pre-enqueue health-check + typed RAG failures
+  'OLLAMA_UNAVAILABLE',
+  'EMBEDDING_DOWN',
 ];
 
 router.get('/_meta', (req, res) => {

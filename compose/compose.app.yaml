@@ -59,6 +59,9 @@ services:
       SYSTEM_VERSION: ${SYSTEM_VERSION}
       BUILD_HASH: ${BUILD_HASH}
       LOG_LEVEL: ${LOG_LEVEL}
+      LOG_DIR: /app/logs
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-14}
+      LOG_MAX_SIZE: ${LOG_MAX_SIZE:-50m}
       RAG_ENABLE_MULTI_QUERY: 'false'
       RAG_ENABLE_HYDE: 'false'
       RAG_ENABLE_DECOMPOUND: 'true'
@@ -78,6 +81,7 @@ services:
       - ../services/postgres/init:/arasul/migrations:ro
       - ../data/sandbox/projects:/arasul/sandbox/projects
       - ../services/sandbox:/arasul/sandbox-build:ro
+      - ../data/logs/backend:/app/logs
     security_opt:
       - no-new-privileges:true
     depends_on:

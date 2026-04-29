@@ -254,19 +254,33 @@ def reindex_document(doc_id):
 
 @app.route('/reindex-all', methods=['POST'])
 def reindex_all_documents():
-    """Trigger reindexing of all indexed documents (e.g. after context mode change)"""
+    """Trigger reindexing of all indexed documents.
+
+    Phase 4.9: optional `from_model` query param filters to only docs that
+    were indexed with that embedding model (typically the previous one
+    before an EMBEDDING_MODEL env switch).
+    """
     idx = get_safe_indexer()
     if idx is None:
         return jsonify({'error': 'Indexer not initialized'}), 503
 
+    from_model = request.args.get('from_model')
+
     try:
-        # Query indexed documents directly
         from psycopg2.extras import RealDictCursor
         with idx.db.get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    "SELECT id FROM documents WHERE status = 'indexed' AND deleted_at IS NULL"
-                )
+                if from_model:
+                    cur.execute(
+                        """SELECT id FROM documents
+                           WHERE status = 'indexed' AND deleted_at IS NULL
+                             AND embedding_model = %s""",
+                        (from_model,)
+                    )
+                else:
+                    cur.execute(
+                        "SELECT id FROM documents WHERE status = 'indexed' AND deleted_at IS NULL"
+                    )
                 docs = cur.fetchall()
 
         queued = 0
@@ -275,15 +289,62 @@ def reindex_all_documents():
             idx.db.update_document(doc['id'], {'retry_count': 0})
             queued += 1
 
-        logger.info(f"Queued {queued} documents for reindexing")
+        scope = f"from_model={from_model}" if from_model else 'all indexed'
+        logger.info(f"Queued {queued} documents for reindexing ({scope})")
         return jsonify({
             'status': 'queued',
             'count': queued,
+            'from_model': from_model,
             'message': f'{queued} documents queued for reindexing'
         })
 
     except Exception as e:
         logger.error(f"Reindex-all error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/embedding-status', methods=['GET'])
+def embedding_status():
+    """Phase 4.9: report current EMBEDDING_MODEL vs what's actually indexed.
+
+    Returns counts grouped by `embedding_model`, the currently configured
+    model, and the count of mismatched docs (those indexed with a different
+    model than the current env). Frontend uses this to surface a "you
+    changed the embedding model — re-index?" banner.
+    """
+    idx = get_safe_indexer()
+    if idx is None:
+        return jsonify({'error': 'Indexer not initialized'}), 503
+
+    try:
+        from psycopg2.extras import RealDictCursor
+        with idx.db.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT COALESCE(embedding_model, '<unknown>') AS model,
+                              COUNT(*)::int AS count
+                       FROM documents
+                       WHERE status = 'indexed' AND deleted_at IS NULL
+                       GROUP BY embedding_model
+                       ORDER BY count DESC"""
+                )
+                rows = cur.fetchall()
+
+        current_model = config.EMBEDDING_MODEL
+        per_model = [{'model': r['model'], 'count': r['count']} for r in rows]
+        mismatched_count = sum(r['count'] for r in rows if r['model'] != current_model)
+        total = sum(r['count'] for r in rows)
+
+        return jsonify({
+            'current_model': current_model,
+            'per_model': per_model,
+            'mismatched_count': mismatched_count,
+            'total_indexed': total,
+            'has_mismatch': mismatched_count > 0,
+        })
+
+    except Exception as e:
+        logger.error(f"Embedding-status error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -792,6 +853,39 @@ def run_api():
     app.run(host='0.0.0.0', port=API_PORT, threaded=True)
 
 
+def _check_embedding_model_mismatch(idx):
+    """Phase 4.9: warn at boot if EMBEDDING_MODEL env differs from what's
+    actually indexed. Vectors generated with a different model are not
+    comparable — the operator should re-index (POST /reindex-all).
+    """
+    try:
+        from psycopg2.extras import RealDictCursor
+        with idx.db.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT COALESCE(embedding_model, '<unknown>') AS model,
+                              COUNT(*)::int AS count
+                       FROM documents
+                       WHERE status = 'indexed' AND deleted_at IS NULL
+                       GROUP BY embedding_model"""
+                )
+                rows = cur.fetchall()
+        current = config.EMBEDDING_MODEL
+        mismatched = [(r['model'], r['count']) for r in rows if r['model'] != current]
+        if mismatched:
+            total = sum(c for _, c in mismatched)
+            detail = ', '.join(f"{m}:{c}" for m, c in mismatched)
+            logger.warning(
+                f"[EMBEDDING-MISMATCH] {total} document(s) indexed with "
+                f"a model different from current EMBEDDING_MODEL={current} ({detail}). "
+                f"Search results will be unreliable until re-indexing — "
+                f"POST /reindex-all?from_model=<old> on this service to fix."
+            )
+    except Exception as e:
+        # Best-effort warning — never block boot
+        logger.warning(f"[EMBEDDING-MISMATCH] check failed: {e}")
+
+
 def run_indexer_background():
     """Run the indexer in background thread with retry on initialization failure"""
     global indexer
@@ -805,6 +899,7 @@ def run_indexer_background():
             with _indexer_lock:
                 indexer = new_indexer
             logger.info("Indexer initialized successfully, starting scan loop")
+            _check_embedding_model_mismatch(new_indexer)
             indexer.run()
             break  # run() only returns if stopped gracefully
         except Exception as e:

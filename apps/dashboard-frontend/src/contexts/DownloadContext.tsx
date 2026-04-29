@@ -21,7 +21,12 @@ import type { CatalogModel } from '../types';
 
 // --- Types ---
 
-type DownloadPhase = 'init' | 'download' | 'verify' | 'complete' | 'error';
+// 'paused' (Phase 0) means the server still has bytes_completed > 0 and the
+// download will auto-resume on the next backend boot OR when the user clicks
+// the model again (which triggers POST /models/download — modelService picks
+// up from where it left off). It is NOT an error; the UI must communicate
+// that the bytes are safe.
+type DownloadPhase = 'init' | 'download' | 'paused' | 'verify' | 'complete' | 'error';
 
 interface DownloadState {
   progress: number;
@@ -29,6 +34,10 @@ interface DownloadState {
   phase: DownloadPhase;
   error: string | null;
   modelName?: string;
+  // Phase 0: byte-level fields (server-authoritative)
+  bytesCompleted?: number;
+  bytesTotal?: number;
+  speedBps?: number;
 }
 
 interface DownloadListItem extends DownloadState {
@@ -40,7 +49,16 @@ interface DownloadContextValue {
   activeDownloadCount: number;
   activeDownloadsList: DownloadListItem[];
   startDownload: (modelId: string, modelName?: string) => Promise<void>;
+  // Tab-close / "Pause" semantics: aborts the SSE; backend goes to 'paused'
+  // and the bytes are preserved for resume.
   cancelDownload: (modelId: string) => void;
+  // Hard reset: aborts the SSE AND tells the server to drop the row +
+  // ollama-rm any local blobs. Use when the user wants to start over.
+  purgeDownload: (modelId: string) => Promise<void>;
+  // Resume a paused download from the saved bytes. Equivalent to clicking
+  // the Download button again on a 'paused' row — kept as an explicit method
+  // so UI components can wire a clear "Fortsetzen" button.
+  resumeDownload: (modelId: string, modelName?: string) => Promise<void>;
   isDownloading: (modelId: string) => boolean;
   getDownloadState: (modelId: string) => DownloadState | null;
   onDownloadComplete: (callback: (modelId: string, success: boolean) => void) => () => void;
@@ -103,7 +121,10 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
     activeDownloadsRef.current = activeDownloads;
   }, [activeDownloads]);
 
-  // Check for existing downloads on mount (poll DB state)
+  // Check for existing downloads on mount (poll DB state).
+  // Phase 0: 'paused' rows are surfaced as well — they are valid downloads
+  // the user can see/resume (the backend auto-resume sweep also runs on boot,
+  // but the user might land on the page faster than the next sweep).
   useEffect(() => {
     const controller = new AbortController();
     const checkExistingDownloads = async () => {
@@ -114,18 +135,23 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         });
         const models = data.models || [];
 
-        // Find models that are downloading
-        const downloading = models.filter(m => m.install_status === 'downloading');
+        const inFlight = models.filter(
+          m => m.install_status === 'downloading' || m.install_status === 'paused'
+        );
 
-        if (downloading.length > 0) {
+        if (inFlight.length > 0) {
           const newDownloads: Record<string, DownloadState> = {};
-          downloading.forEach(m => {
+          inFlight.forEach(m => {
+            const isPaused = m.install_status === 'paused';
             newDownloads[m.id] = {
               progress: m.download_progress || 0,
-              status: 'Download läuft...',
-              phase: 'download',
-              error: null,
+              status: isPaused ? 'Pausiert — wird fortgesetzt...' : 'Download läuft...',
+              phase: isPaused ? 'paused' : 'download',
+              error: isPaused ? m.install_error || null : null,
               modelName: m.name,
+              bytesCompleted: m.bytes_completed,
+              bytesTotal: m.bytes_total,
+              speedBps: m.download_speed_bps,
             };
           });
           setActiveDownloads(prev => ({ ...prev, ...newDownloads }));
@@ -173,7 +199,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                   onCompleteCallbacksRef.current.forEach(cb => cb(modelId, true));
                 }
               } else if (model.install_status === 'error') {
-                // Download failed
+                // Hard error — bytes are gone or unrecoverable
                 updated[modelId] = {
                   ...prev[modelId],
                   progress: 0,
@@ -181,13 +207,40 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                   error: model.install_error || 'Download fehlgeschlagen',
                 };
                 hasChanges = true;
+              } else if (model.install_status === 'paused') {
+                // Phase 0: bytes survived a server restart / network blip —
+                // the backend will auto-resume; keep the row visible so the
+                // user knows nothing is lost.
+                updated[modelId] = {
+                  ...prev[modelId],
+                  progress: model.download_progress || prev[modelId].progress,
+                  phase: 'paused',
+                  status: 'Pausiert — wird fortgesetzt...',
+                  error: model.install_error || null,
+                  bytesCompleted: model.bytes_completed,
+                  bytesTotal: model.bytes_total,
+                  speedBps: model.download_speed_bps,
+                };
+                hasChanges = true;
               } else if (model.install_status === 'downloading') {
-                // Update progress from DB
-                if (prev[modelId].progress !== model.download_progress) {
-                  updated[modelId] = {
-                    ...prev[modelId],
-                    progress: model.download_progress || 0,
-                  };
+                // Update progress + bytes from DB
+                const next: DownloadState = {
+                  ...prev[modelId],
+                  progress: model.download_progress || 0,
+                  phase: 'download',
+                  bytesCompleted: model.bytes_completed,
+                  bytesTotal: model.bytes_total,
+                  speedBps: model.download_speed_bps,
+                  // Clear stale "Verbindung verloren" error if server is alive
+                  error: null,
+                };
+                if (
+                  prev[modelId].progress !== next.progress ||
+                  prev[modelId].bytesCompleted !== next.bytesCompleted ||
+                  prev[modelId].phase !== 'download' ||
+                  prev[modelId].error !== null
+                ) {
+                  updated[modelId] = next;
                   hasChanges = true;
                 }
               }
@@ -317,6 +370,15 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                     if (data.progress !== undefined) {
                       update.progress = data.progress;
                     }
+                    if (data.bytes_completed !== undefined && data.bytes_completed !== null) {
+                      update.bytesCompleted = data.bytes_completed;
+                    }
+                    if (data.bytes_total !== undefined && data.bytes_total !== null) {
+                      update.bytesTotal = data.bytes_total;
+                    }
+                    if (data.speed_bps !== undefined && data.speed_bps !== null) {
+                      update.speedBps = data.speed_bps;
+                    }
 
                     if (data.status) {
                       const interpreted = interpretDownloadStatus(data.status);
@@ -368,7 +430,12 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') {
-          // Check if this was an inactivity timeout vs intentional cancel
+          // Phase 0: an abort here is either an inactivity timeout (SSE went
+          // silent) or an explicit cancelDownload(). In both cases the server
+          // side either keeps streaming OR has already moved the row to
+          // 'paused' with bytes preserved. The UI shows 'paused' (not
+          // 'error') so the user knows their bytes are safe — the next
+          // polling tick will reflect the authoritative server state.
           const downloadState = activeDownloadsRef.current[modelId];
           if (
             downloadState &&
@@ -379,9 +446,9 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
               ...prev,
               [modelId]: {
                 ...prev[modelId],
-                phase: 'error',
-                error:
-                  'Verbindung zum Server verloren. Der Download läuft möglicherweise im Hintergrund weiter.',
+                phase: 'paused',
+                status: 'Pausiert — wird fortgesetzt...',
+                error: null,
               },
             }));
           }
@@ -403,18 +470,59 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
     [] // DL-FE-001: Empty deps - uses ref for current state checks
   );
 
-  // Cancel a download
+  // Pause a download (tab-close semantics): aborts the local SSE, but
+  // bytes survive on the server. The polling loop will then surface the
+  // 'paused' phase from the next /models/catalog response.
   const cancelDownload = useCallback((modelId: string) => {
     const controller = abortControllersRef.current[modelId];
     if (controller) {
       controller.abort();
     }
-    setActiveDownloads(prev => {
-      const updated = { ...prev };
-      delete updated[modelId];
-      return updated;
-    });
+    setActiveDownloads(prev => ({
+      ...prev,
+      [modelId]: {
+        ...(prev[modelId] || { progress: 0, status: '', phase: 'paused', error: null }),
+        phase: 'paused',
+        status: 'Pausiert — wird fortgesetzt...',
+        error: null,
+      },
+    }));
   }, []);
+
+  // Hard reset: tells the server to drop the row and (best-effort) ollama-rm.
+  // After this the next download starts from 0 bytes and attempt_count = 0.
+  const purgeDownload = useCallback(
+    async (modelId: string) => {
+      const controller = abortControllersRef.current[modelId];
+      if (controller) {
+        controller.abort();
+      }
+      try {
+        await api.delete(`/models/${encodeURIComponent(modelId)}/download`, {
+          showError: false,
+        });
+      } catch (err) {
+        console.warn(`[DownloadContext] Purge failed for ${modelId}:`, err);
+      }
+      setActiveDownloads(prev => {
+        const updated = { ...prev };
+        delete updated[modelId];
+        return updated;
+      });
+    },
+    [api]
+  );
+
+  // Resume = re-trigger a normal startDownload. The server's atomic claim in
+  // modelService.downloadModel handles the resume from saved bytes.
+  const resumeDownload = useCallback(
+    async (modelId: string, modelName?: string) => {
+      // Drop any stale 'paused'/'error' state so startDownload re-initialises.
+      delete abortControllersRef.current[modelId];
+      await startDownload(modelId, modelName);
+    },
+    [startDownload]
+  );
 
   // Register callback for download completion
   const onDownloadComplete = useCallback(
@@ -451,6 +559,8 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
       activeDownloadsList,
       startDownload,
       cancelDownload,
+      purgeDownload,
+      resumeDownload,
       isDownloading,
       getDownloadState,
       onDownloadComplete,
@@ -461,14 +571,13 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
       activeDownloadsList,
       startDownload,
       cancelDownload,
+      purgeDownload,
+      resumeDownload,
       isDownloading,
       getDownloadState,
       onDownloadComplete,
     ]
   );
-  // Note: isDownloading, getDownloadState, startDownload, cancelDownload, onDownloadComplete
-  // all have empty deps (use refs internally), so they don't cause value recreation.
-  // Only activeDownloads/count/list changes trigger context updates.
 
   return <DownloadContext.Provider value={value}>{children}</DownloadContext.Provider>;
 }

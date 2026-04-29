@@ -159,6 +159,49 @@ async function getGpuInfo() {
 }
 
 /**
+ * Get current Jetson power mode (MAXN / 30W / 15W / …).
+ *
+ * Phase 2.4 of LLM_RAG_N8N_HARDENING. Best-effort: tries `nvpmodel -q`
+ * first, then falls back to "unknown" (the binary is not always mounted
+ * inside the dashboard-backend container).
+ *
+ * @returns {Promise<{mode: string, modeIndex: number|null, available: boolean}>}
+ */
+let cachedPowerMode = null;
+let powerModeExpiresAt = 0;
+const POWER_MODE_CACHE_TTL = 30_000;
+
+async function getPowerMode() {
+  if (cachedPowerMode && Date.now() < powerModeExpiresAt) {
+    return cachedPowerMode;
+  }
+  try {
+    const { stdout } = await execFileAsync('nvpmodel', ['-q'], { timeout: 2000 });
+    // Output:
+    //   NV Power Mode: MAXN
+    //   0
+    const lines = stdout.trim().split('\n');
+    const modeMatch = lines[0]?.match(/NV Power Mode:\s*(\S+)/);
+    if (modeMatch) {
+      const idxRaw = lines[1]?.trim();
+      const modeIndex = idxRaw && /^\d+$/.test(idxRaw) ? parseInt(idxRaw, 10) : null;
+      cachedPowerMode = {
+        mode: modeMatch[1].toUpperCase(),
+        modeIndex,
+        available: true,
+      };
+      powerModeExpiresAt = Date.now() + POWER_MODE_CACHE_TTL;
+      return cachedPowerMode;
+    }
+  } catch (err) {
+    logger.debug(`[hardware] nvpmodel unavailable: ${err.message}`);
+  }
+  cachedPowerMode = { mode: 'unknown', modeIndex: null, available: false };
+  powerModeExpiresAt = Date.now() + POWER_MODE_CACHE_TTL;
+  return cachedPowerMode;
+}
+
+/**
  * Get effective LLM RAM limit in GB
  * Priority: RAM_LIMIT_LLM env var → 60% of system RAM → 32GB fallback
  * @returns {number}
@@ -238,4 +281,5 @@ module.exports = {
   getGpuInfo,
   getLlmRamGB,
   getRecommendedModel,
+  getPowerMode,
 };

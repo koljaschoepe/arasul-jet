@@ -11,9 +11,11 @@ import { useToast } from '../../contexts/ToastContext';
 import ChatTopBar from './components/ChatTopBar';
 import ChatInputArea from './components/ChatInputArea';
 import ChatMessage from './components/ChatMessage';
+import ContextWarningBanner from './components/ContextWarningBanner';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
+import { useContextEstimate } from '../../hooks/useContextEstimate';
 import './chat.css';
 
 export default function ChatView() {
@@ -32,6 +34,8 @@ export default function ChatView() {
     getBackgroundLoading,
     clearBackgroundState,
     hasActiveStream,
+    installedModels,
+    selectedModel,
   } = useChatContext();
 
   const chatId = parseInt(chatIdParam!, 10);
@@ -60,6 +64,13 @@ export default function ChatView() {
   useEffect(() => {
     messagesLengthRef.current = messages.length;
   }, [messages.length]);
+
+  // Phase 4.4 — context-window estimate (drives the warning banner below).
+  const contextEstimate = useContextEstimate(
+    messages,
+    chatSettings?.preferred_model || selectedModel,
+    installedModels
+  );
 
   useEffect(() => {
     if (!chatId || isNaN(chatId)) {
@@ -368,6 +379,15 @@ export default function ChatView() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Phase 4.4: heads-up banner when conversation approaches the model's context window */}
+      {contextEstimate.exceedsThreshold && (
+        <ContextWarningBanner
+          estimatedTokens={contextEstimate.estimatedTokens}
+          contextWindow={contextEstimate.contextWindow}
+          utilization={contextEstimate.utilization}
+        />
       )}
 
       <ChatInputArea

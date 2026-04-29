@@ -72,6 +72,47 @@ function createLLMQueueService(deps = {}) {
       this.timeoutInterval = null;
       // P2-004: Mutex for queue position protection during burst traffic
       this.enqueueMutex = new AsyncMutex();
+      // Phase 4.6: in-memory live-content snapshot kept synchronously per token,
+      // independent of the DB flush debounce. Used by the reconnect endpoint
+      // so a browser-reload mid-stream sees every token, including the ones
+      // that were sent to the (now disconnected) original subscriber but not
+      // yet persisted to the DB. Cleaned up on job complete/error.
+      // jobId -> { content, thinking, seq, updatedAt }
+      this.liveStreamingState = new Map();
+    }
+
+    /**
+     * Phase 4.6: Append the latest token-burst to the in-memory live snapshot.
+     * Called synchronously from the streaming layer for every token. O(1).
+     */
+    appendLiveStream(jobId, { content = '', thinking = '' } = {}) {
+      const cur = this.liveStreamingState.get(jobId) || {
+        content: '',
+        thinking: '',
+        seq: 0,
+        updatedAt: 0,
+      };
+      cur.content += content;
+      cur.thinking += thinking;
+      cur.seq += 1;
+      cur.updatedAt = Date.now();
+      this.liveStreamingState.set(jobId, cur);
+    }
+
+    /**
+     * Phase 4.6: Read the current in-memory snapshot, or null if no live
+     * stream is registered for that job (already complete, or never streamed).
+     */
+    getLiveStream(jobId) {
+      return this.liveStreamingState.get(jobId) || null;
+    }
+
+    /**
+     * Phase 4.6: Forget the live snapshot for a finished job. The DB row is
+     * the canonical source of truth from this point on.
+     */
+    clearLiveStream(jobId) {
+      this.liveStreamingState.delete(jobId);
     }
 
     /**

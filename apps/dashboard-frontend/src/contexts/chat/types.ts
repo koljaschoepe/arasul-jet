@@ -108,7 +108,7 @@ export interface ChatContextValue {
   spaces: Space[];
   // Functions
   sendMessage: (chatId: string, input: string, options?: SendMessageOptions) => Promise<void>;
-  reconnectToJob: (jobId: string, targetChatId: string) => Promise<void>;
+  reconnectToJob: (jobId: string, targetChatId: string) => Promise<{ success: boolean }>;
   cancelJob: (chatId: string) => Promise<void>;
   abortExistingStream: (chatId: string) => void;
   checkActiveJobs: (chatId: string) => Promise<ActiveJob | null>;

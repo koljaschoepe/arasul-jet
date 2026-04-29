@@ -20,6 +20,7 @@ import { API_BASE, getAuthHeaders } from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getCsrfToken } from '../utils/csrf';
+import { translateError } from '../lib/errorMessages';
 
 export interface ApiError extends Error {
   status: number;
@@ -199,7 +200,7 @@ export function useApi(): ApiMethods {
             const shouldRetry = isRetryableMethod && res.status >= 500 && attempt < maxAttempts - 1;
 
             if (!shouldRetry) {
-              if (showError && toast) toast.error(message);
+              if (showError && toast) toast.error(translateError(code, message));
               throw err;
             }
             lastError = err;

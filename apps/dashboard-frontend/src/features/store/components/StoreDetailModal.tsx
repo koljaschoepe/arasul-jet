@@ -32,6 +32,12 @@ import { Badge } from '@/components/ui/shadcn/badge';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { sanitizeUrl } from '../../../utils/sanitizeUrl';
 import { formatModelSize as formatSize } from '../../../utils/formatting';
+import { HardwareCompatibilityWarning } from './HardwareCompatibilityBadge';
+import useConfirm from '../../../hooks/useConfirm';
+import {
+  useHardwareCompatibility,
+  formatMb,
+} from '../../../hooks/queries/useHardwareCompatibility';
 
 // --- Types ---
 
@@ -158,6 +164,28 @@ function StoreDetailModal({
 
   // App state
   const appLoading = !isModel && actionLoading?.[item.id];
+
+  // Phase 2.2: hardware-fit gate. For 'tight' or 'too_big' models we ask
+  // the user to confirm before kicking off a multi-hour download.
+  const compat = useHardwareCompatibility(
+    isModel ? { ram_required_gb: item.ram_required_gb } : null
+  );
+  const { confirm, ConfirmDialog } = useConfirm();
+  const handleDownloadGuarded = async () => {
+    if (!isModel || !onDownload) return;
+    if (compat.fit === 'tight' || compat.fit === 'too_big') {
+      const isTooBig = compat.fit === 'too_big';
+      const message = isTooBig
+        ? `Dieses Modell benötigt ${formatMb(compat.requiredMb)} RAM, der Jetson stellt aber nur ${formatMb(compat.totalMb)} bereit. Der Download wird vermutlich nutzlos sein. Trotzdem laden?`
+        : `Dieses Modell belegt ${formatMb(compat.requiredMb)} von ${formatMb(compat.totalMb)} (≥80%). Wenig Reserve für andere Modelle. Trotzdem laden?`;
+      const ok = await confirm({
+        message,
+        confirmText: isTooBig ? 'Trotzdem laden' : 'Laden',
+      });
+      if (!ok) return;
+    }
+    onDownload(item.id, item.name);
+  };
 
   return (
     <Dialog open={!!item} onOpenChange={open => !open && onClose()}>
@@ -338,6 +366,9 @@ function StoreDetailModal({
               )}
             </div>
 
+            {/* Phase 2.2: hardware-fit warning (only when tight or too_big). */}
+            {isModel && <HardwareCompatibilityWarning ram_required_gb={item.ram_required_gb} />}
+
             {/* Capabilities/Tags (Models only) */}
             {isModel && item.capabilities && item.capabilities.length > 0 && (
               <div className="mt-6 pt-6 border-t border-border">
@@ -391,9 +422,9 @@ function StoreDetailModal({
         <DialogFooter className="p-4 border-t border-border flex-wrap">
           {isModel ? (
             <>
-              {/* Model: Download */}
+              {/* Model: Download (guarded — confirms when fit is tight/too_big) */}
               {!isReady && !modelDownloading && (
-                <Button onClick={() => onDownload?.(item.id, item.name)}>
+                <Button onClick={handleDownloadGuarded}>
                   <Download className="size-4" /> Herunterladen
                 </Button>
               )}
@@ -553,6 +584,7 @@ function StoreDetailModal({
             </>
           )}
         </DialogFooter>
+        {ConfirmDialog}
       </DialogContent>
     </Dialog>
   );

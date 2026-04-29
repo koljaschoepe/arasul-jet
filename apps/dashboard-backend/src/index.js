@@ -181,6 +181,12 @@ app.use('/api', csrfProtection);
 // Register all API routes (centralized in routes/index.js)
 app.use('/api', require('./routes'));
 
+// OpenAI-compatible surface (mounted at /v1, parallel to /api). Lets n8n's
+// stock OpenAI Chat Model node and the official OpenAI SDKs talk to the
+// local stack with a base URL of http://dashboard-backend:3001/v1.
+// Auth is API-key only (no cookies) so CSRF doesn't apply.
+app.use('/v1', require('./routes/external/openaiCompat'));
+
 // Health check endpoint (public, no auth required)
 // ?detail=true returns full dependency status.
 // See docs/HEALTH_CONTRACT.md for the response contract.

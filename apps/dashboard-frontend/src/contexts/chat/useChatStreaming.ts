@@ -45,7 +45,7 @@ interface UseChatStreamingParams {
 
 export interface UseChatStreamingReturn {
   loadMessages: (chatId: string, options?: LoadMessagesOptions) => Promise<LoadMessagesResult>;
-  reconnectToJob: (jobId: string, targetChatId: string) => Promise<void>;
+  reconnectToJob: (jobId: string, targetChatId: string) => Promise<{ success: boolean }>;
   sendMessage: (chatId: string, input: string, options?: SendMessageOptions) => Promise<void>;
 }
 
@@ -88,10 +88,17 @@ export default function useChatStreaming({
 }: UseChatStreamingParams): UseChatStreamingReturn {
   const api = useApi();
 
-  // Token batching, fed by routedSetMessages — cast needed because token-batching is generic
-  const { tokenBatchRef, flushTokenBatch, addTokenToBatch, resetTokenBatch } = useTokenBatching(
-    routedSetMessages as React.Dispatch<React.SetStateAction<ChatMessage[]>>
-  );
+  // Token batching, fed by routedSetMessages — cast needed because token-batching is generic.
+  // Phase 4.3: addTokenToBatchForStream + resetTokenBatch(chatId) tag the
+  // shared buffer with the originating chat so an aborted-but-in-flight
+  // stream can't append into the next chat's message.
+  const {
+    tokenBatchRef,
+    flushTokenBatch,
+    addTokenToBatch,
+    addTokenToBatchForStream,
+    resetTokenBatch,
+  } = useTokenBatching(routedSetMessages as React.Dispatch<React.SetStateAction<ChatMessage[]>>);
 
   // Reset token batch on logout
   useEffect(() => {
@@ -120,7 +127,7 @@ export default function useChatStreaming({
   );
 
   const reconnectToJob = useCallback(
-    async (jobId: string, targetChatId: string) => {
+    async (jobId: string, targetChatId: string): Promise<{ success: boolean }> => {
       // RACE-001: Serialize reconnect calls via mutex to prevent concurrent streams
       const prevMutex = reconnectMutexRef.current;
       let releaseMutex: () => void;
@@ -140,8 +147,17 @@ export default function useChatStreaming({
       const abortController = new AbortController();
       abortControllersRef.current[targetChatId] = abortController;
       activeStreamChatIdRef.current = targetChatId;
+      // Phase 4.3: aborting the previous stream leaves any unflushed tokens
+      // in the shared batch ref. Without this reset, the first token of the
+      // new chat would arrive prefixed with the leftover content of the old
+      // one. sendMessage already does this — mirror it here.
+      resetTokenBatch();
 
       let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+      // Phase 4.5: track terminal SSE outcome so the wrapper can decide
+      // whether an error catch is "transient" (worth retrying) or definitive.
+      let streamCompletedNormally = false;
+      let serverError = false;
 
       try {
         const response = await fetch(`${API_BASE}/llm/jobs/${jobId}/stream`, {
@@ -226,6 +242,7 @@ export default function useChatStreaming({
               }
 
               if (data.done) {
+                streamCompletedNormally = true;
                 updateIsLoading(targetChatId, false);
                 clearActiveJob(targetChatId);
                 const result = await loadMessages(targetChatId);
@@ -233,6 +250,7 @@ export default function useChatStreaming({
               }
 
               if (data.error) {
+                serverError = true;
                 updateError(targetChatId, data.error);
                 updateIsLoading(targetChatId, false);
                 clearActiveJob(targetChatId);
@@ -243,12 +261,14 @@ export default function useChatStreaming({
           }
         }
         if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
+        return { success: streamCompletedNormally && !serverError };
       } catch (err: unknown) {
         if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
-        if (err instanceof Error && err.name === 'AbortError') return;
+        if (err instanceof Error && err.name === 'AbortError') return { success: false };
         console.error('Reconnect error:', err);
         updateIsLoading(targetChatId, false);
         clearActiveJob(targetChatId);
+        return { success: false };
       } finally {
         delete abortControllersRef.current[targetChatId];
         if (activeStreamChatIdRef.current === targetChatId) activeStreamChatIdRef.current = null;
@@ -343,7 +363,12 @@ export default function useChatStreaming({
       const abortController = new AbortController();
       abortControllersRef.current[chatId] = abortController;
       activeStreamChatIdRef.current = chatId;
-      resetTokenBatch();
+      // Phase 4.3: bind the batch to this chat. Subsequent
+      // addTokenToBatchForStream(chatId, ...) calls drop tokens whose
+      // streamId no longer matches (e.g. late chunks from an aborted
+      // previous chat's stream).
+      const batchStreamId = chatId;
+      resetTokenBatch(batchStreamId);
 
       let currentJobId: string | null = null;
       let streamDone = false;
@@ -571,7 +596,12 @@ export default function useChatStreaming({
               if (data.type === 'thinking' && data.token) {
                 if (!firstTokenTime) firstTokenTime = Date.now();
                 tokenCount++;
-                addTokenToBatch('thinking', data.token, assistantMessageIndex);
+                addTokenToBatchForStream(
+                  batchStreamId,
+                  'thinking',
+                  data.token,
+                  assistantMessageIndex
+                );
               }
 
               if (data.type === 'thinking_end') {
@@ -591,7 +621,12 @@ export default function useChatStreaming({
               if (data.type === 'response' && data.token) {
                 if (!firstTokenTime) firstTokenTime = Date.now();
                 tokenCount++;
-                addTokenToBatch('content', data.token, assistantMessageIndex);
+                addTokenToBatchForStream(
+                  batchStreamId,
+                  'content',
+                  data.token,
+                  assistantMessageIndex
+                );
               }
 
               // Stream complete
@@ -678,6 +713,26 @@ export default function useChatStreaming({
         if (streamDone) return; // Ignore post-done errors (e.g. timeout after successful stream)
         console.error(`${isRAG ? 'RAG' : 'Chat'} error:`, err);
 
+        // Phase 4.5: SSE auto-reconnect. If we have a backend job ID and the
+        // stream wasn't done yet, the error is most likely a transient network
+        // blip — try to resume via reconnectToJob (which replays accumulated
+        // state, so no token duplication). Backoff [1s, 2s, 4s, 8s, 16s].
+        // Only fall through to the user-facing error path if every retry fails.
+        if (currentJobId && !streamDone) {
+          const SSE_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000] as const;
+          updateError(chatId, null);
+          for (let attempt = 0; attempt < SSE_RETRY_DELAYS_MS.length; attempt++) {
+            const delay = SSE_RETRY_DELAYS_MS[attempt]!;
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(r => setTimeout(r, delay));
+            // Bail out if the user navigated away / cancelled in the meantime.
+            if (abortController.signal.aborted) break;
+            // eslint-disable-next-line no-await-in-loop
+            const result = await reconnectToJob(currentJobId, chatId);
+            if (result.success) return; // resumed cleanly
+          }
+        }
+
         // Cancel orphaned backend job to free GPU resources
         if (currentJobId) {
           api.del(`/llm/jobs/${currentJobId}`, { showError: false }).catch(() => {});
@@ -709,10 +764,12 @@ export default function useChatStreaming({
       updateError,
       resetTokenBatch,
       addTokenToBatch,
+      addTokenToBatchForStream,
       flushTokenBatch,
       tokenBatchRef,
       setActiveJob,
       clearActiveJob,
+      reconnectToJob,
       setSelectedModel,
       selectedModelRef,
       sendLockRef,

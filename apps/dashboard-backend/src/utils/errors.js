@@ -76,18 +76,56 @@ class RateLimitError extends ApiError {
 }
 
 class ServiceUnavailableError extends ApiError {
-  constructor(message = 'Service temporarily unavailable', serviceName = null) {
-    super(message, {
-      statusCode: 503,
-      code: 'SERVICE_UNAVAILABLE',
-      details: serviceName ? { service: serviceName } : null,
-    });
+  // Second arg accepts either a string (legacy: service name) or an options
+  // object (preferred: { code, service, details }) so callers can attach a
+  // stable, machine-readable code like 'OLLAMA_UNAVAILABLE' or
+  // 'EMBEDDING_DOWN' that the frontend can dispatch on.
+  constructor(message = 'Service temporarily unavailable', opts = null) {
+    let code = 'SERVICE_UNAVAILABLE';
+    let details = null;
+
+    if (typeof opts === 'string') {
+      details = { service: opts };
+    } else if (opts && typeof opts === 'object') {
+      if (opts.code) {
+        code = opts.code;
+      }
+      const service = opts.service || null;
+      const extra = opts.details || null;
+      if (service || extra) {
+        details = { ...(service ? { service } : {}), ...(extra || {}) };
+      }
+    }
+
+    super(message, { statusCode: 503, code, details });
   }
 }
 
 class NotImplementedError extends ApiError {
   constructor(message = 'Not implemented') {
     super(message, { statusCode: 501, code: 'NOT_IMPLEMENTED' });
+  }
+}
+
+// Phase 6.2: Concrete service-error subclasses. Identical wire format to
+// ServiceUnavailableError (same statusCode, same code, same envelope) — these
+// just save the call site from spelling out the code each time and let
+// handlers `instanceof` if they ever need to dispatch on the failing service.
+class OllamaUnavailableError extends ServiceUnavailableError {
+  constructor(message = 'LLM-Service nicht erreichbar', details = null) {
+    super(message, { code: 'OLLAMA_UNAVAILABLE', service: 'ollama', details });
+  }
+}
+
+class EmbeddingFailedError extends ServiceUnavailableError {
+  constructor(message = 'Embedding-Service nicht erreichbar', details = null) {
+    super(message, { code: 'EMBEDDING_DOWN', service: 'embedding', details });
+  }
+}
+
+class QdrantUnavailableError extends ServiceUnavailableError {
+  constructor(message = 'Vektor-Datenbank nicht erreichbar', details = null) {
+    super(message, { code: 'QDRANT_UNAVAILABLE', service: 'qdrant', details });
   }
 }
 
@@ -100,5 +138,8 @@ module.exports = {
   ConflictError,
   RateLimitError,
   ServiceUnavailableError,
+  OllamaUnavailableError,
+  EmbeddingFailedError,
+  QdrantUnavailableError,
   NotImplementedError,
 };

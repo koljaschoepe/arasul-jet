@@ -13,10 +13,18 @@ import { useUpdateChecker } from './hooks/useUpdateChecker';
 import { useSidebarState } from './hooks/useSidebarState';
 import { useSetupGate } from './hooks/useSetupGate';
 import { useTheme } from './hooks/useTheme';
+import { useEvictionWatcher } from './hooks/useEvictionWatcher';
 import { SidebarWithDownloads } from './components/layout/Sidebar';
 import { Button } from '@/components/ui/shadcn/button';
 import KeyboardShortcutsLegend from './components/KeyboardShortcutsLegend';
 import AppRoutes from './AppRoutes';
+
+// Tiny mount-once component for the eviction watcher (Phase 2.5). Lives
+// inside the provider tree so it has access to ToastContext.
+function EvictionWatcher(): null {
+  useEvictionWatcher();
+  return null;
+}
 
 function AppShell(): React.JSX.Element | null {
   const { isAuthenticated, loading: authLoading, login, logout } = useAuth();
@@ -105,6 +113,7 @@ function AppShell(): React.JSX.Element | null {
                 Zum Hauptinhalt springen
               </a>
 
+              <EvictionWatcher />
               <KeyboardShortcutsLegend />
 
               <SidebarWithDownloads collapsed={collapsed} onToggle={toggle} />
