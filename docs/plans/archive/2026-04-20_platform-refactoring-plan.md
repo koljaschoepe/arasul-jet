@@ -1,3 +1,9 @@
+> **Archived 2026-05-03** — moved from `docs/` root to `docs/plans/archive/` as part of the DX Overhaul (Stage 1).
+> Originally added on 2026-04-20. Superseded by `docs/plans/active/COMMERCIAL_LAUNCH_MASTER_PLAN.md` and downstream phase plans.
+> Kept for historical reference; do not act on its contents.
+
+---
+
 # Arasul Platform — Refactoring & Hardening Plan
 
 > **Erstellt:** 2026-04-19

@@ -1,3 +1,9 @@
+> **Archived 2026-05-03** — moved from `docs/` root to `docs/plans/archive/` as part of the DX Overhaul (Stage 1).
+> Originally added on 2026-03-31. Superseded by `docs/plans/active/COMMERCIAL_LAUNCH_MASTER_PLAN.md` and downstream phase plans.
+> Kept for historical reference; do not act on its contents.
+
+---
+
 # LLM Chat Optimization Plan
 
 Comprehensive plan for optimizing the Arasul Platform LLM chat system.
