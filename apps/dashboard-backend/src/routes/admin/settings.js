@@ -21,6 +21,7 @@ const { getEmbedding } = require('../../services/embeddingService');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { validateBody } = require('../../middleware/validate');
 const { PasswordChangeBody, CompanyContextBody } = require('../../schemas/admin-settings');
+const { invalidateFeatureFlagsCache } = require('../../middleware/featureFlags');
 
 // SECURITY: Use execFile (not exec) to prevent shell injection
 const execFilePromise = util.promisify(execFile);
@@ -385,6 +386,292 @@ router.put(
       content: result.rows[0].content,
       updated_at: result.rows[0].updated_at,
       message: 'Unternehmenskontext erfolgreich gespeichert',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// =============================================================================
+// N8N EXTERNAL-WHITELIST + CALL-LOG (Phase 1.7)
+// =============================================================================
+
+/**
+ * GET /api/settings/n8n-whitelist
+ * Liefert die aktuelle Whitelist externer Domains, die n8n-Workflows
+ * kontaktieren dürfen. Leer = alles geblockt (Soll-Zustand).
+ */
+router.get(
+  '/n8n-whitelist',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const result = await db.query(
+      `SELECT id, domain, description, added_by, added_at
+         FROM n8n_allowed_external_domains
+         ORDER BY domain ASC`
+    );
+    res.json({
+      domains: result.rows,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/settings/n8n-whitelist
+ * Body: { domain: string, description?: string }
+ * Fügt einen Eintrag zur Whitelist hinzu. Bei Konflikt 409.
+ */
+router.post(
+  '/n8n-whitelist',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { domain, description } = req.body || {};
+    if (!domain || typeof domain !== 'string') {
+      throw new ValidationError('domain ist erforderlich');
+    }
+    const normalized = domain.trim().toLowerCase();
+    // Sehr einfache Validierung — keine Schema-Validation hier nötig.
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(normalized)) {
+      throw new ValidationError(
+        'Ungültiges Domain-Format (z. B. api.telegram.org, oauth2.googleapis.com)'
+      );
+    }
+
+    const existing = await db.query(
+      `SELECT id FROM n8n_allowed_external_domains WHERE domain = $1`,
+      [normalized]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({
+        error: { code: 'CONFLICT', message: 'Domain ist bereits gewhitelistet' },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const result = await db.query(
+      `INSERT INTO n8n_allowed_external_domains (domain, description, added_by)
+       VALUES ($1, $2, $3)
+       RETURNING id, domain, description, added_by, added_at`,
+      [normalized, description || null, req.user.id]
+    );
+
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'n8n_whitelist_add',
+      details: { domain: normalized },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    res.status(201).json({
+      domain: result.rows[0],
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * DELETE /api/settings/n8n-whitelist/:id
+ */
+router.delete(
+  '/n8n-whitelist/:id',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new ValidationError('Ungültige ID');
+    }
+    const result = await db.query(
+      `DELETE FROM n8n_allowed_external_domains WHERE id = $1 RETURNING domain`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Eintrag nicht gefunden' },
+        timestamp: new Date().toISOString(),
+      });
+    }
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'n8n_whitelist_remove',
+      details: { domain: result.rows[0].domain },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ success: true, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/settings/n8n-call-log
+ * Liefert die letzten externen HTTP-Calls aus n8n-Workflows.
+ * Query-Params: limit (max 200, default 50), blocked_only=1
+ */
+router.get(
+  '/n8n-call-log',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const blockedOnly = req.query.blocked_only === '1' || req.query.blocked_only === 'true';
+    const where = blockedOnly ? 'WHERE blocked = TRUE' : '';
+    const result = await db.query(
+      `SELECT id, workflow_id, workflow_name, execution_id, target_url, target_host,
+              method, status_code, blocked, block_reason, duration_ms, created_at
+         FROM n8n_external_call_log
+         ${where}
+         ORDER BY created_at DESC
+         LIMIT $1`,
+      [limit]
+    );
+    res.json({
+      calls: result.rows,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// =============================================================================
+// COMPLIANCE-SETTINGS (Phase 1.4 + 1.6)
+// =============================================================================
+
+/**
+ * GET /api/settings/compliance
+ * Vollständige Compliance-Konfiguration (mit Audit-Metadaten).
+ * Für Admin-UI. Public-Lesezugriff geht via /api/system/feature-flags.
+ */
+router.get(
+  '/compliance',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const result = await db.query(`
+      SELECT telegram_enabled, telegram_disclaimer_accepted, telegram_disclaimer_accepted_at,
+             telegram_disclaimer_accepted_by,
+             ai_transparency_enabled, ai_transparency_disabled_at, ai_transparency_disabled_by
+      FROM system_settings WHERE id = 1
+    `);
+    const row = result.rows[0] || {};
+    res.json({
+      telegram: {
+        enabled: row.telegram_enabled ?? false,
+        disclaimer_accepted: row.telegram_disclaimer_accepted ?? false,
+        disclaimer_accepted_at: row.telegram_disclaimer_accepted_at,
+        disclaimer_accepted_by: row.telegram_disclaimer_accepted_by,
+      },
+      ai_transparency: {
+        enabled: row.ai_transparency_enabled ?? true,
+        disabled_at: row.ai_transparency_disabled_at,
+        disabled_by: row.ai_transparency_disabled_by,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/settings/compliance/telegram
+ * Telegram aktivieren/deaktivieren. Aktivierung setzt voraus, dass der Disclaimer
+ * ausdrücklich bestätigt wurde (DSGVO Drittland-UAE).
+ * Body: { enabled: boolean, disclaimer_accepted?: boolean }
+ */
+router.put(
+  '/compliance/telegram',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { enabled, disclaimer_accepted } = req.body || {};
+    if (typeof enabled !== 'boolean') {
+      throw new ValidationError('enabled muss boolean sein');
+    }
+    if (enabled && !disclaimer_accepted) {
+      throw new ValidationError(
+        'Disclaimer muss aktiv bestätigt werden, bevor Telegram aktiviert werden kann'
+      );
+    }
+
+    const setClauses = ['telegram_enabled = $1'];
+    const params = [enabled];
+    if (enabled && disclaimer_accepted) {
+      setClauses.push(
+        'telegram_disclaimer_accepted = TRUE',
+        'telegram_disclaimer_accepted_at = NOW()',
+        `telegram_disclaimer_accepted_by = $${params.length + 1}`
+      );
+      params.push(req.user.id);
+    }
+
+    await db.query(`UPDATE system_settings SET ${setClauses.join(', ')} WHERE id = 1`, params);
+    invalidateFeatureFlagsCache();
+
+    logger.info(
+      `Compliance: telegram_enabled = ${enabled} by user ${req.user.username} (id=${req.user.id})`
+    );
+    logSecurityEvent({
+      userId: req.user.id,
+      action: enabled ? 'telegram_enabled' : 'telegram_disabled',
+      details: { disclaimer_accepted: !!disclaimer_accepted },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    res.json({ success: true, telegram_enabled: enabled, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * PUT /api/settings/compliance/ai-transparency
+ * AI-Transparenz-Label (EU-AI-Act Art. 50) aktivieren/deaktivieren.
+ * Default ON. Deaktivierung wird im Audit-Log nachvollzogen.
+ * Body: { enabled: boolean }
+ */
+router.put(
+  '/compliance/ai-transparency',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { enabled } = req.body || {};
+    if (typeof enabled !== 'boolean') {
+      throw new ValidationError('enabled muss boolean sein');
+    }
+
+    if (enabled) {
+      await db.query(
+        `UPDATE system_settings
+           SET ai_transparency_enabled = TRUE,
+               ai_transparency_disabled_at = NULL,
+               ai_transparency_disabled_by = NULL
+           WHERE id = 1`
+      );
+    } else {
+      await db.query(
+        `UPDATE system_settings
+           SET ai_transparency_enabled = FALSE,
+               ai_transparency_disabled_at = NOW(),
+               ai_transparency_disabled_by = $1
+           WHERE id = 1`,
+        [req.user.id]
+      );
+    }
+    invalidateFeatureFlagsCache();
+
+    logger.warn(
+      `Compliance: ai_transparency_enabled = ${enabled} by user ${req.user.username} (id=${req.user.id})`
+    );
+    logSecurityEvent({
+      userId: req.user.id,
+      action: enabled ? 'ai_transparency_enabled' : 'ai_transparency_disabled',
+      details: {},
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+
+    res.json({
+      success: true,
+      ai_transparency_enabled: enabled,
       timestamp: new Date().toISOString(),
     });
   })

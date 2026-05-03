@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Loader2 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/shadcn/card';
 import { Input } from '@/components/ui/shadcn/input';
 import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
 import { PLATFORM_NAME, PLATFORM_DESCRIPTION, SUPPORT_EMAIL } from '@/config/branding';
+import InitialSetupWizard from './InitialSetupWizard';
 
 const LoginSchema = z.object({
   username: z.string().min(1),
@@ -28,6 +30,27 @@ interface LoginProps {
 function Login({ onLoginSuccess }: LoginProps) {
   const api = useApi();
   const [error, setError] = useState('');
+  // Phase 1.2: Vor dem Login-Formular prüfen, ob ein Initial-Admin existiert.
+  // Wenn nicht, kommt der Setup-Wizard (Erstinbetriebnahme der Box).
+  const [setupStatus, setSetupStatus] = useState<'loading' | 'setup' | 'login'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const status = await api.get<{ requires_initial_setup: boolean }>('/auth/setup-status');
+        if (!cancelled) {
+          setSetupStatus(status.requires_initial_setup ? 'setup' : 'login');
+        }
+      } catch {
+        // Wenn der Status-Endpoint fehlschlägt, fallback auf Login — keine Lock-out.
+        if (!cancelled) setSetupStatus('login');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
 
   const {
     register,
@@ -56,6 +79,18 @@ function Login({ onLoginSuccess }: LoginProps) {
       setError(e.message || 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.');
     }
   };
+
+  if (setupStatus === 'loading') {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-background">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Lade" />
+      </div>
+    );
+  }
+
+  if (setupStatus === 'setup') {
+    return <InitialSetupWizard onSetupSuccess={onLoginSuccess} />;
+  }
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-background p-4 max-md:items-start max-md:pt-[10vh] max-md:p-3">

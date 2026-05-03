@@ -123,6 +123,9 @@ router.use('/tailscale', tailscaleLimiter, require('./system/tailscale'));
 // --- Admin ---
 router.use('/settings', require('./admin/settings'));
 router.use('/audit', require('./admin/audit'));
+router.use('/admin/users', require('./admin/users'));
+router.use('/support', require('./admin/support'));
+router.use('/search', require('./search'));
 router.use('/update', require('./admin/update'));
 router.use('/self-healing', require('./admin/selfhealing'));
 router.use('/license', require('./admin/license'));

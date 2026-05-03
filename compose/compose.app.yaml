@@ -82,6 +82,8 @@ services:
       - ../data/sandbox/projects:/arasul/sandbox/projects
       - ../services/sandbox:/arasul/sandbox-build:ro
       - ../data/logs/backend:/app/logs
+      # Phase 3.7: n8n-Template-Galerie liest Workflows aus diesem Mount.
+      - ../services/n8n/workflows:/app/n8n-workflows:ro
     security_opt:
       - no-new-privileges:true
     depends_on:

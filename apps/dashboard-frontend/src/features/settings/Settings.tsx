@@ -8,9 +8,11 @@ import {
   Info,
   Server,
   User,
+  Users,
   Globe,
   Zap,
   ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import UpdatePage from '../system/UpdatePage';
 import SelfHealingEvents from '../system/SelfHealingEvents';
@@ -29,6 +31,8 @@ import { SecuritySettings } from './components/SecuritySettings';
 import { RemoteAccessSettings } from './components/RemoteAccessSettings';
 import { N8nIntegrationSettings } from './components/N8nIntegrationSettings';
 import { PrivacySettings } from './components/PrivacySettings';
+import { ComplianceSettings } from './components/ComplianceSettings';
+import { UserManagement } from './components/UserManagement';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -63,10 +67,22 @@ const sections: Section[] = [
     description: 'Passwörter und Zugriffsverwaltung',
   },
   {
+    id: 'users',
+    label: 'Benutzer',
+    icon: <Users className="size-5" />,
+    description: 'Mitarbeiter, Rollen und Aktivierung',
+  },
+  {
     id: 'privacy',
     label: 'Datenschutz',
     icon: <ShieldAlert className="size-5" />,
     description: 'DSGVO: Datenexport und Recht auf Löschung',
+  },
+  {
+    id: 'compliance',
+    label: 'Compliance',
+    icon: <ShieldCheck className="size-5" />,
+    description: 'EU-AI-Act und Drittland-Risiken (Telegram)',
   },
   {
     id: 'services',
@@ -165,10 +181,22 @@ function SettingsInner({ handleLogout, theme, onToggleTheme }: SettingsProps) {
             />
           </ComponentErrorBoundary>
         );
+      case 'users':
+        return (
+          <ComponentErrorBoundary componentName="Benutzer">
+            <UserManagement />
+          </ComponentErrorBoundary>
+        );
       case 'privacy':
         return (
           <ComponentErrorBoundary componentName="Datenschutz">
             <PrivacySettings handleLogout={handleLogout} />
+          </ComponentErrorBoundary>
+        );
+      case 'compliance':
+        return (
+          <ComponentErrorBoundary componentName="Compliance">
+            <ComplianceSettings />
           </ComponentErrorBoundary>
         );
       case 'services':

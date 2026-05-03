@@ -17,6 +17,7 @@ import { useEvictionWatcher } from './hooks/useEvictionWatcher';
 import { SidebarWithDownloads } from './components/layout/Sidebar';
 import { Button } from '@/components/ui/shadcn/button';
 import KeyboardShortcutsLegend from './components/KeyboardShortcutsLegend';
+import CommandPalette from './components/CommandPalette';
 import AppRoutes from './AppRoutes';
 
 // Tiny mount-once component for the eviction watcher (Phase 2.5). Lives
@@ -115,6 +116,7 @@ function AppShell(): React.JSX.Element | null {
 
               <EvictionWatcher />
               <KeyboardShortcutsLegend />
+              <CommandPalette />
 
               <SidebarWithDownloads collapsed={collapsed} onToggle={toggle} />
 

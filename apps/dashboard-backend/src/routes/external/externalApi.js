@@ -22,6 +22,7 @@ const llmQueueService = require('../../services/llm/llmQueueService');
 const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
 const ollamaReadiness = require('../../services/llm/ollamaReadiness');
+const db = require('../../database');
 const extractionService = require('../../services/documents/extractionService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
@@ -244,6 +245,111 @@ router.get(
             started_at: queueStatus.processing.started_at,
           }
         : null,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/v1/external/n8n/audit-call — Phase 1.7
+ *
+ * n8n-Workflows loggen externe HTTP-Calls über diesen Endpoint, sodass im
+ * Dashboard-Audit nachvollziehbar ist, welche Daten an Drittparteien
+ * übermittelt wurden. Die Whitelist (n8n_allowed_external_domains) wird
+ * server-seitig geprüft. Wenn der Ziel-Host nicht gewhitelistet ist, wird
+ * der Call als blocked=TRUE protokolliert und der Endpoint antwortet mit
+ * {allowed: false}. Der Workflow muss diese Antwort beachten und den
+ * eigentlichen HTTP-Call selbst skippen.
+ *
+ * Body: { workflow_id?, workflow_name?, execution_id?, target_url, method?,
+ *         status_code?, duration_ms? }
+ */
+router.post(
+  '/n8n/audit-call',
+  requireApiKey,
+  asyncHandler(async (req, res) => {
+    const {
+      workflow_id,
+      workflow_name,
+      execution_id,
+      target_url,
+      method,
+      status_code,
+      duration_ms,
+    } = req.body || {};
+
+    if (!target_url || typeof target_url !== 'string') {
+      throw new ValidationError('target_url ist erforderlich');
+    }
+
+    let host;
+    try {
+      host = new URL(target_url).host.toLowerCase();
+    } catch {
+      throw new ValidationError('target_url ist keine gültige URL');
+    }
+
+    // Internal hosts (Service-Discovery innerhalb des Docker-Netzwerks) sind
+    // immer erlaubt — die sind per Definition kein "externer" Call.
+    const INTERNAL_HOSTS = new Set([
+      'ollama',
+      'llm-service',
+      'embedding-service',
+      'qdrant',
+      'minio',
+      'minio:9000',
+      'postgres-db',
+      'document-indexer',
+      'dashboard-backend',
+    ]);
+    const isInternal =
+      INTERNAL_HOSTS.has(host) ||
+      INTERNAL_HOSTS.has(host.split(':')[0]) ||
+      host === 'localhost' ||
+      host === '127.0.0.1';
+
+    let allowed = isInternal;
+    let blockReason = null;
+
+    if (!isInternal) {
+      const whitelist = await db.query(
+        `SELECT 1 FROM n8n_allowed_external_domains WHERE domain = $1`,
+        [host]
+      );
+      allowed = whitelist.rows.length > 0;
+      if (!allowed) {
+        blockReason = `Host ${host} nicht in n8n-Whitelist`;
+      }
+    }
+
+    await db.query(
+      `INSERT INTO n8n_external_call_log
+         (workflow_id, workflow_name, execution_id, target_url, target_host,
+          method, status_code, blocked, block_reason, duration_ms)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        workflow_id || null,
+        workflow_name || null,
+        execution_id || null,
+        target_url,
+        host,
+        (method || 'GET').toUpperCase(),
+        status_code || null,
+        !allowed,
+        blockReason,
+        duration_ms || null,
+      ]
+    );
+
+    if (!allowed) {
+      logger.warn(
+        `n8n external-call blocked: ${host} (workflow ${workflow_name || workflow_id || 'unknown'})`
+      );
+    }
+
+    res.json({
+      allowed,
+      block_reason: blockReason,
       timestamp: new Date().toISOString(),
     });
   })

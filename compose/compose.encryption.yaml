@@ -1,0 +1,46 @@
+# Phase 2.1 — MinIO Built-in-KMS Aktivierung
+#
+# Nicht im Default-Stack inkludiert, weil das Auflegen ohne Master-Key
+# bestehende Boxen brechen würde. Aktivierung in zwei Schritten:
+#
+#   1. ./scripts/setup/init-minio-kms.sh                    # Master-Key erzeugen
+#   2. compose.encryption.yaml in COMPOSE_FILE eintragen     # Override aktivieren
+#      ODER per --file Flag manuell laden:
+#      docker compose -f compose.core.yaml \
+#                     -f compose.app.yaml \
+#                     -f compose.ai.yaml \
+#                     -f compose.monitoring.yaml \
+#                     -f compose.secrets.yaml \
+#                     -f compose.encryption.yaml up -d minio
+#
+#   3. ./scripts/maintenance/reencrypt-minio.sh              # bestehende Daten re-encrypten
+#
+# Verifikation: docker exec minio mc encrypt info local/<bucket>
+
+secrets:
+  minio_kms_key:
+    file: ../config/secrets/minio_kms_key
+  backup_encryption_key:
+    file: ../config/secrets/backup_encryption_key
+
+services:
+  minio:
+    secrets:
+      - minio_root_user
+      - minio_root_password
+      - minio_kms_key
+    environment:
+      MINIO_KMS_SECRET_KEY_FILE: /run/secrets/minio_kms_key
+      MINIO_KMS_AUTO_ENCRYPTION: 'on'
+
+  backup-service:
+    secrets:
+      - postgres_password
+      - minio_root_user
+      - minio_root_password
+      - backup_encryption_key
+    environment:
+      BACKUP_ENCRYPT_KEY_FILE: /run/secrets/backup_encryption_key
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: '6333'
+      QDRANT_COLLECTION: documents

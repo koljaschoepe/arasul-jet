@@ -7,7 +7,7 @@
 
 ## Vision
 
-Arasul ist eine autonome Edge-AI-Plattform für NVIDIA Jetson. Sie wird als kommerzielles Produkt an Unternehmen verkauft — eine Plug-&-Play-Box, die KI-Funktionen (Chat, RAG, Dokumentenanalyse, Automatisierung) komplett lokal und datenschutzkonform bereitstellt. Ziel: 5 Jahre autonomer Betrieb ohne manuellen Eingriff.
+Arasul ist eine autonome Edge-AI-Plattform für NVIDIA Jetson. Sie wird als kommerzielles Produkt an Unternehmen verkauft — eine Plug-&-Play-Box, die KI-Funktionen (Chat, RAG, Dokumentenanalyse, Automatisierung) komplett lokal und datenschutzkonform bereitstellt. Ziel: 24 Monate autonomer Betrieb, ab Jahr 3 zwei Wartungs-Checks pro Jahr (Remote oder vor Ort), abgedeckt durch den Wartungsvertrag (Phase 5.7 Marketing-Honesty).
 
 ---
 

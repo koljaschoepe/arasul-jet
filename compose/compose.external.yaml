@@ -1,5 +1,13 @@
 # Arasul Platform - External Access
 # Cloudflare Tunnel (optional, profile-basiert)
+#
+# Phase 2.8: NICHT fuer produktive Mandanten-/Patienten-Boxes verwenden.
+# Cloudflare ist US-Drittland — Datenuebertragung ausserhalb der EU.
+# Default-Pfad fuer Berufsgeheimnis-Personas: Tailscale (siehe
+# docs/REMOTE_MAINTENANCE.md).
+#
+# Aktivierung nur fuer Demo-Boxes mit anonymisierten Daten:
+#   docker compose --profile tunnel up -d cloudflared
 
 services:
   cloudflared:

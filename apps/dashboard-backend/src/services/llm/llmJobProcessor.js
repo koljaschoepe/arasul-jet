@@ -174,10 +174,13 @@ async function processRAGJob(ctx, job) {
 7. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
   } else {
     // Mode 1: High-confidence relevant documents found
+    // Phase 3.1: Stricter Prompt — verweise explizit auf die DOKUMENT-[N]-/
+    // ENDE-DOKUMENT-[N]-Marker, sodass das LLM die Indexnummer nicht
+    // halluziniert. N MUSS exakt der Index aus den Markern sein.
     ragRules = `Regeln:
-1. Antworte AUSSCHLIESSLICH auf Basis der bereitgestellten Dokumente.
-2. Jede Aussage MUSS mit der KORREKTEN Quellenangabe [1], [2] etc. belegt sein.
-3. Die Quellennummer MUSS dem Dokument entsprechen, aus dem die Information tatsaechlich stammt. Verwechsle KEINE Quellen.
+1. Antworte AUSSCHLIESSLICH auf Basis der zwischen "--- DOKUMENT [N] ---" und "--- ENDE DOKUMENT [N] ---" markierten Texte.
+2. Jede Aussage MUSS mit der korrekten Quellenangabe [N] belegt sein, wobei N exakt der Index aus den DOKUMENT-Markern ist.
+3. Verwende NUR Indexnummern, die tatsaechlich als DOKUMENT-Marker vorhanden sind. Erfinde KEINE Indexnummern wie [99] oder [100].
 4. Wenn die Antwort nicht in den Dokumenten zu finden ist, sage das klar und deutlich. Erfinde NICHTS.
 5. Verwende Fachbegriffe aus den Dokumenten.
 6. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.

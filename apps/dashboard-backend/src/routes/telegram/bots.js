@@ -33,6 +33,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const logger = require('../../utils/logger');
 const { requireAuth } = require('../../middleware/auth');
+const { requireTelegramEnabled } = require('../../middleware/featureFlags');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody } = require('../../middleware/validate');
 const { webhookLimiter } = require('../../middleware/rateLimit');
@@ -188,6 +189,7 @@ router.get(
 // Create new bot
 router.post(
   '/',
+  requireTelegramEnabled,
   validateBody(CreateBotBody),
   asyncHandler(async (req, res) => {
     const {
@@ -682,8 +684,52 @@ router.post(
 );
 
 // ----------------------------------------------------------------------------
-// DEBUG
+// DEBUG / DIAGNOSTICS
 // ----------------------------------------------------------------------------
+
+// Comprehensive runtime diagnostics — surfaces silent ingress failures.
+// Returns: ingress mode, polling state, webhook state, advice array.
+router.get(
+  '/:id/diagnostics',
+  asyncHandler(async (req, res) => {
+    const botId = parseInt(req.params.id);
+    if (isNaN(botId)) {
+      throw new ValidationError('Ungültige Bot-ID');
+    }
+    const bot = await telegramBotService.getBotById(botId, req.user.id);
+    if (!bot) {
+      throw new NotFoundError('Bot nicht gefunden');
+    }
+
+    const diagnostics = await telegramIngressService.getDiagnostics(botId);
+    res.json({ diagnostics });
+  })
+);
+
+// Manual recovery trigger — stops + restarts ingress (polling or webhook).
+// Useful when the diagnostics endpoint shows a stuck/dead polling loop.
+router.post(
+  '/:id/restart-polling',
+  asyncHandler(async (req, res) => {
+    const botId = parseInt(req.params.id);
+    if (isNaN(botId)) {
+      throw new ValidationError('Ungültige Bot-ID');
+    }
+    const bot = await telegramBotService.getBotById(botId, req.user.id);
+    if (!bot) {
+      throw new NotFoundError('Bot nicht gefunden');
+    }
+    if (!bot.isActive) {
+      throw new ValidationError('Bot ist nicht aktiv. Bitte zuerst aktivieren.');
+    }
+
+    await telegramIngressService.deactivateBotIngress(botId);
+    const result = await telegramIngressService.activateBotIngress(botId);
+
+    logger.info(`Bot ${botId} ingress manually restarted: ${JSON.stringify(result)}`);
+    res.json({ success: result.success, mode: result.mode, error: result.error });
+  })
+);
 
 // Get bot health status
 router.get(

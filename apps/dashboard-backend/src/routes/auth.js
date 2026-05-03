@@ -27,6 +27,7 @@ const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const { generateCsrfToken, CSRF_COOKIE } = require('../middleware/csrf');
 const logger = require('../utils/logger');
 const { logSecurityEvent } = require('../utils/auditLog');
+const { hashPassword, validatePasswordComplexity } = require('../utils/password');
 
 // Cookie security: enable secure flag in production or when explicitly forced
 const isSecure =
@@ -362,6 +363,125 @@ router.get(
 
     logger.debug(`Forward auth success for user: ${user.username}`);
     res.status(200).send('OK');
+  })
+);
+
+// =============================================================================
+// SETUP-ON-FIRST-LOGIN (Phase 1.2)
+// =============================================================================
+
+/**
+ * GET /api/auth/setup-status
+ * Public endpoint: prüft, ob ein Initial-Admin angelegt werden muss.
+ * Frontend rendert Setup-Wizard wenn requires_initial_setup=true,
+ * sonst den normalen Login.
+ */
+router.get(
+  '/setup-status',
+  asyncHandler(async (req, res) => {
+    const result = await db.query('SELECT COUNT(*) AS count FROM admin_users');
+    const count = parseInt(result.rows[0].count, 10);
+    res.json({
+      requires_initial_setup: count === 0,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/auth/setup-initial-admin
+ * Public endpoint, aber NUR aufrufbar wenn admin_users leer ist.
+ * Erstellt den ersten Admin-Account (Phase 1.2: Setup-on-First-Login).
+ *
+ * Body: { username, password, email }
+ */
+router.post(
+  '/setup-initial-admin',
+  loginLimiter,
+  asyncHandler(async (req, res) => {
+    const ipAddress = req.ip;
+
+    // Re-Check unter Lock — Race-safe: irgendein anderer Caller hätte uns
+    // beim Race überholen können. Nur wenn admin_users leer ist, dürfen wir.
+    const existing = await db.query('SELECT COUNT(*) AS count FROM admin_users');
+    if (parseInt(existing.rows[0].count, 10) > 0) {
+      logger.warn(`setup-initial-admin called when admins already exist (from ${ipAddress})`);
+      throw new ForbiddenError(
+        'Setup wurde bereits abgeschlossen. Bitte über die normale Login-Seite anmelden.'
+      );
+    }
+
+    const { username, password, email } = req.body || {};
+    if (!username || typeof username !== 'string' || username.trim().length < 3) {
+      throw new UnauthorizedError('Username ist erforderlich (mind. 3 Zeichen)');
+    }
+    if (!password || typeof password !== 'string') {
+      throw new UnauthorizedError('Passwort ist erforderlich');
+    }
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      throw new UnauthorizedError('Gültige E-Mail-Adresse ist erforderlich');
+    }
+
+    const complexity = validatePasswordComplexity(password);
+    if (!complexity.valid) {
+      throw new UnauthorizedError(
+        complexity.errors?.[0] || 'Passwort erfüllt die Komplexitäts-Anforderungen nicht'
+      );
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    // Initial-Admin bekommt admin-Rolle.
+    const result = await db.query(
+      `INSERT INTO admin_users (username, password_hash, email, role, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, 'admin', true, NOW(), NOW())
+       RETURNING id, username, email`,
+      [username.trim(), passwordHash, email.trim().toLowerCase()]
+    );
+
+    const newAdmin = result.rows[0];
+    logger.info(
+      `Initial admin created: ${newAdmin.username} (id=${newAdmin.id}) from ${ipAddress}`
+    );
+    logSecurityEvent({
+      userId: newAdmin.id,
+      action: 'initial_admin_setup',
+      details: { username: newAdmin.username, email: newAdmin.email },
+      ipAddress,
+      requestId: req.headers['x-request-id'],
+    });
+
+    // Direkt einloggen, sodass der Setup-Wizard nahtlos weiter fließen kann.
+    const tokenData = await generateToken(
+      { id: newAdmin.id, username: newAdmin.username, email: newAdmin.email },
+      ipAddress,
+      req.get('user-agent') || 'setup-wizard'
+    );
+
+    res.cookie('arasul_session', tokenData.token, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      maxAge: 4 * 60 * 60 * 1000,
+      path: '/',
+    });
+    const csrfToken = generateCsrfToken();
+    res.cookie(CSRF_COOKIE, csrfToken, {
+      httpOnly: false,
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      maxAge: 4 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    res.json({
+      success: true,
+      token: tokenData.token,
+      expiresAt: tokenData.expiresAt,
+      expiresIn: tokenData.expiresIn,
+      user: newAdmin,
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 

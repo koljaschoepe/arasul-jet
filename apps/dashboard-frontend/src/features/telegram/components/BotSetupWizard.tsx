@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronLeft,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Eye,
   EyeOff,
@@ -126,6 +127,12 @@ const BOT_TEMPLATES: BotTemplate[] = [
 function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
   const api = useApi();
   const toast = useToast();
+  // Phase 1.6: Drittland-Disclaimer für Berufsgeheimnis-Personas (Arzt/Anwalt/StB).
+  // Telegram = UAE-Drittland, kein AVV verfügbar. Disclaimer muss bei jedem
+  // neuen Bot-Setup explizit akzeptiert werden — auch wenn Admin Telegram
+  // bereits global freigegeben hat. Das ist redundante Schutzschicht.
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+  const [disclaimerCheckbox, setDisclaimerCheckbox] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -524,6 +531,35 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
     }
   };
 
+  // Auto-trigger bot creation as soon as the user's /start has been detected.
+  // Prior UX required a manual "Bot erstellen" click, which users frequently
+  // missed — they assumed "Verbindung hergestellt" meant the bot was live and
+  // closed the wizard, leaving an orphaned setup_session and no bot in DB.
+  // We keep the manual button as fallback if auto-submit errors out.
+  const autoCreateTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      currentStep === 3 &&
+      chatDetected &&
+      !creating &&
+      !error &&
+      !autoCreateTriggeredRef.current
+    ) {
+      autoCreateTriggeredRef.current = true;
+      const timer = setTimeout(() => {
+        handleCreate();
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+    if (!chatDetected) {
+      autoCreateTriggeredRef.current = false;
+    }
+    return undefined;
+    // handleCreate intentionally omitted from deps — it's stable enough and
+    // including it would require useCallback wiring across many state hooks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, chatDetected, creating, error]);
+
   // Navigation
   const nextStep = () => {
     if (currentStep === 1 && !validated) {
@@ -569,6 +605,63 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       return { ...prev, ragSpaceIds: next.length > 0 ? next : [] };
     });
   };
+
+  // Phase 1.6: Drittland-Disclaimer (Schritt 0). Muss vor jedem Wizard-Lauf
+  // bestätigt werden. Schützt Berufsgeheimnis-Personas (Arzt/Anwalt/StB).
+  if (!disclaimerAccepted) {
+    return (
+      <div className="flex flex-col min-h-[420px]">
+        <div className="flex items-start gap-3.5 p-4 bg-warning/10 border border-warning/30 rounded-xl mb-5">
+          <AlertTriangle className="size-6 text-warning shrink-0 mt-0.5" />
+          <div>
+            <strong className="block text-foreground text-sm mb-2">
+              Wichtiger Hinweis: Telegram ist ein Drittland-Dienst
+            </strong>
+            <p className="m-0 text-muted-foreground text-sm leading-relaxed">
+              Telegram Messenger Inc. hat ihren Sitz in den Vereinigten Arabischen Emiraten (UAE).
+              Nachrichten zu und von Ihrem Bot werden über Telegram-Server außerhalb der EU
+              übertragen. Es existiert kein Auftragsverarbeitungsvertrag (AVV) mit Telegram.
+            </p>
+            <p className="mt-3 mb-0 text-muted-foreground text-sm leading-relaxed">
+              <strong className="text-foreground">
+                Sie sind als Verantwortlicher dafür zuständig
+              </strong>
+              , sicherzustellen, dass über diesen Bot keine Berufsgeheimnis-Daten verarbeitet werden
+              — insbesondere keine Mandanten-, Patienten-, Steuer- oder anderweitig nach §203 StGB
+              geschützte Daten.
+            </p>
+            <p className="mt-3 mb-0 text-muted-foreground text-sm leading-relaxed">
+              Bestätigen Sie, dass Sie Ihren Datenschutzbeauftragten konsultiert und das Risiko
+              schriftlich dokumentiert haben.
+            </p>
+          </div>
+        </div>
+
+        <label className="flex items-start gap-2.5 cursor-pointer p-3 bg-card border border-border rounded-lg mb-5">
+          <input
+            type="checkbox"
+            checked={disclaimerCheckbox}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setDisclaimerCheckbox(e.target.checked)}
+            className="mt-0.5 accent-primary shrink-0"
+            aria-describedby="disclaimer-text"
+          />
+          <span id="disclaimer-text" className="text-foreground text-sm leading-relaxed">
+            Ich habe die Hinweise zur Drittland-Übermittlung zur Kenntnis genommen und bestätige,
+            dass über diesen Telegram-Bot keine Berufsgeheimnis-Daten verarbeitet werden.
+          </span>
+        </label>
+
+        <div className="flex justify-between items-center pt-4 border-t border-border max-[480px]:flex-col-reverse max-[480px]:gap-2 [&_button]:max-[480px]:w-full [&_button]:max-[480px]:justify-center">
+          <Button variant="outline" onClick={onCancel}>
+            Abbrechen
+          </Button>
+          <Button onClick={() => setDisclaimerAccepted(true)} disabled={!disclaimerCheckbox}>
+            Bestätigen und fortfahren <ChevronRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-[420px]">

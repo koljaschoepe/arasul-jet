@@ -427,6 +427,19 @@ async function updateBot(botId, userId, updates) {
   const bot = result.rows[0];
   logger.info(`Bot updated: ${bot.id} (${bot.name})`);
 
+  // If token changed, the running polling loop is now using the old (or no) token.
+  // Hot-restart so the new token takes effect without backend reboot.
+  if (token !== undefined && bot.is_active) {
+    try {
+      const telegramIngress = require('./telegramIngressService');
+      await telegramIngress.deactivateBotIngress(botId);
+      await telegramIngress.activateBotIngress(botId);
+      logger.info(`Bot ${botId} ingress hot-restarted after token update`);
+    } catch (err) {
+      logger.warn(`Bot ${botId} ingress hot-restart failed after token update: ${err.message}`);
+    }
+  }
+
   return {
     id: bot.id,
     name: bot.name,
@@ -455,6 +468,14 @@ async function updateBot(botId, userId, updates) {
  * @returns {Promise<boolean>} Success
  */
 async function deleteBot(botId, userId) {
+  // Stop ingress before DELETE — orphaned polling loops would crash on next iteration.
+  try {
+    const telegramIngress = require('./telegramIngressService');
+    await telegramIngress.deactivateBotIngress(botId);
+  } catch (err) {
+    logger.warn(`Bot ${botId} ingress deactivation before delete failed: ${err.message}`);
+  }
+
   const result = await database.query(
     `DELETE FROM telegram_bots WHERE id = $1 AND user_id = $2 RETURNING id, name`,
     [botId, userId]
@@ -488,6 +509,22 @@ async function activateBot(botId, userId) {
   }
 
   logger.info(`Bot activated: ${result.rows[0].id} (${result.rows[0].name})`);
+
+  // Defensive: ensure ingress (polling/webhook) is running. Idempotent — if the
+  // route layer already started it, the inner startPolling check no-ops.
+  // Lazy-required to avoid circular dependency with telegramIngressService.
+  try {
+    const telegramIngress = require('./telegramIngressService');
+    const ingressResult = await telegramIngress.activateBotIngress(botId);
+    if (!ingressResult.success) {
+      logger.warn(
+        `Bot ${botId} activated in DB but ingress failed: ${ingressResult.error || 'unknown'}`
+      );
+    }
+  } catch (err) {
+    logger.error(`Bot ${botId} ingress activation hook crashed: ${err.message}`);
+  }
+
   return result.rows[0];
 }
 
@@ -498,26 +535,12 @@ async function activateBot(botId, userId) {
  * @returns {Promise<Object>} Updated bot
  */
 async function deactivateBot(botId, userId) {
-  // Try to delete webhook when deactivating
+  // Stop ingress first (polling loop + webhook) before flipping the DB flag.
   try {
-    const botRow = await database.query(
-      `SELECT bot_token_encrypted, bot_token_iv, bot_token_tag FROM telegram_bots WHERE id = $1 AND user_id = $2`,
-      [botId, userId]
-    );
-    if (botRow.rows.length > 0) {
-      const { bot_token_encrypted, bot_token_iv, bot_token_tag } = botRow.rows[0];
-      const token = cryptoService.decrypt(
-        bot_token_encrypted.toString('hex'),
-        bot_token_iv,
-        bot_token_tag
-      );
-      await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
-        method: 'POST',
-        signal: AbortSignal.timeout(10000),
-      });
-    }
-  } catch (webhookErr) {
-    logger.warn(`Failed to delete webhook for bot ${botId}: ${webhookErr.message}`);
+    const telegramIngress = require('./telegramIngressService');
+    await telegramIngress.deactivateBotIngress(botId);
+  } catch (err) {
+    logger.warn(`Bot ${botId} ingress deactivation failed: ${err.message}`);
   }
 
   const result = await database.query(

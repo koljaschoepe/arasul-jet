@@ -37,6 +37,7 @@ const {
 const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
 const { uploadLimiter } = require('../middleware/rateLimit');
 const { buildSetClauses } = require('../utils/queryBuilder');
+const { ownershipFilter, requireResourceOwner } = require('../middleware/requireOwnership');
 const { getEmbedding } = require('../services/embeddingService');
 const { validateFileContent } = require('../utils/fileValidation');
 const documentImagesRouter = require('./documentImages');
@@ -90,6 +91,12 @@ router.get(
     const conditions = ['d.deleted_at IS NULL'];
     const params = [];
     let paramIndex = 1;
+
+    // Phase 1.1: User-Scoped (Admin sieht alles).
+    if (req.user.role !== 'admin') {
+      conditions.push(`d.owner_id = $${paramIndex++}`);
+      params.push(req.user.id);
+    }
 
     if (status) {
       conditions.push(`d.status = $${paramIndex++}`);
@@ -209,12 +216,16 @@ router.get(
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
+    // Phase 1.1: User-Scoped Lesezugriff (Admin sieht alles).
+    const ownerCondition =
+      req.user.role === 'admin' ? '' : 'AND (d.owner_id = $2 OR d.owner_id IS NULL)';
+    const params = req.user.role === 'admin' ? [id] : [id, req.user.id];
     const result = await pool.query(
       `SELECT d.*, dc.name as category_name, dc.color as category_color, dc.icon as category_icon
          FROM documents d
          LEFT JOIN document_categories dc ON d.category_id = dc.id
-         WHERE d.id = $1 AND d.deleted_at IS NULL`,
-      [id]
+         WHERE d.id = $1 AND d.deleted_at IS NULL ${ownerCondition}`,
+      params
     );
 
     if (result.rows.length === 0) {
@@ -323,8 +334,8 @@ router.post(
         `INSERT INTO documents (
               id, filename, original_filename, file_path, file_size,
               mime_type, file_extension, content_hash, file_hash,
-              status, uploaded_by, space_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+              status, uploaded_by, owner_id, space_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
           ON CONFLICT (content_hash) WHERE deleted_at IS NULL AND status <> 'deleted'
           DO NOTHING
           RETURNING id`,
@@ -340,6 +351,7 @@ router.post(
           fileHash,
           'pending',
           req.user?.username || 'admin',
+          req.user?.id || null,
           spaceId,
         ]
       );
@@ -400,6 +412,7 @@ router.post(
 router.delete(
   '/:id',
   requireAuth,
+  requireResourceOwner('documents'),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
@@ -430,6 +443,7 @@ router.delete(
 router.post(
   '/:id/reindex',
   requireAuth,
+  requireResourceOwner('documents'),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
@@ -464,6 +478,7 @@ router.post(
 router.patch(
   '/:id',
   requireAuth,
+  requireResourceOwner('documents'),
   validateBody(PatchDocBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;

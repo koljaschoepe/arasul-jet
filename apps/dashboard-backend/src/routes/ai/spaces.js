@@ -24,6 +24,7 @@ const {
 } = require('../../utils/errors');
 const { CreateSpaceBody, UpdateSpaceBody, RouteQueryBody } = require('../../schemas/spaces');
 const { buildSetClauses } = require('../../utils/queryBuilder');
+const { listAccessibleSpaceIds } = require('../../middleware/requireOwnership');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { generateSlug } = require('../../utils/slugGenerator');
 const { getEmbedding } = require('../../services/embeddingService');
@@ -41,30 +42,44 @@ const CACHE_TTL_SPACES = 30000; // 30 seconds
 
 /**
  * GET /api/spaces
- * List all knowledge spaces with statistics
- * Cached for 30 seconds to reduce database load
+ * List knowledge spaces (Phase 1.1: User-Scoped via space_members ACL).
+ * Cache deaktiviert, weil das Ergebnis user-spezifisch ist.
  */
 router.get(
   '/',
   requireAuth,
-  cacheMiddleware(CACHE_KEY_SPACES, CACHE_TTL_SPACES),
   asyncHandler(async (req, res) => {
-    const result = await pool.query(`
-        SELECT
+    const accessibleSpaceIds = await listAccessibleSpaceIds(req.user);
+
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+    if (accessibleSpaceIds !== null) {
+      // Nicht-Admin: nur eigene/Member-Spaces.
+      if (accessibleSpaceIds.length === 0) {
+        return res.json({ spaces: [], total: 0, timestamp: new Date().toISOString() });
+      }
+      params.push(accessibleSpaceIds);
+      whereClause = `WHERE ks.id = ANY($${params.length}::uuid[])`;
+    }
+
+    const result = await pool.query(
+      `SELECT
             ks.*,
             COALESCE(doc_stats.doc_count, 0) as actual_document_count,
             COALESCE(doc_stats.indexed_count, 0) as indexed_document_count
-        FROM knowledge_spaces ks
-        LEFT JOIN (
-            SELECT
-                space_id,
-                COUNT(*) FILTER (WHERE status != 'deleted') as doc_count,
-                COUNT(*) FILTER (WHERE status = 'indexed') as indexed_count
-            FROM documents
-            GROUP BY space_id
-        ) doc_stats ON ks.id = doc_stats.space_id
-        ORDER BY ks.sort_order, ks.name
-    `);
+         FROM knowledge_spaces ks
+         LEFT JOIN (
+             SELECT
+                 space_id,
+                 COUNT(*) FILTER (WHERE status != 'deleted') as doc_count,
+                 COUNT(*) FILTER (WHERE status = 'indexed') as indexed_count
+             FROM documents
+             GROUP BY space_id
+         ) doc_stats ON ks.id = doc_stats.space_id
+         ${whereClause}
+         ORDER BY ks.sort_order, ks.name`,
+      params
+    );
 
     res.json({
       spaces: result.rows,
@@ -83,6 +98,17 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+
+    // Phase 1.1: ACL-Check via user_has_space_access(). Admin bypassed.
+    if (req.user.role !== 'admin') {
+      const aclCheck = await pool.query(
+        'SELECT user_has_space_access($1::uuid, $2::int) AS allowed',
+        [id, req.user.id]
+      );
+      if (!aclCheck.rows[0].allowed) {
+        throw new ForbiddenError('Kein Zugriff auf diesen Wissensbereich');
+      }
+    }
 
     const result = await pool.query(
       `
@@ -165,19 +191,27 @@ router.post(
     );
     const sortOrder = sortResult.rows[0].next_order;
 
-    // Insert new space
+    // Insert new space (Phase 1.1: owner_id = current user)
     const result = await pool.query(
       `
         INSERT INTO knowledge_spaces (
             name, slug, description, description_embedding,
-            icon, color, sort_order
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            icon, color, sort_order, owner_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
     `,
-      [name.trim(), slug, description.trim(), embeddingJson, icon, color, sortOrder]
+      [name.trim(), slug, description.trim(), embeddingJson, icon, color, sortOrder, req.user.id]
     );
 
-    logger.info(`Created knowledge space: ${name} (${slug})`);
+    // Phase 1.1: Owner als impliziter space_member mit owner-Permission.
+    await pool.query(
+      `INSERT INTO space_members (space_id, user_id, permission, added_by)
+       VALUES ($1, $2, 'owner', $3)
+       ON CONFLICT (space_id, user_id) DO NOTHING`,
+      [result.rows[0].id, req.user.id, req.user.id]
+    );
+
+    logger.info(`Created knowledge space: ${name} (${slug}) by user ${req.user.id}`);
 
     // Invalidate spaces cache
     cacheService.invalidate(CACHE_KEY_SPACES);
@@ -210,6 +244,18 @@ router.put(
     }
 
     const existing = existingResult.rows[0];
+
+    // Phase 1.1: Owner ODER Admin ODER Editor-Rolle in space_members.
+    if (req.user.role !== 'admin' && existing.owner_id !== req.user.id) {
+      const memberCheck = await pool.query(
+        `SELECT permission FROM space_members WHERE space_id = $1 AND user_id = $2`,
+        [id, req.user.id]
+      );
+      const perm = memberCheck.rows[0]?.permission;
+      if (perm !== 'owner' && perm !== 'editor') {
+        throw new ForbiddenError('Keine Schreibrechte auf diesem Wissensbereich');
+      }
+    }
 
     // System spaces have limited edits
     if (existing.is_system && name && name !== existing.name) {
@@ -285,6 +331,11 @@ router.delete(
     }
 
     const existing = existingResult.rows[0];
+
+    // Phase 1.1: nur Owner ODER Admin darf löschen.
+    if (req.user.role !== 'admin' && existing.owner_id !== req.user.id) {
+      throw new ForbiddenError('Nur Eigentümer können diesen Wissensbereich löschen');
+    }
 
     // Cannot delete system spaces
     if (existing.is_system) {

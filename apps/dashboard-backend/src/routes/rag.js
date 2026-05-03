@@ -27,6 +27,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
 const { RagQueryBody } = require('../schemas/rag');
 const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
+const { listAccessibleSpaceIds } = require('../middleware/requireOwnership');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
 const services = require('../config/services');
 const { optimizeQuery } = require('../services/context/queryOptimizer');
@@ -192,24 +193,59 @@ router.post(
       // (possibly empty when there were no additional texts to embed).
       const additionalEmbeddings = additionalEmbeddingsRaw;
 
+      // Phase 1.1: User-Space-ACL — Spaces auf die der User KEIN Zugriff hat,
+      // werden vor dem Qdrant-Query rausgefiltert. Killer-Fix für Kanzleien:
+      // Mandanten-Daten in fremdem Space dürfen nicht in der Antwort landen.
+      const accessibleSpaceIds = await listAccessibleSpaceIds(req.user);
+      let userFilteredSpaceIds = targetSpaceIds;
+      // accessibleSpaceIds === null bedeutet Admin → kein zusätzlicher Filter.
+      let userHasNoAccess = false;
+      if (accessibleSpaceIds !== null) {
+        if (targetSpaceIds && targetSpaceIds.length > 0) {
+          userFilteredSpaceIds = targetSpaceIds.filter(id => accessibleSpaceIds.includes(id));
+          if (userFilteredSpaceIds.length === 0) {
+            logger.warn(
+              `RAG ACL: user ${req.user.id} hat keinen Zugriff auf angefragte Spaces ${targetSpaceIds.join(',')}`
+            );
+            userHasNoAccess = true;
+          }
+        } else {
+          // Kein expliziter Space → nur eigene Spaces durchsuchen.
+          if (accessibleSpaceIds.length === 0) {
+            // User hat keinen Space → kein Search möglich.
+            userHasNoAccess = true;
+            userFilteredSpaceIds = [];
+          } else {
+            userFilteredSpaceIds = accessibleSpaceIds;
+          }
+        }
+      }
+
       // Step 4: Hybrid search + Graph enrichment IN PARALLEL
-      const spaceFilter = targetSpaceIds && targetSpaceIds.length > 0 ? targetSpaceIds : null;
+      const spaceFilter =
+        userFilteredSpaceIds && userFilteredSpaceIds.length > 0 ? userFilteredSpaceIds : null;
       logger.info(
         `Space routing: method=${routingMethod}, spaces=${targetSpaces?.length || 0}, filter=${spaceFilter ? spaceFilter.join(',') : 'none'}`
       );
       let searchResults = [];
       let graphEnrichment = [];
-      try {
-        [searchResults, graphEnrichment] = await Promise.all([
-          hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
-            additionalEmbeddings,
-            decompoundedQuery: decompounded,
-          }),
-          graphEnrichedRetrieval(correctedQuery),
-        ]);
-      } catch (searchError) {
-        logger.error(`Hybrid search failed (Qdrant may be down): ${searchError.message}`);
-        // Continue with empty results — LLM will respond without RAG context
+      if (userHasNoAccess) {
+        // Phase 1.1: Sicherer-Default. User hat keinen Zugriff auf irgendeinen
+        // relevanten Space — search wird komplett übersprungen, kein Daten-Leck.
+        logger.info(`RAG ACL: skipping search for user ${req.user.id} (no space access)`);
+      } else {
+        try {
+          [searchResults, graphEnrichment] = await Promise.all([
+            hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
+              additionalEmbeddings,
+              decompoundedQuery: decompounded,
+            }),
+            graphEnrichedRetrieval(correctedQuery),
+          ]);
+        } catch (searchError) {
+          logger.error(`Hybrid search failed (Qdrant may be down): ${searchError.message}`);
+          // Continue with empty results — LLM will respond without RAG context
+        }
       }
 
       // Debug: log search result documents
@@ -289,13 +325,38 @@ router.post(
       // RAG 4.0: Detect "docs exist but none relevant" case
       const noRelevantDocs = relevantResults.length === 0 && rerankedResults.length > 0;
 
+      // Phase 3.1: Strict-Fallback. Wenn der beste Treffer einen Score unter
+      // 0.005 hat (Vector-only) bzw. unter 0.01 (Reranked), ist das so nahe
+      // an Random, dass jede LLM-Antwort halluziniert wirkt. Statt das LLM
+      // anzuwerfen senden wir den standardisierten Refusal-Text. Killer-Fix
+      // gegen "ChatGPT-Style"-Halluzinationen im Demo.
+      const STRICT_VECTOR_FLOOR = 0.005;
+      const STRICT_RERANK_FLOOR = 0.01;
+      const topResult = rerankedResults[0] || null;
+      const topScore = topResult
+        ? topResult.rerankScore != null
+          ? topResult.rerankScore
+          : topResult.score || 0
+        : 0;
+      const usingRerank = topResult ? topResult.rerankScore != null : false;
+      const strictFloor = usingRerank ? STRICT_RERANK_FLOOR : STRICT_VECTOR_FLOOR;
+      const strictNoMatch = topResult && topScore < strictFloor;
+
       // Set up SSE headers early
       initSSE(res);
 
-      // Handle no documents case - respond immediately without queue
-      if (rerankedResults.length === 0) {
+      // Handle no documents case OR strict-floor violation
+      if (rerankedResults.length === 0 || strictNoMatch) {
         const noDocsMessage =
-          'Es wurden keine relevanten Dokumente gefunden. Bitte laden Sie Dokumente in den MinIO-Bucket "documents" hoch, um das RAG-System zu nutzen.';
+          rerankedResults.length === 0
+            ? 'Es wurden keine relevanten Dokumente gefunden. Bitte laden Sie Dokumente in den MinIO-Bucket "documents" hoch, um das RAG-System zu nutzen.'
+            : 'Diese Information ist in den vorliegenden Dokumenten nicht enthalten.';
+
+        if (strictNoMatch) {
+          logger.info(
+            `[RAG] strict floor: top score ${topScore.toFixed(5)} < ${strictFloor} — refused without LLM call`
+          );
+        }
 
         const { jobId, messageId } = await llmJobService.createJob(conversation_id, 'rag', {
           query,

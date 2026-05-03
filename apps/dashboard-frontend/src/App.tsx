@@ -4,6 +4,7 @@ import { queryClient } from './lib/queryClient';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { FeatureFlagsProvider } from './contexts/FeatureFlagsContext';
 import AppShell from './AppShell';
 import './index.css';
 
@@ -13,7 +14,9 @@ function App(): React.JSX.Element {
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <AuthProvider>
-            <AppShell />
+            <FeatureFlagsProvider>
+              <AppShell />
+            </FeatureFlagsProvider>
           </AuthProvider>
         </ToastProvider>
       </QueryClientProvider>

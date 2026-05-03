@@ -53,6 +53,9 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:11435/health || exit 1
 
 # Start the embedding service with gunicorn (production WSGI server)
-# -w 1 --threads 4: single worker with threads (CUDA cannot fork — threads share GPU context)
+# Phase 2.7 (GPU-Arbiter MVP): --workers 1 + --threads 1 → sequenzieller
+# GPU-Zugriff. Vorher 4 Threads → parallel Embed-Calls → CUDA-OOM bei
+# concurrent Indexierung + Chat-RAG. Mit threads=1 wartet jeder Request
+# auf den vorigen, kein Memory-Spike.
 # --timeout 300: long timeout for large document embeddings
-CMD ["gunicorn", "--bind", "0.0.0.0:11435", "--workers", "1", "--threads", "4", "--timeout", "300", "wsgi:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:11435", "--workers", "1", "--threads", "1", "--timeout", "300", "wsgi:app"]

@@ -5,6 +5,22 @@
 
 ---
 
+## Phase 2.8 — DSGVO-Konformitaet
+
+**Default-Pfad fuer Berufsgeheimnis-Personas (Arzt, Anwalt, Steuerberater):**
+Tailscale (Option 1) ist der einzige zulaessige Fernwartungs-Weg, weil:
+
+- Tailscale-Server (Coordinator) sieht nur Public Keys, keine Daten
+- Daten-Transfer ist Ende-zu-Ende verschluesselt
+- Optional: Self-Hosted Headscale-Server in EU-Hosting
+
+**Cloudflared (Option 2) ist defaultmaessig DEAKTIVIERT** in `compose/compose.external.yaml`
+(profiles: tunnel). Aktivierung nur fuer Demo-Boxes mit anonymisierten Daten,
+NICHT fuer produktive Mandanten-/Patienten-Setups. Cloudflare ist US-Drittland
+und bedeutet Datenuebertragung ausserhalb der EU.
+
+---
+
 ## Voraussetzungen
 
 - Kunde hat Fernwartung zugestimmt

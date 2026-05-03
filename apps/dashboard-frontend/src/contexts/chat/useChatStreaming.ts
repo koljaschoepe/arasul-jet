@@ -255,6 +255,22 @@ export default function useChatStreaming({
                 updateIsLoading(targetChatId, false);
                 clearActiveJob(targetChatId);
               }
+
+              // Phase 2.5: server-side stream-error event (z. B. wenn
+              // res.write() im Backend fehlschlägt). Status setzen und
+              // Loading abschalten — UI zeigt dann Retry-Button.
+              if (data.type === 'stream_error') {
+                serverError = true;
+                updateError(
+                  targetChatId,
+                  data.message || 'Antwort-Stream wurde unerwartet abgebrochen'
+                );
+                updateMessages(targetChatId, prev =>
+                  prev.map(msg => (msg.jobId === jobId ? { ...msg, status: 'error' } : msg))
+                );
+                updateIsLoading(targetChatId, false);
+                clearActiveJob(targetChatId);
+              }
             } catch (e) {
               console.error('Error parsing reconnect SSE:', e);
             }
@@ -538,6 +554,26 @@ export default function useChatStreaming({
                   default:
                     break;
                 }
+                break;
+              }
+
+              // Phase 2.5: dedizierter Stream-Error-Surface-Event vom Backend.
+              // Tritt auf, wenn `res.write()` server-seitig fehlschlägt
+              // (z. B. Client-Disconnect, Proxy-Reset). Markiert die Message
+              // als 'error' damit das UI einen Retry-Button rendert.
+              if (data.type === 'stream_error') {
+                streamError = true;
+                updateError(chatId, data.message || 'Antwort-Stream wurde unerwartet abgebrochen');
+                updateMessages(chatId, prev => {
+                  const u = [...prev];
+                  if (u[assistantMessageIndex]) {
+                    u[assistantMessageIndex] = {
+                      ...u[assistantMessageIndex],
+                      status: 'error',
+                    };
+                  }
+                  return u;
+                });
                 break;
               }
 

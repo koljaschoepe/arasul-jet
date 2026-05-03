@@ -123,7 +123,30 @@ async function downloadVoiceFile(token, fileId) {
     }
 
     const filePath = fileInfo.result.file_path;
+
+    // Phase 2.4 SSRF-Hardening: validiere file_path Server-Seite, bevor er in
+    // die finale URL eingebettet wird. Telegram-API liefert normalerweise
+    // 'voice/file_123.ogg' o. ä. — alles mit Schemas, '..' oder Newlines
+    // wird abgewiesen. Verhindert path-traversal und URL-Smuggling.
+    if (
+      typeof filePath !== 'string' ||
+      filePath.length === 0 ||
+      filePath.length > 256 ||
+      /[\r\n\t]/.test(filePath) ||
+      filePath.includes('..') ||
+      /^[a-z]+:\/\//i.test(filePath) ||
+      filePath.startsWith('/')
+    ) {
+      logger.warn(`Telegram getFile: rejected suspicious file_path "${filePath}"`);
+      throw new Error('Telegram-Server lieferte einen ungültigen Datei-Pfad');
+    }
+
     const fileUrl = `${TELEGRAM_FILE_API}${token}/${filePath}`;
+
+    // Defensive: finale URL muss mit erwarteter Telegram-Origin starten.
+    if (!fileUrl.startsWith('https://api.telegram.org/file/bot')) {
+      throw new Error('Telegram-File-URL ist nicht vertrauenswürdig');
+    }
 
     const response = await fetch(fileUrl, {
       signal: AbortSignal.timeout(30000),

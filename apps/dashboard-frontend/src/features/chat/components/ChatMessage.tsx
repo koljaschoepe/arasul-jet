@@ -1,11 +1,12 @@
 import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChevronDown, ChevronUp, Cpu, BookOpen, Folder } from 'lucide-react';
+import { ChevronDown, ChevronUp, Cpu, BookOpen, Folder, Bot } from 'lucide-react';
 import MermaidDiagram from '../../../components/editor/MermaidDiagram';
 import { cn } from '@/lib/utils';
 import type { ChatMessage as ChatMessageType } from '../../../contexts/ChatContext';
 import type { MatchedSpace, DocumentSource } from '../../../types';
+import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 import '../chat.css';
 
 // PERF: Stable reference - avoid recreating on every render
@@ -103,6 +104,8 @@ const ChatMessage = memo(function ChatMessage({
   onToggleThinking,
   onToggleSources,
 }: ChatMessageProps) {
+  // Phase 1.4: KI-Transparenz-Label (Art. 50 EU-AI-Act)
+  const { flags } = useFeatureFlags();
   // Compaction banner (system message)
   if (message.role === 'system' && message.type === 'compaction') {
     const saved =
@@ -411,6 +414,23 @@ const ChatMessage = memo(function ChatMessage({
           )}
         </div>
       )}
+
+      {/* Phase 1.4: KI-Transparenz-Label (EU-AI-Act Art. 50).
+          Pflicht ab 2. August 2026: Nutzer muss erkennen, dass die Antwort
+          KI-generiert ist. Default ON, Deaktivierung nur durch Admin mit
+          Audit-Log-Eintrag (siehe admin/settings → compliance/ai-transparency). */}
+      {message.role === 'assistant' &&
+        message.status === 'completed' &&
+        flags.ai_transparency_enabled && (
+          <div
+            className="flex items-center gap-1.5 px-5 pt-2 text-[11px] text-muted-foreground/70"
+            role="note"
+            aria-label="KI-generierter Inhalt"
+          >
+            <Bot className="size-3" aria-hidden="true" />
+            <span>Generiert von KI &mdash; bitte Inhalt verifizieren.</span>
+          </div>
+        )}
     </article>
   );
 }, arePropsEqual);

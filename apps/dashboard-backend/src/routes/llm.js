@@ -113,12 +113,24 @@ router.post(
         // Track client connection state
         const connection = trackConnection(res);
         let unsubscribe = null;
+        let unsubscribed = false;
+
+        // Phase 2.5: zentralisierter Cleanup — verhindert doppeltes
+        // unsubscribe() (das wäre ein No-op aber rauschig) und Memory-Leak
+        // wenn Subscribe-Listener nie freigegeben wird.
+        const cleanup = () => {
+          if (unsubscribed) {return;}
+          unsubscribed = true;
+          try {
+            if (unsubscribe) {unsubscribe();}
+          } catch (e) {
+            logger.debug(`[JOB ${jobId}] unsubscribe error: ${e.message}`);
+          }
+        };
 
         connection.onClose(() => {
           logger.debug(`[JOB ${jobId}] Client disconnected, job continues in background`);
-          if (unsubscribe) {
-            unsubscribe();
-          }
+          cleanup();
         });
 
         // Subscribe to job updates and forward to client
@@ -132,10 +144,32 @@ router.post(
 
             if (event.done) {
               res.end();
-              unsubscribe();
+              cleanup();
             }
           } catch (err) {
-            logger.debug(`[JOB ${jobId}] Write error: ${err.message}`);
+            // Phase 2.5: Stream-Error-Surface. Wenn res.write() fehlschlägt,
+            // propagiere das einmal als sauberes SSE-stream_error-Event,
+            // dann destroy + cleanup. Frontend kann dann Retry-Button
+            // anzeigen, statt "ewig denkende" Antwort.
+            logger.warn(`[JOB ${jobId}] Stream-Write fehlgeschlagen: ${err.message}`);
+            try {
+              res.write(
+                `data: ${JSON.stringify({
+                  type: 'stream_error',
+                  code: 'STREAM_WRITE_FAILED',
+                  message: err.message,
+                  jobId,
+                })}\n\n`
+              );
+            } catch (_) {
+              // Verbindung tot — kein Recovery möglich
+            }
+            try {
+              res.end();
+            } catch (_) {
+              /* already ended */
+            }
+            cleanup();
           }
         });
       } else {

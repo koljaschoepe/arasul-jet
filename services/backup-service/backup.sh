@@ -16,8 +16,17 @@ MONTHLY_RETENTION_MONTHS=${BACKUP_MONTHLY_RETENTION_MONTHS:-60}
 MONTHLY_RETENTION_DAYS=$((MONTHLY_RETENTION_MONTHS * 30))
 
 # Backup encryption (AES-256-CBC via openssl)
-BACKUP_ENCRYPT=${BACKUP_ENCRYPT:-false}
+# Phase 2.3: Default ON sobald der Master-Key vorhanden ist. Ohne Key laufen
+# Backups weiter unverschlüsselt (kein Brick), aber das wird im Report-JSON
+# vermerkt sodass Self-Healing-Agent alarmieren kann.
 BACKUP_ENCRYPT_KEY_FILE=${BACKUP_ENCRYPT_KEY_FILE:-/run/secrets/backup_encryption_key}
+if [ -z "${BACKUP_ENCRYPT:-}" ]; then
+    if [ -s "$BACKUP_ENCRYPT_KEY_FILE" ]; then
+        BACKUP_ENCRYPT=true
+    else
+        BACKUP_ENCRYPT=false
+    fi
+fi
 
 encrypt_file() {
     local src="$1"
@@ -118,6 +127,49 @@ if [ "$DAY_OF_MONTH" = "01" ]; then
     echo "[$TIMESTAMP] Monthly MinIO snapshot saved"
 fi
 
+# Phase 2.3: Qdrant snapshot — sichert Vector-DB-State.
+# Ohne dieses Backup verliert man bei Disk-Failure alle Embeddings und
+# muss alle Dokumente neu indexieren (Stunden bis Tage Re-Embedding).
+mkdir -p /backups/qdrant /backups/qdrant/weekly
+QDRANT_HOST=${QDRANT_HOST:-qdrant}
+QDRANT_PORT=${QDRANT_PORT:-6333}
+QDRANT_COLLECTION=${QDRANT_COLLECTION:-documents}
+
+echo "[$TIMESTAMP] Triggering Qdrant snapshot..."
+QDRANT_SNAPSHOT_NAME=$(curl -sf -X POST "http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/snapshots" 2>/dev/null \
+    | grep -oE '"name":"[^"]+"' | head -1 | sed 's/.*:"\(.*\)"/\1/')
+
+if [ -n "$QDRANT_SNAPSHOT_NAME" ]; then
+    # Download the snapshot
+    if curl -sf -o "/backups/qdrant/qdrant_${QDRANT_COLLECTION}_${TIMESTAMP}.snapshot" \
+        "http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/snapshots/${QDRANT_SNAPSHOT_NAME}" 2>/dev/null; then
+        # Verify size
+        SNAP_SIZE=$(stat -c %s "/backups/qdrant/qdrant_${QDRANT_COLLECTION}_${TIMESTAMP}.snapshot" 2>/dev/null || echo 0)
+        if [ "$SNAP_SIZE" -gt 1024 ]; then
+            echo "[$TIMESTAMP] Qdrant snapshot saved (${SNAP_SIZE} bytes)"
+            encrypt_file "/backups/qdrant/qdrant_${QDRANT_COLLECTION}_${TIMESTAMP}.snapshot"
+            ln -sf "qdrant_${QDRANT_COLLECTION}_${TIMESTAMP}.snapshot" \
+                "/backups/qdrant/qdrant_${QDRANT_COLLECTION}_latest.snapshot"
+            # Cleanup snapshot from Qdrant server (we have local copy)
+            curl -sf -X DELETE "http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/snapshots/${QDRANT_SNAPSHOT_NAME}" >/dev/null 2>&1 || true
+
+            # Weekly snapshot
+            if [ "$DAY_OF_WEEK" = "7" ]; then
+                cp "/backups/qdrant/qdrant_${QDRANT_COLLECTION}_${TIMESTAMP}.snapshot" /backups/qdrant/weekly/
+                echo "[$TIMESTAMP] Weekly Qdrant snapshot saved"
+            fi
+        else
+            echo "[$TIMESTAMP] [ERROR] Qdrant snapshot too small (${SNAP_SIZE} bytes) — likely corrupt"
+            BACKUP_OK=false
+        fi
+    else
+        echo "[$TIMESTAMP] [ERROR] Qdrant snapshot download failed"
+        BACKUP_OK=false
+    fi
+else
+    echo "[$TIMESTAMP] [WARNING] Qdrant snapshot creation failed (collection ${QDRANT_COLLECTION} unreachable?)"
+fi
+
 # WAL archive backup: include in daily backup for PITR
 WAL_COUNT=0
 if [ -d /backups/wal ] && [ "$(ls -A /backups/wal 2>/dev/null)" ]; then
@@ -143,9 +195,13 @@ if [ "$BACKUP_OK" = true ]; then
     find /backups/wal -maxdepth 1 -type f -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
     [ "$WAL_SEGMENTS_DELETED" -gt 0 ] && echo "[$TIMESTAMP] WAL segment cleanup: removed $WAL_SEGMENTS_DELETED file(s) older than ${RETENTION_DAYS}d"
 
+    # Cleanup: daily Qdrant snapshots
+    find /backups/qdrant -maxdepth 1 -name "*.snapshot" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
+
     # Cleanup: weekly backups (longer retention)
     find /backups/postgres/weekly -name "*.sql.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
+    find /backups/qdrant/weekly -name "*.snapshot" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
 
     # Cleanup: monthly backups (5-year retention)
     find /backups/postgres/monthly -name "*.sql.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
@@ -182,6 +238,8 @@ cat > /backups/backup_report.json << EOF
   "minio_backups": $(ls /backups/minio/*.tar.gz 2>/dev/null | grep -v latest | wc -l),
   "minio_weekly": $(ls /backups/minio/weekly/*.tar.gz 2>/dev/null | wc -l),
   "minio_monthly": $(ls /backups/minio/monthly/*.tar.gz 2>/dev/null | wc -l),
+  "qdrant_backups": $(ls /backups/qdrant/*.snapshot 2>/dev/null | grep -v latest | wc -l),
+  "qdrant_weekly": $(ls /backups/qdrant/weekly/*.snapshot 2>/dev/null | wc -l),
   "retention_days": $RETENTION_DAYS,
   "weekly_retention_weeks": $WEEKLY_RETENTION_WEEKS,
   "monthly_retention_months": $MONTHLY_RETENTION_MONTHS,

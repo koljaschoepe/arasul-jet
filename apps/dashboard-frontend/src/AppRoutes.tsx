@@ -1,9 +1,11 @@
-import React, { lazy, Suspense, useCallback } from 'react';
+import React, { Suspense, useCallback } from 'react';
 import { Route, Routes, Link, Navigate } from 'react-router-dom';
 import { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from './components/ui/Skeleton';
 import DashboardHome from './features/dashboard/DashboardHome';
 import ChatRouter from './features/chat/ChatRouter';
+import { lazyWithRetry } from './utils/lazyWithRetry';
+import { useFeatureFlags } from './contexts/FeatureFlagsContext';
 import type {
   Metrics,
   MetricsHistory,
@@ -12,11 +14,11 @@ import type {
   DeviceInfo,
 } from './hooks/useDashboardData';
 
-const Settings = lazy(() => import('./features/settings/Settings'));
-const DocumentManager = lazy(() => import('./features/documents/DocumentManager'));
-const Store = lazy(() => import('./features/store'));
-const SandboxApp = lazy(() => import('./features/sandbox'));
-const TelegramBotPage = lazy(() => import('./features/telegram/TelegramBotPage'));
+const Settings = lazyWithRetry(() => import('./features/settings/Settings'));
+const DocumentManager = lazyWithRetry(() => import('./features/documents/DocumentManager'));
+const Store = lazyWithRetry(() => import('./features/store'));
+const SandboxApp = lazyWithRetry(() => import('./features/sandbox'));
+const TelegramBotPage = lazyWithRetry(() => import('./features/telegram/TelegramBotPage'));
 
 interface ChartDataPoint {
   timestamp: number;
@@ -71,6 +73,10 @@ function AppRoutes({
   theme,
   onToggleTheme,
 }: AppRoutesProps): React.JSX.Element {
+  // Phase 1.6: Telegram-Route ist nur erreichbar wenn global enabled.
+  // Wenn disabled, redirected /telegram-bot zum Dashboard (keine 404, weil
+  // Bestands-Bookmarks nicht in Sackgasse landen sollen).
+  const { flags } = useFeatureFlags();
   const formatChartData = useCallback((): ChartDataPoint[] => {
     if (!metricsHistory?.timestamps || !Array.isArray(metricsHistory.timestamps)) return [];
     return metricsHistory.timestamps.map((timestamp: string, index: number) => ({
@@ -150,9 +156,13 @@ function AppRoutes({
         <Route
           path="/telegram-bot"
           element={
-            <RouteErrorBoundary routeName="Telegram Bot">
-              <TelegramBotPage />
-            </RouteErrorBoundary>
+            flags.telegram_enabled ? (
+              <RouteErrorBoundary routeName="Telegram Bot">
+                <TelegramBotPage />
+              </RouteErrorBoundary>
+            ) : (
+              <Navigate to="/" replace />
+            )
           }
         />
         <Route path="/telegram-bots" element={<Navigate to="/telegram-bot" replace />} />

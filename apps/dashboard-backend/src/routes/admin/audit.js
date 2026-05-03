@@ -8,6 +8,7 @@ const router = express.Router();
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const db = require('../../database');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { getAuditHealth } = require('../../utils/auditLog');
 
 // Constants for pagination
 const DEFAULT_LIMIT = 50;
@@ -239,6 +240,72 @@ router.get(
     res.json({
       endpoints: result.rows,
       days_included: days,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/audit/health (Phase 1.5)
+ * Audit-Log-Pipeline-Gesundheit. Self-Healing-Agent kann hier prüfen.
+ */
+router.get(
+  '/health',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const health = await getAuditHealth();
+    res.json({
+      ...health,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/audit/security-logs (Phase 1.5)
+ * Liefert die high-value Security-Audit-Einträge (audit_logs Tabelle).
+ * Pflicht-Anzeige für Kanzlei-/Praxen-DSB. Pagination, Filter nach action.
+ */
+router.get(
+  '/security-logs',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    let limit = parseInt(req.query.limit, 10) || 100;
+    let offset = parseInt(req.query.offset, 10) || 0;
+    limit = Math.min(Math.max(1, limit), 500);
+    offset = Math.max(0, offset);
+    const action = req.query.action || null;
+
+    const where = ['1=1'];
+    const params = [];
+    if (action) {
+      params.push(action);
+      where.push(`action = $${params.length}`);
+    }
+    params.push(limit, offset);
+
+    const result = await db.query(
+      `SELECT a.id, a.timestamp, a.user_id, u.username, a.action, a.details, a.ip_address, a.request_id
+         FROM audit_logs a
+         LEFT JOIN admin_users u ON u.id = a.user_id
+         WHERE ${where.join(' AND ')}
+         ORDER BY a.timestamp DESC
+         LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    const countResult = await db.query(
+      `SELECT COUNT(*) AS total FROM audit_logs WHERE ${where.join(' AND ')}`,
+      params.slice(0, params.length - 2)
+    );
+
+    res.json({
+      logs: result.rows,
+      total: parseInt(countResult.rows[0].total, 10),
+      limit,
+      offset,
       timestamp: new Date().toISOString(),
     });
   })

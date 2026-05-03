@@ -22,7 +22,9 @@ const DEFAULT_EMAIL = process.env.ADMIN_EMAIL || 'admin@arasul.local';
  */
 function stripAdminPasswordFromEnvFile() {
   const envPath = process.env.ENV_FILE_PATH;
-  if (!envPath) {return;}
+  if (!envPath) {
+    return;
+  }
   try {
     const original = fs.readFileSync(envPath, 'utf8');
     const cleaned = original.replace(/^ADMIN_PASSWORD=.*$\n?/gm, '');
@@ -64,12 +66,15 @@ async function ensureAdminUser() {
       return;
     }
 
-    // No admin users - create one
+    // No admin users - create one (only if ADMIN_PASSWORD provided via env).
+    // Phase 1.2: When ADMIN_PASSWORD is missing, the user finishes setup
+    // in-browser via /api/auth/setup-initial-admin. This is the supported
+    // first-run path on customer hardware — keine Terminal-Pflicht mehr.
     const password = process.env.ADMIN_PASSWORD;
     if (!password || password === 'REDACTED_AFTER_BOOTSTRAP') {
-      logger.error(
-        'Bootstrap: No admin users exist and ADMIN_PASSWORD is not available. ' +
-          'Re-run "./arasul setup" and "./arasul bootstrap" to create an admin user.'
+      logger.info(
+        'Bootstrap: Kein Admin-User vorhanden — Setup-on-First-Login aktiv. ' +
+          'Erste Browseranfrage unter http://arasul.local führt durch den Setup-Wizard.'
       );
       return;
     }

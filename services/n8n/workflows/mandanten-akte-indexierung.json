@@ -1,0 +1,81 @@
+{
+  "name": "Mandanten-Akte: Auto-Indexierung",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 5 }]
+        }
+      },
+      "id": "schedule",
+      "name": "Alle 5 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://dashboard-backend:3001/api/documents?status=pending&limit=20",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "headerAuth",
+        "options": { "timeout": 5000 }
+      },
+      "id": "fetch-pending",
+      "name": "Hole anstehende Dokumente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "arasul-api-key", "name": "Arasul API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "documents",
+        "options": {}
+      },
+      "id": "split",
+      "name": "Pro Dokument",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://dashboard-backend:3001/api/documents/{{$json.id}}/reindex",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "headerAuth",
+        "options": { "timeout": 10000 }
+      },
+      "id": "reindex",
+      "name": "Re-Index triggern",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "arasul-api-key", "name": "Arasul API Key" }
+      }
+    }
+  ],
+  "connections": {
+    "Alle 5 Minuten": {
+      "main": [[{ "node": "Hole anstehende Dokumente", "type": "main", "index": 0 }]]
+    },
+    "Hole anstehende Dokumente": {
+      "main": [[{ "node": "Pro Dokument", "type": "main", "index": 0 }]]
+    },
+    "Pro Dokument": { "main": [[{ "node": "Re-Index triggern", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "meta": {
+    "templateId": "arasul-mandanten-indexierung",
+    "templateDescription": "Indexiert neue Dokumente alle 5 Minuten automatisch. Ideal fuer Kanzlei/Praxis-Drop-Ordner.",
+    "templateCategory": "law-firm",
+    "templateRequiresAuth": ["arasul-api-key"]
+  },
+  "pinData": {}
+}

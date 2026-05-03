@@ -600,6 +600,28 @@ router.get(
 );
 
 /**
+ * GET /api/system/feature-flags
+ * Public feature-flag endpoint for compliance gating.
+ * Used by frontend to hide Telegram tab when disabled and to render the
+ * AI-transparency footer on chat messages. Values are not sensitive.
+ * Plan-Ref: COMMERCIAL_LAUNCH_MASTER_PLAN.md Phase 1.4 + 1.6
+ */
+router.get(
+  '/feature-flags',
+  asyncHandler(async (req, res) => {
+    const result = await db.query(
+      'SELECT telegram_enabled, ai_transparency_enabled FROM system_settings WHERE id = 1'
+    );
+    const row = result.rows[0] || {};
+    res.json({
+      telegram_enabled: row.telegram_enabled ?? false,
+      ai_transparency_enabled: row.ai_transparency_enabled ?? true,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
  * POST /api/system/setup-complete
  * Mark the initial setup as completed.
  * Requires auth - only admin can complete setup.

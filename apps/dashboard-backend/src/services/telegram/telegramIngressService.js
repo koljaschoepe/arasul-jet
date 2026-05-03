@@ -70,7 +70,9 @@ const sleep = ms =>
 // State
 // =============================================================================
 
-// Active runtime polling loops: botId -> { running, offset }
+// Active runtime polling loops:
+//   botId -> { running, offset, startedAt, lastPollAt, lastUpdateAt,
+//              messageCount, errorCount, lastError, consecutiveErrors }
 const activePolls = new Map();
 
 // Active setup polling sessions: setupToken -> { intervalId, timeoutId, offset }
@@ -590,7 +592,17 @@ async function startPolling(botId) {
     logger.warn(`Could not update polling status for bot ${botId}: ${err.message}`);
   }
 
-  const state = { running: true, offset: 0 };
+  const state = {
+    running: true,
+    offset: 0,
+    startedAt: new Date(),
+    lastPollAt: null,
+    lastUpdateAt: null,
+    messageCount: 0,
+    errorCount: 0,
+    consecutiveErrors: 0,
+    lastError: null,
+  };
   activePolls.set(botId, state);
 
   // Start the polling loop (non-blocking)
@@ -602,6 +614,8 @@ async function startPolling(botId) {
 async function pollLoop(botId, token, state) {
   while (state.running) {
     try {
+      state.lastPollAt = new Date();
+
       const url = new URL(`https://api.telegram.org/bot${token}/getUpdates`);
       url.searchParams.set('offset', state.offset.toString());
       url.searchParams.set('timeout', LONG_POLL_TIMEOUT.toString());
@@ -618,10 +632,38 @@ async function pollLoop(botId, token, state) {
       const data = await response.json();
 
       if (!data.ok) {
-        logger.error(`Telegram getUpdates error for bot ${botId}: ${data.description}`);
+        const errMsg = `getUpdates: ${data.error_code || '?'} ${data.description || 'unknown'}`;
+        state.errorCount++;
+        state.consecutiveErrors++;
+        state.lastError = { at: new Date(), message: errMsg };
+        logger.error(`Telegram getUpdates error for bot ${botId}: ${errMsg}`);
+
+        // 409 Conflict = webhook is set on Telegram side. Try to delete it once.
+        if (data.error_code === 409 && state.consecutiveErrors === 1) {
+          logger.warn(
+            `Bot ${botId} has webhook conflict (409) — attempting to delete webhook automatically`
+          );
+          try {
+            await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ drop_pending_updates: false }),
+              signal: AbortSignal.timeout(10000),
+            });
+            logger.info(`Bot ${botId} webhook deleted, polling should now work`);
+          } catch (delErr) {
+            logger.error(
+              `Bot ${botId} could not auto-delete conflicting webhook: ${delErr.message}`
+            );
+          }
+        }
+
         await sleep(RESTART_DELAY_MS);
         continue;
       }
+
+      // Successful poll resets consecutive error counter
+      state.consecutiveErrors = 0;
 
       if (!data.result || data.result.length === 0) {
         continue;
@@ -629,10 +671,14 @@ async function pollLoop(botId, token, state) {
 
       for (const update of data.result) {
         state.offset = update.update_id + 1;
+        state.lastUpdateAt = new Date();
+        state.messageCount++;
 
         try {
           await processUpdate(botId, update);
         } catch (processError) {
+          state.errorCount++;
+          state.lastError = { at: new Date(), message: processError.message };
           logger.error(
             `Error processing update ${update.update_id} for bot ${botId}:`,
             processError.message
@@ -648,9 +694,12 @@ async function pollLoop(botId, token, state) {
         continue;
       }
 
+      state.errorCount++;
+      state.consecutiveErrors++;
       const safeMessage = error.message
         ? error.message.replace(token, maskToken(token))
         : error.message;
+      state.lastError = { at: new Date(), message: safeMessage };
       logger.error(`Polling error for bot ${botId}: ${safeMessage}`);
       await sleep(RESTART_DELAY_MS);
     }
@@ -883,6 +932,272 @@ function getSetupActiveCount() {
 }
 
 // =============================================================================
+// High-level Ingress Activation (orchestrates webhook vs. polling)
+// =============================================================================
+
+/**
+ * Activate inbound message ingress for a bot — webhook if PUBLIC_URL is set,
+ * polling otherwise. Idempotent: re-calling on an already-active bot is a no-op.
+ *
+ * @param {number} botId
+ * @returns {Promise<{mode: 'webhook'|'polling', success: boolean, error?: string, webhookUrl?: string}>}
+ */
+async function activateBotIngress(botId) {
+  // Look up webhook secret if needed (lazy require avoids circular dep at top level)
+  let botDetails;
+  try {
+    const result = await database.query(`SELECT webhook_secret FROM telegram_bots WHERE id = $1`, [
+      botId,
+    ]);
+    botDetails = result.rows[0] || null;
+  } catch (err) {
+    return { mode: 'unknown', success: false, error: `db lookup failed: ${err.message}` };
+  }
+
+  if (!botDetails) {
+    return { mode: 'unknown', success: false, error: 'bot not found' };
+  }
+
+  if (process.env.PUBLIC_URL && botDetails.webhook_secret) {
+    const webhookUrl = `${process.env.PUBLIC_URL}/api/telegram-bots/webhook/${botId}/${botDetails.webhook_secret}`;
+    try {
+      await setWebhook(botId, webhookUrl);
+      logger.info(
+        `Bot ${botId} ingress activated in webhook mode: ${webhookUrl.replace(/\/[^/]+$/, '/***')}`
+      );
+      return { mode: 'webhook', success: true, webhookUrl };
+    } catch (webhookErr) {
+      logger.warn(
+        `Bot ${botId} webhook setup failed (${webhookErr.message}), falling back to polling`
+      );
+      await startPolling(botId);
+      const ok = activePolls.has(botId);
+      return {
+        mode: 'polling',
+        success: ok,
+        error: ok
+          ? `webhook fallback: ${webhookErr.message}`
+          : `webhook fallback failed AND polling did not start: ${webhookErr.message}`,
+      };
+    }
+  }
+
+  await startPolling(botId);
+  // startPolling returns silently if token decryption / getMe fails.
+  // Verify the loop actually registered itself in activePolls.
+  if (!activePolls.has(botId)) {
+    return {
+      mode: 'polling',
+      success: false,
+      error: 'startPolling returned but no active loop registered (token / getMe likely failed)',
+    };
+  }
+  logger.info(`Bot ${botId} ingress activated in polling mode (no PUBLIC_URL)`);
+  return { mode: 'polling', success: true };
+}
+
+/**
+ * Deactivate inbound message ingress — stops polling AND deletes webhook.
+ */
+async function deactivateBotIngress(botId) {
+  await stopPolling(botId);
+  try {
+    await deleteWebhook(botId);
+  } catch (err) {
+    logger.debug(`Bot ${botId} deleteWebhook on deactivate failed: ${err.message}`);
+  }
+}
+
+// =============================================================================
+// Diagnostics
+// =============================================================================
+
+/**
+ * Comprehensive runtime diagnostics for a bot — surfaces silent failures.
+ * Returns a stable shape so the UI can render it without surprises.
+ */
+async function getDiagnostics(botId) {
+  const dbResult = await database.query(
+    `SELECT id, name, bot_username, is_active, is_polling, webhook_url, last_message_at, llm_provider, llm_model
+     FROM telegram_bots WHERE id = $1`,
+    [botId]
+  );
+
+  if (dbResult.rows.length === 0) {
+    return { found: false };
+  }
+
+  const bot = dbResult.rows[0];
+  const pollState = activePolls.get(botId);
+  const usingWebhook = !!process.env.PUBLIC_URL && !!bot.webhook_url;
+
+  // Try to fetch live Telegram-side webhook info (cheap, but skip if no token)
+  let telegramWebhookInfo = null;
+  let tokenValid = false;
+  let botUsername = bot.bot_username;
+
+  try {
+    const token = await telegramBotService.getBotToken(botId);
+    if (token) {
+      try {
+        const meResp = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        const meData = await meResp.json();
+        tokenValid = !!meData.ok;
+        if (meData.ok && meData.result?.username) {botUsername = meData.result.username;}
+      } catch {
+        /* ignore — tokenValid stays false */
+      }
+      try {
+        const whResp = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        const whData = await whResp.json();
+        if (whData.ok) {
+          telegramWebhookInfo = {
+            url: whData.result.url || null,
+            pendingUpdateCount: whData.result.pending_update_count,
+            lastErrorDate: whData.result.last_error_date
+              ? new Date(whData.result.last_error_date * 1000).toISOString()
+              : null,
+            lastErrorMessage: whData.result.last_error_message || null,
+            ipAddress: whData.result.ip_address || null,
+          };
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch (err) {
+    logger.debug(`getDiagnostics token fetch failed for bot ${botId}: ${err.message}`);
+  }
+
+  return {
+    found: true,
+    botId: bot.id,
+    name: bot.name,
+    botUsername,
+    isActive: bot.is_active,
+    tokenValid,
+    llm: { provider: bot.llm_provider, model: bot.llm_model },
+
+    ingress: {
+      configuredMode: process.env.PUBLIC_URL ? 'webhook' : 'polling',
+      usingWebhook,
+      polling: pollState
+        ? {
+            running: !!pollState.running,
+            startedAt: pollState.startedAt,
+            uptimeSeconds: pollState.startedAt
+              ? Math.floor((Date.now() - new Date(pollState.startedAt).getTime()) / 1000)
+              : 0,
+            lastPollAt: pollState.lastPollAt,
+            lastUpdateAt: pollState.lastUpdateAt,
+            messageCount: pollState.messageCount || 0,
+            errorCount: pollState.errorCount || 0,
+            consecutiveErrors: pollState.consecutiveErrors || 0,
+            lastError: pollState.lastError || null,
+          }
+        : null,
+      webhook: usingWebhook
+        ? {
+            configuredUrl: bot.webhook_url,
+            telegram: telegramWebhookInfo,
+          }
+        : null,
+    },
+
+    db: {
+      isPollingFlag: bot.is_polling,
+      lastMessageAt: bot.last_message_at,
+      webhookUrl: bot.webhook_url,
+    },
+
+    advice: _diagnoseAdvice({
+      isActive: bot.is_active,
+      tokenValid,
+      pollState,
+      telegramWebhookInfo,
+      usingWebhook,
+    }),
+  };
+}
+
+/**
+ * Heuristic advice strings the UI / admin can show to fix common silent failures.
+ */
+function _diagnoseAdvice({ isActive, tokenValid, pollState, telegramWebhookInfo, usingWebhook }) {
+  const tips = [];
+
+  if (!isActive) {
+    tips.push({
+      severity: 'info',
+      message: 'Bot ist inaktiv — aktiviere ihn, damit Polling/Webhook startet.',
+    });
+    return tips;
+  }
+
+  if (!tokenValid) {
+    tips.push({
+      severity: 'error',
+      message:
+        'Telegram lehnt das Token ab (getMe schlug fehl). Token im Bot-Edit-Dialog neu setzen.',
+    });
+  }
+
+  if (usingWebhook) {
+    if (!telegramWebhookInfo?.url) {
+      tips.push({
+        severity: 'error',
+        message:
+          'PUBLIC_URL ist gesetzt aber Telegram hat keinen Webhook — Aktivierung wiederholen.',
+      });
+    }
+    if (telegramWebhookInfo?.lastErrorMessage) {
+      tips.push({
+        severity: 'error',
+        message: `Telegram konnte Webhook zuletzt nicht erreichen: ${telegramWebhookInfo.lastErrorMessage}. Ist PUBLIC_URL von außen erreichbar?`,
+      });
+    }
+    if (telegramWebhookInfo?.pendingUpdateCount > 10) {
+      tips.push({
+        severity: 'warn',
+        message: `${telegramWebhookInfo.pendingUpdateCount} Updates stauen sich bei Telegram — Webhook scheint nicht zu antworten.`,
+      });
+    }
+  } else {
+    // Polling mode
+    if (!pollState) {
+      tips.push({
+        severity: 'error',
+        message:
+          'Bot ist aktiv aber keine Polling-Schleife läuft. /restart-polling drücken oder Backend neu starten.',
+      });
+    } else if (pollState.consecutiveErrors >= 3) {
+      tips.push({
+        severity: 'error',
+        message: `${pollState.consecutiveErrors} aufeinanderfolgende Polling-Fehler. Letzter: ${pollState.lastError?.message || 'unbekannt'}`,
+      });
+    } else if (pollState.lastPollAt) {
+      const ageSec = (Date.now() - new Date(pollState.lastPollAt).getTime()) / 1000;
+      if (ageSec > 60) {
+        tips.push({
+          severity: 'warn',
+          message: `Letzter Polling-Aufruf vor ${Math.round(ageSec)}s — Schleife könnte hängen.`,
+        });
+      }
+    }
+  }
+
+  if (tips.length === 0) {
+    tips.push({ severity: 'ok', message: 'Alles OK — Bot empfängt Nachrichten.' });
+  }
+
+  return tips;
+}
+
+// =============================================================================
 // Health
 // =============================================================================
 
@@ -953,6 +1268,11 @@ module.exports = {
   isSetupPolling,
   getSetupActiveCount,
 
-  // --- Health ---
+  // --- High-level orchestration ---
+  activateBotIngress,
+  deactivateBotIngress,
+
+  // --- Health & Diagnostics ---
   getBotHealth,
+  getDiagnostics,
 };

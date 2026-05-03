@@ -71,11 +71,15 @@ router.post(
 
     // Validate image content matches extension (magic byte check)
     if (!validateFileContent(file.buffer, imageExt)) {
-      throw new ValidationError('Bildinhalt stimmt nicht mit dem Dateityp überein');
+      throw new ValidationError('Bildinhalt stimmt nicht mit dem Dateietyp überein');
     }
 
+    // Phase 2.4 IDOR: User-ID im Pfad einbetten ("U<id>") sodass der GET-
+    // Endpoint serverseitig owner-checken kann ohne extra DB-Roundtrip.
+    // Legacy-Images ohne U-Prefix werden vom GET-Handler nur für Admins
+    // freigegeben.
     const timestamp = Date.now();
-    const objectName = `images/${timestamp}_${filename}`;
+    const objectName = `images/U${req.user.id}_${timestamp}_${filename}`;
 
     await minioService.uploadObject(objectName, file.buffer, file.size, {
       'Content-Type': file.mimetype,
@@ -103,6 +107,20 @@ router.get(
 
     if (!minioService.isValidMinioPath(objectName)) {
       throw new ValidationError('Ungültiger Dateipfad');
+    }
+
+    // Phase 2.4 IDOR: User-Owner-Check via Path-Prefix.
+    // Format ab Phase 2.4: U<userid>_<timestamp>_<file>.
+    // Legacy ohne U-Prefix → nur Admin.
+    if (req.user.role !== 'admin') {
+      const ownerMatch = filename.match(/^U(\d+)_/);
+      if (!ownerMatch) {
+        throw new NotFoundError('Bild nicht gefunden');
+      }
+      const ownerId = parseInt(ownerMatch[1], 10);
+      if (ownerId !== Number(req.user.id)) {
+        throw new NotFoundError('Bild nicht gefunden');
+      }
     }
 
     try {

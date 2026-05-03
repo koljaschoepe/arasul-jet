@@ -244,6 +244,17 @@ router.get(
     const params = [id, limit];
 
     if (before && isValidConversationId(before)) {
+      // Phase 2.4 IDOR: cursor `before` muss zu DIESER conversation gehören.
+      // Sonst könnte ein User mit einer fremden message-ID die Pagination
+      // gegen seine eigene conversation laufen lassen — kein Daten-Leak,
+      // aber unerwartetes Verhalten und potenzieller Side-Channel.
+      const cursorCheck = await db.query(
+        'SELECT 1 FROM chat_messages WHERE id = $1 AND conversation_id = $2 LIMIT 1',
+        [before, id]
+      );
+      if (cursorCheck.rows.length === 0) {
+        throw new ValidationError('Ungültiger Cursor (gehört nicht zu diesem Chat)');
+      }
       cursorCondition = 'AND m.id < $3';
       params.push(before);
     }
@@ -534,10 +545,10 @@ router.get(
       throw new ValidationError('Invalid conversation_id: must be a positive integer');
     }
 
-    // Validate format
-    const validFormats = ['json', 'markdown', 'md'];
+    // Validate format (Phase 3.5: PDF added for Aktenführung in Kanzleien)
+    const validFormats = ['json', 'markdown', 'md', 'pdf'];
     if (!validFormats.includes(format.toLowerCase())) {
-      throw new ValidationError('Invalid format: must be json, markdown, or md');
+      throw new ValidationError('Invalid format: must be json, markdown, md, oder pdf');
     }
 
     // Get conversation details (user-scoped)
@@ -566,7 +577,110 @@ router.get(
     const messages = messagesResult.rows;
 
     // Generate export based on format
-    const isMarkdown = format.toLowerCase() === 'markdown' || format.toLowerCase() === 'md';
+    const fmt = format.toLowerCase();
+    const isMarkdown = fmt === 'markdown' || fmt === 'md';
+    const isPdf = fmt === 'pdf';
+
+    if (isPdf) {
+      // Phase 3.5: PDF-Export für Aktenführung. pdfkit streamt direkt zur Response.
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 60, bottom: 60, left: 60, right: 60 },
+        info: {
+          Title: chat.title,
+          Author: 'Arasul Platform',
+          Subject: 'Chat-Export',
+          CreationDate: new Date(),
+        },
+      });
+
+      const baseFilename = `chat-${chat.id}-${chat.title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}"`);
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(18).font('Helvetica-Bold').text(chat.title, { align: 'left' });
+      doc.moveDown(0.3);
+      doc
+        .fontSize(9)
+        .font('Helvetica')
+        .fillColor('#666')
+        .text(
+          `Exportiert am ${new Date().toLocaleString('de-DE')} · Erstellt am ${new Date(
+            chat.created_at
+          ).toLocaleString('de-DE')} · ${messages.length} Nachrichten`
+        );
+      doc.fontSize(8).fillColor('#a00').text('Generiert von KI — nicht rechtsverbindlich.');
+      doc.fillColor('#000');
+      doc.moveDown(1);
+      doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor('#ccc').stroke();
+      doc.moveDown(1);
+
+      // Messages
+      const allSources = [];
+      let sourceIdx = 1;
+      for (const msg of messages) {
+        const roleLabel = msg.role === 'user' ? 'Sie' : 'KI-Assistent';
+        const timestamp = new Date(msg.created_at).toLocaleString('de-DE');
+
+        doc
+          .fontSize(11)
+          .font('Helvetica-Bold')
+          .fillColor(msg.role === 'user' ? '#1565C0' : '#2E7D32')
+          .text(`${roleLabel} · ${timestamp}`);
+        doc.moveDown(0.3);
+
+        if (msg.content && msg.content.trim()) {
+          doc.fontSize(10).font('Helvetica').fillColor('#000').text(msg.content, {
+            align: 'left',
+            lineGap: 2,
+          });
+        }
+
+        // Inline-Footnote-Indices (referenzieren globalSourceList)
+        if (msg.sources && Array.isArray(msg.sources) && msg.sources.length > 0) {
+          doc.moveDown(0.4);
+          doc.fontSize(9).fillColor('#666').text('Quellen:');
+          for (const s of msg.sources) {
+            const localIdx = sourceIdx++;
+            allSources.push({
+              idx: localIdx,
+              name: s.document_name || 'Unbekannt',
+              preview: s.text_preview || '',
+              score: s.score,
+            });
+            doc
+              .fontSize(8)
+              .fillColor('#666')
+              .text(`  [${localIdx}] ${s.document_name || 'Unbekannt'}`);
+          }
+        }
+
+        doc.moveDown(1);
+      }
+
+      // Footnotes-Page mit allen Quellen
+      if (allSources.length > 0) {
+        doc.addPage();
+        doc.fontSize(14).font('Helvetica-Bold').fillColor('#000').text('Quellenverzeichnis');
+        doc.moveDown(0.8);
+        for (const s of allSources) {
+          doc.fontSize(9).font('Helvetica-Bold').text(`[${s.idx}] ${s.name}`, { continued: false });
+          if (s.preview) {
+            doc.font('Helvetica').fillColor('#444').text(s.preview.substring(0, 300), {
+              indent: 12,
+              lineGap: 1,
+            });
+          }
+          doc.moveDown(0.6);
+        }
+      }
+
+      doc.end();
+      return;
+    }
 
     if (isMarkdown) {
       // Generate Markdown export

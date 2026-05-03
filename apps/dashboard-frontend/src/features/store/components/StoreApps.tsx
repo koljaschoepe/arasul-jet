@@ -36,6 +36,7 @@ import DownloadProgress from './DownloadProgress';
 import DataStateRenderer from '../../../components/ui/DataStateRenderer';
 import { SkeletonCard } from '../../../components/ui/Skeleton';
 import { useApi } from '../../../hooks/useApi';
+import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
@@ -178,6 +179,10 @@ function StoreApps() {
   const loadApps = useCallback(() => {
     appsQuery.refetch();
   }, [appsQuery]);
+
+  // Phase 1.6: Telegram-App ausblenden, wenn global deaktiviert.
+  const { flags } = useFeatureFlags();
+  const visibleApps = flags.telegram_enabled ? apps : apps.filter(app => app.id !== 'telegram-bot');
 
   // SSE-based install with real-time progress
   const handleInstallSSE = useCallback(
@@ -650,10 +655,12 @@ function StoreApps() {
           </div>
         )}
 
-        {/* Apps Grid */}
+        {/* Apps Grid — Phase 1.6: Telegram-Card wird ausgeblendet, wenn
+            Telegram global deaktiviert ist (Default für Berufsgeheimnis-
+            Personas). Aktivierung in Einstellungen → Compliance. */}
         <div className="app-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-          {apps.length > 0 ? (
-            apps.map(renderAppCard)
+          {visibleApps.length > 0 ? (
+            visibleApps.map(renderAppCard)
           ) : (
             <div className="store-empty flex flex-col items-center justify-center p-12 text-muted-foreground col-span-full">
               <Package className="size-12 mb-4 opacity-50" />
