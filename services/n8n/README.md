@@ -4,24 +4,24 @@ Workflow automation platform with custom Arasul nodes for LLM and embedding inte
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Version | 2.4.6 (security-pinned) |
-| Port | 5678 (internal) |
-| Base Path | `/n8n` (via Traefik) |
-| Container | n8n |
-| Hostname | n8n |
+| Property  | Value                   |
+| --------- | ----------------------- |
+| Version   | 2.4.6 (security-pinned) |
+| Port      | 5678 (internal)         |
+| Base Path | `/n8n` (via Traefik)    |
+| Container | n8n                     |
+| Hostname  | n8n                     |
 
 ## Security Fixes
 
 This version (2.4.6) is pinned due to critical CVEs in later versions:
 
-| CVE | CVSS | Name | Description |
-|-----|------|------|-------------|
-| CVE-2026-21858 | 10.0 | Ni8mare | Unauthenticated RCE via Webhook |
-| CVE-2025-68613 | 9.9 | Expression Injection | RCE via expressions |
-| CVE-2025-68668 | 9.9 | N8scape | Python Code Node Sandbox Bypass |
-| CVE-2026-21877 | 10.0 | File Upload | Unrestricted File Upload RCE |
+| CVE            | CVSS | Name                 | Description                     |
+| -------------- | ---- | -------------------- | ------------------------------- |
+| CVE-2026-21858 | 10.0 | Ni8mare              | Unauthenticated RCE via Webhook |
+| CVE-2025-68613 | 9.9  | Expression Injection | RCE via expressions             |
+| CVE-2025-68668 | 9.9  | N8scape              | Python Code Node Sandbox Bypass |
+| CVE-2026-21877 | 10.0 | File Upload          | Unrestricted File Upload RCE    |
 
 **Do NOT upgrade without security review.**
 
@@ -60,6 +60,7 @@ services/n8n/
 Integrates with the local Ollama LLM service.
 
 **Features:**
+
 - Direct LLM API access (port 11434)
 - Model selection from installed models
 - Streaming response support
@@ -67,6 +68,7 @@ Integrates with the local Ollama LLM service.
 - System prompt configuration
 
 **Usage in Workflows:**
+
 ```json
 {
   "node": "Arasul LLM",
@@ -84,11 +86,13 @@ Integrates with the local Ollama LLM service.
 Integrates with the local embedding service.
 
 **Features:**
+
 - Text to vector conversion
 - Batch embedding support
 - 768-dimension vectors (nomic-embed-text)
 
 **Usage in Workflows:**
+
 ```json
 {
   "node": "Arasul Embeddings",
@@ -130,47 +134,47 @@ USER node
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| N8N_HOST | 0.0.0.0 | Listen address |
-| N8N_PORT | 5678 | HTTP port |
-| N8N_PROTOCOL | http | Protocol (http/https) |
-| N8N_SECURE_COOKIE | false | Secure cookies (set true for HTTPS) |
-| N8N_EDITOR_BASE_URL | http://host/n8n | Editor base URL |
-| N8N_BASIC_AUTH_ACTIVE | false | Basic auth (use built-in user management) |
-| N8N_ENCRYPTION_KEY | (required) | Encryption key for credentials (32+ chars) |
-| WEBHOOK_URL | http://host:port | Webhook callback URL |
-| EXECUTIONS_DATA_SAVE_ON_SUCCESS | all | Save successful executions |
-| EXECUTIONS_DATA_SAVE_ON_ERROR | all | Save failed executions |
-| EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS | true | Save manual test runs |
-| N8N_USER_MANAGEMENT_JWT_DURATION_HOURS | 720 | JWT validity (30 days) |
-| N8N_PERSONALIZATION_ENABLED | true | Enable personalization |
-| N8N_PUSH_BACKEND | websocket | Push notification backend |
-| GENERIC_TIMEZONE | Europe/Berlin | Default timezone |
-| N8N_TRUST_PROXY | true | Trust Traefik X-Forwarded headers |
-| N8N_RUNNERS_ENABLED | true | Enable secure code execution (n8n 2.x) |
-| N8N_RUNNERS_MODE | internal | Runner mode |
-| N8N_CUSTOM_EXTENSIONS | /custom-nodes | Custom node location |
+| Variable                               | Default          | Description                                |
+| -------------------------------------- | ---------------- | ------------------------------------------ |
+| N8N_HOST                               | 0.0.0.0          | Listen address                             |
+| N8N_PORT                               | 5678             | HTTP port                                  |
+| N8N_PROTOCOL                           | http             | Protocol (http/https)                      |
+| N8N_SECURE_COOKIE                      | false            | Secure cookies (set true for HTTPS)        |
+| N8N_EDITOR_BASE_URL                    | http://host/n8n  | Editor base URL                            |
+| N8N_BASIC_AUTH_ACTIVE                  | false            | Basic auth (use built-in user management)  |
+| N8N_ENCRYPTION_KEY                     | (required)       | Encryption key for credentials (32+ chars) |
+| WEBHOOK_URL                            | http://host:port | Webhook callback URL                       |
+| EXECUTIONS_DATA_SAVE_ON_SUCCESS        | all              | Save successful executions                 |
+| EXECUTIONS_DATA_SAVE_ON_ERROR          | all              | Save failed executions                     |
+| EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS | true             | Save manual test runs                      |
+| N8N_USER_MANAGEMENT_JWT_DURATION_HOURS | 720              | JWT validity (30 days)                     |
+| N8N_PERSONALIZATION_ENABLED            | true             | Enable personalization                     |
+| N8N_PUSH_BACKEND                       | websocket        | Push notification backend                  |
+| GENERIC_TIMEZONE                       | Europe/Berlin    | Default timezone                           |
+| N8N_TRUST_PROXY                        | true             | Trust Traefik X-Forwarded headers          |
+| N8N_RUNNERS_ENABLED                    | true             | Enable secure code execution (n8n 2.x)     |
+| N8N_RUNNERS_MODE                       | internal         | Runner mode                                |
+| N8N_CUSTOM_EXTENSIONS                  | /custom-nodes    | Custom node location                       |
 
 ## Traefik Routing
 
 n8n uses 13 routes with priority-based routing:
 
-| Priority | Path | Description |
-|----------|------|-------------|
-| 110 | `/n8n`, `/n8n/` | Root redirect to /signin |
-| 100 | `/n8n/*` | Main workflow engine |
-| 90 | `/signin` | Login page |
-| 90 | `/setup` | Setup wizard |
-| 90 | `/workflows` | Workflow list |
-| 90 | `/credentials` | Credentials management |
-| 90 | `/executions` | Execution history |
-| 90 | `/personal-data` | User data |
-| 85 | `/favicon.ico` | Favicon |
-| 60 | `/static` | n8n static files |
-| 50 | `/rest` | REST API |
-| 25 | `/webhook/*` | Webhooks (rate limited: 100 req/min) |
-| 60 | `/assets` | Static assets |
+| Priority | Path             | Description                          |
+| -------- | ---------------- | ------------------------------------ |
+| 110      | `/n8n`, `/n8n/`  | Root redirect to /signin             |
+| 100      | `/n8n/*`         | Main workflow engine                 |
+| 90       | `/signin`        | Login page                           |
+| 90       | `/setup`         | Setup wizard                         |
+| 90       | `/workflows`     | Workflow list                        |
+| 90       | `/credentials`   | Credentials management               |
+| 90       | `/executions`    | Execution history                    |
+| 90       | `/personal-data` | User data                            |
+| 85       | `/favicon.ico`   | Favicon                              |
+| 60       | `/static`        | n8n static files                     |
+| 50       | `/rest`          | REST API                             |
+| 25       | `/webhook/*`     | Webhooks (rate limited: 100 req/min) |
+| 60       | `/assets`        | Static assets                        |
 
 ## Database Configuration
 
@@ -188,11 +192,11 @@ DB_POSTGRESDB_SCHEMA: n8n
 
 ## Volumes
 
-| Mount | Purpose |
-|-------|---------|
-| `arasul-n8n:/home/node/.n8n` | Persistent workflows, credentials, settings |
-| `./credentials:/custom-credentials:ro` | Credential templates (read-only) |
-| `./templates:/custom-templates:ro` | Workflow templates (read-only) |
+| Mount                                  | Purpose                                     |
+| -------------------------------------- | ------------------------------------------- |
+| `arasul-n8n:/home/node/.n8n`           | Persistent workflows, credentials, settings |
+| `./credentials:/custom-credentials:ro` | Credential templates (read-only)            |
+| `./templates:/custom-templates:ro`     | Workflow templates (read-only)              |
 
 ## Health Check
 
@@ -216,11 +220,11 @@ n8n requires these services to be healthy:
 
 Templates are available in `templates/`:
 
-| Template | Description |
-|----------|-------------|
-| `document-indexing.json` | Auto-index uploaded documents |
-| `alert-notification.json` | Send alerts via Telegram |
-| `scheduled-backup.json` | Scheduled backup trigger |
+| Template                  | Description                   |
+| ------------------------- | ----------------------------- |
+| `document-indexing.json`  | Auto-index uploaded documents |
+| `alert-notification.json` | Send alerts via Telegram      |
+| `scheduled-backup.json`   | Scheduled backup trigger      |
 
 See [templates/README.md](templates/README.md) for detailed documentation.
 
@@ -346,4 +350,4 @@ curl -X POST -H "Authorization: Bearer TOKEN" \
 - [Workflow Templates](templates/README.md)
 - [Custom Node Development](BUILD_CUSTOM_NODES.md)
 - [Traefik Configuration](../../config/traefik/README.md)
-- [Backup Service](../../docs/BACKUP_SYSTEM.md)
+- [Backup Service](../../docs/ops/BACKUP_SYSTEM.md)

@@ -4,12 +4,12 @@ Autonomous service monitoring and recovery engine.
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Port | 9200 (internal) |
-| Runtime | Python 3.10+ |
-| Check Interval | 10 seconds |
-| Strategy | 4-tier recovery |
+| Property       | Value           |
+| -------------- | --------------- |
+| Port           | 9200 (internal) |
+| Runtime        | Python 3.10+    |
+| Check Interval | 10 seconds      |
+| Strategy       | 4-tier recovery |
 
 ## Directory Structure
 
@@ -31,25 +31,29 @@ self-healing-agent/
 ## 4-Tier Recovery Strategy
 
 ### Category A: Service Down
+
 Container healthcheck fails 3 consecutive times.
 
 **Actions (escalating):**
+
 1. Restart container
 2. Stop + Start container
 3. Escalate to Category C
 
 ### Category B: Overload
+
 Resource thresholds exceeded.
 
-| Resource | Warning | Critical |
-|----------|---------|----------|
-| CPU | 80% | 90% |
-| RAM | 80% | 90% |
-| GPU | 90% | 95% |
-| Temperature | 75°C | 83°C |
-| Disk | 80% | 90% |
+| Resource    | Warning | Critical |
+| ----------- | ------- | -------- |
+| CPU         | 80%     | 90%      |
+| RAM         | 80%     | 90%      |
+| GPU         | 90%     | 95%      |
+| Temperature | 75°C    | 83°C     |
+| Disk        | 80%     | 90%      |
 
 **Actions (escalating):**
+
 1. Clear service cache
 2. Reset service session
 3. Enable throttling
@@ -57,14 +61,17 @@ Resource thresholds exceeded.
 5. Escalate to Category C
 
 ### Category C: Critical
+
 Multiple failures or system-level issues.
 
 **Triggers:**
+
 - Database connection lost
 - MinIO corruption detected
 - 3+ service failures in 10 minutes
 
 **Actions:**
+
 1. Hard restart all affected services
 2. Disk cleanup (temporary files)
 3. Database vacuum
@@ -72,9 +79,11 @@ Multiple failures or system-level issues.
 5. Full system restart (all containers)
 
 ### Category D: Ultima Ratio
+
 System-level emergency.
 
 **Triggers:**
+
 - Disk usage >97%
 - Database inconsistent
 - GPU permanently failed
@@ -84,28 +93,28 @@ System-level emergency.
 
 ## Monitored Services
 
-| Category | Services |
-|----------|----------|
-| System | postgres-db, minio, qdrant, reverse-proxy, metrics-collector |
+| Category    | Services                                                                   |
+| ----------- | -------------------------------------------------------------------------- |
+| System      | postgres-db, minio, qdrant, reverse-proxy, metrics-collector               |
 | Application | llm-service, embedding-service, n8n, dashboard-backend, dashboard-frontend |
-| Self | document-indexer |
+| Self        | document-indexer                                                           |
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| SELF_HEALING_INTERVAL | 10 | Check interval (seconds) |
-| SELF_HEALING_ENABLED | true | Enable healing actions |
-| SELF_HEALING_REBOOT_ENABLED | false | Enable system reboot |
-| DISK_WARNING_PERCENT | 80 | Disk warning threshold |
-| DISK_CLEANUP_PERCENT | 90 | Disk cleanup threshold |
-| DISK_CRITICAL_PERCENT | 95 | Disk critical threshold |
-| DISK_REBOOT_PERCENT | 97 | Disk reboot threshold |
-| CPU_CRITICAL_PERCENT | 90 | CPU critical threshold |
-| RAM_CRITICAL_PERCENT | 90 | RAM critical threshold |
-| GPU_CRITICAL_PERCENT | 95 | GPU critical threshold |
-| TEMP_THROTTLE_CELSIUS | 83 | Temperature throttle |
-| TEMP_RESTART_CELSIUS | 85 | Temperature restart |
+| Variable                    | Default | Description              |
+| --------------------------- | ------- | ------------------------ |
+| SELF_HEALING_INTERVAL       | 10      | Check interval (seconds) |
+| SELF_HEALING_ENABLED        | true    | Enable healing actions   |
+| SELF_HEALING_REBOOT_ENABLED | false   | Enable system reboot     |
+| DISK_WARNING_PERCENT        | 80      | Disk warning threshold   |
+| DISK_CLEANUP_PERCENT        | 90      | Disk cleanup threshold   |
+| DISK_CRITICAL_PERCENT       | 95      | Disk critical threshold  |
+| DISK_REBOOT_PERCENT         | 97      | Disk reboot threshold    |
+| CPU_CRITICAL_PERCENT        | 90      | CPU critical threshold   |
+| RAM_CRITICAL_PERCENT        | 90      | RAM critical threshold   |
+| GPU_CRITICAL_PERCENT        | 95      | GPU critical threshold   |
+| TEMP_THROTTLE_CELSIUS       | 83      | Temperature throttle     |
+| TEMP_RESTART_CELSIUS        | 85      | Temperature restart      |
 
 ## Event Logging
 
@@ -182,6 +191,6 @@ docker exec self-healing-agent python -c "from healing_engine import check_servi
 
 ## Related Documentation
 
-- [Self-Healing Implementation](../../docs/SELF_HEALING_IMPLEMENTATION.md) - Detailed strategy
+- [Self-Healing Implementation](../../docs/features/SELF_HEALING_IMPLEMENTATION.md) - Detailed strategy
 - [GPU Error Handling](../../docs/GPU_ERROR_HANDLING.md) - GPU recovery details
 - [Metrics Collector](../metrics-collector/README.md) - Source of threshold data

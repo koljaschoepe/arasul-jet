@@ -1,0 +1,289 @@
+# Developer Onboarding
+
+**Goal:** From cold clone to your first merged PR in ~30 minutes.
+
+This guide is for **developers**. If you are an operator deploying Arasul to a Jetson appliance, read [`docs/ops/DEPLOYMENT.md`](../ops/DEPLOYMENT.md) instead. If you are an end-customer setting up a pre-configured device, read [`docs/ops/QUICK_START.md`](../ops/QUICK_START.md).
+
+---
+
+## Minute 0–5: Set Up
+
+### Prerequisites
+
+- **Docker** 24.0+ with Docker Compose V2
+- **Node.js** matching `.nvmrc` (use `nvm install` to align)
+- **Git**
+- **Make**
+- **`gh`** (GitHub CLI) — only if you plan to draft PRs from the terminal
+- **NVIDIA Container Runtime** — only required on Jetson hardware
+
+### Two paths to start
+
+Pick the one that matches your environment.
+
+#### Path A — You have a Jetson (Orin / Thor)
+
+```bash
+git clone <repo-url> arasul-jet
+cd arasul-jet
+./arasul bootstrap        # full appliance bring-up: detects hardware, generates .env, pulls images, starts services
+```
+
+The `arasul` script is the canonical CLI for the platform. Run `./arasul --help` for the full list of subcommands.
+
+#### Path B — You have an x86 laptop (no Jetson)
+
+```bash
+git clone <repo-url> arasul-jet
+cd arasul-jet
+./scripts/doctor.sh       # pre-flight: Docker / Node / Compose / ports
+make dev                  # backend (nodemon) + frontend (Vite HMR) against a mock-LLM stack
+```
+
+`make dev` brings up only the backing services you need (Postgres, MinIO, mock-LLM, real Qdrant) and runs the dashboard apps directly on your host with hot-reload. The mock LLM echoes prompts with a `[mock]` prefix instead of running real inference — fine for UI work, not for testing model behavior.
+
+> If `make dev` or `scripts/doctor.sh` is missing on your branch, it has not been merged yet. Fall back to `docker compose up -d` and use the rebuild loop described below.
+
+---
+
+## Minute 5–10: Mental Model
+
+Arasul is a **commercial edge-AI appliance** shipped on NVIDIA Jetson hardware. Customers buy a physical box; it runs autonomously for 5 years without manual intervention. Design priorities, in order:
+
+1. **Reliability** — self-healing, no external dependencies, multi-year uptime.
+2. **Data privacy** — everything runs locally, no cloud calls.
+3. **Ergonomics** — dashboard UX for non-technical admins.
+
+Concretely, this means:
+
+- No cloud SaaS integrations (everything must work offline).
+- No silent failures (log, alert, recover).
+- No breaking migrations (always backward-compatible).
+- No "rewrite" mindset (incremental improvements only).
+
+### The 6 Surfaces
+
+| Surface             | Lives in                        | Who cares               |
+| ------------------- | ------------------------------- | ----------------------- |
+| **Dashboard UI**    | `apps/dashboard-frontend/`      | End users, admins       |
+| **HTTP API**        | `apps/dashboard-backend/`       | Frontend, n8n, bots     |
+| **Database**        | `services/postgres/init/*.sql`  | All backend services    |
+| **LLM / RAG**       | `services/llm-service/`, Qdrant | Chat, Telegram, search  |
+| **Ops / Self-heal** | `services/self-healing-agent/`  | Autonomous recovery     |
+| **Setup / Boot**    | `./arasul`, `scripts/setup/`    | First-boot provisioning |
+
+### Project layout (orientation only — read what you need)
+
+```
+arasul-jet/
+├── apps/                          actively developed apps
+│   ├── dashboard-backend/         Node.js / Express REST API + Jest tests
+│   └── dashboard-frontend/        React 19 SPA + Vitest
+├── services/                      infrastructure containers (LLM, indexer, postgres, ...)
+├── compose/                       Docker Compose split files
+├── config/                        Traefik, TLS, secrets, profiles
+├── scripts/                       setup, test, deploy, ops scripts
+├── docs/                          documentation (this folder)
+│   ├── development/               for contributors
+│   ├── api/                       API reference, error catalog, schema
+│   ├── ops/                       deployment, troubleshooting, admin
+│   ├── features/                  per-service feature docs
+│   └── plans/                     active and archived roadmaps
+├── .claude/                       Claude Code workspace (commands, agents, hooks, context)
+├── CLAUDE.md                      AI-facing entry point + non-negotiables
+├── README.md                      "what is this" + start-here
+├── CONTRIBUTING.md                workflow, conventions, slash-command catalog
+└── ARCHITECTURE.md                architecture summary
+```
+
+**Key distinction:** `apps/` = code you actively develop, `services/` = infrastructure containers built once and run.
+
+---
+
+## Minute 10–15: Local Dev Loop
+
+### With `make dev` (path B, recommended on x86)
+
+`make dev` runs the dashboard apps on your host with hot-reload. Edit and save — backend nodemon restarts in <1s, frontend Vite refreshes the browser instantly.
+
+### Without `make dev` (Jetson, or pre-Stage-10 branches)
+
+Arasul has **no host-side dev server in this mode** — every change requires a Docker rebuild:
+
+```bash
+# Backend change
+docker compose up -d --build dashboard-backend
+docker compose logs -f dashboard-backend
+
+# Frontend change
+docker compose up -d --build dashboard-frontend
+# Reload the browser at https://<host>/
+
+# Both at once
+docker compose up -d --build dashboard-backend dashboard-frontend
+```
+
+### Test Before Commit
+
+```bash
+./scripts/test/run-tests.sh --backend    # Jest, ~2 min
+./scripts/test/run-tests.sh --frontend   # Vitest, ~3 min
+./scripts/test/run-tests.sh --all        # both, ~5 min
+```
+
+A commit **must** pass both suites. CI has no special privileges that your local runs lack.
+
+### Daily Commands Cheatsheet
+
+| Want to…                             | Run                                                       |
+| ------------------------------------ | --------------------------------------------------------- |
+| See logs for a service               | `docker compose logs -f <service>`                        |
+| Restart one service                  | `docker compose restart <service>`                        |
+| DB shell                             | `docker exec -it postgres-db psql -U arasul -d arasul_db` |
+| Check GPU usage (Jetson)             | `tegrastats` (or `docker exec llm-service nvidia-smi`)    |
+| Check all service health             | `docker compose ps`                                       |
+| Re-run migrations                    | `docker compose restart postgres-db`                      |
+| Nuke node_modules + rebuild frontend | `docker compose build --no-cache dashboard-frontend`      |
+
+---
+
+## Minute 15–25: The Five Non-Negotiables
+
+These are codified in [`CLAUDE.md`](../../CLAUDE.md) and the per-area `apps/*/CLAUDE.md` files. Read [`CLAUDE.md`](../../CLAUDE.md) once.
+
+### 1. Backend — always `asyncHandler`
+
+```javascript
+const { asyncHandler } = require('../middleware/errorHandler');
+const { ValidationError } = require('../utils/errors');
+
+router.post(
+  '/foo',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!req.body.name) throw new ValidationError('Name required');
+    const result = await service.doThing(req.body);
+    res.json({ data: result });
+  })
+);
+```
+
+No `try / catch` in route handlers. Errors flow through `utils/errors.js` and are mapped to HTTP responses by `middleware/errorHandler.js`.
+
+### 2. Frontend — always `useApi()`, never raw `fetch`
+
+```typescript
+import { useApi } from '@/hooks/useApi';
+
+const api = useApi();
+const docs = await api.get<Document[]>('/documents');
+await api.post('/documents', payload, { showError: false });
+```
+
+Raw `fetch` bypasses auth-token refresh, error toasts, and the abort-controller pattern that prevents memory leaks.
+
+### 3. Frontend — CSS variables, not hex
+
+```tsx
+// YES
+<div className="bg-primary/10 text-foreground border-border" />
+
+// NO
+<div style={{ background: '#3b82f6', color: '#fff' }} />
+```
+
+The theme system in `src/index.css` drives light / dark modes. Hex colors break it.
+
+### 4. Database — migrations are append-only and idempotent
+
+```bash
+ls services/postgres/init/ | tail -1   # find the highest number
+# Create the next file: NNN_<description>.sql
+```
+
+Migrations must use `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, etc. Never `DROP` without an explicit fallback. Once Stage 6 of the DX overhaul ships, use `/create-migration <description>` — it picks the next number for you.
+
+### 5. Commits — Conventional Commits
+
+```
+<type>(<scope>): <subject>
+```
+
+Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR title matches commit style. See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the full convention.
+
+---
+
+## Minute 25–30: Find Your First Task
+
+### Entry Points by Task Type
+
+| Doing…               | Start reading at                                                              |
+| -------------------- | ----------------------------------------------------------------------------- |
+| Adding an API route  | `apps/dashboard-backend/src/routes/index.js`                                  |
+| Adding a UI page     | `apps/dashboard-frontend/src/App.tsx`                                         |
+| Adding a DB field    | `services/postgres/init/` (next migration number)                             |
+| Editing LLM behavior | `apps/dashboard-backend/src/services/llm/`                                    |
+| Debugging n8n flow   | `services/n8n/` + dashboard n8n page                                          |
+| Touching Telegram    | `apps/dashboard-frontend/src/features/telegram/` + `routes/telegram/`         |
+| Changing design      | `docs/development/DESIGN_SYSTEM.md` + `apps/dashboard-frontend/src/index.css` |
+
+### Reading guide per domain
+
+Before editing in a domain, glance at the matching context file:
+
+- `.claude/context/backend.md` — Express routes, services, middleware
+- `.claude/context/frontend.md` — React patterns, hooks, shadcn
+- `.claude/context/database.md` — PostgreSQL, migration rules
+- `.claude/context/python-services.md` — LLM, embedding, metrics, indexer
+- `.claude/context/telegram.md` — Telegram bot architecture
+- `.claude/context/security.md` — Auth, RBAC, audit logs
+- `.claude/context/testing.md` — Test patterns and coverage expectations
+
+### Your first PR checklist
+
+- [ ] Branch from `main` with a descriptive name (`feat/telegram-multi-bot`, `fix/rag-cite-parser`).
+- [ ] Implementation + at least one test covering the change.
+- [ ] `./scripts/test/run-tests.sh --all` passes locally.
+- [ ] Updated relevant docs if behavior or API changed.
+- [ ] Container rebuild verified in browser (UI changes).
+- [ ] Commit message follows Conventional Commits.
+
+---
+
+## Common Gotchas
+
+| Symptom                                           | Likely cause                                                            |
+| ------------------------------------------------- | ----------------------------------------------------------------------- |
+| Frontend changes don't appear                     | Forgot `--build` — Docker cached the old image.                         |
+| `relation does not exist` on DB query             | Migration not run — `docker compose restart postgres-db`.               |
+| LLM stream hangs                                  | Ollama model not pulled — check `docker compose logs llm-service`.      |
+| `useApi` returns `unknown` types                  | Intentional — narrow with `as` at use-site or supply `get<T>()` a type. |
+| Sandbox container won't start                     | Check `sandboxService.js` logs for nvidia runtime errors.               |
+| `401 Unauthorized` in dev                         | Token expired — clear localStorage if auto-refresh fails.               |
+| Jest "did not exit one second after the test run" | Pre-existing; tests pass — safe to ignore.                              |
+
+---
+
+## Where context lives
+
+In descending order of authority:
+
+1. **Source code + git history** — `git log -p <file>` tells you _why_.
+2. [`CLAUDE.md`](../../CLAUDE.md) and the per-area `apps/*/CLAUDE.md`, `services/*/CLAUDE.md` — non-negotiables.
+3. [`docs/INDEX.md`](../INDEX.md) — curated map of all docs.
+4. [`docs/ARCHITECTURE.md`](../../ARCHITECTURE.md) — service topology.
+5. [`.claude/context/`](../../.claude/context/) — task-focused briefs for AI assistants and humans alike.
+
+When unsure: grep is your friend. Everything is plain text.
+
+---
+
+## Going further
+
+- [`CONTRIBUTING.md`](../../CONTRIBUTING.md) — full workflow, branching, commit convention, slash-command catalog.
+- [`docs/development/DEVELOPMENT.md`](DEVELOPMENT.md) — deep-dive on backend / frontend patterns.
+- [`docs/api/API_REFERENCE.md`](../api/API_REFERENCE.md) — REST endpoint catalog.
+- [`docs/api/DATABASE_SCHEMA.md`](../api/DATABASE_SCHEMA.md) — current schema and migration history.
+- [`docs/ops/DEPLOYMENT.md`](../ops/DEPLOYMENT.md) — fresh-install on a new Jetson, factory-image workflow.
+
+**You're ready.** Pick up an issue labelled `good-first-issue`, or ask the team for a small refactor. Ship something by end of day 1.

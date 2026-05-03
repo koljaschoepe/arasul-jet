@@ -17,12 +17,12 @@ Development workflows, patterns, API usage, and debugging for the Arasul Platfor
 
 | Change Type         | Update These Files                               |
 | ------------------- | ------------------------------------------------ |
-| New API endpoint    | `docs/API_REFERENCE.md`                          |
-| Database schema     | `docs/DATABASE_SCHEMA.md`, add migration         |
+| New API endpoint    | `docs/api/API_REFERENCE.md`                      |
+| Database schema     | `docs/api/DATABASE_SCHEMA.md`, add migration     |
 | New env variable    | `docs/ENVIRONMENT_VARIABLES.md`, `.env.template` |
 | Architecture change | `docs/ARCHITECTURE.md`                           |
 | Bug fix             | `BUGS_AND_FIXES.md`                              |
-| Frontend component  | Follow `docs/DESIGN_SYSTEM.md`                   |
+| Frontend component  | Follow `docs/development/DESIGN_SYSTEM.md`       |
 
 ---
 
@@ -312,7 +312,7 @@ curl -H "Authorization: Bearer <token>" -H "Accept: text/event-stream" \
 | GET    | `/api/services/status`     | Yes  | Container status |
 | POST   | `/api/services/restart`    | Yes  | Restart service  |
 
-Full reference: [API_REFERENCE.md](API_REFERENCE.md)
+Full reference: [API_REFERENCE.md](../api/API_REFERENCE.md)
 
 ---
 
@@ -381,14 +381,14 @@ See [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md).
 1. Create route in `apps/dashboard-backend/src/routes/`
 2. Register in `src/routes/index.js` (central router)
 3. Add auth middleware if needed
-4. Update `docs/API_REFERENCE.md`
+4. Update `docs/api/API_REFERENCE.md`
 5. Write tests in `__tests__/`
 
 ### Add Database Migration
 
 1. Create `services/postgres/init/042_name.sql`
 2. Use `IF NOT EXISTS` for idempotency
-3. Update `docs/DATABASE_SCHEMA.md`
+3. Update `docs/api/DATABASE_SCHEMA.md`
 4. Rebuild: `docker compose up -d --build postgres-db`
 
 ### Add Frontend Component
@@ -416,8 +416,8 @@ Kein separater "Skalierungscode" noetig. `git pull && docker compose up -d --bui
 
 ## Related Documentation
 
-- [API_REFERENCE.md](API_REFERENCE.md) - Full endpoint reference
-- [API_ERRORS.md](API_ERRORS.md) - Error codes & handling
+- [API_REFERENCE.md](../api/API_REFERENCE.md) - Full endpoint reference
+- [API_ERRORS.md](../api/API_ERRORS.md) - Error codes & handling
 - [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) - Frontend design guidelines
-- [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) - Database tables
+- [DATABASE_SCHEMA.md](../api/DATABASE_SCHEMA.md) - Database tables
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture

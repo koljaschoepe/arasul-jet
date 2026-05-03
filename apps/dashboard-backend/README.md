@@ -554,8 +554,8 @@ curl http://localhost:3001/api/health
 
 ## Related Documentation
 
-- [Development Guide](../../docs/DEVELOPMENT.md) - API usage examples & backend patterns
-- [API Errors](../../docs/API_ERRORS.md) - Error codes and handling
-- [API Reference](../../docs/API_REFERENCE.md) - Complete endpoint list
-- [Database Schema](../../docs/DATABASE_SCHEMA.md) - Table definitions
+- [Development Guide](../../docs/development/DEVELOPMENT.md) - API usage examples & backend patterns
+- [API Errors](../../docs/api/API_ERRORS.md) - Error codes and handling
+- [API Reference](../../docs/api/API_REFERENCE.md) - Complete endpoint list
+- [Database Schema](../../docs/api/DATABASE_SCHEMA.md) - Table definitions
 - [Environment Variables](../../docs/ENVIRONMENT_VARIABLES.md) - Full ENV reference
