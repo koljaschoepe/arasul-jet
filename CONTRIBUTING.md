@@ -176,78 +176,18 @@ The non-negotiables live in `CLAUDE.md` files at every level. Read these before 
 
 ## 8. Slash command catalog
 
-Slash commands live in [`.claude/commands/`](.claude/commands/) and are how repeating workflows get encoded. They are verb-first, hyphenated, lowercase. Type `/` in Claude Code to autocomplete; type `/help` for the live list.
+Slash commands live in [`.claude/commands/`](.claude/commands/). The
+project is deliberately minimal here — most "command-like" workflows
+are Bash/Makefile aliases or model-suggested skills, not slash commands.
+Type `/` in Claude Code to autocomplete; type `/help` for the live list.
 
-> The full catalog below ships with [Stage 6 of the DX overhaul](docs/plans/active/DX_OVERHAUL.md). Until then, only `/test`, `/implement`, `/review` exist on `main`.
+| Command            | Purpose                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `/plan <freitext>` | Interview-driven plan + autonomous execution. Writes `docs/plans/active/<slug>.md`, runs all phases, ends at diff review. |
+| `/ship`            | Tests + lint + format + conventional commit + plan archival. **No push, no PR** — that stays manual. User-invoked only.   |
 
-### Plan / design
-
-| Command          | Purpose                                                       |
-| ---------------- | ------------------------------------------------------------- |
-| `/plan-feature`  | Interview-driven feature plan written to `docs/plans/active/` |
-| `/plan-bugfix`   | Reproduce → root-cause → fix options → regression test        |
-| `/plan-refactor` | Call-site sweep + breaking-change list + migration strategy   |
-
-### Backend
-
-| Command           | Purpose                                                             |
-| ----------------- | ------------------------------------------------------------------- |
-| `/add-route`      | New Express route with `asyncHandler` + Zod schema + Jest stub      |
-| `/add-service`    | New service-layer file under `apps/dashboard-backend/src/services/` |
-| `/add-middleware` | New Express middleware following project pattern                    |
-
-### Frontend
-
-| Command          | Purpose                                                |
-| ---------------- | ------------------------------------------------------ |
-| `/add-component` | New React component, TypeScript, CSS vars, Vitest stub |
-| `/add-page`      | New route + page, registers in App.tsx                 |
-| `/add-hook`      | New `use*` hook with `renderHook` test                 |
-
-### Database
-
-| Command             | Purpose                                                         |
-| ------------------- | --------------------------------------------------------------- |
-| `/create-migration` | Auto-numbered `NNN_<desc>.sql` with `IF NOT EXISTS` boilerplate |
-| `/query-db`         | Read-only psql (`SELECT`/`EXPLAIN` only); 100-row cap           |
-| `/open-psql`        | Print copy-paste interactive psql command + `\d` cheatsheet     |
-
-### Infra / Docker
-
-| Command            | Purpose                                                |
-| ------------------ | ------------------------------------------------------ |
-| `/rebuild-service` | `docker compose up -d --build <svc>` + tail logs       |
-| `/show-logs`       | `docker compose logs --tail=200 -f <svc>` (background) |
-| `/check-health`    | `docker compose ps` + `/health` ping + GPU + disk      |
-| `/restart-service` | `docker compose restart <svc>` + healthcheck wait      |
-
-### Tests / quality
-
-| Command               | Purpose                                             |
-| --------------------- | --------------------------------------------------- |
-| `/run-tests-all`      | Full suite (`./scripts/test/run-tests.sh --all`)    |
-| `/run-tests-backend`  | Jest with optional path filter                      |
-| `/run-tests-frontend` | Vitest                                              |
-| `/lint`               | ESLint + Prettier on backend + frontend in parallel |
-| `/typecheck`          | `tsc --noEmit` on TS code                           |
-| `/audit-deps`         | `npm audit` + `npm outdated`, flag Critical/High    |
-
-### Git / docs
-
-| Command               | Purpose                                                      |
-| --------------------- | ------------------------------------------------------------ |
-| `/commit`             | Smart commit from staged diff, Conventional Commits          |
-| `/draft-pr`           | Generate PR title + body + test plan, `gh pr create --draft` |
-| `/update-api-docs`    | Patch `docs/api/API_REFERENCE.md` from new routes (git diff) |
-| `/update-schema-docs` | Patch `docs/api/DATABASE_SCHEMA.md` from new migrations      |
-
-### Onboard / debug
-
-| Command          | Purpose                                                |
-| ---------------- | ------------------------------------------------------ |
-| `/explain`       | Architecture sketch + dependencies of a file or module |
-| `/debug-service` | Logs + healthcheck + restart-count + 3 hypotheses      |
-| `/onboard`       | Setup checklist for a new dev environment              |
+Rule of thumb: if you can do it with one Bash command, it doesn't need
+a slash command — add it to the Makefile or `./arasul` instead.
 
 ---
 

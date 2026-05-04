@@ -462,106 +462,68 @@ Each stage below has: **Goal · Pre-conditions · Tasks · Files · Acceptance �
 
 ---
 
-### Stage 6 — Slash Commands
+### Stage 6 — Slash Commands (REDESIGNED 2026-05-04)
 
-**Goal:** ~22 high-quality slash commands in `.claude/commands/`, all with proper YAML frontmatter, all verb-first English names. Replaces ad-hoc workflows.
+**History:** The original Stage 6 spec called for 28 verb-first commands
+covering every routine workflow (`/add-route`, `/create-migration`,
+`/run-tests-backend`, `/check-health`, etc.). The user rejected that
+scope on 2026-05-04: most of those are Bash-aliasable (Makefile job)
+or skill-suggestable (model-driven), not real slash commands. Mental
+overhead too high. Real value is only in **multi-step, interview-driven,
+context-aware** workflows — the rest belongs in Makefile or
+`.claude/skills/`.
 
-**Pre-conditions:** Stages 4–5 done (so commands can reference subfolder CLAUDE.md and the new context files).
+**Goal (revised):** Exactly **two** slash commands that own the entire
+plan-and-ship lifecycle:
 
-**Naming convention (set in stone):**
+1. **`/plan <freitext>`** — Interview-driven (`AskUserQuestion` with
+   previews, hard min ≥ 5 questions across ≥ 2 rounds), researches
+   the codebase, writes `docs/plans/active/<slug>.md`, then
+   **autonomously** executes all phases without per-phase gates.
+   Ends at diff-review, hands off to `/ship`.
+2. **`/ship`** — Tests + lint + format → conventional commit →
+   archive plan to `docs/plans/done/`. **No push, no PR** —
+   user keeps push hoheit. Marked
+   `disable-model-invocation: true` (must be user-typed).
 
-- Verb-first, hyphenated, lowercase, no namespace colon.
-- Examples: `/add-route`, `/create-migration`, `/rebuild-service`, `/run-tests-backend`, `/draft-pr`.
+**Pre-conditions:** Stages 4–5 done.
 
-**Frontmatter template (every command must have this):**
+**Defaults baked into the commands:**
 
-```yaml
----
-name: <command-name> # auto-derived from filename, but explicit is better
-description: <one-line> # what triggers Claude to suggest this
-argument-hint: '<args shown in autocomplete>'
-allowed-tools: <comma-separated tool restrictions, e.g. "Bash(docker compose:*) Read Edit">
-disable-model-invocation: false # set true for destructive commands
----
-```
-
-**Catalog (22 commands, grouped):**
-
-#### Plan / Design (3)
-
-1. **`/plan-feature [name]`** — Interview-driven feature plan. Uses `AskUserQuestion` for scope/DB-touch/UI-touch/tests. Loads `apps/dashboard-backend/CLAUDE.md` + `apps/dashboard-frontend/CLAUDE.md`. Writes plan to `docs/plans/active/<name>.md` with phases (P0/P1/P2) and risk notes.
-2. **`/plan-bugfix "<symptom>"`** — Reproduces the bug from logs/stacktrace, finds root cause via grep (not symptom), proposes 2–3 fix options with trade-offs, drafts a regression test.
-3. **`/plan-refactor <module>`** — Lists call-sites of the affected code, listes breaking changes, proposes migration strategy (big-bang vs. parallel), identifies affected tests.
-
-#### Backend (3)
-
-4. **`/add-route <method> <path>`** — Generates Express route with `asyncHandler`, registers in `routes/index.js`, creates Jest test stub in `__tests__/`, updates `docs/api/API_REFERENCE.md` (or reminds via `/update-api-docs`). Replaces `.claude/context/api-endpoint.md`.
-5. **`/add-service <ServiceName>`** — New service-layer file under `apps/dashboard-backend/src/services/`, with constructor/factory and unit-test stub.
-6. **`/add-middleware <middlewareName>`** — New Express middleware following `requireAuth`/`rateLimit` pattern, with typed errors and supertest stub.
-
-#### Frontend (3)
-
-7. **`/add-component <ComponentName>`** — Scaffolds component under `apps/dashboard-frontend/src/components/` (or in a feature folder if `--in <feature>` arg). PascalCase, TypeScript, CSS variables, Vitest stub. Replaces `.claude/context/component.md`.
-8. **`/add-page <route-path>`** — New route + page component, registers in App.tsx router, sidebar entry suggestion, i18n keys.
-9. **`/add-hook use<HookName>`** — Custom hook in `src/hooks/`, TypeScript-only, `renderHook` test.
-
-#### Database (3)
-
-10. **`/create-migration <description>`** — Reads `services/postgres/init/`, computes next number (currently 086), writes `NNN_<description>.sql` with `IF NOT EXISTS` boilerplate and a "down" comment block.
-11. **`/query-db "<sql>"`** — Read-only psql; rejects anything not starting with `SELECT`/`EXPLAIN`. Limits 100 rows.
-12. **`/open-psql`** — Prints the copy-paste command for an interactive psql shell + cheat-sheet for `\d`, `\dt`, `\df`.
-
-#### Infra / Docker (4)
-
-13. **`/rebuild-service <service>`** — `docker compose up -d --build <service>`, tails logs until healthy or 120s timeout. Has `disable-model-invocation: true` (manual only).
-14. **`/show-logs <service>`** — `docker compose logs --tail=200 -f <service>` in background, highlights ERROR/WARN.
-15. **`/check-health`** — `docker compose ps` + ping `/health` endpoints + GPU status (`tegrastats` or `nvidia-smi`) + disk-free.
-16. **`/restart-service <service>`** — `docker compose restart <service>`, waits for healthcheck.
-
-#### Tests / Quality (5)
-
-17. **`/run-tests-all`** — `./scripts/test/run-tests.sh --all`. Existing `/test` becomes an alias.
-18. **`/run-tests-backend [filter]`** — Backend Jest with optional path filter.
-19. **`/run-tests-frontend [filter]`** — Frontend Vitest.
-20. **`/lint`** — ESLint + Prettier on both apps in parallel, auto-fix where safe.
-21. **`/typecheck`** — `tsc --noEmit` on backend (where applicable) + frontend.
-
-#### Git / Docs (4)
-
-22. **`/commit`** — Smart commit: reads staged diff, suggests `<type>(<scope>): <subject>`, never uses `git add -A`. Existing `/implement` is removed (overlap).
-23. **`/draft-pr`** — Diff vs. main, generates title + summary + test plan, runs `gh pr create --draft`.
-24. **`/update-api-docs`** — Detects new routes via git-diff, generates markdown blocks, patches `docs/api/API_REFERENCE.md`.
-25. **`/update-schema-docs`** — Detects new migrations, extracts tables/columns, patches `docs/api/DATABASE_SCHEMA.md` and the migration-counter in any `.claude/context/` file that mentions it.
-
-#### Onboard / Debug (3)
-
-26. **`/explain <path>`** — Reads file + call-sites, produces architecture sketch, dependencies, common-modification points.
-27. **`/debug-service <service>`** — Logs (last 200) + healthcheck + restart-count + port-check + DB-connection, proposes 3 hypotheses.
-28. **`/onboard`** — Setup checklist for new dev: `scripts/doctor.sh` + `.env` template + `make dev` + first-PR walkthrough.
-
-> **Total: 28 commands** — over the "20" target, but every one earns its place. We can demote a few to "skills" in Stage 7 if the count feels heavy.
+| Aspect             | Default                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| Slug derivation    | slugify `$ARGUMENTS` ("Add document export" → `add-document-export`)                           |
+| Slug collision     | Interview: append / replace / new-slug                                                         |
+| Branch handling    | If on `main`: ask before continuing; otherwise stay on current branch                          |
+| Plan-mode handling | `ExitPlanMode` at end of plan-write phase                                                      |
+| Memory awareness   | `/plan` reads memory feedback (no radical redesigns, preview-driven interviews) as constraints |
+| Phase granularity  | Incremental, each leaves system in working state                                               |
+| Commit during exec | **Forbidden** — only `/ship` commits                                                           |
+| Stage selection    | `/ship` reads plan's "Files Touched" and stages only those — never `git add -A`                |
+| Plan archival      | `/ship` `git mv`s plan from `active/` to `done/` and amends                                    |
 
 **Tasks:**
 
-1. For each command above: write the markdown file with frontmatter + body. Body uses `!`<command>``blocks for live state injection where useful (e.g.`/check-health`injects current`docker compose ps`).
-2. Delete `.claude/commands/{test,implement,review}.md` (replaced by the new `/run-tests-all`, `/commit`, and a fresh `/review` — see below).
-3. Add `/review` as a code-review-current-branch command (delegates to `code-reviewer` subagent from Stage 7).
-4. Validate every command file with a small script (`scripts/validate-commands.sh`) that parses YAML and checks required fields.
-5. Update `CONTRIBUTING.md` with the catalog (cross-link from Stage 3).
-6. Commit: `feat(claude): add 28 verb-first slash commands with frontmatter, retire old test/implement/review`.
-
-**Files:** ~28 new command files, 3 deletions, 1 validator script, 1 CONTRIBUTING.md update.
+1. Write `.claude/commands/plan.md` (~150 lines, six numbered phases:
+   Interview → Research → Plan-File → Approval → Execute → Diff-Review).
+2. Write `.claude/commands/ship.md` (~120 lines, seven numbered phases:
+   Pre-flight → Tests → Lint → Stage → Commit-Message → Commit → Archive).
+3. Delete `.claude/commands/{test,implement,review}.md`.
+4. Create `docs/plans/done/.gitkeep`.
+5. Update `CONTRIBUTING.md` Slash-command-catalog (28-row table → 2 rows + rationale).
+6. Update _this_ file's Stage 6 section so the plan matches reality.
+7. Single commit.
 
 **Acceptance:**
 
-- `ls .claude/commands/*.md \| wc -l` ≥ 22.
-- `scripts/validate-commands.sh` passes.
-- Manual smoke: invoke `/check-health` and `/run-tests-backend` in Claude Code; both work.
-- `CONTRIBUTING.md` lists every command.
+- `ls .claude/commands/*.md` returns exactly `plan.md` and `ship.md`.
+- `docs/plans/done/` exists and is committed (via `.gitkeep`).
+- `CONTRIBUTING.md` slash-catalog has 2 rows, not 28.
+- Saving memory note (`feedback_slash_commands.md`) so future sessions don't re-propose the maximalist catalog.
 
-**Risk:** Low (pure additions), but volume is high. Plan for 1 day of focused writing.
-**Rollback:** Delete the new command files.
-**Estimate:** 6–8 h.
+**Risk:** Low. Pure additions to commands/, plus three deletions.
+**Rollback:** Revert.
+**Estimate:** 1.5 h actual (was 6–8 h for original 28-command spec).
 
 ---
 
