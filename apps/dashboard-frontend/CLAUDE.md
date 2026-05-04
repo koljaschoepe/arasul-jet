@@ -97,9 +97,8 @@ lucide`. App-specific wrappers live in `components/ui/` (one level up).
 ### 6. Code-splitting for non-critical routes
 
 `App.tsx` lazy-loads every secondary route via `React.lazy(() => import(...))`
-
-- `<Suspense fallback={...}>`. New top-level features should follow that
-  pattern; the Login, Chat, and shell are eagerly imported.
+inside a `<Suspense fallback={...}>` boundary. New top-level features should
+follow that pattern; the Login, Chat, and shell are eagerly imported.
 
 ### 7. Errors — wrap routes with `RouteErrorBoundary`, components with `ComponentErrorBoundary`
 
