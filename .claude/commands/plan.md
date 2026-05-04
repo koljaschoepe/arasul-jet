@@ -74,20 +74,26 @@ challenge it.
 
 ---
 
-## Phase 2 — Research
+## Phase 2 — Research (delegate to `research-agent`)
 
-Before writing the plan, **read the actual code**. Don't guess.
+Don't read files yourself in this phase. Use the `Agent` tool with
+`subagent_type: "research-agent"` so the heavy file-reading happens
+on an isolated context — your main context stays lean for execution.
 
-1. Identify the entry points the work touches. Read them.
-2. Look at one or two **adjacent existing patterns** (e.g. if adding a
-   route, read a similar existing route from the same domain).
-3. Determine: Files Touched, Migrations Needed, Tests Required, Docs
-   to Update.
-4. List **one** existing convention you'll explicitly reuse (so the
-   plan stays additive, not divergent).
+Pass the agent:
 
-If the research surfaces something that contradicts the interview
-answers, **stop and ask** — don't paper over it in the plan.
+- The user's freitext (`$ARGUMENTS`).
+- The interview answers from Phase 1, summarised.
+- A short note about what you already know is in scope.
+
+The agent returns a structured report (Files Touched / Existing Patterns
+to Reuse / Migrations / Tests Required / Docs to Update / Risks / One
+Convention to Reuse). **Use that report verbatim as the basis for the
+plan file.**
+
+If the report contradicts an interview answer (e.g., user said "no
+DB change" but research found one is required), **stop and ask** —
+don't paper over it.
 
 ---
 
@@ -182,16 +188,43 @@ Do **not** commit during execution. `/ship` owns commits.
 
 ---
 
-## Phase 6 — Diff review
+## Phase 6 — Diff review (delegate to `code-reviewer`)
 
 When all phases are done:
 
-1. Print `git status --short`.
-2. Print a one-liner per file: `<path> (+<X>/-<Y>)`.
-3. Tell the user which acceptance criteria are now met (cross-check
-   against the plan).
-4. Tell the user the next step is `/ship` (and that `/ship` will
-   run the full test suite + commit + archive the plan).
+1. Print `git status --short` and `git diff --stat`.
+2. **Spawn `code-reviewer`** via the `Agent` tool with
+   `subagent_type: "code-reviewer"`. Pass it: the user's freitext, the
+   plan summary, and a note about which phases ran. The agent reads
+   the diff itself.
+3. Receive the structured report: `Critical / Warnings / Suggestions`.
+
+### Critical-finding loop (auto-fix, max 1 retry)
+
+- **If `Critical` is non-empty**: this is the _only_ category you
+  auto-address. For each Critical entry:
+  - Read the cited file at the cited line (`±10` lines around it).
+  - Apply the smallest edit that resolves the finding.
+  - Don't refactor; fix.
+- After all Critical edits: re-spawn `code-reviewer` once. Pass the
+  same context plus a note "second pass after critical fixes".
+- If the second pass still has Critical findings: **stop**, list them
+  for the user, exit. Don't loop further.
+
+### Warnings + Suggestions
+
+Print them to the user verbatim, grouped by category. Do **not**
+auto-address them — they're judgement calls. The user decides whether
+to feed them back into another planning round or to `/ship` as-is.
+
+### Hand-off
+
+Tell the user:
+
+- Acceptance criteria now met (cross-check against the plan).
+- Final diff stats.
+- Critical findings status (none / addressed in N passes / stuck).
+- Next step: `/ship` (runs full test suite + lint + commit + archive plan).
 
 Stop. Do not run `/ship` yourself.
 
@@ -201,9 +234,13 @@ Stop. Do not run `/ship` yourself.
 
 - Interview with fewer than 5 total questions, or all in one round.
 - Interview without `AskUserQuestion` (free-text only).
-- Skipping Phase 2 research because "the request seems clear".
+- Skipping Phase 2 (or doing the research yourself instead of via
+  `research-agent`).
 - Phases that each break the build until the next phase fixes it.
 - Committing inside Phase 5.
+- Skipping `code-reviewer` in Phase 6.
+- Auto-fixing Warnings or Suggestions (only Critical is auto-fixed).
+- Looping the critical-fix more than one retry.
 - Running `/ship` automatically without the user typing it.
 - Ignoring memory-recorded user feedback about radical redesigns or
   preview-driven interviews.

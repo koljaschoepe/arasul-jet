@@ -527,44 +527,62 @@ plan-and-ship lifecycle:
 
 ---
 
-### Stage 7 — Subagents
+### Stage 7 — Subagents (REDESIGNED 2026-05-04)
 
-**Goal:** 8 subagents in `.claude/agents/` for repeated specialized work.
+**History:** Original Stage 7 spec called for 8 subagents covering
+backend/frontend/python/db/infra/test/doc-writer + reviewer. User
+rejected on 2026-05-04 with the same minimalism reasoning as Stage 6:
+6 of 8 were "main agent with a different hat" — they read the same
+subfolder CLAUDE.md the main agent already reads. Only research and
+review have a real reason to be separate (isolated context + distinct
+mental model).
 
-**Pre-conditions:** Stages 4–5 done.
+**Goal (revised):** Exactly **two** subagents, both auto-invoked by
+`/plan`, neither user-callable as a slash command.
 
 **Catalog:**
 
-| Name                 | Purpose                                           | Tools                                          | Model  | Project/User         |
-| -------------------- | ------------------------------------------------- | ---------------------------------------------- | ------ | -------------------- |
-| `code-reviewer`      | Read-only review of pending changes               | `Read, Grep, Glob, Bash(git diff:* git log:*)` | sonnet | project              |
-| `backend-api-dev`    | Implement Express endpoints per backend CLAUDE.md | `Read, Edit, Write, Bash, Grep`                | sonnet | project              |
-| `frontend-ui-dev`    | Build React components per frontend CLAUDE.md     | `Read, Edit, Write, Bash, Grep`                | sonnet | project              |
-| `python-service-dev` | Develop Python services (LLM, embedding, indexer) | `Read, Edit, Write, Bash, Grep`                | sonnet | project              |
-| `db-migrator`        | Write safe Postgres migrations                    | `Read, Edit, Write, Bash`                      | sonnet | project              |
-| `infra-ops`          | Docker Compose, Traefik, networking               | `Read, Edit, Write, Bash, Grep`                | sonnet | project              |
-| `test-runner`        | Run + fix failing tests                           | `Read, Edit, Write, Bash, Grep`                | haiku  | project (cheap+fast) |
-| `doc-writer`         | Sync API/schema/admin docs                        | `Read, Write, Bash, Grep`                      | haiku  | project              |
+| Name             | Purpose                                                              | Tools                                             | Model  | Invoked from    |
+| ---------------- | -------------------------------------------------------------------- | ------------------------------------------------- | ------ | --------------- |
+| `research-agent` | Read codebase area being touched. Returns Files/Patterns/Risks.      | `Read, Grep, Glob`                                | sonnet | `/plan` Phase 2 |
+| `code-reviewer`  | Critique pending changes. Critical/Warnings/Suggestions + file:line. | `Read, Grep, Glob, Bash` (git diff/log/show only) | sonnet | `/plan` Phase 6 |
+
+**Critical-fix loop** (defined in `/plan` Phase 6): if `code-reviewer`
+returns Critical findings, `/plan` addresses each by editing the cited
+file, then re-spawns the reviewer once. Stop after 1 retry. Warnings
+and Suggestions are _never_ auto-fixed — only printed for the user.
+
+**Pre-conditions:** Stages 4–6 done (so `/plan` exists to invoke them).
 
 **Tasks:**
 
-1. For each agent: write the markdown file with frontmatter (`name`, `description`, `tools`, `model`, optional `color`) + system-prompt body that references the relevant subfolder CLAUDE.md.
-2. `code-reviewer` is the most important one — give it a tight prompt: critical/warnings/suggestions split, file:line citations, no rewrites.
-3. Add the catalog to `CONTRIBUTING.md` (extends Stage 3).
-4. Smoke-test each by asking Claude to delegate: "Use the code-reviewer to review the last commit", etc.
-5. Commit: `feat(claude): add 8 project-level subagents (code-reviewer, backend/frontend/python-dev, db-migrator, infra-ops, test-runner, doc-writer)`.
-
-**Files:** 8 new subagent files in `.claude/agents/`.
+1. Write `.claude/agents/research-agent.md` (~80 lines): read-only,
+   structured-output prompt, hard rules (no editing, concise, no
+   speculation).
+2. Write `.claude/agents/code-reviewer.md` (~90 lines): read-only,
+   structured-output prompt with Critical/Warnings/Suggestions buckets
+   tied to subfolder CLAUDE.md "Forbidden" lists.
+3. Update `.claude/commands/plan.md` Phase 2 → delegate to
+   `research-agent`. Phase 6 → spawn `code-reviewer` + critical-fix
+   loop + print Warnings/Suggestions verbatim.
+4. Update `CONTRIBUTING.md` §9 (Code review) — describe both agents
+   as auto-invoked, drop user-typed invocation guidance.
+5. Update _this_ file's Stage 7 section.
+6. Memory note (`feedback_subagents.md`) so future sessions don't
+   re-propose the maximalist 8-agent catalog.
+7. Single commit.
 
 **Acceptance:**
 
-- 8 files exist, each with valid frontmatter.
-- `code-reviewer` works on a real commit.
-- `CONTRIBUTING.md` lists them all.
+- `ls .claude/agents/*.md` returns exactly `research-agent.md` and `code-reviewer.md`.
+- `/plan.md` Phase 2 explicitly delegates to `research-agent` via Agent tool.
+- `/plan.md` Phase 6 explicitly spawns `code-reviewer` + has the critical-fix loop documented.
+- `CONTRIBUTING.md` §9 reflects auto-only invocation.
+- Memory note saved.
 
-**Risk:** Low.
-**Rollback:** Delete files.
-**Estimate:** 3 h.
+**Risk:** Low. Pure additions to `.claude/agents/`, surgical edits to `/plan.md`.
+**Rollback:** Revert.
+**Estimate:** 1.5 h actual (was 3 h for the 8-agent spec).
 
 ---
 

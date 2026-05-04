@@ -193,13 +193,19 @@ a slash command — add it to the Makefile or `./arasul` instead.
 
 ## 9. Code review
 
-Use the [`code-reviewer`](.claude/agents/code-reviewer.md) subagent for a first pass before requesting human review:
+`/plan` invokes two subagents automatically — they aren't user-typed:
 
-> Use the code-reviewer to review the last commit on this branch.
+| Agent            | When            | Purpose                                                                                              |
+| ---------------- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| `research-agent` | `/plan` Phase 2 | Heavy code-reading on isolated context. Returns Files / Patterns / Risks summary for the plan file.  |
+| `code-reviewer`  | `/plan` Phase 6 | Reviews the diff before `/ship`. Returns Critical / Warnings / Suggestions with file:line citations. |
 
-It is read-only, returns Critical / Warnings / Suggestions, and cites file:line for each finding.
+**Auto-fix policy:** `/plan` automatically addresses `Critical` findings
+(max 1 retry). `Warnings` and `Suggestions` are surfaced for the user
+to triage — never auto-applied.
 
-Human reviewers focus on:
+Both agents are read-only (no Edit / Write). They complement, not replace,
+human review. Humans focus on:
 
 - Architectural fit (does it belong where it lives?).
 - Test coverage of the change's behavior (not just lines).
