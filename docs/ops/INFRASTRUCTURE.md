@@ -1,4 +1,8 @@
-# Infrastructure Context - Docker, Compose, Traefik, Networking, Deployment
+# Infrastructure — Docker, Compose, Traefik, Networking, Deployment
+
+> Long-form reference for the platform's container topology and edge wiring.
+> For service-folder conventions read [`services/CLAUDE.md`](../../services/CLAUDE.md).
+> For day-to-day deploy steps read [`docs/ops/DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Docker Compose Structure
 

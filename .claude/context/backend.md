@@ -1,196 +1,88 @@
-# Backend Context — Node.js/Express API
+# Backend — Advanced Context
 
-## Entry Points
+> Long-form notes on the Express backend that don't belong in
+> [`apps/dashboard-backend/CLAUDE.md`](../../apps/dashboard-backend/CLAUDE.md)
+> (which is the rules-and-forbidden-patterns contract). Read this when
+> you need the _why_ behind a pattern, the boot sequence, or the
+> inter-service URL map.
 
-- **Main App**: `apps/dashboard-backend/src/index.js` (bootstrap, middleware, WebSocket)
-- **Central Router**: `apps/dashboard-backend/src/routes/index.js` (all route registration)
-- **Services**: `apps/dashboard-backend/src/services/` (business logic by domain)
-- **Middleware**: `apps/dashboard-backend/src/middleware/`
-- **Tests**: `apps/dashboard-backend/__tests__/`
+## Boot sequence (`src/index.js`)
 
-## Route Registration
+1. `dotenv.config()` + `resolveSecrets()` — Docker secrets from
+   `/run/secrets/*` are hydrated into `process.env`.
+2. **Required-env gate** — refuses to start without
+   `POSTGRES_PASSWORD / JWT_SECRET / MINIO_ROOT_USER / MINIO_ROOT_PASSWORD`.
+3. **Production-only weak-secret gate** — `JWT_SECRET ≥ 32 chars`,
+   `POSTGRES_PASSWORD ≥ 16`, no `dev|test|default|example|changeme|password`
+   substrings. Refuses to start otherwise.
+4. Helmet → CORS (RFC 1918 + `.local` mDNS) → cookie parser →
+   JSON body (10 MB) → request log (non-prod) → audit log → CSRF →
+   `/api` routes → `notFoundHandler` → `errorHandler`.
+5. HTTP server attached, then WebSocket via `noServer` mode (`server.on('upgrade')`).
+6. `migrationRunner` runs unapplied SQL from `services/postgres/init/`.
+7. `eventLoopMonitor` (`perf_hooks`) starts — multi-month uptime guard.
 
-Routes are registered in `src/routes/index.js`, NOT in `src/index.js`:
+## Auth model
 
-```javascript
-// src/routes/index.js
-const exampleRoutes = require('./example');
-router.use('/example', requireAuth, exampleRoutes);
-```
+| Layer        | Detail                                                                    |
+| ------------ | ------------------------------------------------------------------------- |
+| JWT          | HS256, 4 h expiry (`JWT_EXPIRY`), UUID-v4 JTI per token                   |
+| Verify path  | signature → `token_blacklist` → in-process userCache (50 ent / 60 s) → DB |
+| Sessions     | `active_sessions` (JTI, IP, UA); revoke = blacklist JTI                   |
+| API key      | `aras_<32-hex>`, header `X-API-Key`, route via `requireApiKey`            |
+| Forward-auth | `/api/auth/verify` for Traefik → returns `X-User-Id`/`X-User-Name`        |
+| WebSocket    | token via `?token=` query param (cookie unreliable for upgrades)          |
 
-## Route Files
+## Inter-service URLs (`src/config/services.js`)
 
-| File                    | Endpoints                 | Auth    |
-| ----------------------- | ------------------------- | ------- |
-| auth.js                 | `/api/auth/*`             | Mixed   |
-| llm.js                  | `/api/llm/*`              | Yes     |
-| rag.js                  | `/api/rag/*`              | Yes     |
-| chats.js                | `/api/chats/*`            | Yes     |
-| documents.js            | `/api/documents/*`        | Yes     |
-| ai/models.js            | `/api/models/*`           | Yes     |
-| system/system.js        | `/api/system/*`           | Yes     |
-| system/services.js      | `/api/services/*`         | Yes     |
-| system/metrics.js       | `/api/metrics/*`          | Yes     |
-| system/logs.js          | `/api/logs/*`             | Yes     |
-| system/database.js      | `/api/database/*`         | Yes     |
-| system/tailscale.js     | `/api/tailscale/*`        | Yes     |
-| admin/settings.js       | `/api/settings/*`         | Yes     |
-| admin/update.js         | `/api/update/*`           | Yes     |
-| store/store.js          | `/api/store/*`            | Yes     |
-| store/appstore.js       | `/api/apps/*`             | Yes     |
-| telegram/telegram.js    | `/api/telegram/*`         | Yes     |
-| telegram/telegramApp.js | `/api/telegram-app/*`     | Yes     |
-| telegram/bots.js        | `/api/telegram-bots/*`    | Yes     |
-| datentabellen/tables.js | `/api/v1/datentabellen/*` | Yes     |
-| documents.js (spaces)   | `/api/spaces/*`           | Yes     |
-| knowledgeGraph.js       | `/api/knowledge-graph/*`  | Yes     |
-| projects.js             | `/api/projects/*`         | Yes     |
-| alerts.js               | `/api/alerts/*`           | Yes     |
-| audit.js                | `/api/audit/*`            | Yes     |
-| selfhealing.js          | `/api/self-healing/*`     | Yes     |
-| events.js               | `/api/events/*`           | Yes     |
-| workflows.js            | `/api/workflows/*`        | Yes     |
-| workspaces.js           | `/api/workspaces/*`       | Yes     |
-| externalApi.js          | `/api/v1/external/*`      | API Key |
-| claudeTerminal.js       | `/api/claude-terminal/*`  | Yes     |
+| Service          | URL                              | Notes                          |
+| ---------------- | -------------------------------- | ------------------------------ |
+| LLM (Ollama)     | `http://llm-service:11434`       | Inference                      |
+| LLM management   | `http://llm-service:11436`       | Pull/list/delete models        |
+| Embeddings       | `http://embedding-service:11435` | BGE-M3                         |
+| Qdrant           | `http://qdrant:6333`             | Vector DB                      |
+| MinIO            | `http://minio:9000`              | Object storage                 |
+| Document indexer | `http://document-indexer:9102`   | Ingest pipeline                |
+| Docker proxy     | `tcp://docker-proxy:2375`        | Read-only socket via tecnativa |
 
-## Error Handling (MANDATORY)
+Always read URLs from `services.<name>.url`. Don't bake `http://*:port`
+strings into routes — `services.js` owns timeouts and overrides too.
 
-```javascript
-const { asyncHandler } = require('../middleware/errorHandler');
-const { ValidationError, NotFoundError } = require('../utils/errors');
+## Database client (`src/database.js`)
 
-router.post(
-  '/',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    if (!req.body.name) throw new ValidationError('Name ist erforderlich');
-    // ... Logik
-    res.status(201).json({ data: result });
-  })
-);
-```
+- Shared pool: min 2, max 20. `statement_timeout = 30 s`,
+  `idle_in_transaction_session_timeout = 60 s`. Leak warning > 60 s.
+- One-shot: `db.query(sql, params)`. Transactions: `db.getClient()` +
+  `BEGIN`/`COMMIT`/`ROLLBACK`/`release()` in a `try/finally`.
+- Second pool: `dataDatabase.js` for the user-data DB (`arasul_data_db`).
 
-| Error Class             | Status | Use For                   |
-| ----------------------- | ------ | ------------------------- |
-| ValidationError         | 400    | Bad input, missing fields |
-| UnauthorizedError       | 401    | Auth required             |
-| ForbiddenError          | 403    | Not authorized            |
-| NotFoundError           | 404    | Resource not found        |
-| ConflictError           | 409    | Duplicate entry           |
-| RateLimitError          | 429    | Rate limit exceeded       |
-| ServiceUnavailableError | 503    | External service down     |
+## Routes are mounted in `routes/index.js`
 
-**Rules:**
+The route inventory lives at the top of `apps/dashboard-backend/src/routes/index.js`
+(`API_ROUTE_GROUPS`). It is the source of truth — don't replicate it here
+because it goes stale immediately. `GET /api/_meta` returns the same
+structure at runtime.
 
-- ALWAYS: `asyncHandler()` wrapper, Custom Errors aus `utils/errors.js`
-- NEVER: try-catch auf Route-Level, `res.status(4xx).json()` für Errors
+## Reference files for common patterns
 
-## Auth Middleware
+| Pattern           | File                                                   |
+| ----------------- | ------------------------------------------------------ |
+| Simple CRUD       | `routes/admin/settings.js`                             |
+| SSE streaming     | `routes/llm.js` + `utils/sseHelper.js`                 |
+| File upload       | `routes/documents.js`                                  |
+| WebSocket upgrade | `src/index.js` (search `'upgrade'`)                    |
+| Queue-based job   | `services/llm/llmQueueService.js`                      |
+| GDPR / audit      | `routes/admin/gdpr.js` + `utils/auditLog.js`           |
+| Circuit breaker   | `utils/retry.js` (see `circuitBreakers.get('ollama')`) |
 
-```javascript
-const { requireAuth, optionalAuth } = require('../middleware/auth');
-const { requireApiKey } = require('../middleware/apiKeyAuth');
+## Things that have bitten us
 
-router.get('/', requireAuth, ...);          // JWT required
-router.get('/public', optionalAuth, ...);   // JWT optional, user attached if valid
-router.post('/webhook', requireApiKey, ...); // API key (X-API-Key header)
-```
-
-- JWT: HS256, 4h Expiry, cached 60s to reduce DB hits
-- API Key Format: `aras_<32-char-hex>`
-- Forward Auth: `/api/auth/verify` für Traefik (returns X-User-Id, X-User-Name headers)
-
-## Middleware Chain (in order)
-
-1. Helmet (security headers, CSP for local network)
-2. CORS (RFC 1918 private networks + .local mDNS)
-3. Cookie parser + JSON body (10MB limit)
-4. Request logging (non-production)
-5. Audit logging (masks sensitive fields)
-6. CSRF protection (double-submit cookie, skipped for safe methods + API keys)
-7. Routes at `/api`
-
-## Services Organization
-
-```
-src/services/
-├── llm/                    # LLM queue, job processor, model management, Ollama readiness
-├── rag/                    # RAG pipeline (ragCore.js — hybrid search + reranking)
-├── context/                # Context injection, budget management, query optimization
-├── memory/                 # Chat memory, compaction service
-├── telegram/               # Bot orchestration, polling, webhooks, voice, notifications
-├── core/                   # Cache, Docker, event listener
-├── auth/                   # Password service
-└── app/                    # App store service
-```
-
-## Key Architecture Patterns
-
-### LLM Queue (Single-Stream)
-
-- Only ONE LLM stream at a time (GPU memory protection)
-- Jobs queued in FIFO order with priority support
-- Client subscribes for streaming updates
-- Tab-switch resilient (job continues in background)
-
-### SSE Streaming
-
-```javascript
-const { createSSEHelper } = require('../utils/sseHelper');
-const sse = createSSEHelper(res);
-sse.send({ token: 'hello' });
-sse.done();
-```
-
-### WebSocket
-
-- Metrics live-stream: `/api/metrics/live-stream` (authenticated)
-- Telegram setup: `/api/telegram-app/ws`
-- Both use noServer mode, routed via `server.on('upgrade')`
-
-### Inter-Service Communication
-
-- LLM: `http://llm-service:11434` (inference) + `:11436` (management)
-- Embeddings: `http://embedding-service:11435`
-- Qdrant: `http://qdrant:6333`
-- MinIO: `http://minio:9000`
-- Docker: `tcp://docker-proxy:2375`
-- Config: `src/config/services.js` (centralized timeouts)
-
-### Database
-
-```javascript
-const db = require('../database');
-const result = await db.query('SELECT * FROM table WHERE id = $1', [id]);
-```
-
-- Pool: min 2, max 20 connections
-- Statement timeout: 30s
-- Leak detection: warns if connection held >60s
-
-## Testing
-
-```bash
-./scripts/test/run-tests.sh --backend     # Full suite
-cd apps/dashboard-backend && npm test      # Direct
-npm run test:unit                          # Unit only
-npm run test:integration                   # Integration only
-```
-
-- Framework: Jest 29.7 + supertest
-- Mocks: `__tests__/testHelpers.js` (createMockDatabase, createMockResponse, etc.)
-- Auth mocks: `__tests__/helpers/authMock.js` (setupAuthMocks, generateTestToken)
-- Coverage thresholds: Lines 30%, Functions 30%, Branches 20%
-
-## Reference Files
-
-| Pattern         | Example File                                     |
-| --------------- | ------------------------------------------------ |
-| Simple CRUD     | `routes/admin/settings.js`                       |
-| SSE Streaming   | `routes/llm.js`                                  |
-| File Upload     | `routes/documents.js`                            |
-| WebSocket       | `src/index.js` (upgrade handling)                |
-| Queue-based Job | `services/llm/llmQueueService.js`                |
-| Error handling  | `middleware/errorHandler.js` + `utils/errors.js` |
-| Auth patterns   | `middleware/auth.js`                             |
+- **Triggering errors after `res.write()`**: `errorHandler` is a no-op
+  once headers are sent. Streams must flush an error frame themselves.
+- **Forgetting `requireAuth`**: there is no implicit-auth middleware.
+  Every `routes/index.js` mount is explicit — keep it that way.
+- **Unbounded `for`-loops over external services**: wrap in
+  `circuitBreakers.get(...).execute(...)` so a single broken dependency
+  can't take down the whole queue.
+- **Passing the wrong DB pool**: data tables live in `dataDatabase.js`,
+  not the main `db`. Mixing them silently corrupts schemas.

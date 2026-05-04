@@ -1,4 +1,10 @@
-# Frontend Context - React 19 SPA (TypeScript)
+# Frontend Handbook — React 19 SPA (TypeScript)
+
+> **Long-form recipes** for working in `apps/dashboard-frontend/`.
+> For the short, non-negotiable rules (forbidden patterns, folder layout,
+> placement rules) read [`apps/dashboard-frontend/CLAUDE.md`](../../apps/dashboard-frontend/CLAUDE.md) first.
+> This handbook is the worked-example companion: hooks usage, modal patterns,
+> theming details, common forms.
 
 ## Tech Stack
 

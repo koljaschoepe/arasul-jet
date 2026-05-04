@@ -5,6 +5,7 @@
 **Telegram System Monitor** ist eine Store-App fÃ¼r das Arasul Edge-System, die einen **bidirektionalen Telegram Bot** bereitstellt. Der Bot ermÃ¶glicht die **FernÃ¼berwachung und -steuerung** des Arasul-Systems Ã¼ber Telegram â€“ mit **KI-gestÃ¼tzter Analyse** durch ein dediziertes Claude Code Terminal.
 
 KernfunktionalitÃ¤t:
+
 - **Proaktive Benachrichtigungen**: Systemstatus, Warnungen, Workflow-Events
 - **Interaktive Abfragen**: Nutzer kann per Chat Systeminformationen anfragen
 - **KI-gestÃ¼tzte Diagnose**: Claude Code analysiert Logs, erkennt Muster, gibt Empfehlungen
@@ -15,18 +16,21 @@ KernfunktionalitÃ¤t:
 ## 2) Problem & Motivation
 
 ### Problem
+
 - Arasul-Systeme laufen oft **unbeaufsichtigt** beim Kunden (Kanzlei, Beratung, Agentur)
 - Aktuelle Ãœberwachung erfordert **aktiven Zugriff** auf die lokale Web-UI
 - Kritische Events (Speicher voll, Service down, Thermal Throttling) bleiben **unbemerkt**
 - Keine MÃ¶glichkeit zur **schnellen Remote-Diagnose** ohne VPN/SSH-Zugang
 
 ### Warum Telegram?
+
 - **Ãœberall verfÃ¼gbar**: Mobile + Desktop, keine zusÃ¤tzliche App nÃ¶tig
 - **Push-fÃ¤hig**: Echte Benachrichtigungen auf dem Smartphone
 - **NAT/Firewall-freundlich**: Ausgehende Verbindungen genÃ¼gen (kein Port-Forwarding)
 - **Vertraut**: Viele Nutzer kennen Telegram bereits
 
 ### Warum Claude Code Integration?
+
 - **Intelligente Analyse** statt roher Metriken
 - **NatÃ¼rlichsprachliche Interaktion**: "Was ist gerade los?" statt CLI-Befehle
 - **Kontextbewusst**: Claude kennt das System, die Konfiguration, die Historie
@@ -37,11 +41,13 @@ KernfunktionalitÃ¤t:
 ## 3) Ziele (PrioritÃ¤t: hoch â†’ niedrig)
 
 ### G1 â€“ Einfache Bot-Einrichtung (High)
+
 - Nutzer kann in < 5 Minuten einen funktionierenden Telegram Bot einrichten
 - Guided Setup mit klaren Schritten (Token eingeben, Chat-ID verknÃ¼pfen)
 - Keine Telegram-API-Kenntnisse erforderlich
 
 ### G2 â€“ Proaktive SystemÃ¼berwachung (High)
+
 - Automatische Benachrichtigungen bei:
   - Service-AusfÃ¤llen oder -Neustarts
   - Ressourcen-Grenzwerten (CPU, RAM, Disk, Temperatur)
@@ -49,6 +55,7 @@ KernfunktionalitÃ¤t:
   - Sicherheitsrelevanten Events
 
 ### G3 â€“ Bidirektionale Kommunikation (High)
+
 - Nutzer kann per Telegram:
   - Systemstatus abfragen
   - Services neu starten
@@ -56,11 +63,13 @@ KernfunktionalitÃ¤t:
   - Freie Fragen stellen (via Claude)
 
 ### G4 â€“ KI-gestÃ¼tzte Diagnose (Medium)
+
 - Dediziertes Claude Code Terminal fÃ¼r diese App
 - Claude analysiert Systemzustand und gibt verstÃ¤ndliche Antworten
 - Erkennt Muster und warnt proaktiv
 
 ### G5 â€“ Sicherheit & Zugriffskontrolle (High)
+
 - Nur autorisierte Telegram-Nutzer kÃ¶nnen interagieren
 - Kritische Aktionen erfordern BestÃ¤tigung
 - Audit-Log aller Bot-Interaktionen
@@ -80,12 +89,14 @@ KernfunktionalitÃ¤t:
 ## 5) Annahmen & Leitprinzipien
 
 ### Annahmen
+
 - Nutzer hat Telegram installiert und kann einen Bot erstellen (via @BotFather)
 - System hat **ausgehenden Internetzugang** (HTTPS zu api.telegram.org)
 - Claude Code App ist bereits installiert oder wird mit-installiert
 - Nutzer ist technisch versiert genug fÃ¼r Basic-Setup (IT-Leitung, nicht Endanwender)
 
 ### Leitprinzipien
+
 - **Privacy-first**: Keine Systemdaten an Dritte auÃŸer Telegram-API
 - **Fail-safe**: Bot-Ausfall darf Hauptsystem nicht beeintrÃ¤chtigen
 - **Sparsam**: Minimaler Ressourcenverbrauch, keine permanente Claude-Session
@@ -96,16 +107,19 @@ KernfunktionalitÃ¤t:
 ## 6) Zielgruppen & Personas
 
 ### P1 â€“ IT-Verantwortlicher beim Kunden
+
 - **Will**: Wissen, dass das System lÃ¤uft, ohne stÃ¤ndig reinzuschauen
 - **Schmerz**: Erst von Problemen erfahren, wenn Nutzer sich beschweren
 - **Erfolg**: Push-Nachricht "Disk 90% voll" bevor es kritisch wird
 
 ### P2 â€“ Field Engineer / Support
+
 - **Will**: Schnelle Remote-Diagnose ohne VPN-Setup
 - **Schmerz**: "KÃ¶nnen Sie mal kurz schauen?" erfordert Vor-Ort-Termin
 - **Erfolg**: "Zeig mir die letzten Fehler" â†’ sofortige Antwort
 
 ### P3 â€“ Power User (z. B. Kanzlei-IT)
+
 - **Will**: Benachrichtigung wenn RAG-Index fertig ist
 - **Schmerz**: Muss immer wieder UI checken
 - **Erfolg**: "Index-Update abgeschlossen, 247 neue Dokumente"
@@ -115,6 +129,7 @@ KernfunktionalitÃ¤t:
 ## 7) Kern-Use-Cases (MVP)
 
 ### UC-01: Bot-Ersteinrichtung
+
 1. Nutzer Ã¶ffnet "Telegram System Monitor" im Arasul Store
 2. App zeigt Anleitung: "Erstelle Bot via @BotFather, kopiere Token"
 3. Nutzer fÃ¼gt Token ein
@@ -122,39 +137,45 @@ KernfunktionalitÃ¤t:
 5. Nutzer bestÃ¤tigt Empfang â†’ Bot ist aktiv
 
 ### UC-02: Proaktive Warnung
+
 1. System erkennt: RAM > 90%
 2. Bot sendet: "âš ï¸� Speicherwarnung: RAM bei 92%. LLM-Service verbraucht 8.2 GB."
 3. Nutzer tippt: "Details"
 4. Claude analysiert und antwortet: "Der RAG-Indexer lÃ¤uft gerade. Nach Abschluss (~5 Min) sinkt die Last."
 
 ### UC-03: Status-Abfrage
+
 1. Nutzer sendet: "Status"
 2. Bot antwortet mit kompakter Ãœbersicht:
+
    ```
    ğŸ–¥ Arasul System Status
    â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�
    CPU: 45% | GPU: 62% | RAM: 71%
    Disk: 234 GB frei (67%)
    Temp: 52Â°C âœ“
-   
+
    Services: 5/5 running
    n8n: 3 Workflows aktiv
    RAG: Index aktuell (1.247 Docs)
    ```
 
 ### UC-04: Freie Frage an Claude
+
 1. Nutzer sendet: "Warum ist die GPU-Last so hoch?"
 2. Bot leitet an Claude Code Terminal weiter
 3. Claude prÃ¼ft Prozesse, antwortet:
    "Der LLM-Service verarbeitet gerade 3 parallele Anfragen. Das ist normal bei hoher Nutzung. Soll ich die Queue-LÃ¤nge anzeigen?"
 
 ### UC-05: Service-Neustart
+
 1. Nutzer sendet: "/restart llm"
 2. Bot fragt: "LLM-Service neu starten? (ja/nein)"
 3. Nutzer bestÃ¤tigt: "ja"
 4. Bot fÃ¼hrt aus, meldet: "âœ… LLM-Service neugestartet. Healthcheck OK."
 
 ### UC-06: Workflow-Benachrichtigung
+
 1. n8n-Workflow "TÃ¤glicher Report" lÃ¤uft durch
 2. Bot sendet: "ğŸ“Š Workflow 'TÃ¤glicher Report' abgeschlossen (2m 34s)"
 3. Bei Fehler: "â�Œ Workflow 'Datenimport' fehlgeschlagen. /logs workflow_datenimport"
@@ -166,6 +187,7 @@ KernfunktionalitÃ¤t:
 ### 8.1 Funktionale Anforderungen (FR)
 
 **FR-01 â€“ Bot-Konfiguration**
+
 - Token-Eingabe mit Validierung
 - Chat-ID Ermittlung (automatisch beim ersten /start)
 - Test-Nachricht senden
@@ -173,6 +195,7 @@ KernfunktionalitÃ¤t:
 - Token Ã¤ndern/lÃ¶schen
 
 **FR-02 â€“ Benachrichtigungs-Engine**
+
 - Konfigurierbare Alert-Schwellen:
   - CPU/GPU/RAM (Default: 80%, 90%, 95%)
   - Disk (Default: 80%, 90%, 95%)
@@ -186,6 +209,7 @@ KernfunktionalitÃ¤t:
 - Rate-Limiting (max. X Nachrichten pro Minute)
 
 **FR-03 â€“ Befehlsverarbeitung**
+
 - Vordefinierte Befehle:
   - `/status` â€“ SystemÃ¼bersicht
   - `/services` â€“ Service-Liste mit Status
@@ -197,22 +221,26 @@ KernfunktionalitÃ¤t:
 - Freie Texteingabe â†’ Weiterleitung an Claude
 
 **FR-04 â€“ Claude Code Integration**
+
 - Dediziertes Terminal fÃ¼r diese App (isoliert von anderen Claude Code Sessions)
 - Kontext-Injection: Systeminfo, aktuelle Metriken, letzte Logs
 - Timeout fÃ¼r Claude-Anfragen (Default: 60s)
 - Fallback bei Claude-NichtverfÃ¼gbarkeit: "Claude ist gerade nicht erreichbar. Hier die Rohmetriken: ..."
 
 **FR-05 â€“ Interaktive Dialoge**
+
 - Inline-Keyboards fÃ¼r hÃ¤ufige Aktionen
 - BestÃ¤tigungs-Dialoge fÃ¼r kritische Aktionen
 - Kontext-Tracking (Nutzer kann Follow-up-Fragen stellen)
 
 **FR-06 â€“ Audit & Logging**
+
 - Alle Bot-Interaktionen werden geloggt
 - Kritische Aktionen (Restarts, Config-Ã„nderungen) mit Timestamp
 - Logs in Local UI einsehbar
 
 **FR-07 â€“ Multi-Admin (Optional, Post-MVP)**
+
 - Mehrere Telegram-Nutzer autorisieren
 - Rollen: Admin (voller Zugriff) vs. Viewer (nur lesen)
 
@@ -221,27 +249,32 @@ KernfunktionalitÃ¤t:
 ### 8.2 Nicht-funktionale Anforderungen (NFR)
 
 **NFR-01 â€“ VerfÃ¼gbarkeit**
+
 - Bot-Service startet automatisch mit System
 - Reconnect bei Verbindungsabbruch (exponential backoff)
 - Heartbeat-Check alle 60s
 
 **NFR-02 â€“ Latenz**
+
 - Einfache Befehle: < 2s Antwortzeit
 - Claude-Anfragen: < 30s (mit "Typing"-Indikator)
 - Alerts: < 10s nach Event-Erkennung
 
 **NFR-03 â€“ Ressourcenverbrauch**
+
 - Idle: < 50 MB RAM, < 1% CPU
 - Aktiv: < 200 MB RAM (ohne Claude)
 - Claude-Session: On-demand, nicht permanent
 
 **NFR-04 â€“ Sicherheit**
+
 - Token verschlÃ¼sselt gespeichert
 - Chat-ID Whitelist (nur autorisierte Nutzer)
 - Keine PasswÃ¶rter/Secrets Ã¼ber Telegram senden
 - HTTPS fÃ¼r alle API-Calls
 
 **NFR-05 â€“ Offline-Verhalten**
+
 - Bei fehlendem Internet: Alerts werden gepuffert (max. 100)
 - Nach Reconnect: Gepufferte Alerts senden (mit Zeitstempel)
 - Lokale Befehle funktionieren weiterhin (Ã¼ber Local UI)
@@ -296,29 +329,34 @@ KernfunktionalitÃ¤t:
 ### 9.2 Komponenten-Beschreibung
 
 **Bot Service**
+
 - Long-Polling oder Webhook fÃ¼r Telegram Updates
 - Verbindungsmanagement, Reconnect-Logik
 - Message Serialization/Deserialization
 
 **Alert Engine**
+
 - Subscribes zu System-Events (via Arasul Event Bus)
 - Evaluiert Alert-Regeln
 - Deduplizierung (kein Spam bei flapping)
 - Queue fÃ¼r ausgehende Alerts
 
 **Command Processor**
+
 - Parsed eingehende Nachrichten
 - Unterscheidet: Befehl vs. freie Frage
 - Dispatched an entsprechende Handler
 - Formatiert Antworten (Markdown, Inline-Keyboards)
 
 **Message Router**
+
 - Zentrale Routing-Logik
 - Entscheidet: Direkte Antwort vs. Claude vs. Systemabfrage
 - Rate Limiting
 - Audit Logging
 
 **Claude Code Terminal (Dedicated)**
+
 - Isolierte Claude Code Session nur fÃ¼r Bot-Anfragen
 - Kontext: Systeminfo, Metriken, Logs
 - Keine Ãœberschneidung mit anderen Claude Code Nutzungen
@@ -328,6 +366,7 @@ KernfunktionalitÃ¤t:
 ## 10) UI-Integration (Arasul Store & Settings)
 
 ### 10.1 Store-Eintrag
+
 ```
 â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”�
 â”‚  ğŸ“± Telegram System Monitor             â”‚
@@ -343,6 +382,7 @@ KernfunktionalitÃ¤t:
 ```
 
 ### 10.2 Setup-Wizard (nach Installation)
+
 1. **Willkommen** â€“ Kurze ErklÃ¤rung, was der Bot kann
 2. **Bot erstellen** â€“ Anleitung mit Screenshots fÃ¼r @BotFather
 3. **Token eingeben** â€“ Textfeld + Validierung
@@ -351,6 +391,7 @@ KernfunktionalitÃ¤t:
 6. **Fertig** â€“ Ãœbersicht der Befehle, Link zu Einstellungen
 
 ### 10.3 Settings-Seite
+
 ```
 â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”�
 â”‚  Telegram System Monitor â€“ Settings     â”‚
@@ -404,6 +445,7 @@ KernfunktionalitÃ¤t:
 ### 11.1 Nachrichtenformate
 
 **System-Status (kompakt)**
+
 ```
 ğŸ–¥ Arasul Status
 â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�â”�
@@ -418,6 +460,7 @@ Services: 5/5 âœ“
 ```
 
 **Alert (Warning)**
+
 ```
 âš ï¸� Speicherwarnung
 
@@ -433,6 +476,7 @@ Top-Verbraucher:
 ```
 
 **Alert (Critical)**
+
 ```
 ğŸš¨ KRITISCH: Service ausgefallen
 
@@ -447,15 +491,16 @@ Letzte Log-Zeile:
 ```
 
 **Claude-Antwort**
+
 ```
 ğŸ¤– Claude
 
-Die hohe GPU-Last (78%) kommt vom LLM-Service, 
-der gerade 3 parallele Inferenz-Anfragen 
+Die hohe GPU-Last (78%) kommt vom LLM-Service,
+der gerade 3 parallele Inferenz-Anfragen
 verarbeitet.
 
-Das ist normales Verhalten bei aktiver Nutzung. 
-Die Last sollte in wenigen Sekunden sinken, 
+Das ist normales Verhalten bei aktiver Nutzung.
+Die Last sollte in wenigen Sekunden sinken,
 sobald die Anfragen abgeschlossen sind.
 
 Soll ich die Request-Queue anzeigen?
@@ -465,18 +510,18 @@ Soll ich die Request-Queue anzeigen?
 
 ### 11.2 BefehlsÃ¼bersicht
 
-| Befehl | Beschreibung |
-|--------|--------------|
-| `/start` | Bot aktivieren, Chat-ID registrieren |
-| `/status` | SystemÃ¼bersicht |
-| `/services` | Alle Services mit Status |
-| `/logs <service>` | Letzte 20 Log-Zeilen |
-| `/restart <service>` | Service neu starten |
-| `/workflows` | n8n Workflow-Status |
-| `/disk` | SpeicherÃ¼bersicht |
-| `/alerts` | Alert-Einstellungen anzeigen |
-| `/mute <minuten>` | Alerts temporÃ¤r pausieren |
-| `/help` | Befehlsliste |
+| Befehl               | Beschreibung                         |
+| -------------------- | ------------------------------------ |
+| `/start`             | Bot aktivieren, Chat-ID registrieren |
+| `/status`            | SystemÃ¼bersicht                     |
+| `/services`          | Alle Services mit Status             |
+| `/logs <service>`    | Letzte 20 Log-Zeilen                 |
+| `/restart <service>` | Service neu starten                  |
+| `/workflows`         | n8n Workflow-Status                  |
+| `/disk`              | SpeicherÃ¼bersicht                   |
+| `/alerts`            | Alert-Einstellungen anzeigen         |
+| `/mute <minuten>`    | Alerts temporÃ¤r pausieren           |
+| `/help`              | Befehlsliste                         |
 
 Freier Text â†’ Wird an Claude weitergeleitet
 
@@ -487,6 +532,7 @@ Freier Text â†’ Wird an Claude weitergeleitet
 ### 12.1 Dediziertes Terminal
 
 Die App nutzt ein **eigenes Claude Code Terminal**, das:
+
 - **Isoliert** von anderen Claude Code Sessions lÃ¤uft
 - **Spezialisiert** auf SystemÃ¼berwachung ist
 - **Kontext** Ã¼ber das Arasul-System vorgeladen hat
@@ -494,7 +540,7 @@ Die App nutzt ein **eigenes Claude Code Terminal**, das:
 ### 12.2 System-Prompt fÃ¼r Claude
 
 ```
-Du bist der KI-Assistent fÃ¼r ein Arasul Edge-System. 
+Du bist der KI-Assistent fÃ¼r ein Arasul Edge-System.
 Du kommunizierst via Telegram mit dem Administrator.
 
 SYSTEMKONTEXT:
@@ -522,6 +568,7 @@ REGELN:
 ### 12.3 Kontext-Injection
 
 Bei jeder Anfrage erhÃ¤lt Claude:
+
 ```json
 {
   "system_metrics": {
@@ -555,21 +602,25 @@ Bei jeder Anfrage erhÃ¤lt Claude:
 ## 13) Sicherheitskonzept
 
 ### 13.1 Authentifizierung
+
 - **Chat-ID Whitelist**: Nur registrierte Telegram-Nutzer kÃ¶nnen interagieren
 - **Erstregistrierung**: Muss Ã¼ber Local UI bestÃ¤tigt werden
 - **Unbekannte Absender**: Werden ignoriert, optional Alert an Admin
 
 ### 13.2 Autorisierung
+
 - **Read-Only Befehle**: /status, /services, /logs, /workflows
 - **Write Befehle**: /restart, /mute (erfordern BestÃ¤tigung)
 - **Admin-Only**: Token Ã¤ndern, Bot deaktivieren (nur via Local UI)
 
 ### 13.3 Datenminimierung
+
 - Keine PasswÃ¶rter/Secrets Ã¼ber Telegram
 - Log-AuszÃ¼ge: Nur letzte N Zeilen, keine sensitiven Daten
 - Metriken: Aggregiert, keine personenbezogenen Daten
 
 ### 13.4 Token-Sicherheit
+
 - Bot-Token verschlÃ¼sselt gespeichert (nicht im Klartext in Config)
 - Token-Rotation Ã¼ber UI mÃ¶glich
 - Bei Kompromittierung: Token in @BotFather widerrufen + neu setzen
@@ -580,18 +631,18 @@ Bei jeder Anfrage erhÃ¤lt Claude:
 
 ### 14.1 Testszenarien
 
-| Test | Beschreibung | Erwartetes Ergebnis |
-|------|--------------|---------------------|
-| T01 | Bot-Setup mit gÃ¼ltigem Token | Test-Nachricht wird empfangen |
-| T02 | Bot-Setup mit ungÃ¼ltigem Token | Fehlermeldung, kein Absturz |
-| T03 | /status Befehl | Korrekte Metriken in < 2s |
-| T04 | RAM > 90% | Alert wird gesendet in < 10s |
-| T05 | Service-Crash | Alert + Log-Auszug |
-| T06 | Freie Frage an Claude | Sinnvolle Antwort in < 30s |
-| T07 | /restart mit BestÃ¤tigung | Service wird neu gestartet |
-| T08 | Unbekannter Absender | Wird ignoriert |
-| T09 | Internet-Ausfall | Alerts werden gepuffert |
-| T10 | Internet-Wiederherstellung | Gepufferte Alerts werden gesendet |
+| Test | Beschreibung                    | Erwartetes Ergebnis               |
+| ---- | ------------------------------- | --------------------------------- |
+| T01  | Bot-Setup mit gÃ¼ltigem Token   | Test-Nachricht wird empfangen     |
+| T02  | Bot-Setup mit ungÃ¼ltigem Token | Fehlermeldung, kein Absturz       |
+| T03  | /status Befehl                  | Korrekte Metriken in < 2s         |
+| T04  | RAM > 90%                       | Alert wird gesendet in < 10s      |
+| T05  | Service-Crash                   | Alert + Log-Auszug                |
+| T06  | Freie Frage an Claude           | Sinnvolle Antwort in < 30s        |
+| T07  | /restart mit BestÃ¤tigung       | Service wird neu gestartet        |
+| T08  | Unbekannter Absender            | Wird ignoriert                    |
+| T09  | Internet-Ausfall                | Alerts werden gepuffert           |
+| T10  | Internet-Wiederherstellung      | Gepufferte Alerts werden gesendet |
 
 ### 14.2 Akzeptanzkriterien (MVP)
 
@@ -607,6 +658,7 @@ Bei jeder Anfrage erhÃ¤lt Claude:
 ## 15) Roadmap
 
 ### Phase 1 â€“ MVP Core
+
 - Bot-Setup Wizard
 - Basis-Befehle (/status, /services, /logs, /help)
 - Ressourcen-Alerts (CPU, RAM, Disk, Temp)
@@ -614,6 +666,7 @@ Bei jeder Anfrage erhÃ¤lt Claude:
 - Claude-Integration fÃ¼r freie Fragen
 
 ### Phase 2 â€“ Enhanced Monitoring
+
 - n8n Workflow-Integration
 - Erweiterte Alert-Konfiguration
 - Ruhezeiten
@@ -621,6 +674,7 @@ Bei jeder Anfrage erhÃ¤lt Claude:
 - Inline-Keyboards fÃ¼r hÃ¤ufige Aktionen
 
 ### Phase 3 â€“ Advanced Features
+
 - Multi-Admin Support
 - Rollen (Admin/Viewer)
 - Scheduled Reports ("Sende tÃ¤glich um 9:00 Status")
@@ -668,19 +722,20 @@ Bei jeder Anfrage erhÃ¤lt Claude:
 
 ## 18) AbhÃ¤ngigkeiten
 
-| AbhÃ¤ngigkeit | Status | Notwendig fÃ¼r |
-|--------------|--------|---------------|
-| Arasul Core Services | âœ“ Vorhanden | Metriken, Logs, Service-Control |
-| Claude Code App | âœ“ Im Store | KI-gestÃ¼tzte Analyse |
-| Arasul Event Bus | âœ“ Vorhanden | Alert-Trigger |
-| Ausgehender HTTPS | Vorausgesetzt | Telegram API |
-| Telegram Account | Nutzer-Aufgabe | Bot-Erstellung |
+| AbhÃ¤ngigkeit        | Status         | Notwendig fÃ¼r                  |
+| -------------------- | -------------- | ------------------------------- |
+| Arasul Core Services | âœ“ Vorhanden  | Metriken, Logs, Service-Control |
+| Claude Code App      | âœ“ Im Store   | KI-gestÃ¼tzte Analyse           |
+| Arasul Event Bus     | âœ“ Vorhanden  | Alert-Trigger                   |
+| Ausgehender HTTPS    | Vorausgesetzt  | Telegram API                    |
+| Telegram Account     | Nutzer-Aufgabe | Bot-Erstellung                  |
 
 ---
 
 ## 19) Ressourcen-SchÃ¤tzung
 
 ### Entwicklungsaufwand
+
 - Bot-Service + Telegram-Integration: ~3-4 Tage
 - Alert-Engine: ~2-3 Tage
 - Command-Processor: ~2-3 Tage
@@ -691,6 +746,7 @@ Bei jeder Anfrage erhÃ¤lt Claude:
 **Gesamt MVP: ~15-20 Entwicklertage**
 
 ### Laufende Kosten
+
 - Telegram API: Kostenlos
 - Claude Code: Teil der bestehenden Subscription
 - Infrastruktur: LÃ¤uft lokal, keine Cloud-Kosten

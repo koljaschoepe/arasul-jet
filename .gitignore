@@ -78,6 +78,7 @@ config/dev/
 .mcp.json
 .claude/plans/
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
 config/base/
 
 # Test output artifacts

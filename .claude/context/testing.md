@@ -168,18 +168,9 @@ cd services/self-healing-agent && python -m pytest tests/
 
 ---
 
-## Coverage-Lücken (Stand April 2026)
+## Coverage gaps (April 2026 audit)
 
-### Backend — Untestete Routes (23 von 40)
-
-Admin: audit, selfhealing, settings, update |
-AI: embeddings, knowledge-graph, memory, models, spaces |
-Datentabellen: index, quotes, rows, tables |
-External: alerts, claudeTerminal, events, externalApi |
-Store: appstore | System: tailscale | Telegram: app, settings
-
-### Frontend — ~110 von 145 Components ohne Tests
-
-### Python — 11 von 13 Services ohne Tests
-
-Kritisch: document-indexer (16 Module, 0 Tests)
+- Backend: ~23/40 routes untested.
+- Frontend: ~110/145 components untested.
+- Python: 11/13 services untested. Critical gap: `document-indexer`
+  (16 modules, 0 tests).

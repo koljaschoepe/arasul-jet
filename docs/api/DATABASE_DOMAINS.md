@@ -1,11 +1,20 @@
-# Database Context - PostgreSQL 16
+# Database Domains — Human-readable Schema Map
+
+> Domain-grouped overview of the Postgres tables. Companion to the
+> auto-generated [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) (which is
+> alphabetic and exhaustive).
+>
+> For migration mechanics (numbering, idempotency, the runner) read
+> [`services/postgres/CLAUDE.md`](../../services/postgres/CLAUDE.md).
 
 ## Overview
 
-- **Location**: `services/postgres/init/*.sql` (executed alphabetically on first DB start)
-- **Connection**: `apps/dashboard-backend/src/database.js`
-- **Migrations**: 59 files (000-058), **next available: `059_*.sql`**
-- **Two databases**: `arasul_db` (main) and `arasul_data_db` (user data tables / Datentabellen)
+- **Location**: `services/postgres/init/*.sql` — executed alphabetically on first DB start, and re-applied per checksum by the dashboard-backend migration runner.
+- **Connection**: `apps/dashboard-backend/src/database.js` (main pool) and `dataDatabase.js` (user-data pool).
+- **Two databases**: `arasul_db` (main) and `arasul_data_db` (user data tables / Datentabellen).
+
+> Migration counter: read from disk —
+> `ls services/postgres/init/ | grep -E '^[0-9]+' | sort | tail -1`
 
 ## Tables by Domain
 

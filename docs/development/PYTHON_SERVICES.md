@@ -1,4 +1,8 @@
-# Context: Python Microservices
+# Python Microservices Handbook
+
+> Long-form patterns for the Python services under `services/`. For the
+> service-folder contract (Dockerfile, healthcheck, README expectations)
+> read [`services/CLAUDE.md`](../../services/CLAUDE.md) first.
 
 ## Overview
 
