@@ -21,20 +21,20 @@ The repo today is structured as an **appliance image** (customer-first). After t
 
 The overhaul is complete when **all** of the following are true:
 
-| #    | Criterion                                                                                                                                                                                                    | Verification                                                         |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| AC1  | A mid-level dev with no Jetson can run `make dev` on macOS/Linux x86 and have backend + frontend hot-reloading within 15 min of `git clone`.                                                                 | Manual smoke-test on macOS host.                                     |
-| AC2  | `README.md` is ≤ 200 lines and contains exactly one canonical "Get Started" command. No conflicting setup paths exist anywhere.                                                                              | `wc -l README.md` and grep across `docs/`.                           |
-| AC3  | `CONTRIBUTING.md` exists at repo root and covers: commit format, PR workflow, branching, language policy, test policy, slash-command catalog.                                                                | File exists, all sections present.                                   |
-| AC4  | `docs/` contains ≤ 30 markdown files at top level (down from 56). All "superseded" or "archived" content has moved to `docs/plans/archive/` or `docs/archive/`.                                              | `find docs -maxdepth 1 -name '*.md' \| wc -l`.                       |
-| AC5  | `.claude/` has the canonical structure: `commands/`, `agents/`, `hooks/`, `skills/`, `context/`, plus `settings.json`, `settings.local.json`, `README.md`. No stale plan files in `.claude/` root.           | `ls .claude/`.                                                       |
-| AC6  | At least 20 slash commands exist in `.claude/commands/`, all verb-first names (`/add-route`, `/run-tests-backend`, etc.), all with valid YAML frontmatter (`description`, `argument-hint`, `allowed-tools`). | File count + frontmatter lint.                                       |
-| AC7  | At least 6 subagents exist in `.claude/agents/` with proper frontmatter and tool restrictions.                                                                                                               | File count + frontmatter lint.                                       |
-| AC8  | `.github/workflows/ci.yml` exists and runs lint + typecheck + tests + compose-validate on every PR.                                                                                                          | Green build on a smoke-test PR.                                      |
-| AC9  | Every directory under `apps/`, `services/`, `scripts/`, `compose/`, `config/` has either a `README.md` or a `CLAUDE.md` (or both) explaining its purpose.                                                    | `find . -type d -depth 2 -not -path '*/node_modules/*'` cross-check. |
-| AC10 | All naming-convention outliers identified by audit are fixed (1 frontend file, 8 bash scripts), with cross-references updated and tests passing.                                                             | `git grep` of old names returns 0 results.                           |
-| AC11 | The `interactive_setup.sh`-lie is gone — every script referenced in docs actually exists.                                                                                                                    | Doc-link checker script.                                             |
-| AC12 | All English. Every doc, README, slash-command, and CONTRIBUTING file is in English. (Internal `.claude/memory/` and personal notes may stay German.)                                                         | Sample audit + grep for German keywords.                             |
+| #    | Criterion                                                                                                                                                                                                                                            | Verification                                                         |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| AC1  | A mid-level dev with no Jetson can run `make dev` on macOS/Linux x86 and have backend + frontend hot-reloading within 15 min of `git clone`.                                                                                                         | Manual smoke-test on macOS host.                                     |
+| AC2  | `README.md` is ≤ 200 lines and contains exactly one canonical "Get Started" command. No conflicting setup paths exist anywhere.                                                                                                                      | `wc -l README.md` and grep across `docs/`.                           |
+| AC3  | `CONTRIBUTING.md` exists at repo root and covers: commit format, PR workflow, branching, language policy, test policy, slash-command catalog.                                                                                                        | File exists, all sections present.                                   |
+| AC4  | `docs/` contains ≤ 30 markdown files at top level (down from 56). All "superseded" or "archived" content has moved to `docs/plans/archive/` or `docs/archive/`.                                                                                      | `find docs -maxdepth 1 -name '*.md' \| wc -l`.                       |
+| AC5  | `.claude/` has the canonical structure: `commands/`, `agents/`, `hooks/`, `skills/`, `context/`, plus `settings.json`, `settings.local.json`, `README.md`. No stale plan files in `.claude/` root.                                                   | `ls .claude/`.                                                       |
+| AC6  | `.claude/commands/` contains exactly the minimalist set: `/plan` + `/ship`, both with valid YAML frontmatter (`description`, `argument-hint`). Rationale: Stage 6 was redesigned 2026-05-04 — most original commands were Bash-aliasable.            | File count + frontmatter lint.                                       |
+| AC7  | `.claude/agents/` contains exactly two subagents: `research-agent` + `code-reviewer`, both auto-invoked by `/plan` only, both read-only. Rationale: Stage 7 was redesigned 2026-05-04 — most original agents were "main agent with a different hat". | File count + frontmatter lint.                                       |
+| AC8  | `.github/workflows/ci.yml` exists and runs lint + typecheck + tests + compose-validate on every PR.                                                                                                                                                  | Green build on a smoke-test PR.                                      |
+| AC9  | Every directory under `apps/`, `services/`, `scripts/`, `compose/`, `config/` has either a `README.md` or a `CLAUDE.md` (or both) explaining its purpose.                                                                                            | `find . -type d -depth 2 -not -path '*/node_modules/*'` cross-check. |
+| AC10 | All naming-convention outliers identified by audit are fixed (1 frontend file, 8 bash scripts), with cross-references updated and tests passing.                                                                                                     | `git grep` of old names returns 0 results.                           |
+| AC11 | The `interactive_setup.sh`-lie is gone — every script referenced in docs actually exists.                                                                                                                                                            | Doc-link checker script.                                             |
+| AC12 | All English. Every doc, README, slash-command, and CONTRIBUTING file is in English. (Internal `.claude/memory/` and personal notes may stay German.)                                                                                                 | Sample audit + grep for German keywords.                             |
 
 ---
 
@@ -76,9 +76,9 @@ Stage 4 ── Subfolder CLAUDE.md hierarchy
    │
 Stage 5 ── .claude/ Restructure (folder skeleton + cleanup)
    │
-Stage 6 ── Slash Commands (~22, verb-first, English)
+Stage 6 ── Slash Commands (/plan + /ship — minimalist, redesigned)
    │
-Stage 7 ── Subagents (8 in .claude/agents/)
+Stage 7 ── Subagents (research-agent + code-reviewer, auto-only)
    │
 Stage 8 ── Settings + Hooks (settings.json + hooks/)
    │
