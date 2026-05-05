@@ -11,11 +11,11 @@ Arasul is a commercial edge-AI box: customers buy a physical Jetson appliance th
 | You are…                                         | Run this                    | Then read                                                                                                   |
 | ------------------------------------------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | **An operator** with a Jetson appliance          | `./arasul bootstrap`        | [`docs/ops/DEPLOYMENT.md`](docs/ops/DEPLOYMENT.md)                                                          |
-| **A developer** on macOS / Linux x86 (no Jetson) | `make dev` \*               | [`docs/development/ONBOARDING.md`](docs/development/ONBOARDING.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| **A developer** iterating on a Jetson (SSH)      | `./arasul bootstrap`        | [`docs/development/ONBOARDING.md`](docs/development/ONBOARDING.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | **An end-customer** with a pre-configured device | open `https://arasul.local` | [`docs/ops/QUICK_START.md`](docs/ops/QUICK_START.md) (German)                                               |
 | **An AI assistant** (Claude Code et al.)         | _read context first_        | [`CLAUDE.md`](CLAUDE.md), [`apps/*/CLAUDE.md`](apps/), [`.claude/`](.claude/)                               |
 
-\* `make dev` boots backend and frontend with hot-reload against a small mock-LLM stack — no Jetson hardware required. The target ships as part of the ongoing [DX overhaul](docs/plans/active/DX_OVERHAUL.md); on branches where it isn't merged yet, fall back to `docker compose up -d` and follow the rebuild loop in `docs/development/ONBOARDING.md`.
+> Dev iteration happens on the Jetson (NVIDIA Container Runtime + CUDA are part of the platform). After editing `apps/dashboard-{backend,frontend}/src/`, run `docker compose up -d --build <service>` and verify in the browser. There is no x86 laptop hot-reload mode — see [`docs/development/ONBOARDING.md`](docs/development/ONBOARDING.md) for the rationale.
 
 ---
 

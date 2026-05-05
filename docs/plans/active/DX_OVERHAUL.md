@@ -6,14 +6,16 @@
 
 ---
 
-## 0. Vision
+## 0. Vision (revised 2026-05-05)
 
 Two audiences have to love this repo:
 
-1. **A new mid-level developer** clones it, reads `README.md`, runs **one command**, and is editing code with hot-reload within 15 minutes — even on an x86 laptop without a Jetson.
+1. **A new mid-level developer** clones it, reads `README.md`, SSHes to a Jetson, runs **one command** (`./arasul bootstrap`), and is iterating on real services within 30 minutes.
 2. **Claude Code (and any other AI coding agent)** opens the repo and instantly understands the architecture, conventions, and available workflows from `.claude/` + `CLAUDE.md` files at every level.
 
 The repo today is structured as an **appliance image** (customer-first). After this overhaul it is structured as a **product codebase** — appliance qualities preserved, but development workflow is first-class.
+
+**What changed from the original vision:** the original §0 promised "even on an x86 laptop without a Jetson" via a mock-stack (`make dev`). That promise was withdrawn 2026-05-05 — see Stage 10 (DROPPED) for the rationale. The dev workflow is Jetson-native, by design.
 
 ---
 

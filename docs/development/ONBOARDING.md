@@ -10,18 +10,17 @@ This guide is for **developers**. If you are an operator deploying Arasul to a J
 
 ### Prerequisites
 
+You need access to a **Jetson AGX Orin or Thor** (your own dev unit, the team's shared dev Jetson via SSH, or a customer appliance for staging). Arasul is a Jetson-native edge-AI platform: GPU + CUDA + NVIDIA Container Runtime are part of the product, not an interchangeable backend. There is no x86 laptop dev mode — see "Why no x86 dev mode?" below.
+
+On the Jetson you need:
+
 - **Docker** 24.0+ with Docker Compose V2
-- **Node.js** matching `.nvmrc` (use `nvm install` to align)
+- **NVIDIA Container Runtime** (preinstalled on JetPack)
 - **Git**
-- **Make**
+- **Node.js** matching `.nvmrc` (only required if you run `./scripts/test/run-tests.sh` directly on the host; the running services bring their own runtimes via Docker)
 - **`gh`** (GitHub CLI) — only if you plan to draft PRs from the terminal
-- **NVIDIA Container Runtime** — only required on Jetson hardware
 
-### Two paths to start
-
-Pick the one that matches your environment.
-
-#### Path A — You have a Jetson (Orin / Thor)
+### Set up
 
 ```bash
 git clone <repo-url> arasul-jet
@@ -31,18 +30,9 @@ cd arasul-jet
 
 The `arasul` script is the canonical CLI for the platform. Run `./arasul --help` for the full list of subcommands.
 
-#### Path B — You have an x86 laptop (no Jetson)
+### Why no x86 dev mode?
 
-```bash
-git clone <repo-url> arasul-jet
-cd arasul-jet
-./scripts/doctor.sh       # pre-flight: Docker / Node / Compose / ports
-make dev                  # backend (nodemon) + frontend (Vite HMR) against a mock-LLM stack
-```
-
-`make dev` brings up only the backing services you need (Postgres, MinIO, mock-LLM, real Qdrant) and runs the dashboard apps directly on your host with hot-reload. The mock LLM echoes prompts with a `[mock]` prefix instead of running real inference — fine for UI work, not for testing model behavior.
-
-> If `make dev` or `scripts/doctor.sh` is missing on your branch, it has not been merged yet. Fall back to `docker compose up -d` and use the rebuild loop described below.
+Arasul's core surfaces (LLM service, embedding service, Qdrant indexing) are tied to the GPU. A mock-stack on x86 (mock-LLM that echoes prompts, mock-embedding that returns hashed vectors) was scoped and rejected during the DX overhaul because the mocks would diverge from real CUDA behavior — UI work might pass against the mocks but break on the Jetson, creating false confidence. The single canonical workflow is "edit on the Jetson, rebuild the affected service, verify in the browser". See [`docs/plans/active/DX_OVERHAUL.md`](../plans/active/DX_OVERHAUL.md) §Stage 10 for the full rationale.
 
 ---
 
@@ -102,13 +92,7 @@ arasul-jet/
 
 ## Minute 10–15: Local Dev Loop
 
-### With `make dev` (path B, recommended on x86)
-
-`make dev` runs the dashboard apps on your host with hot-reload. Edit and save — backend nodemon restarts in <1s, frontend Vite refreshes the browser instantly.
-
-### Without `make dev` (Jetson, or pre-Stage-10 branches)
-
-Arasul has **no host-side dev server in this mode** — every change requires a Docker rebuild:
+Arasul has **no host-side dev server with hot-reload** — every change goes through a Docker rebuild on the Jetson. This is intentional (see "Why no x86 dev mode?" above).
 
 ```bash
 # Backend change
@@ -117,11 +101,13 @@ docker compose logs -f dashboard-backend
 
 # Frontend change
 docker compose up -d --build dashboard-frontend
-# Reload the browser at https://<host>/
+# Reload the browser at https://<jetson-host>/
 
 # Both at once
 docker compose up -d --build dashboard-backend dashboard-frontend
 ```
+
+A backend rebuild typically takes ~30s on Jetson Orin; a frontend rebuild ~60s (Vite production build). For pure markup tweaks, the frontend container also runs Vite in watch mode in development — check `apps/dashboard-frontend/Dockerfile` for the current setup.
 
 ### Test Before Commit
 

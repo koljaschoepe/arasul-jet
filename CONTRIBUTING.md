@@ -8,26 +8,25 @@ For the cold-clone-to-first-PR walkthrough, read [`docs/development/ONBOARDING.m
 
 ## 1. Development setup
 
-### Quickest path (x86, no Jetson hardware)
+Arasul is a Jetson-native edge-AI appliance. All development happens **on a Jetson** — typically over SSH to a dev unit. There is no local-laptop dev server with mocks, because mocks of the GPU/CUDA stack would diverge from production behavior and create false confidence in tests.
 
 ```bash
 git clone <repo-url> arasul-jet
 cd arasul-jet
-./scripts/doctor.sh       # pre-flight checks
-make dev                  # backend (nodemon) + frontend (Vite HMR) against a mock-LLM stack
+./arasul bootstrap        # full appliance bring-up: detects hardware, generates .env, pulls images, starts services
+docker compose ps         # confirm all services are healthy
 ```
 
-`make dev` is the canonical contributor entry point. It runs the dashboard apps directly on your host with hot-reload, against a small Compose stack of backing services (Postgres, MinIO, mock-LLM, real Qdrant). The mock LLM echoes prompts with a `[mock]` prefix — fine for UI work, not for testing model behavior.
-
-> `make dev` and `scripts/doctor.sh` ship as part of [Stage 10 of the DX overhaul](docs/plans/active/DX_OVERHAUL.md). Until they're merged on your branch, fall back to `docker compose up -d` and the rebuild loop documented in `docs/development/ONBOARDING.md`.
-
-### On a Jetson appliance
+After editing `apps/dashboard-{backend,frontend}/src/` or any `services/<name>/`:
 
 ```bash
-./arasul bootstrap        # full appliance bring-up
+docker compose up -d --build dashboard-backend     # or dashboard-frontend, or any service name
+docker compose logs -f dashboard-backend           # watch the rebuild + startup
 ```
 
-See [`docs/ops/DEPLOYMENT.md`](docs/ops/DEPLOYMENT.md) for the operator-side workflow.
+Verify in the browser at `https://<jetson-host>/`. This rebuild loop is the canonical contributor workflow — see [`docs/development/ONBOARDING.md`](docs/development/ONBOARDING.md) for the full walkthrough including the daily-commands cheatsheet.
+
+For operators deploying to a customer appliance, see [`docs/ops/DEPLOYMENT.md`](docs/ops/DEPLOYMENT.md).
 
 ---
 
@@ -62,7 +61,7 @@ Examples:
 feat(backend): add /api/projects/:id/archive endpoint
 fix(rag): handle empty PDF chunks in indexer pipeline
 refactor(llm-queue): collapse to single in-flight stream
-docs(onboarding): add x86 dev path with make dev
+docs(onboarding): document the SSH-to-Jetson dev workflow
 chore(claude): introduce .claude/agents/ scaffold
 ci: add GitHub Actions workflow for lint + typecheck
 ```
