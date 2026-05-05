@@ -1,8 +1,12 @@
 # DX Overhaul — Developer Experience & Claude Code Setup
 
-> **Status:** Active · **Owner:** Kolja · **Created:** 2026-05-03 · **Target:** 2026-05-17 (≈2 weeks)
+> **Status:** ✅ COMPLETED 2026-05-05 · **Owner:** Kolja · **Created:** 2026-05-03 · **Closed:** 2026-05-05 (3 days vs. 2-week target)
 >
 > **Goal:** Reduce onboarding-to-productive time from "1–2 days" to "<2 hours" for a mid-level developer cloning the repo, while making the Claude Code setup a best-in-class reference.
+>
+> **Outcome:** All 12 active stages merged on `feat/dx-overhaul` (Stage 10 dropped 2026-05-05 with rationale; Stage 11 slimmed to surgical fixes on the existing CI). All 12 ACs verified — see verification matrix at the end of §1.
+>
+> Kept here under `active/` until the branch is merged to `main`. After merge, this file moves to `docs/plans/archive/2026-05_dx-overhaul.md`.
 
 ---
 
