@@ -1,4 +1,4 @@
-ARG NODE_VERSION=20.19
+ARG NODE_VERSION=22
 FROM node:${NODE_VERSION}-alpine AS builder
 
 LABEL org.opencontainers.image.architecture="arm64"
