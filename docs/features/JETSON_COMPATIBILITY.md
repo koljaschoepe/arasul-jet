@@ -485,7 +485,7 @@ The metrics-collector runs a GPU monitor (`gpu_monitor.py`, NVML-based) with Jet
 
 ## Related Documentation
 
-- [Deployment Guide](DEPLOYMENT.md)
-- [LLM Service](../services/llm-service/README.md)
-- [Embedding Service](../services/embedding-service/README.md)
-- [Self-Healing Agent](../services/self-healing-agent/README.md)
+- [Deployment Guide](../ops/DEPLOYMENT.md)
+- [LLM Service](../../services/llm-service/README.md)
+- [Embedding Service](../../services/embedding-service/README.md)
+- [Self-Healing Agent](../../services/self-healing-agent/README.md)

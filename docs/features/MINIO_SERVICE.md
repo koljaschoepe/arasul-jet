@@ -375,4 +375,4 @@ Key metrics:
 - [MinIO Official Docs](https://min.io/docs/minio/linux/index.html)
 - [Documents API](../api/API_REFERENCE.md#documents)
 - [Backup Service](../ops/BACKUP_SYSTEM.md)
-- [Traefik Configuration](../config/traefik/README.md)
+- [Traefik Configuration](../../config/traefik/README.md)

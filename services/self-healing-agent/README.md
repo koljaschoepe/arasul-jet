@@ -192,5 +192,4 @@ docker exec self-healing-agent python -c "from healing_engine import check_servi
 ## Related Documentation
 
 - [Self-Healing Implementation](../../docs/features/SELF_HEALING_IMPLEMENTATION.md) - Detailed strategy
-- [GPU Error Handling](../../docs/GPU_ERROR_HANDLING.md) - GPU recovery details
 - [Metrics Collector](../metrics-collector/README.md) - Source of threshold data

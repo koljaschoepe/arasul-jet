@@ -472,5 +472,5 @@ Full reference: [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 
 - [DATABASE_SCHEMA.md](api/DATABASE_SCHEMA.md) - Database structure
 - [API_REFERENCE.md](api/API_REFERENCE.md) - API endpoints
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment & installation
+- [Deployment](ops/DEPLOYMENT.md) - Deployment & installation
 - [DEVELOPMENT.md](development/DEVELOPMENT.md) - Development workflows

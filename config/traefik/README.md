@@ -434,5 +434,4 @@ curl -H "Host: arasul.local" http://localhost/api/metrics/live
 ## See Also
 
 - [Traefik Documentation](https://doc.traefik.io/traefik/)
-- [PRD §18 - Reverse Proxy](../../prd.md#18-reverse-proxy)
 - [LOGGING.md](../../docs/ops/LOGGING.md) - Log analysis

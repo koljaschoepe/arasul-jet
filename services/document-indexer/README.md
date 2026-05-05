@@ -160,4 +160,3 @@ Returns `200 OK` when service is healthy.
 
 - [RAG System](../../CLAUDE.md#rag-system-retrieval-augmented-generation) - RAG overview
 - [Embedding Service](../embedding-service/README.md) - Vector generation
-- [MinIO Buckets](../../docs/MINIO_BUCKETS.md) - Storage configuration

@@ -370,7 +370,7 @@ docker compose logs reverse-proxy | tail -50
 
 ### Known Issues
 
-See [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md).
+See [BUGS_AND_FIXES.md](../../BUGS_AND_FIXES.md).
 
 ---
 
@@ -420,4 +420,4 @@ Kein separater "Skalierungscode" noetig. `git pull && docker compose up -d --bui
 - [API_ERRORS.md](../api/API_ERRORS.md) - Error codes & handling
 - [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) - Frontend design guidelines
 - [DATABASE_SCHEMA.md](../api/DATABASE_SCHEMA.md) - Database tables
-- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture
+- [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture

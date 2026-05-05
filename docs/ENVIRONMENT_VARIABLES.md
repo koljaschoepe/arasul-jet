@@ -745,5 +745,5 @@ If both `VAR` and `VAR_FILE` are set, the file-based value wins (overwrites the 
 
 ## Related Documentation
 
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Setup & deployment guide
+- [Deployment](ops/DEPLOYMENT.md) - Setup & deployment guide
 - [config/README.md](../config/README.md) - Config directory

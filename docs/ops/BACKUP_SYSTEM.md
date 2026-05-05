@@ -422,7 +422,7 @@ gpg --decrypt arasul_db_latest.sql.gz.gpg > arasul_db.sql.gz
 
 ## Related Documentation
 
-- [PostgreSQL Service](../services/postgres/README.md)
+- [PostgreSQL Service](../../services/postgres/README.md)
 - [MinIO Service](../features/MINIO_SERVICE.md)
-- [n8n Service](../services/n8n/README.md)
-- [Disaster Recovery](DEPLOYMENT.md#disaster-recovery)
+- [n8n Service](../../services/n8n/README.md)
+- [Disaster Recovery](DISASTER_RECOVERY.md)

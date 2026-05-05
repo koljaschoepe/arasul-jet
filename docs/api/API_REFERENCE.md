@@ -2502,4 +2502,4 @@ All responses include:
 
 - [Development Guide](../development/DEVELOPMENT.md) - API usage examples & patterns
 - [API Errors](API_ERRORS.md) - Complete error code reference
-- [Dashboard Backend](../apps/dashboard-backend/README.md) - Backend implementation details
+- [Dashboard Backend](../../apps/dashboard-backend/README.md) - Backend implementation details

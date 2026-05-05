@@ -233,4 +233,4 @@ Returns exit code 0 if database is accepting connections.
 ## Related Documentation
 
 - [DATABASE_SCHEMA.md](../../docs/api/DATABASE_SCHEMA.md) - Full schema documentation
-- [Dashboard Backend](../dashboard-backend/README.md) - Database client
+- [Dashboard Backend](../../apps/dashboard-backend/README.md) - Database client

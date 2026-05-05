@@ -125,12 +125,6 @@ Each service has its own `README.md` (and increasingly its own `CLAUDE.md`). See
 
 ---
 
-## Legal
-
-[`legal/`](legal/) — terms templates, compliance documents (German).
-
----
-
 ## Archive
 
 [`archive/`](archive/) — historical documents kept for reference. Do not act on the contents.

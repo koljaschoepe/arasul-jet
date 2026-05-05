@@ -399,6 +399,5 @@ find /arasul/logs -name "*.gz" -mtime +30 -delete
 
 ## See Also
 
-- [PRD §35 - Logging & Retention](../prd.md#35-logging)
 - [Logrotate Documentation](https://linux.die.net/man/8/logrotate)
 - [Docker Logging Drivers](https://docs.docker.com/config/containers/logging/configure/)
