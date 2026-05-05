@@ -21,20 +21,20 @@ The repo today is structured as an **appliance image** (customer-first). After t
 
 The overhaul is complete when **all** of the following are true:
 
-| #    | Criterion                                                                                                                                                                                                                                            | Verification                                                         |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| AC1  | A mid-level dev with no Jetson can run `make dev` on macOS/Linux x86 and have backend + frontend hot-reloading within 15 min of `git clone`.                                                                                                         | Manual smoke-test on macOS host.                                     |
-| AC2  | `README.md` is ≤ 200 lines and contains exactly one canonical "Get Started" command. No conflicting setup paths exist anywhere.                                                                                                                      | `wc -l README.md` and grep across `docs/`.                           |
-| AC3  | `CONTRIBUTING.md` exists at repo root and covers: commit format, PR workflow, branching, language policy, test policy, slash-command catalog.                                                                                                        | File exists, all sections present.                                   |
-| AC4  | `docs/` contains ≤ 30 markdown files at top level (down from 56). All "superseded" or "archived" content has moved to `docs/plans/archive/` or `docs/archive/`.                                                                                      | `find docs -maxdepth 1 -name '*.md' \| wc -l`.                       |
-| AC5  | `.claude/` has the canonical structure: `commands/`, `agents/`, `hooks/`, `skills/`, `context/`, plus `settings.json`, `settings.local.json`, `README.md`. No stale plan files in `.claude/` root.                                                   | `ls .claude/`.                                                       |
-| AC6  | `.claude/commands/` contains exactly the minimalist set: `/plan` + `/ship`, both with valid YAML frontmatter (`description`, `argument-hint`). Rationale: Stage 6 was redesigned 2026-05-04 — most original commands were Bash-aliasable.            | File count + frontmatter lint.                                       |
-| AC7  | `.claude/agents/` contains exactly two subagents: `research-agent` + `code-reviewer`, both auto-invoked by `/plan` only, both read-only. Rationale: Stage 7 was redesigned 2026-05-04 — most original agents were "main agent with a different hat". | File count + frontmatter lint.                                       |
-| AC8  | `.github/workflows/ci.yml` exists and runs lint + typecheck + tests + compose-validate on every PR.                                                                                                                                                  | Green build on a smoke-test PR.                                      |
-| AC9  | Every directory under `apps/`, `services/`, `scripts/`, `compose/`, `config/` has either a `README.md` or a `CLAUDE.md` (or both) explaining its purpose.                                                                                            | `find . -type d -depth 2 -not -path '*/node_modules/*'` cross-check. |
-| AC10 | All naming-convention outliers identified by audit are fixed (1 frontend file, 8 bash scripts), with cross-references updated and tests passing.                                                                                                     | `git grep` of old names returns 0 results.                           |
-| AC11 | The `interactive_setup.sh`-lie is gone — every script referenced in docs actually exists.                                                                                                                                                            | Doc-link checker script.                                             |
-| AC12 | All English. Every doc, README, slash-command, and CONTRIBUTING file is in English. (Internal `.claude/memory/` and personal notes may stay German.)                                                                                                 | Sample audit + grep for German keywords.                             |
+| #    | Criterion                                                                                                                                                                                                                                                                                            | Verification                                                         |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| AC1  | Onboarding has a **single canonical path** documented in `README.md` → `docs/development/ONBOARDING.md`. Dev iteration happens on the Jetson via `docker compose up -d --build` (Rule #4). Local-laptop hot-reload via mock-stack is explicitly out of scope — see Stage 10 (DROPPED) for rationale. | Cold-clone walkthrough following README only.                        |
+| AC2  | `README.md` is ≤ 200 lines and contains exactly one canonical "Get Started" command. No conflicting setup paths exist anywhere.                                                                                                                                                                      | `wc -l README.md` and grep across `docs/`.                           |
+| AC3  | `CONTRIBUTING.md` exists at repo root and covers: commit format, PR workflow, branching, language policy, test policy, slash-command catalog.                                                                                                                                                        | File exists, all sections present.                                   |
+| AC4  | `docs/` contains ≤ 30 markdown files at top level (down from 56). All "superseded" or "archived" content has moved to `docs/plans/archive/` or `docs/archive/`.                                                                                                                                      | `find docs -maxdepth 1 -name '*.md' \| wc -l`.                       |
+| AC5  | `.claude/` has the canonical structure: `commands/`, `agents/`, `hooks/`, `skills/`, `context/`, plus `settings.json`, `settings.local.json`, `settings.local.example.json`, `README.md`. No stale plan files in `.claude/` root.                                                                    | `ls .claude/`.                                                       |
+| AC6  | `.claude/commands/` contains exactly the minimalist set: `/plan` + `/ship`, both with valid YAML frontmatter (`description`, `argument-hint`). Rationale: Stage 6 was redesigned 2026-05-04 — most original commands were Bash-aliasable.                                                            | File count + frontmatter lint.                                       |
+| AC7  | `.claude/agents/` contains exactly two subagents: `research-agent` + `code-reviewer`, both auto-invoked by `/plan` only, both read-only. Rationale: Stage 7 was redesigned 2026-05-04 — most original agents were "main agent with a different hat".                                                 | File count + frontmatter lint.                                       |
+| AC8  | `.github/workflows/ci.yml` exists and runs **lint + typecheck** on every PR. Heavier suites (backend/frontend/python tests, compose-validate) intentionally deferred — solo dev runs them locally via `./scripts/test/run-tests.sh` before push. Stage 11 was slimmed 2026-05-05.                    | Green build on a smoke-test PR.                                      |
+| AC9  | Every directory under `apps/`, `services/`, `scripts/`, `compose/`, `config/` has either a `README.md` or a `CLAUDE.md` (or both) explaining its purpose.                                                                                                                                            | `find . -type d -depth 2 -not -path '*/node_modules/*'` cross-check. |
+| AC10 | All naming-convention outliers identified by audit are fixed (1 frontend file, 8 bash scripts), with cross-references updated and tests passing.                                                                                                                                                     | `git grep` of old names returns 0 results.                           |
+| AC11 | The `interactive_setup.sh`-lie is gone — every script referenced in docs actually exists.                                                                                                                                                                                                            | Doc-link checker script.                                             |
+| AC12 | All English. Every doc, README, slash-command, and CONTRIBUTING file is in English. (Internal `.claude/memory/` and personal notes may stay German.)                                                                                                                                                 | Sample audit + grep for German keywords.                             |
 
 ---
 
@@ -42,12 +42,12 @@ The overhaul is complete when **all** of the following are true:
 
 These were settled before this plan was written and should not be reopened mid-implementation:
 
-| Decision                 | Choice                                                                                             | Rationale                                                                                      |
-| ------------------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **Doc language**         | English throughout                                                                                 | Onboardability for international devs, future open-source readiness.                           |
-| **Slash-command naming** | Verb-first, hyphenated, no namespace colon (`/add-route`, `/create-migration`, `/rebuild-service`) | Most readable for newcomers; works with autocomplete.                                          |
-| **Plans location**       | `docs/plans/{active,archive,audits}/`                                                              | Visible in repo, GitHub-browsable, separates "plans" from `.claude/` operational config.       |
-| **DX depth**             | Full — `compose.dev.yml` with mock LLM/Qdrant + `make dev` + GitHub Actions CI                     | One-time investment, removes the single biggest friction point (15-min cold-start vs. 2 days). |
+| Decision                 | Choice                                                                                                   | Rationale                                                                                                                                                                                                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Doc language**         | English throughout                                                                                       | Onboardability for international devs, future open-source readiness.                                                                                                                                                                                                                         |
+| **Slash-command naming** | Verb-first, hyphenated, no namespace colon (`/add-route`, `/create-migration`, `/rebuild-service`)       | Most readable for newcomers; works with autocomplete.                                                                                                                                                                                                                                        |
+| **Plans location**       | `docs/plans/{active,archive,audits}/`                                                                    | Visible in repo, GitHub-browsable, separates "plans" from `.claude/` operational config.                                                                                                                                                                                                     |
+| **DX depth**             | Slim — Jetson-only dev workflow + slim GitHub Actions (lint + typecheck). Mock-stack DROPPED 2026-05-05. | Rule #4 of the platform CLAUDE.md says "no local dev server, all changes via docker compose up -d --build on Jetson". A mock-stack contradicts this and would create false confidence (mocks would diverge from real GPU/CUDA stack). Solo dev = no PR review → heavy CI matrix is overkill. |
 
 ---
 
@@ -58,42 +58,45 @@ These were settled before this plan was written and should not be reopened mid-i
 - Rewriting existing routes, components, or services. We only restructure, document, and add tooling.
 - Translating existing German content to English in a single sweep — this happens **incrementally** as files are touched (Stage 1 covers obvious onboarding files; rest follows organically).
 - Replacing the `arasul` CLI. It stays as is; we only document it.
+- **Local-laptop dev workflow with mocks** (originally Stage 10, dropped 2026-05-05). Dev iteration happens on the Jetson via `docker compose up -d --build`. No `make dev`, no `compose.dev.yml`, no mock-LLM. See Stage 10 section for full rationale.
+- **Heavy multi-job CI matrix** (originally Stage 11, slimmed 2026-05-05). Slim CI runs lint + typecheck only; full test suite runs locally before deploy.
 
 ---
 
-## 4. Stage Map (13 stages, sequenced by risk + dependency)
+## 4. Stage Map (12 active stages — Stage 10 dropped)
 
 ```
-Stage 0 ── Foundation (branch, backups, plan into repo)
+Stage 0 ── Foundation (branch, backups, plan into repo)             ✅ DONE
    │
-Stage 1 ── Plans & Audits Cleanup (low-risk, big visual win)
+Stage 1 ── Plans & Audits Cleanup (low-risk, big visual win)        ✅ DONE
    │
-Stage 2 ── docs/ Reorganization
+Stage 2 ── docs/ Reorganization                                      ✅ DONE
    │
-Stage 3 ── README + CONTRIBUTING + ARCHITECTURE
+Stage 3 ── README + CONTRIBUTING + ARCHITECTURE                      ✅ DONE
    │
-Stage 4 ── Subfolder CLAUDE.md hierarchy
+Stage 4 ── Subfolder CLAUDE.md hierarchy                             ✅ DONE
    │
-Stage 5 ── .claude/ Restructure (folder skeleton + cleanup)
+Stage 5 ── .claude/ Restructure (folder skeleton + cleanup)          ✅ DONE
    │
-Stage 6 ── Slash Commands (/plan + /ship — minimalist, redesigned)
+Stage 6 ── Slash Commands (/plan + /ship — REDESIGNED minimalist)    ✅ DONE
    │
-Stage 7 ── Subagents (research-agent + code-reviewer, auto-only)
+Stage 7 ── Subagents (research-agent + code-reviewer, auto-only)     ✅ DONE
    │
-Stage 8 ── Settings + Hooks (settings.json + hooks/)
+Stage 8 ── Settings + Hooks (REDESIGNED minimalist — single hook)    ✅ DONE 2026-05-05
    │
-Stage 9 ── scripts/ + services/ Standardization
+Stage 9 ── scripts/ + services/ Standardization                      ⏳ TODO
    │
-Stage 10 ── DX Mock-Stack + make dev (HEAVY)
+Stage 10 ── DX Mock-Stack + make dev                                 ❌ DROPPED 2026-05-05
+   │       (contradicts Rule #4 — see Stage 10 section for rationale)
    │
-Stage 11 ── GitHub Actions CI
+Stage 11 ── GitHub Actions CI (REDESIGNED slim — lint + typecheck)   ⏳ TODO
    │
-Stage 12 ── Naming + .env Cleanup (cross-ref-heavy)
+Stage 12 ── Naming + .env Cleanup (cross-ref-heavy)                  ⏳ TODO
    │
-Stage 13 ── Final Polish & Smoke-Test
+Stage 13 ── Final Polish & Smoke-Test                                ⏳ TODO
 ```
 
-**Total estimated effort:** ~10–14 working days (solo). Staged so each stage produces a usable, mergeable commit. Stages 1–8 are mostly mechanical; Stages 9–11 are the "real engineering"; Stages 12–13 are polish.
+**Revised effort:** Stages 9 + 11 + 12 + 13 ≈ 1–1.5 working days remaining (down from original 5+ days for stages 9–13 because of dropped Stage 10 and slimmed Stage 11). Each remaining stage is a single mergeable commit.
 
 ---
 
@@ -586,126 +589,88 @@ and Suggestions are _never_ auto-fixed — only printed for the user.
 
 ---
 
-### Stage 8 — Settings + Hooks
+### Stage 8 — Settings + Hooks (REDESIGNED 2026-05-05) ✅ DONE
 
-**Goal:** Production-quality `.claude/settings.json` (committed, team-shared) and a small set of hooks that save real time without being intrusive.
+**History:** The original Stage 8 spec called for **three** hooks
+(`block-destructive.sh` + `remind-migration.sh` + `remind-rebuild.sh`)
+plus `availableModels` and `enableAllProjectMcpServers` settings.
+Reviewed on 2026-05-05 with the same minimalism lens applied to Stages 6
+and 7. Result: only one hook actually adds value.
+
+- `block-destructive.sh` ✅ — closes a gap that `permissions.deny`
+  cannot cover (force-push to main, `reset --hard origin/main`, `dd`,
+  `mkfs.*`, `fdisk`). Defense-in-depth on top of the `rm -rf` deny rule.
+- `remind-migration.sh` ❌ — duplicates info already in
+  `services/postgres/CLAUDE.md`. The `research-agent` reads
+  `services/postgres/init/` live for the real next number, so a static
+  reminder adds no signal.
+- `remind-rebuild.sh` ❌ — Rule #4 of the platform CLAUDE.md ("no local
+  dev server, all changes via docker compose up -d --build") plus the
+  `coding_patterns.md` memory entry already cover this. Hook would
+  fire on every `src/` edit (~50× per session) and add zero new info.
+- `availableModels` ❌ — not a verified Claude Code settings field,
+  skipped to avoid load errors. User can switch via `/model`.
+- `enableAllProjectMcpServers` ❌ — `.mcp.json` is gitignored in this
+  repo, so the setting has no effect.
+
+**Goal (revised):** Single team-shared `block-destructive.sh` hook +
+a committed `settings.local.example.json` template so new contributors
+have a copy-paste starting point for personal hooks.
 
 **Pre-conditions:** Stages 5–7 done.
 
-**Tasks:**
+**Tasks (executed):**
 
-1. **Write `.claude/settings.json`** (committed):
+1. Wrote `.claude/hooks/block-destructive.sh` (~70 lines):
+   - Reads tool-call JSON from stdin, extracts `tool_input.command` via
+     `python3` (more portable than `jq`, fail-open on parser error).
+   - Blocks `rm -rf` against critical paths
+     (`/`, `~`, `$HOME`, `/etc`, `/var`, `/usr`, `/boot`, `/bin`, `/sbin`, `/lib`),
+     accepting any flag-order combination (`-rf`, `-fr`, `-rfv`, `-r -f`, ...).
+   - Blocks `git push --force` / `--force-with-lease` / `-f` against
+     `main` or `master`.
+   - Blocks `git reset --hard` against `origin/main` or `origin/master`.
+   - Blocks `dd if=` / `dd of=`, `mkfs.*`, `fdisk /dev/...`.
+   - Exit 2 = abort tool call. Exit 0 = allow. Stays silent for
+     allow-cases.
+2. `chmod +x .claude/hooks/block-destructive.sh`; removed the now-superfluous
+   `.gitkeep`.
+3. Added `hooks.PreToolUse(Bash)` section to `.claude/settings.json`
+   pointing at `${CLAUDE_PROJECT_DIR}/.claude/hooks/block-destructive.sh`
+   with a 5-second timeout.
+4. Wrote `.claude/settings.local.example.json` (~50 lines, committed):
+   template with three commented-out personal hooks
+   (`PostToolUse(Edit|Write)` → typecheck, `Stop` → telegram-notify,
+   `Notification` → telegram-notify). Empty `permissions.allow`/`deny`
+   so the team baseline isn't duplicated.
+5. Updated `.claude/README.md` Settings section + first-time-setup
+   snippet (`cp settings.local.example.json settings.local.json`).
+6. Verified `.gitignore` already excludes `.claude/settings.local.json`
+   (line 81 — added in Stage 5).
+7. Standalone tested 18 hook patterns (6 allow + 12 block + 2 edge
+   cases) — all pass.
+8. Single commit: `feat(claude): Stage 8 — block-destructive hook + settings template`.
 
-   ```json
-   {
-     "$schema": "https://json.schemastore.org/claude-code-settings.json",
-     "permissions": {
-       "allow": [
-         "Bash(docker compose:*)",
-         "Bash(docker exec:*)",
-         "Bash(npm run *)",
-         "Bash(npm test:*)",
-         "Bash(git status)",
-         "Bash(git diff:*)",
-         "Bash(git log:*)",
-         "Bash(git add:*)",
-         "Bash(./scripts/*:*)",
-         "Bash(make *)",
-         "Read",
-         "Edit",
-         "mcp__playwright__*",
-         "mcp__shadcn__*"
-       ],
-       "deny": [
-         "Bash(rm -rf:*)",
-         "Bash(sudo:*)",
-         "Bash(git push --force:*)",
-         "Bash(git reset --hard:*)",
-         "Read(.env)",
-         "Read(.env.*)",
-         "Read(~/.ssh/**)",
-         "Read(**/secrets/**)"
-       ]
-     },
-     "enableAllProjectMcpServers": true,
-     "availableModels": ["claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"],
-     "hooks": {
-       "PreToolUse": [
-         {
-           "matcher": "Bash",
-           "hooks": [
-             {
-               "type": "command",
-               "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/block-destructive.sh",
-               "timeout": 5
-             }
-           ]
-         }
-       ],
-       "PostToolUse": [
-         {
-           "matcher": "Edit|Write",
-           "hooks": [
-             {
-               "type": "command",
-               "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/remind-migration.sh",
-               "timeout": 5
-             },
-             {
-               "type": "command",
-               "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/remind-rebuild.sh",
-               "timeout": 5
-             }
-           ]
-         }
-       ]
-     }
-   }
-   ```
+**Files:** 5 changed (`+161 / -12`):
 
-2. **Write `.claude/hooks/`** (3 small bash scripts):
-   - **`block-destructive.sh`** — exits 2 if the bash command (passed via stdin JSON) matches `rm -rf /`, `git push --force` to main, etc. Belt-and-suspenders alongside the `deny` list.
-   - **`remind-migration.sh`** — if the edited file is under `services/postgres/init/`, prints "Reminder: Migration must be numbered NNN\_\*.sql, next available: <ls + 1>".
-   - **`remind-rebuild.sh`** — if the edited file is under `apps/dashboard-{backend,frontend}/src/`, prints "Reminder: run `/rebuild-service <name>` to apply changes".
+- New: `.claude/hooks/block-destructive.sh`, `.claude/settings.local.example.json`
+- Modified: `.claude/settings.json`, `.claude/README.md`
+- Deleted: `.claude/hooks/.gitkeep`
 
-3. **Update `.claude/settings.local.json`** (personal):
+**Acceptance (verified):**
 
-   ```json
-   {
-     "alwaysThinkingEnabled": true,
-     "effortLevel": "high",
-     "hooks": {
-       "Stop": [
-         {
-           "hooks": [
-             {
-               "type": "command",
-               "command": "${CLAUDE_PROJECT_DIR}/scripts/util/telegram-notify.sh \"Claude session done\"",
-               "timeout": 30
-             }
-           ]
-         }
-       ]
-     }
-   }
-   ```
+- `python3 -m json.tool .claude/settings.json` parses cleanly.
+- `python3 -m json.tool .claude/settings.local.example.json` parses cleanly.
+- 18 standalone hook tests all green.
+- `git status` shows `.claude/settings.local.json` as untracked.
+- `.claude/settings.local.example.json` is tracked.
 
-4. Verify `.gitignore` has `.claude/settings.local.json` (it should already).
-
-5. Commit: `feat(claude): commit settings.json with permissions+hooks, split personal config into settings.local.json`.
-
-**Files:** 1 modified (`.claude/settings.json`), 1 modified (`.claude/settings.local.json`), 3 new (`hooks/*.sh`), possibly `.gitignore`.
-
-**Acceptance:**
-
-- `git status` shows `.claude/settings.json` tracked, `.claude/settings.local.json` untracked.
-- Smoke: try to run `rm -rf /tmp/foo` — gets blocked.
-- Smoke: edit `services/postgres/init/000_test.sql` (a temp file) — see migration reminder.
-- All 3 hook scripts are executable (`chmod +x`).
-
-**Risk:** Medium — broken hook breaks the session. Each hook script must be tested standalone before committing.
-**Rollback:** Empty out the `hooks` section in settings.json.
-**Estimate:** 3 h.
+**Risk realised:** None. The fail-open JSON-parse fallback eliminates
+the "broken hook bricks the session" risk from the original plan.
+**Rollback if needed:** Remove the `hooks` block from
+`.claude/settings.json`.
+**Actual effort:** ~45 min (vs. 3 h original estimate, because two
+of three hooks were dropped and the JSON contents shrank dramatically).
 
 ---
 
@@ -779,93 +744,65 @@ and Suggestions are _never_ auto-fixed — only printed for the user.
 
 ---
 
-### Stage 10 — DX Mock-Stack + `make dev`
+### Stage 10 — DX Mock-Stack + `make dev` ❌ DROPPED 2026-05-05
 
-**Goal:** A new dev on x86 macOS/Linux runs `make dev` and has hot-reload on backend + frontend in <30s, against a mock LLM/Qdrant + real Postgres + real MinIO. No Jetson required.
+**Decision:** Stage 10 is dropped. No `compose.dev.yml`, no mock-LLM,
+no mock-Qdrant, no `make dev` target.
 
-**Pre-conditions:** Stages 1–9 done. The `scripts/doctor.sh` script is in place to validate prerequisites.
+**Rationale (decided 2026-05-05):**
 
-**Tasks:**
+1. **Contradicts Rule #4 of the platform CLAUDE.md** — "Deploy: there is
+   no local dev server. After code changes: `docker compose up -d --build <service>`.
+   The user verifies in the browser." A mock-stack creates a parallel
+   dev workflow that the platform explicitly rejects.
+2. **Mock divergence risk.** The original plan acknowledged: "Mock services
+   need maintenance as real APIs evolve." For LLM/Qdrant/Embedding, mocks
+   would diverge from real GPU/CUDA behavior — false confidence in tests
+   that pass locally but fail on Jetson is worse than no local dev at all.
+3. **Solo-dev workflow doesn't need it.** Kolja edits over SSH on the
+   Jetson directly. The "1.5 days" investment buys a workflow nobody uses.
+4. **Out-of-scope qualifier was missed in the original plan.** The
+   "Out of Scope" section should have ruled this out from the start —
+   the explicit "Edge-AI appliance" framing means the GPU + CUDA stack
+   _is_ the platform, not an interchangeable backend.
 
-1. **Write `compose/compose.dev.yml`** — a thin override file that:
-   - Includes `compose.core.yaml` (Postgres, MinIO, Traefik) — real services, but small.
-   - **Replaces** `llm-service` and `embedding-service` with mock containers (see step 2).
-   - **Replaces** `qdrant` with an in-memory mock (see step 3) OR uses the real Qdrant in dev mode (it's lightweight — measure).
-   - Disables `cloudflared`, `n8n`, `metrics-collector`, `self-healing-agent`, `loki`, `promtail` (not needed for dev loop).
-   - Mounts `apps/dashboard-backend/` and `apps/dashboard-frontend/` as bind mounts for hot-reload (or bypasses Docker entirely for these — see step 4).
+**Implication for AC1:** Reframed — onboarding is now "clone → SSH to
+Jetson → `docker compose up -d`" as the single canonical path. No
+"15 min on macOS x86" target.
 
-2. **Write `services/_mock-llm/`** — tiny Python (FastAPI) service that mimics Ollama's `/api/chat`, `/api/generate`, `/api/embeddings` endpoints. Returns canned responses (echo input + "[mock]" suffix; embeddings = deterministic hash → 768/1024-dim vector). Total: ~80 lines of Python.
+**Implication for Stage 9:** `scripts/doctor.sh` no longer needs to
+check x86-laptop prerequisites. It checks Jetson prerequisites
+(Docker, NVIDIA Container Runtime, free ports, `.env`).
 
-3. **Write `services/_mock-qdrant/`** — even tinier; in-memory dict-backed `/collections/{name}/points/...` endpoints, just enough for our RAG calls. ~100 lines. **Alternative:** spin up a real Qdrant container (~50 MB image) — likely simpler, no maintenance. **Decision during execution.**
+**Saved effort:** ~1.5 working days.
 
-4. **Bypass Docker for dashboard-\* in dev:**
-   - Backend: `cd apps/dashboard-backend && npm run dev` (runs nodemon against host Node + the Compose stack on `localhost:5432`, etc.).
-   - Frontend: `cd apps/dashboard-frontend && npm run dev` (Vite HMR on `localhost:5173`).
-   - The Compose stack only runs the _backing_ services.
-
-5. **Write `Makefile` target `dev`:**
-
-   ```makefile
-   dev: doctor
-   	docker compose -f docker-compose.yml -f compose/compose.dev.yml up -d postgres minio mock-llm mock-qdrant
-   	@echo "Backing services up. Starting backend + frontend with hot-reload..."
-   	cd apps/dashboard-backend && npm install --silent && npm run dev &
-   	cd apps/dashboard-frontend && npm install --silent && npm run dev &
-   	wait
-
-   doctor:
-   	./scripts/doctor.sh
-   ```
-
-   (Use `concurrently` or two `tmux` panes for cleaner UX — decide during execution.)
-
-6. **Add `make dev-stop`** that tears down the dev compose stack and kills the npm processes.
-
-7. **Update `apps/dashboard-backend/package.json`** if needed: confirm `"dev": "nodemon src/index.js"` works against the mock stack.
-
-8. **Update `apps/dashboard-frontend/vite.config.ts`** if needed: API proxy to `localhost:3001`.
-
-9. **Document in `CONTRIBUTING.md`** + `docs/development/ONBOARDING.md`:
-   - `git clone … && cd arasul-jet && make dev` is the canonical dev path.
-   - What works in dev mode (chat with mock LLM returns echoes; UI shows real Postgres data; uploads work via real MinIO).
-   - What doesn't work (real model inference; GPU monitoring; n8n workflows).
-
-10. **Smoke-test on macOS x86** (or a Linux x86 VM if no Mac available):
-    - `git clone …`
-    - `make dev`
-    - Open `http://localhost:5173`, log in (seed user from MinIO/postgres init), send a chat message, see "[mock]" response.
-
-11. Commit: `feat(dx): add compose.dev.yml mock-stack and make dev for hot-reload onboarding`.
-
-**Files:**
-
-- New: `compose/compose.dev.yml`, `services/_mock-llm/`, `services/_mock-qdrant/` (or skipped if real Qdrant used).
-- Modified: `Makefile`, `CONTRIBUTING.md`, `docs/development/ONBOARDING.md`.
-
-**Acceptance:**
-
-- `make dev` on macOS x86 produces a working dashboard in ≤ 5 min on first run, ≤ 30s on subsequent runs.
-- Backend and frontend both hot-reload on file save.
-- Mock LLM responds to `/api/chat` with `[mock] <echo>`.
-- The smoke-test path works for someone who has _never_ seen this repo.
-
-**Risk:** **High.** Most engineering of any stage. Mock services need maintenance as real APIs evolve.
-
-- Mitigation: keep mocks **dumb** (echo-and-canned). Don't try to mimic LLM intelligence. As long as the dashboard renders and can store data, the mock has done its job.
-  **Rollback:** Mark `compose.dev.yml` as experimental in CONTRIBUTING.md and fall back to "developers need a Jetson for now" if mocks become unmaintainable.
-  **Estimate:** 1.5 days.
+**If the team ever changes its mind:** the original spec is preserved
+in git history (commit `7f0d011` and earlier). Re-introduce as a
+separate plan, not as part of this overhaul.
 
 ---
 
-### Stage 11 — GitHub Actions CI
+### Stage 11 — GitHub Actions CI (REDESIGNED 2026-05-05 — slim)
 
-**Goal:** Every PR runs lint + typecheck + tests + compose-validate. No more "tests pass on my machine" surprises.
+**History:** The original Stage 11 spec called for **6 jobs** (lint,
+typecheck, test-backend with Postgres service, test-frontend with
+coverage, test-python with a 5-service matrix, compose-validate,
+security-audit). For solo-dev workflow with no PR review, a 10-minute
+multi-job CI matrix that needs ongoing maintenance per service is
+overkill — and Stage 10's removal eliminates the `compose.dev.yml`
+target the original `compose-validate` job needed.
 
-**Pre-conditions:** Stages 1–10 done.
+**Goal (revised):** A **single fast lint + typecheck job** that catches
+the dumb errors (syntax mistakes, missing imports, type breakages) on
+every PR or push to main. Heavier suites stay local — Kolja runs them
+via `./scripts/test/run-tests.sh --backend|--frontend|--all` before
+deploying.
+
+**Pre-conditions:** Stages 1–9 done. `.nvmrc` exists (added in Stage 3).
 
 **Tasks:**
 
-1. **Write `.github/workflows/ci.yml`:**
+1. Write `.github/workflows/ci.yml`:
 
    ```yaml
    name: CI
@@ -875,8 +812,13 @@ and Suggestions are _never_ auto-fixed — only printed for the user.
      push:
        branches: [main]
 
+   concurrency:
+     group: ci-${{ github.ref }}
+     cancel-in-progress: true
+
    jobs:
      lint-and-typecheck:
+       name: Lint + typecheck
        runs-on: ubuntu-latest
        steps:
          - uses: actions/checkout@v4
@@ -887,85 +829,43 @@ and Suggestions are _never_ auto-fixed — only printed for the user.
          - run: npm ci
          - run: npm run lint
          - run: npm run typecheck
-
-     test-backend:
-       runs-on: ubuntu-latest
-       services:
-         postgres:
-           image: postgres:16
-           env: { POSTGRES_PASSWORD: test, POSTGRES_USER: test, POSTGRES_DB: test }
-           ports: ['5432:5432']
-       steps:
-         - uses: actions/checkout@v4
-         - uses: actions/setup-node@v4
-           with: { node-version-file: .nvmrc, cache: npm }
-         - run: cd apps/dashboard-backend && npm ci
-         - run: cd apps/dashboard-backend && npm test -- --coverage
-         - uses: codecov/codecov-action@v4 # optional
-
-     test-frontend:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - uses: actions/setup-node@v4
-           with: { node-version-file: .nvmrc, cache: npm }
-         - run: cd apps/dashboard-frontend && npm ci
-         - run: cd apps/dashboard-frontend && npm test -- --coverage --run
-
-     test-python:
-       runs-on: ubuntu-latest
-       strategy:
-         matrix:
-           service:
-             [
-               metrics-collector,
-               self-healing-agent,
-               document-indexer,
-               llm-service,
-               embedding-service,
-             ]
-       steps:
-         - uses: actions/checkout@v4
-         - uses: actions/setup-python@v5
-           with: { python-version: '3.11' }
-         - run: cd services/${{ matrix.service }} && pip install -r requirements.txt -r requirements-dev.txt
-         - run: cd services/${{ matrix.service }} && pytest tests/ -v
-       continue-on-error: true # because not all services have tests yet — Stage 9 added stubs
-
-     compose-validate:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - run: docker compose config -q
-         - run: docker compose -f docker-compose.yml -f compose/compose.dev.yml config -q
-
-     security-audit:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - run: npm audit --audit-level=high || true # warn-only initially
    ```
 
-2. **Add `npm run lint`, `npm run typecheck`** at root `package.json` if missing — they fan out to both apps.
+2. Verify `npm run lint` and `npm run typecheck` exist at root
+   `package.json`. If not, add them as workspace fan-outs:
 
-3. **Add CI status badges** to `README.md`.
+   ```json
+   {
+     "scripts": {
+       "lint": "npm run lint --workspaces --if-present",
+       "typecheck": "npm run typecheck --workspaces --if-present"
+     }
+   }
+   ```
 
-4. **Set required checks** in GitHub branch protection (manual GitHub UI step — note in plan).
+3. Smoke-test by pushing the branch and watching the workflow.
 
-5. **Smoke-test** by opening a trivial PR and seeing all jobs go green.
+4. _Optional_: add a CI status badge to `README.md` after the first
+   green run.
 
-6. Commit: `ci: add GitHub Actions for lint/typecheck/tests/compose-validate/security-audit`.
+5. Commit: `ci: add slim GitHub Actions workflow (lint + typecheck)`.
 
-**Files:** `.github/workflows/ci.yml` (new), `package.json` (modified), `README.md` (badges).
+**Files:** `.github/workflows/ci.yml` (new), `package.json` (modified
+if scripts missing), `README.md` (badge — optional).
 
 **Acceptance:**
 
-- CI runs on PR, all 6 jobs visible, all green on a clean commit.
-- Required-checks rule blocks PR merge on red.
+- CI runs on push to `feat/dx-overhaul` and goes green.
+- Workflow file is ≤ 30 lines.
+- Total runtime ≤ 3 min.
 
-**Risk:** Medium — first CI on this repo, expect 2–3 iterations to get jobs green. Python services may have varied dep needs.
-**Rollback:** Disable workflow.
-**Estimate:** 4 h.
+**Risk:** Low. One job, no service containers, no matrix.
+**Rollback:** Delete `.github/workflows/ci.yml`.
+**Estimate:** 1 h (vs. 4 h for the 6-job original).
+
+**Future expansion (out of scope here):** if/when a contributor joins,
+add `test-backend` as a second job. Per-Python-service tests can be
+added incrementally as those services gain real test coverage.
 
 ---
 
@@ -1044,51 +944,33 @@ and Suggestions are _never_ auto-fixed — only printed for the user.
 
 ## 6. Risk Register
 
-| Risk                                                                            | Stage | Likelihood | Impact | Mitigation                                                                             |
-| ------------------------------------------------------------------------------- | ----- | ---------- | ------ | -------------------------------------------------------------------------------------- |
-| Bash-script rename breaks Compose/Make/CI                                       | 9     | M          | H      | Rename one at a time, run tests/compose-validate after each.                           |
-| Mock-stack drifts from real LLM API                                             | 10    | H          | M      | Keep mocks dumb (echo + canned). Schedule semi-annual revisit in `docs/plans/active/`. |
-| Subfolder CLAUDE.md content goes stale                                          | 4     | M          | M      | Treat them like docs — update when patterns change, not lazily.                        |
-| Stage 1 file moves break some dev's local branch                                | 1     | L          | L      | Communicate timing; merge stages quickly so feature branches don't fester.             |
-| GitHub Actions cost/time spikes                                                 | 11    | L          | L      | Initial CI is small; monitor. Add caching liberally.                                   |
-| Translating `ADMIN_HANDBUCH.md` etc. to English breaks customer's understanding | 2     | L          | M      | Don't translate customer-facing docs in this overhaul. Keep them in German.            |
-| `npm run dev` (host Node) version drifts from Docker Node                       | 10    | M          | L      | `.nvmrc` enforces; doctor.sh checks.                                                   |
-| Hooks (Stage 8) misfire and break the session                                   | 8     | M          | H      | Each hook script tested standalone; all `\|\| true`-tolerant.                          |
+| Risk                                                                            | Stage | Likelihood | Impact | Mitigation                                                                                       |
+| ------------------------------------------------------------------------------- | ----- | ---------- | ------ | ------------------------------------------------------------------------------------------------ |
+| Bash-script rename breaks Compose/Make/CI                                       | 9     | M          | H      | Rename one at a time, `git grep` the old name, run smoke after each.                             |
+| Subfolder CLAUDE.md content goes stale                                          | 4     | M          | M      | Treat them like docs — update when patterns change, not lazily.                                  |
+| Stage 1 file moves break some dev's local branch                                | 1     | L          | L      | Communicate timing; merge stages quickly so feature branches don't fester.                       |
+| Translating `ADMIN_HANDBUCH.md` etc. to English breaks customer's understanding | 2     | L          | M      | Don't translate customer-facing docs in this overhaul. Keep them in German.                      |
+| `block-destructive.sh` false-positive blocks legit command                      | 8     | L          | L      | 18 standalone tests cover allow-cases. Worst case: edit hook in `.claude/hooks/` to relax regex. |
+| Slim CI misses a class of breakage that full matrix would catch                 | 11    | M          | L      | Solo dev runs full suite locally before deploy. Add jobs incrementally if a regression slips.    |
 
 ---
 
-## 7. Sequencing & Dependencies
+## 7. Sequencing & Dependencies (revised 2026-05-05)
 
 ```
-Stage 0 (foundation)
+Stages 0-8 ── DONE (see Stage Map for status icons)
    ↓
-Stage 1 (plans cleanup) — independent, do first
+Stage 9 (scripts/services) — independent; touches Makefile + bash naming
    ↓
-Stage 2 (docs reorg)    — depends on 1 (no plans in docs/ root)
+Stage 11 (slim CI) — depends on 9 (npm scripts may be added)
    ↓
-Stage 3 (README/CONTRIBUTING/ARCH) — depends on 2 (links must resolve)
+Stage 12 (naming/env cleanup) — depends on 9+11 (cross-refs)
    ↓
-Stage 4 (subfolder CLAUDE.md) — depends on 3 (CONTRIBUTING explains them)
-   ↓
-Stage 5 (.claude restructure) — depends on 4 (context files cross-link CLAUDE.md)
-   ↓
-Stage 6 (slash commands) — depends on 5 (commands cross-link context)
-Stage 7 (subagents)      — depends on 5 (parallelizable with 6)
-   ↓
-Stage 8 (settings/hooks) — depends on 6+7 (settings.json may reference commands/agents)
-   ↓
-Stage 9 (scripts/services) — independent of 6–8 in spirit; do after 8 to keep history clean
-   ↓
-Stage 10 (DX mock-stack) — depends on 9 (uses doctor.sh; uses _template/)
-   ↓
-Stage 11 (CI) — depends on 9+10 (CI runs scripts; uses dev compose for compose-validate)
-   ↓
-Stage 12 (naming/env cleanup) — depends on 9–11 (touches scripts/Makefile/CI references)
-   ↓
-Stage 13 (polish) — last
+Stage 13 (polish + smoke + archive) — last
 ```
 
-Stages 6 and 7 can be done in parallel. Stages 1–8 are mostly mechanical; the user can do stage-by-stage commits. Stages 9–11 are the engineering heavy-lifters; allocate longer focused sessions.
+Stage 10 removed from the chain (see Stage 10 section for rationale).
+Remaining work is sequential and mostly mechanical — no parallelization needed.
 
 ---
 
@@ -1109,58 +991,59 @@ For each stage:
 
 ## 9. Open Questions
 
-These were _not_ settled by the design-decision interview. Asked once each stage hits them:
+Stages 0–8 questions are all closed. Remaining questions for Stage 9+:
 
-- **Q-S0a:** Branch from `main` or stack on `feat/telegram-bot-overhaul`? (Stage 0)
-- **Q-S2a:** Translate `docs/ADMIN_HANDBUCH.md` to English now or leave German for customers? (Stage 2; current recommendation: leave German, since customers are German-speaking — but tag with English title.)
-- **Q-S3a:** Add a `LICENSE` file? Which license? (Stage 3)
-- **Q-S6a:** Keep `/test`, `/implement`, `/review` as aliases for backwards compatibility, or delete cleanly? (Stage 6; recommendation: delete, the new commands are clearer.)
-- **Q-S10a:** Mock Qdrant with a tiny FastAPI service, OR run real Qdrant container in dev? (Stage 10; recommendation: real Qdrant — image is small, no maintenance.)
-- **Q-S10b:** Use `concurrently` (npm dep) or `tmux` for `make dev` parallel npm processes? (Stage 10)
-- **Q-S11a:** Codecov upload (account needed) or skip coverage tracking? (Stage 11)
+- **Q-S9a:** `scripts/maintenance/` (1 file) — merge into `scripts/system/` or `scripts/util/`? Recommendation: `util/` (lower-friction, single-file folders are noise).
+- **Q-S9b:** `services/_template/` — Python skeleton or Node skeleton (or both)? Recommendation: Python only — the platform's new services have all been Python lately.
+- **Q-S12a:** `.env.jetson` move target — keep at root or move to `config/profiles/jetson.env`? Original plan said move; verify nothing in `arasul` CLI hard-codes the path before moving.
+- **Q-S12b:** `logs/` → `data/logs/` consolidation — verify Traefik, Loki, Promtail still work. If risk too high, defer to a separate plan.
+
+Closed (decisions made 2026-05-05):
+
+- ~~Q-S10a/b~~ (Mock-stack questions) — N/A, Stage 10 dropped.
+- ~~Q-S11a~~ (Codecov) — skip; slim CI has no coverage step.
 
 ---
 
 ## 10. Definition of "Done Done"
 
-- All 13 stages merged to main.
-- All 12 acceptance criteria from §1 verified.
+- All 12 active stages merged to main (Stage 10 dropped, not merged).
+- All 12 acceptance criteria from §1 verified (note: AC1 reframed for Jetson-only workflow, AC8 reframed for slim CI).
 - This plan archived to `docs/plans/archive/2026-05_dx-overhaul.md` with status header.
-- A 30-minute walkthrough recording (or written write-up) for future contributors explaining the new structure.
 - A celebratory commit: `🎉 dx-overhaul complete` (only emoji exception in the repo, per Kolja's preference).
 
 ---
 
-## Appendix A — Estimate Summary
+## Appendix A — Estimate Summary (revised 2026-05-05)
 
-| Stage     | Estimate                                                                                | Cumulative |
-| --------- | --------------------------------------------------------------------------------------- | ---------- |
-| 0         | 0.5 h                                                                                   | 0.5        |
-| 1         | 1 h                                                                                     | 1.5        |
-| 2         | 4 h                                                                                     | 5.5        |
-| 3         | 3 h                                                                                     | 8.5        |
-| 4         | 4 h                                                                                     | 12.5       |
-| 5         | 4 h                                                                                     | 16.5       |
-| 6         | 8 h                                                                                     | 24.5       |
-| 7         | 3 h                                                                                     | 27.5       |
-| 8         | 3 h                                                                                     | 30.5       |
-| 9         | 6 h                                                                                     | 36.5       |
-| 10        | 12 h                                                                                    | 48.5       |
-| 11        | 4 h                                                                                     | 52.5       |
-| 12        | 3 h                                                                                     | 55.5       |
-| 13        | 4 h                                                                                     | 59.5       |
-| **Total** | **~60 h** (≈ 8 working days, with 2–4 days buffer for surprises = ~10–14 calendar days) |
+| Stage     | Original | Actual / Revised                          | Cumulative |
+| --------- | -------- | ----------------------------------------- | ---------- |
+| 0         | 0.5 h    | done                                      | 0.5        |
+| 1         | 1 h      | done                                      | 1.5        |
+| 2         | 4 h      | done                                      | 5.5        |
+| 3         | 3 h      | done                                      | 8.5        |
+| 4         | 4 h      | done                                      | 12.5       |
+| 5         | 4 h      | done                                      | 16.5       |
+| 6         | 8 h      | ~1.5 h actual (redesigned)                | 18.0       |
+| 7         | 3 h      | ~1.5 h actual (redesigned)                | 19.5       |
+| 8         | 3 h      | ~0.75 h actual (redesigned)               | 20.25      |
+| 9         | 6 h      | ~3 h (kebab-case + READMEs + \_template)  | 23.25      |
+| 10        | 12 h     | **DROPPED**                               | —          |
+| 11        | 4 h      | ~1 h (slim CI)                            | 24.25      |
+| 12        | 3 h      | ~2 h                                      | 26.25      |
+| 13        | 4 h      | ~1 h (link validator + smoke + archive)   | 27.25      |
+| **Total** | ~60 h    | **~27 h** (≈ 3.5 working days end-to-end) |
 
 ---
 
-## Appendix B — Files Touched (rough count, pre-execution estimate)
+## Appendix B — Files Touched (revised post-decision)
 
-- Created: ~80 (slash commands, agents, hooks, READMEs, mock services, CI workflow, plan files, ENVIRONMENT.md, …)
-- Moved/renamed: ~60 (docs reorg, plan archives, naming fixes)
-- Modified: ~30 (README, CLAUDE.md, settings, package.json, Makefile, …)
-- Deleted: ~10 (stale plan files, old commands, .env backups)
+- Created: ~30 (commands/, agents/, hook, settings template, CI workflow, scripts/doctor.sh, services/\_template/, missing service READMEs, ENVIRONMENT.md)
+- Moved/renamed: ~50 (docs reorg, plan archives, kebab-case bash renames)
+- Modified: ~20 (README, CLAUDE.md, settings.json, package.json, Makefile, …)
+- Deleted: ~8 (stale plan files, .env backups)
 
-Total churn: ~180 files. Spread across 13 commits, this is large but manageable. Each commit is reviewable in isolation.
+Total churn: ~110 files (down from ~180 pre-execution estimate, primarily because Stage 10 dropped removed mock-LLM/mock-Qdrant/compose.dev.yml). Spread across 12 commits, each reviewable in isolation.
 
 ---
 
