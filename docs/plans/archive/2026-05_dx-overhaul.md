@@ -6,7 +6,7 @@
 >
 > **Outcome:** All 12 active stages merged on `feat/dx-overhaul` (Stage 10 dropped 2026-05-05 with rationale; Stage 11 slimmed to surgical fixes on the existing CI). All 12 ACs verified — see verification matrix at the end of §1.
 >
-> Kept here under `active/` until the branch is merged to `main`. After merge, this file moves to `docs/plans/archive/2026-05_dx-overhaul.md`.
+> **Merged:** PR [#75](https://github.com/koljaschoepe/arasul-jet/pull/75) on 2026-05-05. CI: all 11 checks green. Plan archived 2026-05-05 (post-merge).
 
 ---
 
