@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generiert htpasswd für Traefik Basic Auth
-# Usage: ./generate_htpasswd.sh [username]
+# Usage: ./generate-htpasswd.sh [username]
 # Supports: htpasswd (apache2-utils) or python3+bcrypt as fallback
 
 set -euo pipefail

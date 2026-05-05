@@ -413,7 +413,7 @@ services/postgres/init/
 ### Validation
 
 ```bash
-./scripts/validate/validate_dependencies.sh
+./scripts/validate/validate-dependencies.sh
 ```
 
 ---

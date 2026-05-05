@@ -47,7 +47,7 @@ S3-compatible object storage for documents, backups, and application data.
 
 ### Bucket Initialization
 
-Buckets are created automatically on first startup via `scripts/util/init_minio_buckets.sh`:
+Buckets are created automatically on first startup via `scripts/util/init-minio-buckets.sh`:
 
 ```bash
 mc alias set local http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD

@@ -61,7 +61,7 @@ The ARASUL Platform uses a multi-layered testing approach to ensure reliability 
 │   └── api/
 │       └── arasul-api.postman_collection.json   # API tests
 └── scripts/
-    └── validate_dependencies.sh             # Dependency validation
+    └── validate-dependencies.sh             # Dependency validation
 ```
 
 ---
@@ -158,7 +158,7 @@ open newman-report.html
 
 ```bash
 # Validate dependency chain
-bash scripts/validate/validate_dependencies.sh
+bash scripts/validate/validate-dependencies.sh
 
 # Output will show:
 # ✓ All services have health checks

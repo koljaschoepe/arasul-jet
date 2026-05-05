@@ -676,7 +676,7 @@ SELF_HEALING_REBOOT_ENABLED=false
 Run the validation script to check configuration:
 
 ```bash
-./scripts/validate/validate_config.sh
+./scripts/validate/validate-config.sh
 ```
 
 Validates:

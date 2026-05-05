@@ -116,7 +116,7 @@ All config under `config/traefik/`:
 - `forward-auth`: JWT verification via `http://dashboard-backend:3001/api/auth/verify` (cookie or Authorization header)
 - `basicAuth-traefik`: htpasswd hash for Traefik dashboard
 - `basicAuth-n8n`: htpasswd hash for n8n access (on top of n8n's own auth)
-- Hashes generated at bootstrap (`./arasul bootstrap`) or manually via `scripts/security/generate_htpasswd.sh`
+- Hashes generated at bootstrap (`./arasul bootstrap`) or manually via `scripts/security/generate-htpasswd.sh`
 
 **SSE/streaming**: `serversTransports.sse-transport` with 600s timeout, `flushInterval: 1ms` on backend service. Compression middleware excludes `text/event-stream`.
 

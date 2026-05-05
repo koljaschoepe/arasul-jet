@@ -161,7 +161,7 @@ http:
 
     # Basic Auth for Traefik Dashboard
     # Hash wird beim Bootstrap generiert: ./arasul bootstrap
-    # Manuell: scripts/security/generate_htpasswd.sh admin
+    # Manuell: scripts/security/generate-htpasswd.sh admin
     basicAuth-traefik:
       basicAuth:
         users:

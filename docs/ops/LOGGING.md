@@ -205,7 +205,7 @@ docker logs postgres-db > /arasul/logs/containers/postgres-db.log 2>&1
 **Install logging infrastructure:**
 
 ```bash
-sudo ./scripts/util/setup_logrotate.sh
+sudo ./scripts/util/setup-logrotate.sh
 ```
 
 This will:

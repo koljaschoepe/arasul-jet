@@ -42,8 +42,8 @@
       "Bash(chmod +x:*)",
       "Bash(./scripts/*:*)",
       "Bash(./scripts/test/run-tests.sh:*)",
-      "Bash(./scripts/validate/validate_dependencies.sh:*)",
-      "Bash(./scripts/validate/validate_config.sh:*)"
+      "Bash(./scripts/validate/validate-dependencies.sh:*)",
+      "Bash(./scripts/validate/validate-config.sh:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",

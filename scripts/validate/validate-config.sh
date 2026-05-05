@@ -370,7 +370,7 @@ TRAEFIK_MW="config/traefik/dynamic/middlewares.yml"
 if [ -f "$TRAEFIK_MW" ]; then
     if grep -q 'PLACEHOLDER' "$TRAEFIK_MW"; then
         log_error "Traefik middlewares.yml contains PLACEHOLDER credentials - MUST be replaced before production!"
-        log_error "  Run: scripts/generate_htpasswd.sh admin <YOUR_PASSWORD>"
+        log_error "  Run: scripts/generate-htpasswd.sh admin <YOUR_PASSWORD>"
         log_error "  Then update $TRAEFIK_MW with the generated hash"
         ERRORS=$((ERRORS + 1))
     else

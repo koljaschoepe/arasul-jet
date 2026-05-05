@@ -323,7 +323,7 @@ Full reference: [API_REFERENCE.md](../api/API_REFERENCE.md)
 ```bash
 docker compose ps                                  # Check status
 docker compose logs <service>                      # Check logs
-./scripts/validate/validate_dependencies.sh        # Check deps
+./scripts/validate/validate-dependencies.sh        # Check deps
 docker stats                                       # Check resources
 ```
 

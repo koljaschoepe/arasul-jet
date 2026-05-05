@@ -4,7 +4,7 @@ set -euo pipefail
 # ARASUL Update Package Creator
 # Creates signed .araupdate packages for offline deployment
 #
-# Usage: ./create_update_package.sh <version> [options] <components...>
+# Usage: ./create-update-package.sh <version> [options] <components...>
 # Options:
 #   --from-version <ver>  Only include migrations newer than this version
 #   --min-version <ver>   Minimum system version required (default: 1.0.0)

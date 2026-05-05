@@ -286,7 +286,7 @@ Browse to `https://<host>/n8n` and log in with the credentials in `.env`.
 - [ ] `scripts/setup/preconfigure.sh` executed.
 - [ ] `.env` generated with secure credentials (`chmod 600 .env`).
 - [ ] Admin password recorded out-of-band.
-- [ ] `scripts/validate/validate_config.sh` passes.
+- [ ] `scripts/validate/validate-config.sh` passes.
 
 ### Security
 

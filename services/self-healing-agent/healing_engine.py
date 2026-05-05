@@ -507,7 +507,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
     def _renew_tls_cert(self) -> bool:
         """Auto-renew self-signed TLS certificate and reload Traefik"""
         try:
-            cert_script = '/arasul/scripts/security/generate_self_signed_cert.sh'
+            cert_script = '/arasul/scripts/security/generate-self-signed-cert.sh'
             if not os.path.exists(cert_script):
                 logger.error(f"Cert renewal script not found: {cert_script}")
                 return False
