@@ -1,4 +1,4 @@
-ARG NODE_VERSION=20.19
+ARG NODE_VERSION=22
 
 # ============================================================================
 # base: shared layer — node image + workdir + workspace shared-schemas
