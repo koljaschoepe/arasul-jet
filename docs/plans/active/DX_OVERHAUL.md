@@ -93,7 +93,7 @@ Stage 10 ── DX Mock-Stack + make dev                                 ❌ DRO
    │
 Stage 11 ── GitHub Actions CI (existing test.yml + 3 surgical fixes)  ✅ DONE 2026-05-05
    │
-Stage 12 ── Naming + .env Cleanup (cross-ref-heavy)                  ⏳ TODO
+Stage 12 ── Naming (knowledgeGraph rename — .env tasks dropped)       ✅ DONE 2026-05-05
    │
 Stage 13 ── Final Polish & Smoke-Test                                ⏳ TODO
 ```
@@ -840,38 +840,42 @@ git history.
 
 ---
 
-### Stage 12 — Naming + `.env` Cleanup
+### Stage 12 — Naming + `.env` Cleanup (REDESIGNED 2026-05-05 — slim) ✅ DONE
 
-**Goal:** Eliminate the remaining naming outliers. Reduce `.env*` proliferation from 6 files to 2.
+**Reality check on 2026-05-05:** when Stage 12 was reached, most of the
+original sub-tasks were either already handled, redundant, or high-risk
+for low payoff. Only the JS file rename had real value left. Slimmed
+scope:
 
-**Pre-conditions:** Stages 1–11 done. Bash-script renames already happened in Stage 9.
+| Original task                                                                | Decision  | Reason                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rename `knowledge-graph.js` → `knowledgeGraph.js` (route + schema)           | **DONE**  | Aligns with the camelCase neighbours in `routes/` (`documentAnalysis.js`, `claudeTerminal.js`, `externalApi.js`). Also renamed the matching schema file. URL prefix (`/api/knowledge-graph`) stays kebab — REST convention. |
+| Delete `.env.backup.20260314_*`                                              | **SKIP**  | Files are local-only (not in git), already gitignored via `.env.backup.*` pattern. No repo cleanup needed.                                                                                                                  |
+| Move `.env.jetson` → `config/profiles/jetson.env`                            | **SKIP**  | File is local-only (gitignored), only 2 script refs. Move would just churn paths in `detect-jetson.sh` + `preconfigure.sh` for no operator benefit.                                                                         |
+| Merge `.env.template` (10 KB, 100+ vars) + `.env.example` (1.5 KB, ~30 vars) | **DEFER** | Both are tracked but contain genuinely different content (not duplicates). Plus `.env.template` is referenced in 10+ files. Merge would be risky and benefits a workflow that's already working. Open as Q-S12c.            |
+| New `docs/development/ENVIRONMENT.md`                                        | **SKIP**  | `docs/ENVIRONMENT_VARIABLES.md` (749 lines, kept current) already serves this purpose. A second file would just compete for "single source of truth".                                                                       |
+| Consolidate `logs/` (root) → `data/logs/`                                    | **SKIP**  | `logs/` is gitignored (line 22 of `.gitignore`). Two stray local log files (~230 bytes total). Move would touch Compose volume mounts (Traefik, Loki, Promtail) — high risk for cosmetic gain.                              |
 
-**Tasks:**
+**Tasks executed:**
 
-1. **Frontend rename:** `apps/dashboard-backend/src/routes/ai/knowledge-graph.js` → `knowledgeGraph.js`. Update `routes/ai/index.js` import.
+1. `git mv apps/dashboard-backend/src/routes/ai/knowledge-graph.js apps/dashboard-backend/src/routes/ai/knowledgeGraph.js`.
+2. `git mv apps/dashboard-backend/src/schemas/knowledge-graph.js apps/dashboard-backend/src/schemas/knowledgeGraph.js`.
+3. Updated `apps/dashboard-backend/src/routes/index.js` line 130: `require('./ai/knowledge-graph')` → `require('./ai/knowledgeGraph')`.
+4. Updated `apps/dashboard-backend/src/routes/ai/knowledgeGraph.js` line 21: `require('../../schemas/knowledge-graph')` → `require('../../schemas/knowledgeGraph')`.
+5. **NOT** touched: API URL prefix `/knowledge-graph` (kept kebab — REST best practice for URLs), JSDoc comments mentioning `/api/knowledge-graph/...` (URLs).
 
-2. **`.env` cleanup:**
-   - **Delete** `.env.backup.20260314_132015`, `.env.backup.20260314_132100` from the repo. Add `.env.backup.*` to `.gitignore`.
-   - **Move** `.env.jetson` → `config/profiles/jetson.env`. Update any scripts that read it.
-   - **Merge** `.env.template` and `.env.example` into a single `.env.example` (canonical). `.env.template` may have content not in `.env.example` — diff them carefully and merge.
-   - **Document** in `docs/development/ENVIRONMENT.md` (new file): all env vars, their defaults, where they're used. Cross-link from `.env.example` ("see docs/development/ENVIRONMENT.md").
-
-3. **Logs consolidation** (from top-level audit): merge `logs/` (root) into `data/logs/`. Update Compose volume mounts. Risky — verify Traefik log path still works, no orphan log files created.
-
-4. Commit: `chore: kebab-case rename for knowledge-graph route, consolidate .env files, move logs/ into data/logs/`.
-
-**Files:** 1 rename, 4 .env ops, ~10 cross-reference fixes, 1 new ENVIRONMENT.md.
+**Files:** 4 changed (2 `git mv`, 2 import-path updates).
 
 **Acceptance:**
 
-- `git grep "knowledge-graph"` returns 0 (except in this plan).
-- `ls .env*` shows only `.env`, `.env.example`.
-- `find . -name '*.env*' -not -path './node_modules/*'` lists only `.env`, `.env.example`, `config/profiles/jetson.env`.
-- `docs/development/ENVIRONMENT.md` documents every env var.
+- `git ls-files apps/dashboard-backend/src/routes/ai/ | grep knowledge` → only `knowledgeGraph.js`.
+- `git ls-files apps/dashboard-backend/src/schemas/ | grep knowledge` → only `knowledgeGraph.js`.
+- `grep -rn "require.*knowledge-graph" apps/dashboard-backend/src/` → 0 hits.
+- API URL `/api/knowledge-graph/*` still resolves (no change to mount).
 
-**Risk:** Medium — `.env.jetson` move and logs/ consolidation touch Compose. Validate with `docker compose config`.
-**Rollback:** Per-change revert.
-**Estimate:** 3 h.
+**Risk realised:** Low. The two `require()` paths are the only consumers; URL routing is untouched.
+**Rollback:** Revert this commit.
+**Actual effort:** ~20 min (vs. 3 h original estimate, because the .env / logs / new-doc tasks were dropped).
 
 ---
 

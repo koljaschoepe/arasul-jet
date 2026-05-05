@@ -18,7 +18,7 @@ const pool = require('../../database');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
 const { validateBody } = require('../../middleware/validate');
-const { KgQueryBody } = require('../../schemas/knowledge-graph');
+const { KgQueryBody } = require('../../schemas/knowledgeGraph');
 const axios = require('axios');
 
 const DOCUMENT_INDEXER_URL = process.env.DOCUMENT_INDEXER_URL || 'http://document-indexer:9102';
