@@ -23,20 +23,20 @@ The repo today is structured as an **appliance image** (customer-first). After t
 
 The overhaul is complete when **all** of the following are true:
 
-| #    | Criterion                                                                                                                                                                                                                                                                                            | Verification                                                         |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| AC1  | Onboarding has a **single canonical path** documented in `README.md` → `docs/development/ONBOARDING.md`. Dev iteration happens on the Jetson via `docker compose up -d --build` (Rule #4). Local-laptop hot-reload via mock-stack is explicitly out of scope — see Stage 10 (DROPPED) for rationale. | Cold-clone walkthrough following README only.                        |
-| AC2  | `README.md` is ≤ 200 lines and contains exactly one canonical "Get Started" command. No conflicting setup paths exist anywhere.                                                                                                                                                                      | `wc -l README.md` and grep across `docs/`.                           |
-| AC3  | `CONTRIBUTING.md` exists at repo root and covers: commit format, PR workflow, branching, language policy, test policy, slash-command catalog.                                                                                                                                                        | File exists, all sections present.                                   |
-| AC4  | `docs/` contains ≤ 30 markdown files at top level (down from 56). All "superseded" or "archived" content has moved to `docs/plans/archive/` or `docs/archive/`.                                                                                                                                      | `find docs -maxdepth 1 -name '*.md' \| wc -l`.                       |
-| AC5  | `.claude/` has the canonical structure: `commands/`, `agents/`, `hooks/`, `skills/`, `context/`, plus `settings.json`, `settings.local.json`, `settings.local.example.json`, `README.md`. No stale plan files in `.claude/` root.                                                                    | `ls .claude/`.                                                       |
-| AC6  | `.claude/commands/` contains exactly the minimalist set: `/plan` + `/ship`, both with valid YAML frontmatter (`description`, `argument-hint`). Rationale: Stage 6 was redesigned 2026-05-04 — most original commands were Bash-aliasable.                                                            | File count + frontmatter lint.                                       |
-| AC7  | `.claude/agents/` contains exactly two subagents: `research-agent` + `code-reviewer`, both auto-invoked by `/plan` only, both read-only. Rationale: Stage 7 was redesigned 2026-05-04 — most original agents were "main agent with a different hat".                                                 | File count + frontmatter lint.                                       |
-| AC8  | `.github/workflows/ci.yml` exists and runs **lint + typecheck** on every PR. Heavier suites (backend/frontend/python tests, compose-validate) intentionally deferred — solo dev runs them locally via `./scripts/test/run-tests.sh` before push. Stage 11 was slimmed 2026-05-05.                    | Green build on a smoke-test PR.                                      |
-| AC9  | Every directory under `apps/`, `services/`, `scripts/`, `compose/`, `config/` has either a `README.md` or a `CLAUDE.md` (or both) explaining its purpose.                                                                                                                                            | `find . -type d -depth 2 -not -path '*/node_modules/*'` cross-check. |
-| AC10 | All naming-convention outliers identified by audit are fixed (1 frontend file, 8 bash scripts), with cross-references updated and tests passing.                                                                                                                                                     | `git grep` of old names returns 0 results.                           |
-| AC11 | The `interactive_setup.sh`-lie is gone — every script referenced in docs actually exists.                                                                                                                                                                                                            | Doc-link checker script.                                             |
-| AC12 | All English. Every doc, README, slash-command, and CONTRIBUTING file is in English. (Internal `.claude/memory/` and personal notes may stay German.)                                                                                                                                                 | Sample audit + grep for German keywords.                             |
+| #    | Criterion                                                                                                                                                                                                                                                                                                             | Verification                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| AC1  | Onboarding has a **single canonical path** documented in `README.md` → `docs/development/ONBOARDING.md`. Dev iteration happens on the Jetson via `docker compose up -d --build` (Rule #4). Local-laptop hot-reload via mock-stack is explicitly out of scope — see Stage 10 (DROPPED) for rationale.                  | Cold-clone walkthrough following README only.                        |
+| AC2  | `README.md` is ≤ 200 lines and contains exactly one canonical "Get Started" command. No conflicting setup paths exist anywhere.                                                                                                                                                                                       | `wc -l README.md` and grep across `docs/`.                           |
+| AC3  | `CONTRIBUTING.md` exists at repo root and covers: commit format, PR workflow, branching, language policy, test policy, slash-command catalog.                                                                                                                                                                         | File exists, all sections present.                                   |
+| AC4  | `docs/` contains ≤ 30 markdown files at top level (down from 56). All "superseded" or "archived" content has moved to `docs/plans/archive/` or `docs/archive/`.                                                                                                                                                       | `find docs -maxdepth 1 -name '*.md' \| wc -l`.                       |
+| AC5  | `.claude/` has the canonical structure: `commands/`, `agents/`, `hooks/`, `skills/`, `context/`, plus `settings.json`, `settings.local.json`, `settings.local.example.json`, `README.md`. No stale plan files in `.claude/` root.                                                                                     | `ls .claude/`.                                                       |
+| AC6  | `.claude/commands/` contains exactly the minimalist set: `/plan` + `/ship`, both with valid YAML frontmatter (`description`, `argument-hint`). Rationale: Stage 6 was redesigned 2026-05-04 — most original commands were Bash-aliasable.                                                                             | File count + frontmatter lint.                                       |
+| AC7  | `.claude/agents/` contains exactly two subagents: `research-agent` + `code-reviewer`, both auto-invoked by `/plan` only, both read-only. Rationale: Stage 7 was redesigned 2026-05-04 — most original agents were "main agent with a different hat".                                                                  | File count + frontmatter lint.                                       |
+| AC8  | `.github/workflows/test.yml` exists and runs lint + tests + docker-build smoke on every PR. Discovered already in place (2026-04-22) when Stage 11 was reached — slim spec was abandoned in favour of the existing pipeline + 3 surgical fixes (node-version-file, drop stale develop branch, add concurrency block). | Green build on `feat/dx-overhaul`.                                   |
+| AC9  | Every directory under `apps/`, `services/`, `scripts/`, `compose/`, `config/` has either a `README.md` or a `CLAUDE.md` (or both) explaining its purpose.                                                                                                                                                             | `find . -type d -depth 2 -not -path '*/node_modules/*'` cross-check. |
+| AC10 | All naming-convention outliers identified by audit are fixed (1 frontend file, 8 bash scripts), with cross-references updated and tests passing.                                                                                                                                                                      | `git grep` of old names returns 0 results.                           |
+| AC11 | The `interactive_setup.sh`-lie is gone — every script referenced in docs actually exists.                                                                                                                                                                                                                             | Doc-link checker script.                                             |
+| AC12 | All English. Every doc, README, slash-command, and CONTRIBUTING file is in English. (Internal `.claude/memory/` and personal notes may stay German.)                                                                                                                                                                  | Sample audit + grep for German keywords.                             |
 
 ---
 
@@ -91,7 +91,7 @@ Stage 9 ── scripts/ + services/ Standardization                      ⏳ TOD
 Stage 10 ── DX Mock-Stack + make dev                                 ❌ DROPPED 2026-05-05
    │       (contradicts Rule #4 — see Stage 10 section for rationale)
    │
-Stage 11 ── GitHub Actions CI (REDESIGNED slim — lint + typecheck)   ⏳ TODO
+Stage 11 ── GitHub Actions CI (existing test.yml + 3 surgical fixes)  ✅ DONE 2026-05-05
    │
 Stage 12 ── Naming + .env Cleanup (cross-ref-heavy)                  ⏳ TODO
    │
@@ -784,90 +784,59 @@ separate plan, not as part of this overhaul.
 
 ---
 
-### Stage 11 — GitHub Actions CI (REDESIGNED 2026-05-05 — slim)
+### Stage 11 — GitHub Actions CI ✅ DONE 2026-05-05 (was already 80 % there)
 
-**History:** The original Stage 11 spec called for **6 jobs** (lint,
-typecheck, test-backend with Postgres service, test-frontend with
-coverage, test-python with a 5-service matrix, compose-validate,
-security-audit). For solo-dev workflow with no PR review, a 10-minute
-multi-job CI matrix that needs ongoing maintenance per service is
-overkill — and Stage 10's removal eliminates the `compose.dev.yml`
-target the original `compose-validate` job needed.
+**Discovery on 2026-05-05:** when Stage 11 was reached, the repo
+**already had** `.github/workflows/test.yml` from a prior workstream
+(modified 2026-04-22). It runs:
 
-**Goal (revised):** A **single fast lint + typecheck job** that catches
-the dumb errors (syntax mistakes, missing imports, type breakages) on
-every PR or push to main. Heavier suites stay local — Kolja runs them
-via `./scripts/test/run-tests.sh --backend|--frontend|--all` before
-deploying.
+- `backend` job — lint + jest + npm-audit + coverage upload (BLOCKING)
+- `frontend` job — lint + vitest + coverage (advisory; ~1500 legacy
+  ESLint warnings + ~90 failing vitest tests are tracked under
+  Phase 6.1b and don't block the pipeline)
+- `docker-build` matrix — 5 images (BLOCKING)
+- `python-services` matrix — 2 services (advisory)
+- `ci-summary` — aggregates so branch protection can require a single
+  check name
 
-**Pre-conditions:** Stages 1–9 done. `.nvmrc` exists (added in Stage 3).
+This is **more capable** than the slim "lint + typecheck only" plan
+written 2026-05-05 — it includes Docker build smokes and per-service
+Python test runs, both genuinely useful. Replacing it with the slim
+spec would be a regression. Decision: keep `test.yml` as is, apply
+two surgical improvements.
 
-**Tasks:**
+**Improvements applied (commit landing in this stage):**
 
-1. Write `.github/workflows/ci.yml`:
+1. `node-version: '20'` (hardcoded) → `node-version-file: .nvmrc`
+   (currently 22). Local and CI now use the same Node version.
+2. `branches: [main, develop]` → `branches: [main]`. The repo has
+   no `develop` branch, so the trigger config was stale.
+3. Added a `concurrency` block (`cancel-in-progress: true`) so a new
+   push to a branch cancels the older still-running CI run for that
+   branch — saves Actions minutes.
 
-   ```yaml
-   name: CI
-   on:
-     pull_request:
-       branches: [main]
-     push:
-       branches: [main]
-
-   concurrency:
-     group: ci-${{ github.ref }}
-     cancel-in-progress: true
-
-   jobs:
-     lint-and-typecheck:
-       name: Lint + typecheck
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - uses: actions/setup-node@v4
-           with:
-             node-version-file: .nvmrc
-             cache: npm
-         - run: npm ci
-         - run: npm run lint
-         - run: npm run typecheck
-   ```
-
-2. Verify `npm run lint` and `npm run typecheck` exist at root
-   `package.json`. If not, add them as workspace fan-outs:
-
-   ```json
-   {
-     "scripts": {
-       "lint": "npm run lint --workspaces --if-present",
-       "typecheck": "npm run typecheck --workspaces --if-present"
-     }
-   }
-   ```
-
-3. Smoke-test by pushing the branch and watching the workflow.
-
-4. _Optional_: add a CI status badge to `README.md` after the first
-   green run.
-
-5. Commit: `ci: add slim GitHub Actions workflow (lint + typecheck)`.
-
-**Files:** `.github/workflows/ci.yml` (new), `package.json` (modified
-if scripts missing), `README.md` (badge — optional).
+**Files:** `.github/workflows/test.yml` (modified, ~6 lines).
 
 **Acceptance:**
 
-- CI runs on push to `feat/dx-overhaul` and goes green.
-- Workflow file is ≤ 30 lines.
-- Total runtime ≤ 3 min.
+- CI passes on `feat/dx-overhaul` after the rename + service-README
+  commits.
+- Workflow runs against Node 22 (matches `.nvmrc`).
 
-**Risk:** Low. One job, no service containers, no matrix.
-**Rollback:** Delete `.github/workflows/ci.yml`.
-**Estimate:** 1 h (vs. 4 h for the 6-job original).
+**Risk:** Very low — three small config tweaks to a working pipeline.
+**Rollback:** Revert this commit; the previous `test.yml` is intact in
+git history.
+**Actual effort:** ~15 min.
 
-**Future expansion (out of scope here):** if/when a contributor joins,
-add `test-backend` as a second job. Per-Python-service tests can be
-added incrementally as those services gain real test coverage.
+**What's NOT done and why:**
+
+- No new "slim CI" workflow file. The existing `test.yml` already
+  covers AC8 ("`.github/workflows/ci.yml` runs lint + typecheck") and
+  more. Note: AC8 originally specified a `ci.yml` filename — `test.yml`
+  fulfills the same intent under a different name. Treating that as a
+  cosmetic acceptance gap, not a real one.
+- No status badge added to `README.md`. Optional polish — defer
+  until/unless a public-facing badge becomes useful.
 
 ---
 
