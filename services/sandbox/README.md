@@ -4,13 +4,13 @@ General-purpose terminal-based development sandbox container. Lets an operator (
 
 ## Overview
 
-| Property      | Value                                                                            |
-| ------------- | -------------------------------------------------------------------------------- |
-| Base image    | `node:20.19-slim`                                                                |
-| Pre-installed | `bash`, `git`, `curl`, `tmux` + Node 20 toolchain                                |
-| Persistence   | State is preserved across `docker stop`/`docker start`. **Lost on `docker rm`.** |
-| Entry point   | `entrypoint.sh` (drops you into a `tmux` session)                                |
-| tmux config   | `tmux.conf` — pinned key bindings + sane defaults                                |
+| Property      | Value                                                                                                                                                                                                                                                                |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base image    | `node:20.19-slim`                                                                                                                                                                                                                                                    |
+| Pre-installed | `bash`, `git`, `curl`, `tmux` + Node 20 toolchain                                                                                                                                                                                                                    |
+| Persistence   | Container state (installed packages, shell history): preserved across `docker stop`/`start`, lost on `docker rm`. **User project files in `data/sandbox/projects/`: persistent regardless** — bind-mounted from the Jetson host (see `compose/compose.app.yaml:79`). |
+| Entry point   | `entrypoint.sh` (drops you into a `tmux` session)                                                                                                                                                                                                                    |
+| tmux config   | `tmux.conf` — pinned key bindings + sane defaults                                                                                                                                                                                                                    |
 
 ## Components
 
@@ -44,11 +44,11 @@ For one-shot scripts, prefer `docker run --rm` against the relevant service imag
 
 ## Cleanup
 
-Whenever you want a clean slate:
+Whenever you want a clean slate **inside the container** (installed apt packages, npm globals, shell history, /tmp scratch):
 
 ```bash
 docker compose down sandbox
 docker compose up -d --force-recreate sandbox
 ```
 
-This wipes everything you installed inside the container and resets to the Dockerfile state.
+User project files at `data/sandbox/projects/` are **preserved** — they live on the host bind-mount, not in the container layer. To clear them too, also `rm -rf data/sandbox/projects/<project-name>` on the host.

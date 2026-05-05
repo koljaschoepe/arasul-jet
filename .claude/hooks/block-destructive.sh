@@ -46,9 +46,20 @@ if match 'rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-
   block "rm -rf against critical path"
 fi
 
-# Force-push to main/master. Catches --force, --force-with-lease, and -f.
-if match 'git[[:space:]]+push.*(--force|--force-with-lease|[[:space:]]-f([[:space:]]|$)).*[[:space:]](main|master)([[:space:]]|$)'; then
-  block "git push --force against main/master"
+# Force-push to main/master. The original single-regex form was fragile
+# against argument order (`-f` before vs. after the branch) and refspec
+# syntax (`feat:main`). Split into three independent checks combined with
+# an AND: command starts with `git push`, has any force flag (long or
+# short, including combined short flags like `-fu`), and names main/
+# master either as a bare branch or as the destination of a refspec.
+if match '(^|[[:space:];|&])git[[:space:]]+push([[:space:]]|$)'; then
+  has_force=0
+  has_main=0
+  match '(--force|--force-with-lease|[[:space:]]-[a-zA-Z]*f[a-zA-Z]*([[:space:]]|$))' && has_force=1
+  match '([[:space:]:]|^)(main|master)([[:space:]:]|$)' && has_main=1
+  if [ "$has_force" = 1 ] && [ "$has_main" = 1 ]; then
+    block "git push --force against main/master"
+  fi
 fi
 
 # Hard reset to remote main/master.
