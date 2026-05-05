@@ -4,13 +4,13 @@ System metrics collection service for real-time monitoring.
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Port | 9100 (internal) |
-| Framework | aiohttp |
-| Runtime | Python 3.10+ |
-| Live Interval | 5 seconds |
-| Persist Interval | 30 seconds |
+| Property         | Value           |
+| ---------------- | --------------- |
+| Port             | 9100 (internal) |
+| Framework        | aiohttp         |
+| Runtime          | Python 3.10+    |
+| Live Interval    | 5 seconds       |
+| Persist Interval | 30 seconds      |
 
 ## Directory Structure
 
@@ -26,27 +26,28 @@ metrics-collector/
 
 ## Metrics Collected
 
-| Metric | Source | Unit |
-|--------|--------|------|
-| CPU Usage | psutil | % |
-| RAM Usage | psutil | % |
-| GPU Usage | pynvml (NVML) | % |
-| Temperature | psutil/nvml | °C |
-| Disk Used | psutil | bytes |
-| Disk Free | psutil | bytes |
-| Disk Percent | psutil | % |
+| Metric       | Source        | Unit  |
+| ------------ | ------------- | ----- |
+| CPU Usage    | psutil        | %     |
+| RAM Usage    | psutil        | %     |
+| GPU Usage    | pynvml (NVML) | %     |
+| Temperature  | psutil/nvml   | °C    |
+| Disk Used    | psutil        | bytes |
+| Disk Free    | psutil        | bytes |
+| Disk Percent | psutil        | %     |
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/metrics` | Current metrics (JSON) |
-| GET | `/health` | Health check |
-| GET | `/gpu` | GPU-specific metrics |
+| Method | Path       | Description            |
+| ------ | ---------- | ---------------------- |
+| GET    | `/metrics` | Current metrics (JSON) |
+| GET    | `/health`  | Health check           |
+| GET    | `/gpu`     | GPU-specific metrics   |
 
 ### GET /metrics
 
 **Response:**
+
 ```json
 {
   "cpu": 45.2,
@@ -90,15 +91,15 @@ metrics-collector/
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| METRICS_INTERVAL_LIVE | 5 | Live collection interval (seconds) |
-| METRICS_INTERVAL_PERSIST | 30 | Database persist interval (seconds) |
-| METRICS_RETENTION_DAYS | 7 | Data retention period |
-| POSTGRES_HOST | postgres-db | Database host |
-| POSTGRES_PORT | 5432 | Database port |
-| POSTGRES_USER | arasul | Database user |
-| POSTGRES_DB | arasul_db | Database name |
+| Variable                 | Default     | Description                         |
+| ------------------------ | ----------- | ----------------------------------- |
+| METRICS_INTERVAL_LIVE    | 5           | Live collection interval (seconds)  |
+| METRICS_INTERVAL_PERSIST | 30          | Database persist interval (seconds) |
+| METRICS_RETENTION_DAYS   | 7           | Data retention period               |
+| POSTGRES_HOST            | postgres-db | Database host                       |
+| POSTGRES_PORT            | 5432        | Database port                       |
+| POSTGRES_USER            | arasul      | Database user                       |
+| POSTGRES_DB              | arasul_db   | Database name                       |
 
 ## Database Tables
 
@@ -154,5 +155,5 @@ Metrics Collector (HTTP) → Dashboard Backend → Frontend (WebSocket)
 
 ## Related Documentation
 
-- [Dashboard Backend](../dashboard-backend/README.md) - WebSocket proxy
+- [Dashboard Backend](../../apps/dashboard-backend/README.md) - WebSocket proxy
 - [Self-Healing Agent](../self-healing-agent/README.md) - Uses metrics for thresholds

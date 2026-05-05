@@ -413,7 +413,7 @@ services/postgres/init/
 ### Validation
 
 ```bash
-./scripts/validate/validate_dependencies.sh
+./scripts/validate/validate-dependencies.sh
 ```
 
 ---
@@ -470,7 +470,7 @@ Full reference: [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 
 ## Related Documentation
 
-- [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) - Database structure
-- [API_REFERENCE.md](API_REFERENCE.md) - API endpoints
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment & installation
-- [DEVELOPMENT.md](DEVELOPMENT.md) - Development workflows
+- [DATABASE_SCHEMA.md](api/DATABASE_SCHEMA.md) - Database structure
+- [API_REFERENCE.md](api/API_REFERENCE.md) - API endpoints
+- [Deployment](ops/DEPLOYMENT.md) - Deployment & installation
+- [DEVELOPMENT.md](development/DEVELOPMENT.md) - Development workflows

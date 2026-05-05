@@ -12,8 +12,8 @@ if [ "$current_branch" = "main" ] || [ "$current_branch" = "develop" ]; then
   echo "Pushing to $current_branch - running full test suite..."
 
   # Run backend tests
-  if [ -f "./scripts/run-tests.sh" ]; then
-    ./scripts/run-tests.sh --backend
+  if [ -f "./scripts/test/run-tests.sh" ]; then
+    ./scripts/test/run-tests.sh --backend
     if [ $? -ne 0 ]; then
       echo ""
       echo "ERROR: Tests failed! Push aborted."

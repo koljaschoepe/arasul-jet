@@ -32,9 +32,9 @@ if [ $? -ne 0 ]; then
 fi
 
 # Run typecheck script if it exists
-if [ -f "./scripts/run-typecheck.sh" ]; then
+if [ -f "./scripts/test/run-typecheck.sh" ]; then
   echo "Running type checks..."
-  ./scripts/run-typecheck.sh
+  ./scripts/test/run-typecheck.sh
   if [ $? -ne 0 ]; then
     echo "Type check failed. Please fix the issues and try again."
     exit 1

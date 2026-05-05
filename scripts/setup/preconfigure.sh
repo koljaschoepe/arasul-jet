@@ -704,17 +704,17 @@ else
   # Check if arasul.local already resolves
   if avahi-resolve -n arasul.local >/dev/null 2>&1; then
     log_info "arasul.local ist bereits auflösbar"
-  elif [ -x "${SCRIPT_DIR}/setup_mdns.sh" ]; then
+  elif [ -x "${SCRIPT_DIR}/setup-mdns.sh" ]; then
     if sudo -n true 2>/dev/null; then
-      log_info "Konfiguriere mDNS über setup_mdns.sh..."
-      sudo "${SCRIPT_DIR}/setup_mdns.sh" 2>/dev/null && \
+      log_info "Konfiguriere mDNS über setup-mdns.sh..."
+      sudo "${SCRIPT_DIR}/setup-mdns.sh" 2>/dev/null && \
         log_info "mDNS konfiguriert" || \
         log_warn "mDNS-Konfiguration fehlgeschlagen"
     else
-      log_warn "mDNS benötigt sudo. Manuell ausführen: sudo ${SCRIPT_DIR}/setup_mdns.sh"
+      log_warn "mDNS benötigt sudo. Manuell ausführen: sudo ${SCRIPT_DIR}/setup-mdns.sh"
     fi
   else
-    log_warn "setup_mdns.sh nicht gefunden, mDNS-Setup übersprungen"
+    log_warn "setup-mdns.sh nicht gefunden, mDNS-Setup übersprungen"
   fi
 fi
 

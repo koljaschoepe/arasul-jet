@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "TEMPLATE — copy to settings.local.json (gitignored) and customize. Personal hooks like Telegram-notify, auto-restart, or auto-typecheck belong here so they don't affect other contributors. Settings.local.json is merged on top of settings.json at load time.",
+
+  "permissions": {
+    "_comment": "Add personal allow/deny rules here. The team-shared baseline is in settings.json — you don't need to repeat it.",
+    "allow": [],
+    "deny": []
+  },
+
+  "hooks": {
+    "_comment": "Examples below. Delete the ones you don't want. All script paths use ${CLAUDE_PROJECT_DIR} so they work from any clone location.",
+
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/scripts/test/run-typecheck.sh || true",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/scripts/util/telegram-notify.sh \"Claude session done\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+
+    "Notification": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/scripts/util/telegram-notify.sh \"Claude needs attention\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -3,6 +3,7 @@
 ## Overview
 
 Traefik serves as the central reverse proxy for the Arasul Platform, handling:
+
 - HTTP/HTTPS routing
 - TLS termination
 - Rate limiting
@@ -31,7 +32,9 @@ Internet/LAN
 ## Configuration Files
 
 ### Static Configuration (`traefik.yml`)
+
 Main Traefik configuration:
+
 - **Entrypoints**: HTTP (80), HTTPS (443), Dashboard (8080)
 - **Certificate Resolver**: Let's Encrypt ACME
 - **Providers**: Docker labels + file-based dynamic config
@@ -41,7 +44,9 @@ Main Traefik configuration:
 ### Dynamic Configuration
 
 #### `dynamic/routes.yml`
+
 HTTP routers and services:
+
 - **dashboard-frontend**: `/` → dashboard-frontend:3000
 - **dashboard-api**: `/api` → dashboard-backend:3001
 - **auth-api**: `/api/auth` → dashboard-backend:3001 (stricter rate limit)
@@ -54,9 +59,11 @@ HTTP routers and services:
 - **n8n-webhooks**: `/webhook` → n8n:5678
 
 #### `dynamic/middlewares.yml`
+
 Rate limiting and security:
 
 **Rate Limits:**
+
 - n8n Webhooks: 100 req/min
 - LLM API: 10 req/s
 - Metrics API: 20 req/s
@@ -64,6 +71,7 @@ Rate limiting and security:
 - General API: 100 req/s
 
 **Security Headers:**
+
 - `X-Frame-Options: SAMEORIGIN`
 - `X-Content-Type-Options: nosniff`
 - `X-XSS-Protection: 1; mode=block`
@@ -71,6 +79,7 @@ Rate limiting and security:
 - Custom `X-Powered-By: Arasul Platform`
 
 **Other Middlewares:**
+
 - CORS headers
 - Path prefix stripping
 - Compression (gzip)
@@ -78,7 +87,9 @@ Rate limiting and security:
 - IP whitelist (admin routes)
 
 #### `dynamic/websockets.yml`
+
 WebSocket support:
+
 - Dashboard metrics live-stream: `/api/metrics/live-stream`
 - n8n WebSocket connections
 - Automatic upgrade handling
@@ -87,15 +98,15 @@ WebSocket support:
 
 Routes are matched by priority (higher = first):
 
-| Priority | Route | Path |
-|----------|-------|------|
-| 50 | WebSocket routes | `/api/metrics/live-stream`, `/n8n/*` (with Upgrade header) |
-| 30 | MinIO routes | `/minio`, `/minio-api` |
-| 25 | AI services | `/models`, `/embeddings`, `/webhook` |
-| 20 | Auth & n8n | `/api/auth`, `/n8n` |
-| 15 | Metrics API | `/api/metrics` |
-| 10 | General API | `/api` |
-| 1 | Frontend | `/` |
+| Priority | Route            | Path                                                       |
+| -------- | ---------------- | ---------------------------------------------------------- |
+| 50       | WebSocket routes | `/api/metrics/live-stream`, `/n8n/*` (with Upgrade header) |
+| 30       | MinIO routes     | `/minio`, `/minio-api`                                     |
+| 25       | AI services      | `/models`, `/embeddings`, `/webhook`                       |
+| 20       | Auth & n8n       | `/api/auth`, `/n8n`                                        |
+| 15       | Metrics API      | `/api/metrics`                                             |
+| 10       | General API      | `/api`                                                     |
+| 1        | Frontend         | `/`                                                        |
 
 ## TLS/HTTPS
 
@@ -106,10 +117,12 @@ Automatic certificate provisioning via ACME HTTP challenge:
 **Certificate Storage:** `/letsencrypt/acme.json` (Docker volume)
 
 **Domains:**
+
 - Primary: `arasul.local`
 - Wildcards: `*.arasul.local`
 
 **Configuration:**
+
 ```yaml
 certificatesResolvers:
   letsencrypt:
@@ -127,7 +140,7 @@ All HTTP traffic (port 80) is automatically redirected to HTTPS (port 443):
 ```yaml
 entryPoints:
   web:
-    address: ":80"
+    address: ':80'
     http:
       redirections:
         entryPoint:
@@ -141,6 +154,7 @@ entryPoints:
 For development or air-gapped environments:
 
 1. Generate self-signed certificate:
+
 ```bash
 openssl req -x509 -newkey rsa:4096 -nodes \
   -keyout /letsencrypt/key.pem \
@@ -150,6 +164,7 @@ openssl req -x509 -newkey rsa:4096 -nodes \
 ```
 
 2. Update `traefik.yml`:
+
 ```yaml
 tls:
   certificates:
@@ -166,14 +181,15 @@ Rate limits use Traefik's `rateLimit` middleware with token bucket algorithm:
 ```yaml
 rate-limit-llm:
   rateLimit:
-    average: 10      # 10 requests per period
-    period: 1s       # Period duration
-    burst: 5         # Allow 5 burst requests
+    average: 10 # 10 requests per period
+    period: 1s # Period duration
+    burst: 5 # Allow 5 burst requests
 ```
 
 ### Rate Limit Headers
 
 Responses include:
+
 - `X-RateLimit-Limit`: Maximum requests
 - `X-RateLimit-Remaining`: Remaining requests
 - `X-RateLimit-Reset`: Reset timestamp
@@ -197,20 +213,24 @@ done
 ## WebSocket Support
 
 Traefik automatically upgrades HTTP connections to WebSocket when:
+
 1. Client sends `Connection: Upgrade` header
 2. Client sends `Upgrade: websocket` header
 
 ### Tested Routes:
+
 - **Dashboard Metrics**: `wss://arasul.local/api/metrics/live-stream`
 - **n8n**: `wss://arasul.local/n8n/...`
 
 ### Configuration:
+
 No special configuration needed - WebSocket upgrade is automatic.
 
 For explicit configuration (already in `websockets.yml`):
+
 ```yaml
 dashboard-websocket:
-  rule: "Host(`arasul.local`) && PathPrefix(`/api/metrics/live-stream`)"
+  rule: 'Host(`arasul.local`) && PathPrefix(`/api/metrics/live-stream`)'
   service: dashboard-backend-service
 ```
 
@@ -218,15 +238,15 @@ dashboard-websocket:
 
 All backend services have health checks:
 
-| Service | Path | Interval | Timeout |
-|---------|------|----------|---------|
-| Dashboard Backend | `/api/health` | 10s | 2s |
-| Dashboard Frontend | `/` | 30s | 3s |
-| MinIO Console | `/` | 30s | 3s |
-| MinIO API | `/minio/health/live` | 30s | 3s |
-| LLM Service | `/health` | 30s | 5s |
-| Embeddings | `/health` | 30s | 5s |
-| n8n | `/healthz` | 30s | 3s |
+| Service            | Path                 | Interval | Timeout |
+| ------------------ | -------------------- | -------- | ------- |
+| Dashboard Backend  | `/api/health`        | 10s      | 2s      |
+| Dashboard Frontend | `/`                  | 30s      | 3s      |
+| MinIO Console      | `/`                  | 30s      | 3s      |
+| MinIO API          | `/minio/health/live` | 30s      | 3s      |
+| LLM Service        | `/health`            | 30s      | 5s      |
+| Embeddings         | `/health`            | 30s      | 5s      |
+| n8n                | `/healthz`           | 30s      | 3s      |
 
 Unhealthy backends are automatically removed from load balancing.
 
@@ -237,6 +257,7 @@ Unhealthy backends are automatically removed from load balancing.
 Location: `/arasul/logs/traefik-access.log`
 
 Format: JSON with fields:
+
 - `ClientAddr`: Client IP
 - `RequestMethod`: HTTP method
 - `RequestPath`: Request path
@@ -246,6 +267,7 @@ Format: JSON with fields:
 - `Duration`: Request duration (ms)
 
 **Only logs:**
+
 - Errors (4xx, 5xx status codes)
 - Slow requests (>100ms)
 
@@ -254,6 +276,7 @@ Format: JSON with fields:
 Location: `/arasul/logs/traefik.log`
 
 Format: JSON with fields:
+
 - `level`: Log level (DEBUG, INFO, WARN, ERROR)
 - `msg`: Log message
 - `time`: Timestamp
@@ -263,12 +286,14 @@ Format: JSON with fields:
 Endpoint: `http://traefik:8080/metrics`
 
 Metrics include:
+
 - `traefik_entrypoint_requests_total`
 - `traefik_entrypoint_request_duration_seconds`
 - `traefik_service_requests_total`
 - `traefik_service_request_duration_seconds`
 
 Query examples:
+
 ```promql
 # Request rate per service
 rate(traefik_service_requests_total[5m])
@@ -285,11 +310,13 @@ sum(rate(traefik_service_requests_total{code=~"5.."}[5m]))
 URL: `http://arasul.local:8080/dashboard/`
 
 **Security:** Only accessible from:
+
 - localhost (127.0.0.1)
 - Docker network (172.30.0.0/24)
 - Local network (192.168.0.0/16, 10.0.0.0/8)
 
 Shows:
+
 - Active routers and services
 - Health check status
 - Request metrics
@@ -351,21 +378,25 @@ curl -H "Host: arasul.local" http://localhost/api/metrics/live
 ### Common Issues
 
 **1. 404 Not Found**
+
 - Check router rule matches request
 - Verify priority is correct
 - Check service is healthy
 
 **2. 502 Bad Gateway**
+
 - Backend service is down
 - Check service health
 - Verify service URL
 
 **3. 429 Too Many Requests**
+
 - Rate limit exceeded
 - Wait for period to reset
 - Check rate limit configuration
 
 **4. Certificate Errors**
+
 - Let's Encrypt challenge failing
 - Check port 80 is accessible
 - Verify email in config
@@ -374,6 +405,7 @@ curl -H "Host: arasul.local" http://localhost/api/metrics/live
 ## Security Best Practices
 
 1. **Keep Traefik Updated**
+
    ```bash
    docker pull traefik:v2.11
    docker-compose up -d traefik
@@ -402,5 +434,4 @@ curl -H "Host: arasul.local" http://localhost/api/metrics/live
 ## See Also
 
 - [Traefik Documentation](https://doc.traefik.io/traefik/)
-- [PRD §18 - Reverse Proxy](../../prd.md#18-reverse-proxy)
-- [LOGGING.md](../../LOGGING.md) - Log analysis
+- [LOGGING.md](../../docs/ops/LOGGING.md) - Log analysis

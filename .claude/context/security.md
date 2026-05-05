@@ -106,17 +106,9 @@ Services lesen via `_FILE` Pattern:
 // resolveSecrets.js liest z.B. POSTGRES_PASSWORD_FILE → /run/secrets/postgres_password
 ```
 
-**Startup-Validation** (`src/bootstrap.js`):
-
-```javascript
-// Weak secret detection
-const weakPatterns = ['dev', 'test', 'default', 'example', 'changeme'];
-const secretChecks = [
-  { name: 'JWT_SECRET', minLen: 32 },
-  { name: 'POSTGRES_PASSWORD', minLen: 16 },
-  { name: 'MINIO_ROOT_PASSWORD', minLen: 16 },
-];
-```
+**Startup gate** (`src/index.js`): refuses to boot in production if
+`JWT_SECRET < 32`, `POSTGRES_PASSWORD < 16`, `MINIO_ROOT_PASSWORD < 16`,
+or any contains `dev|test|default|example|changeme|password`.
 
 ---
 
@@ -176,26 +168,16 @@ const SENSITIVE_FIELDS = ['password', 'token', 'api_key', 'secret', 'bot_token',
 
 ---
 
-## Container Security
+## Container hardening
 
-- `no-new-privileges: true` auf ALLEN Containern
-- `cap_drop: [ALL]` + selektives `cap_add` wo nötig
-- Read-only Root-Filesystem: Traefik, Frontend, Loki, Promtail
-- Tmpfs mit `noexec,nosuid` für /tmp
-- Docker Socket Proxy (tecnativa) für kontrollierte Docker-API
-- Keine privileged Container
-- Non-root Users auf allen Services
+`no-new-privileges`, `cap_drop: [ALL]` + selective `cap_add`, read-only
+root FS where possible (Traefik / Frontend / Loki / Promtail), tmpfs
+`noexec,nosuid` for `/tmp`, Docker socket proxy (tecnativa) for
+controlled Docker API access, non-root users everywhere, no privileged
+containers.
 
----
+## Traefik
 
-## Traefik Security
-
-- TLS 1.2 Minimum, ECDHE + ChaCha20-Poly1305
-- HSTS: 2 Jahre
-- CSP: `default-src 'self'`
-- X-Frame-Options: SAMEORIGIN
-- Forward-Auth auf allen geschützten Routes
-- CORS: Nur private Netzwerke (RFC 1918)
-- Port-Exposure: Nur 80, 443, 8080 (localhost)
-
-**Config:** `config/traefik/` (traefik.yml, routes.yml, middlewares.yml, websockets.yml, tls.yml)
+TLS 1.2+ (ECDHE + ChaCha20-Poly1305), HSTS 2 y, CSP `default-src 'self'`,
+SAMEORIGIN frame, forward-auth on protected routes, CORS = RFC 1918 only,
+ports exposed: 80 / 443 / 8080-localhost. Config: `config/traefik/*.yml`.

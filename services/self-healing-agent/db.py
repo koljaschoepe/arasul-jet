@@ -59,8 +59,12 @@ class DatabaseMixin:
         if self.connection_pool and conn:
             self.connection_pool.putconn(conn)
 
-    def execute_query(self, query: str, params: tuple = None, fetch: bool = False):
-        """Execute a database query using connection pool"""
+    def execute_query(self, query: str, params: tuple = None, fetch: bool = False, fetch_all: bool = False):
+        """Execute a database query using connection pool.
+
+        fetch=True returns a single row (cursor.fetchone()).
+        fetch_all=True returns all rows (cursor.fetchall()).
+        """
         if not self.connection_pool:
             logger.warning("Connection pool not initialized")
             return None
@@ -71,7 +75,12 @@ class DatabaseMixin:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute(query, params)
-                result = cursor.fetchone() if fetch else None
+                if fetch_all:
+                    result = cursor.fetchall()
+                elif fetch:
+                    result = cursor.fetchone()
+                else:
+                    result = None
                 conn.commit()
                 return result
         except Exception as e:

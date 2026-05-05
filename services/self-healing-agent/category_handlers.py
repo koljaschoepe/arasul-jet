@@ -82,7 +82,7 @@ class CategoryHandlersMixin:
                 "SELECT COUNT(*) FROM recovery_actions "
                 "WHERE service_name = %s AND action_type = 'service_restart' "
                 "AND timestamp >= NOW() - INTERVAL '30 minutes'",
-                (service_name,), fetch=True
+                (service_name,), fetch_all=True
             )
             count = rows[0][0] if rows else 0
             if count >= self.MAX_RESTARTS_PER_30MIN:
@@ -440,7 +440,7 @@ class CategoryHandlersMixin:
                    WHERE status IN ('processing', 'pending')
                    RETURNING id""",
                 (f'System reboot: {reason}',),
-                fetch=True
+                fetch_all=True
             )
             count = len(result) if result else 0
             if count > 0:

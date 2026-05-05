@@ -1,132 +1,130 @@
 # Documentation Index
 
-Quick navigation to all Arasul Platform documentation.
+Map of every document in this repo. Pick a starting point that matches your role.
+
+## Start here
+
+| You are…                                                  | Read this first                                                        |
+| --------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **A new developer** (clone the repo, ship code)           | [`development/ONBOARDING.md`](development/ONBOARDING.md) — 30-min path |
+| **An operator** deploying to a Jetson                     | [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                               |
+| **An end-customer** with a pre-configured device (German) | [`ops/QUICK_START.md`](ops/QUICK_START.md)                             |
+| **An AI assistant** (Claude Code et al.)                  | [`../CLAUDE.md`](../CLAUDE.md) and per-area `apps/*/CLAUDE.md`         |
+
+For repo conventions, branching, commit format, and the slash-command catalog, see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ---
 
-## Reading Paths (New Developer Onboarding)
+## Subject areas
 
-### Day 1-2: Understand the System
-
-1. [ONBOARDING.md](ONBOARDING.md) - **30-min productive path** — rules, loops, first PR
-2. [GETTING_STARTED.md](GETTING_STARTED.md) - Setup, first change, deployment workflow
-3. [ARCHITECTURE.md](ARCHITECTURE.md) - 17 services, data flows, file locations
-4. [DEVELOPMENT.md](DEVELOPMENT.md) - Patterns, hooks, debugging cheatsheet
-
-### Day 3-4: Deep Dive
-
-4. [API_REFERENCE.md](API_REFERENCE.md) - All endpoints with request/response examples
-5. [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) - Tables, relationships, migrations
-6. [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) - **Mandatory** frontend guidelines
-7. [TESTING.md](TESTING.md) - Backend (Jest) + Frontend (Vitest) + E2E (Playwright)
-
-### Day 5: Operations
-
-8. [DEPLOYMENT.md](DEPLOYMENT.md) - Docker Compose, rebuild workflow
-9. [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) - All config variables
-10. [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues & solutions
-
----
-
-## Core Reference
-
-| Document                                             | Description                                                |
-| ---------------------------------------------------- | ---------------------------------------------------------- |
-| [ARCHITECTURE.md](ARCHITECTURE.md)                   | Services, ports, startup order, data flows, file locations |
-| [API_REFERENCE.md](API_REFERENCE.md)                 | Complete endpoint reference                                |
-| [API_ERRORS.md](API_ERRORS.md)                       | Error codes & handling                                     |
-| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)             | Database tables & relationships                            |
-| [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)                 | **Frontend design guidelines (MANDATORY)**                 |
-| [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) | All configuration variables                                |
+```
+docs/
+├── INDEX.md                  this file
+├── ARCHITECTURE.md           service topology, data flows
+├── ENVIRONMENT_VARIABLES.md  every env var
+├── development/              for contributors
+├── api/                      REST + DB schema reference
+├── ops/                      install, run, recover
+├── features/                 per-service feature docs
+├── plans/                    active and archived roadmaps
+└── archive/                  historical, kept for reference
+```
 
 ---
 
 ## Development
 
-| Document                                  | Description                                       |
-| ----------------------------------------- | ------------------------------------------------- |
-| [ONBOARDING.md](ONBOARDING.md)            | 30-min productive path — rules, workflow, gotchas |
-| [GETTING_STARTED.md](GETTING_STARTED.md)  | Developer onboarding & first change walkthrough   |
-| [DEVELOPMENT.md](DEVELOPMENT.md)          | Workflows, backend patterns, API usage, debugging |
-| [TESTING.md](TESTING.md)                  | Test framework & procedures                       |
-| [BUGS_AND_FIXES.md](../BUGS_AND_FIXES.md) | Bug tracking & resolutions                        |
+| Document                                                       | Topic                                            |
+| -------------------------------------------------------------- | ------------------------------------------------ |
+| [`development/ONBOARDING.md`](development/ONBOARDING.md)       | 30-min cold-clone-to-first-PR walkthrough        |
+| [`development/DEVELOPMENT.md`](development/DEVELOPMENT.md)     | Backend + frontend patterns, debugging, hooks    |
+| [`development/TESTING.md`](development/TESTING.md)             | Jest + Vitest + pytest workflows, coverage       |
+| [`development/DESIGN_SYSTEM.md`](development/DESIGN_SYSTEM.md) | Frontend design tokens, theming, mandatory rules |
+
+---
+
+## API reference
+
+| Document                                           | Topic                                             |
+| -------------------------------------------------- | ------------------------------------------------- |
+| [`api/API_REFERENCE.md`](api/API_REFERENCE.md)     | REST endpoint catalog, request/response shapes    |
+| [`api/API_ERRORS.md`](api/API_ERRORS.md)           | Error code catalog and client handling            |
+| [`api/DATABASE_SCHEMA.md`](api/DATABASE_SCHEMA.md) | Postgres tables, relationships, migration history |
 
 ---
 
 ## Operations
 
-| Document                                       | Description                                      |
-| ---------------------------------------------- | ------------------------------------------------ |
-| [DEPLOYMENT.md](DEPLOYMENT.md)                 | Installation, deployment, pre-shipping checklist |
-| [FRESH_DEPLOY_GUIDE.md](FRESH_DEPLOY_GUIDE.md) | Fresh Jetson deployment (3 methods, German)      |
-| [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)   | DR runbooks, backup/restore procedures           |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md)       | Problem resolution & support                     |
-| [BACKUP_SYSTEM.md](BACKUP_SYSTEM.md)           | Automated backup documentation                   |
-| [UPDATE_SYSTEM.md](UPDATE_SYSTEM.md)           | Update mechanism                                 |
-| [ADMIN_HANDBUCH.md](ADMIN_HANDBUCH.md)         | Administration handbook (12 chapters)            |
-| [QUICK_START.md](QUICK_START.md)               | Customer quick start guide                       |
+| Document                                                 | Topic                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                 | Install (interactive / factory / non-interactive), pre-shipping checklist, hardening |
+| [`ops/QUICK_START.md`](ops/QUICK_START.md)               | Customer quick start (German, end-user-facing)                                       |
+| [`ops/ADMIN_HANDBUCH.md`](ops/ADMIN_HANDBUCH.md)         | Operator handbook (German, 12 chapters)                                              |
+| [`ops/TROUBLESHOOTING.md`](ops/TROUBLESHOOTING.md)       | Symptom-to-fix lookup                                                                |
+| [`ops/UPDATE_SYSTEM.md`](ops/UPDATE_SYSTEM.md)           | OTA / package update mechanism                                                       |
+| [`ops/REMOTE_MAINTENANCE.md`](ops/REMOTE_MAINTENANCE.md) | SSH, Cloudflared, VPN setup                                                          |
+| [`ops/LOGGING.md`](ops/LOGGING.md)                       | Logger configuration, log paths, rotation                                            |
+| [`ops/BACKUP_SYSTEM.md`](ops/BACKUP_SYSTEM.md)           | Automated backup engine                                                              |
+| [`ops/DISASTER_RECOVERY.md`](ops/DISASTER_RECOVERY.md)   | DR runbooks, restore procedures                                                      |
 
 ---
 
-## Feature-Specific
+## Features
 
-| Document                                                         | Description                                              |
-| ---------------------------------------------------------------- | -------------------------------------------------------- |
-| [MINIO_SERVICE.md](MINIO_SERVICE.md)                             | S3-compatible storage (buckets, integration, management) |
-| [JETSON_COMPATIBILITY.md](JETSON_COMPATIBILITY.md)               | Multi-device support & GPU error handling                |
-| [SELF_HEALING_IMPLEMENTATION.md](SELF_HEALING_IMPLEMENTATION.md) | Self-healing engine details                              |
-| [LOGGING.md](LOGGING.md)                                         | Logging configuration                                    |
-| [CUSTOMER_OAUTH_SETUP.md](CUSTOMER_OAUTH_SETUP.md)               | OAuth setup for customers                                |
-| [REMOTE_MAINTENANCE.md](REMOTE_MAINTENANCE.md)                   | Remote access (SSH, Cloudflare, VPN)                     |
+| Document                                                                             | Topic                                      |
+| ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| [`features/MINIO_SERVICE.md`](features/MINIO_SERVICE.md)                             | S3-compatible object storage               |
+| [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture            |
+| [`features/JETSON_COMPATIBILITY.md`](features/JETSON_COMPATIBILITY.md)               | Multi-device support, GPU error handling   |
+| [`features/CUSTOMER_OAUTH_SETUP.md`](features/CUSTOMER_OAUTH_SETUP.md)               | OAuth onboarding for customer integrations |
 
 ---
 
-## Services
+## Plans
 
-### Application Services
+| Folder                             | Contains                                                       |
+| ---------------------------------- | -------------------------------------------------------------- |
+| [`plans/active/`](plans/active/)   | Roadmaps and overhauls currently in flight                     |
+| [`plans/archive/`](plans/archive/) | Completed or superseded plans (historical, do not act on them) |
+| [`plans/audits/`](plans/audits/)   | Snapshots from past multi-agent codebase audits                |
 
-| Service            | README                                         | Description                |
-| ------------------ | ---------------------------------------------- | -------------------------- |
-| Dashboard Backend  | [README](../apps/dashboard-backend/README.md)  | REST API + WebSocket + SSE |
-| Dashboard Frontend | [README](../apps/dashboard-frontend/README.md) | React 19 SPA (Vite 6)      |
+See [`plans/README.md`](plans/README.md) for the plan workflow (when to start one, when to archive, naming conventions).
 
-### AI Services
+---
 
-| Service           | README                                            | Description             |
-| ----------------- | ------------------------------------------------- | ----------------------- |
-| LLM Service       | [README](../services/llm-service/README.md)       | Ollama-based chat LLM   |
-| Embedding Service | [README](../services/embedding-service/README.md) | Text vectorization      |
-| Document Indexer  | [README](../services/document-indexer/README.md)  | RAG document processing |
+## Service-level docs
 
-### System Services
+Each service has its own `README.md` (and increasingly its own `CLAUDE.md`). See:
 
-| Service            | README                                             | Description              |
-| ------------------ | -------------------------------------------------- | ------------------------ |
-| PostgreSQL         | [README](../services/postgres/README.md)           | Database                 |
-| Metrics Collector  | [README](../services/metrics-collector/README.md)  | System metrics           |
-| Self-Healing Agent | [README](../services/self-healing-agent/README.md) | Autonomous recovery      |
-| Telegram Bot       | [README](../services/telegram-bot/README.md)       | Notifications & commands |
+| Service                | Path                           |
+| ---------------------- | ------------------------------ |
+| Dashboard backend      | `apps/dashboard-backend/`      |
+| Dashboard frontend     | `apps/dashboard-frontend/`     |
+| LLM service (Ollama)   | `services/llm-service/`        |
+| Embedding service      | `services/embedding-service/`  |
+| Document indexer (RAG) | `services/document-indexer/`   |
+| PostgreSQL             | `services/postgres/`           |
+| Metrics collector      | `services/metrics-collector/`  |
+| Self-healing agent     | `services/self-healing-agent/` |
+| Backup service         | `services/backup-service/`     |
+| n8n workflows          | `services/n8n/`                |
+| Cloudflared tunnel     | `services/cloudflared/`        |
+| MCP remote bash        | `services/mcp-remote-bash/`    |
+| Sandbox                | `services/sandbox/`            |
 
-### Infrastructure
-
-| Service        | Docs                                  | Description           |
-| -------------- | ------------------------------------- | --------------------- |
-| n8n            | [README](../services/n8n/README.md)   | Workflow automation   |
-| MinIO          | [MINIO_SERVICE.md](MINIO_SERVICE.md)  | S3-compatible storage |
-| Traefik        | [README](../config/traefik/README.md) | Reverse proxy + SSL   |
-| Backup Service | [BACKUP_SYSTEM.md](BACKUP_SYSTEM.md)  | Automated backups     |
+> Some service READMEs are still being written as part of the [DX overhaul](plans/active/DX_OVERHAUL.md), Stage 9.
 
 ---
 
 ## Configuration
 
-| Document                                                | Description             |
-| ------------------------------------------------------- | ----------------------- |
-| [config/README.md](../config/README.md)                 | Configuration directory |
-| [config/traefik/README.md](../config/traefik/README.md) | Reverse proxy config    |
+| Document                                                  | Topic                       |
+| --------------------------------------------------------- | --------------------------- |
+| [`config/README.md`](../config/README.md)                 | Configuration tree overview |
+| [`config/traefik/README.md`](../config/traefik/README.md) | Traefik reverse proxy + TLS |
 
 ---
 
 ## Archive
 
-Completed plans and historical documents: [docs/archive/](archive/)
+[`archive/`](archive/) — historical documents kept for reference. Do not act on the contents.

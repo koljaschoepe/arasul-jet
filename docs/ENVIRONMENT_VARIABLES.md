@@ -252,7 +252,7 @@ Required for Google OAuth and external webhook access from other devices.
 4. Configure public hostname in Cloudflare dashboard: `http://reverse-proxy:80`
 5. Restart: `docker compose up -d cloudflared n8n`
 
-See [CUSTOMER_OAUTH_SETUP.md](./CUSTOMER_OAUTH_SETUP.md) for detailed instructions.
+See [CUSTOMER_OAUTH_SETUP.md](./features/CUSTOMER_OAUTH_SETUP.md) for detailed instructions.
 
 ---
 
@@ -280,7 +280,7 @@ Tailscale provides secure remote access via WireGuard mesh VPN. Configured durin
 
 Tailscale runs on the host (not in Docker). Status is available via `GET /api/tailscale/status`.
 
-See [REMOTE_MAINTENANCE.md](./REMOTE_MAINTENANCE.md) for detailed remote access documentation.
+See [REMOTE_MAINTENANCE.md](./ops/REMOTE_MAINTENANCE.md) for detailed remote access documentation.
 
 ---
 
@@ -603,7 +603,7 @@ Pre-configured profiles for common Jetson devices:
 ./scripts/setup/detect-jetson.sh recommend
 ```
 
-See [docs/JETSON_COMPATIBILITY.md](JETSON_COMPATIBILITY.md) for full device compatibility guide.
+See [docs/features/JETSON_COMPATIBILITY.md](features/JETSON_COMPATIBILITY.md) for full device compatibility guide.
 
 ---
 
@@ -676,7 +676,7 @@ SELF_HEALING_REBOOT_ENABLED=false
 Run the validation script to check configuration:
 
 ```bash
-./scripts/validate/validate_config.sh
+./scripts/validate/validate-config.sh
 ```
 
 Validates:
@@ -745,5 +745,5 @@ If both `VAR` and `VAR_FILE` are set, the file-based value wins (overwrites the 
 
 ## Related Documentation
 
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Setup & deployment guide
+- [Deployment](ops/DEPLOYMENT.md) - Setup & deployment guide
 - [config/README.md](../config/README.md) - Config directory

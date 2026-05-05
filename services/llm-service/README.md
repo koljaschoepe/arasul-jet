@@ -4,13 +4,13 @@ Flexible LLM service based on Ollama with Dashboard-managed model downloads, opt
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Ollama Port | 11434 (inference API) |
-| Management Port | 11436 (Flask API) |
-| Container | llm-service |
-| GPU | NVIDIA Jetson AGX Orin (64GB) |
-| Default Model | qwen3:14b-q8 |
+| Property        | Value                         |
+| --------------- | ----------------------------- |
+| Ollama Port     | 11434 (inference API)         |
+| Management Port | 11436 (Flask API)             |
+| Container       | llm-service                   |
+| GPU             | NVIDIA Jetson AGX Orin (64GB) |
+| Default Model   | qwen3:14b-q8                  |
 
 ## Features
 
@@ -50,42 +50,42 @@ Flexible LLM service based on Ollama with Dashboard-managed model downloads, opt
 
 ### Management API (Port 11436)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | 4-point health check |
-| `/api/models` | GET | List downloaded models with metadata |
-| `/api/models/loaded` | GET | Currently loaded model in VRAM |
-| `/api/models/pull` | POST | Download model (with retry) |
-| `/api/models/delete` | DELETE | Delete cached model |
-| `/api/cache/clear` | POST | Unload all models (GPU recovery) |
-| `/api/session/reset` | POST | Unload then reload default model |
-| `/api/stats` | GET | GPU/CPU/Memory metrics |
-| `/api/info` | GET | Service metadata |
+| Endpoint             | Method | Description                          |
+| -------------------- | ------ | ------------------------------------ |
+| `/health`            | GET    | 4-point health check                 |
+| `/api/models`        | GET    | List downloaded models with metadata |
+| `/api/models/loaded` | GET    | Currently loaded model in VRAM       |
+| `/api/models/pull`   | POST   | Download model (with retry)          |
+| `/api/models/delete` | DELETE | Delete cached model                  |
+| `/api/cache/clear`   | POST   | Unload all models (GPU recovery)     |
+| `/api/session/reset` | POST   | Unload then reload default model     |
+| `/api/stats`         | GET    | GPU/CPU/Memory metrics               |
+| `/api/info`          | GET    | Service metadata                     |
 
 ### Ollama API (Port 11434)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/generate` | POST | Text generation |
-| `/api/chat` | POST | Chat completion |
-| `/api/tags` | GET | List available models |
-| `/api/show` | POST | Model information |
-| `/api/pull` | POST | Download model (streaming) |
-| `/api/delete` | DELETE | Remove model |
+| Endpoint        | Method | Description                |
+| --------------- | ------ | -------------------------- |
+| `/api/generate` | POST   | Text generation            |
+| `/api/chat`     | POST   | Chat completion            |
+| `/api/tags`     | GET    | List available models      |
+| `/api/show`     | POST   | Model information          |
+| `/api/pull`     | POST   | Download model (streaming) |
+| `/api/delete`   | DELETE | Remove model               |
 
 See [Ollama API Documentation](https://github.com/ollama/ollama/blob/main/docs/api.md)
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| LLM_MODEL | qwen3:14b-q8 | Default model name |
-| LLM_CONTEXT_LENGTH | 8192 | Context window size |
-| LLM_GPU_LAYERS | 33 | GPU layers to use |
-| LLM_KEEP_ALIVE_SECONDS | 300 | Model keep-alive time |
-| OLLAMA_STARTUP_TIMEOUT | 120 | Startup timeout (seconds) |
-| OLLAMA_HOST | 0.0.0.0 | Ollama bind address |
-| OLLAMA_ORIGINS | * | Allowed CORS origins |
+| Variable               | Default      | Description               |
+| ---------------------- | ------------ | ------------------------- |
+| LLM_MODEL              | qwen3:14b-q8 | Default model name        |
+| LLM_CONTEXT_LENGTH     | 8192         | Context window size       |
+| LLM_GPU_LAYERS         | 33           | GPU layers to use         |
+| LLM_KEEP_ALIVE_SECONDS | 300          | Model keep-alive time     |
+| OLLAMA_STARTUP_TIMEOUT | 120          | Startup timeout (seconds) |
+| OLLAMA_HOST            | 0.0.0.0      | Ollama bind address       |
+| OLLAMA_ORIGINS         | \*           | Allowed CORS origins      |
 
 ## Health Check Implementation
 
@@ -106,6 +106,7 @@ grep -i "error\|fatal" /var/log/ollama.log | tail -5
 ```
 
 **Behavior:**
+
 - Uses jq for JSON parsing with grep fallback
 - Handles Jetson Orin GPU memory reporting quirks
 - Does NOT test model prompt (avoids loading model into RAM)
@@ -261,24 +262,24 @@ Models are stored in the `arasul-llm-models` volume:
 
 The Self-Healing Engine uses these endpoints:
 
-| Endpoint | Trigger | Action |
-|----------|---------|--------|
-| `/api/cache/clear` | GPU memory >95% | Free VRAM |
-| `/api/session/reset` | GPU errors | Reload model |
-| `/api/stats` | Monitoring | Check resources |
+| Endpoint             | Trigger         | Action          |
+| -------------------- | --------------- | --------------- |
+| `/api/cache/clear`   | GPU memory >95% | Free VRAM       |
+| `/api/session/reset` | GPU errors      | Reload model    |
+| `/api/stats`         | Monitoring      | Check resources |
 
 ## Supported Models
 
 Recommended models for Jetson AGX Orin (64GB):
 
-| Model | Size | VRAM | Use Case |
-|-------|------|------|----------|
-| qwen3:14b-q8 | 15GB | ~20GB | General purpose (default) |
-| llama3.1:8b | 4.7GB | ~8GB | Fast responses |
-| llama3.1:70b-q4 | 40GB | ~50GB | High quality |
-| codellama:34b | 19GB | ~25GB | Code generation |
-| mistral:7b | 4.1GB | ~7GB | Lightweight |
-| phi3:mini | 2.3GB | ~4GB | Edge deployment |
+| Model           | Size  | VRAM  | Use Case                  |
+| --------------- | ----- | ----- | ------------------------- |
+| qwen3:14b-q8    | 15GB  | ~20GB | General purpose (default) |
+| llama3.1:8b     | 4.7GB | ~8GB  | Fast responses            |
+| llama3.1:70b-q4 | 40GB  | ~50GB | High quality              |
+| codellama:34b   | 19GB  | ~25GB | Code generation           |
+| mistral:7b      | 4.1GB | ~7GB  | Lightweight               |
+| phi3:mini       | 2.3GB | ~4GB  | Edge deployment           |
 
 Full catalog: [Ollama Library](https://ollama.com/library)
 
@@ -367,5 +368,5 @@ nvidia-smi --query-gpu=memory.used,memory.free --format=csv
 
 - [Embedding Service](../embedding-service/README.md)
 - [Self-Healing Agent](../self-healing-agent/README.md)
-- [Models API](../../docs/API_REFERENCE.md#models)
+- [Models API](../../docs/api/API_REFERENCE.md#models)
 - [Ollama Docs](https://github.com/ollama/ollama)

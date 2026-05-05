@@ -4,12 +4,12 @@ Central database for the Arasul Platform.
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Port | 5432 (internal) |
-| Version | PostgreSQL 15+ |
-| Database | arasul_db |
-| User | arasul |
+| Property  | Value            |
+| --------- | ---------------- |
+| Port      | 5432 (internal)  |
+| Version   | PostgreSQL 15+   |
+| Database  | arasul_db        |
+| User      | arasul           |
 | Retention | 7 days (metrics) |
 
 ## Directory Structure
@@ -143,14 +143,14 @@ document_chunks (
 
 ## Data Retention
 
-| Table | Retention |
-|-------|-----------|
-| metrics_* | 7 days |
-| self_healing_events | 7 days |
-| workflow_activity | 7 days |
-| chat_conversations | Soft delete (30 days) |
-| update_events | Permanent |
-| admin_users | Permanent |
+| Table               | Retention             |
+| ------------------- | --------------------- |
+| metrics\_\*         | 7 days                |
+| self_healing_events | 7 days                |
+| workflow_activity   | 7 days                |
+| chat_conversations  | Soft delete (30 days) |
+| update_events       | Permanent             |
+| admin_users         | Permanent             |
 
 ## Connection Configuration
 
@@ -177,7 +177,7 @@ IDLE_TIMEOUT=30s
 
 Migrations run automatically on container start via `init/` directory.
 
-Files are executed in alphabetical order (001_, 002_, etc.).
+Files are executed in alphabetical order (001*, 002*, etc.).
 
 ### Adding New Migrations
 
@@ -232,5 +232,5 @@ Returns exit code 0 if database is accepting connections.
 
 ## Related Documentation
 
-- [DATABASE_SCHEMA.md](../../docs/DATABASE_SCHEMA.md) - Full schema documentation
-- [Dashboard Backend](../dashboard-backend/README.md) - Database client
+- [DATABASE_SCHEMA.md](../../docs/api/DATABASE_SCHEMA.md) - Full schema documentation
+- [Dashboard Backend](../../apps/dashboard-backend/README.md) - Database client

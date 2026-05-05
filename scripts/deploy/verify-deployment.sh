@@ -330,7 +330,7 @@ else
 fi
 
 # Create-update script
-if [ -x "scripts/deploy/create_update_package.sh" ]; then
+if [ -x "scripts/deploy/create-update-package.sh" ]; then
   check_pass "Update package creation script available"
 else
   check_warn "Update package creation script missing"
