@@ -173,8 +173,15 @@ services:
       N8N_EDITOR_BASE_URL: ${N8N_EXTERNAL_URL:-/n8n}
       N8N_PATH: '/n8n/'
       N8N_BASIC_AUTH_ACTIVE: 'false'
-      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
-      # N8N_ENCRYPTION_KEY provided via Docker secret (compose.secrets.yaml)
+      # WEBHOOK_URL: full https URL where n8n is reachable from the public internet.
+      # Empty → n8n disables webhook-URL generation; workflows that need webhooks must
+      # be set up in long-poll/manual mode. Set N8N_WEBHOOK_URL in the host .env when a
+      # public hostname is available. Do NOT default to localhost — that broke external
+      # SaaS callbacks because n8n handed out localhost URLs.
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
+      # N8N_ENCRYPTION_KEY: resolved at container start by services/n8n/entrypoint.sh
+      # from the Docker secret n8n_encryption_key (mounted via compose.secrets.yaml).
+      # n8n upstream does not understand the *_FILE convention.
       # PostgreSQL persistence (without this, n8n falls back to SQLite and loses all data on restart)
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres-db
@@ -183,9 +190,17 @@ services:
       DB_POSTGRESDB_USER: ${POSTGRES_USER:-arasul}
       # DB_POSTGRESDB_PASSWORD resolved via Docker secret (compose.secrets.yaml)
       DB_POSTGRESDB_SCHEMA: n8n
-      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
-      EXECUTIONS_DATA_SAVE_ON_ERROR: all
-      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: 'true'
+      # Execution-data retention (DSGVO):
+      #   - SUCCESS=none: only failures keep payload — drastically reduces personal-data
+      #     accumulation in the n8n.execution_data table. Failures still keep full I/O for
+      #     debugging (see EXECUTIONS_DATA_PRUNE_MAX_COUNT below if errors stack up).
+      #   - PRUNE_ENABLED + MAX_AGE=336h (14d) caps retention even for errors and manuals.
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: 'none'
+      EXECUTIONS_DATA_SAVE_ON_ERROR: 'all'
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: 'false'
+      EXECUTIONS_DATA_PRUNE: 'true'
+      EXECUTIONS_DATA_MAX_AGE: '336'
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: '50000'
       N8N_USER_MANAGEMENT_JWT_DURATION_HOURS: '720'
       N8N_PERSONALIZATION_ENABLED: 'true'
       N8N_PUSH_BACKEND: 'websocket'
@@ -193,8 +208,29 @@ services:
       TZ: 'Europe/Berlin'
       N8N_CUSTOM_EXTENSIONS: /custom-nodes
       N8N_TRUST_PROXY: 'true'
+      # n8n sits behind exactly one trusted proxy (Traefik) — needed for correct rate-limit
+      # source-IP attribution and for OAuth2 callbacks behind the reverse proxy.
+      N8N_PROXY_HOPS: '1'
       N8N_RUNNERS_ENABLED: 'true'
-      N8N_RUNNERS_MODE: 'internal'
+      N8N_RUNNERS_MODE: 'internal' # external mode deferred — see docs/plans/active/EXTERNAL_INTEGRATIONS.md §5.4
+      # Hardening (Phase 2 of EXTERNAL_INTEGRATIONS plan) — see docs/integrations/N8N_HARDENING.md
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: 'true' # Code/Function nodes cannot read process.env
+      N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: 'true' # Code nodes cannot read n8n's own files
+      N8N_RESTRICT_FILE_ACCESS_TO: '/home/node/.n8n' # File access whitelist
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true' # 0600 on settings file
+      N8N_GIT_NODE_DISABLE_BARE_REPOS: 'true' # Git node hardening
+      N8N_PAYLOAD_SIZE_MAX: '8' # MiB (default 16) — DoS mitigation
+      N8N_DEFAULT_BINARY_DATA_MODE: 'filesystem' # Don't keep large blobs in RAM on Jetson
+      N8N_DIAGNOSTICS_ENABLED: 'false' # GDPR — no telemetry to n8n.io
+      N8N_VERSION_NOTIFICATIONS_ENABLED: 'false'
+      N8N_HIRING_BANNER_ENABLED: 'false'
+      # Supply-chain hardening: customers cannot install community packages from npm at runtime.
+      # If a vendor-specific node is needed, vendor it into this Dockerfile build.
+      N8N_COMMUNITY_PACKAGES_ENABLED: 'false'
+      # Block dangerous core nodes that give shell-equivalent power.
+      # executeCommand = arbitrary OS commands inside the n8n container.
+      # ssh             = arbitrary SSH commands to anywhere n8n can reach.
+      NODES_EXCLUDE: '["n8n-nodes-base.executeCommand","n8n-nodes-base.ssh"]'
     volumes:
       - arasul-n8n:/home/node/.n8n
       - ../services/n8n/credentials:/custom-credentials:ro

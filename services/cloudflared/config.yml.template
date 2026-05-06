@@ -43,7 +43,20 @@ ingress:
     originRequest:
       noTLSVerify: true
 
-  # 5. Gesundheitscheck
+  # 5. Telegram Webhooks (Phase 6.4 EXTERNAL_INTEGRATIONS plan)
+  # Bei aktiver Webhook-Konfiguration der Bots schickt Telegram Updates an
+  # diesen Pfad. Ohne diese Regel landen sie im Catch-all 404.
+  # WICHTIG: Im Cloudflare-Dashboard für diesen Pfad eine Bypass-Regel für
+  # Bot-Fight-Mode anlegen — sonst wird der X-Telegram-Bot-Api-Secret-Token-
+  # Header gestripped und alle Webhook-Requests fallen mit 403 durch.
+  - hostname: ${N8N_PUBLIC_DOMAIN}
+    path: /api/telegram-bots/webhook/*
+    service: http://reverse-proxy:80
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+
+  # 6. Gesundheitscheck
   - hostname: ${N8N_PUBLIC_DOMAIN}
     path: /healthz
     service: http://reverse-proxy:80

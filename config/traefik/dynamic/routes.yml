@@ -122,12 +122,15 @@ http:
         - websecure
       tls: {}
 
-    # n8n Workflow Engine (uses its own authentication)
+    # n8n Workflow Engine
+    # Layer 1: dashboard session via forward-auth (only logged-in dashboard users reach n8n at all)
+    # Layer 2: n8n's own user management (governs workflow ownership inside n8n)
     n8n:
       rule: 'PathPrefix(`/n8n`)'
       service: n8n-service
       priority: 100
       middlewares:
+        - forward-auth
         - strip-n8n-prefix
         - security-headers
       entryPoints:
@@ -145,11 +148,14 @@ http:
         - websecure
       tls: {}
 
-    # n8n favicon (public, no auth)
+    # n8n favicon (public — browsers fetch favicons on the login screen before any session cookie exists,
+    # so forward-auth here would just produce 401 noise. security-headers added for hygiene.)
     n8n-favicon:
       rule: 'Path(`/favicon.ico`)'
       service: n8n-service
       priority: 85
+      middlewares:
+        - security-headers
       entryPoints:
         - websecure
       tls: {}

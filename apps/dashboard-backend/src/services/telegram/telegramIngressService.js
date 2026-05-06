@@ -45,6 +45,12 @@ const {
   handleApiKeyCommand,
   handleVoiceMessage,
   isUserAllowed,
+  // Phase 6.2 DSGVO consent
+  handleDatenschutzCommand,
+  handleLoeschenCommand,
+  handleAuskunftCommand,
+  handleConsentCallback,
+  hasConsent,
 } = require('./telegramCommandHandlers');
 
 // =============================================================================
@@ -209,6 +215,27 @@ async function processUpdate(botId, update) {
   const token = await telegramBotService.getBotToken(botId);
   if (!token) {
     logger.error(`Token decryption failed for bot ${botId} - check encryption key`);
+
+    // Persist the failure so the dashboard can show a fix-it banner. Without
+    // this, decryption failures were dropped on the floor and the operator
+    // saw "active" bots that silently received nothing.
+    try {
+      await telegramBotService.setHealth(
+        botId,
+        'token_decrypt_failed',
+        'Token-Entschlüsselung fehlgeschlagen. Wahrscheinliche Ursache: JWT_SECRET wurde rotiert seit der Bot angelegt wurde. Token im Dashboard neu eintragen.'
+      );
+    } catch (dbErr) {
+      logger.warn(`Could not persist health state for bot ${botId}: ${dbErr.message}`);
+    }
+
+    // Stop pummeling Telegram with a dead token.
+    try {
+      await stopPolling(botId);
+    } catch (stopErr) {
+      logger.warn(`Could not stop polling for bot ${botId}: ${stopErr.message}`);
+    }
+
     try {
       const telegramWebSocketService = require('./telegramWebSocketService');
       telegramWebSocketService.broadcast({
@@ -328,11 +355,34 @@ async function processUpdate(botId, update) {
           case 'apikey':
             await handleApiKeyCommand(bot, token, message, args);
             break;
+          // Phase 6.2 DSGVO commands — always reachable, never gated by consent.
+          case 'datenschutz':
+            await handleDatenschutzCommand(bot, token, message);
+            break;
+          case 'loeschen':
+            await handleLoeschenCommand(bot, token, message);
+            break;
+          case 'auskunft':
+            await handleAuskunftCommand(bot, token, message);
+            break;
           default:
             await handleCustomCommand(bot, token, message, command, args);
         }
       } else {
-        await handleTextMessage(bot, token, message);
+        // Free-form text gate — no consent, no LLM. The user gets a one-line
+        // hint pointing back to /start. We do NOT reply at all if consent is
+        // 'denied' or 'withdrawn' — that's the explicit user wish.
+        const consented = await hasConsent(bot.id, message.from?.id);
+        if (consented) {
+          await handleTextMessage(bot, token, message);
+        } else {
+          // Lightweight nudge — only on first attempt per chat (no DB flag, just a low-cost send).
+          await sendMessage(
+            token,
+            chatId,
+            'ℹ️ Bitte zuerst /start ausführen und dem Datenschutz-Hinweis zustimmen, damit ich antworten darf.'
+          );
+        }
       }
     }
 
@@ -363,7 +413,8 @@ async function processUpdate(botId, update) {
     logger.info(`Update ${update.update_id} processed for bot ${botId} in ${duration}ms`);
   }
 
-  // Handle callback queries (inline button presses)
+  // Handle callback queries (inline button presses).
+  // The DSGVO consent inline-keyboard from /start dispatches through here.
   if (update.callback_query) {
     const cbQuery = update.callback_query;
     const chatId = cbQuery.message?.chat?.id;
@@ -374,6 +425,7 @@ async function processUpdate(botId, update) {
       userId: cbQuery.from?.id,
     });
 
+    // ACK every callback first — Telegram shows a spinner until this returns.
     try {
       await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
         method: 'POST',
@@ -384,6 +436,15 @@ async function processUpdate(botId, update) {
     } catch (err) {
       logger.warn(`Failed to answer callback query: ${err.message}`);
     }
+
+    // Dispatch consent callbacks. Other callback shapes can be added here.
+    if (callbackData === 'consent_grant' || callbackData === 'consent_deny') {
+      try {
+        await handleConsentCallback(bot, token, cbQuery);
+      } catch (err) {
+        logger.error(`consent callback failed: ${err.message}`);
+      }
+    }
   }
 
   return true;
@@ -393,20 +454,32 @@ async function processUpdate(botId, update) {
 // Webhook Management
 // =============================================================================
 
-async function setWebhook(botId, webhookUrl) {
+/**
+ * Register a webhook URL with Telegram for the given bot.
+ * @param {number} botId
+ * @param {string} webhookUrl - the public HTTPS URL Telegram should call
+ * @param {string} [secretToken] - if provided, Telegram will echo it back as
+ *   the X-Telegram-Bot-Api-Secret-Token header so we can timing-safe-validate
+ *   without putting the secret in the URL. Strongly recommended.
+ */
+async function setWebhook(botId, webhookUrl, secretToken) {
   const token = await telegramBotService.getBotToken(botId);
   if (!token) {
     throw new Error('Bot token not found');
   }
 
   try {
+    const body = {
+      url: webhookUrl,
+      allowed_updates: ['message', 'callback_query'],
+    };
+    if (secretToken) {
+      body.secret_token = secretToken;
+    }
     const response = await fetch(`${TELEGRAM_API}${token}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: webhookUrl,
-        allowed_updates: ['message', 'callback_query'],
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
     });
 
@@ -501,20 +574,18 @@ async function sendTestMessage(botId, chatId, text) {
 // Runtime Polling
 // =============================================================================
 
-function shouldUsePollling() {
-  return !process.env.PUBLIC_URL;
+// Long-polling is the default mode for every active bot. A bot only opts out of
+// polling when it has BOTH a webhook_url in the DB AND PUBLIC_URL is configured
+// in the environment. Anything else (no PUBLIC_URL, no webhook_url, half-set)
+// falls through to polling — that's the safe default that works on any network.
+function shouldUsePollling(bot) {
+  if (!bot) {
+    return !process.env.PUBLIC_URL;
+  } // back-compat for callers without a bot row
+  return !(bot.webhook_url && process.env.PUBLIC_URL);
 }
 
 async function initialize() {
-  if (!shouldUsePollling()) {
-    logger.info('Telegram Polling Manager: PUBLIC_URL is set, using webhooks instead of polling');
-    return;
-  }
-
-  logger.info(
-    'Telegram Polling Manager: No PUBLIC_URL configured, starting getUpdates polling for active bots'
-  );
-
   try {
     const activeBots = await telegramBotService.getActiveBots();
 
@@ -523,11 +594,24 @@ async function initialize() {
       return;
     }
 
+    let pollingStarted = 0;
+    let webhookSkipped = 0;
+
     for (const bot of activeBots) {
-      await startPolling(bot.id);
+      if (shouldUsePollling(bot)) {
+        await startPolling(bot.id);
+        pollingStarted += 1;
+      } else {
+        logger.info(
+          `Bot ${bot.id} (@${bot.bot_username}) is in webhook mode (webhook_url set, PUBLIC_URL configured) — skipping polling`
+        );
+        webhookSkipped += 1;
+      }
     }
 
-    logger.info(`Telegram Polling Manager: Started polling for ${activeBots.length} active bot(s)`);
+    logger.info(
+      `Telegram Polling Manager: started polling for ${pollingStarted} bot(s), ${webhookSkipped} in webhook mode`
+    );
   } catch (error) {
     logger.error('Telegram Polling Manager: Failed to initialize:', error.message);
   }
@@ -545,7 +629,8 @@ async function startPolling(botId) {
     return;
   }
 
-  // Verify token is valid
+  // Verify token is valid via getMe — and persist the health state so the
+  // dashboard always reflects what really happened on the last bring-up.
   try {
     const meResponse = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
       signal: AbortSignal.timeout(30000),
@@ -553,34 +638,91 @@ async function startPolling(botId) {
     const meData = await meResponse.json();
     if (!meData.ok) {
       logger.error(`Bot token invalid for bot ${botId}: ${meData.description}`);
+      try {
+        await telegramBotService.setHealth(
+          botId,
+          'token_invalid',
+          `Telegram lehnt Token ab: ${meData.description}. BotFather-Token in @BotFather prüfen oder neu generieren.`
+        );
+      } catch {
+        /* ignore */
+      }
       return;
     }
     logger.info(`Token verified for bot ${botId} (@${meData.result.username}), starting polling`);
-  } catch (err) {
-    const safeMessage = err.message ? err.message.replace(token, maskToken(token)) : err.message;
-    logger.error(`Cannot verify bot token for bot ${botId}: ${safeMessage}`);
-    return;
-  }
-
-  // Delete any existing webhook so getUpdates works
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ drop_pending_updates: false }),
-      signal: AbortSignal.timeout(30000),
-    });
-    const data = await response.json();
-    if (data.ok) {
-      logger.info(`Webhook deleted for bot ${botId} to enable polling`);
-    } else {
-      logger.warn(`deleteWebhook returned ok=false for bot ${botId}: ${data.description}`);
+    try {
+      await telegramBotService.setHealth(botId, 'healthy', null);
+    } catch {
+      /* ignore */
     }
   } catch (err) {
     const safeMessage = err.message ? err.message.replace(token, maskToken(token)) : err.message;
-    logger.error(
-      `Could not delete webhook for bot ${botId}: ${safeMessage} - polling may fail with 409 Conflict`
-    );
+    logger.error(`Cannot verify bot token for bot ${botId}: ${safeMessage}`);
+    try {
+      await telegramBotService.setHealth(
+        botId,
+        'unreachable',
+        `Telegram nicht erreichbar: ${safeMessage}`
+      );
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+
+  // Telegram does NOT allow webhook + getUpdates simultaneously — calling
+  // getUpdates while a webhook is set returns 409 Conflict. So if a webhook is
+  // registered we must delete it. We then sync the DB row (webhook_url=NULL)
+  // so initialize() doesn't put this bot back into webhook mode on next boot.
+  // If no webhook was registered (typical fresh bot), skip the API call.
+  let webhookWasSet = false;
+  try {
+    const dbCheck = await database.query('SELECT webhook_url FROM telegram_bots WHERE id = $1', [
+      botId,
+    ]);
+    webhookWasSet = !!dbCheck.rows[0]?.webhook_url;
+  } catch (err) {
+    logger.warn(`Could not check webhook state for bot ${botId}: ${err.message}`);
+  }
+
+  if (webhookWasSet) {
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ drop_pending_updates: false }),
+        signal: AbortSignal.timeout(30000),
+      });
+      const data = await response.json();
+      if (data.ok) {
+        logger.info(
+          `Bot ${botId}: switched from webhook → polling mode (webhook deleted Telegram-side)`
+        );
+        // Keep DB consistent: clear the webhook_url so initialize() routes
+        // this bot back to polling on the next boot.
+        await database.query('UPDATE telegram_bots SET webhook_url = NULL WHERE id = $1', [botId]);
+      } else {
+        logger.warn(`deleteWebhook returned ok=false for bot ${botId}: ${data.description}`);
+      }
+    } catch (err) {
+      const safeMessage = err.message ? err.message.replace(token, maskToken(token)) : err.message;
+      logger.error(
+        `Could not delete webhook for bot ${botId}: ${safeMessage} - polling may fail with 409 Conflict`
+      );
+    }
+  } else {
+    // Best-effort cleanup: still call deleteWebhook in case Telegram-side has a
+    // webhook from before we tracked it, but don't fail if it's already absent.
+    try {
+      await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ drop_pending_updates: false }),
+        signal: AbortSignal.timeout(30000),
+      }).catch(() => {});
+    } catch {
+      /* ignore */
+    }
   }
 
   // Mark as polling in DB

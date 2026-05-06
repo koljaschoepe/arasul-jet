@@ -1,0 +1,88 @@
+{
+  "name": "Smoke 03 — Incoming Webhook (echo)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "arasul-smoke-echo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-3",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "arasul-smoke-echo",
+      "notes": "Public URL after activation:\nhttps://<your-host>/webhook/arasul-smoke-echo\n\nTest:\ncurl -X POST -H 'Content-Type: application/json' \\\n  -d '{\"hello\":\"world\"}' \\\n  https://<your-host>/webhook/arasul-smoke-echo"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "echoed",
+              "value": "={{ JSON.stringify($json.body) }}"
+            },
+            {
+              "name": "received_at",
+              "value": "={{ $now }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-3",
+      "name": "Build response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-3",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "id": "arasul-smoke-03-incoming-webhook",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [{ "name": "arasul-smoke" }]
+}

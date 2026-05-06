@@ -21,7 +21,8 @@
  * - DELETE /api/telegram-bots/:id/chats/:chatRowId - Remove chat
  *
  * Webhook:
- * - POST   /api/telegram-bots/webhook/:botId/:secret - Telegram webhook
+ * - POST   /api/telegram-bots/webhook/:botId         - Telegram webhook (header-based, preferred)
+ * - POST   /api/telegram-bots/webhook/:botId/:secret - Legacy URL-secret webhook (backward-compat)
  *
  * Models:
  * - GET    /api/telegram-bots/models/ollama    - Get Ollama models
@@ -56,92 +57,116 @@ const database = require('../../database');
 const maskToken = token => (token ? token.substring(0, 8) + '***' : 'null');
 
 // ============================================================================
-// WEBHOOK ENDPOINT (No auth - called by Telegram)
+// WEBHOOK ENDPOINTS (No auth - called by Telegram)
 // ============================================================================
 
 // Note: Webhook must ALWAYS return 200 to Telegram to prevent retries.
 // We use a try-catch here intentionally rather than letting errors propagate
 // to the global error handler (which would return non-200 status codes).
+
+// Shared webhook handler — validates the secret in a timing-safe way and
+// dispatches to processUpdate. Used by both the header-based (preferred) and
+// the legacy URL-secret routes below.
+async function handleWebhookRequest({ req, res, botId, secret, source }) {
+  const startTime = Date.now();
+  const updateId = req.body?.update_id;
+  logger.info(`Webhook received for bot ${botId} (${source})`, { updateId });
+
+  try {
+    const bot = await telegramBotService.getBotByWebhookSecret(parseInt(botId), secret);
+
+    const isValidSecret =
+      typeof secret === 'string' &&
+      typeof bot?.webhook_secret === 'string' &&
+      secret.length === bot.webhook_secret.length &&
+      crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(bot.webhook_secret));
+
+    if (!bot || !isValidSecret) {
+      logger.warn(`Invalid webhook attempt for bot ${botId} - secret mismatch`, {
+        updateId,
+        secretLength: secret?.length,
+        source,
+      });
+      return res.status(200).send('OK');
+    }
+
+    const messageType = req.body?.message?.text
+      ? 'text'
+      : req.body?.message?.voice
+        ? 'voice'
+        : req.body?.callback_query
+          ? 'callback'
+          : req.body?.message
+            ? 'other'
+            : 'unknown';
+
+    logger.info(`Webhook authenticated for bot ${botId}`, {
+      updateId,
+      messageType,
+      source,
+      hasMessage: !!req.body?.message,
+      chatId: req.body?.message?.chat?.id,
+      textPreview: req.body?.message?.text?.substring(0, 30),
+    });
+
+    const success = await telegramWebhookService.processUpdate(parseInt(botId), req.body);
+    const duration = Date.now() - startTime;
+    logger.info(
+      success
+        ? `Webhook processed successfully for bot ${botId}`
+        : `Webhook processing returned false for bot ${botId}`,
+      { updateId, duration, messageType, source }
+    );
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error(`Webhook processing error for bot ${botId}:`, {
+      error: error.message,
+      stack: error.stack?.split('\n').slice(0, 3).join('\n'),
+      updateId,
+      duration,
+      requestBodyKeys: Object.keys(req.body || {}),
+      source,
+    });
+  }
+
+  // Always return 200 to prevent Telegram from retrying
+  res.status(200).send('OK');
+}
+
+// Header-based webhook (preferred). Telegram passes the secret_token configured
+// at setWebhook back as the X-Telegram-Bot-Api-Secret-Token header — keeps the
+// secret out of URLs and proxy logs.
+router.post(
+  '/webhook/:botId',
+  webhookLimiter,
+  asyncHandler(async (req, res) => {
+    const { botId } = req.params;
+    const headerSecret = req.get('X-Telegram-Bot-Api-Secret-Token') || '';
+    return handleWebhookRequest({
+      req,
+      res,
+      botId,
+      secret: headerSecret,
+      source: 'header',
+    });
+  })
+);
+
+// Legacy URL-secret webhook. Kept for backward compatibility — bots that were
+// onboarded before the header-based scheme will continue to work until they
+// re-register their webhook.
 router.post(
   '/webhook/:botId/:secret',
   webhookLimiter,
   asyncHandler(async (req, res) => {
     const { botId, secret } = req.params;
-    const startTime = Date.now();
-
-    const updateId = req.body?.update_id;
-
-    // Before validation: only log botId and updateId (no message content)
-    logger.info(`Webhook received for bot ${botId}`, { updateId });
-
-    try {
-      // Verify webhook secret using timing-safe comparison to prevent timing attacks
-      const bot = await telegramBotService.getBotByWebhookSecret(parseInt(botId), secret);
-
-      // Perform timing-safe comparison of the webhook secret
-      const isValidSecret =
-        secret &&
-        bot?.webhook_secret &&
-        secret.length === bot.webhook_secret.length &&
-        crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(bot.webhook_secret));
-
-      if (!bot || !isValidSecret) {
-        logger.warn(`Invalid webhook attempt for bot ${botId} - secret mismatch`, {
-          updateId,
-          secretLength: secret?.length,
-        });
-        return res.status(200).send('OK');
-      }
-
-      // After validation succeeds: log message type and text preview
-      const messageType = req.body?.message?.text
-        ? 'text'
-        : req.body?.message?.voice
-          ? 'voice'
-          : req.body?.callback_query
-            ? 'callback'
-            : req.body?.message
-              ? 'other'
-              : 'unknown';
-
-      logger.info(`Webhook authenticated for bot ${botId}`, {
-        updateId,
-        messageType,
-        hasMessage: !!req.body?.message,
-        chatId: req.body?.message?.chat?.id,
-        textPreview: req.body?.message?.text?.substring(0, 30),
-      });
-
-      // Process update
-      const success = await telegramWebhookService.processUpdate(parseInt(botId), req.body);
-
-      const duration = Date.now() - startTime;
-      if (success) {
-        logger.info(`Webhook processed successfully for bot ${botId}`, {
-          updateId,
-          duration,
-          messageType,
-        });
-      } else {
-        logger.warn(`Webhook processing returned false for bot ${botId}`, {
-          updateId,
-          duration,
-          messageType,
-        });
-      }
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      logger.error(`Webhook processing error for bot ${botId}:`, {
-        error: error.message,
-        stack: error.stack?.split('\n').slice(0, 3).join('\n'),
-        updateId,
-        duration,
-        requestBodyKeys: Object.keys(req.body || {}),
-      });
-    }
-
-    // Always return 200 to prevent Telegram from retrying
-    res.status(200).send('OK');
+    return handleWebhookRequest({
+      req,
+      res,
+      botId,
+      secret,
+      source: 'url-path-legacy',
+    });
   })
 );
 
@@ -355,10 +380,12 @@ router.post(
       }
 
       if (process.env.PUBLIC_URL && botDetails.webhookSecret) {
-        // Use webhooks when PUBLIC_URL is available
-        const fullWebhookUrl = `${process.env.PUBLIC_URL}/api/telegram-bots/webhook/${bot.id}/${botDetails.webhookSecret}`;
+        // Use webhooks when PUBLIC_URL is available. The secret travels in
+        // the X-Telegram-Bot-Api-Secret-Token header, not in the URL — the
+        // URL stays free of secrets that would otherwise leak into logs.
+        const fullWebhookUrl = `${process.env.PUBLIC_URL}/api/telegram-bots/webhook/${bot.id}`;
         try {
-          await telegramWebhookService.setWebhook(bot.id, fullWebhookUrl);
+          await telegramWebhookService.setWebhook(bot.id, fullWebhookUrl, botDetails.webhookSecret);
           mode = 'webhook';
           logger.info(`Webhook set for bot ${bot.id}: ${fullWebhookUrl}`);
         } catch (webhookError) {
@@ -768,6 +795,119 @@ router.get(
     }
 
     res.json({ debug });
+  })
+);
+
+// Customer-facing one-shot diagnostic. Hits Telegram's getMe + getWebhookInfo
+// and returns a structured verdict for the dashboard "Test Bot Connection"
+// button — distilled enough that a non-developer can read it. /debug above
+// stays as the raw operator dump.
+router.get(
+  '/:id/diagnose',
+  asyncHandler(async (req, res) => {
+    const botId = parseInt(req.params.id);
+    if (isNaN(botId)) {
+      throw new ValidationError('Ungültige Bot-ID');
+    }
+
+    const bot = await telegramBotService.getBotById(botId, req.user.id);
+    if (!bot) {
+      throw new NotFoundError('Bot nicht gefunden');
+    }
+
+    const result = {
+      status: 'unknown',
+      summary: '',
+      details: {
+        botId,
+        name: bot.name,
+        botUsername: null,
+        tokenValid: false,
+        telegramReachable: false,
+        webhookInfo: null,
+        polling: {
+          enabled: telegramPollingManager.isPollingActive?.(botId) || false,
+          dbFlag: !!bot.isPolling,
+        },
+        health: {
+          status: bot.health_status || 'unknown',
+          lastErrorAt: bot.last_error_at || null,
+          lastErrorMessage: bot.last_error_message || null,
+        },
+      },
+    };
+
+    const token = await telegramBotService.getBotToken(botId);
+    if (!token) {
+      result.status = 'token_decrypt_failed';
+      result.summary =
+        'Token kann nicht entschlüsselt werden. Wahrscheinliche Ursache: JWT_SECRET wurde rotiert. Token im Dashboard neu eintragen.';
+      return res.json(result);
+    }
+
+    // getMe — single source of truth on whether the token is good and we can
+    // reach Telegram at all.
+    try {
+      const meResp = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      const meData = await meResp.json();
+      result.details.telegramReachable = true;
+      if (meData.ok) {
+        result.details.tokenValid = true;
+        result.details.botUsername = meData.result.username;
+      } else {
+        result.status = 'token_invalid';
+        result.summary = `Telegram lehnt den Token ab: ${meData.description || 'unbekannt'}. In @BotFather einen neuen Token generieren.`;
+        return res.json(result);
+      }
+    } catch (err) {
+      result.status = 'unreachable';
+      result.summary = `Telegram API nicht erreichbar (${err.name === 'TimeoutError' ? 'Timeout' : err.message}). Outbound-HTTPS prüfen.`;
+      return res.json(result);
+    }
+
+    // getWebhookInfo — tells us whether webhook delivery has ever failed and
+    // whether there's pending updates piling up.
+    try {
+      const whResp = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      const whData = await whResp.json();
+      if (whData.ok) {
+        result.details.webhookInfo = {
+          url: whData.result.url || null,
+          pendingUpdateCount: whData.result.pending_update_count || 0,
+          lastErrorDate: whData.result.last_error_date
+            ? new Date(whData.result.last_error_date * 1000).toISOString()
+            : null,
+          lastErrorMessage: whData.result.last_error_message || null,
+        };
+      }
+    } catch {
+      /* webhook info is supplementary, not critical */
+    }
+
+    // Compose a verdict.
+    const wh = result.details.webhookInfo;
+    if (wh?.lastErrorMessage) {
+      result.status = 'webhook_error';
+      result.summary = `Webhook-Lieferung schlägt fehl: ${wh.lastErrorMessage}. Prüfe TLS-Zertifikat, PUBLIC_URL und Cloudflare-WAF.`;
+    } else if (wh?.pendingUpdateCount > 50) {
+      result.status = 'degraded';
+      result.summary = `Telegram hält ${wh.pendingUpdateCount} Updates zurück. Polling oder Webhook hat einen Rückstau — Service neu starten oder Container-Status prüfen.`;
+    } else if (result.details.polling.enabled) {
+      result.status = 'healthy';
+      result.summary = `Bot @${result.details.botUsername} läuft im Polling-Modus.`;
+    } else if (wh?.url) {
+      result.status = 'healthy';
+      result.summary = `Bot @${result.details.botUsername} läuft im Webhook-Modus (${wh.url}).`;
+    } else {
+      result.status = 'idle';
+      result.summary = `Token ist gültig, aber kein Polling läuft und kein Webhook ist registriert. Bot aktivieren.`;
+    }
+
+    res.json(result);
   })
 );
 

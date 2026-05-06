@@ -71,6 +71,31 @@ rm -f ~/.pgpass
 encrypt_file /backups/postgres/arasul_db_$TIMESTAMP.sql.gz
 ln -sf arasul_db_$TIMESTAMP.sql.gz /backups/postgres/arasul_db_latest.sql.gz
 
+# n8n encryption-key escrow: the DB dump above contains the encrypted
+# credentials, but they are useless without the encryption key. Write a copy
+# of the key alongside the dump — but ONLY if BACKUP_ENCRYPT is on, otherwise
+# we'd be storing the key in plaintext on the same disk as the data, which
+# is worse than not escrowing at all.
+mkdir -p /backups/escrow
+N8N_KEY_FILE="${N8N_ENCRYPTION_KEY_FILE:-/run/secrets/n8n_encryption_key}"
+if [ -r "$N8N_KEY_FILE" ]; then
+    if [ "$BACKUP_ENCRYPT" = "true" ] && [ -f "$BACKUP_ENCRYPT_KEY_FILE" ]; then
+        cp "$N8N_KEY_FILE" "/backups/escrow/n8n_encryption_key_${TIMESTAMP}"
+        chmod 600 "/backups/escrow/n8n_encryption_key_${TIMESTAMP}"
+        encrypt_file "/backups/escrow/n8n_encryption_key_${TIMESTAMP}"
+        ln -sf "n8n_encryption_key_${TIMESTAMP}" /backups/escrow/n8n_encryption_key_latest
+        # Store a SHA-256 fingerprint in plaintext so an operator can verify
+        # restore matches without decrypting.
+        sha256sum "$N8N_KEY_FILE" | awk '{print $1}' > "/backups/escrow/n8n_encryption_key_${TIMESTAMP}.sha256"
+        echo "[$TIMESTAMP] n8n encryption-key escrow written (encrypted)"
+    else
+        echo "[$TIMESTAMP] [WARNING] BACKUP_ENCRYPT is off — n8n_encryption_key NOT escrowed."
+        echo "[$TIMESTAMP] [WARNING] Back up /run/secrets/n8n_encryption_key OUT-OF-BAND (1Password, GPG, customer escrow)."
+    fi
+else
+    echo "[$TIMESTAMP] [INFO] n8n encryption-key not mounted — skipping escrow"
+fi
+
 # Weekly snapshot: copy Sunday's backup to weekly dir (kept longer)
 if [ "$DAY_OF_WEEK" = "7" ]; then
     cp /backups/postgres/arasul_db_$TIMESTAMP.sql.gz /backups/postgres/weekly/

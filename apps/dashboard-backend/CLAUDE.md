@@ -135,6 +135,38 @@ is preferred so `errorHandler` keeps structured fields.
 - ❌ Returning bare strings or arrays at the top level — wrap in `{ data, ... }`
   so response shape is uniform.
 
+## Telegram subsystem
+
+Five years of unattended operation makes the Telegram path one of the
+trickier corners of this backend. Conventions:
+
+- **Polling is the default**, webhook is opt-in. `telegramIngressService.initialize()`
+  starts polling for every active bot at boot — except those with both
+  `webhook_url IS NOT NULL` _and_ `PUBLIC_URL` set in env. Don't gate this on
+  PUBLIC_URL alone; it produced the silent-bots-after-restart bug.
+- **Health state** lives in `telegram_bots.health_status / last_error_*`. Any
+  failure path that wants to surface to the operator must call
+  `telegramBotService.setHealth(botId, status, msg)` — silent drops are not OK.
+  The `health_status` CHECK list lives in migration `091_telegram_bot_health.sql`.
+- **DSGVO consent** is enforced at the `processUpdate` switch. Free-form text
+  goes through `hasConsent()` before reaching the LLM; `/start` issues an
+  Art-13 notice + inline keyboard. Three commands always work without consent:
+  `/datenschutz`, `/loeschen`, `/auskunft`. Don't add new commands that bypass
+  this gate.
+- **Pseudonymisation:** Telegram user IDs are HMAC-hashed via `utils/telegramHmac.js`
+  before persisting. The pepper comes from the `telegram_user_id_pepper` Docker
+  secret. Never write a raw user ID to a new column — always hash first.
+- **Webhook auth:** new bots use the header-based path
+  `/api/telegram-bots/webhook/<bot_id>` with `X-Telegram-Bot-Api-Secret-Token`
+  validated by `crypto.timingSafeEqual`. Legacy URL-secret path
+  `/webhook/<bot_id>/<secret>` stays for backward-compat.
+- **Library:** raw `fetch` calls today. A grammY migration is planned (Phase 5b
+  of the EXTERNAL_INTEGRATIONS plan) — when you touch this code, prefer
+  centralising new fetch calls in `telegramMessageSender.js` so the migration
+  is mechanical.
+
+Customer-facing setup doc: [`docs/integrations/TELEGRAM_BOT_SETUP.md`](../../docs/integrations/TELEGRAM_BOT_SETUP.md).
+
 ## Testing
 
 ```bash

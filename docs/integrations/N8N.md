@@ -1,0 +1,135 @@
+# n8n Integration Guide
+
+> **Audience:** operators of an Arasul appliance who want their customers to use n8n's stock connectors (Microsoft Teams, Slack, OAuth2-based SaaS, HTTP APIs, …) safely.
+
+n8n is shipped as a customer-installable App-Store entry, not as an Arasul-bundled component. This document covers the platform-level wiring that has to be right for any connector to work — beyond that, customers configure their own n8n credentials inside the n8n editor.
+
+---
+
+## 1. Reaching the editor
+
+The editor is at `/n8n/` behind two layers of authentication:
+
+1. **Dashboard session** — Traefik's `forward-auth` middleware verifies an Arasul dashboard JWT (cookie or `Authorization: Bearer …`). Logged-out visitors get a 401.
+2. **n8n user management** — n8n's own login governs workflow ownership. Customers create their first n8n account on first visit; subsequent users are invited from inside n8n.
+
+Implication: an unauth visitor cannot even reach the n8n login screen — they see the dashboard login. This is intentional and matches how `/minio` and `/claude-terminal` are gated.
+
+---
+
+## 2. Outbound connectivity
+
+n8n attaches to two Docker networks (`arasul-frontend`, `arasul-backend`). Neither is `internal: true`, so any connector can reach the public internet on standard ports. **No further egress configuration is required for stock connectors.**
+
+If a customer's corporate firewall blocks outbound 443, only the SaaS-vendor hostname needs to be allowlisted — n8n itself does not require any privileged outbound channel.
+
+---
+
+## 3. Inbound webhooks
+
+External SaaS services (Stripe, Lexware, GitHub, …) reach n8n via:
+
+```
+https://<host>/webhook/<workflow-path>
+```
+
+The route is **unauthenticated by design** — that is the contract every webhook-issuing service expects. Protections:
+
+- **Rate limit:** 600 req/min (10 req/s) with burst 100, keyed on the real client IP from the trusted proxy chain (`config/traefik/dynamic/middlewares.yml`, `rate-limit-n8n`).
+- **Per-webhook secret:** every customer-built webhook should set an `Authentication: Header Auth` credential or a custom HMAC-verifying Code node as its first step. n8n itself does not yet enforce HMAC validation on the webhook node — that is on the customer to wire in. See [the GitHub HMAC template](https://n8n.io/workflows/8906-secure-github-webhooks-with-hmac256-signature-validation/) for the canonical pattern.
+- **TLS:** Traefik terminates valid Let's Encrypt certificates. Any SaaS that requires CA-signed TLS will accept these.
+
+**Public reachability:** the appliance must be reachable from the public internet for webhook callbacks. Behind NAT, enable the Cloudflare tunnel (`compose.external.yaml`, profile `tunnel`) and ensure the tunnel config maps the appliance's public hostname to `/webhook/*`.
+
+---
+
+## 4. OAuth2 callbacks
+
+n8n's OAuth2 redirect URL is:
+
+```
+https://<host>/n8n/rest/oauth2-credential/callback
+```
+
+For this to work end-to-end, three things must be aligned:
+
+1. **`PUBLIC_URL` / `N8N_EXTERNAL_URL`** — set in the host `.env` to the full HTTPS URL (e.g. `https://arasul.acme-corp.de`). Without this, n8n constructs callback URLs containing `localhost` or relative paths, and OAuth providers reject them.
+2. **`N8N_PROXY_HOPS=1`** — set in `compose/compose.app.yaml`. Tells n8n that exactly one trusted proxy (Traefik) sits in front of it, so it correctly recognizes its public URL when handling redirects.
+3. **Provider-side configuration** — in the SaaS provider's developer console (Microsoft Azure AD, Google Cloud Console, GitHub OAuth Apps, …), register the exact callback URL above. Mismatches cause silent OAuth failures with cryptic provider error messages.
+
+### Smoke test
+
+1. In the n8n editor, create a new credential of type `OAuth2 API` (generic).
+2. Use any provider you have a developer account with — GitHub is the easiest.
+3. Click `Connect`. The redirect should round-trip back to the n8n editor with a green "Connected" indicator.
+4. If it fails: the provider error message in the URL bar (`error_description=…`) tells you whether it's a redirect-URI mismatch (most common), a scope problem, or a TLS issue.
+
+---
+
+## 5. Hardening posture
+
+The compose-level hardening for n8n is set in `compose/compose.app.yaml` and validated against the [n8n hardening guide](https://docs.n8n.io/hosting/securing/overview/):
+
+| Variable                                | Value             | Rationale                                                                                                    |
+| --------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `N8N_BLOCK_ENV_ACCESS_IN_NODE`          | `true`            | Code/Function nodes cannot read `process.env`. Closes a credential-leak path via Code node.                  |
+| `N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES`    | `true`            | Code nodes cannot read n8n's own config / encryption-key file.                                               |
+| `N8N_RESTRICT_FILE_ACCESS_TO`           | `/home/node/.n8n` | Code nodes can only see a single whitelisted directory.                                                      |
+| `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS` | `true`            | n8n enforces 0600 on its own settings file.                                                                  |
+| `N8N_GIT_NODE_DISABLE_BARE_REPOS`       | `true`            | Git node hardening (prevents bare-repo pivot attacks).                                                       |
+| `N8N_PAYLOAD_SIZE_MAX`                  | `8` (MiB)         | Default 16 — reduced for DoS mitigation. 8 MiB is plenty for stock connectors; raise per-customer if needed. |
+| `N8N_DEFAULT_BINARY_DATA_MODE`          | `filesystem`      | Large attachments stay on disk, not in RAM. The Jetson has finite memory.                                    |
+| `N8N_PROXY_HOPS`                        | `1`               | n8n recognises Traefik as exactly one trusted proxy.                                                         |
+| `N8N_DIAGNOSTICS_ENABLED`               | `false`           | GDPR — no telemetry to n8n.io.                                                                               |
+| `N8N_VERSION_NOTIFICATIONS_ENABLED`     | `false`           | Not a security control, but reduces network noise.                                                           |
+| `N8N_HIRING_BANNER_ENABLED`             | `false`           | Customer-facing UI, no n8n-recruiter banners.                                                                |
+
+What's **not** enforced yet (tracked in `docs/plans/active/EXTERNAL_INTEGRATIONS.md`):
+
+- Execution-data retention / pruning — **Phase 3** of the integrations plan. Today executions are kept indefinitely. DSGVO-relevant.
+- Community packages disabled (`N8N_COMMUNITY_PACKAGES_ENABLED=false`) — **Phase 3**. Today an admin user inside n8n can install arbitrary community nodes, which run as full n8n privileges.
+- External task runners (`N8N_RUNNERS_MODE=external`) — **deferred** to the 2.x migration phase.
+- SSRF block-list for HTTP Request node — n8n's SSRF protection requires per-credential `allowedDomains`. Without it, a workflow author can hit `127.0.0.1` and other internal services. Document this in the customer's onboarding checklist.
+
+---
+
+## 6. Smoke-test workflows
+
+Three reference workflows live under `services/n8n/templates/smoketests/`. Each is a self-contained JSON that can be imported via **n8n editor → Import from File** and run with one click:
+
+| File                       | Tests                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `01-http-egress.json`      | HTTP Request → `httpbin.org/post`. Confirms outbound HTTPS.                             |
+| `02-oauth2-skeleton.json`  | OAuth2 credential placeholder + a `getMe`-style call. Customise the credential and run. |
+| `03-incoming-webhook.json` | Webhook node + Set node + Respond. Exercises the inbound path.                          |
+
+Run all three after every n8n image bump to catch regressions.
+
+---
+
+## 7. Common failure modes
+
+| Symptom                                                          | Likely cause                                                                                                                      |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| OAuth flow redirects to `https://localhost/...`                  | `PUBLIC_URL` / `N8N_EXTERNAL_URL` not set in `.env`.                                                                              |
+| OAuth provider returns "redirect_uri_mismatch"                   | The exact callback URL is not whitelisted in the provider's developer console.                                                    |
+| Webhook returns 404                                              | Workflow not active, or `WEBHOOK_URL` env not set so n8n didn't generate the URL.                                                 |
+| Webhook returns 503 Cloudflare                                   | Cloudflare BotFightMode treats Telegram/Stripe IPs as bots. Add a path-based bypass for `/webhook/*`.                             |
+| `Generated encryption key` warning in n8n logs on first boot     | `n8n_encryption_key` Docker secret not mounted. Check `compose.secrets.yaml`.                                                     |
+| Internal HTTP Request to `http://postgres-db:5432/` returns data | SSRF protection allowlist not configured. n8n SSRF protection is **opt-in per credential**. Document this in customer onboarding. |
+
+---
+
+## 8. Where things live in the repo
+
+| File                                         | Purpose                                                                    |
+| -------------------------------------------- | -------------------------------------------------------------------------- |
+| `compose/compose.app.yaml` (n8n service)     | Runtime env-vars, hardening flags, port bindings.                          |
+| `compose/compose.secrets.yaml` (n8n section) | Mounts the `n8n_encryption_key` Docker secret.                             |
+| `services/n8n/Dockerfile`                    | Pinned n8n version, custom-node compilation, entrypoint shim.              |
+| `services/n8n/entrypoint.sh`                 | Resolves the encryption-key Docker secret into env at boot.                |
+| `config/traefik/dynamic/routes.yml`          | `/n8n` (forward-auth + strip-prefix), `/webhook/*` (rate-limited, unauth). |
+| `config/traefik/dynamic/middlewares.yml`     | `rate-limit-n8n`, `strip-n8n-prefix`, `forward-auth`.                      |
+| `config/traefik/dynamic/websockets.yml`      | `/n8n-websocket` route for the editor's live updates.                      |
+| `services/n8n/templates/smoketests/*.json`   | Reference workflows for post-deploy verification.                          |
+| `docs/plans/active/EXTERNAL_INTEGRATIONS.md` | Full hardening roadmap.                                                    |

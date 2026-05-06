@@ -838,12 +838,41 @@ async function getBotByWebhookSecret(botId, _secret) {
  */
 async function getActiveBots() {
   const result = await database.query(
-    `SELECT id, name, bot_username, llm_provider, llm_model, system_prompt, is_polling
+    `SELECT id, name, bot_username, llm_provider, llm_model, system_prompt,
+            is_polling, webhook_url, health_status
     FROM telegram_bots
     WHERE is_active = true`
   );
 
   return result.rows;
+}
+
+/**
+ * Update bot health state — called by ingress on token failure / recovery.
+ * @param {number} botId
+ * @param {string} status - one of telegram_bots.health_status CHECK values
+ * @param {string|null} errorMessage
+ */
+async function setHealth(botId, status, errorMessage = null) {
+  if (errorMessage) {
+    await database.query(
+      `UPDATE telegram_bots
+       SET health_status = $2,
+           last_error_at = NOW(),
+           last_error_message = $3,
+           last_health_check_at = NOW()
+       WHERE id = $1`,
+      [botId, status, errorMessage]
+    );
+  } else {
+    await database.query(
+      `UPDATE telegram_bots
+       SET health_status = $2,
+           last_health_check_at = NOW()
+       WHERE id = $1`,
+      [botId, status]
+    );
+  }
 }
 
 /**
@@ -854,7 +883,58 @@ async function updateLastMessage(botId) {
   await database.query(`UPDATE telegram_bots SET last_message_at = NOW() WHERE id = $1`, [botId]);
 }
 
+/**
+ * DSGVO consent helpers (Phase 6.2).
+ *
+ * The bot only processes free-form text from a user once we have a 'granted'
+ * consent row. Without consent, /start re-sends the notice and any other
+ * incoming text is silently ignored to avoid storing unconsented data.
+ */
+
+async function getConsentStatus(botId, telegramUserIdHash) {
+  if (!telegramUserIdHash) {
+    return null;
+  }
+  const result = await database.query(
+    `SELECT consent_status, consented_at, withdrawn_at, notice_version
+     FROM telegram_user_consent
+     WHERE bot_id = $1 AND telegram_user_id_hash = $2`,
+    [botId, telegramUserIdHash]
+  );
+  return result.rows[0] || null;
+}
+
+async function recordConsent(botId, telegramUserIdHash, chatId, status, noticeVersion = 'v1') {
+  if (!telegramUserIdHash) {
+    return null;
+  }
+  const result = await database.query(
+    `INSERT INTO telegram_user_consent
+       (bot_id, telegram_user_id_hash, chat_id, consent_status, notice_version,
+        consented_at, withdrawn_at)
+     VALUES ($1, $2, $3, $4, $5, NOW(), CASE WHEN $4 = 'withdrawn' THEN NOW() ELSE NULL END)
+     ON CONFLICT (bot_id, telegram_user_id_hash) DO UPDATE
+       SET consent_status = EXCLUDED.consent_status,
+           chat_id        = EXCLUDED.chat_id,
+           notice_version = EXCLUDED.notice_version,
+           consented_at   = CASE
+                              WHEN EXCLUDED.consent_status = 'granted' THEN NOW()
+                              ELSE telegram_user_consent.consented_at
+                            END,
+           withdrawn_at   = CASE
+                              WHEN EXCLUDED.consent_status = 'withdrawn' THEN NOW()
+                              ELSE NULL
+                            END
+     RETURNING *`,
+    [botId, telegramUserIdHash, String(chatId), status, noticeVersion]
+  );
+  return result.rows[0];
+}
+
 module.exports = {
+  setHealth,
+  getConsentStatus,
+  recordConsent,
   // Bot CRUD
   getBotsByUser,
   getBotById,

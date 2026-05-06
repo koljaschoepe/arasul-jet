@@ -1,0 +1,54 @@
+{
+  "name": "Smoke 02 — OAuth2 Skeleton (GitHub /user)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-2",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/user",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gitHubOAuth2Api",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "http-2",
+      "name": "GitHub /user (OAuth2)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300],
+      "notes": "Before running:\n1. n8n editor → Credentials → Add → 'GitHub OAuth2 API'\n2. In GitHub: Settings → Developer Settings → OAuth Apps → New\n3. Authorization callback URL = https://<your-host>/n8n/rest/oauth2-credential/callback\n4. Paste Client ID + Secret into the n8n credential, click Connect, sign in.\n5. Run this workflow — should return your GitHub user JSON."
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "GitHub /user (OAuth2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "id": "arasul-smoke-02-oauth2-skeleton",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [{ "name": "arasul-smoke" }]
+}

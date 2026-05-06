@@ -12,12 +12,123 @@ const logger = require('../../utils/logger');
 const telegramBotService = require('./telegramBotService');
 const telegramIntegrationService = require('./telegramIntegrationService');
 const cryptoService = require('../core/cryptoService');
+const { hashUserId } = require('../../utils/telegramHmac');
 const {
   sendMessage,
   sendTypingAction,
   sendFormattedMessage,
   TELEGRAM_API,
 } = require('./telegramMessageSender');
+
+// =============================================================================
+// DSGVO Consent (Phase 6.2)
+// =============================================================================
+
+const CONSENT_NOTICE_VERSION = 'v1';
+
+/**
+ * Build the Art. 13 DSGVO notice the bot serves on /start and /datenschutz.
+ * The "Verantwortlicher" line is intentionally empty for now — the bot row
+ * should carry the customer's controller text once that field is added.
+ */
+function buildDsgvoNotice(bot) {
+  return `🔒 <b>Datenschutz-Hinweis</b>
+
+Bevor du diesen Bot nutzen kannst, müssen wir dich kurz aufklären:
+
+<b>Was wird verarbeitet?</b>
+Deine Telegram-Nachrichten werden auf einer Arasul-Appliance lokal verarbeitet, um KI-Antworten zu generieren. Sprachnachrichten werden transkribiert.
+
+<b>Wer ist Verantwortlicher?</b>
+${bot.controller_name || bot.name || 'Der Betreiber dieses Bots'}.
+
+<b>Drittlandtransfer:</b>
+Telegram (Sitz: VAE/UK) ist die Übertragungsplattform — deine Nachrichten laufen also durch Telegram-Server außerhalb der EU. Rechtsgrundlage hierfür ist Art. 49 (1) lit. a DSGVO (deine ausdrückliche Einwilligung). Mehr Schutz bietet die Web-Chat-Variante im Arasul-Dashboard.
+
+<b>Speicherdauer:</b>
+Fehler-Protokolle 14 Tage; deine Chat-Historie wird in deinem Konto auf der Appliance gespeichert, bis du sie mit /loeschen entfernst.
+
+<b>Deine Rechte:</b>
+/auskunft — gespeicherte Daten anzeigen
+/loeschen — alle Daten löschen
+/datenschutz — diesen Hinweis erneut anzeigen
+
+Möchtest du fortfahren?`;
+}
+
+function consentKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        { text: '✅ Ich willige ein', callback_data: 'consent_grant' },
+        { text: '❌ Ablehnen', callback_data: 'consent_deny' },
+      ],
+    ],
+  };
+}
+
+/**
+ * Returns true if the user has granted consent for this bot. Used as a gate
+ * before any free-form text is forwarded to the LLM.
+ */
+async function hasConsent(botId, telegramUserId) {
+  const userIdHash = hashUserId(telegramUserId);
+  if (!userIdHash) {
+    return false;
+  }
+  const row = await telegramBotService.getConsentStatus(botId, userIdHash);
+  return row?.consent_status === 'granted';
+}
+
+/**
+ * Handle the consent inline-keyboard callback.
+ * @returns {Promise<{handled: boolean}>}
+ */
+async function handleConsentCallback(bot, token, callbackQuery) {
+  const data = callbackQuery.data;
+  if (data !== 'consent_grant' && data !== 'consent_deny') {
+    return { handled: false };
+  }
+
+  const chatId = callbackQuery.message?.chat?.id;
+  const userId = callbackQuery.from?.id;
+  const userIdHash = hashUserId(userId);
+
+  if (!chatId || !userIdHash) {
+    logger.warn('consent callback missing chat/user');
+    return { handled: true };
+  }
+
+  if (data === 'consent_grant') {
+    await telegramBotService.recordConsent(
+      bot.id,
+      userIdHash,
+      chatId,
+      'granted',
+      CONSENT_NOTICE_VERSION
+    );
+    await sendMessage(
+      token,
+      chatId,
+      `✅ Vielen Dank — du kannst den Bot jetzt nutzen.\n\nSchreibe einfach eine Nachricht. Mit /help siehst du alle Befehle.`
+    );
+  } else {
+    await telegramBotService.recordConsent(
+      bot.id,
+      userIdHash,
+      chatId,
+      'denied',
+      CONSENT_NOTICE_VERSION
+    );
+    await sendMessage(
+      token,
+      chatId,
+      `🙏 Verstanden — der Bot wird deine Nachrichten nicht verarbeiten. Schreibe /start, falls du es dir später anders überlegst.`
+    );
+  }
+
+  return { handled: true };
+}
 
 // =============================================================================
 // Bot Commands
@@ -43,6 +154,7 @@ async function handleStartCommand(
   const chatTitle = message.chat.title || message.from?.first_name || 'Unknown';
   const chatUsername = message.chat.username || message.from?.username || null;
   const firstName = message.from?.first_name || null;
+  const userId = message.from?.id;
 
   try {
     await telegramBotService.addChat(bot.id, {
@@ -52,32 +164,144 @@ async function handleStartCommand(
       username: chatUsername,
     });
 
-    const welcomeText = `🤖 <b>Willkommen bei ${bot.name}!</b>
-
-Ich bin dein persönlicher Assistent. Schreib mir einfach eine Nachricht und ich antworte dir.
-
-<b>Verfügbare Befehle:</b>
-/help - Zeigt diese Hilfe
-/clear - Kontext leeren (neues Gespräch)
-/commands - Zeigt alle verfügbaren Befehle
-/tools - Zeigt System-Tools
-/status - Zeigt System-Status
-/apikey - API Key Management
-
-🎤 Du kannst mir auch Sprachnachrichten senden!
-
-Wie kann ich dir helfen?`;
-
-    await sendMessage(token, chatId, welcomeText);
-    logger.info(`Chat registered: ${chatId} (${chatType}) for bot ${bot.id}`);
-
+    // Setup-wizard handshake (zero-config): notify any waiting setup session.
+    // Runs unconditionally — the wizard is one-shot and only matches its own token.
     await notifySetupSessionIfExists(chatId, chatUsername, firstName, chatType, token);
 
+    // DSGVO consent gate. Existing 'granted' users skip straight to the welcome;
+    // anyone else gets the Art. 13 notice + inline keyboard.
+    const userIdHash = hashUserId(userId);
+    const consent = userIdHash
+      ? await telegramBotService.getConsentStatus(bot.id, userIdHash)
+      : null;
+
+    if (consent?.consent_status === 'granted') {
+      const welcomeText = `🤖 <b>Willkommen zurück bei ${bot.name}!</b>
+
+Schreib mir einfach eine Nachricht — ich antworte dir.
+
+<b>Befehle:</b>
+/help — Hilfe · /clear — Kontext leeren · /datenschutz — Datenschutz · /loeschen — Daten löschen
+🎤 Sprachnachrichten werden automatisch transkribiert.`;
+      await sendMessage(token, chatId, welcomeText);
+    } else {
+      await sendMessage(token, chatId, buildDsgvoNotice(bot), {
+        reply_markup: consentKeyboard(),
+      });
+    }
+
+    logger.info(`Chat registered: ${chatId} (${chatType}) for bot ${bot.id}`);
     return true;
   } catch (error) {
     logger.error(`Error in handleStartCommand for chat ${chatId}:`, error);
     return false;
   }
+}
+
+/**
+ * Handle /datenschutz - re-send the Art. 13 notice with the inline keyboard.
+ */
+async function handleDatenschutzCommand(bot, token, message) {
+  const chatId = message.chat?.id;
+  if (!chatId) {
+    return false;
+  }
+  await sendMessage(token, chatId, buildDsgvoNotice(bot), {
+    reply_markup: consentKeyboard(),
+  });
+  return true;
+}
+
+/**
+ * Handle /loeschen - withdraw consent + delete user history.
+ * Both the consent row and the chat row are dropped. The user's chat history
+ * still lives in n8n.execution_data / message tables until those prune naturally.
+ */
+async function handleLoeschenCommand(bot, token, message) {
+  const chatId = message.chat?.id;
+  const userId = message.from?.id;
+  if (!chatId) {
+    return false;
+  }
+
+  const userIdHash = hashUserId(userId);
+  if (!userIdHash) {
+    await sendMessage(token, chatId, 'Konnte dich nicht identifizieren — bitte schreibe /start.');
+    return false;
+  }
+
+  try {
+    await telegramBotService.recordConsent(
+      bot.id,
+      userIdHash,
+      chatId,
+      'withdrawn',
+      CONSENT_NOTICE_VERSION
+    );
+    // Drop the chat row so the bot stops sending messages here. Chat-history
+    // tables are pruned by their own retention; the customer's DPO contact
+    // can request a manual purge via the dashboard if needed.
+    await database.query(`DELETE FROM telegram_user_chats WHERE bot_id = $1 AND chat_id = $2`, [
+      bot.id,
+      String(chatId),
+    ]);
+  } catch (err) {
+    logger.error(`Error in handleLoeschenCommand: ${err.message}`);
+  }
+
+  await sendMessage(
+    token,
+    chatId,
+    '🗑️ Deine Zustimmung wurde widerrufen und der Chat wurde aus dem Bot-Kontext entfernt. Schreibe /start, um es dir anders zu überlegen.'
+  );
+  return true;
+}
+
+/**
+ * Handle /auskunft - return what the appliance has on this user.
+ * Plain summary, not a full export — that's a separate dashboard flow.
+ */
+async function handleAuskunftCommand(bot, token, message) {
+  const chatId = message.chat?.id;
+  const userId = message.from?.id;
+  if (!chatId) {
+    return false;
+  }
+
+  const userIdHash = hashUserId(userId);
+  let consentLine = 'Kein Eintrag vorhanden.';
+  let chatLine = '–';
+
+  try {
+    if (userIdHash) {
+      const consent = await telegramBotService.getConsentStatus(bot.id, userIdHash);
+      if (consent) {
+        consentLine = `${consent.consent_status} (seit ${new Date(consent.consented_at).toISOString().slice(0, 10)})`;
+      }
+    }
+    const chatResult = await database.query(
+      `SELECT chat_title, chat_type, registered_at
+       FROM telegram_user_chats
+       WHERE bot_id = $1 AND chat_id = $2`,
+      [bot.id, String(chatId)]
+    );
+    if (chatResult.rows[0]) {
+      chatLine = `${chatResult.rows[0].chat_type} "${chatResult.rows[0].chat_title}" (registriert ${new Date(chatResult.rows[0].registered_at).toISOString().slice(0, 10)})`;
+    }
+  } catch (err) {
+    logger.error(`Error in handleAuskunftCommand: ${err.message}`);
+  }
+
+  const text = `📄 <b>Datenauskunft</b>
+
+<b>Pseudonymer User-Hash:</b> <code>${userIdHash ? userIdHash.slice(0, 16) + '…' : '–'}</code>
+<b>Einwilligung:</b> ${consentLine}
+<b>Chat-Eintrag:</b> ${chatLine}
+
+Volle Auskunft (inkl. Chat-Historie) kannst du beim Verantwortlichen anfordern. Mit /loeschen löschst du sofort.`;
+
+  await sendMessage(token, chatId, text);
+  return true;
 }
 
 /**
@@ -593,4 +817,10 @@ module.exports = {
   handleApiKeyCommand,
   handleVoiceMessage,
   isUserAllowed,
+  // Phase 6.2 DSGVO consent
+  handleDatenschutzCommand,
+  handleLoeschenCommand,
+  handleAuskunftCommand,
+  handleConsentCallback,
+  hasConsent,
 };

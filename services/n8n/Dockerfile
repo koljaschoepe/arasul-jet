@@ -1,11 +1,18 @@
 # Multi-stage Dockerfile for n8n with custom Arasul nodes
-# SECURITY-FIX: Pinned to 2.4.6 to address critical CVEs:
-# - CVE-2026-21858 (CVSS 10.0) - Ni8mare: Unauthenticated RCE via Webhook
-# - CVE-2025-68613 (CVSS 9.9) - Expression Injection RCE
-# - CVE-2025-68668 (CVSS 9.9) - N8scape: Python Code Node Sandbox Bypass
-# - CVE-2026-21877 (CVSS 10.0) - Unrestricted File Upload
-# Update N8N_VERSION when upgrading (check: https://hub.docker.com/r/n8nio/n8n/tags)
-ARG N8N_VERSION=1.121.1
+#
+# Pinned to 1.123.18 — the 1.x line that includes all Q1 2026 security fixes:
+#   - CVE-2026-21858 (CVSS 10.0) Ni8mare: unauthenticated RCE via webhook (fixed ≥ 1.121.0)
+#   - CVE-2025-68613 (CVSS 9.9)  Expression-injection RCE (fixed ≥ 1.122.0)
+#   - CVE-2026-25115 / CVE-2026-25049 / CVE-2026-25056 (Critical) — fixed ≥ 1.123.18
+#   - CVE-2025-68668 N8scape: Pyodide sandbox escape (fixed ≥ 2.0.0; we don't ship Python)
+#   - Several Critical/High advisories from the Feb 2026 bulletin — all fixed ≥ 1.123.18
+#
+# 2.x is intentionally NOT chosen yet — 2.0 introduced breaking changes (env-var blocking,
+# stricter file permissions, Pyodide removal) that we want to migrate to deliberately.
+#
+# Patch cadence: aim for monthly rebuilds. n8n averaged ~1 critical CVE/month through
+# Q1 2026. See docs/plans/active/EXTERNAL_INTEGRATIONS.md §7.5 for the auto-update plan.
+ARG N8N_VERSION=1.123.18
 
 # Stage 1: Build custom nodes (TypeScript compilation)
 FROM node:20-alpine AS builder
@@ -66,7 +73,15 @@ COPY --from=builder /build/n8n-nodes-arasul-documents/node_modules /custom-nodes
 # Set ownership
 RUN chown -R node:node /custom-nodes
 
+# Entrypoint shim — reads /run/secrets/n8n_encryption_key into N8N_ENCRYPTION_KEY.
+# n8n upstream does not understand the *_FILE convention this repo uses, so we resolve
+# the secret here. Stays before USER node so chmod takes effect.
+COPY --chown=root:root --chmod=0755 entrypoint.sh /usr/local/bin/arasul-n8n-entrypoint.sh
+
 USER node
 
 # n8n will automatically load nodes from N8N_CUSTOM_EXTENSIONS
 ENV N8N_CUSTOM_EXTENSIONS=/custom-nodes
+
+ENTRYPOINT ["/usr/local/bin/arasul-n8n-entrypoint.sh"]
+CMD []

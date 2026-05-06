@@ -18,10 +18,18 @@ const logger = require('../../utils/logger');
 
 const DEFAULT_MAX_PER_MINUTE = parseInt(process.env.TELEGRAM_RATE_LIMIT_PER_MINUTE) || 10;
 const DEFAULT_MAX_PER_HOUR = parseInt(process.env.TELEGRAM_RATE_LIMIT_PER_HOUR) || 100;
+// Phase 6.3: per-bot global cap. Catches a single bot being hammered (e.g.
+// a leaked webhook URL or a misbehaving SaaS sending 1000s of events). The
+// per-chat cap above is finer-grained but doesn't help when traffic comes
+// from many chats.
+const DEFAULT_BOT_MAX_PER_MINUTE = parseInt(process.env.TELEGRAM_BOT_MAX_PER_MINUTE) || 600;
 
 // In-memory cache for rate limits (reduces DB queries)
 const rateLimitCache = new Map();
 const CACHE_TTL = 60000; // 1 minute cache TTL
+
+// In-memory per-bot counters (sliding 60s window).
+const botCounters = new Map(); // botId -> { count, windowStart }
 
 // Periodic eviction of expired cache entries to prevent memory growth
 setInterval(() => {
@@ -31,7 +39,32 @@ setInterval(() => {
       rateLimitCache.delete(key);
     }
   }
+  for (const [botId, entry] of botCounters.entries()) {
+    if (now - entry.windowStart > 60000) {
+      botCounters.delete(botId);
+    }
+  }
 }, CACHE_TTL);
+
+/**
+ * Phase 6.3: per-bot cap. In-memory only — fails open on restart, which is
+ * fine because the cap is a DoS guardrail, not a billing meter.
+ */
+function checkBotLimit(botId, maxPerMinute = DEFAULT_BOT_MAX_PER_MINUTE) {
+  const now = Date.now();
+  const entry = botCounters.get(botId);
+
+  if (!entry || now - entry.windowStart > 60000) {
+    botCounters.set(botId, { count: 1, windowStart: now });
+    return { allowed: true, remaining: maxPerMinute - 1 };
+  }
+
+  entry.count += 1;
+  if (entry.count > maxPerMinute) {
+    return { allowed: false, remaining: 0, resetAt: entry.windowStart + 60000 };
+  }
+  return { allowed: true, remaining: maxPerMinute - entry.count };
+}
 
 // =============================================================================
 // Functions
@@ -57,6 +90,18 @@ function getCacheKey(botId, chatId) {
 async function checkRateLimit(botId, chatId, userId = null) {
   const cacheKey = getCacheKey(botId, chatId);
   const now = Date.now();
+
+  // Phase 6.3: per-bot global cap first. If the bot is being flooded across
+  // many chats, deny here — saves the per-chat DB roundtrip.
+  const botCheck = checkBotLimit(botId);
+  if (!botCheck.allowed) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetAt: new Date(botCheck.resetAt || now + 60000),
+      reason: 'per_bot_limit',
+    };
+  }
 
   // Check cache first
   const cached = rateLimitCache.get(cacheKey);
@@ -213,6 +258,8 @@ module.exports = {
   resetRateLimit,
   getRateLimitStatus,
   clearCache,
+  checkBotLimit,
   DEFAULT_MAX_PER_MINUTE,
   DEFAULT_MAX_PER_HOUR,
+  DEFAULT_BOT_MAX_PER_MINUTE,
 };
