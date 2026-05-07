@@ -15,12 +15,12 @@
   --color-primary-hover: #6EC4FF;
   --color-primary-active: #2D8FD9;
 
-  /* Colors - Semantic (monochromatic) */
-  --color-danger: #F0F4F8;
-  --color-danger-hover: #CBD5E1;
-  --color-success: #45ADFF;
-  --color-warning: #94A3B8;
-  --color-warning-hover: #64748B;
+  /* Colors - Semantic (true status colors — see DESIGN_SYSTEM.md) */
+  --color-danger: #EF4444;
+  --color-danger-hover: #DC2626;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-warning-hover: #D97706;
 
   /* Colors - Background */
   --color-bg-dark: #101923;
@@ -140,9 +140,9 @@
   --accent-foreground: #f8fafc;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
-  --success: #45ADFF;
-  --success-foreground: #000000;
-  --warning: #94A3B8;
+  --success: #10B981;
+  --success-foreground: #FFFFFF;
+  --warning: #F59E0B;
   --warning-foreground: #1A2330;
   --border: #2a3544;
   --input: #2a3544;
@@ -210,22 +210,22 @@
   --primary-light: #6EC4FF;
   --primary-muted: var(--primary-alpha-15);
   --text-on-primary: #000000;
-  --danger-color: #F0F4F8;
-  --danger-hover: #CBD5E1;
-  --danger-light: #CBD5E1;
-  --warning-color: #94A3B8;
-  --success-color: #45ADFF;
+  --danger-color: #EF4444;
+  --danger-hover: #DC2626;
+  --danger-light: #FCA5A5;
+  --warning-color: #F59E0B;
+  --success-color: #10B981;
   --error-color: var(--danger-color);
 
-  /* Status Colors - Semantic (NEW) */
-  --status-neutral: #94A3B8;        /* Grau - für "Normal", "OK", "Indexiert" */
+  /* Status Colors - Semantic */
+  --status-neutral: #94A3B8;        /* Grey — neutral / informational */
   --status-neutral-bg: rgba(148, 163, 184, 0.15);
   --status-neutral-border: rgba(148, 163, 184, 0.3);
-  --status-critical: #F0F4F8;       /* Near-white - höchster Kontrast */
-  --status-critical-bg: rgba(240, 244, 248, 0.15);
-  --status-critical-border: rgba(240, 244, 248, 0.3);
-  --status-warning: #94A3B8;        /* Muted grey */
-  --status-performance: #45ADFF;    /* Primary blue */
+  --status-critical: #EF4444;       /* Red — critical / error */
+  --status-critical-bg: rgba(239, 68, 68, 0.15);
+  --status-critical-border: rgba(239, 68, 68, 0.3);
+  --status-warning: #F59E0B;        /* Amber — warning */
+  --status-performance: #45ADFF;    /* Primary blue — performance metric */
   --status-performance-bg: rgba(69, 173, 255, 0.15);
   --status-performance-border: rgba(69, 173, 255, 0.3);
 
@@ -307,24 +307,24 @@
   --primary-alpha-40: rgba(69, 173, 255, 0.4);
   --primary-alpha-50: rgba(69, 173, 255, 0.5);
 
-  /* Danger alpha variants (monochromatic near-white) */
-  --danger-alpha-8: rgba(240, 244, 248, 0.08);
-  --danger-alpha-10: rgba(240, 244, 248, 0.1);
-  --danger-alpha-15: rgba(240, 244, 248, 0.15);
-  --danger-alpha-20: rgba(240, 244, 248, 0.2);
-  --danger-alpha-30: rgba(240, 244, 248, 0.3);
+  /* Danger alpha variants (red #EF4444) */
+  --danger-alpha-8: rgba(239, 68, 68, 0.08);
+  --danger-alpha-10: rgba(239, 68, 68, 0.1);
+  --danger-alpha-15: rgba(239, 68, 68, 0.15);
+  --danger-alpha-20: rgba(239, 68, 68, 0.2);
+  --danger-alpha-30: rgba(239, 68, 68, 0.3);
 
-  /* Warning alpha variants (muted grey) */
-  --warning-alpha-10: rgba(148, 163, 184, 0.1);
-  --warning-alpha-15: rgba(148, 163, 184, 0.15);
-  --warning-alpha-20: rgba(148, 163, 184, 0.2);
-  --warning-alpha-30: rgba(148, 163, 184, 0.3);
+  /* Warning alpha variants (amber #F59E0B) */
+  --warning-alpha-10: rgba(245, 158, 11, 0.1);
+  --warning-alpha-15: rgba(245, 158, 11, 0.15);
+  --warning-alpha-20: rgba(245, 158, 11, 0.2);
+  --warning-alpha-30: rgba(245, 158, 11, 0.3);
 
-  /* Success alpha variants (primary blue) */
-  --success-alpha-10: rgba(69, 173, 255, 0.1);
-  --success-alpha-15: rgba(69, 173, 255, 0.15);
-  --success-alpha-20: rgba(69, 173, 255, 0.2);
-  --success-alpha-30: rgba(69, 173, 255, 0.3);
+  /* Success alpha variants (emerald #10B981) */
+  --success-alpha-10: rgba(16, 185, 129, 0.1);
+  --success-alpha-15: rgba(16, 185, 129, 0.15);
+  --success-alpha-20: rgba(16, 185, 129, 0.2);
+  --success-alpha-30: rgba(16, 185, 129, 0.3);
 
   /* Neutral alpha variants */
   --neutral-alpha-2: rgba(148, 163, 184, 0.02);
@@ -378,10 +378,10 @@
   --accent-foreground: #0F172A;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
-  --success: #45ADFF;
-  --success-foreground: #000000;
-  --warning: #64748B;
-  --warning-foreground: #FFFFFF;
+  --success: #10B981;
+  --success-foreground: #FFFFFF;
+  --warning: #F59E0B;
+  --warning-foreground: #1A2330;
   --border: #E2E8F0;
   --input: #E2E8F0;
   --ring: #45ADFF;
@@ -475,35 +475,35 @@
   --primary-alpha-40: rgba(69, 173, 255, 0.4);
   --primary-alpha-50: rgba(69, 173, 255, 0.5);
 
-  /* Danger/Warning/Success/Neutral alpha variants (monochromatic, light mode) */
-  --danger-alpha-8: rgba(51, 65, 85, 0.08);
-  --danger-alpha-10: rgba(51, 65, 85, 0.1);
-  --danger-alpha-15: rgba(51, 65, 85, 0.15);
-  --danger-alpha-20: rgba(51, 65, 85, 0.2);
-  --danger-alpha-30: rgba(51, 65, 85, 0.3);
-  --warning-alpha-10: rgba(100, 116, 139, 0.1);
-  --warning-alpha-15: rgba(100, 116, 139, 0.15);
-  --warning-alpha-20: rgba(100, 116, 139, 0.2);
-  --warning-alpha-30: rgba(100, 116, 139, 0.3);
-  --success-alpha-10: rgba(69, 173, 255, 0.1);
-  --success-alpha-15: rgba(69, 173, 255, 0.15);
-  --success-alpha-20: rgba(69, 173, 255, 0.2);
-  --success-alpha-30: rgba(69, 173, 255, 0.3);
+  /* Danger/Warning/Success/Neutral alpha variants (true status colors, light mode) */
+  --danger-alpha-8: rgba(239, 68, 68, 0.08);
+  --danger-alpha-10: rgba(239, 68, 68, 0.1);
+  --danger-alpha-15: rgba(239, 68, 68, 0.15);
+  --danger-alpha-20: rgba(239, 68, 68, 0.2);
+  --danger-alpha-30: rgba(239, 68, 68, 0.3);
+  --warning-alpha-10: rgba(245, 158, 11, 0.1);
+  --warning-alpha-15: rgba(245, 158, 11, 0.15);
+  --warning-alpha-20: rgba(245, 158, 11, 0.2);
+  --warning-alpha-30: rgba(245, 158, 11, 0.3);
+  --success-alpha-10: rgba(16, 185, 129, 0.1);
+  --success-alpha-15: rgba(16, 185, 129, 0.15);
+  --success-alpha-20: rgba(16, 185, 129, 0.2);
+  --success-alpha-30: rgba(16, 185, 129, 0.3);
   --neutral-alpha-2: rgba(148, 163, 184, 0.02);
   --neutral-alpha-10: rgba(148, 163, 184, 0.1);
   --neutral-alpha-15: rgba(148, 163, 184, 0.15);
   --neutral-alpha-20: rgba(148, 163, 184, 0.2);
   --neutral-alpha-30: rgba(148, 163, 184, 0.3);
 
-  /* Status Colors - Semantic (Light Mode, monochromatic) */
+  /* Status Colors - Semantic (Light Mode) */
   --status-neutral: #64748B;
   --status-neutral-bg: rgba(100, 116, 139, 0.12);
   --status-neutral-border: rgba(100, 116, 139, 0.25);
-  --status-critical: #334155;       /* Dark grey for high contrast on light bg */
-  --status-critical-bg: rgba(51, 65, 85, 0.12);
-  --status-critical-border: rgba(51, 65, 85, 0.25);
-  --status-warning: #64748B;        /* Muted grey */
-  --status-performance: #45ADFF;    /* Primary blue */
+  --status-critical: #DC2626;       /* Red for critical / error in light mode */
+  --status-critical-bg: rgba(220, 38, 38, 0.12);
+  --status-critical-border: rgba(220, 38, 38, 0.25);
+  --status-warning: #D97706;        /* Amber for warning in light mode */
+  --status-performance: #45ADFF;    /* Primary blue — performance metric */
   --status-performance-bg: rgba(69, 173, 255, 0.12);
   --status-performance-border: rgba(69, 173, 255, 0.25);
 }
