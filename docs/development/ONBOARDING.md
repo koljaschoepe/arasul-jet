@@ -32,7 +32,7 @@ The `arasul` script is the canonical CLI for the platform. Run `./arasul --help`
 
 ### Why no x86 dev mode?
 
-Arasul's core surfaces (LLM service, embedding service, Qdrant indexing) are tied to the GPU. A mock-stack on x86 (mock-LLM that echoes prompts, mock-embedding that returns hashed vectors) was scoped and rejected during the DX overhaul because the mocks would diverge from real CUDA behavior — UI work might pass against the mocks but break on the Jetson, creating false confidence. The single canonical workflow is "edit on the Jetson, rebuild the affected service, verify in the browser". See [`docs/plans/active/DX_OVERHAUL.md`](../plans/active/DX_OVERHAUL.md) §Stage 10 for the full rationale.
+Arasul's core surfaces (LLM service, embedding service, Qdrant indexing) are tied to the GPU. A mock-stack on x86 (mock-LLM that echoes prompts, mock-embedding that returns hashed vectors) was evaluated and rejected because the mocks would diverge from real CUDA behavior — UI work might pass against the mocks but break on the Jetson, creating false confidence. The single canonical workflow is "edit on the Jetson, rebuild the affected service, verify in the browser".
 
 ---
 
@@ -187,7 +187,7 @@ ls services/postgres/init/ | tail -1   # find the highest number
 # Create the next file: NNN_<description>.sql
 ```
 
-Migrations must use `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, etc. Never `DROP` without an explicit fallback. Once Stage 6 of the DX overhaul ships, use `/create-migration <description>` — it picks the next number for you.
+Migrations must use `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, etc. Never `DROP` without an explicit fallback. See [`services/postgres/CLAUDE.md`](../../services/postgres/CLAUDE.md) for the full migration contract.
 
 ### 5. Commits — Conventional Commits
 
@@ -218,12 +218,15 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 Before editing in a domain, glance at the matching context file:
 
 - `.claude/context/backend.md` — Express routes, services, middleware
-- `.claude/context/frontend.md` — React patterns, hooks, shadcn
-- `.claude/context/database.md` — PostgreSQL, migration rules
-- `.claude/context/python-services.md` — LLM, embedding, metrics, indexer
 - `.claude/context/telegram.md` — Telegram bot architecture
+- `.claude/context/n8n-workflow.md` — n8n workflow engine + custom nodes
+- `.claude/context/rag.md` — RAG pipeline (chunk → embed → retrieve)
+- `.claude/context/llm-queue.md` — LLM service queue + concurrency
 - `.claude/context/security.md` — Auth, RBAC, audit logs
+- `.claude/context/observability.md` — Metrics, logs, alerts
 - `.claude/context/testing.md` — Test patterns and coverage expectations
+- `.claude/context/debug.md` — Debugging recipes
+- `.claude/context/commercial.md` — Commercial-launch surfaces
 
 ### Your first PR checklist
 
