@@ -47,6 +47,24 @@ class UnauthorizedError extends ApiError {
   }
 }
 
+class TokenExpiredError extends ApiError {
+  constructor(message = 'Token expired') {
+    super(message, { statusCode: 401, code: 'TOKEN_EXPIRED' });
+  }
+}
+
+class InvalidTokenError extends ApiError {
+  constructor(message = 'Invalid token') {
+    super(message, { statusCode: 401, code: 'INVALID_TOKEN' });
+  }
+}
+
+class TokenRevokedError extends ApiError {
+  constructor(message = 'Token has been revoked') {
+    super(message, { statusCode: 401, code: 'TOKEN_REVOKED' });
+  }
+}
+
 class ForbiddenError extends ApiError {
   constructor(message = 'Access denied') {
     super(message, { statusCode: 403, code: 'FORBIDDEN' });
@@ -89,6 +107,9 @@ module.exports = {
   ApiError,
   ValidationError,
   UnauthorizedError,
+  TokenExpiredError,
+  InvalidTokenError,
+  TokenRevokedError,
   ForbiddenError,
   NotFoundError,
   ConflictError,

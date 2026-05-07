@@ -7,6 +7,13 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../database');
 const logger = require('./logger');
+const {
+  ApiError,
+  TokenExpiredError,
+  InvalidTokenError,
+  TokenRevokedError,
+  ServiceUnavailableError,
+} = require('./errors');
 
 // SEC-006 FIX: Require JWT_SECRET to be set, no default fallback
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -78,7 +85,7 @@ async function generateToken(user, ipAddress, userAgent) {
     };
   } catch (error) {
     logger.error(`Error generating token: ${error.message}`);
-    throw new Error('Token generation failed');
+    throw new ServiceUnavailableError('Token generation failed');
   }
 }
 
@@ -116,7 +123,7 @@ async function verifyToken(token) {
 
     if (blacklistCheck.rows.length > 0) {
       verifiedTokenCache.delete(decoded.jti);
-      throw new Error('Token is blacklisted');
+      throw new TokenRevokedError('Token is blacklisted');
     }
 
     const sessionCheck = await db.query(
@@ -126,7 +133,7 @@ async function verifyToken(token) {
 
     if (sessionCheck.rows.length === 0) {
       verifiedTokenCache.delete(decoded.jti);
-      throw new Error('Session not found or expired');
+      throw new InvalidTokenError('Session not found or expired');
     }
 
     // BH9 FIX: Set timestamp before async DB call to prevent duplicate concurrent updates
@@ -148,10 +155,14 @@ async function verifyToken(token) {
 
     return decoded;
   } catch (error) {
+    // Re-throw our own typed errors as-is — only translate the raw jsonwebtoken errors.
+    if (error instanceof ApiError) {
+      throw error;
+    }
     if (error.name === 'TokenExpiredError') {
-      throw new Error('Token expired');
+      throw new TokenExpiredError('Token expired');
     } else if (error.name === 'JsonWebTokenError') {
-      throw new Error('Invalid token');
+      throw new InvalidTokenError('Invalid token');
     } else {
       throw error;
     }
@@ -166,7 +177,7 @@ async function blacklistToken(token) {
     const decoded = jwt.decode(token);
 
     if (!decoded) {
-      throw new Error('Invalid token format');
+      throw new InvalidTokenError('Invalid token format');
     }
 
     const expiresAt = new Date(decoded.exp * 1000);
@@ -189,8 +200,9 @@ async function blacklistToken(token) {
 
     return true;
   } catch (error) {
+    if (error instanceof ApiError) {throw error;}
     logger.error(`Error blacklisting token: ${error.message}`);
-    throw new Error('Token blacklisting failed');
+    throw new ServiceUnavailableError('Token blacklisting failed');
   }
 }
 
@@ -227,8 +239,9 @@ async function blacklistAllUserTokens(userId) {
 
     return true;
   } catch (error) {
+    if (error instanceof ApiError) {throw error;}
     logger.error(`Error blacklisting all user tokens: ${error.message}`);
-    throw new Error('Mass token blacklisting failed');
+    throw new ServiceUnavailableError('Mass token blacklisting failed');
   }
 }
 
@@ -254,7 +267,7 @@ async function getUserSessions(userId) {
     return result.rows;
   } catch (error) {
     logger.error(`Error getting user sessions: ${error.message}`);
-    throw new Error('Failed to get user sessions');
+    throw new ServiceUnavailableError('Failed to get user sessions');
   }
 }
 

@@ -50,27 +50,17 @@ async function requireAuth(req, res, next) {
   } catch (tokenError) {
     logger.debug(`Token verification failed: ${tokenError.message}`);
 
-    if (tokenError.message === 'Token expired') {
-      return res.status(401).json({
-        error: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
-        timestamp: new Date().toISOString(),
-      });
-    } else if (tokenError.message === 'Invalid token') {
-      return res.status(401).json({
-        error: { code: 'INVALID_TOKEN', message: 'Invalid token' },
-        timestamp: new Date().toISOString(),
-      });
-    } else if (tokenError.message === 'Token is blacklisted') {
-      return res.status(401).json({
-        error: { code: 'TOKEN_REVOKED', message: 'Token has been revoked' },
-        timestamp: new Date().toISOString(),
-      });
-    } else {
-      return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'Authentication failed' },
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Dispatch on the typed error code (set by jwt.js typed errors). Falls back
+    // to UNAUTHORIZED for any unrecognised code.
+    const code = tokenError.code || 'UNAUTHORIZED';
+    const known = ['TOKEN_EXPIRED', 'INVALID_TOKEN', 'TOKEN_REVOKED'];
+    return res.status(401).json({
+      error: {
+        code: known.includes(code) ? code : 'UNAUTHORIZED',
+        message: known.includes(code) ? tokenError.message : 'Authentication failed',
+      },
+      timestamp: new Date().toISOString(),
+    });
   }
 
   // PERF: Check user cache first
