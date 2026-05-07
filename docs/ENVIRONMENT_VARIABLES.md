@@ -15,23 +15,24 @@ All variables are defined in `.env` file at repository root.
 | BUILD_HASH      | dev-build  | Git commit hash                    |
 | JETPACK_VERSION | 6.0        | JetPack version                    |
 | NODE_ENV        | production | Node.js environment                |
-| NODE_VERSION    | 20.19      | Node.js version (Docker build arg) |
+| NODE_VERSION    | 22         | Node.js version (Docker build arg) |
 | PYTHON_VERSION  | 3.11.12    | Python version (Docker build arg)  |
 
 ---
 
 ## Authentication
 
-| Variable               | Default    | Description                                         |
-| ---------------------- | ---------- | --------------------------------------------------- |
-| ADMIN_USERNAME         | admin      | Dashboard admin username                            |
-| ADMIN_PASSWORD         | (required) | Dashboard admin password (redacted after bootstrap) |
-| JWT_SECRET             | (required) | JWT signing key (32+ chars)                         |
-| JWT_EXPIRY             | 24h        | Token expiration time                               |
-| LOGIN_LOCKOUT_ATTEMPTS | 5          | Failed attempts before lockout                      |
-| LOGIN_LOCKOUT_MINUTES  | 15         | Lockout duration                                    |
-| FORCE_HTTPS            | false      | HTTPS erzwingen                                     |
-| FORCE_SECURE_COOKIES   | false      | Secure-Flag für Cookies                             |
+| Variable               | Default            | Description                                         |
+| ---------------------- | ------------------ | --------------------------------------------------- |
+| ADMIN_USERNAME         | admin              | Dashboard admin username                            |
+| ADMIN_PASSWORD         | (required)         | Dashboard admin password (redacted after bootstrap) |
+| ADMIN_EMAIL            | admin@arasul.local | Bootstrap admin email                               |
+| JWT_SECRET             | (required)         | JWT signing key (32+ chars)                         |
+| JWT_EXPIRY             | 4h                 | Token expiration time                               |
+| LOGIN_LOCKOUT_ATTEMPTS | 5                  | Failed attempts before lockout                      |
+| LOGIN_LOCKOUT_MINUTES  | 15                 | Lockout duration                                    |
+| FORCE_HTTPS            | false              | HTTPS erzwingen                                     |
+| FORCE_SECURE_COOKIES   | false              | Secure-Flag für Cookies                             |
 
 ---
 
@@ -103,6 +104,7 @@ All variables are defined in `.env` file at repository root.
 | LLM_KEEP_ALIVE_SECONDS      | 300           | Model unload timeout                                   |
 | OLLAMA_STARTUP_TIMEOUT      | 120           | Ollama startup timeout (seconds)                       |
 | MAX_STORED_MODELS           | 10            | Maximale Anzahl gespeicherter Modelle                  |
+| MEMORY_MAX_ENTRIES          | 500           | Per-user max entries in conversation memory store      |
 
 ---
 
@@ -227,6 +229,7 @@ When enabled, the queue system batches all requests for the currently loaded mod
 | N8N_API_KEY             | (none)                           | n8n API key                          |
 | N8N_WEBHOOK_SECRET      | (none)                           | n8n webhook verification secret      |
 | N8N_SSH_KEY_PATH        | /arasul/ssh-keys/n8n_private_key | SSH key for n8n access               |
+| N8N_PROXY_HOPS          | 1                                | trust-proxy hop count behind Traefik |
 
 ---
 
@@ -354,14 +357,16 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 
 ### Core Configuration
 
-| Variable                | Default    | Description                          |
-| ----------------------- | ---------- | ------------------------------------ |
-| TELEGRAM_BOT_TOKEN      | (required) | Bot token from @BotFather            |
-| TELEGRAM_CHAT_ID        | -          | Default chat for notifications       |
-| TELEGRAM_ALLOWED_USERS  | -          | Comma-separated user IDs (whitelist) |
-| TELEGRAM_BOT_PORT       | 8090       | Health check port                    |
-| TELEGRAM_NOTIFY_STARTUP | true       | Send startup notification            |
-| TELEGRAM_NOTIFY_ERRORS  | true       | Send error notifications             |
+| Variable                     | Default                              | Description                                                          |
+| ---------------------------- | ------------------------------------ | -------------------------------------------------------------------- |
+| TELEGRAM_BOT_TOKEN           | (required)                           | Bot token from @BotFather                                            |
+| TELEGRAM_CHAT_ID             | -                                    | Default chat for notifications                                       |
+| TELEGRAM_ALLOWED_USERS       | -                                    | Comma-separated user IDs (whitelist)                                 |
+| TELEGRAM_BOT_PORT            | 8090                                 | Health check port                                                    |
+| TELEGRAM_NOTIFY_STARTUP      | true                                 | Send startup notification                                            |
+| TELEGRAM_NOTIFY_ERRORS       | true                                 | Send error notifications                                             |
+| TELEGRAM_USER_ID_PEPPER      | (Docker secret)                      | HMAC pepper for user-ID pseudonymisation (DSGVO; ≥16 chars required) |
+| TELEGRAM_USER_ID_PEPPER_FILE | /run/secrets/telegram_user_id_pepper | Docker-secret mount path resolved at boot                            |
 
 ### LLM Chat Configuration (Bot 2.0)
 
@@ -640,7 +645,7 @@ SYSTEM_VERSION=1.0.0
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=YourSecurePassword123!
 JWT_SECRET=your-32-char-random-string-here-for-jwt
-JWT_EXPIRY=24h
+JWT_EXPIRY=4h
 
 # PostgreSQL
 POSTGRES_HOST=postgres-db
