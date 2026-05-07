@@ -1,14 +1,14 @@
 # Arasul Platform — Database Schema
 
 > **Auto-generated**. Do not edit by hand.
-> Run `scripts/docs/generate-db-schema.sh` to regenerate. Last sync: `2026-04-21T23:42:19Z`
+> Run `scripts/docs/generate-db-schema.sh` to regenerate. Last sync: `2026-05-07T19:17:43Z`
 
 ## Übersicht
 
-- Tabellen: **88**
-- Spalten gesamt: **1192**
-- Foreign Keys: **63**
-- Indexes: **343**
+- Tabellen: **94**
+- Spalten gesamt: **1258**
+- Foreign Keys: **72**
+- Indexes: **367**
 
 ---
 
@@ -314,6 +314,7 @@
 | `rate_limit_per_minute` | integer                  | ✅       | `60`                                       |
 | `allowed_endpoints`     | ARRAY                    | ✅       | `ARRAY['llm:chat'::text, 'llm:status':...` |
 | `metadata`              | jsonb                    | ✅       | `'{}'::jsonb`                              |
+| `requires_review`       | boolean                  | ✅       | `false`                                    |
 
 **Primary key:** `id`
 
@@ -326,6 +327,7 @@
 - `api_keys_pkey` — `CREATE UNIQUE INDEX api_keys_pkey ON public.api_keys USING btree (id)`
 - `idx_api_keys_active` — `CREATE INDEX idx_api_keys_active ON public.api_keys USING btree (is_active) WHERE (is_active = true)`
 - `idx_api_keys_prefix` — `CREATE INDEX idx_api_keys_prefix ON public.api_keys USING btree (key_prefix)`
+- `idx_api_keys_requires_review` — `CREATE INDEX idx_api_keys_requires_review ON public.api_keys USING btree (requires_review) WHERE (requires_review = true)`
 
 ---
 
@@ -446,6 +448,26 @@
 
 ---
 
+## `audit_log_health`
+
+> Phase 1.5: Health-Counter für asynchrone Audit-Writes. Wird von auditLog.js bei jedem Write aktualisiert.
+
+| Column                | Type                     | Nullable | Default |
+| --------------------- | ------------------------ | -------- | ------- |
+| `id`                  | integer                  | ⛔       | `1`     |
+| `failure_count`       | bigint                   | ⛔       | `0`     |
+| `last_failure_at`     | timestamp with time zone | ✅       |         |
+| `last_failure_reason` | text                     | ✅       |         |
+| `last_success_at`     | timestamp with time zone | ✅       |         |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `audit_log_health_pkey` — `CREATE UNIQUE INDEX audit_log_health_pkey ON public.audit_log_health USING btree (id)`
+
+---
+
 ## `audit_logs`
 
 > High-value security audit trail — password changes, service restarts, config changes, exports
@@ -530,8 +552,8 @@
 
 **Foreign Keys:**
 
-- `conversation_id` → `chat_conversations.id`
 - `message_id` → `chat_messages.id`
+- `conversation_id` → `chat_conversations.id`
 
 **Indexes:**
 
@@ -569,8 +591,8 @@
 
 **Foreign Keys:**
 
-- `user_id` → `admin_users.id`
 - `project_id` → `projects.id`
+- `user_id` → `admin_users.id`
 
 **Indexes:**
 
@@ -643,8 +665,8 @@
 
 **Foreign Keys:**
 
-- `user_id` → `admin_users.id`
 - `session_id` → `claude_terminal_sessions.id`
+- `user_id` → `admin_users.id`
 
 **Indexes:**
 
@@ -1032,13 +1054,15 @@
 | `uploaded_by`             | character varying        | ✅       | `'admin'::character varying` |
 | `space_id`                | uuid                     | ✅       |                              |
 | `document_summary`        | text                     | ✅       |                              |
+| `owner_id`                | integer                  | ✅       |                              |
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
-- `category_id` → `document_categories.id`
 - `space_id` → `knowledge_spaces.id`
+- `category_id` → `document_categories.id`
+- `owner_id` → `admin_users.id`
 
 **Indexes:**
 
@@ -1048,6 +1072,7 @@
 - `idx_documents_deleted_at` — `CREATE INDEX idx_documents_deleted_at ON public.documents USING btree (deleted_at) WHERE (deleted_at IS NULL)`
 - `idx_documents_file_hash` — `CREATE INDEX idx_documents_file_hash ON public.documents USING btree (file_hash)`
 - `idx_documents_filename` — `CREATE INDEX idx_documents_filename ON public.documents USING btree (filename)`
+- `idx_documents_owner` — `CREATE INDEX idx_documents_owner ON public.documents USING btree (owner_id)`
 - `idx_documents_search_gin` — `CREATE INDEX idx_documents_search_gin ON public.documents USING gin (to_tsvector('german'::regconfig, (((COALESCE(filename, ''::character varying))::text || ' '::text) || (COALESCE(title, ''::character varying))::text))) WHERE (deleted_at IS NULL)`
 - `idx_documents_space_id` — `CREATE INDEX idx_documents_space_id ON public.documents USING btree (space_id)`
 - `idx_documents_space_status` — `CREATE INDEX idx_documents_space_status ON public.documents USING btree (space_id, status) WHERE (deleted_at IS NULL)`
@@ -1103,8 +1128,8 @@
 
 **Foreign Keys:**
 
-- `document_id` → `documents.id`
 - `entity_id` → `kg_entities.id`
+- `document_id` → `documents.id`
 
 **Indexes:**
 
@@ -1133,9 +1158,9 @@
 
 **Foreign Keys:**
 
-- `source_document_id` → `documents.id`
 - `source_entity_id` → `kg_entities.id`
 - `target_entity_id` → `kg_entities.id`
+- `source_document_id` → `documents.id`
 
 **Indexes:**
 
@@ -1175,11 +1200,17 @@
 | `is_system`              | boolean                  | ✅       | `false`                        |
 | `created_at`             | timestamp with time zone | ✅       | `now()`                        |
 | `updated_at`             | timestamp with time zone | ✅       | `now()`                        |
+| `owner_id`               | integer                  | ✅       |                                |
 
 **Primary key:** `id`
 
+**Foreign Keys:**
+
+- `owner_id` → `admin_users.id`
+
 **Indexes:**
 
+- `idx_knowledge_spaces_owner` — `CREATE INDEX idx_knowledge_spaces_owner ON public.knowledge_spaces USING btree (owner_id)`
 - `idx_knowledge_spaces_single_default` — `CREATE UNIQUE INDEX idx_knowledge_spaces_single_default ON public.knowledge_spaces USING btree (is_default) WHERE (is_default = true)`
 - `idx_knowledge_spaces_sort` — `CREATE INDEX idx_knowledge_spaces_sort ON public.knowledge_spaces USING btree (sort_order, name)`
 - `idx_knowledge_spaces_updated` — `CREATE INDEX idx_knowledge_spaces_updated ON public.knowledge_spaces USING btree (updated_at DESC)`
@@ -1192,16 +1223,23 @@
 
 > Tracking of installed/downloaded models
 
-| Column              | Type                     | Nullable | Default                          |
-| ------------------- | ------------------------ | -------- | -------------------------------- |
-| `id`                | character varying        | ⛔       |                                  |
-| `status`            | character varying        | ✅       | `'available'::character varying` |
-| `download_progress` | integer                  | ✅       | `0`                              |
-| `downloaded_at`     | timestamp with time zone | ✅       |                                  |
-| `last_used_at`      | timestamp with time zone | ✅       |                                  |
-| `usage_count`       | integer                  | ✅       | `0`                              |
-| `error_message`     | text                     | ✅       |                                  |
-| `is_default`        | boolean                  | ✅       | `false`                          |
+| Column                | Type                     | Nullable | Default                          |
+| --------------------- | ------------------------ | -------- | -------------------------------- |
+| `id`                  | character varying        | ⛔       |                                  |
+| `status`              | character varying        | ✅       | `'available'::character varying` |
+| `download_progress`   | integer                  | ✅       | `0`                              |
+| `downloaded_at`       | timestamp with time zone | ✅       |                                  |
+| `last_used_at`        | timestamp with time zone | ✅       |                                  |
+| `usage_count`         | integer                  | ✅       | `0`                              |
+| `error_message`       | text                     | ✅       |                                  |
+| `is_default`          | boolean                  | ✅       | `false`                          |
+| `bytes_total`         | bigint                   | ✅       |                                  |
+| `bytes_completed`     | bigint                   | ✅       | `0`                              |
+| `download_started_at` | timestamp with time zone | ✅       |                                  |
+| `last_activity_at`    | timestamp with time zone | ✅       |                                  |
+| `attempt_count`       | integer                  | ✅       | `0`                              |
+| `last_error_code`     | character varying        | ✅       |                                  |
+| `download_speed_bps`  | bigint                   | ✅       |                                  |
 
 **Primary key:** `id`
 
@@ -1209,6 +1247,7 @@
 
 - `idx_llm_installed_models_default` — `CREATE UNIQUE INDEX idx_llm_installed_models_default ON public.llm_installed_models USING btree (is_default) WHERE (is_default = true)`
 - `idx_llm_installed_models_last_used` — `CREATE INDEX idx_llm_installed_models_last_used ON public.llm_installed_models USING btree (last_used_at DESC NULLS LAST)`
+- `idx_llm_installed_models_recovery` — `CREATE INDEX idx_llm_installed_models_recovery ON public.llm_installed_models USING btree (status, last_activity_at) WHERE ((status)::text = ANY ((ARRAY['downloading'::character varying, 'paused'::character varying])::text[]))`
 - `idx_llm_installed_models_status` — `CREATE INDEX idx_llm_installed_models_status ON public.llm_installed_models USING btree (status)`
 - `llm_installed_models_pkey` — `CREATE UNIQUE INDEX llm_installed_models_pkey ON public.llm_installed_models USING btree (id)`
 
@@ -1537,6 +1576,86 @@
 
 ---
 
+## `n8n_allowed_external_domains`
+
+> Phase 1.7: Whitelist externer Domains, die n8n-Workflows kontaktieren dürfen. Leer = alles geblockt. Verwaltung über Settings → n8n-Integration.
+
+| Column        | Type                     | Nullable | Default                                    |
+| ------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`          | integer                  | ⛔       | `nextval('n8n_allowed_external_domains...` |
+| `domain`      | character varying        | ⛔       |                                            |
+| `description` | text                     | ✅       |                                            |
+| `added_by`    | integer                  | ✅       |                                            |
+| `added_at`    | timestamp with time zone | ⛔       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `added_by` → `admin_users.id`
+
+**Indexes:**
+
+- `n8n_allowed_external_domains_domain_key` — `CREATE UNIQUE INDEX n8n_allowed_external_domains_domain_key ON public.n8n_allowed_external_domains USING btree (domain)`
+- `n8n_allowed_external_domains_pkey` — `CREATE UNIQUE INDEX n8n_allowed_external_domains_pkey ON public.n8n_allowed_external_domains USING btree (id)`
+
+---
+
+## `n8n_audit_log`
+
+> DSGVO Art-30 audit trail for n8n workflow/credential/user mutations. Phase-3 EXTERNAL_INTEGRATIONS plan. Pruned by run_all_cleanups()/cleanup_n8n_audit_log().
+
+| Column        | Type                     | Nullable | Default                                    |
+| ------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`          | bigint                   | ⛔       | `nextval('n8n_audit_log_id_seq'::regcl...` |
+| `occurred_at` | timestamp with time zone | ⛔       | `now()`                                    |
+| `table_name`  | text                     | ⛔       |                                            |
+| `action`      | text                     | ⛔       |                                            |
+| `row_id`      | text                     | ✅       |                                            |
+| `actor_id`    | text                     | ✅       |                                            |
+| `diff`        | jsonb                    | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_n8n_audit_log_occurred_at` — `CREATE INDEX idx_n8n_audit_log_occurred_at ON arasul.n8n_audit_log USING btree (occurred_at DESC)`
+- `idx_n8n_audit_log_table_action` — `CREATE INDEX idx_n8n_audit_log_table_action ON arasul.n8n_audit_log USING btree (table_name, action)`
+- `n8n_audit_log_pkey` — `CREATE UNIQUE INDEX n8n_audit_log_pkey ON arasul.n8n_audit_log USING btree (id)`
+
+---
+
+## `n8n_external_call_log`
+
+> Phase 1.7: Audit-Trail für jeden externen HTTP-Call aus n8n-Workflows. Beweispflicht für Kanzlei-DSB.
+
+| Column          | Type                     | Nullable | Default                                    |
+| --------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`            | bigint                   | ⛔       | `nextval('n8n_external_call_log_id_seq...` |
+| `workflow_id`   | character varying        | ✅       |                                            |
+| `workflow_name` | character varying        | ✅       |                                            |
+| `execution_id`  | character varying        | ✅       |                                            |
+| `target_url`    | text                     | ⛔       |                                            |
+| `target_host`   | character varying        | ⛔       |                                            |
+| `method`        | character varying        | ⛔       | `'GET'::character varying`                 |
+| `status_code`   | integer                  | ✅       |                                            |
+| `blocked`       | boolean                  | ⛔       | `false`                                    |
+| `block_reason`  | text                     | ✅       |                                            |
+| `duration_ms`   | integer                  | ✅       |                                            |
+| `created_at`    | timestamp with time zone | ⛔       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_n8n_calls_blocked` — `CREATE INDEX idx_n8n_calls_blocked ON public.n8n_external_call_log USING btree (blocked, created_at DESC) WHERE (blocked = true)`
+- `idx_n8n_calls_created_at` — `CREATE INDEX idx_n8n_calls_created_at ON public.n8n_external_call_log USING btree (created_at DESC)`
+- `idx_n8n_calls_target_host` — `CREATE INDEX idx_n8n_calls_target_host ON public.n8n_external_call_log USING btree (target_host)`
+- `idx_n8n_calls_workflow` — `CREATE INDEX idx_n8n_calls_workflow ON public.n8n_external_call_log USING btree (workflow_id, created_at DESC)`
+- `n8n_external_call_log_pkey` — `CREATE UNIQUE INDEX n8n_external_call_log_pkey ON public.n8n_external_call_log USING btree (id)`
+
+---
+
 ## `notification_events`
 
 > Stores all events that trigger notifications
@@ -1674,15 +1793,18 @@
 | `created_at`         | timestamp with time zone | ✅       | `now()`                        |
 | `updated_at`         | timestamp with time zone | ✅       | `now()`                        |
 | `is_default`         | boolean                  | ✅       | `false`                        |
+| `owner_id`           | integer                  | ✅       |                                |
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
 - `knowledge_space_id` → `knowledge_spaces.id`
+- `owner_id` → `admin_users.id`
 
 **Indexes:**
 
+- `idx_projects_owner` — `CREATE INDEX idx_projects_owner ON public.projects USING btree (owner_id)`
 - `idx_projects_sort` — `CREATE INDEX idx_projects_sort ON public.projects USING btree (sort_order, created_at DESC)`
 - `projects_pkey` — `CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (id)`
 
@@ -1698,7 +1820,7 @@
 | `created_at`       | timestamp with time zone | ⛔       | `now()`                                    |
 | `conversation_id`  | integer                  | ✅       |                                            |
 | `user_id`          | integer                  | ✅       |                                            |
-| `query_text`       | text                     | ⛔       |                                            |
+| `query_text`       | text                     | ✅       |                                            |
 | `query_length`     | integer                  | ⛔       |                                            |
 | `retrieved_count`  | integer                  | ⛔       | `0`                                        |
 | `top_rerank_score` | double precision         | ✅       |                                            |
@@ -1710,6 +1832,8 @@
 | `response_length`  | integer                  | ✅       |                                            |
 | `latency_ms`       | integer                  | ✅       |                                            |
 | `error`            | text                     | ✅       |                                            |
+| `query_hash`       | character varying        | ✅       |                                            |
+| `query_language`   | character varying        | ✅       |                                            |
 
 **Primary key:** `id`
 
@@ -1717,6 +1841,7 @@
 
 - `idx_rag_query_log_conversation` — `CREATE INDEX idx_rag_query_log_conversation ON public.rag_query_log USING btree (conversation_id)`
 - `idx_rag_query_log_created_at` — `CREATE INDEX idx_rag_query_log_created_at ON public.rag_query_log USING btree (created_at DESC)`
+- `idx_rag_query_log_hash` — `CREATE INDEX idx_rag_query_log_hash ON public.rag_query_log USING btree (query_hash) WHERE (query_hash IS NOT NULL)`
 - `rag_query_log_pkey` — `CREATE UNIQUE INDEX rag_query_log_pkey ON public.rag_query_log USING btree (id)`
 
 ---
@@ -1972,6 +2097,33 @@
 
 ---
 
+## `space_members`
+
+> Phase 1.1: Per-Space-ACL. Owner ist immer implicit member with permission='owner'. Admins (admin_users.role = 'admin') haben Zugriff auf alle Spaces.
+
+| Column       | Type                     | Nullable | Default                      |
+| ------------ | ------------------------ | -------- | ---------------------------- |
+| `space_id`   | uuid                     | ⛔       |                              |
+| `user_id`    | integer                  | ⛔       |                              |
+| `permission` | USER-DEFINED             | ⛔       | `'viewer'::space_permission` |
+| `added_by`   | integer                  | ✅       |                              |
+| `added_at`   | timestamp with time zone | ⛔       | `now()`                      |
+
+**Primary key:** `space_id, user_id`
+
+**Foreign Keys:**
+
+- `space_id` → `knowledge_spaces.id`
+- `user_id` → `admin_users.id`
+- `added_by` → `admin_users.id`
+
+**Indexes:**
+
+- `idx_space_members_user` — `CREATE INDEX idx_space_members_user ON public.space_members USING btree (user_id)`
+- `space_members_pkey` — `CREATE UNIQUE INDEX space_members_pkey ON public.space_members USING btree (space_id, user_id)`
+
+---
+
 ## `system_boot_events`
 
 > Records system boot events for uptime tracking
@@ -1999,26 +2151,35 @@
 
 ## `system_settings`
 
-| Column                  | Type                     | Nullable | Default |
-| ----------------------- | ------------------------ | -------- | ------- |
-| `id`                    | integer                  | ⛔       | `1`     |
-| `setup_completed`       | boolean                  | ⛔       | `false` |
-| `setup_completed_at`    | timestamp with time zone | ✅       |         |
-| `setup_completed_by`    | integer                  | ✅       |         |
-| `company_name`          | character varying        | ✅       |         |
-| `hostname`              | character varying        | ✅       |         |
-| `selected_model`        | character varying        | ✅       |         |
-| `setup_step`            | integer                  | ✅       | `0`     |
-| `created_at`            | timestamp with time zone | ⛔       | `now()` |
-| `updated_at`            | timestamp with time zone | ⛔       | `now()` |
-| `ai_profile_yaml`       | text                     | ✅       |         |
-| `ai_profile_updated_at` | timestamp with time zone | ✅       |         |
+| Column                            | Type                     | Nullable | Default |
+| --------------------------------- | ------------------------ | -------- | ------- |
+| `id`                              | integer                  | ⛔       | `1`     |
+| `setup_completed`                 | boolean                  | ⛔       | `false` |
+| `setup_completed_at`              | timestamp with time zone | ✅       |         |
+| `setup_completed_by`              | integer                  | ✅       |         |
+| `company_name`                    | character varying        | ✅       |         |
+| `hostname`                        | character varying        | ✅       |         |
+| `selected_model`                  | character varying        | ✅       |         |
+| `setup_step`                      | integer                  | ✅       | `0`     |
+| `created_at`                      | timestamp with time zone | ⛔       | `now()` |
+| `updated_at`                      | timestamp with time zone | ⛔       | `now()` |
+| `ai_profile_yaml`                 | text                     | ✅       |         |
+| `ai_profile_updated_at`           | timestamp with time zone | ✅       |         |
+| `telegram_enabled`                | boolean                  | ⛔       | `false` |
+| `telegram_disclaimer_accepted`    | boolean                  | ⛔       | `false` |
+| `telegram_disclaimer_accepted_at` | timestamp with time zone | ✅       |         |
+| `telegram_disclaimer_accepted_by` | integer                  | ✅       |         |
+| `ai_transparency_enabled`         | boolean                  | ⛔       | `true`  |
+| `ai_transparency_disabled_at`     | timestamp with time zone | ✅       |         |
+| `ai_transparency_disabled_by`     | integer                  | ✅       |         |
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
+- `telegram_disclaimer_accepted_by` → `admin_users.id`
 - `setup_completed_by` → `admin_users.id`
+- `ai_transparency_disabled_by` → `admin_users.id`
 
 **Indexes:**
 
@@ -2261,6 +2422,10 @@
 | `max_context_tokens`       | integer                  | ✅       | `4096`                                     |
 | `max_response_tokens`      | integer                  | ✅       | `1024`                                     |
 | `rate_limit_per_minute`    | integer                  | ✅       | `10`                                       |
+| `health_status`            | text                     | ✅       | `'unknown'::text`                          |
+| `last_error_at`            | timestamp with time zone | ✅       |                                            |
+| `last_error_message`       | text                     | ✅       |                                            |
+| `last_health_check_at`     | timestamp with time zone | ✅       |                                            |
 
 **Primary key:** `id`
 
@@ -2271,6 +2436,7 @@
 **Indexes:**
 
 - `idx_telegram_bots_active` — `CREATE INDEX idx_telegram_bots_active ON public.telegram_bots USING btree (is_active) WHERE (is_active = true)`
+- `idx_telegram_bots_health_status` — `CREATE INDEX idx_telegram_bots_health_status ON public.telegram_bots USING btree (health_status) WHERE (health_status <> ALL (ARRAY['healthy'::text, 'unknown'::text]))`
 - `idx_telegram_bots_user` — `CREATE INDEX idx_telegram_bots_user ON public.telegram_bots USING btree (user_id)`
 - `idx_telegram_bots_username` — `CREATE INDEX idx_telegram_bots_username ON public.telegram_bots USING btree (bot_username)`
 - `telegram_bots_pkey` — `CREATE UNIQUE INDEX telegram_bots_pkey ON public.telegram_bots USING btree (id)`
@@ -2335,8 +2501,8 @@
 
 **Foreign Keys:**
 
-- `bot_id` → `telegram_bots.id`
 - `rule_id` → `telegram_notification_rules.id`
+- `bot_id` → `telegram_bots.id`
 - `user_id` → `admin_users.id`
 
 **Indexes:**
@@ -2492,6 +2658,32 @@
 
 ---
 
+## `telegram_user_consent`
+
+> DSGVO Art. 13 consent records. Created by /start, withdrawn by /loeschen. No PII stored — only the HMAC of telegram_user_id and the chat id.
+
+| Column                  | Type                     | Nullable | Default                                    |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                    | bigint                   | ⛔       | `nextval('telegram_user_consent_id_seq...` |
+| `bot_id`                | bigint                   | ⛔       |                                            |
+| `telegram_user_id_hash` | character                | ⛔       |                                            |
+| `chat_id`               | text                     | ⛔       |                                            |
+| `consent_status`        | text                     | ⛔       |                                            |
+| `consented_at`          | timestamp with time zone | ⛔       | `now()`                                    |
+| `withdrawn_at`          | timestamp with time zone | ✅       |                                            |
+| `notice_version`        | text                     | ⛔       | `'v1'::text`                               |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_telegram_user_consent_bot` — `CREATE INDEX idx_telegram_user_consent_bot ON arasul.telegram_user_consent USING btree (bot_id)`
+- `idx_telegram_user_consent_status` — `CREATE INDEX idx_telegram_user_consent_status ON arasul.telegram_user_consent USING btree (consent_status)`
+- `telegram_user_consent_bot_id_telegram_user_id_hash_key` — `CREATE UNIQUE INDEX telegram_user_consent_bot_id_telegram_user_id_hash_key ON arasul.telegram_user_consent USING btree (bot_id, telegram_user_id_hash)`
+- `telegram_user_consent_pkey` — `CREATE UNIQUE INDEX telegram_user_consent_pkey ON arasul.telegram_user_consent USING btree (id)`
+
+---
+
 ## `token_blacklist`
 
 > Blacklisted JWT tokens (logged out)
@@ -2625,8 +2817,8 @@
 
 **Foreign Keys:**
 
-- `backup_id` → `update_backups.id`
 - `original_update_event_id` → `update_events.id`
+- `backup_id` → `update_backups.id`
 
 **Indexes:**
 

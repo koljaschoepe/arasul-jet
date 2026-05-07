@@ -49,7 +49,7 @@ docker exec -i "$CONTAINER" psql -U "$USER" -d "$DB" -P pager=off -At -F '|' <<'
 SELECT 'T|' || table_name || '|' || COALESCE(obj_description(c.oid, 'pg_class'), '')
   FROM information_schema.tables t
   JOIN pg_class c ON c.relname = t.table_name
- WHERE t.table_schema = 'public'
+ WHERE t.table_schema IN ('public', 'arasul')
    AND t.table_type = 'BASE TABLE'
  ORDER BY t.table_name;
 
@@ -57,7 +57,7 @@ SELECT 'C|' || c.table_name || '|' || c.column_name || '|' || c.data_type || '|'
        (CASE WHEN c.is_nullable = 'NO' THEN 'NOT NULL' ELSE '' END) || '|' ||
        COALESCE(c.column_default, '')
   FROM information_schema.columns c
- WHERE c.table_schema = 'public'
+ WHERE c.table_schema IN ('public', 'arasul')
  ORDER BY c.table_name, c.ordinal_position;
 
 SELECT 'P|' || tc.table_name || '|' || kcu.column_name
@@ -65,7 +65,7 @@ SELECT 'P|' || tc.table_name || '|' || kcu.column_name
   JOIN information_schema.key_column_usage kcu
     ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
  WHERE tc.constraint_type = 'PRIMARY KEY'
-   AND tc.table_schema = 'public'
+   AND tc.table_schema IN ('public', 'arasul')
  ORDER BY tc.table_name, kcu.ordinal_position;
 
 SELECT 'F|' || tc.table_name || '|' || kcu.column_name || '|' ||
@@ -76,11 +76,11 @@ SELECT 'F|' || tc.table_name || '|' || kcu.column_name || '|' ||
   JOIN information_schema.constraint_column_usage ccu
     ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
  WHERE tc.constraint_type = 'FOREIGN KEY'
-   AND tc.table_schema = 'public';
+   AND tc.table_schema IN ('public', 'arasul');
 
 SELECT 'I|' || tablename || '|' || indexname || '|' || indexdef
   FROM pg_indexes
- WHERE schemaname = 'public'
+ WHERE schemaname IN ('public', 'arasul')
  ORDER BY tablename, indexname;
 SQL
 
