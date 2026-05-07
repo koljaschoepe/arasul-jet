@@ -9,6 +9,7 @@ Architecture: Composed via mixins from:
   - category_handlers.py: Escalation handlers (Categories A-D)
 """
 
+import os
 import time
 import json
 import ssl
