@@ -46,8 +46,21 @@ async function deleteDocument(documentId, filePath) {
       await pool.query(`UPDATE documents SET qdrant_cleanup_pending = true WHERE id = $1`, [
         documentId,
       ]);
-    } catch {
-      // Column may not exist yet - non-critical
+    } catch (err) {
+      // Pre-migration installs may not have qdrant_cleanup_pending yet; that
+      // case is fine to swallow. Anything else is a real DB error and must
+      // surface so the deletion isn't silently incomplete.
+      const isMissingColumn = err.code === '42703';
+      if (!isMissingColumn) {
+        logger.error(`Failed to mark document ${documentId} for Qdrant cleanup: ${err.message}`, {
+          documentId,
+          code: err.code,
+        });
+        throw err;
+      }
+      logger.warn(
+        `qdrant_cleanup_pending column missing — skipping cleanup mark for ${documentId}`
+      );
     }
   }
 
@@ -117,7 +130,9 @@ async function batchDelete(ids) {
 
   for (const id of ids) {
     const doc = docsById.get(id);
-    if (!doc) {continue;}
+    if (!doc) {
+      continue;
+    }
 
     try {
       // Delete from MinIO
