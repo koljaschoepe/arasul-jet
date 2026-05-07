@@ -7,6 +7,7 @@
 
 // BUG-004 FIX: Use centralized database connection pool instead of creating a separate pool
 const db = require('../database');
+const { ValidationError } = require('../utils/errors');
 
 class N8nLogger {
   constructor() {
@@ -28,11 +29,11 @@ class N8nLogger {
     const { workflow_name, execution_id, status, duration_ms, error } = execution;
 
     if (!workflow_name) {
-      throw new Error('workflow_name is required');
+      throw new ValidationError('workflow_name is required');
     }
 
     if (!status || !['success', 'error', 'running', 'waiting'].includes(status)) {
-      throw new Error('status must be one of: success, error, running, waiting');
+      throw new ValidationError('status must be one of: success, error, running, waiting');
     }
 
     const query = `
@@ -135,7 +136,7 @@ class N8nLogger {
     // SEC-001 FIX: Whitelist validation to prevent SQL injection
     const interval = timeRangeMap[timeRange];
     if (!interval) {
-      throw new Error(
+      throw new ValidationError(
         `Invalid time range. Must be one of: ${Object.keys(timeRangeMap).join(', ')}`
       );
     }
@@ -233,7 +234,7 @@ class N8nLogger {
     // SEC-001 FIX: Validate daysToKeep is a positive integer to prevent SQL injection
     const days = parseInt(daysToKeep, 10);
     if (isNaN(days) || days < 1 || days > 365) {
-      throw new Error('daysToKeep must be a positive integer between 1 and 365');
+      throw new ValidationError('daysToKeep must be a positive integer between 1 and 365');
     }
 
     const query = `
