@@ -6,7 +6,7 @@ http:
   routers:
     # Dashboard Frontend (catch-all, lowest priority)
     dashboard-frontend:
-      rule: 'PathPrefix(`/`) && !PathPrefix(`/claude-terminal`)'
+      rule: 'PathPrefix(`/`)'
       service: dashboard-frontend-service
       priority: 1
       middlewares:
@@ -106,18 +106,6 @@ http:
         - strip-embeddings-prefix
         - rate-limit-llm
         - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # Claude Code Web Terminal
-    # Protected by forward-auth (requires dashboard login)
-    claude-terminal:
-      rule: 'PathPrefix(`/claude-terminal`)'
-      service: claude-terminal-service
-      priority: 100
-      middlewares:
-        - forward-auth
       entryPoints:
         - websecure
       tls: {}
@@ -263,10 +251,3 @@ http:
           path: /healthz
           interval: 30s
           timeout: 3s
-
-    # Claude Code Web Terminal
-    claude-terminal-service:
-      loadBalancer:
-        servers:
-          - url: 'http://claude-code:7681'
-        passHostHeader: true
