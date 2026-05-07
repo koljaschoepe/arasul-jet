@@ -17,6 +17,12 @@ CONTAINER_NAME="arasul-platform-self-healing-agent-1"
 MAX_UNHEALTHY_BEFORE_RESTART=120   # seconds
 MAX_UNHEALTHY_BEFORE_REBOOT=300    # seconds
 
+# Repo root: /opt/arasul on production appliances, override via ARASUL_REPO_DIR
+# for non-default installs. Falls back to a path resolved from this script's
+# location so the dev-environment install (~/arasul-jet) keeps working.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${ARASUL_REPO_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+
 mkdir -p "$LOG_DIR"
 
 log() {
@@ -92,7 +98,7 @@ if [ "$ELAPSED" -ge "$MAX_UNHEALTHY_BEFORE_RESTART" ] && [ "$RESTART_DONE" != "t
         done
     else
         log "WARN" "Container not running, attempting docker compose restart"
-        cd /opt/arasul 2>/dev/null || cd /home/arasul/arasul/arasul-jet
+        cd /opt/arasul 2>/dev/null || cd "$REPO_ROOT"
         docker compose up -d self-healing-agent 2>&1 | while IFS= read -r line; do
             log "INFO" "  compose: $line"
         done
@@ -104,7 +110,7 @@ fi
 if [ "$ELAPSED" -ge "$MAX_UNHEALTHY_BEFORE_REBOOT" ] && [ "$RESTART_DONE" = "true" ]; then
     # Check if reboot is enabled
     REBOOT_ENABLED=$(grep -oP 'SELF_HEALING_REBOOT_ENABLED=\K.*' /opt/arasul/.env 2>/dev/null || \
-                     grep -oP 'SELF_HEALING_REBOOT_ENABLED=\K.*' /home/arasul/arasul/arasul-jet/.env 2>/dev/null || \
+                     grep -oP 'SELF_HEALING_REBOOT_ENABLED=\K.*' "$REPO_ROOT/.env" 2>/dev/null || \
                      echo "false")
 
     if [ "$REBOOT_ENABLED" = "true" ]; then

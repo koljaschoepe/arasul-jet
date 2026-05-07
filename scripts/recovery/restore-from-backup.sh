@@ -14,7 +14,10 @@
 set -euo pipefail
 
 # Configuration
-BACKUP_DIR="${BACKUP_DIR:-/home/arasul/arasul/arasul-jet/data/backups}"
+# Resolve repo root from script location so non-/opt/arasul installs work too.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${ARASUL_REPO_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+BACKUP_DIR="${BACKUP_DIR:-${REPO_ROOT}/data/backups}"
 COMPOSE_PROJECT="arasul-platform"
 POSTGRES_USER="${POSTGRES_USER:-arasul}"
 POSTGRES_DB="${POSTGRES_DB:-arasul_db}"
