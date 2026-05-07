@@ -3,6 +3,8 @@
 # Erkennt automatisch geänderte Services und führt passende Tests aus
 # Unterstützt sowohl lokale als auch Docker-basierte Test-Ausführung
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
@@ -190,17 +192,18 @@ RUN_PYTHON=false
 RUN_QUALITY=false
 RUN_E2E=false
 
-if [ "$1" = "--all" ] || [ "$1" = "-a" ]; then
+arg="${1:-}"
+if [ "$arg" = "--all" ] || [ "$arg" = "-a" ]; then
   RUN_ALL=true
-elif [ "$1" = "--backend" ] || [ "$1" = "-b" ]; then
+elif [ "$arg" = "--backend" ] || [ "$arg" = "-b" ]; then
   RUN_BACKEND=true
-elif [ "$1" = "--frontend" ] || [ "$1" = "-f" ]; then
+elif [ "$arg" = "--frontend" ] || [ "$arg" = "-f" ]; then
   RUN_FRONTEND=true
-elif [ "$1" = "--python" ] || [ "$1" = "-p" ]; then
+elif [ "$arg" = "--python" ] || [ "$arg" = "-p" ]; then
   RUN_PYTHON=true
-elif [ "$1" = "--quality" ] || [ "$1" = "-q" ]; then
+elif [ "$arg" = "--quality" ] || [ "$arg" = "-q" ]; then
   RUN_QUALITY=true
-elif [ "$1" = "--e2e" ] || [ "$1" = "-e" ]; then
+elif [ "$arg" = "--e2e" ] || [ "$arg" = "-e" ]; then
   RUN_E2E=true
 fi
 
