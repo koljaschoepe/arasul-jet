@@ -428,3 +428,41 @@ Keine — Interview hat alle Constraints geklärt:
 - n8n+Telegram-Hardening (gerade gelandet) mit Build/Smoke-Caveat behandelt.
 
 Falls während Phase 5 (Execution) ein Befund nicht reproduziert werden kann oder der Fix breitere Cascading-Effekte hat als erwartet → Phase stoppen, in Roadmap verschieben, in dieser Datei dokumentieren.
+
+---
+
+## Status — Execution Run vom 2026-05-07
+
+Alle 22 Phasen committet auf `main`, kleinschrittig 1 Commit/Phase:
+
+| Phase  | Commit    | Beschreibung                                                                                                                           |
+| ------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ P0  | `1d66830` | Migration-Counter 082 → 093 in CLAUDE.md + postgres/CLAUDE.md                                                                          |
+| ✅ P1  | `750b99d` | ONBOARDING.md broken refs (DX_OVERHAUL + 3 context files) raus                                                                         |
+| ✅ P2  | `6e73d0e` | API_REFERENCE Phantom-Endpoints raus, /api/\_meta + sessions rein                                                                      |
+| ✅ P3  | `c0c9bb4` | TESTING.md tree-paths + docker-compose v2 + Node 22, DEVELOPMENT.md migration-Beispiel                                                 |
+| ✅ P4  | `04ec7ad` | ENVIRONMENT_VARIABLES.md: ADMIN_EMAIL, TELEGRAM_USER_ID_PEPPER, MEMORY_MAX_ENTRIES, N8N_PROXY_HOPS, JWT_EXPIRY 24h→4h, NODE_VERSION 22 |
+| ✅ P5  | `6afa74d` | DATABASE_SCHEMA.md regeneriert (Generator auf public+arasul erweitert; +n8n_audit_log, +telegram_user_consent, +health_status-Spalten) |
+| ✅ P6  | `8b6e69f` | `set -euo pipefail` in run-tests.sh (PROJECT_ROOT-Bug als H-22b in Roadmap)                                                            |
+| ✅ P7  | `2b6d6e9` | `import os` in healing_engine.py (NameError alle 2h gestoppt)                                                                          |
+| ✅ P8  | `74d93e7` | settings.js restartService nutzt ServiceUnavailableError                                                                               |
+| ✅ P9  | `76c4275` | n8nLogger 4× throw new Error → ValidationError                                                                                         |
+| ✅ P10 | `dc2ebf0` | documentService catch-swallow narrow auf PG `42703`                                                                                    |
+| ✅ P11 | `31d5fd0` | jwt.js typed errors (TokenExpired/InvalidToken/TokenRevoked), auth middleware auf `.code`-Dispatch                                     |
+| ✅ P12 | `9e1fa2b` | compose.app.yaml NODE_VERSION 20.19 → 22                                                                                               |
+| ✅ P13 | `6559028` | Traefik claude-terminal Dangling-Route + Catch-all-Exclusion raus                                                                      |
+| ✅ P14 | `ea206b6` | success/warning/danger Tokens → echte semantische Farben (#10B981/#F59E0B/#EF4444); +light/dark alpha                                  |
+| ✅ P15 | `80ef428` | ApiError-Typ collapsed: useApi.ts kanonisch, types/index.ts re-exportiert                                                              |
+| ✅ P16 | `28ebbe7` | services/llm-service/requirements.txt extrahiert + Dockerfile umgestellt                                                               |
+| ✅ P17 | `5c57048` | Indexer Watchdog: Daemon-Thread, INDEXER_WATCHDOG_INTERVAL_SECONDS=300                                                                 |
+| ✅ P18 | `0f25f0d` | \_llm_context_cache LRU-bounded (OrderedDict, INDEXER_LLM_CONTEXT_CACHE_MAX=1000)                                                      |
+| ✅ P19 | `eea49d7` | deadman-switch.sh + restore-from-backup.sh: REPO_ROOT aus SCRIPT_DIR, hardcoded `/home/arasul/...` raus                                |
+| ✅ P20 | `eea49d7` | (zusammen mit P19 committet)                                                                                                           |
+| ✅ P21 | `47dddf0` | smoke-test.sh `set -uo pipefail` → `set -euo pipefail`                                                                                 |
+| ✅ P22 | (this)    | Plan-Status-Block am File-Ende ergänzt                                                                                                 |
+
+**Neue Roadmap-Einträge aus dieser Execution:**
+
+- **H-22b** `run-tests.sh` PROJECT_ROOT zeigt auf `scripts/` statt Repo-Root — silent green ohne dass Tests laufen. Fix in eigener Phase, weil mehrere Funktionen davon abhängen + Stop-Hook-Logik nicht mit-broken werden darf.
+
+Build & smoke-Verify steht beim User: `docker compose up -d --build dashboard-backend dashboard-frontend document-indexer self-healing-agent llm-service` + visual-Smoke der Color-Tokens im Browser (P14).
