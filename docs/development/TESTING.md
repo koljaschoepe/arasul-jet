@@ -42,15 +42,16 @@ The ARASUL Platform uses a multi-layered testing approach to ensure reliability 
 ├── .github/
 │   └── workflows/
 │       └── test.yml                          # CI/CD pipeline
+├── apps/
+│   └── dashboard-backend/
+│       ├── __tests__/
+│       │   ├── unit/                        # Unit tests
+│       │   │   ├── password.test.js
+│       │   │   └── retry.test.js
+│       │   └── integration/                 # Integration tests
+│       │       └── api.test.js
+│       └── package.json                     # Jest configuration
 ├── services/
-│   ├── dashboard-backend/
-│   │   ├── __tests__/
-│   │   │   ├── unit/                        # Unit tests
-│   │   │   │   ├── password.test.js
-│   │   │   │   └── retry.test.js
-│   │   │   └── integration/                 # Integration tests
-│   │   │       └── api.test.js
-│   │   └── package.json                     # Jest configuration
 │   ├── metrics-collector/
 │   │   └── tests/
 │   │       └── test_collector.py            # pytest tests
@@ -61,7 +62,8 @@ The ARASUL Platform uses a multi-layered testing approach to ensure reliability 
 │   └── api/
 │       └── arasul-api.postman_collection.json   # API tests
 └── scripts/
-    └── validate-dependencies.sh             # Dependency validation
+    └── validate/
+        └── validate-dependencies.sh         # Dependency validation
 ```
 
 ---
@@ -172,7 +174,7 @@ bash scripts/validate/validate-dependencies.sh
 
 ```bash
 # Start PostgreSQL for tests
-docker-compose up -d postgres-db
+docker compose up -d postgres-db
 
 # Backend tests
 cd apps/dashboard-backend && npm test && cd ../..
@@ -184,11 +186,11 @@ cd services/metrics-collector && pytest && cd ../..
 cd services/self-healing-agent && pytest && cd ../..
 
 # API tests (requires full stack running)
-docker-compose up -d
+docker compose up -d
 newman run tests/api/arasul-api.postman_collection.json
 
 # Cleanup
-docker-compose down
+docker compose down
 ```
 
 ---
@@ -354,7 +356,7 @@ File: `.github/workflows/test.yml`
 - PostgreSQL service container
 - Steps:
   1. Checkout code
-  2. Setup Node.js 18 with npm cache
+  2. Setup Node.js 22 with npm cache
   3. Install dependencies (`npm ci`)
   4. Run linter
   5. Run unit tests
@@ -395,7 +397,7 @@ File: `.github/workflows/test.yml`
 - Full Docker Compose stack
 - Steps:
   1. Checkout code
-  2. Setup Node.js 18
+  2. Setup Node.js 22
   3. Install Newman globally
   4. Start Docker Compose services
   5. Wait for services (30s)
@@ -423,7 +425,7 @@ File: `.github/workflows/test.yml`
 - Steps:
   1. Checkout code
   2. Install yq (YAML processor)
-  3. Validate docker-compose.yml syntax
+  3. Validate docker compose.yml syntax
   4. Run dependency validation script
 
 **Duration**: ~1 minute
@@ -669,13 +671,13 @@ describe('API Integration', () => {
 
 ```bash
 # Start PostgreSQL
-docker-compose up -d postgres-db
+docker compose up -d postgres-db
 
 # Wait for service to be ready
-docker-compose ps
+docker compose ps
 
 # Check logs
-docker-compose logs postgres-db
+docker compose logs postgres-db
 ```
 
 #### 2. Integration Tests Timeout
@@ -773,8 +775,8 @@ docker build -t test-image apps/dashboard-backend/
 # Check Dockerfile syntax
 docker build --check apps/dashboard-backend/
 
-# Validate docker-compose.yml
-docker-compose config
+# Validate docker compose.yml
+docker compose config
 ```
 
 ### Debug Mode
@@ -887,6 +889,6 @@ newman run collection.json \
 
 ---
 
-**Last Updated**: 2025-11-12
+**Last Updated**: 2026-05-07
 **Version**: 1.0.0
 **Maintainer**: ARASUL Platform Team
