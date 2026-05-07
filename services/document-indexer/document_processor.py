@@ -10,6 +10,7 @@ import hashlib
 import logging
 import os
 import shutil
+from collections import OrderedDict
 from io import BytesIO
 from typing import Dict, List, Optional, Any
 
@@ -187,8 +188,33 @@ def _template_context(
     return f"{context}\n{chunk_text}"
 
 
-# LLM context cache to avoid re-generating for re-indexed documents
-_llm_context_cache: Dict[str, str] = {}
+# LLM context cache to avoid re-generating for re-indexed documents.
+# Bounded LRU so a long-lived indexer doesn't grow this map unboundedly:
+# 100k+ chunks across 1k+ docs would otherwise sit in process memory forever.
+_LLM_CONTEXT_CACHE_MAX = int(os.getenv('INDEXER_LLM_CONTEXT_CACHE_MAX', '1000'))
+
+
+class _LRUDict(OrderedDict):
+    """Smallest viable LRU on top of OrderedDict — no extra dependency."""
+
+    def __init__(self, maxsize: int):
+        super().__init__()
+        self._maxsize = maxsize
+
+    def __getitem__(self, key):
+        value = super().__getitem__(key)
+        self.move_to_end(key)
+        return value
+
+    def __setitem__(self, key, value):
+        if key in self:
+            self.move_to_end(key)
+        super().__setitem__(key, value)
+        while len(self) > self._maxsize:
+            self.popitem(last=False)
+
+
+_llm_context_cache: '_LRUDict' = _LRUDict(_LLM_CONTEXT_CACHE_MAX)
 
 
 def _llm_context(

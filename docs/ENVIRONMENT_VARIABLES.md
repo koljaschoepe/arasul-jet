@@ -183,34 +183,35 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## Document Indexer
 
-| Variable                             | Default                      | Description                                    |
-| ------------------------------------ | ---------------------------- | ---------------------------------------------- |
-| DOCUMENT_INDEXER_HOST                | document-indexer             | Hostname des Document-Indexer                  |
-| DOCUMENT_INDEXER_API_PORT            | 9102                         | API-Port des Document-Indexer                  |
-| DOCUMENT_INDEXER_URL                 | http://document-indexer:9102 | Vollständige URL des Document-Indexer          |
-| DOCUMENT_INDEXER_INTERVAL            | 30                           | Scan interval (seconds)                        |
-| INDEXER_WATCHDOG_INTERVAL_SECONDS    | 300                          | Periodic recover_stuck_processing interval (s) |
-| DOCUMENT_INDEXER_CHUNK_SIZE          | 500                          | Chunk size (chars)                             |
-| DOCUMENT_INDEXER_CHUNK_OVERLAP       | 50                           | Chunk overlap (chars)                          |
-| DOCUMENT_INDEXER_PARENT_CHUNK_SIZE   | 2000                         | Parent chunk size in tokens                    |
-| DOCUMENT_INDEXER_CHILD_CHUNK_SIZE    | 400                          | Child chunk size in tokens                     |
-| DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP | 50                           | Child chunk overlap in tokens                  |
-| DOCUMENT_INDEXER_MINIO_BUCKET        | documents                    | Source bucket                                  |
-| DOCUMENT_MAX_SIZE_MB                 | 100                          | Maximum file size (MB)                         |
-| BM25_INDEX_PATH                      | /data/bm25_index             | Path for BM25 index persistence                |
-| RAG_HYBRID_SEARCH                    | true                         | Enable hybrid keyword+vector search            |
-| RAG_ENABLE_MULTI_QUERY               | true                         | Enable multi-query generation                  |
-| RAG_ENABLE_HYDE                      | true                         | Enable HyDE query expansion                    |
-| RAG_ENABLE_DECOMPOUND                | true                         | Enable German word decompounding               |
-| RAG_ENABLE_RERANKING                 | true                         | Enable 2-stage reranking in RAG pipeline       |
-| RAG_QUERY_OPTIMIZER_MODEL            | ""                           | Model for query optimization (empty = default) |
-| SPACE_ROUTING_THRESHOLD              | 0.4                          | Space routing confidence threshold             |
-| SPACE_ROUTING_MAX_SPACES             | 3                            | Max spaces to search in RAG                    |
-| RAG_RELEVANCE_THRESHOLD              | 0.5                          | Min rerank score to include document (0-1)     |
-| RAG_VECTOR_SCORE_THRESHOLD           | 0.55                         | Min vector score when reranker is off (0-1)    |
-| RAG_ENABLE_GRAPH                     | false                        | Knowledge Graph für RAG aktivieren             |
-| RAG_GRAPH_MAX_ENTITIES               | 50                           | Max Entities pro Graph-Traversal               |
-| RAG_GRAPH_TRAVERSAL_DEPTH            | 2                            | Traversal-Tiefe im Knowledge Graph             |
+| Variable                             | Default                      | Description                                     |
+| ------------------------------------ | ---------------------------- | ----------------------------------------------- |
+| DOCUMENT_INDEXER_HOST                | document-indexer             | Hostname des Document-Indexer                   |
+| DOCUMENT_INDEXER_API_PORT            | 9102                         | API-Port des Document-Indexer                   |
+| DOCUMENT_INDEXER_URL                 | http://document-indexer:9102 | Vollständige URL des Document-Indexer           |
+| DOCUMENT_INDEXER_INTERVAL            | 30                           | Scan interval (seconds)                         |
+| INDEXER_WATCHDOG_INTERVAL_SECONDS    | 300                          | Periodic recover_stuck_processing interval (s)  |
+| INDEXER_LLM_CONTEXT_CACHE_MAX        | 1000                         | LRU max entries for LLM contextualization cache |
+| DOCUMENT_INDEXER_CHUNK_SIZE          | 500                          | Chunk size (chars)                              |
+| DOCUMENT_INDEXER_CHUNK_OVERLAP       | 50                           | Chunk overlap (chars)                           |
+| DOCUMENT_INDEXER_PARENT_CHUNK_SIZE   | 2000                         | Parent chunk size in tokens                     |
+| DOCUMENT_INDEXER_CHILD_CHUNK_SIZE    | 400                          | Child chunk size in tokens                      |
+| DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP | 50                           | Child chunk overlap in tokens                   |
+| DOCUMENT_INDEXER_MINIO_BUCKET        | documents                    | Source bucket                                   |
+| DOCUMENT_MAX_SIZE_MB                 | 100                          | Maximum file size (MB)                          |
+| BM25_INDEX_PATH                      | /data/bm25_index             | Path for BM25 index persistence                 |
+| RAG_HYBRID_SEARCH                    | true                         | Enable hybrid keyword+vector search             |
+| RAG_ENABLE_MULTI_QUERY               | true                         | Enable multi-query generation                   |
+| RAG_ENABLE_HYDE                      | true                         | Enable HyDE query expansion                     |
+| RAG_ENABLE_DECOMPOUND                | true                         | Enable German word decompounding                |
+| RAG_ENABLE_RERANKING                 | true                         | Enable 2-stage reranking in RAG pipeline        |
+| RAG_QUERY_OPTIMIZER_MODEL            | ""                           | Model for query optimization (empty = default)  |
+| SPACE_ROUTING_THRESHOLD              | 0.4                          | Space routing confidence threshold              |
+| SPACE_ROUTING_MAX_SPACES             | 3                            | Max spaces to search in RAG                     |
+| RAG_RELEVANCE_THRESHOLD              | 0.5                          | Min rerank score to include document (0-1)      |
+| RAG_VECTOR_SCORE_THRESHOLD           | 0.55                         | Min vector score when reranker is off (0-1)     |
+| RAG_ENABLE_GRAPH                     | false                        | Knowledge Graph für RAG aktivieren              |
+| RAG_GRAPH_MAX_ENTITIES               | 50                           | Max Entities pro Graph-Traversal                |
+| RAG_GRAPH_TRAVERSAL_DEPTH            | 2                            | Traversal-Tiefe im Knowledge Graph              |
 
 ---
 
