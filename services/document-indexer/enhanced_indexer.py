@@ -34,6 +34,7 @@ from config import (
     MINIO_HOST, MINIO_PORT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD,
     MINIO_BUCKET, QDRANT_COLLECTION,
     INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE, INDEXER_MAX_RETRIES,
+    INDEXER_WATCHDOG_INTERVAL_SECONDS,
     MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES,
     ENABLE_AI_ANALYSIS, ENABLE_SIMILARITY, ENABLE_KNOWLEDGE_GRAPH,
     EMBEDDING_MODEL, POSTGRES_DSN
@@ -69,6 +70,12 @@ class EnhancedDocumentIndexer:
 
         # Crash recovery: reset any documents stuck in 'processing'
         self.db.recover_stuck_processing()
+
+        # Periodic watchdog (Phase 4.8): also re-run recover_stuck_processing
+        # on a timer so docs that get stuck after startup (mid-pipeline OOM,
+        # SIGKILL, etc.) don't sit in 'processing' forever.
+        self._watchdog_stop = threading.Event()
+        self._watchdog_thread: Optional[threading.Thread] = None
 
         # AI services
         self.ai_services = AIServices()
@@ -621,12 +628,39 @@ class EnhancedDocumentIndexer:
 
         return status
 
+    def _watchdog_loop(self):
+        """Periodic recover_stuck_processing — runs in its own thread.
+
+        Boot-time recover_stuck_processing only catches docs that were stuck
+        before this process started. If the indexer dies mid-pipeline (OOM,
+        SIGKILL) we need to also reset 'processing' rows after the fact.
+        """
+        interval = INDEXER_WATCHDOG_INTERVAL_SECONDS
+        logger.info(f"Indexer watchdog started (interval: {interval}s)")
+        while not self._watchdog_stop.wait(interval):
+            try:
+                recovered = self.db.recover_stuck_processing()
+                # recover_stuck_processing returns row count; old impls returned None.
+                if recovered:
+                    logger.info(
+                        f"Watchdog: recovered {recovered} stuck-in-processing document(s)"
+                    )
+            except Exception as e:
+                logger.error(f"Watchdog recover error: {e}", exc_info=True)
+        logger.info("Indexer watchdog stopped")
+
     def run(self):
         """Main loop - run indexing periodically"""
         logger.info(
             f"Starting Enhanced Document Indexer "
             f"(interval: {INDEXER_INTERVAL}s)"
         )
+
+        # Spawn the watchdog in a daemon thread so it dies with the process.
+        self._watchdog_thread = threading.Thread(
+            target=self._watchdog_loop, name='indexer-watchdog', daemon=True
+        )
+        self._watchdog_thread.start()
 
         while self.status['running']:
             try:
@@ -639,6 +673,9 @@ class EnhancedDocumentIndexer:
     def stop(self):
         """Stop the indexer"""
         self.status['running'] = False
+        self._watchdog_stop.set()
+        if self._watchdog_thread is not None:
+            self._watchdog_thread.join(timeout=5)
         self.db.close()
         logger.info("Enhanced Document Indexer stopped")
 

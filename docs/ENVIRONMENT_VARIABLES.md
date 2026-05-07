@@ -189,6 +189,7 @@ When enabled, the queue system batches all requests for the currently loaded mod
 | DOCUMENT_INDEXER_API_PORT            | 9102                         | API-Port des Document-Indexer                  |
 | DOCUMENT_INDEXER_URL                 | http://document-indexer:9102 | Vollständige URL des Document-Indexer          |
 | DOCUMENT_INDEXER_INTERVAL            | 30                           | Scan interval (seconds)                        |
+| INDEXER_WATCHDOG_INTERVAL_SECONDS    | 300                          | Periodic recover_stuck_processing interval (s) |
 | DOCUMENT_INDEXER_CHUNK_SIZE          | 500                          | Chunk size (chars)                             |
 | DOCUMENT_INDEXER_CHUNK_OVERLAP       | 50                           | Chunk overlap (chars)                          |
 | DOCUMENT_INDEXER_PARENT_CHUNK_SIZE   | 2000                         | Parent chunk size in tokens                    |
