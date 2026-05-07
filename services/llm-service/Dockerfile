@@ -20,6 +20,7 @@ COPY --from=ollama-source /bin/ollama /bin/ollama
 COPY --from=ollama-source /usr/lib/ollama /usr/lib/ollama
 
 # Install Python, build tools, and dependencies for Management API
+COPY services/llm-service/requirements.txt /tmp/requirements.txt
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     python3 \
@@ -28,11 +29,8 @@ RUN apt-get update && \
     gcc \
     curl \
     jq \
-    && pip3 install --no-cache-dir \
-    flask==3.0.0 \
-    flask-cors==4.0.0 \
-    requests==2.31.0 \
-    psutil==5.9.6 \
+    && pip3 install --no-cache-dir -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt \
     && apt-get purge -y gcc python3-dev \
     && apt-get autoremove -y \
     && apt-get clean \
