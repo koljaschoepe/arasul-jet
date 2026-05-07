@@ -32,20 +32,39 @@ Tokens expire after 24 hours (configurable via `JWT_EXPIRY`).
 
 ### Public (No Auth)
 
-| Method | Endpoint          | Description  |
-| ------ | ----------------- | ------------ |
-| GET    | `/api/health`     | Health check |
-| POST   | `/api/auth/login` | Login        |
+| Method | Endpoint          | Description                                     |
+| ------ | ----------------- | ----------------------------------------------- |
+| GET    | `/api/health`     | Health check                                    |
+| GET    | `/api/_meta`      | API surface (route groups, version, errorCodes) |
+| POST   | `/api/auth/login` | Login                                           |
+
+**GET /api/\_meta:**
+
+Returns a description of the live API surface — used by the frontend and
+external clients to discover available route groups and the canonical
+list of error codes. No auth required.
+
+```json
+{
+  "name": "arasul-dashboard-backend",
+  "version": "1.0.0",
+  "node": "v22.x.x",
+  "uptimeSeconds": 12345,
+  "routes": { "core": ["..."], "telegram": ["..."], "system": ["..."], "...": [] },
+  "errorCodes": ["VALIDATION_ERROR", "UNAUTHORIZED", "..."],
+  "timestamp": "2026-..."
+}
+```
 
 ### Authentication
 
-| Method | Endpoint            | Description                                | Rate Limit |
-| ------ | ------------------- | ------------------------------------------ | ---------- |
-| POST   | `/api/auth/login`   | Login with username/password (sets cookie) | -          |
-| POST   | `/api/auth/logout`  | Logout (blacklists token, clears cookie)   | -          |
-| GET    | `/api/auth/verify`  | Verify token (for Traefik forward-auth)    | -          |
-| GET    | `/api/auth/me`      | Get current user info                      | -          |
-| POST   | `/api/auth/refresh` | Refresh token                              | -          |
+| Method | Endpoint             | Description                                | Rate Limit |
+| ------ | -------------------- | ------------------------------------------ | ---------- |
+| POST   | `/api/auth/login`    | Login with username/password (sets cookie) | -          |
+| POST   | `/api/auth/logout`   | Logout (blacklists token, clears cookie)   | -          |
+| GET    | `/api/auth/verify`   | Verify token (for Traefik forward-auth)    | -          |
+| GET    | `/api/auth/me`       | Get current user info                      | -          |
+| GET    | `/api/auth/sessions` | List active sessions for current user      | -          |
 
 **GET /api/auth/verify:**
 
@@ -404,7 +423,6 @@ Request: `multipart/form-data` with `file` field.
 | POST   | `/api/documents/upload`      | Upload document (multipart)   |
 | GET    | `/api/documents/:id`         | Get document details          |
 | DELETE | `/api/documents/:id`         | Delete document               |
-| GET    | `/api/documents/:id/status`  | Indexing status               |
 | GET    | `/api/documents/:id/content` | Get file content (text files) |
 | PUT    | `/api/documents/:id/content` | Update file content           |
 
@@ -412,41 +430,6 @@ Request: `multipart/form-data` with `file` field.
 
 - Content-Type: `multipart/form-data`
 - Field: `file` (PDF, TXT, DOCX, Markdown, or YAML)
-
-### YAML Tables
-
-| Method | Endpoint                              | Description           |
-| ------ | ------------------------------------- | --------------------- |
-| POST   | `/api/yaml-tables/create`             | Create new YAML table |
-| GET    | `/api/yaml-tables/:docId`             | Get parsed YAML data  |
-| PUT    | `/api/yaml-tables/:docId`             | Update YAML content   |
-| POST   | `/api/yaml-tables/:docId/rows`        | Add row to table      |
-| DELETE | `/api/yaml-tables/:docId/rows/:rowId` | Delete row            |
-| POST   | `/api/yaml-tables/:docId/import`      | Import from CSV       |
-| GET    | `/api/yaml-tables/:docId/export`      | Export as CSV         |
-
-**POST /api/yaml-tables/create:**
-
-```json
-{
-  "name": "My Table",
-  "description": "Optional description",
-  "columns": [{ "slug": "name", "name": "Name", "type": "text", "required": false }],
-  "space_id": "optional-space-uuid"
-}
-```
-
-**PUT /api/yaml-tables/:docId:**
-
-```json
-{
-  "data": {
-    "_meta": { "name": "Table Name" },
-    "columns": [...],
-    "rows": [...]
-  }
-}
-```
 
 ### Embeddings
 
