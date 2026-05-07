@@ -16,7 +16,11 @@ const { logSecurityEvent } = require('../../utils/auditLog');
 const { execFile } = require('child_process');
 const util = require('util');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, UnauthorizedError } = require('../../utils/errors');
+const {
+  ValidationError,
+  UnauthorizedError,
+  ServiceUnavailableError,
+} = require('../../utils/errors');
 const { getEmbedding } = require('../../services/embeddingService');
 const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { validateBody } = require('../../middleware/validate');
@@ -90,9 +94,7 @@ async function restartService(serviceName) {
     return true;
   } catch (error) {
     logger.error(`Failed to restart service ${serviceName}: ${error.message}`);
-    const err = new Error(`Failed to restart ${serviceName} service`);
-    err.statusCode = 503;
-    throw err;
+    throw new ServiceUnavailableError(`Failed to restart ${serviceName} service`);
   }
 }
 
