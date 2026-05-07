@@ -7,7 +7,7 @@
 # Returns:  Exit code 0 if all checks pass, 1 if any fail
 ###############################################################################
 
-set -uo pipefail
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
