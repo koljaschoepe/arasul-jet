@@ -220,12 +220,9 @@ export interface DataTable {
 
 // --- API ---
 
-export interface ApiError {
-  message: string;
-  status?: number;
-  data?: Record<string, unknown>;
-  name?: string;
-}
+// ApiError is defined in hooks/useApi.ts (extends Error with .status/.code/.details).
+// Re-exported here so consumers can import it from the central types module.
+export type { ApiError } from '../hooks/useApi';
 
 export interface SSEData {
   type?: string;
