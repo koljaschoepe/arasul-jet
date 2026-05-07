@@ -18,7 +18,7 @@ services:
       context: ..
       dockerfile: apps/dashboard-backend/Dockerfile
       args:
-        NODE_VERSION: ${NODE_VERSION:-20.19}
+        NODE_VERSION: ${NODE_VERSION:-22}
     container_name: dashboard-backend
     hostname: dashboard-backend
     restart: always
@@ -116,7 +116,7 @@ services:
       context: ..
       dockerfile: apps/dashboard-frontend/Dockerfile
       args:
-        NODE_VERSION: ${NODE_VERSION:-20.19}
+        NODE_VERSION: ${NODE_VERSION:-22}
     container_name: dashboard-frontend
     hostname: dashboard-frontend
     restart: always
