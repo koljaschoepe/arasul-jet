@@ -23,7 +23,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-BACKUP_DIR="${PROJECT_DIR}/data/backups"
+# BACKUP_DIR derivation: defaults to repo-relative path for local dev, but
+# can be overridden via env when the script is deployed to /usr/local/bin/
+# inside the backup-service container (where ${PROJECT_DIR}/data/backups
+# resolves to /usr/data/backups, which doesn't exist). The compose mount
+# binds the host backups dir to /backups inside the container.
+BACKUP_DIR="${BACKUP_DIR:-${PROJECT_DIR}/data/backups}"
 POSTGRES_BACKUP_DIR="${BACKUP_DIR}/postgres"
 REPORT_PATH="${BACKUP_DIR}/restore_drill_report.json"
 LOG_FILE="${BACKUP_DIR}/restore_drill.log"

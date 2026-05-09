@@ -11,10 +11,16 @@ echo "Running initial backup..."
 #   Override with RESTORE_DRILL_SCHEDULE; disable by setting it to "off".
 RESTORE_DRILL_SCHEDULE="${RESTORE_DRILL_SCHEDULE:-0 4 * * 0}"
 
+# busybox crond does not always inherit the entrypoint's env, so we prepend
+# BACKUP_DIR (and any other vars the scripts need) directly on the cron line.
+# Falls back to /backups, matching the volume mount in compose.monitoring.yaml
+# and the ENV BACKUP_DIR in this image's Dockerfile.
+BACKUP_DIR_FOR_CRON="${BACKUP_DIR:-/backups}"
+
 {
-    echo "$BACKUP_SCHEDULE /usr/local/bin/backup.sh >> /backups/backup.log 2>&1"
+    echo "$BACKUP_SCHEDULE BACKUP_DIR=$BACKUP_DIR_FOR_CRON /usr/local/bin/backup.sh >> /backups/backup.log 2>&1"
     if [ "$RESTORE_DRILL_SCHEDULE" != "off" ]; then
-        echo "$RESTORE_DRILL_SCHEDULE /usr/local/bin/restore-drill.sh >> /backups/restore_drill.log 2>&1"
+        echo "$RESTORE_DRILL_SCHEDULE BACKUP_DIR=$BACKUP_DIR_FOR_CRON /usr/local/bin/restore-drill.sh >> /backups/restore_drill.log 2>&1"
     fi
 } > /etc/crontabs/root
 
