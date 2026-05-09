@@ -60,6 +60,7 @@ function generateTestToken(overrides = {}, options = {}) {
   return jwt.sign(payload, TEST_JWT_SECRET, {
     expiresIn: '24h',
     issuer: 'arasul-platform',
+    audience: 'arasul-dashboard',
     subject: String(payload.userId),
     ...options
   });

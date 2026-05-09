@@ -37,7 +37,7 @@ const mockToast = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
 vi.mock('../../../contexts/ToastContext', () => ({ useToast: () => mockToast }));
 
 vi.mock('../../../contexts/ChatContext', () => ({
-  useChatContext: () => ({ activeJobIds: {} }),
+  useChatContext: () => ({ activeJobIds: {}, cleanupChat: vi.fn() }),
 }));
 
 // Mock useConfirm

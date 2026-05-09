@@ -42,7 +42,7 @@ const generateToken = (userId, username = 'testuser') => {
   return jwt.sign(
     { id: userId, username, disabled: false },
     process.env.JWT_SECRET || 'test-secret-key-for-jwt-testing',
-    { expiresIn: '24h' }
+    { expiresIn: '24h', issuer: 'arasul-platform', audience: 'arasul-dashboard' }
   );
 };
 
@@ -475,7 +475,7 @@ describe('E2E Integration Tests', () => {
       const expiredToken = jwt.sign(
         { id: testUserId, username: 'testuser' },
         process.env.JWT_SECRET || 'test-secret-key-for-jwt-testing',
-        { expiresIn: '-1h' } // Already expired
+        { expiresIn: '-1h', issuer: 'arasul-platform', audience: 'arasul-dashboard' }
       );
 
       await request(app)

@@ -44,7 +44,7 @@ const generateToken = (payload, options = {}) => {
   return jwt.sign(
     { id: TEST_USER_ID, username: 'testuser', ...payload },
     JWT_SECRET,
-    { expiresIn: '24h', ...options }
+    { expiresIn: '24h', issuer: 'arasul-platform', audience: 'arasul-dashboard', ...options }
   );
 };
 
@@ -301,7 +301,7 @@ describe('Security Tests', () => {
       const expiredToken = jwt.sign(
         { id: TEST_USER_ID, username: 'testuser' },
         JWT_SECRET,
-        { expiresIn: '-1h' }
+        { expiresIn: '-1h', issuer: 'arasul-platform', audience: 'arasul-dashboard' }
       );
 
       await request(app)

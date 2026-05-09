@@ -94,12 +94,29 @@ class RateLimitError extends ApiError {
 }
 
 class ServiceUnavailableError extends ApiError {
-  constructor(message = 'Service temporarily unavailable', serviceName = null) {
-    super(message, {
-      statusCode: 503,
-      code: 'SERVICE_UNAVAILABLE',
-      details: serviceName ? { service: serviceName } : null,
-    });
+  /**
+   * @param {string} message
+   * @param {string|object|null} serviceOrOptions Either a service name
+   *   (legacy: `'ollama'`) or an options object:
+   *   `{ code?, service?, details? }`. The object form lets callers
+   *   customize the error code (e.g. `'OLLAMA_UNAVAILABLE'`) while
+   *   keeping the 503 status.
+   */
+  constructor(message = 'Service temporarily unavailable', serviceOrOptions = null) {
+    if (serviceOrOptions === null || typeof serviceOrOptions === 'string') {
+      super(message, {
+        statusCode: 503,
+        code: 'SERVICE_UNAVAILABLE',
+        details: serviceOrOptions ? { service: serviceOrOptions } : null,
+      });
+    } else {
+      const { code, service, details } = serviceOrOptions;
+      super(message, {
+        statusCode: 503,
+        code: code || 'SERVICE_UNAVAILABLE',
+        details: details || (service ? { service } : null),
+      });
+    }
   }
 }
 

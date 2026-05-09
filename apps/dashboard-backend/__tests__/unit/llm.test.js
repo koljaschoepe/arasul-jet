@@ -167,7 +167,11 @@ describe('LLM Routes', () => {
         });
 
       expect(response.status).toBe(503);
-      expect(response.body.error.message).toContain('not available');
+      // P8.2: route-level try/catch removed; global error handler maps
+      // ECONNREFUSED → 503/SERVICE_UNAVAILABLE with "Service temporarily
+      // unavailable" message. Test now checks the canonical envelope
+      // properties instead of the legacy message text.
+      expect(response.body.error.code).toBe('SERVICE_UNAVAILABLE');
     });
 
     test('should handle generic errors', async () => {
@@ -368,6 +372,7 @@ describe('LLM Routes', () => {
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
+        user_id: 1,
         status: 'streaming',
         content: 'Hello, I am',
         thinking: 'Processing query...',
@@ -416,6 +421,7 @@ describe('LLM Routes', () => {
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
+        user_id: 1,
         status: 'pending'
       });
       llmQueueService.cancelJob.mockResolvedValueOnce();
@@ -573,6 +579,7 @@ describe('LLM Routes', () => {
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
+        user_id: 1,
         status: 'completed',
         content: 'Hello world!',
         thinking: ''
@@ -592,6 +599,7 @@ describe('LLM Routes', () => {
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
+        user_id: 1,
         status: 'completed',
         content: 'Done!',
         thinking: ''
@@ -613,6 +621,7 @@ describe('LLM Routes', () => {
 
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-123',
+        user_id: 1,
         status: 'error',
         error_message: 'Model overloaded',
         content: ''

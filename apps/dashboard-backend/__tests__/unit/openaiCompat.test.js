@@ -220,6 +220,7 @@ describe('OpenAI-compatible routes', () => {
       });
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-1',
+        user_id: 1,
         status: 'completed',
         content: 'Hello world!',
         thinking: null,
@@ -250,6 +251,7 @@ describe('OpenAI-compatible routes', () => {
       });
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-2',
+        user_id: 1,
         status: 'completed',
         content: 'hi',
         thinking: null,

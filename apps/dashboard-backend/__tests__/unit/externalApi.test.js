@@ -50,7 +50,7 @@ jest.mock('../../src/services/llm/modelService', () => ({
 jest.mock('../../src/middleware/apiKeyAuth', () => ({
   requireApiKey: jest.fn((req, res, next) => {
     if (req.headers['x-api-key'] === 'valid-api-key') {
-      req.apiKey = { id: 1, name: 'Test API Key', allowed_endpoints: ['llm:chat', 'llm:status'] };
+      req.apiKey = { id: 1, userId: 1, name: 'Test API Key', allowed_endpoints: ['llm:chat', 'llm:status'] };
       next();
     } else {
       res.status(401).json({ error: 'Invalid API key' });
@@ -166,6 +166,7 @@ describe('External API Routes', () => {
       });
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-uuid',
+        user_id: 1,
         status: 'completed',
         content: 'AI response here',
         thinking: null
@@ -191,6 +192,7 @@ describe('External API Routes', () => {
       });
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-uuid',
+        user_id: 1,
         status: 'completed',
         content: 'Response',
         thinking: 'Thinking process'
@@ -237,6 +239,7 @@ describe('External API Routes', () => {
     test('should return job status with valid API key', async () => {
       llmJobService.getJob.mockResolvedValueOnce({
         id: 'job-uuid',
+        user_id: 1,
         status: 'processing',
         queue_position: 0,
         content: null,
