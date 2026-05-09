@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 """
+DEPRECATED — DO NOT EDIT. Production code uses enhanced_indexer.py only.
+
+This is the original indexer (pre-hierarchical-chunking). It is no longer
+imported anywhere in the runtime path (api_server.py imports enhanced_indexer).
+Kept for one release cycle so we can compare behavior; remove after the next
+major version once we are confident nothing references it.
+
 Document Indexer Service for Arasul Platform
 Automatically indexes documents from MinIO into Qdrant vector database
 Runs every 30 seconds and supports PDF, TXT, DOCX, and Markdown files

@@ -196,6 +196,20 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             if not has_error:
                 return
 
+            # P5.2: cooldown so we don't flap restarts every 10s when the GPU
+            # has a persistent hang. Minimum 5 minutes between recovery
+            # attempts; CRITICAL errors stretch this further.
+            now = time.time()
+            last = getattr(self, '_last_gpu_recovery_at', 0.0)
+            cooldown_s = 300.0
+            if now - last < cooldown_s:
+                logger.info(
+                    f"GPU recovery suppressed by cooldown "
+                    f"({int(now - last)}s since last attempt; need {int(cooldown_s)}s)"
+                )
+                return
+            self._last_gpu_recovery_at = now
+
             severity = 'CRITICAL' if error_type in ['critical_health', 'gpu_hang'] else 'WARNING'
             self.log_event(
                 'gpu_error_detected', severity,
@@ -448,20 +462,22 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                 for db_name, xid_age in xid_rows:
                     if xid_age > 1_200_000_000:  # ~56% of wraparound limit
                         logger.error(f"CRITICAL: DB {db_name} XID age {xid_age:,} — triggering VACUUM FREEZE")
-                        try:
-                            self.execute_query(f"VACUUM FREEZE")
+                        # P5.1: VACUUM cannot run inside a transaction —
+                        # execute_autocommit toggles the connection out of
+                        # transaction mode for this single statement.
+                        ok = self.execute_autocommit("VACUUM FREEZE")
+                        if ok:
                             self.log_event(
                                 'db_xid_wraparound', 'CRITICAL',
                                 f'Database {db_name} XID age {xid_age:,} — VACUUM FREEZE executed',
                                 'Automatic VACUUM FREEZE triggered to prevent wraparound',
                                 'postgres-db', True
                             )
-                        except Exception as vac_err:
-                            logger.error(f"VACUUM FREEZE failed: {vac_err}")
+                        else:
                             self.log_event(
                                 'db_xid_wraparound', 'CRITICAL',
                                 f'Database {db_name} XID age {xid_age:,} approaching wraparound',
-                                f'VACUUM FREEZE failed: {vac_err}',
+                                'VACUUM FREEZE failed (see logs)',
                                 'postgres-db', False
                             )
                     elif xid_age > 500_000_000:  # ~23% of limit
@@ -505,9 +521,45 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         except Exception as e:
             logger.debug(f"TLS cert check skipped: {e}")
 
+    def _is_self_signed_cert(self) -> bool:
+        """
+        P5.3: detect self-signed certs by comparing issuer == subject. The
+        auto-renew path replaces the cert with a fresh self-signed one — if
+        the customer is running behind a real CA (Let's Encrypt etc.) this
+        would clobber their cert and break browser HTTPS for everyone.
+        """
+        try:
+            cert_path = '/etc/traefik/certs/arasul.crt'
+            if not os.path.exists(cert_path):
+                return True  # no cert at all — treat as renewable
+            issuer = subprocess.run(
+                ['openssl', 'x509', '-in', cert_path, '-noout', '-issuer'],
+                capture_output=True, text=True, timeout=10,
+            )
+            subject = subprocess.run(
+                ['openssl', 'x509', '-in', cert_path, '-noout', '-subject'],
+                capture_output=True, text=True, timeout=10,
+            )
+            if issuer.returncode != 0 or subject.returncode != 0:
+                return True  # cannot determine — fall back to renewable
+            issuer_line = issuer.stdout.strip().split('=', 1)[-1].strip()
+            subject_line = subject.stdout.strip().split('=', 1)[-1].strip()
+            return issuer_line == subject_line
+        except Exception as e:
+            logger.warning(f"Could not determine cert issuer: {e}")
+            return False  # safe default: do NOT renew
+
     def _renew_tls_cert(self) -> bool:
         """Auto-renew self-signed TLS certificate and reload Traefik"""
         try:
+            # P5.3: refuse to overwrite a real CA cert.
+            if not self._is_self_signed_cert():
+                logger.warning(
+                    "TLS cert is NOT self-signed (CA-issued) — refusing to auto-renew. "
+                    "Manual renewal required."
+                )
+                return False
+
             cert_script = '/arasul/scripts/security/generate-self-signed-cert.sh'
             if not os.path.exists(cert_script):
                 logger.error(f"Cert renewal script not found: {cert_script}")

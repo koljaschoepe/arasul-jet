@@ -96,6 +96,39 @@ class DatabaseMixin:
             if conn:
                 self.release_connection(conn)
 
+    def execute_autocommit(self, query: str, params: tuple = None) -> bool:
+        """
+        P5.1: execute a statement that cannot run inside a transaction
+        (VACUUM FREEZE, CREATE INDEX CONCURRENTLY, etc.).
+
+        psycopg2 wraps every cursor.execute in an implicit transaction unless
+        the connection is in autocommit mode. This switches the connection to
+        autocommit for the duration of the call and switches it back before
+        returning to the pool. Returns True on success, False on failure
+        (errors are logged, never re-raised).
+        """
+        if not self.connection_pool:
+            logger.warning("Connection pool not initialized")
+            return False
+        conn = None
+        try:
+            conn = self.get_connection()
+            previous_autocommit = conn.autocommit
+            conn.autocommit = True
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, params)
+                return True
+            finally:
+                conn.autocommit = previous_autocommit
+        except Exception as e:
+            self.pool_stats['total_errors'] += 1
+            logger.error(f"Autocommit query failed: {e}")
+            return False
+        finally:
+            if conn:
+                self.release_connection(conn)
+
     def log_event(self, event_type: str, severity: str, description: str,
                   action_taken: str, service_name: str = None, success: bool = True):
         """Log self-healing event to database"""

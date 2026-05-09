@@ -264,17 +264,51 @@ def embed():
                 'timestamp': time.time()
             }), 400
 
+        # P4.4: token-length pre-check. SentenceTransformers truncates silently
+        # at max_seq_length=8192 — log a warning so operators can see it.
+        try:
+            tokenizer = getattr(model, 'tokenizer', None)
+            max_seq = getattr(model, 'max_seq_length', 8192)
+            if tokenizer is not None and max_seq:
+                long_count = 0
+                for t in texts[:50]:  # cap probe to avoid tokenize-cost amplification
+                    try:
+                        token_count = len(tokenizer.encode(t, add_special_tokens=False))
+                        if token_count > max_seq:
+                            long_count += 1
+                    except Exception:
+                        pass
+                if long_count > 0:
+                    logger.warning(
+                        f"{long_count}/{min(len(texts), 50)} input(s) exceed max_seq_length={max_seq} — "
+                        f"will be truncated by SentenceTransformer"
+                    )
+        except Exception:
+            pass
+
         # Generate embeddings
         start_time = time.time()
         try:
             embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
         except Exception as e:
-            # Free GPU memory on failure
+            # P4.3: OOM-Retry analog zu /embed/batch — clear cache + one retry.
             import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                logger.warning("Cleared CUDA cache after encode failure")
-            raise
+            err_str = str(e).lower()
+            if 'out of memory' in err_str or 'cuda' in err_str:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    logger.warning("CUDA OOM in /embed, cleared cache and retrying once")
+                try:
+                    embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+                except Exception:
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    raise
+            else:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    logger.warning("Cleared CUDA cache after encode failure")
+                raise
         latency = (time.time() - start_time) * 1000
 
         # Convert to list for JSON serialization

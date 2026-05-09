@@ -327,20 +327,47 @@ class DatabaseManager:
 
         return documents, total
 
-    def recover_stuck_processing(self) -> int:
-        """Reset documents stuck in 'processing' back to 'pending' (crash recovery)"""
+    def recover_stuck_processing(self, max_retries: int = 3) -> int:
+        """
+        Reset documents stuck in 'processing' back to 'pending' (crash recovery).
+
+        P4.1: respect the retry-count cap. Without this, a poison document that
+        crashes mid-pipeline (OOM/SIGKILL before update_document_status('failed')
+        increments the counter) is reset to 'pending' forever — the periodic
+        watchdog effectively reverses the retry-exhausted→failed transition.
+        Documents that have already exhausted their retries are flipped to
+        'failed' so they stop blocking the queue.
+        """
         with self.get_connection() as conn:
             with conn.cursor() as cur:
+                # Recoverable: still under retry budget — back to 'pending'.
                 cur.execute("""
                     UPDATE documents
                     SET status = 'pending', processing_started_at = NULL
                     WHERE status = 'processing'
+                    AND retry_count < %s
                     RETURNING id
-                """)
+                """, (max_retries,))
                 recovered = cur.rowcount
+
+                # Exhausted: would loop forever — flip to 'failed' so the user
+                # sees the badge and can re-upload manually.
+                cur.execute("""
+                    UPDATE documents
+                    SET status = 'failed',
+                        processing_started_at = NULL,
+                        error_message = COALESCE(error_message, 'retry-exhausted (watchdog)')
+                    WHERE status = 'processing'
+                    AND retry_count >= %s
+                    RETURNING id
+                """, (max_retries,))
+                exhausted = cur.rowcount
+
                 if recovered > 0:
                     logger.info(f"Recovered {recovered} stuck 'processing' document(s) back to 'pending'")
-                return recovered
+                if exhausted > 0:
+                    logger.warning(f"Marked {exhausted} retry-exhausted document(s) as 'failed'")
+                return recovered + exhausted
 
     def get_pending_documents(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get documents pending processing"""
@@ -486,6 +513,17 @@ class DatabaseManager:
 
         logger.info(f"Saved {len(parent_chunks)} parent chunks for document {doc_id}")
         return index_to_id
+
+    def delete_parent_chunks(self, doc_id: str) -> int:
+        """
+        P4.5: rollback helper. When Qdrant insert fails after parent_chunks
+        have been saved, the next index attempt would otherwise leave orphan
+        parent rows growing unboundedly.
+        """
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM document_parent_chunks WHERE document_id = %s", (doc_id,))
+                return cur.rowcount
 
     def get_parent_chunks_by_ids(self, parent_chunk_ids: List[str]) -> List[Dict[str, Any]]:
         """

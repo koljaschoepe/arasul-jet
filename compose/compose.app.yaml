@@ -27,7 +27,8 @@ services:
       - arasul-backend
       - arasul-monitoring
     group_add:
-      - '994'
+      # P6.6: docker GID — defaults to 994 (Jetson default), override via env.
+      - '${DOCKER_GID:-994}'
     environment:
       NODE_ENV: production
       PORT: ${DASHBOARD_BACKEND_PORT}
@@ -238,10 +239,15 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
+      # P6.3: llm-service / embedding-service use service_started (not
+      # service_healthy). Their healthchecks have a long start_period (LLM
+      # spends 5min loading a model) and a single GPU crash should NOT
+      # cascade-block n8n startup. n8n's own workflow code retries against
+      # downstream services anyway.
       llm-service:
-        condition: service_healthy
+        condition: service_started
       embedding-service:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_healthy
     healthcheck:

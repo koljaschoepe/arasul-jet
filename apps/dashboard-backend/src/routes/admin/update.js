@@ -50,7 +50,9 @@ const upload = multer({
     if (ext === '.araupdate' || ext === '.sig') {
       cb(null, true);
     } else {
-      cb(new Error('Only .araupdate and .sig files are allowed'));
+      // P8.3: typed error so the global error handler returns the canonical
+      // {error:{code,message}} envelope instead of multer's bare-string.
+      cb(new ValidationError('Only .araupdate and .sig files are allowed'));
     }
   },
 });

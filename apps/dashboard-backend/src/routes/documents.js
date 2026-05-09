@@ -62,7 +62,8 @@ const upload = multer({
     if (ALLOWED_EXTENSIONS.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error(`Ungültiger Dateityp. Erlaubt: ${ALLOWED_EXTENSIONS.join(', ')}`));
+      // P8.3: typed error → canonical envelope.
+      cb(new ValidationError(`Ungültiger Dateityp. Erlaubt: ${ALLOWED_EXTENSIONS.join(', ')}`));
     }
   },
 });

@@ -73,6 +73,13 @@ class TelegramWebSocketService {
       ws.on('error', error => {
         logger.error('Telegram WebSocket error:', error.message);
         this.unsubscribeClient(ws);
+        // P7.3: also terminate the socket so we don't leak half-open
+        // connections on the heartbeat reaper window (30s).
+        try {
+          ws.terminate();
+        } catch {
+          /* swallow — socket may already be closed */
+        }
       });
 
       // Heartbeat to keep connection alive

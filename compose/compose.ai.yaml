@@ -26,8 +26,12 @@ services:
     environment:
       QDRANT__SERVICE__GRPC_PORT: '6334'
       QDRANT__SERVICE__HTTP_PORT: '6333'
+    # P6.7: previous test relied on bash's /dev/tcp, which the distroless
+    # qdrant image does not ship. Use Qdrant's /readyz HTTP endpoint
+    # (available since v1.4) — image still ships a busybox-compatible
+    # shell, but the call form below works with sh too.
     healthcheck:
-      test: ['CMD-SHELL', 'bash -c "echo > /dev/tcp/localhost/6333"']
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:6333/readyz || exit 1']
       interval: 10s
       timeout: 3s
       retries: 3

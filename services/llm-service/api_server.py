@@ -283,13 +283,17 @@ def pull_model():
 
         pull_lock = _get_pull_lock(model_name)
 
-        # Stream progress from Ollama to caller
+        # Stream progress from Ollama to caller.
+        # P4.9: when the SSE consumer disconnects, Python raises GeneratorExit
+        # into the for-loop. The finally block then closes the upstream
+        # response so the Ollama-side pull is also aborted instead of running
+        # for hours with no consumer while the pull_lock is held.
         def generate():
-            # LLM-02: serialize concurrent pulls of the same model
             acquired = pull_lock.acquire(blocking=False)
             if not acquired:
                 logger.info(f"Pull for {model_name} already in progress — waiting")
                 pull_lock.acquire()  # block until the in-flight pull finishes
+            response = None
             try:
                 response = _http_session.post(
                     f"{OLLAMA_BASE_URL}/api/pull",
@@ -309,6 +313,11 @@ def pull_model():
                     _model_cache_time = 0
 
                 logger.info(f"Model {model_name} pulled successfully")
+            except GeneratorExit:
+                # Client disconnected. Re-raise so Flask treats it normally;
+                # the finally below closes the Ollama connection.
+                logger.info(f"Pull of {model_name} aborted (client disconnected)")
+                raise
             except requests.exceptions.RetryError as e:
                 logger.error(f"Model pull failed after retries: {e}")
                 yield json.dumps({"error": "Download failed after multiple retries"}).encode() + b'\n'
@@ -322,6 +331,11 @@ def pull_model():
                 logger.error(f"Pull model error: {e}")
                 yield json.dumps({"error": str(e)}).encode() + b'\n'
             finally:
+                if response is not None:
+                    try:
+                        response.close()
+                    except Exception:
+                        pass
                 try:
                     pull_lock.release()
                 except RuntimeError:

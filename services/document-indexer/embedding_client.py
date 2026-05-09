@@ -80,7 +80,14 @@ class EmbeddingClient:
             return None
 
     def get_batch_embeddings(self, texts: List[str]) -> List[Optional[List[float]]]:
-        """Get embeddings for multiple texts efficiently."""
+        """
+        Get embeddings for multiple texts efficiently.
+
+        P4.2: pad short responses with None to match input length. Without this,
+        a length-mismatch (e.g. server returned 9 vectors for 10 texts after a
+        partial OOM) silently truncates downstream zip() loops and chunks at the
+        tail go missing without an error.
+        """
         try:
             response = self._request_with_retry(
                 "POST",
@@ -89,7 +96,15 @@ class EmbeddingClient:
                 timeout=60
             )
             result = response.json()
-            return result.get('vectors', [])
+            vectors = result.get('vectors', [])
+            if len(vectors) != len(texts):
+                logger.warning(
+                    f"Embedding count mismatch: requested {len(texts)}, got {len(vectors)} — padding with None"
+                )
+                # Pad on the right; callers must None-check each entry anyway.
+                vectors = list(vectors) + [None] * (len(texts) - len(vectors))
+                vectors = vectors[: len(texts)]
+            return vectors
         except Exception as e:
             logger.error(f"Batch embedding error: {e}")
             return [None] * len(texts)

@@ -221,9 +221,12 @@ async function streamFromOllama(
     );
 
     // Build Ollama payload
+    // P4.7: ?? not || — temperature=0 is a legitimate "deterministic" request,
+    // not a falsy default. Same for maxTokens=0 (which is invalid anyway, but
+    // ?? makes the intent explicit).
     const ollamaOptions = {
-      temperature: temperature || 0.7,
-      num_predict: maxTokens || 32768,
+      temperature: temperature ?? 0.7,
+      num_predict: maxTokens ?? 32768,
       num_batch: 512, // Optimal for Jetson Orin's 2048 CUDA cores
     };
 

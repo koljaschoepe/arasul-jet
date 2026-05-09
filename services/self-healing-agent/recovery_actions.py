@@ -97,15 +97,28 @@ class RecoveryActionsMixin:
             return False
 
     def pause_n8n_workflows(self) -> bool:
-        """Pause n8n workflows to reduce RAM usage"""
+        """
+        Reduce n8n RAM by stopping the container (graceful shutdown).
+
+        P5.5: previous implementation called `container.restart()` despite the
+        method name claiming "pause", which killed in-flight workflows and
+        caused an endless restart cycle if RAM stayed structurally over budget.
+        The honest fix is either a real n8n PATCH /workflows/:id { active: false }
+        per workflow, or — until the n8n API plumbing exists — a graceful stop.
+        Stop is reversible (start() resumes); restart is destructive to running
+        workflows. Caller is `recovery_actions.handle_high_ram` which already
+        backs off, so a stopped n8n won't ping-pong.
+        """
         try:
-            logger.info("Attempting to pause n8n workflows")
+            logger.warning(
+                "RAM relief: stopping n8n container (graceful, will not auto-restart)"
+            )
             container = self.docker_client.containers.get('n8n')
-            container.restart()
-            logger.info("Restarted n8n to free RAM")
+            container.stop(timeout=30)
+            logger.info("n8n stopped — manual or operator-driven start required")
             return True
         except Exception as e:
-            logger.error(f"Failed to restart n8n: {e}")
+            logger.error(f"Failed to stop n8n: {e}")
             return False
 
     def hard_restart_application_services(self) -> bool:
@@ -117,7 +130,11 @@ class RecoveryActionsMixin:
             try:
                 container = self.docker_client.containers.get(service_name)
                 logger.info(f"Hard restarting {service_name}")
-                container.stop(timeout=5)
+                # P5.6: 30s grace (was 5s) — LLM mid-inference and n8n
+                # mid-workflow need time to flush state. Too-fast SIGKILL
+                # leaves orphan idle-in-transaction rows that trip the next
+                # check_database_health cycle (positive-feedback loop).
+                container.stop(timeout=30)
                 time.sleep(1)
                 container.start()
                 success_count += 1

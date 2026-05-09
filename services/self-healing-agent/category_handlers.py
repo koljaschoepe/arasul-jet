@@ -76,11 +76,19 @@ class CategoryHandlersMixin:
             logger.error(f"Failed to queue quarantine notification for {service_name}: {e}")
 
     def _is_restart_rate_limited(self, service_name: str) -> bool:
-        """Check if service has exceeded max restarts in 30min window"""
+        """
+        Check if service has exceeded max restart-class actions in 30min window.
+
+        P5.9: also count `service_stop` and `hard_restart` so a stop-loop or
+        Category-C-loop cannot bypass the rate limit by varying the action_type.
+        """
         try:
             rows = self.execute_query(
                 "SELECT COUNT(*) FROM recovery_actions "
-                "WHERE service_name = %s AND action_type = 'service_restart' "
+                "WHERE service_name = %s "
+                "AND action_type IN ('service_restart', 'service_stop', "
+                "                    'hard_restart_application_services', "
+                "                    'gpu_session_reset', 'gpu_recovery') "
                 "AND timestamp >= NOW() - INTERVAL '30 minutes'",
                 (service_name,), fetch_all=True
             )
@@ -88,7 +96,7 @@ class CategoryHandlersMixin:
             if count >= self.MAX_RESTARTS_PER_30MIN:
                 logger.error(
                     f"Service {service_name} hit restart rate limit: "
-                    f"{count}/{self.MAX_RESTARTS_PER_30MIN} restarts in 30min — alert only"
+                    f"{count}/{self.MAX_RESTARTS_PER_30MIN} restart-class actions in 30min — alert only"
                 )
                 return True
             return False
@@ -259,6 +267,11 @@ class CategoryHandlersMixin:
         self._temp_history.append(temp)
         if len(self._temp_history) > TEMP_HISTORY_SIZE:
             self._temp_history.pop(0)
+        # P5.4: require at least 3 samples before averaging. Otherwise a single
+        # spurious 91°C reading right after restart trips the emergency LLM
+        # stop with avg_temp=91 from n=1.
+        if len(self._temp_history) < 3:
+            return
         avg_temp = sum(self._temp_history) / len(self._temp_history)
 
         # Re-arm hysteresis

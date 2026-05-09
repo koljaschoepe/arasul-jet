@@ -696,4 +696,15 @@ def _index_to_qdrant(
             logger.warning(
                 f"Failed to rollback vectors for {doc_id}: {cleanup_err}"
             )
+        # P4.5: also drop the parent_chunks rows we already saved at L569.
+        # Without this, repeated index attempts grow orphan parent rows in
+        # Postgres while the document never reaches a successful state.
+        try:
+            removed = db.delete_parent_chunks(doc_id)
+            if removed:
+                logger.info(f"Rolled back {removed} parent_chunk row(s) for {doc_id}")
+        except Exception as cleanup_err:
+            logger.warning(
+                f"Failed to rollback parent_chunks for {doc_id}: {cleanup_err}"
+            )
         raise

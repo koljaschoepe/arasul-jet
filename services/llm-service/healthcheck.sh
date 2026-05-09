@@ -211,6 +211,11 @@ main() {
 
     CHECKS_PASSED=0
     CHECKS_TOTAL=4  # Reduced from 5 (removed prompt test)
+    # P6.1: track CRITICAL failures separately. The previous "3/4 = healthy"
+    # rule reported a service as healthy even when GPU-error logs existed or
+    # the model couldn't be loaded — both blocking failures. We now require
+    # ALL critical checks to pass for healthy, regardless of total count.
+    CRITICAL_FAIL=0
 
     # HIGH-010 FIX: Run all checks with explicit error handling
     # Each check returns 0 (success) or 1 (failure) without stopping execution
@@ -218,18 +223,21 @@ main() {
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
     else
         log "API availability check failed"
+        CRITICAL_FAIL=$((CRITICAL_FAIL + 1))  # API down = unusable
     fi
 
     if check_gpu_availability; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
     else
         log "GPU availability check failed"
+        CRITICAL_FAIL=$((CRITICAL_FAIL + 1))  # No GPU = no inference
     fi
 
     if check_model_loaded; then
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
     else
         log "Model loaded check failed"
+        CRITICAL_FAIL=$((CRITICAL_FAIL + 1))  # No model = no inference
     fi
 
     # Prompt test removed - we don't want to load the model for health checks
@@ -238,6 +246,7 @@ main() {
         CHECKS_PASSED=$((CHECKS_PASSED + 1))
     else
         log "GPU errors check failed"
+        CRITICAL_FAIL=$((CRITICAL_FAIL + 1))  # Active GPU errors = degrading inference
     fi
 
     # Final verdict
@@ -245,16 +254,16 @@ main() {
 
     # HIGH-010 FIX: Explicit exit codes for Docker health checks
     # exit 0 = healthy, exit 1 = unhealthy
+    if [ "$CRITICAL_FAIL" -gt 0 ]; then
+        error "Service unhealthy: ${CRITICAL_FAIL} critical check(s) failed (${CHECKS_PASSED}/${CHECKS_TOTAL} total)"
+        exit 1
+    fi
     if [ "$CHECKS_PASSED" -eq "$CHECKS_TOTAL" ]; then
         success "All health checks passed - Service is HEALTHY"
         exit 0
-    elif [ "$CHECKS_PASSED" -ge 3 ]; then
-        warning "Service degraded: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed - Service is DEGRADED but functional"
-        exit 0  # Still return success for degraded state
-    else
-        error "Service unhealthy: Only ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed - Service is UNHEALTHY"
-        exit 1
     fi
+    success "Service healthy: ${CHECKS_PASSED}/${CHECKS_TOTAL} checks passed"
+    exit 0
 }
 
 # Execute main function

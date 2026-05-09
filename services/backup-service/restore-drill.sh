@@ -188,12 +188,16 @@ if [[ "$ready" != "true" ]]; then
 fi
 
 log "Restoring backup into drill container"
-# pg_dump files start with "\restrict" directives that require psql; redirect
-# stdout/stderr so a broken backup shows up in the drill log.
+# P5.7: ON_ERROR_STOP=1 — previously the restore swallowed errors and the
+# 6-table count check below could pass while 80 other tables silently failed
+# to load. A broken backup must produce a non-zero exit so the drill
+# correctly reports failure.
+restore_ok=true
 if ! zcat "$BACKUP_FILE" | docker exec -i "$DRILL_CONTAINER" \
-        psql -U "$DRILL_USER" -d "$DRILL_DB" -v ON_ERROR_STOP=0 \
+        psql -U "$DRILL_USER" -d "$DRILL_DB" -v ON_ERROR_STOP=1 \
         >>"$LOG_FILE" 2>&1; then
-    log "WARN: psql returned non-zero — continuing to verification (partial restores still inform us)"
+    log "FAIL: psql aborted on first error — backup is not cleanly restorable"
+    restore_ok=false
 fi
 
 verified=0
@@ -215,6 +219,14 @@ for tbl in "${CRITICAL_TABLES[@]}"; do
 done
 
 duration=$(( $(date +%s) - DRILL_START ))
+
+# P5.7: also fail the drill if the restore itself errored out, even if the
+# 6-table check happens to find rows from a partial restore.
+if [[ "$restore_ok" != "true" ]]; then
+    write_report "failed" "psql restore aborted on error (see drill log)" "$verified" "$duration"
+    log "Drill FAILED after ${duration}s — restore step did not complete cleanly"
+    exit 1
+fi
 
 if (( ${#failed_tables[@]} > 0 )); then
     write_report "failed" "missing: ${failed_tables[*]}" "$verified" "$duration"
