@@ -252,13 +252,14 @@ router.post(
   requireAuth,
   uploadLimiter,
   (req, res, next) => {
-    // Handle multer errors (file type, size) and return 400 instead of 500
+    // P8.1: pass multer errors to the global error handler (which wraps
+    // ValidationError-typed cb() errors from fileFilter into the canonical
+    // {error:{code,message}} envelope). The previous code emitted a
+    // bare-string envelope that diverged from every other route.
     upload.single('file')(req, res, err => {
       if (err) {
-        return res.status(400).json({
-          error: err.message || 'Fehler beim Datei-Upload',
-          timestamp: new Date().toISOString(),
-        });
+        if (err instanceof ValidationError) {return next(err);}
+        return next(new ValidationError(err.message || 'Fehler beim Datei-Upload'));
       }
       next();
     });

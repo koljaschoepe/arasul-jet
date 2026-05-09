@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { ValidationError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
 const fs = require('fs').promises;
 const { execFile } = require('child_process');
@@ -97,11 +98,12 @@ router.post(
     const ssdStatus = await getSsdStatus();
 
     if (!ssdStatus.mounted) {
-      return res.status(400).json({
-        error: 'Keine externe SSD erkannt. Bitte SSD anschliessen und erneut versuchen.',
-        ssd: ssdStatus,
-        timestamp: new Date().toISOString(),
-      });
+      // P8.1: throw typed error so the global error handler returns the
+      // canonical {error:{code,message}} envelope instead of a bare-string.
+      throw new ValidationError(
+        'Keine externe SSD erkannt. Bitte SSD anschliessen und erneut versuchen.',
+        { ssd: ssdStatus }
+      );
     }
 
     // TODO: Implement actual backup trigger via backup.sh with BACKUP_PATH

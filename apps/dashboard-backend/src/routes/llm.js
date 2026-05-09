@@ -47,7 +47,11 @@ router.post(
     } = req.body;
     const enableThinking = thinking !== false;
 
-    try {
+    // P8.2: route-level try/catch removed. ECONNREFUSED → ServiceUnavailableError
+    // mapping is handled centrally by middleware/errorHandler.js. Inner
+    // try/catch around res.write (streaming subscribe) is retained because
+    // SSE error handling is post-headers-sent and must not throw.
+    {
       // Validate images if provided (must be array of base64 strings, max 5)
       let validatedImages = null;
       if (images && Array.isArray(images) && images.length > 0) {
@@ -135,13 +139,6 @@ router.post(
           timestamp: new Date().toISOString(),
         });
       }
-    } catch (error) {
-      logger.error(`Error in /api/llm/chat: ${error.message}`);
-
-      if (error.code === 'ECONNREFUSED') {
-        throw new ServiceUnavailableError('LLM service is not available');
-      }
-      throw error;
     }
   })
 );

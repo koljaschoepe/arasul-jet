@@ -614,19 +614,30 @@ router.post(
 
       const docIds = [...new Set(points.map(p => p.payload.document_id).filter(Boolean))];
 
-      for (const docId of docIds) {
-        try {
-          const result = await db.query(
-            `
-                    SELECT d.space_id, ks.name as space_name, ks.slug as space_slug
+      // P8.4: replace per-doc SELECT (one query per document) with a single
+      // batch SELECT using ANY($1::uuid[]). For 100-doc batches this drops
+      // 100 round-trips to 1 — substantial during the one-time migration
+      // run. Qdrant payload-PATCH is still per-doc since the filter narrows
+      // to a single document_id.
+      const lookupRows =
+        docIds.length > 0
+          ? (
+              await db.query(
+                `
+                    SELECT d.id, d.space_id, ks.name AS space_name, ks.slug AS space_slug
                     FROM documents d
                     LEFT JOIN knowledge_spaces ks ON d.space_id = ks.id
-                    WHERE d.id = $1
+                    WHERE d.id = ANY($1::uuid[])
                 `,
-            [docId]
-          );
+                [docIds]
+              )
+            ).rows
+          : [];
+      const docMeta = new Map(lookupRows.map(r => [String(r.id), r]));
 
-          const row = result.rows[0];
+      for (const docId of docIds) {
+        try {
+          const row = docMeta.get(String(docId));
           const newSpaceId = row?.space_id ? String(row.space_id) : null;
           const newSpaceName = row?.space_name || '';
           const newSpaceSlug = row?.space_slug || '';

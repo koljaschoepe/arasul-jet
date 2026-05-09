@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { Zap, ChevronDown, ChevronUp, Cpu, Binary, Globe, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// P3.5-mini: single source of truth for the example model name. Plain
+// constant here (not derived from the running default model) — the side-
+// branch had a TanStack-Query hook for that, which we are not picking up.
+// When the platform default model changes, update this constant in one
+// place instead of grep-replacing four sites.
+const EXAMPLE_MODEL = 'gemma4:26b-q4';
+
 type Section = 'llm' | 'embeddings' | 'documents' | 'http';
 
 function CodeBlock({ children }: { children: string }) {
@@ -156,7 +163,7 @@ export function N8nIntegrationGuide() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Model Name</span>
-                        <span className="font-mono text-foreground">gemma4:26b-q4</span>
+                        <span className="font-mono text-foreground">{EXAMPLE_MODEL}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Temperature</span>
@@ -199,7 +206,7 @@ export function N8nIntegrationGuide() {
                 <h4 className="text-xs font-semibold text-foreground mb-2">3. Beispiel-Ausgabe</h4>
                 <CodeBlock>
                   {`{
-  "model": "gemma4:26b-q4",
+  "model": "${EXAMPLE_MODEL}",
   "message": {
     "role": "assistant",
     "content": "Die Antwort des KI-Modells..."
@@ -450,7 +457,7 @@ export function N8nIntegrationGuide() {
                 </p>
                 <CodeBlock>
                   {`{
-  "model": "gemma4:26b-q4",
+  "model": "${EXAMPLE_MODEL}",
   "messages": [
     { "role": "system", "content": "Du bist ein hilfreicher Assistent." },
     { "role": "user", "content": "{{ $json.message }}" }
@@ -488,7 +495,7 @@ export function N8nIntegrationGuide() {
                 <CodeBlock>
                   {`{
   "prompt": "{{ $json.frage }}",
-  "model": "gemma4:26b-q4",
+  "model": "${EXAMPLE_MODEL}",
   "temperature": 0.7,
   "max_tokens": 2048,
   "wait_for_result": true,

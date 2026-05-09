@@ -115,10 +115,17 @@ router.get(
       db
         .query(
           `
+        -- P8.5: pg_stat_user_tables.n_live_tup is an estimate maintained by
+        -- the planner — much cheaper than COUNT(*) on large tables. Off by
+        -- a few rows is fine for an overview dashboard. Falls back to 0 if
+        -- the row hasn't been written yet (fresh table, no analyze).
         SELECT
-          (SELECT COUNT(*)::int FROM app_events)         AS app_events,
-          (SELECT COUNT(*)::int FROM chat_messages)      AS chat_messages,
-          (SELECT COUNT(*)::int FROM self_healing_events) AS self_healing_events
+          COALESCE((SELECT n_live_tup::int FROM pg_stat_user_tables
+                    WHERE relname = 'app_events'), 0)         AS app_events,
+          COALESCE((SELECT n_live_tup::int FROM pg_stat_user_tables
+                    WHERE relname = 'chat_messages'), 0)      AS chat_messages,
+          COALESCE((SELECT n_live_tup::int FROM pg_stat_user_tables
+                    WHERE relname = 'self_healing_events'), 0) AS self_healing_events
       `
         )
         .then(r => r.rows[0] || {})
@@ -146,29 +153,44 @@ router.get(
     const criticals = [];
     const warnings = [];
 
-    if (backup.stale)
-      {criticals.push(
+    if (backup.stale) {
+      criticals.push(
         `Backup ${backup.status === 'missing' ? 'missing' : 'stale'} (${backup.ageHours ?? '?'}h old)`
-      );}
-    if (drill.status === 'never_run') {warnings.push('Restore-Drill wurde nie ausgeführt');}
-    else if (drill.stale) {warnings.push(`Letzter Restore-Drill ${drill.ageDays} Tage alt`);}
-    if (serviceHealth.down > 0)
-      {criticals.push(
+      );
+    }
+    if (drill.status === 'never_run') {
+      warnings.push('Restore-Drill wurde nie ausgeführt');
+    } else if (drill.stale) {
+      warnings.push(`Letzter Restore-Drill ${drill.ageDays} Tage alt`);
+    }
+    if (serviceHealth.down > 0) {
+      criticals.push(
         `${serviceHealth.down} Service(s) offline: ${serviceHealth.down_services.join(', ')}`
-      );}
-    if (alerts.length > 0) {warnings.push(`${alerts.length} unbestätigte Alerts`);}
-    if (unsent.unsent_critical > 0)
-      {criticals.push(`${unsent.unsent_critical} kritische Benachrichtigungen unversandt`);}
-    if (metrics.disk_percent > 90)
-      {criticals.push(`Disk-Nutzung kritisch (${metrics.disk_percent}%)`);}
-    else if (metrics.disk_percent > 80)
-      {warnings.push(`Disk-Nutzung hoch (${metrics.disk_percent}%)`);}
-    if (metrics.temperature > 85) {criticals.push(`Temperatur kritisch (${metrics.temperature}°C)`);}
-    else if (metrics.temperature > 80) {warnings.push(`Temperatur hoch (${metrics.temperature}°C)`);}
+      );
+    }
+    if (alerts.length > 0) {
+      warnings.push(`${alerts.length} unbestätigte Alerts`);
+    }
+    if (unsent.unsent_critical > 0) {
+      criticals.push(`${unsent.unsent_critical} kritische Benachrichtigungen unversandt`);
+    }
+    if (metrics.disk_percent > 90) {
+      criticals.push(`Disk-Nutzung kritisch (${metrics.disk_percent}%)`);
+    } else if (metrics.disk_percent > 80) {
+      warnings.push(`Disk-Nutzung hoch (${metrics.disk_percent}%)`);
+    }
+    if (metrics.temperature > 85) {
+      criticals.push(`Temperatur kritisch (${metrics.temperature}°C)`);
+    } else if (metrics.temperature > 80) {
+      warnings.push(`Temperatur hoch (${metrics.temperature}°C)`);
+    }
 
     let status = 'OK';
-    if (criticals.length > 0) {status = 'CRITICAL';}
-    else if (warnings.length > 0) {status = 'WARNING';}
+    if (criticals.length > 0) {
+      status = 'CRITICAL';
+    } else if (warnings.length > 0) {
+      status = 'WARNING';
+    }
 
     res.json({
       status,
