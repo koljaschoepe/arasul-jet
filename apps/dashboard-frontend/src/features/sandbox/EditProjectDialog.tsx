@@ -28,7 +28,10 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Populate fields when project changes
+  // P2.7.2: only re-populate fields when the project ID changes (i.e. a
+  // different project was opened), not on every prop reference change.
+  // Without this, a parent re-fetch that returns a refreshed project object
+  // wipes the user's unsaved name/description/networkMode edits.
   useEffect(() => {
     if (project) {
       setName(project.name || '');
@@ -36,7 +39,8 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
       setNetworkMode(project.network_mode === 'internal' ? 'internal' : 'isolated');
       setError(null);
     }
-  }, [project]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
 
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();

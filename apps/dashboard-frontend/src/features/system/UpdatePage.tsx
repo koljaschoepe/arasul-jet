@@ -446,7 +446,16 @@ const UpdatePage = () => {
 
             <Button
               onClick={handleUpload}
-              disabled={!selectedFile || !signatureFile}
+              // P2.7.4: also disable while upload/validation/apply is in
+              // flight. Without this, a fast double-click re-triggers
+              // handleUpload while the previous run is still ongoing.
+              disabled={
+                !selectedFile ||
+                !signatureFile ||
+                uploadStatus === 'uploading' ||
+                uploadStatus === 'validated' ||
+                uploadStatus === 'applying'
+              }
               className="w-full"
             >
               Hochladen & Validieren

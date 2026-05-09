@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
+import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
 import type { SandboxProject } from './types';
 
 interface CreateProjectDialogProps {
@@ -49,7 +50,7 @@ export default function CreateProjectDialog({
           name: name.trim(),
           description: description.trim() || null,
           icon: 'terminal',
-          color: '#45ADFF',
+          color: DEFAULT_PROJECT_COLOR,
           network_mode: networkMode,
         },
         { showError: false }

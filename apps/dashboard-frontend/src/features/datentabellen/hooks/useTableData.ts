@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, type MutableRefObject } from 'react';
+import { useState, useCallback, useRef, useEffect, type MutableRefObject } from 'react';
 import { useApi } from '../../../hooks/useApi';
 import { useToast } from '../../../contexts/ToastContext';
 import useExcelHistory from '../useExcelHistory';
@@ -68,6 +68,25 @@ export default function useTableData({
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handleCellSaveRef = useRef<CellSaveFn>(null) as MutableRefObject<CellSaveFn>;
+
+  // P2.9.2: tracked setTimeout for the save-status reset. Without this, a
+  // pending setTimeout fires setSaveStatus(null) on an unmounted hook.
+  const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleSaveStatusReset = useCallback(() => {
+    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+    saveStatusTimerRef.current = setTimeout(() => {
+      setSaveStatus(null);
+      saveStatusTimerRef.current = null;
+    }, 2000);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (saveStatusTimerRef.current) {
+        clearTimeout(saveStatusTimerRef.current);
+        saveStatusTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // History (undo/redo)
   const {
@@ -146,7 +165,7 @@ export default function useTableData({
         if (onRowCreated) onRowCreated();
         await loadTable();
         setSaveStatus('success');
-        setTimeout(() => setSaveStatus(null), 2000);
+        scheduleSaveStatusReset();
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : String(err));
         setSaveStatus('error');
@@ -203,7 +222,7 @@ export default function useTableData({
         }
 
         setSaveStatus('success');
-        setTimeout(() => setSaveStatus(null), 2000);
+        scheduleSaveStatusReset();
       } catch {
         await loadTable();
         setSaveStatus('error');
@@ -228,7 +247,7 @@ export default function useTableData({
       );
       await loadTable();
       setSaveStatus('success');
-      setTimeout(() => setSaveStatus(null), 2000);
+      scheduleSaveStatusReset();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
       setSaveStatus('error');
@@ -461,7 +480,7 @@ export default function useTableData({
         await loadTable();
         toast.success(`${totalInserted} Zeile(n) importiert`);
         setSaveStatus('success');
-        setTimeout(() => setSaveStatus(null), 2000);
+        scheduleSaveStatusReset();
       } catch (err: unknown) {
         toast.error(`Import fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
         setSaveStatus('error');

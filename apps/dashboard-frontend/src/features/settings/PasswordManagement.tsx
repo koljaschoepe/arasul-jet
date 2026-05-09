@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
+import { useAuth } from '../../contexts/AuthContext';
 import useConfirm from '../../hooks/useConfirm';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
@@ -51,6 +52,7 @@ const SERVICES: { id: ServiceId; label: string; icon: React.ReactNode }[] = [
 function PasswordManagement() {
   const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
+  const { logout } = useAuth();
   const [activeService, setActiveService] = useState<ServiceId>('dashboard');
   const [passwords, setPasswords] = useState<Record<ServiceId, PasswordFields>>({
     dashboard: { current: '', new: '', confirm: '' },
@@ -192,10 +194,15 @@ function PasswordManagement() {
       }));
 
       if (activeService === 'dashboard') {
+        // P2.1.5: previous code did setTimeout + localStorage.removeItem +
+        // location.href, which kept the just-changed-from token valid for its
+        // full TTL because no /auth/logout was called. Properly blacklist the
+        // token server-side now and clear React Query cache + cookies via
+        // AuthContext.logout().
         setTimeout(() => {
-          localStorage.removeItem('arasul_token');
-          localStorage.removeItem('arasul_user');
-          window.location.href = '/';
+          logout().finally(() => {
+            window.location.href = '/';
+          });
         }, 2000);
       }
     } catch (error: unknown) {
@@ -224,6 +231,10 @@ function PasswordManagement() {
           onChange={e => handleInputChange(activeService, field, e.target.value)}
           placeholder={placeholder}
           required
+          // P2.7.5: signal correct intent to the browser's password manager.
+          // Without this hint, browsers may try to autofill the new-password
+          // field with the current saved password.
+          autoComplete={field === 'current' ? 'current-password' : 'new-password'}
           className="pr-10"
         />
         <Button
@@ -276,8 +287,15 @@ function PasswordManagement() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {renderPasswordField(
             'current',
-            'Aktuelles Dashboard-Passwort',
-            'Dashboard-Passwort eingeben',
+            // P2.1.6: previous code hardcoded "Dashboard-Passwort" labels even
+            // for MinIO. The hint text branched correctly but label/placeholder
+            // misled MinIO password-change flows.
+            activeService === 'dashboard'
+              ? 'Aktuelles Dashboard-Passwort'
+              : 'Aktuelles Dashboard-Admin-Passwort',
+            activeService === 'dashboard'
+              ? 'Dashboard-Passwort eingeben'
+              : 'Dashboard-Admin-Passwort eingeben',
             activeService === 'dashboard'
               ? 'Zur Sicherheit wird Ihr aktuelles Passwort benötigt'
               : 'Zur Bestätigung wird Ihr Dashboard-Admin-Passwort benötigt'

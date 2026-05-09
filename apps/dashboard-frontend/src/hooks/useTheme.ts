@@ -12,8 +12,10 @@ function getSystemTheme(): Theme {
 function getInitialTheme(): Theme {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved === 'dark' || saved === 'light') return saved;
-  // Default to dark — this is a Jetson edge device dashboard designed for dark mode
-  return 'dark';
+  // P2.6.1: respect prefers-color-scheme on first visit instead of forcing
+  // dark. The mq listener below already updates on changes; without this
+  // the user must toggle once (and clear storage) to ever see system pref.
+  return getSystemTheme();
 }
 
 export function useTheme() {

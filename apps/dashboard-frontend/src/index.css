@@ -3782,8 +3782,11 @@ button.service-link-card.telegram-app-card:focus {
   outline-offset: 2px;
 }
 
+/* Telegram brand colors — kept literal because they're not part of our theme
+   (Telegram's brand, not Arasul's). Removed !important so component-level
+   overrides remain possible (P2.10.3). */
 .telegram-icon {
-  background: linear-gradient(135deg, #0088cc, #00aaff) !important;
+  background: linear-gradient(135deg, #0088cc, #00aaff);
 }
 
 .service-link-badge {

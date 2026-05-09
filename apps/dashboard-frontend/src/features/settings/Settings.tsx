@@ -8,6 +8,7 @@ import {
   Server,
   User,
   Globe,
+  ShieldAlert,
 } from 'lucide-react';
 import UpdatePage from '../system/UpdatePage';
 import SelfHealingEvents from '../system/SelfHealingEvents';
@@ -20,6 +21,7 @@ import { AIProfileSettings } from './AIProfileSettings';
 import { ServicesSettings } from './ServicesSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { RemoteAccessSettings } from './RemoteAccessSettings';
+import { PrivacySettings } from './PrivacySettings';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -52,6 +54,12 @@ const sections: Section[] = [
     label: 'Sicherheit',
     icon: <Lock className="size-5" />,
     description: 'Passwörter und Zugriffsverwaltung',
+  },
+  {
+    id: 'privacy',
+    label: 'Datenschutz',
+    icon: <ShieldAlert className="size-5" />,
+    description: 'DSGVO: Auskunft und Löschung',
   },
   {
     id: 'services',
@@ -131,6 +139,12 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
         return (
           <ComponentErrorBoundary componentName="Fernzugriff">
             <RemoteAccessSettings />
+          </ComponentErrorBoundary>
+        );
+      case 'privacy':
+        return (
+          <ComponentErrorBoundary componentName="Datenschutz">
+            <PrivacySettings />
           </ComponentErrorBoundary>
         );
       case 'updates':

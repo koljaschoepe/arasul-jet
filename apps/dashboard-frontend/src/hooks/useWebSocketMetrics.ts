@@ -46,9 +46,16 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
   const lastDataTimeRef = useRef<number>(0);
   const staleCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Calculate reconnection delay with exponential backoff and jitter
+  // Calculate reconnection delay with exponential backoff and jitter.
+  // P7.1: the very first reconnect attempt now uses a wider random window
+  // (0–5s) instead of the deterministic 1s ±25% — when the backend restarts,
+  // every connected dashboard tab tried to reconnect within the same ~750ms
+  // window, hammering the server. Wide jitter on attempt 0 spreads the herd.
   const calculateReconnectDelay = useCallback((attempt: number): number => {
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
+    if (attempt === 0) {
+      return Math.floor(Math.random() * 5000); // 0–5s for the thundering-herd buffer
+    }
+    // Exponential backoff: 2s, 4s, 8s, 16s, max 30s
     const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
     // Add jitter ±25%
     const jitter = delay * 0.25 * (Math.random() * 2 - 1);
@@ -86,9 +93,10 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       const elapsed = Date.now() - lastDataTimeRef.current;
-      // HEARTBEAT-FIX: Increased from 15s to 20s — server heartbeat is 15s,
-      // so 15s stale check races with heartbeat arrival
-      if (lastDataTimeRef.current > 0 && elapsed > 20000) {
+      // P7.4: increased to 30s. Server heartbeat is 15s; 20s threshold flapped
+      // under load when a single ping was momentarily delayed. 30s gives a 15s
+      // grace window before declaring the connection stale.
+      if (lastDataTimeRef.current > 0 && elapsed > 30000) {
         // Connection is stale - force close to trigger reconnect
         ws.close();
       }

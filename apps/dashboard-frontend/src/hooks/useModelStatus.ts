@@ -107,6 +107,17 @@ export default function useModelStatus(): ModelStatusData {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // P2.9.1: abort any in-flight load-LLM SSE streams. Without this, the
+      // fetch readers stay open and try to setLoadingStatus / setError on
+      // an unmounted hook.
+      for (const ctrl of Object.values(abortRefs.current)) {
+        try {
+          ctrl.abort();
+        } catch {
+          /* swallow */
+        }
+      }
+      abortRefs.current = {};
     };
   }, [fetchData]);
 

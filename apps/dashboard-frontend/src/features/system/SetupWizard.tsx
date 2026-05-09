@@ -834,7 +834,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                         setNewPassword(e.target.value);
                         setPasswordTouched(true);
                       }}
-                      placeholder="Mindestens 4 Zeichen"
+                      placeholder={`Mindestens ${pwMinLength} Zeichen`}
                       autoComplete="new-password"
                       className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
                     />

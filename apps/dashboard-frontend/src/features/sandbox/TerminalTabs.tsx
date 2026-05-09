@@ -16,6 +16,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
 import type { SandboxProject } from './types';
 
 interface TerminalTabsProps {
@@ -48,12 +49,23 @@ export default function TerminalTabs({
       {/* Tabs */}
       <div className="flex items-center flex-1 min-w-0 overflow-x-auto scrollbar-none">
         {openTabs.map(tab => (
-          <button
+          // P2.11.1: outer is now a role="tab" div, not a <button>. Nested
+          // <button> inside <button> is invalid HTML and confuses screen
+          // readers. Keyboard semantics are preserved via tabIndex + Enter/Space.
+          <div
             key={tab.id}
-            type="button"
+            role="tab"
+            tabIndex={0}
+            aria-selected={tab.id === activeTabId}
             onClick={() => onSelectTab(tab.id)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectTab(tab.id);
+              }
+            }}
             className={cn(
-              'group flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-r border-border shrink-0 transition-all duration-150 max-w-[180px]',
+              'group flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-r border-border shrink-0 transition-all duration-150 max-w-[180px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
               tab.id === activeTabId
                 ? 'bg-muted text-foreground border-b-2 border-b-primary'
                 : 'bg-background text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -61,7 +73,7 @@ export default function TerminalTabs({
           >
             <div
               className="w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: tab.color || '#45ADFF' }}
+              style={{ backgroundColor: tab.color || DEFAULT_PROJECT_COLOR }}
             />
             <span className="truncate">{tab.name}</span>
             {tab.container_status === 'running' && (
@@ -75,10 +87,11 @@ export default function TerminalTabs({
               }}
               className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity duration-150 shrink-0"
               title="Tab schließen"
+              aria-label={`Tab ${tab.name} schließen`}
             >
               <X className="size-3" />
             </button>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -108,7 +121,7 @@ export default function TerminalTabs({
                 >
                   <div
                     className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: project.color || '#45ADFF' }}
+                    style={{ backgroundColor: project.color || DEFAULT_PROJECT_COLOR }}
                   />
                   <span className="truncate">{project.name}</span>
                   {project.container_status === 'running' && (

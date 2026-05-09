@@ -105,25 +105,32 @@ export const TableStatusBadge: React.FC<TableStatusBadgeProps> = ({ status }) =>
 
 // -- IndexStatusBadge --
 
-type IndexStatus = 'indexed' | 'stale' | 'not_indexed';
+type IndexStatus = 'indexed' | 'stale' | 'not_indexed' | 'failed';
 
 interface IndexStatusBadgeProps {
   needsReindex?: boolean;
   lastIndexedAt?: string | null;
+  // P2.5.5: backend's Phase-4.8 watchdog now flips poison documents to
+  // 'failed'. The badge needs a state for that, otherwise such tables look
+  // identical to "stale" and the user thinks a re-index will help.
+  indexStatus?: 'indexed' | 'stale' | 'failed' | 'not_indexed' | null;
 }
 
 export const IndexStatusBadge: React.FC<IndexStatusBadgeProps> = ({
   needsReindex,
   lastIndexedAt,
+  indexStatus,
 }) => {
   let status: IndexStatus = 'not_indexed';
-  if (lastIndexedAt && !needsReindex) status = 'indexed';
+  if (indexStatus === 'failed') status = 'failed';
+  else if (lastIndexedAt && !needsReindex) status = 'indexed';
   else if (lastIndexedAt && needsReindex) status = 'stale';
 
   const config: Record<IndexStatus, StatusConfig> = {
     indexed: { icon: Check, label: 'Indexiert', badge: 'success' },
     stale: { icon: RefreshCw, label: 'Veraltet', badge: 'warning' },
     not_indexed: { icon: Clock, label: 'Nicht indexiert', badge: 'neutral' },
+    failed: { icon: AlertCircle, label: 'Indexierung fehlgeschlagen', badge: 'error' },
   };
 
   const c = config[status];

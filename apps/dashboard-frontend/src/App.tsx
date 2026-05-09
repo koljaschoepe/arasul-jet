@@ -254,6 +254,36 @@ function AppContent(): React.JSX.Element | null {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleSidebar]);
 
+  // P2.5.1: prevent the browser from navigating to a file when the user drops
+  // it outside of a designated drop zone. Without this, a stray drop on the
+  // sidebar / chat area unloads the SPA. Each component's own drop zone calls
+  // preventDefault before this listener fires (React event bubbling reaches
+  // the component first; window listener is fallback).
+  useEffect(() => {
+    const swallow = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('dragover', swallow);
+    window.addEventListener('drop', swallow);
+    return () => {
+      window.removeEventListener('dragover', swallow);
+      window.removeEventListener('drop', swallow);
+    };
+  }, []);
+
+  // P2.1.8 (post-review fix): capture deep-link target in a useEffect, not
+  // during render body. This runs once when isAuthenticated flips to false,
+  // captures the URL the user was on at that moment, and stores it for
+  // handleLoginSuccess to replay.
+  useEffect(() => {
+    if (isAuthenticated) return;
+    if (authLoading) return;
+    const currentPath = window.location.pathname + window.location.search;
+    if (currentPath !== '/' && !sessionStorage.getItem('arasul_login_redirect')) {
+      sessionStorage.setItem('arasul_login_redirect', currentPath);
+    }
+  }, [isAuthenticated, authLoading]);
+
   // Fetch initial dashboard data
   const fetchData = useCallback(
     async (signal?: AbortSignal) => {
@@ -379,6 +409,18 @@ function AppContent(): React.JSX.Element | null {
     (data: { user: { id: number; username: string }; token?: string }) => {
       login(data);
       setLoading(true);
+      // P2.1.8: Restore deep-link target after login. The Login component is
+      // rendered outside <Router>, so we cannot useNavigate(); instead we
+      // captured the original pathname before render and replay it via
+      // window.location after login. window.location.replace avoids polluting
+      // the history with the login screen.
+      const redirect = sessionStorage.getItem('arasul_login_redirect');
+      if (redirect) {
+        sessionStorage.removeItem('arasul_login_redirect');
+        if (redirect !== '/' && redirect !== window.location.pathname) {
+          window.location.replace(redirect);
+        }
+      }
     },
     [login]
   );
@@ -477,6 +519,8 @@ function AppContent(): React.JSX.Element | null {
                     Jetzt laden
                   </button>
                   <button
+                    type="button"
+                    aria-label="Update-Benachrichtigung schließen"
                     className="ml-2 opacity-70 hover:opacity-100"
                     onClick={() => {
                       setUpdateAvailable(false);

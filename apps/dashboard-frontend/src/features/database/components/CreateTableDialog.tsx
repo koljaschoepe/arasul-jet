@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
+import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
 
 interface CreateTableDialogProps {
   isOpen: boolean;
@@ -38,7 +39,7 @@ const CreateTableDialog = memo(function CreateTableDialog({
           name: name.trim(),
           description: description.trim() || null,
           icon: '\u{1F4E6}',
-          color: '#45ADFF',
+          color: DEFAULT_PROJECT_COLOR,
         },
         { showError: false }
       );

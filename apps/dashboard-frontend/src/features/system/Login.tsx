@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,6 +28,17 @@ interface LoginProps {
 function Login({ onLoginSuccess }: LoginProps) {
   const api = useApi();
   const [error, setError] = useState('');
+  // P2.9.3: AbortController + mounted-flag so the login fetch does not write
+  // localStorage / call onLoginSuccess on an unmounted component if the user
+  // closes the tab right after pressing submit.
+  const submitAbortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      submitAbortRef.current?.abort();
+    };
+  }, []);
 
   const {
     register,
@@ -45,12 +56,20 @@ function Login({ onLoginSuccess }: LoginProps) {
 
   const onSubmit = async (values: LoginFormValues) => {
     setError('');
+    submitAbortRef.current?.abort();
+    submitAbortRef.current = new AbortController();
     try {
-      const data = await api.post<LoginResponseData>('/auth/login', values, { showError: false });
+      const data = await api.post<LoginResponseData>('/auth/login', values, {
+        showError: false,
+        signal: submitAbortRef.current.signal,
+      });
+      if (!mountedRef.current) return;
       localStorage.setItem('arasul_token', data.token);
       localStorage.setItem('arasul_user', JSON.stringify(data.user));
       onLoginSuccess(data);
     } catch (err: unknown) {
+      if (!mountedRef.current) return;
+      if ((err as Error)?.name === 'AbortError') return;
       console.error('Login error:', err);
       const e = err as { message?: string };
       setError(e.message || 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.');

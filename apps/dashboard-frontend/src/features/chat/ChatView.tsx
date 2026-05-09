@@ -85,9 +85,13 @@ export default function ChatView() {
       setIsLoading(bgLoading);
     }
 
-    registerMessageCallback(chatId, { setMessages, setIsLoading, setError });
-    // Don't clear background state yet — wait until DB messages are loaded
-    // This prevents losing streaming content if DB hasn't persisted yet
+    // P2.2.9: Do NOT register the message callback before init() resolves.
+    // Previously the registration happened immediately, so tokens flushed via
+    // routedSetMessages would land in local setMessages while init was still
+    // awaiting; init.setMessages(msgResult.messages) then overwrote those
+    // live tokens. By deferring registration, tokens that arrive during
+    // init() go to the background buffer (no callback yet), and the merge
+    // logic below handles the bg-vs-db case.
 
     const init = async () => {
       try {
@@ -111,10 +115,15 @@ export default function ChatView() {
         setCurrentProject(chatData.project || null);
         setChatSettings(chatData.chat.settings || null);
 
+        // Re-read the background buffer NOW (it may have grown while we were
+        // awaiting the API). The background buffer only collects when no
+        // callback is registered, which is true while init() is in flight.
+        const latestBg = getBackgroundMessages(chatId) || bgMessages;
+
         // Merge strategy: prefer DB messages, but keep background content if DB is stale
         // This handles the case where completeJob() hasn't finished yet
-        if (bgMessages && bgMessages.length > 0) {
-          const lastBgAssistant = [...bgMessages].reverse().find(m => m.role === 'assistant');
+        if (latestBg && latestBg.length > 0) {
+          const lastBgAssistant = [...latestBg].reverse().find(m => m.role === 'assistant');
           const lastDbAssistant = [...msgResult.messages]
             .reverse()
             .find(m => m.role === 'assistant');
@@ -126,7 +135,7 @@ export default function ChatView() {
           if (bgHasContent && !dbHasContent) {
             // Background has content but DB doesn't yet — keep background messages
             // DB-SYNC will eventually update from the inline recovery
-            setMessages(bgMessages);
+            setMessages(latestBg);
           } else {
             setMessages(msgResult.messages);
           }
@@ -136,6 +145,10 @@ export default function ChatView() {
 
         setHasMoreMessages(msgResult.hasMore);
         setLoadingMessages(false);
+
+        // Register callback AFTER local state is consistent with DB+bg merge.
+        // From here on, any further token flushes go to local setMessages.
+        registerMessageCallback(chatId, { setMessages, setIsLoading, setError });
 
         // Now safe to clear background state
         clearBackgroundState(chatId);
@@ -240,6 +253,13 @@ export default function ChatView() {
       if (e.key !== 'Escape') return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      // P2.8.2: don't navigate away while a dialog/modal is open — Esc should
+      // close the modal first. shadcn dialogs use role="dialog" + a data-state
+      // attribute when open; we check both as a defensive heuristic.
+      const dialogOpen = document.querySelector(
+        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'
+      );
+      if (dialogOpen) return;
       localStorage.removeItem('arasul_last_chat_id');
       navigate('/chat');
     };

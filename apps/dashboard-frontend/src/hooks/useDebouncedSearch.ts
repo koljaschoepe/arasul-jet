@@ -39,8 +39,13 @@ export function useDebouncedSearch<T>(
   const searcherRef = useRef(searcher);
   searcherRef.current = searcher;
 
-  // Serialize extra deps to use as a single stable dependency
-  const depsKey = deps ? JSON.stringify(deps) : '';
+  // P9.1: serialize extra deps via a primitive-only join so non-stringifiable
+  // values (Date, function, undefined) don't silently break re-runs the way
+  // JSON.stringify does. Caller must pass primitives; objects are coerced
+  // via String() so reference-changes still register.
+  const depsKey = deps
+    ? deps.map(v => (v === null || v === undefined ? '' : String(v))).join('|')
+    : '';
 
   useEffect(() => {
     const trimmed = query.trim();

@@ -95,13 +95,16 @@ export default function useDocumentActions({
 
   const handleDownload = useCallback(
     async (docId: string, filename: string) => {
+      // P2.5.2: revokeObjectURL after the download to free the blob backing.
+      // Without it, every download leaks ~1×file_size bytes until page unload.
+      let url: string | null = null;
       try {
         const response = await api.get(`/documents/${docId}/download`, {
           raw: true,
           showError: false,
         });
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+        url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', filename);
@@ -110,6 +113,11 @@ export default function useDocumentActions({
         link.remove();
       } catch (err) {
         setError('Fehler beim Download');
+      } finally {
+        if (url) {
+          // Defer revocation by one tick — some browsers race the click vs revoke.
+          setTimeout(() => window.URL.revokeObjectURL(url!), 0);
+        }
       }
     },
     [api, setError]

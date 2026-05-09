@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
+import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
 
 const descriptionTemplate = `**Inhalt:** Beschreiben Sie, welche Dokumente dieser Bereich enthält.
 
@@ -86,7 +87,7 @@ const SpaceModal = memo(function SpaceModal({
         name: name.trim(),
         description: description.trim(),
         icon: space?.icon || 'folder',
-        color: space?.color || '#45ADFF',
+        color: space?.color || DEFAULT_PROJECT_COLOR,
       };
 
       let data;

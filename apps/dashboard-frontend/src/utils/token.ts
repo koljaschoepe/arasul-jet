@@ -13,6 +13,22 @@ interface JwtPayload {
 }
 
 /**
+ * Decode a JWT base64url payload. JWT uses base64url (`-`/`_`/no padding),
+ * `atob` only accepts standard base64 (`+`/`/`/with padding). The conversion
+ * here is what RFC 7519 §5.1 specifies. Without it, payloads containing the
+ * URL-safe characters throw `InvalidCharacterError` in some browsers, the
+ * caller falls into the catch, and an unparseable (potentially expired)
+ * token is returned unchecked.
+ */
+function decodeBase64UrlJson(segment: string): JwtPayload {
+  const padded = segment
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .padEnd(segment.length + ((4 - (segment.length % 4)) % 4), '=');
+  return JSON.parse(atob(padded));
+}
+
+/**
  * Get the authentication token from localStorage with validation
  *
  * @returns Valid token or null if invalid/expired
@@ -34,8 +50,8 @@ export const getValidToken = (): string | null => {
 
   // Check if token is expired
   try {
-    // Decode the payload (second part of JWT)
-    const payload: JwtPayload = JSON.parse(atob(parts[1]));
+    // Decode the payload (second part of JWT) — base64url, not standard base64.
+    const payload: JwtPayload = decodeBase64UrlJson(parts[1]);
 
     // Check expiration if present
     if (payload.exp) {
@@ -93,7 +109,7 @@ export const getTokenExpiration = (): Date | null => {
       return null;
     }
 
-    const payload: JwtPayload = JSON.parse(atob(parts[1]));
+    const payload: JwtPayload = decodeBase64UrlJson(parts[1]);
     if (payload.exp) {
       return new Date(payload.exp * 1000);
     }

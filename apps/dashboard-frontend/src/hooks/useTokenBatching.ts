@@ -1,6 +1,7 @@
 import {
   useRef,
   useCallback,
+  useEffect,
   type Dispatch,
   type SetStateAction,
   type MutableRefObject,
@@ -49,6 +50,11 @@ export default function useTokenBatching(
     pendingThinking: '',
   });
   const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // P2.2.6: hold the latest assistantMessageIndex in a ref so a pending
+  // setTimeout flushes against the CURRENT index, not the one captured when
+  // the timer was first scheduled. Without this, compaction-induced index
+  // shifts (ChatContext line ~998) would write tokens into the previous slot.
+  const indexRef = useRef<number>(-1);
 
   // Flush batched tokens to state - called periodically or when stream ends
   // RC-001 FIX: Added index validation and warning for out-of-bounds access
@@ -91,18 +97,17 @@ export default function useTokenBatching(
     [setMessages]
   );
 
-  // Schedule a batched flush if not already scheduled
-  const scheduleTokenFlush = useCallback(
-    (assistantMessageIndex: number) => {
-      if (!batchTimerRef.current) {
-        batchTimerRef.current = setTimeout(() => {
-          flushTokenBatch(assistantMessageIndex);
-          batchTimerRef.current = null;
-        }, batchIntervalMs);
-      }
-    },
-    [flushTokenBatch, batchIntervalMs]
-  );
+  // Schedule a batched flush if not already scheduled. The setTimeout reads
+  // the current index from the ref (not from this closure) so compaction
+  // shifts during the BATCH_INTERVAL_MS window do not misroute tokens.
+  const scheduleTokenFlush = useCallback(() => {
+    if (!batchTimerRef.current) {
+      batchTimerRef.current = setTimeout(() => {
+        flushTokenBatch(indexRef.current);
+        batchTimerRef.current = null;
+      }, batchIntervalMs);
+    }
+  }, [flushTokenBatch, batchIntervalMs]);
 
   // Add token to batch (instead of immediately updating state)
   const addTokenToBatch = useCallback(
@@ -112,7 +117,8 @@ export default function useTokenBatching(
       } else if (type === 'thinking') {
         tokenBatchRef.current.pendingThinking += token;
       }
-      scheduleTokenFlush(assistantMessageIndex);
+      indexRef.current = assistantMessageIndex;
+      scheduleTokenFlush();
     },
     [scheduleTokenFlush]
   );
@@ -124,6 +130,18 @@ export default function useTokenBatching(
       clearTimeout(batchTimerRef.current);
       batchTimerRef.current = null;
     }
+    indexRef.current = -1;
+  }, []);
+
+  // P2.2.5: clear any pending setTimeout on unmount so it cannot fire
+  // setMessages on a dead component during fast chat-tab switches.
+  useEffect(() => {
+    return () => {
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = null;
+      }
+    };
   }, []);
 
   return {

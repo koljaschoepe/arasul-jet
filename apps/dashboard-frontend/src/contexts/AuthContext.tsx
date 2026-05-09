@@ -17,6 +17,7 @@ import React, {
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { getCsrfToken } from '../utils/csrf';
 import { getTokenExpiration } from '../utils/token';
+import { queryClient } from '../lib/queryClient';
 
 interface User {
   id: number;
@@ -35,7 +36,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (data: LoginData) => void;
   logout: () => Promise<void>;
-  checkAuth: () => Promise<boolean>;
+  checkAuth: (signal?: AbortSignal) => Promise<boolean>;
   setLoadingComplete: () => void;
 }
 
@@ -52,12 +53,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Check for existing session on mount
-  const checkAuth = useCallback(async () => {
+  // Check for existing session on mount.
+  // P2.1.1: Do NOT revive auth from localStorage cache on network error —
+  // the server may have revoked the token. Better to surface "checking…" and
+  // let the user retry than to silently reanimate a revoked session.
+  // P2.1.4: AbortController so that StrictMode double-invokes and rapid
+  // logout-during-checkAuth do not race.
+  const checkAuth = useCallback(async (signal?: AbortSignal) => {
     try {
-      // Try to verify with backend using stored token
       const response = await fetch(`${API_BASE}/auth/me`, {
         headers: getAuthHeaders(),
+        signal,
       });
 
       if (response.ok) {
@@ -65,7 +71,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (data.user) {
           setIsAuthenticated(true);
           setUser(data.user);
-          // Sync localStorage for consistency
           localStorage.setItem('arasul_user', JSON.stringify(data.user));
           setLoading(false);
           return true;
@@ -80,24 +85,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false);
       return false;
     } catch (err) {
-      // Network error - use cached user data instead of forcing logout
-      const cachedUser = localStorage.getItem('arasul_user');
-      const cachedToken = localStorage.getItem('arasul_token');
-      if (cachedUser && cachedToken) {
-        try {
-          const userData = JSON.parse(cachedUser);
-          setIsAuthenticated(true);
-          setUser(userData);
-          setLoading(false);
-          console.warn('Auth check failed (network error), using cached credentials');
-          return true;
-        } catch {
-          // Corrupted cache - fall through to cleanup
-        }
+      // Aborted because the component unmounted or a fresh check was queued.
+      // Do not mutate state here — the next caller owns it.
+      if ((err as Error)?.name === 'AbortError') {
+        return false;
       }
-      // No cached data - clean up
-      localStorage.removeItem('arasul_token');
-      localStorage.removeItem('arasul_user');
+      // Network error: do NOT restore from localStorage (would revive revoked
+      // tokens). Surface the failure as "not authenticated, please re-login".
+      // The user can retry by reloading; UI already handles isAuthenticated=false.
+      console.warn('Auth check failed (network error)');
       setIsAuthenticated(false);
       setUser(null);
       setLoading(false);
@@ -105,9 +101,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  // Verify auth on mount
+  // Verify auth on mount with AbortController so StrictMode double-mount /
+  // rapid unmount don't write stale auth state.
   useEffect(() => {
-    checkAuth();
+    const controller = new AbortController();
+    checkAuth(controller.signal);
+    return () => controller.abort();
   }, [checkAuth]);
 
   // Handle login success
@@ -119,7 +118,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Note: Loading state is managed by App.js dataLoading, not here
   }, []);
 
-  // Handle logout
+  // P2.1.3: Cross-user data leak — logout() must clear the React Query cache
+  // BEFORE flipping isAuthenticated. Otherwise the next user's mount sees the
+  // previous user's chats/projects/documents until each query refetches.
   const logout = useCallback(async () => {
     try {
       const headers: Record<string, string> = getAuthHeaders();
@@ -134,8 +135,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
+      // Wipe all client-side state that could leak across users.
+      queryClient.clear();
       localStorage.removeItem('arasul_token');
       localStorage.removeItem('arasul_user');
+      // arasul_csrf is a cookie, not localStorage — clear it explicitly.
+      document.cookie = 'arasul_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
       setIsAuthenticated(false);
       setUser(null);
     }
@@ -175,6 +180,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const interval = setInterval(checkExpiration, 60000);
     return () => clearInterval(interval);
   }, [isAuthenticated, logout]);
+
+  // P2.1.7: Cross-tab logout sync. If another tab clears the token (logout
+  // there, password change, etc.), this tab should follow immediately
+  // instead of waiting for its next API call to 401.
+  useEffect(() => {
+    const handler = (event: StorageEvent) => {
+      if (event.key === 'arasul_token' && !event.newValue && isAuthenticated) {
+        // Clear local state without an extra logout API call (the other tab
+        // already invalidated server-side).
+        queryClient.clear();
+        localStorage.removeItem('arasul_user');
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, [isAuthenticated]);
 
   const value = useMemo(
     () => ({

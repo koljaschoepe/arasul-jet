@@ -23,6 +23,7 @@ import {
 import { Badge } from '@/components/ui/shadcn/badge';
 import { Button } from '@/components/ui/shadcn/button';
 import { useDownloads } from '../../contexts/DownloadContext';
+import useConfirm from '../../hooks/useConfirm';
 import { useActivation } from '../../contexts/ActivationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useApi } from '../../hooks/useApi';
@@ -96,6 +97,7 @@ interface Recommendations {
 function StoreHome({ systemInfo }: StoreHomeProps) {
   const api = useApi();
   const toast = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [recommendations, setRecommendations] = useState<Recommendations>({ models: [], apps: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,7 +181,15 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
   };
 
   // Handle model deletion
+  // P2.4.3: confirm dialog before destructive delete (StoreModels does this,
+  // StoreHome did not — inconsistent + dangerous on a single click).
   const handleModelDelete = async (modelId: string) => {
+    const ok = await confirm({
+      title: 'Modell löschen',
+      message: `Modell „${modelId}" wirklich löschen? Der Download muss neu erfolgen, falls du es später wieder brauchst.`,
+      confirmText: 'Löschen',
+    });
+    if (!ok) return;
     setActionLoading(prev => ({ ...prev, [modelId]: 'deleting' }));
     try {
       await api.del(`/models/${modelId}`, { showError: false });
@@ -243,6 +253,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
 
   return (
     <div className="store-home flex flex-col gap-8">
+      {ConfirmDialog}
       {/* Loaded Model Banner */}
       {loadedModel && (
         <div className="loaded-model-banner flex items-center justify-between bg-primary/10 border border-primary rounded-lg px-6 py-4 mb-6 flex-wrap gap-4">
@@ -289,7 +300,14 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
         <div className="model-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
           {recommendations.models.slice(0, 4).map(model => {
             const isReady = model.install_status === 'available';
-            const isLoaded = loadedModel?.model_id === model.id;
+            // P2.4.4: backend may report loaded_model.model_id as either the
+            // catalog ID ("qwen3-7b") or the effective ollama name ("qwen3:7b").
+            // StoreModels.tsx checks both — match here for consistency, otherwise
+            // the "Aktiv" badge is missing on the home page when ollama-name is
+            // returned.
+            const isLoaded =
+              loadedModel?.model_id === model.id ||
+              loadedModel?.model_id === model.effective_ollama_name;
             const modelIsDownloading = isDownloading(model.id);
             const downloadState = getDownloadState(model.id);
             const isActivating = activation?.modelId === model.id && !activation?.error;

@@ -18,7 +18,7 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
   const navigate = useNavigate();
   const api = useApi();
   const toast = useToast();
-  const { activeJobIds } = useChatContext();
+  const { activeJobIds, cleanupChat } = useChatContext();
   const { confirm, ConfirmDialog } = useConfirm();
 
   const [editing, setEditing] = useState(false);
@@ -87,6 +87,10 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
     });
     if (!ok) return;
     try {
+      // P2.2.2: cleanupChat BEFORE the API delete so we abort the active
+      // stream + drop callbacks/jobs/timers locally first. Otherwise the
+      // background stream keeps writing tokens into deleted chat state.
+      cleanupChat(String(chatId));
       await api.del(`/chats/${chatId}`, { showError: false });
       localStorage.removeItem('arasul_last_chat_id');
       navigate('/chat', { replace: true });
@@ -94,7 +98,7 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
       console.error('Error deleting chat:', err);
       toast.error('Löschen fehlgeschlagen');
     }
-  }, [chatId, api, confirm, navigate, toast, activeJobIds]);
+  }, [chatId, api, confirm, navigate, toast, activeJobIds, cleanupChat]);
 
   return (
     <header className="chat-top-bar flex items-center gap-2 px-6 py-2 border-b border-border bg-card shrink-0 min-h-14">

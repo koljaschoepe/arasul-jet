@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { CellPosition, CellValue, Field, Row } from './types';
 
 interface ClipboardEntry {
@@ -33,6 +33,13 @@ export default function useExcelClipboard({
   setSaveStatus,
 }: UseExcelClipboardParams): UseExcelClipboardReturn {
   const [clipboard, setClipboard] = useState<ClipboardEntry | null>(null);
+  // P2.9.2: tracked setTimeout so the status reset doesn't fire on an unmounted hook.
+  const statusResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (statusResetRef.current) clearTimeout(statusResetRef.current);
+    };
+  }, []);
 
   const handleCopy = useCallback(() => {
     const { row, col } = activeCell;
@@ -41,7 +48,11 @@ export default function useExcelClipboard({
       setClipboard({ value, fieldType: fields[col].field_type });
       navigator.clipboard?.writeText(String(value ?? ''));
       setSaveStatus('success');
-      setTimeout(() => setSaveStatus(null), 1000);
+      if (statusResetRef.current) clearTimeout(statusResetRef.current);
+      statusResetRef.current = setTimeout(() => {
+        setSaveStatus(null);
+        statusResetRef.current = null;
+      }, 1000);
     }
   }, [activeCell, displayRows, fields, setSaveStatus]);
 

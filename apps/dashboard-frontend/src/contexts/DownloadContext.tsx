@@ -21,7 +21,10 @@ import type { CatalogModel } from '../types';
 
 // --- Types ---
 
-type DownloadPhase = 'init' | 'download' | 'verify' | 'complete' | 'error';
+// P2.4.1: 'paused' added to surface the backend Phase-0 paused state. Resume
+// is currently triggered by calling startDownload again — a dedicated Resume
+// button is part of the regressed-features cherry-pick (Phase 3.5).
+type DownloadPhase = 'init' | 'download' | 'verify' | 'complete' | 'error' | 'paused';
 
 interface DownloadState {
   progress: number;
@@ -190,6 +193,24 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                   };
                   hasChanges = true;
                 }
+              } else if (model.install_status === 'paused') {
+                // P2.4.1: surface backend Phase-0 'paused' state. Without
+                // this branch the UI keeps the previous 'downloading' phase
+                // and shows stale progress without any indication that the
+                // job is paused. Phase===null would also be acceptable as a
+                // resumeable signal once the UI grows a Resume button.
+                if (
+                  prev[modelId].phase !== 'paused' ||
+                  prev[modelId].progress !== model.download_progress
+                ) {
+                  updated[modelId] = {
+                    ...prev[modelId],
+                    phase: 'paused',
+                    progress: model.download_progress || prev[modelId].progress,
+                    status: 'Pausiert',
+                  };
+                  hasChanges = true;
+                }
               }
             }
           }
@@ -269,6 +290,10 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                 phase: 'download',
               },
             }));
+            // P2.4.6: drop the abortController for this modelId on early
+            // return. Otherwise it stays in the ref forever and a later
+            // cancelDownload aborts a controller with no reader behind it.
+            delete abortControllersRef.current[modelId];
             return;
           }
         }

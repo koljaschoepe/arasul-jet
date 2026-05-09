@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/shadcn/select';
 
-const DEFAULT_COLOR = '#45ADFF';
+import { DEFAULT_PROJECT_COLOR as DEFAULT_COLOR } from '@/lib/themeColors';
 
 interface Space {
   id: string;
@@ -256,6 +256,10 @@ const ProjectModal = memo(function ProjectModal({
             onChange={e => setSystemPrompt(e.target.value)}
             placeholder="Du bist ein Experte für... Antworte immer auf Deutsch..."
             rows={5}
+            // P2.7.3: counter showed "/ 2000" but Textarea was unbounded; users
+            // could submit 5000 chars and either get truncated server-side or
+            // a 400 with no field-level mapping.
+            maxLength={2000}
             className="resize-y min-h-[100px] font-mono leading-relaxed"
           />
           {systemPrompt.length > 0 && (

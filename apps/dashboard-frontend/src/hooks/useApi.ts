@@ -122,6 +122,8 @@ export function useApi(): ApiMethods {
   // Use ref for logout to prevent request callback recreation on auth state changes.
   // This breaks the useApi→AuthContext dependency chain that causes render loops.
   const logoutRef = useRef(logout);
+  // P2.1.2: in-flight latch so parallel 401s do not all call logout simultaneously.
+  const logoutInFlightRef = useRef(false);
   logoutRef.current = logout;
 
   const request = useCallback(
@@ -165,9 +167,21 @@ export function useApi(): ApiMethods {
       });
 
       if (!res.ok) {
-        // 401 interceptor: auto-logout on expired/invalid token
+        // 401 interceptor: auto-logout on expired/invalid token.
+        // P2.1.2: in-flight guard. Initial dashboard load fires multiple
+        // parallel API calls; if the token is expired, every one of them
+        // 401s and used to call logout() → multiple parallel /auth/logout
+        // POSTs against an already-blacklisted token, racing to mutate
+        // localStorage and tripping the auth rate limiter.
         if (res.status === 401 && !path.startsWith('/auth/')) {
-          logoutRef.current();
+          if (!logoutInFlightRef.current) {
+            logoutInFlightRef.current = true;
+            // Reset the latch as soon as the logout settles, so future
+            // session-expiry events still fire correctly.
+            Promise.resolve(logoutRef.current()).finally(() => {
+              logoutInFlightRef.current = false;
+            });
+          }
           const err = new Error('Sitzung abgelaufen') as ApiError;
           err.status = 401;
           throw err;

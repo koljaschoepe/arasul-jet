@@ -197,6 +197,11 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   // --- Refs ---
 
   const abortControllersRef = useRef<Record<string, AbortController>>({});
+  // P2.2.1: Track pending verifyPersistence retry timers per chat so they can
+  // be aborted on cleanupChat / logout / unmount. Without this, retry
+  // setTimeouts (up to 11.5s) keep firing updateMessages on stale or deleted
+  // chat state.
+  const verifyTimersRef = useRef<Map<string, Set<ReturnType<typeof setTimeout>>>>(new Map());
   const messageCallbacksRef = useRef(new Map<string, MessageCallbacks>());
   const activeStreamChatIdRef = useRef<string | null>(null);
   // RACE-001: Mutex to prevent concurrent reconnectToJob calls
@@ -329,6 +334,12 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     // Clear background state
     backgroundMessagesRef.current.delete(chatId);
     backgroundLoadingRef.current.delete(chatId);
+    // P2.2.1: clear any pending verifyPersistence retry timers
+    const timers = verifyTimersRef.current.get(chatId);
+    if (timers) {
+      for (const id of timers) clearTimeout(id);
+      verifyTimersRef.current.delete(chatId);
+    }
     // Clear active job
     setActiveJobIds(prev => {
       if (!(chatId in prev)) return prev;
@@ -943,6 +954,22 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                   loadModels();
                   if (selectedModelRef.current) setSelectedModel('');
                 }
+                // P2.2.3: remove the empty assistant placeholder. Without
+                // this, the streaming-status bubble with empty content sits
+                // in the message list forever — the catch-block cleanup at
+                // the end of sendMessage only runs on thrown errors, not on
+                // data.error events.
+                updateMessages(chatId, prev => {
+                  if (
+                    assistantMessageIndex >= 0 &&
+                    assistantMessageIndex < prev.length &&
+                    prev[assistantMessageIndex]?.role === 'assistant' &&
+                    !prev[assistantMessageIndex]?.content
+                  ) {
+                    return prev.filter((_, i) => i !== assistantMessageIndex);
+                  }
+                  return prev;
+                });
                 break;
               }
 
@@ -1053,11 +1080,29 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           );
         }
 
-        // DB-SYNC: Reload messages from database to ensure persistence
-        // Backend completeJob() runs async — give it time, then verify
-        // Extended retry: 1.5s initial + 5 retries × 2s = 11.5s max total wait
+        // DB-SYNC: Reload messages from database to ensure persistence.
+        // Backend completeJob() runs async — give it time, then verify.
+        // Extended retry: 1.5s initial + 5 retries × 2s = 11.5s max total wait.
+        // P2.2.1: every scheduled retry is tracked in verifyTimersRef and
+        // cancelled by cleanupChat / logout, so it cannot fire on a deleted
+        // or logged-out chat.
         if (fullResponse || fullThinking) {
           const syncChatId = chatId;
+          const trackTimer = (id: ReturnType<typeof setTimeout>) => {
+            let set = verifyTimersRef.current.get(syncChatId);
+            if (!set) {
+              set = new Set();
+              verifyTimersRef.current.set(syncChatId, set);
+            }
+            set.add(id);
+          };
+          const untrackTimer = (id: ReturnType<typeof setTimeout>) => {
+            const set = verifyTimersRef.current.get(syncChatId);
+            if (set) {
+              set.delete(id);
+              if (set.size === 0) verifyTimersRef.current.delete(syncChatId);
+            }
+          };
           const verifyPersistence = async (retriesLeft: number) => {
             try {
               const result = await loadMessages(syncChatId);
@@ -1066,20 +1111,24 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                   .reverse()
                   .find(m => m.role === 'assistant');
                 if (lastDbAssistant?.content || lastDbAssistant?.thinking) {
-                  // DB has content — sync local state with persisted data
                   updateMessages(syncChatId, () => result.messages);
                 } else if (retriesLeft > 0) {
-                  // DB not yet updated — backend may still be writing, retry
-                  setTimeout(() => verifyPersistence(retriesLeft - 1), 2000);
+                  const id = setTimeout(() => {
+                    untrackTimer(id);
+                    verifyPersistence(retriesLeft - 1);
+                  }, 2000);
+                  trackTimer(id);
                 }
-                // If all retries exhausted: keep local messages as-is (don't discard)
-                // The inline recovery in GET /messages will fix it on next load
               }
             } catch {
               // Non-critical — streaming content is already displayed locally
             }
           };
-          setTimeout(() => verifyPersistence(5), 1500);
+          const initialId = setTimeout(() => {
+            untrackTimer(initialId);
+            verifyPersistence(5);
+          }, 1500);
+          trackTimer(initialId);
         }
 
         if (!streamError && !fullResponse && !fullThinking) {

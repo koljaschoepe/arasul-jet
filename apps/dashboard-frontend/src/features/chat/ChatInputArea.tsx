@@ -339,7 +339,23 @@ function ChatInputArea({
     if (!lastSendRef.current || isLoading || disabled) return;
     const { msg, options } = lastSendRef.current;
     onClearError();
-    sendMessage(chatId, msg, { ...options, messages: messagesRef?.current || [] });
+    // P2.2.4: strip the prior failed user message + empty assistant placeholder
+    // before retrying. Without this, sendMessage appends a NEW user message +
+    // assistant placeholder, producing duplicate user bubbles and an orphan
+    // empty assistant bubble per retry. (Post-review fix: removed the
+    // `!secondLast` guard — a failed user-msg may sit on top of an existing
+    // conversation, so we must trim regardless of what came before.)
+    const current = messagesRef?.current || [];
+    let trimmed = current;
+    const last = trimmed[trimmed.length - 1];
+    if (last?.role === 'assistant' && !last.content && !last.thinking) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    const lastAfter = trimmed[trimmed.length - 1];
+    if (lastAfter?.role === 'user' && lastAfter.content === msg) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    sendMessage(chatId, msg, { ...options, messages: trimmed });
   }, [chatId, sendMessage, isLoading, disabled, onClearError, messagesRef]);
 
   const handleKeyDown = useCallback(
@@ -802,7 +818,12 @@ function ChatInputArea({
             aria-label="Nachricht eingeben"
           />
 
-          {isStreaming ? (
+          {/* P2.2.10: Show Cancel during model-load too. Between handleSend
+              and the first job_started SSE event, isLoading=true but
+              isStreaming=false — without this, the user has no Cancel button
+              while the model is being loaded. cancelJob handles "no jobId
+              yet" by just aborting the local stream. */}
+          {isStreaming || isLoading ? (
             <button
               type="button"
               className="cancel-btn size-10 min-w-[40px] bg-destructive/15 border-none rounded-full text-destructive cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-destructive/20 hover:scale-105"

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
+import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
 import type { SandboxProject, SandboxStats } from './types';
 
 interface ProjectListPanelProps {
@@ -187,7 +188,7 @@ export default function ProjectListPanel({
                   {/* Color dot + name */}
                   <div
                     className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: project.color || '#45ADFF' }}
+                    style={{ backgroundColor: project.color || DEFAULT_PROJECT_COLOR }}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-foreground truncate">

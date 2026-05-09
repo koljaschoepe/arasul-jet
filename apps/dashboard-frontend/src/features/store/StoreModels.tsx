@@ -186,14 +186,29 @@ function StoreModels() {
   };
 
   // Delete model
+  // P2.4.5: optimistic delete — flip the model's install_status locally first,
+  // then await the API. On error, restore previous state. Without this, the
+  // model card sits "still here" for seconds while the server is busy. The
+  // memory note "Phase 1 Optimistic Delete" claimed this was implemented but
+  // it was not.
   const handleDelete = async (modelId: string) => {
     if (!(await confirm({ message: `Modell "${modelId}" wirklich löschen?` }))) return;
+
+    const previousCatalog = catalog;
+    setModelData(prev => ({
+      ...prev,
+      catalog: prev.catalog.map(m =>
+        m.id === modelId ? { ...m, install_status: 'available' as const } : m
+      ),
+    }));
 
     try {
       await api.del(`/models/${modelId}`, { showError: false });
       await loadData();
     } catch (err) {
       console.error('Delete error:', err);
+      // Roll back optimistic update.
+      setModelData(prev => ({ ...prev, catalog: previousCatalog }));
       const model = catalog.find(m => m.id === modelId);
       const name = model?.name || modelId;
       setError(`Fehler beim Löschen von „${name}"`);

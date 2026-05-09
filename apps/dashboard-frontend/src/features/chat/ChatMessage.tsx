@@ -26,7 +26,12 @@ const markdownComponents: Record<string, React.ComponentType<CodeProps>> = {
     const language = match ? match[1] : '';
 
     if (!inline && language === 'mermaid') {
-      return <MermaidDiagram content={String(children).replace(/\n$/, '')} />;
+      // P2.2.7: react-markdown can pass children as an array of ReactNode for
+      // multi-line code blocks. String([line1, line2]) yields "line1,line2"
+      // (comma-joined), which destroys multi-line mermaid diagrams. Join the
+      // array explicitly so newlines are preserved.
+      const raw = Array.isArray(children) ? children.join('') : String(children ?? '');
+      return <MermaidDiagram content={raw.replace(/\n$/, '')} />;
     }
 
     return (
@@ -63,7 +68,11 @@ function arePropsEqual(prev: ChatMessageProps, next: ChatMessageProps) {
     pm.matchedSpaces === nm.matchedSpaces &&
     pm.streamStatus === nm.streamStatus &&
     pm.statusMessage === nm.statusMessage &&
-    pm.images === nm.images
+    pm.images === nm.images &&
+    // P2.2.8: status (e.g. 'streaming' → 'completed') must trigger a
+    // re-render, otherwise the loading-dots overlay can remain after the
+    // stream finishes if isLoading didn't toggle simultaneously.
+    pm.status === nm.status
   );
 }
 

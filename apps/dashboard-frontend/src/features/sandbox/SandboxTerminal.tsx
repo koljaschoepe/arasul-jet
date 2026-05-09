@@ -144,7 +144,7 @@ export default function SandboxTerminal({
       {/* Terminal frame */}
       <div className="flex flex-col flex-1 min-h-0 rounded-lg border border-border overflow-hidden shadow-sm">
         {/* Terminal toolbar */}
-        <div className="flex items-center justify-between px-3 py-1.5 bg-[#0a0a0a] border-b border-border/50 shrink-0">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-background border-b border-border/50 shrink-0">
           <div className="flex items-center gap-2">
             {status.icon}
             <span className="text-xs text-muted-foreground font-mono">{status.text}</span>
@@ -220,7 +220,7 @@ export default function SandboxTerminal({
         {/* Terminal container */}
         <div
           ref={terminalRef}
-          className="flex-1 min-h-0 bg-[#0a0a0a] overflow-hidden"
+          className="flex-1 min-h-0 bg-background overflow-hidden"
           style={{ padding: '4px 0 0 4px' }}
         />
       </div>

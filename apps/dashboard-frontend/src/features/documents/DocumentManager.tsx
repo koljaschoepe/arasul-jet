@@ -79,6 +79,14 @@ function DocumentManager() {
 
   // Filters & Pagination
   const [searchQuery, setSearchQuery] = useState('');
+  // P2.5.4: debounce searchQuery so each keystroke does not fire 3 backend
+  // calls. Declared up here (before loadDocuments) so loadDocuments can read
+  // the debounced value via its dep array.
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -144,7 +152,7 @@ function DocumentManager() {
 
         if (statusFilter) params.append('status', statusFilter);
         if (categoryFilter) params.append('category_id', categoryFilter);
-        if (searchQuery) params.append('search', searchQuery);
+        if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
         if (activeSpaceId) params.append('space_id', activeSpaceId);
 
         const data = await api.get(`/documents?${params}`, { signal, showError: false });
@@ -159,7 +167,15 @@ function DocumentManager() {
         setLoading(false);
       }
     },
-    [api, currentPage, statusFilter, categoryFilter, searchQuery, itemsPerPage, activeSpaceId]
+    [
+      api,
+      currentPage,
+      statusFilter,
+      categoryFilter,
+      debouncedSearchQuery,
+      itemsPerPage,
+      activeSpaceId,
+    ]
   );
 
   // Load categories
@@ -227,7 +243,7 @@ function DocumentManager() {
           };
           params.append('status', statusMap[statusFilter] || statusFilter);
         }
-        if (searchQuery) params.append('search', searchQuery);
+        if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
 
         const data = await api.get(`/v1/datentabellen/tables?${params}`, {
           signal,
@@ -243,7 +259,7 @@ function DocumentManager() {
         setLoadingTables(false);
       }
     },
-    [api, activeSpaceId, statusFilter, searchQuery]
+    [api, activeSpaceId, statusFilter, debouncedSearchQuery]
   );
 
   // Handle space change (for tabs) - reset all filters
@@ -519,7 +535,7 @@ function DocumentManager() {
     loadStatisticsRef.current(controller.signal);
     loadTablesRef.current(controller.signal);
     return () => controller.abort();
-  }, [activeSpaceId, statusFilter, categoryFilter, searchQuery]);
+  }, [activeSpaceId, statusFilter, categoryFilter, debouncedSearchQuery]);
 
   // Upload hook
   const {
@@ -758,7 +774,7 @@ function DocumentManager() {
             )}
             {/* Per-file status */}
             {fileStatuses.map(fs => (
-              <div key={fs.name} className="flex items-center gap-2 text-sm">
+              <div key={fs.id} className="flex items-center gap-2 text-sm">
                 {fs.status === 'success' && <Check size={14} className="text-green-500 shrink-0" />}
                 {fs.status === 'error' && (
                   <AlertCircle size={14} className="text-destructive shrink-0" />

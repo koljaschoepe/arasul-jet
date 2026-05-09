@@ -9,6 +9,10 @@ const MAX_CONCURRENT = 3;
 const UPLOAD_TIMEOUT = 120000; // 120s
 
 export interface FileUploadStatus {
+  // P2.5.3: stable per-upload id so two files with the same filename do not
+  // collide on status updates (previous code keyed by `name`, which produced
+  // visible progress/state cross-talk for duplicate filenames).
+  id: string;
   name: string;
   size: number;
   progress: number;
@@ -158,13 +162,18 @@ export default function useDocumentUpload({
       const targetSpaceId = uploadSpaceId || activeSpaceId;
 
       // Client-side validation
-      const validFiles: File[] = [];
+      const validFiles: Array<{ file: File; id: string }> = [];
       const initialStatuses: FileUploadStatus[] = [];
 
       for (const file of fileArray) {
+        const id =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const error = validateFile(file);
         if (error) {
           initialStatuses.push({
+            id,
             name: file.name,
             size: file.size,
             progress: 0,
@@ -173,12 +182,13 @@ export default function useDocumentUpload({
           });
         } else {
           initialStatuses.push({
+            id,
             name: file.name,
             size: file.size,
             progress: 0,
             status: 'pending',
           });
-          validFiles.push(file);
+          validFiles.push({ file, id });
         }
       }
 
@@ -201,31 +211,32 @@ export default function useDocumentUpload({
       let completedCount = 0;
       const totalValid = validFiles.length;
 
-      // Update a single file's status
-      const updateFile = (name: string, update: Partial<FileUploadStatus>) => {
-        setFileStatuses(prev => prev.map(f => (f.name === name ? { ...f, ...update } : f)));
+      // Update a single file's status — keyed by stable id so duplicate filenames
+      // don't collide.
+      const updateFile = (id: string, update: Partial<FileUploadStatus>) => {
+        setFileStatuses(prev => prev.map(f => (f.id === id ? { ...f, ...update } : f)));
       };
 
       // Upload a single file with one retry
-      const uploadOne = async (file: File) => {
-        updateFile(file.name, { status: 'uploading', progress: 0 });
+      const uploadOne = async ({ file, id }: { file: File; id: string }) => {
+        updateFile(id, { status: 'uploading', progress: 0 });
 
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
             await uploadFileXHR(file, targetSpaceId, percent => {
-              updateFile(file.name, { progress: percent });
+              updateFile(id, { progress: percent });
             });
-            updateFile(file.name, { status: 'success', progress: 100 });
+            updateFile(id, { status: 'success', progress: 100 });
             completedCount++;
             setUploadProgress(Math.round((completedCount / totalValid) * 100));
             return;
           } catch (err: unknown) {
             if (attempt === 0) {
               // Retry once
-              updateFile(file.name, { progress: 0 });
+              updateFile(id, { progress: 0 });
               await new Promise(r => setTimeout(r, 1000));
             } else {
-              updateFile(file.name, {
+              updateFile(id, {
                 status: 'error',
                 error: err instanceof Error ? err.message : 'Upload fehlgeschlagen',
               });
