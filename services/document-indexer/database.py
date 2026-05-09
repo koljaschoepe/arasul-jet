@@ -356,7 +356,7 @@ class DatabaseManager:
                     UPDATE documents
                     SET status = 'failed',
                         processing_started_at = NULL,
-                        error_message = COALESCE(error_message, 'retry-exhausted (watchdog)')
+                        processing_error = COALESCE(processing_error, 'retry-exhausted (watchdog)')
                     WHERE status = 'processing'
                     AND retry_count >= %s
                     RETURNING id
