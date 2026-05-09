@@ -197,7 +197,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const job = await llmJobService.getJob(req.params.jobId);
 
-    if (!job) {
+    if (!job || job.user_id !== req.user.id) {
       throw new NotFoundError('Job not found');
     }
 
@@ -222,7 +222,7 @@ router.get(
       `[RECONNECT ${jobId}] Job status: ${job?.status}, content length: ${job?.content?.length || 0}`
     );
 
-    if (!job) {
+    if (!job || job.user_id !== req.user.id) {
       throw new NotFoundError('Job not found');
     }
 
@@ -393,7 +393,7 @@ router.delete(
   asyncHandler(async (req, res) => {
     const job = await llmJobService.getJob(req.params.jobId);
 
-    if (!job) {
+    if (!job || job.user_id !== req.user.id) {
       throw new NotFoundError('Job not found');
     }
 

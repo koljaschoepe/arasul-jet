@@ -11,6 +11,7 @@ const { requireAuth } = require('../../middleware/auth');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, NotFoundError, ForbiddenError } = require('../../utils/errors');
+const { initSSE, trackConnection } = require('../../utils/sseHelper');
 
 // Base log directory
 const LOG_DIR = process.env.LOG_DIR || '/arasul/logs';
@@ -180,10 +181,9 @@ router.get(
       throw new NotFoundError(`Log file not found for service: ${service}`);
     }
 
-    // Set up SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    // Set up SSE headers + 15s keepalive (Traefik idle-timeout protection)
+    initSSE(res);
+    const connection = trackConnection(res);
 
     // BUG-006 FIX: Track file position instead of line count to avoid race condition
     const stats = await fs.stat(logFilePath);
@@ -248,9 +248,11 @@ router.get(
     });
 
     // Clean up on client disconnect
-    req.on('close', () => {
+    connection.onClose(() => {
       watcher.close();
-      res.end();
+      if (!res.writableEnded) {
+        res.end();
+      }
     });
   })
 );

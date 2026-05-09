@@ -110,8 +110,8 @@ router.post(
     const apiKeyUserId = req.apiKey.userId || 1;
     const conversationResult = await require('../../database').query(
       `
-        INSERT INTO chat_conversations (title, user_id, created_at)
-        VALUES ($1, $2, NOW())
+        INSERT INTO chat_conversations (title, user_id, project_id, created_at)
+        VALUES ($1, $2, (SELECT id FROM projects WHERE is_default = TRUE LIMIT 1), NOW())
         RETURNING id
     `,
       [`External API: ${req.apiKey.name} - ${new Date().toISOString()}`, apiKeyUserId]
@@ -155,7 +155,7 @@ router.post(
     // Wait for result with timeout
     const timeoutMs = Math.min(timeout_seconds * 1000, 600000); // Max 10 minutes
 
-    const result = await waitForJobCompletion(jobId, timeoutMs);
+    const result = await waitForJobCompletion(jobId, timeoutMs, req);
 
     const processingTime = Date.now() - startTime;
 
@@ -191,7 +191,11 @@ router.get(
   asyncHandler(async (req, res) => {
     const job = await llmJobService.getJob(req.params.jobId);
 
-    if (!job) {
+    // null-guard: req.apiKey.userId can be NULL when the original key creator was
+    // deleted (api_keys.created_by ON DELETE SET NULL). Without this guard,
+    // null !== null is false → two orphan-keyed requests could read each
+    // other's jobs.
+    if (!job || !req.apiKey.userId || job.user_id !== req.apiKey.userId) {
       throw new NotFoundError('Job not found');
     }
 
@@ -488,8 +492,8 @@ router.post(
     // 3. Create temp conversation and enqueue LLM job
     const apiKeyUserId = req.apiKey.userId || 1;
     const conversationResult = await require('../../database').query(
-      `INSERT INTO chat_conversations (title, user_id, created_at)
-       VALUES ($1, $2, NOW()) RETURNING id`,
+      `INSERT INTO chat_conversations (title, user_id, project_id, created_at)
+       VALUES ($1, $2, (SELECT id FROM projects WHERE is_default = TRUE LIMIT 1), NOW()) RETURNING id`,
       [`External API Document: ${req.apiKey.name} - ${filename}`, apiKeyUserId]
     );
     const conversationId = conversationResult.rows[0].id;
@@ -509,7 +513,7 @@ router.post(
 
     // 4. Wait for result
     const timeoutMs = Math.min(parseInt(timeout_seconds) * 1000 || 300000, 600000);
-    const result = await waitForJobCompletion(jobId, timeoutMs);
+    const result = await waitForJobCompletion(jobId, timeoutMs, req);
 
     if (result.error) {
       return res.status(500).json({
@@ -618,8 +622,8 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
     // 3. Enqueue LLM job
     const apiKeyUserId = req.apiKey.userId || 1;
     const conversationResult = await require('../../database').query(
-      `INSERT INTO chat_conversations (title, user_id, created_at)
-       VALUES ($1, $2, NOW()) RETURNING id`,
+      `INSERT INTO chat_conversations (title, user_id, project_id, created_at)
+       VALUES ($1, $2, (SELECT id FROM projects WHERE is_default = TRUE LIMIT 1), NOW()) RETURNING id`,
       [`External API Structured: ${req.apiKey.name} - ${filename}`, apiKeyUserId]
     );
     const conversationId = conversationResult.rows[0].id;
@@ -639,7 +643,7 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
 
     // 4. Wait for result
     const timeoutMs = Math.min(parseInt(timeout_seconds) * 1000 || 300000, 600000);
-    const result = await waitForJobCompletion(jobId, timeoutMs);
+    const result = await waitForJobCompletion(jobId, timeoutMs, req);
 
     if (result.error) {
       return res.status(500).json({
@@ -683,13 +687,30 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
 );
 
 /**
- * Helper: Wait for job completion with timeout
+ * Helper: Wait for job completion with timeout.
+ *
+ * P4.8: when the API caller disconnects (req.on('close')), bail out of the
+ * polling loop and cancel the underlying LLM job so we stop burning GPU on
+ * a result nobody will read. Without this, the polling loop kept the
+ * connection alive for the full 10-min timeout while the GPU job continued.
  */
-async function waitForJobCompletion(jobId, timeoutMs) {
+async function waitForJobCompletion(jobId, timeoutMs, req) {
   const pollInterval = 500; // 500ms
   const startTime = Date.now();
+  let clientGone = false;
+  if (req) {
+    req.on('close', () => {
+      clientGone = true;
+    });
+  }
 
   while (Date.now() - startTime < timeoutMs) {
+    if (clientGone) {
+      // Best-effort cancel; ignore failure (job may already be done).
+      llmQueueService.cancelJob(jobId).catch(() => {});
+      return { error: 'Client disconnected' };
+    }
+
     const job = await llmJobService.getJob(jobId);
 
     if (!job) {

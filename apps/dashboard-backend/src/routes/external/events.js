@@ -4,9 +4,17 @@
  */
 
 const router = require('express').Router();
+const crypto = require('crypto');
 const { requireAuth: auth } = require('../../middleware/auth');
 const db = require('../../database');
 const logger = require('../../utils/logger');
+
+function safeCompareSecret(provided, expected) {
+  if (typeof provided !== 'string' || typeof expected !== 'string') {return false;}
+  const providedHash = crypto.createHash('sha256').update(provided).digest();
+  const expectedHash = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(providedHash, expectedHash);
+}
 const eventListenerService = require('../../services/core/eventListenerService');
 const telegramService = require('../../services/telegram/telegramNotificationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
@@ -242,7 +250,7 @@ router.post(
       );
     }
     const providedSecret = req.headers['x-webhook-secret'] || req.query.secret;
-    if (providedSecret !== webhookSecret) {
+    if (!safeCompareSecret(providedSecret, webhookSecret)) {
       logger.warn('Invalid n8n webhook secret');
       throw new UnauthorizedError('Invalid webhook secret');
     }
@@ -279,7 +287,7 @@ router.post(
     const webhookSecret = process.env.SELF_HEALING_WEBHOOK_SECRET;
     if (webhookSecret) {
       const providedSecret = req.headers['x-webhook-secret'];
-      if (providedSecret !== webhookSecret) {
+      if (!safeCompareSecret(providedSecret, webhookSecret)) {
         logger.warn('Invalid self-healing webhook secret');
         throw new UnauthorizedError('Invalid webhook secret');
       }

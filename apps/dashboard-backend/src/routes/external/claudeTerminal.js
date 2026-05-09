@@ -18,6 +18,7 @@ const { ServiceUnavailableError } = require('../../utils/errors');
 const { validateBody } = require('../../middleware/validate');
 const { TerminalQueryBody, MAX_QUERY_LENGTH } = require('../../schemas/claudeTerminal');
 const services = require('../../config/services');
+const { initSSE } = require('../../utils/sseHelper');
 
 // Configuration
 const LLM_SERVICE_URL = services.llm.url;
@@ -226,11 +227,8 @@ Guidelines:
       { role: 'user', content: query },
     ];
 
-    // Set up SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
+    // Set up SSE headers + flushHeaders + 15s keepalive (Traefik idle-timeout protection)
+    initSSE(res);
 
     // Send initial status
     res.write(

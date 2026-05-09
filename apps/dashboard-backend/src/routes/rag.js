@@ -18,7 +18,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const logger = require('../utils/logger');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { llmLimiter } = require('../middleware/rateLimit');
 const llmJobService = require('../services/llm/llmJobService');
 const llmQueueService = require('../services/llm/llmQueueService');
@@ -576,8 +576,11 @@ router.get(
 router.post(
   '/fix-space-ids',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
-    logger.info('[MIGRATION] Starting fix-space-ids migration...');
+    logger.info(
+      `[MIGRATION] Starting fix-space-ids migration (triggered by admin ${req.user.id})...`
+    );
 
     let fixed = 0;
     const skipped = 0;

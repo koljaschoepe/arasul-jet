@@ -23,57 +23,93 @@ const services = require('../config/services');
 const telegramNotificationService = require('./telegram/telegramNotificationService');
 
 /**
- * SSRF Protection: Reject URLs pointing to private/internal networks.
- * Validates both hostname and resolved IP against RFC1918 ranges.
+ * SSRF Protection: reject IPs that point at internal/private networks.
+ * Covers IPv4 RFC1918, loopback, link-local, CGNAT, broadcast,
+ * and IPv6 unique-local (fc00::/7), loopback (::1), link-local (fe80::/10),
+ * and mapped IPv4 (::ffff:).
  */
 function isPrivateIP(ip) {
-  // RFC1918, loopback, link-local, Docker bridge ranges
-  const parts = ip.split('.').map(Number);
-  if (parts.length !== 4) {
-    return !net.isIPv4(ip);
-  } // reject IPv6 and invalid
-  return (
-    parts[0] === 10 ||
-    parts[0] === 127 ||
-    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-    (parts[0] === 192 && parts[1] === 168) ||
-    (parts[0] === 169 && parts[1] === 254) ||
-    parts[0] === 0
-  );
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    return (
+      a === 10 ||
+      a === 127 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254) ||
+      a === 0 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      a >= 224
+    );
+  }
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase();
+    if (lower === '::1' || lower === '::') {return true;}
+    // Link-local fe80::/10 covers fe80:..febf: (10-bit prefix → second byte 0x80–0xbf).
+    if (/^fe[89ab][0-9a-f]:/.test(lower)) {return true;}
+    // Unique-local fc00::/7 (fc.. and fd..)
+    if (/^f[cd][0-9a-f]{2}:/.test(lower)) {return true;}
+    // Multicast ff00::/8
+    if (/^ff[0-9a-f]{2}:/.test(lower)) {return true;}
+    // IPv4-mapped (dotted form). The compact-hex form (e.g. ::ffff:7f00:1) is
+    // rare for inbound URLs but worth flagging if it ever surfaces.
+    const mapped = lower.match(/^::ffff:([\d.]+)$/);
+    if (mapped) {return isPrivateIP(mapped[1]);}
+    return false;
+  }
+  return true; // unknown format → reject
 }
 
+/**
+ * Resolve hostname and reject if any returned address is private. Returns the
+ * first public address so callers can pin the request to the validated IP and
+ * prevent DNS-rebinding TOCTOU between validation and the actual request.
+ * @returns {Promise<{family: 4|6, address: string}>}
+ */
 async function validateWebhookUrl(urlString) {
   const parsed = new URL(urlString);
   const hostname = parsed.hostname;
 
-  // Block non-HTTP(S) schemes
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error('Nur HTTP/HTTPS-URLs erlaubt');
   }
 
-  // Block IP-literal hostnames that are private
   if (net.isIP(hostname)) {
     if (isPrivateIP(hostname)) {
       throw new Error('Webhook-URLs zu internen/privaten Adressen sind nicht erlaubt');
     }
-    return;
+    return { family: net.isIPv6(hostname) ? 6 : 4, address: hostname };
   }
 
-  // Resolve hostname and check resolved IPs
-  const addresses = await new Promise((resolve, reject) => {
-    dns.resolve4(hostname, (err, addrs) => {
-      if (err) {
-        return reject(new Error(`DNS-Auflösung fehlgeschlagen: ${hostname}`));
-      }
+  // dns.lookup honours the system resolver (incl. /etc/hosts) and returns A or AAAA;
+  // family:0 means "first match of either family", which is what fetch will see.
+  const resolved = await new Promise((resolve, reject) => {
+    dns.lookup(hostname, { family: 0, all: true }, (err, addrs) => {
+      if (err) {return reject(new Error(`DNS-Auflösung fehlgeschlagen: ${hostname}`));}
       resolve(addrs);
     });
   });
 
-  for (const addr of addresses) {
-    if (isPrivateIP(addr)) {
+  if (resolved.length === 0) {
+    throw new Error(`DNS-Auflösung lieferte keine Adressen: ${hostname}`);
+  }
+
+  for (const { address } of resolved) {
+    if (isPrivateIP(address)) {
       throw new Error('Webhook-URL löst zu einer internen Adresse auf');
     }
   }
+  return resolved[0];
+}
+
+/**
+ * axios options that pin the request to a pre-validated IP. Prevents DNS rebinding
+ * between validateWebhookUrl() and the actual call.
+ */
+function pinnedAxiosOptions(resolved) {
+  return {
+    lookup: (_hostname, _opts, cb) => cb(null, resolved.address, resolved.family),
+  };
 }
 
 /**
@@ -662,12 +698,13 @@ function createAlertEngine(deps = {}) {
             headers['X-Arasul-Signature'] = `sha256=${signature}`;
           }
 
-          // SSRF protection on actual webhook calls
-          await validateWebhookUrl(settings.webhook_url);
+          // SSRF protection on actual webhook calls (returns pinned IP to defeat DNS rebinding)
+          const resolved = await validateWebhookUrl(settings.webhook_url);
 
           const response = await axios.post(settings.webhook_url, payload, {
             headers,
             timeout: 10000,
+            ...pinnedAxiosOptions(resolved),
           });
 
           notifiedVia.push('webhook');
@@ -736,8 +773,8 @@ function createAlertEngine(deps = {}) {
      * Test webhook configuration
      */
     async testWebhook(webhookUrl, webhookSecret) {
-      // SSRF protection: reject private/internal network targets
-      await validateWebhookUrl(webhookUrl);
+      // SSRF protection: reject private/internal network targets and pin the resolved IP
+      const resolved = await validateWebhookUrl(webhookUrl);
 
       const payload = {
         event: 'test',
@@ -761,6 +798,7 @@ function createAlertEngine(deps = {}) {
       const response = await axios.post(webhookUrl, payload, {
         headers,
         timeout: 10000,
+        ...pinnedAxiosOptions(resolved),
       });
 
       return {

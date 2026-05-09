@@ -22,9 +22,9 @@ BACKUP_ENCRYPT_KEY_FILE=${BACKUP_ENCRYPT_KEY_FILE:-/run/secrets/backup_encryptio
 encrypt_file() {
     local src="$1"
     if [ "$BACKUP_ENCRYPT" = "true" ] && [ -f "$BACKUP_ENCRYPT_KEY_FILE" ]; then
-        local key
-        key=$(cat "$BACKUP_ENCRYPT_KEY_FILE")
-        if openssl enc -aes-256-cbc -salt -pbkdf2 -in "$src" -out "${src}.enc" -pass "pass:${key}" 2>/dev/null; then
+        # Use -pass file: instead of pass:$KEY so the secret is not visible in
+        # /proc/<pid>/cmdline to other processes on the host while openssl runs.
+        if openssl enc -aes-256-cbc -salt -pbkdf2 -in "$src" -out "${src}.enc" -pass "file:${BACKUP_ENCRYPT_KEY_FILE}" 2>/dev/null; then
             mv "${src}.enc" "$src"
             echo "[$TIMESTAMP] Encrypted: $(basename "$src")"
             return 0

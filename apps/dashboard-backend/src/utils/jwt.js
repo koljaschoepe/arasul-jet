@@ -25,6 +25,8 @@ if (!JWT_SECRET) {
 }
 
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '4h';
+const JWT_ISSUER = 'arasul-platform';
+const JWT_AUDIENCE = 'arasul-dashboard';
 
 // PERF: In-memory cache for verified tokens to avoid 3 DB queries per request
 // Key: token JTI, Value: { decoded, expiresAt }
@@ -61,7 +63,8 @@ async function generateToken(user, ipAddress, userAgent) {
     const token = jwt.sign(payload, JWT_SECRET, {
       algorithm: 'HS256',
       expiresIn: JWT_EXPIRY,
-      issuer: 'arasul-platform',
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
       subject: user.id.toString(),
     });
 
@@ -97,10 +100,13 @@ async function generateToken(user, ipAddress, userAgent) {
  */
 async function verifyToken(token) {
   try {
-    // Verify signature and expiry (always - crypto check is fast)
+    // Verify signature and expiry (always - crypto check is fast).
+    // Note: tokens issued before the audience check was added will fail here
+    // and force a one-time re-login; that is the intended migration path.
     const decoded = jwt.verify(token, JWT_SECRET, {
       algorithms: ['HS256'],
-      issuer: 'arasul-platform',
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
     });
 
     // PERF: Check cache first
@@ -200,7 +206,9 @@ async function blacklistToken(token) {
 
     return true;
   } catch (error) {
-    if (error instanceof ApiError) {throw error;}
+    if (error instanceof ApiError) {
+      throw error;
+    }
     logger.error(`Error blacklisting token: ${error.message}`);
     throw new ServiceUnavailableError('Token blacklisting failed');
   }
@@ -239,7 +247,9 @@ async function blacklistAllUserTokens(userId) {
 
     return true;
   } catch (error) {
-    if (error instanceof ApiError) {throw error;}
+    if (error instanceof ApiError) {
+      throw error;
+    }
     logger.error(`Error blacklisting all user tokens: ${error.message}`);
     throw new ServiceUnavailableError('Mass token blacklisting failed');
   }

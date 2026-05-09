@@ -293,16 +293,20 @@ function createLLMJobService(deps = {}) {
     }
 
     /**
-     * Get job status and current content
+     * Get job status and current content. Returns the conversation's user_id
+     * so callers can enforce per-user ownership (no IDOR across users).
      * @param {string} jobId - Job UUID
      * @returns {Promise<object|null>} Job data or null if not found
      */
     async getJob(jobId) {
       const result = await database.query(
-        `SELECT id, conversation_id, job_type, status, content, thinking, sources, matched_spaces,
-                        created_at, started_at, completed_at, last_update_at, error_message,
-                        message_id, queue_position, queued_at, priority
-                 FROM llm_jobs WHERE id = $1`,
+        `SELECT j.id, j.conversation_id, j.job_type, j.status, j.content, j.thinking,
+                        j.sources, j.matched_spaces, j.created_at, j.started_at, j.completed_at,
+                        j.last_update_at, j.error_message, j.message_id, j.queue_position,
+                        j.queued_at, j.priority, c.user_id
+                 FROM llm_jobs j
+                 JOIN chat_conversations c ON c.id = j.conversation_id
+                 WHERE j.id = $1`,
         [jobId]
       );
       return result.rows[0] || null;
