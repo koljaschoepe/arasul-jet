@@ -322,6 +322,33 @@ P5 (Self-Healing) ist Blocker für die 5-Jahre-Vision — nicht aufschieben.
 - Neue Features (alles hier ist Bug/Logik/Robustheit).
 - Refactor/Style-Cleanup ohne Bug-Bezug.
 
+## Smoke-Test-Findings (2026-05-09, post-deploy)
+
+After rebuilding `dashboard-backend` + `dashboard-frontend` and running the
+`scripts/test/smoke-test.sh`-style verification, two follow-up bugs surfaced
+that the audit had not flagged:
+
+- [ ] **SF-1 Traefik `/v1`-router fehlte.** Phase 3.2 cherry-pick hat
+      `app.use('/v1', require('./routes/external/openaiCompat'))` in
+      `dashboard-backend/src/index.js` ergänzt, aber `config/traefik/dynamic/routes.yml`
+      hatte keinen `PathPrefix('/v1/...')`-Router. Folge: Requests an
+      `/v1/chat/completions` etc. fielen auf den Default-Frontend-Catch-all und
+      gaben 405 von nginx zurück. Fix: neuer Router `dashboard-v1-openai` mit
+      `PathPrefix('/v1/chat') || PathPrefix('/v1/embeddings') || PathPrefix('/v1/models')`,
+      zeigt auf `dashboard-backend-service`. Mit `docker compose restart reverse-proxy`
+      live geschaltet, danach 401 (auth-required) statt 405.
+- [ ] **SF-2 Migration-Runner-Bug: neue Migrationen werden geseeded statt ausgeführt.**
+      `apps/dashboard-backend/src/migrationRunner.js` `seedExistingMigrations` hat
+      Migration 093 (sequence-based `get_next_queue_position`) als "applied"
+      eingetragen, ohne den SQL-Inhalt auszuführen. Folge: `schema_migrations`
+      enthielt nach Backend-Start `version=93`, aber `public.get_next_queue_position()`
+      war noch die alte `MAX(...)+1`-Version. Workaround: Migration manuell
+      via `psql < 093_*.sql` nachgezogen — Function ist jetzt `nextval(seq)`.
+      Eigentlicher Bug muss separat gefixt werden: der Runner muss bei jedem
+      Boot prüfen, ob neue Files (höhere Version als die höchste tracked) noch
+      nicht ausgeführt sind, und sie ausführen statt seed-markieren. Tickets im
+      Plan als P9.7 (Migration-Runner-Härtung).
+
 ## Phase-1-Reviewer-Findings (2026-05-08, post-implementation)
 
 Code-Reviewer-Run nach Phase 1 fand 2 zusätzliche CRITICAL-Bugs in den Phase-1-Fixes selbst (sofort behoben) plus 3 Warnings als Follow-up:

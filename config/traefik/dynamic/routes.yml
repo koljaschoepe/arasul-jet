@@ -29,6 +29,21 @@ http:
         - websecure
       tls: {}
 
+    # OpenAI-compatible API (/v1/chat/completions, /v1/embeddings, /v1/models)
+    # Mounted at /v1 in dashboard-backend's app.js. API-key auth, no CSRF.
+    dashboard-v1-openai:
+      rule: 'PathPrefix(`/v1/chat`) || PathPrefix(`/v1/embeddings`) || PathPrefix(`/v1/models`)'
+      service: dashboard-backend-service
+      priority: 12
+      middlewares:
+        - security-headers
+        - rate-limit-api
+        - body-limit
+        - compress
+      entryPoints:
+        - websecure
+      tls: {}
+
     # Auth endpoints (with stricter rate limiting)
     auth-api:
       rule: 'PathPrefix(`/api/auth`)'
