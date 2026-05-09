@@ -330,7 +330,9 @@ class OllamaReadinessService {
 
       // Check if model is among loaded models
       const isLoaded = loadedModels.some(m => (m.name || m.model) === ollamaName);
-      if (isLoaded) {return true;}
+      if (isLoaded) {
+        return true;
+      }
 
       // Auto-reload the model
       logger.info(`[OllamaReadiness] Auto-loading model ${modelId} for incoming request`);
@@ -373,6 +375,36 @@ class OllamaReadinessService {
       })),
       activeRequestCount: activeRequests.size,
     };
+  }
+
+  /**
+   * Quick health probe wrapped in the central circuit breaker (P3.4).
+   * Returns instantly with `error: 'circuit-open'` after 3 consecutive
+   * failures, so callers (e.g. /v1/chat/completions) don't pay the per-call
+   * timeout while Ollama is known down. The breaker state is visible at
+   * /api/health?detail=true.
+   */
+  async quickCheck(timeoutMs = 2000) {
+    const axios = require('axios');
+    const { circuitBreakers } = require('../../utils/retry');
+    const startTime = Date.now();
+    const breaker = circuitBreakers.get('ollama');
+    try {
+      const response = await breaker.execute(() =>
+        axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: timeoutMs })
+      );
+      const latencyMs = Date.now() - startTime;
+      if (response.status === 200) {
+        return { ready: true, latencyMs };
+      }
+      return { ready: false, latencyMs, error: `unexpected status ${response.status}` };
+    } catch (err) {
+      const latencyMs = Date.now() - startTime;
+      if (err && err.code === 'CIRCUIT_OPEN') {
+        return { ready: false, latencyMs, error: 'circuit-open' };
+      }
+      return { ready: false, latencyMs, error: err.code || err.message || 'unknown' };
+    }
   }
 
   /**

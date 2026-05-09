@@ -181,6 +181,11 @@ app.use('/api', csrfProtection);
 // Register all API routes (centralized in routes/index.js)
 app.use('/api', require('./routes'));
 
+// P3.2: OpenAI-compatible endpoints (/v1/chat/completions, /v1/embeddings,
+// /v1/models). Mounted at /v1 (parallel to /api). Uses API-key auth, not
+// session cookies, so it sits outside the CSRF middleware applied to /api.
+app.use('/v1', require('./routes/external/openaiCompat'));
+
 // Health check endpoint (public, no auth required)
 // ?detail=true returns full dependency status
 app.get('/api/health', async (req, res) => {
