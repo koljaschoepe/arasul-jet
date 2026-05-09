@@ -26,12 +26,17 @@ services:
     environment:
       QDRANT__SERVICE__GRPC_PORT: '6334'
       QDRANT__SERVICE__HTTP_PORT: '6333'
-    # P6.7: previous test relied on bash's /dev/tcp, which the distroless
-    # qdrant image does not ship. Use Qdrant's /readyz HTTP endpoint
-    # (available since v1.4) — image still ships a busybox-compatible
-    # shell, but the call form below works with sh too.
+    # P6.7 (revised after smoke): qdrant v1.16 image has bash but /dev/tcp is
+    # not enabled, and there's no wget / curl / nc. perl IS shipped (the
+    # debian-slim base ships it). Use perl to do a TCP-connect + HTTP GET to
+    # /readyz and check for HTTP/1.x 200. Verified with `docker compose exec
+    # qdrant perl -e ...` returning exit 0 when ready.
     healthcheck:
-      test: ['CMD-SHELL', 'wget -q --spider http://localhost:6333/readyz || exit 1']
+      test:
+        - CMD
+        - perl
+        - -e
+        - 'use IO::Socket::INET; my $$s = IO::Socket::INET->new(PeerAddr=>"localhost:6333",Timeout=>2) or exit 1; print $$s "GET /readyz HTTP/1.0\r\nHost: localhost\r\n\r\n"; my $$line = <$$s>; exit ($$line =~ /200/ ? 0 : 1)'
       interval: 10s
       timeout: 3s
       retries: 3
