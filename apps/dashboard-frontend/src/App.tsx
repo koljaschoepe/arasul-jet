@@ -323,7 +323,18 @@ function AppContent(): React.JSX.Element | null {
         }
         // Only show error if ALL requests failed
         if (failedCount === results.length) {
-          setError('Alle Dashboard-Daten konnten nicht geladen werden');
+          // Bug-fix (user-reported "Dashboard konnte nicht geladen werden"):
+          // when every request 401s the useApi 401-interceptor has already
+          // fired logout(); the next render sees isAuthenticated=false and
+          // shows the Login screen. Suppress the error-state in that case
+          // so the user doesn't briefly see a permanent "Fehler beim Laden"
+          // page that races the logout-redirect.
+          const all401 = results.every(
+            r => r.status === 'rejected' && (r.reason as { status?: number })?.status === 401
+          );
+          if (!all401) {
+            setError('Alle Dashboard-Daten konnten nicht geladen werden');
+          }
         } else {
           setError(null);
         }

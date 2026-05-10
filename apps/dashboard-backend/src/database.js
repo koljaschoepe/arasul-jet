@@ -95,6 +95,16 @@ pool.on('remove', client => {
   logger.debug('Database connection removed from pool');
 });
 
+// Event: Connection released back to pool
+// LEAK-FIX: previous code only listened for 'connect'/'remove' which fire on
+// physical socket lifecycle, not on logical pool checkout/checkin. Without
+// this 'release' handler, every successful db.query() left the client in the
+// checkedOutConnections Map forever, producing endless false-positive
+// "Possible connection leak" warnings as the idle clock kept ticking.
+pool.on('release', (_err, client) => {
+  checkedOutConnections.delete(client);
+});
+
 // Event: Connection acquired from pool
 // PERFORMANCE FIX: Warn when pool utilization is high
 pool.on('acquire', client => {
