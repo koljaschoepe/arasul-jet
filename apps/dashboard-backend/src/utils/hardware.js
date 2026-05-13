@@ -176,40 +176,106 @@ function getLlmRamGB() {
 }
 
 /**
- * Get recommended default model based on device profile
- * Uses JETSON_PROFILE env var (set by detect-jetson.sh) with fallback to detectDevice()
- * @returns {Promise<{model: string, profile: string, models: string[]}>}
+ * Get recommended default model based on device profile.
+ * Uses JETSON_PROFILE env var (set by detect-jetson.sh) with fallback to detectDevice().
+ *
+ * Returns four model slots:
+ *   - model            primary chat-quality default for the detected hardware
+ *   - fast_model       small companion for "Schnell"-Tier chats (always pull-friendly)
+ *   - vision_model     auto-vision-fallback for text-only primaries; null when
+ *                      the primary already supports native vision (Gemma 4 26B/31B)
+ *   - embedding_model  RAG embeddings (BGE-M3 for almost everything; nomic-embed
+ *                      as a tiny alternative for ≤ 4 GB devices)
+ *
+ * @returns {Promise<{model: string, fast_model: string, vision_model: string|null, embedding_model: string, profile: string, models: string[]}>}
  */
 async function getRecommendedModel() {
   // Profile → default model mapping (mirrors detect-jetson.sh)
   const PROFILE_MODELS = {
     thor_128gb: {
       model: 'gemma4:31b-q4',
+      fast_model: 'gemma3:4b',
+      vision_model: null, // primary supports native vision
+      embedding_model: 'bge-m3',
       models: ['gemma4:31b-q4', 'gemma4:26b-q4', 'qwen3:32b-q8'],
     },
     thor_64gb: {
       model: 'gemma4:31b-q4',
+      fast_model: 'gemma3:4b',
+      vision_model: null,
+      embedding_model: 'bge-m3',
       models: ['gemma4:31b-q4', 'gemma4:26b-q4', 'qwen3:14b-q8'],
     },
     agx_orin_64gb: {
       model: 'gemma4:26b-q4',
+      fast_model: 'gemma3:4b',
+      vision_model: null,
+      embedding_model: 'bge-m3',
       models: ['gemma4:26b-q4', 'gemma4:31b-q4', 'qwen3:14b-q8'],
     },
     agx_orin_32gb: {
       model: 'gemma4:e4b-q4',
+      fast_model: 'gemma3:1b',
+      vision_model: 'paligemma-3b-mix',
+      embedding_model: 'bge-m3',
       models: ['gemma4:e4b-q4', 'gemma4:26b-q4', 'qwen3:8b-q8'],
     },
     orin_nx_16gb: {
       model: 'gemma4:e4b-q4',
+      fast_model: 'gemma3:1b',
+      vision_model: 'paligemma-3b-mix',
+      embedding_model: 'bge-m3',
       models: ['gemma4:e4b-q4', 'llama3.1:8b', 'mistral:7b'],
     },
-    xavier_agx: { model: 'gemma4:e4b-q4', models: ['gemma4:e4b-q4', 'llama3.1:8b', 'mistral:7b'] },
-    xavier_nx_8gb: { model: 'phi3:mini', models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'] },
-    orin_8gb: { model: 'phi3:mini', models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'] },
-    minimal_4gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b', 'qwen:0.5b'] },
-    nano_4gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b', 'qwen:0.5b'] },
-    nano_2gb: { model: 'tinyllama:1.1b', models: ['tinyllama:1.1b'] },
-    generic: { model: 'gemma4:e4b-q4', models: ['gemma4:e4b-q4', 'gemma4:26b-q4', 'mistral:7b'] },
+    xavier_agx: {
+      model: 'gemma4:e4b-q4',
+      fast_model: 'gemma3:1b',
+      vision_model: 'paligemma-3b-mix',
+      embedding_model: 'bge-m3',
+      models: ['gemma4:e4b-q4', 'llama3.1:8b', 'mistral:7b'],
+    },
+    xavier_nx_8gb: {
+      model: 'phi3:mini',
+      fast_model: 'gemma3:1b',
+      vision_model: 'paligemma-3b-mix',
+      embedding_model: 'nomic-embed-text',
+      models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'],
+    },
+    orin_8gb: {
+      model: 'phi3:mini',
+      fast_model: 'gemma3:1b',
+      vision_model: 'paligemma-3b-mix',
+      embedding_model: 'nomic-embed-text',
+      models: ['phi3:mini', 'gemma:2b', 'tinyllama:1.1b'],
+    },
+    minimal_4gb: {
+      model: 'tinyllama:1.1b',
+      fast_model: 'tinyllama:1.1b',
+      vision_model: null, // not enough RAM for a second model
+      embedding_model: 'nomic-embed-text',
+      models: ['tinyllama:1.1b', 'qwen:0.5b'],
+    },
+    nano_4gb: {
+      model: 'tinyllama:1.1b',
+      fast_model: 'tinyllama:1.1b',
+      vision_model: null,
+      embedding_model: 'nomic-embed-text',
+      models: ['tinyllama:1.1b', 'qwen:0.5b'],
+    },
+    nano_2gb: {
+      model: 'tinyllama:1.1b',
+      fast_model: 'tinyllama:1.1b',
+      vision_model: null,
+      embedding_model: 'nomic-embed-text',
+      models: ['tinyllama:1.1b'],
+    },
+    generic: {
+      model: 'gemma4:e4b-q4',
+      fast_model: 'gemma3:1b',
+      vision_model: 'paligemma-3b-mix',
+      embedding_model: 'bge-m3',
+      models: ['gemma4:e4b-q4', 'gemma4:26b-q4', 'mistral:7b'],
+    },
   };
 
   // 1. Try JETSON_PROFILE env var (set by setup scripts)

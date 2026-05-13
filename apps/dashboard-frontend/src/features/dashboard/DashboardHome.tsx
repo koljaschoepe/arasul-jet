@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useApi } from '@/hooks/useApi';
 import {
   LineChart,
   Line,
@@ -178,6 +179,21 @@ const DashboardHome = React.memo(function DashboardHome({
   };
 
   const t = thresholds || defaultThresholds;
+  const api = useApi();
+
+  // Forward-auth-gated apps (n8n, etc.) need the session COOKIE on a plain
+  // <a href> navigation — the Authorization header used by the dashboard is
+  // never sent on link clicks. If the user logged in under a different
+  // hostname/IP than the address bar currently shows, the cookie jar is
+  // per-host and missing → 401. Refresh the cookie for the current host on
+  // mount so the cards work as plain links (no popup-blocker games).
+  useEffect(() => {
+    api.post('/auth/refresh-cookie', undefined, { showError: false }).catch(() => {
+      // Best-effort: if the user isn't authenticated, the link will surface
+      // the 401 the usual way; nothing to do here.
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getStatusInfo = (value: number, metric: string): { status: string; className: string } => {
     const threshold = t[metric];

@@ -32,6 +32,7 @@ const services = require('../config/services');
 const { optimizeQuery } = require('../services/context/queryOptimizer');
 
 const { logRagQuery } = require('../services/rag/ragMetrics');
+const systemSettings = require('../services/system-settings/systemSettingsService');
 
 // Import core RAG functions from shared module
 const ragCore = require('../services/rag/ragCore');
@@ -49,6 +50,7 @@ const {
   getParentChunks,
   buildHierarchicalContext,
   ENABLE_RERANKING,
+  RAG_FINAL_K,
 } = ragCore;
 
 // Environment variables (only those needed by routes, not core functions)
@@ -69,7 +71,10 @@ router.post(
   asyncHandler(async (req, res) => {
     const {
       query,
-      top_k = 8,
+      // top_k = retrieval candidate count fed into reranker. Server-side
+      // default comes from system_settings.rag_top_k (loaded at boot), falls
+      // back to 10. Final context size is capped by RAG_FINAL_K after rerank.
+      top_k = systemSettings.getNumber('rag_top_k', 10),
       thinking,
       conversation_id,
       space_ids = null, // RAG 2.0: Optional pre-selected spaces
@@ -238,15 +243,17 @@ router.post(
         logger.info(
           `RAG: no relevant results, using ${marginalResults.length} marginal results (flagged as low-confidence)`
         );
-        relevantResults = marginalResults.slice(0, top_k);
+        relevantResults = marginalResults.slice(0, RAG_FINAL_K);
         useMarginalResults = true;
       }
 
-      // Step 5c: MMR diversity selection (balance relevance vs diversity)
-      relevantResults = applyMMR(relevantResults, 0.7, top_k);
+      // Step 5c: MMR diversity selection (balance relevance vs diversity).
+      // Cap at RAG_FINAL_K (not top_k) so the LLM gets a focused final context;
+      // top_k governed the rerank-input size, RAG_FINAL_K caps the LLM-input size.
+      relevantResults = applyMMR(relevantResults, 0.7, RAG_FINAL_K);
 
       // Step 5d: Deduplicate by document (max 3 chunks per document)
-      relevantResults = deduplicateByDocument(relevantResults, top_k, 3);
+      relevantResults = deduplicateByDocument(relevantResults, RAG_FINAL_K, 3);
 
       // Step 6: Load parent chunks for richer LLM context
       const parentChunks = await getParentChunks(relevantResults);

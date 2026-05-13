@@ -7,6 +7,7 @@
 /* eslint-disable no-promise-executor-return */
 
 const http = require('http');
+const systemSettings = require('../system-settings/systemSettingsService');
 
 // OOM error patterns from Ollama/CUDA
 const OOM_PATTERNS = [
@@ -226,23 +227,34 @@ async function streamFromOllama(
     // ?? makes the intent explicit).
     const ollamaOptions = {
       temperature: temperature ?? 0.7,
-      num_predict: maxTokens ?? 32768,
+      // num_predict: per-request override > DB-backed system_settings default > 2048.
+      // Old hardcoded 32768 was effectively "no cap" and inflated tail latency on
+      // generative loops; the budget is now operator-tunable.
+      num_predict: maxTokens ?? systemSettings.getNumber('llm_num_predict_default', 2048),
       num_batch: 512, // Optimal for Jetson Orin's 2048 CUDA cores
     };
 
-    // Context Management: Set num_ctx from budget manager
+    // Context Management: numCtx (from budget manager) is the per-request budget.
+    // If absent, fall back to the DB-backed default (NULL = let Ollama pick).
     if (numCtx) {
       ollamaOptions.num_ctx = numCtx;
+    } else {
+      const dbCtx = systemSettings.getNumber('llm_num_ctx_default', null);
+      if (dbCtx) {
+        ollamaOptions.num_ctx = dbCtx;
+      }
     }
 
-    // Dynamic keep-alive from lifecycle service
+    // keep_alive: lifecycle-service > DB-backed system_settings > env > 3600.
     let keepAlive;
     try {
       const modelLifecycleService = require('./modelLifecycleService');
       const lifecycle = await modelLifecycleService.getCurrentKeepAlive();
       keepAlive = lifecycle.keepAliveSeconds;
     } catch {
-      keepAlive = parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '300');
+      keepAlive =
+        systemSettings.getNumber('llm_keep_alive_seconds', null) ??
+        parseInt(process.env.LLM_KEEP_ALIVE_SECONDS || '3600');
     }
 
     const ollamaPayload = {

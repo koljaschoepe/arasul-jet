@@ -13,7 +13,7 @@ postgres/
                                  /arasul/migrations for the runtime runner.
     000_schema_migrations.sql    Tracking table.
     001_init_schema.sql          ... up to ...
-    092_telegram_dsgvo.sql       Latest applied migration (next: 093).
+    094_rag_llm_perf_and_model_tier.sql  Latest applied migration (next: 095).
     032a_create_data_database.sh Shell variant — runs only on first init.
     data-db/                     Init scripts for the secondary user-data DB.
   init-data-db/                  Compose-mounted init dir for the user-data DB.

@@ -54,6 +54,9 @@ interface CatalogModel {
   install_status: string;
   effective_ollama_name?: string;
   performance_tier?: number;
+  // Semantic tier from migration 094 — drives the new Geschwindigkeits-Filter
+  // and Setup auto-pick. 'fast' | 'balanced' | 'quality' | 'vision' | 'ocr' | 'embed'.
+  speed_tier?: string;
   ollama_library_url?: string;
 }
 
@@ -90,6 +93,17 @@ const typeConfig: Record<
   llm: { label: 'LLM', icon: Cpu, description: 'Sprachmodelle' },
   ocr: { label: 'OCR', icon: Type, description: 'Texterkennung' },
   vision: { label: 'Vision', icon: Eye, description: 'Bildanalyse' },
+};
+
+// Semantic tiers from migration 094 (speed_tier column).
+// Order matters: this is the render order in the filter row.
+const tierConfig: Record<string, { label: string; description: string }> = {
+  fast: { label: 'Schnell', description: '< 2 s Antwortzeit, kleine Modelle' },
+  balanced: { label: 'Ausgewogen', description: 'Empfohlen für die meisten Anwendungen' },
+  quality: { label: 'Qualität', description: 'Höchste Antwortqualität, langsamer' },
+  vision: { label: 'Vision', description: 'Bildanalyse / Auto-Vision-Fallback' },
+  ocr: { label: 'OCR', description: 'Texterkennung in Bildern und PDFs' },
+  embed: { label: 'Embedding', description: 'Vektor-Erzeugung für RAG' },
 };
 
 function StoreModels() {
@@ -143,6 +157,7 @@ function StoreModels() {
   // Filters
   const [sizeFilter, setSizeFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [tierFilter, setTierFilter] = useState('all');
 
   const { startDownload, isDownloading, getDownloadState, onDownloadComplete, cancelDownload } =
     useDownloads();
@@ -240,11 +255,13 @@ function StoreModels() {
   const filteredCatalog = catalog.filter(model => {
     if (sizeFilter !== 'all' && model.category !== sizeFilter) return false;
     if (typeFilter !== 'all' && (model.model_type || 'llm') !== typeFilter) return false;
+    if (tierFilter !== 'all' && (model.speed_tier || 'balanced') !== tierFilter) return false;
     return true;
   });
 
-  // Get available types from catalog
+  // Get available types/tiers from catalog (only show filters with > 1 option)
   const availableTypes = Array.from(new Set(catalog.map(m => m.model_type || 'llm')));
+  const availableTiers = Array.from(new Set(catalog.map(m => m.speed_tier || 'balanced')));
 
   // Full-page error only when initial load fails (no data yet)
   const initialError = error && catalog.length === 0 ? error : null;
@@ -375,6 +392,44 @@ function StoreModels() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {availableTiers.length > 1 && (
+            <div className="filter-group flex items-center gap-3">
+              <span className="filter-label text-sm text-muted-foreground font-medium">
+                Geschwindigkeit:
+              </span>
+              <div className="filter-chips flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className={cn(
+                    'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
+                    tierFilter === 'all' && 'active bg-primary/10 border-primary text-primary'
+                  )}
+                  onClick={() => setTierFilter('all')}
+                  aria-pressed={tierFilter === 'all'}
+                >
+                  Alle
+                </button>
+                {Object.entries(tierConfig)
+                  .filter(([key]) => availableTiers.includes(key))
+                  .map(([key, config]) => (
+                    <button
+                      type="button"
+                      key={key}
+                      className={cn(
+                        'filter-chip flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-full text-sm font-medium text-muted-foreground cursor-pointer transition-all hover:bg-muted',
+                        tierFilter === key && 'active bg-primary/10 border-primary text-primary'
+                      )}
+                      onClick={() => setTierFilter(key)}
+                      aria-pressed={tierFilter === key}
+                      title={config.description}
+                    >
+                      {config.label}
+                    </button>
+                  ))}
               </div>
             </div>
           )}

@@ -52,6 +52,7 @@ export interface ChatMessage {
   streamStatus?: string;
   statusMessage?: string;
   images?: string[]; // Base64-encoded images for vision models
+  visionFallbackVia?: string; // model_id of the vision model that captioned the user image (P6 auto-fallback)
 }
 
 export interface ChatSettings {
@@ -1023,6 +1024,26 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                   return u;
                 });
                 assistantMessageIndex++;
+              }
+
+              // Vision auto-fallback (P6/P7): primary model is text-only, a small
+              // vision model captioned the user's image so the primary can answer.
+              // Render a Badge on the assistant message: "🖥️ Vision via <model>".
+              if (
+                data.type === 'warning' &&
+                data.code === 'VISION_FALLBACK_ACTIVE' &&
+                data.vision_via
+              ) {
+                updateMessages(chatId, prev => {
+                  const u = [...prev];
+                  if (u[assistantMessageIndex]) {
+                    u[assistantMessageIndex] = {
+                      ...u[assistantMessageIndex],
+                      visionFallbackVia: data.vision_via,
+                    };
+                  }
+                  return u;
+                });
               }
 
               // Token streaming

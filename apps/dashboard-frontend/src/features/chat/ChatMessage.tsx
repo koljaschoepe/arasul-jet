@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChevronDown, ChevronUp, Cpu, BookOpen, Folder } from 'lucide-react';
+import { ChevronDown, ChevronUp, Cpu, BookOpen, Folder, ScanEye } from 'lucide-react';
 import MermaidDiagram from '../../components/editor/MermaidDiagram';
 import { cn } from '@/lib/utils';
 import type { ChatMessage as ChatMessageType } from '../../contexts/ChatContext';
@@ -69,6 +69,7 @@ function arePropsEqual(prev: ChatMessageProps, next: ChatMessageProps) {
     pm.streamStatus === nm.streamStatus &&
     pm.statusMessage === nm.statusMessage &&
     pm.images === nm.images &&
+    pm.visionFallbackVia === nm.visionFallbackVia &&
     // P2.2.8: status (e.g. 'streaming' → 'completed') must trigger a
     // re-render, otherwise the loading-dots overlay can remain after the
     // stream finishes if isLoading didn't toggle simultaneously.
@@ -131,6 +132,20 @@ const ChatMessage = memo(function ChatMessage({
       >
         {message.role === 'user' ? 'Du' : 'AI'}
       </div>
+
+      {/* Vision auto-fallback badge — primary model is text-only, image was captioned
+          by a vision model (P6/P7). Shown above the thinking block so the user
+          understands why the response references the image even though the
+          selected model can't see it natively. */}
+      {message.role === 'assistant' && message.visionFallbackVia && (
+        <div
+          className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground bg-muted/40 border border-border rounded-md px-2 py-1"
+          title="Bild wurde von einem Vision-Modell beschrieben und als Kontext an das gewählte Text-Modell weitergegeben."
+        >
+          <ScanEye className="size-3.5 shrink-0" aria-hidden="true" />
+          <span>Vision via {message.visionFallbackVia}</span>
+        </div>
+      )}
 
       {/* Thinking Block */}
       {message.hasThinking && message.thinking && (

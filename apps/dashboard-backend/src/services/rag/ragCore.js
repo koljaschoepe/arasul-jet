@@ -25,6 +25,7 @@ const logger = require('../../utils/logger');
 const db = require('../../database');
 const services = require('../../config/services');
 const embeddingService = require('../embeddingService');
+const systemSettings = require('../system-settings/systemSettingsService');
 
 // Environment variables
 const QDRANT_HOST = services.qdrant.host;
@@ -35,9 +36,12 @@ const DOCUMENT_INDEXER_URL = services.documentIndexer.url;
 // Hybrid search configuration
 const HYBRID_SEARCH_ENABLED = process.env.RAG_HYBRID_SEARCH !== 'false';
 
-// Timeout configuration (ms) — tuned for Jetson ARM64 latency
+// Timeout configuration (ms) — tuned for Jetson ARM64 latency.
+// Reranker default lowered from 120s to 8s: a single-query rerank should
+// never exceed a few seconds; 120s previously masked silent service failures
+// and inflated tail latency past the 700ms RAG-overhead target.
 const RAG_TIMEOUT_SPARSE = parseInt(process.env.RAG_TIMEOUT_SPARSE_MS, 10) || 5000;
-const RAG_TIMEOUT_RERANK = parseInt(process.env.RAG_TIMEOUT_RERANK_MS, 10) || 120000;
+const RAG_TIMEOUT_RERANK = parseInt(process.env.RAG_TIMEOUT_RERANK_MS, 10) || 8000;
 const RAG_TIMEOUT_ENTITY = parseInt(process.env.RAG_TIMEOUT_ENTITY_MS, 10) || 5000;
 const RAG_TIMEOUT_SEARCH = parseInt(process.env.RAG_TIMEOUT_SEARCH_MS, 10) || 15000;
 const RAG_TIMEOUT_FALLBACK = parseInt(process.env.RAG_TIMEOUT_FALLBACK_MS, 10) || 10000;
@@ -54,15 +58,20 @@ const ENABLE_GRAPH_ENRICHMENT = process.env.RAG_ENABLE_GRAPH !== 'false';
 const GRAPH_MAX_ENTITIES = parseInt(process.env.RAG_GRAPH_MAX_ENTITIES || '3');
 const GRAPH_TRAVERSAL_DEPTH = parseInt(process.env.RAG_GRAPH_TRAVERSAL_DEPTH || '2');
 
-// RAG 4.0: Relevance filtering — tuned for recall over precision
-// Lower thresholds: prefer showing more results over missing relevant ones.
-// The anti-hallucination prompt handles low-quality results.
-// Reranker (BGE CrossEncoder) logits: good matches ≥0.05, marginal 0.015–0.05
-// RRF fusion scores: good matches ≥0.01, marginal 0.003–0.01 (compressed scale)
-const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.01');
-const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.005');
+// RAG 4.0: Relevance filtering — calibrated for precision via Reranker.
+// Defaults raised from 0.01/0.005 to 0.55/0.30: with the BGE-Reranker-v2-m3
+// stage active, post-rerank scores cluster much higher and the previous
+// "recall-over-precision" floor admitted obviously off-topic chunks.
+// Reranker (BGE CrossEncoder) logits: good matches ≥0.55, marginal 0.30–0.55.
+// RRF fusion scores (pre-rerank fallback): good ≥0.30, marginal 0.10–0.30.
+const RAG_RELEVANCE_THRESHOLD = parseFloat(process.env.RAG_RELEVANCE_THRESHOLD || '0.55');
+const RAG_VECTOR_SCORE_THRESHOLD = parseFloat(process.env.RAG_VECTOR_SCORE_THRESHOLD || '0.30');
 // Marginal thresholds: results between marginal and relevant are flagged as low-confidence
 const RAG_MARGINAL_FACTOR = 0.3; // marginal = threshold * factor (lower = fewer filtered out)
+// Final context cap: after rerank + relevance filter + MMR + dedupe, only this
+// many chunks reach the LLM. Smaller than top_k so the reranker still has
+// enough candidates (top_k=10) but the LLM context stays focused (final_k=4).
+const RAG_FINAL_K = parseInt(process.env.RAG_FINAL_K, 10) || 4;
 
 /**
  * Get embedding vector for text.
@@ -296,6 +305,10 @@ async function rerankResults(query, results, topK = 5) {
       parent_chunk_id: r.payload?.parent_chunk_id || null,
     }));
 
+    // Timeout: prefer DB-backed value (system_settings.rag_timeout_rerank_ms),
+    // falls back to env-driven module constant.
+    const rerankTimeout = systemSettings.getNumber('rag_timeout_rerank_ms', RAG_TIMEOUT_RERANK);
+
     const response = await axios.post(
       `${services.embedding.url}/rerank`,
       {
@@ -304,7 +317,7 @@ async function rerankResults(query, results, topK = 5) {
         top_k: topK,
         stage1_top_k: Math.min(20, results.length),
       },
-      { timeout: RAG_TIMEOUT_RERANK }
+      { timeout: rerankTimeout }
     );
 
     if (!response.data.results) {
@@ -364,7 +377,12 @@ function filterByRelevance(results, reranked = true) {
     return { relevant: [], marginal: [], filtered: 0 };
   }
 
-  const baseThreshold = reranked ? RAG_RELEVANCE_THRESHOLD : RAG_VECTOR_SCORE_THRESHOLD;
+  // DB-backed system_settings overrides env defaults. systemSettingsService
+  // returns the env-driven module constant when the column is NULL or the
+  // settings cache has not yet loaded (pre-migration boot).
+  const baseThreshold = reranked
+    ? systemSettings.getNumber('rag_relevance_threshold', RAG_RELEVANCE_THRESHOLD)
+    : systemSettings.getNumber('rag_score_threshold', RAG_VECTOR_SCORE_THRESHOLD);
   const scoreField = reranked ? 'rerankScore' : 'score';
 
   // Get all scores for adaptive thresholding
@@ -437,10 +455,14 @@ function jaccardSimilarity(textA, textB) {
       .split(/\s+/)
       .filter(w => w.length > 2)
   );
-  if (wordsA.size === 0 || wordsB.size === 0) {return 0;}
+  if (wordsA.size === 0 || wordsB.size === 0) {
+    return 0;
+  }
   let intersection = 0;
   for (const w of wordsA) {
-    if (wordsB.has(w)) {intersection++;}
+    if (wordsB.has(w)) {
+      intersection++;
+    }
   }
   const union = new Set([...wordsA, ...wordsB]).size;
   return union > 0 ? intersection / union : 0;
@@ -458,8 +480,10 @@ function jaccardSimilarity(textA, textB) {
  * @param {number} topK - Max results to return
  * @returns {Object[]} Diversified results
  */
-function applyMMR(results, lambda = 0.7, topK = 8) {
-  if (results.length <= 1) {return results;}
+function applyMMR(results, lambda = 0.7, topK = RAG_FINAL_K) {
+  if (results.length <= 1) {
+    return results;
+  }
 
   // Normalize scores to [0, 1] for fair comparison
   const scoreField = results[0].rerankScore != null ? 'rerankScore' : 'score';
@@ -952,4 +976,5 @@ module.exports = {
   buildHierarchicalContext,
   // Expose config for consumers that need them
   ENABLE_RERANKING,
+  RAG_FINAL_K,
 };

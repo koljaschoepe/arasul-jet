@@ -67,7 +67,10 @@ services:
       OLLAMA_STARTUP_TIMEOUT: ${OLLAMA_STARTUP_TIMEOUT:-120}
       OLLAMA_FLASH_ATTENTION: '1'
       OLLAMA_KV_CACHE_TYPE: 'q4_0'
-      OLLAMA_NUM_PARALLEL: '1'
+      # NUM_PARALLEL=2 lets two chat requests stream concurrently (Balanced
+      # latency target: 2 users OK, 3+ queue). Lower to 1 on tight 32 GB Orin
+      # by exporting OLLAMA_NUM_PARALLEL=1 in .env.
+      OLLAMA_NUM_PARALLEL: '${OLLAMA_NUM_PARALLEL:-2}'
       OLLAMA_MAX_LOADED_MODELS: '${OLLAMA_MAX_LOADED_MODELS:-3}'
       OLLAMA_NUM_GPU: '99'
       # CUDA/Tegra library paths for JetPack 6 GPU acceleration

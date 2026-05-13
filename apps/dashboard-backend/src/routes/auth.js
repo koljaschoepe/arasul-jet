@@ -299,6 +299,34 @@ router.get(
   })
 );
 
+// POST /api/auth/refresh-cookie - Re-sync the session cookie from the Bearer token.
+// Forward-auth (n8n, MinIO, Traefik dashboard) only receives Cookie/Authorization on the
+// request. Plain <a href> navigations never carry the Authorization header, so if the
+// browser's cookie jar is missing the session cookie (e.g. user logged in under a
+// different hostname like arasul.local vs the IP), the navigation lands on 401. The
+// frontend calls this endpoint right before opening a forward-auth-gated app to ensure
+// the cookie exists for the host currently in the URL bar.
+router.post(
+  '/refresh-cookie',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
+    if (!token) {
+      throw new UnauthorizedError('No token available to refresh cookie');
+    }
+
+    res.cookie('arasul_session', token, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      maxAge: 4 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    res.json({ success: true, timestamp: new Date().toISOString() });
+  })
+);
+
 // GET /api/auth/verify - Forward Auth endpoint for Traefik
 // Used to protect routes like n8n and Claude Code terminal
 // Note: This endpoint intentionally returns 401 (not thrown errors) because

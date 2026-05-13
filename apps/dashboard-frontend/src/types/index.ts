@@ -243,6 +243,10 @@ export interface SSEData {
   tokensBefore?: number;
   tokensAfter?: number;
   messagesCompacted?: number;
+  // Vision auto-fallback frames (P6/P7): vision model id used to caption
+  // the image, surfaced to render a Badge on the assistant response.
+  code?: string;
+  vision_via?: string;
 }
 
 // --- Queue ---

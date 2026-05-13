@@ -72,10 +72,16 @@ SIMILARITY_THRESHOLD = float(os.getenv('DOCUMENT_INDEXER_SIMILARITY_THRESHOLD', 
 ENABLE_KNOWLEDGE_GRAPH = os.getenv('DOCUMENT_INDEXER_ENABLE_KG', 'true').lower() == 'true'
 
 # --- Contextual Chunking (Phase 2) ---
-# LLM-generated context descriptions for each chunk during indexing.
-# Improves retrieval by ~35% but adds ~3-5s per chunk during indexing.
-# 'llm' = LLM-generated context, 'template' = enhanced template (default)
-CHUNK_CONTEXT_MODE = os.getenv('DOCUMENT_INDEXER_CONTEXT_MODE', 'llm')
+# Mode for chunk-context descriptions added during indexing.
+#   'heuristic' — rule-based/template descriptions (default, ~10-50ms/chunk).
+#   'llm'       — LLM-generated context (~3-5s/chunk). Higher recall on
+#                 complex docs but competes with active chat on the GPU
+#                 (OLLAMA_NUM_PARALLEL=2 makes this race more visible).
+#   'template'  — legacy alias for 'heuristic', kept for backward-compat.
+# Default flipped to 'heuristic' so day-to-day indexing does not stall TTFT
+# for active chats. Operators can re-enable 'llm' for a one-off re-index of
+# critical knowledge bases via DOCUMENT_INDEXER_CONTEXT_MODE=llm.
+CHUNK_CONTEXT_MODE = os.getenv('DOCUMENT_INDEXER_CONTEXT_MODE', 'heuristic')
 
 # --- PostgreSQL DSN (for GraphStore) ---
 _PG_HOST = os.getenv('POSTGRES_HOST', 'postgres-db')

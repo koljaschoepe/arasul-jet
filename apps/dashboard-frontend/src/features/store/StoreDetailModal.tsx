@@ -48,6 +48,8 @@ interface ModelItem {
   recommended_for?: string[];
   install_status: string;
   performance_tier?: number;
+  // Migration 094: semantic tier ('fast' | 'balanced' | 'quality' | 'vision' | 'ocr' | 'embed').
+  speed_tier?: string;
   ollama_library_url?: string;
 }
 
@@ -264,14 +266,26 @@ function StoreDetailModal({
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">
-                      Performance
+                      Geschwindigkeit
                     </span>
                     <span className="text-foreground font-medium">
-                      {item.performance_tier === 1
+                      {item.speed_tier === 'fast'
                         ? 'Schnell'
-                        : item.performance_tier === 2
-                          ? 'Mittel'
-                          : 'Langsam'}
+                        : item.speed_tier === 'balanced'
+                          ? 'Ausgewogen'
+                          : item.speed_tier === 'quality'
+                            ? 'Qualität'
+                            : item.speed_tier === 'vision'
+                              ? 'Vision'
+                              : item.speed_tier === 'ocr'
+                                ? 'OCR'
+                                : item.speed_tier === 'embed'
+                                  ? 'Embedding'
+                                  : item.performance_tier === 1
+                                    ? 'Schnell'
+                                    : item.performance_tier === 2
+                                      ? 'Mittel'
+                                      : 'Langsam'}
                     </span>
                   </div>
                 </>

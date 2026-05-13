@@ -6,7 +6,107 @@
  * All functions receive a `ctx` object with dependencies and service references.
  */
 
+const http = require('http');
 const { streamFromOllama, onJobComplete, destroyOllamaAgent } = require('./llmOllamaStream');
+
+/**
+ * Vision auto-fallback: caption an image with a small vision model so a text-only
+ * primary model can still answer questions about it.
+ *
+ * Returns the caption string on success, or null on any failure (caller treats
+ * null as "vision skipped"). Times out at 30s — well above expected paligemma-3b
+ * latency on Orin but tight enough that a hung vision call can't strand a chat.
+ */
+async function captionImagesWithVisionModel(visionOllamaName, images, logger) {
+  const llmServiceUrl = process.env.LLM_SERVICE_URL || 'http://llm-service:11436';
+  const payload = JSON.stringify({
+    model: visionOllamaName,
+    prompt:
+      'Beschreibe das Bild faktisch und knapp auf Deutsch. Liste sichtbare Objekte, Text auf dem Bild und das Layout. Keine Spekulation über Inhalte, die nicht sichtbar sind.',
+    images,
+    stream: false,
+    options: { temperature: 0.2, num_predict: 384 },
+  });
+
+  return new Promise(resolve => {
+    let url;
+    try {
+      url = new URL(`${llmServiceUrl}/api/generate`);
+    } catch (err) {
+      logger.warn(`[vision-fallback] Bad LLM_SERVICE_URL: ${err.message}`);
+      resolve(null);
+      return;
+    }
+
+    const req = http.request(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        },
+        timeout: 30000,
+      },
+      res => {
+        let body = '';
+        res.on('data', chunk => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(body);
+            const caption = (parsed.response || '').trim();
+            resolve(caption || null);
+          } catch (e) {
+            logger.warn(`[vision-fallback] Parse failed: ${e.message}`);
+            resolve(null);
+          }
+        });
+      }
+    );
+    req.on('timeout', () => {
+      logger.warn('[vision-fallback] Caption request timed out at 30s');
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', err => {
+      logger.warn(`[vision-fallback] HTTP error: ${err.message}`);
+      resolve(null);
+    });
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * Find the smallest installed vision-capable model to use as auto-fallback.
+ * Returns { id, ollama_name } or null if none available.
+ */
+async function findVisionFallbackModel(database, primaryModelId, logger) {
+  try {
+    const result = await database.query(
+      `SELECT c.id, c.ollama_name, c.ram_required_gb
+       FROM llm_model_catalog c
+       JOIN llm_installed_models i ON i.id = c.id
+       WHERE c.supports_vision_input = true
+         AND i.status = 'available'
+         AND c.id <> $1
+       ORDER BY c.ram_required_gb ASC, c.id ASC
+       LIMIT 1`,
+      [primaryModelId || '']
+    );
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return result.rows[0];
+  } catch (err) {
+    logger.warn(`[vision-fallback] Catalog lookup failed: ${err.message}`);
+    return null;
+  }
+}
 
 /**
  * Process a chat job
@@ -95,30 +195,79 @@ async function processChatJob(ctx, job) {
 
   const prompt = optimized.prompt;
 
-  // Check if model supports vision and images are provided
+  // Vision handling — three paths:
+  //   1. Primary supports vision → images pass through unchanged.
+  //   2. Primary is text-only AND a small vision model is installed → caption
+  //      the image with the fallback, inject the caption as a system-prompt
+  //      addendum, and continue streaming the primary with no images.
+  //   3. Primary is text-only AND no fallback installed → warn, drop images.
   let visionImages = null;
+  let augmentedSystemPrompt = optimized.systemPrompt;
+
   if (images && Array.isArray(images) && images.length > 0) {
+    let supportsVision = false;
     try {
       const visionResult = await database.query(
         `SELECT supports_vision_input FROM llm_model_catalog WHERE id = $1`,
         [requested_model]
       );
-      const supportsVision = visionResult.rows[0]?.supports_vision_input === true;
-      if (supportsVision) {
-        visionImages = images;
-        logger.info(`[JOB ${jobId}] Vision mode: ${images.length} image(s) attached`);
-      } else {
+      supportsVision = visionResult.rows[0]?.supports_vision_input === true;
+    } catch (visionErr) {
+      logger.debug(`[JOB ${jobId}] vision capability lookup failed: ${visionErr.message}`);
+    }
+
+    if (supportsVision) {
+      visionImages = images;
+      logger.info(`[JOB ${jobId}] Vision mode: ${images.length} image(s) attached`);
+    } else {
+      const fallback = await findVisionFallbackModel(database, requested_model, logger);
+      if (!fallback) {
         logger.info(
-          `[JOB ${jobId}] Images provided but model ${requested_model} doesn't support vision - ignoring`
+          `[JOB ${jobId}] No vision fallback installed; primary ${requested_model} is text-only — dropping ${images.length} image(s)`
         );
         service.notifySubscribers(jobId, {
           type: 'warning',
-          message: `Modell "${requested_model}" unterstützt keine Bildverarbeitung. Bilder werden ignoriert.`,
-          code: 'VISION_NOT_SUPPORTED',
+          message: `Modell "${requested_model}" unterstützt keine Bilder, und kein Vision-Modell ist installiert. Bilder wurden ignoriert.`,
+          code: 'NO_VISION_FALLBACK_AVAILABLE',
         });
+      } else {
+        logger.info(
+          `[JOB ${jobId}] Vision auto-fallback via ${fallback.id} (ollama_name=${fallback.ollama_name}) for ${images.length} image(s)`
+        );
+        service.notifySubscribers(jobId, {
+          type: 'status',
+          message: `Bild wird analysiert via ${fallback.id} …`,
+          code: 'VISION_PROCESSING',
+          vision_via: fallback.id,
+        });
+
+        const caption = await captionImagesWithVisionModel(
+          fallback.ollama_name || fallback.id,
+          images,
+          logger
+        );
+
+        if (caption) {
+          augmentedSystemPrompt =
+            (augmentedSystemPrompt ? augmentedSystemPrompt + '\n\n' : '') +
+            `[Bild-Kontext (vom Vision-Modell ${fallback.id} extrahiert)]\n${caption}`;
+          service.notifySubscribers(jobId, {
+            type: 'warning',
+            message: `Bild wurde von ${fallback.id} analysiert; Primärmodell "${requested_model}" antwortet mit dieser Beschreibung als Kontext.`,
+            code: 'VISION_FALLBACK_ACTIVE',
+            vision_via: fallback.id,
+          });
+        } else {
+          logger.warn(
+            `[JOB ${jobId}] Vision fallback ${fallback.id} returned no caption — dropping images`
+          );
+          service.notifySubscribers(jobId, {
+            type: 'warning',
+            message: `Vision-Fallback (${fallback.id}) konnte das Bild nicht analysieren. Antwort erfolgt ohne Bildkontext.`,
+            code: 'VISION_FALLBACK_SKIPPED',
+          });
+        }
       }
-    } catch (visionErr) {
-      logger.debug(`Could not check vision capability: ${visionErr.message}`);
     }
   }
 
@@ -130,7 +279,7 @@ async function processChatJob(ctx, job) {
     temperature,
     max_tokens,
     requested_model,
-    optimized.systemPrompt,
+    augmentedSystemPrompt,
     optimized.numCtx,
     visionImages
   );

@@ -560,6 +560,12 @@ router.get(
     res.json({
       recommended_model: recommendation.model,
       recommended_models: recommendation.models,
+      // P9: tier-aware companions for Setup auto-pull. Setup-Wizard can pull
+      // all four to give the user a Fast/Balanced/Quality experience out of the
+      // box, with a small vision model ready for the auto-vision-fallback (P6).
+      recommended_fast_model: recommendation.fast_model || null,
+      recommended_vision_model: recommendation.vision_model || null,
+      recommended_embedding_model: recommendation.embedding_model || null,
       device_profile: recommendation.profile,
       timestamp: new Date().toISOString(),
     });

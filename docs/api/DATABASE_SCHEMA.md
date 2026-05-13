@@ -1335,6 +1335,12 @@
 | `recommended_ctx`       | integer                  | ✅       | `8192`                     |
 | `supports_vision_input` | boolean                  | ✅       | `false`                    |
 | `is_platform_default`   | boolean                  | ✅       | `false`                    |
+| `speed_tier`            | character varying(20)    | ✅       | `'balanced'`               |
+
+**Migration 094 — `speed_tier`:** Semantic tier for the Store UI grouping and
+Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
+`'ocr'` / `'embed'`. Independent from the numeric `performance_tier` (1=fastest,
+3=slowest) which still drives ordering.
 
 **Primary key:** `id`
 
@@ -1342,6 +1348,7 @@
 
 - `idx_llm_catalog_capabilities` — `CREATE INDEX idx_llm_catalog_capabilities ON public.llm_model_catalog USING btree (supports_thinking, rag_optimized)`
 - `idx_llm_catalog_platform_default` — `CREATE INDEX idx_llm_catalog_platform_default ON public.llm_model_catalog USING btree (is_platform_default) WHERE (is_platform_default = true)`
+- `idx_llm_catalog_speed_tier` — `CREATE INDEX idx_llm_catalog_speed_tier ON public.llm_model_catalog USING btree (speed_tier)`
 - `idx_llm_catalog_vision` — `CREATE INDEX idx_llm_catalog_vision ON public.llm_model_catalog USING btree (supports_vision_input) WHERE (supports_vision_input = true)`
 - `idx_llm_model_catalog_category` — `CREATE INDEX idx_llm_model_catalog_category ON public.llm_model_catalog USING btree (category)`
 - `idx_llm_model_catalog_ollama_name` — `CREATE INDEX idx_llm_model_catalog_ollama_name ON public.llm_model_catalog USING btree (ollama_name)`
@@ -2172,6 +2179,21 @@
 | `ai_transparency_enabled`         | boolean                  | ⛔       | `true`  |
 | `ai_transparency_disabled_at`     | timestamp with time zone | ✅       |         |
 | `ai_transparency_disabled_by`     | integer                  | ✅       |         |
+| `rag_top_k`                       | integer                  | ✅       | `10`    |
+| `rag_final_k`                     | integer                  | ✅       | `4`     |
+| `rag_score_threshold`             | double precision         | ✅       | `0.30`  |
+| `rag_relevance_threshold`         | double precision         | ✅       | `0.55`  |
+| `rag_rerank_enabled`              | boolean                  | ✅       | `true`  |
+| `rag_timeout_rerank_ms`           | integer                  | ✅       | `8000`  |
+| `llm_num_ctx_default`             | integer                  | ✅       | `NULL`  |
+| `llm_keep_alive_seconds`          | integer                  | ✅       | `3600`  |
+| `llm_num_predict_default`         | integer                  | ✅       | `2048`  |
+
+**Migration 094 — perf knobs:** `rag_*` and `llm_*` columns are loaded into the
+`systemSettingsService` cache at boot (`bootstrap.js`) so request hot-paths
+(`routes/rag.js`, `services/llm/llmOllamaStream.js`) read them via
+`systemSettings.get(...)` instead of a per-request DB hit. `NULL` on
+`llm_num_ctx_default` means "let `contextBudgetManager` pick".
 
 **Primary key:** `id`
 

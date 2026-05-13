@@ -55,6 +55,12 @@ _reranker_lock = threading.Lock()
 # GPU memory threshold (90% usage triggers warning, request still proceeds)
 GPU_MEM_WARN_THRESHOLD = 0.9
 
+# Reranker Stage 2 VRAM floor (MB). Below this we skip the BGE CrossEncoder and
+# return Stage-1 (FlashRank) scores only — prevents CUDA-OOM while a large LLM
+# is co-resident on the GPU (Jetson Orin 32 GB scenario). Tune via env:
+# raise the floor on tight Orin 32 GB, lower it on Thor 128 GB.
+STAGE2_VRAM_FLOOR_MB = float(os.getenv('STAGE2_VRAM_FLOOR_MB', '2048'))
+
 
 def check_gpu_memory():
     """Check GPU memory usage. Returns (used_pct, free_mb) or None if not on CUDA."""
@@ -454,13 +460,37 @@ def rerank():
             stage1_scored = [{**p, '_stage1_score': 0, '_original_idx': i} for i, p in enumerate(passages[:stage1_top_k])]
             stage1_latency = 0
 
-        # Stage 2: CrossEncoder (GPU) - precise scoring
-        # Skip Stage 2 if Stage 1 top result has high confidence (saves 10-20s on Jetson)
+        # Stage 2: CrossEncoder (GPU) - precise scoring.
+        # We skip Stage 2 in two cases:
+        #   (a) Stage 1 already has a high-confidence top result (saves 10-20s).
+        #   (b) Free VRAM is below STAGE2_VRAM_FLOOR_MB — without this guard,
+        #       the CrossEncoder.predict() call can CUDA-OOM while a large LLM
+        #       is co-resident, and recovery via the exception handler costs
+        #       multiple seconds of latency per request.
         STAGE2_CONFIDENCE_THRESHOLD = 0.85
         stage2_start = time.time()
 
-        if stage1_scored and stage1_scored[0].get('_stage1_score', 0) > STAGE2_CONFIDENCE_THRESHOLD:
-            logger.info(f"High-confidence Stage 1 ({stage1_scored[0]['_stage1_score']:.2f}), skipping Stage 2")
+        high_confidence_skip = (
+            stage1_scored
+            and stage1_scored[0].get('_stage1_score', 0) > STAGE2_CONFIDENCE_THRESHOLD
+        )
+        vram_skip = False
+        _gpu_status = check_gpu_memory()
+        if _gpu_status is not None:
+            _used_pct, _free_mb = _gpu_status
+            if _free_mb < STAGE2_VRAM_FLOOR_MB:
+                vram_skip = True
+                logger.warning(
+                    f"VRAM tight ({_free_mb:.0f}MB free < {STAGE2_VRAM_FLOOR_MB:.0f}MB floor), "
+                    "skipping CrossEncoder Stage 2"
+                )
+
+        if high_confidence_skip or vram_skip:
+            if high_confidence_skip:
+                logger.info(
+                    f"High-confidence Stage 1 ({stage1_scored[0]['_stage1_score']:.2f}), "
+                    "skipping Stage 2"
+                )
             for p in stage1_scored:
                 p['_stage2_score'] = p.get('_stage1_score', 0)
             stage2_latency = 0

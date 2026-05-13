@@ -10,6 +10,7 @@ const db = require('./database');
 const { hashPassword } = require('./utils/password');
 const { runMigrations } = require('./migrationRunner');
 const logger = require('./utils/logger');
+const systemSettings = require('./services/system-settings/systemSettingsService');
 
 const DEFAULT_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const DEFAULT_EMAIL = process.env.ADMIN_EMAIL || 'admin@arasul.local';
@@ -28,7 +29,14 @@ async function bootstrap() {
     logger.error(`Bootstrap: Migration runner error: ${error.message}`);
   }
 
-  // Step 2: Ensure admin user exists
+  // Step 2: Load system_settings cache (after migration 094 has applied its columns)
+  try {
+    await systemSettings.load();
+  } catch (error) {
+    logger.error(`Bootstrap: system_settings load error: ${error.message}`);
+  }
+
+  // Step 3: Ensure admin user exists
   await ensureAdminUser();
 }
 

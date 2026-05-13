@@ -42,11 +42,12 @@ async function enrichWithRAG(userQuery, bot) {
       }
     }
 
-    // 3. Hybrid search with space filter
+    // 3. Hybrid search with space filter — 10 candidates feed the reranker;
+    //    RAG_FINAL_K caps the final context the bot sends to the LLM.
     const searchResults = await ragCore.hybridSearch(
       userQuery,
       embedding,
-      8,
+      10,
       spaceIds && spaceIds.length > 0 ? spaceIds : null
     );
 
@@ -55,8 +56,8 @@ async function enrichWithRAG(userQuery, bot) {
       return { context: null, sources: [], sourceText: null };
     }
 
-    // 4. Rerank results
-    const reranked = await ragCore.rerankResults(userQuery, searchResults, 8);
+    // 4. Rerank results (BGE CrossEncoder picks the best 10 to score).
+    const reranked = await ragCore.rerankResults(userQuery, searchResults, 10);
 
     // 5. Filter by relevance
     const wasReranked = ragCore.ENABLE_RERANKING && reranked.some(r => r.rerankScore != null);
@@ -67,11 +68,12 @@ async function enrichWithRAG(userQuery, bot) {
       return { context: null, sources: [], sourceText: null };
     }
 
-    // 5b. MMR diversity selection
-    const mmrResults = ragCore.applyMMR(relevant, 0.7, 8);
+    // 5b. MMR diversity selection — cap at RAG_FINAL_K (default 4) so the
+    //     Telegram message context stays tight, same as the dashboard pipeline.
+    const mmrResults = ragCore.applyMMR(relevant, 0.7, ragCore.RAG_FINAL_K);
 
     // 5c. Deduplicate by document (max 3 chunks per document)
-    const deduplicated = ragCore.deduplicateByDocument(mmrResults, 8, 3);
+    const deduplicated = ragCore.deduplicateByDocument(mmrResults, ragCore.RAG_FINAL_K, 3);
 
     // 6. Load parent chunks for richer context
     const parentChunks = await ragCore.getParentChunks(deduplicated);

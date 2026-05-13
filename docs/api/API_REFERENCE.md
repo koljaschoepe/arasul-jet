@@ -204,6 +204,20 @@ Marks the setup wizard as skipped. The wizard will not be shown again, but setti
 
 Response: Server-Sent Events (SSE) stream
 
+**SSE frame catalogue** (selected — full list in `services/llm/llmJobProcessor.js`):
+
+| `type`                                            | `code`                         | Meaning                                                                                                   |
+| ------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `job_started`                                     | —                              | Job entered the queue with an id.                                                                         |
+| `status`                                          | `VISION_PROCESSING`            | (P6) Image is being captioned by a vision model before primary stream starts. Payload: `vision_via`.      |
+| `warning`                                         | `THINKING_NOT_SUPPORTED`       | Requested think-mode but model lacks support; disabled silently.                                          |
+| `warning`                                         | `VISION_FALLBACK_ACTIVE`       | (P6) Image was captioned by a vision model; primary streams with caption injected. Payload: `vision_via`. |
+| `warning`                                         | `VISION_FALLBACK_SKIPPED`      | (P6) Vision fallback returned no caption; primary streams without image context.                          |
+| `warning`                                         | `NO_VISION_FALLBACK_AVAILABLE` | (P6) Primary is text-only and no vision model is installed; images dropped.                               |
+| `context_info`                                    | —                              | Token-budget breakdown for the request.                                                                   |
+| `compaction`                                      | —                              | Older messages were summarized to fit context budget.                                                     |
+| `thinking` / `thinking_end` / `response` / `done` | —                              | Streaming content frames.                                                                                 |
+
 ### Chat Conversations
 
 | Method | Endpoint                  | Description                 |

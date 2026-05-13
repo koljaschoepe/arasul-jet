@@ -451,7 +451,7 @@ describe('RAG Routes', () => {
       expect(ragCore.routeToSpaces).not.toHaveBeenCalled();
     });
 
-    test('should use default top_k of 8', async () => {
+    test('should use default top_k of 10', async () => {
       const token = getAuthToken();
       setupRagMocks();
 
@@ -466,14 +466,15 @@ describe('RAG Routes', () => {
         .send({
           query: 'test query',
           conversation_id: 1
-          // No top_k specified — should default to 5
+          // No top_k specified — should default to route-level RAG retrieval default.
         });
 
-      // hybridSearch should be called with top_k = 8 (3rd argument, route default)
+      // hybridSearch should be called with top_k = 10 (rerank candidate pool;
+      // RAG_FINAL_K=4 caps the LLM context after MMR + dedupe).
       expect(ragCore.hybridSearch).toHaveBeenCalledWith(
         expect.any(String),     // query
         expect.any(Array),      // embedding
-        8,                      // top_k default
+        10,                     // top_k default
         null,                   // spaceFilter (no spaces configured)
         expect.any(Object)      // options
       );

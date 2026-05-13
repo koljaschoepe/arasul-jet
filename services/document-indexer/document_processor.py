@@ -310,8 +310,11 @@ def contextualize_chunk(
     stored unchanged in the Qdrant payload for display.
 
     Mode is controlled by CHUNK_CONTEXT_MODE config:
-    - 'llm': LLM-generated contextual descriptions (~35% retrieval improvement)
-    - 'template': Enhanced template-based headers (fast, no LLM cost)
+    - 'llm':       LLM-generated context (~35% retrieval improvement,
+                   ~3-5s/chunk, blocks Ollama on the chat hot path)
+    - 'heuristic': Template-based headers (default, fast, no LLM cost)
+    - 'template':  Legacy alias for 'heuristic'
+    Any non-'llm' value falls through to the template path.
     """
     if CHUNK_CONTEXT_MODE == 'llm':
         return _llm_context(
