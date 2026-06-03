@@ -1,6 +1,8 @@
 # Regressed-Features-Inventar (Phase-0-Output)
 
-**Status:** active
+> **Archived 2026-06-03** — Cherry-picks completed via commit `c370cad` (Mig 082-089, OpenAI-Compat, GDPR, CB). Remaining side-branch items tracked in `docs/plans/active/side-branch-cherry-pick-2026-05-14.md`.
+
+**Status:** archived
 **Erstellt:** 2026-05-08
 **Begleitdokument zu:** `docs/plans/active/repo-deep-audit-2026-05-08.md` (Phase 0)
 

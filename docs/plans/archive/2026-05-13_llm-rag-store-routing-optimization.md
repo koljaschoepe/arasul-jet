@@ -1,5 +1,7 @@
 # LLM + RAG + Model-Store + Multi-Modell-Routing — Optimization Plan
 
+> **Archived 2026-06-03** — All 12 phases (P0–P11) completed and shipped via commit `912a190`. Superseded by `docs/plans/active/side-branch-cherry-pick-2026-05-14.md`.
+
 > RAG-Qualität (Reduktion irrelevanter Chunks), LLM-Inferenz-Speed auf Jetson, Model-Store-Tier-Konzept mit kleineren Gemma-Varianten, und Auto-Vision-Fallback für reine Text-Modelle. Ein integrierter Plan, direkt auf `main`, 11 Phasen.
 
 ## Goal & Success Criteria

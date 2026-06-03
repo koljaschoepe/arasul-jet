@@ -26,13 +26,16 @@ class EmbeddingClient:
         self.host = host or EMBEDDING_HOST
         self.port = port or EMBEDDING_PORT
         self.base_url = f"http://{self.host}:{self.port}"
+        adapter = requests.adapters.HTTPAdapter(pool_connections=2, pool_maxsize=4)
+        self._session = requests.Session()
+        self._session.mount('http://', adapter)
 
     def _request_with_retry(self, method: str, url: str, **kwargs):
         """Make HTTP request with exponential backoff on transient failures."""
         last_exc = None
         for attempt in range(MAX_RETRIES):
             try:
-                response = requests.request(method, url, **kwargs)
+                response = self._session.request(method, url, **kwargs)
                 if response.status_code == 503 and attempt < MAX_RETRIES - 1:
                     delay = RETRY_BACKOFF_BASE ** attempt
                     logger.warning(

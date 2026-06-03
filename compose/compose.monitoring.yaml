@@ -56,6 +56,7 @@ services:
         limits:
           cpus: '2.0'
           memory: ${RAM_LIMIT_METRICS:-512M}
+          pids: 100
     logging: *default-logging
 
   # 2. Self-Healing Engine
@@ -125,6 +126,7 @@ services:
         limits:
           cpus: '2.0'
           memory: ${RAM_LIMIT_SELF_HEALING:-512M}
+          pids: 100
 
   # 3. Backup Service (always-on for 5-year autonomous operation)
   backup-service:
@@ -181,6 +183,7 @@ services:
         limits:
           cpus: '1.0'
           memory: ${RAM_LIMIT_BACKUP:-256M}
+          pids: 100
 
   # 4. Loki - Log Aggregation (optional: docker compose --profile monitoring up)
   loki:
@@ -219,6 +222,7 @@ services:
         limits:
           cpus: '1.0'
           memory: ${RAM_LIMIT_LOKI:-512M}
+          pids: 100
 
   # 5. Promtail - Log Collector (optional: docker compose --profile monitoring up)
   promtail:
@@ -261,6 +265,7 @@ services:
         limits:
           cpus: '0.5'
           memory: ${RAM_LIMIT_PROMTAIL:-256M}
+          pids: 100
 
 networks:
   arasul-monitoring:

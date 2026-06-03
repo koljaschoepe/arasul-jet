@@ -58,13 +58,60 @@ list of error codes. No auth required.
 
 ### Authentication
 
-| Method | Endpoint             | Description                                | Rate Limit |
-| ------ | -------------------- | ------------------------------------------ | ---------- |
-| POST   | `/api/auth/login`    | Login with username/password (sets cookie) | -          |
-| POST   | `/api/auth/logout`   | Logout (blacklists token, clears cookie)   | -          |
-| GET    | `/api/auth/verify`   | Verify token (for Traefik forward-auth)    | -          |
-| GET    | `/api/auth/me`       | Get current user info                      | -          |
-| GET    | `/api/auth/sessions` | List active sessions for current user      | -          |
+| Method | Endpoint                    | Description                                    | Rate Limit |
+| ------ | --------------------------- | ---------------------------------------------- | ---------- |
+| POST   | `/api/auth/login`           | Login with username/password (sets cookie)     | 10/15min   |
+| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie)       | 30/15min   |
+| POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user       | 30/15min   |
+| POST   | `/api/auth/change-password` | Change own password (invalidates all sessions) | 3/15min    |
+| POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token       | 30/15min   |
+| GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)        | -          |
+| GET    | `/api/auth/me`              | Get current user info                          | -          |
+| GET    | `/api/auth/sessions`        | List active sessions for current user          | -          |
+
+**POST /api/auth/logout-all:**
+
+Invalidates every active session for the current user by blacklisting all their tokens. Use this when a device is lost or a security incident is suspected. Auth required.
+
+```json
+// Response
+{
+  "success": true,
+  "message": "Logged out from all sessions successfully",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/auth/change-password:**
+
+Changes the current user's own password. All existing sessions are invalidated afterward — the user must log in again with the new password.
+
+```json
+// Request
+{
+  "currentPassword": "current-password",
+  "newPassword": "new-password"
+}
+
+// Response
+{
+  "success": true,
+  "message": "Password changed successfully. Please log in again with your new password.",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/auth/refresh-cookie:**
+
+Re-syncs the `arasul_session` HttpOnly cookie from the current Bearer token. The frontend calls this right before navigating to a Traefik forward-auth-gated app (n8n, MinIO, Claude Code) when the user may have logged in under a different hostname and the cookie is missing for the current origin.
+
+```json
+// Response
+{
+  "success": true,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
 
 **GET /api/auth/verify:**
 
@@ -1535,6 +1582,721 @@ Response:
 - Sensitive data (passwords, tokens, API keys) is automatically masked as `***REDACTED***`
 - Audit logs are stored for 90 days by default
 - Only authenticated users can access audit logs
+
+### Tailscale
+
+| Method | Endpoint                    | Auth     | Description                             |
+| ------ | --------------------------- | -------- | --------------------------------------- |
+| GET    | `/api/tailscale/status`     | Required | Get current Tailscale connection status |
+| GET    | `/api/tailscale/peers`      | Required | List connected Tailscale peers          |
+| POST   | `/api/tailscale/install`    | Required | Install Tailscale on the host system    |
+| POST   | `/api/tailscale/connect`    | Required | Connect with auth key                   |
+| POST   | `/api/tailscale/disconnect` | Required | Disconnect from Tailscale               |
+
+All endpoints require authentication. The route group uses a dedicated `tailscaleLimiter`.
+
+**GET /api/tailscale/status Response:**
+
+```json
+{
+  "connected": true,
+  "ip": "100.x.x.x",
+  "hostname": "arasul-device",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/tailscale/peers Response:**
+
+```json
+{
+  "peers": [
+    {
+      "id": "nodekey:abc123",
+      "hostname": "laptop",
+      "ip": "100.x.x.y",
+      "online": true
+    }
+  ]
+}
+```
+
+**POST /api/tailscale/connect:**
+
+```json
+{
+  "authKey": "tskey-auth-...",
+  "hostname": "arasul-device" // optional
+}
+```
+
+---
+
+### License
+
+All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
+
+| Method | Endpoint                      | Description                                 |
+| ------ | ----------------------------- | ------------------------------------------- |
+| GET    | `/api/license/info`           | Get current license status + HW fingerprint |
+| GET    | `/api/license/fingerprint`    | Get device hardware fingerprint             |
+| POST   | `/api/license/activate`       | Activate a license key                      |
+| GET    | `/api/license/check/:feature` | Check if a feature gate is allowed          |
+
+**GET /api/license/info Response:**
+
+```json
+{
+  "valid": true,
+  "tier": "professional",
+  "customer": "Muster GmbH",
+  "expiresAt": "2027-01-01T00:00:00.000Z",
+  "features": ["rag", "telegram", "backup"],
+  "hardwareFingerprint": "sha256:abc...",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/license/fingerprint Response:**
+
+```json
+{
+  "hardwareFingerprint": "sha256:abc123...",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/license/activate:**
+
+```json
+// Request
+{
+  "licenseKey": "ARAS-XXXX-XXXX-XXXX"
+}
+
+// Response
+{
+  "success": true,
+  "license": {
+    "tier": "professional",
+    "customer": "Muster GmbH",
+    "expiresAt": "2027-01-01T00:00:00.000Z"
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/license/check/:feature Response:**
+
+```json
+{
+  "feature": "telegram",
+  "allowed": true,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+---
+
+### GDPR / Data Privacy
+
+All endpoints require authentication. `export` and `categories` additionally require admin role.
+
+| Method | Endpoint               | Auth     | Description                                     |
+| ------ | ---------------------- | -------- | ----------------------------------------------- |
+| GET    | `/api/gdpr/export`     | Admin    | Full GDPR data export (Art. 20) as JSON file    |
+| GET    | `/api/gdpr/categories` | Admin    | List data categories with record counts         |
+| DELETE | `/api/gdpr/me`         | Required | Delete own account (Art. 17 — right to erasure) |
+
+**GET /api/gdpr/export:**
+
+Returns a JSON file download (`Content-Disposition: attachment`) containing all personal data: profile, conversations, messages, attachments (metadata), documents (metadata), AI memories, login history, active sessions, activity log, security events, knowledge spaces, and projects. Limited to the 10,000 most recent messages and 1,000 most recent audit entries.
+
+```json
+{
+  "_meta": {
+    "exportDate": "2026-01-15T10:00:00.000Z",
+    "exportVersion": "1.0",
+    "system": "Arasul Platform",
+    "userId": 1,
+    "username": "admin"
+  },
+  "profile": { "id": 1, "username": "admin", "email": "...", "created_at": "..." },
+  "conversations": { "count": 42, "data": [...] },
+  "messages": { "count": 1500, "data": [...] },
+  "attachments": { "count": 5, "note": "File contents stored in MinIO...", "data": [...] },
+  "documents": { "count": 10, "data": [...] },
+  "aiMemories": { "count": 25, "data": [...] },
+  "loginHistory": { "count": 100, "data": [...] },
+  "activeSessions": { "count": 2, "data": [...] },
+  "activityLog": { "count": 1000, "data": [...] },
+  "securityEvents": { "count": 15, "data": [...] },
+  "knowledgeSpaces": { "count": 3, "data": [...] },
+  "projects": { "count": 4, "data": [...] }
+}
+```
+
+**GET /api/gdpr/categories:**
+
+```json
+{
+  "categories": [
+    { "name": "Profil", "description": "Benutzername, E-Mail, Erstelldatum", "count": 1 },
+    { "name": "Chat-Konversationen", "description": "Alle Gespräche mit der KI", "count": 42 },
+    { "name": "Dokumente", "description": "Hochgeladene Dateien (Metadaten)", "count": 10 },
+    {
+      "name": "KI-Erinnerungen",
+      "description": "Vom KI-Assistenten gespeicherte Informationen",
+      "count": 25
+    },
+    { "name": "Aktivitätsprotokoll", "description": "API-Zugriffe und Aktionen", "count": 1000 },
+    { "name": "Anmeldehistorie", "description": "Login-Versuche und Sessions" },
+    {
+      "name": "Sicherheitsereignisse",
+      "description": "Passwortänderungen, Konfigurationsänderungen"
+    }
+  ],
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**DELETE /api/gdpr/me:**
+
+DSGVO Art. 17 right to erasure. Deletes conversations, messages, documents, memories, and the account itself. Compliance trails (audit logs, login history) are anonymised (user_id set to NULL) rather than deleted, as permitted under Art. 17(3)(b). The last remaining admin cannot delete themselves.
+
+```json
+// Request — confirmation token is mandatory
+{
+  "confirm": "LOESCHEN-BESTAETIGT"
+}
+
+// Response
+{
+  "ok": true,
+  "message": "Account und alle persönlichen Daten wurden gelöscht.",
+  "summary": {
+    "chat_attachments": 5,
+    "chat_messages": 1500,
+    "chat_conversations": 42,
+    "documents": 10,
+    "active_sessions": 2,
+    "anon_audit_logs": 100,
+    "anon_api_audit_logs": 900,
+    "anon_login_attempts": 50,
+    "admin_users": 1
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**Notes:**
+
+- Session cookie (`arasul_session`) is cleared on successful account deletion
+- The confirmation token must be the exact string `LOESCHEN-BESTAETIGT`
+- MinIO file contents are not deleted immediately; object storage cleanup is a follow-up step
+
+---
+
+### Backup (External SSD)
+
+All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
+
+The backup path defaults to `/mnt/external-ssd` and can be overridden with `EXTERNAL_BACKUP_PATH`.
+
+| Method | Endpoint              | Description                             |
+| ------ | --------------------- | --------------------------------------- |
+| GET    | `/api/backup/status`  | Check if external SSD is detected       |
+| POST   | `/api/backup/trigger` | Trigger a manual backup to external SSD |
+| GET    | `/api/backup/history` | List previous backup directories on SSD |
+
+**GET /api/backup/status Response:**
+
+```json
+{
+  "ssd": {
+    "mounted": true,
+    "path": "/mnt/external-ssd",
+    "totalBytes": 1000000000000,
+    "usedBytes": 200000000000,
+    "availableBytes": 800000000000
+  },
+  "backupEnabled": true,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+When no SSD is connected:
+
+```json
+{
+  "ssd": { "mounted": false, "reason": "No device mounted at mount point" },
+  "backupEnabled": false,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**POST /api/backup/trigger:**
+
+Returns `400 VALIDATION_ERROR` if no external SSD is mounted.
+
+```json
+// Response
+{
+  "success": true,
+  "message": "Backup wird gestartet...",
+  "targetPath": "/mnt/external-ssd",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/backup/history Response:**
+
+```json
+{
+  "backups": [{ "name": "2026-01-15T08-00-00" }, { "name": "2026-01-14T08-00-00" }],
+  "ssd": { "mounted": true, "path": "/mnt/external-ssd", "...": "..." },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+Returns an empty `backups` array if the SSD is not mounted or no backups exist yet.
+
+---
+
+### Ops Overview
+
+Single consolidated endpoint that aggregates backup status, restore-drill status, service health, active alerts, undelivered notifications, current metrics, and retention counts for the System-Gesundheit dashboard widget.
+
+| Method | Endpoint            | Auth  | Description                         |
+| ------ | ------------------- | ----- | ----------------------------------- |
+| GET    | `/api/ops/overview` | Admin | Aggregated platform health snapshot |
+
+**GET /api/ops/overview Response:**
+
+```json
+{
+  "status": "OK",
+  "warnings": [],
+  "criticals": [],
+  "backup": {
+    "status": "ok",
+    "timestamp": "2026-01-15T08:00:00.000Z",
+    "ageHours": 2,
+    "stale": false,
+    "postgresBackups": 3,
+    "minioBackups": 2,
+    "walSegments": 12,
+    "totalSize": "4.2 GB"
+  },
+  "restore_drill": {
+    "status": "ok",
+    "timestamp": "2026-01-10T12:00:00.000Z",
+    "ageDays": 5,
+    "stale": false,
+    "verifiedTables": 42,
+    "duration": 120
+  },
+  "services": {
+    "total": 12,
+    "healthy": 12,
+    "degraded": 0,
+    "down": 0,
+    "down_services": []
+  },
+  "alerts": {
+    "active": 0,
+    "items": []
+  },
+  "notifications": {
+    "unsent_24h": 0,
+    "unsent_critical_24h": 0
+  },
+  "metrics": {
+    "cpu_percent": 15,
+    "ram_percent": 42,
+    "gpu_percent": 5,
+    "temperature_c": 45,
+    "disk_percent": 35
+  },
+  "retention_counts": {
+    "app_events": 1250,
+    "chat_messages": 8500,
+    "self_healing_events": 120
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+`status` is `OK`, `WARNING`, or `CRITICAL`. `warnings` and `criticals` are human-readable string arrays. The backup section returns `{ "status": "missing" }` if the backup report file cannot be read.
+
+---
+
+### Memory (AI)
+
+Manages the AI assistant's persistent memory profile and individual memory entries. All routes require authentication.
+
+| Method | Endpoint                    | Description                                 |
+| ------ | --------------------------- | ------------------------------------------- |
+| GET    | `/api/memory/profile`       | Get AI profile YAML                         |
+| PUT    | `/api/memory/profile`       | Update AI profile YAML                      |
+| POST   | `/api/memory/profile`       | Create profile from wizard data             |
+| GET    | `/api/memory/list`          | List all memories (paginated)               |
+| GET    | `/api/memory/search`        | Semantic memory search                      |
+| GET    | `/api/memory/stats`         | Memory statistics                           |
+| GET    | `/api/memory/context-stats` | Context compaction and token usage stats    |
+| POST   | `/api/memory/reindex`       | Reindex all memories into Qdrant            |
+| POST   | `/api/memory/export`        | Export all memories as JSON                 |
+| DELETE | `/api/memory/all`           | Delete all memories (confirmation required) |
+| GET    | `/api/memory/:id`           | — (via list/search)                         |
+| PUT    | `/api/memory/:id`           | Update a memory's content                   |
+| DELETE | `/api/memory/:id`           | Delete a single memory                      |
+
+**GET /api/memory/profile Response:**
+
+```json
+{
+  "profile": "firma: Muster GmbH\nbranche: Software\n..."
+}
+```
+
+**PUT /api/memory/profile:**
+
+```json
+{
+  "profile": "firma: Neue GmbH\nbranche: Handel\n..."
+}
+```
+
+**POST /api/memory/profile (wizard):**
+
+```json
+// Request
+{
+  "companyName": "Muster GmbH",
+  "industry": "Software",
+  "teamSize": "10-50",
+  "products": ["Produkt A", "Produkt B"],
+  "preferences": { "language": "de" }
+}
+
+// Response
+{
+  "success": true,
+  "profile": "firma: Muster GmbH\n..."
+}
+```
+
+**GET /api/memory/list Query Parameters:**
+
+- `type`: Filter by memory type (optional)
+- `limit`: Max results (default: 50, max: 100)
+- `offset`: Pagination offset
+
+```json
+// Response
+{
+  "memories": [
+    {
+      "id": "uuid",
+      "key": "company_name",
+      "content": "Muster GmbH",
+      "memory_type": "fact",
+      "created_at": "2026-01-15T10:00:00.000Z",
+      "access_count": 5
+    }
+  ],
+  "total": 25,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**GET /api/memory/search Query Parameters:**
+
+- `q`: Search query (required)
+- `limit`: Max results (default: 10, max: 20)
+
+**GET /api/memory/context-stats Query Parameters:**
+
+- `days`: Number of days to include (default: 30, max: 90)
+
+```json
+// Response
+{
+  "period": "30d",
+  "compaction": {
+    "total": 12,
+    "avgCompression": 65,
+    "totalMemoriesExtracted": 48,
+    "avgTokensBefore": 8000,
+    "avgTokensAfter": 2800,
+    "avgDurationMs": 1500,
+    "totalMessagesCompacted": 240
+  },
+  "tokens": {
+    "totalJobs": 500,
+    "avgPromptTokens": 3200,
+    "avgCompletionTokens": 450,
+    "avgContextWindow": 3650
+  },
+  "recentCompactions": [...],
+  "dailyActivity": [...]
+}
+```
+
+**DELETE /api/memory/all:**
+
+```json
+// Request
+{
+  "confirm": true
+}
+```
+
+---
+
+### Knowledge Graph
+
+Graph-based entity and relation queries backed by the `kg_entities` / `kg_relations` tables. Populated by the document-indexer service during indexing. All routes require authentication.
+
+| Method | Endpoint                             | Description                                  |
+| ------ | ------------------------------------ | -------------------------------------------- |
+| GET    | `/api/knowledge-graph/entities`      | Search or list entities                      |
+| GET    | `/api/knowledge-graph/related/:name` | Traverse graph from a named entity           |
+| GET    | `/api/knowledge-graph/document/:id`  | Get entities and relations for a document    |
+| GET    | `/api/knowledge-graph/connections`   | Find shortest path between two entities      |
+| GET    | `/api/knowledge-graph/stats`         | Graph statistics overview                    |
+| POST   | `/api/knowledge-graph/query`         | Free-text → graph-enriched context (for n8n) |
+| POST   | `/api/knowledge-graph/refine`        | Trigger LLM-based entity/relation refinement |
+| GET    | `/api/knowledge-graph/refine/status` | Get refinement status                        |
+
+**GET /api/knowledge-graph/entities Query Parameters:**
+
+- `search`: Name pattern (ILIKE, max 200 chars)
+- `type`: Entity type filter — one of `Person`, `Organisation`, `Produkt`, `Technologie`, `Prozess`, `Konzept`, `Ort`, `Dokument`
+- `limit`: Max results (default: 50, max: 200)
+
+```json
+// Response
+{
+  "entities": [
+    {
+      "id": "uuid",
+      "name": "Muster GmbH",
+      "type": "Organisation",
+      "mention_count": 15,
+      "created_at": "2026-01-10T08:00:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**GET /api/knowledge-graph/related/:entityName Query Parameters:**
+
+- `depth`: Traversal depth (default: 2, max: 4)
+- `limit`: Max results (default: 20, max: 100)
+
+```json
+// Response
+{
+  "entity": "Muster GmbH",
+  "related": [
+    {
+      "name": "Max Mustermann",
+      "type": "Person",
+      "distance": 1,
+      "relation": "MITARBEITER_VON"
+    }
+  ],
+  "total": 5
+}
+```
+
+**GET /api/knowledge-graph/document/:documentId Response:**
+
+```json
+{
+  "document": { "id": "uuid", "filename": "bericht.pdf", "title": "Jahresbericht" },
+  "entities": [{ "id": "uuid", "name": "Muster GmbH", "type": "Organisation", "mention_count": 8 }],
+  "relations": [
+    {
+      "source_name": "Muster GmbH",
+      "source_type": "Organisation",
+      "relation_type": "ENTWICKELT",
+      "target_name": "Produkt A",
+      "target_type": "Produkt",
+      "context": "Muster GmbH hat Produkt A entwickelt..."
+    }
+  ]
+}
+```
+
+**GET /api/knowledge-graph/connections Query Parameters:**
+
+- `entity1`: First entity name (required)
+- `entity2`: Second entity name (required)
+- `maxDepth`: Max search depth (default: 4, max: 4)
+
+```json
+// Response
+{
+  "from": "Muster GmbH",
+  "to": "Produkt A",
+  "paths": [
+    {
+      "nodes": ["Muster GmbH", "Max Mustermann", "Produkt A"],
+      "relations": ["MITARBEITER_VON", "ENTWICKELT"]
+    }
+  ],
+  "found": true
+}
+```
+
+**GET /api/knowledge-graph/stats Response:**
+
+```json
+{
+  "entities": 1250,
+  "relations": 3400,
+  "documents": 85,
+  "entity_types": {
+    "Person": 320,
+    "Organisation": 180,
+    "Produkt": 95
+  },
+  "relation_types": {
+    "MITARBEITER_VON": 280,
+    "ENTWICKELT": 95
+  },
+  "top_entities": [{ "name": "Muster GmbH", "type": "Organisation", "mention_count": 145 }]
+}
+```
+
+**POST /api/knowledge-graph/query:**
+
+Free-text question → graph-enriched context for n8n workflows. Extracts entities from the question via the document-indexer service, traverses the graph, and optionally returns linked documents.
+
+```json
+// Request
+{
+  "question": "Wer arbeitet bei Muster GmbH an Produkt A?",
+  "include_documents": true,   // optional, default: true
+  "max_depth": 2,              // optional, default: 2, max: 4
+  "max_entities": 5            // optional, default: 5, max: 10
+}
+
+// Response
+{
+  "question": "Wer arbeitet bei Muster GmbH an Produkt A?",
+  "entities": [
+    { "name": "Muster GmbH", "type": "Organisation" }
+  ],
+  "graph_relations": [
+    {
+      "source": "Muster GmbH",
+      "source_type": "Organisation",
+      "target": "Max Mustermann",
+      "target_type": "Person",
+      "relation": "MITARBEITER_VON",
+      "distance": 1
+    }
+  ],
+  "graph_context": "Wissensverknüpfungen:\n- Muster GmbH → mitarbeiter von → Max Mustermann (Person)\n",
+  "linked_documents": [
+    { "id": "uuid", "filename": "team.pdf", "title": "Teamübersicht", "entity_name": "muster gmbh" }
+  ]
+}
+```
+
+**POST /api/knowledge-graph/refine:**
+
+Triggers LLM-based entity resolution and relation refinement in the document-indexer service (background task). Returns `409` if refinement is already running.
+
+```json
+// Response
+{
+  "started": true,
+  "message": "Refinement started"
+}
+```
+
+---
+
+### Sandbox
+
+Isolated project environments with Docker containers and terminal WebSocket access. All routes require authentication.
+
+| Method | Endpoint                             | Description                                |
+| ------ | ------------------------------------ | ------------------------------------------ |
+| GET    | `/api/sandbox/projects`              | List all sandbox projects for current user |
+| POST   | `/api/sandbox/projects`              | Create a new sandbox project               |
+| GET    | `/api/sandbox/projects/:id`          | Get project details                        |
+| PUT    | `/api/sandbox/projects/:id`          | Update project name/description            |
+| DELETE | `/api/sandbox/projects/:id`          | Archive a project                          |
+| POST   | `/api/sandbox/projects/:id/start`    | Start the project container                |
+| POST   | `/api/sandbox/projects/:id/stop`     | Stop the project container                 |
+| POST   | `/api/sandbox/projects/:id/commit`   | Commit container state as a new image      |
+| GET    | `/api/sandbox/projects/:id/status`   | Get live container status                  |
+| GET    | `/api/sandbox/projects/:id/sessions` | List terminal sessions for a project       |
+| GET    | `/api/sandbox/stats`                 | Overall sandbox statistics                 |
+
+**GET /api/sandbox/projects Query Parameters:**
+
+- `status`: Filter by project status
+- `search`: Search in project name
+
+**POST /api/sandbox/projects:**
+
+```json
+{
+  "name": "Mein Projekt",
+  "description": "Optionale Beschreibung",
+  "baseImage": "ubuntu:22.04" // optional
+}
+```
+
+```json
+// Response (201)
+{
+  "project": {
+    "id": "uuid",
+    "name": "Mein Projekt",
+    "description": "...",
+    "status": "stopped",
+    "created_at": "2026-01-15T10:00:00.000Z"
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/sandbox/projects/:id/status Response:**
+
+```json
+{
+  "status": {
+    "containerId": "abc123",
+    "state": "running",
+    "startedAt": "2026-01-15T10:00:00.000Z",
+    "ports": {}
+  },
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/sandbox/projects/:id/sessions Query Parameters:**
+
+- `all`: Include completed sessions (`true`/`false`, default: `false`)
+
+**Terminal WebSocket:**
+
+The terminal WebSocket upgrade is handled by the main `index.js` server. Clients connect to `ws://<host>/api/sandbox/terminal?token=<jwt>&projectId=<id>` and receive a full PTY session inside the running container.
+
+**Notes:**
+
+- Each user can only access their own projects
+- Container start/stop/commit operations call the Docker API via `sandboxService`
+- Deleted projects are soft-archived, not hard-deleted
 
 ---
 

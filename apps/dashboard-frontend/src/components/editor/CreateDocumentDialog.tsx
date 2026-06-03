@@ -15,7 +15,7 @@ interface CreateDocumentDialogProps {
   type: 'markdown' | 'table';
   isOpen: boolean;
   onClose: () => void;
-  onCreated: (document: any) => void;
+  onCreated: (document: Record<string, unknown>) => void;
   spaceId?: string | null;
   spaces?: Space[];
 }
@@ -76,7 +76,7 @@ const CreateDocumentDialog = memo(function CreateDocumentDialog({
 
     try {
       if (type === 'markdown') {
-        const data = await api.post(
+        const data = await api.post<{ document: Record<string, unknown> }>(
           '/documents/create-markdown',
           {
             filename: values.name.trim(),
@@ -87,7 +87,7 @@ const CreateDocumentDialog = memo(function CreateDocumentDialog({
 
         onCreated(data.document);
       } else {
-        const responseData = await api.post(
+        const responseData = await api.post<{ data: Record<string, unknown> }>(
           '/v1/datentabellen/tables',
           {
             name: values.name.trim(),
@@ -100,9 +100,10 @@ const CreateDocumentDialog = memo(function CreateDocumentDialog({
         const newTable = responseData.data;
         onCreated({ ...newTable, space_id: values.selectedSpaceId || null });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(config.errorLog, err);
-      if (type === 'table' && err.status === 409) {
+      const apiErr = err as { status?: number };
+      if (type === 'table' && apiErr.status === 409) {
         throw new Error('Eine Tabelle mit diesem Namen existiert bereits');
       }
       throw err;

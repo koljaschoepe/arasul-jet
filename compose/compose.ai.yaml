@@ -134,6 +134,7 @@ services:
       FLASHRANK_MODEL: ms-marco-MiniLM-L-12-v2
       BGE_RERANKER_MODEL: BAAI/bge-reranker-v2-m3
       EMBEDDING_USE_FP16: 'true'
+      STAGE2_VRAM_FLOOR_MB: '${STAGE2_VRAM_FLOOR_MB:-4096}'
       CUDA_VISIBLE_DEVICES: 0
       TORCH_CUDA_ARCH_LIST: '${TORCH_CUDA_ARCH_LIST:-8.7}'
     volumes:

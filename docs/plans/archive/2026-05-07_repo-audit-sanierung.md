@@ -1,5 +1,7 @@
 # Repo-Audit + Sanierung
 
+> **Archived 2026-06-03** — All 22 phases (P0–P22) completed and committed to main (commits `1d66830..ebd7bfe`, 2026-05-07). Roadmap items (CR-1 to H-24) were explicitly deferred to future sessions.
+
 > 15-Layer-Audit (15 parallele Sub-Agents) hat ~16 Critical und ~25 High-Befunde quer durchs Repo identifiziert. Dieser Plan deckt Critical/High mit klar reproduzierbarem Bug **heute** (P0–P22), Medium/Low + Critical-Path-ohne-Reproduktion + Greenfield-Arbeiten als Roadmap (P23–P40).
 
 ## Goal & Success Criteria

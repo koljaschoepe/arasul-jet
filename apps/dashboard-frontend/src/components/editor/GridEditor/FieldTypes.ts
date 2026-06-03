@@ -47,20 +47,21 @@ export const getFieldType = (type: string): FieldTypeConfig => {
 };
 
 // Validation functions for field types
-export const validateValue = (value: any, fieldType: string): string | null => {
+export const validateValue = (value: unknown, fieldType: string): string | null => {
   if (!value || value === '') return null;
+  const strVal = String(value);
 
   switch (fieldType) {
     case 'email': {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(value)) {
+      if (!emailRegex.test(strVal)) {
         return 'Ungültige E-Mail-Adresse';
       }
       break;
     }
     case 'url': {
       try {
-        new URL(value);
+        new URL(strVal);
       } catch {
         return 'Ungültige URL (muss mit http:// oder https:// beginnen)';
       }
@@ -68,14 +69,14 @@ export const validateValue = (value: any, fieldType: string): string | null => {
     }
     case 'phone': {
       const phoneRegex = /^[+\d\s\-()]+$/;
-      if (!phoneRegex.test(value)) {
+      if (!phoneRegex.test(strVal)) {
         return 'Ungültige Telefonnummer';
       }
       break;
     }
     case 'number':
     case 'currency': {
-      if (isNaN(parseFloat(value))) {
+      if (isNaN(parseFloat(strVal))) {
         return 'Ungültiger numerischer Wert';
       }
       break;
@@ -87,6 +88,7 @@ export const validateValue = (value: any, fieldType: string): string | null => {
 };
 
 // Format value for display
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const formatValue = (value: any, type: string, options: FormatOptions = {}): string => {
   if (value === null || value === undefined || value === '') return '-';
 
@@ -121,11 +123,11 @@ export const toSlug = (name: string): string => {
 };
 
 // Auto-detect field type from values
-export const autoDetectType = (values: any[]): string => {
+export const autoDetectType = (values: unknown[]): string => {
   const nonEmpty = values.filter(v => v !== '' && v !== null && v !== undefined);
   if (nonEmpty.length === 0) return 'text';
 
-  if (nonEmpty.every(v => !isNaN(parseFloat(v)))) {
+  if (nonEmpty.every(v => !isNaN(parseFloat(String(v))))) {
     if (nonEmpty.some(v => String(v).includes('€') || String(v).includes('$'))) {
       return 'currency';
     }

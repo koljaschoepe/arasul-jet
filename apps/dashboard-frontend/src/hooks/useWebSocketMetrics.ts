@@ -67,11 +67,23 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
     if (httpPollingRef.current) return; // Already polling
 
     httpPollingRef.current = setInterval(async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       try {
-        const response = await fetch(`${API_BASE}/metrics/live`, { headers: getAuthHeaders() });
+        const response = await fetch(`${API_BASE}/metrics/live`, {
+          headers: getAuthHeaders(),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (response.status === 401) {
+          stopHttpPolling();
+          return;
+        }
+        if (!response.ok) return;
         const data: Metrics = await response.json();
         setMetrics(data);
       } catch {
+        clearTimeout(timeoutId);
         // Silently retry on next interval
       }
     }, 5000);
