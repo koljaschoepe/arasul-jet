@@ -108,7 +108,7 @@ this automatically on the client. `apiKeyAuth.js` is for `/api/external/*`.
 ### 6. Mount new route groups in `routes/index.js`
 
 Add the prefix to `API_ROUTE_GROUPS` so it surfaces in `GET /api/_meta`.
-Group choice (`core | telegram | system | admin | ai | store | external`)
+Group choice (`core | telegram | system | admin | ai | store | external | sandbox | datentabellen`)
 is documented at the top of `routes/index.js`.
 
 ### 7. SSE / WebSocket

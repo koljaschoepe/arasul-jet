@@ -157,7 +157,7 @@ const SystemHealthWidget: React.FC = () => {
 
       <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.875rem' }}>
         <Link
-          to="/settings/backup"
+          to="/settings?tab=selfhealing"
           style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -210,7 +210,7 @@ const SystemHealthWidget: React.FC = () => {
         </div>
 
         <Link
-          to="/settings/alerts"
+          to="/settings?tab=selfhealing"
           style={{
             display: 'flex',
             justifyContent: 'space-between',

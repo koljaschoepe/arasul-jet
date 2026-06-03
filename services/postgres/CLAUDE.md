@@ -13,7 +13,7 @@ postgres/
                                  /arasul/migrations for the runtime runner.
     000_schema_migrations.sql    Tracking table.
     001_init_schema.sql          ... up to ...
-    094_rag_llm_perf_and_model_tier.sql  Latest applied migration (next: 095).
+    095_fix_telegram_user_chats.sql      Latest applied migration (next: 096).
     032a_create_data_database.sh Shell variant — runs only on first init.
     data-db/                     Init scripts for the secondary user-data DB.
   init-data-db/                  Compose-mounted init dir for the user-data DB.
@@ -50,11 +50,11 @@ postgres/
 ls services/postgres/init/ | grep -E '^[0-9]+' | sort | tail -3
 
 # 2. Create the file
-$EDITOR services/postgres/init/093_add_foo_table.sql
+$EDITOR services/postgres/init/096_add_foo_table.sql
 ```
 
 ```sql
--- 093_add_foo_table.sql — Phase X: <reason>
+-- 096_add_foo_table.sql — Phase X: <reason>
 
 CREATE TABLE IF NOT EXISTS foo (
   id          BIGSERIAL PRIMARY KEY,

@@ -10,7 +10,8 @@ const rowsRouter = require('./rows');
 const quotesRouter = require('./quotes');
 const dataDb = require('../../dataDatabase');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { llmLimiter } = require('../../middleware/rateLimit');
 const logger = require('../../utils/logger');
 const llmDataAccess = require('../../services/context/llmDataAccessService');
 const { isValidSlug, escapeTableName } = require('../../utils/sqlIdentifier');
@@ -225,6 +226,7 @@ router.get(
 router.post(
   '/query/natural',
   requireAuth,
+  llmLimiter,
   validateBody(NaturalQueryBody),
   asyncHandler(async (req, res) => {
     const { query, tableSlug } = req.body;
@@ -269,6 +271,8 @@ router.post(
 router.post(
   '/query/sql',
   requireAuth,
+  requireAdmin,
+  llmLimiter,
   validateBody(SqlQueryBody),
   asyncHandler(async (req, res) => {
     const { sql } = req.body;

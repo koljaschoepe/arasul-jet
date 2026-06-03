@@ -466,6 +466,13 @@ const DANGEROUS_SQL_KEYWORDS = [
   'unlock',
   'rename',
   'backup',
+  'copy',
+  'pg_read_file',
+  'pg_ls_dir',
+  'pg_write_file',
+  'lo_import',
+  'lo_export',
+  'pg_execute',
 ];
 
 /**

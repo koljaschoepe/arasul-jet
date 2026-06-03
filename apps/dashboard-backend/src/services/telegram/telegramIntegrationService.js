@@ -724,7 +724,7 @@ class TelegramAppService {
         icon: 'FiSend',
         status: status.botCount.active > 0 ? 'running' : 'installed',
         hasCustomPage: true,
-        customPageRoute: '/telegram-app',
+        customPageRoute: '/telegram-bot',
         badge: status.botCount.total > 0 ? status.botCount.total.toString() : null,
         stats: status.stats,
       };
