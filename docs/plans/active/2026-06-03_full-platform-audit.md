@@ -527,7 +527,7 @@ Fehlend in `docs/ENVIRONMENT_VARIABLES.md`:
 
 Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), `/api/backup` (3), `/api/ops` (1), `/api/memory` (12), `/api/knowledge-graph` (8), `/api/sandbox` (11). Plus 3 Auth-Endpoints.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -537,7 +537,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 - Network-Error vs. 401 nicht unterschieden
 - Password-Change ohne JWT-Blacklist (Token bleibt gültig nach PW-Änderung)
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -547,7 +547,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 **Fix:** `fetch(/metrics/live)` → `callApi('/api/metrics/live')` via `useApi`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -568,7 +568,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 12 Endpoints, kein einziger Test. `apps/dashboard-backend/__tests__/unit/chats.test.js` erstellen.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -576,7 +576,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 `telegram/app.js` (~15 Endpoints) + `telegram/bots.js` (~13 Endpoints) → Tests erstellen.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -584,7 +584,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 `temperature=0` (deterministisch) wird überschrieben. Alle Vorkommen fixen.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -592,7 +592,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 **Datei:** `services/document-indexer/embedding_client.py` — `requests.Session()` mit HTTPAdapter für Connection-Pooling.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -600,7 +600,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 **Datei:** `compose/compose.monitoring.yaml` — metrics-collector, self-healing-agent, backup-service, loki, promtail brauchen `deploy.resources.limits.pids: 100`.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -608,7 +608,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 **Fix:** `STAGE2_VRAM_FLOOR_MB=4096` in `compose/compose.ai.yaml` für Jetson Orin 32GB.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -628,7 +628,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 - `CreateDocumentDialog.tsx` Zeile 103: `catch (err: any)` → `catch (err: unknown)`
 - `GridEditor/FieldTypes.ts` Zeilen 50, 90, 124: `value: any` → `value: unknown`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -644,7 +644,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 `apps/dashboard-backend/CLAUDE.md` — `sandbox` und `datentabellen` zu Group-Choice hinzufügen.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -652,8 +652,8 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 ### Sofort archivieren:
 
-- [ ] `active/repo-audit-sanierung.md` → `archive/2026-05-07_repo-audit-sanierung.md` (alle 22 Phasen auf main, Commits 1d66830..ebd7bfe)
-- [ ] `active/regressed-features.md` → `archive/2026-05-08_regressed-features-inventory.md` (abgelöst durch side-branch-cherry-pick-Plan)
+- [x] `active/repo-audit-sanierung.md` → `archive/2026-05-07_repo-audit-sanierung.md` (alle 22 Phasen auf main, Commits 1d66830..ebd7bfe)
+- [x] `active/regressed-features.md` → `archive/2026-05-08_regressed-features-inventory.md` (abgelöst durch side-branch-cherry-pick-Plan)
 
 ### Status-Kommentar ergänzen (aktiv lassen):
 
@@ -664,26 +664,26 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 ### Fehlende Archived-Banner:
 
-- [ ] `archive/2026-05-13_llm-rag-store-routing-optimization.md` — Banner am Dateianfang einfügen
+- [x] `archive/2026-05-13_llm-rag-store-routing-optimization.md` — Banner am Dateianfang einfügen
 - [ ] `archive/TELEGRAM_SYSTEM_MONITOR_PRD.md` → umbenennen + Banner
 
 ---
 
 ## Memory-Bereinigung
 
-- [ ] 7x `⚠️ NICHT auf main` → `✅ auf main via ...` (Mig 083, modelKeys, useEvictionWatcher, openaiCompat, gdpr, Ollama-CB, Mig 085)
-- [ ] Zeile 25 MEMORY.md: KRITISCH-Warnung zu regressed-features.md entfernen
-- [ ] phase4-8-indexer-watchdog.md: retry-exhausted→failed als NICHT implementiert markieren (→ P1-5)
-- [ ] side-branch-cherry-pick-2026-05-14.md in MEMORY.md aufnehmen
-- [ ] gemma4*default_migration.md: veraltete `065*\*.sql`-Referenz auf `095` aktualisieren
+- [x] 7x `⚠️ NICHT auf main` → `✅ auf main via ...` (Mig 083, modelKeys, useEvictionWatcher, openaiCompat, gdpr, Ollama-CB, Mig 085)
+- [x] Zeile 25 MEMORY.md: KRITISCH-Warnung zu regressed-features.md entfernen
+- [x] phase4-8-indexer-watchdog.md: retry-exhausted→failed als NICHT implementiert markieren (→ P1-5)
+- [x] side-branch-cherry-pick-2026-05-14.md in MEMORY.md aufnehmen
+- [x] gemma4*default_migration.md: veraltete `065*\*.sql`-Referenz auf `095` aktualisieren
 
 ---
 
 ## CLAUDE.md Updates
 
-- [ ] Root `CLAUDE.md`: `latest applied: 094, next: 095_*.sql` (nach Migration 095)
-- [ ] `services/postgres/CLAUDE.md`: Migrationsbeispiel auf 095 aktualisieren
-- [ ] `apps/dashboard-backend/CLAUDE.md`: Route-Gruppen um `sandbox | datentabellen` erweitern
+- [x] Root `CLAUDE.md`: `latest applied: 094, next: 095_*.sql` (nach Migration 095)
+- [x] `services/postgres/CLAUDE.md`: Migrationsbeispiel auf 095 aktualisieren
+- [x] `apps/dashboard-backend/CLAUDE.md`: Route-Gruppen um `sandbox | datentabellen` erweitern
 - [ ] `apps/dashboard-backend/package.json`: `engines.node` auf `>=22.0.0` anheben
 - [ ] `apps/dashboard-frontend/CLAUDE.md`: Playwright-Installationshinweis ergänzen
 - [ ] Root + Backend CLAUDE.md: `side-branch-cherry-pick-2026-05-14.md` als aktiven Plan vermerken
