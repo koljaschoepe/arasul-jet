@@ -1,4 +1,6 @@
-# PRD â€“ Arasul Store App: Telegram System Monitor
+# PRD — Arasul Store App: Telegram System Monitor
+
+> **Archived 2026-06-03** — PRD for Telegram System Monitor Store-App. Superseded by the Telegram bot implementation in `apps/dashboard-backend/src/routes/telegram/` and `docs/integrations/TELEGRAM_BOT_SETUP.md`.
 
 ## 1) Kurzbeschreibung
 

@@ -657,15 +657,15 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 ### Status-Kommentar ergänzen (aktiv lassen):
 
-- [ ] `active/repo-deep-audit-2026-05-08.md` — Status-Header einfügen: F1/F4/SF-2 offen, F2/F3 deferred
-- [ ] `active/EXTERNAL_INTEGRATIONS.md` — Status-Header: Phase 5b + 6.5 deferred
-- [ ] `active/DEPENDABOT_HARDENING.md` — aktiv lassen (AC3 als P1-1 adressiert)
-- [ ] `active/side-branch-cherry-pick-2026-05-14.md` — in MEMORY.md aufnehmen
+- [x] `active/repo-deep-audit-2026-05-08.md` — Status-Header einfügen: F1/F4/SF-2 offen, F2/F3 deferred
+- [x] `active/EXTERNAL_INTEGRATIONS.md` — Status-Header: Phase 5b + 6.5 deferred
+- [x] `active/DEPENDABOT_HARDENING.md` — aktiv lassen (AC3 als P1-1 adressiert)
+- [x] `active/side-branch-cherry-pick-2026-05-14.md` — in MEMORY.md aufnehmen
 
 ### Fehlende Archived-Banner:
 
 - [x] `archive/2026-05-13_llm-rag-store-routing-optimization.md` — Banner am Dateianfang einfügen
-- [ ] `archive/TELEGRAM_SYSTEM_MONITOR_PRD.md` → umbenennen + Banner
+- [x] `archive/TELEGRAM_SYSTEM_MONITOR_PRD.md` → umbenennen + Banner
 
 ---
 
@@ -684,6 +684,6 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 - [x] Root `CLAUDE.md`: `latest applied: 094, next: 095_*.sql` (nach Migration 095)
 - [x] `services/postgres/CLAUDE.md`: Migrationsbeispiel auf 095 aktualisieren
 - [x] `apps/dashboard-backend/CLAUDE.md`: Route-Gruppen um `sandbox | datentabellen` erweitern
-- [ ] `apps/dashboard-backend/package.json`: `engines.node` auf `>=22.0.0` anheben
-- [ ] `apps/dashboard-frontend/CLAUDE.md`: Playwright-Installationshinweis ergänzen
-- [ ] Root + Backend CLAUDE.md: `side-branch-cherry-pick-2026-05-14.md` als aktiven Plan vermerken
+- [x] `apps/dashboard-backend/package.json`: `engines.node` auf `>=22.0.0` anheben
+- [x] `apps/dashboard-frontend/CLAUDE.md`: Playwright-Installationshinweis ergänzen
+- [x] Root + Backend CLAUDE.md: `side-branch-cherry-pick-2026-05-14.md` als aktiven Plan vermerken

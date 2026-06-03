@@ -1,6 +1,8 @@
 # Repo-Deep-Audit 2026-05-08 — Bug-Sanierung (20-Agent-Audit)
 
-**Status:** active
+> **Status 2026-06-03:** Hauptphasen 0–9 auf main (commits 98882d1..e8e7c2b). Follow-ups offen: **F1** (package-lock regeneriert ✅ via c20e8c5), **F4** (self-healing webhook unauthenticated — noch offen), **SF-2** (migration runner hardening — noch offen). F2 (LEFT JOIN edge case) + F3 (restore-drill) deferred.
+
+**Status:** active — F4 + SF-2 offen
 **Owner:** Kolja
 **Erstellt:** 2026-05-08
 **Methodik:** 20 parallele Sub-Agents (12 Frontend, 8 Backend/Infra), frischer Audit ohne Annahmen über vorhergehende Sanierungen.

@@ -121,6 +121,7 @@ error crash the SPA — at minimum wrap each route element.
 cd apps/dashboard-frontend
 npm test                      # Vitest, src/__tests__/ + co-located *.test.tsx
 npm run test:ci               # with coverage
+npx playwright install        # install browsers (one-time, not in devDependencies)
 npx playwright test           # E2E (needs platform running)
 npm run lint                  # ESLint (.ts/.tsx)
 ```

@@ -1,5 +1,7 @@
 # External Integrations Hardening — n8n Workflows + Telegram Bots
 
+> **Status 2026-06-03:** Phasen 1–4 + 6 implementiert (commit d9d6b89, 2026-05-06). Deferred: **Phase 5b** (grammY-Migration + API-Konsolidierung 3→1 Routes) + **Phase 6.5** (FE Diagnostics-UI — Daten in DB ready, Frontend noch offen). Phase 1.4 (External Runner) deferred bis n8n 2.x.
+
 > **Status:** Active · **Owner:** Kolja · **Created:** 2026-05-05
 >
 > **Goal:** Make n8n usable for arbitrary external connectors (Microsoft Teams, Slack, Lexware, …) and fix the broken Telegram-bot path, on a security/DSGVO baseline that holds for a 5-year unattended B2B appliance.

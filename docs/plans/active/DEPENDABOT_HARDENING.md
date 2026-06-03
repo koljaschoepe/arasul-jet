@@ -1,5 +1,7 @@
 # Dependabot + Lock-File Hardening
 
+> **Status 2026-06-03:** AC1 (package-lock.json regeneriert) ✅ via c20e8c5. AC3 (Branch Protection required status checks) adressiert in P1-1 des Audit-Plans 2026-06-03 — pending GitHub-Settings-Konfiguration. AC2 (CI Lock-File-Drift Guard) + AC4 (CLAUDE.md Lock-File-Entscheidung) noch offen.
+
 > **Status:** Active · **Owner:** Kolja · **Created:** 2026-05-05
 >
 > **Goal:** Prevent the lock-file divergence that broke `main` on 2026-05-05 (three Dependabot merges landed via auto-merge with stale root `package-lock.json`, breaking every CI run until reverted in PR #77).
