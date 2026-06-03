@@ -89,11 +89,17 @@ const sections: Section[] = [
 
 function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   const api = useApi();
-  // TODO: warn about unsaved changes on tab switch
-  // This would require lifting hasChanges state from sub-components (AIProfileSettings etc.)
-  // or implementing a shared context. Skipping for now to avoid over-engineering.
   const [activeSection, setActiveSection] = useState('general');
+  const [isDirty, setIsDirty] = useState(false);
   const [loggingOutAll, setLoggingOutAll] = useState(false);
+
+  const handleSectionChange = (sectionId: string) => {
+    if (isDirty && sectionId !== activeSection) {
+      if (!window.confirm('Du hast ungespeicherte Änderungen. Trotzdem wechseln?')) return;
+      setIsDirty(false);
+    }
+    setActiveSection(sectionId);
+  };
 
   const handleLogoutAll = async () => {
     setLoggingOutAll(true);
@@ -116,7 +122,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
       case 'ai-profile':
         return (
           <ComponentErrorBoundary componentName="KI-Profil">
-            <AIProfileSettings />
+            <AIProfileSettings onDirtyChange={setIsDirty} />
           </ComponentErrorBoundary>
         );
       case 'security':
@@ -193,7 +199,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
                     ? 'text-foreground font-semibold bg-muted'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
-                onClick={() => setActiveSection(section.id)}
+                onClick={() => handleSectionChange(section.id)}
               >
                 <div className={cn('shrink-0', activeSection === section.id && 'text-primary')}>
                   {section.icon}
@@ -217,7 +223,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
-                onClick={() => setActiveSection(section.id)}
+                onClick={() => handleSectionChange(section.id)}
               >
                 <div className={cn('shrink-0', activeSection === section.id && 'text-primary')}>
                   {section.icon}

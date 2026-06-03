@@ -38,7 +38,11 @@ const defaultContextTemplate = `# Zusätzlicher Kontext
 ---
 *Diese Informationen werden bei allen KI-Anfragen als Hintergrundkontext bereitgestellt.*`;
 
-export function AIProfileSettings() {
+interface AIProfileSettingsProps {
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
+export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}) {
   const api = useApi();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -187,6 +191,10 @@ export function AIProfileSettings() {
 
   const contextChanged = contextContent !== originalContext;
   const hasChanges = profileChanged || contextChanged;
+
+  useEffect(() => {
+    onDirtyChange?.(hasChanges);
+  }, [hasChanges, onDirtyChange]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
