@@ -141,8 +141,7 @@ const corsOptions = {
         origin.includes('://localhost') ||
         origin.includes('://127.0.0.1') ||
         origin.includes('://dashboard-frontend') ||
-        /\.local(:\d+)?$/.test(origin) ||
-        origin.includes('.local/'));
+        /^https?:\/\/[a-zA-Z0-9-]+\.local(:\d+)?$/.test(origin));
 
     // Allow if: no origin (same-origin/curl), explicitly allowed, or local network
     if (!origin || allowedOrigins.includes(origin) || isLocalNetwork) {

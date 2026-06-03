@@ -64,6 +64,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/events', group: 'external' },
   { prefix: '/alerts', group: 'external' },
   { prefix: '/v1/datentabellen', group: 'datentabellen' },
+  { prefix: '/docs', group: 'core', description: 'Static API documentation' },
 ];
 
 const ERROR_CODES = [

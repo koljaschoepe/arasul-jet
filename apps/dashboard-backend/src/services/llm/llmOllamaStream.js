@@ -8,6 +8,7 @@
 
 const http = require('http');
 const systemSettings = require('../system-settings/systemSettingsService');
+const { circuitBreakers } = require('../../utils/retry');
 
 // OOM error patterns from Ollama/CUDA
 const OOM_PATTERNS = [
@@ -283,45 +284,49 @@ async function streamFromOllama(
     const MAX_OLLAMA_RETRIES = 3;
     for (let ollamaAttempt = 1; ollamaAttempt <= MAX_OLLAMA_RETRIES; ollamaAttempt++) {
       try {
-        responseStream = await new Promise((resolve, reject) => {
-          const payload = JSON.stringify(ollamaPayload);
-          const req = http.request(
-            {
-              hostname: ollamaUrl.hostname,
-              port: ollamaUrl.port,
-              path: ollamaUrl.pathname,
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload),
-              },
-              agent: ollamaAgent,
-              timeout: 600000,
-            },
-            res => {
-              if (res.statusCode >= 500) {
-                reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
-                return;
-              }
-              if (res.statusCode !== 200) {
-                reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
-                return;
-              }
-              // Pause immediately to prevent data loss before handlers are registered
-              res.pause();
-              resolve(res);
-            }
-          );
-          req.on('error', reject);
-          req.on('timeout', () => {
-            req.destroy();
-            reject(new Error('Ollama request timeout'));
-          });
-          // Support abort via AbortController
-          abortController.signal.addEventListener('abort', () => req.destroy());
-          req.write(payload);
-          req.end();
-        });
+        const ollamaCb = circuitBreakers.get('ollama');
+        responseStream = await ollamaCb.execute(
+          async () =>
+            new Promise((resolve, reject) => {
+              const payload = JSON.stringify(ollamaPayload);
+              const req = http.request(
+                {
+                  hostname: ollamaUrl.hostname,
+                  port: ollamaUrl.port,
+                  path: ollamaUrl.pathname,
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(payload),
+                  },
+                  agent: ollamaAgent,
+                  timeout: 600000,
+                },
+                res => {
+                  if (res.statusCode >= 500) {
+                    reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
+                    return;
+                  }
+                  if (res.statusCode !== 200) {
+                    reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
+                    return;
+                  }
+                  // Pause immediately to prevent data loss before handlers are registered
+                  res.pause();
+                  resolve(res);
+                }
+              );
+              req.on('error', reject);
+              req.on('timeout', () => {
+                req.destroy();
+                reject(new Error('Ollama request timeout'));
+              });
+              // Support abort via AbortController
+              abortController.signal.addEventListener('abort', () => req.destroy());
+              req.write(payload);
+              req.end();
+            })
+        );
         break; // Success, exit retry loop
       } catch (ollamaErr) {
         const isRetryable =

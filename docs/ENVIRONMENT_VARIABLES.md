@@ -451,6 +451,20 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 - Keys are encrypted with AES-256-GCM
 - Message containing key is auto-deleted
 
+### Backup Paths
+
+| Variable             | Default                     | Description                                               |
+| -------------------- | --------------------------- | --------------------------------------------------------- |
+| BACKUP_REPORT_PATH   | /backups/backup_report.json | Path to last-run backup status JSON (used by healthcheck) |
+| EXTERNAL_BACKUP_PATH | (none)                      | Optional: mount path for external drive backup copy       |
+
+### Self-Healing / Ops
+
+| Variable                    | Default | Description                                                            |
+| --------------------------- | ------- | ---------------------------------------------------------------------- |
+| SELF_HEALING_WEBHOOK_SECRET | (none)  | Shared secret for `/api/events/webhook/self-healing` auth              |
+| COMPOSE_PROJECT_DIR         | (none)  | Absolute path to the arasul-jet repo root (used by backend ops routes) |
+
 ### Optional: S3 Offsite Backups
 
 | Variable              | Default      | Description                   |

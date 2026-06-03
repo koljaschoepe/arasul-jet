@@ -227,7 +227,7 @@ router.get(
       await pool.query(
         `INSERT INTO document_access_log (document_id, access_type, user_id)
              VALUES ($1, 'view', $2)`,
-        [id, req.user?.username || 'admin']
+        [id, req.user?.username || req.user?.id?.toString() || 'unknown']
       );
     } catch (e) {
       // Non-critical, ignore
@@ -258,7 +258,9 @@ router.post(
     // bare-string envelope that diverged from every other route.
     upload.single('file')(req, res, err => {
       if (err) {
-        if (err instanceof ValidationError) {return next(err);}
+        if (err instanceof ValidationError) {
+          return next(err);
+        }
         return next(new ValidationError(err.message || 'Fehler beim Datei-Upload'));
       }
       next();
@@ -341,7 +343,7 @@ router.post(
           contentHash,
           fileHash,
           'pending',
-          req.user?.username || 'admin',
+          req.user?.username || req.user?.id?.toString() || 'unknown',
           spaceId,
         ]
       );
@@ -632,7 +634,7 @@ router.post(
         await pool.query(
           `INSERT INTO document_access_log (document_id, access_type, query_text, user_id)
                  VALUES ($1, 'search', $2, $3)`,
-          [result.document_id, query, req.user?.username || 'admin']
+          [result.document_id, query, req.user?.username || req.user?.id?.toString() || 'unknown']
         );
       } catch (e) {
         // Non-critical
@@ -696,7 +698,7 @@ router.get(
       await pool.query(
         `INSERT INTO document_access_log (document_id, access_type, user_id)
              VALUES ($1, 'edit_view', $2)`,
-        [id, req.user?.username || 'admin']
+        [id, req.user?.username || req.user?.id?.toString() || 'unknown']
       );
     } catch (e) {
       // Non-critical
@@ -776,7 +778,7 @@ router.put(
       await pool.query(
         `INSERT INTO document_access_log (document_id, access_type, user_id)
              VALUES ($1, 'edit_save', $2)`,
-        [id, req.user?.username || 'admin']
+        [id, req.user?.username || req.user?.id?.toString() || 'unknown']
       );
     } catch (e) {
       // Non-critical
@@ -829,7 +831,7 @@ router.get(
       await pool.query(
         `INSERT INTO document_access_log (document_id, access_type, user_id)
              VALUES ($1, 'download', $2)`,
-        [id, req.user?.username || 'admin']
+        [id, req.user?.username || req.user?.id?.toString() || 'unknown']
       );
     } catch (e) {
       // Non-critical
@@ -949,7 +951,7 @@ router.post(
         contentHash,
         fileHash,
         'pending',
-        req.user?.username || 'admin',
+        req.user?.username || req.user?.id?.toString() || 'unknown',
         spaceId,
         filename.trim(),
         documentContent.length,

@@ -286,7 +286,10 @@ router.get(
           `Telegram API error: ${telegramError.description || 'Unknown error'}`
         );
       }
-      throw axiosError;
+      throw new ServiceUnavailableError(
+        `Telegram API unreachable: ${axiosError.message}`,
+        'TELEGRAM_UNAVAILABLE'
+      );
     }
 
     if (!response.data.ok) {
@@ -516,12 +519,14 @@ router.post(
         );
       }
 
-      // Handle network errors
       if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
         throw new ServiceUnavailableError('Telegram API timeout: Could not reach Telegram servers');
       }
 
-      throw axiosError;
+      throw new ServiceUnavailableError(
+        `Telegram API unreachable: ${axiosError.message}`,
+        'TELEGRAM_UNAVAILABLE'
+      );
     }
 
     if (!response.data.ok) {

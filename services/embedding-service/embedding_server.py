@@ -51,6 +51,8 @@ device = None
 _flashrank_ranker = None
 _cross_encoder = None
 _reranker_lock = threading.Lock()
+# Serialize model.encode() calls — SentenceTransformer is not thread-safe under GPU
+_model_encode_lock = threading.Lock()
 
 # GPU memory threshold (90% usage triggers warning, request still proceeds)
 GPU_MEM_WARN_THRESHOLD = 0.9
@@ -181,7 +183,8 @@ def health_check():
     try:
         # Test vectorization
         start_time = time.time()
-        test_vec = model.encode("test", convert_to_numpy=True)
+        with _model_encode_lock:
+            test_vec = model.encode("test", convert_to_numpy=True)
         latency = (time.time() - start_time) * 1000
 
         # Include GPU memory status
@@ -295,7 +298,8 @@ def embed():
         # Generate embeddings
         start_time = time.time()
         try:
-            embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+            with _model_encode_lock:
+                embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
         except Exception as e:
             # P4.3: OOM-Retry analog zu /embed/batch — clear cache + one retry.
             import torch
@@ -305,7 +309,8 @@ def embed():
                     torch.cuda.empty_cache()
                     logger.warning("CUDA OOM in /embed, cleared cache and retrying once")
                 try:
-                    embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+                    with _model_encode_lock:
+                        embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
                 except Exception:
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
@@ -376,13 +381,15 @@ def embed_batch():
         for i in range(0, len(texts), sub_batch_size):
             batch = texts[i:i + sub_batch_size]
             try:
-                embeddings = model.encode(batch, convert_to_numpy=True, show_progress_bar=False)
+                with _model_encode_lock:
+                    embeddings = model.encode(batch, convert_to_numpy=True, show_progress_bar=False)
             except Exception as e:
                 # OOM during sub-batch — clear cache and retry once
                 if 'out of memory' in str(e).lower() or 'CUDA' in str(e):
                     logger.warning(f"CUDA OOM in sub-batch {i//sub_batch_size}, clearing cache and retrying")
                     torch.cuda.empty_cache()
-                    embeddings = model.encode(batch, convert_to_numpy=True, show_progress_bar=False)
+                    with _model_encode_lock:
+                        embeddings = model.encode(batch, convert_to_numpy=True, show_progress_bar=False)
                 else:
                     raise
             all_vectors.extend(embeddings.tolist())

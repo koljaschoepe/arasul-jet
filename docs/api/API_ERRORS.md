@@ -21,17 +21,30 @@ All error responses follow this consistent structure:
 
 ```json
 {
-  "error": "Human-readable error message",
-  "details": "Optional detailed explanation",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Human-readable error description",
+    "details": { "field": "email", "issue": "Invalid format" }
+  },
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
 
 **Fields:**
 
-- `error` (string, required): Brief, human-readable error description
-- `details` (string, optional): Additional context or technical details
+- `error.code` (string, required): Stable machine-readable error code (see Error Codes below)
+- `error.message` (string, required): Human-readable error description
+- `error.details` (object|null, optional): Structured details, e.g. validation field errors
 - `timestamp` (string, required): ISO8601 timestamp of the error
+
+**Token-specific error codes** (HTTP 401):
+
+| Code            | When                                           |
+| --------------- | ---------------------------------------------- |
+| `TOKEN_EXPIRED` | JWT has passed its `exp` claim                 |
+| `INVALID_TOKEN` | JWT signature invalid or malformed             |
+| `TOKEN_REVOKED` | Token was explicitly revoked (e.g. logout-all) |
+| `UNAUTHORIZED`  | Missing `Authorization` header                 |
 
 ---
 

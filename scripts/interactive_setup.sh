@@ -751,6 +751,13 @@ ENVEOF
     print_ok ".env geschrieben (Berechtigungen: 600)"
     print_ok "Docker-Secrets-Dateien erstellt in config/secrets/"
 
+    # Install logrotate config
+    if [ -f "${PROJECT_ROOT}/config/logrotate.d/arasul" ]; then
+        sudo cp "${PROJECT_ROOT}/config/logrotate.d/arasul" /etc/logrotate.d/arasul
+        sudo chmod 644 /etc/logrotate.d/arasul
+        print_ok "Logrotate-Konfiguration installiert"
+    fi
+
     if [ -n "$DEVICE_PROFILE" ] && [ "$DEVICE_PROFILE" != "generic" ]; then
         print_ok "Jetson-Profil eingebettet: ${DEVICE_PROFILE}"
     fi

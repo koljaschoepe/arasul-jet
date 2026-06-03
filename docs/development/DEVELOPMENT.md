@@ -386,7 +386,7 @@ See [BUGS_AND_FIXES.md](../../BUGS_AND_FIXES.md).
 
 ### Add Database Migration
 
-1. Create `services/postgres/init/093_name.sql` (next sequential number — `ls services/postgres/init/ | sort | tail -1`)
+1. Create `services/postgres/init/096_name.sql` (next sequential number — `ls services/postgres/init/ | sort | tail -1`)
 2. Use `IF NOT EXISTS` for idempotency
 3. Update `docs/api/DATABASE_SCHEMA.md`
 4. Rebuild: `docker compose up -d --build dashboard-backend` (the runtime migration runner picks it up on backend boot)

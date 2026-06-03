@@ -180,7 +180,7 @@ router.get(
       if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
         throw new ServiceUnavailableError('LLM service is not available');
       }
-      throw error;
+      throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR');
     }
 
     const models = response.data?.models || [];
@@ -229,7 +229,7 @@ router.get(
       if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
         throw new ServiceUnavailableError('LLM service is not available');
       }
-      throw error;
+      throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR');
     }
 
     const modelInfo = response.data;
@@ -314,7 +314,7 @@ router.delete(
       if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
         throw new ServiceUnavailableError('LLM service is not available');
       }
-      throw error;
+      throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR');
     }
 
     logger.info(`Model deleted successfully: ${name}`);
@@ -343,7 +343,7 @@ router.get(
       if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
         throw new ServiceUnavailableError('Embedding service is not available');
       }
-      throw error;
+      throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR');
     }
 
     res.json({
