@@ -35,7 +35,7 @@ Die Plattform ist architektonisch solide und betriebsbereit, aber 15 parallele A
    router.post('/query/natural', llmLimiter, requireAuth, ...)
    ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -55,7 +55,7 @@ if (!job) throw new NotFoundError('Job not found');
 if (job.user_id !== req.user.id && !req.user.isAdmin) throw new ForbiddenError('Access denied');
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -77,7 +77,7 @@ if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) 
 }
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -110,7 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_telegram_user_chats_bot_id ON telegram_user_chats
 CREATE INDEX IF NOT EXISTS idx_telegram_user_chats_chat_id ON telegram_user_chats(chat_id);
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -129,7 +129,7 @@ const { requireAuth } = require('../middleware/auth');
 router.use(requireAuth);
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -150,7 +150,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -168,7 +168,7 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 router.post('/fix-space-ids', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -187,7 +187,7 @@ router.post('/fix-space-ids', requireAuth, requireAdmin, asyncHandler(async (req
 - Zeile 160: `<Link to="/settings/backup">` → `<Link to="/settings?tab=selfhealing">`
 - Zeile 213: `<Link to="/settings/alerts">` → `<Link to="/settings?tab=selfhealing">`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -218,7 +218,7 @@ labels:
 
 **Fix 3** (`interactive_setup.sh` Zeile 629): `N8N_HOST=localhost` → `N8N_HOST=n8n`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -232,7 +232,7 @@ labels:
 cd apps/dashboard-backend && npm install && git add package-lock.json
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
