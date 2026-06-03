@@ -251,7 +251,7 @@ gh api repos/koljaschoepe/arasul-jet/branches/main/protection \
   --field restrictions=null
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -269,7 +269,7 @@ with conn.cursor() as cur:
 conn.close()
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -287,7 +287,7 @@ if cert.issuer != cert.subject:
     return
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -303,7 +303,7 @@ if cert.issuer != cert.subject:
 
 **Fix:** Axios/fetch-Call in `circuitBreakers.get('ollama').execute(async () => { ... })` wrappen.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -321,7 +321,7 @@ WHERE status = 'processing'
   AND updated_at < NOW() - INTERVAL '30 minutes'
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -339,7 +339,7 @@ with _encode_lock:
     embeddings = model.encode(texts, ...)
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -358,7 +358,7 @@ n8n-router:
   service: n8n-service
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -368,7 +368,7 @@ n8n-router:
 
 **Fix:** `project_id` aus Request-Kontext ergänzen oder Migration `096_nullable_external_api_project_id.sql`.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -376,7 +376,7 @@ n8n-router:
 
 **Datei:** `docs/development/DEVELOPMENT.md` Zeile 389 — `093_name.sql` → `095_name.sql`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -393,7 +393,7 @@ throw new ServiceUnavailableError(
 );
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -403,7 +403,7 @@ throw new ServiceUnavailableError(
 
 **Fix:** `throw error` → `throw new ServiceUnavailableError(error.message, 'SERVICE_ERROR')`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -419,7 +419,7 @@ throw new ServiceUnavailableError(
 /^https?:\/\/[a-zA-Z0-9-]+\.local(:\d+)?$/.test(origin);
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -429,7 +429,7 @@ throw new ServiceUnavailableError(
 
 **Fix:** `req.user?.username || 'admin'` → `req.user?.username || req.user?.id || 'unknown'`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -453,7 +453,7 @@ healthcheck:
   retries: 2
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -463,7 +463,7 @@ healthcheck:
 
 **Fix:** Socket-Mount entfernen, `DOCKER_HOST: tcp://docker-proxy:2375` als Env-Var setzen.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -480,7 +480,7 @@ if [ -f "config/logrotate.d/arasul" ]; then
 fi
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -490,7 +490,7 @@ fi
 
 **Fix:** Envelope-Beispiel korrigieren auf `{ "error": { "code": "...", "message": "..." }, "timestamp": "..." }` + `TOKEN_EXPIRED`, `INVALID_TOKEN`, `TOKEN_REVOKED` als eigene Abschnitte.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -503,7 +503,7 @@ Fehlend in `docs/ENVIRONMENT_VARIABLES.md`:
 - `SELF_HEALING_WEBHOOK_SECRET`
 - `COMPOSE_PROJECT_DIR`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -517,7 +517,7 @@ Fehlend in `docs/ENVIRONMENT_VARIABLES.md`:
 { prefix: '/docs', group: 'core', description: 'Static API documentation' },
 ```
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
