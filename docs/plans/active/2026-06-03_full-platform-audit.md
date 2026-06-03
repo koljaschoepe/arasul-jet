@@ -560,7 +560,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 **Betroffene Dateien:** `src/features/chat/ChatView.tsx`, `src/hooks/useTokenBatching.ts`
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -617,7 +617,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 - WebSocket-Clients ohne Jitter beim Reconnect → alle verbinden gleichzeitig bei Server-Restart
 - Download-SSE-Resume: 70-GB-Download startet bei Verbindungsabbruch neu
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
@@ -636,7 +636,7 @@ Fehlen vollständig: `/api/tailscale` (5), `/api/license` (4), `/api/gdpr` (3), 
 
 **Datei:** `apps/dashboard-frontend/src/features/settings/Settings.tsx` Zeile 92 — TODO implementieren.
 
-- [ ] Erledigt
+- [x] Erledigt
 
 ---
 
