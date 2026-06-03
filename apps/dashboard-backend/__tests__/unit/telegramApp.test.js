@@ -2,10 +2,12 @@
  * Unit tests for Telegram App Routes
  *
  * Tests the Telegram Bot App API endpoints:
+ * - App Status / Dashboard-Data / Settings / Global-Stats
  * - Zero-Config Setup endpoints
  * - Notification Rules CRUD
  * - Orchestrator endpoints
  * - Bot Config endpoints
+ * - Notification History
  */
 
 const request = require('supertest');
@@ -39,13 +41,39 @@ jest.mock('../../src/services/websocketService', () => ({
 // Mock token crypto for decryptToken in /zero-config/complete
 jest.mock('../../src/utils/tokenCrypto', () => ({
   encryptToken: jest.fn(token => `encrypted:${token}`),
-  decryptToken: jest.fn(encrypted => 'decrypted-bot-token')
+  decryptToken: jest.fn(() => 'decrypted-bot-token')
+}));
+
+// Mock telegramAppService (delegates to telegramIntegrationService shim)
+jest.mock('../../src/services/telegram/telegramAppService', () => ({
+  getAppStatus: jest.fn(),
+  getDashboardAppData: jest.fn(),
+  updateSettings: jest.fn(),
+  getGlobalStats: jest.fn(),
+  recordActivity: jest.fn().mockResolvedValue(undefined),
+  activateApp: jest.fn(),
+  isIconVisible: jest.fn(),
+}));
+
+// Mock telegramSetupPollingService to avoid pulling in heavy ingress chain
+jest.mock('../../src/services/telegram/telegramSetupPollingService', () => ({
+  startPolling: jest.fn().mockResolvedValue(undefined),
+  stopPolling: jest.fn(),
+  isPolling: jest.fn().mockReturnValue(false),
+  getActiveCount: jest.fn().mockReturnValue(0),
+}));
+
+// Mock telegramOrchestratorService (optional require in route)
+jest.mock('../../src/services/telegram/telegramOrchestratorService', () => ({
+  logThinking: jest.fn().mockResolvedValue(undefined),
 }));
 
 const db = require('../../src/database');
 const axios = require('axios');
 const { app } = require('../../src/server');
 const { generateTestToken } = require('../helpers/authMock');
+const telegramAppService = require('../../src/services/telegram/telegramAppService');
+const telegramSetupPollingService = require('../../src/services/telegram/telegramSetupPollingService');
 
 // Mock user and session for auth
 const mockUser = { id: 1, username: 'admin', role: 'admin', is_active: true };
@@ -84,6 +112,171 @@ describe('Telegram App Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     token = generateTestToken();
+  });
+
+  // ============================================================================
+  // App Status Endpoints (Dashboard Integration)
+  // ============================================================================
+  describe('App Status', () => {
+    describe('GET /api/telegram-app/status', () => {
+      test('should return 401 without authentication', async () => {
+        const response = await request(app)
+          .get('/api/telegram-app/status');
+
+        expect(response.status).toBe(401);
+      });
+
+      test('should return app status for authenticated user', async () => {
+        setupMocksWithAuth();
+        telegramAppService.getAppStatus.mockResolvedValueOnce({
+          configured: true,
+          active: true,
+          botUsername: 'testbot',
+          chatId: '123456789',
+        });
+
+        const response = await request(app)
+          .get('/api/telegram-app/status')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.configured).toBe(true);
+        expect(response.body.botUsername).toBe('testbot');
+      });
+
+      test('should propagate service errors', async () => {
+        setupMocksWithAuth();
+        telegramAppService.getAppStatus.mockRejectedValueOnce(
+          new Error('DB connection failed')
+        );
+
+        const response = await request(app)
+          .get('/api/telegram-app/status')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(500);
+      });
+    });
+
+    describe('GET /api/telegram-app/dashboard-data', () => {
+      test('should return 401 without authentication', async () => {
+        const response = await request(app)
+          .get('/api/telegram-app/dashboard-data');
+
+        expect(response.status).toBe(401);
+      });
+
+      test('should return app data when bot is configured', async () => {
+        setupMocksWithAuth();
+        telegramAppService.getDashboardAppData.mockResolvedValueOnce({
+          id: 'telegram-bot',
+          name: 'Telegram Bot',
+          status: 'active',
+        });
+
+        const response = await request(app)
+          .get('/api/telegram-app/dashboard-data')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.app).toBeDefined();
+        expect(response.body.app.id).toBe('telegram-bot');
+      });
+
+      test('should return app: null when bot is not configured', async () => {
+        setupMocksWithAuth();
+        telegramAppService.getDashboardAppData.mockResolvedValueOnce(null);
+
+        const response = await request(app)
+          .get('/api/telegram-app/dashboard-data')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.app).toBeNull();
+        // recordActivity should NOT be called when there is no app data
+        expect(telegramAppService.recordActivity).not.toHaveBeenCalled();
+      });
+
+      test('should fire-and-forget recordActivity when app data exists', async () => {
+        setupMocksWithAuth();
+        telegramAppService.getDashboardAppData.mockResolvedValueOnce({ id: 'telegram-bot' });
+        telegramAppService.recordActivity.mockResolvedValueOnce(undefined);
+
+        const response = await request(app)
+          .get('/api/telegram-app/dashboard-data')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(telegramAppService.recordActivity).toHaveBeenCalledWith(mockUser.id);
+      });
+    });
+
+    describe('PUT /api/telegram-app/settings', () => {
+      test('should return 401 without authentication', async () => {
+        const response = await request(app)
+          .put('/api/telegram-app/settings')
+          .send({ settings: { theme: 'dark' } });
+
+        expect(response.status).toBe(401);
+      });
+
+      test('should return 400 if settings field is missing', async () => {
+        setupMocksWithAuth();
+
+        const response = await request(app)
+          .put('/api/telegram-app/settings')
+          .set('Authorization', `Bearer ${token}`)
+          .send({});
+
+        expect(response.status).toBe(400);
+      });
+
+      test('should update settings and return updated object', async () => {
+        setupMocksWithAuth();
+        telegramAppService.updateSettings.mockResolvedValueOnce({
+          theme: 'dark',
+          language: 'de',
+        });
+
+        const response = await request(app)
+          .put('/api/telegram-app/settings')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ settings: { theme: 'dark', language: 'de' } });
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.settings).toMatchObject({ theme: 'dark' });
+      });
+    });
+
+    describe('GET /api/telegram-app/global-stats', () => {
+      test('should return 401 without authentication', async () => {
+        const response = await request(app)
+          .get('/api/telegram-app/global-stats');
+
+        expect(response.status).toBe(401);
+      });
+
+      test('should return global stats', async () => {
+        setupMocksWithAuth();
+        telegramAppService.getGlobalStats.mockResolvedValueOnce({
+          totalBots: 3,
+          activeBots: 2,
+          totalMessages: 1500,
+        });
+
+        const response = await request(app)
+          .get('/api/telegram-app/global-stats')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.stats.totalBots).toBe(3);
+      });
+    });
   });
 
   // ============================================================================
@@ -258,6 +451,109 @@ describe('Telegram App Routes', () => {
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
         expect(response.body.chatId).toBe('123456789');
+      });
+
+      test('should return 404 if session is not in completed state', async () => {
+        setupMocksWithAuth((query, params) => {
+          if (query.includes('telegram_setup_sessions') && query.includes('completed')) {
+            return Promise.resolve({ rows: [] }); // not found / not completed
+          }
+          return Promise.resolve({ rows: [] });
+        });
+
+        const response = await request(app)
+          .post('/api/telegram-app/zero-config/complete')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ setupToken: 'missing-token' });
+
+        expect(response.status).toBe(404);
+      });
+    });
+
+    describe('POST /api/telegram-app/zero-config/cancel', () => {
+      test('should return 401 without authentication', async () => {
+        const response = await request(app)
+          .post('/api/telegram-app/zero-config/cancel')
+          .send({ setupToken: 'some-token' });
+
+        expect(response.status).toBe(401);
+      });
+
+      test('should return 400 if setupToken is missing', async () => {
+        setupMocksWithAuth();
+
+        const response = await request(app)
+          .post('/api/telegram-app/zero-config/cancel')
+          .set('Authorization', `Bearer ${token}`)
+          .send({});
+
+        expect(response.status).toBe(400);
+      });
+
+      test('should cancel a pending setup session', async () => {
+        setupMocksWithAuth((query, params) => {
+          // Ownership check
+          if (query.includes('SELECT') && query.includes('telegram_setup_sessions') && query.includes('pending')) {
+            return Promise.resolve({ rows: [{ id: 1 }] });
+          }
+          // Update to failed
+          if (query.includes('UPDATE telegram_setup_sessions') && query.includes('failed')) {
+            return Promise.resolve({ rows: [] });
+          }
+          return Promise.resolve({ rows: [] });
+        });
+
+        const response = await request(app)
+          .post('/api/telegram-app/zero-config/cancel')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ setupToken: 'valid-token-abc' });
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.message).toBeDefined();
+        expect(telegramSetupPollingService.stopPolling).toHaveBeenCalledWith('valid-token-abc');
+      });
+
+      test('should return 404 if session not found or not cancellable', async () => {
+        setupMocksWithAuth((query, params) => {
+          if (query.includes('SELECT') && query.includes('telegram_setup_sessions')) {
+            return Promise.resolve({ rows: [] });
+          }
+          return Promise.resolve({ rows: [] });
+        });
+
+        const response = await request(app)
+          .post('/api/telegram-app/zero-config/cancel')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ setupToken: 'unknown-token' });
+
+        expect(response.status).toBe(404);
+      });
+    });
+
+    describe('POST /api/telegram-app/zero-config/token — Telegram API error', () => {
+      test('should return 400 if Telegram API rejects the token', async () => {
+        setupMocksWithAuth((query, params) => {
+          if (query.includes('SELECT') && query.includes('telegram_setup_sessions')) {
+            return Promise.resolve({
+              rows: [{ setup_token: 'test-token', user_id: 1, status: 'pending' }]
+            });
+          }
+          return Promise.resolve({ rows: [] });
+        });
+
+        // Simulate Telegram API error (e.g. HTTP 401 Unauthorized)
+        const axiosError = new Error('Request failed with status code 401');
+        axiosError.response = { data: { description: 'Unauthorized' } };
+        axios.get.mockRejectedValueOnce(axiosError);
+
+        const response = await request(app)
+          .post('/api/telegram-app/zero-config/token')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ setupToken: 'test-token', botToken: '99999:INVALID' });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error.message).toContain('Bot-Token ungültig');
       });
     });
   });
@@ -447,6 +743,82 @@ describe('Telegram App Routes', () => {
           .set('Authorization', `Bearer ${token}`);
 
         expect(response.status).toBe(404);
+      });
+    });
+
+    describe('POST /api/telegram-app/rules/:id/test', () => {
+      test('should return 401 without authentication', async () => {
+        const response = await request(app)
+          .post('/api/telegram-app/rules/1/test');
+
+        expect(response.status).toBe(401);
+      });
+
+      test('should send test notification for an existing rule', async () => {
+        setupMocksWithAuth((query, params) => {
+          if (query.includes('telegram_notification_rules') && query.includes('telegram_bot_configs')) {
+            return Promise.resolve({
+              rows: [{
+                id: 1,
+                name: 'CPU Alert',
+                message_template: 'CPU at {{event.value}}% at {{timestamp}}',
+                bot_token_encrypted: 'encrypted-token',
+                chat_id: '123456789',
+              }]
+            });
+          }
+          return Promise.resolve({ rows: [] });
+        });
+
+        axios.post.mockResolvedValueOnce({ data: { ok: true } });
+
+        const response = await request(app)
+          .post('/api/telegram-app/rules/1/test')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.message).toBeDefined();
+        expect(axios.post).toHaveBeenCalledWith(
+          expect.stringContaining('sendMessage'),
+          expect.objectContaining({ chat_id: '123456789' }),
+          expect.any(Object)
+        );
+      });
+
+      test('should return 404 if rule not found or bot not configured', async () => {
+        setupMocksWithAuth((query, params) => {
+          if (query.includes('telegram_notification_rules') && query.includes('telegram_bot_configs')) {
+            return Promise.resolve({ rows: [] });
+          }
+          return Promise.resolve({ rows: [] });
+        });
+
+        const response = await request(app)
+          .post('/api/telegram-app/rules/999/test')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(404);
+      });
+    });
+
+    describe('PUT /api/telegram-app/rules/:id — edge cases', () => {
+      test('should return 400 if no recognised update fields are provided', async () => {
+        setupMocksWithAuth((query, params) => {
+          if (query.includes('SELECT') && query.includes('telegram_notification_rules')) {
+            return Promise.resolve({ rows: [{ id: 1 }] });
+          }
+          return Promise.resolve({ rows: [] });
+        });
+
+        // Send a body with an unrecognised field only
+        const response = await request(app)
+          .put('/api/telegram-app/rules/1')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ unknownField: 'value' });
+
+        // Zod strict() rejects unknown fields
+        expect(response.status).toBe(400);
       });
     });
   });
