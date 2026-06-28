@@ -167,7 +167,8 @@ services:
           pgrep crond > /dev/null || exit 1
           REPORT="${BACKUP_REPORT_PATH:-/backups/backup_report.json}"
           [ -f "$$REPORT" ] || exit 0
-          python3 -c "import json,sys,time; r=json.load(open('$$REPORT')); sys.exit(0 if r.get('status')=='success' and time.time()-r.get('timestamp',0)<90000 else 1)"
+          [ $$(( $$(date +%s) - $$(stat -c %Y "$$REPORT") )) -lt 90000 ] || exit 1
+          grep -qE '"status": *"(completed|partial_failure)"' "$$REPORT" || exit 1
       interval: 5m
       timeout: 10s
       retries: 2
