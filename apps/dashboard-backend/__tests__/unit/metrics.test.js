@@ -2,8 +2,12 @@
  * Unit tests for Metrics Routes
  *
  * Tests:
- * - GET /api/metrics/live  (no auth, rate-limited, collector + DB fallback)
- * - GET /api/metrics/history (no auth, rate-limited, range validation)
+ * - GET /api/metrics/live    (requireAuth, rate-limited, collector + DB fallback)
+ * - GET /api/metrics/history (requireAuth, rate-limited, range validation)
+ *
+ * NOTE: As of the P0 security hardening, both endpoints now require
+ * authentication (requireAuth in src/routes/system/metrics.js). Requests
+ * without a valid token receive 401; requests with a valid token receive 200.
  */
 
 const request = require('supertest');
@@ -57,10 +61,49 @@ jest.mock('../../src/config/services', () => ({
 const axios = require('axios');
 const db = require('../../src/database');
 const { app } = require('../../src/server');
+const { generateTestToken, mockUser, mockSession } = require('../helpers/authMock');
+
+/**
+ * Combined db.query mock that satisfies the requireAuth middleware queries
+ * AND returns (or rejects) the metrics route query.
+ *
+ * The auth middleware issues several db queries (token_blacklist,
+ * active_sessions, update_session_activity, admin_users) before the route
+ * handler runs. Any non-auth query is treated as the metrics query, so we can
+ * control the metrics response independently from auth.
+ *
+ * @param {Object} opts
+ * @param {Array}  [opts.metricsRows] rows the metrics query should resolve with
+ * @param {Error}  [opts.metricsError] error the metrics query should reject with
+ */
+function setupAuthAndMetricsMocks({ metricsRows, metricsError } = {}) {
+    db.query.mockImplementation((query) => {
+        if (query.includes('token_blacklist')) {
+            return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('active_sessions') && query.includes('SELECT')) {
+            return Promise.resolve({ rows: [mockSession] });
+        }
+        if (query.includes('update_session_activity')) {
+            return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('admin_users')) {
+            return Promise.resolve({ rows: [mockUser] });
+        }
+        // Metrics query (live DB fallback or history)
+        if (metricsError) {
+            return Promise.reject(metricsError);
+        }
+        return Promise.resolve({ rows: metricsRows || [] });
+    });
+}
 
 describe('Metrics Routes', () => {
+    let token;
+
     beforeEach(() => {
         jest.clearAllMocks();
+        token = generateTestToken();
     });
 
     // ==========================================================================
@@ -78,9 +121,12 @@ describe('Metrics Routes', () => {
                 source: 'collector'
             };
 
+            setupAuthAndMetricsMocks();
             axios.get.mockResolvedValueOnce({ data: collectorResponse });
 
-            const response = await request(app).get('/api/metrics/live');
+            const response = await request(app)
+                .get('/api/metrics/live')
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
             expect(response.body.cpu).toBe(42.5);
@@ -95,8 +141,8 @@ describe('Metrics Routes', () => {
             axios.get.mockRejectedValueOnce(new Error('ECONNREFUSED'));
 
             // Database fallback returns row
-            db.query.mockResolvedValueOnce({
-                rows: [{
+            setupAuthAndMetricsMocks({
+                metricsRows: [{
                     cpu: '45.5',
                     ram: '62.3',
                     gpu: '30.0',
@@ -105,7 +151,9 @@ describe('Metrics Routes', () => {
                 }]
             });
 
-            const response = await request(app).get('/api/metrics/live');
+            const response = await request(app)
+                .get('/api/metrics/live')
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
             expect(response.body.cpu).toBe(45.5);
@@ -119,8 +167,8 @@ describe('Metrics Routes', () => {
             // Collector fails, use database fallback
             axios.get.mockRejectedValueOnce(new Error('Timeout'));
 
-            db.query.mockResolvedValueOnce({
-                rows: [{
+            setupAuthAndMetricsMocks({
+                metricsRows: [{
                     cpu: '78.0',
                     ram: '91.2',
                     gpu: '55.5',
@@ -129,7 +177,9 @@ describe('Metrics Routes', () => {
                 }]
             });
 
-            const response = await request(app).get('/api/metrics/live');
+            const response = await request(app)
+                .get('/api/metrics/live')
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
             expect(response.body).toHaveProperty('cpu');
@@ -143,15 +193,19 @@ describe('Metrics Routes', () => {
 
         test('should return 503 when both collector and database are unavailable', async () => {
             axios.get.mockRejectedValueOnce(new Error('ECONNREFUSED'));
-            db.query.mockRejectedValueOnce(new Error('Database connection failed'));
+            // Auth queries still succeed, only the metrics query rejects
+            setupAuthAndMetricsMocks({ metricsError: new Error('Database connection failed') });
 
-            const response = await request(app).get('/api/metrics/live');
+            const response = await request(app)
+                .get('/api/metrics/live')
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(503);
             expect(response.body).toHaveProperty('error');
         });
 
-        test('should not require authentication', async () => {
+        test('should require authentication', async () => {
+            // P0 security fix: this endpoint now requires auth (was public before).
             const collectorResponse = {
                 cpu: 10,
                 ram: 20,
@@ -159,12 +213,18 @@ describe('Metrics Routes', () => {
                 temperature: 40,
                 disk: { used: 50, free: 150, total: 200, percent: 25 }
             };
-            axios.get.mockResolvedValueOnce({ data: collectorResponse });
+            setupAuthAndMetricsMocks();
+            axios.get.mockResolvedValue({ data: collectorResponse });
 
-            // Request without Authorization header
-            const response = await request(app).get('/api/metrics/live');
+            // Request WITHOUT Authorization header -> 401
+            const noAuth = await request(app).get('/api/metrics/live');
+            expect(noAuth.status).toBe(401);
 
-            expect(response.status).toBe(200);
+            // Request WITH valid token -> 200
+            const withAuth = await request(app)
+                .get('/api/metrics/live')
+                .set('Authorization', `Bearer ${token}`);
+            expect(withAuth.status).toBe(200);
         });
     });
 
@@ -182,11 +242,12 @@ describe('Metrics Routes', () => {
         };
 
         test('should return history for valid range (24h)', async () => {
-            db.query.mockResolvedValueOnce({ rows: [mockHistoryRow] });
+            setupAuthAndMetricsMocks({ metricsRows: [mockHistoryRow] });
 
             const response = await request(app)
                 .get('/api/metrics/history')
-                .query({ range: '24h' });
+                .query({ range: '24h' })
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
             expect(response.body.range).toBe('24h');
@@ -201,18 +262,23 @@ describe('Metrics Routes', () => {
         });
 
         test('should return 400 for invalid range', async () => {
+            setupAuthAndMetricsMocks();
+
             const response = await request(app)
                 .get('/api/metrics/history')
-                .query({ range: 'invalid' });
+                .query({ range: 'invalid' })
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(400);
             expect(response.body).toHaveProperty('error');
         });
 
         test('should default to 24h when no range specified', async () => {
-            db.query.mockResolvedValueOnce({ rows: [mockHistoryRow] });
+            setupAuthAndMetricsMocks({ metricsRows: [mockHistoryRow] });
 
-            const response = await request(app).get('/api/metrics/history');
+            const response = await request(app)
+                .get('/api/metrics/history')
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
             expect(response.body.range).toBe('24h');
@@ -221,12 +287,13 @@ describe('Metrics Routes', () => {
         test('should accept all valid range values', async () => {
             const validRanges = ['1h', '6h', '12h', '24h', '48h', '7d', '30d'];
 
-            for (const range of validRanges) {
-                db.query.mockResolvedValueOnce({ rows: [mockHistoryRow] });
+            setupAuthAndMetricsMocks({ metricsRows: [mockHistoryRow] });
 
+            for (const range of validRanges) {
                 const response = await request(app)
                     .get('/api/metrics/history')
-                    .query({ range });
+                    .query({ range })
+                    .set('Authorization', `Bearer ${token}`);
 
                 expect(response.status).toBe(200);
                 expect(response.body.range).toBe(range);
@@ -234,8 +301,8 @@ describe('Metrics Routes', () => {
         });
 
         test('should parse numeric values from database rows', async () => {
-            db.query.mockResolvedValueOnce({
-                rows: [
+            setupAuthAndMetricsMocks({
+                metricsRows: [
                     {
                         timestamp: '2024-01-01T00:00:00Z',
                         cpu: '45.5',
@@ -257,7 +324,8 @@ describe('Metrics Routes', () => {
 
             const response = await request(app)
                 .get('/api/metrics/history')
-                .query({ range: '1h' });
+                .query({ range: '1h' })
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
             expect(response.body.cpu).toHaveLength(2);
@@ -269,8 +337,8 @@ describe('Metrics Routes', () => {
         });
 
         test('should handle null database values by returning 0', async () => {
-            db.query.mockResolvedValueOnce({
-                rows: [{
+            setupAuthAndMetricsMocks({
+                metricsRows: [{
                     timestamp: '2024-01-01T00:00:00Z',
                     cpu: null,
                     ram: null,
@@ -282,7 +350,8 @@ describe('Metrics Routes', () => {
 
             const response = await request(app)
                 .get('/api/metrics/history')
-                .query({ range: '6h' });
+                .query({ range: '6h' })
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
             expect(response.body.cpu[0]).toBe(0);
@@ -293,11 +362,12 @@ describe('Metrics Routes', () => {
         });
 
         test('should return timestamp in response', async () => {
-            db.query.mockResolvedValueOnce({ rows: [mockHistoryRow] });
+            setupAuthAndMetricsMocks({ metricsRows: [mockHistoryRow] });
 
             const response = await request(app)
                 .get('/api/metrics/history')
-                .query({ range: '12h' });
+                .query({ range: '12h' })
+                .set('Authorization', `Bearer ${token}`);
 
             expect(response.status).toBe(200);
             expect(response.body).toHaveProperty('timestamp');
@@ -306,15 +376,22 @@ describe('Metrics Routes', () => {
             expect(ts.toString()).not.toBe('Invalid Date');
         });
 
-        test('should not require authentication', async () => {
-            db.query.mockResolvedValueOnce({ rows: [mockHistoryRow] });
+        test('should require authentication', async () => {
+            // P0 security fix: this endpoint now requires auth (was public before).
+            setupAuthAndMetricsMocks({ metricsRows: [mockHistoryRow] });
 
-            // Request without Authorization header
-            const response = await request(app)
+            // Request WITHOUT Authorization header -> 401
+            const noAuth = await request(app)
                 .get('/api/metrics/history')
                 .query({ range: '24h' });
+            expect(noAuth.status).toBe(401);
 
-            expect(response.status).toBe(200);
+            // Request WITH valid token -> 200
+            const withAuth = await request(app)
+                .get('/api/metrics/history')
+                .query({ range: '24h' })
+                .set('Authorization', `Bearer ${token}`);
+            expect(withAuth.status).toBe(200);
         });
     });
 });

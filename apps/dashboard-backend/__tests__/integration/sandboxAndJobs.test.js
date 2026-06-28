@@ -187,6 +187,9 @@ describe('Sandbox + LLM Jobs Integration', () => {
     test('returns job status for active job', async () => {
       llmJobService.getJob.mockResolvedValue({
         id: 'job-123',
+        // IDOR ownership check (src/routes/llm.js): job.user_id must match
+        // the authenticated test user (id 1, see __tests__/helpers/authMock.js)
+        user_id: 1,
         status: 'running',
         content: 'partial response',
         conversation_id: 'conv-1',
