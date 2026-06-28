@@ -145,6 +145,12 @@ http:
           - '/n8n'
         forceSlash: false
 
+    strip-media-prefix:
+      stripPrefix:
+        prefixes:
+          - '/media'
+        forceSlash: false
+
     # Request Body Size Limit (50MB — prevents DoS via oversized uploads)
     body-limit:
       buffering:

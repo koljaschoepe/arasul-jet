@@ -81,6 +81,8 @@ services:
       - ../data/models:/host-models:ro
       # Mount host CUDA toolkit (cuBLAS, cuDNN, cuDart) for GPU inference
       - /usr/local/cuda/lib64:/usr/local/cuda/lib64:ro
+    ports:
+      - '11434:11434' # Ollama API — accessible via Tailscale for Open Ara clients
     runtime: nvidia
     tmpfs:
       - /tmp:noexec,nosuid,size=256M

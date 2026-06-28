@@ -1,5 +1,7 @@
 # Side-Branch Cherry-Pick Master Plan — alle 4 Themen aus den Side-Branches
 
+> **STATUS 2026-06-28:** NICHT ausgefuehrt. Verifiziert: keines der Akzeptanz-Artefakte ist auf main, alle nur im Branch. Quelle gesichert in Tag `archive/side-branches-superset-2026-06-28` und Branch `feat/telegram-bot-overhaul`. Als Integrations-Backlog in `~/.arasul/cockpit/FOCUS.md` aufgenommen. Nicht loeschen.
+
 > Branches `cleanup/phase-6-test-coverage` (39 ahead) und `feat/telegram-bot-overhaul` (40 ahead) enthalten ~40 unique Themen-Commits, die nie auf main gemerged wurden. Ziel: alle vier wertvollen Themen-Blöcke gezielt cherry-picken — nicht branch-merge (Konflikt-Risiko zu groß).
 
 ## Quellen

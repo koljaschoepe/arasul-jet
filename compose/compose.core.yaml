@@ -63,6 +63,8 @@ services:
     stop_grace_period: 30s
     networks:
       - arasul-backend
+    ports:
+      - '127.0.0.1:9000:9000' # localhost-only — for Tailscale Serve (avatar-pipeline media CDN)
     command: server /data --console-address ":9001"
     environment:
       MINIO_BROWSER: ${MINIO_BROWSER}

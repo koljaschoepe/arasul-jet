@@ -69,6 +69,21 @@ http:
         - websecure
       tls: {}
 
+    # Avatar Pipeline Media — public, no auth
+    # Exposes only avatarpipeline-staging bucket for Instagram/TikTok video_url
+    # Path: /media/avatarpipeline-staging/<file> → MinIO /avatarpipeline-staging/<file>
+    avatar-media:
+      rule: 'PathPrefix(`/media/avatarpipeline-staging`)'
+      service: minio-api-service
+      priority: 80
+      middlewares:
+        - strip-media-prefix
+        - minio-headers
+        - rate-limit-api
+      entryPoints:
+        - websecure
+      tls: {}
+
     # MinIO Console (requires dashboard login)
     minio-console:
       rule: 'PathPrefix(`/minio`)'
