@@ -10,7 +10,7 @@ import axios, { AxiosRequestConfig } from 'axios';
 
 // Guard against hanging workflows when the embedding-service stalls (model
 // loading, GPU stall). Without a timeout an axios call waits forever.
-const ARASUL_HTTP_TIMEOUT_MS = Number(process.env.ARASUL_EMBEDDINGS_TIMEOUT_MS) || 60000;
+const ARASUL_HTTP_TIMEOUT_MS = 60000;
 
 export class ArasulEmbeddings implements INodeType {
     description: INodeTypeDescription = {

@@ -9,8 +9,9 @@ import {
 import axios, { AxiosRequestConfig } from 'axios';
 
 // Guard against hanging workflows when the llm-service stalls (model loading,
-// GPU stall). Without a timeout an axios call waits forever.
-const ARASUL_HTTP_TIMEOUT_MS = Number(process.env.ARASUL_LLM_TIMEOUT_MS) || 120000;
+// GPU stall). Without a timeout an axios call waits forever. 120s covers slow
+// local generations while still bounding a stuck request.
+const ARASUL_HTTP_TIMEOUT_MS = 120000;
 
 export class ArasulLlm implements INodeType {
     description: INodeTypeDescription = {
