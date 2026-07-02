@@ -68,11 +68,16 @@ cp -r "${PROJECT_ROOT}/services/"* "${PACKAGE_DIR}/opt/arasul/services/" || true
 mkdir -p "${PACKAGE_DIR}/opt/arasul/tests"
 cp -r "${PROJECT_ROOT}/tests/"* "${PACKAGE_DIR}/opt/arasul/tests/" || true
 
-# Config templates
+# Compose files — the root docker-compose.yml is an include-only stub that
+# references compose/compose.*.yaml. Without this directory the box cannot start.
+mkdir -p "${PACKAGE_DIR}/opt/arasul/compose"
+cp -r "${PROJECT_ROOT}/compose/"* "${PACKAGE_DIR}/opt/arasul/compose/" || true
+
+# Config (traefik, postgres, etc.) required at runtime. Secrets are generated on
+# the target during setup, so never ship the secrets directory.
 mkdir -p "${PACKAGE_DIR}/opt/arasul/config"
-if [ -f "${PROJECT_ROOT}/config/.env.template" ]; then
-    cp "${PROJECT_ROOT}/config/.env.template" "${PACKAGE_DIR}/opt/arasul/config/"
-fi
+cp -r "${PROJECT_ROOT}/config/"* "${PACKAGE_DIR}/opt/arasul/config/" 2>/dev/null || true
+rm -rf "${PACKAGE_DIR}/opt/arasul/config/secrets" 2>/dev/null || true
 
 success "Application files copied"
 

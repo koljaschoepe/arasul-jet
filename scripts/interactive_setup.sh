@@ -25,7 +25,7 @@ NC='\033[0m'
 
 # Non-interactive mode
 NON_INTERACTIVE=false
-if [ "$1" = "--non-interactive" ] || [ "$1" = "-n" ]; then
+if [ "${1:-}" = "--non-interactive" ] || [ "${1:-}" = "-n" ]; then
     NON_INTERACTIVE=true
 fi
 

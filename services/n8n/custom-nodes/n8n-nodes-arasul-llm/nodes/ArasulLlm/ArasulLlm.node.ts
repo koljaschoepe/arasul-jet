@@ -8,6 +8,10 @@ import {
 
 import axios, { AxiosRequestConfig } from 'axios';
 
+// Guard against hanging workflows when the llm-service stalls (model loading,
+// GPU stall). Without a timeout an axios call waits forever.
+const ARASUL_HTTP_TIMEOUT_MS = Number(process.env.ARASUL_LLM_TIMEOUT_MS) || 120000;
+
 export class ArasulLlm implements INodeType {
     description: INodeTypeDescription = {
         displayName: 'Arasul LLM',
@@ -307,7 +311,7 @@ export class ArasulLlm implements INodeType {
                             requestConfig.headers!['Authorization'] = `Bearer ${credentials.apiKey}`;
                         }
 
-                        const response = await axios(requestConfig);
+                        const response = await axios({ ...requestConfig, timeout: ARASUL_HTTP_TIMEOUT_MS });
                         responseData = response.data;
                     }
                 } else if (resource === 'generate') {
@@ -333,7 +337,7 @@ export class ArasulLlm implements INodeType {
                             requestConfig.headers!['Authorization'] = `Bearer ${credentials.apiKey}`;
                         }
 
-                        const response = await axios(requestConfig);
+                        const response = await axios({ ...requestConfig, timeout: ARASUL_HTTP_TIMEOUT_MS });
                         responseData = response.data;
                     }
                 } else if (resource === 'model') {
@@ -350,7 +354,7 @@ export class ArasulLlm implements INodeType {
                             requestConfig.headers!['Authorization'] = `Bearer ${credentials.apiKey}`;
                         }
 
-                        const response = await axios(requestConfig);
+                        const response = await axios({ ...requestConfig, timeout: ARASUL_HTTP_TIMEOUT_MS });
                         responseData = response.data;
                     } else if (operation === 'showModelInfo') {
                         const model = this.getNodeParameter('model', i) as string;
@@ -370,7 +374,7 @@ export class ArasulLlm implements INodeType {
                             requestConfig.headers!['Authorization'] = `Bearer ${credentials.apiKey}`;
                         }
 
-                        const response = await axios(requestConfig);
+                        const response = await axios({ ...requestConfig, timeout: ARASUL_HTTP_TIMEOUT_MS });
                         responseData = response.data;
                     }
                 }
