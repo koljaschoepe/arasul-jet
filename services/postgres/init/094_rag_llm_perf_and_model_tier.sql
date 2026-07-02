@@ -9,6 +9,21 @@
 -- The runner wraps each file in its own transaction; do not BEGIN/COMMIT here.
 
 -- ============================================================================
+-- 0. Widen model_type CHECK before inserting the embedding model
+-- ============================================================================
+-- Migration 035 constrained model_type to ('llm','ocr','vision','audio'). Section 4
+-- below inserts nomic-embed-text with model_type='embedding', which violated that
+-- constraint and made this whole migration fail (schema_migrations stuck at 093,
+-- 095 never applied). Widen the constraint idempotently so the insert succeeds on
+-- both fresh installs and existing boxes retrying this migration.
+
+ALTER TABLE llm_model_catalog
+    DROP CONSTRAINT IF EXISTS llm_model_catalog_model_type_check;
+ALTER TABLE llm_model_catalog
+    ADD CONSTRAINT llm_model_catalog_model_type_check
+    CHECK (model_type IN ('llm', 'text', 'ocr', 'vision', 'audio', 'embedding'));
+
+-- ============================================================================
 -- 1. system_settings: RAG + LLM performance defaults
 -- ============================================================================
 -- All defaults match the post-P0 env defaults in ragCore.js / llmOllamaStream.js

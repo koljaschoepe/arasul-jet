@@ -5,5 +5,5 @@ Wants=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/arasul/scripts/system/docker-watchdog.sh
+ExecStart=/opt/arasul/scripts/system/docker-watchdog.sh
 TimeoutStartSec=30

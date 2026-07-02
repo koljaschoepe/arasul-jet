@@ -5,5 +5,5 @@ Wants=arasul-platform.service
 
 [Service]
 Type=oneshot
-ExecStart=/arasul/scripts/system/deadman-switch.sh
+ExecStart=/opt/arasul/scripts/system/deadman-switch.sh
 TimeoutStartSec=30

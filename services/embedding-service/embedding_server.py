@@ -70,7 +70,7 @@ def check_gpu_memory():
         return None
     try:
         allocated = torch.cuda.memory_allocated()
-        total = torch.cuda.get_device_properties(0).total_mem
+        total = torch.cuda.get_device_properties(0).total_memory
         free_mb = (total - allocated) / (1024 * 1024)
         used_pct = allocated / total if total > 0 else 0
         return (used_pct, free_mb)

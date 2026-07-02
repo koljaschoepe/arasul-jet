@@ -1,3 +1,8 @@
+> **Archived 2026-07-02** — superseded by docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md. Phasen 1-6 umgesetzt; offene Punkte (n8n-Key, Auto-Update, Legal, Diagnostics) in Masterplan Phase 5/6 + Anhang.
+> Kept for historical reference; do not act on its contents.
+
+---
+
 # External Integrations Hardening — n8n Workflows + Telegram Bots
 
 > **Status 2026-06-03:** Phasen 1–4 + 6 implementiert (commit d9d6b89, 2026-05-06). Deferred: **Phase 5b** (grammY-Migration + API-Konsolidierung 3→1 Routes) + **Phase 6.5** (FE Diagnostics-UI — Daten in DB ready, Frontend noch offen). Phase 1.4 (External Runner) deferred bis n8n 2.x.

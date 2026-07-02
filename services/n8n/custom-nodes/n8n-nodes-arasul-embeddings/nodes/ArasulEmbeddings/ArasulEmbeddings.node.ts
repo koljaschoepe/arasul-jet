@@ -8,6 +8,10 @@ import {
 
 import axios, { AxiosRequestConfig } from 'axios';
 
+// Guard against hanging workflows when the embedding-service stalls (model
+// loading, GPU stall). Without a timeout an axios call waits forever.
+const ARASUL_HTTP_TIMEOUT_MS = Number(process.env.ARASUL_EMBEDDINGS_TIMEOUT_MS) || 60000;
+
 export class ArasulEmbeddings implements INodeType {
     description: INodeTypeDescription = {
         displayName: 'Arasul Embeddings',
@@ -163,7 +167,7 @@ export class ArasulEmbeddings implements INodeType {
                         requestConfig.headers!['Authorization'] = `Bearer ${credentials.apiKey}`;
                     }
 
-                    const response = await axios(requestConfig);
+                    const response = await axios({ ...requestConfig, timeout: ARASUL_HTTP_TIMEOUT_MS });
 
                     if (includeMetadata) {
                         responseData = response.data;
@@ -207,7 +211,7 @@ export class ArasulEmbeddings implements INodeType {
                                 requestConfig.headers!['Authorization'] = `Bearer ${credentials.apiKey}`;
                             }
 
-                            return axios(requestConfig);
+                            return axios({ ...requestConfig, timeout: ARASUL_HTTP_TIMEOUT_MS });
                         });
 
                         const batchResults = await Promise.all(batchPromises);
@@ -239,7 +243,7 @@ export class ArasulEmbeddings implements INodeType {
                         requestConfig.headers!['Authorization'] = `Bearer ${credentials.apiKey}`;
                     }
 
-                    const response = await axios(requestConfig);
+                    const response = await axios({ ...requestConfig, timeout: ARASUL_HTTP_TIMEOUT_MS });
                     responseData = response.data;
                 }
 

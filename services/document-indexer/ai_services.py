@@ -67,7 +67,11 @@ class AIServices:
             )
             response.raise_for_status()
             result = response.json()
-            return result.get('message', {}).get('content', '')
+            content = result.get('message', {}).get('content', '')
+            # qwen3 is a thinking model. Strip <think>...</think> reasoning blocks
+            # so they never leak into summaries/categories stored as customer data.
+            content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+            return content
 
         except requests.exceptions.Timeout:
             logger.error(f"LLM request timed out after {LLM_TIMEOUT}s")

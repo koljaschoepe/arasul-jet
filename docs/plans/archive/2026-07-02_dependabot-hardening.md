@@ -1,3 +1,8 @@
+> **Archived 2026-07-02** — superseded by docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md. Root-Lock gefixt; Restpunkte (Branch-Protection, Lock-Strategie) in Masterplan Phase 9.
+> Kept for historical reference; do not act on its contents.
+
+---
+
 # Dependabot + Lock-File Hardening
 
 > **Status 2026-06-03:** AC1 (package-lock.json regeneriert) ✅ via c20e8c5. AC3 (Branch Protection required status checks) adressiert in P1-1 des Audit-Plans 2026-06-03 — pending GitHub-Settings-Konfiguration. AC2 (CI Lock-File-Drift Guard) + AC4 (CLAUDE.md Lock-File-Entscheidung) noch offen.
