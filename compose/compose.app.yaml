@@ -60,6 +60,10 @@ services:
       SYSTEM_VERSION: ${SYSTEM_VERSION}
       BUILD_HASH: ${BUILD_HASH}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Shared secret for the /api/events/webhook/self-healing endpoint. When set,
+      # callers must send a matching x-webhook-secret header (defense-in-depth on
+      # top of the LAN IP allowlist). Generated per box in .env.
+      SELF_HEALING_WEBHOOK_SECRET: ${SELF_HEALING_WEBHOOK_SECRET:-}
       RAG_ENABLE_MULTI_QUERY: 'false'
       RAG_ENABLE_HYDE: 'false'
       RAG_ENABLE_DECOMPOUND: 'true'
