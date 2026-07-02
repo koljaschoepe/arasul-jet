@@ -82,7 +82,11 @@ services:
       # Mount host CUDA toolkit (cuBLAS, cuDNN, cuDart) for GPU inference
       - /usr/local/cuda/lib64:/usr/local/cuda/lib64:ro
     ports:
-      - '11434:11434' # Ollama API — accessible via Tailscale for Open Ara clients
+      # Bind to localhost only — never expose the unauthenticated Ollama API to the
+      # LAN. Internal containers reach it via the network name (llm-service:11434);
+      # host-local clients via 127.0.0.1. Remote/Tailscale access, if needed, must go
+      # through an authenticated proxy (e.g. `tailscale serve tcp 11434`), not here.
+      - '127.0.0.1:11434:11434' # Ollama API (host-local only)
     runtime: nvidia
     tmpfs:
       - /tmp:noexec,nosuid,size=256M
