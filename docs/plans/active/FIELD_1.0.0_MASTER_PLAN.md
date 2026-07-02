@@ -6,6 +6,31 @@
 
 ---
 
+## Deployment-Log 2026-07-02 (autonome Ausführung, Fable 5)
+
+> Erste Fixes aus diesem Plan wurden verifiziert und teils LIVE auf der Feld-Box deployt.
+> DB-Backup vor Migration: `~/db-backups/pre-migration_20260702_205124.sql` (126 MB).
+
+**Live deployt & verifiziert (laufende Box):**
+
+- **P1-1 Migration 094/095** — Root-Cause (CHECK-Constraint) gefixt, dashboard-backend neu gestartet, Runner hat 094+095 angewandt (beide `success=true`). Verifiziert: `/api/models/installed` → HTTP 200 (war 500), `telegram_user_chats` existiert (DSGVO-Löschung crasht nicht mehr). Getestet zusätzlich gegen frische Wegwerf-DB (alle 96 Migrationen grün).
+- **P6-15 embedding-GPU-Guard** (`total_memory`) — embedding-service rebuilt + recreated, `gpu_status: ok` liefert echte Werte, Embed-Request grün.
+- **P6-19 `<think>`-Strip** — document-indexer rebuilt + recreated, healthy.
+- **P6-12 n8n-Timeouts** — Code gemergt; n8n-Image rebuilt + recreated (siehe unten).
+
+**Nebenbefund beim Deploy (neu, behoben):** Der n8n-`documents`-Custom-Node hatte keine `package-lock.json` und zog transitiv das native `isolated-vm`, das im Alpine-Builder ohne Python nicht kompiliert → **jeder n8n-Rebuild war blockiert** (und damit die im Dockerfile geforderten monatlichen n8n-Security-Patches). Gefixt: `n8n-workflow` auf `1.117.0` gepinnt (wie llm/embeddings) + Lockfile erzeugt.
+
+**Nur im Code gemergt (wirkt bei nächstem Install/Factory-Build, kein Live-Deploy nötig):**
+
+- P4-6 `interactive_setup.sh` (`${1:-}`), P4-4 `build_deb.sh` (compose/config), P4-5 systemd-Pfade.
+
+**Bewusst NICHT autonom (Blast-Radius / Risiko / Genehmigung):**
+
+- Ollama-Port schließen, MinIO-Route, Netzwerk-Trennung, docker-proxy-Rechte → würde die parallel laufenden Privat-Stacks (jarvis/ara/avatar) brechen.
+- n8n-Key-Rotation, Backup-Verschlüsselung, WAL, LUKS → Live-Zustands-Änderungen mit Datenrisiko, brauchen überwachtes Fenster.
+- 3 Behavioral-Fixes (RAG-Fehlermeldung, Teil-Index-Status, n8n-Auto-Restart) → im Code teil-gehärtet; saubere Version braucht mehrpunktige Änderung + Tests.
+- Dependabot-PRs schließen → `gh`-Auth (HTTP 401) abgelaufen, braucht `gh auth login`.
+
 ## Wie dieser Plan zu benutzen ist (für Ausführende, auch schwächere Modelle)
 
 - **Reihenfolge:** Phasen strikt der Nummer nach. Innerhalb einer Phase Aufgaben der Reihe nach. Blocker (P0) vor allem anderen.
