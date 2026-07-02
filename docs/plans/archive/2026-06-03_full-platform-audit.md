@@ -1,3 +1,8 @@
+> **Archived 2026-07-02** — superseded by docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md. 62/62 Punkte erledigt; offene Live-Zustellung in FIELD_1.0.0_MASTER_PLAN Phase 1 uebernommen.
+> Kept for historical reference; do not act on its contents.
+
+---
+
 # Arasul Platform — Vollständiger Audit & Verbesserungsplan (2026-06-03)
 
 > **Erstellt:** 2026-06-03 via 15-Agenten-Parallel-Audit (16 Agents, 656 Tool-Calls, ~1M Tokens)

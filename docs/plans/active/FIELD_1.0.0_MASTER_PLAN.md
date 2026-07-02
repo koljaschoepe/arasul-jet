@@ -1,0 +1,244 @@
+# FELD-1.0.0 MASTERPLAN — arasul-platform
+
+> **Erstellt:** 2026-07-02 · **Analyse:** Fable 5, Multi-Agent-Repo-Scan + Live-Verifikation am laufenden Jetson AGX Orin
+> **Zweck:** Der eine, konsolidierte Fahrplan von "70% fertig, brach seit 03.06." zu einem **ehrlichen, verkaufbaren, zuverlässigen Feld-1.0.0**.
+> Löst alle bisherigen aktiven Pläne ab (siehe Teil 0). Abzuarbeiten Phase für Phase, Aufgabe für Aufgabe — auch von schwächeren Modellen.
+
+---
+
+## Wie dieser Plan zu benutzen ist (für Ausführende, auch schwächere Modelle)
+
+- **Reihenfolge:** Phasen strikt der Nummer nach. Innerhalb einer Phase Aufgaben der Reihe nach. Blocker (P0) vor allem anderen.
+- **Jede Aufgabe hat:** eine ID (`P<phase>-<nr>`), Priorität, betroffene Dateien, konkrete Schritte, und eine **Verifikation** (wie man beweist, dass es erledigt ist).
+- **Regel:** Eine Aufgabe ist erst "fertig", wenn ihre Verifikation grün ist — nicht wenn der Code geschrieben ist. Die Definition of Done verlangt **Beweise, nicht Implementierung**.
+- **Nutzer-Konventionen (aus CLAUDE.md/MEMORY):** Deutsch mit korrekten Umlauten in UI-Texten; Code-Variablen Englisch; Conventional Commits auf Deutsch (`feat:`, `fix:`); keine `--`/Bindestriche als Trenner in Prosa; nach jeder Frontend-Änderung Dev-Server auf Port 3000 neu starten.
+- **Umlaute:** Der Nachname ist "Schöpe". `ae→ä, oe→ö, ue→ü, ss→ß` automatisch.
+- **Circuit Breaker:** Appetit 90 Tage (bis ~Ende September 2026). Bei Überlauf harter Stop und Neu-Begründung. WIP=1 — nur arasul-platform, nichts anderes anfassen.
+
+---
+
+## Vision & Zielkunde
+
+Private On-Premise-KI-Box (NVIDIA Jetson) für **Steuerberater-Kanzleien (3–15 MA, DACH)** mit der **§203-StGB-Speerspitze** ("Ihre Mandantendaten verlassen niemals das Haus"). Preismodell Razor-and-Blades: **7.500 EUR Box netto + Pflicht-Wartung 250/450/750 EUR/Monat**. Der margenstarke Wartungsvertrag (50–60% Marge) setzt genau die Robustheit voraus (OTA, Backup, unattended-Betrieb), die dieser Plan liefert.
+
+## Definition of Done — das 1.0.0-Gate (verbindlich)
+
+Allgemein: reproduzierbar auf frischem Zustand · von Außenstehendem in Betrieb nehmbar · überlebt Neustart · alles committet · einem echten zahlenden Piloten gegeben.
+
+7 arasul-spezifische Haken (Beweise, nicht nur Code):
+
+1. **Mandanten-Isolation getestet** mit 2 echten Mandanten (Mandant A sieht nichts von B).
+2. **Migrations-Fix bewiesen** durch echten neuen Migrationslauf auf einer Bestands-DB.
+3. **OTA bewiesen** durch vollen Update + Rollback-Roundtrip.
+4. **Prod-Netz sauber** (keine Privatprojekte, keine offenen Ports/Routen).
+5. **Backups verschlüsselt** + Key out-of-band escrowed, Restore einmal bewiesen.
+6. **Factory-Build auf zweitem Gerät** reproduziert.
+7. **7 Tage unattended** stabil (kein manueller Eingriff).
+
+**Erst wenn alle 7 grün sind, darf das Wort "1.0.0" benutzt werden.**
+
+---
+
+## Getroffene Scope-Entscheidungen (Annahmen, da autonom entschieden — leicht kippbar)
+
+| Thema                                              | Entscheidung                                                                       | Begründung                                                                                                                                                                  |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Externe Modell-Provider (OpenAI/Anthropic/Mistral) | **Optional bauen, Cloud standardmäßig AUS, mit Consent + DSGVO-Warnung** (Phase 6) | Auftraggeber will, dass es funktioniert; "keine Cloud" bleibt als bewusste, deklarierte Opt-in-Ausnahme erhalten. Heute existiert im Produkt gar keine Provider-Verwaltung. |
+| n8n-Externanbindung-Governance                     | **Logging + Dashboard-UI zuerst (P1), hartes Domain-Blocken als Fast-Follow**      | Egress funktioniert, aber die DSGVO-Steuerung ist nur Schema. Transparenz für den DSB zuerst, Enforcement direkt danach.                                                    |
+| Plan-Umfang                                        | **Feld-1.0.0 + Reliability-Härtung**                                               | Verkaufbar UND zuverlässig; Post-1.0-Themen im Anhang.                                                                                                                      |
+
+---
+
+# TEIL 0 — Plan-Konsolidierung & Archivierung
+
+Alle bisherigen aktiven Pläne wurden gegen Code + Live geprüft. Ihre noch offenen Punkte sind in die Phasen unten übernommen. Aktion:
+
+| Plan                                           | Status                                      | Aktion                                                                  |
+| ---------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
+| `active/2026-06-03_full-platform-audit.md`     | erledigt (62/62), nur Live-Zustellung offen | → `archive/` (offener Punkt = P1-1)                                     |
+| `active/DEPENDABOT_HARDENING.md`               | teilweise offen                             | → `archive/` (Punkte in Phase 9)                                        |
+| `active/EXTERNAL_INTEGRATIONS.md`              | teilweise offen                             | → `archive/` (Punkte in Phase 6)                                        |
+| `active/repo-deep-audit-2026-05-08.md`         | teilweise offen                             | → `archive/` (Punkte in Phase 1/5/8)                                    |
+| `active/side-branch-cherry-pick-2026-05-14.md` | teilweise offen                             | **bleibt aktiv** (Ernte-Backlog, referenziert aus Phase 7/9)            |
+| 12 × `archive/*`                               | bereits Archiv                              | Header prüfen, sonst unangetastet                                       |
+| `BUGS_AND_FIXES.md`                            | ~46/51 behoben                              | Statusblock korrigieren, dann bei Archivierung als historisch markieren |
+
+Cockpit-Dateien (`~/.arasul/cockpit/*`) bleiben aktiv (steuern das Meta-Vorgehen), sind aber jetzt durch diesen Masterplan als operativen Plan gedeckt.
+
+---
+
+# TEIL 1 — Die Phasen
+
+## Phase 0 — Aufräumen & Substanz sichern (1–2 h) · P0-Vorbereitung
+
+Ohne das verrottet die Substanz und alle folgenden Phasen bauen auf Unsauberem auf.
+
+- **P0-0.1** — Die 4 uncommitteten Avatar/Open-Ara-Dateien im Working Tree final auflösen. Patch liegt in `~/.arasul/cockpit/artifacts/`. Avatar/Open-Ara-Anteile im Zuge von Phase 3 relokieren, Working Tree danach sauber committen. _Verifikation:_ `git status` sauber.
+- **P0-0.2** — Build-Identität setzen: Live-Dashboard zeigt "Build: dev-build", "JetPack Version: unknown". `BUILD_HASH`/`SYSTEM_VERSION` im Factory-Build/Compose korrekt befüllen. _Verifikation:_ Einstellungen → Allgemein zeigt echten Build-Hash + JetPack-Version.
+- **P0-0.3** — Journal-Disziplin (Cockpit) wieder aufnehmen; ab hier jeden Arbeitsschritt kurz protokollieren (Frühindikator gegen das dokumentierte "Anfang-nie-Ende"-Muster).
+
+## Phase 1 — Datenintegrität, Migrationen & Zustellung (P0) — DER wichtigste Block
+
+Live-Fakt: `schema_migrations` steht auf 94 mit `success=f`; 095 lief nie; `telegram_user_chats` existiert nicht; `MIGRATIONS_DIR` im Container leer. Folge: DSGVO-Löschung crasht, Modell-Store kaputt (`/api/models/installed` → 500 `column c.speed_tier does not exist`).
+
+- **P1-1** _(P0)_ — **Migration 094 reparieren.** Root Cause: `094_rag_llm_perf_and_model_tier.sql` inseriert `model_type='embedding'` (nomic-embed-text), aber der CHECK-Constraint `llm_model_catalog_model_type_check` aus `035_model_types.sql` erlaubt nur `llm/ocr/vision/audio`. **Fix:** Constraint in einer Vorab-/Teil-Migration um `'embedding'` erweitern, DANN inserieren. Dateien: `services/postgres/init/094_*.sql`, `035_model_types.sql`. _Verifikation:_ Migration 094 läuft auf einer Kopie der Live-DB durch (`success=t`), 095 folgt, `telegram_user_chats` existiert, `/api/models/installed` liefert 200 mit qwen3:32b.
+- **P1-2** _(P0)_ — **Migrations-Zustellung an Bestandsboxen.** `MIGRATIONS_DIR` im `dashboard-backend`-Container ist leer → neue Migrationen erreichen laufende Boxen nie. **Fix:** Migrationen ins Image kopieren (Dockerfile-COPY) bzw. Volume korrekt mounten; `migrationRunner` beim Start gegen den Bestandszustand laufen lassen. _Verifikation:_ Auf einer Box mit alter DB einen neuen Migrationslauf auslösen und beweisen, dass er greift (DoD-Haken 2).
+- **P1-3** _(P1)_ — **Fehlgeschlagene Migration sichtbar machen.** `success=f` blieb wochenlang unbemerkt; Backend lief mit halb-kaputtem Schema weiter. **Fix:** Fehlgeschlagene Migration als Startup-Gate ODER Alarm (Telegram/Dashboard/Self-Healing) behandeln. Dateien: `migrationRunner`, `self-healing-agent`. _Verifikation:_ Absichtlich fehlerhafte Test-Migration → sichtbarer Alarm, Backend startet nicht "still kaputt".
+- **P1-4** _(P0, Folge von P1-1/2)_ — **DSGVO-Löschung/-Auskunft live beweisen.** Nach Migrations-Fix `/loeschen` und `/auskunft` end-to-end testen (waren durch fehlende `telegram_user_chats` gecrasht). _Verifikation:_ beide Kommandos laufen fehlerfrei gegen echte Daten.
+- **P1-5** _(P2)_ — **Model-Store-Latenz-Acceptance** einmal nachweisen: `scripts/bench/rag_llm_smoke.sh` gegen Targets (TTFT ≤ 1.5s, ≥ 18 tok/s, RAG-Overhead ≤ 700ms). _Verifikation:_ dokumentiertes Ergebnis.
+- **P1-6** _(P1, verifiziert)_ — **migrationRunner-Atomizität:** Migrationen mit eigenem `BEGIN;/COMMIT;` heben die Transaktion des Runners aus (`migrationRunner.js:169`) → bei Crash mitten in einer Migration kann `schema_migrations` inkonsistent werden und alle Folge-Migrationen blockieren. **Fix:** entweder Runner-BEGIN entfernen wenn die Migration selbst eins hat, oder Migrationen ohne eigenes BEGIN/COMMIT-Konvention erzwingen (Lint). _Verifikation:_ simulierter Crash lässt kein halb-appliziertes Schema zurück.
+
+## Phase 2 — Mandanten-Isolation (P0) — das §203-Verkaufsargument
+
+Live-Fakt: Spalten `owner_id` existieren in `documents`, `knowledge_spaces`, `projects`; `space_members` hat 2 Zeilen; **der Backend-Code referenziert `owner_id`/`space_members` 0 Mal.** Alle admin_users sehen alles.
+
+- **P2-1** _(P0)_ — **`owner_id`-Filter in ALLE Ressourcen-Queries** verdrahten: documents, knowledge_spaces, projects, chat_conversations, api_keys, sowie deren Detail-/Update-/Delete-Pfade (IDOR!). Dateien: `apps/dashboard-backend/src/routes/*`, `.../services/*`. **Wichtig:** Vor diesem Umbau die Auth-/Krypto-Kernpfade mit Tests absichern (siehe P9-1), da hier die Auth-Ebene angefasst wird.
+- **P2-2** _(P0)_ — **`space_members`-ACL** für geteilte Knowledge-Spaces durchsetzen (Lese-/Schreibrechte je Mitglied).
+- **P2-3** _(P0)_ — **Testen mit 2 echten Mandanten** (DoD-Haken 1): Mandant A anlegen, Dokumente/Spaces/Projekte; Mandant B darf davon **nichts** sehen — per UI und per direkter API (IDOR-Versuch mit B's Token auf A's Ressourcen-IDs muss 403/404 geben). _Verifikation:_ dokumentierter Testlauf, beide Richtungen.
+
+## Phase 3 — Prod-/Privat-Trennung & Netzwerk-Sicherheit (P0/P1)
+
+Live-Fakt: Im Produkt-Netz `arasul-platform_arasul-backend` hängen projektfremde Container (jarvis-bot, jarvis-searxng, jarvis-workbench, avatar-ffmpeg, **litellm mit Cloud-Keys**, minio). Ollama-Port 11434 offen auf 0.0.0.0. docker-proxy = Full-Passthrough.
+
+- **P3-1** _(P1)_ — **jarvis/avatar/litellm aus dem Produkt-Netz lösen.** jarvis (`/home/arasul/jarvis`), avatar-pipeline (`~/projects/avatar-pipeline`) und litellm gehören NICHT ins Produkt. avatar-pipeline zusätzlich **unter Git stellen** (läuft aktiv, aber unverwaltet). _Verifikation:_ `docker network inspect arasul-platform_arasul-backend` enthält nur Produkt-Container.
+- **P3-2** _(P1)_ — **Ollama-Port 11434 schließen.** `compose.ai.yaml` published `11434:11434` auf 0.0.0.0 ("accessible via Tailscale for Open Ara clients"). Port-Publishing entfernen oder auf `127.0.0.1`/Tailscale-Interface binden. _Verifikation:_ `ss -tlnp` zeigt 11434 nicht mehr auf 0.0.0.0.
+- **P3-3** _(P1, verifiziert)_ — **docker-proxy-Rechte minimieren UND isolieren.** `compose/compose.core.yaml` hat `EXEC:1, BUILD:1, COMMIT:1, POST:1` = Full-Passthrough auf den Docker-Socket → kompromittiertes Backend = Root auf Host. Verschärfend: der docker-proxy hängt im **geteilten** `arasul-backend`-Netz, d.h. **n8n und alle KI-Services** haben ebenfalls Zugriff auf die Docker-API (Container exec/start/stop). **Fix:** Rechte auf Minimum (nur `CONTAINERS`, ggf. `POST` für Restart; kein EXEC/BUILD/COMMIT) UND docker-proxy in ein separates Netz nur mit den Diensten, die ihn wirklich brauchen (self-healing, metrics, backup). _Verifikation:_ n8n/llm-service erreichen den docker-proxy nicht mehr; EXEC/BUILD/COMMIT verweigert.
+- **P3-4** _(P1)_ — **public MinIO-Route `/media/avatarpipeline-staging`** aus Traefik entfernen (`config/traefik/dynamic/routes.yml`). _Verifikation:_ Route liefert 404.
+- **P3-5** _(P2)_ — **n8n `/webhook`-Traefik-Route absichern** (`routes.yml:182-191`): aktuell nur rate-limit + security-headers, keine Auth/HMAC. Shared-Secret/HMAC ergänzen oder dokumentierte Risiko-Entscheidung. _Verifikation:_ unautorisierter Webhook-Call wird abgewiesen.
+- **P3-6** _(P2)_ — **Self-Healing-Webhook** `/api/events/webhook/self-healing` absichern: `SELF_HEALING_WEBHOOK_SECRET` verpflichtend ODER Endpoint entfernen (kein Aufrufer gefunden; IP-Allowlist lässt ganzes LAN durch). _Verifikation:_ Fake-Event ohne Secret wird abgewiesen bzw. Endpoint weg.
+
+## Phase 4 — OTA-Update & Signatur (P0) — Basis des Wartungsvertrags
+
+Live-Fakt: `public_update_key.pem` fehlt auf Host UND Container → Signaturprüfung tot; `./arasul update` (CLI Zeile ~1517) macht ungeprüftes `docker compose pull && build && up`; `updates.arasul.de` ohne DNS.
+
+- **P4-1** _(P0)_ — **OTA-Mechanismus entscheiden & verdrahten.** Empfehlung: **RDFM/eigener Kanal über vorhandenes Tailscale** (kein zusätzlicher Cloud-Dienst, passt zu "keine Cloud") oder Mender Starter (29 USD/Mt). Public-Key-Verteilung ins Factory-Image; `verifySignature` (updateSignatureService.js) scharf schalten; CLI-`cmd_update()` muss Signatur prüfen, nicht umgehen.
+- **P4-2** _(P0)_ — **Update + Rollback-Roundtrip beweisen** (DoD-Haken 3): ein signiertes Update einspielen, dann Rollback, beide erfolgreich, Box danach funktionsfähig. _Verifikation:_ dokumentierter Roundtrip.
+- **P4-3** _(P2)_ — **Image-Tags exakt pinnen:** `postgres:16-alpine` und `traefik:v2.11` sind floating (Rest ist gepinnt). Auf exakte Digests/Versionen pinnen → reproduzierbarer Factory-Build (DoD-Haken 6). _Verifikation:_ Re-Pull liefert identische Images.
+
+**Verifizierte Factory-/Install-Blocker (aus Code-Tiefenanalyse) — kritisch für DoD-Haken 6 & Laien-Install:**
+
+- **P4-4** _(P1, verifiziert)_ — **`.deb`-Paket ist unstartbar:** `packaging/build_deb.sh` kopiert `docker-compose.yml` (reine `include:`-Datei) + `services/`, aber **nicht das `compose/`-Verzeichnis** mit den referenzierten `compose.*.yaml`. Auf einem frischen Gerät startet nichts. **Fix:** `compose/` (und `config/`) mit ins Paket. _Verifikation:_ `.deb` auf frischem Gerät installiert und startet.
+- **P4-5** _(P1, verifiziert)_ — **systemd-Units zeigen auf falschen Pfad:** `docker-watchdog.service`/`deadman-switch.service` setzen `ExecStart=/arasul/scripts/...`, der Code liegt aber unter `/opt/arasul/scripts/...` (postinst `INSTALL_DIR=/opt/arasul`) → Watchdog/Deadman **laufen nie**. **Fix:** Pfade auf `/opt/arasul` korrigieren. _Verifikation:_ `systemctl status` beider Units aktiv.
+- **P4-6** _(P1, verifiziert)_ — **Interaktives Setup crasht sofort:** `scripts/interactive_setup.sh:28` prüft `[ "$1" = "--non-interactive" ]` unter `set -euo pipefail` ohne Default; die interaktiven Aufrufe (`arasul` Z.523) übergeben kein Argument → `$1: unbound variable`, Abbruch. **Fix:** `${1:-}`. _Verifikation:_ Erstinstallation läuft durch.
+- **P4-7** _(P1, verifiziert)_ — **Security-Hardening sperrt den Installateur aus:** `arasul:1257 harden_production_security` läuft im Bootstrap per Default (SSH-Hardening/Firewall) sobald `NODE_ENV=production`, und `interactive_setup` schreibt `NODE_ENV=production` → ein Remote-/Headless-Installateur verliert mitten in der Installation den Zugang. **Fix:** Hardening ans Ende/hinter Bestätigung, aktuelle SSH-Session/Port erhalten. _Verifikation:_ Headless-Erstinstallation bricht die SSH-Sitzung nicht ab.
+
+## Phase 5 — Backup, Disaster Recovery & Verschlüsselung (P1)
+
+- **P5-1** _(P1)_ — **Restore-Drill reparieren.** Live: `restore_drill_report.json` eingefroren auf 2026-05-31, meldet fälschlich "ok"; backup-service hat keinen Docker-Socket seit ~07.06. **Fix:** Docker-Zugriff (über den minimierten Socket-Proxy aus P3-3) ODER Drill-Neudesign ohne `docker run`; **Drill-Fehlschlag muss alarmieren**, nicht auf altem "ok" sitzen bleiben. _Verifikation:_ Drill läuft mit echtem Backup, Report aktuell, Fehlschlag löst Alarm aus.
+- **P5-2** _(P1)_ — **Backup-Verschlüsselung aktivieren.** `encrypt_file()` (GPG) existiert, ist aber optional; `BACKUP_ENCRYPT` in `.env` nicht gesetzt → Backups liegen im Klartext. Für §203 ein Compliance-Killer bei Gerätediebstahl. `BACKUP_ENCRYPT=on` als Setup-Default. _Verifikation:_ neues Backup ist verschlüsselt, Restore mit Key funktioniert.
+- **P5-3** _(P1)_ — **n8n-Encryption-Key entschärfen + escrowen.** Live: Key = bekannter Dev-Platzhalter `arasul-dev-n8n-encryption-key-32` (sha256-verifiziert) → in n8n gespeicherte Kunden-Credentials faktisch unverschlüsselt. **Fix:** Golden Image/Auslieferung generiert einen frischen Key; Key out-of-band escrowen (DoD-Haken 5); Rotationspfad (`n8n export:credentials --decrypted` → Re-Import) einmal durchtesten. _Verifikation:_ frischer Key je Box, Escrow dokumentiert.
+- **P5-4** _(P2)_ — **Backup-Healthcheck fixen** (python3 fehlt im Container — POSIX-Variante). _Verifikation:_ Healthcheck grün.
+- **P5-5** _(P2)_ — **PostgreSQL WAL-Archivierung/PITR** aktivieren (`archive_mode=on`, `archive_command` → `/backups/wal`, Retention). Live: `archive_mode=off`. Ohne PITR bis zu 24h Datenverlust zwischen Nightly-Backups. _Verifikation:_ PITR-Restore auf Zeitpunkt X funktioniert.
+- **P5-6** _(P2)_ — **Kernel-Panic-Auto-Reboot** (`kernel.panic=10` via `/etc/sysctl.d/99-arasul.conf`, in `preconfigure.sh`/Setup). Live: `kernel.panic=0`. _Verifikation:_ sysctl aktiv nach Reboot.
+- **P5-7** _(P2)_ — **LUKS-Verschlüsselung der Datenpartition** prüfen/planen (keine LUKS-Spuren im Repo). Bei physischem Diebstahl liegen Mandantendaten sonst im Klartext auf der NVMe. _(Kann für ersten Piloten ein dokumentiertes Restrisiko sein.)_
+- **P5-8** _(P0, verifiziert)_ — **MinIO-Dokument-Backups sind still leer.** `services/backup-service/backup.sh:114` holt Dokumente per `docker exec minio mc mirror` + `docker cp`, aber der backup-service-Container hat **keinen Docker-Socket** → der Schritt erzeugt 128-Byte-Leer-Tarballs, der Report meldet trotzdem "completed". **Die Kundendokumente sind faktisch nicht im Backup.** **Fix:** MinIO-Backup über die S3-API (`mc` gegen den MinIO-Endpoint, nicht via docker exec) ODER Socket-Zugriff über den minimierten Proxy (P3-3); Backup-Größe plausibilisieren (Leer-Tarball = Fehler). _Verifikation:_ Backup enthält echte Dokumente, Restore stellt sie wieder her. **Hängt eng mit P5-1 (Restore-Drill) zusammen.**
+
+## Phase 6 — Reliability: n8n-Externanbindung & externe Modelle (P1) — Auftraggeber-Schwerpunkt
+
+### 6a — n8n externe Dienste (DSGVO-Governance)
+
+Live-Fakt: Egress funktioniert (unrestricted), aber die Governance-Tabellen `n8n_allowed_external_domains` + `n8n_external_call_log` (Migration 087) werden **nirgends im Code** genutzt. Migration selbst: "Ohne Enforcement ist die Whitelist eine Soll-Konfiguration, kein Block."
+
+- **P6-1** _(P1)_ — **Externe-Aufruf-Protokollierung** implementieren: jeder ausgehende n8n-HTTP-Call schreibt nach `n8n_external_call_log` (Workflow-ID, Ziel-URL, Zeit, Status). Umsetzung via Custom-Node-Wrapper oder Egress-Proxy vor n8n. _Verifikation:_ ein n8n-HTTP-Node → Eintrag im Log; im Dashboard sichtbar.
+- **P6-2** _(P1)_ — **Dashboard-UI für erlaubte Domains** bauen (Verwaltung von `n8n_allowed_external_domains`) + Log-Ansicht für den DSB. _Verifikation:_ Admin kann Domain hinzufügen/entfernen, Log einsehen.
+- **P6-3** _(P1, Fast-Follow)_ — **Whitelist-Enforcement**: nicht freigegebene Domains werden geblockt (Egress-Firewall/Proxy vor n8n). _Verifikation:_ Call an nicht-gelistete Domain wird geblockt + geloggt.
+- **P6-4** _(P2)_ — **n8n Externanbindung end-to-end beweisen:** HTTP-Egress, OAuth2-Callback über Traefik (Redirect-URL/Port korrekt?), eingehender Webhook. Basis: `services/n8n/templates/smoketests/01-03`. Custom-Nodes (arasul-documents/llm/embeddings) auf Fehlerbehandlung/Timeout/Kompatibilität mit n8n 1.123.18 prüfen. _Verifikation:_ alle 3 Smoketests grün, dokumentiert.
+- **P6-5** _(P2)_ — **Anwaltliche Prüfung** der DSGVO-Drafts (`docs/legal/AVV_TEMPLATE.md`, `DATENSCHUTZ_N8N.md`, `DRITTLAND_KONNEKTOREN.md` — alle DRAFT) + n8n-Lizenzposition. Externer Abhängigkeitspfad → **früh starten**. _(Kein Code, aber Verkaufs-Blocker für Kanzleien.)_
+
+### 6b — Externe Modell-Provider (optional, Cloud-aus per Default)
+
+Live-Fakt: Produkt nutzt nur lokales Ollama; keine Provider-Verwaltung; `litellm`=0 Treffer im Repo (gehört zum privaten Jarvis-Stack).
+
+- **P6-6** _(P1)_ — **Provider-Abstraktion im Backend** einziehen (`llmService`/`modelService`): LLM-Aufrufe hinter ein Provider-Interface legen (lokal-Ollama = Default). Dateien: `services/llm/llmOllamaStream.js`, `llmJobProcessor.js`.
+- **P6-7** _(P1)_ — **Dashboard: externe Provider hinterlegen** (OpenAI/Azure/Mistral/Anthropic): API-Key-Verwaltung (verschlüsselt gespeichert), Modell-Auswahl. **Standard: AUS.** Aktivierung nur mit explizitem **Consent-Dialog + DSGVO-Warnung** ("Daten verlassen bei diesem Modell das Haus"). _Verifikation:_ Kunde kann einen externen Provider aktivieren, Chat läuft darüber, deaktiviert = wieder rein lokal.
+- **P6-8** _(P2)_ — **Robustheit externer Provider:** Timeouts, Retries, Circuit-Breaker, klare Fehleranzeige bei Provider-Ausfall/Key ungültig; Kosten-/Nutzungshinweis. _Verifikation:_ Provider-Ausfall → verständliche Fehlermeldung, kein Hänger.
+
+### 6c — KI-End-to-End-Zuverlässigkeit
+
+- **P6-9** _(P1)_ — **Teilausfall-Verhalten der KI-Kernflüsse** härten: Chat+RAG bei Embedding/Qdrant/LLM-Ausfall → verständliche Nutzermeldung statt Hänger/leerer Antwort. Timeout-Ketten prüfen. _Verifikation:_ je Ausfall-Szenario definierte, sichtbare Reaktion.
+- **P6-10** _(P1)_ — **Dokument-Upload → Indexierung** darf nicht still fehlschlagen: Statusanzeige korrekt, Fehler sichtbar, Retry möglich. _Verifikation:_ korruptes/zu großes Dokument → klarer Fehler, kein "hängt bei wartend".
+- **P6-11** _(P2)_ — **Concurrency/OOM:** parallele Anfragen, Ollama single-flight, Queue-Überlauf, GPU/VRAM-Budget (kein zentraler Allocator vorhanden). Parallel-Lasttest LLM+Embedding+Indexing auf Zielhardware. _Verifikation:_ Box bleibt unter Last responsiv, kein OOM-Hänger.
+
+### 6d — Verifizierte Reliability-Bugs (netto-neu aus Code-Tiefenanalyse)
+
+- **P6-12** _(P1, verifiziert)_ — **n8n-Custom-Nodes ohne Timeout:** `ArasulLlm.node.ts` und `ArasulEmbeddings.node.ts` bauen alle `axios(requestConfig)`-Aufrufe ohne `timeout`/AbortController. Klemmt llm-/embedding-service (Modell lädt, GPU-Stall), hängt der n8n-Workflow **unbegrenzt**. **Fix:** Timeout + Abort in allen Node-Requests. _Verifikation:_ Node bricht nach Timeout mit klarem Fehler ab.
+- **P6-13** _(P1, verifiziert)_ — **Self-Healing killt n8n dauerhaft:** `recovery_actions.py:99 pause_n8n_workflows()` macht trotz Namen `container.stop(timeout=30)` (Zeile 117) und startet n8n **nicht** wieder. Nach einem einzelnen RAM-Spike (>90%) ist n8n tot → "externe Dienste zuverlässig ansprechen" gebrochen. **Fix:** echtes Pause (`container.pause()`/`unpause()`) oder definierter Auto-Restart nach Entlastung. _Verifikation:_ nach RAM-Spike läuft n8n wieder.
+- **P6-14** _(P1, zu verifizieren im compose/)_ — **n8n Webhook-/Editor-URL falsch für Neubau:** `WEBHOOK_URL` zeigt auf internen Host `n8n:5679` (extern nicht auflösbar), `N8N_EDITOR_BASE_URL`/`N8N_PATH` fehlen, `N8N_PROTOCOL=http` hinter TLS-Proxy. Folge: eingehende Webhooks & OAuth2-Callbacks unerreichbar, Secure-Cookie-/Login-Bruch. Der Live-Fix existiert nur uncommittet → ein Factory-Neubau regressiert. **Fix:** korrekte externe Editor-/Webhook-URL + `N8N_PROTOCOL=https` in die versionierten compose-Dateien. _Verifikation:_ Webhook von außen + OAuth2-Callback funktionieren nach frischem Build.
+- **P6-15** _(P1, verifiziert)_ — **embedding-service GPU-Schutz tot:** `embedding_server.py:73` liest `get_device_properties(0).total_mem` — das Attribut heißt `total_memory`; der Zugriff wirft `AttributeError`, wird still verschluckt → **kein** VRAM-Schutz. Auf 8-GB-Boxen OOM-Risiko. **Fix:** `total_memory`. _Verifikation:_ GPU-Speicher-Check liefert echten Wert, greift bei Überlast.
+- **P6-16** _(P1, verifiziert)_ — **RAG maskiert Qdrant-Ausfall als "Wissensbasis leer":** `routes/rag.js` (~Z.203-216) fängt jeden Suchfehler ab und setzt `searchResults=[]` → dem Nutzer wird "keine Dokumente vorhanden, bitte in MinIO hochladen" gezeigt, obwohl die Dokumente da sind und nur Qdrant hängt. **Fix:** echten Fehler unterscheiden und als "Suche vorübergehend nicht verfügbar" anzeigen. _Verifikation:_ Qdrant gestoppt → korrekte Fehlermeldung, nicht "leer".
+- **P6-17** _(P1, verifiziert)_ — **Teil-Indexierung wird still als vollständig markiert:** `document_processor.py:651` markiert ein Dokument `indexed`, auch wenn einzelne Chunk-Embeddings fehlschlugen (bei partiellem GPU-OOM liefert `get_batch_embeddings` `None`) → fehlende Chunks bleiben unsichtbar, RAG antwortet lückenhaft. **Fix:** bei fehlenden Embeddings Status `partial`/Retry, nicht `indexed`. _Verifikation:_ erzwungener Teil-Fehler → Dokument nicht als vollständig markiert.
+- **P6-18** _(P1, verifiziert — §203-relevant)_ — **Telegram-Claude-Pfad leakt Mandantendaten in die Cloud:** `telegramIntegrationService.js:422` — aktiviert ein Kunde für einen Bot `llm_provider='claude'` mit `rag_enabled`, geht der aus Dokumenten geholte RAG-Kontext an `api.anthropic.com`. Das ist der **einzige** echte externe Provider im Produkt und bricht "keine Cloud"/§203 ungewollt. **Fix:** hinter denselben expliziten Consent/DSGVO-Gate wie P6-7 legen ODER im Auslieferungszustand deaktivieren. _Verifikation:_ ohne Consent kein externer Versand von RAG-Inhalten.
+- **P6-19** _(P2, verifiziert)_ — **`<think>`-Blöcke in KI-Ausgaben:** `document-indexer/ai_services.py:70` ruft qwen3 (Thinking-Modell), entfernt aber die `<think>…</think>`-Reasoning-Blöcke nicht aus Zusammenfassungen/Kategorien → roher Reasoning-Text landet in Kundendaten. **Fix:** `<think>`-Blöcke strippen. _Verifikation:_ Zusammenfassung enthält kein Reasoning-Markup.
+- **P6-20** _(P1, verifiziert)_ — **Alarm-Pipeline liefert faktisch nichts:** kritische Self-Healing-Ereignisse (Reboot, Thermal-Shutdown, SSD-Verschleiß) schreibt `healing_engine.py:606` nur in `self_healing_events`, was nur Dashboard-Routen lesen — es gibt keinen Push. Zusätzlich verwirft `telegramNotificationService.js` durch ein 1-Stunden-Fenster/Disabled-Pfad Events. Folge: **der Betreiber erfährt kritische Vorfälle nie.** **Fix:** kritische Events zuverlässig über den Notification-Processor an Telegram/Dashboard pushen (verzahnt mit P7-2). _Verifikation:_ Test-Thermal-Event → Betreiber-Alarm kommt an.
+
+## Phase 7 — Observability & 7-Tage-unattended (P1)
+
+- **P7-1** _(P1)_ — **`/healthz` + `/readyz`-Endpoints** + `docs/HEALTH_CONTRACT.md` (aus Side-Branch `feat/telegram-bot-overhaul`, Commit d361eae cherry-picken). Basis für Monitoring/Self-Healing/Wartungsvertrag. _Verifikation:_ beide Endpoints liefern korrekten Status.
+- **P7-2** _(P1)_ — **Alarmierung** bei: fehlgeschlagener Migration (P1-3), Backup-Fehler (P5-1), Modell-Absturz, **Platte voll**, **Zertifikat bald abgelaufen** (offline!). Kanal: Telegram + Dashboard. _Verifikation:_ je Szenario Test-Alarm.
+- **P7-3** _(P2)_ — **Log-Rotation + Metrik-Retention:** prüfen, dass `metrics_*`-Tabellen und Logs nicht die Platte füllen (5-Jahre-Betrieb). _Verifikation:_ Retention/Pruning aktiv.
+- **P7-4** _(P2)_ — **Fernwartung (Tailscale)** sicher & dokumentiert; Support-Runbook. _Verifikation:_ dokumentierter Remote-Zugriffspfad.
+- **P7-5** _(P2)_ — **nightly DR-Drill-CI** (`.github/workflows/dr-drill.yml`, Commit 615e941 cherry-picken). _Verifikation:_ CI-Job grün.
+
+## Phase 8 — Verifizierte Bugs & UX-Politur (P2)
+
+> **Netto-neue, gegen das echte Repo verifizierte Findings aus der Code-Tiefenanalyse.**
+>
+> _Hinweis Qualitätssicherung:_ Mehrere Frontend-Findings der Analyse ("UI komplett englisch", fehlende ErrorBoundary, Promise.all-Ausfall) zeigten auf `services/dashboard-frontend/*.js` bzw. `arasul-flow/` — das ist ein **anderes Projekt**. Das echte arasul-jet-Frontend (`apps/dashboard-frontend`, TSX) ist live **deutsch** (selbst geprüft). Diese Findings wurden als Fehl-Repo-Kontamination **verworfen**. Das Muster (ein API-Ausfall blendet das Dashboard aus, rohe Fehlertexte) sollte aber im echten Frontend gegengeprüft werden → P8-9.
+
+**Terminal/WebSocket-Robustheit (verifiziert, alle `apps/dashboard-backend/src`):**
+
+- **P8-9** _(P1)_ — **Kein WebSocket-Backpressure:** `sandbox/terminalService.js:132` piped den Docker-exec-Stream 1:1 per `ws.send()` ohne `ws.bufferedAmount`-Prüfung → langsamer Client staut Speicher, OOM-Gefahr auf 8 GB. **Fix:** Backpressure/Pause des Docker-Streams bei vollem Puffer.
+- **P8-10** _(P1)_ — **Kein WS-Heartbeat:** `index.js:229` — der Terminal-WSS sendet nie Pings, tote halb-offene Verbindungen leaken Container und blockieren die Single-Session. **Fix:** Ping/Pong-Heartbeat + Terminierung unresponsiver Clients.
+- **P8-11** _(P1)_ — **Keine Session-Begrenzung:** `terminalService.js:36` — `createSession` limitiert aktive Sessions nicht (globales Limit erst bei 100 WS). Ein Nutzer kann beliebig viele Terminals öffnen → OOM statt sauberem Abbruch. **Fix:** Max-Sessions pro Nutzer, sauberer 429/Hinweis.
+- **P8-9b** _(P2)_ — **Frontend-Resilienz gegenprüfen** (`apps/dashboard-frontend`): lädt der Dashboard-Home mehrere Endpunkte via `Promise.all` und blendet bei einem Ausfall alles aus? Falls ja → auf `Promise.allSettled` + Teil-Rendering + deutsche Fehlertexte umstellen. ErrorBoundary (die vorhandene `components/ui/ErrorBoundary.tsx`) um den Baum legen. _Verifikation:_ ein toter Endpunkt bricht nicht die ganze Seite.
+
+**Bereits bekannt:**
+
+- **P8-1** _(P2)_ — **JWT aus WebSocket-Query-String entfernen** (`index.js:585/619/653` akzeptiert `?token=` zuerst; `useWebSocketMetrics.ts:142` sendet es) → auf Cookie/Bearer umstellen (Backend-Support existiert). JWTs landen sonst in Traefik-Access-Logs. _Verifikation:_ kein Token in URL/Logs.
+- **P8-2** _(P2)_ — **GDPR-Export für Nicht-Admins** ermöglichen: `gdpr.js` hängt `requireAdmin` auf beide GET-Export-Endpoints; DSGVO Art. 15 verlangt Zugriff durch das Datensubjekt selbst. _Verifikation:_ Nicht-Admin kann eigene Daten exportieren.
+- **P8-3** _(P2)_ — **`multer`-Lockfile-Drift** (`apps/dashboard-backend`): Lock pinnt 1.4.5-lts.2, `package.json` verlangt ^2.0.0 → `npm ci` bricht, air-gapped Builds kaputt. Lockfile neu generieren. _Verifikation:_ `npm ci` grün.
+- **P8-4** _(P2)_ — **Dashboard/Store Modell-Status-Inkonsistenz:** Dashboard-Kachel zeigt "Keine Modelle installiert" (500er), Store zeigt korrekt "Installiert". Nach P1-1 verschwindet der 500er; UI-Pfade vereinheitlichen. _Verifikation:_ beide zeigen konsistent qwen3:32b.
+- **P8-5** _(P2)_ — **Generische "Unbekannter Fehler"-Meldungen** im Frontend durch sprechende, deutsche Fehlertexte ersetzen (Login + global). _Verifikation:_ Fehlerfälle zeigen verständliche Meldung.
+- **P8-6** _(P3)_ — **Login-Seite** zeigt "Standard-Benutzername: admin" offen; **4-Zeichen-Admin-Passwort** wird akzeptiert. Erzwungenen Passwortwechsel bei Erstlogin + Mindestlänge. _Verifikation:_ schwaches Default-Passwort muss geändert werden.
+- **P8-7** _(P3)_ — **`llmJobService.getJob`** von INNER JOIN auf LEFT JOIN + Null-Guard (`llmJobService.js:308`) — Race beim parallelen Löschen.
+- **P8-8** _(P3)_ — **Hardcodierte Service-URL** `http://dashboard-backend:3001` an 3 Stellen in `telegramOrchestratorService.js` → `DASHBOARD_BACKEND_URL`-Env.
+
+## Phase 9 — Test-Coverage & CI-Gates (P2)
+
+- **P9-1** _(P2)_ — **Auth-/Krypto-Tests VOR Phase 2:** Unit-Tests für `utils/jwt.js`, `utils/fileValidation.js`, `utils/tokenCrypto.js` (Side-Branch Commits d6f77e7, 1b48bbf cherry-picken). Regressionsschutz bevor die Isolation die Auth-Pfade anfasst.
+- **P9-2** _(P2, verifiziert)_ — **CI-Scheingates reparieren:** `.github/workflows/test.yml` — Frontend-`Lint`/`Vitest` (Z.80/85) haben `continue-on-error: true` (maskieren ~1500 Lint-Fehler + ~90 rote Tests); der `python-services`-Job (Z.167) hängt `|| echo "…non-blocking"` an pytest (immer grün) und läuft nur für 2 Service-Verzeichnisse — die ~2300-Zeilen-Suite unter `tests/` läuft in **keinem** Job. **Fix:** `continue-on-error` entfernen, `|| echo` entfernen, `tests/` in CI aufnehmen, echte Fehler beheben statt maskieren. _Verifikation:_ CI wird bei echtem Testfehler rot.
+- **P9-2b** _(P2, verifiziert)_ — **Keine echten Integrationstests:** `test.yml` hat keinen `services:`-Block (kein Postgres/Ollama/Qdrant/n8n); alle "Integration"-Tests sind gemockt, Migrationen/Provider/n8n damit ungeprüft. Insbesondere die **Container-/Mandanten-Isolation (§203-Verkaufsargument) hat keinen Test.** **Fix:** CI-Job mit echten Service-Containern; Isolationstest mit 2 Mandanten (deckt P2-3 ab). _Verifikation:_ Isolationsbruch lässt CI rot werden.
+- **P9-3** _(P2)_ — **Branch Protection auf main** aktivieren (required status check "CI Summary" via `gh api`). Verhindert Wiederholung des Lock-File-Vorfalls.
+- **P9-4** _(P2)_ — **Lock-File-Strategie** festlegen (Option A: nur Root-Lock, per-Workspace-Locks löschen, Dockerfiles auf `npm ci --workspace`, Dependabot auf Root konsolidieren) + CI-Drift-Guard. Entblockt die ~29 aufgestauten Dependabot-PRs (inkl. Security-Bumps jsonwebtoken/bcrypt/helmet).
+- **P9-5** _(P2)_ — **Backend-Test-Coverage** von 25% branches/38% lines auf Ziel 60% (kritische Services: sandbox, documents, update).
+- **P9-6** _(P3)_ — Dependabot-Backlog nach P9-4 kontrolliert abarbeiten; veraltete PRs gegen gelöschte Pfade (#22, #25) schließen.
+
+## Phase 10 — Abschluss-Gates (P0-Gates) — erst hier heißt es 1.0.0
+
+- **P10-1** — **Factory-Build auf ZWEITEM Gerät** end-to-end reproduzieren (DoD-Haken 6).
+- **P10-2** — **7 Tage unattended** stabil, kein manueller Eingriff (DoD-Haken 7).
+- **P10-3** — **Laien-Erstinstallation** dokumentiert und einmal von einem Außenstehenden durchgespielt.
+- **P10-4** — **Go-Live-Smoke-Test-Checkliste** einmal formal durchspielen: Chat+RAG, Upload+Indexierung, Batch-Move, Passwortwechsel (beide Wege), Telegram-Setup, Model-Download, Backup-Log, externe Provider (falls aktiviert), n8n-Externanbindung.
+- **P10-5** — **Produkt einem echten zahlenden Piloten geben** und Feedback messen (verbindet 1.0.0 mit dem 90-Tage-Meilenstein).
+
+---
+
+# ANHANG — Post-1.0 Backlog (bewusst NACH 1.0.0)
+
+- Telegram-API-Konsolidierung 3→1 + grammY-Migration (Phase 5b EXTERNAL_INTEGRATIONS).
+- n8n 2.x-Migration inkl. External Task Runners (aktuell bewusst auf 1.123.18; solange monatliche Rebuild-Kadenz via P-Auto-Update halten).
+- **n8n-Auto-Update-Job** tatsächlich installieren (Skript `scripts/ops/n8n-auto-update.sh` existiert, läuft aber nirgends als Cron/Timer) — _hochziehen nach Phase 7, wenn Wartungsvertrag verkauft wird._
+- Telegram-Bot-Diagnostics-UI (Backend `/api/telegram-bots/:id/diagnose` fertig, Frontend fehlt).
+- Frontend-Optimierung 1–9 (Chat-UX-Slim, RagMetricsCard-Entfernung) — höchstes Konfliktrisiko, Re-Implementation auf main.
+- Lizenz-System-Enforcement (Hardware-Fingerprint) — erst ab mehreren Boxen relevant.
+- FK-Constraints auf llm-Tabellen (Datenhygiene).
+- API-/ENV-Drift-Checker, Docs-Single-Source.
+- Remote-Service-Restart per Telegram.
+
+---
+
+# Risiko-Register (die 3 gefährlichsten)
+
+1. **Migrations-Zustellung (Phase 1)** — ist die Wurzel mehrerer Live-Defekte (DSGVO-Crash, Store-500). Wenn P1-2 nicht sauber gelöst ist, sind alle künftigen Fixes für verkaufte Boxen wertlos. **Höchste Priorität.**
+2. **GPU/VRAM-OOM (P6-11)** — kein zentraler Allocator; unter Parallellast kann die Box beim Kunden hängen. Muss vor Auslieferung auf Zielhardware reproduzierbar getestet sein.
+3. **Rechtliches (P6-5)** — ohne anwaltlich geprüften AVV ist der Verkauf an Kanzleien praktisch blockiert. Kein Code, aber langer Vorlauf → sofort starten, parallel zur Technik.
