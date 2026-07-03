@@ -1,0 +1,35 @@
+name: Deploy
+
+# GitOps-Deploy auf den Jetson AGX Orin.
+# Laeuft NUR auf dem self-hosted Runner der Box (Label `jetson`) und deployt
+# den frisch nach `main` gemergten Stand. Baut ausschliesslich die geaenderten
+# Services neu, sichert die DB vorher und rollt bei fehlgeschlagenem Healthcheck
+# automatisch zurueck. Siehe scripts/deploy/deploy-local.sh und docs/CICD.md.
+
+on:
+  push:
+    branches: [main]
+
+# Nie zwei Deploys gleichzeitig; laufenden Deploy nicht abbrechen, sondern
+# den neuen dahinter einreihen.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy → Jetson
+    runs-on: [self-hosted, jetson]
+    # Kein Deploy fuer reine Doc-/Meta-Merges wird im Skript selbst erkannt und
+    # uebersprungen (git diff-basiert), damit die Erkennung PREV..NEW exakt ist.
+    steps:
+      - name: Checkout (nur fuer das aktuelle Deploy-Skript)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Deploy ausfuehren
+        env:
+          DEPLOY_DIR: /home/arasul/arasul/arasul-jet
+          HEALTH_TIMEOUT: '240'
+        run: bash scripts/deploy/deploy-local.sh

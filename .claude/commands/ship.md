@@ -4,11 +4,17 @@ argument-hint: '(no arguments)'
 disable-model-invocation: true
 ---
 
-# /ship — Clean commit, manual push
+# /ship — Clean commit, manual push (fallback only)
 
-You are about to ship the work that was just produced (typically by
-`/plan`). The user explicitly chose **commit-only** — no automatic
-push, no PR. They keep push hoheit.
+> **Note:** `/plan` now runs the full pipeline automatically — commit,
+> push, PR, auto-merge, and deploy — as its Phases 7–8. You normally
+> never type `/ship`. This command remains as a **manual fallback** for
+> ad-hoc commits made outside a `/plan` run (e.g. a quick doc fix on a
+> branch). See `docs/CICD.md` for the automated flow.
+
+You are about to ship the work that was just produced. This command is
+**commit-only** — no automatic push, no PR. It keeps push authority
+with you, which is exactly why it is the manual escape hatch.
 
 **This command is `disable-model-invocation: true`** — it only runs
 when the user explicitly types `/ship`. Don't suggest it; don't run
