@@ -510,7 +510,10 @@ create_directories() {
 
     mkdir -p config
     mkdir -p logs/{service,}
-    mkdir -p data/{postgres,minio,models,n8n}
+    # data/updates + data/backups are bind-mount sources in compose.app/monitoring.
+    # Create them here so they are owned by the setup user; otherwise Docker
+    # auto-creates them root-owned on first `up`, breaking writes from services.
+    mkdir -p data/{postgres,minio,models,n8n,updates,backups}
     mkdir -p cache
     mkdir -p updates
 
