@@ -119,8 +119,10 @@ def check_service_health() -> Dict[str, Dict]:
                 inspect = container.attrs
                 if 'Health' in inspect.get('State', {}):
                     health = inspect['State']['Health']['Status']
-            except:
-                pass
+            except Exception as e:
+                # Don't let a Docker-SDK change silently hide a real bug —
+                # log at debug, consistent with healing_engine.py.
+                logger.debug(f"Could not read health status for {name}: {e}")
 
             services_status[name] = {
                 'status': status,

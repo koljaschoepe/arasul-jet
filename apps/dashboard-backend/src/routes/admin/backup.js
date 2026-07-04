@@ -7,7 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError } = require('../../utils/errors');
+const { ValidationError, NotImplementedError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
 const fs = require('fs').promises;
 const { execFile } = require('child_process');
@@ -106,15 +106,17 @@ router.post(
       );
     }
 
-    // TODO: Implement actual backup trigger via backup.sh with BACKUP_PATH
-    logger.info(`Manual backup triggered by ${req.user.username} to ${EXTERNAL_MOUNT}`);
-
-    res.json({
-      success: true,
-      message: 'Backup wird gestartet...',
-      targetPath: EXTERNAL_MOUNT,
-      timestamp: new Date().toISOString(),
-    });
+    // On-demand backup is not implemented: backup.sh runs on a schedule inside
+    // the separate backup-service container (BACKUP_USB_ENABLED / BACKUP_USB_MOUNT),
+    // not on request from this backend process. Report that honestly instead of
+    // returning success:true without doing anything.
+    logger.warn(
+      `Manual backup requested by ${req.user.username} but on-demand trigger is not implemented`
+    );
+    throw new NotImplementedError(
+      'Manuelles Backup ist noch nicht verfügbar. Backups laufen automatisch geplant über den Backup-Service.',
+      { scheduled: true, targetPath: EXTERNAL_MOUNT }
+    );
   })
 );
 

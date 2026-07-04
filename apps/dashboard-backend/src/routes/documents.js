@@ -745,6 +745,11 @@ router.put(
       throw new ValidationError('Dieser Dateityp kann nicht bearbeitet werden');
     }
 
+    if (!minioService.isValidMinioPath(doc.file_path)) {
+      logger.error(`Invalid file path detected: ${doc.file_path}`);
+      throw new ValidationError('Ungültiger Dateipfad');
+    }
+
     // Calculate new hash
     const contentBuffer = Buffer.from(content, 'utf-8');
     const newContentHash = crypto.createHash('sha256').update(contentBuffer).digest('hex');

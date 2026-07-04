@@ -7,10 +7,10 @@
 # to data/backups/restore_drill_report.json. The dashboard Ops-Overview widget
 # surfaces this timestamp so operators see at a glance whether DR is current.
 #
-# Usage:
-#   scripts/ops/restore-drill.sh                 # run against latest backup
-#   scripts/ops/restore-drill.sh --file X.sql.gz # run against specific file
-#   scripts/ops/restore-drill.sh --dry-run       # report plan, no docker run
+# Usage (runs inside the backup-service container as /usr/local/bin/restore-drill.sh):
+#   docker exec backup-service /usr/local/bin/restore-drill.sh                 # latest backup
+#   docker exec backup-service /usr/local/bin/restore-drill.sh --file X.sql.gz # specific file
+#   docker exec backup-service /usr/local/bin/restore-drill.sh --dry-run       # report plan, no docker run
 #
 # Safe-by-design:
 #   - Uses a dedicated container name + random host port; does not touch the

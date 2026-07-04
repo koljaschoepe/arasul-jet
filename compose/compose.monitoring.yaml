@@ -72,6 +72,7 @@ services:
     networks:
       - arasul-backend
       - arasul-monitoring
+      - arasul-docker-proxy
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
@@ -238,7 +239,10 @@ services:
     volumes:
       - ../config/promtail/config.yaml:/etc/promtail/config.yaml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - arasul-logs:/arasul/logs:ro
+      # Same bind-mount that reverse-proxy / self-healing-agent WRITE their logs
+      # to (../logs). The old `arasul-logs` named volume was always empty here, so
+      # the 'arasul' scrape job never saw any log files.
+      - ../logs:/arasul/logs:ro
     command: -config.file=/etc/promtail/config.yaml
     depends_on:
       loki:
@@ -277,5 +281,4 @@ networks:
 
 volumes:
   arasul-metrics:
-  arasul-logs:
   arasul-loki:

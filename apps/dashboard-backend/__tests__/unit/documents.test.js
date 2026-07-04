@@ -857,6 +857,26 @@ describe('Documents Routes', () => {
             expect(response.body.error.message).toBe('Dieser Dateityp kann nicht bearbeitet werden');
         });
 
+        test('lehnt Path-Traversal im file_path ab (isValidMinioPath)', async () => {
+            pool.query.mockResolvedValueOnce({
+                rows: [{
+                    filename: 'test.md',
+                    file_path: '../../../etc/passwd',
+                    mime_type: 'text/markdown',
+                    file_extension: '.md'
+                }]
+            });
+
+            const response = await request(app)
+                .put('/api/documents/doc-123/content')
+                .send({ content: '# pwned' });
+
+            expect(response.status).toBe(400);
+            expect(response.body.error.message).toBe('Ungültiger Dateipfad');
+            // MinIO darf bei ungültigem Pfad gar nicht erst geschrieben werden
+            expect(mockMinioClient.putObject).not.toHaveBeenCalled();
+        });
+
         test('setzt Status auf pending nach Update', async () => {
             pool.query
                 .mockResolvedValueOnce({

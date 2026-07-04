@@ -293,7 +293,7 @@ Browse to `https://<host>/n8n` and log in with the credentials in `.env`.
 - [ ] SSH hardening: `scripts/security/harden-ssh.sh` (key-only, port 2222, no root).
 - [ ] Firewall: `scripts/security/setup-firewall.sh` (UFW; ports 80/443/2222 only).
 - [ ] Service user: `scripts/setup/setup-service-user.sh`.
-- [ ] TLS certificate present in `config/tls/`.
+- [ ] TLS certificate present in `config/traefik/certs/` (`arasul.crt` + `arasul.key`).
 - [ ] Security scan: `scripts/security/security-scan.sh` (no Critical findings).
 
 ### Services

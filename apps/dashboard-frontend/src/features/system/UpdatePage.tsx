@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE } from '../../config/api';
 import { getCsrfToken } from '../../utils/csrf';
+import { getValidToken } from '../../utils/token';
 import { useApi } from '../../hooks/useApi';
 import {
   Package,
@@ -199,7 +200,9 @@ const UpdatePage = () => {
 
     try {
       const xhr = new XMLHttpRequest();
-      const token = localStorage.getItem('arasul_token');
+      // Use getValidToken() (expiry/format check) rather than reading the raw
+      // localStorage value directly.
+      const token = getValidToken();
 
       await new Promise<void>((resolve, reject) => {
         xhr.upload.addEventListener('progress', event => {

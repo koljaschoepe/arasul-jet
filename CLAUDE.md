@@ -67,7 +67,7 @@ custom nodes, security review checklist, etc.) live under `.claude/context/`.
 
 ## Quick reference
 
-> **Aktuellster Plan:** [`docs/plans/active/side-branch-cherry-pick-2026-05-14.md`](docs/plans/active/side-branch-cherry-pick-2026-05-14.md) — P1–P5 alle offen (Health-Endpoints, Docs-Drift-Check, Tests, Frontend-Optimierung, Scripts-Cleanup). Side-Branches `feat/telegram-bot-overhaul` + `cleanup/phase-6-test-coverage` noch nicht auf main.
+> **Aktuellster Plan:** [`docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md`](docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md) — löst die bisherigen aktiven Pläne ab. Sekundär/Backlog: [`side-branch-cherry-pick-2026-05-14.md`](docs/plans/active/side-branch-cherry-pick-2026-05-14.md) (Side-Branches `feat/telegram-bot-overhaul` + `cleanup/phase-6-test-coverage` noch nicht auf main).
 
 ### Entry points
 

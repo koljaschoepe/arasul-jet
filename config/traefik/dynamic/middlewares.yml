@@ -172,17 +172,9 @@ http:
           - '192.168.0.0/16' # Local network
           - '10.0.0.0/8' # Private network
 
-    # Basic Auth for Traefik Dashboard
-    # Hash wird beim Bootstrap generiert: ./arasul bootstrap
-    # Manuell: scripts/security/generate-htpasswd.sh admin
-    basicAuth-traefik:
-      basicAuth:
-        users:
-          - '__BASIC_AUTH_HASH__'
-        realm: 'Traefik Dashboard'
-        removeHeader: true
-
-    # n8n now uses forward-auth (dashboard session) instead of basicAuth
+    # The Traefik dashboard and n8n are protected by forward-auth (dashboard
+    # session), see routes.yml. The old basicAuth-traefik middleware and its
+    # __BASIC_AUTH_HASH__ bootstrap placeholder were unused and have been removed.
 
   # Servers transports for SSE streams (extended timeout)
   serversTransports:

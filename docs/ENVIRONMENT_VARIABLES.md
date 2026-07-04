@@ -476,22 +476,9 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 
 ### Backup Commands
 
-```bash
-# Start backup service
-docker compose up -d backup-service
-
-# Manual backup
-./scripts/backup/backup.sh
-
-# List available backups
-./scripts/backup/restore.sh --list
-
-# Restore from latest
-./scripts/backup/restore.sh --latest
-
-# Restore from specific date
-./scripts/backup/restore.sh --all --date 20260105
-```
+Backup/restore commands and workflow live in the canonical backup doc —
+see [`docs/ops/BACKUP_SYSTEM.md`](ops/BACKUP_SYSTEM.md). This page documents only
+the backup-related **environment variables** above.
 
 ---
 
@@ -535,15 +522,15 @@ docker compose up -d backup-service
 
 ## System Paths & Networking
 
-| Variable               | Default                              | Description                        |
-| ---------------------- | ------------------------------------ | ---------------------------------- |
-| ENV_FILE_PATH          | /arasul/config/.env                  | Path to runtime .env file          |
-| APPSTORE_MANIFESTS_DIR | /arasul/appstore/manifests           | App store manifest directory       |
-| DOCKER_GATEWAY_IP      | 172.30.0.1                           | Docker bridge gateway IP           |
-| DOCKER_NETWORK         | arasul-jet_arasul-net                | Docker network name                |
-| SSH_PORT               | 2222                                 | SSH port (2222 after hardening)    |
-| SSH_USER               | arasul                               | SSH username for app access        |
-| UPDATE_PUBLIC_KEY_PATH | /arasul/config/public_update_key.pem | Public key for update verification |
+| Variable               | Default                              | Description                                                 |
+| ---------------------- | ------------------------------------ | ----------------------------------------------------------- |
+| ENV_FILE_PATH          | /arasul/config/.env                  | Path to runtime .env file                                   |
+| APPSTORE_MANIFESTS_DIR | /arasul/appstore/manifests           | App store manifest directory                                |
+| DOCKER_GATEWAY_IP      | 172.30.0.1                           | Docker bridge gateway IP                                    |
+| DOCKER_NETWORK         | arasul-platform_arasul-backend       | Docker network name (project `name:` in docker-compose.yml) |
+| SSH_PORT               | 2222                                 | SSH port (2222 after hardening)                             |
+| SSH_USER               | arasul                               | SSH username for app access                                 |
+| UPDATE_PUBLIC_KEY_PATH | /arasul/config/public_update_key.pem | Public key for update verification                          |
 
 ---
 
@@ -573,11 +560,11 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 
 | Variable                   | Default | Description                  |
 | -------------------------- | ------- | ---------------------------- |
-| RAM_LIMIT_LLM              | 48G     | LLM service memory           |
-| RAM_LIMIT_EMBEDDING        | 8G      | Embedding service memory     |
-| RAM_LIMIT_QDRANT           | 4G      | Qdrant vector DB memory      |
+| RAM_LIMIT_LLM              | 32G     | LLM service memory           |
+| RAM_LIMIT_EMBEDDING        | 12G     | Embedding service memory     |
+| RAM_LIMIT_QDRANT           | 6G      | Qdrant vector DB memory      |
 | RAM_LIMIT_MINIO            | 4G      | MinIO object storage memory  |
-| RAM_LIMIT_POSTGRES         | 2G      | PostgreSQL database memory   |
+| RAM_LIMIT_POSTGRES         | 4G      | PostgreSQL database memory   |
 | RAM_LIMIT_N8N              | 2G      | n8n workflow engine memory   |
 | RAM_LIMIT_DOCUMENT_INDEXER | 2G      | Document indexer memory      |
 | RAM_LIMIT_METRICS          | 512M    | Metrics collector memory     |
@@ -594,7 +581,7 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 | ------------------- | ------- | --------------------------- |
 | CPU_LIMIT_LLM       | 8       | LLM service CPU cores       |
 | CPU_LIMIT_EMBEDDING | 4       | Embedding service CPU cores |
-| CPU_LIMIT_DASHBOARD | 2       | Dashboard backend CPU cores |
+| CPU_LIMIT_DASHBOARD | 4       | Dashboard backend CPU cores |
 
 ### Device Profiles
 
@@ -722,7 +709,7 @@ In production, sensitive values can be provided as Docker secrets instead of pla
 ### How It Works
 
 1. Place each secret in a file under `config/secrets/` (one value per file, no trailing newline)
-2. Start with the secrets override: `docker compose -f docker-compose.yml -f docker-compose.secrets.yml up -d`
+2. Start normally with `docker compose up -d` — `compose/compose.secrets.yaml` is already included by the root `docker-compose.yml`, so no extra `-f` override is needed
 3. Docker mounts the file at `/run/secrets/<name>` inside the container
 4. Each service resolves `VAR_FILE` → `VAR` at startup before any other code runs
 

@@ -26,6 +26,7 @@ services:
       - arasul-frontend
       - arasul-backend
       - arasul-monitoring
+      - arasul-docker-proxy
     group_add:
       # P6.6: docker GID — defaults to 994 (Jetson default), override via env.
       - '${DOCKER_GID:-994}'

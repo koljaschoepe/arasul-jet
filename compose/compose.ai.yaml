@@ -145,7 +145,6 @@ services:
       TORCH_CUDA_ARCH_LIST: '${TORCH_CUDA_ARCH_LIST:-8.7}'
     volumes:
       - arasul-embeddings-models:/models
-      - ../services/embedding-service/healthcheck.sh:/healthcheck.sh:ro
     runtime: nvidia
     tmpfs:
       - /tmp:noexec,nosuid,size=256M

@@ -130,7 +130,7 @@ function createUserRateLimiter(maxRequests, windowMs) {
 /**
  * BUG-003 FIX: Cleanup old rate limit data periodically to prevent memory leak
  */
-setInterval(
+const rateLimitCleanupInterval = setInterval(
   () => {
     const now = Date.now();
 
@@ -150,6 +150,8 @@ setInterval(
   },
   60 * 60 * 1000
 ); // Every hour
+// Background housekeeping timer must not keep the process / Jest worker alive.
+rateLimitCleanupInterval.unref();
 
 /** General auth rate limiter - 30 requests per minute per IP (for authenticated endpoints) */
 const generalAuthLimiter = createLimiter(

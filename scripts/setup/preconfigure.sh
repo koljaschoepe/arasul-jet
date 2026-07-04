@@ -361,7 +361,10 @@ fi
 ###############################################################################
 log_step 5 "TLS-Zertifikat generieren"
 
-CERT_DIR="${PROJECT_ROOT}/config/certs"
+# Traefik reads the cert pair from /etc/traefik/certs (config/traefik/dynamic/tls.yml),
+# which is the bind-mount ../config/traefik:/etc/traefik. Generate it there so the
+# path matches ./arasul bootstrap and Traefik actually finds it.
+CERT_DIR="${PROJECT_ROOT}/config/traefik/certs"
 CERT_FILE="${CERT_DIR}/arasul.crt"
 KEY_FILE="${CERT_DIR}/arasul.key"
 
@@ -795,19 +798,21 @@ log_step 14 "Shell-Aliase konfigurieren"
 if [ "$SKIP_DEVENV" = true ]; then
   log_skip "Shell-Aliase übersprungen (--skip-devenv)"
 else
-  BASH_ALIASES="$HOME/.bash_aliases"
+  # NOTE: do not name this BASH_ALIASES — that is a reserved bash builtin
+  # associative array; assigning a string to it is a bug (SC2178/SC2128).
+  ALIASES_FILE="$HOME/.bash_aliases"
   ALIASES_SRC="${PROJECT_ROOT}/config/dev/bash_aliases"
 
-  if [ -f "$BASH_ALIASES" ] && grep -q "# === ARASUL ALIASES ===" "$BASH_ALIASES" 2>/dev/null; then
+  if [ -f "$ALIASES_FILE" ] && grep -q "# === ARASUL ALIASES ===" "$ALIASES_FILE" 2>/dev/null; then
     log_info "Arasul-Aliase bereits in ~/.bash_aliases konfiguriert"
   elif [ -f "$ALIASES_SRC" ]; then
-    if [ -f "$BASH_ALIASES" ]; then
+    if [ -f "$ALIASES_FILE" ]; then
       # Append to existing file
-      echo "" >> "$BASH_ALIASES"
-      cat "$ALIASES_SRC" >> "$BASH_ALIASES"
+      echo "" >> "$ALIASES_FILE"
+      cat "$ALIASES_SRC" >> "$ALIASES_FILE"
       log_info "Arasul-Aliase an ~/.bash_aliases angefügt"
     else
-      cp "$ALIASES_SRC" "$BASH_ALIASES"
+      cp "$ALIASES_SRC" "$ALIASES_FILE"
       log_info "~/.bash_aliases erstellt mit Arasul-Aliasen"
     fi
   else

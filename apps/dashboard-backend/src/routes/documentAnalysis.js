@@ -12,7 +12,7 @@ const multer = require('multer');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
+const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
 const { uploadLimiter } = require('../middleware/rateLimit');
 const database = require('../database');
 const minioService = require('../services/documents/minioService');
@@ -76,13 +76,14 @@ router.post(
       throw new ValidationError('Ungültige conversation_id');
     }
 
-    // Verify conversation exists
+    // Verify conversation exists AND belongs to the requesting user (IDOR guard,
+    // consistent with verifyOwnership in routes/chats.js)
     const chatCheck = await database.query(
-      `SELECT id FROM chat_conversations WHERE id = $1 AND deleted_at IS NULL`,
-      [chatId]
+      `SELECT id FROM chat_conversations WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+      [chatId, req.user.id]
     );
     if (chatCheck.rows.length === 0) {
-      throw new ValidationError('Chat nicht gefunden');
+      throw new NotFoundError('Chat nicht gefunden');
     }
 
     const file = req.file;

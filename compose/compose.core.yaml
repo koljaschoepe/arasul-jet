@@ -96,7 +96,7 @@ services:
     hostname: docker-proxy
     restart: always
     networks:
-      - arasul-backend
+      - arasul-docker-proxy
     environment:
       # Granted API sections
       CONTAINERS: 1
@@ -202,6 +202,15 @@ networks:
     ipam:
       config:
         - subnet: 172.30.0.64/26
+  # Dedicated network for the Docker Socket Proxy. Only dashboard-backend and
+  # self-healing-agent join it — no other service (n8n, document-indexer, …) has
+  # a network path to docker-proxy:2375, so a compromised workload container
+  # cannot reach the privileged Docker API.
+  arasul-docker-proxy:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.192/26
 
 volumes:
   arasul-postgres:

@@ -136,6 +136,9 @@ const leakCheckInterval = setInterval(() => {
     }
   }
 }, 30000);
+// Don't let this monitoring timer keep the process (or a Jest worker) alive —
+// it's a background nicety, not a reason to block a graceful shutdown.
+leakCheckInterval.unref();
 
 async function initialize() {
   return retryDatabaseQuery(
@@ -158,7 +161,35 @@ async function initialize() {
   );
 }
 
-async function query(text, params) {
+// Conservatively decide whether a statement is safe to re-run after an
+// AMBIGUOUS connection drop (one that may have occurred after the server already
+// executed the statement). Only plain read statements qualify. Anything that
+// could have a side effect — writes, DDL, or a SELECT that calls a function
+// (e.g. `SELECT record_login_attempt(...)`) — is treated as non-idempotent.
+function isStatementReadOnly(text) {
+  if (typeof text !== 'string') {
+    return false;
+  }
+  const startsRead = /^(?:--[^\n]*\n|\/\*[\s\S]*?\*\/|\s)*(?:select|show|explain)\b/i.test(text);
+  const hasWriteKeyword =
+    /\b(insert|update|delete|merge|call|create|alter|drop|truncate|grant|revoke|nextval|setval|into)\b/i.test(
+      text
+    );
+  // `SELECT some_func(...)` may have side effects — exclude it.
+  const callsFunction = /\bselect\s+[a-z_][\w.]*\s*\(/i.test(text);
+  return startsRead && !hasWriteKeyword && !callsFunction;
+}
+
+/**
+ * Run a query with connection-failure retries.
+ * @param {string} text - SQL
+ * @param {Array} [params]
+ * @param {object} [options]
+ * @param {boolean} [options.retryable] - Explicit opt-in/out for retrying after an
+ *   ambiguous mid-flight connection drop. Defaults to a conservative read-only
+ *   heuristic. Set `true` for idempotent writes, `false` to force no such retry.
+ */
+async function query(text, params, options = {}) {
   const start = Date.now();
   poolStats.totalQueries++;
 
@@ -168,6 +199,8 @@ async function query(text, params) {
     err.statusCode = 503;
     throw err;
   }
+
+  const retryAmbiguous = options.retryable ?? isStatementReadOnly(text);
 
   return retryDatabaseQuery(
     async () => {
@@ -188,6 +221,34 @@ async function query(text, params) {
       maxAttempts: 3,
       initialDelay: 500,
       maxDelay: 5000,
+      // Split retryable errors into "query never reached the server" (always safe)
+      // vs. "connection dropped mid-flight" (only safe for idempotent/read-only
+      // statements — otherwise a committed write could be silently duplicated).
+      shouldRetry: error => {
+        const preExecutionCodes = [
+          'ECONNREFUSED',
+          'ETIMEDOUT',
+          'ENOTFOUND',
+          '57P03', // cannot_connect_now
+          '08006', // connection_failure
+          '08001', // unable_to_establish_sqlconnection
+          '08003', // connection_does_not_exist
+          '08000', // connection_exception
+        ];
+        if (preExecutionCodes.includes(error.code)) {
+          return true;
+        }
+
+        const ambiguous =
+          error.code === 'ECONNRESET' ||
+          error.message?.includes('Connection terminated') ||
+          error.message?.includes('Connection lost');
+        if (ambiguous) {
+          return retryAmbiguous;
+        }
+
+        return false;
+      },
       onRetry: (attempt, error, delay) => {
         poolStats.queryErrors++;
         logger.warn(`Query retry ${attempt}: ${error.message}`);
@@ -324,4 +385,6 @@ module.exports = {
   healthCheck,
   close,
   pool,
+  // Exported for unit testing of the retry-safety heuristic.
+  isStatementReadOnly,
 };

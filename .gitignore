@@ -61,6 +61,9 @@ config/secrets/
 !config/secrets/.example/
 config/.traefik-credentials
 config/certs/
+# Device-specific self-signed TLS pair, generated per box by setup_https() in
+# ./arasul. Never commit it (the matching *.key is already covered above).
+config/traefik/certs/
 config/ssh/
 
 # Device-specific configuration (not versioned)

@@ -42,7 +42,8 @@ export const getValidToken = (): string | null => {
 
   // Basic JWT format check (3 parts separated by dots)
   const parts = token.split('.');
-  if (parts.length !== 3) {
+  const payloadPart = parts[1];
+  if (parts.length !== 3 || payloadPart === undefined) {
     console.warn('Invalid token format detected, removing');
     localStorage.removeItem(TOKEN_KEY);
     return null;
@@ -51,7 +52,7 @@ export const getValidToken = (): string | null => {
   // Check if token is expired
   try {
     // Decode the payload (second part of JWT) — base64url, not standard base64.
-    const payload: JwtPayload = decodeBase64UrlJson(parts[1]);
+    const payload: JwtPayload = decodeBase64UrlJson(payloadPart);
 
     // Check expiration if present
     if (payload.exp) {
@@ -105,11 +106,12 @@ export const getTokenExpiration = (): Date | null => {
 
   try {
     const parts = token.split('.');
-    if (parts.length !== 3) {
+    const payloadPart = parts[1];
+    if (parts.length !== 3 || payloadPart === undefined) {
       return null;
     }
 
-    const payload: JwtPayload = decodeBase64UrlJson(parts[1]);
+    const payload: JwtPayload = decodeBase64UrlJson(payloadPart);
     if (payload.exp) {
       return new Date(payload.exp * 1000);
     }

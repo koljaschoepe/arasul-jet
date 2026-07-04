@@ -2300,6 +2300,38 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ---
 
+## `telegram_user_chats`
+
+> Individual pseudonymised Telegram users per bot — backs the DSGVO consent,
+> `/loeschen` and `/auskunft` flows (added in migration `095`).
+
+| Column                  | Type                     | Nullable | Default                                     |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------- |
+| `id`                    | bigint                   | ⛔       | `nextval('telegram_user_chats_id_seq'::...` |
+| `bot_id`                | integer                  | ⛔       |                                             |
+| `chat_id`               | text                     | ⛔       |                                             |
+| `telegram_user_id_hash` | text                     | ✅       |                                             |
+| `chat_title`            | text                     | ✅       |                                             |
+| `chat_type`             | text                     | ✅       |                                             |
+| `registered_at`         | timestamp with time zone | ⛔       | `now()`                                     |
+| `updated_at`            | timestamp with time zone | ⛔       | `now()`                                     |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `bot_id` → `telegram_bots.id` (ON DELETE CASCADE)
+
+**Indexes:**
+
+- `idx_telegram_user_chats_bot_id` — `CREATE INDEX idx_telegram_user_chats_bot_id ON public.telegram_user_chats USING btree (bot_id)`
+- `idx_telegram_user_chats_chat_id` — `CREATE INDEX idx_telegram_user_chats_chat_id ON public.telegram_user_chats USING btree (chat_id)`
+- `idx_telegram_user_chats_user_hash` — `CREATE INDEX idx_telegram_user_chats_user_hash ON public.telegram_user_chats USING btree (telegram_user_id_hash) WHERE (telegram_user_id_hash IS NOT NULL)`
+- `telegram_user_chats_bot_id_chat_id_key` — `CREATE UNIQUE INDEX telegram_user_chats_bot_id_chat_id_key ON public.telegram_user_chats USING btree (bot_id, chat_id)`
+- `telegram_user_chats_pkey` — `CREATE UNIQUE INDEX telegram_user_chats_pkey ON public.telegram_user_chats USING btree (id)`
+
+---
+
 ## `telegram_bot_commands`
 
 > Custom slash commands per bot with LLM prompts

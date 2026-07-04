@@ -4,7 +4,7 @@
 > follows when writing code under `apps/dashboard-backend/`. For the API
 > surface and feature inventory, read `README.md` in this folder.
 
-> **Aktuellster Plan:** [`docs/plans/active/side-branch-cherry-pick-2026-05-14.md`](../../docs/plans/active/side-branch-cherry-pick-2026-05-14.md) — P1–P5 offen. Side-Branches `feat/telegram-bot-overhaul` + `cleanup/phase-6-test-coverage` noch nicht auf main.
+> **Aktuellster Plan:** [`docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md`](../../docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md) — löst die bisherigen aktiven Pläne ab. Sekundär/Backlog: `side-branch-cherry-pick-2026-05-14.md` (Side-Branches noch nicht auf main).
 
 ## Stack
 
