@@ -377,7 +377,9 @@ main() {
     if [ "$NON_INTERACTIVE" = true ]; then
         ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
         ADMIN_EMAIL="${ADMIN_EMAIL:-admin@arasul.local}"
-        if [ -z "$ADMIN_PASSWORD" ]; then
+        # Guard against `set -u`: an unset ADMIN_PASSWORD must produce a clear
+        # error, not an "unbound variable" crash.
+        if [ -z "${ADMIN_PASSWORD:-}" ]; then
             print_err "ADMIN_PASSWORD muss gesetzt sein im Non-Interactive Modus"
             exit 1
         fi

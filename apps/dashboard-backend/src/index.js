@@ -148,7 +148,10 @@ const corsOptions = {
       callback(null, true);
     } else {
       require('./utils/logger').warn(`CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      const { ForbiddenError } = require('./utils/errors');
+      // ApiError → global errorHandler serializes this as 403/FORBIDDEN with a
+      // clear message, instead of a generic 500 from a plain Error.
+      callback(new ForbiddenError('Origin not allowed by CORS policy'));
     }
   },
   credentials: true,

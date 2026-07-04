@@ -280,14 +280,29 @@ check_gpu() {
             log_info "Driver version: $GPU_DRIVER"
             log_info "GPU memory: $GPU_MEMORY"
             return 0
-        else
-            log_error "nvidia-smi found but no GPU detected"
-            return 1
         fi
-    else
-        log_error "nvidia-smi not found. NVIDIA drivers may not be installed."
-        return 1
+        log_warning "nvidia-smi found but returned no GPU — trying Jetson detection"
     fi
+
+    # Jetson fallback: embedded Tegra boards ship an integrated GPU that is NOT
+    # exposed via the desktop nvidia-smi tool. Treat the box as GPU-capable if it
+    # is a Tegra device or Docker already has the NVIDIA runtime wired up.
+    if [ -f /etc/nv_tegra_release ]; then
+        local tegra_model
+        tegra_model=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
+        log_success "Jetson/Tegra GPU detected via /etc/nv_tegra_release${tegra_model:+: $tegra_model}"
+        log_info "Integrated GPU is shared with system memory (no discrete VRAM)"
+        return 0
+    fi
+
+    if docker info 2>/dev/null | grep -qi 'nvidia'; then
+        log_success "NVIDIA container runtime detected via 'docker info' — GPU available to containers"
+        return 0
+    fi
+
+    log_error "No GPU detected (no nvidia-smi output, not a Tegra device, no NVIDIA docker runtime)."
+    log_error "NVIDIA drivers or container runtime may not be installed."
+    return 1
 }
 
 # Check RAM
@@ -300,14 +315,21 @@ check_ram() {
 
     log_info "Total RAM: ${TOTAL_RAM_GB}GB"
 
+    # Thresholds mirror the device profiles in scripts/setup/detect-jetson.sh,
+    # which explicitly supports 8GB and 4GB Jetson boards. RAM below the
+    # recommended 16GB is a warning (smaller models / reduced concurrency), not a
+    # fatal error. Only sub-4GB boards are rejected as genuinely unsupported.
     if [ "$TOTAL_RAM_GB" -ge 32 ]; then
         log_success "RAM check passed (${TOTAL_RAM_GB}GB >= 32GB recommended)"
         return 0
     elif [ "$TOTAL_RAM_GB" -ge 16 ]; then
-        log_warning "RAM is ${TOTAL_RAM_GB}GB. Recommended: 32GB+ (minimum: 16GB)"
+        log_success "RAM check passed (${TOTAL_RAM_GB}GB >= 16GB). Recommended: 32GB+"
+        return 0
+    elif [ "$TOTAL_RAM_GB" -ge 4 ]; then
+        log_warning "RAM is ${TOTAL_RAM_GB}GB — below the recommended 16GB. Smaller models and reduced concurrency will be used (supported on 4-8GB Jetson profiles)."
         return 0
     else
-        log_error "Insufficient RAM: ${TOTAL_RAM_GB}GB. Minimum required: 16GB"
+        log_error "Insufficient RAM: ${TOTAL_RAM_GB}GB. Minimum required: 4GB"
         return 1
     fi
 }
@@ -431,13 +453,9 @@ check_requirements() {
         fi
     fi
 
-    # Check available disk space
-    available_space=$(df -BG . | tail -1 | awk '{print $4}' | sed 's/G//')
-    if [ "$available_space" -lt 50 ]; then
-        log_warning "Low disk space: ${available_space}GB available. Recommended: 50GB+"
-    else
-        log_success "Disk space: ${available_space}GB available"
-    fi
+    # Disk space is validated authoritatively by check_disk_space() in
+    # validate_hardware() (single warn/fatal threshold pair). No duplicate,
+    # contradictory check here.
 }
 
 # Install NVIDIA Container Runtime
@@ -510,10 +528,18 @@ create_directories() {
 
     mkdir -p config
     mkdir -p logs/{service,}
-    # data/updates + data/backups are bind-mount sources in compose.app/monitoring.
-    # Create them here so they are owned by the setup user; otherwise Docker
-    # auto-creates them root-owned on first `up`, breaking writes from services.
+    # These are all bind-mount sources in compose.app/monitoring. Create them here
+    # so they are owned by the setup user; otherwise Docker auto-creates them
+    # root-owned on first `up`, breaking writes from services (e.g. the sandbox
+    # service, which mkdir's project dirs as a non-root user).
+    #   updates/backups        → compose.app + compose.monitoring
+    #   appstore/manifests     → compose.app (dashboard-backend, ro)
+    #   ssh-keys               → compose.app (dashboard-backend, ro)
+    #   sandbox/projects       → compose.app (dashboard-backend, rw — the writer)
     mkdir -p data/{postgres,minio,models,n8n,updates,backups}
+    mkdir -p data/appstore/manifests
+    mkdir -p data/ssh-keys
+    mkdir -p data/sandbox/projects
     mkdir -p cache
     mkdir -p updates
 
@@ -580,7 +606,7 @@ pull_images() {
     local delay=5
     local pull_output=""
     while [ $attempt -le $max_retries ]; do
-        if pull_output=$(docker compose pull postgres-db minio n8n reverse-proxy 2>&1); then
+        if pull_output=$(docker compose pull postgres-db minio n8n reverse-proxy qdrant 2>&1); then
             log_success "Base images pulled"
             return 0
         fi
@@ -605,7 +631,10 @@ build_images() {
 
     # Capture exit code separately from output filtering
     local build_output
-    build_output=$(docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service self-healing-agent 2>&1) || {
+    # All services with a build: directive must be listed here, otherwise they are
+    # built implicitly (and invisibly) later during `docker compose up`. llm-service
+    # (compose.ai.yaml) and document-indexer (compose.ai.yaml) were previously missing.
+    build_output=$(docker compose build --parallel metrics-collector dashboard-backend dashboard-frontend embedding-service llm-service document-indexer self-healing-agent 2>&1) || {
         log_error "Docker build failed — check Dockerfiles and build context"
         echo "$build_output" | tail -20
         return 1
@@ -718,36 +747,9 @@ setup_secrets() {
     echo "$n8n_pass" > config/secrets/n8n_basic_auth_password
     chmod 600 config/secrets/n8n_basic_auth_password
 
-    # Configure Traefik Basic Auth (replace __BASIC_AUTH_HASH__ placeholder)
-    local middlewares_file="config/traefik/dynamic/middlewares.yml"
-    if [ -f "$middlewares_file" ]; then
-        local auth_hash=""
-
-        # Generate bcrypt hash: htpasswd > python3 > node fallback
-        if command -v htpasswd &> /dev/null; then
-            auth_hash=$(htpasswd -nbB "${n8n_user:-admin}" "$n8n_pass" 2>/dev/null)
-        elif command -v python3 &> /dev/null && python3 -c "import bcrypt" 2>/dev/null; then
-            local py_hash
-            py_hash=$(printf '%s' "$n8n_pass" | python3 -c "import sys,bcrypt; pw=sys.stdin.buffer.read(); print(bcrypt.hashpw(pw, bcrypt.gensalt(10)).decode())" 2>/dev/null)
-            auth_hash="${n8n_user:-admin}:${py_hash}"
-        elif command -v node &> /dev/null; then
-            local node_hash
-            node_hash=$(node -e "try{const b=require('bcryptjs');process.stdout.write(b.hashSync(process.argv[1],10))}catch(e){process.exit(1)}" "$n8n_pass" 2>/dev/null)
-            auth_hash="${n8n_user:-admin}:${node_hash}"
-        fi
-
-        if [ -n "$auth_hash" ]; then
-            # Escape $ for YAML ($ → $$) and for sed delimiter
-            local escaped_hash
-            escaped_hash=$(echo "$auth_hash" | sed 's/\$/\$\$/g; s|/|\\/|g')
-            sed -i "s|'__BASIC_AUTH_HASH__'|'${escaped_hash}'|g" "$middlewares_file"
-            log_success "Traefik Basic Auth konfiguriert"
-        else
-            log_warning "Kein bcrypt-Tool gefunden (htpasswd/python3-bcrypt/node) - Basic Auth Platzhalter nicht ersetzt"
-        fi
-    else
-        log_warning "middlewares.yml nicht gefunden - Basic Auth uebersprungen"
-    fi
+    # Note: the Traefik dashboard and n8n are protected by forward-auth (dashboard
+    # session), not Traefik basicAuth — so there is no __BASIC_AUTH_HASH__ to
+    # generate here anymore.
 
     log_success "Secrets konfiguriert"
 }
@@ -756,74 +758,27 @@ setup_secrets() {
 setup_https() {
     log_info "Configuring HTTPS/TLS..."
 
-    # Check if internet is available for Let's Encrypt
-    if curl -s --max-time 5 https://acme-v02.api.letsencrypt.org/directory > /dev/null 2>&1; then
-        log_success "Internet detected - Let's Encrypt will be used"
-        log_info "Certificates will be automatically generated on first start"
-        log_info "ACME challenge will use HTTP-01 via port 80"
+    # Traefik is configured for self-signed TLS only (config/traefik/dynamic/tls.yml
+    # references arasul.crt + arasul.key; there is no ACME/Let's Encrypt resolver).
+    # The cert pair is device-specific and never committed, so always generate it
+    # here when missing — regardless of internet connectivity. Without this,
+    # Traefik starts without a certificate and HTTPS is broken.
+    local cert_dir="./config/traefik/certs"
 
-        # Ensure letsencrypt directory exists
-        mkdir -p letsencrypt
-        chmod 755 letsencrypt
-
-        # Create acme.json with correct permissions
-        touch letsencrypt/acme.json
-        chmod 600 letsencrypt/acme.json
-
-        log_success "Let's Encrypt setup complete"
+    if [ -f "$cert_dir/arasul.crt" ] && [ -f "$cert_dir/arasul.key" ]; then
+        log_success "Self-signed certificate already present in $cert_dir"
+    elif [ -f "scripts/security/generate-self-signed-cert.sh" ]; then
+        log_info "Generating self-signed certificate for arasul.local..."
+        bash scripts/security/generate-self-signed-cert.sh "$cert_dir" "arasul.local" "3650"
+        log_success "Self-signed certificate generated"
+        log_warning "Browser will show a security warning (normal for self-signed certificates)"
     else
-        log_warning "No internet connection detected"
-        log_info "Generating self-signed certificate for offline use..."
-
-        # Run self-signed certificate generation script
-        if [ -f "scripts/security/generate-self-signed-cert.sh" ]; then
-            bash scripts/security/generate-self-signed-cert.sh "./config/traefik/certs" "arasul.local" "3650"
-
-            log_success "Self-signed certificate generated"
-            log_warning "Browser will show security warning (this is normal for self-signed certificates)"
-        else
-            log_error "Certificate generation script not found: scripts/generate-self-signed-cert.sh"
-            log_warning "HTTPS will not be available - falling back to HTTP only"
-        fi
+        log_error "Certificate generation script not found: scripts/security/generate-self-signed-cert.sh"
+        log_error "HTTPS cannot be configured — Traefik will fail to serve TLS"
+        return 1
     fi
 
     log_success "HTTPS/TLS configuration complete"
-}
-
-# Validate that Basic Auth hash placeholder has been replaced in Traefik config
-validate_basic_auth_hash() {
-    if grep -q '__BASIC_AUTH_HASH__' config/traefik/dynamic/middlewares.yml 2>/dev/null; then
-        log_error "BASIC_AUTH_HASH Platzhalter nicht ersetzt in Traefik-Config!"
-        log_error "Bitte setup erneut ausfuehren: ./scripts/interactive_setup.sh"
-        # Don't exit - try to fix it
-        local admin_hash
-        admin_hash=$(grep "^ADMIN_HASH=" .env 2>/dev/null | cut -d'=' -f2-)
-        if [ -n "$admin_hash" ] && [ "$admin_hash" != "GENERATE_ON_FIRST_START" ]; then
-            # Re-run setup_secrets to generate and apply the hash
-            setup_secrets
-            if ! grep -q '__BASIC_AUTH_HASH__' config/traefik/dynamic/middlewares.yml 2>/dev/null; then
-                log_success "Basic-Auth-Hash automatisch ersetzt"
-            else
-                log_warning "Basic-Auth-Hash konnte nicht automatisch ersetzt werden"
-            fi
-        else
-            log_warning "Kein ADMIN_HASH in .env - Basic Auth bleibt unkonfiguriert"
-        fi
-        # SEC-FIX: If placeholder still exists after all attempts, replace with
-        # a valid but impossible-to-guess bcrypt hash to lock down the dashboard/n8n.
-        # Using a bcrypt hash of a random 64-char string ensures Traefik can parse
-        # the YAML without errors while effectively blocking all access.
-        if grep -q '__BASIC_AUTH_HASH__' config/traefik/dynamic/middlewares.yml 2>/dev/null; then
-            log_warning "Ersetze Platzhalter durch gesperrten Hash - Dashboard/n8n erfordern erneutes Setup"
-            local locked_hash
-            locked_hash=$(python3 -c "import bcrypt,os; print(bcrypt.hashpw(os.urandom(32), bcrypt.gensalt(12)).decode())" 2>/dev/null \
-                || openssl passwd -6 -salt "$(openssl rand -hex 8)" "$(openssl rand -hex 32)" 2>/dev/null \
-                || echo '$2b$12$LOCKED.LOCKED.LOCKED.LOCKED.LOCKED.LOCKED.LOCKED.LO')
-            sed -i "s|'__BASIC_AUTH_HASH__'|'admin:${locked_hash}'|g" config/traefik/dynamic/middlewares.yml
-        fi
-    else
-        log_success "Basic-Auth-Hash in Traefik-Config: OK"
-    fi
 }
 
 # Initialize admin user with bcrypt hash from .env
@@ -859,7 +814,10 @@ init_admin_user() {
 
         if [ -z "$admin_hash" ]; then
             log_warning "Hash-Generierung fehlgeschlagen - Backend generiert beim ersten Start"
-            return 0
+            # Return non-zero: the admin row is NOT created here, and the backend
+            # needs the plaintext ADMIN_PASSWORD to generate it on first start.
+            # The caller must therefore keep the password (not redact it).
+            return 1
         fi
         log_success "Passwort-Hash generiert"
     fi
@@ -918,6 +876,12 @@ start_services() {
         log_warning "MinIO may not be ready yet - continuing with caution"
     fi
 
+    # Layer 1b: Vector store (RAG). No GPU, no depends_on — start alongside data stores.
+    # Use the compose-defined healthcheck (the qdrant image ships perl, not curl).
+    docker compose up -d qdrant
+    log_info "Waiting for Qdrant..."
+    wait_for_healthy qdrant 60 || true
+
     # Layer 2: Monitoring
     docker compose up -d metrics-collector
     wait_for_healthy metrics-collector 30 || true
@@ -940,11 +904,16 @@ start_services() {
     dash_port=${dash_port:-80}
     wait_for_healthy dashboard-backend 60 "curl -sf http://localhost:${dash_port}/api/health" || true
 
-    # Layer 6: Workflow engine
+    # Layer 6: RAG document indexer (needs embedding-service, qdrant and the backend)
+    docker compose up -d document-indexer
+    log_info "Waiting for Document-Indexer..."
+    wait_for_healthy document-indexer 90 "docker compose exec -T document-indexer curl -sf http://localhost:9102/health" || true
+
+    # Layer 7: Workflow engine
     docker compose up -d n8n
     wait_for_healthy n8n 60 || true
 
-    # Layer 7: Background agents
+    # Layer 8: Background agents
     docker compose up -d self-healing-agent
 
     log_success "All services started"
@@ -1183,6 +1152,17 @@ show_completion_summary() {
 # Remove plaintext ADMIN_PASSWORD from .env after bootstrap
 # The bcrypt hash is stored in config/secrets/admin.hash and the DB.
 # The plaintext password is no longer needed.
+# Guarded EXIT-trap wrapper: only redact once the admin user actually exists.
+# Otherwise an early bootstrap failure (e.g. a failed docker pull long before the
+# admin is created) would wipe ADMIN_PASSWORD from .env and make every retry fail
+# in init_admin_user() with "ADMIN_PASSWORD nicht verfuegbar".
+redact_plaintext_password_on_exit() {
+    if [ "${ADMIN_USER_INITIALIZED:-0}" != "1" ]; then
+        return 0
+    fi
+    redact_plaintext_password
+}
+
 redact_plaintext_password() {
     if [ ! -f .env ]; then
         return 0
@@ -1343,9 +1323,11 @@ cmd_bootstrap() {
     check_root
     log_info "Bootstrap-Log: $logfile"
 
-    # Safety net: always redact plaintext password on exit (success or failure)
-    # This prevents password exposure if bootstrap is interrupted or fails
-    trap 'redact_plaintext_password 2>/dev/null' EXIT
+    # Safety net: redact plaintext password on exit, but ONLY after the admin user
+    # has been created (see redact_plaintext_password_on_exit). This keeps the
+    # password available for a retry if bootstrap fails before admin creation.
+    ADMIN_USER_INITIALIZED=0
+    trap 'redact_plaintext_password_on_exit 2>/dev/null' EXIT
 
     # 1. Hardware validieren
     if ! validate_hardware; then
@@ -1395,9 +1377,6 @@ cmd_bootstrap() {
 
     # 8. TLS-Zertifikate
     setup_https
-
-    # 8b. Basic-Auth-Hash Validierung
-    validate_basic_auth_hash
 
     # 9. Docker-Images (--skip-pull / --skip-build fuer Factory-Images)
     if [ "$SKIP_PULL" != "true" ]; then
@@ -1452,12 +1431,19 @@ cmd_bootstrap() {
     fi
     log_success "Database schema verified"
 
-    # 15. Admin-Benutzer anlegen
-    init_admin_user
-
-    # 15b. Immediately redact plaintext password after admin user creation
-    # This prevents password exposure if bootstrap fails in later steps
-    redact_plaintext_password
+    # 15. Admin-Benutzer anlegen. Only on success do we mark the admin as
+    # initialized and redact — otherwise the password must survive for a retry.
+    if init_admin_user; then
+        ADMIN_USER_INITIALIZED=1
+        # 15b. Immediately redact plaintext password after admin user creation,
+        # so it is not exposed if bootstrap fails in a later step.
+        redact_plaintext_password
+    else
+        # Covers both genuine failure and the deferred case (backend generates the
+        # hash on first start). In every "admin not created here" path the plaintext
+        # password must remain in .env — for a retry or for the backend to use.
+        log_warning "Admin noch nicht abschliessend angelegt (Fehler oder Backend-Erstgenerierung) — Klartext-Passwort bleibt in .env"
+    fi
 
     # 16. Smoke Tests & Ergebnis
     if run_smoke_tests; then
@@ -1470,6 +1456,11 @@ cmd_bootstrap() {
 
         # 19. Tailscale Remote-Zugriff (optional, nicht kritisch)
         setup_tailscale
+
+        # 19b. mDNS (arasul.local) — the completion summary advertises this URL,
+        # so configure Avahi here. Non-fatal and only when we can escalate without
+        # an interactive prompt (root or passwordless sudo), to stay unattended-safe.
+        setup_mdns_if_possible
 
         generate_error_report 0 "completed"
         show_completion_summary
@@ -1542,6 +1533,29 @@ cmd_mdns() {
         log_error "mDNS setup script not found"
         exit 1
     fi
+}
+
+# Unattended-safe mDNS setup for the bootstrap flow. Never blocks on a sudo
+# password prompt and never aborts bootstrap; if it can't run automatically it
+# tells the operator to run `./arasul mdns` manually.
+setup_mdns_if_possible() {
+    local mdns_script="${SCRIPT_DIR}/scripts/setup/setup-mdns.sh"
+    if [ ! -f "$mdns_script" ]; then
+        log_warning "mDNS-Setup-Skript nicht gefunden — arasul.local nicht verfuegbar"
+        return 0
+    fi
+
+    log_info "Konfiguriere mDNS (arasul.local)..."
+    if [ "$(id -u)" -eq 0 ]; then
+        bash "$mdns_script" || log_warning "mDNS-Setup fehlgeschlagen — spaeter './arasul mdns' ausfuehren"
+    elif sudo -n true 2>/dev/null; then
+        sudo bash "$mdns_script" || log_warning "mDNS-Setup fehlgeschlagen — spaeter './arasul mdns' ausfuehren"
+    else
+        log_warning "mDNS uebersprungen (kein root / kein passwortloses sudo)"
+        log_info "Fuer Zugriff via https://arasul.local bitte './arasul mdns' ausfuehren"
+        return 0
+    fi
+    log_success "mDNS konfiguriert (arasul.local)"
 }
 
 # Test commands

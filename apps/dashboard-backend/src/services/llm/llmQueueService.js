@@ -12,6 +12,7 @@ const EventEmitter = require('events');
 const services = require('../../config/services');
 const AsyncMutex = require('./AsyncMutex');
 const { processChatJob, processRAGJob, onJobComplete } = require('./llmJobProcessor');
+const { ServiceUnavailableError } = require('../../utils/errors');
 
 // Configuration from environment
 const MODEL_BATCHING_ENABLED = process.env.MODEL_BATCHING_ENABLED !== 'false';
@@ -201,32 +202,34 @@ function createLLMQueueService(deps = {}) {
 
       // Validate model is available
       if (!resolvedModel) {
-        throw new Error(
+        throw new ServiceUnavailableError(
           'Kein LLM-Model verfügbar. Bitte laden Sie ein Model im Model Store herunter.'
-        );
-      }
-
-      // Check queue size limit
-      const queueCount = await database.query(
-        `SELECT COUNT(*) as cnt FROM llm_jobs WHERE status = 'pending'`
-      );
-      if (parseInt(queueCount.rows[0].cnt) >= MAX_QUEUE_SIZE) {
-        throw new Error(
-          `Warteschlange ist voll (${MAX_QUEUE_SIZE} Jobs). Bitte warten Sie, bis aktuelle Anfragen abgeschlossen sind.`
         );
       }
 
       // Check if model exists in Ollama
       const isAvailable = await modelService.isModelAvailable(resolvedModel);
       if (!isAvailable) {
-        throw new Error(
+        throw new ServiceUnavailableError(
           `Model "${resolvedModel}" ist nicht in Ollama verfügbar. Bitte im Model Store synchronisieren oder erneut herunterladen.`
         );
       }
 
-      // P2-004: Use mutex to prevent race conditions during burst traffic
-      // This ensures queue positions are assigned atomically
+      // P2-004: Use mutex to prevent race conditions during burst traffic.
+      // The queue-size check MUST run inside the lock together with the insert,
+      // otherwise concurrent enqueues can all read the same pre-insert COUNT and
+      // blow past MAX_QUEUE_SIZE.
       const { jobId, messageId, queuePosition } = await this.enqueueMutex.withLock(async () => {
+        // Check queue size limit (atomic with the insert below)
+        const queueCount = await database.query(
+          `SELECT COUNT(*) as cnt FROM llm_jobs WHERE status = 'pending'`
+        );
+        if (parseInt(queueCount.rows[0].cnt) >= MAX_QUEUE_SIZE) {
+          throw new ServiceUnavailableError(
+            `Warteschlange ist voll (${MAX_QUEUE_SIZE} Jobs). Bitte warten Sie, bis aktuelle Anfragen abgeschlossen sind.`
+          );
+        }
+
         // Get next queue position (protected by mutex)
         const posResult = await database.query(`SELECT get_next_queue_position() as pos`);
         const queuePos = posResult.rows[0].pos;

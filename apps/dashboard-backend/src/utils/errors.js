@@ -120,6 +120,12 @@ class ServiceUnavailableError extends ApiError {
   }
 }
 
+class NotImplementedError extends ApiError {
+  constructor(message = 'Not implemented', details = null) {
+    super(message, { statusCode: 501, code: 'NOT_IMPLEMENTED', details });
+  }
+}
+
 module.exports = {
   ApiError,
   ValidationError,
@@ -132,4 +138,5 @@ module.exports = {
   ConflictError,
   RateLimitError,
   ServiceUnavailableError,
+  NotImplementedError,
 };

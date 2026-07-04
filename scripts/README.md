@@ -25,7 +25,7 @@ The single root-level script is `interactive_setup.sh` — invoked by `./arasul 
 ## Naming convention
 
 - **kebab-case**, lowercase, ending in `.sh`. Example: `verify-deployment.sh`.
-- A small number of legacy snake_case files are still in flight; they're being migrated as part of the DX overhaul (see `docs/plans/active/DX_OVERHAUL.md` Stage 9).
+- A small number of legacy snake_case files are still in flight; they're being migrated as part of the DX overhaul (see `docs/plans/archive/2026-05_dx-overhaul.md` Stage 9).
 - Don't add a `.bash` extension — this codebase uses `.sh` even for `#!/bin/bash` scripts.
 - Don't prefix with the folder name (`backup-restore.sh` inside `backup/` is redundant — just `restore.sh`).
 

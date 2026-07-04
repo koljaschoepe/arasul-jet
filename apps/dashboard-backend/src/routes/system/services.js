@@ -9,7 +9,7 @@ const dockerService = require('../../services/core/docker');
 const logger = require('../../utils/logger');
 const axios = require('axios');
 const db = require('../../database');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const {
   NotFoundError,
@@ -48,27 +48,29 @@ router.get(
   asyncHandler(async (req, res) => {
     const services = await dockerService.getAllServicesStatus();
 
-    // Get GPU load from LLM service if available
-    let llmGpuLoad = 0;
+    // Real GPU utilization from the metrics-collector (same source as
+    // /api/services/ai). Falls back to null when the collector is unreachable —
+    // we report null rather than a misleading 0.0 placeholder.
+    let gpuUtilization = null;
     try {
-      await axios.get(
-        `http://${process.env.LLM_SERVICE_HOST}:${process.env.LLM_SERVICE_PORT}/api/tags`,
-        { timeout: 2000 }
-      );
-      // GPU load would be available from NVML or the service itself
-      llmGpuLoad = 0.0; // Placeholder - would need NVML integration
+      const gpuResponse = await axios.get(`${serviceConfig.metrics.url}/api/gpu`, {
+        timeout: 3000,
+      });
+      if (gpuResponse.data && gpuResponse.data.available) {
+        gpuUtilization = gpuResponse.data.gpu?.utilization ?? null;
+      }
     } catch {
-      // LLM GPU load not available
+      // GPU stats not available
     }
 
     res.json({
       llm: {
         status: services.llm?.status || 'unknown',
-        gpu_load: llmGpuLoad,
+        gpu_load: gpuUtilization,
       },
       embeddings: {
         status: services.embedding?.status || 'unknown',
-        load: 0.0, // Placeholder
+        load: gpuUtilization,
       },
       n8n: {
         status: services.n8n?.status || 'unknown',
@@ -381,6 +383,7 @@ router.get(
 router.post(
   '/restart/:serviceName',
   requireAuth,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { serviceName } = req.params;
     const userId = req.user?.id;

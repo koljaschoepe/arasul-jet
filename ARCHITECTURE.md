@@ -8,6 +8,10 @@ Arasul is a containerized edge-AI stack that runs entirely on a single NVIDIA Je
 
 ## Topology
 
+> Canonical topology lives in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The
+> diagram here (and the compact one in `README.md` / `CLAUDE.md`) is a simplified
+> mirror — when the architecture changes, update `docs/ARCHITECTURE.md` first.
+
 ```
 Internet (443) → Traefik → Dashboard frontend (React 19 SPA)
                          → Dashboard backend  (Express API :3001)

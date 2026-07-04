@@ -260,7 +260,7 @@ In descending order of authority:
 1. **Source code + git history** — `git log -p <file>` tells you _why_.
 2. [`CLAUDE.md`](../../CLAUDE.md) and the per-area `apps/*/CLAUDE.md`, `services/*/CLAUDE.md` — non-negotiables.
 3. [`docs/INDEX.md`](../INDEX.md) — curated map of all docs.
-4. [`docs/ARCHITECTURE.md`](../../ARCHITECTURE.md) — service topology.
+4. [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) — service topology.
 5. [`.claude/context/`](../../.claude/context/) — task-focused briefs for AI assistants and humans alike.
 
 When unsure: grep is your friend. Everything is plain text.

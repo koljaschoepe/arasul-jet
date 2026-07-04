@@ -34,6 +34,23 @@ export interface Document {
   created_at?: string;
   updated_at?: string;
   indexed_at?: string;
+  // File / storage metadata (returned by the documents API and indexer).
+  mime_type?: string;
+  content_hash?: string;
+  file_path?: string;
+  // Indexing / analysis metadata (populated by the document-indexer).
+  page_count?: number;
+  word_count?: number;
+  char_count?: number;
+  chunk_count?: number;
+  language?: string;
+  summary?: string;
+  key_topics?: string[];
+  processing_error?: string;
+  // Category fields (joined from the categories table).
+  category_name?: string;
+  category_color?: string;
+  category_confidence?: number;
 }
 
 export interface DocumentCategory {

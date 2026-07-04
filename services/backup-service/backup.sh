@@ -143,6 +143,60 @@ if [ "$DAY_OF_MONTH" = "01" ]; then
     echo "[$TIMESTAMP] Monthly MinIO snapshot saved"
 fi
 
+# Qdrant vector-DB backup (RAG index). Snapshot via the Qdrant HTTP API, then
+# copy the snapshot out of the container and archive it. Uses docker exec (same
+# mechanism as the MinIO step) so no direct network path to qdrant is required.
+mkdir -p /backups/qdrant /backups/qdrant/weekly
+QDRANT_OK=skipped
+if docker ps --format '{{.Names}}' | grep -q "^qdrant$"; then
+    if docker exec qdrant curl -s -X POST "http://localhost:6333/snapshots" -H "Content-Type: application/json" >/dev/null 2>&1; then
+        sleep 2
+        QDRANT_SNAPSHOT=$(docker exec qdrant curl -s "http://localhost:6333/snapshots" 2>/dev/null | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4) || true
+        if [ -n "$QDRANT_SNAPSHOT" ]; then
+            QDRANT_TMP=/tmp/qdrant_backup_$TIMESTAMP
+            mkdir -p "$QDRANT_TMP"
+            docker cp "qdrant:/qdrant/snapshots/${QDRANT_SNAPSHOT}" "$QDRANT_TMP/" 2>/dev/null || true
+            if tar -czf /backups/qdrant/qdrant_$TIMESTAMP.tar.gz -C "$QDRANT_TMP" . 2>/dev/null \
+               && tar -tzf /backups/qdrant/qdrant_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
+                echo "[$TIMESTAMP] Qdrant backup completed and verified"
+                encrypt_file /backups/qdrant/qdrant_$TIMESTAMP.tar.gz
+                ln -sf qdrant_$TIMESTAMP.tar.gz /backups/qdrant/qdrant_latest.tar.gz
+                QDRANT_OK=true
+            else
+                echo "[$TIMESTAMP] [ERROR] Qdrant backup archive creation/verify failed"
+                QDRANT_OK=false
+                BACKUP_OK=false
+            fi
+            rm -rf "$QDRANT_TMP"
+            # Remove the in-container snapshot so they don't accumulate on the device
+            docker exec qdrant curl -s -X DELETE "http://localhost:6333/snapshots/${QDRANT_SNAPSHOT}" >/dev/null 2>&1 || true
+        else
+            echo "[$TIMESTAMP] [ERROR] Qdrant snapshot created but not found via API"
+            QDRANT_OK=false
+            BACKUP_OK=false
+        fi
+    else
+        echo "[$TIMESTAMP] [ERROR] Failed to create Qdrant snapshot"
+        QDRANT_OK=false
+        BACKUP_OK=false
+    fi
+else
+    echo "[$TIMESTAMP] [WARNING] Qdrant container not running — skipping vector-DB backup"
+fi
+
+# Weekly snapshot for Qdrant
+if [ "$QDRANT_OK" = true ] && [ "$DAY_OF_WEEK" = "7" ]; then
+    cp /backups/qdrant/qdrant_$TIMESTAMP.tar.gz /backups/qdrant/weekly/
+    echo "[$TIMESTAMP] Weekly Qdrant snapshot saved"
+fi
+
+# Monthly snapshot for Qdrant
+if [ "$QDRANT_OK" = true ] && [ "$DAY_OF_MONTH" = "01" ]; then
+    mkdir -p /backups/qdrant/monthly
+    cp /backups/qdrant/qdrant_$TIMESTAMP.tar.gz /backups/qdrant/monthly/
+    echo "[$TIMESTAMP] Monthly Qdrant snapshot saved"
+fi
+
 # WAL archive backup: include in daily backup for PITR
 WAL_COUNT=0
 if [ -d /backups/wal ] && [ "$(ls -A /backups/wal 2>/dev/null)" ]; then
@@ -157,6 +211,7 @@ if [ "$BACKUP_OK" = true ]; then
     # Cleanup: daily backups (short retention)
     find /backups/postgres -maxdepth 1 -name "*.sql.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
+    find /backups/qdrant -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
 
     # WAL archive cleanup: keep only retention period worth
     WAL_ARCHIVE_DELETED=$(find /backups/wal-archive -name "*.tar.gz" -mtime +$RETENTION_DAYS -print 2>/dev/null | wc -l)
@@ -171,10 +226,12 @@ if [ "$BACKUP_OK" = true ]; then
     # Cleanup: weekly backups (longer retention)
     find /backups/postgres/weekly -name "*.sql.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
+    find /backups/qdrant/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
 
     # Cleanup: monthly backups (5-year retention)
     find /backups/postgres/monthly -name "*.sql.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
+    find /backups/qdrant/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     echo "[$TIMESTAMP] Cleanup completed (daily: ${RETENTION_DAYS}d, weekly: ${WEEKLY_RETENTION_WEEKS}w, monthly: ${MONTHLY_RETENTION_MONTHS}mo)"
 else
     echo "[$TIMESTAMP] [WARNING] Skipping cleanup — backup had errors (WAL files preserved for recovery)"
@@ -183,6 +240,7 @@ fi
 # Calculate backup sizes
 PG_SIZE=$(du -sh /backups/postgres/ 2>/dev/null | cut -f1 || echo "0")
 MINIO_SIZE=$(du -sh /backups/minio/ 2>/dev/null | cut -f1 || echo "0")
+QDRANT_SIZE=$(du -sh /backups/qdrant/ 2>/dev/null | cut -f1 || echo "0")
 WAL_SIZE=$(du -sh /backups/wal/ 2>/dev/null | cut -f1 || echo "0")
 TOTAL_SIZE=$(du -sh /backups/ 2>/dev/null | cut -f1 || echo "0")
 
@@ -207,6 +265,9 @@ cat > /backups/backup_report.json << EOF
   "minio_backups": $(ls /backups/minio/*.tar.gz 2>/dev/null | grep -v latest | wc -l),
   "minio_weekly": $(ls /backups/minio/weekly/*.tar.gz 2>/dev/null | wc -l),
   "minio_monthly": $(ls /backups/minio/monthly/*.tar.gz 2>/dev/null | wc -l),
+  "qdrant_status": "$QDRANT_OK",
+  "qdrant_backups": $(find /backups/qdrant -maxdepth 1 -name '*.tar.gz' ! -name '*latest*' 2>/dev/null | wc -l),
+  "qdrant_size": "$QDRANT_SIZE",
   "retention_days": $RETENTION_DAYS,
   "weekly_retention_weeks": $WEEKLY_RETENTION_WEEKS,
   "monthly_retention_months": $MONTHLY_RETENTION_MONTHS,

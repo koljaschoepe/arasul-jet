@@ -14,7 +14,7 @@ interface ConfirmState {
   message: string;
   confirmText: string;
   cancelText: string;
-  confirmVariant: string;
+  confirmVariant: 'primary' | 'danger' | 'warning';
 }
 
 interface UseConfirmReturn {

@@ -1837,14 +1837,19 @@ When no SSD is connected:
 
 **POST /api/backup/trigger:**
 
-Returns `400 VALIDATION_ERROR` if no external SSD is mounted.
+On-demand backup is not implemented — scheduled backups run inside the separate
+`backup-service` container (`BACKUP_USB_ENABLED` / `BACKUP_USB_MOUNT`), not on
+request from this backend. Returns `400 VALIDATION_ERROR` if no external SSD is
+mounted, otherwise `501 NOT_IMPLEMENTED`.
 
 ```json
-// Response
+// 501 Response
 {
-  "success": true,
-  "message": "Backup wird gestartet...",
-  "targetPath": "/mnt/external-ssd",
+  "error": {
+    "code": "NOT_IMPLEMENTED",
+    "message": "Manuelles Backup ist noch nicht verfügbar. Backups laufen automatisch geplant über den Backup-Service.",
+    "details": { "scheduled": true, "targetPath": "/mnt/external-ssd" }
+  },
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```

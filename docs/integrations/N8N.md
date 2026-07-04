@@ -84,7 +84,7 @@ The compose-level hardening for n8n is set in `compose/compose.app.yaml` and val
 | `N8N_VERSION_NOTIFICATIONS_ENABLED`     | `false`           | Not a security control, but reduces network noise.                                                           |
 | `N8N_HIRING_BANNER_ENABLED`             | `false`           | Customer-facing UI, no n8n-recruiter banners.                                                                |
 
-What's **not** enforced yet (tracked in `docs/plans/active/EXTERNAL_INTEGRATIONS.md`):
+What's **not** enforced yet (tracked in `docs/plans/archive/2026-07-02_external-integrations.md`):
 
 - Execution-data retention / pruning — **Phase 3** of the integrations plan. Today executions are kept indefinitely. DSGVO-relevant.
 - Community packages disabled (`N8N_COMMUNITY_PACKAGES_ENABLED=false`) — **Phase 3**. Today an admin user inside n8n can install arbitrary community nodes, which run as full n8n privileges.
@@ -122,14 +122,14 @@ Run all three after every n8n image bump to catch regressions.
 
 ## 8. Where things live in the repo
 
-| File                                         | Purpose                                                                    |
-| -------------------------------------------- | -------------------------------------------------------------------------- |
-| `compose/compose.app.yaml` (n8n service)     | Runtime env-vars, hardening flags, port bindings.                          |
-| `compose/compose.secrets.yaml` (n8n section) | Mounts the `n8n_encryption_key` Docker secret.                             |
-| `services/n8n/Dockerfile`                    | Pinned n8n version, custom-node compilation, entrypoint shim.              |
-| `services/n8n/entrypoint.sh`                 | Resolves the encryption-key Docker secret into env at boot.                |
-| `config/traefik/dynamic/routes.yml`          | `/n8n` (forward-auth + strip-prefix), `/webhook/*` (rate-limited, unauth). |
-| `config/traefik/dynamic/middlewares.yml`     | `rate-limit-n8n`, `strip-n8n-prefix`, `forward-auth`.                      |
-| `config/traefik/dynamic/websockets.yml`      | `/n8n-websocket` route for the editor's live updates.                      |
-| `services/n8n/templates/smoketests/*.json`   | Reference workflows for post-deploy verification.                          |
-| `docs/plans/active/EXTERNAL_INTEGRATIONS.md` | Full hardening roadmap.                                                    |
+| File                                                     | Purpose                                                                    |
+| -------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `compose/compose.app.yaml` (n8n service)                 | Runtime env-vars, hardening flags, port bindings.                          |
+| `compose/compose.secrets.yaml` (n8n section)             | Mounts the `n8n_encryption_key` Docker secret.                             |
+| `services/n8n/Dockerfile`                                | Pinned n8n version, custom-node compilation, entrypoint shim.              |
+| `services/n8n/entrypoint.sh`                             | Resolves the encryption-key Docker secret into env at boot.                |
+| `config/traefik/dynamic/routes.yml`                      | `/n8n` (forward-auth + strip-prefix), `/webhook/*` (rate-limited, unauth). |
+| `config/traefik/dynamic/middlewares.yml`                 | `rate-limit-n8n`, `strip-n8n-prefix`, `forward-auth`.                      |
+| `config/traefik/dynamic/websockets.yml`                  | `/n8n-websocket` route for the editor's live updates.                      |
+| `services/n8n/templates/smoketests/*.json`               | Reference workflows for post-deploy verification.                          |
+| `docs/plans/archive/2026-07-02_external-integrations.md` | Full hardening roadmap.                                                    |

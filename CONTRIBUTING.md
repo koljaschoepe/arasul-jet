@@ -159,17 +159,17 @@ The non-negotiables live in `CLAUDE.md` files at every level. Read these before 
 - **Database rules:** [`services/postgres/CLAUDE.md`](services/postgres/CLAUDE.md) — append-only migrations, idempotent SQL, `IF NOT EXISTS`, no `DROP` without an explicit fallback
 - **Service rules:** [`services/CLAUDE.md`](services/CLAUDE.md) — every service has a `Dockerfile`, `README.md`, entry point, tests
 
-> Stages 4–5 of the [DX overhaul](docs/plans/active/DX_OVERHAUL.md) introduce these subfolder `CLAUDE.md` files. On branches where they're missing, the root `CLAUDE.md` is authoritative.
+> Stages 4–5 of the [DX overhaul](docs/plans/archive/2026-05_dx-overhaul.md) introduce these subfolder `CLAUDE.md` files. On branches where they're missing, the root `CLAUDE.md` is authoritative.
 
 ### Documentation must follow code
 
-| When you change…          | Update                                                                                        |
-| ------------------------- | --------------------------------------------------------------------------------------------- |
-| API route                 | [`docs/api/API_REFERENCE.md`](docs/api/API_REFERENCE.md) — also use `/update-api-docs`        |
-| Database schema           | [`docs/api/DATABASE_SCHEMA.md`](docs/api/DATABASE_SCHEMA.md) — also use `/update-schema-docs` |
-| Environment variable      | [`docs/ENVIRONMENT_VARIABLES.md`](docs/ENVIRONMENT_VARIABLES.md)                              |
-| Architecture / topology   | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`ARCHITECTURE.md`](ARCHITECTURE.md)          |
-| Operator-visible behavior | [`docs/ops/ADMIN_HANDBUCH.md`](docs/ops/ADMIN_HANDBUCH.md) (German)                           |
+| When you change…          | Update                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| API route                 | [`docs/api/API_REFERENCE.md`](docs/api/API_REFERENCE.md)                                                           |
+| Database schema           | [`docs/api/DATABASE_SCHEMA.md`](docs/api/DATABASE_SCHEMA.md) — regenerate via `scripts/docs/generate-db-schema.sh` |
+| Environment variable      | [`docs/ENVIRONMENT_VARIABLES.md`](docs/ENVIRONMENT_VARIABLES.md)                                                   |
+| Architecture / topology   | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`ARCHITECTURE.md`](ARCHITECTURE.md)                               |
+| Operator-visible behavior | [`docs/ops/ADMIN_HANDBUCH.md`](docs/ops/ADMIN_HANDBUCH.md) (German)                                                |
 
 ---
 

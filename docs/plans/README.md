@@ -60,10 +60,7 @@ These belong elsewhere, not here:
 
 ## Currently active plans
 
-(Auto-stale — verify by looking at `active/` directly.)
-
-- `COMMERCIAL_LAUNCH_MASTER_PLAN.md` — single source of truth for the commercial release
-- `DX_OVERHAUL.md` — developer-experience and Claude Code setup overhaul (this very plan referenced this folder into existence)
-- `PHASE1_SMOKE_TEST.md` — smoke-test runner for the commercial-launch Phase 1 migrations
-- `TELEGRAM_BOT_OPTIMIZATION.md` — multi-bot v3 work on the `feat/telegram-bot-overhaul` branch
-- `LLM_RAG_N8N_HARDENING.md` — completed except Phase 7 (test coverage); kept active until that lands
+A hand-maintained list here was a recurring source of drift. The authoritative,
+always-current list is the [`active/`](active/) directory itself — look there.
+The primary plan is `FIELD_1.0.0_MASTER_PLAN.md`, which supersedes the earlier
+active plans.

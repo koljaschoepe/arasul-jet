@@ -26,7 +26,8 @@ RUN useradd -m -u 1000 -s /bin/bash -G docker arasul
 # Configure passwordless sudo for reboot command (arasul user)
 # Security notes:
 # 1. Reboot is DISABLED by default (SELF_HEALING_REBOOT_ENABLED=false)
-# 2. When enabled, max 2 reboots/hour limit prevents reboot loops
+# 2. When enabled, max 1 reboot/hour limit prevents reboot loops
+#    (MAX_REBOOTS_PER_HOUR default in config.py; override via env)
 # 3. Pre-reboot state saved to database for validation
 # 4. no-new-privileges disabled for this service (sudo requires setuid)
 RUN echo 'arasul ALL=(ALL) NOPASSWD: /sbin/reboot' > /etc/sudoers.d/arasul-reboot && \

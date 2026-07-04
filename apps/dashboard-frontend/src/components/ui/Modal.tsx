@@ -94,7 +94,7 @@ interface ConfirmModalProps {
   message?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
-  confirmVariant?: 'primary' | 'danger';
+  confirmVariant?: 'primary' | 'danger' | 'warning';
   isLoading?: boolean;
 }
 

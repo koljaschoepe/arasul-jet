@@ -12,5 +12,5 @@ const CSRF_COOKIE = 'arasul_csrf';
  */
 export function getCsrfToken(): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${CSRF_COOKIE}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
+  return match && match[1] !== undefined ? decodeURIComponent(match[1]) : null;
 }
